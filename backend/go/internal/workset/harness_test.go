@@ -28,6 +28,10 @@ type fixture struct {
 	svc  workset.Service
 	ctx  context.Context
 
+	dbPath    string
+	configDir string
+	scan      workset.FolderScan
+
 	startOnce sync.Once
 	// placeholders are the fixture's own audio rows, removed once a record is
 	// created from them.
@@ -45,23 +49,38 @@ func newFixture(t *testing.T) *fixture {
 func newFixtureWithScan(t *testing.T, scan workset.FolderScan) *fixture {
 	t.Helper()
 	tmp := t.TempDir()
-	repo, err := sqlite.NewRepository(filepath.Join(tmp, "test.db"))
-	if err != nil {
-		t.Fatalf("new repo: %v", err)
-	}
-	t.Cleanup(func() { _ = repo.Close() })
 	cfg := `{"prune":{"literal_tags":["SEなし"]}}`
 	if err := os.WriteFile(filepath.Join(tmp, "config.json"), []byte(cfg), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
-	return &fixture{
-		t:    t,
-		repo: repo,
-		svc: workset.NewService(repo, 1, 1, []workset.Task{
-			conversion.New(repo, appconfig.NewReader(tmp), ffmpeg.New),
-		}, scan, nil),
-		ctx: context.Background(),
+	f := &fixture{
+		t:         t,
+		dbPath:    filepath.Join(tmp, "test.db"),
+		configDir: tmp,
+		scan:      scan,
+		ctx:       context.Background(),
 	}
+	f.open()
+	t.Cleanup(func() {
+		if f.repo != nil {
+			_ = f.repo.Close()
+			f.repo = nil
+		}
+	})
+	return f
+}
+
+// open builds the repository and service over the fixture's data directory.
+func (f *fixture) open() {
+	f.t.Helper()
+	repo, err := sqlite.NewRepository(f.dbPath)
+	if err != nil {
+		f.t.Fatalf("new repo: %v", err)
+	}
+	f.repo = repo
+	f.svc = workset.NewService(repo, 1, 1, []workset.Task{
+		conversion.New(repo, appconfig.NewReader(f.configDir), ffmpeg.New),
+	}, f.scan, nil)
 }
 
 // queryInt reads one integer from the fixture's database.

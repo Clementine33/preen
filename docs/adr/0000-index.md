@@ -13,3 +13,4 @@
 | [0007](0007-execution-sessions-and-component-results.md) | 执行会话：编码池、提交顺序与组件结果行 | Accepted |
 | [0008](0008-database-self-cleanup-and-retention.md) | 数据库自清理与会话留存 | Accepted |
 | [0009](0009-business-packages-and-dependency-direction.md) | 业务分包与依赖方向 | Accepted |
+| [0010](0010-deployment-wide-common-settings.md) | 部署级公共设置：一次保存同步所有记录 | Draft |

@@ -83,21 +83,26 @@ describe('workset mutation cache synchronization', () => {
     expect(client.getQueryData(queryKeys.worksets.draft('ws-old', 'conversion'))).toBeUndefined()
   })
 
-  it('draft save seeds the operation entry and refreshes only that operation', async () => {
+  it('draft save refreshes every task, not only the edited one', async () => {
     const client = createTestQueryClient()
-    const otherOperationKey = queryKeys.worksets.operation('ws-1', 'rename')
-    const otherDraftKey = queryKeys.worksets.draft('ws-1', 'rename')
-    client.setQueryData(otherOperationKey, { marker: 'other-operation' })
+    const otherDraftKey = queryKeys.worksets.draft('ws-2', 'conversion')
+    const otherOperationKey = queryKeys.worksets.operation('ws-2', 'conversion')
+    const otherDetailKey = queryKeys.worksets.detail('ws-2')
     client.setQueryData(otherDraftKey, { marker: 'other-draft' })
+    client.setQueryData(otherOperationKey, { marker: 'other-operation' })
+    client.setQueryData(otherDetailKey, { marker: 'other-detail' })
     const api = apiStub()
     const options = saveOperationDraftMutationOptions(api, client)
 
-    options.onSuccess(operation, { worksetId: 'ws-1', operation: 'conversion' })
+    options.onSuccess()
+    await flush()
 
-    expect(client.getQueryData(queryKeys.worksets.operation('ws-1', 'conversion'))).toEqual(operation)
-    // Another operation's state is never touched by this operation's save.
-    expect(client.getQueryData(otherOperationKey)).toEqual({ marker: 'other-operation' })
-    expect(client.getQueryData(otherDraftKey)).toEqual({ marker: 'other-draft' })
+    // The save's common settings reach every other record, so every task's
+    // cached state is refreshed with it (ADR 0010 §2): nothing cached is left
+    // holding the pre-save common settings.
+    expect(client.getQueryData(otherDraftKey)).toBeUndefined()
+    expect(client.getQueryData(otherOperationKey)).toBeUndefined()
+    expect(client.getQueryData(otherDetailKey)).toBeUndefined()
   })
 
   it('generation start refreshes the operation entry only for a fresh session', async () => {

@@ -14,8 +14,9 @@ import (
 // The composite writes stay whole here — replacing the current record,
 // publishing a revision and retiring the plan it replaced, creating an
 // execution session under its guards, syncing observed inventory beside the
-// credentials of what was generated — because each of them is one transaction
-// whose invariants the caller cannot re-establish from outside.
+// credentials of what was generated, and pushing one deployment-wide common
+// setting across every editable record — because each of them is one
+// transaction whose invariants the caller cannot re-establish from outside.
 type Store interface {
 	// CancelExecution is one operation of the lifecycle.
 	CancelExecution(executionID string) error
@@ -37,6 +38,8 @@ type Store interface {
 	GetActiveExecutionForOperation(worksetID, operationType string) (*PlanExecution, error)
 	// GetActiveGenerationForOperation is one operation of the lifecycle.
 	GetActiveGenerationForOperation(worksetID, operationType string) (*PlanGeneration, error)
+	// GetCommonSettings is one operation of the lifecycle.
+	GetCommonSettings(operationType string) (*CommonSettings, error)
 	// GetCurrentWorkset is one operation of the lifecycle.
 	GetCurrentWorkset(libraryID, operationType string) (*Workset, error)
 	// GetExecution is one operation of the lifecycle.
@@ -113,6 +116,8 @@ type Store interface {
 		expectedVersion int,
 		now time.Time,
 	) error
+	// SyncCommonSettings is one operation of the lifecycle.
+	SyncCommonSettings(p CommonSettingsSync) error
 	// SyncObservedInventory is one operation of the lifecycle.
 	SyncObservedInventory(
 		rootPath string,

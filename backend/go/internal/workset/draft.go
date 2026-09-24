@@ -39,6 +39,11 @@ func (s *serviceImpl) GetDraft(ctx context.Context, worksetID, operationType str
 // form before hashing and storage: unmodified units are never materialized
 // into member overrides. Structurally valid but business-incomplete drafts are
 // accepted (an editing state); generation is where completeness is required.
+//
+// A save that changes the operation's common settings is a deployment-wide
+// save: the stored common settings and every other editable operation's common
+// fields move with it (ADR 0010 §2). A save that only touches member records
+// stays inside its own record.
 func (s *serviceImpl) SaveDraft(
 	ctx context.Context,
 	worksetID, operationType string,
@@ -100,6 +105,16 @@ func (s *serviceImpl) SaveDraft(
 	canonical, hash, schemaVersion, normErr := task.NormalizeDraft(docBytes, members)
 	if normErr != nil {
 		return nil, normErr
+	}
+	settings, commonChanged, settingsErr := s.commonSettingsOf(task, worksetID, operationType, canonical)
+	if settingsErr != nil {
+		return nil, settingsErr
+	}
+	if commonChanged {
+		return s.saveGlobalDraft(
+			ctx, task, worksetID, operationType,
+			schemaVersion, canonical, hash, settings, req.IfMatchVersion,
+		)
 	}
 	if err := s.repo.SaveOperationDraft(
 		worksetID,

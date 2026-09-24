@@ -43,7 +43,12 @@ func (*Task) Kind() string { return workset.OperationTypeConversion }
 // settings), mode available_sources stored explicitly, tag literals copied
 // from config.json's prune.literal_tags, and wav + mp3@320 outputs so a new
 // workset is immediately usable.
-func (t *Task) SeedDraft() ([]byte, string, int) {
+//
+// A deployment-wide common-settings payload, when one was saved, replaces
+// those common values: a record created after a global save starts where the
+// records already there are (ADR 0010 §1). A payload this task cannot read
+// leaves the seed values standing rather than refusing to create a record.
+func (t *Task) SeedDraft(common json.RawMessage) ([]byte, string, int) {
 	doc := &DraftDoc{
 		SchemaVersion:  DraftSchemaVersion,
 		Mode:           reconcile.ModeAvailableSources,
@@ -54,11 +59,64 @@ func (t *Task) SeedDraft() ([]byte, string, int) {
 	if doc.ClassifierTags == nil {
 		doc.ClassifierTags = []string{}
 	}
+	if len(common) > 0 {
+		var payload CommonSettings
+		if decodeErr := json.Unmarshal(common, &payload); decodeErr == nil {
+			doc = ReplaceCommonSettings(doc, payload)
+		}
+	}
 	raw, hash, err := MarshalDraft(doc)
 	if err != nil {
 		raw, hash = "{}", ""
 	}
 	return []byte(raw), hash, DraftSchemaVersion
+}
+
+// CommonSettings extracts the common settings of one stored draft document.
+func (*Task) CommonSettings(raw []byte) (json.RawMessage, error) {
+	doc, err := storedDraftDoc(raw)
+	if err != nil {
+		return nil, err
+	}
+	return json.RawMessage(mustJSON(ProjectCommonSettings(doc))), nil
+}
+
+// ApplyCommonSettings rewrites one stored draft document's common settings,
+// leaving its member records untouched.
+func (*Task) ApplyCommonSettings(
+	raw []byte,
+	common json.RawMessage,
+) ([]byte, string, error) {
+	doc, err := storedDraftDoc(raw)
+	if err != nil {
+		return nil, "", err
+	}
+	var payload CommonSettings
+	if decodeErr := json.Unmarshal(common, &payload); decodeErr != nil {
+		return nil, "", workset.NewError(
+			workset.ErrKindInternal, "INTERNAL", "common settings are unreadable", decodeErr,
+		)
+	}
+	document, hash, err := MarshalDraft(ReplaceCommonSettings(doc, payload))
+	if err != nil {
+		return nil, "", workset.NewError(
+			workset.ErrKindInternal, "INTERNAL", "failed to encode draft", err,
+		)
+	}
+	return []byte(document), hash, nil
+}
+
+// storedDraftDoc parses one persisted draft document for a batch-wide
+// operation. Members are deliberately not passed: a common-settings projection
+// and a common-settings replacement never judge member identity.
+func storedDraftDoc(raw []byte) (*DraftDoc, error) {
+	doc, err := ParseDraft(string(raw))
+	if err != nil {
+		return nil, workset.NewError(
+			workset.ErrKindInternal, "INTERNAL", "stored draft is invalid", err,
+		)
+	}
+	return doc, nil
 }
 
 func (*Task) ValidateDraft(raw []byte, members []*workset.WorksetMember) error {

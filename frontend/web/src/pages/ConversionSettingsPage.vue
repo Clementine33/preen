@@ -12,7 +12,10 @@ import { useWorksetEditorStore } from '@/stores/workset-editor'
 /**
  * Common conversion settings. Each unit shows how many members it reaches, so
  * a common change never silently affects folders the user is not looking at
- *. Generation and execution stay on the operation list page.
+ *. Applying reaches further than this record: the common settings are stored
+ * deployment-wide and pushed to every other task, which the page states before
+ * the button (ADR 0010 §2). Generation and execution stay on the operation list
+ * page.
  */
 const route = useRoute()
 const router = useRouter()
@@ -95,7 +98,11 @@ const listRoute = computed(() => ({
       <h2 class="font-heading text-sm font-semibold">转换全局设置</h2>
     </div>
 
-    <p v-if="affected.total > 0" class="text-[11px] text-[var(--text-muted)]" data-testid="affected-members">
+    <p class="rounded-md border border-[var(--brand-border)] bg-[var(--brand-weak)] p-2 text-[11px]" data-testid="global-settings-notice">
+      转换全局设置影响所有任务：应用后所有任务的公共设置同步更新，已有计划需重新生成，执行前必须重新生成计划。孤立的只读任务不参与同步。
+    </p>
+
+    <p v-if="affected.total > 0" class="mt-2 text-[11px] text-[var(--text-muted)]" data-testid="affected-members">
       影响 {{ affected.total }} 个继承全局设置的文件夹<template v-if="affected.excluded > 0">
         （其中 {{ affected.excluded }} 个已从本操作排除：设置仍会更新）</template
       >。

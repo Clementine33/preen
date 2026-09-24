@@ -21,8 +21,21 @@ type stubTask struct {
 
 func (s stubTask) Kind() string { return s.kind }
 
-func (s stubTask) SeedDraft() ([]byte, string, int) {
+func (s stubTask) SeedDraft(common json.RawMessage) ([]byte, string, int) {
+	if len(common) > 0 {
+		return common, "hash-" + s.kind, 1
+	}
 	return []byte(s.seed), "hash-" + s.kind, 1
+}
+
+// The stub document holds no member records, so its whole body is the common
+// settings: a stub save is always a deployment-wide one.
+func (s stubTask) CommonSettings(raw []byte) (json.RawMessage, error) {
+	return json.RawMessage(raw), nil
+}
+
+func (s stubTask) ApplyCommonSettings(_ []byte, common json.RawMessage) ([]byte, string, error) {
+	return common, "hash-" + s.kind, nil
 }
 
 func (stubTask) ValidateDraft(raw []byte, _ []*workset.WorksetMember) error {

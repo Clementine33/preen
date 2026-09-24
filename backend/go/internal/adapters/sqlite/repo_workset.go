@@ -204,19 +204,35 @@ func currentWorksetTx(tx *sql.Tx, libraryID, operationType string) (*workset.Wor
 // the write it guards: claim/complete updates and this read serialize on the
 // same SQLite writer, so a committed replace cannot strand a running session.
 func recordHasActiveSessionTx(tx *sql.Tx, worksetID string) (bool, error) {
-	for _, query := range []string{
-		`SELECT COUNT(*) FROM plan_generations WHERE workset_id = ? AND status IN ('queued','running')`,
-		`SELECT COUNT(*) FROM plan_executions WHERE workset_id = ? AND status IN ('queued','running')`,
+	reason, err := recordActiveSessionTx(tx, worksetID)
+	return reason != "", err
+}
+
+// recordActiveSessionTx names the queued or running session a record owns —
+// workset.RefusalGenerating, workset.RefusalExecuting, or "" when it is idle.
+func recordActiveSessionTx(tx *sql.Tx, worksetID string) (string, error) {
+	for _, probe := range []struct {
+		reason string
+		query  string
+	}{
+		{
+			workset.RefusalGenerating,
+			`SELECT COUNT(*) FROM plan_generations WHERE workset_id = ? AND status IN ('queued','running')`,
+		},
+		{
+			workset.RefusalExecuting,
+			`SELECT COUNT(*) FROM plan_executions WHERE workset_id = ? AND status IN ('queued','running')`,
+		},
 	} {
 		var n int
-		if err := tx.QueryRow(query, worksetID).Scan(&n); err != nil {
-			return false, err
+		if err := tx.QueryRow(probe.query, worksetID).Scan(&n); err != nil {
+			return "", err
 		}
 		if n > 0 {
-			return true, nil
+			return probe.reason, nil
 		}
 	}
-	return false, nil
+	return "", nil
 }
 
 // deleteWorksetDataTx removes one record and everything it owns. Plans and

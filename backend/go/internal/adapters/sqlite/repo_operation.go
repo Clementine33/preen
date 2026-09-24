@@ -131,25 +131,14 @@ func (r *Repository) SaveOperationDraft(
 	}
 	defer tx.Rollback()
 
-	result, err := tx.Exec(`
-		UPDATE workset_operations SET version = version + 1, updated_at = ?
-		WHERE workset_id = ? AND operation_type = ? AND version = ?
-	`, now.Format(timeFormat), worksetID, operationType, expectedVersion)
-	if err != nil {
-		return err
-	}
-	affected, _ := result.RowsAffected()
-	if affected == 0 {
-		return operationVersionGuardResult(tx, worksetID, operationType)
-	}
-	if err := upsertOperationDraft(tx, workset.OperationDraft{
+	if err := writeOperationDraftTx(tx, workset.OperationDraft{
 		WorksetID:     worksetID,
 		OperationType: operationType,
 		SchemaVersion: schemaVersion,
 		DraftJSON:     draftJSON,
 		DraftHash:     draftHash,
 		UpdatedAt:     now,
-	}); err != nil {
+	}, expectedVersion); err != nil {
 		return err
 	}
 	return tx.Commit()

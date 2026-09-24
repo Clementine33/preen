@@ -169,7 +169,7 @@ func newPoolTask(obs *poolObservations, plans ...poolPlan) *poolTask {
 
 // SeedDraft seeds a real conversion draft, so the fixture's revision seeding
 // and the draft-drift gate agree on its canonical hash.
-func (*poolTask) SeedDraft() ([]byte, string, int) {
+func (*poolTask) SeedDraft(json.RawMessage) ([]byte, string, int) {
 	doc, err := conversion.ParseDraft(`{"schema_version":1,"classifier_tags":[]}`)
 	if err != nil {
 		panic(err)

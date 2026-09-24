@@ -36,8 +36,24 @@ type Task interface {
 
 	// SeedDraft returns the raw draft document a newly created operation
 	// starts from, its canonical content hash, and the document schema
-	// version.
-	SeedDraft() (raw []byte, hash string, schemaVersion int)
+	// version. common is the deployment-wide common-settings payload stored
+	// for this kind (nil when none was ever saved, in which case the task's
+	// own seed values stand).
+	SeedDraft(common json.RawMessage) (raw []byte, hash string, schemaVersion int)
+
+	// CommonSettings extracts the common-settings payload of one draft
+	// document: the part a global save stores and pushes to every other
+	// operation of the same kind (ADR 0010 §2). Member records are never part
+	// of it.
+	CommonSettings(raw []byte) (json.RawMessage, error)
+
+	// ApplyCommonSettings returns one draft document with its common settings
+	// replaced by the payload, preserving every member record — overrides,
+	// exclusions and their absence — exactly as stored.
+	ApplyCommonSettings(
+		raw []byte,
+		common json.RawMessage,
+	) (document []byte, hash string, err error)
 
 	// ValidateDraft checks one submitted draft document against the workset's
 	// members. Only malformed documents are rejected here; business

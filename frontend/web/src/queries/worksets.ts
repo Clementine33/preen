@@ -4,7 +4,6 @@ import type {
   CreateRecordInput,
   CreateRecordResponse,
   ExecutionView,
-  Operation,
   ListWorksetsParams,
   OperationDraftDocument,
   OperationType,
@@ -205,9 +204,16 @@ export function deleteClassifierTagMutationOptions(api: ApiClientContract, query
 // ==================== Mutations ====================
 
 /**
- * Save the full sparse draft document. The response is the fresh operation
- * view, so it seeds the operation entry directly; the draft entry is refreshed
- * because the save may have normalized the document.
+ * Save the full sparse draft document.
+ *
+ * A save that changes the operation's common settings is not one task's
+ * business: the backend stores them deployment-wide and rewrites every other
+ * record's draft in the same transaction, so the whole workset domain is
+ * refreshed — every task reads the normalized document and the version it now
+ * has, not only the record the edit came through (ADR 0010 §2). Whether this
+ * particular save was one is the backend's call (it compares against the
+ * stored document), so the client does not re-derive that rule: a member-only
+ * save costs a few refetches rather than a second copy of the rule.
  */
 export function saveOperationDraftMutationOptions(api: ApiClientContract, queryClient: QueryClient) {
   return {
@@ -218,12 +224,8 @@ export function saveOperationDraftMutationOptions(api: ApiClientContract, queryC
       ifMatchVersion: number
     }) =>
       api.saveOperationDraft(input.worksetId, input.operation, input.document, input.ifMatchVersion),
-    onSuccess: (view: Operation, input: { worksetId: string; operation: OperationType }) => {
-      queryClient.setQueryData(queryKeys.worksets.operation(input.worksetId, input.operation), view)
-      void Promise.all([
-        refreshOrRemoveQueries(queryClient, queryKeys.worksets.draft(input.worksetId, input.operation)),
-        refreshOrRemoveQueries(queryClient, queryKeys.worksets.detail(input.worksetId)),
-      ])
+    onSuccess: () => {
+      void refreshOrRemoveQueries(queryClient, queryKeys.worksets.all())
     },
   }
 }

@@ -135,3 +135,52 @@ func TestOpenCreatesAndReportsTheSchemaMarker(t *testing.T) {
 	}
 	reopened.Close()
 }
+
+// TestOpenAddsTheCommonSettingsTableToAnExistingDatabase covers the upgrade
+// path for a data directory created before the deployment-wide common settings
+// existed: opening it keeps every row and creates the missing table, which is
+// why the additive table needs no migration and no schema-version bump
+// (ADR 0010 §1).
+func TestOpenAddsTheCommonSettingsTableToAnExistingDatabase(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "existing.db")
+	repo, err := NewRepository(dbPath)
+	if err != nil {
+		t.Fatalf("NewRepository: %v", err)
+	}
+	if _, execErr := repo.DB().Exec(
+		`INSERT INTO libraries (id, name, root_path, root_path_key) VALUES ('lib-1', 'Music', '/music', '/music')`,
+	); execErr != nil {
+		t.Fatalf("seed library: %v", execErr)
+	}
+	if _, execErr := repo.DB().Exec(`DROP TABLE common_settings`); execErr != nil {
+		t.Fatalf("drop the newer table: %v", execErr)
+	}
+	if closeErr := repo.Close(); closeErr != nil {
+		t.Fatalf("close repo: %v", closeErr)
+	}
+
+	reopened, err := NewRepository(dbPath)
+	if err != nil {
+		t.Fatalf("a database of this schema generation must open: %v", err)
+	}
+	defer reopened.Close()
+
+	var name string
+	if scanErr := reopened.DB().QueryRow(
+		"SELECT name FROM libraries WHERE id = 'lib-1'",
+	).Scan(&name); scanErr != nil {
+		t.Fatalf("existing row did not survive the open: %v", scanErr)
+	}
+	if name != "Music" {
+		t.Errorf("existing row changed: name = %q", name)
+	}
+	// The table is back and empty: reading through it answers "nothing stored
+	// yet" rather than failing on a missing table.
+	stored, err := reopened.GetCommonSettings("conversion")
+	if err != nil {
+		t.Fatalf("GetCommonSettings: %v", err)
+	}
+	if stored != nil {
+		t.Fatalf("a recreated table must start empty, got %+v", stored)
+	}
+}

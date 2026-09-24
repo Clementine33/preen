@@ -346,7 +346,7 @@ All routes require auth and use the standard error envelope.
 | PATCH | `/api/v1/worksets/{id}` | Rename only. `If-Match` = workset metadata version (`VERSION_REQUIRED` without it, `VERSION_CONFLICT` when stale, `ORPHANED_WORKSET` when the library is gone). |
 | GET | `/api/v1/worksets/{id}/operations/{type}` | Operation view: `version`, `planning_state`, `current_revision`, `active_generation`, `latest_generation`, `active_execution`, `latest_execution`. Unknown workset, unsupported type and unestablished operation are all 404 (`UNKNOWN_OPERATION_TYPE` for a type this iteration does not implement). |
 | GET | `/api/v1/worksets/{id}/operations/{type}/draft` | The operation version plus the sparse draft wrapped in its task envelope: `task: {kind, schema_version, payload}`. The payload is task-owned (conversion: the sparse document). |
-| PUT | `/api/v1/worksets/{id}/operations/{type}/draft` | Full replacement of the sparse document, `If-Match` = operation version. Structural validation only: an incomplete draft saves. `GENERATION_IN_PROGRESS` while a session is queued/running; `EXECUTION_IN_PROGRESS` while an execution session is; `ORPHANED_WORKSET` when read-only. |
+| PUT | `/api/v1/worksets/{id}/operations/{type}/draft` | Full replacement of the sparse document, `If-Match` = operation version. Structural validation only: an incomplete draft saves. A save whose common settings differ from the ones this operation holds is deployment-wide: the stored common settings and every other editable record's common fields move in the same transaction, each with its draft hash and operation version, while member overrides, exclusions and generated plans stay exactly as they were (ADR 0010 §2). `GENERATION_IN_PROGRESS` while this operation's session is queued/running; `EXECUTION_IN_PROGRESS` while its execution session is; `COMMON_SETTINGS_BUSY` (409) when another record of the same kind holds one — the whole save is refused then, never a part of it; `ORPHANED_WORKSET` when read-only. |
 | POST | `/api/v1/worksets/{id}/operations/{type}/revisions` | Start generation. No request body; `If-Match` (operation version) and `Idempotency-Key` are both required. 202 `{"created":true,"generation":…}`; 200 with `revision` when nothing semantic changed, or 202 with `generation` for a key replay. Conflicts: `GENERATION_IN_PROGRESS`, `EXECUTION_IN_PROGRESS`, `SCAN_IN_PROGRESS`, `NO_ACTIVE_MEMBERS`, `VERSION_CONFLICT`; `INVALID_POLICY` is 400. |
 | GET | `/api/v1/worksets/{id}/operations/{type}/planning-sessions/{genId}` | Session detail. Statuses `queued`, `running`, `completed`, `failed`, `canceled`, `interrupted`. A session of another workset or operation is 404. |
 | GET | `/api/v1/worksets/{id}/operations/{type}/planning-sessions/{genId}/events` | SSE progress (`session_snapshot`, `progress`, terminal event). |
@@ -543,6 +543,17 @@ so nothing about it is stored or validated differently from a hand-made one.
 - **Exclusion** changes participation only: overrides and inheritance survive
   it, and restoring participation restores the previous relationships.
   Excluding every member saves but cannot generate (`NO_ACTIVE_MEMBERS`).
+- **Common settings are deployment-wide** (ADR 0010). The five common values
+  are stored once per operation kind, not per record: saving them from any
+  record's draft pushes them to every other editable record's draft in the same
+  transaction, and a record created afterwards seeds them. A save that changes
+  only member records stays inside its own record; a generated plan is never
+  rewritten — a record whose common fields moved reports `needs_planning` and
+  must be re-generated before it can run. Orphaned (read-only) records never
+  take part, and a record whose session is queued/running refuses the whole
+  save with `COMMON_SETTINGS_BUSY` — as does one whose stored draft cannot be
+  read (`COMMON_SETTINGS_UNREADABLE`, which names the record to recreate) —
+  instead of leaving some records updated.
 
 ### Frozen revisions
 

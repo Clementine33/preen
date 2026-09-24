@@ -194,6 +194,26 @@ describe('refused save', () => {
     expect(store.session?.error).not.toContain('放弃本地修改')
   })
 
+  it('names the cause when another task is what blocks a global save', () => {
+    const store = useWorksetEditorStore()
+    openMember(store, 'm-1')
+    store.startApplying()
+    store.failSave({ code: 'COMMON_SETTINGS_BUSY', message: 'record ws-2 has a queued or running generation' })
+
+    expect(store.session?.applying).toBe(false)
+    expect(store.session?.error).toContain('另一任务')
+  })
+
+  it('answers an unreadable task record with what to do about it', () => {
+    const store = useWorksetEditorStore()
+    openMember(store, 'm-1')
+    store.startApplying()
+    store.failSave({ code: 'COMMON_SETTINGS_UNREADABLE', message: 'record ws-2 holds a draft that cannot be read' })
+
+    expect(store.session?.applying).toBe(false)
+    expect(store.session?.error).toContain('重建该任务')
+  })
+
   it('falls back to the server message and never loses the edits', () => {
     const store = useWorksetEditorStore()
     openMember(store, 'm-1')

@@ -153,14 +153,20 @@ export const useWorksetEditorStore = defineStore('workset-editor', {
   },
 })
 
-/** A busy operation is a wait, not a reload: the code decides the text. */
-const BUSY_SAVE_MESSAGES: Record<string, string> = {
+/** Why a save was refused decides the text: a wait is not a reload. */
+const SAVE_FAILURE_MESSAGES: Record<string, string> = {
   GENERATION_IN_PROGRESS: '正在生成计划版本：请等待生成结束或取消后再应用设置',
   EXECUTION_IN_PROGRESS: '正在执行：请等待执行结束或取消后再应用设置',
+  // A global save is refused as a whole when another task is busy: the record
+  // being edited is idle, so the wait belongs to someone else (ADR 0010 §2).
+  COMMON_SETTINGS_BUSY: '另一任务正在生成或执行：本次全局设置未保存，请稍后重试',
+  // The same rule, for a record whose stored draft cannot be read: nothing was
+  // saved, and one task has to be recreated before the settings can be.
+  COMMON_SETTINGS_UNREADABLE: '有一项任务的草稿无法读取：本次全局设置未保存，请重建该任务后重试',
 }
 
 function saveFailureMessage(error: { code?: string; message?: string }): string {
-  const mapped = error.code ? BUSY_SAVE_MESSAGES[error.code] : undefined
+  const mapped = error.code ? SAVE_FAILURE_MESSAGES[error.code] : undefined
   return mapped ?? error.message ?? '保存草稿失败'
 }
 

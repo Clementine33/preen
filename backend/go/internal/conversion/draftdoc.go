@@ -96,6 +96,48 @@ func (o *OverrideSet) Units() []string {
 // IsEmpty reports whether the override set carries no unit at all.
 func (o *OverrideSet) IsEmpty() bool { return len(o.Units()) == 0 }
 
+// CommonSettings is the projection of a draft document a deployment-wide save
+// stores and pushes to every operation of this kind (ADR 0010 §1): the five
+// common values, and no member record at all. It mirrors DraftDoc's own
+// encoding of them — mode and delete_mode are omitted when unset, and the tag
+// list is always an array, so an explicitly empty tag set survives the round
+// trip as the explicit value it is.
+type CommonSettings struct {
+	Mode           string                   `json:"mode,omitempty"`
+	DeleteMode     string                   `json:"delete_mode,omitempty"`
+	ClassifierTags []string                 `json:"classifier_tags"`
+	Matched        reconcile.DesiredProfile `json:"matched"`
+	Unmatched      reconcile.DesiredProfile `json:"unmatched"`
+}
+
+// ProjectCommonSettings extracts one draft document's common settings.
+func ProjectCommonSettings(doc *DraftDoc) CommonSettings {
+	return CommonSettings{
+		Mode:           doc.Mode,
+		DeleteMode:     doc.DeleteMode,
+		ClassifierTags: doc.ClassifierTags,
+		Matched:        doc.Matched,
+		Unmatched:      doc.Unmatched,
+	}
+}
+
+// ReplaceCommonSettings returns the document with its common settings
+// replaced, preserving every member record — an override, an exclusion and
+// their absence alike — exactly as stored: member overrides are what a common
+// change must never touch (ADR 0006 §1, ADR 0010 §2).
+func ReplaceCommonSettings(doc *DraftDoc, common CommonSettings) *DraftDoc {
+	out := *doc
+	out.Mode = common.Mode
+	out.DeleteMode = common.DeleteMode
+	out.Matched = common.Matched
+	out.Unmatched = common.Unmatched
+	out.ClassifierTags = append([]string{}, common.ClassifierTags...)
+	if out.ClassifierTags == nil {
+		out.ClassifierTags = []string{}
+	}
+	return &out
+}
+
 // MarshalDraft serializes a normalized document to its canonical JSON form and
 // its canonical content hash. Both always come from the same function so a
 // stored hash and a recomputed hash agree byte for byte.

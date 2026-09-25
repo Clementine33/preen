@@ -6,6 +6,7 @@ import { apiClientKey } from '@/lib/api/client'
 import type { ApiClientContract, Operation, OperationDraftDocument, Workset } from '@/lib/api/types'
 import { apiStub } from '@/test/api-stub'
 import { installTestQueryPlugin } from '@/test/query-client'
+import { useWorksetEditorStore } from '@/stores/workset-editor'
 import ConversionSettingsPage from './ConversionSettingsPage.vue'
 
 /**
@@ -45,24 +46,32 @@ const document: OperationDraftDocument = {
   members: [],
 }
 
-function pageApi(): ApiClientContract {
+function pageApi(alreadySaved = false): ApiClientContract {
+  let globalSaved = alreadySaved
   return apiStub({
-    getCurrentRecord: vi.fn().mockResolvedValue({ workset }),
+    getCurrentRecord: vi.fn(async (libraryId: string) => ({
+      workset: libraryId === 'lib-b' ? { ...workset, workset_id: 'ws-2' } : workset,
+    })),
     getWorkset: vi.fn().mockResolvedValue(workset),
     getOperation: vi.fn().mockResolvedValue(operation),
-    getOperationDraft: vi.fn().mockResolvedValue({
-      workset_id: 'ws-1',
+    getOperationDraft: vi.fn(async (worksetId: string) => ({
+      workset_id: worksetId,
       operation_type: 'conversion',
       version: 5,
       schema_version: 1,
+      common_settings_current: globalSaved,
       updated_at: '',
       document,
+    })),
+    saveOperationDraft: vi.fn(async () => {
+      globalSaved = true
+      return { ...operation, version: 6 }
     }),
     listClassifierTags: vi.fn().mockResolvedValue({ default_tags: ['SEなし'], custom_tags: [] }),
   } as never)
 }
 
-async function mountSettings(): Promise<{ wrapper: VueWrapper; router: Router }> {
+async function mountSettings(alreadySaved = false): Promise<{ wrapper: VueWrapper; router: Router; api: ApiClientContract }> {
   const router = createRouter({
     history: createMemoryHistory(),
     routes: [
@@ -76,14 +85,15 @@ async function mountSettings(): Promise<{ wrapper: VueWrapper; router: Router }>
   })
   await router.push('/worksets/lib-a/conversion/settings')
   await router.isReady()
+  const api = pageApi(alreadySaved)
   const wrapper = mount(ConversionSettingsPage, {
     global: {
       plugins: [createPinia(), router, installTestQueryPlugin()],
-      provide: { [apiClientKey as symbol]: pageApi() },
+      provide: { [apiClientKey as symbol]: api },
     },
   })
   await flushPromises()
-  return { wrapper, router }
+  return { wrapper, router, api }
 }
 
 afterEach(() => vi.restoreAllMocks())
@@ -96,5 +106,40 @@ describe('ConversionSettingsPage', () => {
     expect(notice).toContain('影响所有任务')
     expect(notice).toContain('已有计划需重新生成')
     expect(notice).toContain('孤立的只读任务不参与同步')
+  })
+
+  it('can publish unchanged settings from an older task as the global value', async () => {
+    const { wrapper, api } = await mountSettings()
+    const apply = wrapper.get('[data-testid="apply-common"]')
+    expect(apply.attributes('disabled')).toBeUndefined()
+    await apply.trigger('click')
+    await flushPromises()
+    expect(api.saveOperationDraft).toHaveBeenCalledWith('ws-1', 'conversion', document, 5, true)
+    expect(wrapper.get('[data-testid="global-settings-saved"]').text()).toContain('已应用')
+    expect(apply.attributes('disabled')).toBeDefined()
+    await apply.trigger('click')
+    expect(api.saveOperationDraft).toHaveBeenCalledTimes(1)
+
+    useWorksetEditorStore().setUnit('mode', { intent: 'set', value: 'available_sources' })
+    await flushPromises()
+    expect(apply.attributes('disabled')).toBeUndefined()
+  })
+
+  it('keeps apply disabled after switching to a task with the same global settings', async () => {
+    const { wrapper, router } = await mountSettings()
+    const apply = wrapper.get('[data-testid="apply-common"]')
+    await apply.trigger('click')
+    await flushPromises()
+    expect(apply.attributes('disabled')).toBeDefined()
+
+    await router.push('/worksets/lib-b/conversion/settings')
+    await flushPromises()
+    expect(apply.attributes('disabled')).toBeDefined()
+    expect(wrapper.get('[data-testid="global-settings-saved"]').text()).toContain('已应用')
+  })
+
+  it('reads the applied state again when the page opens', async () => {
+    const { wrapper } = await mountSettings(true)
+    expect(wrapper.get('[data-testid="apply-common"]').attributes('disabled')).toBeDefined()
   })
 })

@@ -163,7 +163,7 @@ export function useOperationContext(
   })
 
   /** Persists the session's pending document; the base becomes what was saved. */
-  async function applySession(): Promise<boolean> {
+  async function applySession(applyCommonSettings = false): Promise<boolean> {
     const session = editor.session
     const document = editor.pendingDocument
     if (!session || !document) return false
@@ -174,6 +174,7 @@ export function useOperationContext(
         operation: session.operation,
         document,
         ifMatchVersion: session.baseVersion,
+        applyCommonSettings,
       })
       editor.markApplied(document, view.version)
       return true

@@ -113,8 +113,8 @@ function startEnterConversion() {
   createError.value = null
   idempotencyKey = crypto.randomUUID()
   if (record.value) {
-    // Replacing a record deletes its settings, plan and execution results:
-    // that is asked for, never implied.
+    // Replacing deletes member edits, plan and execution results; common
+    // settings remain available to seed the new record.
     confirmOpen.value = true
     return
   }
@@ -434,7 +434,7 @@ const libraryRoot = computed(() => activeLibrary.value?.root_path ?? '')
        portalled, so it reaches the user at every container tier. -->
   <Modal :open="confirmOpen" title="替换当前转换记录？" @update:open="confirmOpen = false">
     <p class="text-xs">
-      这个媒体库已有一条转换记录。创建新记录会删除它的设置、当前计划与执行结果，且无法恢复。
+      这个媒体库已有一条转换记录。创建新记录会删除它的成员设置、当前计划与执行结果，且无法恢复；全局转换设置会保留。
     </p>
     <p class="text-[11px] text-[var(--text-muted)]">文件本身不会被修改。</p>
     <div class="flex justify-end gap-2">

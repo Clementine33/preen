@@ -252,6 +252,7 @@ export class ApiClient implements ApiClientContract {
         classifier_tags: payload.classifier_tags ?? [],
         members: payload.members ?? [],
       },
+      common_settings_current: wire.common_settings_current,
       updated_at: wire.updated_at,
     }
   }
@@ -262,10 +263,11 @@ export class ApiClient implements ApiClientContract {
     operation: OperationType,
     document: OperationDraftDocument,
     ifMatchVersion: number,
+    applyCommonSettings = false,
   ): Promise<Operation> {
     return this.request(`${this.operationPath(worksetId, operation)}/draft`, {
       method: 'PUT',
-      body: document,
+      body: applyCommonSettings ? { ...document, apply_common_settings: true } : document,
       headers: { 'If-Match': String(ifMatchVersion) },
     })
   }

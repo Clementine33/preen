@@ -60,6 +60,30 @@ func (f *fixture) reopen() {
 	f.open()
 }
 
+func TestDraftReportsPublishedCommonSettings(t *testing.T) {
+	f := newFixture(t)
+	first, second := f.twoLibraries(t)
+	for _, id := range []string{first.WorksetID, second.WorksetID} {
+		if f.draft(id).CommonSettingsCurrent {
+			t.Fatalf("record %s reports unpublished settings as current", id)
+		}
+	}
+
+	f.saveDraft(first.WorksetID, elsewhere("反転"), first.Operations[0].Version)
+	for _, id := range []string{first.WorksetID, second.WorksetID} {
+		if !f.draft(id).CommonSettingsCurrent {
+			t.Fatalf("record %s did not observe the published settings", id)
+		}
+	}
+	f.exec(
+		"UPDATE workset_operation_drafts SET draft_json = ? WHERE workset_id = ?",
+		string(draftJSON(t, draftDoc())), second.WorksetID,
+	)
+	if f.draft(second.WorksetID).CommonSettingsCurrent {
+		t.Fatal("a draft with different common settings reports itself as current")
+	}
+}
+
 // TestCommonSettingsSaveReachesEveryRecord covers the deployment-wide rule: a
 // save that changes the common settings stores them once and rewrites every
 // other editable record's common fields with them — its member overrides and
@@ -347,6 +371,108 @@ func TestCommonSettingsSkipOrphanedRecords(t *testing.T) {
 	}
 }
 
+// Without a global row, one record's old settings cannot silently become a
+// different record's defaults. The user chooses the source by applying the
+// settings from that record.
+func TestCreateDoesNotGuessGlobalSettingsFromAnotherRecord(t *testing.T) {
+	f := newFixture(t)
+	ids := f.standardLibrary("albumA")
+	configured := f.createCurrent("旧设置", ids...)
+	f.exec(
+		"UPDATE workset_operation_drafts SET draft_json = ?, updated_at = ? WHERE workset_id = ?",
+		string(draftJSON(t, elsewhere("反転"))), stamp(), configured.WorksetID,
+	)
+	f.insertLibrary("lib-2", "/music2")
+	f.insertDir("/music2", "albumC", true)
+	fresh := f.createCurrentFor("lib-2", "未配置", "albumC")
+	seeded := mustDraft(t, f.draft(fresh.WorksetID))
+	if seeded.Mode != reconcile.ModeAvailableSources || seeded.DeleteMode != "" ||
+		seeded.Unmatched.Encoded == nil || seeded.Unmatched.Encoded.Quality == nil ||
+		seeded.Unmatched.Encoded.Quality.Bitrate != 320 {
+		t.Fatalf("an unrelated record inherited unsaved common settings: %+v", seeded)
+	}
+	if common, err := f.repo.GetCommonSettings(workset.OperationTypeConversion); err != nil || common != nil {
+		t.Fatalf("creation must not guess a deployment-wide value: %+v err=%v", common, err)
+	}
+}
+
+func TestApplyUnchangedLegacySettingsPublishesGlobalValue(t *testing.T) {
+	f := newFixture(t)
+	first, second := f.twoLibraries(t)
+	old := draftJSON(t, elsewhere("反転"))
+	f.exec("UPDATE workset_operation_drafts SET draft_json = ? WHERE workset_id = ?", string(old), first.WorksetID)
+	_, err := f.svc.SaveDraft(f.ctx, first.WorksetID, workset.OperationTypeConversion, workset.SaveDraftRequest{
+		Document: old, IfMatchVersion: first.Operations[0].Version, ApplyCommonSettings: true,
+	})
+	if err != nil {
+		t.Fatalf("apply unchanged legacy settings: %v", err)
+	}
+	if common, err := f.repo.GetCommonSettings(workset.OperationTypeConversion); err != nil || common == nil {
+		t.Fatalf("common settings were not stored: %+v err=%v", common, err)
+	}
+	synced := mustDraft(t, f.draft(second.WorksetID))
+	if synced.Unmatched.Encoded == nil || synced.Unmatched.Encoded.Quality == nil ||
+		synced.Unmatched.Encoded.Quality.Bitrate != 192 {
+		t.Fatalf("other record was not synced: %+v", synced.Unmatched)
+	}
+	replaced := mustDraft(t, f.draft(f.createCurrent("换目录", "albumB").WorksetID))
+	if replaced.Unmatched.Encoded == nil || replaced.Unmatched.Encoded.Quality == nil ||
+		replaced.Unmatched.Encoded.Quality.Bitrate != 192 {
+		t.Fatalf("replacement did not seed from the global value: %+v", replaced.Unmatched)
+	}
+}
+
+// An older database has no global row. A later member-only save in another
+// record must not turn that record's unchanged defaults into the global choice
+// when the user replaces the record whose common settings they configured.
+func TestReplaceKeepsCurrentRecordSettingsWithoutGlobalRow(t *testing.T) {
+	f := newFixture(t)
+	first, second := f.twoLibraries(t)
+	f.exec("DELETE FROM common_settings")
+	f.exec(
+		"UPDATE workset_operation_drafts SET draft_json = ?, updated_at = ? WHERE workset_id = ?",
+		string(draftJSON(t, elsewhere("反転"))),
+		time.Now().Add(time.Minute).Format(timeFmt), first.WorksetID,
+	)
+	memberOnly := draftDoc()
+	memberOnly.Members = []conversion.DraftMember{{MemberID: second.Members[0].MemberID, Excluded: true}}
+	f.exec(
+		"UPDATE workset_operation_drafts SET draft_json = ?, updated_at = ? WHERE workset_id = ?",
+		string(draftJSON(t, memberOnly)),
+		time.Now().Add(2*time.Minute).Format(timeFmt), second.WorksetID,
+	)
+
+	replaced := f.createCurrent("换目录", "albumB")
+	seeded := mustDraft(t, f.draft(replaced.WorksetID))
+	if seeded.Unmatched.Encoded == nil || seeded.Unmatched.Encoded.Codec != reconcile.CodecMp3 ||
+		seeded.Unmatched.Encoded.Quality == nil || seeded.Unmatched.Encoded.Quality.Bitrate != 192 {
+		t.Fatalf("replacement lost the current record's common settings: %+v", seeded.Unmatched)
+	}
+}
+
+// TestCreatePrefersTheStoredSettingsOverTheLastSavedDraft pins the precedence:
+// once a deployment-wide value exists, it is the one a new record starts from —
+// a record whose draft says something else never wins.
+func TestCreatePrefersStoredGlobalSettingsOverStaleDraft(t *testing.T) {
+	f := newFixture(t)
+	first, second := f.twoLibraries(t)
+	f.saveDraft(first.WorksetID, elsewhere("反転"), first.Operations[0].Version)
+
+	// A record still holding the seed settings, saved after the deployment-wide
+	// value was established (an older build, a hand-edited row).
+	f.exec(
+		"UPDATE workset_operation_drafts SET draft_json = ?, updated_at = ? WHERE workset_id = ?",
+		string(draftJSON(t, draftDoc())), stamp(), second.WorksetID,
+	)
+
+	fresh := f.createCurrentFor("lib-2", "重建", "albumC")
+	seeded := mustDraft(t, f.draft(fresh.WorksetID))
+	if seeded.Mode != reconcile.ModeStrict || seeded.DeleteMode != "hard" ||
+		len(seeded.ClassifierTags) != 1 || seeded.ClassifierTags[0] != "反転" {
+		t.Fatalf("the stored global value must win over a stale draft: %+v", seeded)
+	}
+}
+
 // TestGlobalSaveBusyErrorNamesTheRefusingRecord pins the typed refusal the
 // service turns into the operation-scoped codes.
 func TestGlobalSaveBusyErrorNamesTheRefusingRecord(t *testing.T) {
@@ -396,6 +522,28 @@ func TestCommonSettingsSaveRefusedOnAnUnreadableDraft(t *testing.T) {
 	}
 	if common, commonErr := f.repo.GetCommonSettings(workset.OperationTypeConversion); commonErr != nil ||
 		common != nil {
+		t.Fatalf("a refused save stored deployment-wide settings: %+v err=%v", common, commonErr)
+	}
+}
+
+func TestCommonSettingsSaveRefusesUnreadableSourceDraft(t *testing.T) {
+	f := newFixture(t)
+	first, _ := f.twoLibraries(t)
+	const unreadable = `{"schema_version":1,"unknown_field":true}`
+	f.exec("UPDATE workset_operation_drafts SET draft_json = ? WHERE workset_id = ?", unreadable, first.WorksetID)
+
+	_, err := f.svc.SaveDraft(f.ctx, first.WorksetID, workset.OperationTypeConversion, workset.SaveDraftRequest{
+		Document: draftJSON(t, elsewhere("SEなし")), IfMatchVersion: first.Operations[0].Version,
+	})
+	if werr, ok := workset.AsError(err); !ok || werr.Code != "COMMON_SETTINGS_UNREADABLE" {
+		t.Fatalf("want COMMON_SETTINGS_UNREADABLE, got %v", err)
+	}
+	if got := f.draft(first.WorksetID); string(got.Document) != unreadable {
+		t.Fatalf("unreadable source draft was overwritten: %s", got.Document)
+	}
+	if common, commonErr := f.repo.GetCommonSettings(
+		workset.OperationTypeConversion,
+	); commonErr != nil || common != nil {
 		t.Fatalf("a refused save stored deployment-wide settings: %+v err=%v", common, commonErr)
 	}
 }

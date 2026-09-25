@@ -222,11 +222,10 @@ export function saveOperationDraftMutationOptions(api: ApiClientContract, queryC
       operation: OperationType
       document: OperationDraftDocument
       ifMatchVersion: number
+      applyCommonSettings?: boolean
     }) =>
-      api.saveOperationDraft(input.worksetId, input.operation, input.document, input.ifMatchVersion),
-    onSuccess: () => {
-      void refreshOrRemoveQueries(queryClient, queryKeys.worksets.all())
-    },
+      api.saveOperationDraft(input.worksetId, input.operation, input.document, input.ifMatchVersion, input.applyCommonSettings),
+    onSuccess: () => refreshOrRemoveQueries(queryClient, queryKeys.worksets.all()),
   }
 }
 

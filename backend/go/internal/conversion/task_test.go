@@ -185,6 +185,17 @@ func TestCommonSettingsProjectionAndApply(t *testing.T) {
 	}
 }
 
+func TestCommonSettingsRefusesUnknownStoredDraftSchema(t *testing.T) {
+	task := conversion.New(nil, appconfig.NewReader(t.TempDir()), ffmpeg.New)
+	stored := []byte(`{"schema_version":2,"classifier_tags":[],"matched":{},"unmatched":{}}`)
+	if _, err := task.CommonSettings(stored); err == nil {
+		t.Fatal("CommonSettings accepted an unknown stored draft schema")
+	}
+	if _, _, err := task.ApplyCommonSettings(stored, json.RawMessage(`{}`)); err == nil {
+		t.Fatal("ApplyCommonSettings rewrote an unknown stored draft schema")
+	}
+}
+
 // TestSeedDraftUsesTheStoredCommonSettings pins what a new record starts from:
 // the deployment's stored payload when there is one, its own seed values when
 // there is none, and the seed values again when the payload cannot be read.

@@ -247,6 +247,19 @@ func TestCreateCurrentRefusesAStaleExpectation(t *testing.T) {
 	if replaced.WorksetID == first.WorksetID {
 		t.Fatal("the retry must create the replacement")
 	}
+	// A client still holding the deleted first record's id must see the same
+	// concurrency error, even when no global settings have been saved.
+	f.ensurePlaceholders()
+	_, err = f.svc.CreateCurrentWorkset(f.ctx, workset.CreateCurrentRequest{
+		LibraryID:         "lib-1",
+		OperationType:     workset.OperationTypeConversion,
+		FolderPaths:       []string{"albumA"},
+		ExpectedCurrentID: first.WorksetID,
+		IdempotencyKey:    "idem-deleted-current",
+	})
+	if werr, ok := workset.AsError(err); !ok || werr.Code != "RECORD_REPLACED" {
+		t.Fatalf("stale deleted id: want RECORD_REPLACED, got %v", err)
+	}
 }
 
 // TestCreateCurrentRefusesABusyRecord covers a record with a queued or

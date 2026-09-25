@@ -116,6 +116,11 @@ func storedDraftDoc(raw []byte) (*DraftDoc, error) {
 			workset.ErrKindInternal, "INTERNAL", "stored draft is invalid", err,
 		)
 	}
+	if doc.SchemaVersion != DraftSchemaVersion {
+		return nil, workset.NewError(
+			workset.ErrKindInternal, "INTERNAL", "stored draft schema version is unsupported", nil,
+		)
+	}
 	return doc, nil
 }
 

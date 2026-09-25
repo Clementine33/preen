@@ -242,7 +242,10 @@ type Draft struct {
 	Version       int
 	SchemaVersion int
 	Document      json.RawMessage
-	UpdatedAt     time.Time
+	// CommonSettingsCurrent is true when the draft's common values match the
+	// stored deployment-wide value. False also means no global value exists.
+	CommonSettingsCurrent bool
+	UpdatedAt             time.Time
 }
 
 // SaveDraftRequest is the PUT operation draft payload (full replacement of the
@@ -251,6 +254,8 @@ type Draft struct {
 type SaveDraftRequest struct {
 	Document       json.RawMessage
 	IfMatchVersion int
+	// Publish the common values even when this record already holds them.
+	ApplyCommonSettings bool
 }
 
 // StartGenerationRequest is the POST operation revisions payload.

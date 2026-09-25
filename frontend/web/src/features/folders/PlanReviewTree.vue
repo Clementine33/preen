@@ -97,6 +97,19 @@ interface DirRow {
   children: DirRow[]
 }
 
+/**
+ * One line of the rendered tree. The plan's shape is a tree, but a screen shows
+ * a list: flattening it here is what lets every depth be rendered by the same
+ * two shapes, and what makes collapsing a directory mean "skip its subtree".
+ *
+ * `depth` is the line's own scale: a directory's own depth, and for a file the
+ * depth of the directory it sits in (so the member root's files are depth 0).
+ * The template reads both indent and `aria-level` off that one number.
+ */
+type VisibleNode =
+  | { kind: 'dir'; key: string; name: string; depth: number }
+  | { kind: 'row'; key: string; row: Row; depth: number }
+
 /** The plan's per-file conclusions, grouped into the member's directory shape. */
 const tree = computed<DirRow>(() => {
   const rootNode: DirRow = { key: '', name: '', depth: 0, rows: [], children: [] }
@@ -191,6 +204,27 @@ function toggle(key: string) {
   collapsed.value = new Set(collapsed.value)
 }
 
+/**
+ * The tree as the list it is drawn as: depth first, a directory's own files
+ * before its children, and a collapsed directory contributing nothing but its
+ * own row. Every directory starts open — the tree is the plan's inventory, and
+ * hiding it by default would hide the plan.
+ */
+const visible = computed<VisibleNode[]>(() => {
+  const out: VisibleNode[] = []
+  const walk = (node: DirRow) => {
+    for (const row of node.rows) {
+      out.push({ kind: 'row', key: row.key, row, depth: node.depth })
+    }
+    for (const child of node.children) {
+      out.push({ kind: 'dir', key: child.key, name: child.name, depth: child.depth })
+      if (!collapsed.value.has(child.key)) walk(child)
+    }
+  }
+  walk(tree.value)
+  return out
+})
+
 function relativeTo(path: string, memberRoot: string): string {
   const prefix = memberRoot && !memberRoot.endsWith('/') ? `${memberRoot}/` : memberRoot
   return prefix && path.startsWith(prefix) ? path.slice(prefix.length) : ''
@@ -237,87 +271,63 @@ const RESOLUTION_TONES: Record<string, 'neutral' | 'success' | 'danger' | 'warni
           当前计划没有列出这个文件夹的文件，也不会有文件操作。
         </p>
         <ul v-else role="tree" aria-label="计划文件树">
-        <!-- Files that sit in the member root itself have no directory row of
-             their own; they are the first thing the tree shows. -->
-        <li
-          v-for="row in tree.rows"
-          :key="row.key"
-          class="flex min-h-8 items-center gap-2 pl-6"
-          :data-resolution="row.resolution"
-          :data-pending="row.pending ? 'true' : 'false'"
-          role="treeitem"
-        >
-          <component
-            :is="row.pending ? FilePlus2 : FileAudio"
-            class="size-3.5 shrink-0 text-muted-foreground"
-            aria-hidden="true"
-          />
-          <span class="min-w-0 truncate text-xs" :class="row.pending ? 'italic' : ''">{{ row.name }}</span>
-          <Badge :tone="RESOLUTION_TONES[row.resolution] ?? 'neutral'">{{ resolutionText(row.resolution) }}</Badge>
-          <span v-if="row.pending" class="text-[10px] text-[var(--text-muted)]" data-testid="pending-output">待生成</span>
-          <span v-if="row.projected" class="truncate text-[10px] text-[var(--text-muted)]">计划预计产生</span>
-          <!-- Why a file stays is the question worth answering; a generated or
-               removed file speaks for itself — the member review's own rule. -->
-          <span
-            v-else-if="row.resolution === 'keep' && row.reasonCode"
-            class="truncate text-[10px] text-[var(--text-muted)]"
-          >
-            {{ keepReasonText(row.reasonCode) }}
-          </span>
-        </li>
-        <template v-for="dir in tree.children" :key="dir.key">
+        <!-- Every level of the member, at the depth it sits at. Files that sit
+             in the member root itself have no directory row of their own; they
+             are the first thing the tree shows. -->
+        <template v-for="node in visible" :key="node.key">
           <li
+            v-if="node.kind === 'dir'"
             class="flex min-h-8 items-center gap-1.5"
-            :style="{ paddingLeft: `${dir.depth * 16}px` }"
+            :style="{ paddingLeft: `${node.depth * 16}px` }"
             role="treeitem"
-            :aria-expanded="!collapsed.has(dir.key)"
+            :aria-level="node.depth"
+            :aria-expanded="!collapsed.has(node.key)"
           >
             <button
               type="button"
               class="grid size-4 place-items-center rounded text-muted-foreground hover:text-foreground"
-              :aria-label="`${collapsed.has(dir.key) ? '展开' : '折叠'} ${dir.name}`"
-              @click="toggle(dir.key)"
+              :aria-label="`${collapsed.has(node.key) ? '展开' : '折叠'} ${node.name}`"
+              @click="toggle(node.key)"
             >
-              <ChevronDown v-if="!collapsed.has(dir.key)" class="size-3.5" />
+              <ChevronDown v-if="!collapsed.has(node.key)" class="size-3.5" />
               <ChevronRight v-else class="size-3.5" />
             </button>
             <Folder class="size-3.5 text-[var(--brand)]" aria-hidden="true" />
-            <span class="font-heading text-xs font-semibold">{{ dir.name }}</span>
+            <span class="font-heading text-xs font-semibold">{{ node.name }}</span>
           </li>
-          <template v-if="!collapsed.has(dir.key)">
-            <li
-              v-for="row in dir.rows"
-              :key="row.key"
-              class="flex min-h-8 items-center gap-2"
-              :style="{ paddingLeft: `${(dir.depth + 1) * 16 + 8}px` }"
-              :data-resolution="row.resolution"
-              :data-pending="row.pending ? 'true' : 'false'"
-              role="treeitem"
+          <li
+            v-else
+            class="flex min-h-8 items-center gap-2"
+            :style="{ paddingLeft: `${(node.depth + 1) * 16 + 8}px` }"
+            :data-resolution="node.row.resolution"
+            :data-pending="node.row.pending ? 'true' : 'false'"
+            role="treeitem"
+            :aria-level="node.depth + 1"
+          >
+            <component
+              :is="node.row.pending ? FilePlus2 : node.row.name.includes('.') ? FileAudio : FileText"
+              class="size-3.5 shrink-0 text-muted-foreground"
+              aria-hidden="true"
+            />
+            <span class="min-w-0 truncate text-xs" :class="node.row.pending ? 'italic' : ''">
+              {{ node.row.name }}
+            </span>
+            <Badge :tone="RESOLUTION_TONES[node.row.resolution] ?? 'neutral'">
+              {{ resolutionText(node.row.resolution) }}
+            </Badge>
+            <span v-if="node.row.pending" class="text-[10px] text-[var(--text-muted)]" data-testid="pending-output">
+              待生成
+            </span>
+            <span v-if="node.row.projected" class="truncate text-[10px] text-[var(--text-muted)]">计划预计产生</span>
+            <!-- Why a file stays is the question worth answering; a generated or
+                 removed file speaks for itself — the member review's own rule. -->
+            <span
+              v-else-if="node.row.resolution === 'keep' && node.row.reasonCode"
+              class="truncate text-[10px] text-[var(--text-muted)]"
             >
-              <component
-                :is="row.pending ? FilePlus2 : row.name.includes('.') ? FileAudio : FileText"
-                class="size-3.5 shrink-0 text-muted-foreground"
-                aria-hidden="true"
-              />
-              <span class="min-w-0 truncate text-xs" :class="row.pending ? 'italic' : ''">{{ row.name }}</span>
-              <Badge :tone="RESOLUTION_TONES[row.resolution] ?? 'neutral'">
-                {{ resolutionText(row.resolution) }}
-              </Badge>
-              <span v-if="row.pending" class="text-[10px] text-[var(--text-muted)]" data-testid="pending-output">
-                待生成
-              </span>
-              <span v-if="row.projected" class="truncate text-[10px] text-[var(--text-muted)]">计划预计产生</span>
-              <!-- The same rule as the root rows, and as the member review: why
-                   a file stays is the question worth answering; a generated or
-                   removed file speaks for itself. -->
-              <span
-                v-else-if="row.resolution === 'keep' && row.reasonCode"
-                class="truncate text-[10px] text-[var(--text-muted)]"
-              >
-                {{ keepReasonText(row.reasonCode) }}
-              </span>
-            </li>
-          </template>
+              {{ keepReasonText(node.row.reasonCode) }}
+            </span>
+          </li>
         </template>
         </ul>
       </template>

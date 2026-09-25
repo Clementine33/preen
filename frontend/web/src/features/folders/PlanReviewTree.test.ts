@@ -1,4 +1,4 @@
-import { flushPromises, mount } from '@vue/test-utils'
+import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia } from 'pinia'
 import { apiClientKey } from '@/lib/api/client'
@@ -97,6 +97,43 @@ const revision: RevisionDetailResponse = {
   ],
   component_roots: [{ step_index: 0, component_index: 0, component_id: 'c-1', root_index: 0 }],
   execution: null,
+}
+
+/** A plan whose files sit two directories deep, plus a projected output inside
+ *  the deepest one: a member is a folder shape, not a flat list. */
+function nestedRevision(): Partial<RevisionDetailResponse> {
+  return {
+    task: {
+      kind: 'conversion',
+      schema_version: 1,
+      payload: {
+        policy: {},
+        policy_hash: 'ph',
+        classifier: {},
+        summary: { component_count: 1, blocked_count: 0, operation_count: 1, error_count: 0, summary_reason: 'ACTIONABLE' },
+        components: [
+          {
+            ...component(),
+            variant_decisions: [
+              {
+                stem: 'track1',
+                decisions: [
+                  { path: '/music/albumA/keep.flac', resolution: 'keep', reason_code: 'KEEP_ENCODED_SATISFIED' },
+                  { path: '/music/albumA/sub/nested.mp3', resolution: 'delete', reason_code: 'OBSOLETE_ENCODED' },
+                  {
+                    path: '/music/albumA/sub/deep/track1.wav',
+                    resolution: 'encode',
+                    target_path: '/music/albumA/sub/deep/track1.wav',
+                  },
+                ],
+              },
+            ],
+            projected_inventory: ['/music/albumA/sub/deep/track2.wav'],
+          },
+        ],
+      },
+    },
+  }
 }
 
 async function mountTree(
@@ -244,5 +281,65 @@ describe('plan review tree', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('还没有当前计划')
+  })
+})
+
+describe('plan review tree: nested directories', () => {
+  function treeText(wrapper: VueWrapper): string {
+    return wrapper.get('[role="tree"]').text()
+  }
+
+  it('shows every level of the member, not just the first', async () => {
+    const wrapper = await mountTree({ revision: nestedRevision() })
+
+    const text = treeText(wrapper)
+    for (const name of ['sub', 'deep', 'nested.mp3', 'track1.wav', 'track2.wav']) {
+      expect(text).toContain(name)
+    }
+    // Depth-first, and a directory's own files come before its children.
+    expect(text.indexOf('sub')).toBeLessThan(text.indexOf('nested.mp3'))
+    expect(text.indexOf('nested.mp3')).toBeLessThan(text.indexOf('deep'))
+    expect(text.indexOf('deep')).toBeLessThan(text.indexOf('track1.wav'))
+
+    // Both levels are open by default.
+    expect(wrapper.find('button[aria-label="折叠 sub"]').exists()).toBe(true)
+    expect(wrapper.find('button[aria-label="折叠 deep"]').exists()).toBe(true)
+
+    // A projected output two levels down is still marked as not on disk yet.
+    const pending = wrapper.findAll('[data-pending="true"]')
+    expect(pending.length).toBe(2)
+    expect(pending[0].text()).toContain('track1.wav')
+    expect(pending[1].text()).toContain('track2.wav')
+  })
+
+  it('hides a collapsed directory and everything under it, and brings it back', async () => {
+    const wrapper = await mountTree({ revision: nestedRevision() })
+
+    await wrapper.get('button[aria-label="折叠 sub"]').trigger('click')
+    expect(treeText(wrapper)).not.toContain('nested.mp3')
+    expect(treeText(wrapper)).not.toContain('deep')
+    expect(treeText(wrapper)).not.toContain('track1.wav')
+    // The summary still counts the whole plan, collapsed or not.
+    expect(wrapper.get('[data-testid="plan-tally"]').text()).toContain('保留 1')
+    expect(wrapper.get('[data-testid="plan-tally"]').text()).toContain('删除 1')
+    expect(wrapper.get('[data-testid="plan-tally"]').text()).toContain('生成 2')
+
+    await wrapper.get('button[aria-label="展开 sub"]').trigger('click')
+    expect(treeText(wrapper)).toContain('deep')
+    expect(treeText(wrapper)).toContain('track1.wav')
+    expect(treeText(wrapper)).toContain('track2.wav')
+  })
+
+  it('collapses one level without touching its siblings', async () => {
+    const wrapper = await mountTree({ revision: nestedRevision() })
+
+    await wrapper.get('button[aria-label="折叠 deep"]').trigger('click')
+    expect(treeText(wrapper)).not.toContain('track1.wav')
+    // The collapsed row itself stays: it is how the level is opened again.
+    expect(treeText(wrapper)).toContain('deep')
+    expect(wrapper.find('button[aria-label="展开 deep"]').exists()).toBe(true)
+    // The parent keeps its own file, and stays open.
+    expect(treeText(wrapper)).toContain('nested.mp3')
+    expect(wrapper.find('button[aria-label="折叠 sub"]').exists()).toBe(true)
   })
 })

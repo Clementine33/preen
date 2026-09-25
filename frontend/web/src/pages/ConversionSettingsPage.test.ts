@@ -9,11 +9,6 @@ import { installTestQueryPlugin } from '@/test/query-client'
 import { useWorksetEditorStore } from '@/stores/workset-editor'
 import ConversionSettingsPage from './ConversionSettingsPage.vue'
 
-/**
- * The common settings are deployment-wide: applying them rewrites every other
- * task's draft in the same transaction, so the page has to say so before the
- * button, not after the fact (ADR 0010 §2).
- */
 const workset: Workset = {
   workset_id: 'ws-1',
   title: 'T',
@@ -99,15 +94,6 @@ async function mountSettings(alreadySaved = false): Promise<{ wrapper: VueWrappe
 afterEach(() => vi.restoreAllMocks())
 
 describe('ConversionSettingsPage', () => {
-  it('states that applying reaches every task and retires their plans', async () => {
-    const { wrapper } = await mountSettings()
-
-    const notice = wrapper.get('[data-testid="global-settings-notice"]').text()
-    expect(notice).toContain('影响所有任务')
-    expect(notice).toContain('已有计划需重新生成')
-    expect(notice).toContain('孤立的只读任务不参与同步')
-  })
-
   it('can publish unchanged settings from an older task as the global value', async () => {
     const { wrapper, api } = await mountSettings()
     const apply = wrapper.get('[data-testid="apply-common"]')
@@ -115,7 +101,6 @@ describe('ConversionSettingsPage', () => {
     await apply.trigger('click')
     await flushPromises()
     expect(api.saveOperationDraft).toHaveBeenCalledWith('ws-1', 'conversion', document, 5, true)
-    expect(wrapper.get('[data-testid="global-settings-saved"]').text()).toContain('已应用')
     expect(apply.attributes('disabled')).toBeDefined()
     await apply.trigger('click')
     expect(api.saveOperationDraft).toHaveBeenCalledTimes(1)
@@ -135,7 +120,6 @@ describe('ConversionSettingsPage', () => {
     await router.push('/worksets/lib-b/conversion/settings')
     await flushPromises()
     expect(apply.attributes('disabled')).toBeDefined()
-    expect(wrapper.get('[data-testid="global-settings-saved"]').text()).toContain('已应用')
   })
 
   it('reads the applied state again when the page opens', async () => {

@@ -104,8 +104,11 @@ func (f Encoder) TargetFacts(spec reconcile.AudioOutputSpec) (encoder, mode stri
 }
 
 // Encode creates and decodes a staged output before its caller can commit it.
-// The source's tags come with it; its embedded picture does not — the workflow's
-// first source is WAV, which has none, so no container gets special handling.
+// The source's tags come with it, whichever container reconciliation picked as
+// the source — a declared lossless target, else WAV, else FLAC — and a WAV that
+// carries them as legacy Shift-JIS RIFF INFO bytes has those values repaired
+// instead of copied as mojibake. An embedded picture does not come with it: no
+// target gets container-specific handling for one.
 // AAC uses bitrate-controlled CBR (-b:a), never quality/VBR (-q:a).
 // The destination must be a new absolute staging path. Partial output on failure
 // belongs to the caller; this adapter never commits, removes or replaces media.
@@ -126,6 +129,10 @@ func (f Encoder) Encode(ctx context.Context, src, dst string, spec reconcile.Aud
 	if err != nil {
 		return err
 	}
+	tagArgs, err := f.sourceTagArgs(ctx, src)
+	if err != nil {
+		return err
+	}
 	args := []string{
 		"-nostdin",
 		"-hide_banner",
@@ -141,6 +148,7 @@ func (f Encoder) Encode(ctx context.Context, src, dst string, spec reconcile.Aud
 		"0",
 		"-vn",
 	}
+	args = append(args, tagArgs...)
 	args = append(args, codecArgs.Args...)
 	encoder, _ := f.paths()
 	if output, runErr := exec.CommandContext(ctx, encoder, append(args, dst)...).CombinedOutput(); runErr != nil {

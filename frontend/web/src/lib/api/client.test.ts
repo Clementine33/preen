@@ -26,6 +26,22 @@ afterEach(() => {
 })
 
 describe('ApiClient', () => {
+  it('passes the persisted global-settings status through the draft envelope', async () => {
+    mockFetch(async () => okJson({
+      workset_id: 'ws-1',
+      operation_type: 'conversion',
+      version: 2,
+      common_settings_current: true,
+      task: { kind: 'conversion', schema_version: 1, payload: {
+        schema_version: 1, classifier_tags: [], matched: {}, unmatched: {},
+      } },
+      updated_at: '',
+    }))
+
+    const draft = await createClient().getOperationDraft('ws-1', 'conversion')
+    expect(draft.common_settings_current).toBe(true)
+  })
+
   it('wires the query-owned AbortSignal through to fetch', async () => {
     const captured: AbortSignal[] = []
     const fetchMock = mockFetch((_input, init) => {
@@ -90,6 +106,7 @@ describe('ApiClient', () => {
       const headers = new Headers(init?.headers)
       if (path.endsWith('/draft')) {
         expect(headers.get('If-Match')).toBe('3')
+        expect(JSON.parse(String(init?.body)).apply_common_settings).toBe(true)
         return okJson({ workset_id: 'ws-1', version: 4, planning_state: 'planned', members: [] })
       }
       if (path.endsWith('/revisions')) {
@@ -117,6 +134,7 @@ describe('ApiClient', () => {
         members: [],
       },
       3,
+      true,
     )
     await client.startGeneration('ws-1', 'conversion', 3, 'key-1')
     await client.createCurrentRecord('lib-1', 'conversion', { folder_paths: ['albumA'] }, 'create-key')

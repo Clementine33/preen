@@ -35,12 +35,9 @@ func (e *CommonSettingsRefusalError) Error() string {
 }
 
 // CommonSettings is the stored deployment-wide common settings of one
-// operation kind: the task's opaque common payload, in the document schema
-// version it was saved with. It is what a newly created operation seeds its
-// common settings from and what a global save replaces (ADR 0010 §1).
+// operation kind: the task's opaque common payload (ADR 0010 §1).
 type CommonSettings struct {
 	OperationType string
-	SchemaVersion int
 	Settings      string
 	UpdatedAt     time.Time
 }
@@ -71,6 +68,53 @@ type CommonSettingsSync struct {
 	Now     time.Time
 }
 
+// seedCommonSettings is the common-settings payload a newly created operation
+// starts from.
+//
+// A stored deployment-wide value wins. Without one, replacing a record keeps
+// that record's own settings; a different record's later member-only save is
+// not evidence that its common values should win (ADR 0010 §1).
+func (s *serviceImpl) seedCommonSettings(
+	task Task,
+	libraryID, operationType, currentWorksetID string,
+) (json.RawMessage, error) {
+	stored, err := s.repo.GetCommonSettings(operationType)
+	if err != nil {
+		return nil, NewError(ErrKindInternal, "INTERNAL", "failed to load the common settings", err)
+	}
+	if stored != nil {
+		return json.RawMessage(stored.Settings), nil
+	}
+	if currentWorksetID == "" {
+		return nil, nil
+	}
+	draft, err := s.repo.GetOperationDraft(currentWorksetID, operationType)
+	if err != nil {
+		return nil, NewError(ErrKindInternal, "INTERNAL", "failed to load the replaced draft", err)
+	}
+	if draft == nil {
+		current, currentErr := s.repo.GetCurrentWorkset(libraryID, operationType)
+		if currentErr != nil {
+			return nil, NewError(ErrKindInternal, "INTERNAL", "failed to load the current record", currentErr)
+		}
+		if current == nil || current.ID != currentWorksetID {
+			return nil, NewError(
+				ErrKindConflict, "RECORD_REPLACED",
+				"the current record changed while this request was in flight", nil,
+			)
+		}
+		return nil, NewError(ErrKindConflict, "COMMON_SETTINGS_UNREADABLE", "the replaced record has no draft", nil)
+	}
+	common, projectErr := task.CommonSettings([]byte(draft.DraftJSON))
+	if projectErr != nil {
+		return nil, NewError(
+			ErrKindConflict, "COMMON_SETTINGS_UNREADABLE",
+			"the replaced record's settings cannot be read", projectErr,
+		)
+	}
+	return common, nil
+}
+
 // commonSettingsOf reports whether one normalized save changes the operation's
 // common settings, and returns the payload that becomes the deployment-wide
 // value when it does.
@@ -78,8 +122,7 @@ type CommonSettingsSync struct {
 // The comparison is against the operation's own stored document, so the answer
 // is "did this save edit a common value": a save that only moves member
 // records keeps the stored common settings, and the deployment, exactly as
-// they were (ADR 0010 §2). A stored document the task cannot read counts as a
-// change — the deployment holds no common settings the task can agree with.
+// they were (ADR 0010 §2). An unreadable stored draft refuses the save.
 func (s *serviceImpl) commonSettingsOf(
 	task Task,
 	worksetID, operationType string,
@@ -94,11 +137,17 @@ func (s *serviceImpl) commonSettingsOf(
 		return nil, false, NewError(ErrKindInternal, "INTERNAL", "failed to load draft", err)
 	}
 	if stored == nil {
-		return submitted, true, nil
+		return nil, false, NewError(
+			ErrKindConflict, "COMMON_SETTINGS_UNREADABLE",
+			"record "+worksetID+" has no draft; the global settings were not saved", nil,
+		)
 	}
 	storedCommon, err := task.CommonSettings([]byte(stored.DraftJSON))
 	if err != nil {
-		return submitted, true, nil
+		return nil, false, NewError(
+			ErrKindConflict, "COMMON_SETTINGS_UNREADABLE",
+			"record "+worksetID+" holds a draft that cannot be read; the global settings were not saved", err,
+		)
 	}
 	return submitted, CanonicalJSONHash(submitted) != CanonicalJSONHash(storedCommon), nil
 }

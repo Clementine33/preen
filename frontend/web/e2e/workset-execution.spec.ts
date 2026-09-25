@@ -123,9 +123,8 @@ async function setHardDelete(page: Page): Promise<void> {
   await page.getByTestId('common-delete-mode-hard').check()
   await expect(page.getByTestId('common-hard-delete-warning')).toBeVisible()
   await page.getByTestId('apply-common').click()
-  // The save clears the dirty state; leaving before that would trip the
-  // unapplied-edit guard.
-  await expect(page.getByTestId('apply-common')).toBeDisabled()
+  // Wait for the save before leaving the editor.
+  await expect(page.getByTestId('global-settings-saved')).toBeVisible()
   await page.getByRole('link', { name: '← 转换列表' }).click()
   await expect(page).toHaveURL(/\/conversion$/)
 }
@@ -253,7 +252,7 @@ test.describe('workset execution', () => {
     }
     await expect(page.getByTestId('common-matched-preset-opus-160')).toHaveAttribute('aria-pressed', 'true')
     await page.getByTestId('apply-common').click()
-    await expect(page.getByTestId('apply-common')).toBeDisabled()
+    await expect(page.getByTestId('global-settings-saved')).toBeVisible()
     await page.getByRole('link', { name: '← 转换列表' }).click()
     await expect(page).toHaveURL(/\/conversion$/)
 

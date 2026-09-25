@@ -10,7 +10,7 @@ import (
 
 // ==================== deployment-wide common settings ====================
 
-const commonSettingsColumns = `operation_type, schema_version, settings_json, updated_at`
+const commonSettingsColumns = `operation_type, settings_json, updated_at`
 
 // GetCommonSettings returns the stored deployment-wide common settings of one
 // operation kind, or nil when none was ever saved.
@@ -20,7 +20,7 @@ func (r *Repository) GetCommonSettings(operationType string) (*workset.CommonSet
 	err := r.db.QueryRow(
 		`SELECT `+commonSettingsColumns+` FROM common_settings WHERE operation_type = ?`,
 		operationType,
-	).Scan(&c.OperationType, &c.SchemaVersion, &c.Settings, &updatedAt)
+	).Scan(&c.OperationType, &c.Settings, &updatedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
@@ -101,13 +101,12 @@ func (r *Repository) SyncCommonSettings(p workset.CommonSettingsSync) error {
 	}
 
 	_, err = tx.Exec(`
-		INSERT INTO common_settings (operation_type, schema_version, settings_json, updated_at)
-		VALUES (?, ?, ?, ?)
+		INSERT INTO common_settings (operation_type, settings_json, updated_at)
+		VALUES (?, ?, ?)
 		ON CONFLICT(operation_type) DO UPDATE SET
-			schema_version = excluded.schema_version,
 			settings_json = excluded.settings_json,
 			updated_at = excluded.updated_at
-	`, p.OperationType, p.SchemaVersion, p.Settings, p.Now.Format(timeFormat))
+	`, p.OperationType, p.Settings, p.Now.Format(timeFormat))
 	if err != nil {
 		return fmt.Errorf("upsert common settings: %w", err)
 	}

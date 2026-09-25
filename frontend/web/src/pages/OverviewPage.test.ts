@@ -169,7 +169,8 @@ describe('workbench overview', () => {
     // says what replacing costs (ADR 0001 §2). The modal is portalled, so it is
     // the document that holds it.
     expect(createCurrentRecord).not.toHaveBeenCalled()
-    expect(document.body.textContent).toContain('删除它的设置、当前计划与执行结果')
+    expect(document.body.textContent).toContain('删除它的成员设置、当前计划与执行结果')
+    expect(document.body.textContent).toContain('全局转换设置会保留')
     const confirm = document.body.querySelector('[data-testid="confirm-replace"]') as HTMLElement
     confirm.click()
     await flushPromises()

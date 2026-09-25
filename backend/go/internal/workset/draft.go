@@ -24,13 +24,27 @@ func (s *serviceImpl) GetDraft(ctx context.Context, worksetID, operationType str
 	if doc == nil {
 		return nil, NewError(ErrKindNotFound, "DRAFT_NOT_FOUND", "operation has no draft", nil)
 	}
+	global, err := s.repo.GetCommonSettings(operationType)
+	if err != nil {
+		return nil, NewError(ErrKindInternal, "INTERNAL", "failed to load the common settings", err)
+	}
+	current := false
+	if global != nil {
+		task, taskErr := s.requireTask(operationType)
+		if taskErr != nil {
+			return nil, taskErr
+		}
+		common, projectErr := task.CommonSettings([]byte(doc.DraftJSON))
+		current = projectErr == nil && CanonicalJSONHash(common) == CanonicalJSONHash([]byte(global.Settings))
+	}
 	return &Draft{
-		WorksetID:     worksetID,
-		OperationType: operationType,
-		Version:       op.Version,
-		SchemaVersion: doc.SchemaVersion,
-		Document:      json.RawMessage(doc.DraftJSON),
-		UpdatedAt:     doc.UpdatedAt,
+		WorksetID:             worksetID,
+		OperationType:         operationType,
+		Version:               op.Version,
+		SchemaVersion:         doc.SchemaVersion,
+		Document:              json.RawMessage(doc.DraftJSON),
+		CommonSettingsCurrent: current,
+		UpdatedAt:             doc.UpdatedAt,
 	}, nil
 }
 
@@ -110,7 +124,7 @@ func (s *serviceImpl) SaveDraft(
 	if settingsErr != nil {
 		return nil, settingsErr
 	}
-	if commonChanged {
+	if commonChanged || req.ApplyCommonSettings {
 		return s.saveGlobalDraft(
 			ctx, task, worksetID, operationType,
 			schemaVersion, canonical, hash, settings, req.IfMatchVersion,

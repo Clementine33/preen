@@ -68,7 +68,7 @@ function launchVite(apiBase) {
   // unreliable argument pass-through (the e2e launcher observed dropped
   // flags). A direct node spawn needs no shell and no shim.
   const viteBin = path.join(webDir, 'node_modules', 'vite', 'bin', 'vite.js')
-  vite = spawn(process.execPath, [viteBin], {
+  vite = spawn(process.execPath, [viteBin, '--host', '127.0.0.1', '--port', '5173', '--strictPort'], {
     cwd: webDir,
     env: { ...process.env, VITE_API_BASE: apiBase },
     stdio: 'inherit',

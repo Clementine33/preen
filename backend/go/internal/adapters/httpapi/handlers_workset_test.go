@@ -262,8 +262,9 @@ func TestWorksetHTTPLifecycle(t *testing.T) {
 		t.Fatalf("draft status = %d body=%s", w.Code, w.Body.String())
 	}
 	var draft struct {
-		Version int `json:"version"`
-		Task    struct {
+		Version               int  `json:"version"`
+		CommonSettingsCurrent bool `json:"common_settings_current"`
+		Task                  struct {
 			Kind          string `json:"kind"`
 			SchemaVersion int    `json:"schema_version"`
 			Payload       struct {
@@ -284,9 +285,13 @@ func TestWorksetHTTPLifecycle(t *testing.T) {
 	if len(draft.Task.Payload.ClassifierTags) != 1 || len(draft.Task.Payload.Members) != 0 {
 		t.Fatalf("seeded draft must be sparse: %+v", draft.Task.Payload)
 	}
+	if draft.CommonSettingsCurrent {
+		t.Fatal("draft reports a global value before the first application")
+	}
 
 	// PUT draft requires If-Match on the operation version.
 	saveBody := draftDocumentFixture()
+	saveBody["apply_common_settings"] = true
 	noMatch := req(t, h, http.MethodPut, opPath+"/draft", testToken, saveBody)
 	if noMatch.Code != http.StatusBadRequest {
 		t.Fatalf("draft save without If-Match = %d, want 400", noMatch.Code)
@@ -303,6 +308,13 @@ func TestWorksetHTTPLifecycle(t *testing.T) {
 	}
 	if savedOp.Version != 2 {
 		t.Fatalf("operation version after save = %d, want 2", savedOp.Version)
+	}
+	if common, err := repo.GetCommonSettings("conversion"); err != nil || common == nil {
+		t.Fatalf("applying unchanged settings did not publish a global value: %+v err=%v", common, err)
+	}
+	if got := req(t, h, http.MethodGet, opPath+"/draft", testToken, nil); got.Code != http.StatusOK ||
+		json.Unmarshal(got.Body.Bytes(), &draft) != nil || !draft.CommonSettingsCurrent {
+		t.Fatalf("saved draft did not report current global settings: %d %s", got.Code, got.Body.String())
 	}
 	// A stale If-Match on the operation version conflicts.
 	stale := reqWithIfMatch(t, h, http.MethodPut, opPath+"/draft", testToken, saveBody, "1")

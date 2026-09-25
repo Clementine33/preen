@@ -184,3 +184,31 @@ func TestOpenAddsTheCommonSettingsTableToAnExistingDatabase(t *testing.T) {
 		t.Fatalf("a recreated table must start empty, got %+v", stored)
 	}
 }
+
+func TestExistingCommonSettingsRowWithVersionColumnStillLoads(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "existing-common.db")
+	repo, err := NewRepository(dbPath)
+	if err != nil {
+		t.Fatalf("NewRepository: %v", err)
+	}
+	if _, execErr := repo.DB().Exec(`
+		ALTER TABLE common_settings ADD COLUMN schema_version INTEGER NOT NULL DEFAULT 0;
+		INSERT INTO common_settings (operation_type, schema_version, settings_json, updated_at)
+		VALUES ('conversion', 1, '{"mode":"strict"}', '2026-09-25T00:00:00Z');
+	`); execErr != nil {
+		t.Fatalf("seed existing common settings: %v", execErr)
+	}
+	if closeErr := repo.Close(); closeErr != nil {
+		t.Fatalf("close repo: %v", closeErr)
+	}
+
+	reopened, err := NewRepository(dbPath)
+	if err != nil {
+		t.Fatalf("reopen: %v", err)
+	}
+	defer reopened.Close()
+	stored, err := reopened.GetCommonSettings("conversion")
+	if err != nil || stored == nil || stored.Settings != `{"mode":"strict"}` {
+		t.Fatalf("stored common settings = %+v, err = %v", stored, err)
+	}
+}

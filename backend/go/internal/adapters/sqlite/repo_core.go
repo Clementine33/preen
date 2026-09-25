@@ -51,11 +51,9 @@ type Repository struct {
 }
 
 // schemaVersion is the on-disk schema generation this build reads and writes.
-// The marker row in schema_meta is what makes an older database recognisable:
-// a database without it (or with another version) is refused at open time, and
-// neither migrated nor cleared (ADR 0008 §3). Additive tables never bump it:
-// an existing database gains them empty at open, which is what keeps an
-// existing data directory usable without a migration (ADR 0010 §1).
+// A database without the expected marker is refused at open time, and neither
+// migrated nor cleared (ADR 0008 §3). This feature adds common_settings with
+// CREATE TABLE IF NOT EXISTS without changing the marker (ADR 0010 §1).
 const schemaVersion = "3"
 
 // ErrIncompatibleDatabase marks a database this build must not open: it was
@@ -451,7 +449,6 @@ CREATE TABLE IF NOT EXISTS workset_operation_drafts (
 -- created before it existed keeps every row and gains it empty at open.
 CREATE TABLE IF NOT EXISTS common_settings (
     operation_type TEXT PRIMARY KEY,
-    schema_version INTEGER NOT NULL DEFAULT 0,
     settings_json TEXT NOT NULL DEFAULT '',
     updated_at TEXT NOT NULL DEFAULT ''
 );

@@ -370,6 +370,7 @@ export interface DraftEnvelopeResponse {
   /** The OPERATION version: echo it back as If-Match on the next save. */
   version: number
   task: TaskEnvelope<OperationDraftDocument>
+  common_settings_current: boolean
   updated_at: string
 }
 
@@ -381,6 +382,7 @@ export interface DraftResponse {
   version: number
   schema_version: number
   document: OperationDraftDocument
+  common_settings_current: boolean
   updated_at: string
 }
 
@@ -732,6 +734,7 @@ export interface ApiClientContract {
     operation: OperationType,
     document: OperationDraftDocument,
     ifMatchVersion: number,
+    applyCommonSettings?: boolean,
   ): Promise<Operation>
   startGeneration(
     worksetId: string,

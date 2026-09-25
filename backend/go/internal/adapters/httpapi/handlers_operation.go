@@ -11,16 +11,18 @@ import (
 // ==================== DTOs ====================
 
 // draftDocumentRequest is the PUT .../operations/{type}/draft payload: the four
-// common setting groups plus the sparse member records. Unoverridden units are
-// absent from member records; null is never the way to express "clear".
+// common setting groups plus the sparse member records. The optional apply
+// flag is a transport instruction excluded from the task document.
+// Unoverridden units are absent from member records; null never means "clear".
 type draftDocumentRequest struct {
-	SchemaVersion  int                      `json:"schema_version"`
-	Mode           string                   `json:"mode"`
-	DeleteMode     string                   `json:"delete_mode,omitempty"`
-	ClassifierTags []string                 `json:"classifier_tags"`
-	Matched        reconcile.DesiredProfile `json:"matched"`
-	Unmatched      reconcile.DesiredProfile `json:"unmatched"`
-	Members        []draftMemberRequest     `json:"members"`
+	SchemaVersion       int                      `json:"schema_version"`
+	Mode                string                   `json:"mode"`
+	DeleteMode          string                   `json:"delete_mode,omitempty"`
+	ClassifierTags      []string                 `json:"classifier_tags"`
+	Matched             reconcile.DesiredProfile `json:"matched"`
+	Unmatched           reconcile.DesiredProfile `json:"unmatched"`
+	Members             []draftMemberRequest     `json:"members"`
+	ApplyCommonSettings bool                     `json:"apply_common_settings,omitempty"`
 }
 
 type draftMemberRequest struct {
@@ -48,11 +50,12 @@ type taskDraftEnvelope struct {
 // — the If-Match authority for the next save; there is no separate draft
 // counter.
 type draftResponse struct {
-	WorksetID     string            `json:"workset_id"`
-	OperationType string            `json:"operation_type"`
-	Version       int               `json:"version"`
-	Task          taskDraftEnvelope `json:"task"`
-	UpdatedAt     string            `json:"updated_at"`
+	WorksetID             string            `json:"workset_id"`
+	OperationType         string            `json:"operation_type"`
+	Version               int               `json:"version"`
+	Task                  taskDraftEnvelope `json:"task"`
+	CommonSettingsCurrent bool              `json:"common_settings_current"`
+	UpdatedAt             string            `json:"updated_at"`
 }
 
 // revisionMemberResponse is one member of a frozen revision: its effective
@@ -77,12 +80,14 @@ func toDraftResponse(d *workset.Draft) draftResponse {
 			SchemaVersion: d.SchemaVersion,
 			Payload:       d.Document,
 		},
-		UpdatedAt: d.UpdatedAt.UTC().Format(timeFormatJSON),
+		CommonSettingsCurrent: d.CommonSettingsCurrent,
+		UpdatedAt:             d.UpdatedAt.UTC().Format(timeFormatJSON),
 	}
 }
 
 // toDraftPayload encodes the HTTP draft body into the task's opaque payload.
 func toDraftPayload(req draftDocumentRequest) json.RawMessage {
+	req.ApplyCommonSettings = false // transport instruction, never a draft field
 	raw, err := json.Marshal(req)
 	if err != nil {
 		return json.RawMessage("{}")
@@ -146,8 +151,9 @@ func (s *Server) putOperationDraft(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	view, err := svc.SaveDraft(r.Context(), r.PathValue("id"), r.PathValue("type"), workset.SaveDraftRequest{
-		Document:       toDraftPayload(req),
-		IfMatchVersion: version,
+		Document:            toDraftPayload(req),
+		IfMatchVersion:      version,
+		ApplyCommonSettings: req.ApplyCommonSettings,
 	})
 	if err != nil {
 		writeWorksetError(w, err)

@@ -214,20 +214,16 @@ func (s *serviceImpl) persistCurrentWorkset(
 	}
 	// Only the requested operation is materialized: a record exists for the
 	// work someone asked for, and creation never initializes a task that was
-	// not requested (ADR 0001 §1). Its common settings are the deployment's
-	// stored ones, so a record created after a global save starts where every
-	// other record already is (ADR 0010 §1).
+	// not requested (ADR 0001 §1). Its common settings are the deployment's,
+	// so a record created at any point starts where the deployment already is
+	// (ADR 0010 §1).
 	task, err := s.requireTask(req.OperationType)
 	if err != nil {
 		return nil, err
 	}
-	common, err := s.repo.GetCommonSettings(req.OperationType)
+	seedCommon, err := s.seedCommonSettings(task, lib.ID, req.OperationType, req.ExpectedCurrentID)
 	if err != nil {
-		return nil, NewError(ErrKindInternal, "INTERNAL", "failed to load the common settings", err)
-	}
-	var seedCommon json.RawMessage
-	if common != nil {
-		seedCommon = json.RawMessage(common.Settings)
+		return nil, err
 	}
 	raw, hash, schemaVersion := task.SeedDraft(seedCommon)
 	ops := []Operation{{

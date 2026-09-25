@@ -1,15 +1,16 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import WorksetsPage from '@/pages/WorksetsPage.vue'
-import OverviewPage from '@/pages/OverviewPage.vue'
-import ConversionPage from '@/pages/ConversionPage.vue'
-import ConversionSettingsPage from '@/pages/ConversionSettingsPage.vue'
-import MemberDetailPage from '@/pages/MemberDetailPage.vue'
-import MemberEditPage from '@/pages/MemberEditPage.vue'
-import BatchEditPage from '@/pages/BatchEditPage.vue'
-import ExecutionDetailPage from '@/pages/ExecutionDetailPage.vue'
-import NotFoundPage from '@/pages/NotFoundPage.vue'
-import MemberFiles from '@/features/folders/MemberFiles.vue'
 import { installAddressHygiene } from './route-params'
+
+const WorksetsPage = () => import('@/pages/WorksetsPage.vue')
+const OverviewPage = () => import('@/pages/OverviewPage.vue')
+const ConversionPage = () => import('@/pages/ConversionPage.vue')
+const ConversionSettingsPage = () => import('@/pages/ConversionSettingsPage.vue')
+const MemberDetailPage = () => import('@/pages/MemberDetailPage.vue')
+const MemberEditPage = () => import('@/pages/MemberEditPage.vue')
+const BatchEditPage = () => import('@/pages/BatchEditPage.vue')
+const ExecutionDetailPage = () => import('@/pages/ExecutionDetailPage.vue')
+const NotFoundPage = () => import('@/pages/NotFoundPage.vue')
+const MemberFiles = () => import('@/features/folders/MemberFiles.vue')
 
 /**
  * Route table (ADR 0003 §1). Desktop and mobile use the same routes: the

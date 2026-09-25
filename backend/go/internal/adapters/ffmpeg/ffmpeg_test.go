@@ -87,8 +87,9 @@ func TestFFmpegEncodesFrozenTargets(t *testing.T) {
 // TestFFmpegKeepsTags pins what a conversion does to a file's metadata: every
 // target carries the source's tags across, wherever that container keeps them
 // (MP3, MP4 and FLAC on the format, Ogg/Opus on the stream). Embedded pictures
-// are deliberately out of scope: the workflow's first source is WAV, which
-// cannot hold one, so no target gets container-specific handling for it.
+// are deliberately out of scope: no target gets container-specific handling for
+// one. A source whose tags are legacy Shift-JIS RIFF INFO bytes is the separate
+// subject of TestFFmpegRepairsLegacyTagBytes.
 func TestFFmpegKeepsTags(t *testing.T) {
 	encoder, wav := audioFixture(t)
 	dir := t.TempDir()

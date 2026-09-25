@@ -6,6 +6,7 @@ require (
 	facette.io/natsort v0.0.0-20181210072756-2cd4dd1e2dcb
 	github.com/google/uuid v1.6.0
 	golang.org/x/sys v0.48.0
+	golang.org/x/text v0.38.0
 	modernc.org/sqlite v1.59.0
 )
 

@@ -296,14 +296,14 @@ func TestFindingAPlaceholderPromotesItWithoutLosingItsMetadata(t *testing.T) {
 	const root = "/music"
 
 	// The covering work declares a child the catalog has never seen on disk.
-	if _, err := repo.ImportMetadata(&works.ValidatedImport{
+	if _, importErr := repo.ImportMetadata(&works.ValidatedImport{
 		Target: coveringWork,
 		Relations: &works.RelationsGroup{
 			Source: works.SourceDLsite, FetchedAt: mustTime(t, testStamp),
 			Role: works.RoleParent, ChildRJs: []works.WorkCode{code(t, "RJ00000002")},
 		},
-	}, mustTime(t, testStamp)); err != nil {
-		t.Fatal(err)
+	}, mustTime(t, testStamp)); importErr != nil {
+		t.Fatal(importErr)
 	}
 	placeholder, _, err := repo.GetWork(code(t, "RJ00000002"))
 	if err != nil {
@@ -315,8 +315,8 @@ func TestFindingAPlaceholderPromotesItWithoutLosingItsMetadata(t *testing.T) {
 
 	// A scan now finds a directory holding that work.
 	stageDir(t, repo, "scan", root, "RJ00000002 the found copy")
-	if _, err := repo.MergeStaging("scan", library.ID, root); err != nil {
-		t.Fatal(err)
+	if _, mergeErr := repo.MergeStaging("scan", library.ID, root); mergeErr != nil {
+		t.Fatal(mergeErr)
 	}
 
 	promoted, _, err := repo.GetWork(code(t, "RJ00000002"))
@@ -324,7 +324,11 @@ func TestFindingAPlaceholderPromotesItWithoutLosingItsMetadata(t *testing.T) {
 		t.Fatal(err)
 	}
 	if promoted.Placeholder || promoted.CollectedAt == "" {
-		t.Errorf("the work was not promoted: placeholder=%v collected_at=%q", promoted.Placeholder, promoted.CollectedAt)
+		t.Errorf(
+			"the work was not promoted: placeholder=%v collected_at=%q",
+			promoted.Placeholder,
+			promoted.CollectedAt,
+		)
 	}
 	// What the import had established survives the promotion.
 	if promoted.Relation.ParentID == nil || *promoted.Relation.ParentID != coveringWork {
@@ -336,6 +340,9 @@ func TestFindingAPlaceholderPromotesItWithoutLosingItsMetadata(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(page.Works) != 2 {
-		t.Errorf("the listing holds %d works, want both the covering work and the promoted placeholder", len(page.Works))
+		t.Errorf(
+			"the listing holds %d works, want both the covering work and the promoted placeholder",
+			len(page.Works),
+		)
 	}
 }

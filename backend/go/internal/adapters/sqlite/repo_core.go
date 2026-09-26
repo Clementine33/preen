@@ -52,9 +52,11 @@ type Repository struct {
 
 // schemaVersion is the on-disk schema generation this build reads and writes.
 // A database without the expected marker is refused at open time, and neither
-// migrated nor cleared (ADR 0008 §3). This feature adds common_settings with
-// CREATE TABLE IF NOT EXISTS without changing the marker (ADR 0010 §1).
-const schemaVersion = "3"
+// migrated nor cleared (ADR 0008 §3). Generation 3 added common_settings with
+// CREATE TABLE IF NOT EXISTS without changing the marker (ADR 0010 §1);
+// generation 4 adds the work catalog and is a real generation, so the marker
+// moves with it (ADR 0011 §2).
+const schemaVersion = "4"
 
 // ErrIncompatibleDatabase marks a database this build must not open: it was
 // created by a different schema generation, so the operator has to point
@@ -586,6 +588,222 @@ CREATE TABLE IF NOT EXISTS classifier_tag_library (
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_classifier_tag_norm ON classifier_tag_library(normalized_tag);
+
+-- ==================== Schema V4: the work catalog ====================
+-- Every table below is STRICT (SQLite >= 3.37): a STRICT table refuses to
+-- store a REAL in an INTEGER column, which is what keeps a half-star rating
+-- out of an integer column that also carries a range CHECK. Timestamps are
+-- written by Go in a fixed-width UTC form (works.TimestampFormat), never by
+-- DEFAULT CURRENT_TIMESTAMP, so text order is time order and an index answers
+-- a range scan. The catalog is additive: the marker moves to generation 4.
+
+-- Logical works. id is the canonical work number (works.WorkCode), which is
+-- the immutable identity. collected_at IS NULL marks a relation placeholder:
+-- declared by an import, not yet found on disk. Such a row is reachable
+-- through its relations but never appears in the ordinary listing.
+CREATE TABLE IF NOT EXISTS works (
+    id TEXT PRIMARY KEY,
+    title TEXT,
+    circle_id TEXT REFERENCES circles(id) ON DELETE SET NULL,
+    nsfw INTEGER CHECK (nsfw IS NULL OR nsfw IN (0, 1)),
+    release_date TEXT CHECK (release_date IS NULL OR release_date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
+    series_id TEXT,
+    series_name TEXT,
+    source_url TEXT,
+    cover_url TEXT,
+    thumbnail_url TEXT,
+    sample_cover_url TEXT,
+    collected_at TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+) STRICT;
+CREATE INDEX IF NOT EXISTS idx_works_collected ON works(collected_at, id);
+CREATE INDEX IF NOT EXISTS idx_works_release ON works(release_date, id);
+CREATE INDEX IF NOT EXISTS idx_works_circle ON works(circle_id);
+
+-- The listing's orderings are answered by indexes, so a page costs a seek
+-- rather than a sort of the whole matching set. The trailing id ASC is the
+-- tie-break that keeps the order total, and it is ASC in either direction,
+-- which is why the descending orderings need an index of their own shape: a
+-- reverse scan of the ascending index would reverse the tie-break too. The
+-- release-date orderings lead with the null flag, which is what puts unknown
+-- release dates last in both directions; the plain idx_works_release above
+-- still serves the date-range filter.
+CREATE INDEX IF NOT EXISTS idx_works_release_asc
+    ON works((release_date IS NULL) ASC, release_date ASC, id ASC);
+CREATE INDEX IF NOT EXISTS idx_works_release_desc
+    ON works((release_date IS NULL) ASC, release_date DESC, id ASC);
+CREATE INDEX IF NOT EXISTS idx_works_collected_desc ON works(collected_at DESC, id ASC);
+
+-- Source entities shared across works. A non-NULL work_id marks an entity
+-- identified only within one work: it has no source-assigned id, so its
+-- identity key is (source, work_id, name). Without that key a refresh would
+-- mint a new row for the same name every time - the entity id would drift
+-- (invalidating any filter built on it) and the table would grow forever.
+-- The same name never merges across works: work_id is part of the key.
+CREATE TABLE IF NOT EXISTS circles (
+    id TEXT PRIMARY KEY,
+    source TEXT NOT NULL,
+    source_circle_id TEXT,
+    name TEXT NOT NULL,
+    work_id TEXT REFERENCES works(id) ON DELETE CASCADE
+) STRICT;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_circles_source_id
+    ON circles(source, source_circle_id) WHERE source_circle_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_circles_work_scoped
+    ON circles(source, work_id, name) WHERE source_circle_id IS NULL AND work_id IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS voice_actors (
+    id TEXT PRIMARY KEY,
+    source TEXT NOT NULL,
+    source_voice_actor_id TEXT,
+    name TEXT NOT NULL,
+    work_id TEXT REFERENCES works(id) ON DELETE CASCADE
+) STRICT;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_voice_actors_source_id
+    ON voice_actors(source, source_voice_actor_id) WHERE source_voice_actor_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_voice_actors_work_scoped
+    ON voice_actors(source, work_id, name) WHERE source_voice_actor_id IS NULL AND work_id IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS work_voice_actors (
+    work_id TEXT NOT NULL REFERENCES works(id) ON DELETE CASCADE,
+    voice_actor_id TEXT NOT NULL REFERENCES voice_actors(id) ON DELETE CASCADE,
+    position INTEGER NOT NULL CHECK (position >= 0),
+    PRIMARY KEY (work_id, voice_actor_id)
+) STRICT;
+
+CREATE TABLE IF NOT EXISTS tags (
+    id TEXT PRIMARY KEY,
+    source TEXT NOT NULL,
+    source_tag_id TEXT,
+    name TEXT NOT NULL,
+    work_id TEXT REFERENCES works(id) ON DELETE CASCADE
+) STRICT;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_tags_source_id
+    ON tags(source, source_tag_id) WHERE source_tag_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_tags_work_scoped
+    ON tags(source, work_id, name) WHERE source_tag_id IS NULL AND work_id IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS work_tags (
+    work_id TEXT NOT NULL REFERENCES works(id) ON DELETE CASCADE,
+    tag_id TEXT NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+    position INTEGER NOT NULL CHECK (position >= 0),
+    PRIMARY KEY (work_id, tag_id)
+) STRICT;
+
+-- Sales only: the catalog records what a store sold, and DLsite's dynamic
+-- endpoint is the only channel that reports it. That single source is why
+-- there is no source column here and no priority rule - only the fetch time
+-- comparison in work_source_state. NULL means unknown, which is not zero.
+CREATE TABLE IF NOT EXISTS work_statistics (
+    work_id TEXT PRIMARY KEY REFERENCES works(id) ON DELETE CASCADE,
+    dl_count INTEGER CHECK (dl_count IS NULL OR (typeof(dl_count) = 'integer' AND dl_count >= 0))
+) STRICT;
+
+-- Which data group came from which source, and when. One row per submitted
+-- group. The last CHECK is the invariant that statistics only ever come from
+-- DLsite: it is enforced by the storage, not by a handler remembering to.
+CREATE TABLE IF NOT EXISTS work_source_state (
+    work_id TEXT NOT NULL REFERENCES works(id) ON DELETE CASCADE,
+    data_group TEXT NOT NULL CHECK (data_group IN ('core','statistics','relations','editions')),
+    source TEXT NOT NULL CHECK (source IN ('dlsite','asmr_one')),
+    fetched_at TEXT NOT NULL,
+    PRIMARY KEY (work_id, data_group),
+    CHECK (data_group <> 'statistics' OR source = 'dlsite')
+) STRICT;
+
+-- A work's own relation report, one row per work. The row's presence is the
+-- statement "this work has reported": its absence means "not reported yet",
+-- which is a different fact from "reported, and the child set is empty".
+-- role is stored explicitly (from is_original/is_parent/is_child) rather than
+-- derived from edges: an original has no outbound edge at all and a parent
+-- without children has none either, so an edgeless report could not recover
+-- its own role. language is not an edge either.
+CREATE TABLE IF NOT EXISTS work_relation_self (
+    work_id TEXT PRIMARY KEY REFERENCES works(id) ON DELETE CASCADE,
+    role TEXT NOT NULL CHECK (role IN ('original','parent','child')),
+    language TEXT,
+    original_rj TEXT,
+    parent_rj TEXT,
+    source TEXT NOT NULL CHECK (source IN ('dlsite','asmr_one')),
+    fetched_at TEXT NOT NULL
+) STRICT;
+CREATE INDEX IF NOT EXISTS idx_work_relation_self_parent
+    ON work_relation_self(parent_rj) WHERE parent_rj IS NOT NULL;
+
+-- The child edges a work declared (child_worknos expanded into rows). Rows
+-- rather than a JSON column so the foreign key holds - a declared child always
+-- has a work row - and so the inbound question "who declares me a child" is an
+-- indexed lookup.
+CREATE TABLE IF NOT EXISTS work_declared_children (
+    declaring_work_id TEXT NOT NULL REFERENCES works(id) ON DELETE CASCADE,
+    child_work_id TEXT NOT NULL REFERENCES works(id),
+    source TEXT NOT NULL CHECK (source IN ('dlsite','asmr_one')),
+    fetched_at TEXT NOT NULL,
+    PRIMARY KEY (declaring_work_id, child_work_id)
+) STRICT;
+CREATE INDEX IF NOT EXISTS idx_work_declared_children_child
+    ON work_declared_children(child_work_id);
+
+-- The resolved relation of a work, computed from the two evidence tables by
+-- the rules in ADR 0011. It is DERIVED data and never blocks a deletion: both
+-- foreign keys are ON DELETE SET NULL, so removing a work can only recompute
+-- or blank this row, never fail because of it. With the default NO ACTION a
+-- deletable work (no copies, no inbound evidence) would be refused by this
+-- very row, which is a rule the database contradicts.
+CREATE TABLE IF NOT EXISTS work_translations (
+    work_id TEXT PRIMARY KEY REFERENCES works(id) ON DELETE CASCADE,
+    role TEXT CHECK (role IS NULL OR role IN ('original','parent','child')),
+    language TEXT,
+    original_work_id TEXT REFERENCES works(id) ON DELETE SET NULL,
+    parent_work_id TEXT REFERENCES works(id) ON DELETE SET NULL
+) STRICT;
+
+-- The language editions a work declared. version_root_rj is a declared list
+-- entry, not a relation edge, so it carries no foreign key.
+CREATE TABLE IF NOT EXISTS work_language_editions (
+    work_id TEXT NOT NULL REFERENCES works(id) ON DELETE CASCADE,
+    version_root_rj TEXT NOT NULL,
+    language TEXT NOT NULL,
+    label TEXT,
+    source_edition_id TEXT,
+    display_order INTEGER NOT NULL,
+    PRIMARY KEY (work_id, language)
+) STRICT;
+
+-- Physical copies. Deliberately no foreign key to entries: a rescan deletes
+-- inventory rows, and that must never delete a work or its user data.
+CREATE TABLE IF NOT EXISTS work_copies (
+    id TEXT PRIMARY KEY,
+    work_id TEXT NOT NULL REFERENCES works(id) ON DELETE CASCADE,
+    library_id TEXT NOT NULL REFERENCES libraries(id) ON DELETE CASCADE,
+    rel_path TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    UNIQUE (library_id, rel_path)
+) STRICT;
+CREATE INDEX IF NOT EXISTS idx_work_copies_work ON work_copies(work_id);
+
+-- The single user's data about a work. No row is inserted up front: a missing
+-- row reads as unrated, not favorited, empty note.
+CREATE TABLE IF NOT EXISTS work_user_data (
+    work_id TEXT PRIMARY KEY REFERENCES works(id) ON DELETE CASCADE,
+    rating INTEGER CHECK (rating IS NULL OR (typeof(rating) = 'integer' AND rating BETWEEN 1 AND 10)),
+    favorite INTEGER NOT NULL DEFAULT 0 CHECK (favorite IN (0, 1)),
+    note TEXT NOT NULL DEFAULT '',
+    updated_at TEXT NOT NULL DEFAULT ''
+) STRICT;
+
+CREATE TABLE IF NOT EXISTS user_tags (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL
+) STRICT;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_user_tags_name ON user_tags(name);
+
+CREATE TABLE IF NOT EXISTS work_user_tags (
+    work_id TEXT NOT NULL REFERENCES works(id) ON DELETE CASCADE,
+    tag_id TEXT NOT NULL REFERENCES user_tags(id) ON DELETE CASCADE,
+    PRIMARY KEY (work_id, tag_id)
+) STRICT;
 `
 
 // schemaIndexesDDL is the CREATE-INDEX DDL applied after the tables exist.

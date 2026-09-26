@@ -166,8 +166,13 @@ func (r *Repository) UpdateLibrary(id, name, rootPath string) (*library.Library,
 	if rootChanged {
 		// The inventory of the previous root is not the inventory of the new
 		// one: drop it and let the next scan rebuild it, so nothing reads a
-		// stale listing as if it described the new root.
+		// stale listing as if it described the new root. The bindings go with
+		// it - they name directories under the old root, so keeping them would
+		// point the catalog at paths that are no longer part of this library.
 		if _, err := tx.Exec("DELETE FROM entries WHERE root_path = ?", currentRoot); err != nil {
+			return nil, err
+		}
+		if err := unbindLibraryCopies(tx, id); err != nil {
 			return nil, err
 		}
 	}
@@ -255,6 +260,13 @@ func (r *Repository) DeleteLibrary(id string) error {
 		if _, err := tx.Exec("DELETE FROM worksets WHERE id = ?", recordID); err != nil {
 			return err
 		}
+	}
+	// Deleting the library row would cascade its bindings away as well, but the
+	// removal is explicit here so the rule reads the same as the root change:
+	// the bindings describe directories under this library and go with it. The
+	// works and their personal data stay.
+	if err := unbindLibraryCopies(tx, id); err != nil {
+		return err
 	}
 	if _, err := tx.Exec("DELETE FROM libraries WHERE id = ?", id); err != nil {
 		return err

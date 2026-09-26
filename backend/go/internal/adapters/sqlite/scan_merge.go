@@ -6,71 +6,48 @@ import (
 	"fmt"
 	"path/filepath"
 	"time"
+
+	"github.com/onsei/organizer/backend/internal/inventory"
 )
 
-// MergeStaging performs transactional merge of staging entries into entries table.
+// MergeStaging merges one scan session's staged entries into the inventory and
+// reconciles the library's directory bindings, all in one transaction.
 //
-// Deprecated: Use MergeStagingSimple or MergeStagingWithStalePaths instead.
-// This function is kept for backward compatibility.
-func (r *Repository) MergeStaging(args ...any) error {
-	if len(args) == 2 {
-		// Old 2-arg form: MergeStaging(scanID, rootPath)
-		scanID, ok := args[0].(string)
-		if !ok {
-			return fmt.Errorf("MergeStaging: scanID must be a string")
-		}
-		rootPath, ok := args[1].(string)
-		if !ok {
-			return fmt.Errorf("MergeStaging: rootPath must be a string")
-		}
-		return r.MergeStagingSimple(scanID, rootPath)
-	}
-	if len(args) == 3 {
-		// New 3-arg form: MergeStaging(scanID, rootPath, stalePaths)
-		scanID, ok := args[0].(string)
-		if !ok {
-			return fmt.Errorf("MergeStaging: scanID must be a string")
-		}
-		rootPath, ok := args[1].(string)
-		if !ok {
-			return fmt.Errorf("MergeStaging: rootPath must be a string")
-		}
-		stalePaths, ok := args[2].([]string)
-		if !ok {
-			return fmt.Errorf("MergeStaging: stalePaths must be []string")
-		}
-		return r.MergeStagingWithStalePaths(scanID, rootPath, stalePaths)
-	}
-	return fmt.Errorf("MergeStaging requires 2 or 3 arguments, got %d", len(args))
-}
-
-// MergeStagingSimple merges staging entries into the main entries table.
-// This is the preferred method for most use cases.
-func (r *Repository) MergeStagingSimple(scanID, rootPath string) error {
-	return r.MergeStagingWithStalePaths(scanID, rootPath, nil)
-}
-
-// MergeStagingWithStalePaths merges staging entries and explicitly specifies
-// which paths to preserve from stale cleanup.
+// The binding work belongs here rather than at the call site because it must
+// not be separable from the merge: the reconciliation reads the directories the
+// merge just left behind, so doing it anywhere else would let the inventory
+// change and the bindings not.
 //
-// Deprecated: stalePaths is ignored and exists only for backward compatibility.
-// The preserve set is determined solely by entries_staging for the given session_id.
-// Use MergeStagingSimple for new code.
-func (r *Repository) MergeStagingWithStalePaths(scanID, rootPath string, _ []string) error {
+// libraryID may be empty, which is the case for a member refresh: a refresh
+// does not reconcile the library's direct children and must not touch another
+// copy's binding.
+func (r *Repository) MergeStaging(sessionID, libraryID, rootPath string) (inventory.MergeOutcome, error) {
 	tx, err := r.db.Begin()
 	if err != nil {
-		return fmt.Errorf("failed to begin transaction: %w", err)
+		return inventory.MergeOutcome{}, fmt.Errorf("failed to begin transaction: %w", err)
 	}
 	defer tx.Rollback()
 
-	if err := mergeStagingEntries(tx, scanID, rootPath); err != nil {
-		return err
+	merged, err := mergeStagingEntries(tx, sessionID, libraryID, rootPath)
+	if err != nil {
+		return inventory.MergeOutcome{}, err
 	}
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return inventory.MergeOutcome{}, err
+	}
+	return merged, nil
 }
 
-// mergeStagingEntries is the set-based merge plus session-scoped stale cleanup.
-func mergeStagingEntries(tx *sql.Tx, scanID, rootPath string) error {
+// MergeStagingSimple merges a session without reconciling any library's
+// bindings. It is the path a member refresh and the storage's own tests take.
+func (r *Repository) MergeStagingSimple(scanID, rootPath string) error {
+	_, err := r.MergeStaging(scanID, "", rootPath)
+	return err
+}
+
+// mergeStagingEntries is the set-based merge plus session-scoped stale cleanup
+// and, for a full-root scan, the binding reconciliation.
+func mergeStagingEntries(tx *sql.Tx, scanID, libraryID, rootPath string) (inventory.MergeOutcome, error) {
 	now := time.Now()
 
 	// Step 1: Set-based merge with content_rev lifecycle logic
@@ -128,24 +105,50 @@ CASE
 			updated_at = excluded.updated_at
 	`, scanID, now.Format(timeFormat), scanID)
 	if err != nil {
-		return fmt.Errorf("failed to merge staging entries: %w", err)
+		return inventory.MergeOutcome{}, fmt.Errorf("failed to merge staging entries: %w", err)
 	}
 
-	// Step 2: Apply stale cleanup (always scoped to a root)
-	_ = cleanupStaleEntries(tx, scanID, rootPath)
+	// Step 2: Apply stale cleanup (always scoped to a root). Its failure is
+	// reported rather than dropped: a half-cleaned inventory is exactly the
+	// state the merge is supposed to make impossible, so the transaction has to
+	// roll back while it still can.
+	cleanupRoot, fullRoot, err := cleanupStaleEntries(tx, scanID, rootPath)
+	if err != nil {
+		return inventory.MergeOutcome{}, fmt.Errorf("failed to clean stale entries: %w", err)
+	}
 
-	// Step 3: Clear staging for this session
+	// Step 3: Reconcile the bindings against the surviving directories. Only a
+	// full scan is authoritative for a library's direct children; a member
+	// refresh leaves every other copy alone.
+	var merged int
+	if err := tx.QueryRow("SELECT COUNT(*) FROM entries WHERE scan_id = ?", scanID).Scan(&merged); err != nil {
+		return inventory.MergeOutcome{}, fmt.Errorf("failed to count merged entries: %w", err)
+	}
+	outcome := inventory.MergeOutcome{Merged: merged}
+	if fullRoot && libraryID != "" {
+		bindings, bindErr := syncWorkCopies(tx, libraryID, cleanupRoot)
+		if bindErr != nil {
+			return inventory.MergeOutcome{}, fmt.Errorf("failed to reconcile work bindings: %w", bindErr)
+		}
+		outcome.DirsWithoutNumber = bindings.unnumbered
+		outcome.DirsWithMultipleNumbers = bindings.multiple
+		outcome.ExampleDirs = bindings.examples
+		outcome.ExamplesTruncated = bindings.truncated
+	}
+
+	// Step 4: Clear staging for this session
 	if _, err := tx.Exec("DELETE FROM entries_staging WHERE session_id = ?", scanID); err != nil {
-		return fmt.Errorf("failed to clear staging: %w", err)
+		return inventory.MergeOutcome{}, fmt.Errorf("failed to clear staging: %w", err)
 	}
 
-	return nil
+	return outcome, nil
 }
 
 // cleanupStaleEntries resolves the effective cleanup root (session scope or
 // staging-derived) and deletes stale entries not present in this session's
-// staging set. Returns the normalized root used (may be empty when unknown).
-func cleanupStaleEntries(tx *sql.Tx, scanID, rootPath string) string {
+// staging set. It reports the normalized root it used and whether the cleanup
+// covered the whole root rather than one member scope.
+func cleanupStaleEntries(tx *sql.Tx, scanID, rootPath string) (root string, fullRoot bool, err error) {
 	var sessionRootPath string
 	var sessionScopePath sql.NullString
 	sessionErr := tx.QueryRow(`
@@ -154,7 +157,7 @@ func cleanupStaleEntries(tx *sql.Tx, scanID, rootPath string) string {
 		WHERE session_id = ?
 	`, scanID).Scan(&sessionRootPath, &sessionScopePath)
 	if sessionErr != nil && sessionErr != sql.ErrNoRows {
-		return rootPath
+		return rootPath, false, sessionErr
 	}
 
 	if rootPath == "" {
@@ -164,10 +167,11 @@ func cleanupStaleEntries(tx *sql.Tx, scanID, rootPath string) string {
 	// If still no rootPath, derive from staging entries
 	if rootPath == "" {
 		var stagingRootPath string
-		if err := tx.QueryRow(`
+		deriveErr := tx.QueryRow(`
 			SELECT root_path FROM entries_staging WHERE session_id = ? LIMIT 1
-		`, scanID).Scan(&stagingRootPath); err != nil && !errors.Is(err, sql.ErrNoRows) {
-			return rootPath
+		`, scanID).Scan(&stagingRootPath)
+		if deriveErr != nil && !errors.Is(deriveErr, sql.ErrNoRows) {
+			return rootPath, false, deriveErr
 		}
 		rootPath = stagingRootPath
 	}
@@ -176,46 +180,49 @@ func cleanupStaleEntries(tx *sql.Tx, scanID, rootPath string) string {
 	rootPath = filepath.ToSlash(rootPath)
 
 	// Never execute stale cleanup without an explicit root scope
-	if rootPath != "" {
-		scopePath := ""
-		if sessionScopePath.Valid {
-			// Normalize scope_path to POSIX as well for consistent matching
-			scopePath = filepath.ToSlash(sessionScopePath.String)
-		}
-
-		if scopePath != "" {
-			// Scoped cleanup: everything *under* the scope that the scan of that
-			// scope no longer reports is stale.
-			//
-			// The scope directory's own row is deliberately outside that set: a
-			// folder scan reports the folder's contents (the walk emits the
-			// scope's children), so the scope row can never appear in staging,
-			// and treating its absence as stale would unlist the directory that
-			// was just scanned — the overview listing and the directory identity
-			// the workbench addresses both read that row.
-			//
-			// The prefix is compared with substr, not LIKE: a directory name is
-			// free to contain `%` or `_`, which a LIKE pattern would read as
-			// wildcards and match siblings by accident.
-			if _, err := tx.Exec(`
-				DELETE FROM entries
-				WHERE root_path = ?
-					AND substr(path, 1, length(?) + 1) = ? || '/'
-					AND path NOT IN (SELECT path FROM entries_staging WHERE session_id = ?)
-			`, rootPath, scopePath, scopePath, scanID); err != nil {
-				return rootPath
-			}
-		} else {
-			// Full-root cleanup: DELETE ... WHERE root_path=? AND path NOT IN
-			// (SELECT path FROM entries_staging WHERE session_id=?)
-			if _, err := tx.Exec(`
-				DELETE FROM entries
-				WHERE root_path = ?
-					AND path NOT IN (SELECT path FROM entries_staging WHERE session_id = ?)
-			`, rootPath, scanID); err != nil {
-				return rootPath
-			}
-		}
+	if rootPath == "" {
+		return rootPath, false, nil
 	}
-	return rootPath
+
+	scopePath := ""
+	if sessionScopePath.Valid {
+		// Normalize scope_path to POSIX as well for consistent matching
+		scopePath = filepath.ToSlash(sessionScopePath.String)
+	}
+
+	if scopePath == "" {
+		// Full-root cleanup: DELETE ... WHERE root_path=? AND path NOT IN
+		// (SELECT path FROM entries_staging WHERE session_id=?)
+		if _, err := tx.Exec(`
+			DELETE FROM entries
+			WHERE root_path = ?
+				AND path NOT IN (SELECT path FROM entries_staging WHERE session_id = ?)
+		`, rootPath, scanID); err != nil {
+			return rootPath, false, err
+		}
+		return rootPath, true, nil
+	}
+
+	// Scoped cleanup: everything *under* the scope that the scan of that
+	// scope no longer reports is stale.
+	//
+	// The scope directory's own row is deliberately outside that set: a
+	// folder scan reports the folder's contents (the walk emits the
+	// scope's children), so the scope row can never appear in staging,
+	// and treating its absence as stale would unlist the directory that
+	// was just scanned — the overview listing and the directory identity
+	// the workbench addresses both read that row.
+	//
+	// The prefix is compared with substr, not LIKE: a directory name is
+	// free to contain `%` or `_`, which a LIKE pattern would read as
+	// wildcards and match siblings by accident.
+	if _, err := tx.Exec(`
+		DELETE FROM entries
+		WHERE root_path = ?
+			AND substr(path, 1, length(?) + 1) = ? || '/'
+			AND path NOT IN (SELECT path FROM entries_staging WHERE session_id = ?)
+	`, rootPath, scopePath, scopePath, scanID); err != nil {
+		return rootPath, false, err
+	}
+	return rootPath, false, nil
 }

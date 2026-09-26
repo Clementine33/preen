@@ -26,7 +26,14 @@ type scanEventData struct {
 	RootPath     string `json:"root_path,omitempty"`
 	FilesScanned int    `json:"files_scanned,omitempty"`
 	DirsScanned  int    `json:"dirs_scanned,omitempty"`
-	Code         string `json:"code,omitempty"`
+	// How the scan classified the library's direct child directories whose
+	// names it could not read as exactly one work number. The list is capped and
+	// says so, so a large library cannot turn the response into a transcript.
+	DirsWithoutNumber       int      `json:"dirs_without_number,omitempty"`
+	DirsWithMultipleNumbers int      `json:"dirs_with_multiple_numbers,omitempty"`
+	ExampleDirs             []string `json:"example_dirs,omitempty"`
+	ExamplesTruncated       bool     `json:"examples_truncated,omitempty"`
+	Code                    string   `json:"code,omitempty"`
 }
 
 // writeScanAdmissionError maps a refused admission to its envelope: the gate's
@@ -140,9 +147,13 @@ func (s *Server) postLibraryScan(w http.ResponseWriter, r *http.Request) {
 	// derived folder table to rebuild, which is why a rescan cannot renumber
 	// anything the workbench navigates by.
 	_ = sw.Send("completed", scanEventData{
-		Stage:        "scan",
-		ScanID:       result.ScanID,
-		RootPath:     result.RootPath,
-		FilesScanned: result.FilesScanned,
+		Stage:                   "scan",
+		ScanID:                  result.ScanID,
+		RootPath:                result.RootPath,
+		FilesScanned:            result.FilesScanned,
+		DirsWithoutNumber:       result.DirsWithoutNumber,
+		DirsWithMultipleNumbers: result.DirsWithMultipleNumbers,
+		ExampleDirs:             result.ExampleDirs,
+		ExamplesTruncated:       result.ExamplesTruncated,
 	})
 }

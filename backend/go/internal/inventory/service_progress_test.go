@@ -29,7 +29,7 @@ func TestScanRootCtxEmitsProgressAndCounts(t *testing.T) {
 		}
 	}
 
-	store := &fakeStagingStore{MergeResult: n}
+	store := &fakeStagingStore{MergeOutcome: inventory.MergeOutcome{Merged: n}}
 	svc := inventory.NewPipeline(store, filesystem.WalkRootEntriesParallel, filesystem.WalkFolderEntries)
 
 	var progress []inventory.Progress

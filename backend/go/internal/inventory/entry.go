@@ -25,15 +25,25 @@ type Event struct {
 	Stage        string
 	FilesScanned int
 	DirsScanned  int
-	ScanID       string
-	Message      string
+	// The binding classifications of a completed full scan: how many of the
+	// library's direct child directories named no work number or more than one.
+	DirsWithoutNumber       int
+	DirsWithMultipleNumbers int
+	ExampleDirs             []string
+	ExamplesTruncated       bool
+	ScanID                  string
+	Message                 string
 }
 
 // Result is the output of one scan.
 type Result struct {
-	ScanID       string
-	RootPath     string
-	FilesScanned int
+	ScanID                  string
+	RootPath                string
+	FilesScanned            int
+	DirsWithoutNumber       int
+	DirsWithMultipleNumbers int
+	ExampleDirs             []string
+	ExamplesTruncated       bool
 }
 
 // ErrorKind values for Error.Kind, used to map to HTTP status codes.

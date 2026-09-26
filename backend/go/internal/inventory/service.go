@@ -21,14 +21,23 @@ const (
 	progressTimeInterval   = 100 * time.Millisecond // emit progress at most every 100ms
 )
 
-// Progress reports scan progress.
+// Progress reports scan progress. The final report of a full scan also carries
+// the binding classifications, which are known only once the merge has run.
 type Progress struct {
 	FilesScanned int
 	DirsScanned  int
+
+	// DirsWithoutNumber and DirsWithMultipleNumbers count the library's direct
+	// child directories whose names yielded no work number or more than one.
+	DirsWithoutNumber       int
+	DirsWithMultipleNumbers int
+	ExampleDirs             []string
+	ExamplesTruncated       bool
 }
 
 type scanOptions struct {
-	progress func(Progress)
+	progress  func(Progress)
+	libraryID string
 }
 
 // ScanOption configures a scan operation.
@@ -39,6 +48,12 @@ type ScanOption func(*scanOptions)
 // with the complete counts when the pipeline finishes.
 func WithProgress(cb func(Progress)) ScanOption {
 	return func(o *scanOptions) { o.progress = cb }
+}
+
+// WithLibrary names the library a full scan belongs to. It is what lets the
+// merge reconcile that library's directory bindings in the same transaction.
+func WithLibrary(libraryID string) ScanOption {
+	return func(o *scanOptions) { o.libraryID = libraryID }
 }
 
 // resolvePipelineError applies the pipeline failure precedence shared by the
@@ -102,11 +117,29 @@ func (t *progressTracker) emit() {
 	t.cb(t.last)
 }
 
+// MergeOutcome is what one merge did beyond moving rows: how many entries it
+// merged, and how the library's direct child directories were classified while
+// the bindings were reconciled. The classifications are the scan's answer for a
+// directory whose name it could not read as exactly one work number - the scan
+// does not guess, so it reports.
+type MergeOutcome struct {
+	Merged                  int
+	DirsWithoutNumber       int
+	DirsWithMultipleNumbers int
+	ExampleDirs             []string
+	ExamplesTruncated       bool
+}
+
 // StagingStore is the staging and session storage one scan needs, declared
 // here by its consumer and satisfied by the SQLite adapter.
+//
+// MergeStaging takes the library because a full scan is what reconciles that
+// library's directory bindings, and the reconciliation has to happen inside the
+// same transaction as the merge. An empty library means the merge is a member
+// refresh, which leaves every binding alone.
 type StagingStore interface {
 	WriteStagingEntries(sessionID string, entries []StagingEntry) error
-	MergeStaging(sessionID, rootPath string, stalePaths []string) (int, error)
+	MergeStaging(sessionID, libraryID, rootPath string) (MergeOutcome, error)
 	CreateScanSession(session *ScanSession) error
 	UpdateScanSessionStatus(sessionID, status, errorCode, errorMessage string) error
 }
@@ -268,6 +301,11 @@ func (s *Pipeline) ScanRootCtx(ctx context.Context, rootPath string, opts ...Sca
 		cleanupFn = pipeline.CleanupStagingSession
 	}
 
+	// The consumer's final counts outlive its goroutine: the report after the
+	// merge repeats them so the caller sees one event carrying both the scan's
+	// own counts and what the merge classified.
+	var scanned Progress
+
 	wg.Go(func() {
 		batch := make([]StagingEntry, 0, pipelineBatchSize)
 		progress := newProgressTracker(o.progress)
@@ -307,6 +345,7 @@ func (s *Pipeline) ScanRootCtx(ctx context.Context, rootPath string, opts ...Sca
 
 		// Final progress report with complete counts
 		progress.finish()
+		scanned = progress.last
 	})
 
 	// Wait for both producer and consumer to finish
@@ -359,10 +398,24 @@ func (s *Pipeline) ScanRootCtx(ctx context.Context, rootPath string, opts ...Sca
 		}
 
 		// Merge into main catalog
-		_, err := s.repo.MergeStaging(sessionID, normalizedRootPath, nil)
+		outcome, err := s.repo.MergeStaging(sessionID, o.libraryID, normalizedRootPath)
 		if err != nil {
 			_ = s.repo.UpdateScanSessionStatus(sessionID, "failed", "MERGE_FAILED", err.Error())
 			return "", fmt.Errorf("merge staging: %w", err)
+		}
+
+		// The classifications are only known once the bindings have been
+		// reconciled, so they travel in a report of their own rather than in the
+		// per-entry progress above.
+		if o.progress != nil {
+			o.progress(Progress{
+				FilesScanned:            scanned.FilesScanned,
+				DirsScanned:             scanned.DirsScanned,
+				DirsWithoutNumber:       outcome.DirsWithoutNumber,
+				DirsWithMultipleNumbers: outcome.DirsWithMultipleNumbers,
+				ExampleDirs:             outcome.ExampleDirs,
+				ExamplesTruncated:       outcome.ExamplesTruncated,
+			})
 		}
 
 		if err := s.repo.UpdateScanSessionStatus(sessionID, "completed", "", ""); err != nil {
@@ -543,8 +596,9 @@ func (s *Pipeline) ScanFolderCtx(
 			return "", err
 		}
 
-		_, err := s.repo.MergeStaging(sessionID, normalizedRootPath, nil)
-		if err != nil {
+		// A member refresh reconciles nothing: it is scoped to one subtree, and
+		// the library's direct children are not its to rewrite.
+		if _, err := s.repo.MergeStaging(sessionID, "", normalizedRootPath); err != nil {
 			_ = s.repo.UpdateScanSessionStatus(sessionID, "failed", "MERGE_FAILED", err.Error())
 			return "", err
 		}

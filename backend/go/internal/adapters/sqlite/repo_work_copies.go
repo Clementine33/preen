@@ -1,0 +1,169 @@
+package sqlite
+
+import (
+	"database/sql"
+	"strings"
+	"time"
+
+	"github.com/google/uuid"
+
+	"github.com/onsei/organizer/backend/internal/works"
+)
+
+// exampleDirLimit caps the sample of unclear directory names a scan reports.
+const exampleDirLimit = 20
+
+// bindingOutcome is what one reconciliation classified, in the scanner's own
+// vocabulary.
+type bindingOutcome struct {
+	unnumbered int
+	multiple   int
+	examples   []string
+	truncated  bool
+}
+
+// syncWorkCopies reconciles the library's bindings against the directories the
+// merge just left behind. It runs inside the merge transaction, so the binding
+// state and the inventory it is derived from become visible together: a scan
+// can never leave the inventory updated and the bindings stale.
+//
+// The directory name is the authority on which work a directory holds, so a
+// directory that names no work - or names several - is unbound rather than
+// guessed at, and stays ordinary inventory.
+func syncWorkCopies(tx *sql.Tx, libraryID, rootPath string) (bindingOutcome, error) {
+	var outcome bindingOutcome
+	if libraryID == "" {
+		return outcome, nil
+	}
+	// The root is compared against stored parent paths, so it must be in the
+	// same POSIX form the merge wrote. The trailing slash is dropped unless the
+	// root is "/" itself, which has nothing to drop.
+	rootPath = strings.ReplaceAll(rootPath, "\\", "/")
+	if len(rootPath) > 1 {
+		rootPath = strings.TrimRight(rootPath, "/")
+	}
+
+	rows, err := tx.Query(`
+		SELECT path, name
+		FROM entries
+		WHERE is_dir = 1 AND parent_path = ?
+		ORDER BY path
+	`, rootPath)
+	if err != nil {
+		return outcome, err
+	}
+	type childDir struct{ path, name string }
+	var children []childDir
+	for rows.Next() {
+		var child childDir
+		if err := rows.Scan(&child.path, &child.name); err != nil {
+			rows.Close()
+			return outcome, err
+		}
+		children = append(children, child)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return outcome, err
+	}
+	rows.Close()
+
+	prefix := rootPath
+	if prefix != "/" && !strings.HasSuffix(prefix, "/") {
+		prefix += "/"
+	}
+
+	// Bound holds the directories that must end up bound. Everything else of
+	// this library is unbound below, which is also what removes the binding of a
+	// directory that no longer exists.
+	bound := map[string]works.WorkCode{}
+	for _, child := range children {
+		if isRecoveryDirName(rootPath, child.name) {
+			continue
+		}
+		relPath := strings.TrimPrefix(strings.ReplaceAll(child.path, "\\", "/"), prefix)
+		switch extraction := works.CodesInDirName(child.name); extraction.Kind {
+		case works.DirCodeSingle:
+			bound[relPath] = extraction.Code
+		case works.DirCodeMultiple:
+			outcome.multiple++
+			outcome.addExample(child.name)
+		case works.DirCodeNone:
+			outcome.unnumbered++
+			outcome.addExample(child.name)
+		}
+	}
+
+	if err := unbindMissing(tx, libraryID, bound); err != nil {
+		return outcome, err
+	}
+	now := formatWorksTimestamp(time.Now())
+	for relPath, workID := range bound {
+		if err := bindDirectory(tx, libraryID, relPath, workID, now); err != nil {
+			return outcome, err
+		}
+	}
+	return outcome, nil
+}
+
+// addExample records one unclear directory name, up to the report's cap.
+func (o *bindingOutcome) addExample(name string) {
+	if len(o.examples) >= exampleDirLimit {
+		o.truncated = true
+		return
+	}
+	o.examples = append(o.examples, name)
+}
+
+// unbindMissing drops every binding of this library that the reconciliation did
+// not keep.
+func unbindMissing(tx *sql.Tx, libraryID string, bound map[string]works.WorkCode) error {
+	if len(bound) == 0 {
+		_, err := tx.Exec("DELETE FROM work_copies WHERE library_id = ?", libraryID)
+		return err
+	}
+	placeholders := make([]string, 0, len(bound))
+	args := make([]any, 0, len(bound)+1)
+	args = append(args, libraryID)
+	for relPath := range bound {
+		placeholders = append(placeholders, "?")
+		args = append(args, relPath)
+	}
+	_, err := tx.Exec(
+		"DELETE FROM work_copies WHERE library_id = ? AND rel_path NOT IN ("+strings.Join(placeholders, ", ")+")",
+		args...,
+	)
+	return err
+}
+
+// bindDirectory points one directory at one work.
+//
+// The work row is created on first sight with collected_at set, and an existing
+// row only gains a collected_at if it had none: that is what turns a relation
+// placeholder into an ordinary entry, and why unbinding and rebinding never
+// reset when a work was first collected. The binding keeps its own id while the
+// library and the path persist, so a directory that changes which work it holds
+// keeps the identity it had.
+func bindDirectory(tx *sql.Tx, libraryID, relPath string, workID works.WorkCode, now string) error {
+	if _, err := tx.Exec(`
+		INSERT INTO works (id, collected_at, created_at, updated_at)
+		VALUES (?, ?, ?, ?)
+		ON CONFLICT(id) DO UPDATE SET collected_at = COALESCE(works.collected_at, excluded.collected_at)
+	`, string(workID), now, now, now); err != nil {
+		return err
+	}
+	_, err := tx.Exec(`
+		INSERT INTO work_copies (id, work_id, library_id, rel_path, created_at)
+		VALUES (?, ?, ?, ?, ?)
+		ON CONFLICT(library_id, rel_path) DO UPDATE SET work_id = excluded.work_id
+	`, uuid.NewString(), string(workID), libraryID, relPath, now)
+	return err
+}
+
+// unbindLibraryCopies drops every binding of one library, which a root change
+// and a library deletion both need: the bindings describe directories under the
+// old root, and they are meaningless without it.
+func unbindLibraryCopies(tx *sql.Tx, libraryID string) error {
+	_, err := tx.Exec("DELETE FROM work_copies WHERE library_id = ?", libraryID)
+	return err
+}

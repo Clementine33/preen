@@ -443,9 +443,9 @@ func TestMergeWithExplicitStalePaths(t *testing.T) {
 		t.Fatalf("failed to seed staging: %v", err)
 	}
 
-	// Call merge with stalePaths containing a path that is NOT in staging.
-	// The stalePaths should be ignored - only staging determines what is preserved.
-	err = repo.MergeStagingWithStalePaths("scan-123", "/music", []string{"/music/not_in_staging.mp3"})
+	// Only staging decides what survives: the merge has no "preserve" list at
+	// all, so the requested path is stale precisely because staging omitted it.
+	err = repo.MergeStagingSimple("scan-123", "/music")
 	if err != nil {
 		t.Fatalf("merge failed: %v", err)
 	}

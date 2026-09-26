@@ -93,20 +93,12 @@ func (a *ScanStaging) WriteStagingEntries(_ string, entries []inventory.StagingE
 	return nil
 }
 
-// MergeStaging merges staged entries and returns merged count.
-func (a *ScanStaging) MergeStaging(sessionID, rootPath string, _ []string) (int, error) {
-	if err := a.repo.MergeStagingSimple(sessionID, rootPath); err != nil {
-		return 0, err
-	}
-
-	// scan_id is set to sessionID during merge updates/inserts.
-	var mergedCount int
-	if err := a.repo.DB().
-		QueryRow("SELECT COUNT(*) FROM entries WHERE scan_id = ?", sessionID).
-		Scan(&mergedCount); err != nil {
-		return 0, err
-	}
-	return mergedCount, nil
+// MergeStaging merges staged entries and reconciles the library's bindings,
+// reporting what the merge did. The count and the classifications are produced
+// by the merge itself, inside its transaction, so nothing here recomputes them
+// from a state that has already moved on.
+func (a *ScanStaging) MergeStaging(sessionID, libraryID, rootPath string) (inventory.MergeOutcome, error) {
+	return a.repo.MergeStaging(sessionID, libraryID, rootPath)
 }
 
 // CreateScanSession persists a scanner scan session in sqlite.

@@ -62,6 +62,12 @@ own guards: `IDEMPOTENCY_KEY_REQUIRED`, `VERSION_REQUIRED`,
 Codes such as `SCOPE_REQUIRED` are a planning session's `error_code`, never an
 HTTP envelope.
 
+The work catalog adds: `INVALID_PAGE` / `INVALID_CURSOR` /
+`CURSOR_QUERY_MISMATCH` / `MATCH_MODE_REQUIRED` / `INVALID_TAG_NAME` /
+`INVALID_TIMESTAMP` (400), `WORK_NOT_FOUND` / `USER_TAG_NOT_FOUND` (404),
+`WORK_IN_USE` / `USER_TAG_EXISTS` / `WORK_IS_PLACEHOLDER` (409). A refusal may
+carry `details[]` naming the references that hold a work in place.
+
 ## Endpoints
 
 | Method | Path | Auth | Status | Response |
@@ -644,6 +650,134 @@ operation drafts or revisions.
 Applying a slot is a client edit that copies policy values into the operation
 draft and uses the normal version-guarded save. There is no server-side live
 slot reference, slot creation or slot deletion endpoint.
+
+## Work catalog
+
+The catalog is the logical layer above the inventory: works identified by their
+work number, the source metadata imported for them, the directories bound to
+them, and the single user's data about them. The directory name is the only
+authority on which work a directory holds, so there is no route that creates a
+work or rebinds a copy — scanning does that (ADR 0011 §2). Every work number in
+a path or body is accepted in either case and in its 6- or 8-digit spelling, and
+resolves to the canonical 8-digit form; `RJ123456` and `RJ00123456` are the same
+work, while `RJ1657200` (7 digits) is refused.
+
+| Method | Path | Contract |
+| --- | --- | --- |
+| GET | `/api/v1/works` | 200 `{"works":[…],"next_cursor":"…"}`. Filters and paging below. |
+| GET | `/api/v1/works/{rj}` | 200 the work in full: metadata, personal data, resolved relation, language editions and every copy. A work declared by a relation but never found on disk answers `"placeholder":true` and is absent from the listing. |
+| PUT | `/api/v1/works/{rj}/metadata` | Body: up to four independent data groups (below). 200 `{"applied":[…],"ignored":[…],"warnings":[…],"created_placeholders":[…]}`. |
+| PATCH | `/api/v1/works/{rj}/user-data` | Body `{"rating":8,"favorite":true,"note":"…"}`; only the fields present are applied, and `"rating":null` clears it. 200 the resulting state. |
+| PUT | `/api/v1/works/{rj}/user-tags` | Body `{"tag_ids":["…"]}`; replaces the work's tag set with exactly these. 200 `{"user_tags":[…]}`. Unknown ids are `USER_TAG_NOT_FOUND` (404). |
+| GET | `/api/v1/user-tags` | 200 `{"user_tags":[{"id":"…","name":"…"}]}`. |
+| POST | `/api/v1/user-tags` | Body `{"name":"…"}`; 200 the tag, **creating it if new and returning the existing one otherwise** — creating by name is idempotent. |
+| PATCH | `/api/v1/user-tags/{id}` | Body `{"name":"…"}`; 200 the tag, `USER_TAG_EXISTS` (409) on a name another tag holds. |
+| DELETE | `/api/v1/user-tags/{id}` | 204; the tag's relations go with it, no work is touched. |
+| DELETE | `/api/v1/works/{rj}` | 204; `WORK_IN_USE` (409) with `details[]` while a copy is bound or another work's evidence points at it. |
+
+Ratings are integers 1–10 (`null` means unrated, which is not 0). A work that
+exists only as a relation placeholder holds no personal data: writing it is
+`WORK_IS_PLACEHOLDER` (409). User tag names are trimmed, must be non-empty, and
+are unique as exact text — case is not folded and source tags are a separate
+thing.
+
+### Source metadata import
+
+The body carries up to four **independent** groups; a group that is absent is
+left exactly as it was, and a group that is present is a complete snapshot of
+that group — an unknown scalar is an explicit `null`, and an empty array means
+the set is empty. A submission with no group at all is refused.
+
+```json
+{
+  "core": {
+    "source": "dlsite",
+    "fetched_at": "2026-09-27T10:00:00.000000000Z",
+    "title": "…",
+    "circle": { "source_circle_id": "RG01038998", "name": "mete0r" },
+    "nsfw": true,
+    "release_date": "2025-06-25",
+    "source_url": "https://…",
+    "cover_url": "…", "thumbnail_url": "…", "sample_cover_url": "…",
+    "series_id": null, "series_name": null,
+    "voice_actors": [{ "source_voice_actor_id": "17180", "name": "伊ヶ崎綾香" }],
+    "tags": [{ "source_tag_id": "497", "name": "ASMR" }]
+  },
+  "statistics": { "fetched_at": "2026-09-27T10:00:00.000000000Z", "dl_count": 12 },
+  "relations": {
+    "source": "dlsite",
+    "fetched_at": "2026-09-27T10:00:00.000000000Z",
+    "role": "child",
+    "language": "CHI_HANT",
+    "original_rj": "RJ01276487",
+    "parent_rj": "RJ01412616",
+    "child_rjs": []
+  },
+  "editions": {
+    "source": "dlsite",
+    "fetched_at": "2026-09-27T10:00:00.000000000Z",
+    "edition_id": "51904",
+    "items": [{ "version_root_rj": "RJ01506610", "language": "JPN", "label": "日本語", "display_order": 1 }]
+  }
+}
+```
+
+`relations` and `editions` are separate groups on purpose: `translation_info`
+is available on DLsite's dynamic endpoint, `language_editions` only on its
+static one, so a crawler refreshing sales cheaply must not be forced to
+resubmit — or worse, silently blank — the group it did not fetch
+(ADR 0011 §4). `statistics` carries no `source`: sales are only ever reported
+by DLsite. `fetched_at` must be UTC with nine fractional digits; other shapes
+are `INVALID_TIMESTAMP` (400).
+
+Within a group, a higher-priority source (DLsite) replaces a lower-priority one
+(ASMR.one) outright, and the same source only moves forward: an equal or older
+fetch is skipped, reported in `ignored[]` with `STALE_FETCHED_AT` or
+`LOWER_PRIORITY_SOURCE`. `warnings[]` is a different thing — those groups
+*were* written, and carry `RELATION_CONFLICT` or `RELATION_AMBIGUOUS` when a
+declaration disagrees with the work's own relation report (the work's own
+report always wins). Anything structurally illegal — a self-reference, an
+original chain, a cycle among effective parents, a malformed number — refuses
+the **whole** submission as a 400 and writes nothing. An import never touches
+personal data or copy bindings, and a work it names but the catalog has not
+seen on disk is created as a relation placeholder, listed in
+`created_placeholders[]`.
+
+### Listing filters, ordering and paging
+
+`GET /api/v1/works` accepts exactly these parameters; anything else is
+`INVALID_ARGUMENT` (400), so a typo cannot silently widen the answer.
+
+| Parameter | Meaning |
+| --- | --- |
+| `q` | Literal substring of the work number or the title. `%` and `_` are ordinary characters, not wildcards. A query that *is* a work number also matches that work exactly, so the short spelling finds it. |
+| `circle`, `language`, `library` | Comma-separated id lists; a work matches if it has any of them. |
+| `voice_actor` / `source_tag` / `user_tag` | Comma-separated id lists, each **requiring** its `…_match=all\|any` companion (`MATCH_MODE_REQUIRED`, 400, if absent). |
+| `nsfw` | `true`, `false` or `unknown` (a work that never reported the flag). |
+| `released_from` / `released_to` | `YYYY-MM-DD`, inclusive; works with an unknown release date are not in the range. |
+| `rating_from` / `rating_to` | Integer 1–10, inclusive. |
+| `unrated` | `true`/`false`. It **unions** with the rating range inside that dimension: `rating_from=8&unrated=true` means "8 or more, or not rated". |
+| `favorite`, `has_copy` | `true`/`false`. |
+| `sort` / `direction` | `rj` / `release_date` / `collected_at`, and `asc` / `desc`. |
+| `limit`, `cursor` | Page size and continuation (below). |
+
+Different dimensions intersect. An absent `limit` is 50; a supplied one must be
+an integer 1–200, so `limit=abc`, `0`, `-1`, `201` and `1.5` are all
+`INVALID_PAGE` (400) rather than being replaced or clamped.
+
+The cursor is opaque and carries the sort position plus a fingerprint of the
+query. Changing a filter or the ordering invalidates it
+(`CURSOR_QUERY_MISMATCH`, 400) instead of paging through a different sequence;
+changing only `limit` does not. Unknown release dates always sort last, in
+either direction, and equal sort values are broken by work number so a page
+boundary cannot repeat or skip a row. There is no cross-request snapshot: a
+concurrent metadata change can move a later page's contents.
+
+The listing returns the work number, title, thumbnail, circle, language, adult
+flag, release date, **sales**, personal rating, favorite flag, user tags,
+whether a note exists, when it was first collected, and its copy count. It does
+not return the note text, the full edition list, relation details or the file
+tree.
 
 ## Paths: the one rule
 

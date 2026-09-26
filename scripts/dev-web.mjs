@@ -165,5 +165,8 @@ function teardown(exitCode = 0) {
 
 process.on('SIGINT', () => teardown(130))
 process.on('SIGTERM', () => teardown(143))
+// A closing pty sends SIGHUP; the default action would kill us without
+// running teardown, orphaning Vite on port 5173.
+process.on('SIGHUP', () => teardown(129))
 
 console.log(`[dev-web] starting backend (data dir: ${dataDir})`)

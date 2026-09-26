@@ -19,6 +19,12 @@ func writeError(w http.ResponseWriter, status int, code, message string) {
 	writeJSON(w, status, errorResponse{Code: code, Message: message})
 }
 
+// writeErrorDetails is writeError for a refusal that has something specific to
+// say, such as which references still hold a work in place.
+func writeErrorDetails(w http.ResponseWriter, status int, code, message string, details []string) {
+	writeJSON(w, status, errorResponse{Code: code, Message: message, Details: details})
+}
+
 // healthResponse is the payload of GET /api/v1/health.
 type healthResponse struct {
 	OK      bool   `json:"ok"`

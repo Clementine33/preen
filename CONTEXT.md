@@ -4,6 +4,57 @@ Onsei organizes audio collections by comparing observed media with desired audio
 
 ## Language
 
+### Work catalog
+
+**Work**:
+One audio work, identified by its work number: the immutable identity, and the
+whole reason two directories holding the same work share one entry. It is
+discovered by scanning a directory whose *name* carries exactly one work number
+— there is no other way to create one. Its metadata comes from a source, its
+relations from the source's own report, and the user's rating and tags from
+this deployment's single user.
+_Avoid_: Treating a directory as the work, or a work as a copy of one.
+
+**Work Number**:
+The canonical form of a work's identity: `RJ` plus eight zero-padded digits.
+Six-digit and eight-digit spellings of the same number are the same work; a
+seven-digit run is not a work number at all.
+_Avoid_: Using the source's own spelling as the key.
+
+**Relation Placeholder**:
+A work a source's relation report named but no scan has found on disk. It is
+reachable through its relations and holds no personal data (writing it is
+refused), and it becomes an ordinary entry the moment a scan finds it — its
+collection time, not the source's report, is what makes it collected.
+_Avoid_: A second way to create a work.
+
+**Copy (Work Binding)**:
+One library directory bound to one work. The binding is maintained by scanning
+and identified by the library and the relative path, so re-scanning keeps it
+and a directory that stops naming a work is simply unbound. It carries no
+foreign key to the inventory: a rescan deleting rows must never delete a work
+or its personal data.
+_Avoid_: Treating a copy as the work, or as a file.
+
+**Source Data Group**:
+One independently submittable slice of a work's source metadata — `core`
+(the basic description), `statistics` (sales), `relations` (the translation
+report) and `editions` (the language edition list). A group is submitted as a
+complete snapshot or not at all, because the upstream channels differ: sales
+and the translation report come from DLsite's dynamic endpoint, while the
+edition list exists only on its static one.
+_Avoid_: One combined snapshot that forces a crawler to resubmit what it did
+not fetch.
+
+**Relation Evidence / Resolved Relation**:
+*Evidence* is what sources said — a work's own relation report, and the child
+edges other works declared. *Resolved* is what this build derives from the
+evidence: the role, language, original and parent a reader sees. Evidence may
+contain a conflict, which is stored and warned about; the resolved value is
+recomputed whenever evidence changes, and being derived it never blocks a
+deletion.
+_Avoid_: Reading the derived relation as a source of truth about references.
+
 ### Collections and workbench
 
 **Library**:

@@ -200,16 +200,14 @@ func (f *Filter) Validate() *Error {
 	return nil
 }
 
-// dateWidth is the fixed width of a stored calendar date (YYYY-MM-DD).
-const dateWidth = 10
-
 // validDate reports whether s is a calendar date in the stored fixed width
-// form. The comparison is textual, so the width has to be exactly right.
+// form. The comparison is textual, so the width has to be exactly right; it is
+// taken from the layout rather than written down twice.
 func validDate(s string) bool {
-	if len(s) != dateWidth {
+	if len(s) != len(DateFormat) {
 		return false
 	}
-	for i := range dateWidth {
+	for i := range len(s) {
 		if i == 4 || i == 7 {
 			if s[i] != '-' {
 				return false

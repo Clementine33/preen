@@ -61,6 +61,12 @@ var rules = []rule{
 	},
 	{
 		name:   "business packages reach storage and tools through ports",
+		pkg:    module + "/works",
+		banned: []string{module + "/adapters"},
+		why:    "the catalog's rules are pure functions; Store is what they ask for",
+	},
+	{
+		name:   "business packages reach storage and tools through ports",
 		pkg:    module + "/fileops",
 		banned: []string{module + "/adapters"},
 		why:    "direct file management takes its inventory refresh through a seam",
@@ -100,6 +106,12 @@ var rules = []rule{
 		pkg:    module + "/conversion",
 		banned: []string{module + "/app"},
 		why:    "the task is constructed by the assembly root and knows nothing of it",
+	},
+	{
+		name:   "business packages do not know the process",
+		pkg:    module + "/works",
+		banned: []string{module + "/app"},
+		why:    "the catalog is driven by its callers, not by the process",
 	},
 	{
 		name:   "business packages do not know the process",

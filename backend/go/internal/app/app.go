@@ -29,6 +29,7 @@ import (
 	"github.com/onsei/organizer/backend/internal/fileops"
 	"github.com/onsei/organizer/backend/internal/inventory"
 	"github.com/onsei/organizer/backend/internal/library"
+	"github.com/onsei/organizer/backend/internal/works"
 	"github.com/onsei/organizer/backend/internal/workset"
 )
 
@@ -129,6 +130,8 @@ type services struct {
 	// catalog is the global policy catalog: the three policy slots and the
 	// custom classifier tag library the settings pages edit.
 	catalog *conversion.Catalog
+	// works is the logical work catalog the library's directories bind to.
+	works *works.Service
 }
 
 // buildServices wires the process. Direct file management and the managed task
@@ -176,6 +179,7 @@ func buildServices(repo *sqlite.Repository, configDir string, generationConcurre
 		fileOps: fileops.NewService(gate, scanSvc.RefreshMember),
 		workset: worksetSvc,
 		catalog: conversion.NewCatalog(repo, repo, appconfig.NewReader(configDir)),
+		works:   works.NewService(repo),
 	}
 }
 
@@ -235,6 +239,7 @@ func runServer(ctx context.Context, repo *sqlite.Repository, cfg Config) {
 			Inventory:      services.scan,
 			WorksetService: services.workset,
 			FileOps:        services.fileOps,
+			Works:          services.works,
 		}),
 	}
 	go func() {

@@ -10,6 +10,7 @@ import (
 	"github.com/onsei/organizer/backend/internal/fileops"
 	"github.com/onsei/organizer/backend/internal/inventory"
 	"github.com/onsei/organizer/backend/internal/library"
+	"github.com/onsei/organizer/backend/internal/works"
 	"github.com/onsei/organizer/backend/internal/workset"
 )
 
@@ -32,6 +33,9 @@ type Dependencies struct {
 	// other path that takes an admission slot own that decision themselves, so
 	// the HTTP layer never holds the gate.
 	FileOps *fileops.Service
+	// Works is the catalog entry: the ordinary listing, one work's detail, the
+	// source metadata imports and the single user's data about a work.
+	Works *works.Service
 }
 
 // Dependencies names no storage: every route reaches its business entry, and
@@ -70,6 +74,20 @@ func NewServer(deps Dependencies) http.Handler {
 	)
 	mux.Handle("GET /api/v1/policy-slots", protect(http.HandlerFunc(s.listPolicySlots)))
 	mux.Handle("PUT /api/v1/policy-slots/{slot}", protect(http.HandlerFunc(s.putPolicySlot)))
+	// The work catalog: the ordinary listing and one work's detail, the source
+	// metadata import, the single user's data and tags, and the protected
+	// permanent deletion. Copies are maintained by scanning, so there is no
+	// binding route here.
+	mux.Handle("GET /api/v1/works", protect(http.HandlerFunc(s.listWorks)))
+	mux.Handle("GET /api/v1/works/{rj}", protect(http.HandlerFunc(s.getWork)))
+	mux.Handle("PUT /api/v1/works/{rj}/metadata", protect(http.HandlerFunc(s.putWorkMetadata)))
+	mux.Handle("PATCH /api/v1/works/{rj}/user-data", protect(http.HandlerFunc(s.patchWorkUserData)))
+	mux.Handle("PUT /api/v1/works/{rj}/user-tags", protect(http.HandlerFunc(s.putWorkUserTags)))
+	mux.Handle("DELETE /api/v1/works/{rj}", protect(http.HandlerFunc(s.deleteWork)))
+	mux.Handle("GET /api/v1/user-tags", protect(http.HandlerFunc(s.listUserTags)))
+	mux.Handle("POST /api/v1/user-tags", protect(http.HandlerFunc(s.createUserTag)))
+	mux.Handle("PATCH /api/v1/user-tags/{id}", protect(http.HandlerFunc(s.patchUserTag)))
+	mux.Handle("DELETE /api/v1/user-tags/{id}", protect(http.HandlerFunc(s.deleteUserTag)))
 	mux.Handle("GET /api/v1/classifier-tags", protect(http.HandlerFunc(s.listClassifierTags)))
 	mux.Handle("POST /api/v1/classifier-tags", protect(http.HandlerFunc(s.addClassifierTag)))
 	mux.Handle("DELETE /api/v1/classifier-tags/{id}", protect(http.HandlerFunc(s.deleteClassifierTag)))

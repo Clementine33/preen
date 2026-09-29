@@ -1,7 +1,7 @@
 version: '3'
 
 vars:
-  RAW_TAG: '{{ .RAW_TAG | default (env "RAW_TAG" | default "v0.0.0-dev") }}'
+  RAW_TAG: '{{ .RAW_TAG | default (env "RAW_TAG") }}'
   VERSION: '{{ trimPrefix "v" .RAW_TAG }}'
 
 tasks:
@@ -38,6 +38,12 @@ tasks:
     desc: Run Go backend + Vite web app together (VITE_API_BASE wired from backend handshake)
     cmds:
       - node scripts/dev-web.mjs
+
+  db:rebuild:dev:
+    desc: Back up and rebuild .dev_data/cache.db; stop the development backend first
+    dir: backend/go
+    cmds:
+      - go run ./cmd/rebuild-dev-db
 
   typecheck:web:
     desc: Typecheck the web app (vue-tsc)
@@ -88,4 +94,4 @@ tasks:
       GOOS: windows
       GOARCH: amd64
     cmds:
-      - go build -ldflags "-X main.version={{.VERSION}}" -o bin/onsei-organizer-backend.exe ./cmd/onsei-organizer-backend
+      - go build {{if .VERSION}}-ldflags "-X main.version={{.VERSION}}" {{end}}-o bin/onsei-organizer-backend.exe ./cmd/onsei-organizer-backend

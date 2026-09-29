@@ -1,4 +1,4 @@
-package sqlite //nolint:testpackage // white-box tests exercise unexported internals
+package sqlite_test
 
 import (
 	"database/sql"
@@ -6,12 +6,14 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/onsei/organizer/backend/internal/adapters/sqlite"
 )
 
 // TestOpenRefusesOlderDatabase is the compatibility contract: a database that
 // was not created by this schema generation is refused at open time. Nothing is
-// migrated, nothing is cleared, and the refusal names the way out (a new data
-// directory) instead of resetting someone's data (ADR 0008 §3).
+// converted, nothing is cleared, and the refusal names a new data directory
+// instead of resetting someone's data (ADR 0013 §1).
 func TestOpenRefusesOlderDatabase(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "older.db")
 	db, err := sql.Open("sqlite", dbPath)
@@ -34,13 +36,13 @@ func TestOpenRefusesOlderDatabase(t *testing.T) {
 		t.Fatalf("close db: %v", closeErr)
 	}
 
-	repo, err := NewRepository(dbPath)
+	repo, err := sqlite.NewRepository(dbPath)
 	if repo != nil {
 		repo.Close()
 		t.Fatal("expected the older database to be refused")
 	}
-	if !errors.Is(err, ErrIncompatibleDatabase) {
-		t.Fatalf("expected ErrIncompatibleDatabase, got %v", err)
+	if !errors.Is(err, sqlite.ErrIncompatibleDatabase) {
+		t.Fatalf("expected sqlite.ErrIncompatibleDatabase, got %v", err)
 	}
 	if !strings.Contains(err.Error(), "ONSEI_DATA_DIR") {
 		t.Errorf("refusal must name the way out, got: %v", err)
@@ -65,29 +67,25 @@ func TestOpenRefusesOlderDatabase(t *testing.T) {
 // different schema generation, even though the marker table exists.
 func TestOpenRefusesAnotherSchemaVersion(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "future.db")
-	db, err := sql.Open("sqlite", dbPath)
+	created, err := sqlite.NewRepository(dbPath)
 	if err != nil {
-		t.Fatalf("open db: %v", err)
+		t.Fatal(err)
 	}
-	for _, stmt := range []string{
-		`CREATE TABLE schema_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL DEFAULT '')`,
-		`INSERT INTO schema_meta (key, value) VALUES ('schema_version', '99')`,
-	} {
-		if _, execErr := db.Exec(stmt); execErr != nil {
-			t.Fatalf("exec %q: %v", stmt, execErr)
-		}
+	if _, execErr := created.DB().
+		Exec("INSERT INTO goose_db_version (version_id, is_applied) VALUES (99, 1)"); execErr != nil {
+		t.Fatal(execErr)
 	}
-	if closeErr := db.Close(); closeErr != nil {
-		t.Fatalf("close db: %v", closeErr)
+	if closeErr := created.Close(); closeErr != nil {
+		t.Fatal(closeErr)
 	}
 
-	repo, err := NewRepository(dbPath)
+	repo, err := sqlite.NewRepository(dbPath)
 	if repo != nil {
 		repo.Close()
 		t.Fatal("expected another schema version to be refused")
 	}
-	if !errors.Is(err, ErrIncompatibleDatabase) {
-		t.Fatalf("expected ErrIncompatibleDatabase, got %v", err)
+	if !errors.Is(err, sqlite.ErrIncompatibleDatabase) {
+		t.Fatalf("expected sqlite.ErrIncompatibleDatabase, got %v", err)
 	}
 	if !strings.Contains(err.Error(), "99") {
 		t.Errorf("refusal must name the version it found, got: %v", err)
@@ -100,18 +98,18 @@ func TestOpenRefusesAnotherSchemaVersion(t *testing.T) {
 func TestOpenCreatesAndReportsTheSchemaMarker(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "fresh.db")
 
-	repo, err := NewRepository(dbPath)
+	repo, err := sqlite.NewRepository(dbPath)
 	if err != nil {
-		t.Fatalf("NewRepository on a fresh path failed: %v", err)
+		t.Fatalf("sqlite.NewRepository on a fresh path failed: %v", err)
 	}
 	var marker string
 	if scanErr := repo.DB().QueryRow(
-		"SELECT value FROM schema_meta WHERE key = 'schema_version'",
+		"SELECT value FROM schema_meta WHERE key = 'database_mode'",
 	).Scan(&marker); scanErr != nil {
 		t.Fatalf("read schema marker: %v", scanErr)
 	}
-	if marker != schemaVersion {
-		t.Errorf("marker = %q, want %q", marker, schemaVersion)
+	if marker != "release" {
+		t.Errorf("marker = %q, want %q", marker, "release")
 	}
 	// The world outside the library domain is gone from a fresh database: the
 	// overview reads the scanned inventory, and the derived folder table that
@@ -129,67 +127,49 @@ func TestOpenCreatesAndReportsTheSchemaMarker(t *testing.T) {
 		t.Fatalf("close repo: %v", closeErr)
 	}
 
-	reopened, err := NewRepository(dbPath)
+	reopened, err := sqlite.NewRepository(dbPath)
 	if err != nil {
 		t.Fatalf("reopen of a database this build created failed: %v", err)
 	}
 	reopened.Close()
 }
 
-// TestOpenAddsTheCommonSettingsTableToAnExistingDatabase covers the upgrade
-// path for a data directory created before the deployment-wide common settings
-// existed: opening it keeps every row and creates the missing table, which is
-// why the additive table needs no migration and no schema-version bump
-// (ADR 0010 §1).
-func TestOpenAddsTheCommonSettingsTableToAnExistingDatabase(t *testing.T) {
+// Existing development tables are user-controlled, not repaired on startup.
+func TestOpenDoesNotRepairAnExistingDevelopmentDatabase(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "existing.db")
-	repo, err := NewRepository(dbPath)
+	repo, err := sqlite.NewDevelopmentRepository(dbPath)
 	if err != nil {
-		t.Fatalf("NewRepository: %v", err)
+		t.Fatal(err)
 	}
-	if _, execErr := repo.DB().Exec(
-		`INSERT INTO libraries (id, name, root_path, root_path_key) VALUES ('lib-1', 'Music', '/music', '/music')`,
-	); execErr != nil {
-		t.Fatalf("seed library: %v", execErr)
-	}
-	if _, execErr := repo.DB().Exec(`DROP TABLE common_settings`); execErr != nil {
-		t.Fatalf("drop the newer table: %v", execErr)
+	if _, execErr := repo.DB().
+		Exec("INSERT INTO libraries (id, name, root_path, root_path_key) VALUES ('lib-1', 'Music', '/music', '/music'); DROP TABLE common_settings;"); execErr != nil {
+		t.Fatal(execErr)
 	}
 	if closeErr := repo.Close(); closeErr != nil {
-		t.Fatalf("close repo: %v", closeErr)
+		t.Fatal(closeErr)
 	}
-
-	reopened, err := NewRepository(dbPath)
+	reopened, err := sqlite.NewDevelopmentRepository(dbPath)
 	if err != nil {
-		t.Fatalf("a database of this schema generation must open: %v", err)
+		t.Fatal(err)
 	}
 	defer reopened.Close()
-
 	var name string
-	if scanErr := reopened.DB().QueryRow(
-		"SELECT name FROM libraries WHERE id = 'lib-1'",
-	).Scan(&name); scanErr != nil {
-		t.Fatalf("existing row did not survive the open: %v", scanErr)
+	if queryErr := reopened.DB().
+		QueryRow("SELECT name FROM libraries WHERE id = 'lib-1'").
+		Scan(&name); queryErr != nil ||
+		name != "Music" {
+		t.Fatalf("existing row = %q, queryErr = %v", name, queryErr)
 	}
-	if name != "Music" {
-		t.Errorf("existing row changed: name = %q", name)
-	}
-	// The table is back and empty: reading through it answers "nothing stored
-	// yet" rather than failing on a missing table.
-	stored, err := reopened.GetCommonSettings("conversion")
-	if err != nil {
-		t.Fatalf("GetCommonSettings: %v", err)
-	}
-	if stored != nil {
-		t.Fatalf("a recreated table must start empty, got %+v", stored)
+	if _, checkErr := reopened.GetCommonSettings("conversion"); checkErr == nil {
+		t.Fatal("startup must not recreate a manually removed table")
 	}
 }
 
 func TestExistingCommonSettingsRowWithVersionColumnStillLoads(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "existing-common.db")
-	repo, err := NewRepository(dbPath)
+	repo, err := sqlite.NewRepository(dbPath)
 	if err != nil {
-		t.Fatalf("NewRepository: %v", err)
+		t.Fatalf("sqlite.NewRepository: %v", err)
 	}
 	if _, execErr := repo.DB().Exec(`
 		ALTER TABLE common_settings ADD COLUMN schema_version INTEGER NOT NULL DEFAULT 0;
@@ -202,7 +182,7 @@ func TestExistingCommonSettingsRowWithVersionColumnStillLoads(t *testing.T) {
 		t.Fatalf("close repo: %v", closeErr)
 	}
 
-	reopened, err := NewRepository(dbPath)
+	reopened, err := sqlite.NewRepository(dbPath)
 	if err != nil {
 		t.Fatalf("reopen: %v", err)
 	}

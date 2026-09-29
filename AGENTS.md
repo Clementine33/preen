@@ -27,6 +27,14 @@
 - node/go/pnpm/task are pinned in `mise.toml`; CI provisions from the same file via `jdx/mise-action`. Bump versions in `mise.toml` only — `package.json` intentionally has no `packageManager` (pnpm's self-download once corrupted the store).
 - Keep `go.mod`'s `go` directive aligned with the mise pin. After editing `mise.toml` run `mise install`; a fresh checkout needs `mise trust` once.
 
+## Database schema changes
+- Before changing database structure, read [ADR 0013](docs/adr/0013-development-schema-and-release-migrations.md) for the development/release boundary.
+- During development, edit `backend/go/internal/adapters/sqlite/schema.sql` or local tables freely; commit the final structure in `schema.sql`. Stop the backend and run `task db:rebuild:dev` when a clean database is needed.
+- Unreleased SQL migrations may be edited, merged, deleted, or renumbered; retain only the final changes needed between releases.
+- Once distributed (including an external RC), keep migration filenames, numbers, and contents unchanged. Append a migration for subsequent changes.
+- Before release, add the migration from the previous release to the final schema and verify fresh initialization, upgrades, and data preservation. Release startup uses goose only; schema repairs belong in migrations.
+- Development databases and release databases stay separate. See [ADR 0013 §3](docs/adr/0013-development-schema-and-release-migrations.md#3-备份重建与恢复) for rebuilding and restoring backups.
+
 ## Commands (verified)
 - Quality, same shape as CI: `task test:go` · `task lint:go` · `task typecheck:web` · `task test:web` · `task build:web` · `task ci:quality`
 - Backend (from root): `task -d backend/go test` · `task -d backend/go lint` · `test:e2e`; focused test: `go test ./<pkg> -run <Test>`

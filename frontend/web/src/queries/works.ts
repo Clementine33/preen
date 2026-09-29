@@ -1,4 +1,4 @@
-import { useInfiniteQuery, useQuery } from '@tanstack/vue-query'
+import { keepPreviousData, useInfiniteQuery, useQuery } from '@tanstack/vue-query'
 import { computed, toValue, type MaybeRefOrGetter } from 'vue'
 import { useApiClient } from '@/lib/api/client'
 import type { ApiClientContract, ListWorksParams, WorkListResponse } from '@/lib/api/types'
@@ -18,6 +18,9 @@ export function worksListQueryOptions(api: ApiClientContract, filters: ListWorks
       api.listWorks({ ...filters, cursor: pageParam }, signal),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage: WorkListResponse) => lastPage.next_cursor,
+    // A filter change keeps the previous wall on screen until the new listing
+    // lands, instead of blanking it; `isPlaceholderData` says which one shows.
+    placeholderData: keepPreviousData,
   }
 }
 

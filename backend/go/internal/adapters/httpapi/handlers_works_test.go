@@ -234,7 +234,8 @@ func assertSequence(t *testing.T, got, want []string) {
 
 // TestUnknownReleaseDatesAlwaysSortLast walks the whole set in both directions
 // across page boundaries: an unknown release date is last either way, no row is
-// repeated and none is skipped.
+// repeated and none is skipped. Two unknown dates make the walk continue from
+// inside the unknown block, the cursor shape that carries no sort value.
 func TestUnknownReleaseDatesAlwaysSortLast(t *testing.T) {
 	engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) {
 		wireWorks(d, fixture)
@@ -243,6 +244,7 @@ func TestUnknownReleaseDatesAlwaysSortLast(t *testing.T) {
 			{"RJ00000002", "2025-06-01"},
 			{"RJ00000003", "2025-12-01"},
 			{"RJ00000004", ""},
+			{"RJ00000005", ""},
 		} {
 			seedHTTPWork(t, fixture, spec.id, "titled")
 			if spec.release == "" {
@@ -257,14 +259,14 @@ func TestUnknownReleaseDatesAlwaysSortLast(t *testing.T) {
 	})
 
 	for _, direction := range []string{"asc", "desc"} {
-		want := []string{"RJ00000001", "RJ00000002", "RJ00000003", "RJ00000004"}
+		want := []string{"RJ00000001", "RJ00000002", "RJ00000003", "RJ00000004", "RJ00000005"}
 		if direction == "desc" {
-			// The known dates reverse; the unknown one stays last.
-			want = []string{"RJ00000003", "RJ00000002", "RJ00000001", "RJ00000004"}
+			// The known dates reverse; the unknown ones stay last, by number.
+			want = []string{"RJ00000003", "RJ00000002", "RJ00000001", "RJ00000004", "RJ00000005"}
 		}
 		seen := []string{}
 		path := "/api/v1/works?limit=1&sort=release_date&direction=" + direction
-		for range 6 {
+		for range 7 {
 			response := doRequest(t, engine, http.MethodGet, path, nil, nil)
 			if response.Code != http.StatusOK {
 				t.Fatalf("%s: status = %d (body=%s)", direction, response.Code, response.Body.String())

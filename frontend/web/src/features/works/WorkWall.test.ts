@@ -55,9 +55,10 @@ function makeWorks(count: number): WorkSummary[] {
 
 const WORKS = makeWorks(8)
 
-async function scaffold(options: { works?: WorkSummary[]; selectedRj?: string | null } = {}) {
+async function scaffold(options: { works?: WorkSummary[]; selectedRj?: string | null; attach?: boolean } = {}) {
   vi.stubGlobal('ResizeObserver', StubResizeObserver)
   const wrapper = mount(WorkWall, {
+    ...(options.attach ? { attachTo: document.body.appendChild(document.createElement('div')) } : {}),
     props: {
       works: options.works ?? WORKS,
       selectedRj: options.selectedRj ?? null,
@@ -133,6 +134,47 @@ describe('WorkWall', () => {
 
     exposed.move(99) // clamped to the last work
     expect(wrapper.emitted('select')).toEqual([[WORKS[4].rj], [WORKS[3].rj], [WORKS[7].rj]])
+  })
+
+  it('starts a move from the first work when nothing on the wall is selected', async () => {
+    // The address can name a work further down the listing than the wall holds.
+    const { wrapper, exposed } = await scaffold({ selectedRj: 'RJ99999999' })
+
+    exposed.move(1)
+    expect(wrapper.emitted('select')).toEqual([[WORKS[0].rj]])
+  })
+
+  it('takes focus on a keyboard move and never on any other selection change', async () => {
+    const { wrapper, exposed } = await scaffold({ selectedRj: WORKS[0].rj, attach: true })
+    const outside = document.body.appendChild(document.createElement('input'))
+    outside.focus()
+
+    // A filter answering or a page landing re-selects without asking: the text
+    // box the user is typing in keeps focus.
+    await wrapper.setProps({ selectedRj: WORKS[2].rj })
+    await flushPromises()
+    expect(document.activeElement).toBe(outside)
+
+    // A keyboard move is the user asking to be on the wall.
+    exposed.move(1)
+    await wrapper.setProps({ selectedRj: WORKS[3].rj })
+    await flushPromises()
+    expect((document.activeElement as HTMLElement).dataset.rj).toBe(WORKS[3].rj)
+    wrapper.unmount()
+  })
+
+  it('re-lays the rows when a resize changes their height but not the column count', async () => {
+    const { wrapper } = await scaffold({ selectedRj: WORKS[0].rj })
+    const rowOffset = () => wrapper.findAll('.vrow')[1].attributes('style')
+
+    // 800px: colWidth 185, cover 138.75, row 138.75 + 62 + 28.
+    expect(rowOffset()).toContain('translateY(228.75px)')
+
+    // 840px is still 4 columns, but every cover grows: colWidth 195, row 236.25.
+    for (const observer of StubResizeObserver.instances) observer.trigger(840)
+    await flushPromises()
+    await nextTick()
+    expect(rowOffset()).toContain('translateY(236.25px)')
   })
 
   it('composes the cursor from the virtual row offset and the in-row offset', async () => {

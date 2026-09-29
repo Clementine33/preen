@@ -138,6 +138,10 @@
 
   Palette contrast (>= 4.5:1 for every text pair) was verified against the
   prototype the tokens are copied from; re-check before changing any colour.
+  Control boundary (--control-border / --input = --wire-control, >= 3:1):
+    light  rgba(20,21,24,.5)     on #f6f5f0 3.38 · #ecebe4 3.31 · #e2e0d8 3.23
+    dark   rgba(222,215,198,.45) on #101114 3.50 · #15171b 3.49 · #1e2026 3.41
+  Focus ring (--ring = --wire-strong): the full ink, far above 3:1.
 */
 
 :root {
@@ -160,7 +164,7 @@
   --destructive: #B91C1C;
   --destructive-foreground: #F7F5F2;
   --border: var(--wire-fine);
-  --input: var(--wire-mid);
+  --input: var(--wire-control);
   --ring: var(--wire-strong);
   --chart-1: #B45309;
   --chart-2: #8A6D3B;
@@ -181,7 +185,8 @@
   --brand: var(--invert-bg);
   --brand-ink: var(--fg-base);
   --brand-foreground: var(--invert-fg);
-  --brand-hover: var(--wire-strong);
+  /* The fill is bone/carbon; hover steps it toward the muted ink so it moves. */
+  --brand-hover: var(--fg-muted);
   --brand-weak: var(--bg-subtle);
   --brand-border: var(--wire-mid);
 
@@ -210,7 +215,7 @@
   --text-muted: var(--fg-meta);
 
   /* --- Role tokens: controls, density, motion ------------------------------ */
-  --control-border: var(--wire-mid);
+  --control-border: var(--wire-control);
   --control-h: 2.25rem;
   --control-h-sm: 1.75rem;
   --control-h-lg: 2.5rem;

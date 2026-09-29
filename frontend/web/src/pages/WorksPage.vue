@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { canonicalRj } from '@/app/route-params'
+import { useMediaQuery, WALL_MOBILE_QUERY } from '@/composables/use-media-query'
 import { useTheme } from '@/composables/use-theme'
 import type { ListWorksParams } from '@/lib/api/types'
 import LibrarySwitcher from '@/features/works/LibrarySwitcher.vue'
@@ -21,6 +23,7 @@ const router = useRouter()
 const { theme } = useTheme()
 const libraryUi = useLibraryUiStore()
 const player = usePlayerStore()
+const isMobile = useMediaQuery(WALL_MOBILE_QUERY)
 
 // ── Filter rail: four tabs, each one direct listing parameter; FIND is q. ──
 type TabId = 'all' | 'favorite' | 'safe' | 'r18'
@@ -58,13 +61,28 @@ const loadedCount = computed(() => works.value.length)
 
 // ── Selection: restored from ?rj=, kept valid against the current listing,
 // and written back so a refresh keeps the inspected work. ──
-const selectedRj = ref<string | null>(null)
-if (typeof route.query.rj === 'string' && route.query.rj !== '') {
-  selectedRj.value = route.query.rj
-}
+const restoredRj = typeof route.query.rj === 'string' ? canonicalRj(route.query.rj) : null
+const selectedRj = ref<string | null>(restoredRj)
+// The address may name a work beyond the pages loaded so far: it stays
+// inspected until the user changes the listing under it.
+let keepRestored = restoredRj !== null
+watch([activeTab, findQuery], () => {
+  keepRestored = false
+})
+// The first resolution of the active library (null → the stored or first one)
+// is not a switch, so it leaves the address's work alone.
+watch(
+  () => libraryUi.activeLibraryId,
+  (_now, before) => {
+    if (before !== null) keepRestored = false
+  },
+)
 
 watch(works, (list) => {
+  // The previous filter's wall, shown while the new listing loads.
+  if (query.isPlaceholderData.value) return
   if (selectedRj.value !== null && list.some((work) => work.rj === selectedRj.value)) return
+  if (keepRestored) return
   selectedRj.value = list.length > 0 ? list[0].rj : null
 })
 
@@ -76,7 +94,6 @@ watch(selectedRj, (rj) => {
 
 // ── Keyboard: the wall's dispatch, with the same guards as the prototype. ──
 const wall = ref<InstanceType<typeof WorkWall> | null>(null)
-const libraryMenuOpen = ref(false)
 
 function playSelected(): void {
   const work = works.value.find((candidate) => candidate.rj === selectedRj.value)
@@ -84,24 +101,39 @@ function playSelected(): void {
 }
 
 function loadMore(): void {
-  if (query.hasNextPage.value) {
+  // One page at a time: a second request would cancel the one in flight, and
+  // the placeholder wall's cursor belongs to the previous filter.
+  if (query.hasNextPage.value && !query.isFetchingNextPage.value && !query.isPlaceholderData.value) {
     // ponytail: fetch errors surface through the query state the wall already
     // renders; per-error UI here when a listing failure needs its own copy.
     query.fetchNextPage().catch(() => {})
   }
 }
 
-function openSelected(): void {
-  if (selectedRj.value !== null) {
-    router.push({ name: 'work-detail', params: { rj: selectedRj.value } })
-  }
+function openWork(rj: string): void {
+  router.push({ name: 'work-detail', params: { rj } })
+}
+
+/** A text field or an open menu keeps every key it receives. */
+function ownsKeys(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false
+  return (
+    target.closest('[data-own-keys]') !== null ||
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement ||
+    target.isContentEditable
+  )
+}
+
+/** Enter and Space already mean something on a link or a button. */
+function activates(target: EventTarget | null): boolean {
+  return target instanceof HTMLElement && target.closest('a, button') !== null
 }
 
 function onKeydown(event: KeyboardEvent): void {
-  if (event.target instanceof HTMLInputElement) return
+  if (ownsKeys(event.target)) return
   if (event.metaKey || event.ctrlKey || event.altKey) return
-  // The library menu owns J/K while it is open; they never reach the wall.
-  if (libraryMenuOpen.value) return
   // defineExpose unwraps the computed, so the instance carries the number.
   const cols = wall.value?.columns ?? 1
   const moves: Record<string, number> = {
@@ -117,11 +149,14 @@ function onKeydown(event: KeyboardEvent): void {
     wall.value?.move(moves[event.key])
     return
   }
-  if (event.key === 'Enter' && !(event.target instanceof HTMLButtonElement)) {
-    openSelected()
-  } else if (event.key === 'p') {
+  if (event.key === 'p') {
     playSelected()
-  } else if (event.key === ' ' && !(event.target instanceof HTMLButtonElement)) {
+    return
+  }
+  if (activates(event.target)) return
+  if (event.key === 'Enter' && selectedRj.value !== null) {
+    openWork(selectedRj.value)
+  } else if (event.key === ' ') {
     // Space only pauses and resumes: browsing never interrupts playback.
     event.preventDefault()
     player.togglePause()
@@ -145,7 +180,7 @@ function toggleTheme(): void {
   <section class="works substrate" aria-label="作品库">
     <header class="header">
       <div class="header-left">
-        <LibrarySwitcher v-model:open="libraryMenuOpen" />
+        <LibrarySwitcher />
       </div>
       <div class="header-meta">
         <span class="lbl count">WORKS<b>{{ loadedCount }}</b></span>
@@ -170,9 +205,9 @@ function toggleTheme(): void {
 
     <main class="bench">
       <WorkWall ref="wall" :works="works" :selected-rj="selectedRj" :playing-rj="player.rj"
-        @select="selectedRj = $event" @open="router.push({ name: 'work-detail', params: { rj: $event } })"
-        @load-more="loadMore" />
-      <WorkInspector :rj="selectedRj" />
+        @select="selectedRj = $event" @open="openWork" @load-more="loadMore" />
+      <!-- A phone has no inspector: a tap routes to the detail page instead. -->
+      <WorkInspector v-if="!isMobile" :rj="selectedRj" />
     </main>
 
     <PlayerBar />
@@ -231,7 +266,7 @@ function toggleTheme(): void {
 .find { display: flex; align-items: center; gap: var(--sp-2); flex-shrink: 0; }
 .find input {
   height: 24px; width: 184px; padding: 0 var(--sp-2);
-  border: 1px solid var(--wire-mid); background: transparent; color: var(--fg-base);
+  border: 1px solid var(--wire-control); background: transparent; color: var(--fg-base);
   font-family: var(--font-mono); font-size: var(--fs-xs); letter-spacing: .08em;
 }
 .find input::placeholder { color: var(--fg-meta); }
@@ -245,7 +280,6 @@ function toggleTheme(): void {
 .header-left { min-width: 0; }
 
 @media (max-width: 768px) {
-  .works { grid-template-rows: 48px 40px minmax(0, 1fr) 28px; }
   .bench { grid-template-columns: 1fr; }
   .header, .rail { padding: 0 var(--sp-4); }
   .header::after, .rail::after { left: var(--sp-4); right: var(--sp-4); }

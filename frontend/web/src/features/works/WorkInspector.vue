@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import { REDUCED_MOTION_QUERY, useMediaQuery } from '@/composables/use-media-query'
 import type { WorkDetail } from '@/lib/api/types'
 import { useWorkDetail } from '@/queries/works'
 import { usePlayerStore } from '@/stores/player'
@@ -10,7 +11,11 @@ import { usePlayerStore } from '@/stores/player'
 // immediately, but the cover/SPEC/TRACKLIST dim to 30% and are swapped only
 // after a 70ms pause, so fast browsing merges updates instead of flickering.
 
-const props = defineProps<{ rj: string | null }>()
+const props = defineProps<{
+  rj: string | null
+  /** On the detail page: no wall to return to, so no OPEN DETAIL and no wall keys. */
+  standalone?: boolean
+}>()
 
 const router = useRouter()
 const player = usePlayerStore()
@@ -23,8 +28,7 @@ const workNow = computed(() => (work.value && props.rj !== null && work.value.rj
 const deferredWork = ref<WorkDetail | null>(null)
 const dim = ref(false)
 let detailTimer: number | null = null
-const reduceMotion =
-  typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches
+const reducedMotion = useMediaQuery(REDUCED_MOTION_QUERY)
 
 // Post-flush so the scramble runs after Vue has patched the title's text node:
 // the animation writes textContent frame by frame, and a pre-flush watcher
@@ -33,11 +37,18 @@ watch(
   workNow,
   (current) => {
     if (!current) {
-      deferredWork.value = null
-      dim.value = false
+      // Still loading the next work: keep the last body, dimmed, so browsing
+      // faster than the detail arrives never flashes an empty plate. Only an
+      // empty selection clears it.
+      if (props.rj === null) {
+        deferredWork.value = null
+        dim.value = false
+      } else if (deferredWork.value !== null) {
+        dim.value = true
+      }
       return
     }
-    if (reduceMotion) {
+    if (reducedMotion.value) {
       deferredWork.value = current
       scramble(current.title ?? '')
       return
@@ -65,7 +76,7 @@ let scrambleFrame = 0
 function scramble(text: string) {
   cancelAnimationFrame(scrambleFrame)
   if (!titleEl.value) return
-  if (reduceMotion || text === '') {
+  if (reducedMotion.value || text === '') {
     titleEl.value.textContent = text
     return
   }
@@ -95,9 +106,11 @@ let shownCover: string | null = null
 watch(
   () => (deferredWork.value ? deferredWork.value.cover_url ?? deferredWork.value.thumbnail_url : null),
   (url) => {
-    if (url === shownCover) return
-    if (reduceMotion || !coverBack.value || !coverFront.value) {
+    if (url === shownCover || !coverBack.value || !coverFront.value) return
+    if (reducedMotion.value) {
+      // No wipe, but the cover still has to be painted.
       shownCover = url
+      paintCover(coverFront.value, url)
       return
     }
     paintCover(coverBack.value, shownCover)
@@ -127,7 +140,8 @@ const voice = computed(() =>
     : '—',
 )
 
-const canPlay = computed(() => props.rj !== null)
+// PLAY needs the loaded work: it plays what the inspector shows, by name.
+const canPlay = computed(() => workNow.value !== null)
 function playNowPlaying() {
   if (workNow.value) player.play({ rj: workNow.value.rj, title: workNow.value.title ?? workNow.value.rj })
 }
@@ -178,11 +192,11 @@ const playIcon = 'M1 0l9 5-9 5z'
         <button class="btn btn-primary" type="button" :disabled="!canPlay" @click="playNowPlaying">
           <svg viewBox="0 0 10 10" aria-hidden="true"><path :d="playIcon" /></svg>PLAY
         </button>
-        <button class="btn" type="button" :disabled="rj === null" @click="openDetail">
+        <button v-if="!standalone" class="btn" type="button" :disabled="rj === null" @click="openDetail">
           OPEN DETAIL<svg viewBox="0 0 10 10" aria-hidden="true"><path :d="arrowIcon" /></svg>
         </button>
       </div>
-      <div class="keys lbl"><kbd>J</kbd><kbd>K</kbd><kbd>←↑↓→</kbd> MOVE<span class="sep">·</span><kbd>P</kbd>
+      <div v-if="!standalone" class="keys lbl"><kbd>J</kbd><kbd>K</kbd><kbd>←↑↓→</kbd> MOVE<span class="sep">·</span><kbd>P</kbd>
         PLAY<span class="sep">·</span><kbd>␣</kbd> PAUSE<span class="sep">·</span><kbd>↵</kbd> OPEN</div>
     </div>
   </aside>
@@ -222,7 +236,8 @@ const playIcon = 'M1 0l9 5-9 5z'
   margin: var(--sp-1) 0 var(--sp-4);
   font-family: var(--font-mincho);
   font-size: var(--fs-l); line-height: var(--lh-l); font-weight: 600;
-  letter-spacing: .04em; min-height: var(--lh-l);
+  /* Japanese never carries tracking (ADR 0012 §2). */
+  letter-spacing: 0; min-height: var(--lh-l);
 }
 
 .spec {

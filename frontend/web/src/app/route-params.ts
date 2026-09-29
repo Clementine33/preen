@@ -24,9 +24,20 @@ const ALLOWED_VALUES: Record<string, readonly string[]> = {
  * carries its own shape instead of an enumerated list.
  */
 const OPEN_VALUE: Record<string, RegExp> = {
-  // The selected work of the wall: the canonical 8-digit spelling, with the
-  // 6-digit shorthand the API itself accepts normalized by the page.
-  rj: /^RJ\d{6,8}$/i,
+  // The selected work of the wall: a work number in either spelling the API
+  // accepts (6 or 8 digits, any case); 7 digits is no work number (docs/api.md).
+  rj: /^RJ(\d{6}|\d{8})$/i,
+}
+
+/**
+ * The canonical spelling of a work number — `RJ` plus 8 digits — or null when
+ * the text is none. `RJ123456` and `rj00123456` are the same work, and the
+ * listing only ever answers the canonical form, so an address is compared in it.
+ */
+export function canonicalRj(raw: string): string | null {
+  const match = /^RJ(\d{6}|\d{8})$/i.exec(raw.trim())
+  if (!match) return null
+  return `RJ${match[1].padStart(8, '0')}`
 }
 
 /**

@@ -48,6 +48,10 @@
   --wire-fine: rgba(20, 21, 24, .14);
   --wire-mid: rgba(20, 21, 24, .38);
   --wire-strong: #141518;
+  /* Control boundaries: the one wire outside the prototype. --wire-mid is a
+     decorative 2.4:1; a control edge needs >= 3:1 (WCAG 1.4.11): at least
+     3.23:1 here, on --bg-subtle (full record in style.css). */
+  --wire-control: rgba(20, 21, 24, .5);
   /* Terracotta belongs to "now playing" alone (the NOW tag, the playing-track
      marker, the status dot, the light-mode laser) — never to anything else. */
   --now: #c84424;
@@ -72,6 +76,7 @@
   --wire-fine: rgba(222, 215, 198, .13);
   --wire-mid: rgba(222, 215, 198, .34);
   --wire-strong: #ded7c6;
+  --wire-control: rgba(222, 215, 198, .45); /* at least 3.41:1, on --bg-subtle */
   --now: #d05438;
   --now-fg: #101114;
   /* Dark: glowing ivory beam; unplayed track fades to a dim rail */

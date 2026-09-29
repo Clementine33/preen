@@ -21,7 +21,7 @@ function backToWall(): void {
   <section class="detail substrate" aria-label="作品详情">
     <div class="frame">
       <button class="btn back" type="button" @click="backToWall">BACK TO WALL</button>
-      <WorkInspector :rj="rj" />
+      <WorkInspector :rj="rj" standalone />
     </div>
   </section>
 </template>

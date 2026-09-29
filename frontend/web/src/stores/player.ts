@@ -11,6 +11,9 @@ import { defineStore } from 'pinia'
  * the selected work, this store follows the playing one, and neither changing
  * touches the other.
  */
+/** The 1s clock handle: owned by the store, but a handle, not state. */
+let clockTimer: number | null = null
+
 export const usePlayerStore = defineStore('player', {
   state: () => ({
     /** The work now playing; null = the baseline is idle. */
@@ -20,8 +23,6 @@ export const usePlayerStore = defineStore('player', {
     paused: true,
     /** Seconds since this work started playing; only moves while playing. */
     elapsed: 0,
-    /** The 1s clock handle; not reactive state, just owned here. */
-    clockTimer: null as number | null,
   }),
   actions: {
     play(work: { rj: string; title: string }, track = 0) {
@@ -41,14 +42,14 @@ export const usePlayerStore = defineStore('player', {
     runClock() {
       this.stopClock()
       // ponytail: one global 1s clock; per-work clocks when real playback exists.
-      this.clockTimer = window.setInterval(() => {
+      clockTimer = window.setInterval(() => {
         this.elapsed += 1
       }, 1_000)
     },
     stopClock() {
-      if (this.clockTimer !== null) {
-        window.clearInterval(this.clockTimer)
-        this.clockTimer = null
+      if (clockTimer !== null) {
+        window.clearInterval(clockTimer)
+        clockTimer = null
       }
     },
   },

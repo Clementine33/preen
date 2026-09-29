@@ -1,12 +1,13 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { ref } from 'vue'
 import { useLibraryList } from '@/queries/libraries'
 import { useLibraryUiStore } from '@/stores/library-ui'
+import { usePopupMenu } from './use-popup-menu'
 
 // The media-library switcher (ADR 0012 §4): the trigger unfolds a specimen
 // panel that cascades in row by row. Switching reuses the one library-selection
 // state the workbench already has; no OFFLINE tag and no per-library counts,
-// because the library DTO carries neither (deviation list in the plan).
+// because the library DTO carries neither.
 
 const open = defineModel<boolean>('open', { default: false })
 
@@ -15,95 +16,44 @@ const { librariesData, activeLibrary } = useLibraryList()
 
 const root = ref<HTMLElement | null>(null)
 const trigger = ref<HTMLButtonElement | null>(null)
-const items = computed(() => root.value?.querySelectorAll<HTMLButtonElement>('[role="option"]') ?? [])
-
-function setMenuOpen(value: boolean): void {
-  open.value = value
-  if (value) {
-    // Focus the current library, ready for ↑↓/J/K inside the menu.
-    void nextTick(() => {
-      const list = items.value
-      const current = Array.from(list).findIndex((item) => item.getAttribute('aria-selected') === 'true')
-      list[Math.max(0, current)]?.focus({ preventScroll: true })
-    })
-  }
-}
-
-function onTriggerClick(): void {
-  setMenuOpen(!open.value)
-}
+const menu = usePopupMenu({ root, trigger, open })
 
 function selectLibrary(id: string): void {
   libraryUi.setActiveLibrary(id)
-  setMenuOpen(false)
-  trigger.value?.focus()
+  menu.close(true)
 }
-
-function onPointerDown(event: PointerEvent): void {
-  if (open.value && root.value !== null && !root.value.contains(event.target as Node)) {
-    setMenuOpen(false)
-  }
-}
-
-// ↑↓ and J/K move inside the menu while it is open; Esc closes and returns to
-// the trigger. The events stop here so the wall's J/K never fire underneath.
-function onKeydown(event: KeyboardEvent): void {
-  if (!open.value) return
-  const list = Array.from(items.value)
-  const at = list.indexOf(document.activeElement as HTMLButtonElement)
-  if (event.key === 'Escape') {
-    setMenuOpen(false)
-    trigger.value?.focus()
-  } else if (event.key === 'ArrowDown' || event.key === 'j') {
-    list[Math.min(list.length - 1, at + 1)]?.focus({ preventScroll: true })
-  } else if (event.key === 'ArrowUp' || event.key === 'k') {
-    list[Math.max(0, at - 1)]?.focus({ preventScroll: true })
-  } else {
-    return
-  }
-  event.preventDefault()
-  event.stopPropagation()
-}
-
-onMounted(() => {
-  document.addEventListener('pointerdown', onPointerDown)
-})
-onBeforeUnmount(() => {
-  document.removeEventListener('pointerdown', onPointerDown)
-})
 
 const chevron = 'M0 2.5h10L5 8z'
 </script>
 
 <template>
-  <div ref="root" class="lib" :class="{ open }" @keydown="onKeydown">
+  <div ref="root" class="lib" :class="{ open }" @keydown="menu.onKeydown" @focusout="menu.onFocusOut">
     <button ref="trigger" class="lib-trigger" type="button" aria-haspopup="listbox"
-      :aria-expanded="open" @click="onTriggerClick">
+      :aria-expanded="open" @click="menu.setOpen(!open)">
       <span class="lbl lib-lbl">LIBRARY</span>
       <span class="lib-state" :class="{ ok: activeLibrary !== null }"></span>
       <span class="lib-name">{{ activeLibrary?.name ?? '—' }}</span>
       <span class="lib-chev"><svg viewBox="0 0 10 10" aria-hidden="true"><path :d="chevron" /></svg></span>
     </button>
-    <div class="lib-menu">
+    <div class="lib-menu" data-own-keys>
       <div class="strip">
         <span class="strip-name lbl">SWITCH LIBRARY</span>
         <span class="lbl">{{ librariesData.length }} ROOTS</span>
       </div>
-      <ul class="lib-list" role="listbox" aria-label="Media libraries">
-        <li v-for="(library, i) in librariesData" :key="library.id">
-          <button class="lib-item" type="button" role="option" :aria-selected="library.id === libraryUi.activeLibraryId"
-            :style="{ '--d': `${40 + i * 30}ms` }" @click="selectLibrary(library.id)">
-            <span class="lib-mark"></span>
-            <span class="lib-text">
-              <span class="nm">{{ library.name }}</span>
-              <span class="lbl path">{{ library.root_path }}</span>
-            </span>
-          </button>
-        </li>
-      </ul>
+      <div class="lib-list" role="listbox" aria-label="Media libraries">
+        <button v-for="(library, i) in librariesData" :key="library.id" class="lib-item" type="button" role="option"
+          :aria-selected="library.id === libraryUi.activeLibraryId" :style="{ '--d': `${40 + i * 30}ms` }"
+          @click="selectLibrary(library.id)">
+          <span class="lib-mark"></span>
+          <span class="lib-text">
+            <span class="nm">{{ library.name }}</span>
+            <span class="lbl path">{{ library.root_path }}</span>
+          </span>
+        </button>
+      </div>
       <div class="lib-foot">
         <RouterLink class="btn btn-s" :to="{ name: 'worksets' }"
-          @click="setMenuOpen(false)">MANAGE</RouterLink>
+          @click="menu.setOpen(false)">MANAGE</RouterLink>
       </div>
     </div>
   </div>
@@ -165,7 +115,7 @@ const chevron = 'M0 2.5h10L5 8z'
 }
 .lib-menu .strip { margin: var(--sp-2) var(--sp-2) var(--sp-1); }
 
-.lib-list { list-style: none; padding: 0 var(--sp-2); }
+.lib-list { padding: 0 var(--sp-2); }
 .lib-item {
   position: relative; isolation: isolate; width: 100%;
   display: grid; grid-template-columns: 14px 1fr auto; align-items: center; gap: var(--sp-2);

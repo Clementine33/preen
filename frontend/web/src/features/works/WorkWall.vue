@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useVirtualizer } from '@tanstack/vue-virtual'
+import { useMediaQuery, WALL_MOBILE_QUERY } from '@/composables/use-media-query'
 import type { WorkSummary } from '@/lib/api/types'
 import WorkCard from './WorkCard.vue'
 
@@ -33,20 +34,11 @@ const CAP_HEIGHT = 62
 const wallEl = ref<HTMLElement | null>(null)
 const gridEl = ref<HTMLElement | null>(null)
 const gridWidth = ref(0)
-const isMobile = ref(false)
+const isMobile = useMediaQuery(WALL_MOBILE_QUERY)
 
 let resizeObserver: ResizeObserver | null = null
-let mobileQuery: MediaQueryList | null = null
-function syncMobile() {
-  isMobile.value = mobileQuery?.matches ?? false
-}
 
 onMounted(() => {
-  // Read at mount, not at import: the query reflects the media state when the
-  // wall actually appears.
-  mobileQuery = typeof matchMedia === 'function' ? matchMedia('(max-width: 768px)') : null
-  syncMobile()
-  mobileQuery?.addEventListener('change', onMediaChange)
   // jsdom has no ResizeObserver; the same guard use-container-tier carries.
   if (gridEl.value && typeof ResizeObserver !== 'undefined') {
     resizeObserver = new ResizeObserver((entries) => {
@@ -55,11 +47,7 @@ onMounted(() => {
     resizeObserver.observe(gridEl.value)
   }
 })
-function onMediaChange() {
-  syncMobile()
-}
 onBeforeUnmount(() => {
-  mobileQuery?.removeEventListener('change', onMediaChange)
   resizeObserver?.disconnect()
 })
 
@@ -92,6 +80,10 @@ const virtualizer = useVirtualizer(
     overscan: 3,
   })),
 )
+// The virtualizer caches row offsets until the row count changes; a resize
+// that keeps the column count still changes every row's height, so the cache
+// is dropped whenever the height does.
+watch(rowHeight, () => virtualizer.value.measure())
 const virtualRows = computed(() => virtualizer.value.getVirtualItems())
 const totalSize = computed(() => virtualizer.value.getTotalSize())
 
@@ -99,11 +91,23 @@ const selectedIndex = computed(() =>
   props.selectedRj === null ? -1 : props.works.findIndex((work) => work.rj === props.selectedRj),
 )
 
-/** Column-aware movement for the page's keyboard dispatch: ±1 or ±columns. */
+// Set by a keyboard move: only then does the new selection take focus. Any
+// other selection change — a filter answering, the first page landing, the
+// address restoring a work — must leave focus wherever the user put it.
+let focusOnSelect = false
+
+/**
+ * Column-aware movement for the page's keyboard dispatch: ±1 or ±columns.
+ * With nothing on the wall selected (the address named a work further down the
+ * listing), the first move lands on the first work.
+ */
 function move(delta: number): void {
-  if (selectedIndex.value < 0 || props.works.length === 0) return
-  const next = Math.min(props.works.length - 1, Math.max(0, selectedIndex.value + delta))
-  if (next !== selectedIndex.value) emit('select', props.works[next].rj)
+  if (props.works.length === 0) return
+  const next =
+    selectedIndex.value < 0 ? 0 : Math.min(props.works.length - 1, Math.max(0, selectedIndex.value + delta))
+  if (next === selectedIndex.value) return
+  focusOnSelect = true
+  emit('select', props.works[next].rj)
 }
 
 defineExpose({ columns, move })
@@ -132,21 +136,17 @@ function placeCursor() {
   }, 260)
 }
 
-// Keep the selected work in view and focus its cell — except on the initial
-// mount, which restores the selection from the address without claiming focus.
+// Keep the selected work in view; focus its cell only after a keyboard move.
 let mounted = false
 watch(selectedIndex, async () => {
   placeCursor()
-  if (!mounted) return
-  if (selectedIndex.value >= 0) {
-    virtualizer.value.scrollToIndex(Math.floor(selectedIndex.value / columns.value), {
-      align: 'auto',
-    })
-    await nextTick()
-    gridEl.value
-      ?.querySelector<HTMLElement>(`.cell[tabindex="0"]`)
-      ?.focus({ preventScroll: true })
-  }
+  const claimFocus = focusOnSelect
+  focusOnSelect = false
+  if (!mounted || selectedIndex.value < 0) return
+  virtualizer.value.scrollToIndex(Math.floor(selectedIndex.value / columns.value), { align: 'auto' })
+  if (!claimFocus) return
+  await nextTick()
+  gridEl.value?.querySelector<HTMLElement>(`.cell[tabindex="0"]`)?.focus({ preventScroll: true })
 })
 watch([columns, colWidth], () => placeCursor())
 onMounted(() => {

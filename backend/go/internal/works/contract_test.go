@@ -11,21 +11,22 @@ import (
 
 //go:fix inline
 
+// TestCursorRoundTrip covers every shape the listing writes: a known value, and
+// the unknown block of a nullable order, which carries no value at all.
 func TestCursorRoundTrip(t *testing.T) {
-	want := works.Cursor{
-		Sort:      works.SortByReleaseDate,
-		Direction: works.Descending,
-		Digest:    "0123456789abcdef",
-		NullRank:  1,
-		SortValue: "2025-06-25",
-		WorkID:    code("RJ01657200"),
-	}
-	got, err := works.DecodeCursor(want.Encode())
-	if err != nil {
-		t.Fatalf("DecodeCursor refused a cursor this package wrote: %v", err)
-	}
-	if got != want {
-		t.Errorf("round trip changed the cursor: %+v -> %+v", want, got)
+	for _, want := range []works.Cursor{
+		{Sort: works.SortByReleaseDate, Direction: works.Descending, SortValue: "2025-06-25"},
+		{Sort: works.SortByReleaseDate, Direction: works.Ascending, NullRank: 1},
+	} {
+		want.Digest = "0123456789abcdef"
+		want.WorkID = code("RJ01657200")
+		got, err := works.DecodeCursor(want.Encode())
+		if err != nil {
+			t.Fatalf("DecodeCursor refused a cursor this package wrote (%+v): %v", want, err)
+		}
+		if got != want {
+			t.Errorf("round trip changed the cursor: %+v -> %+v", want, got)
+		}
 	}
 }
 
@@ -50,6 +51,8 @@ func TestDecodeCursorRefusesForeignInput(t *testing.T) {
 		{"unknown direction", "v1|rj|sideways|0123456789abcdef|0|01657200|RJ01657200"},
 		{"bad null rank", "v1|rj|asc|0123456789abcdef|2|01657200|RJ01657200"},
 		{"empty sort value", "v1|rj|asc|0123456789abcdef|0||RJ01657200"},
+		{"unknown block of a total order", "v1|rj|asc|0123456789abcdef|1||RJ01657200"},
+		{"value inside the unknown block", "v1|release_date|asc|0123456789abcdef|1|2025-06-25|RJ01657200"},
 		{"not a work number", "v1|rj|asc|0123456789abcdef|0|01657200|nonsense"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

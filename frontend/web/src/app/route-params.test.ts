@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createMemoryHistory, createRouter, type Router } from 'vue-router'
-import { cleanedQuery, installAddressHygiene, readMemberFilter } from './route-params'
+import { canonicalRj, cleanedQuery, installAddressHygiene, readMemberFilter } from './route-params'
 
 /**
  * Address hygiene (ADR 0003 §5): a page keeps only the parameters it
@@ -18,6 +18,7 @@ function guardRouter(): Router {
     history: createMemoryHistory(),
     routes: [
       { path: '/worksets', name: 'worksets', component: { template: '<div />' } },
+      { path: '/works', name: 'works', component: { template: '<div />' } },
       { path: '/worksets/:libraryId', name: 'workbench-overview', component: { template: '<div />' } },
       {
         path: '/worksets/:libraryId/f/:dirId',
@@ -80,6 +81,24 @@ describe('cleaned query', () => {
     expect(readMemberFilter('blocked')).toBe('blocked')
     expect(readMemberFilter('anything')).toBe('all')
     expect(readMemberFilter(undefined)).toBe('all')
+  })
+})
+
+describe('the wall address', () => {
+  it('keeps a work number in either spelling the API accepts, and nothing else', () => {
+    for (const rj of ['RJ01113012', 'rj01113012', 'RJ123456']) {
+      expect(cleanedQuery(routeOf(guardRouter(), `/works?rj=${rj}`)), rj).toBeNull()
+    }
+    // 7 digits is no work number (docs/api.md), and a term is not an identity.
+    for (const rj of ['RJ1657200', 'RJ012345678', 'asmr']) {
+      expect(cleanedQuery(routeOf(guardRouter(), `/works?rj=${rj}`)), rj).toEqual({})
+    }
+  })
+
+  it('compares a work number in its canonical spelling', () => {
+    expect(canonicalRj('RJ123456')).toBe('RJ00123456')
+    expect(canonicalRj('rj01113012')).toBe('RJ01113012')
+    expect(canonicalRj('RJ1657200')).toBeNull()
   })
 })
 

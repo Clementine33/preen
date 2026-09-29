@@ -1,0 +1,109 @@
+<script setup lang="ts">
+import { computed } from 'vue'
+import type { WorkSummary } from '@/lib/api/types'
+
+// One cell of the wall (ADR 0012 §4): a 4:3 cover — hatched when the catalog
+// has none — over a caption base that the selection wipes in from the left.
+// The playing work carries the terracotta NOW tag; the cover itself is never
+// tinted or darkened.
+const props = defineProps<{
+  work: WorkSummary
+  selected: boolean
+  playing: boolean
+}>()
+
+const cover = computed(() => props.work.thumbnail_url ?? null)
+// Built in script: the double-quoted url() tolerates the single quotes inside
+// the SVG data URIs, and the template stays free of quote-escape gymnastics.
+const coverStyle = computed(() =>
+  cover.value === null ? undefined : { backgroundImage: `url("${cover.value}")` },
+)
+
+/** `YYYY.MM` from the catalog's `YYYY-MM-DD`, or the empty-state dash. */
+const release = computed(() =>
+  props.work.release_date ? props.work.release_date.slice(0, 7).replace('-', '.') : '—',
+)
+</script>
+
+<template>
+  <div class="cell" :class="{ active: selected }" role="option" :aria-selected="selected"
+    :tabindex="selected ? 0 : -1" :data-rj="work.rj">
+    <div class="cover" :class="cover ? '' : 'hatch'" :style="coverStyle"></div>
+    <span v-if="playing" class="playing-tag">▶ NOW</span>
+    <div class="cap">
+      <div class="cap-meta">
+        <span class="lbl">{{ work.rj }}</span>
+        <span class="lbl">{{ release }}</span>
+      </div>
+      <div class="cap-title">{{ work.title ?? '—' }}</div>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.cell {
+  position: relative; cursor: pointer; outline: none;
+}
+.cover {
+  width: 100%; aspect-ratio: var(--cover-ratio); position: relative; overflow: hidden;
+  background-size: cover; background-position: center;
+  box-shadow: inset 0 0 0 1px var(--wire-fine);
+  transition: box-shadow var(--dur-out) linear;
+}
+.cell:hover .cover { box-shadow: inset 0 0 0 1px var(--wire-strong); }
+.cell:not(.active):hover .cap { background: var(--bg-subtle); }
+.cell:focus-visible { outline: none; }
+.cell:focus-visible .cover { box-shadow: inset 0 0 0 2px var(--wire-strong); }
+
+.playing-tag {
+  position: absolute; right: 0; top: 0; height: 16px; padding: 0 6px;
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--now); color: var(--now-fg);
+  font-family: var(--font-mono); font-size: var(--fs-xs); font-weight: 700; letter-spacing: .12em;
+}
+
+/* The caption base: rest is quiet; the bone block wipes in from the left
+   (160ms ease-out), the text flips 60ms in, and a 1px ghost frame steps out
+   3px down-right 70ms later. */
+.cap {
+  position: relative; isolation: isolate;
+  margin-top: var(--sp-2); padding: var(--sp-1) var(--sp-2) 6px;
+  color: var(--fg-base);
+}
+.cap::before {
+  content: ''; position: absolute; inset: 0; z-index: -1;
+  background: var(--invert-bg);
+  clip-path: inset(0 100% 0 0);
+  transition: clip-path var(--dur-out) var(--ease-in);
+}
+.cap::after {
+  content: ''; position: absolute; inset: 0; z-index: -2;
+  border: 1px solid var(--wire-mid);
+  opacity: 0; transform: translate(0, 0);
+  transition: opacity 60ms linear, transform 60ms linear;
+}
+.cap-meta { display: flex; justify-content: space-between; gap: var(--sp-2); }
+.cap-meta .lbl, .cap-title { transition: color 0s; }
+.cap-title {
+  font-size: var(--fs-s); line-height: var(--lh-s); font-weight: 500; height: 32px;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.cell.active .cap::before { clip-path: inset(0 0 0 0); transition: clip-path var(--dur-in) var(--ease-out); }
+.cell.active .cap::after {
+  opacity: 1; transform: translate(3px, 3px);
+  transition: opacity 120ms linear var(--dur-ghost-delay), transform 180ms var(--ease-out) var(--dur-ghost-delay);
+}
+.cell.active .cap-title, .cell.active .cap-meta .lbl {
+  color: var(--invert-fg); transition: color 0s linear 60ms;
+}
+.cell.active .cap-title { font-weight: 700; }
+
+/* Mobile has no "inspect the selection": a tap routes straight to the detail
+   page, so the inverted state never shows there. */
+@media (max-width: 768px) {
+  .cell.active .cap::before { clip-path: inset(0 100% 0 0); }
+  .cell.active .cap::after { opacity: 0; }
+  .cell.active .cap-title, .cell.active .cap-meta .lbl { color: inherit; font-weight: 500; }
+  .cell.active .cap-meta .lbl { color: var(--fg-meta); }
+}
+</style>

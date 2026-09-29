@@ -1,9 +1,253 @@
 <script setup lang="ts">
-// The work wall page (ADR 0012 §4): in-page header, filter rail, the wall and
-// its inspector, and the player baseline. Assembled in this branch; the shell
-// below already owns the page's four-row grid and substrate.
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { useTheme } from '@/composables/use-theme'
+import type { ListWorksParams } from '@/lib/api/types'
+import WorkInspector from '@/features/works/WorkInspector.vue'
+import WorkWall from '@/features/works/WorkWall.vue'
+import { useWorksList } from '@/queries/works'
+import { useLibraryUiStore } from '@/stores/library-ui'
+import { usePlayerStore } from '@/stores/player'
+
+// The work wall page (ADR 0012 §4): an in-page header, a filter rail, the
+// bench of wall and inspector, and the player baseline — four rows inside the
+// AppShell's main. The selected work lives in the `?rj=` identity; filters and
+// the FIND box are the page's transient state, never the address's.
+
+const route = useRoute()
+const router = useRouter()
+const { theme } = useTheme()
+const libraryUi = useLibraryUiStore()
+const player = usePlayerStore()
+
+// ── Filter rail: four tabs, each one direct listing parameter; FIND is q. ──
+type TabId = 'all' | 'favorite' | 'safe' | 'r18'
+const TABS: Array<{ id: TabId; label: string; params: Partial<ListWorksParams> }> = [
+  { id: 'all', label: 'ALL', params: {} },
+  { id: 'favorite', label: 'FAVORITE', params: { favorite: true } },
+  { id: 'safe', label: '全年齢', params: { nsfw: false } },
+  { id: 'r18', label: 'R18', params: { nsfw: true } },
+]
+const activeTab = ref<TabId>('all')
+
+const findText = ref('')
+const findQuery = ref('')
+let findTimer: number | null = null
+watch(findText, (value) => {
+  if (findTimer !== null) window.clearTimeout(findTimer)
+  findTimer = window.setTimeout(() => {
+    findQuery.value = value.trim()
+  }, 200)
+})
+onBeforeUnmount(() => {
+  if (findTimer !== null) window.clearTimeout(findTimer)
+})
+
+const filters = computed<ListWorksParams>(() => ({
+  ...(libraryUi.activeLibraryId ? { library: libraryUi.activeLibraryId } : {}),
+  ...TABS.find((tab) => tab.id === activeTab.value)!.params,
+  ...(findQuery.value ? { q: findQuery.value } : {}),
+}))
+
+const { works, query } = useWorksList(filters)
+// No total exists in the listing (keyset pages only): the header count is what
+// has loaded so far and grows while you scroll.
+const loadedCount = computed(() => works.value.length)
+
+// ── Selection: restored from ?rj=, kept valid against the current listing,
+// and written back so a refresh keeps the inspected work. ──
+const selectedRj = ref<string | null>(null)
+if (typeof route.query.rj === 'string' && route.query.rj !== '') {
+  selectedRj.value = route.query.rj
+}
+
+watch(works, (list) => {
+  if (selectedRj.value !== null && list.some((work) => work.rj === selectedRj.value)) return
+  selectedRj.value = list.length > 0 ? list[0].rj : null
+})
+
+watch(selectedRj, (rj) => {
+  // Replace, not push: inspecting a neighbouring work is one state, not a
+  // page in history.
+  router.replace({ query: { ...route.query, rj: rj ?? undefined } })
+})
+
+// ── Keyboard: the wall's dispatch, with the same guards as the prototype. ──
+const wall = ref<InstanceType<typeof WorkWall> | null>(null)
+const libraryMenuOpen = ref(false)
+
+function playSelected(): void {
+  const work = works.value.find((candidate) => candidate.rj === selectedRj.value)
+  if (work) player.play({ rj: work.rj, title: work.title ?? work.rj })
+}
+
+function loadMore(): void {
+  if (query.hasNextPage.value) {
+    // ponytail: fetch errors surface through the query state the wall already
+    // renders; per-error UI here when a listing failure needs its own copy.
+    query.fetchNextPage().catch(() => {})
+  }
+}
+
+function openSelected(): void {
+  if (selectedRj.value !== null) {
+    router.push({ name: 'work-detail', params: { rj: selectedRj.value } })
+  }
+}
+
+function onKeydown(event: KeyboardEvent): void {
+  if (event.target instanceof HTMLInputElement) return
+  if (event.metaKey || event.ctrlKey || event.altKey) return
+  // The library menu owns J/K while it is open; they never reach the wall.
+  if (libraryMenuOpen.value) return
+  // defineExpose unwraps the computed, so the instance carries the number.
+  const cols = wall.value?.columns ?? 1
+  const moves: Record<string, number> = {
+    j: 1,
+    k: -1,
+    ArrowRight: 1,
+    ArrowLeft: -1,
+    ArrowDown: cols,
+    ArrowUp: -cols,
+  }
+  if (event.key in moves) {
+    event.preventDefault()
+    wall.value?.move(moves[event.key])
+    return
+  }
+  if (event.key === 'Enter' && !(event.target instanceof HTMLButtonElement)) {
+    openSelected()
+  } else if (event.key === 'p') {
+    playSelected()
+  } else if (event.key === ' ' && !(event.target instanceof HTMLButtonElement)) {
+    // Space only pauses and resumes: browsing never interrupts playback.
+    event.preventDefault()
+    player.togglePause()
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', onKeydown)
+})
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onKeydown)
+})
+
+const themeLabel = computed(() => (theme.value === 'light' ? 'DARK' : 'LIGHT'))
+function toggleTheme(): void {
+  theme.value = theme.value === 'light' ? 'dark' : 'light'
+}
 </script>
 
 <template>
-  <section class="substrate h-full min-h-0" aria-label="作品库"></section>
+  <section class="works substrate" aria-label="作品库">
+    <header class="header">
+      <div class="header-left"></div>
+      <div class="header-meta">
+        <span class="lbl count">WORKS<b>{{ loadedCount }}</b></span>
+        <button class="btn btn-s" type="button" title="Switch theme" @click="toggleTheme">
+          {{ themeLabel }}
+        </button>
+      </div>
+    </header>
+
+    <div class="rail">
+      <div class="tabs" role="group" aria-label="Filter">
+        <button v-for="tab in TABS" :key="tab.id" class="tab" type="button"
+          :aria-pressed="activeTab === tab.id" @click="activeTab = tab.id">
+          <span :class="tab.id === 'safe' || tab.id === 'r18' ? 'tab-jp' : 'lbl'">{{ tab.label }}</span>
+        </button>
+      </div>
+      <label class="find">
+        <span class="lbl">FIND</span>
+        <input v-model="findText" type="text" placeholder="RJ / TITLE" />
+      </label>
+    </div>
+
+    <main class="bench">
+      <WorkWall ref="wall" :works="works" :selected-rj="selectedRj" :playing-rj="player.rj"
+        @select="selectedRj = $event" @open="router.push({ name: 'work-detail', params: { rj: $event } })"
+        @load-more="loadMore" />
+      <WorkInspector :rj="selectedRj" />
+    </main>
+
+    <footer class="baseline substrate-panel"></footer>
+  </section>
 </template>
+
+<style scoped>
+/* App rows: header 48, filter rail 40, work area 1fr, bottom bar 28. The two
+   outer edges carry the only double bar (1px fine + 2px strong); everything
+   inside uses single 1px lines. */
+.works {
+  display: grid; grid-template-rows: 48px 40px minmax(0, 1fr) 28px;
+  width: 100%; height: 100%;
+  font-variant-numeric: tabular-nums;
+}
+
+.header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 var(--sp-6); position: relative;
+}
+.header::after {
+  content: ''; position: absolute; left: var(--sp-6); right: var(--sp-6); bottom: 0; height: 4px;
+  border-top: 1px solid var(--wire-fine); border-bottom: 2px solid var(--wire-strong);
+}
+.header-meta { display: flex; align-items: center; gap: var(--sp-6); }
+.header-meta b { color: var(--fg-base); font-weight: 600; letter-spacing: .08em; }
+
+.rail {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--sp-4);
+  padding: 0 var(--sp-6); position: relative;
+}
+.rail::after {
+  content: ''; position: absolute; left: var(--sp-6); right: var(--sp-6); bottom: 0;
+  border-bottom: 1px solid var(--wire-fine);
+}
+.tabs { display: flex; gap: var(--sp-1); min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.tab {
+  position: relative; isolation: isolate;
+  height: 24px; padding: 0 var(--sp-3); white-space: nowrap; color: var(--fg-muted);
+  display: inline-flex; align-items: center; gap: var(--sp-2);
+}
+.tab::before {
+  content: ''; position: absolute; inset: 0; z-index: -1; background: var(--bg-subtle);
+  clip-path: inset(0 100% 0 0); transition: clip-path var(--dur-out) var(--ease-in);
+}
+.tab:hover::before, .tab:focus-visible::before {
+  clip-path: inset(0 0 0 0); transition: clip-path var(--dur-in) var(--ease-out);
+}
+.tab:focus-visible { outline: 1px solid var(--wire-strong); outline-offset: 2px; }
+.tab[aria-pressed='true'] { background: var(--invert-bg); color: var(--invert-fg); font-weight: 700; }
+.tab[aria-pressed='true']::before { display: none; }
+.tab-jp { font-size: var(--fs-s); letter-spacing: 0; }
+.tab:hover { color: var(--fg-base); }
+.tab[aria-pressed='true'] .tab-jp { color: var(--invert-fg); }
+
+.find { display: flex; align-items: center; gap: var(--sp-2); flex-shrink: 0; }
+.find input {
+  height: 24px; width: 184px; padding: 0 var(--sp-2);
+  border: 1px solid var(--wire-mid); background: transparent; color: var(--fg-base);
+  font-family: var(--font-mono); font-size: var(--fs-xs); letter-spacing: .08em;
+}
+.find input::placeholder { color: var(--fg-meta); }
+.find input:focus { border-color: var(--wire-strong); outline: none; }
+
+.bench {
+  display: grid; grid-template-columns: minmax(0, 1fr) clamp(400px, 34vw, 608px);
+  min-height: 0;
+}
+
+.baseline {
+  position: relative;
+}
+
+@media (max-width: 768px) {
+  .works { grid-template-rows: 48px 40px minmax(0, 1fr) 28px; }
+  .bench { grid-template-columns: 1fr; }
+  .header, .rail { padding: 0 var(--sp-4); }
+  .header::after, .rail::after { left: var(--sp-4); right: var(--sp-4); }
+  .find { display: none; }
+  .header-meta .count { display: none; }
+}
+</style>

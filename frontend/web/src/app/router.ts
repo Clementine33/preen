@@ -2,6 +2,8 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { installAddressHygiene } from './route-params'
 
 const WorksetsPage = () => import('@/pages/WorksetsPage.vue')
+const WorksPage = () => import('@/pages/WorksPage.vue')
+const WorkDetailPage = () => import('@/pages/WorkDetailPage.vue')
 const OverviewPage = () => import('@/pages/OverviewPage.vue')
 const ConversionPage = () => import('@/pages/ConversionPage.vue')
 const ConversionSettingsPage = () => import('@/pages/ConversionSettingsPage.vue')
@@ -37,6 +39,12 @@ export const router = createRouter({
     // everything below happens inside one library's workbench.
     { path: '/', redirect: '/worksets' },
     { path: '/worksets', name: 'worksets', component: WorksetsPage },
+
+    // The work catalog (ADR 0012 §4): the wall of works, and one work's detail
+    // page — the mobile tap target and OPEN DETAIL. The wall keeps its selected
+    // work in the `?rj=` identity, never a search term.
+    { path: '/works', name: 'works', component: WorksPage },
+    { path: '/works/:rj', name: 'work-detail', component: WorkDetailPage },
 
     // The workbench of one library. The overview and a member's file page are
     // the same page in two views, so returning from a member keeps the list's

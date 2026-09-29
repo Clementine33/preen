@@ -36,15 +36,19 @@ const gridWidth = ref(0)
 const isMobile = ref(false)
 
 let resizeObserver: ResizeObserver | null = null
-const mobileQuery = typeof matchMedia === 'function' ? matchMedia('(max-width: 768px)') : null
+let mobileQuery: MediaQueryList | null = null
 function syncMobile() {
   isMobile.value = mobileQuery?.matches ?? false
 }
 
 onMounted(() => {
+  // Read at mount, not at import: the query reflects the media state when the
+  // wall actually appears.
+  mobileQuery = typeof matchMedia === 'function' ? matchMedia('(max-width: 768px)') : null
   syncMobile()
   mobileQuery?.addEventListener('change', onMediaChange)
-  if (gridEl.value) {
+  // jsdom has no ResizeObserver; the same guard use-container-tier carries.
+  if (gridEl.value && typeof ResizeObserver !== 'undefined') {
     resizeObserver = new ResizeObserver((entries) => {
       gridWidth.value = entries[0]?.contentRect.width ?? 0
     })

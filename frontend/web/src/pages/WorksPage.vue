@@ -3,6 +3,8 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useTheme } from '@/composables/use-theme'
 import type { ListWorksParams } from '@/lib/api/types'
+import LibrarySwitcher from '@/features/works/LibrarySwitcher.vue'
+import PlayerBar from '@/features/works/PlayerBar.vue'
 import WorkInspector from '@/features/works/WorkInspector.vue'
 import WorkWall from '@/features/works/WorkWall.vue'
 import { useWorksList } from '@/queries/works'
@@ -142,7 +144,9 @@ function toggleTheme(): void {
 <template>
   <section class="works substrate" aria-label="作品库">
     <header class="header">
-      <div class="header-left"></div>
+      <div class="header-left">
+        <LibrarySwitcher v-model:open="libraryMenuOpen" />
+      </div>
       <div class="header-meta">
         <span class="lbl count">WORKS<b>{{ loadedCount }}</b></span>
         <button class="btn btn-s" type="button" title="Switch theme" @click="toggleTheme">
@@ -171,7 +175,7 @@ function toggleTheme(): void {
       <WorkInspector :rj="selectedRj" />
     </main>
 
-    <footer class="baseline substrate-panel"></footer>
+    <PlayerBar />
   </section>
 </template>
 
@@ -238,9 +242,7 @@ function toggleTheme(): void {
   min-height: 0;
 }
 
-.baseline {
-  position: relative;
-}
+.header-left { min-width: 0; }
 
 @media (max-width: 768px) {
   .works { grid-template-rows: 48px 40px minmax(0, 1fr) 28px; }

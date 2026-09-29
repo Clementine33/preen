@@ -183,6 +183,131 @@ export interface ClassifierTagLibraryResponse {
   custom_tags: ClassifierCustomTag[]
 }
 
+// ==================== Work catalog ====================
+// docs/api.md §Work catalog. Unknown scalars are null, never zero-values
+// (ADR 0011 §7): an unknown adult flag is not false and an unrated work
+// is not 0.
+
+export interface WorkUserTag {
+  id: string
+  name: string
+}
+
+/** One listing row: the listing projection, without note text or copies. */
+export interface WorkSummary {
+  /** Canonical RJ + 8 digits; the API normalizes 6-digit input itself. */
+  rj: string
+  title: string | null
+  thumbnail_url: string | null
+  circle: string | null
+  language: string | null
+  nsfw: boolean | null
+  /** `YYYY-MM-DD`; unknown release dates sort last in either direction. */
+  release_date: string | null
+  dl_count: number | null
+  /** 1–10, or null = unrated. */
+  rating: number | null
+  favorite: boolean
+  user_tags: WorkUserTag[]
+  has_note: boolean
+  collected_at: string
+  copy_count: number
+}
+
+/** A voice actor or a source tag, with the source that reported it. */
+export interface WorkSourceEntity {
+  id: string
+  source: string
+  source_id: string
+  name: string
+}
+
+export interface WorkEdition {
+  version_root_rj: string
+  language: string
+  label: string
+  edition_id: string
+  display_order: number
+}
+
+/** What the catalog derived from the evidence, not the evidence itself. */
+export interface WorkRelation {
+  role: string | null
+  language: string | null
+  original_rj: string | null
+  parent_rj: string | null
+}
+
+/** One directory bound to the work; bindings come only from scanning. */
+export interface WorkCopy {
+  copy_id: string
+  library_id: string
+  rel_path: string
+}
+
+/** The full work: metadata, personal data, resolved relation and copies. */
+export interface WorkDetail extends WorkSummary {
+  source_url: string | null
+  cover_url: string | null
+  sample_cover_url: string | null
+  series_id: string | null
+  series_name: string | null
+  voice_actors: WorkSourceEntity[]
+  source_tags: WorkSourceEntity[]
+  note: string
+  /** Null when the work declares no editions. */
+  language_editions: WorkEdition[] | null
+  relation: WorkRelation
+  copies: WorkCopy[]
+  /** Declared by a relation but never found on disk; absent from the listing. */
+  placeholder: boolean
+}
+
+export interface WorkListResponse {
+  works: WorkSummary[]
+  /** Absent on the last page. */
+  next_cursor?: string
+}
+
+export type WorksSort = 'rj' | 'release_date' | 'collected_at'
+
+/**
+ * Exactly the parameters the backend accepts (docs/api.md listing filters):
+ * anything else is INVALID_ARGUMENT. The three id-list filters each require
+ * their `_match` companion when the list is present.
+ */
+export interface ListWorksParams {
+  /** Literal substring of the work number or the title; `%`/`_` are ordinary. */
+  q?: string
+  /** Comma-separated id lists; a work matches if it has any of them. */
+  circle?: string
+  language?: string
+  library?: string
+  voice_actor?: string
+  source_tag?: string
+  user_tag?: string
+  /** Required companions of the id-list filters above. */
+  voice_actor_match?: 'all' | 'any'
+  source_tag_match?: 'all' | 'any'
+  user_tag_match?: 'all' | 'any'
+  /** A work that never reported the adult flag. */
+  nsfw?: boolean | 'unknown'
+  /** `YYYY-MM-DD`, inclusive; unknown dates are outside the range. */
+  released_from?: string
+  released_to?: string
+  /** Integer 1–10, inclusive; `unrated: true` unions with the range. */
+  rating_from?: number
+  rating_to?: number
+  unrated?: boolean
+  favorite?: boolean
+  has_copy?: boolean
+  sort?: WorksSort
+  direction?: 'asc' | 'desc'
+  /** 1–200; an absent limit is 50. */
+  limit?: number
+  cursor?: string
+}
+
 // ==================== Worksets and operations ====================
 
 export type PlanningState = 'unplanned' | 'planned' | 'needs_planning' | 'planning' | 'orphaned'
@@ -727,6 +852,8 @@ export interface ApiClientContract {
   ): Promise<CreateRecordResponse>
   listWorksets(params?: ListWorksetsParams, signal?: AbortSignal): Promise<WorksetListResponse>
   getWorkset(id: string, signal?: AbortSignal): Promise<Workset>
+  listWorks(params?: ListWorksParams, signal?: AbortSignal): Promise<WorkListResponse>
+  getWork(rj: string, signal?: AbortSignal): Promise<WorkDetail>
   getOperation(worksetId: string, operation: OperationType, signal?: AbortSignal): Promise<Operation>
   getOperationDraft(worksetId: string, operation: OperationType, signal?: AbortSignal): Promise<DraftResponse>
   saveOperationDraft(

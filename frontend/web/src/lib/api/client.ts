@@ -23,6 +23,7 @@ import type {
   GenerationView,
   HealthResponse,
   Library,
+  ListWorksParams,
   ListWorksetsParams,
   Operation,
   OperationDraftDocument,
@@ -34,6 +35,8 @@ import type {
   StartExecutionResponse,
   StartGenerationResponse,
   UpdateLibraryInput,
+  WorkDetail,
+  WorkListResponse,
   Workset,
   WorksetListResponse,
 } from './types'
@@ -224,6 +227,46 @@ export class ApiClient implements ApiClientContract {
 
   getWorkset(id: string, signal?: AbortSignal): Promise<Workset> {
     return this.request(`/worksets/${encodeURIComponent(id)}`, { signal })
+  }
+
+  // The works listing takes exactly the parameters the backend whitelists
+  // (docs/api.md): unknown keys are INVALID_ARGUMENT, so only set ones ship.
+  listWorks(params: ListWorksParams = {}, signal?: AbortSignal): Promise<WorkListResponse> {
+    const query = new URLSearchParams()
+    for (const key of [
+      'q',
+      'circle',
+      'language',
+      'library',
+      'voice_actor',
+      'source_tag',
+      'user_tag',
+      'voice_actor_match',
+      'source_tag_match',
+      'user_tag_match',
+      'released_from',
+      'released_to',
+      'sort',
+      'direction',
+      'cursor',
+    ] as const) {
+      if (params[key]) query.set(key, params[key])
+    }
+    for (const key of ['rating_from', 'rating_to', 'limit'] as const) {
+      if (params[key] !== undefined) query.set(key, String(params[key]))
+    }
+    for (const key of ['nsfw', 'unrated', 'favorite', 'has_copy'] as const) {
+      const value = params[key]
+      if (value !== undefined) query.set(key, String(value))
+    }
+    const qs = query.toString()
+    return this.request(`/works${qs ? `?${qs}` : ''}`, { signal })
+  }
+
+  getWork(rj: string, signal?: AbortSignal): Promise<WorkDetail> {
+    // The backend normalizes both 6- and 8-digit spellings to the canonical
+    // 8-digit form; the path only ever carries the work number.
+    return this.request(`/works/${encodeURIComponent(rj)}`, { signal })
   }
 
   getOperation(worksetId: string, operation: OperationType, signal?: AbortSignal): Promise<Operation> {

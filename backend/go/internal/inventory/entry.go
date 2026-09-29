@@ -216,7 +216,10 @@ func (s *service) Scan(ctx context.Context, req Request, emit func(Event)) (Resu
 	emit(Event{Type: "started", Stage: "scan", Message: fmt.Sprintf("Scanning %s", req.RootPath)})
 
 	var lastProgress Progress
-	scanID, err := s.pipeline.ScanRootCtx(ctx, req.RootPath, WithProgress(func(p Progress) {
+	// The request's library id must reach the merge: the binding reconciliation
+	// only runs for a full scan that names its library (ADR 0011 §2), and
+	// dropping it here leaves the catalog with no works ever bound.
+	scanID, err := s.pipeline.ScanRootCtx(ctx, req.RootPath, WithLibrary(req.LibraryID), WithProgress(func(p Progress) {
 		lastProgress = p
 		emit(Event{Type: "progress", Stage: "scan", FilesScanned: p.FilesScanned, DirsScanned: p.DirsScanned})
 	}))

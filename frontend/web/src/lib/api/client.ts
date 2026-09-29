@@ -36,6 +36,8 @@ import type {
   StartGenerationResponse,
   UpdateLibraryInput,
   WorkDetail,
+  WorkFacet,
+  WorkFacetKind,
   WorkListResponse,
   Workset,
   WorksetListResponse,
@@ -267,6 +269,18 @@ export class ApiClient implements ApiClientContract {
     // The backend normalizes both 6- and 8-digit spellings to the canonical
     // 8-digit form; the path only ever carries the work number.
     return this.request(`/works/${encodeURIComponent(rj)}`, { signal })
+  }
+
+  // The circles or voice actors listed works carry, scoped like the listing's
+  // own `library` filter; each id is what that listing parameter takes.
+  async listWorkFacets(kind: WorkFacetKind, library?: string, signal?: AbortSignal): Promise<WorkFacet[]> {
+    const qs = library ? `?library=${encodeURIComponent(library)}` : ''
+    if (kind === 'circle') {
+      const body = await this.request<{ circles: WorkFacet[] }>(`/circles${qs}`, { signal })
+      return body.circles
+    }
+    const body = await this.request<{ voice_actors: WorkFacet[] }>(`/voice-actors${qs}`, { signal })
+    return body.voice_actors
   }
 
   getOperation(worksetId: string, operation: OperationType, signal?: AbortSignal): Promise<Operation> {

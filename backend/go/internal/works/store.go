@@ -98,6 +98,9 @@ type Page struct {
 type Store interface {
 	// ListWorks returns one page of the ordinary listing.
 	ListWorks(filter Filter) (Page, error)
+	// ListFacets returns the entities of one kind that listed works carry,
+	// ordered by name, optionally scoped to works with a copy in the libraries.
+	ListFacets(kind FacetKind, libraries []string) ([]Facet, error)
 	// GetWork loads one work in full. The bool reports whether it exists.
 	GetWork(id WorkCode) (*WorkDetail, bool, error)
 	// ImportMetadata applies a validated submission in one transaction,

@@ -3,6 +3,7 @@ package sqlite
 import (
 	"database/sql"
 	"errors"
+	"strconv"
 	"strings"
 	"time"
 
@@ -115,7 +116,7 @@ func (r *Repository) ListWorks(filter works.Filter) (works.Page, error) {
 		summary.CollectedAt = collectedAt.String
 		summary.CopyCount = copyCount
 		page.Works = append(page.Works, summary)
-		cursors = append(cursors, cursorForRow(filter, summary, id, releaseDate))
+		cursors = append(cursors, cursorForRow(filter, summary, id))
 	}
 	if err := rows.Err(); err != nil {
 		return works.Page{}, err
@@ -134,7 +135,7 @@ func (r *Repository) ListWorks(filter works.Filter) (works.Page, error) {
 
 // cursorForRow renders the position of one listed row, which is what the next
 // page continues from.
-func cursorForRow(filter works.Filter, summary works.WorkSummary, id string, releaseDate sql.NullString) works.Cursor {
+func cursorForRow(filter works.Filter, summary works.WorkSummary, id string) works.Cursor {
 	cursor := works.Cursor{
 		Sort:      filter.Sort,
 		Direction: filter.Direction,
@@ -143,10 +144,16 @@ func cursorForRow(filter works.Filter, summary works.WorkSummary, id string, rel
 	}
 	switch filter.Sort {
 	case works.SortByReleaseDate:
-		if !releaseDate.Valid {
+		if summary.ReleaseDate == nil {
 			cursor.NullRank = 1
 		} else {
-			cursor.SortValue = releaseDate.String
+			cursor.SortValue = *summary.ReleaseDate
+		}
+	case works.SortByRating:
+		if summary.Rating == nil {
+			cursor.NullRank = 1
+		} else {
+			cursor.SortValue = strconv.Itoa(*summary.Rating)
 		}
 	case works.SortByCollectedAt:
 		cursor.SortValue = summary.CollectedAt
@@ -164,19 +171,22 @@ func orderClause(filter works.Filter) string {
 	if filter.Direction == works.Descending {
 		direction = "DESC"
 	}
-	switch filter.Sort {
-	case works.SortByReleaseDate:
-		// Once the cursor has entered the trailing unknown-date block, every row
-		// in the result has a null release date, so the first two ordering terms
-		// are constant and the order is the work number's alone. Saying only
-		// that keeps the expression one the index can answer instead of one the
+	if column, ok := nullableSortColumn(filter.Sort); ok {
+		// Once the cursor has entered the trailing unknown block, every row in
+		// the result has a null sort value, so the first two ordering terms are
+		// constant and the order is the work number's alone. Saying only that
+		// keeps the expression one the index can answer instead of one the
 		// planner has to sort.
 		if filter.Cursor != nil && filter.Cursor.NullRank == 1 {
 			return "w.id ASC"
 		}
-		// Unknown release dates are always last, in either direction, which is
-		// why the null flag leads the ordering and never flips with it.
-		return "(w.release_date IS NULL) ASC, w.release_date " + direction + ", w.id ASC"
+		// Unknown values are always last, in either direction, which is why the
+		// null flag leads the ordering and never flips with it.
+		return "(" + column + " IS NULL) ASC, " + column + " " + direction + ", w.id ASC"
+	}
+	switch filter.Sort {
+	case works.SortByReleaseDate, works.SortByRating:
+		// Handled above as nullable orders.
 	case works.SortByCollectedAt:
 		return "w.collected_at " + direction + ", w.id ASC"
 	case works.SortByWorkID:
@@ -185,6 +195,20 @@ func orderClause(filter works.Filter) string {
 	// Unreachable: Validate refuses any other field, so nothing else reaches
 	// the ordering.
 	return "w.id " + direction
+}
+
+// nullableSortColumn is the column of an order whose value can be unknown.
+// The rating lives in the user-data table, which is why its order is sorted by
+// the planner rather than read from an index (ADR 0011 §7).
+func nullableSortColumn(field works.SortField) (string, bool) {
+	switch field {
+	case works.SortByReleaseDate:
+		return "w.release_date", true
+	case works.SortByRating:
+		return "u.rating", true
+	case works.SortByWorkID, works.SortByCollectedAt:
+	}
+	return "", false
 }
 
 // addCursor adds the keyset predicate that continues a previous page. Each
@@ -200,17 +224,21 @@ func (b *listQueryBuilder) addCursor(filter works.Filter) {
 	if !ascending {
 		comparison = "<"
 	}
-	switch filter.Sort {
-	case works.SortByReleaseDate:
+	if column, ok := nullableSortColumn(filter.Sort); ok {
 		if cursor.NullRank == 1 {
-			b.add("(w.release_date IS NULL AND w.id > ?)", string(cursor.WorkID))
+			b.add("("+column+" IS NULL AND w.id > ?)", string(cursor.WorkID))
 			return
 		}
+		value := sortValueArg(filter.Sort, cursor.SortValue)
 		b.add(
-			"(w.release_date IS NULL OR w.release_date "+comparison+
-				" ? OR (w.release_date = ? AND w.id > ?))",
-			cursor.SortValue, cursor.SortValue, string(cursor.WorkID),
+			"("+column+" IS NULL OR "+column+" "+comparison+" ? OR ("+column+" = ? AND w.id > ?))",
+			value, value, string(cursor.WorkID),
 		)
+		return
+	}
+	switch filter.Sort {
+	case works.SortByReleaseDate, works.SortByRating:
+		// Handled above as nullable orders.
 	case works.SortByCollectedAt:
 		b.add(
 			"(w.collected_at "+comparison+" ? OR (w.collected_at = ? AND w.id > ?))",
@@ -219,6 +247,17 @@ func (b *listQueryBuilder) addCursor(filter works.Filter) {
 	case works.SortByWorkID:
 		b.add("w.id "+comparison+" ?", "RJ"+cursor.SortValue)
 	}
+}
+
+// sortValueArg binds a cursor's value in the column's own type: the rating is
+// an integer column, and comparing it against text would compare the wrong
+// kind of value. DecodeCursor has already refused a rating that is no number.
+func sortValueArg(field works.SortField, value string) any {
+	if field == works.SortByRating {
+		rating, _ := strconv.Atoi(value)
+		return rating
+	}
+	return value
 }
 
 // listQueryBuilder accumulates the WHERE fragments and their bound values.

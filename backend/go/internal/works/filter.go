@@ -57,12 +57,19 @@ const (
 	SortByWorkID      SortField = "rj"
 	SortByReleaseDate SortField = "release_date"
 	SortByCollectedAt SortField = "collected_at"
+	// SortByRating orders by the user's rating; unrated works always come last,
+	// the way unknown release dates do.
+	SortByRating SortField = "rating"
 )
+
+// Nullable reports whether the field can be unknown, which puts a trailing
+// block of unknown rows after every known one, in either direction.
+func (s SortField) Nullable() bool { return s == SortByReleaseDate || s == SortByRating }
 
 // Valid reports whether the field is sortable.
 func (s SortField) Valid() bool {
 	switch s {
-	case SortByWorkID, SortByReleaseDate, SortByCollectedAt:
+	case SortByWorkID, SortByReleaseDate, SortByCollectedAt, SortByRating:
 		return true
 	default:
 		return false

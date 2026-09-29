@@ -84,13 +84,22 @@ async function mountWorks(
   wrapper: VueWrapper
   router: Router
   listWorks: ReturnType<typeof vi.fn>
+  listWorkFacets: ReturnType<typeof vi.fn>
 }> {
   const listWorks = vi.fn((params: { library?: string }) =>
     Promise.resolve({ works: params.library === LIB_B ? worksB : worksA }),
   )
+  const listWorkFacets = vi.fn((kind: string) =>
+    Promise.resolve(
+      kind === 'voice_actor'
+        ? [{ id: 'va-1', name: '伊ヶ崎綾香', work_count: 3 }]
+        : [{ id: 'ci-1', name: 'mete0r', work_count: 2 }],
+    ),
+  )
   const api = apiStub({
     listLibraries: vi.fn().mockResolvedValue([library(LIB_A, 'Archive', '/music'), library(LIB_B, 'Brazil', '/brazil')]),
     listWorks,
+    listWorkFacets,
   } as never)
   const router = routerFor()
   await router.push(initialPath)
@@ -103,7 +112,7 @@ async function mountWorks(
     },
   })
   await flushPromises()
-  return { wrapper, router, listWorks }
+  return { wrapper, router, listWorks, listWorkFacets }
 }
 
 /** The page listens on the window, so the keyboard arrives as real events. */
@@ -114,6 +123,20 @@ function press(key: string): void {
 /** The inspected work, as the inspector's strip states it. */
 function inspected(wrapper: VueWrapper): string {
   return wrapper.get('[aria-label="Inspector"] .strip .lbl + .lbl').text()
+}
+
+/** The listing parameters of the most recent request. */
+function lastParams(listWorks: ReturnType<typeof vi.fn>): Record<string, unknown> {
+  return listWorks.mock.calls.at(-1)?.[0] as Record<string, unknown>
+}
+
+/** Opens one rail select by its label and picks an option by its text. */
+async function pick(wrapper: VueWrapper, label: string, option: string): Promise<void> {
+  const select = wrapper.findAll('.rs').find((candidate) => candidate.find('.rs-lbl').text() === label)!
+  await select.get('.rs-trigger').trigger('click')
+  const item = select.findAll('[role="option"]').find((candidate) => candidate.find('.rs-name').text() === option)!
+  await item.trigger('click')
+  await flushPromises()
 }
 
 beforeEach(() => {
@@ -175,14 +198,69 @@ describe('works page', () => {
     expect(router.currentRoute.value.query.rj).toBe(worksB[0].rj)
   })
 
-  it('sends the filter tab straight to the listing parameters', async () => {
+  it('lists newest releases first until another order is chosen', async () => {
     const { wrapper, listWorks } = await mountWorks('/works')
 
-    await wrapper.findAll('.tab')[3].trigger('click') // R18
+    expect(lastParams(listWorks)).toMatchObject({ sort: 'release_date', direction: 'desc' })
+
+    await pick(wrapper, 'SORT', 'RATING')
+    expect(lastParams(listWorks)).toMatchObject({ sort: 'rating', direction: 'desc' })
+    await pick(wrapper, 'SORT', 'ADDED')
+    expect(lastParams(listWorks)).toMatchObject({ sort: 'collected_at', direction: 'desc' })
+  })
+
+  it('sends each rail filter straight to its listing parameter', async () => {
+    const { wrapper, listWorks } = await mountWorks('/works')
+
+    await pick(wrapper, 'AGE', 'R18')
+    expect(lastParams(listWorks)).toMatchObject({ nsfw: true })
+    await pick(wrapper, 'AGE', 'UNKNOWN')
+    expect(lastParams(listWorks)).toMatchObject({ nsfw: 'unknown' })
+
+    // A voice actor filter always states its match mode, which the API requires.
+    await pick(wrapper, 'VOICE', '伊ヶ崎綾香')
+    expect(lastParams(listWorks)).toMatchObject({ voice_actor: 'va-1', voice_actor_match: 'any' })
+    await pick(wrapper, 'CIRCLE', 'mete0r')
+    expect(lastParams(listWorks)).toMatchObject({ circle: 'ci-1', voice_actor: 'va-1' })
+
+    // ALL clears a dimension instead of sending an empty value.
+    await pick(wrapper, 'VOICE', 'ALL')
+    expect(lastParams(listWorks)).not.toHaveProperty('voice_actor')
+    expect(lastParams(listWorks)).not.toHaveProperty('voice_actor_match')
+  })
+
+  it('offers a name held by several per-work entities once, asking for all of them', async () => {
+    const { wrapper, listWorks, listWorkFacets } = await mountWorks('/works')
+    listWorkFacets.mockResolvedValue([
+      { id: 'va-7', name: '悠木碧', work_count: 1 },
+      { id: 'va-9', name: '悠木碧', work_count: 2 },
+    ])
+    useLibraryUiStore().setActiveLibrary(LIB_B)
     await flushPromises()
 
-    const last = listWorks.mock.calls.at(-1)?.[0] as { nsfw?: boolean }
-    expect(last.nsfw).toBe(true)
+    await pick(wrapper, 'VOICE', '悠木碧')
+    expect(lastParams(listWorks)).toMatchObject({ voice_actor: 'va-7,va-9', voice_actor_match: 'any' })
+  })
+
+  it('narrows a long facet list by name', async () => {
+    const { wrapper } = await mountWorks('/works')
+    const select = wrapper.findAll('.rs').find((candidate) => candidate.find('.rs-lbl').text() === 'VOICE')!
+    await select.get('.rs-trigger').trigger('click')
+
+    await select.get('input[type="search"]').setValue('nobody')
+    // The empty entry stays reachable, so clearing is still one step.
+    expect(select.findAll('[role="option"]').map((item) => item.find('.rs-name').text())).toEqual(['ALL'])
+  })
+
+  it('drops the voice actor and circle of the previous library', async () => {
+    const { wrapper, listWorks } = await mountWorks('/works')
+    await pick(wrapper, 'VOICE', '伊ヶ崎綾香')
+
+    useLibraryUiStore().setActiveLibrary(LIB_B)
+    await flushPromises()
+
+    expect(lastParams(listWorks)).toMatchObject({ library: LIB_B })
+    expect(lastParams(listWorks)).not.toHaveProperty('voice_actor')
   })
 
   it('plays the selected work with P and never lets Space change what plays', async () => {

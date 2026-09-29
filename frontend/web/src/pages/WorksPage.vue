@@ -4,19 +4,20 @@ import { useRoute, useRouter } from 'vue-router'
 import { canonicalRj } from '@/app/route-params'
 import { useMediaQuery, WALL_MOBILE_QUERY } from '@/composables/use-media-query'
 import { useTheme } from '@/composables/use-theme'
-import type { ListWorksParams } from '@/lib/api/types'
+import type { ListWorksParams, WorkFacet, WorksSort } from '@/lib/api/types'
 import LibrarySwitcher from '@/features/works/LibrarySwitcher.vue'
 import PlayerBar from '@/features/works/PlayerBar.vue'
+import RailSelect, { type RailOption } from '@/features/works/RailSelect.vue'
 import WorkInspector from '@/features/works/WorkInspector.vue'
 import WorkWall from '@/features/works/WorkWall.vue'
-import { useWorksList } from '@/queries/works'
+import { useWorkFacets, useWorksList } from '@/queries/works'
 import { useLibraryUiStore } from '@/stores/library-ui'
 import { usePlayerStore } from '@/stores/player'
 
 // The work wall page (ADR 0012 §4): an in-page header, a filter rail, the
 // bench of wall and inspector, and the player baseline — four rows inside the
-// AppShell's main. The selected work lives in the `?rj=` identity; filters and
-// the FIND box are the page's transient state, never the address's.
+// AppShell's main. The selected work lives in the `?rj=` identity; filters,
+// the order and the FIND box are the page's transient state, never the address's.
 
 const route = useRoute()
 const router = useRouter()
@@ -25,15 +26,51 @@ const libraryUi = useLibraryUiStore()
 const player = usePlayerStore()
 const isMobile = useMediaQuery(WALL_MOBILE_QUERY)
 
-// ── Filter rail: four tabs, each one direct listing parameter; FIND is q. ──
-type TabId = 'all' | 'favorite' | 'safe' | 'r18'
-const TABS: Array<{ id: TabId; label: string; params: Partial<ListWorksParams> }> = [
-  { id: 'all', label: 'ALL', params: {} },
-  { id: 'favorite', label: 'FAVORITE', params: { favorite: true } },
-  { id: 'safe', label: '全年齢', params: { nsfw: false } },
-  { id: 'r18', label: 'R18', params: { nsfw: true } },
+// ── Filter rail: voice actor, circle and age rating, each one listing
+// parameter; the order is its own select; FIND is q. '' = no constraint. ──
+const voiceActor = ref('')
+const circle = ref('')
+const age = ref('')
+const sort = ref<WorksSort>('release_date')
+
+const libraryScope = computed(() => libraryUi.activeLibraryId)
+const { facets: voiceActorFacets } = useWorkFacets('voice_actor', libraryScope)
+const { facets: circleFacets } = useWorkFacets('circle', libraryScope)
+// An entity without a source id is kept per work (ADR 0011 §6), so one name
+// can arrive as several ids. The rail offers the name once and asks for all of
+// its ids: the listing matches any id of a comma-separated list.
+function facetOptions(facets: WorkFacet[]): RailOption[] {
+  const byName = new Map<string, { ids: string[]; count: number }>()
+  for (const facet of facets) {
+    const entry = byName.get(facet.name) ?? { ids: [], count: 0 }
+    entry.ids.push(facet.id)
+    entry.count += facet.work_count
+    byName.set(facet.name, entry)
+  }
+  return [
+    { value: '', label: 'ALL' },
+    ...[...byName].map(([name, entry]) => ({ value: entry.ids.join(','), label: name, count: entry.count })),
+  ]
+}
+const voiceActorOptions = computed(() => facetOptions(voiceActorFacets.value))
+const circleOptions = computed(() => facetOptions(circleFacets.value))
+
+// Unknown is its own answer, not a synonym for 全年齢 (docs/api.md `nsfw`).
+const AGE_OPTIONS: RailOption[] = [
+  { value: '', label: 'ALL' },
+  { value: 'safe', label: '全年齢' },
+  { value: 'r18', label: 'R18' },
+  { value: 'unknown', label: 'UNKNOWN' },
 ]
-const activeTab = ref<TabId>('all')
+const AGE_PARAM: Record<string, ListWorksParams['nsfw']> = { safe: false, r18: true, unknown: 'unknown' }
+
+// Every order runs newest / highest first; unknown dates and unrated works
+// trail in either direction.
+const SORT_OPTIONS: RailOption[] = [
+  { value: 'release_date', label: 'RELEASE' },
+  { value: 'collected_at', label: 'ADDED' },
+  { value: 'rating', label: 'RATING' },
+]
 
 const findText = ref('')
 const findQuery = ref('')
@@ -50,8 +87,12 @@ onBeforeUnmount(() => {
 
 const filters = computed<ListWorksParams>(() => ({
   ...(libraryUi.activeLibraryId ? { library: libraryUi.activeLibraryId } : {}),
-  ...TABS.find((tab) => tab.id === activeTab.value)!.params,
+  ...(voiceActor.value ? { voice_actor: voiceActor.value, voice_actor_match: 'any' as const } : {}),
+  ...(circle.value ? { circle: circle.value } : {}),
+  ...(age.value ? { nsfw: AGE_PARAM[age.value] } : {}),
   ...(findQuery.value ? { q: findQuery.value } : {}),
+  sort: sort.value,
+  direction: 'desc',
 }))
 
 const { works, query } = useWorksList(filters)
@@ -66,17 +107,17 @@ const selectedRj = ref<string | null>(restoredRj)
 // The address may name a work beyond the pages loaded so far: it stays
 // inspected until the user changes the listing under it.
 let keepRestored = restoredRj !== null
-watch([activeTab, findQuery], () => {
+watch([voiceActor, circle, age, sort, findQuery], () => {
   keepRestored = false
 })
-// The first resolution of the active library (null → the stored or first one)
-// is not a switch, so it leaves the address's work alone.
-watch(
-  () => libraryUi.activeLibraryId,
-  (_now, before) => {
-    if (before !== null) keepRestored = false
-  },
-)
+// A voice actor or circle belongs to the library it was picked in. The first
+// resolution of the active library (null → the stored or first one) is not a
+// switch, so it leaves the address's work alone.
+watch(libraryScope, (_now, before) => {
+  voiceActor.value = ''
+  circle.value = ''
+  if (before !== null) keepRestored = false
+})
 
 watch(works, (list) => {
   // The previous filter's wall, shown while the new listing loads.
@@ -191,16 +232,18 @@ function toggleTheme(): void {
     </header>
 
     <div class="rail">
-      <div class="tabs" role="group" aria-label="Filter">
-        <button v-for="tab in TABS" :key="tab.id" class="tab" type="button"
-          :aria-pressed="activeTab === tab.id" @click="activeTab = tab.id">
-          <span :class="tab.id === 'safe' || tab.id === 'r18' ? 'tab-jp' : 'lbl'">{{ tab.label }}</span>
-        </button>
+      <div class="filters" role="group" aria-label="Filter">
+        <RailSelect v-model="voiceActor" label="VOICE" :options="voiceActorOptions" marks-active searchable />
+        <RailSelect v-model="circle" label="CIRCLE" :options="circleOptions" marks-active searchable />
+        <RailSelect v-model="age" label="AGE" :options="AGE_OPTIONS" marks-active />
       </div>
-      <label class="find">
-        <span class="lbl">FIND</span>
-        <input v-model="findText" type="text" placeholder="RJ / TITLE" />
-      </label>
+      <div class="rail-right">
+        <RailSelect v-model="sort" label="SORT" :options="SORT_OPTIONS" />
+        <label class="find">
+          <span class="lbl">FIND</span>
+          <input v-model="findText" type="text" placeholder="RJ / TITLE" />
+        </label>
+      </div>
     </div>
 
     <main class="bench">
@@ -243,25 +286,8 @@ function toggleTheme(): void {
   content: ''; position: absolute; left: var(--sp-6); right: var(--sp-6); bottom: 0;
   border-bottom: 1px solid var(--wire-fine);
 }
-.tabs { display: flex; gap: var(--sp-1); min-width: 0; overflow-x: auto; scrollbar-width: none; }
-.tab {
-  position: relative; isolation: isolate;
-  height: 24px; padding: 0 var(--sp-3); white-space: nowrap; color: var(--fg-muted);
-  display: inline-flex; align-items: center; gap: var(--sp-2);
-}
-.tab::before {
-  content: ''; position: absolute; inset: 0; z-index: -1; background: var(--bg-subtle);
-  clip-path: inset(0 100% 0 0); transition: clip-path var(--dur-out) var(--ease-in);
-}
-.tab:hover::before, .tab:focus-visible::before {
-  clip-path: inset(0 0 0 0); transition: clip-path var(--dur-in) var(--ease-out);
-}
-.tab:focus-visible { outline: 1px solid var(--wire-strong); outline-offset: 2px; }
-.tab[aria-pressed='true'] { background: var(--invert-bg); color: var(--invert-fg); font-weight: 700; }
-.tab[aria-pressed='true']::before { display: none; }
-.tab-jp { font-size: var(--fs-s); letter-spacing: 0; }
-.tab:hover { color: var(--fg-base); }
-.tab[aria-pressed='true'] .tab-jp { color: var(--invert-fg); }
+.filters, .rail-right { display: flex; align-items: center; gap: var(--sp-1); min-width: 0; }
+.rail-right { gap: var(--sp-4); flex-shrink: 0; }
 
 .find { display: flex; align-items: center; gap: var(--sp-2); flex-shrink: 0; }
 .find input {

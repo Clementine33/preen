@@ -269,7 +269,21 @@ export interface WorkListResponse {
   next_cursor?: string
 }
 
-export type WorksSort = 'rj' | 'release_date' | 'collected_at'
+/** `rating` puts unrated works last in either direction, as release_date does unknown dates. */
+export type WorksSort = 'rj' | 'release_date' | 'collected_at' | 'rating'
+
+/**
+ * One filterable source entity (docs/api.md `GET /circles`, `/voice-actors`):
+ * `id` is what the listing parameter of the same name takes, and `work_count`
+ * counts listed works under the same library scope.
+ */
+export interface WorkFacet {
+  id: string
+  name: string
+  work_count: number
+}
+
+export type WorkFacetKind = 'circle' | 'voice_actor'
 
 /**
  * Exactly the parameters the backend accepts (docs/api.md listing filters):
@@ -854,6 +868,7 @@ export interface ApiClientContract {
   getWorkset(id: string, signal?: AbortSignal): Promise<Workset>
   listWorks(params?: ListWorksParams, signal?: AbortSignal): Promise<WorkListResponse>
   getWork(rj: string, signal?: AbortSignal): Promise<WorkDetail>
+  listWorkFacets(kind: WorkFacetKind, library?: string, signal?: AbortSignal): Promise<WorkFacet[]>
   getOperation(worksetId: string, operation: OperationType, signal?: AbortSignal): Promise<Operation>
   getOperationDraft(worksetId: string, operation: OperationType, signal?: AbortSignal): Promise<DraftResponse>
   saveOperationDraft(

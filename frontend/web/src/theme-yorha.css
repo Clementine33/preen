@@ -111,6 +111,16 @@
 .strip-name { display: inline-flex; align-items: center; gap: var(--sp-2); }
 .strip-name::before { content: ''; width: 6px; height: 6px; background: var(--invert-bg); }
 
+/* ── Outer edges carry the only double bar (1px fine + 2px strong): the
+     bottom of a top header, the top of a bottom bar. Inner lines stay 1px.
+     The class positions its own host. ── */
+.edge-bottom, .edge-top { position: relative; }
+.edge-bottom::after, .edge-top::after {
+  content: ''; position: absolute; left: 0; right: 0; height: 4px; pointer-events: none;
+}
+.edge-bottom::after { bottom: 0; border-top: 1px solid var(--wire-fine); border-bottom: 2px solid var(--wire-strong); }
+.edge-top::after { top: 0; border-top: 2px solid var(--wire-strong); border-bottom: 1px solid var(--wire-fine); }
+
 /* ── 45° hatching is reserved for empty states: the missing cover, the
      offline library tag. ── */
 .hatch {

@@ -159,7 +159,7 @@ function conclusionTitle(member: WorksetMember): string {
       <table class="w-full border-collapse text-xs">
         <caption class="sr-only">工作集成员与转换结论</caption>
         <thead class="sticky top-0 z-10 bg-card">
-          <tr class="h-8 border-b border-border text-left text-[11px] text-[var(--text-muted)]">
+          <tr class="h-8 border-b border-[var(--wire-strong)] text-left text-[11px] text-[var(--text-muted)]">
             <th scope="col" class="w-9 px-2">
               <input
                 type="checkbox"

@@ -2,7 +2,7 @@
 import { AudioLines } from '@lucide/vue'
 import { computed } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
-import HeaderMenu from '@/components/layout/HeaderMenu.vue'
+import ThemeMenu from '@/components/layout/ThemeMenu.vue'
 import { GLOBAL_NAV, globalNavOwner, type GlobalNavId } from '@/components/layout/global-nav'
 import { useLibraryList } from '@/queries/libraries'
 
@@ -32,16 +32,16 @@ function isCurrent(id: GlobalNavId): boolean {
 
 <template>
   <div
-    class="rail:grid-cols-[64px_minmax(0,1fr)] rail:grid-rows-[minmax(0,1fr)] grid h-dvh grid-cols-1 grid-rows-[minmax(0,1fr)_auto] overflow-hidden bg-background text-foreground"
+    class="rail:grid-cols-[64px_minmax(0,1fr)] rail:grid-rows-[minmax(0,1fr)] grid h-dvh grid-cols-1 grid-rows-[minmax(0,1fr)_auto] overflow-hidden substrate text-foreground"
   >
     <!-- Desktop rail: brand on top, the shared definition in the middle, the
          theme entry at the bottom. -->
     <aside
-      class="rail:flex hidden min-h-0 flex-col border-r border-sidebar-border bg-sidebar"
+      class="rail:flex hidden min-h-0 flex-col border-r border-sidebar-border substrate-panel"
       data-testid="global-rail"
     >
       <div class="grid h-14 shrink-0 place-items-center" data-testid="app-brand">
-        <AudioLines class="size-5 text-[var(--ring)]" aria-hidden="true" />
+        <AudioLines class="size-5 text-foreground" aria-hidden="true" />
         <span class="sr-only">Onsei Organizer</span>
       </div>
       <nav aria-label="全局导航" class="flex flex-col gap-1 p-1">
@@ -50,15 +50,15 @@ function isCurrent(id: GlobalNavId): boolean {
           :key="item.id"
           :to="item.to"
           :aria-current="isCurrent(item.id) ? 'page' : undefined"
-          class="flex flex-col items-center gap-1 rounded-md px-1 py-2 text-[10px] font-medium text-sidebar-foreground hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none"
-          :class="isCurrent(item.id) ? 'bg-sidebar-accent' : ''"
+          class="flex flex-col items-center gap-1 px-1 py-2 text-[10px] font-medium focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none"
+          :class="isCurrent(item.id) ? 'bg-primary text-primary-foreground' : 'text-sidebar-foreground hover:bg-sidebar-accent'"
         >
           <component :is="item.icon" class="size-4" aria-hidden="true" />
           {{ item.label }}
         </RouterLink>
       </nav>
       <div class="mt-auto p-1">
-        <HeaderMenu />
+        <ThemeMenu />
       </div>
     </aside>
 
@@ -70,7 +70,7 @@ function isCurrent(id: GlobalNavId): boolean {
         The outermost edge owns the safe area once. -->
     <nav
       aria-label="全局导航"
-      class="rail:hidden grid grid-cols-2 border-t border-sidebar-border bg-sidebar pb-[env(safe-area-inset-bottom)]"
+      class="rail:hidden edge-top grid grid-cols-2 substrate-panel pb-[env(safe-area-inset-bottom)]"
       data-testid="global-bottom-bar"
     >
       <RouterLink
@@ -78,8 +78,8 @@ function isCurrent(id: GlobalNavId): boolean {
         :key="item.id"
         :to="item.to"
         :aria-current="isCurrent(item.id) ? 'page' : undefined"
-        class="flex min-h-14 flex-col items-center justify-center gap-1 text-[10px] font-medium text-sidebar-foreground hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none"
-        :class="isCurrent(item.id) ? 'bg-sidebar-accent' : ''"
+        class="flex min-h-14 flex-col items-center justify-center gap-1 text-[10px] font-medium focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none"
+        :class="isCurrent(item.id) ? 'bg-primary text-primary-foreground' : 'text-sidebar-foreground hover:bg-sidebar-accent'"
       >
         <component :is="item.icon" class="size-5" aria-hidden="true" />
         {{ item.label }}

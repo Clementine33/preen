@@ -94,11 +94,14 @@ describe('AppShell global navigation', () => {
     expect(links.map((link) => link.attributes('aria-current'))).toEqual([undefined, 'page'])
   })
 
-  it('carries the theme entry at the bottom of the rail', async () => {
+  it('carries the only theme entry on the rail, never on the bottom bar', async () => {
     await at('/worksets')
     const wrapper = mountShell()
 
-    const rail = wrapper.get('[data-testid="global-rail"]')
-    expect(rail.find('[aria-label="切换主题"]').exists()).toBe(true)
+    // The entry names the mode in force (the default is dark).
+    const entry = wrapper.get('[data-testid="global-rail"] [data-testid="theme-menu"]')
+    expect(entry.attributes('aria-label')).toBe('切换主题（当前：深色）')
+    expect(entry.text()).toBe('DARK')
+    expect(wrapper.find('[data-testid="global-bottom-bar"] [data-testid="theme-menu"]').exists()).toBe(false)
   })
 })

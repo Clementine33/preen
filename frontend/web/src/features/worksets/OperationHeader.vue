@@ -74,7 +74,7 @@ const validationWarning = computed(() => {
   <header class="border-b border-border bg-card px-3 py-2" data-testid="operation-header">
     <div class="flex flex-wrap items-center gap-2">
       <div class="min-w-0">
-        <h1 class="truncate font-heading text-sm font-semibold tracking-tight">{{ title }}</h1>
+        <h1 class="truncate font-heading text-sm font-semibold">{{ title }}</h1>
         <p v-if="libraryName" class="truncate font-mono text-[10px] text-[var(--text-muted)]">{{ libraryName }}</p>
       </div>
       <Badge :tone="state.tone" size="md">{{ state.label }}</Badge>

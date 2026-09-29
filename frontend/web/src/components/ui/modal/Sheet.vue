@@ -45,7 +45,7 @@ function onOpenChange(value: boolean) {
       <DialogContent
         :class="
           cn(
-            'fixed inset-y-0 right-0 z-50 flex w-[min(380px,100vw)] flex-col gap-3 overflow-y-auto border-l border-border bg-card p-4 shadow-xl',
+            'fixed inset-y-0 right-0 z-50 flex w-[min(380px,100vw)] flex-col gap-3 overflow-y-auto border-l border-[var(--wire-strong)] bg-card p-4',
             'pb-[max(1rem,env(safe-area-inset-bottom))] data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right',
             props.class,
           )
@@ -53,7 +53,7 @@ function onOpenChange(value: boolean) {
       >
         <div class="flex items-start justify-between gap-3">
           <div class="min-w-0">
-            <DialogTitle class="font-heading text-sm font-semibold tracking-tight">{{ title }}</DialogTitle>
+            <DialogTitle class="font-heading text-sm font-semibold">{{ title }}</DialogTitle>
             <DialogDescription v-if="description" class="mt-0.5 text-[11px] text-[var(--text-muted)]">
               {{ description }}
             </DialogDescription>

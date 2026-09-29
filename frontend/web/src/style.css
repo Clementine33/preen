@@ -111,7 +111,7 @@
   Semantic layer (ADR 0012 §3): existing pages keep reading the shadcn and
   role tokens below; every palette token now resolves into the YoRHa base in
   theme-yorha.css, so the whole app reskins without touching page markup.
-  Layout reskinning of the workset is a later phase and stays out of here.
+  The phase-3 skin (ADR 0012 §4) lives in the shared components themselves.
 
   Kept literal on purpose, out of the YoRHa palette:
     --success/warning/danger/info-*   status roles, each with fill, readable
@@ -269,6 +269,11 @@
     font-size: var(--fs-s);
     line-height: var(--lh-s);
     font-variant-numeric: tabular-nums;
+  }
+  /* Native checks take the bone/carbon ink instead of the browser blue
+     (ADR 0012 §4). */
+  input[type='checkbox'], input[type='radio'] {
+    accent-color: var(--invert-bg);
   }
   /* The workbench reads role tokens; the reduced-motion preference collapses
      them so container and carrier changes never animate against the user's

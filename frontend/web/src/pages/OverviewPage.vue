@@ -261,7 +261,7 @@ const libraryRoot = computed(() => activeLibrary.value?.root_path ?? '')
            path. It covers the list rather than replacing it, so the list keeps
            its layout — and with it the selection, the filters and the scroll
            position. -->
-      <div v-if="filesOpen" class="absolute inset-0 z-10 flex min-h-0 flex-col bg-background">
+      <div v-if="filesOpen" class="absolute inset-0 z-10 flex min-h-0 flex-col substrate">
         <RouterView />
       </div>
 
@@ -271,7 +271,7 @@ const libraryRoot = computed(() => activeLibrary.value?.root_path ?? '')
               : management and scanning live here, not in a second page. -->
           <div class="flex flex-wrap items-start gap-3">
             <div class="min-w-0">
-              <h1 class="truncate font-heading text-base font-semibold tracking-tight">
+              <h1 class="truncate font-heading text-base font-semibold">
                 {{ activeLibrary?.name ?? '…' }}
               </h1>
               <p class="truncate font-mono text-[11px] text-[var(--text-muted)]" :title="libraryRoot">

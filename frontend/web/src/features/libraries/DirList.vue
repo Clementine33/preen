@@ -79,7 +79,7 @@ function dirAt(index: number): LibraryDir {
     <!-- Desktop keeps the column labels; the phone tier shows the count and the
          select-all control instead, because the rows are merged there. -->
     <div
-      class="grid h-9 shrink-0 grid-cols-[44px_minmax(0,1fr)_44px] items-center border-y border-border bg-muted/35 px-2 text-[11px] font-medium tracking-[0.08em] text-muted-foreground uppercase rail:grid-cols-[38px_minmax(220px,1fr)_110px_92px] rail:px-3"
+      class="grid h-9 shrink-0 grid-cols-[44px_minmax(0,1fr)_44px] items-center border-t border-border border-b-[var(--wire-strong)] border-b bg-muted/35 px-2 text-[11px] font-medium text-muted-foreground rail:grid-cols-[38px_minmax(220px,1fr)_110px_92px] rail:px-3"
     >
       <label class="flex h-full w-full cursor-pointer items-center justify-center rail:justify-start">
         <input

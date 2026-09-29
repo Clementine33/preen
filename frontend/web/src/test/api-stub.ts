@@ -33,6 +33,7 @@ export function apiStub(overrides: Partial<ApiClientContract> = {}): ApiClientCo
     getWorkset: vi.fn(),
     listWorks: vi.fn().mockResolvedValue({ works: [], next_cursor: undefined }),
     getWork: vi.fn(),
+    listWorkFacets: vi.fn().mockResolvedValue([]),
     getOperation: vi.fn(),
     getOperationDraft: vi.fn(),
     saveOperationDraft: vi.fn(),

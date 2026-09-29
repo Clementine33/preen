@@ -1,7 +1,7 @@
 // Central query-key factories. Pages and composables must never construct
 // keys ad hoc: cache isolation, prefix invalidation, and stale-response
 // protection all depend on these exact tuple shapes.
-import type { ListWorksParams } from '@/lib/api/types'
+import type { ListWorksParams, WorkFacetKind } from '@/lib/api/types'
 
 export const queryKeys = {
   libraries: {
@@ -41,6 +41,8 @@ export const queryKeys = {
     listPrefix: () => ['works', 'list'] as const,
     list: (filters: ListWorksParams) => ['works', 'list', filters] as const,
     detail: (rj: string) => ['works', 'detail', rj] as const,
+    // One facet list per kind and library scope ('' = every library).
+    facets: (kind: WorkFacetKind, library: string) => ['works', 'facets', kind, library] as const,
   },
   // Every mutable workset resource is keyed by (workset, operation): the same
   // workset id must never address two operations' drafts, sessions or

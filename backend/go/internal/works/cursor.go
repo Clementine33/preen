@@ -19,7 +19,8 @@ type Cursor struct {
 	Direction Direction
 	Digest    string
 	// NullRank is 0 while rows with a sort value remain and 1 once the trailing
-	// unknown-date block has been entered. Only release_date can be unknown.
+	// block of unknown values has been entered. Only a Nullable field can be
+	// unknown.
 	NullRank int
 	// SortValue is the row's sort key in its stored form; it is empty inside
 	// the unknown block, where the work number alone orders the rows.
@@ -63,13 +64,18 @@ func DecodeCursor(raw string) (Cursor, *Error) {
 		return cursor, Invalid(CodeInvalidCursor, "the cursor has a malformed position")
 	}
 	cursor.NullRank = rank
-	if rank == 1 && cursor.Sort != SortByReleaseDate {
+	if rank == 1 && !cursor.Sort.Nullable() {
 		return cursor, Invalid(CodeInvalidCursor, "the cursor has a malformed position")
 	}
 	// Inside the unknown block there is no value to carry; anywhere else a
 	// missing one is a cursor this build did not write.
 	if (rank == 1) != (cursor.SortValue == "") {
 		return cursor, Invalid(CodeInvalidCursor, "the cursor has no sort value")
+	}
+	if cursor.Sort == SortByRating && rank == 0 {
+		if rating, err := strconv.Atoi(cursor.SortValue); err != nil || rating < 1 || rating > 10 {
+			return cursor, Invalid(CodeInvalidCursor, "the cursor has a malformed position")
+		}
 	}
 	workID, ok := ParseWorkCode(fields[6])
 	if !ok {

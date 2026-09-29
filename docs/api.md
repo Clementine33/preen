@@ -669,6 +669,8 @@ work, while `RJ1657200` (7 digits) is refused.
 | PUT | `/api/v1/works/{rj}/metadata` | Body: up to four independent data groups (below). 200 `{"applied":[…],"ignored":[…],"warnings":[…],"created_placeholders":[…]}`. |
 | PATCH | `/api/v1/works/{rj}/user-data` | Body `{"rating":8,"favorite":true,"note":"…"}`; only the fields present are applied, and `"rating":null` clears it. 200 the resulting state. |
 | PUT | `/api/v1/works/{rj}/user-tags` | Body `{"tag_ids":["…"]}`; replaces the work's tag set with exactly these. 200 `{"user_tags":[…]}`. Unknown ids are `USER_TAG_NOT_FOUND` (404). |
+| GET | `/api/v1/circles` | 200 `{"circles":[{"id":"…","name":"…","work_count":3}]}`: every circle a listed work carries, ordered by name. `library` (comma-separated ids) scopes the circles and their counts to works with a copy there; any other parameter is `INVALID_ARGUMENT` (400). |
+| GET | `/api/v1/voice-actors` | 200 `{"voice_actors":[…]}`, the same shape and scoping for voice actors. Each `id` is what the listing's `circle` / `voice_actor` parameter takes. |
 | GET | `/api/v1/user-tags` | 200 `{"user_tags":[{"id":"…","name":"…"}]}`. |
 | POST | `/api/v1/user-tags` | Body `{"name":"…"}`; 200 the tag, **creating it if new and returning the existing one otherwise** — creating by name is idempotent. |
 | PATCH | `/api/v1/user-tags/{id}` | Body `{"name":"…"}`; 200 the tag, `USER_TAG_EXISTS` (409) on a name another tag holds. |
@@ -758,7 +760,7 @@ seen on disk is created as a relation placeholder, listed in
 | `rating_from` / `rating_to` | Integer 1–10, inclusive. |
 | `unrated` | `true`/`false`. It **unions** with the rating range inside that dimension: `rating_from=8&unrated=true` means "8 or more, or not rated". |
 | `favorite`, `has_copy` | `true`/`false`. |
-| `sort` / `direction` | `rj` / `release_date` / `collected_at`, and `asc` / `desc`. |
+| `sort` / `direction` | `rj` / `release_date` / `collected_at` / `rating`, and `asc` / `desc`. |
 | `limit`, `cursor` | Page size and continuation (below). |
 
 Different dimensions intersect. An absent `limit` is 50; a supplied one must be
@@ -768,9 +770,9 @@ an integer 1–200, so `limit=abc`, `0`, `-1`, `201` and `1.5` are all
 The cursor is opaque and carries the sort position plus a fingerprint of the
 query. Changing a filter or the ordering invalidates it
 (`CURSOR_QUERY_MISMATCH`, 400) instead of paging through a different sequence;
-changing only `limit` does not. Unknown release dates always sort last, in
-either direction, and equal sort values are broken by work number so a page
-boundary cannot repeat or skip a row. There is no cross-request snapshot: a
+changing only `limit` does not. Unknown release dates and unrated works always
+sort last, in either direction, and equal sort values are broken by work number
+so a page boundary cannot repeat or skip a row. There is no cross-request snapshot: a
 concurrent metadata change can move a later page's contents.
 
 The listing returns the work number, title, thumbnail, circle, language, adult

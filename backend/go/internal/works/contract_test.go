@@ -17,6 +17,8 @@ func TestCursorRoundTrip(t *testing.T) {
 	for _, want := range []works.Cursor{
 		{Sort: works.SortByReleaseDate, Direction: works.Descending, SortValue: "2025-06-25"},
 		{Sort: works.SortByReleaseDate, Direction: works.Ascending, NullRank: 1},
+		{Sort: works.SortByRating, Direction: works.Descending, SortValue: "8"},
+		{Sort: works.SortByRating, Direction: works.Descending, NullRank: 1},
 	} {
 		want.Digest = "0123456789abcdef"
 		want.WorkID = code("RJ01657200")
@@ -53,6 +55,8 @@ func TestDecodeCursorRefusesForeignInput(t *testing.T) {
 		{"empty sort value", "v1|rj|asc|0123456789abcdef|0||RJ01657200"},
 		{"unknown block of a total order", "v1|rj|asc|0123456789abcdef|1||RJ01657200"},
 		{"value inside the unknown block", "v1|release_date|asc|0123456789abcdef|1|2025-06-25|RJ01657200"},
+		{"rating out of range", "v1|rating|desc|0123456789abcdef|0|11|RJ01657200"},
+		{"rating not a number", "v1|rating|desc|0123456789abcdef|0|high|RJ01657200"},
 		{"not a work number", "v1|rj|asc|0123456789abcdef|0|01657200|nonsense"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

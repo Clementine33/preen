@@ -1,7 +1,7 @@
 import { keepPreviousData, useInfiniteQuery, useQuery } from '@tanstack/vue-query'
 import { computed, toValue, type MaybeRefOrGetter } from 'vue'
 import { useApiClient } from '@/lib/api/client'
-import type { ApiClientContract, ListWorksParams, WorkListResponse } from '@/lib/api/types'
+import type { ApiClientContract, ListWorksParams, WorkFacetKind, WorkListResponse } from '@/lib/api/types'
 import { queryKeys } from './query-keys'
 
 // ---------- query options ----------
@@ -21,6 +21,14 @@ export function worksListQueryOptions(api: ApiClientContract, filters: ListWorks
     // A filter change keeps the previous wall on screen until the new listing
     // lands, instead of blanking it; `isPlaceholderData` says which one shows.
     placeholderData: keepPreviousData,
+  }
+}
+
+/** The circles or voice actors listed works carry, under one library scope. */
+export function workFacetsQueryOptions(api: ApiClientContract, kind: WorkFacetKind, library: string | null) {
+  return {
+    queryKey: queryKeys.works.facets(kind, library ?? ''),
+    queryFn: ({ signal }: { signal?: AbortSignal }) => api.listWorkFacets(kind, library ?? undefined, signal),
   }
 }
 
@@ -51,6 +59,14 @@ export function useWorksList(filters: MaybeRefOrGetter<ListWorksParams>) {
   const query = useInfiniteQuery(computed(() => worksListQueryOptions(api, toValue(filters))))
   const works = computed(() => query.data.value?.pages.flatMap((page) => page.works) ?? [])
   return { query, works }
+}
+
+/** One facet list behind a reactive library scope (null = every library). */
+export function useWorkFacets(kind: WorkFacetKind, library: MaybeRefOrGetter<string | null>) {
+  const api = useApiClient()
+  const query = useQuery(computed(() => workFacetsQueryOptions(api, kind, toValue(library))))
+  const facets = computed(() => query.data.value ?? [])
+  return { query, facets }
 }
 
 /** The full work behind a reactive work number, disabled while none is set. */

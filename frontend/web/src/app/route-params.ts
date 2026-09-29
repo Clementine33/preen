@@ -20,6 +20,16 @@ const ALLOWED_VALUES: Record<string, readonly string[]> = {
 }
 
 /**
+ * Parameters whose values are identities rather than a closed vocabulary: each
+ * carries its own shape instead of an enumerated list.
+ */
+const OPEN_VALUE: Record<string, RegExp> = {
+  // The selected work of the wall: the canonical 8-digit spelling, with the
+  // 6-digit shorthand the API itself accepts normalized by the page.
+  rj: /^RJ\d{6,8}$/i,
+}
+
+/**
  * The parameters each named route keeps. A route absent here keeps none.
  *
  * The conversion list's filter travels with its whole subtree: the carriers are
@@ -37,6 +47,7 @@ const CONVERSION_SUBTREE = [
 const ALLOWED_PARAMS: Record<string, readonly string[]> = {
   ...Object.fromEntries(CONVERSION_SUBTREE.map((name) => [name, ['filter']])),
   'conversion-member-files': ['filter', 'view'],
+  works: ['rj'],
 }
 
 /** The filter an address asks for, or the unfiltered list. */
@@ -74,8 +85,12 @@ export function cleanedQuery(route: AddressLike): Record<string, string> | null 
   const kept: Record<string, string> = {}
   for (const key of allowed) {
     const value = route.query[key]
-    if (typeof value === 'string' && (ALLOWED_VALUES[key] ?? []).includes(value)) {
-      kept[key] = value
+    if (typeof value === 'string' && value !== '') {
+      const closed = ALLOWED_VALUES[key]
+      const open = OPEN_VALUE[key]
+      if (closed?.includes(value) ?? (open?.test(value) ?? false)) {
+        kept[key] = value
+      }
     }
   }
   const carried = Object.keys(route.query)

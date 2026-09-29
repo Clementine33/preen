@@ -36,8 +36,8 @@ describe('AppShell global navigation', () => {
 
     for (const nav of ['global-rail', 'global-bottom-bar'] as const) {
       const links = wrapper.get(`[data-testid="${nav}"]`).findAll('a')
-      expect(links.map((link) => link.text())).toEqual(['工作集'])
-      expect(links.map((link) => link.attributes('href'))).toEqual(['/worksets'])
+      expect(links.map((link) => link.text())).toEqual(['作品库', '工作集'])
+      expect(links.map((link) => link.attributes('href'))).toEqual(['/works', '/worksets'])
     }
   })
 
@@ -66,29 +66,32 @@ describe('AppShell global navigation', () => {
 
     expect(wrapper.text()).not.toContain('媒体库条目')
     const railNav = wrapper.get('[data-testid="global-rail"] nav')
-    expect(railNav.findAll('a')).toHaveLength(1)
+    expect(railNav.findAll('a')).toHaveLength(2)
     expect(railNav.find('button').exists()).toBe(false)
   })
 
-  it('marks the only entry current on the selection route', async () => {
+  it('marks the matching entry current and only that one, per route', async () => {
     await at('/worksets')
-    const links = mountShell().get('[data-testid="global-rail"]').findAll('a')
+    let links = mountShell().get('[data-testid="global-rail"]').findAll('a')
+    expect(links.map((link) => link.attributes('aria-current'))).toEqual([undefined, 'page'])
 
-    expect(links[0].attributes('aria-current')).toBe('page')
+    await at('/works')
+    links = mountShell().get('[data-testid="global-rail"]').findAll('a')
+    expect(links.map((link) => link.attributes('aria-current'))).toEqual(['page', undefined])
   })
 
   it('keeps 工作集 current inside a library workbench', async () => {
     await at('/worksets/lib-a')
     const links = mountShell().get('[data-testid="global-rail"]').findAll('a')
 
-    expect(links[0].attributes('aria-current')).toBe('page')
+    expect(links.map((link) => link.attributes('aria-current'))).toEqual([undefined, 'page'])
   })
 
   it('keeps 工作集 current on a workbench child route', async () => {
     await at('/worksets/lib-a/conversion/settings')
     const links = mountShell().get('[data-testid="global-bottom-bar"]').findAll('a')
 
-    expect(links[0].attributes('aria-current')).toBe('page')
+    expect(links.map((link) => link.attributes('aria-current'))).toEqual([undefined, 'page'])
   })
 
   it('carries the theme entry at the bottom of the rail', async () => {

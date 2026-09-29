@@ -10,6 +10,8 @@ import { router } from './router'
 const DIR_ID = 'a1b2c3d4e5f60718293a4b5c6d7e8f90'
 
 const DOCUMENTED: Array<[path: string, name: string]> = [
+  ['/works', 'works'],
+  ['/works/RJ01113012', 'work-detail'],
   ['/worksets', 'worksets'],
   ['/worksets/lib-1', 'workbench-overview'],
   [`/worksets/lib-1/f/${DIR_ID}`, 'overview-files'],

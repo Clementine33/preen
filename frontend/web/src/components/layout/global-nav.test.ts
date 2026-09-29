@@ -3,8 +3,9 @@ import { router } from '@/app/router'
 import { GLOBAL_NAV, globalNavOwner } from './global-nav'
 
 describe('global navigation definition', () => {
-  it('lists only 工作集: the media-library entry is gone with its page', () => {
+  it('lists the work catalog before the workbench', () => {
     expect(GLOBAL_NAV.map((item) => ({ id: item.id, label: item.label, to: item.to }))).toEqual([
+      { id: 'works', label: '作品库', to: '/works' },
       { id: 'worksets', label: '工作集', to: '/worksets' },
     ])
   })
@@ -19,6 +20,12 @@ describe('global navigation ownership', () => {
     expect(named.length).toBeGreaterThan(0)
     for (const record of named) {
       expect(globalNavOwner(record.name), String(record.name)).not.toBeNull()
+    }
+  })
+
+  it('keeps the work catalog routes under 作品库', () => {
+    for (const name of ['works', 'work-detail'] as const) {
+      expect(globalNavOwner(name), name).toBe('works')
     }
   })
 

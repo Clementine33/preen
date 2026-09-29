@@ -15,3 +15,4 @@
 | [0009](0009-business-packages-and-dependency-direction.md) | 业务分包与依赖方向 | Accepted |
 | [0010](0010-deployment-wide-common-settings.md) | 部署级公共设置：一次保存同步所有记录 | Accepted |
 | [0011](0011-work-catalog.md) | 作品目录：作品号身份、来源数据组与派生关系 | Draft |
+| [0012](0012-yorha-design-base.md) | YoRHa 视觉底座与三阶段落地 | Draft |

@@ -1,8 +1,10 @@
 
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&display=swap');
+/* Font matrix (ADR 0012 §2): mono telemetry / UD gothic UI / mincho display */
+@import url('https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&family=IBM+Plex+Mono:wght@400;500;600;700&family=Noto+Serif+JP:wght@600;700&family=Noto+Serif+SC:wght@600;700&family=Shippori+Mincho:wght@500;600;700&display=swap');
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn-vue/tailwind.css";
+@import './theme-yorha.css';
 
 @custom-variant dark (&:is(.dark *));
 
@@ -68,10 +70,10 @@
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  --radius-sm: 0px;
+  --radius-md: 2px;
+  --radius-lg: 2px;
+  --radius-xl: 2px;
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -98,138 +100,92 @@
   --color-info-weak: var(--info-weak);
   --color-info-border: var(--info-border);
   --color-control-border: var(--control-border);
-  --font-sans: ui-sans-serif, system-ui, "Segoe UI", sans-serif;
-  --font-heading: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: ui-monospace, "Cascadia Mono", "SFMono-Regular", Menlo, monospace;
+  --font-sans: var(--font-ui);
+  --font-heading: var(--font-mincho);
+  /* Cannot self-reference var(--font-mono) inside @theme; the same stack is
+     declared in theme-yorha.css as --font-mono. */
+  --font-mono: 'IBM Plex Mono', 'JetBrains Mono', ui-monospace, monospace;
 }
 
 /*
-  Onsei Organizer design tokens — music-library workbench.
+  Semantic layer (ADR 0012 §3): existing pages keep reading the shadcn and
+  role tokens below; every palette token now resolves into the YoRHa base in
+  theme-yorha.css, so the whole app reskins without touching page markup.
+  Layout reskinning of the workset is a later phase and stays out of here.
 
-  Two layers, one authority: the shadcn/semantic tokens above stay the
-  compatibility layer for existing pages (ADR 0004 §7.1, F04); the role tokens
-  below are the finite ladder the workset workbench consumes. Components
-  never invent colors, sizes or durations — they read a role token.
-
-  Roles:
-    --brand-*      identity color for the workbench. The accepted reference is
-                   #5E6AD2; `--brand` is the FILL, `--brand-ink` is the
-                   readable text/link variant, and neither is the neutral
-                   shadcn `--accent` hover surface.
+  Kept literal on purpose, out of the YoRHa palette:
     --success/warning/danger/info-*   status roles, each with fill, readable
                    ink, weak background and border variants. Status is never
                    communicated by color alone: badges carry a label/icon.
-    --text-*       the three text weights (primary, secondary, muted).
-    --control-*    interactive control metrics and the control border, which is
-                   deliberately stronger than the decorative --border hairline
-                   so control boundaries and focus rings reach 3:1.
-    --row-h/--toolbar-h/--title-h  density for list rows, toolbars and page
-                   titles: 40/36/40px base, sized in rem so zoom grows
-                   them instead of clipping text.
+    --control-h, --touch-min, --row-h, --toolbar-h, --title-h, --focus-ring
+                   density metrics, sized in rem so zoom grows them.
     --motion-*     durations; a reduced-motion preference collapses them.
 
-  Contrast record (WCAG 2.1, computed from these literal values; ordinary text
-  >= 4.5:1, control boundary and focus indicator >= 3:1):
+  Status-role contrast record (WCAG 2.1; literal values unchanged; ordinary
+  text >= 4.5:1, control boundary and focus indicator >= 3:1):
 
     light                                          ratio
-      text-primary    #1C1917 on #F7F5F2            16.07
-      text-secondary  #57534E on #FFFFFF             7.63
-      text-muted      #6F6963 on #FFFFFF             5.42 / on #F7F5F2 4.98
-      brand-ink       #4B54B8 on #F7F5F2             5.92
-      brand fill      #FFFFFF on #5E6AD2             4.70
-      control border  #8A8175 on #FFFFFF             3.83
-      focus ring      #5E6AD2 on #FFFFFF             4.70
       success ink     #146C36 on #E7F5EC             5.78
       warning ink     #B45309 on #FBF0E3             4.47
       danger ink      #B91C1C on #FBEBEB             5.60
-      info ink        #0369A1 on #E8F3F9             5.26
-      brand ink       #4B54B8 on #EEEFFB             5.64
+      info ink         #0369A1 on #E8F3F9             5.26
 
     dark
-      text-primary    #E6EAF0 on #0E1116            15.66
-      text-secondary  #B4BCC8 on #16181D             9.28
-      text-muted      #8B93A1 on #16181D             5.74
-      brand-ink       #8B93F0 on #16181D             6.37
-      brand fill      #0E1116 on #8B93F0            6.78
-      control border  #636D82 on #16181D             3.42
-      focus ring      #8B93F0 on #0E1116             6.78
       success ink     #4ADE80 on #14251B             9.20
       warning ink     #E0A458 on #2A2115             7.25
       danger ink      #F87171 on #2A1818             6.11
-      info ink        #7DD3FC on #14232B             9.65
-      brand ink       #8B93F0 on #1E2130             5.72
-*/
+      info ink         #7DD3FC on #14232B             9.65
 
-/*
-  Onsei Organizer design tokens — music-library workbench.
-  Subject: a local lossless music-library organizer (scan folders, manage
-  stems/encodes). Audience: power users with large collections. The workbench
-  is dense and keyboard-driven; light theme here is a low-contrast studio
-  paper for dialogs/forms, the library surface itself is dark.
-
-  Palette (6 tokens per axis):
-    bg      #0E1116  workspace ground (mixing-desk shadow, cool black)
-    surface #161B22  panels / tracklist background
-    line    #262C37  hairline dividers
-    ink     #E6EAF0  primary text (silver haze)
-    mute    #8B93A1  secondary text
-    tape    #D9A45B  analog-tape amber — reserved for encode-state data and
-                     focus underlines, never full-button fills.
-
-  Type roles:
-    heading  Space Grotesk 600/700, tight tracking — library & artist names
-    body     system-ui 13px — chrome, densities below
-    data     ui-monospace — paths, counts, durations, queue numbers
-
-  Signature (later tasks): the "encode bicell" — each track row carries a
-  48px two-segment bar (source vs. derived format state).
+  Palette contrast (>= 4.5:1 for every text pair) was verified against the
+  prototype the tokens are copied from; re-check before changing any colour.
 */
 
 :root {
-  --background: #F7F5F2;
-  --foreground: #1C1917;
-  --card: #FFFFFF;
-  --card-foreground: #1C1917;
-  --popover: #FFFFFF;
-  --popover-foreground: #1C1917;
-  --primary: #1C1917;
-  --primary-foreground: #F7F5F2;
-  --secondary: #F0ECE6;
-  --secondary-foreground: #1C1917;
-  --muted: #F0ECE6;
-  --muted-foreground: #6F6963;
-  --accent: #F0ECE6;
-  --accent-foreground: #1C1917;
+  /* shadcn layer, resolved into the YoRHa base (ADR 0012 §3). These indirections
+     flip with the theme by themselves: the raw vars change under .dark. */
+  --background: var(--bg-canvas);
+  --foreground: var(--fg-base);
+  --card: var(--bg-panel);
+  --card-foreground: var(--fg-base);
+  --popover: var(--bg-panel);
+  --popover-foreground: var(--fg-base);
+  --primary: var(--invert-bg);
+  --primary-foreground: var(--invert-fg);
+  --secondary: var(--bg-subtle);
+  --secondary-foreground: var(--fg-base);
+  --muted: var(--bg-subtle);
+  --muted-foreground: var(--fg-muted);
+  --accent: var(--bg-subtle);
+  --accent-foreground: var(--fg-base);
   --destructive: #B91C1C;
   --destructive-foreground: #F7F5F2;
-  --border: #E2DDD4;
-  --input: #E2DDD4;
-  --ring: #B45309;
-  --brand: #7E5BEF;
+  --border: var(--wire-fine);
+  --input: var(--wire-mid);
+  --ring: var(--wire-strong);
   --chart-1: #B45309;
   --chart-2: #8A6D3B;
   --chart-3: #5C7A6A;
   --chart-4: #6E7A8A;
   --chart-5: #A05E4A;
-  --radius: 0.5rem;
-  --sidebar: #F0ECE6;
-  --sidebar-foreground: #1C1917;
-  --sidebar-primary: #1C1917;
-  --sidebar-primary-foreground: #F7F5F2;
-  --sidebar-accent: #E5E0D8;
-  --sidebar-accent-foreground: #1C1917;
-  --sidebar-border: #E2DDD4;
-  --sidebar-ring: #B45309;
+  --radius: 2px;
+  --sidebar: var(--bg-panel);
+  --sidebar-foreground: var(--fg-base);
+  --sidebar-primary: var(--invert-bg);
+  --sidebar-primary-foreground: var(--invert-fg);
+  --sidebar-accent: var(--bg-subtle);
+  --sidebar-accent-foreground: var(--fg-base);
+  --sidebar-border: var(--wire-fine);
+  --sidebar-ring: var(--wire-strong);
 
-  /* --- Role tokens: brand ------------------------------------------------ */
-  --brand: #5E6AD2;
-  --brand-ink: #4B54B8;
-  --brand-foreground: #FFFFFF;
-  --brand-hover: #4F5AC4;
-  --brand-weak: #EEEFFB;
-  --brand-border: #C3C8F2;
+  /* --- Role tokens: brand = the bone/carbon identity, not a colour ---------- */
+  --brand: var(--invert-bg);
+  --brand-ink: var(--fg-base);
+  --brand-foreground: var(--invert-fg);
+  --brand-hover: var(--wire-strong);
+  --brand-weak: var(--bg-subtle);
+  --brand-border: var(--wire-mid);
 
-  /* --- Role tokens: status ----------------------------------------------- */
+  /* --- Role tokens: status ------------------------------------------------- */
   --success: #15803D;
   --success-ink: #146C36;
   --success-weak: #E7F5EC;
@@ -248,13 +204,13 @@
   --info-weak: #E8F3F9;
   --info-border: #A5CFE5;
 
-  /* --- Role tokens: text ------------------------------------------------- */
-  --text-primary: #1C1917;
-  --text-secondary: #57534E;
-  --text-muted: #6F6963;
+  /* --- Role tokens: text --------------------------------------------------- */
+  --text-primary: var(--fg-base);
+  --text-secondary: var(--fg-muted);
+  --text-muted: var(--fg-meta);
 
-  /* --- Role tokens: controls, density, motion ---------------------------- */
-  --control-border: #8A8175;
+  /* --- Role tokens: controls, density, motion ------------------------------ */
+  --control-border: var(--wire-mid);
   --control-h: 2.25rem;
   --control-h-sm: 1.75rem;
   --control-h-lg: 2.5rem;
@@ -270,47 +226,15 @@
 }
 
 .dark {
-  --background: #0E1116;
-  --foreground: #E6EAF0;
-  --card: #16181D;
-  --card-foreground: #E6EAF0;
-  --popover: #161B22;
-  --popover-foreground: #E6EAF0;
-  --primary: #E6EAF0;
-  --primary-foreground: #0E1116;
-  --secondary: #1A1F27;
-  --secondary-foreground: #E6EAF0;
-  --muted: #161B22;
-  --muted-foreground: #8B93A1;
-  --accent: #1A1F27;
-  --accent-foreground: #E6EAF0;
+  /* Only the literal roles differ in dark: the palette tokens above resolve
+     through raw vars that theme-yorha.css flips under .dark. */
   --destructive: #E05D5D;
   --destructive-foreground: #0E1116;
-  --border: #262C37;
-  --input: #262C37;
-  --ring: #D9A45B;
-  --brand: #7E5BEF;
   --chart-1: #D9A45B;
   --chart-2: #8A93A6;
   --chart-3: #6FBF8F;
   --chart-4: #7A9DB8;
   --chart-5: #C08A6A;
-  --radius: 0.5rem;
-  --sidebar: #12151A;
-  --sidebar-foreground: #E6EAF0;
-  --sidebar-primary: #E6EAF0;
-  --sidebar-primary-foreground: #0E1116;
-  --sidebar-accent: #1A1F27;
-  --sidebar-accent-foreground: #E6EAF0;
-  --sidebar-border: #262C37;
-  --sidebar-ring: #D9A45B;
-
-  --brand: #8B93F0;
-  --brand-ink: #8B93F0;
-  --brand-foreground: #0E1116;
-  --brand-hover: #A3AAF4;
-  --brand-weak: #1E2130;
-  --brand-border: #454E86;
 
   --success: #4ADE80;
   --success-ink: #4ADE80;
@@ -329,12 +253,6 @@
   --info-ink: #7DD3FC;
   --info-weak: #14232B;
   --info-border: #31586B;
-
-  --text-primary: #E6EAF0;
-  --text-secondary: #B4BCC8;
-  --text-muted: #8B93A1;
-
-  --control-border: #636D82;
 }
 
 @layer base {
@@ -343,9 +261,9 @@
   }
   body {
     @apply bg-background text-foreground antialiased;
-    font-size: 13px;
-    line-height: 1.45;
-    font-feature-settings: "cv11", "ss01";
+    font-size: var(--fs-s);
+    line-height: var(--lh-s);
+    font-variant-numeric: tabular-nums;
   }
   /* The workbench reads role tokens; the reduced-motion preference collapses
      them so container and carrier changes never animate against the user's

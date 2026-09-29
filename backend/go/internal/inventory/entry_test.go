@@ -12,6 +12,7 @@ import (
 	"github.com/onsei/organizer/backend/internal/adapters/sqlite"
 	"github.com/onsei/organizer/backend/internal/admission"
 	"github.com/onsei/organizer/backend/internal/inventory"
+	"github.com/onsei/organizer/backend/internal/works"
 )
 
 // fakeScanStore answers the one question the scanning entry asks storage:
@@ -28,8 +29,9 @@ func (f *fakeScanStore) HasActiveExecutionForRoot(rootPath string) (bool, error)
 }
 
 // newEntry wires the scanning entry over a real pipeline and a real store, the
-// way the process does, and returns what the entry recorded on the library row.
-func newEntry(t *testing.T, store inventory.Store) (inventory.Service, *[]string) {
+// way the process does, and returns what the entry recorded on the library row
+// plus the repository, so a test can read the state a scan leaves behind.
+func newEntry(t *testing.T, store inventory.Store) (inventory.Service, *[]string, *sqlite.Repository) {
 	t.Helper()
 	repo, err := sqlite.NewRepository(filepath.Join(t.TempDir(), "entry.db"))
 	if err != nil {
@@ -51,7 +53,7 @@ func newEntry(t *testing.T, store inventory.Store) (inventory.Service, *[]string
 			return nil
 		},
 	)
-	return svc, &recorded
+	return svc, &recorded, repo
 }
 
 // TestScanValidatesTheRoot pins the validation contract: a missing root, a
@@ -63,7 +65,7 @@ func TestScanValidatesTheRoot(t *testing.T) {
 	if err := os.WriteFile(filePath, []byte("x"), 0644); err != nil {
 		t.Fatalf("write fixture file: %v", err)
 	}
-	svc, recorded := newEntry(t, &fakeScanStore{})
+	svc, recorded, _ := newEntry(t, &fakeScanStore{})
 
 	cases := []struct {
 		name string
@@ -117,7 +119,7 @@ func TestScanEmitsEventsAndRecordsTheOutcome(t *testing.T) {
 			t.Fatalf("write fixture: %v", err)
 		}
 	}
-	svc, recorded := newEntry(t, &fakeScanStore{})
+	svc, recorded, _ := newEntry(t, &fakeScanStore{})
 
 	var events []inventory.Event
 	result, err := svc.Scan(
@@ -155,7 +157,7 @@ func TestScanEmitsEventsAndRecordsTheOutcome(t *testing.T) {
 // keep working during an execution.
 func TestAdmissionChecksAreNotSharedAcrossScanKinds(t *testing.T) {
 	store := &fakeScanStore{executing: true}
-	svc, _ := newEntry(t, store)
+	svc, _, _ := newEntry(t, store)
 
 	_, err := svc.AdmitLibraryScan("/music")
 	scanErr, ok := inventory.AsError(err)
@@ -235,7 +237,7 @@ func TestAdmissionRefusalPropagatesTheGateError(t *testing.T) {
 // contract: it reports what is wrong with the member path instead of scanning
 // whatever it was handed.
 func TestRefreshMemberValidatesItsPaths(t *testing.T) {
-	svc, _ := newEntry(t, &fakeScanStore{})
+	svc, _, _ := newEntry(t, &fakeScanStore{})
 	dir := t.TempDir()
 	filePath := filepath.Join(dir, "file.txt")
 	if err := os.WriteFile(filePath, []byte("x"), 0644); err != nil {
@@ -266,5 +268,48 @@ func TestRefreshMemberValidatesItsPaths(t *testing.T) {
 				t.Error("a refused refresh is not a cancellation")
 			}
 		})
+	}
+}
+
+// TestScanForwardsTheLibraryToTheBindingMerge pins the link the HTTP scan path
+// depends on: entry.Scan must pass the request's library id into the pipeline,
+// or the merge skips the binding reconciliation and a scan leaves no works
+// behind (ADR 0011 §2).
+func TestScanForwardsTheLibraryToTheBindingMerge(t *testing.T) {
+	dir := t.TempDir()
+	workDir := filepath.Join(dir, "RJ01113012")
+	if err := os.Mkdir(workDir, 0o755); err != nil {
+		t.Fatalf("make work directory: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(workDir, "track01.wav"), []byte("x"), 0o644); err != nil {
+		t.Fatalf("write fixture audio: %v", err)
+	}
+
+	svc, _, repo := newEntry(t, &fakeScanStore{})
+	lib, err := repo.CreateLibrary("binding library", dir)
+	if err != nil {
+		t.Fatalf("create library: %v", err)
+	}
+
+	if _, scanErr := svc.Scan(
+		context.Background(),
+		inventory.Request{LibraryID: lib.ID, RootPath: dir},
+		nil,
+	); scanErr != nil {
+		t.Fatalf("Scan failed: %v", scanErr)
+	}
+
+	page, err := repo.ListWorks(works.Filter{Limit: 10})
+	if err != nil {
+		t.Fatalf("list works: %v", err)
+	}
+	if len(page.Works) != 1 {
+		t.Fatalf("works = %d, want the one RJ-named direct child to be bound", len(page.Works))
+	}
+	if page.Works[0].ID != works.WorkCode("RJ01113012") {
+		t.Errorf("rj = %q, want RJ01113012", page.Works[0].ID)
+	}
+	if page.Works[0].CopyCount != 1 {
+		t.Errorf("copy_count = %d, want 1", page.Works[0].CopyCount)
 	}
 }

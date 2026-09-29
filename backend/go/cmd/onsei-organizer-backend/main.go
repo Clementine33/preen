@@ -14,9 +14,9 @@ import (
 	"github.com/onsei/organizer/backend/internal/app"
 )
 
-// version is stamped at build time (-X main.version); it reaches the client
-// through the startup handshake line.
-var version = "dev"
+// version is the single default development version. Release builds override it
+// with -X main.version; the startup handshake passes it to the client.
+var version = "0.2.0-dev"
 
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())

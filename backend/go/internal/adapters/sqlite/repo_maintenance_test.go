@@ -77,7 +77,7 @@ func TestRepository_AutoVacuumMode_ExistingDatabaseKeepsItsMode(t *testing.T) {
 		t.Fatalf("close raw database: %v", err)
 	}
 
-	repo, err := NewRepository(path)
+	repo, err := NewDevelopmentRepository(path)
 	if err != nil {
 		t.Fatalf("NewRepository on an existing database: %v", err)
 	}

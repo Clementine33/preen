@@ -46,7 +46,11 @@ func Run(ctx context.Context, cfg Config) {
 		log.Fatalf("ensure db path: %v", ensureErr)
 	}
 
-	repo, err := sqlite.NewRepository(dbPath)
+	openRepository := sqlite.NewRepository
+	if IsDevelopmentVersion(cfg.Version) {
+		openRepository = sqlite.NewDevelopmentRepository
+	}
+	repo, err := openRepository(dbPath)
 	if err != nil {
 		log.Fatalf("open repository: %v", err)
 	}

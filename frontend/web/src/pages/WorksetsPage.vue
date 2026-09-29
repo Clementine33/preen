@@ -5,7 +5,6 @@ import { useQueryClient } from '@tanstack/vue-query'
 import { RouterLink } from 'vue-router'
 import { AlertTriangle, LibraryBig, Pencil, Plus, RefreshCw } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
-import HeaderMenu from '@/components/layout/HeaderMenu.vue'
 import LibraryManager from '@/features/libraries/LibraryManager.vue'
 import { useApiClient } from '@/lib/api/client'
 import { errorDetails } from '@/lib/api/error'
@@ -109,21 +108,16 @@ async function retryPage() {
 </script>
 
 <template>
-  <section class="flex h-full min-w-0 flex-col bg-background" data-testid="worksets-page">
-    <header class="flex min-h-14 shrink-0 flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-border px-4 py-1.5 rail:px-5">
+  <section class="flex h-full min-w-0 flex-col substrate" data-testid="worksets-page">
+    <header class="flex min-h-14 shrink-0 flex-wrap items-center gap-x-3 gap-y-1.5 edge-bottom px-4 py-1.5 rail:px-5">
       <div class="w-full min-w-0 rail:w-auto">
-        <h1 class="font-heading text-sm font-semibold tracking-tight">工作集</h1>
+        <h1 class="font-heading text-sm font-semibold">工作集</h1>
         <p class="truncate text-[11px] text-muted-foreground">选择一个媒体库进入工作台</p>
       </div>
-      <Button class="ml-auto hidden h-11 rail:inline-flex rail:h-7" variant="outline" size="sm" @click="openAdd">
+      <Button class="ml-auto h-11 rail:h-7" variant="outline" size="sm" @click="openAdd">
         <Plus class="size-3.5" />
         添加媒体库
       </Button>
-      <div class="ml-auto shrink-0 rail:hidden">
-        <HeaderMenu trigger="more">
-          <button type="button" class="sr-only" @click="openAdd">添加媒体库</button>
-        </HeaderMenu>
-      </div>
     </header>
 
     <div
@@ -151,7 +145,7 @@ async function retryPage() {
         data-testid="libraries-empty"
       >
         <div class="max-w-md rounded-lg border border-dashed border-border bg-card/35 px-8 py-10">
-          <div class="mx-auto grid size-10 place-items-center rounded-full border border-border bg-muted">
+          <div class="hatch mx-auto size-10 border border-border">
             <Plus class="size-4 text-muted-foreground" />
           </div>
           <h1 class="mt-4 font-heading text-lg font-semibold">还没有媒体库</h1>
@@ -168,7 +162,7 @@ async function retryPage() {
         <li v-for="library in libraries" :key="library.id" class="flex items-center gap-2">
           <RouterLink
             :to="{ name: 'workbench-overview', params: { libraryId: library.id } }"
-            class="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 hover:border-[var(--brand-border)] focus-visible:ring-2 focus-visible:ring-[var(--brand)] focus-visible:outline-none"
+            class="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 hover:border-[var(--wire-strong)] focus-visible:ring-2 focus-visible:ring-[var(--brand)] focus-visible:outline-none"
             :data-testid="`library-${library.id}`"
           >
             <LibraryBig class="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />

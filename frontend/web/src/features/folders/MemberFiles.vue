@@ -396,7 +396,7 @@ function submitDelete() {
          and only while modification is allowed. -->
     <div
       v-if="mode === 'current' && tree"
-      class="flex min-h-12 shrink-0 flex-wrap items-center gap-2 border-t border-border bg-card px-3"
+      class="flex min-h-12 shrink-0 flex-wrap items-center gap-2 border-t border-border substrate-panel px-3"
       data-testid="file-toolbar"
     >
       <span class="text-[11px] text-[var(--text-muted)]">
@@ -421,7 +421,7 @@ function submitDelete() {
 
     <div
       v-if="result"
-      class="max-h-56 shrink-0 overflow-y-auto border-t border-border bg-card px-3 py-2"
+      class="max-h-56 shrink-0 overflow-y-auto border-t border-border substrate-panel px-3 py-2"
       data-testid="file-op-result"
       role="status"
     >
@@ -450,7 +450,7 @@ function submitDelete() {
         <input
           v-model="renameValue"
           data-testid="rename-input"
-          class="mt-1 h-9 w-full rounded-md border border-input bg-background px-2 text-xs focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          class="mt-1 h-9 w-full rounded-md border border-input bg-transparent px-2 text-xs focus-visible:border-[var(--wire-strong)] focus-visible:outline-none"
         />
       </label>
       <p class="text-[11px] text-[var(--text-muted)]">只能改名称：要换目录请用“移动”。目标已存在时不会覆盖。</p>

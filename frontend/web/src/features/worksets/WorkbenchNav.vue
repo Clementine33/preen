@@ -41,12 +41,12 @@ watch(
 
 function rowClass(current: boolean, parent: boolean, child = false): string {
   return [
-    'flex items-center gap-2 rounded-md px-2 text-xs focus-visible:ring-2 focus-visible:ring-[var(--brand)] focus-visible:outline-none',
+    'flex items-center gap-2 px-2 text-xs focus-visible:ring-2 focus-visible:ring-[var(--brand)] focus-visible:outline-none',
     child ? 'ml-4' : 'min-w-0 flex-1',
     // Touch devices get the 44px minimum at any width — the tablet tiers are
     // touch too, so this is a pointer query, not a width one.
     'h-8 pointer-coarse:min-h-11',
-    current ? 'bg-sidebar-accent font-medium' : parent ? 'bg-sidebar-accent/60' : 'hover:bg-sidebar-accent',
+    current ? 'bg-primary font-medium text-primary-foreground' : parent ? 'bg-sidebar-accent/60' : 'hover:bg-sidebar-accent',
   ].join(' ')
 }
 
@@ -70,7 +70,7 @@ function isCollapsed(id: WorkbenchNavId): boolean {
           <!-- An unapplied edit is never hidden behind the section switch. -->
           <span
             v-if="item.id === 'conversion' && editor.isDirty"
-            class="size-1.5 shrink-0 rounded-full bg-[var(--warning-ink)]"
+            :class="['size-1.5 shrink-0 bg-[var(--warning-ink)]', position?.current === item.id && 'outline outline-1 outline-[var(--invert-fg)]']"
             title="有未应用的修改"
             data-testid="nav-dirty"
           />
@@ -84,7 +84,7 @@ function isCollapsed(id: WorkbenchNavId): boolean {
           :aria-controls="`nav-children-${item.id}`"
           :aria-label="`${isCollapsed(item.id) ? '展开' : '收起'}${item.label}`"
           :class="[
-            'flex shrink-0 items-center justify-center rounded-md text-[var(--text-muted)] hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-[var(--brand)] focus-visible:outline-none',
+            'flex shrink-0 items-center justify-center text-[var(--text-muted)] hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-[var(--brand)] focus-visible:outline-none',
             'h-8 w-7 pointer-coarse:min-h-11 pointer-coarse:min-w-11',
           ]"
           :data-testid="`nav-group-${item.id}`"

@@ -53,7 +53,7 @@ function submit() {
     <!-- Scrolls inside the remaining space instead of being clipped by the
          shell's bottom bar; the safe area is paid once, at the edge. -->
     <form
-      class="my-auto max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto rounded-lg border border-border bg-popover p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl rail:p-5 rail:pb-5"
+      class="my-auto max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto rounded-none border border-[var(--wire-strong)] bg-popover p-4 pb-[max(1rem,env(safe-area-inset-bottom))] rail:p-5 rail:pb-5"
       @submit.prevent="submit"
     >
       <div class="flex items-start gap-4 border-b border-border pb-4">
@@ -74,7 +74,7 @@ function submit() {
         v-model="name"
         required
         autocomplete="off"
-        class="mt-1.5 h-11 w-full rounded-md border border-input bg-background px-3 text-[16px] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none rail:h-9 rail:text-sm"
+        class="mt-1.5 h-11 w-full rounded-md border border-input bg-transparent px-3 text-[16px] focus-visible:border-[var(--wire-strong)] focus-visible:outline-none rail:h-9 rail:text-sm"
         placeholder="例如：无损音乐库"
       />
 
@@ -86,7 +86,7 @@ function submit() {
           required
           autocomplete="off"
           spellcheck="false"
-          class="h-11 min-w-0 flex-1 rounded-md border border-input bg-background px-3 font-mono text-[16px] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none rail:h-9 rail:text-xs"
+          class="h-11 min-w-0 flex-1 rounded-md border border-input bg-transparent px-3 font-mono text-[16px] focus-visible:border-[var(--wire-strong)] focus-visible:outline-none rail:h-9 rail:text-xs"
           placeholder="/home/me/music 或 D:\Music"
         />
         <Button class="h-11 shrink-0 rail:h-8" type="button" variant="outline" @click="pickFolder">

@@ -95,9 +95,9 @@ function onDrawerClick(event: MouseEvent) {
 
 <template>
   <DialogRoot :open="narrow && drawerOpen" @update:open="(value: boolean) => (drawerOpen = value)">
-    <div class="flex h-full min-h-0 flex-col overflow-hidden bg-background text-foreground">
+    <div class="flex h-full min-h-0 flex-col overflow-hidden substrate text-foreground">
       <header
-        class="flex h-[var(--title-h)] shrink-0 items-center gap-2 border-b border-border bg-card px-3"
+        class="flex h-[var(--title-h)] shrink-0 items-center gap-2 edge-bottom px-3"
         data-testid="workbench-header"
       >
         <Button
@@ -126,7 +126,7 @@ function onDrawerClick(event: MouseEvent) {
             v-if="contextBackTo"
             :to="contextBackTo"
             :aria-label="`返回${contextBackLabel}`"
-            class="flex size-11 shrink-0 items-center justify-center rounded-md text-[var(--text-secondary)] hover:bg-muted focus-visible:ring-2 focus-visible:ring-[var(--brand)] focus-visible:outline-none"
+            class="flex size-11 shrink-0 items-center justify-center text-[var(--text-secondary)] hover:bg-muted focus-visible:ring-2 focus-visible:ring-[var(--brand)] focus-visible:outline-none"
             data-testid="workbench-back"
           >
             <ChevronLeft class="size-4" />
@@ -141,7 +141,7 @@ function onDrawerClick(event: MouseEvent) {
         <slot v-else name="header">
           <RouterLink
             to="/worksets"
-            class="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-xs font-medium text-[var(--text-secondary)] hover:bg-muted focus-visible:ring-2 focus-visible:ring-[var(--brand)] focus-visible:outline-none"
+            class="inline-flex items-center gap-1 px-1.5 py-1 text-xs font-medium text-[var(--text-secondary)] hover:bg-muted focus-visible:ring-2 focus-visible:ring-[var(--brand)] focus-visible:outline-none"
           >
             <ChevronLeft class="size-3.5" />
             工作集
@@ -161,7 +161,7 @@ function onDrawerClick(event: MouseEvent) {
           v-show="expanded"
           id="workbench-nav"
           :aria-label="navTitle"
-          class="min-h-0 w-[200px] shrink-0 overflow-y-auto border-r border-border bg-sidebar"
+          class="min-h-0 w-[200px] shrink-0 overflow-y-auto border-r border-border substrate-panel"
           data-testid="workbench-nav"
         >
           <slot name="nav" :tier="tier" />
@@ -180,7 +180,7 @@ function onDrawerClick(event: MouseEvent) {
                duplicate mount with the modal carrier. -->
           <aside
             v-if="tier === 'wide' && detailColumn"
-            class="hidden w-[380px] shrink-0 overflow-y-auto border-l border-border bg-card @[641px]:block"
+            class="hidden w-[380px] shrink-0 overflow-y-auto border-l border-border substrate-panel @[641px]:block"
             aria-label="详情"
             data-testid="workbench-detail-inline"
           >
@@ -207,7 +207,7 @@ function onDrawerClick(event: MouseEvent) {
       <DialogOverlay class="fixed inset-0 z-40 bg-black/40" data-testid="workbench-nav-scrim" />
       <DialogContent
         id="workbench-nav"
-        class="fixed inset-y-0 left-0 z-50 w-[min(16rem,85vw)] overflow-y-auto border-r border-border bg-sidebar pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-xl"
+        class="fixed inset-y-0 left-0 z-50 w-[min(16rem,85vw)] overflow-y-auto border-r border-[var(--wire-strong)] bg-sidebar pb-[max(0.5rem,env(safe-area-inset-bottom))]"
         data-testid="workbench-nav-drawer"
         @close-auto-focus="restoreNavFocus"
         @click="onDrawerClick"

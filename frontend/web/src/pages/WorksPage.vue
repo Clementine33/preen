@@ -3,7 +3,6 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { canonicalRj } from '@/app/route-params'
 import { useMediaQuery, WALL_MOBILE_QUERY } from '@/composables/use-media-query'
-import { useTheme } from '@/composables/use-theme'
 import type { ListWorksParams, WorkFacet, WorksSort } from '@/lib/api/types'
 import LibrarySwitcher from '@/features/works/LibrarySwitcher.vue'
 import PlayerBar from '@/features/works/PlayerBar.vue'
@@ -21,7 +20,6 @@ import { usePlayerStore } from '@/stores/player'
 
 const route = useRoute()
 const router = useRouter()
-const { theme } = useTheme()
 const libraryUi = useLibraryUiStore()
 const player = usePlayerStore()
 const isMobile = useMediaQuery(WALL_MOBILE_QUERY)
@@ -211,10 +209,6 @@ onBeforeUnmount(() => {
   window.removeEventListener('keydown', onKeydown)
 })
 
-const themeLabel = computed(() => (theme.value === 'light' ? 'DARK' : 'LIGHT'))
-function toggleTheme(): void {
-  theme.value = theme.value === 'light' ? 'dark' : 'light'
-}
 </script>
 
 <template>
@@ -225,9 +219,6 @@ function toggleTheme(): void {
       </div>
       <div class="header-meta">
         <span class="lbl count">WORKS<b>{{ loadedCount }}</b></span>
-        <button class="btn btn-s" type="button" title="Switch theme" @click="toggleTheme">
-          {{ themeLabel }}
-        </button>
       </div>
     </header>
 

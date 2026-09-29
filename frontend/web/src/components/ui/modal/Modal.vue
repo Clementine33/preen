@@ -29,7 +29,7 @@ const props = defineProps<{
 const contentClass = computed(() =>
   cn(
     'fixed top-1/2 left-1/2 z-50 grid w-[min(32rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 gap-3',
-    'max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-lg border border-border bg-card p-5 shadow-lg',
+    'max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-none border border-[var(--wire-strong)] bg-card p-5',
     props.class,
   ),
 )
@@ -51,7 +51,7 @@ function onOpenChange(value: boolean) {
       <DialogContent :class="contentClass">
         <div class="flex items-start justify-between gap-3">
           <div class="min-w-0">
-            <DialogTitle class="font-heading text-base font-semibold tracking-tight">{{ title }}</DialogTitle>
+            <DialogTitle class="font-heading text-base font-semibold">{{ title }}</DialogTitle>
             <DialogDescription v-if="description" class="mt-0.5 text-[11px] text-[var(--text-muted)]">
               {{ description }}
             </DialogDescription>

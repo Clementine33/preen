@@ -27,7 +27,7 @@ const TONES: Record<string, string> = {
 
 const classes = computed(() =>
   cn(
-    'inline-flex items-center gap-1 rounded-full border font-medium whitespace-nowrap',
+    'inline-flex items-center gap-1 rounded-none border font-medium whitespace-nowrap',
     props.size === 'sm' ? 'h-5 px-2 text-[11px]' : 'h-6 px-2.5 text-xs',
     TONES[props.tone] ?? TONES.neutral,
     props.class,

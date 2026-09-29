@@ -28,9 +28,9 @@ const emit = defineEmits<{
 
 <template>
   <div
-    class="flex min-h-14 shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-t border-border bg-card px-4 py-1.5 shadow-[0_-8px_24px_rgba(0,0,0,0.12)] rail:px-5"
+    class="flex min-h-14 shrink-0 flex-wrap items-center gap-x-3 gap-y-1 edge-top substrate-panel px-4 py-1.5 rail:px-5"
   >
-    <div class="h-5 w-1 shrink-0 rounded-full bg-[var(--ring)]" aria-hidden="true" />
+    <div class="h-5 w-1 shrink-0 bg-[var(--ring)]" aria-hidden="true" />
     <div class="min-w-0">
       <p class="font-heading text-xs font-semibold">转换范围</p>
       <p class="font-mono text-[11px] text-muted-foreground">已选择 {{ selectedCount }} 个文件夹</p>

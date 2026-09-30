@@ -1,7 +1,14 @@
-import { keepPreviousData, useInfiniteQuery, useQuery } from '@tanstack/vue-query'
+import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { computed, toValue, type MaybeRefOrGetter } from 'vue'
 import { useApiClient } from '@/lib/api/client'
-import type { ApiClientContract, ListWorksParams, WorkFacetKind, WorkListResponse } from '@/lib/api/types'
+import { loadWorkContent } from '@/features/work-detail/content-source'
+import type {
+  ApiClientContract,
+  ListWorksParams,
+  WorkFacetKind,
+  WorkListResponse,
+  WorkUserTag,
+} from '@/lib/api/types'
 import { queryKeys } from './query-keys'
 
 // ---------- query options ----------
@@ -75,4 +82,90 @@ export function useWorkDetail(rj: MaybeRefOrGetter<string | null>) {
   const query = useQuery(computed(() => workDetailQueryOptions(api, toValue(rj))))
   const work = computed(() => query.data.value ?? null)
   return { query, work }
+}
+
+/**
+ * One work's file manifest, through the content seam. The seam's implementation
+ * is the mock today; Phase C points the same functions at the API client and
+ * this composable keeps its key, its loading state and its cache untouched.
+ */
+export function useWorkContent(rj: MaybeRefOrGetter<string | null>) {
+  const query = useQuery(
+    computed(() => ({
+      queryKey: queryKeys.works.content(toValue(rj) ?? ''),
+      enabled: toValue(rj) !== null,
+      queryFn: () => {
+        const value = toValue(rj)
+        if (value === null) throw new Error('work content query requires a work number')
+        return loadWorkContent(value)
+      },
+    })),
+  )
+  const content = computed(() => query.data.value ?? null)
+  return { query, content }
+}
+
+/** The account's own tag vocabulary (docs/api.md `GET /user-tags`). */
+export function useUserTags() {
+  const api = useApiClient()
+  const query = useQuery({
+    queryKey: queryKeys.works.userTags(),
+    queryFn: ({ signal }: { signal?: AbortSignal }) => api.listUserTags(signal),
+  })
+  const tags = computed<WorkUserTag[]>(() => query.data.value ?? [])
+  return { query, tags }
+}
+
+/** Merges a personal-data patch into the cached work, keeping every other field. */
+function mergeIntoWorkCache(rj: () => string | null) {
+  const client = useQueryClient()
+  return (patch: object) => {
+    const key = rj()
+    if (key === null) return
+    client.setQueryData<Record<string, unknown>>(queryKeys.works.detail(key), (work) =>
+      work ? { ...work, ...patch } : work,
+    )
+  }
+}
+
+/** The work's personal data, written through and merged into the cached detail. */
+export function useUpdateWorkUserData(rj: MaybeRefOrGetter<string | null>) {
+  const api = useApiClient()
+  const merge = mergeIntoWorkCache(() => toValue(rj))
+  return useMutation({
+    mutationFn: (input: Parameters<ApiClientContract['updateWorkUserData']>[1]) => {
+      const value = toValue(rj)
+      if (value === null) throw new Error('a personal-data write requires a work number')
+      return api.updateWorkUserData(value, input)
+    },
+    onSuccess: merge,
+  })
+}
+
+/** Replaces the work's user-tag set and merges the answer into the cached detail. */
+export function useReplaceWorkUserTags(rj: MaybeRefOrGetter<string | null>) {
+  const api = useApiClient()
+  const merge = mergeIntoWorkCache(() => toValue(rj))
+  return useMutation({
+    mutationFn: (tagIds: string[]) => {
+      const value = toValue(rj)
+      if (value === null) throw new Error('a user-tag write requires a work number')
+      return api.replaceWorkUserTags(value, tagIds)
+    },
+    onSuccess: (userTags) => merge({ user_tags: userTags }),
+  })
+}
+
+/** Creates a tag by name; the route is idempotent, an existing name answers it. */
+export function useCreateUserTag() {
+  const api = useApiClient()
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (name: string) => api.createUserTag(name),
+    onSuccess: (tag) => {
+      client.setQueryData<WorkUserTag[]>(queryKeys.works.userTags(), (tags) =>
+        tags ? [...tags.filter((entry) => entry.id !== tag.id), tag] : [tag],
+      )
+    },
+  })
 }

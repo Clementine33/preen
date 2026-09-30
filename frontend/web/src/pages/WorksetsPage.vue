@@ -16,6 +16,7 @@ import {
 } from '@/queries/libraries'
 import { useLibraryUiStore } from '@/stores/library-ui'
 import type { CreateLibraryInput } from '@/lib/api/types'
+import GlobalMenu from '@/components/layout/GlobalMenu.vue'
 
 /**
  * 工作集 — the media-library selection (`/worksets`, ADR 0001 §1; ADR 0003 §1).
@@ -110,7 +111,8 @@ async function retryPage() {
 <template>
   <section class="flex h-full min-w-0 flex-col substrate" data-testid="worksets-page">
     <header class="flex min-h-14 shrink-0 flex-wrap items-center gap-x-3 gap-y-1.5 edge-bottom px-4 py-1.5 rail:px-5">
-      <div class="w-full min-w-0 rail:w-auto">
+      <GlobalMenu />
+      <div class="min-w-0 flex-1 rail:flex-none">
         <h1 class="font-heading text-sm font-semibold">工作集</h1>
         <p class="truncate text-[11px] text-muted-foreground">选择一个媒体库进入工作台</p>
       </div>

@@ -3,6 +3,7 @@ import { ChevronLeft, PanelLeftClose, PanelLeftOpen } from '@lucide/vue'
 import { DialogContent, DialogDescription, DialogOverlay, DialogPortal, DialogRoot, DialogTitle } from 'reka-ui'
 import { computed, ref, watch } from 'vue'
 import { RouterLink, useRoute, type RouteLocationRaw } from 'vue-router'
+import GlobalMenu from '@/components/layout/GlobalMenu.vue'
 import { Button } from '@/components/ui/button'
 import { useContainerTier } from '@/composables/use-container-tier'
 
@@ -100,6 +101,7 @@ function onDrawerClick(event: MouseEvent) {
         class="flex h-[var(--title-h)] shrink-0 items-center gap-2 edge-bottom px-3"
         data-testid="workbench-header"
       >
+        <GlobalMenu />
         <Button
           ref="toggle"
           variant="ghost"

@@ -1,34 +1,20 @@
 <script setup lang="ts">
 import { Monitor, Moon, Sun } from '@lucide/vue'
 import { computed } from 'vue'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { useTheme, type Theme } from '@/composables/use-theme'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import ThemeRadioGroup from '@/components/layout/ThemeRadioGroup.vue'
+import { THEME_OPTIONS, useTheme, type Theme } from '@/composables/use-theme'
 
 /**
- * The application's only theme entry (ADR 0012 §4). The shell renders it at
- * the foot of the desktop rail; phones have no theme control until a settings
- * page exists, and no page carries one of its own. The trigger reads like a nav
- * entry and names the mode in force; the menu is a radio group, so the chosen
- * mode is announced and marked, not just applied.
+ * The desktop theme entry (ADR 0012 §4), at the foot of the rail. Phones reach
+ * the same group through the GlobalMenu in each page header. The trigger reads
+ * like a nav entry and names the mode in force; the menu is a radio group, so
+ * the chosen mode is announced and marked, not just applied.
  */
 
 const { theme } = useTheme()
-const OPTIONS: { value: Theme; label: string; code: string; icon: typeof Sun }[] = [
-  { value: 'light', label: '浅色', code: 'LIGHT', icon: Sun },
-  { value: 'dark', label: '深色', code: 'DARK', icon: Moon },
-  { value: 'system', label: '跟随系统', code: 'AUTO', icon: Monitor },
-]
-const current = computed(() => OPTIONS.find((option) => option.value === theme.value) ?? OPTIONS[1])
-
-function choose(value: unknown): void {
-  if (value === 'light' || value === 'dark' || value === 'system') theme.value = value
-}
+const ICONS: Record<Theme, typeof Sun> = { light: Sun, dark: Moon, system: Monitor }
+const current = computed(() => THEME_OPTIONS.find((option) => option.value === theme.value) ?? THEME_OPTIONS[1])
 </script>
 
 <template>
@@ -40,25 +26,12 @@ function choose(value: unknown): void {
         class="flex w-full flex-col items-center justify-center gap-1 py-2 text-sidebar-foreground hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none aria-expanded:bg-primary aria-expanded:text-primary-foreground"
         data-testid="theme-menu"
       >
-        <component :is="current.icon" class="size-4" aria-hidden="true" />
+        <component :is="ICONS[current.value]" class="size-4" aria-hidden="true" />
         <span class="font-mono text-[10px] leading-3 tracking-[.14em]">{{ current.code }}</span>
       </button>
     </DropdownMenuTrigger>
     <DropdownMenuContent side="right" align="end" :side-offset="8" class="w-40 p-0">
-      <!-- The strip's ■ and the checked row's ■ share one axis: 8 + 8 + 3 = 8 + 4 + 7. -->
-      <div class="strip m-2 mb-1">
-        <span class="strip-name lbl">THEME</span>
-      </div>
-      <DropdownMenuRadioGroup :model-value="theme" class="px-2 pb-2" @update:model-value="choose">
-        <DropdownMenuRadioItem
-          v-for="option in OPTIONS"
-          :key="option.value"
-          :value="option.value"
-          class="cursor-pointer text-[length:var(--fs-s)] font-medium"
-        >
-          {{ option.label }}
-        </DropdownMenuRadioItem>
-      </DropdownMenuRadioGroup>
+      <ThemeRadioGroup />
     </DropdownMenuContent>
   </DropdownMenu>
 </template>

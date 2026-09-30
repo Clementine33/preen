@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { canonicalRj } from '@/app/route-params'
 import { useMediaQuery, WALL_MOBILE_QUERY } from '@/composables/use-media-query'
 import type { ListWorksParams, WorkFacet, WorksSort } from '@/lib/api/types'
+import GlobalMenu from '@/components/layout/GlobalMenu.vue'
 import LibrarySwitcher from '@/features/works/LibrarySwitcher.vue'
 import PlayerBar from '@/features/works/PlayerBar.vue'
 import RailSelect, { type RailOption } from '@/features/works/RailSelect.vue'
@@ -215,6 +216,7 @@ onBeforeUnmount(() => {
   <section class="works substrate" aria-label="作品库">
     <header class="header">
       <div class="header-left">
+        <GlobalMenu />
         <LibrarySwitcher />
       </div>
       <div class="header-meta">
@@ -294,7 +296,7 @@ onBeforeUnmount(() => {
   min-height: 0;
 }
 
-.header-left { min-width: 0; }
+.header-left { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
 
 @media (max-width: 768px) {
   .bench { grid-template-columns: 1fr; }

@@ -17,3 +17,4 @@
 | [0011](0011-work-catalog.md) | 作品目录：作品号身份、来源数据组与派生关系 | Draft |
 | [0012](0012-yorha-design-base.md) | YoRHa 视觉底座与三阶段落地 | Draft |
 | [0013](0013-development-schema-and-release-migrations.md) | 开发 schema 自由迭代，发布库通过 goose 升级 | Draft |
+| [0015](0015-thumbnail-service.md) | 缩略图服务：可丢弃的派生缓存与可替换的缩放引擎 | Draft |

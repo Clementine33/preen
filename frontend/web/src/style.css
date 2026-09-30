@@ -1,6 +1,6 @@
 
-/* Font matrix (ADR 0012 §2): mono telemetry / UD gothic UI / mincho display */
-@import url('https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&family=IBM+Plex+Mono:wght@400;500;600;700&family=Noto+Serif+JP:wght@600;700&family=Noto+Serif+SC:wght@600;700&family=Shippori+Mincho:wght@500;600;700&display=swap');
+/* Font matrix (ADR 0012 §2): mono telemetry / CN-first UD gothic UI / mincho display */
+@import url('https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&family=IBM+Plex+Mono:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&family=Noto+Serif+JP:wght@600;700&family=Noto+Serif+SC:wght@600;700&family=Shippori+Mincho:wght@500;600;700&display=swap');
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn-vue/tailwind.css";
@@ -101,7 +101,9 @@
   --color-info-border: var(--info-border);
   --color-control-border: var(--control-border);
   --font-sans: var(--font-ui);
-  --font-heading: var(--font-mincho);
+  /* Headings are UI, not display: mincho is reserved for work titles and the
+     work detail specimen, which name --font-mincho directly. ADR 0012 §2. */
+  --font-heading: var(--font-ui);
   /* Cannot self-reference var(--font-mono) inside @theme; the same stack is
      declared in theme-yorha.css as --font-mono. */
   --font-mono: 'IBM Plex Mono', 'JetBrains Mono', ui-monospace, monospace;

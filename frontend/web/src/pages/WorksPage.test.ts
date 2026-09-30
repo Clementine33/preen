@@ -203,9 +203,9 @@ describe('works page', () => {
 
     expect(lastParams(listWorks)).toMatchObject({ sort: 'release_date', direction: 'desc' })
 
-    await pick(wrapper, 'SORT', 'RATING')
+    await pick(wrapper, 'SORT', '个人评分')
     expect(lastParams(listWorks)).toMatchObject({ sort: 'rating', direction: 'desc' })
-    await pick(wrapper, 'SORT', 'ADDED')
+    await pick(wrapper, 'SORT', '添加时间')
     expect(lastParams(listWorks)).toMatchObject({ sort: 'collected_at', direction: 'desc' })
   })
 

@@ -62,9 +62,9 @@ func (r ResolvedRelation) IsEmpty() bool {
 
 // RelationWarning is one accepted disagreement.
 type RelationWarning struct {
-	Code    string
-	WorkID  WorkCode
-	Message string
+	Code    string   `json:"code"`
+	WorkID  WorkCode `json:"rj"`
+	Message string   `json:"message"`
 }
 
 // Resolution is the outcome of applying the rules to one evidence set.

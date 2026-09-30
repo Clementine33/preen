@@ -386,23 +386,23 @@ func validateEditions(payload ImportEditions) (*EditionsGroup, *Error) {
 
 // AppliedGroup records a group that was written.
 type AppliedGroup struct {
-	DataGroup DataGroup
-	DLCount   *int
+	DataGroup DataGroup `json:"data_group"`
+	DLCount   *int      `json:"dl_count,omitempty"`
 }
 
 // IgnoredGroup records a group that was valid but not written, with the reason.
 type IgnoredGroup struct {
-	DataGroup DataGroup
-	Reason    string
-	Message   string
+	DataGroup DataGroup `json:"data_group"`
+	Reason    string    `json:"reason"`
+	Message   string    `json:"message"`
 }
 
 // ImportOutcome is the result of one submission: what was written, what was
 // valid but skipped, what was accepted with a caveat, and which works were
 // created as relation placeholders along the way.
 type ImportOutcome struct {
-	Applied             []AppliedGroup
-	Ignored             []IgnoredGroup
-	Warnings            []RelationWarning
-	CreatedPlaceholders []WorkCode
+	Applied             []AppliedGroup    `json:"applied"`
+	Ignored             []IgnoredGroup    `json:"ignored"`
+	Warnings            []RelationWarning `json:"warnings"`
+	CreatedPlaceholders []WorkCode        `json:"created_placeholders"`
 }

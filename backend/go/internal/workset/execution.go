@@ -57,27 +57,29 @@ type StartExecutionResult struct {
 // frozen half comes from the session's worklist, the observed half from the
 // component's own result row (ADR 0007 §5).
 type ExecutionComponentView struct {
-	ComponentIndex     int      `json:"component_index"`
-	ComponentID        string   `json:"component_id"`
-	RootPath           string   `json:"root_path"`
-	Partition          string   `json:"partition"`
-	Status             string   `json:"status"` // pending|succeeded|failed|canceled
-	Stage              string   `json:"stage,omitempty"`
-	Operations         int      `json:"operations"`
-	CompletedOps       int      `json:"completed_operations"`
-	Committed          []string `json:"committed"`
-	Removed            []string `json:"removed"`
-	Remaining          []string `json:"remaining"`
-	Recovery           []string `json:"recovery"`
-	ErrorCode          string   `json:"error_code,omitempty"`
-	ErrorMessage       string   `json:"error_message,omitempty"`
-	InventorySynced    bool     `json:"inventory_synced"`
-	InventorySyncError string   `json:"inventory_sync_error,omitempty"`
+	TaskResult         json.RawMessage `json:"task_result,omitempty"`
+	ComponentIndex     int             `json:"component_index"`
+	ComponentID        string          `json:"component_id"`
+	RootPath           string          `json:"root_path"`
+	Partition          string          `json:"partition"`
+	Status             string          `json:"status"` // pending|succeeded|failed|canceled
+	Stage              string          `json:"stage,omitempty"`
+	Operations         int             `json:"operations"`
+	CompletedOps       int             `json:"completed_operations"`
+	Committed          []string        `json:"committed"`
+	Removed            []string        `json:"removed"`
+	Remaining          []string        `json:"remaining"`
+	Recovery           []string        `json:"recovery"`
+	ErrorCode          string          `json:"error_code,omitempty"`
+	ErrorMessage       string          `json:"error_message,omitempty"`
+	InventorySynced    bool            `json:"inventory_synced"`
+	InventorySyncError string          `json:"inventory_sync_error,omitempty"`
 }
 
 // ExecutionView is the session detail payload; it is also the SSE snapshot, so
 // a reconnect starts from the same authoritative shape as GET.
 type ExecutionView struct {
+	TaskResult          []json.RawMessage        `json:"task_result,omitempty"`
 	ExecutionID         string                   `json:"execution_id"`
 	WorksetID           string                   `json:"workset_id"`
 	OperationType       string                   `json:"operation_type"`
@@ -707,6 +709,9 @@ func (s *serviceImpl) executionViewOf(e *PlanExecution, page ExecutionPage) (*Ex
 			continue // a result outside the requested page
 		}
 		applyComponentResult(&view.Components[at], res)
+		if len(view.Components[at].TaskResult) > 0 {
+			view.TaskResult = append(view.TaskResult, view.Components[at].TaskResult)
+		}
 	}
 	return view, nil
 }
@@ -726,6 +731,7 @@ func applyComponentResult(entry *ExecutionComponentView, res ExecutionComponentR
 		entry.ErrorMessage = "the recorded component result could not be read"
 		return
 	}
+	entry.TaskResult = facts.TaskResult
 	entry.Stage = facts.Stage
 	entry.Committed = nonNilStrings(facts.Committed)
 	entry.Removed = nonNilStrings(facts.Removed)
@@ -740,15 +746,16 @@ func applyComponentResult(entry *ExecutionComponentView, res ExecutionComponentR
 // componentResultFacts is the part of a component's result that its frozen
 // worklist cannot describe, and so the part that is stored per component.
 type componentResultFacts struct {
-	Stage              string   `json:"stage,omitempty"`
-	Committed          []string `json:"committed,omitempty"`
-	Removed            []string `json:"removed,omitempty"`
-	Remaining          []string `json:"remaining,omitempty"`
-	Recovery           []string `json:"recovery,omitempty"`
-	ErrorCode          string   `json:"error_code,omitempty"`
-	ErrorMessage       string   `json:"error_message,omitempty"`
-	InventorySynced    bool     `json:"inventory_synced"`
-	InventorySyncError string   `json:"inventory_sync_error,omitempty"`
+	TaskResult         json.RawMessage `json:"task_result,omitempty"`
+	Stage              string          `json:"stage,omitempty"`
+	Committed          []string        `json:"committed,omitempty"`
+	Removed            []string        `json:"removed,omitempty"`
+	Remaining          []string        `json:"remaining,omitempty"`
+	Recovery           []string        `json:"recovery,omitempty"`
+	ErrorCode          string          `json:"error_code,omitempty"`
+	ErrorMessage       string          `json:"error_message,omitempty"`
+	InventorySynced    bool            `json:"inventory_synced"`
+	InventorySyncError string          `json:"inventory_sync_error,omitempty"`
 }
 
 // componentResultRow folds one view entry into the row the repository stores.
@@ -758,6 +765,7 @@ func componentResultRow(entry *ExecutionComponentView) ExecutionComponentResult 
 		Status:              entry.Status,
 		CompletedOperations: entry.CompletedOps,
 		ResultJSON: mustJSON(componentResultFacts{
+			TaskResult:         entry.TaskResult,
 			Stage:              entry.Stage,
 			Committed:          entry.Committed,
 			Removed:            entry.Removed,

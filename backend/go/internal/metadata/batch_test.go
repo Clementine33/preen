@@ -40,10 +40,10 @@ func (s *cancelBatch) FetchDynamic(
 	s.cancel()
 	return nil, ctx.Err()
 }
-func (*cancelBatch) FetchStatic(context.Context, works.WorkCode, string) (works.ImportRequest, error) {
+func (*cancelBatch) FetchStatic(context.Context, works.WorkCode, string) (metadata.Snapshot, error) {
 	panic("cancelled refresh fetched static")
 }
-func (*cancelBatch) FetchASMR(context.Context, works.WorkCode, string) (works.ImportRequest, error) {
+func (*cancelBatch) FetchASMR(context.Context, works.WorkCode, string) (metadata.Snapshot, error) {
 	panic("cancelled refresh fetched backup")
 }
 

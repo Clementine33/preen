@@ -20,6 +20,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/onsei/organizer/backend/internal/adapters/coverhttp"
 	"github.com/onsei/organizer/backend/internal/adapters/ffmpeg"
 	"github.com/onsei/organizer/backend/internal/adapters/filesystem"
 	"github.com/onsei/organizer/backend/internal/adapters/httpapi"
@@ -29,10 +30,12 @@ import (
 	"github.com/onsei/organizer/backend/internal/adapters/sqlite"
 	"github.com/onsei/organizer/backend/internal/admission"
 	"github.com/onsei/organizer/backend/internal/conversion"
+	"github.com/onsei/organizer/backend/internal/covers"
 	"github.com/onsei/organizer/backend/internal/fileops"
 	"github.com/onsei/organizer/backend/internal/inventory"
 	"github.com/onsei/organizer/backend/internal/library"
 	"github.com/onsei/organizer/backend/internal/metadata"
+	"github.com/onsei/organizer/backend/internal/metadatatask"
 	"github.com/onsei/organizer/backend/internal/rename"
 	"github.com/onsei/organizer/backend/internal/thumbnail"
 	"github.com/onsei/organizer/backend/internal/works"
@@ -145,8 +148,9 @@ type services struct {
 	// mediaFacts measures the inventory's unknown media facts in the
 	// background, after scans (ADR 0015 §2).
 	mediaFacts *inventory.MediaEnricher
-	// metadata is callable by future entry points; it has no background scheduler.
+	// Metadata execution belongs to worksets; cover delivery owns its background queue.
 	metadata *metadata.Service
+	covers   *covers.Service
 }
 
 // buildServices wires the process. Direct file management and the managed task
@@ -157,7 +161,7 @@ type services struct {
 // There is one scanning entry for the whole process — scanning a library,
 // refreshing one member directory, and the refresh a session does before
 // planning or writing all go through the same pipeline.
-func buildServices(repo *sqlite.Repository, configDir string, generationConcurrency int) services {
+func buildServices(repo *sqlite.Repository, configDir, dataDir string, generationConcurrency int) services {
 	gate := admission.NewGate(repo.HasActiveSession)
 	// The background media pass holds the gate's preemptible slot, so it
 	// never reads alongside a scan's walk; every merge kicks it.
@@ -189,6 +193,22 @@ func buildServices(repo *sqlite.Repository, configDir string, generationConcurre
 		repo, repo, fileops.ResolveMember, fileops.ResolveMemberFile, media.ThumbEngineVersion,
 	)
 	scraperClient := scraper.New(nil)
+	metadataSvc := metadata.New(worksSvc, repo, scraperClient, scraperClient)
+	coverSvc, err := covers.New(
+		covers.Dependencies{
+			Store:      repo,
+			Downloader: coverhttp.New(nil),
+			Source:     scraperClient,
+			Files:      filesystem.CoverFiles{},
+			StageDir:   filepath.Join(dataDir, "cover-staging"),
+			Acquire:    gate.BeginManual,
+			Refresh:    scanSvc.RefreshMember,
+		},
+	)
+	if err != nil {
+		log.Fatalf("cover staging: %v", err)
+	}
+	metadataExecutor := metadatatask.Executor{Metadata: metadataSvc, Covers: coverSvc}
 	worksetSvc := workset.NewService(
 		repo,
 		generationConcurrency,
@@ -196,9 +216,11 @@ func buildServices(repo *sqlite.Repository, configDir string, generationConcurre
 		[]workset.Task{
 			conversion.New(repo, appconfig.NewReader(configDir), ffmpeg.New, media.ProbeBitrate),
 			rename.New(repo, filesystem.ReadRenameDirectory),
+			metadatatask.New(repo, filesystem.CoverDirectoryIdentity),
 		},
 		scanSvc.RefreshMember,
 		gate.Enqueue,
+		map[string]workset.BatchExecutor{metadatatask.Kind: metadataExecutor.Run},
 	)
 	return services{
 		gate:       gate,
@@ -208,9 +230,25 @@ func buildServices(repo *sqlite.Repository, configDir string, generationConcurre
 		workset:    worksetSvc,
 		catalog:    conversion.NewCatalog(repo, repo, appconfig.NewReader(configDir)),
 		works:      worksSvc,
-		metadata:   metadata.New(worksSvc, repo, scraperClient, scraperClient),
+		metadata:   metadataSvc,
+		covers:     coverSvc,
 		mediaFacts: mediaFacts,
 	}
+}
+
+// startCoverWorkers restores the persistent queue before accepting requests.
+func startCoverWorkers(ctx context.Context, service *covers.Service) <-chan struct{} {
+	if err := service.Recover(ctx); err != nil {
+		log.Fatalf("recover cover queue: %v", err)
+	}
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		if err := service.Run(ctx); err != nil && ctx.Err() == nil {
+			log.Printf("cover workers stopped: %v", err)
+		}
+	}()
+	return done
 }
 
 // runServer starts the HTTP listener and blocks until the process is killed.
@@ -233,7 +271,7 @@ func runServer(ctx context.Context, repo *sqlite.Repository, cfg Config) {
 			generationConcurrency = appCfg.Workset.GenerationConcurrency
 		}
 	}
-	services := buildServices(repo, cfg.ConfigDir, generationConcurrency)
+	services := buildServices(repo, cfg.ConfigDir, cfg.DataDir, generationConcurrency)
 
 	// Startup recovery: any session left queued/running by a previous process
 	// is marked interrupted before the dispatcher starts from an empty queue.
@@ -252,6 +290,7 @@ func runServer(ctx context.Context, repo *sqlite.Repository, cfg Config) {
 	// anything: nothing else is alive yet, so it is the cheapest pass the
 	// process will ever run, and no client can be refused by it.
 	maintenanceLoop.Pass(ctx)
+	coversDone := startCoverWorkers(ctx, services.covers)
 	maintenanceDone := make(chan struct{})
 	go func() {
 		defer close(maintenanceDone)
@@ -284,6 +323,7 @@ func runServer(ctx context.Context, repo *sqlite.Repository, cfg Config) {
 				media.ThumbEngine{}, filepath.Join(cfg.DataDir, "thumbs"), 512<<20,
 				runtime.NumCPU(), 4*runtime.NumCPU(),
 			),
+			Covers: services.covers,
 		}),
 	}
 	go func() {
@@ -329,6 +369,7 @@ func runServer(ctx context.Context, repo *sqlite.Repository, cfg Config) {
 	// they read from is closed by main.
 	<-maintenanceDone
 	<-mediaFactsDone
+	<-coversDone
 }
 
 // interruptStaleSessions marks leftover queued/running sessions of a previous

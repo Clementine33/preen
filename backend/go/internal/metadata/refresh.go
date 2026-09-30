@@ -11,6 +11,19 @@ import (
 
 // Refresh validates its whole request before sending anything to an upstream.
 func (s *Service) Refresh(ctx context.Context, req Request) (Result, error) {
+	return s.RefreshWithProgress(ctx, req, nil)
+}
+
+// RefreshWithProgress notifies in serialized callbacks after each work's import.
+// A callback failure stops admission and further imports, retaining committed results.
+func (s *Service) RefreshWithProgress(
+	ctx context.Context,
+	req Request,
+	progress func(WorkResult) error,
+) (Result, error) {
+	ctx, cancel := context.WithCancelCause(ctx)
+	defer cancel(nil)
+	var notify sync.Mutex
 	result := Result{Works: []WorkResult{}}
 	ids, err := normalizeRequest(&req)
 	if err != nil {
@@ -22,6 +35,9 @@ func (s *Service) Refresh(ctx context.Context, req Request) (Result, error) {
 	for _, id := range ids {
 		item := WorkResult{WorkCode: id, Issues: []Issue{}}
 		if _, detailErr := s.catalog.Detail(id); detailErr != nil {
+			if detailErr.Kind == works.KindInternal {
+				return result, detailErr
+			}
 			item.Issues = append(item.Issues, Issue{Code: detailErr.Code, Message: detailErr.Message})
 		}
 		result.Works = append(result.Works, item)
@@ -47,7 +63,20 @@ func (s *Service) Refresh(ctx context.Context, req Request) (Result, error) {
 			for i := range jobs {
 				item := &result.Works[i]
 				if len(item.Issues) == 0 && ctx.Err() == nil {
-					s.refreshWork(ctx, req, item, needs[item.WorkCode], dynamic[item.WorkCode], failures[item.WorkCode])
+					if e := s.refreshWork(
+						ctx,
+						req,
+						item,
+						needs[item.WorkCode],
+						states[item.WorkCode][works.GroupCore].Source,
+						dynamic[item.WorkCode],
+						failures[item.WorkCode],
+					); e != nil {
+						cancel(e)
+					}
+				}
+				if e := notifyWork(ctx, &notify, progress, *item); e != nil {
+					cancel(e)
 				}
 			}
 		})
@@ -64,7 +93,7 @@ func (s *Service) Refresh(ctx context.Context, req Request) (Result, error) {
 	close(jobs)
 	workers.Wait()
 
-	return result, ctx.Err()
+	return result, context.Cause(ctx)
 }
 
 func normalizeRequest(req *Request) ([]works.WorkCode, error) {
@@ -178,4 +207,16 @@ func missingGroups(data works.ImportRequest, want map[works.DataGroup]bool) map[
 		delete(out, group)
 	}
 	return out
+}
+
+func notifyWork(ctx context.Context, lock *sync.Mutex, progress func(WorkResult) error, item WorkResult) error {
+	if progress == nil {
+		return nil
+	}
+	lock.Lock()
+	defer lock.Unlock()
+	if ctx.Err() != nil {
+		return context.Cause(ctx)
+	}
+	return progress(item)
 }

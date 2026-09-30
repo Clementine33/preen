@@ -182,6 +182,10 @@ func (d *dispatcher) executeRun(ex *PlanExecution) {
 		return
 	}
 
+	if execute := d.svc.batchExecutors[ex.OperationType]; execute != nil {
+		d.executeBatch(ctx, ex, run, execute)
+		return
+	}
 	session := &sessionRun{
 		d:      d,
 		ex:     ex,
@@ -335,11 +339,15 @@ func (d *dispatcher) verifyInputs(
 // applyUnitResult records one unit run's observed facts on its report entry:
 // the outcome lists, the completed count and the terminal status.
 func applyUnitResult(entry *ExecutionComponentView, res UnitResult) {
+	entry.TaskResult = res.TaskResult
 	entry.Committed = res.Committed
 	entry.Removed = res.Removed
 	entry.Remaining = res.Remaining
 	entry.Recovery = res.Recovery
 	entry.CompletedOps = len(res.Committed) + len(res.Removed)
+	if res.CompletedOperations != nil {
+		entry.CompletedOps = *res.CompletedOperations
+	}
 	entry.Stage = res.Stage
 	entry.ErrorCode = res.ErrorCode
 	entry.ErrorMessage = res.ErrorMessage

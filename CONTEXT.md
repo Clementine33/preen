@@ -98,7 +98,7 @@ The process-wide rule that direct file management and the managed task paths (sc
 _Avoid_: Frontend-only disabling; a queue of waiting file operations.
 
 **Workset Operation**:
-An independent business activity on a record's members, owning its draft, participation scope, planning sessions and its current plan. Conversion and directory rename planning are the available activities; a record is created for one of them.
+An independent business activity on a record's members, owning its draft, participation scope, planning sessions and its current plan. Conversion, metadata refresh and directory rename planning are the available activities; a record is created for one of them.
 _Avoid_: Workflow step; filesystem Operation when referring to this activity.
 
 **Operation Draft**:
@@ -129,7 +129,7 @@ Reusable literal classification tags, comprising installation defaults and user-
 ### Planning and review
 
 **Task**:
-One kind of work a Workset Operation can carry: it owns that work's draft document shape, its planning pass, its input facts and its execution. The generic workset module names the kind and payload schema version but never reads a task's payload; conversion and directory rename planning supply their own task content.
+One kind of work a Workset Operation can carry: it owns that work's draft document shape, its planning pass, its input facts and its execution. The generic workset module names the kind and payload schema version but never reads a task's payload; conversion, metadata refresh and directory rename planning supply their own task content.
 _Avoid_: Workflow, job, plugin.
 
 **Directory Rename Proposal**:
@@ -159,8 +159,20 @@ What a plan was made from: per Planning Root, the identity, inventory fingerprin
 _Avoid_: Snapshot token, ETag.
 
 **Execution Session**:
-The asynchronous, durable run of one Plan Revision — the whole revision, or only the members the user selected for this run (`folder_paths`; a path outside the record is refused, never quietly dropped): globally serialized, with one shared pool of encode workers running single-file encode tasks across every member folder and a single coordinator committing components in frozen order. Cooperatively cancelable — a stop is checked between commit operations and stops admission at once — with a per-component result that survives a crash and no automatic retry.
-_Avoid_: Run, job.
+The asynchronous, durable run of one Plan Revision, across the whole revision or the members selected for this run. It is cooperatively cancelable, retains each committed result across interruption and does not resume automatically. Audio execution commits its frozen file decisions; metadata execution refreshes each distinct Work and records any cover demands for the selected Copies.
+_Avoid_: Treating a cover delivery's later failure as a change to the execution's final result.
+
+**Metadata Refresh**:
+An independent activity that fills missing source groups, refreshes dynamic groups or refreshes all groups for the Works bound to selected member directories. Copies of the same Work share one metadata result; an unbound member is skipped.
+_Avoid_: Making a directory scan depend on an upstream metadata request.
+
+**Main Cover**:
+The source's main artwork, stored as one `cover.{ext}` in a Copy's directory. It retains the source format and is independent of sample and thumbnail URL fields retained for compatibility.
+_Avoid_: Treating scaled variants of the same artwork as separate cover requirements.
+
+**Cover Demand**:
+An execution's request to deliver a Main Cover to one selected Copy. It can be stopped or retried independently; demands sharing the same Work and source version share a transfer while each Copy keeps its own publication result. Pending delivery resumes after interruption; a stopped demand requires an explicit retry.
+_Avoid_: Extending a metadata Execution Session until its covers finish.
 
 **Obsolete Audio Handling**:
 The whole-operation choice of what happens to replaced and obsolete audio at execution: soft (moved to the library-level `Delete/`, under the member's own path — beside the member folder, never inside it — and recoverable) or hard (removed). It is a draft setting, never a per-member override; the plan freezes it and the run uses the frozen value.

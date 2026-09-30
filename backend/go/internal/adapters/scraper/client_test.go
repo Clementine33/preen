@@ -144,3 +144,37 @@ func TestMalformedCreditsNeverBecomeAnEmptySnapshot(t *testing.T) {
 		})
 	}
 }
+
+func TestStaticSeparatesMainSampleAndResizedThumbnail(t *testing.T) {
+	client := scraper.New(&http.Client{Transport: transportFunc(func(*http.Request) (*http.Response, error) {
+		return response(
+			200,
+			`[{"workno":"RJ000001","product_name":"title","genres":[],"creaters":{},"image_main":{"url":"//img.dlsite.jp/main.webp","resize_url":"resize/main"},"image_thum":{"url":"//img.dlsite.jp/sample.jpg"}}]`,
+		), nil
+	})})
+	result, err := client.FetchStatic(t.Context(), "RJ00000001", "ja-jp")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Core == nil || result.Core.CoverURL == nil ||
+		*result.Core.CoverURL != "https://img.dlsite.jp/main.webp" ||
+		result.Core.SampleCoverURL == nil ||
+		*result.Core.SampleCoverURL != "https://img.dlsite.jp/sample.jpg" ||
+		result.Core.ThumbnailURL == nil ||
+		*result.Core.ThumbnailURL != "https://img.dlsite.jp/resize/main_240x240.jpg" {
+		t.Fatalf("incorrect cover mapping: %+v", result.Core)
+	}
+}
+
+func TestMainURLSurvivesInvalidCoreGroup(t *testing.T) {
+	client := scraper.New(&http.Client{Transport: transportFunc(func(*http.Request) (*http.Response, error) {
+		return response(
+			200,
+			`[{"workno":"RJ000001","product_name":"bad core","genres":[],"creaters":{"voice_by":"broken"},"image_main":{"url":"//img.dlsite.jp/main.webp"}}]`,
+		), nil
+	})})
+	result, err := client.FetchStatic(t.Context(), "RJ00000001", "ja-jp")
+	if err != nil || result.Core != nil || result.MainURL != "https://img.dlsite.jp/main.webp" {
+		t.Fatalf("cover depends on valid core: %+v %v", result, err)
+	}
+}

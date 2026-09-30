@@ -237,9 +237,13 @@ func toRevisionRecords(snap *PlanSnapshot) (
 	roots []PlanRootRecord,
 	components []PlanComponentRecord,
 ) {
+	stepType := snap.StepType
+	if stepType == "" {
+		stepType = reconcileAudioStepType
+	}
 	steps = []PlanStepRecord{{
 		StepIndex:           0,
-		StepType:            reconcileAudioStepType,
+		StepType:            stepType,
 		Status:              snap.Status,
 		PolicySchemaVersion: snap.PayloadSchemaVersion,
 		PolicyJSON:          string(snap.Payload),

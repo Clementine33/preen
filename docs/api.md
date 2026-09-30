@@ -403,7 +403,96 @@ unused fields do not stale plans. Review always shows frozen names. Execution
 returns `PLAN_NOT_EXECUTABLE` (409), with `RENAME_EXECUTION_NOT_IMPLEMENTED` in
 `details`, before an execution row is written.
 
-### Callable metadata refresh (no HTTP route)
+### Metadata refresh task (schema version 1)
+
+Use the operation routes with `{type}=metadata_refresh`. Audio files are not
+required. The draft payload defaults to:
+
+```json
+{
+  "schema_version": 1,
+  "common": { "mode": "fill_missing", "locale": "ja-jp", "download_cover": true },
+  "members": []
+}
+```
+
+Modes: `fill_missing`, `refresh_dynamic`, `refresh_all`; locales: `ja-jp`,
+`zh-cn`, `zh-tw`. Only `member_id` / `excluded` are stored per member; unknown
+fields and duplicate/unknown members are rejected. Dynamic refresh normalizes
+`download_cover` to false. Common saves follow the deployment-wide rules.
+
+Planning freezes selected directories, copy/work bindings, physical directory
+identities and settings without upstream requests or writes. Each participating
+member produces a frozen component with `member_id`, `target` (`copy_id`, `rj`,
+`library_root`, `rel_path`, `identity`), `action` (`refresh` or `skip`) and an
+optional `reason_code`. An unbound directory skips with `NO_WORK_BINDING`;
+a missing directory blocks with `SOURCE_MISSING`. Summary adds `work_count`
+(distinct RJ); `operation_count` counts bound participating copies. Binding or
+directory identity changes stale the plan; changing metadata or cover bytes does
+not. Execution folder scope applies before deduplication and cover enqueueing.
+
+Execution deduplicates upstream metadata by RJ and retains every selected copy
+as a cover target. Per-work source failures continue; database failures or
+cancellation stop the batch and preserve committed results. Each component and
+SSE `component` event may contain optional `task_result`: `{rj, outcome, issues,
+main_url?, backup_url?}` for refresh, or the frozen skip payload. Issue fields
+are `group?`, `source?`, `code`, `message`; outcome contains `applied`, `ignored`,
+`warnings`, `created_placeholders`. Detail's optional `task_result[]` collects
+results from the returned component page. A partial failure yields session
+`failed` / `METADATA_PARTIAL_FAILURE` after other works finish.
+
+Metadata results and cover demands are persisted before metadata execution
+ends. Covers run asynchronously and do not alter that session's terminal status.
+Stopping metadata execution leaves previously queued demands intact; use the
+separate cover cancel route to stop them. Metadata execution follows the usual
+startup interruption rule; pending covers resume automatically.
+
+### Copy covers and asynchronous delivery
+
+All routes below require the normal Bearer authentication.
+
+| Method | Path | Behavior |
+| --- | --- | --- |
+| GET | `/api/v1/works/{rj}/copies/{copyId}/cover` | Read the copy's existing local main image. Validates copy ownership; never starts a download. Actual image MIME, digest ETag, `private, no-cache` and `nosniff`; conditional GET and ranges use standard HTTP semantics. 404 `COPY_NOT_FOUND` / `COVER_UNAVAILABLE`, 409 `COVER_CONFLICT` / `INPUT_CHANGED`. |
+| GET | `/api/v1/worksets/{id}/operations/metadata_refresh/executions/{executionId}/covers` | `{items: [...], counts: {...}, downloads: {...}}`; execution ownership is checked, including operation kind. |
+| POST | same path + `/retry` | Retry failed or stopped demands only when their candidate version is current. Returns the updated report. Does not restart metadata execution. |
+| POST | same path + `/cancel` | Stop this execution's pending/running demands. Shared transfers needed by other executions continue. Returns the updated report. |
+
+Each item contains `id`, `execution_id`, `target` (the frozen copy target),
+`refresh`, `status`, optional `error_code`, `error_message`, `published`, `digest`.
+Statuses/count keys: `pending`, `running`, `succeeded`, `skipped`, `failed`,
+`canceled`. `downloads` counts distinct shared jobs: `total`, `queued`, `running`,
+`done`; a done transfer may still have failed copy results. Inventory failure
+reports `INVENTORY_REFRESH_FAILED` with `published` retained. Source supersession
+reports canceled / `SOURCE_UPDATED`; stale-version demands cannot be revived.
+
+Only main artwork is downloaded: DLsite `image_main.url`, then ASMR.one
+`mainCoverUrl` on absence/download failure, independently of Core group priority.
+Only HTTPS `img.dlsite.jp` is initially allowed, including every redirect and DNS
+connection; unknown/nonpublic addresses yield `UNSUPPORTED_CDN`. No metadata
+cookies or application token are sent. Per-request timeout 10 seconds, size cap
+16 MiB, at most three attempts for network/5xx/429 with cancelable backoff.
+Actual image signatures and decoding determine `webp`, `jpg`, `png`, `gif`;
+HTML/damaged content is `INVALID_IMAGE`, excess bytes are `IMAGE_TOO_LARGE`.
+Bytes are not transcoded. Refresh conditionals are sent only for a verified
+matching local file; an unsolicited 304 is refused.
+
+Two workers share temporary staged bytes, retaining them while targets remain.
+Restart requeues interrupted transfers, reuses complete stages and cleans
+unreferenced staging files; stopped demands remain stopped. Network transfers do
+not hold directory admission. Publication waits for file-operation admission,
+then verifies binding, directory identity and safe paths again, and never creates
+a replacement directory. A directory moved/removed/replaced fails only its target.
+
+`fill_missing` skips exactly one valid supported `cover.*`; damaged files can be
+replaced; multiple valid covers are `COVER_CONFLICT`. `refresh_all` publishes
+`cover.{actual ext}` before removing old top-level supported `cover` names, never
+other pictures. A durable publication journal completes extension cleanup on
+retry after interruption; failed publication keeps the old cover. Successful
+publication refreshes inventory and records its independent failure if necessary.
+No permanent central cover cache or scaled variants are created.
+
+### Callable metadata refresh service
 
 `metadata.Service.Refresh(ctx, Request)` accepts `WorkCodes`, `Mode`, `Locale`.
 The entire request is validated before network activity; IDs are canonicalized,
@@ -429,7 +518,7 @@ refresh automatically.
 
 ### Execution sessions
 
-An execution session is the only write path to the disk. It runs exactly one
+Audio execution applies the frozen file decisions. Metadata execution is described above; asynchronous cover publication has its own write lifecycle. It runs exactly one
 operation revision, as frozen: the revision's component outcomes, roots and
 effective targets are consumed as persisted — no reconcile, no live draft, no
 client-supplied file list.
@@ -482,7 +571,7 @@ refresh that cannot complete (`SCAN_FAILED`) also leaves the disk alone.
 Generation works the same way: its session scans the participating member
 folders before planning, so a plan is never made from a stale inventory.
 
-**Lifecycle.** Statuses `queued` → `running` → `succeeded` | `failed` |
+**Audio lifecycle.** Statuses `queued` → `running` → `succeeded` | `failed` |
 `canceled` | `interrupted`; a terminal status never regresses. Sessions run
 serially (one worker) in frozen root/component order; the first component
 failure stops admission, and every later component stays `pending` in the
@@ -520,7 +609,7 @@ Each `components[]` entry: `component_index`, `component_id`, `root_path`,
 `remaining[]` (operations not completed, in frozen order), `recovery[]`
 (preserved files needing operator attention: soft-delete destinations,
 replaced-old copies, leftover temporaries), `error_code`, `error_message`,
-`inventory_synced`, `inventory_sync_error`.
+`inventory_synced`, `inventory_sync_error`, optional task-owned `task_result`.
 
 **Events.** Every connection first receives `execution_snapshot` (the full
 detail above), then `component` (one component's own entry, exactly as it

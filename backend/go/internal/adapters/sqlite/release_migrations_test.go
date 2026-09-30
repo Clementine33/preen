@@ -237,7 +237,38 @@ func TestFailedInitialMigrationCanBeRetried(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer repo.Close()
-	if version := migrationVersion(t, repo.DB()); version != 1 {
+	if version := migrationVersion(t, repo.DB()); version != 2 {
 		t.Fatalf("initial retry version = %d", version)
+	}
+}
+
+func TestMainCoverMigrationPreservesExistingWorkData(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "cache.db")
+	initial, err := sqlite.OpenReleaseWithMigrations(path, releaseFixture(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = initial.DB().
+		Exec(`INSERT INTO works(id,created_at,updated_at) VALUES('RJ00000001','now','now');INSERT INTO work_user_data(work_id,rating,note) VALUES('RJ00000001',8,'keep')`); err != nil {
+		t.Fatal(err)
+	}
+	if err = initial.Close(); err != nil {
+		t.Fatal(err)
+	}
+	upgraded, err := sqlite.NewRepository(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer upgraded.Close()
+	var note string
+	var rating int
+	if err = upgraded.DB().
+		QueryRow(`SELECT rating,note FROM work_user_data WHERE work_id='RJ00000001'`).
+		Scan(&rating, &note); err != nil || rating != 8 ||
+		note != "keep" {
+		t.Fatalf("data changed: %d %s %v", rating, note, err)
+	}
+	if _, err = upgraded.DB().Exec(`SELECT * FROM cover_candidates;SELECT * FROM cover_deliveries`); err != nil {
+		t.Fatal(err)
 	}
 }

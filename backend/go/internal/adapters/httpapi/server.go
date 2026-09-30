@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/onsei/organizer/backend/internal/conversion"
+	"github.com/onsei/organizer/backend/internal/covers"
 	"github.com/onsei/organizer/backend/internal/fileops"
 	"github.com/onsei/organizer/backend/internal/inventory"
 	"github.com/onsei/organizer/backend/internal/library"
@@ -41,6 +42,7 @@ type Dependencies struct {
 	// Thumbs renders and caches manifest image thumbnails (ADR 0015); a
 	// read-only path that takes no admission slot.
 	Thumbs *thumbnail.Service
+	Covers *covers.Service
 }
 
 // Dependencies names no storage: every route reaches its business entry, and
@@ -85,6 +87,7 @@ func NewServer(deps Dependencies) http.Handler {
 	// permanent deletion. Copies are maintained by scanning, so there is no
 	// binding route here.
 	mux.Handle("GET /api/v1/works", protect(http.HandlerFunc(s.listWorks)))
+	mux.Handle("GET /api/v1/works/{rj}/copies/{copyId}/cover", protect(http.HandlerFunc(s.getCopyCover)))
 	mux.Handle("GET /api/v1/works/{rj}", protect(http.HandlerFunc(s.getWork)))
 	// The file manifest of one work: every bound copy's tree as the detail
 	// page's deck, bay and leaf read it (ADR 0016 §2).
@@ -162,6 +165,11 @@ func NewServer(deps Dependencies) http.Handler {
 		"POST /api/v1/worksets/{id}/operations/{type}/planning-sessions/{genId}/cancel",
 		protect(http.HandlerFunc(s.cancelGeneration)),
 	)
+
+	base := "/api/v1/worksets/{id}/operations/{type}/executions/{executionId}/covers"
+	mux.Handle("GET "+base, protect(http.HandlerFunc(s.getExecutionCovers)))
+	mux.Handle("POST "+base+"/retry", protect(http.HandlerFunc(s.retryExecutionCovers)))
+	mux.Handle("POST "+base+"/cancel", protect(http.HandlerFunc(s.cancelExecutionCovers)))
 	return recoveryMiddleware(corsMiddleware(deps.CORSOrigins)(routingCompatibilityMiddleware(mux)))
 }
 

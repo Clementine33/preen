@@ -1,9 +1,10 @@
 package workset
 
 type serviceImpl struct {
-	repo       Store
-	dispatcher *dispatcher
-	tasks      []Task
+	repo           Store
+	dispatcher     *dispatcher
+	tasks          []Task
+	batchExecutors map[string]BatchExecutor
 	// enqueueGuard runs a session-enqueue write under the process-wide
 	// file-management admission control: a direct file operation and a queued
 	// planning or execution session can never be started against each other
@@ -37,6 +38,7 @@ func NewService(
 	tasks []Task,
 	scanFolder FolderScan,
 	enqueueGuard EnqueueGuard,
+	batch ...map[string]BatchExecutor,
 ) Service {
 	s := &serviceImpl{
 		repo:              repo,
@@ -44,6 +46,9 @@ func NewService(
 		scanFolder:        scanFolder,
 		encodeConcurrency: encodeConcurrency,
 		enqueueGuard:      enqueueGuard,
+	}
+	if len(batch) > 0 {
+		s.batchExecutors = batch[0]
 	}
 	s.dispatcher = newDispatcher(s, generationConcurrency)
 	return s

@@ -286,12 +286,17 @@ func TestMalformedCoreDoesNotEraseStoredCredits(t *testing.T) {
 }
 
 // waitingSource holds static requests until cancellation to expose the worker bound.
-type waitingSource struct{ calls atomic.Int32 }
+type waitingSource struct {
+	calls atomic.Int32
+	ready chan struct{}
+}
 
-func (s *waitingSource) FetchStatic(ctx context.Context, _ works.WorkCode, _ string) (works.ImportRequest, error) {
-	s.calls.Add(1)
+func (s *waitingSource) FetchStatic(ctx context.Context, _ works.WorkCode, _ string) (metadata.Snapshot, error) {
+	if s.calls.Add(1) == 8 {
+		close(s.ready)
+	}
 	<-ctx.Done()
-	return works.ImportRequest{}, ctx.Err()
+	return metadata.Snapshot{}, ctx.Err()
 }
 
 func (*waitingSource) FetchDynamic(
@@ -301,8 +306,8 @@ func (*waitingSource) FetchDynamic(
 ) (map[works.WorkCode]works.ImportRequest, error) {
 	return map[works.WorkCode]works.ImportRequest{}, nil
 }
-func (*waitingSource) FetchASMR(ctx context.Context, _ works.WorkCode, _ string) (works.ImportRequest, error) {
-	return works.ImportRequest{}, ctx.Err()
+func (*waitingSource) FetchASMR(ctx context.Context, _ works.WorkCode, _ string) (metadata.Snapshot, error) {
+	return metadata.Snapshot{}, ctx.Err()
 }
 
 func TestStaticWorkersAreBoundedAndCancellationDoesNotImport(t *testing.T) {
@@ -313,9 +318,16 @@ func TestStaticWorkersAreBoundedAndCancellationDoesNotImport(t *testing.T) {
 		codes = append(codes, fmt.Sprintf("RJ%06d", n))
 	}
 	repo, catalogSvc := catalog(t, names...)
-	source := &waitingSource{}
-	ctx, cancel := context.WithTimeout(t.Context(), 100*time.Millisecond)
+	source := &waitingSource{ready: make(chan struct{})}
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
+	go func() {
+		select {
+		case <-source.ready:
+			cancel()
+		case <-ctx.Done():
+		}
+	}()
 	_, err := metadata.New(catalogSvc, repo, source, source).
 		Refresh(ctx, metadata.Request{WorkCodes: codes, Mode: metadata.RefreshAll})
 	if err == nil || source.calls.Load() != 8 {
@@ -324,5 +336,38 @@ func TestStaticWorkersAreBoundedAndCancellationDoesNotImport(t *testing.T) {
 	states, err := repo.MetadataStates(t.Context(), []works.WorkCode{"RJ00000001"})
 	if err != nil || len(states["RJ00000001"]) != 0 {
 		t.Fatalf("cancelled refresh imported: %v, %v", states, err)
+	}
+}
+
+func TestProgressObservesCommittedMetadataAndCanStopTheRefresh(t *testing.T) {
+	repo, cat := catalog(t, "RJ000001")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/maniax/api/=/product.json" {
+			_, _ = w.Write(
+				[]byte(
+					`[{"workno":"RJ000001","product_name":"fresh","genres":[],"creaters":{},"language_editions":[],"image_main":{"url":"//img.dlsite.jp/main.webp"}}]`,
+				),
+			)
+			return
+		}
+		_, _ = w.Write([]byte(`{"RJ000001":{"dl_count":1,"translation_info":{"is_original":true}}}`))
+	}))
+	defer server.Close()
+	source := scraper.New(&http.Client{Transport: localTransport{server}})
+	seen := false
+	_, err := metadata.New(cat, repo, source, source).
+		RefreshWithProgress(t.Context(), metadata.Request{WorkCodes: []string{"RJ000001"}}, func(item metadata.WorkResult) error {
+			detail, e := cat.Detail(item.WorkCode)
+			if e != nil || detail.Title == nil || *detail.Title != "fresh" {
+				t.Fatal("progress before import commit")
+			}
+			if item.MainURL != "https://img.dlsite.jp/main.webp" {
+				t.Fatalf("source response not reused: %+v", item)
+			}
+			seen = true
+			return fmt.Errorf("stop after durable progress")
+		})
+	if !seen || err == nil {
+		t.Fatalf("callback stop ignored: %v %v", seen, err)
 	}
 }

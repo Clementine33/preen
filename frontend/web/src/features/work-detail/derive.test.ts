@@ -1,0 +1,169 @@
+import { describe, expect, it } from 'vitest'
+import {
+  audioInfo,
+  deriveTracks,
+  dirCounts,
+  dirAt,
+  fileCount,
+  fmtLong,
+  fmtSize,
+  fmtT,
+  imageSets,
+  isScrollShape,
+  kindGlyph,
+  parseLrc,
+  parseTxt,
+} from './derive'
+import type { WorkContentDir, WorkContentFile, WorkFileKind } from '@/lib/api/types'
+
+/**
+ * The pure derivations (draft spec §6.1) must stay green through the Phase C
+ * seam swap: they are everything the mock and the real manifest share.
+
+ * jsdom has no layout, so the geometry decisions live here as plain data:
+ * which directory is a set, which set is the cover, what a track's slots are.
+ */
+
+function f(relPath: string, kind: WorkFileKind, extra: Partial<WorkContentFile> = {}): WorkContentFile {
+  return {
+    name: relPath.slice(relPath.lastIndexOf('/') + 1),
+    rel_path: relPath,
+    kind,
+    size: 1024,
+    format: null,
+    bitrate: null,
+    width: null,
+    height: null,
+    duration_sec: null,
+    ...extra,
+  }
+}
+
+function d(relPath: string, children: Array<WorkContentDir | WorkContentFile>): WorkContentDir {
+  return { name: relPath === '' ? '' : relPath.slice(relPath.lastIndexOf('/') + 1), rel_path: relPath, children }
+}
+
+describe('imageSets', () => {
+  it('makes every image-holding directory a set and puts the shallowest first', () => {
+    // 表紙 and 特典 sit at depth 1, CG's two folders one deeper; the cover set
+    // is the shallowest, and among equals the tree's own order wins.
+    const tree = d('', [
+      d('CG', [d('CG/本編', [f('CG/本編/a.png', 'img', { width: 100, height: 100 })])]),
+      d('表紙', [f('表紙/main.jpg', 'img', { width: 560, height: 420 })]),
+      d('特典', [f('特典/wp.png', 'img', { width: 100, height: 100 })]),
+    ])
+    const sets = imageSets(tree)
+    expect(sets.map((set) => set.id)).toEqual(['表紙', '本編', '特典'])
+    expect(sets[0].cover).toBe(true)
+    expect(sets.filter((set) => set.cover)).toHaveLength(1)
+  })
+
+  it('keeps the root level working when covers sit flat in it', () => {
+    const sets = imageSets(d('', [f('cover.jpg', 'img', { width: 560, height: 420 })]))
+    expect(sets).toHaveLength(1)
+    expect(sets[0].cover).toBe(true)
+    expect(sets[0].path).toBe('')
+  })
+
+  it('answers no sets for a tree without images', () => {
+    expect(imageSets(d('', [f('a.mp3', 'aud', { format: 'MP3' })]))).toEqual([])
+  })
+})
+
+describe('deriveTracks', () => {
+  const tree = d('', [
+    d('本編/mp3', [
+      f('本編/mp3/01_導入.mp3', 'aud', { format: 'MP3', duration_sec: 252 }),
+      f('本編/mp3/02_本編.mp3', 'aud', { format: 'MP3', duration_sec: 2320 }),
+    ]),
+    d('本編/wav', [
+      f('本編/wav/01_導入.wav', 'aud', { format: 'WAV', duration_sec: 252 }),
+      f('本編/wav/02_本編.wav', 'aud', { format: 'WAV', duration_sec: 2320 }),
+      f('本編/wav/03_後日談.wav', 'aud', { format: 'WAV', duration_sec: 480 }),
+    ]),
+    d('本編/lyrics', [f('本編/lyrics/02_本編.lrc', 'lrc')]),
+  ])
+
+  it('aggregates one track per shared basename with a slot per format', () => {
+    const tracks = deriveTracks(tree)
+    expect(tracks.map((track) => track.stem)).toEqual(['01_導入', '02_本編', '03_後日談'])
+    expect(tracks[0].files).toHaveProperty('MP3')
+    expect(tracks[0].files).toHaveProperty('WAV')
+    expect(tracks[2].files.MP3).toBeUndefined()
+    expect(tracks[2].formats).toEqual(['WAV'])
+  })
+
+  it('pairs the same-basename .lrc automatically', () => {
+    const tracks = deriveTracks(tree)
+    expect(tracks[1].lrcRel).toBe('本編/lyrics/02_本編.lrc')
+    expect(tracks[0].lrcRel).toBeNull()
+  })
+
+  it('keeps the duration of whichever format reported one', () => {
+    expect(deriveTracks(tree)[0].duration).toBe(252)
+  })
+})
+
+describe('tree walking', () => {
+  const tree = d('', [
+    d('a', [f('a/x.png', 'img'), f('a/y.txt', 'txt'), d('a/b', [f('a/b/z.wav', 'aud', { format: 'WAV' })])]),
+    f('root.lrc', 'lrc'),
+  ])
+
+  it('counts recursively, lrc as txt', () => {
+    expect(dirCounts(tree)).toEqual({ aud: 1, img: 1, txt: 2 })
+    expect(fileCount(tree)).toBe(4)
+  })
+
+  it('resolves a breadcrumb to its directory', () => {
+    expect(dirAt(tree, ['a', 'b'])?.name).toBe('b')
+    expect(dirAt(tree, ['gone'])).toBeNull()
+  })
+})
+
+describe('parseLrc', () => {
+  it('takes the first tag of a line and skips untagged ones', () => {
+    const lines = parseLrc('[00:09.00]あ、降ってきたね。\n[00:15][00:20.5]こっち。\nplain line')
+    expect(lines).toEqual([
+      { time: 9, text: 'あ、降ってきたね。', sfx: false },
+      { time: 15, text: 'こっち。', sfx: false },
+    ])
+  })
+
+  it('marks full-line parentheticals as sound effects', () => {
+    expect(parseLrc('[01:00.00]（耳かきの音、左から）')[0].sfx).toBe(true)
+    expect(parseLrc('[01:11.00]痛くない？')[0].sfx).toBe(false)
+  })
+})
+
+describe('parseTxt', () => {
+  it('reads the typography as the only structure', () => {
+    const lines = parseTxt('【SCENE 01 · 縁側】\n（雨音。遠雷。）\nあ、降ってきたね。')
+    expect(lines).toEqual([
+      { kind: 'scene', text: 'SCENE 01 · 縁側' },
+      { kind: 'sfx', text: '雨音。遠雷。' },
+      { kind: 'sp', text: 'あ、降ってきたね。' },
+    ])
+  })
+})
+
+describe('telemetry formatting', () => {
+  it('formats durations, long durations, sizes and shapes', () => {
+    expect(fmtT(252)).toBe('04:12')
+    expect(fmtT(3720)).toBe('62:00')
+    expect(fmtLong(3720)).toBe('1H02M')
+    expect(fmtLong(252)).toBe('04:12')
+    expect(fmtSize(6_348)).toBe('6.2K')
+    expect(fmtSize(222_298_112)).toBe('212.0M')
+    expect(kindGlyph('dir')).toBe('▸')
+    expect(kindGlyph('lrc')).toBe('¶')
+    expect(isScrollShape(800, 2400)).toBe(true)
+    expect(isScrollShape(1200, 1800)).toBe(false)
+    expect(isScrollShape(null, 100)).toBe(false)
+  })
+
+  it('labels an audio file by its duration and format', () => {
+    expect(audioInfo(f('a.mp3', 'aud', { format: 'MP3', bitrate: 320, duration_sec: 252 }))).toBe('04:12 · MP3 320K')
+    expect(audioInfo(f('a.wav', 'aud', { format: 'WAV', duration_sec: 480 }))).toBe('08:00 · WAV')
+  })
+})

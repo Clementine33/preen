@@ -666,6 +666,7 @@ work, while `RJ1657200` (7 digits) is refused.
 | --- | --- | --- |
 | GET | `/api/v1/works` | 200 `{"works":[…],"next_cursor":"…"}`. Filters and paging below. |
 | GET | `/api/v1/works/{rj}` | 200 the work in full: metadata, personal data, resolved relation, language editions and every copy. A work declared by a relation but never found on disk answers `"placeholder":true` and is absent from the listing. |
+| GET | `/api/v1/works/{rj}/content` | 200 the work's file manifest (ADR 0016 §2): every bound copy's tree, below. | |
 | PUT | `/api/v1/works/{rj}/metadata` | Body: up to four independent data groups (below). 200 `{"applied":[…],"ignored":[…],"warnings":[…],"created_placeholders":[…]}`. |
 | PATCH | `/api/v1/works/{rj}/user-data` | Body `{"rating":8,"favorite":true,"note":"…"}`; only the fields present are applied, and `"rating":null` clears it. 200 the resulting state. |
 | PUT | `/api/v1/works/{rj}/user-tags` | Body `{"tag_ids":["…"]}`; replaces the work's tag set with exactly these. 200 `{"user_tags":[…]}`. Unknown ids are `USER_TAG_NOT_FOUND` (404). |
@@ -682,6 +683,40 @@ exists only as a relation placeholder holds no personal data: writing it is
 `WORK_IS_PLACEHOLDER` (409). User tag names are trimmed, must be non-empty, and
 are unique as exact text — case is not folded and source tags are a separate
 thing.
+
+### Work content manifest
+
+`GET /api/v1/works/{rj}/content` answers the work's files from the **stored
+inventory** — never a live walk — as one tree per bound copy (ADR 0016 §2):
+
+```json
+{
+  "rj": "RJ01000001",
+  "copies": [
+    { "copy_id": "…", "library_id": "…", "dir_id": "…", "online": true,
+      "tree": { "name": "RJ01000001", "rel_path": "", "children": [
+        { "name": "表紙", "rel_path": "表紙", "children": [
+          { "name": "cover_main.jpg", "rel_path": "表紙/cover_main.jpg",
+            "kind": "img", "size": 4096, "format": null, "bitrate": null,
+            "width": 1200, "height": 900, "duration_sec": null } ] },
+        { "name": "01_導入.mp3", "rel_path": "01_導入.mp3",
+          "kind": "aud", "size": 5120, "format": "MP3", "bitrate": 320,
+          "width": null, "height": null, "duration_sec": 185.5 } ] } }
+  ]
+}
+```
+
+`dir_id` is the copy root's navigation identity (ADR 0003), resolved
+server-side. A copy whose member directory no longer resolves on disk answers
+`"online": false` with no `tree` — stale is worse than absent. A placeholder
+work answers an empty `copies` array, not 404. `kind` classifies each file
+(`aud`, `img`, `txt`, `lrc`, `bin`); directories carry `children` (empty
+included) and files carry no `children`, always carry `size`, and carry
+`format` only for audio, as the container name the track list aggregates by.
+`width`/`height`/`duration_sec`/`bitrate` are the scan-time facts (ADR 0015
+§2): `null` means unmeasured, not zero. File bytes are served by the file
+content endpoint, which follows this manifest (ADR 0016 §3, not yet
+implemented).
 
 ### Source metadata import
 

@@ -125,4 +125,10 @@ type Store interface {
 	// DeleteWork permanently removes a work. It returns a WORK_IN_USE refusal
 	// when a copy or another work's evidence still points at it.
 	DeleteWork(id WorkCode) *Error
+
+	// WorkCopyRoots reads the copies of one work joined to their library
+	// roots, the join the content manifest builds each copy's tree from. The
+	// bool reports whether the work exists; a work with no copies is found
+	// with an empty list.
+	WorkCopyRoots(id WorkCode) ([]CopyRoot, bool, error)
 }

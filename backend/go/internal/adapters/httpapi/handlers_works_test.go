@@ -7,12 +7,16 @@ import (
 	"testing"
 
 	"github.com/onsei/organizer/backend/internal/adapters/sqlite"
+	"github.com/onsei/organizer/backend/internal/fileops"
 	"github.com/onsei/organizer/backend/internal/works"
 )
 
-// wireWorks installs the catalog entry over the test repository.
+// wireWorks installs the catalog entry over the test repository. The
+// content manifest reads entries through the same repository and resolves
+// members on disk the way direct file management does, so a test that wants
+// an online copy creates the member directory under its library root.
 func wireWorks(d *Dependencies, fixture *sqlite.Repository) {
-	d.Works = works.NewService(fixture)
+	d.Works = works.NewService(fixture, fixture, fileops.ResolveMember)
 }
 
 const stamp = "2026-09-27T10:00:00.000000000Z"

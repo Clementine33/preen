@@ -12,6 +12,10 @@ type Entry struct {
 	Mtime      int64
 	Bitrate    *int32
 	Format     string
+	// Scan-time media facts (ADR 0015 §2), NULL while unmeasured.
+	Width       *int
+	Height      *int
+	DurationSec *float64
 }
 
 // InventoryFile is one observed file fact to write into the entries inventory

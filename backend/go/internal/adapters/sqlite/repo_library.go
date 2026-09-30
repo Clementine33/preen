@@ -467,7 +467,7 @@ func (r *Repository) DirAudioCounts(rootPath string, relPaths []string) (map[str
 func (r *Repository) ListEntriesUnderPath(pathPrefix string) ([]inventory.Entry, error) {
 	pathPrefix = pathnorm.NormalizeToPOSIX(pathPrefix)
 	rows, err := r.db.Query(`
-		SELECT path, parent_path, name, is_dir, size, mtime, bitrate, format
+		SELECT path, parent_path, name, is_dir, size, mtime, bitrate, format, width, height, duration_sec
 		FROM entries
 		WHERE path = ? OR substr(path, 1, length(?) + 1) = ? || '/'
 		ORDER BY path
@@ -483,7 +483,12 @@ func (r *Repository) ListEntriesUnderPath(pathPrefix string) ([]inventory.Entry,
 		var isDir int
 		var bitrate sql.NullInt32
 		var format sql.NullString
-		if err := rows.Scan(&e.Path, &e.ParentPath, &e.Name, &isDir, &e.Size, &e.Mtime, &bitrate, &format); err != nil {
+		var width, height sql.NullInt64
+		var duration sql.NullFloat64
+		if err := rows.Scan(
+			&e.Path, &e.ParentPath, &e.Name, &isDir, &e.Size, &e.Mtime,
+			&bitrate, &format, &width, &height, &duration,
+		); err != nil {
 			return nil, err
 		}
 		e.IsDir = isDir == 1
@@ -492,6 +497,14 @@ func (r *Repository) ListEntriesUnderPath(pathPrefix string) ([]inventory.Entry,
 			e.Bitrate = &v
 		}
 		e.Format = format.String
+		if width.Valid && height.Valid {
+			w, h := int(width.Int64), int(height.Int64)
+			e.Width, e.Height = &w, &h
+		}
+		if duration.Valid {
+			sec := duration.Float64
+			e.DurationSec = &sec
+		}
 		entries = append(entries, e)
 	}
 	if err := rows.Err(); err != nil {

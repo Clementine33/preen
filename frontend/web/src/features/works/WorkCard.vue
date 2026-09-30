@@ -85,6 +85,7 @@ const release = computed(() =>
 .cap-meta { display: flex; justify-content: space-between; gap: var(--sp-2); }
 .cap-meta .lbl, .cap-title { transition: color 0s; }
 .cap-title {
+  font-family: var(--font-mincho);
   font-size: var(--fs-s); line-height: var(--lh-s); font-weight: 500; height: 32px;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }

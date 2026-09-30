@@ -2,7 +2,6 @@
 import type { DropdownMenuCheckboxItemEmits, DropdownMenuCheckboxItemProps } from 'reka-ui'
 
 import type { HTMLAttributes } from 'vue'
-import { CheckIcon } from '@lucide/vue'
 import { reactiveOmit } from '@vueuse/core'
 import {
   DropdownMenuCheckboxItem,
@@ -24,17 +23,17 @@ const forwarded = useForwardPropsEmits(delegatedProps, emits)
     data-slot="dropdown-menu-checkbox-item"
     v-bind="forwarded"
     :class="cn(
-      'focus:bg-primary focus:text-primary-foreground focus:**:text-primary-foreground gap-1.5 rounded-none py-1 pr-8 pl-1.5 text-sm data-inset:pl-7 [&_svg:not([class*=size-])]:size-4 relative flex cursor-default items-center outline-hidden select-none data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0',
+      'relative flex min-h-11 rail:min-h-8 cursor-default items-center gap-2 rounded-none border-b border-[var(--wire-fine)] last:border-b-0 pl-1 pr-2 text-sm outline-hidden select-none data-highlighted:not-data-[state=checked]:bg-accent data-highlighted:shadow-[inset_0_0_0_1px_var(--wire-strong)] data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground data-[state=checked]:data-highlighted:shadow-[inset_0_0_0_2px_var(--invert-bg),inset_0_0_0_3px_var(--invert-fg)] data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg:not([class*=size-])]:size-4 [&_svg]:pointer-events-none [&_svg]:shrink-0',
       props.class,
     )"
   >
     <span
-      class="absolute right-2 flex items-center justify-center pointer-events-none"
+      class="flex size-3.5 shrink-0 items-center justify-center pointer-events-none"
       data-slot="dropdown-menu-checkbox-item-indicator"
     >
       <DropdownMenuItemIndicator>
         <slot name="indicator-icon">
-          <CheckIcon />
+          <span class="block size-1.5 bg-current" aria-hidden="true" />
         </slot>
       </DropdownMenuItemIndicator>
     </span>

@@ -4,7 +4,6 @@ import { computed } from 'vue'
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
@@ -46,16 +45,18 @@ function choose(value: unknown): void {
       </button>
     </DropdownMenuTrigger>
     <DropdownMenuContent side="right" align="end" :side-offset="8" class="w-40 p-0">
-      <DropdownMenuLabel class="strip">
-        <span class="strip-name"><span class="lbl">THEME</span></span>
-      </DropdownMenuLabel>
-      <DropdownMenuRadioGroup :model-value="theme" class="p-1" @update:model-value="choose">
-        <DropdownMenuRadioItem v-for="option in OPTIONS" :key="option.value" :value="option.value">
-          <component :is="option.icon" class="size-4" aria-hidden="true" />
+      <!-- The strip's ■ and the checked row's ■ share one axis: 8 + 8 + 3 = 8 + 4 + 7. -->
+      <div class="strip m-2 mb-1">
+        <span class="strip-name lbl">THEME</span>
+      </div>
+      <DropdownMenuRadioGroup :model-value="theme" class="px-2 pb-2" @update:model-value="choose">
+        <DropdownMenuRadioItem
+          v-for="option in OPTIONS"
+          :key="option.value"
+          :value="option.value"
+          class="cursor-pointer text-[length:var(--fs-s)] font-medium"
+        >
           {{ option.label }}
-          <template #indicator-icon>
-            <span class="block size-1.5 bg-current" aria-hidden="true" />
-          </template>
         </DropdownMenuRadioItem>
       </DropdownMenuRadioGroup>
     </DropdownMenuContent>

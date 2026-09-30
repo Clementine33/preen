@@ -53,10 +53,10 @@ function facetOptions(facets: WorkFacet[]): RailOption[] {
 const voiceActorOptions = computed(() => facetOptions(voiceActorFacets.value))
 const circleOptions = computed(() => facetOptions(circleFacets.value))
 
-// Unknown is its own answer, not a synonym for 全年齢 (docs/api.md `nsfw`).
+// Unknown is its own answer, not a synonym for 全年龄 (docs/api.md `nsfw`).
 const AGE_OPTIONS: RailOption[] = [
   { value: '', label: 'ALL' },
-  { value: 'safe', label: '全年齢' },
+  { value: 'safe', label: '全年龄' },
   { value: 'r18', label: 'R18' },
   { value: 'unknown', label: 'UNKNOWN' },
 ]
@@ -65,9 +65,9 @@ const AGE_PARAM: Record<string, ListWorksParams['nsfw']> = { safe: false, r18: t
 // Every order runs newest / highest first; unknown dates and unrated works
 // trail in either direction.
 const SORT_OPTIONS: RailOption[] = [
-  { value: 'release_date', label: 'RELEASE' },
-  { value: 'collected_at', label: 'ADDED' },
-  { value: 'rating', label: 'RATING' },
+  { value: 'release_date', label: '发售时间' },
+  { value: 'collected_at', label: '添加时间' },
+  { value: 'rating', label: '个人评分' },
 ]
 
 const findText = ref('')

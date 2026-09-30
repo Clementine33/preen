@@ -30,10 +30,17 @@
   --ease-out: cubic-bezier(.2, .8, .2, 1);
   --ease-in: cubic-bezier(.4, 0, 1, 1);
 
-  /* Font matrix (ADR 0012 §2): mono telemetry, UD gothic UI, mincho display.
+  /* Font matrix (ADR 0012 §2): mono telemetry, CN-first UD gothic UI, mincho
+     display. The Chinese face leads the UI stack on purpose: a family match is
+     per family, not per weight, and BIZ UDPGothic carries the JIS glyphs — left
+     first it would win every shared ideograph with the Japanese variant (直/骨/
+     者/次). Noto Sans SC also supplies the 500/600/700 the Tailwind weights need;
+     the Japanese face stays for JP-only coverage. Mincho is scoped to work titles
+     and the work detail specimen — never a site-wide h1 or a workbench heading,
+     which read as UI (--font-heading resolves to --font-ui in style.css).
      Loaded in style.css via Google Fonts; offline falls back to the stacks. */
   --font-mono: 'IBM Plex Mono', 'JetBrains Mono', ui-monospace, monospace;
-  --font-ui: 'BIZ UDPGothic', 'Zen Kaku Gothic New', 'Noto Sans CJK JP', -apple-system, sans-serif;
+  --font-ui: 'Noto Sans SC', 'BIZ UDPGothic', 'PingFang SC', 'Microsoft YaHei', sans-serif;
   --font-mincho: 'Shippori Mincho', 'Noto Serif JP', 'Noto Serif SC', serif;
 
   /* ── Light palette ── */

@@ -49,7 +49,7 @@ test.describe('workset operation smoke', () => {
     // width the rail owns the navigation, and 工作集 is the only entry — the
     // old 媒体库 entry is gone with its page.
     await expect(page.getByTestId('global-rail')).toBeVisible()
-    await expect(page.getByTestId('global-bottom-bar')).toBeHidden()
+    await expect(page.getByTestId('global-menu')).toBeHidden()
     await expect(page.getByTestId('global-rail').getByRole('link', { name: '工作集' })).toHaveAttribute(
       'aria-current',
       'page',
@@ -145,15 +145,12 @@ test.describe('workset operation smoke', () => {
     // opens the editor inside the same workbench, and 取消 returns to the
     // detail. The carrier is chosen by the container, never by a separate URL.
     await page.setViewportSize({ width: 600, height: 800 })
-    // Below the shared 641px breakpoint the bottom bar replaces the rail in
-    // CSS only — the route, the drill-down and the editing session are
-    // untouched.
-    await expect(page.getByTestId('global-bottom-bar')).toBeVisible()
+    // Below the shared 641px breakpoint the header's GlobalMenu replaces the
+    // rail in CSS only — the route, the drill-down and the editing session
+    // are untouched.
+    await expect(page.getByTestId('global-menu')).toBeVisible()
     await expect(page.getByTestId('global-rail')).toBeHidden()
-    await expect(page.getByTestId('global-bottom-bar').getByRole('link', { name: '工作集' })).toHaveAttribute(
-      'aria-current',
-      'page',
-    )
+    await expect(page.getByTestId('global-menu')).toHaveAttribute('aria-label', '全局导航（当前：工作集）')
     await expect(page.getByTestId('member-review')).toBeVisible()
     await expect(page.getByTestId('member-toolbar')).toBeHidden()
     // The narrow header carries the local navigation button and two context

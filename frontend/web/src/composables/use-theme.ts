@@ -4,6 +4,13 @@ export type Theme = 'light' | 'dark' | 'system'
 
 export const THEME_STORAGE_KEY = 'onsei-theme'
 
+/** The modes every theme entry offers, in menu order, with the code a trigger shows. */
+export const THEME_OPTIONS: readonly { value: Theme; label: string; code: string }[] = [
+  { value: 'light', label: '浅色', code: 'LIGHT' },
+  { value: 'dark', label: '深色', code: 'DARK' },
+  { value: 'system', label: '跟随系统', code: 'AUTO' },
+]
+
 function systemPrefersDark(): boolean {
   return (
     typeof window.matchMedia === 'function' &&

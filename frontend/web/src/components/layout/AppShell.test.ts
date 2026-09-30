@@ -30,25 +30,24 @@ beforeEach(() => {
 })
 
 describe('AppShell global navigation', () => {
-  it('renders the same entries, in the same order and with the same targets, in rail and bottom bar', async () => {
+  it('renders the entries on the rail, in order and with their targets', async () => {
     await at('/worksets')
-    const wrapper = mountShell()
+    const links = mountShell().get('[data-testid="global-rail"]').findAll('a')
 
-    for (const nav of ['global-rail', 'global-bottom-bar'] as const) {
-      const links = wrapper.get(`[data-testid="${nav}"]`).findAll('a')
-      expect(links.map((link) => link.text())).toEqual(['作品库', '工作集'])
-      expect(links.map((link) => link.attributes('href'))).toEqual(['/works', '/worksets'])
-    }
+    expect(links.map((link) => link.text())).toEqual(['作品库', '工作集'])
+    expect(links.map((link) => link.attributes('href'))).toEqual(['/works', '/worksets'])
   })
 
-  it('switches rail and bottom bar in CSS at the shared 641px breakpoint', async () => {
+  it('shows the rail in CSS from the shared 641px breakpoint and leaves the phone to the page', async () => {
     await at('/worksets')
     const wrapper = mountShell()
 
     const rail = wrapper.get('[data-testid="global-rail"]')
     expect(rail.classes()).toContain('hidden')
     expect(rail.classes()).toContain('rail:flex')
-    expect(wrapper.get('[data-testid="global-bottom-bar"]').classes()).toContain('rail:hidden')
+    // Phones navigate through the GlobalMenu in each page header; the shell
+    // renders no bottom bar.
+    expect(wrapper.findAll('nav')).toHaveLength(1)
   })
 
   it('keeps the brand a non-navigating mark with an accessible product name', async () => {
@@ -89,12 +88,12 @@ describe('AppShell global navigation', () => {
 
   it('keeps 工作集 current on a workbench child route', async () => {
     await at('/worksets/lib-a/conversion/settings')
-    const links = mountShell().get('[data-testid="global-bottom-bar"]').findAll('a')
+    const links = mountShell().get('[data-testid="global-rail"]').findAll('a')
 
     expect(links.map((link) => link.attributes('aria-current'))).toEqual([undefined, 'page'])
   })
 
-  it('carries the only theme entry on the rail, never on the bottom bar', async () => {
+  it('carries the desktop theme entry on the rail', async () => {
     await at('/worksets')
     const wrapper = mountShell()
 
@@ -102,6 +101,5 @@ describe('AppShell global navigation', () => {
     const entry = wrapper.get('[data-testid="global-rail"] [data-testid="theme-menu"]')
     expect(entry.attributes('aria-label')).toBe('切换主题（当前：深色）')
     expect(entry.text()).toBe('DARK')
-    expect(wrapper.find('[data-testid="global-bottom-bar"] [data-testid="theme-menu"]').exists()).toBe(false)
   })
 })

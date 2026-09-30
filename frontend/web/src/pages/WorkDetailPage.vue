@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import GlobalMenu from '@/components/layout/GlobalMenu.vue'
 import WorkInspector from '@/features/works/WorkInspector.vue'
 
 // One work's detail page (ADR 0012 §4): the mobile tap target and OPEN DETAIL.
@@ -20,7 +21,10 @@ function backToWall(): void {
 <template>
   <section class="detail substrate" aria-label="作品详情">
     <div class="frame">
-      <button class="btn back" type="button" @click="backToWall">BACK TO WALL</button>
+      <div class="head">
+        <GlobalMenu />
+        <button class="btn back" type="button" @click="backToWall">BACK TO WALL</button>
+      </div>
       <WorkInspector :rj="rj" standalone />
     </div>
   </section>
@@ -36,7 +40,7 @@ function backToWall(): void {
   width: min(100%, 608px);
   display: flex; flex-direction: column; gap: var(--sp-4);
 }
-.back { align-self: flex-start; }
+.head { display: flex; align-items: center; gap: var(--sp-2); }
 .frame > :deep(.insp) {
   border-left: none; padding: 0;
   background: var(--grain), var(--bg-panel);

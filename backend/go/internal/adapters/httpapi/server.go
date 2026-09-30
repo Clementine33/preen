@@ -10,6 +10,7 @@ import (
 	"github.com/onsei/organizer/backend/internal/fileops"
 	"github.com/onsei/organizer/backend/internal/inventory"
 	"github.com/onsei/organizer/backend/internal/library"
+	"github.com/onsei/organizer/backend/internal/thumbnail"
 	"github.com/onsei/organizer/backend/internal/works"
 	"github.com/onsei/organizer/backend/internal/workset"
 )
@@ -36,6 +37,9 @@ type Dependencies struct {
 	// Works is the catalog entry: the ordinary listing, one work's detail, the
 	// source metadata imports and the single user's data about a work.
 	Works *works.Service
+	// Thumbs renders and caches manifest image thumbnails (ADR 0015); a
+	// read-only path that takes no admission slot.
+	Thumbs *thumbnail.Service
 }
 
 // Dependencies names no storage: every route reaches its business entry, and
@@ -88,6 +92,11 @@ func NewServer(deps Dependencies) http.Handler {
 	mux.Handle(
 		"GET /api/v1/works/{rj}/content/{copy}/{path...}",
 		protect(http.HandlerFunc(s.getWorkContentFile)),
+	)
+	// One manifest image's thumbnail at a served height (ADR 0015 §3).
+	mux.Handle(
+		"GET /api/v1/works/{rj}/thumbs/{copy}/{path...}",
+		protect(http.HandlerFunc(s.getWorkThumb)),
 	)
 	mux.Handle("PUT /api/v1/works/{rj}/metadata", protect(http.HandlerFunc(s.putWorkMetadata)))
 	mux.Handle("PATCH /api/v1/works/{rj}/user-data", protect(http.HandlerFunc(s.patchWorkUserData)))

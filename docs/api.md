@@ -667,7 +667,8 @@ work, while `RJ1657200` (7 digits) is refused.
 | GET | `/api/v1/works` | 200 `{"works":[…],"next_cursor":"…"}`. Filters and paging below. |
 | GET | `/api/v1/works/{rj}` | 200 the work in full: metadata, personal data, resolved relation, language editions and every copy. A work declared by a relation but never found on disk answers `"placeholder":true` and is absent from the listing. |
 | GET | `/api/v1/works/{rj}/content` | 200 the work's file manifest (ADR 0016 §2): every bound copy's tree, below. |
-| GET | `/api/v1/works/{rj}/content/{copyId}/{path...}` | 200 one manifest file's bytes (ADR 0016 §3): `path` is the copy-root-relative manifest path. See below. | |
+| GET | `/api/v1/works/{rj}/content/{copyId}/{path...}` | 200 one manifest file's bytes (ADR 0016 §3): `path` is the copy-root-relative manifest path. See below. |
+| GET | `/api/v1/works/{rj}/thumbs/{copyId}/{path...}?h=240&v=…` | 200 one manifest image's thumbnail (ADR 0015 §3). See below. |
 | PUT | `/api/v1/works/{rj}/metadata` | Body: up to four independent data groups (below). 200 `{"applied":[…],"ignored":[…],"warnings":[…],"created_placeholders":[…]}`. |
 | PATCH | `/api/v1/works/{rj}/user-data` | Body `{"rating":8,"favorite":true,"note":"…"}`; only the fields present are applied, and `"rating":null` clears it. 200 the resulting state. |
 | PUT | `/api/v1/works/{rj}/user-tags` | Body `{"tag_ids":["…"]}`; replaces the work's tag set with exactly these. 200 `{"user_tags":[…]}`. Unknown ids are `USER_TAG_NOT_FOUND` (404). |
@@ -699,10 +700,12 @@ inventory** — never a live walk — as one tree per bound copy (ADR 0016 §2):
         { "name": "表紙", "rel_path": "表紙", "children": [
           { "name": "cover_main.jpg", "rel_path": "表紙/cover_main.jpg",
             "kind": "img", "size": 4096, "format": null, "bitrate": null,
-            "width": 1200, "height": 900, "duration_sec": null } ] },
+            "width": 1200, "height": 900, "duration_sec": null,
+            "thumb_v": "9f86d081884c7d65" } ] },
         { "name": "01_導入.mp3", "rel_path": "01_導入.mp3",
           "kind": "aud", "size": 5120, "format": "MP3", "bitrate": 320,
-          "width": null, "height": null, "duration_sec": 185.5 } ] } }
+          "width": null, "height": null, "duration_sec": 185.5,
+          "thumb_v": null } ] } }
   ]
 }
 ```
@@ -715,7 +718,9 @@ work answers an empty `copies` array, not 404. `kind` classifies each file
 included) and files carry no `children`, always carry `size`, and carry
 `format` only for audio, as the container name the track list aggregates by.
 `width`/`height`/`duration_sec`/`bitrate` are the scan-time facts (ADR 0015
-§2): `null` means unmeasured, not zero.
+§2): `null` means unmeasured, not zero. `thumb_v` is an image's opaque
+thumbnail version (`null` for every other kind), the `v` its thumbnail address
+carries.
 
 `GET /api/v1/works/{rj}/content/{copyId}/{path...}` serves one manifest
 file's bytes. The route is read-only and takes no admission slot: only paths
@@ -733,6 +738,24 @@ symlink escapes are refused; an unscanned file on disk is 404, not a guess).
   sniffed (`UTF-8` → `Shift_JIS` → `GB18030` candidates) and the body is
   served exactly as stored — decoding happens once, at the client, per the
   header.
+
+`GET /api/v1/works/{rj}/thumbs/{copyId}/{path...}?h=…&v=…` serves one
+manifest image scaled to a height (ADR 0015 §3). The source goes through the
+same copy binding, containment and whitelist as the file route; a non-image
+path is `NOT_AN_IMAGE` (404). Read-only, no admission slot.
+
+- `h` (required, positive) snaps up to a served height: 120, 240, 480 or 960.
+  A source shorter than that is never upscaled.
+- `v` is the image's `thumb_v` from the manifest, a digest of the file's size,
+  mtime, `content_rev` and the engine version. At the current version the
+  answer is `Cache-Control: private, max-age=31536000, immutable`; any other
+  `v` (or none) still answers, but `no-cache`, so a stale address never pins
+  old bytes. `ETag` is `"<v>-<height>"`; a match answers 304.
+- Opaque sources answer `image/jpeg`, sources with transparency `image/png`.
+- `BUSY` (503) with `Retry-After` when the render queue is full — back off and
+  retry. `IMAGE_TOO_LARGE` (422) over the pixel limit (about 100M pixels,
+  checked from the header), `IMAGE_UNDECODABLE` (422) for bytes that do not
+  decode; the page draws its hatched placeholder for both.
 
 ### Source metadata import
 

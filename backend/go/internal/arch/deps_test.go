@@ -67,6 +67,12 @@ var rules = []rule{
 	},
 	{
 		name:   "business packages reach storage and tools through ports",
+		pkg:    module + "/thumbnail",
+		banned: []string{module + "/adapters"},
+		why:    "the scaling engine is a port: the request path never names a decoder",
+	},
+	{
+		name:   "business packages reach storage and tools through ports",
 		pkg:    module + "/fileops",
 		banned: []string{module + "/adapters"},
 		why:    "direct file management takes its inventory refresh through a seam",
@@ -112,6 +118,12 @@ var rules = []rule{
 		pkg:    module + "/works",
 		banned: []string{module + "/app"},
 		why:    "the catalog is driven by its callers, not by the process",
+	},
+	{
+		name:   "business packages do not know the process",
+		pkg:    module + "/thumbnail",
+		banned: []string{module + "/app"},
+		why:    "the thumbnail cache is handed its engine and directory by the assembly root",
 	},
 	{
 		name:   "business packages do not know the process",

@@ -15,6 +15,7 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -30,6 +31,7 @@ import (
 	"github.com/onsei/organizer/backend/internal/fileops"
 	"github.com/onsei/organizer/backend/internal/inventory"
 	"github.com/onsei/organizer/backend/internal/library"
+	"github.com/onsei/organizer/backend/internal/thumbnail"
 	"github.com/onsei/organizer/backend/internal/works"
 	"github.com/onsei/organizer/backend/internal/workset"
 )
@@ -187,7 +189,9 @@ func buildServices(repo *sqlite.Repository, configDir string, generationConcurre
 		fileOps: fileops.NewService(gate, scanSvc.RefreshMember),
 		workset: worksetSvc,
 		catalog: conversion.NewCatalog(repo, repo, appconfig.NewReader(configDir)),
-		works:   works.NewService(repo, repo, fileops.ResolveMember, fileops.ResolveMemberFile),
+		works: works.NewService(
+			repo, repo, fileops.ResolveMember, fileops.ResolveMemberFile, media.ThumbEngineVersion,
+		),
 	}
 }
 
@@ -248,6 +252,12 @@ func runServer(ctx context.Context, repo *sqlite.Repository, cfg Config) {
 			WorksetService: services.workset,
 			FileOps:        services.fileOps,
 			Works:          services.works,
+			// A disposable cache (ADR 0015 §4): one computation per CPU, a
+			// bounded queue behind them, about 512 MiB on disk.
+			Thumbs: thumbnail.New(
+				media.ThumbEngine{}, filepath.Join(cfg.DataDir, "thumbs"), 512<<20,
+				runtime.NumCPU(), 4*runtime.NumCPU(),
+			),
 		}),
 	}
 	go func() {

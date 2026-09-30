@@ -1,9 +1,12 @@
 package works
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"sort"
+	"strconv"
 	"strings"
 
 	"facette.io/natsort"
@@ -49,6 +52,9 @@ type ContentNode struct {
 	Width       *int
 	Height      *int
 	DurationSec *float64
+	// ThumbV is an image's thumbnail version (ADR 0015 §3): the token its
+	// immutable thumbnail address carries. Empty for every other kind.
+	ThumbV string
 }
 
 // MarshalJSON renders the two node shapes the contract distinguishes.
@@ -63,7 +69,7 @@ func (n ContentNode) MarshalJSON() ([]byte, error) {
 	return json.Marshal(fileNodeJSON{
 		Name: n.Name, RelPath: n.RelPath, Kind: n.Kind, Size: n.Size,
 		Format: n.Format, Bitrate: n.Bitrate, Width: n.Width, Height: n.Height,
-		DurationSec: n.DurationSec,
+		DurationSec: n.DurationSec, ThumbV: optional(n.ThumbV),
 	})
 }
 
@@ -83,6 +89,14 @@ type fileNodeJSON struct {
 	Width       *int            `json:"width"`
 	Height      *int            `json:"height"`
 	DurationSec *float64        `json:"duration_sec"`
+	ThumbV      *string         `json:"thumb_v"`
+}
+
+func optional(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
 }
 
 // ContentCopy is one bound directory's manifest: its identities plus, when the
@@ -141,6 +155,19 @@ type ContentFileLocation struct {
 	Size       int64
 	Mtime      int64
 	ContentRev int
+	// ThumbV is the current thumbnail version of an image, the value a
+	// request's v must equal for its answer to be immutable (ADR 0015 §3).
+	ThumbV string
+}
+
+// thumbVersion names one image's thumbnail generation: the file facts the
+// inventory rewrites when the bytes change, plus the engine that renders it.
+// A change to either yields a new address, so an old one is never reused.
+func thumbVersion(e *inventory.Entry, engine string) string {
+	key := strconv.FormatInt(e.Size, 10) + ":" + strconv.FormatInt(e.Mtime, 10) + ":" +
+		strconv.Itoa(e.ContentRev) + ":" + engine
+	sum := sha256.Sum256([]byte(key))
+	return hex.EncodeToString(sum[:8])
 }
 
 // classifyContentKind names a file's kind from its extension and stored
@@ -193,7 +220,9 @@ type contentBuilder struct {
 // BuildContentTree assembles one copy's tree from the entries under its
 // member root. Directories sort before files; within the same kind, both
 // sort naturally by name — the same order the workbench's member tree uses.
-func BuildContentTree(memberPath string, entries []inventory.Entry) *ContentNode {
+// thumbEngine is the thumbnail engine's version, folded into each image's
+// ThumbV.
+func BuildContentTree(memberPath string, entries []inventory.Entry, thumbEngine string) *ContentNode {
 	memberKey := pathnorm.NormalizeToPOSIX(memberPath)
 	index := map[string]*contentBuilder{
 		memberKey: {node: ContentNode{Name: lastSegment(memberPath)}},
@@ -215,6 +244,9 @@ func BuildContentTree(memberPath string, entries []inventory.Entry) *ContentNode
 			b.node.Bitrate = e.Bitrate
 			b.node.Width, b.node.Height = e.Width, e.Height
 			b.node.DurationSec = e.DurationSec
+			if b.node.Kind == KindImage {
+				b.node.ThumbV = thumbVersion(e, thumbEngine)
+			}
 		}
 		index[key] = b
 		// Entries are ordered by path, so a parent always precedes its children.
@@ -304,13 +336,17 @@ func (s *Service) ContentFile(id WorkCode, copyID, relPath string) (ContentFileL
 	if !listed {
 		return ContentFileLocation{}, NotFound(CodeWorkNotFound, "the path is not in the work's manifest")
 	}
-	return ContentFileLocation{
+	loc := ContentFileLocation{
 		AbsPath:    absPath,
 		Kind:       classifyContentKind(entry.Name, entry.Format),
 		Size:       entry.Size,
 		Mtime:      entry.Mtime,
 		ContentRev: entry.ContentRev,
-	}, nil
+	}
+	if loc.Kind == KindImage {
+		loc.ThumbV = thumbVersion(&entry, s.thumbEngine)
+	}
+	return loc, nil
 }
 
 // pathRefusal maps a containment refusal (fileops.PathError, the one seam
@@ -351,7 +387,7 @@ func (s *Service) Content(id WorkCode) (*Content, *Error) {
 			if listErr != nil {
 				return nil, asInternal(listErr)
 			}
-			cp.Tree = BuildContentTree(memberAbs, entries)
+			cp.Tree = BuildContentTree(memberAbs, entries, s.thumbEngine)
 		}
 		copies = append(copies, cp)
 	}

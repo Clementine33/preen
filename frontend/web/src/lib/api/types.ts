@@ -362,6 +362,8 @@ export interface WorkContentFile {
   height: number | null
   /** Audio seconds, recorded at scan time. */
   duration_sec: number | null
+  /** Image thumbnail version, the `v` of its immutable thumbnail address (ADR 0015 §3); null for other kinds. */
+  thumb_v: string | null
 }
 
 export interface WorkContentDir {

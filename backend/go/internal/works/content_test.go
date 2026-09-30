@@ -37,7 +37,7 @@ func classifyKindOf(t *testing.T, input [2]string) works.ContentFileKind {
 		Path: parent + "/" + name, ParentPath: parent, Name: name,
 		Format: format,
 	}}
-	tree := works.BuildContentTree(parent, entries)
+	tree := works.BuildContentTree(parent, entries, "eng-1")
 	if len(tree.Children) != 1 {
 		t.Fatalf("tree of one entry has %d children", len(tree.Children))
 	}
@@ -58,7 +58,7 @@ func TestBuildContentTree(t *testing.T) {
 			Size: 1024},
 		{Path: member + "/空", ParentPath: member, Name: "空", IsDir: true},
 	}
-	tree := works.BuildContentTree(member, entries)
+	tree := works.BuildContentTree(member, entries, "eng-1")
 
 	if tree.Name != "RJ01000001" || tree.RelPath != "" {
 		t.Fatalf("root is the member directory, got %q rel %q", tree.Name, tree.RelPath)
@@ -83,9 +83,17 @@ func TestBuildContentTree(t *testing.T) {
 	if cover.Width != nil || cover.DurationSec != nil || cover.Format != nil {
 		t.Errorf("image carries no audio facts or container, got %+v", cover)
 	}
+	// Only images carry a thumbnail version, and the engine is part of it.
+	if cover.ThumbV == "" {
+		t.Error("image must carry a thumbnail version")
+	}
+	other := works.BuildContentTree(member, entries, "eng-2")
+	if other.Children[2].Children[0].ThumbV == cover.ThumbV {
+		t.Error("a new engine must yield a new thumbnail version")
+	}
 
 	track := tree.Children[0].Children[1]
-	if track.Kind != works.KindAudio || track.Format == nil || *track.Format != "MP3" {
+	if track.Kind != works.KindAudio || track.Format == nil || *track.Format != "MP3" || track.ThumbV != "" {
 		t.Errorf("audio container wrong: %+v", track)
 	}
 	lyric := tree.Children[0].Children[0]
@@ -110,7 +118,7 @@ func TestContentNodeJSONShapes(t *testing.T) {
 	if fileFields["size"] != float64(zero) {
 		t.Errorf("file size = %v, want 0", fileFields["size"])
 	}
-	for _, key := range []string{"format", "bitrate", "width", "height", "duration_sec"} {
+	for _, key := range []string{"format", "bitrate", "width", "height", "duration_sec", "thumb_v"} {
 		if _, present := fileFields[key]; !present {
 			t.Errorf("file missing %q: %s", key, file)
 		}
@@ -177,6 +185,7 @@ func TestContentManifest(t *testing.T) {
 		func(rootPath, memberRel, rel string) (string, error) {
 			return rootPath + "/" + memberRel + "/" + rel, nil
 		},
+		"eng-1",
 	)
 
 	content, refusal := service.Content("RJ01000001")
@@ -203,7 +212,7 @@ func TestContentManifest(t *testing.T) {
 	}
 	placeholder := works.NewService(&contentStore{found: true}, &fakeEntries{},
 		func(string, string) (string, error) { return "", nil },
-		func(string, string, string) (string, error) { return "", nil })
+		func(string, string, string) (string, error) { return "", nil }, "eng-1")
 	if content, refusal = placeholder.Content("RJ01000001"); refusal != nil || len(content.Copies) != 0 {
 		t.Fatalf("placeholder answers empty copies, got %+v refusal %v", content, refusal)
 	}
@@ -224,6 +233,7 @@ func TestContentFileLocatesManifestPaths(t *testing.T) {
 			func(rootPath, memberRel, rel string) (string, error) {
 				return rootPath + "/" + memberRel + "/" + rel, nil
 			},
+			"eng-1",
 		)
 	}
 
@@ -241,6 +251,9 @@ func TestContentFileLocatesManifestPaths(t *testing.T) {
 	}
 	if loc.Size != 4096 || loc.Mtime != 1759000000 || loc.ContentRev != 3 {
 		t.Errorf("etag facts wrong: %+v", loc)
+	}
+	if loc.ThumbV == "" {
+		t.Error("an image location must carry its current thumbnail version")
 	}
 
 	// A path the inventory does not hold is not served, whatever the disk has.
@@ -266,6 +279,7 @@ func TestContentFileLocatesManifestPaths(t *testing.T) {
 		func(string, string, string) (string, error) {
 			return "", &fileops.PathError{Code: fileops.CodeSymlink, Message: "the path goes through a symbolic link"}
 		},
+		"eng-1",
 	)
 	if _, refusal = rejecting.ContentFile(rj, "c-1", "escape"); refusal == nil ||
 		refusal.Kind != works.KindNotFound {

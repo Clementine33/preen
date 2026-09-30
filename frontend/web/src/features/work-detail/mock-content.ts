@@ -49,13 +49,14 @@ function file(relPath: string, kind: WorkFileKind, extra: Partial<WorkContentFil
     width: null,
     height: null,
     duration_sec: null,
+    thumb_v: null,
     ...extra,
   }
 }
 
 function image(relPath: string, w: number, h: number, hue: number, label: string): WorkContentFile {
   PIXELS.set(relPath, art(w, h, hue, label))
-  return file(relPath, 'img', { size: Math.round(w * h * 1.4), width: w, height: h })
+  return file(relPath, 'img', { size: Math.round(w * h * 1.4), width: w, height: h, thumb_v: 'mock' })
 }
 
 function dir(relPath: string, children: Array<WorkContentDir | WorkContentFile>): WorkContentDir {

@@ -35,6 +35,7 @@ function f(relPath: string, kind: WorkFileKind, extra: Partial<WorkContentFile> 
     width: null,
     height: null,
     duration_sec: null,
+    thumb_v: null,
     ...extra,
   }
 }

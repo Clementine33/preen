@@ -13,6 +13,9 @@ type Service struct {
 	entries           ContentEntries
 	resolveMember     ResolveMember
 	resolveMemberFile ResolveMemberFile
+	// thumbEngine is the thumbnail engine's version, part of every image's
+	// thumbnail address (ADR 0015 §3).
+	thumbEngine string
 	// now is the clock, injectable so a test can pin the timestamps a write
 	// records.
 	now func() time.Time
@@ -20,18 +23,21 @@ type Service struct {
 
 // NewService creates the catalog entry. entries serves the content manifest;
 // resolveMember decides a copy's online flag; resolveMemberFile resolves one
-// manifest path for byte serving (ADR 0016 §3).
+// manifest path for byte serving (ADR 0016 §3); thumbEngine versions the
+// thumbnail addresses (ADR 0015 §3).
 func NewService(
 	store Store,
 	entries ContentEntries,
 	resolveMember ResolveMember,
 	resolveMemberFile ResolveMemberFile,
+	thumbEngine string,
 ) *Service {
 	return &Service{
 		store:             store,
 		entries:           entries,
 		resolveMember:     resolveMember,
 		resolveMemberFile: resolveMemberFile,
+		thumbEngine:       thumbEngine,
 		now:               time.Now,
 	}
 }

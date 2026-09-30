@@ -22,6 +22,7 @@ import (
 	"github.com/onsei/organizer/backend/internal/adapters/ffmpeg"
 	"github.com/onsei/organizer/backend/internal/adapters/filesystem"
 	"github.com/onsei/organizer/backend/internal/adapters/httpapi"
+	"github.com/onsei/organizer/backend/internal/adapters/media"
 	appconfig "github.com/onsei/organizer/backend/internal/adapters/settings"
 	"github.com/onsei/organizer/backend/internal/adapters/sqlite"
 	"github.com/onsei/organizer/backend/internal/admission"
@@ -154,6 +155,9 @@ func buildServices(repo *sqlite.Repository, configDir string, generationConcurre
 			sqlite.NewScanStaging(repo),
 			filesystem.WalkRootEntriesParallel,
 			filesystem.WalkFolderEntries,
+			// The enrichment pass measures the merged entries' unknown media
+			// facts (ADR 0015 §2) with the same ffprobe the encoder adapter uses.
+			media.New(""),
 		),
 		repo,
 		gate,

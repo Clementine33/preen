@@ -54,12 +54,13 @@ func mergeStagingEntries(tx *sql.Tx, scanID, libraryID, rootPath string) (invent
 	// Using INSERT ... SELECT ... ON CONFLICT for efficient batch processing
 	// Semantics:
 	// - new row => content_rev=1, dirty_flag=0
-	// - changed size/mtime => increment content_rev, dirty_flag=1, bitrate cleared
-	// - unchanged size/mtime => preserve content_rev and bitrate
+	// - changed size/mtime => increment content_rev, dirty_flag=1, bitrate and
+	//   the media facts (width/height/duration, ADR 0015 §2) cleared
+	// - unchanged size/mtime => preserve content_rev, bitrate and media facts
 	_, err := tx.Exec(`
 		INSERT INTO entries (
 			path, root_path, parent_path, name, is_dir, size, mtime,
-			scan_id, content_rev, dirty_flag, bitrate, format, updated_at
+			scan_id, content_rev, dirty_flag, bitrate, width, height, duration_sec, format, updated_at
 		)
 		SELECT
 			s.path,
@@ -85,6 +86,21 @@ CASE
 			WHEN e.size != s.size OR e.mtime != s.mtime THEN NULL
 			ELSE e.bitrate
 		END,
+			CASE
+			WHEN e.path IS NULL THEN NULL
+			WHEN e.size != s.size OR e.mtime != s.mtime THEN NULL
+			ELSE e.width
+		END,
+			CASE
+			WHEN e.path IS NULL THEN NULL
+			WHEN e.size != s.size OR e.mtime != s.mtime THEN NULL
+			ELSE e.height
+		END,
+			CASE
+			WHEN e.path IS NULL THEN NULL
+			WHEN e.size != s.size OR e.mtime != s.mtime THEN NULL
+			ELSE e.duration_sec
+		END,
 			NULLIF(s.format, ''),
 			?
 		FROM entries_staging s
@@ -101,6 +117,9 @@ CASE
 			content_rev = excluded.content_rev,
 			dirty_flag = excluded.dirty_flag,
 			bitrate = excluded.bitrate,
+			width = excluded.width,
+			height = excluded.height,
+			duration_sec = excluded.duration_sec,
 			format = excluded.format,
 			updated_at = excluded.updated_at
 	`, scanID, now.Format(timeFormat), scanID)

@@ -30,6 +30,18 @@ const module = "github.com/onsei/organizer/backend/internal"
 
 var rules = []rule{
 	{
+		name:   "business packages use read-only ports",
+		pkg:    module + "/rename",
+		banned: []string{module + "/adapters", module + "/app"},
+		why:    "rename owns naming rules, not storage or disk access",
+	},
+	{
+		name:   "business packages use ports",
+		pkg:    module + "/metadata",
+		banned: []string{module + "/adapters", module + "/app"},
+		why:    "metadata orchestrates imports, not transport or storage",
+	},
+	{
 		name:   "business packages reach storage and tools through ports",
 		pkg:    module + "/library",
 		banned: []string{module + "/adapters"},
@@ -86,7 +98,7 @@ var rules = []rule{
 	{
 		name:   "the generic side does not know the task",
 		pkg:    module + "/workset",
-		banned: []string{module + "/conversion"},
+		banned: []string{module + "/conversion", module + "/rename"},
 		why:    "the conversion task implements the workset's seam, never the other way round",
 	},
 	{
@@ -186,7 +198,7 @@ func deps(t *testing.T, pkg string, direct bool) []string {
 // failure message.
 func match(edges []string, banned string) string {
 	for _, edge := range edges {
-		if edge == banned {
+		if edge == banned || strings.HasPrefix(edge, banned+"/") {
 			return edge
 		}
 	}

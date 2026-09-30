@@ -24,6 +24,7 @@ import (
 	"github.com/onsei/organizer/backend/internal/adapters/filesystem"
 	"github.com/onsei/organizer/backend/internal/adapters/httpapi"
 	"github.com/onsei/organizer/backend/internal/adapters/media"
+	"github.com/onsei/organizer/backend/internal/adapters/scraper"
 	appconfig "github.com/onsei/organizer/backend/internal/adapters/settings"
 	"github.com/onsei/organizer/backend/internal/adapters/sqlite"
 	"github.com/onsei/organizer/backend/internal/admission"
@@ -31,6 +32,8 @@ import (
 	"github.com/onsei/organizer/backend/internal/fileops"
 	"github.com/onsei/organizer/backend/internal/inventory"
 	"github.com/onsei/organizer/backend/internal/library"
+	"github.com/onsei/organizer/backend/internal/metadata"
+	"github.com/onsei/organizer/backend/internal/rename"
 	"github.com/onsei/organizer/backend/internal/thumbnail"
 	"github.com/onsei/organizer/backend/internal/works"
 	"github.com/onsei/organizer/backend/internal/workset"
@@ -142,6 +145,8 @@ type services struct {
 	// mediaFacts measures the inventory's unknown media facts in the
 	// background, after scans (ADR 0015 §2).
 	mediaFacts *inventory.MediaEnricher
+	// metadata is callable by future entry points; it has no background scheduler.
+	metadata *metadata.Service
 }
 
 // buildServices wires the process. Direct file management and the managed task
@@ -175,29 +180,35 @@ func buildServices(repo *sqlite.Repository, configDir string, generationConcurre
 	// will feed this parameter later.
 	//
 	// Task registration: every kind a workset operation can carry. Creation
-	// materializes one operation and seed draft per entry, in this order.
+	// materializes only the requested operation and its seed draft.
 	//
 	// Sessions refresh their member folders before planning and before writing:
-	// the stored inventory is the only input fact a plan reads, and it is only
-	// as current as the last scan.
+	// conversion reads that refreshed inventory; rename also reads current
+	// catalog metadata and immediate directory occupancy.
+	worksSvc := works.NewService(
+		repo, repo, fileops.ResolveMember, fileops.ResolveMemberFile, media.ThumbEngineVersion,
+	)
+	scraperClient := scraper.New(nil)
 	worksetSvc := workset.NewService(
 		repo,
 		generationConcurrency,
 		0,
-		[]workset.Task{conversion.New(repo, appconfig.NewReader(configDir), ffmpeg.New, media.ProbeBitrate)},
+		[]workset.Task{
+			conversion.New(repo, appconfig.NewReader(configDir), ffmpeg.New, media.ProbeBitrate),
+			rename.New(repo, filesystem.ReadRenameDirectory),
+		},
 		scanSvc.RefreshMember,
 		gate.Enqueue,
 	)
 	return services{
-		gate:    gate,
-		library: librarySvc,
-		scan:    scanSvc,
-		fileOps: fileops.NewService(gate, scanSvc.RefreshMember),
-		workset: worksetSvc,
-		catalog: conversion.NewCatalog(repo, repo, appconfig.NewReader(configDir)),
-		works: works.NewService(
-			repo, repo, fileops.ResolveMember, fileops.ResolveMemberFile, media.ThumbEngineVersion,
-		),
+		gate:       gate,
+		library:    librarySvc,
+		scan:       scanSvc,
+		fileOps:    fileops.NewService(gate, scanSvc.RefreshMember),
+		workset:    worksetSvc,
+		catalog:    conversion.NewCatalog(repo, repo, appconfig.NewReader(configDir)),
+		works:      worksSvc,
+		metadata:   metadata.New(worksSvc, repo, scraperClient, scraperClient),
 		mediaFacts: mediaFacts,
 	}
 }

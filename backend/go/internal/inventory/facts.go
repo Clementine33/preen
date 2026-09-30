@@ -16,6 +16,9 @@ type Entry struct {
 	Width       *int
 	Height      *int
 	DurationSec *float64
+	// ContentRev is the inventory's revision of the path's bytes: the change
+	// counter the content ETag keys on (ADR 0016 §3).
+	ContentRev int
 }
 
 // InventoryFile is one observed file fact to write into the entries inventory

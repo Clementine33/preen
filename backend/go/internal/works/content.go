@@ -2,11 +2,13 @@ package works
 
 import (
 	"encoding/json"
+	"errors"
 	"sort"
 	"strings"
 
 	"facette.io/natsort"
 
+	"github.com/onsei/organizer/backend/internal/fileops"
 	"github.com/onsei/organizer/backend/internal/inventory"
 	"github.com/onsei/organizer/backend/internal/library"
 	"github.com/onsei/organizer/backend/internal/pathnorm"
@@ -112,16 +114,34 @@ type CopyRoot struct {
 }
 
 // ContentEntries is the inventory read side of the manifest: the entries
-// stored under one member directory, the same read the library's own browsing
-// goes through.
+// stored under one member directory, and the single row the file endpoint
+// serves from. The entries table is the whitelist — a path with no row is
+// not served, whatever the disk holds (ADR 0016 §3).
 type ContentEntries interface {
 	ListEntriesUnderPath(path string) ([]inventory.Entry, error)
+	EntryByPath(path string) (inventory.Entry, bool, error)
 }
 
 // ResolveMember validates one library-relative member path on disk, the seam
 // direct file management owns. A copy whose member no longer resolves is
 // online: false and carries no tree.
 type ResolveMember func(rootPath, memberRel string) (string, error)
+
+// ResolveMemberFile validates one member-relative item path under the same
+// containment checks an operation's target goes through (ADR 0002 §1). It is
+// the seam the file endpoint resolves a manifest path through.
+type ResolveMemberFile func(rootPath, memberRel, rel string) (string, error)
+
+// ContentFileLocation is one manifest file resolved for byte serving: the
+// validated absolute path, the facts the ETag keys on, and the kind that
+// picks the content type.
+type ContentFileLocation struct {
+	AbsPath    string
+	Kind       ContentFileKind
+	Size       int64
+	Mtime      int64
+	ContentRev int
+}
 
 // classifyContentKind names a file's kind from its extension and stored
 // format. Extensions decide the text kinds first: .lrc carries no MIME type
@@ -241,6 +261,69 @@ func lastSegment(p string) string {
 		return p[idx+1:]
 	}
 	return p
+}
+
+// ContentFile locates one file of the manifest for byte serving (ADR 0016
+// §3). The copy must be bound to the named work, the path must resolve
+// inside its member the way an operation target does (ADR 0002 §1), and the
+// stored inventory must hold the row — the three checks that make the
+// endpoint read-only on exactly the manifest.
+func (s *Service) ContentFile(id WorkCode, copyID, relPath string) (ContentFileLocation, *Error) {
+	roots, found, err := s.store.WorkCopyRoots(id)
+	if err != nil {
+		return ContentFileLocation{}, asInternal(err)
+	}
+	if !found {
+		return ContentFileLocation{}, NotFound(CodeWorkNotFound, "no such work")
+	}
+	var root *CopyRoot
+	for i := range roots {
+		if roots[i].CopyID == copyID {
+			root = &roots[i]
+			break
+		}
+	}
+	if root == nil {
+		return ContentFileLocation{}, NotFound(CodeWorkNotFound, "no such copy for this work")
+	}
+
+	// The manifest path is member-relative; the stored row is keyed by the
+	// POSIX form under the member root.
+	memberAbs, resolveErr := s.resolveMember(root.RootPath, root.RelPath)
+	if resolveErr != nil {
+		return ContentFileLocation{}, NotFound(CodeWorkNotFound, "the copy is not on disk")
+	}
+	absPath, resolveErr := s.resolveMemberFile(root.RootPath, root.RelPath, relPath)
+	if resolveErr != nil {
+		return ContentFileLocation{}, pathRefusal(resolveErr)
+	}
+	entry, listed, err := s.entries.EntryByPath(pathnorm.NormalizeToPOSIX(memberAbs) + "/" + relPath)
+	if err != nil {
+		return ContentFileLocation{}, asInternal(err)
+	}
+	if !listed {
+		return ContentFileLocation{}, NotFound(CodeWorkNotFound, "the path is not in the work's manifest")
+	}
+	return ContentFileLocation{
+		AbsPath:    absPath,
+		Kind:       classifyContentKind(entry.Name, entry.Format),
+		Size:       entry.Size,
+		Mtime:      entry.Mtime,
+		ContentRev: entry.ContentRev,
+	}, nil
+}
+
+// pathRefusal maps a containment refusal (fileops.PathError, the one seam
+// every file path validation answers with) to a catalog refusal: an
+// unreadable path is reported, never guessed past.
+func pathRefusal(err error) *Error {
+	if pathErr, ok := errors.AsType[*fileops.PathError](err); ok {
+		if pathErr.Code == fileops.CodePathInvalid {
+			return Invalid(CodeInvalidArgument, pathErr.Message)
+		}
+		return NotFound(CodeWorkNotFound, pathErr.Message)
+	}
+	return asInternal(err)
 }
 
 // Content answers one work's file manifest (ADR 0016 §2). The trees come from

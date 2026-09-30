@@ -252,3 +252,16 @@ func ResolveMember(rootPath, memberRel string) (string, error) {
 	}
 	return m.nativeAbs, nil
 }
+
+// ResolveMemberFile validates one member-relative item path and resolves it,
+// under exactly the checks an operation's own target goes through (ADR 0002
+// §1): every component must exist, none may be a symlink, and the resolved
+// form must stay inside the member. Read-only consumers (ADR 0016 §3) share
+// the seam so a link can never be read through either.
+func ResolveMemberFile(rootPath, memberRel, rel string) (string, error) {
+	m, err := openMember(rootPath, memberRel)
+	if err != nil {
+		return "", err
+	}
+	return m.resolve(rel)
+}

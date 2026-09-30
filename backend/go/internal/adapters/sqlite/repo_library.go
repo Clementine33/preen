@@ -467,7 +467,7 @@ func (r *Repository) DirAudioCounts(rootPath string, relPaths []string) (map[str
 func (r *Repository) ListEntriesUnderPath(pathPrefix string) ([]inventory.Entry, error) {
 	pathPrefix = pathnorm.NormalizeToPOSIX(pathPrefix)
 	rows, err := r.db.Query(`
-		SELECT path, parent_path, name, is_dir, size, mtime, bitrate, format, width, height, duration_sec
+		SELECT path, parent_path, name, is_dir, size, mtime, bitrate, format, width, height, duration_sec, content_rev
 		FROM entries
 		WHERE path = ? OR substr(path, 1, length(?) + 1) = ? || '/'
 		ORDER BY path
@@ -479,31 +479,9 @@ func (r *Repository) ListEntriesUnderPath(pathPrefix string) ([]inventory.Entry,
 
 	var entries []inventory.Entry
 	for rows.Next() {
-		var e inventory.Entry
-		var isDir int
-		var bitrate sql.NullInt32
-		var format sql.NullString
-		var width, height sql.NullInt64
-		var duration sql.NullFloat64
-		if err := rows.Scan(
-			&e.Path, &e.ParentPath, &e.Name, &isDir, &e.Size, &e.Mtime,
-			&bitrate, &format, &width, &height, &duration,
-		); err != nil {
+		e, err := scanEntry(rows)
+		if err != nil {
 			return nil, err
-		}
-		e.IsDir = isDir == 1
-		if bitrate.Valid {
-			v := bitrate.Int32
-			e.Bitrate = &v
-		}
-		e.Format = format.String
-		if width.Valid && height.Valid {
-			w, h := int(width.Int64), int(height.Int64)
-			e.Width, e.Height = &w, &h
-		}
-		if duration.Valid {
-			sec := duration.Float64
-			e.DurationSec = &sec
 		}
 		entries = append(entries, e)
 	}
@@ -511,4 +489,59 @@ func (r *Repository) ListEntriesUnderPath(pathPrefix string) ([]inventory.Entry,
 		return nil, err
 	}
 	return entries, nil
+}
+
+// EntryByPath reads one file's stored row (ADR 0016 §3): the whitelist the
+// content endpoint serves from — a path with no inventory row is not served,
+// whatever the disk holds.
+func (r *Repository) EntryByPath(path string) (inventory.Entry, bool, error) {
+	rows, err := r.db.Query(`
+		SELECT path, parent_path, name, is_dir, size, mtime, bitrate, format, width, height, duration_sec, content_rev
+		FROM entries
+		WHERE path = ? AND is_dir = 0
+	`, pathnorm.NormalizeToPOSIX(path))
+	if err != nil {
+		return inventory.Entry{}, false, err
+	}
+	defer rows.Close()
+
+	if !rows.Next() {
+		return inventory.Entry{}, false, rows.Err()
+	}
+	entry, scanErr := scanEntry(rows)
+	if scanErr != nil {
+		return inventory.Entry{}, false, scanErr
+	}
+	return entry, true, rows.Err()
+}
+
+// scanEntry reads one entries row in the tree projection's column order.
+func scanEntry(rows *sql.Rows) (inventory.Entry, error) {
+	var e inventory.Entry
+	var isDir int
+	var bitrate sql.NullInt32
+	var format sql.NullString
+	var width, height sql.NullInt64
+	var duration sql.NullFloat64
+	if err := rows.Scan(
+		&e.Path, &e.ParentPath, &e.Name, &isDir, &e.Size, &e.Mtime,
+		&bitrate, &format, &width, &height, &duration, &e.ContentRev,
+	); err != nil {
+		return inventory.Entry{}, err
+	}
+	e.IsDir = isDir == 1
+	if bitrate.Valid {
+		v := bitrate.Int32
+		e.Bitrate = &v
+	}
+	e.Format = format.String
+	if width.Valid && height.Valid {
+		w, h := int(width.Int64), int(height.Int64)
+		e.Width, e.Height = &w, &h
+	}
+	if duration.Valid {
+		sec := duration.Float64
+		e.DurationSec = &sec
+	}
+	return e, nil
 }

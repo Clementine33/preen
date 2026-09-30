@@ -666,7 +666,8 @@ work, while `RJ1657200` (7 digits) is refused.
 | --- | --- | --- |
 | GET | `/api/v1/works` | 200 `{"works":[…],"next_cursor":"…"}`. Filters and paging below. |
 | GET | `/api/v1/works/{rj}` | 200 the work in full: metadata, personal data, resolved relation, language editions and every copy. A work declared by a relation but never found on disk answers `"placeholder":true` and is absent from the listing. |
-| GET | `/api/v1/works/{rj}/content` | 200 the work's file manifest (ADR 0016 §2): every bound copy's tree, below. | |
+| GET | `/api/v1/works/{rj}/content` | 200 the work's file manifest (ADR 0016 §2): every bound copy's tree, below. |
+| GET | `/api/v1/works/{rj}/content/{copyId}/{path...}` | 200 one manifest file's bytes (ADR 0016 §3): `path` is the copy-root-relative manifest path. See below. | |
 | PUT | `/api/v1/works/{rj}/metadata` | Body: up to four independent data groups (below). 200 `{"applied":[…],"ignored":[…],"warnings":[…],"created_placeholders":[…]}`. |
 | PATCH | `/api/v1/works/{rj}/user-data` | Body `{"rating":8,"favorite":true,"note":"…"}`; only the fields present are applied, and `"rating":null` clears it. 200 the resulting state. |
 | PUT | `/api/v1/works/{rj}/user-tags` | Body `{"tag_ids":["…"]}`; replaces the work's tag set with exactly these. 200 `{"user_tags":[…]}`. Unknown ids are `USER_TAG_NOT_FOUND` (404). |
@@ -714,9 +715,24 @@ work answers an empty `copies` array, not 404. `kind` classifies each file
 included) and files carry no `children`, always carry `size`, and carry
 `format` only for audio, as the container name the track list aggregates by.
 `width`/`height`/`duration_sec`/`bitrate` are the scan-time facts (ADR 0015
-§2): `null` means unmeasured, not zero. File bytes are served by the file
-content endpoint, which follows this manifest (ADR 0016 §3, not yet
-implemented).
+§2): `null` means unmeasured, not zero.
+
+`GET /api/v1/works/{rj}/content/{copyId}/{path...}` serves one manifest
+file's bytes. The route is read-only and takes no admission slot: only paths
+the manifest holds are served, resolved inside the member under the same
+containment checks direct file management applies (out-of-bounds segments and
+symlink escapes are refused; an unscanned file on disk is 404, not a guess).
+
+- `ETag` keys on `(size, mtime, content_rev)`; `Cache-Control: no-cache`
+  revalidates before reuse, so a rescan that changed the bytes changes the
+  tag and a match answers 304.
+- `Accept-Ranges: bytes` with single-range 206 (`Range: bytes=0-99`). A
+  multi-range request is answered with the whole file.
+- Images and audio carry the `Content-Type` their own bytes sniff as, not
+  their extension. Text (`txt`/`lrc`) declares the character set the server
+  sniffed (`UTF-8` → `Shift_JIS` → `GB18030` candidates) and the body is
+  served exactly as stored — decoding happens once, at the client, per the
+  header.
 
 ### Source metadata import
 

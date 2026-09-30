@@ -1,0 +1,157 @@
+package httpapi
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"io"
+	"mime"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"time"
+	"unicode/utf8"
+
+	"golang.org/x/text/encoding/japanese"
+	"golang.org/x/text/encoding/simplifiedchinese"
+	"golang.org/x/text/transform"
+
+	"github.com/onsei/organizer/backend/internal/works"
+)
+
+// getWorkContentFile serves one manifest file's bytes (ADR 0016 §3): the
+// catalog has already answered the copy binding, the containment and the
+// inventory whitelist; what is left here is the HTTP shape — the content
+// type from the bytes, the charset a text body declares, and the range and
+// revalidation semantics.
+func (s *Server) getWorkContentFile(w http.ResponseWriter, r *http.Request) {
+	service, ok := s.catalog(w)
+	if !ok {
+		return
+	}
+	code, ok := s.workPath(w, r)
+	if !ok {
+		return
+	}
+	loc, refusal := service.ContentFile(code, r.PathValue("copy"), r.PathValue("path"))
+	if refusal != nil {
+		writeWorksError(w, refusal)
+		return
+	}
+
+	file, err := os.Open(loc.AbsPath)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "INTERNAL", "the file could not be opened")
+		return
+	}
+	defer file.Close()
+
+	// The ETag keys on the manifest facts: size, mtime and the inventory's
+	// content revision — a same-size rewrite bumps the revision, so a stale
+	// cache never survives a rescan.
+	etag := contentETag(loc)
+	w.Header().Set("ETag", etag)
+	// The address is not version-keyed, so a cached copy is revalidated
+	// against the revision before reuse; a match answers 304 for the price of
+	// a header round-trip.
+	w.Header().Set("Cache-Control", "no-cache")
+	if match := r.Header.Get("If-None-Match"); match != "" && match == etag {
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
+
+	if err := setWorkFileContentType(w.Header(), file, loc.Kind); err != nil {
+		writeError(w, http.StatusInternalServerError, "INTERNAL", "the file could not be read")
+		return
+	}
+
+	// ServeContent answers single-range 206 and sets Accept-Ranges. A
+	// multi-range request is answered with the whole file instead: HTTP
+	// allows ignoring a Range header, no caller of ours sends multi-range,
+	// and partial-content sets serve nothing the page needs (ADR 0016 §3).
+	if strings.Contains(r.Header.Get("Range"), ",") {
+		r.Header.Del("Range")
+	}
+	http.ServeContent(w, r, "", time.Unix(loc.Mtime, 0), file)
+}
+
+// contentETag keys one manifest file's identity on the facts the inventory
+// rewrites when the bytes change.
+func contentETag(loc works.ContentFileLocation) string {
+	key := strconv.Itoa(loc.ContentRev) + ":" + strconv.FormatInt(loc.Mtime, 10) + ":" + strconv.FormatInt(loc.Size, 10)
+	sum := sha256.Sum256([]byte(key))
+	return `"` + hex.EncodeToString(sum[:8]) + `"`
+}
+
+// setWorkFileContentType names the bytes' own type: images and audio are
+// sniffed from the content (the extension is not trusted), text declares the
+// character set the body is actually in, and anything else is a stream.
+func setWorkFileContentType(h http.Header, file *os.File, kind works.ContentFileKind) error {
+	switch kind {
+	case works.KindImage, works.KindAudio:
+		sample, err := readSample(file, 512)
+		if err != nil {
+			return err
+		}
+		contentType := http.DetectContentType(sample)
+		if !strings.HasPrefix(contentType, "image/") && !strings.HasPrefix(contentType, "audio/") {
+			contentType = mime.TypeByExtension(filepath.Ext(file.Name()))
+			if contentType == "" {
+				contentType = "application/octet-stream"
+			}
+		}
+		h.Set("Content-Type", contentType)
+	case works.KindText, works.KindLyrics:
+		sample, err := readSample(file, 64*1024)
+		if err != nil {
+			return err
+		}
+		h.Set("Content-Type", "text/plain; charset="+sniffTextCharset(sample))
+	case works.KindUnknown:
+		h.Set("Content-Type", "application/octet-stream")
+	}
+	return nil
+}
+
+// readSample reads the first n bytes of the file and rewinds it, so the read
+// that types the content never steals from the read that serves it.
+func readSample(file *os.File, n int) ([]byte, error) {
+	sample := make([]byte, n)
+	read, err := io.ReadFull(file, sample)
+	if err != nil && err != io.ErrUnexpectedEOF && err != io.EOF {
+		return nil, err
+	}
+	if _, err := file.Seek(0, io.SeekStart); err != nil {
+		return nil, err
+	}
+	return sample[:read], nil
+}
+
+// sniffTextCharset names the character set a text body is in, by decoding a
+// sample with each candidate in order and keeping the first that reads
+// cleanly (ADR 0016 §3: the bytes are served exactly as stored — the header
+// tells the client how to decode, and a wrong guess is mojibake, which is
+// why the sniff happens here, once, instead of in every client).
+func sniffTextCharset(sample []byte) string {
+	if utf8.Valid(sample) {
+		return "utf-8"
+	}
+	candidates := []struct {
+		name    string
+		decoder transform.Transformer
+	}{
+		{"shift_jis", japanese.ShiftJIS.NewDecoder()},
+		{"gb18030", simplifiedchinese.GB18030.NewDecoder()},
+	}
+	for _, candidate := range candidates {
+		decoded, _, err := transform.Bytes(candidate.decoder, sample)
+		if err == nil && !bytes.ContainsRune(decoded, '�') {
+			return candidate.name
+		}
+	}
+	// Ambiguous bytes decode with replacements in every candidate: declare
+	// the first legacy one rather than inventing an answer.
+	return "shift_jis"
+}

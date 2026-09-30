@@ -322,6 +322,69 @@ export interface ListWorksParams {
   cursor?: string
 }
 
+/** The personal data of one work, as the PATCH user-data route answers it. */
+export interface WorkUserData {
+  rating: number | null
+  favorite: boolean
+  note: string
+}
+
+/**
+ * A partial personal-data update (docs/api.md `PATCH /works/{rj}/user-data`):
+ * only the fields present are applied, and an explicit `rating: null` clears it.
+ */
+export interface PatchWorkUserDataParams {
+  rating?: number | null
+  favorite?: boolean
+  note?: string
+}
+
+// ==================== Work content manifest ====================
+// The detail page's content contract (draft spec §3). Deliberately not shared
+// with the conversion workbench's MemberTree: this projection classifies files
+// by kind and carries scan-time image dimensions and durations, for different
+// consumers at a different change rate (ADR 0009's logic).
+
+export type WorkFileKind = 'aud' | 'img' | 'txt' | 'lrc' | 'bin'
+
+export interface WorkContentFile {
+  name: string
+  /** Copy-root-relative path, '/'-joined. */
+  rel_path: string
+  kind: WorkFileKind
+  /** Bytes. */
+  size: number
+  /** Audio container: 'MP3' | 'WAV' | … */
+  format: string | null
+  bitrate: number | null
+  /** Image pixels, recorded at scan time (image.DecodeConfig, ADR 0015 §2). */
+  width: number | null
+  height: number | null
+  /** Audio seconds, recorded at scan time. */
+  duration_sec: number | null
+}
+
+export interface WorkContentDir {
+  name: string
+  rel_path: string
+  children: Array<WorkContentDir | WorkContentFile>
+}
+
+export interface WorkContentCopy {
+  copy_id: string
+  library_id: string
+  /** The tree identity of the copy's root directory (ADR 0003), resolved server-side. */
+  dir_id: string
+  online: boolean
+  tree: WorkContentDir
+}
+
+/** One work's file manifest: what the detail page's deck, bay and leaf read. */
+export interface WorkContent {
+  rj: string
+  copies: WorkContentCopy[]
+}
+
 // ==================== Worksets and operations ====================
 
 export type PlanningState = 'unplanned' | 'planned' | 'needs_planning' | 'planning' | 'orphaned'
@@ -869,6 +932,10 @@ export interface ApiClientContract {
   listWorks(params?: ListWorksParams, signal?: AbortSignal): Promise<WorkListResponse>
   getWork(rj: string, signal?: AbortSignal): Promise<WorkDetail>
   listWorkFacets(kind: WorkFacetKind, library?: string, signal?: AbortSignal): Promise<WorkFacet[]>
+  updateWorkUserData(rj: string, input: PatchWorkUserDataParams): Promise<WorkUserData>
+  replaceWorkUserTags(rj: string, tagIds: string[]): Promise<WorkUserTag[]>
+  listUserTags(signal?: AbortSignal): Promise<WorkUserTag[]>
+  createUserTag(name: string): Promise<WorkUserTag>
   getOperation(worksetId: string, operation: OperationType, signal?: AbortSignal): Promise<Operation>
   getOperationDraft(worksetId: string, operation: OperationType, signal?: AbortSignal): Promise<DraftResponse>
   saveOperationDraft(

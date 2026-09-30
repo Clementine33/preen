@@ -35,10 +35,13 @@ import type {
   StartExecutionResponse,
   StartGenerationResponse,
   UpdateLibraryInput,
+  PatchWorkUserDataParams,
   WorkDetail,
   WorkFacet,
   WorkFacetKind,
   WorkListResponse,
+  WorkUserData,
+  WorkUserTag,
   Workset,
   WorksetListResponse,
 } from './types'
@@ -281,6 +284,33 @@ export class ApiClient implements ApiClientContract {
     }
     const body = await this.request<{ voice_actors: WorkFacet[] }>(`/voice-actors${qs}`, { signal })
     return body.voice_actors
+  }
+
+  // A partial personal-data update: only the fields present are applied, and
+  // an explicit rating null clears it (docs/api.md `PATCH /works/{rj}/user-data`).
+  updateWorkUserData(rj: string, input: PatchWorkUserDataParams): Promise<WorkUserData> {
+    return this.request(`/works/${encodeURIComponent(rj)}/user-data`, { method: 'PATCH', body: input })
+  }
+
+  // The work's user tags are exactly the given set after this call; unknown
+  // ids answer USER_TAG_NOT_FOUND (docs/api.md `PUT /works/{rj}/user-tags`).
+  async replaceWorkUserTags(rj: string, tagIds: string[]): Promise<WorkUserTag[]> {
+    const body = await this.request<{ user_tags: WorkUserTag[] }>(`/works/${encodeURIComponent(rj)}/user-tags`, {
+      method: 'PUT',
+      body: { tag_ids: tagIds },
+    })
+    return body.user_tags
+  }
+
+  // Creating by name is idempotent: an existing name answers with the existing
+  // tag (docs/api.md `POST /user-tags`).
+  async listUserTags(signal?: AbortSignal): Promise<WorkUserTag[]> {
+    const body = await this.request<{ user_tags: WorkUserTag[] }>('/user-tags', { signal })
+    return body.user_tags
+  }
+
+  async createUserTag(name: string): Promise<WorkUserTag> {
+    return this.request('/user-tags', { method: 'POST', body: { name } })
   }
 
   getOperation(worksetId: string, operation: OperationType, signal?: AbortSignal): Promise<Operation> {

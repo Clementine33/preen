@@ -41,6 +41,12 @@ export const queryKeys = {
     listPrefix: () => ['works', 'list'] as const,
     list: (filters: ListWorksParams) => ['works', 'list', filters] as const,
     detail: (rj: string) => ['works', 'detail', rj] as const,
+    // One work's file manifest: the detail page's deck, bay and leaf read it.
+    // The copy's tree identity is part of the content's own response, so the
+    // work number alone addresses it.
+    content: (rj: string) => ['works', 'content', rj] as const,
+    // The account's own tag vocabulary, shared by every work's personal section.
+    userTags: () => ['works', 'user-tags'] as const,
     // One facet list per kind and library scope ('' = every library).
     facets: (kind: WorkFacetKind, library: string) => ['works', 'facets', kind, library] as const,
   },

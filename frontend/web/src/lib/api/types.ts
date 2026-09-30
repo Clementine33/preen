@@ -376,7 +376,8 @@ export interface WorkContentCopy {
   /** The tree identity of the copy's root directory (ADR 0003), resolved server-side. */
   dir_id: string
   online: boolean
-  tree: WorkContentDir
+  /** Present only while the member directory resolves on disk (ADR 0016 §2). */
+  tree?: WorkContentDir
 }
 
 /** One work's file manifest: what the detail page's deck, bay and leaf read. */

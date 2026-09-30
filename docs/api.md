@@ -283,8 +283,8 @@ replaces them: the files were modified, and both facts are stated.
 
 A **record** is the current processing record of one `(library, operation)`
 pair: the fixed, ordered set of 1–500 member folders a user selected, plus the
-operation that works on them. `conversion` is the only operation type in this
-iteration, and no unimplemented operation has an addressable route. At most one
+operation that works on them. `conversion` and `rename` are registered operation types. `rename` supports
+draft, generation and review; its execution is refused. At most one
 record exists per pair — that is a storage-level unique index, not an
 application check. Decisions: [ADR 0001](adr/0001-library-workbench-and-processing-record.md).
 
@@ -316,7 +316,9 @@ directory that did not become a member instead of dropping it silently:
 | `duplicate` | selected more than once |
 
 A selection whose every entry is unusable creates nothing and answers
-`NO_AUDIO_MEMBERS` (400) with the skipped paths in `details`. More than 500
+`NO_AUDIO_MEMBERS` (400) for conversion, or `NO_MEMBERS` (400) for rename,
+with the skipped paths in `details`. Rename accepts scanned direct-child
+directories even when their audio count is zero. More than 500
 selected paths is `INVALID_FOLDER_COUNT` (400) — never a silent truncation.
 `expected_current_id` is the record the caller saw as current (absent when it
 saw none): a mismatch is `RECORD_REPLACED` (409) instead of an overwrite, and a
@@ -362,6 +364,68 @@ All routes require auth and use the standard error envelope.
 | GET | `/api/v1/worksets/{id}/operations/{type}/executions/{executionId}` | Session detail, including each component's result. Optional `components_from` (default 0, inclusive) and `components_limit` (default: every remaining component) page the component list, which is ordered by `component_index`; a session of another workset or operation is 404. |
 | GET | `/api/v1/worksets/{id}/operations/{type}/executions/{executionId}/events` | SSE execution stream (`execution_snapshot`, `component`, `progress`, terminal event). |
 | POST | `/api/v1/worksets/{id}/operations/{type}/executions/{executionId}/cancel` | Cooperative cancel; idempotent on terminal sessions (200 with the session either way). |
+
+### Rename task (schema version 1)
+
+Use the operation routes with `{type}=rename`. The draft payload is:
+
+```json
+{
+  "schema_version": 1,
+  "common": { "template": "[{rj}] {title}" },
+  "members": [{ "member_id": "…", "excluded": true }]
+}
+```
+
+Only exclusions are stored per member; naming overrides are rejected. Members
+without a record participate. Common template saves use the deployment-wide
+settings rules. Exactly one `{rj}` is required; the other allowed placeholders
+are `{title}`, `{circle}`, `{voice_actors}`, `{language}`, `{release_date}`.
+Unknown placeholders, unmatched braces, duplicate/unknown members and overrides
+are `INVALID_DRAFT` (400); unknown versions are `UNSUPPORTED_SCHEMA_VERSION`
+(400). Metadata text stays literal.
+
+Each participating member produces one frozen component without modifying disk
+or bindings. `task.payload.policy` holds the template;
+`task.payload.components[]` contains `member_id`, `source_name`, `work_code`,
+`raw_name`, `target_name`, `action` (`rename`, `noop`, `blocked`) and optional
+`reason_code`. The classifier has empty tags. Used metadata must be nonempty.
+Illegal filename characters become `_`; outer whitespace and trailing dots/spaces
+are removed. The result must still identify exactly the bound Work. Names over
+255 UTF-8 bytes are blocked without truncation or automatic suffixes.
+
+Block reasons: `METADATA_MISSING`, `WORK_UNBOUND`, `SOURCE_MISSING`,
+`SOURCE_NOT_DIRECTORY`, `NAME_TOO_LONG`, `NAME_RESERVED`, `WORK_CODE_AMBIGUOUS`,
+`TARGET_EXISTS`, `TARGET_COLLISION` (multiple proposals), `CASE_ONLY_RENAME`
+(Windows roots). Fingerprints cover binding, used metadata, source directory
+state and relevant target occupancy. Sales, personal data, fetch timestamps and
+unused fields do not stale plans. Review always shows frozen names. Execution
+returns `PLAN_NOT_EXECUTABLE` (409), with `RENAME_EXECUTION_NOT_IMPLEMENTED` in
+`details`, before an execution row is written.
+
+### Callable metadata refresh (no HTTP route)
+
+`metadata.Service.Refresh(ctx, Request)` accepts `WorkCodes`, `Mode`, `Locale`.
+The entire request is validated before network activity; IDs are canonicalized,
+deduplicated and sorted. Unknown works get per-work issues and are never fetched.
+Defaults: `fill_missing`, `ja-jp`; alternatives: `refresh_dynamic`, `refresh_all`,
+`zh-cn`, `zh-tw`. Results keep canonical ID order, with import outcomes and
+source/group issues. One failed work does not abort other works.
+
+DLsite static supplies core/editions; dynamic supplies sales/relations. Static
+relations may fill unavailable dynamic reports. ASMR.one supplies only missing
+core/relations/editions; sales always come from DLsite. Independently validated
+complete groups go through the existing works import, preserving source priority,
+timestamps, copies and personal data. Missing reports stay absent; explicit empty
+edition/credit arrays remain empty. No parent guessing or recursive family fetch.
+
+Static workers: 8; dynamic batches: 500, recursively split on HTTP 414. Shared
+client limits: DLsite 8 in flight / 10 starts per second; ASMR.one 2 in flight /
+3 starts per second; default timeout 10 seconds; response limit 16 MiB; at most
+3 attempts for network/5xx errors. HTTP 403/429 or challenge headers stop further
+source requests for at least 60 seconds, honoring longer `Retry-After`.
+Cancellation stops new requests/imports. Neither scanning nor startup triggers
+refresh automatically.
 
 ### Execution sessions
 

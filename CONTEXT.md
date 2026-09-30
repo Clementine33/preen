@@ -46,6 +46,12 @@ edition list exists only on its static one.
 _Avoid_: One combined snapshot that forces a crawler to resubmit what it did
 not fetch.
 
+**Metadata Refresh**:
+A request to retrieve source data groups for explicitly selected existing Works,
+including Relation Placeholders. Missing-only refresh fills unreported groups;
+dynamic refresh renews sales and relation reports; full refresh renews all groups.
+_Avoid_: Discovering new works; recursively collecting a translation family.
+
 **Relation Evidence / Resolved Relation**:
 *Evidence* is what sources said — a work's own relation report, and the child
 edges other works declared. *Resolved* is what this build derives from the
@@ -92,7 +98,7 @@ The process-wide rule that direct file management and the managed task paths (sc
 _Avoid_: Frontend-only disabling; a queue of waiting file operations.
 
 **Workset Operation**:
-An independent business activity on a record's members, owning its draft, participation scope, planning sessions and its current plan. Conversion is the currently available activity, and it is the operation a record is created for.
+An independent business activity on a record's members, owning its draft, participation scope, planning sessions and its current plan. Conversion and directory rename planning are the available activities; a record is created for one of them.
 _Avoid_: Workflow step; filesystem Operation when referring to this activity.
 
 **Operation Draft**:
@@ -123,8 +129,14 @@ Reusable literal classification tags, comprising installation defaults and user-
 ### Planning and review
 
 **Task**:
-One kind of work a Workset Operation can carry: it owns that work's draft document shape, its planning pass, its input facts and its execution. The generic workset module names the kind and payload schema version but never reads a task's payload; one adapter (conversion) exists today.
+One kind of work a Workset Operation can carry: it owns that work's draft document shape, its planning pass, its input facts and its execution. The generic workset module names the kind and payload schema version but never reads a task's payload; conversion and directory rename planning supply their own task content.
 _Avoid_: Workflow, job, plugin.
+
+**Directory Rename Proposal**:
+A member's proposed top-level directory name, rendered from one common naming
+template and the bound Work's metadata. It preserves that Work Number and records
+the raw name, cleaned name and any reason the proposal is blocked.
+_Avoid_: Renaming the Work; a member-specific naming override.
 
 **Plan**:
 A reviewable proposal of media decisions and required filesystem changes, produced before execution.

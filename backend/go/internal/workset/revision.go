@@ -96,9 +96,11 @@ func revisionCounts(detail *PlanDetail, review PlanReview) RevisionCounts {
 	summary := planSummaryOf(detail)
 	withOperations := map[string]bool{}
 	blockedComponents := 0
+	blockedRoots := map[int]bool{}
 	for i, c := range detail.Components {
 		if c.Status == "blocked" {
 			blockedComponents++
+			blockedRoots[c.RootIndex] = true
 			continue
 		}
 		if i < len(review.Units) && review.Units[i].Operations > 0 {
@@ -107,7 +109,8 @@ func revisionCounts(detail *PlanDetail, review PlanReview) RevisionCounts {
 	}
 	missingRoots := 0
 	for _, r := range detail.Roots {
-		if r.RootStatus == "missing" {
+		if r.RootStatus == "missing" && !blockedRoots[r.RootIndex] {
+			// A task may persist a blocked unit for a missing root; count it once.
 			missingRoots++
 		}
 	}

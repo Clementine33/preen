@@ -53,7 +53,8 @@ func (s *serviceImpl) CreateCurrentWorkset(
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	if _, err := s.requireTask(req.OperationType); err != nil {
+	task, err := s.requireTask(req.OperationType)
+	if err != nil {
 		return nil, err
 	}
 	if len(req.FolderPaths) == 0 || len(req.FolderPaths) > MaxMembers {
@@ -64,8 +65,8 @@ func (s *serviceImpl) CreateCurrentWorkset(
 			nil,
 		)
 	}
-	if err := validateIdemKey(req.IdempotencyKey); err != nil {
-		return nil, err
+	if idemErr := validateIdemKey(req.IdempotencyKey); idemErr != nil {
+		return nil, idemErr
 	}
 	lib, err := s.repo.GetLibrary(req.LibraryID)
 	if err != nil {
@@ -75,14 +76,18 @@ func (s *serviceImpl) CreateCurrentWorkset(
 		return nil, NewError(ErrKindInternal, "INTERNAL", "failed to load library", err)
 	}
 
-	members, skipped, err := s.resolveSelectedMembers(lib, req.FolderPaths)
+	members, skipped, err := s.resolveSelectedMembers(lib, req.FolderPaths, task.RequiresAudio())
 	if err != nil {
 		return nil, err
 	}
 	if len(members) == 0 {
+		code := "NO_MEMBERS"
+		if task.RequiresAudio() {
+			code = "NO_AUDIO_MEMBERS"
+		}
 		return nil, NewError(
 			ErrKindInvalidArgument,
-			"NO_AUDIO_MEMBERS",
+			code,
 			"none of the selected folders can join this operation",
 			nil,
 		).WithDetails(skipPaths(skipped))
@@ -275,11 +280,12 @@ func (s *serviceImpl) persistCurrentWorkset(
 // resolveSelectedMembers turns selected library-relative paths into ordered
 // members. Every path that cannot join is reported with its reason rather than
 // dropped in silence, and a path is only accepted when the scanned inventory
-// knows it as a directory of the library root that holds audio somewhere
-// beneath it.
+// knows it as an immediate directory of the library root. Tasks may additionally
+// require scanned audio beneath it.
 func (s *serviceImpl) resolveSelectedMembers(
 	lib *library.Library,
 	relPaths []string,
+	requiresAudio bool,
 ) ([]WorksetMember, []SkippedFolder, error) {
 	clean := make([]string, 0, len(relPaths))
 	skipped := make([]SkippedFolder, 0)
@@ -321,7 +327,7 @@ func (s *serviceImpl) resolveSelectedMembers(
 			skipped = append(skipped, SkippedFolder{Path: rel, Reason: SkipMissing})
 			continue
 		}
-		if count == 0 {
+		if requiresAudio && count == 0 {
 			skipped = append(skipped, SkippedFolder{Path: rel, Reason: SkipNoAudio})
 			continue
 		}

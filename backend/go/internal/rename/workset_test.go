@@ -1,0 +1,211 @@
+package rename_test
+
+import (
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"strconv"
+	"testing"
+	"time"
+
+	"github.com/onsei/organizer/backend/internal/adapters/httpapi"
+	"github.com/onsei/organizer/backend/internal/workset"
+)
+
+func TestWorksetAcceptsNoAudioRenameAndPersistsReviewButNoExecution(t *testing.T) {
+	repo, task, member := fixture(t, "title")
+	svc := workset.NewService(repo, 1, 1, []workset.Task{task}, nil, nil)
+	libs, err := repo.ListLibraries()
+	if err != nil {
+		t.Fatal(err)
+	}
+	created, err := svc.CreateCurrentWorkset(
+		t.Context(),
+		workset.CreateCurrentRequest{
+			LibraryID:     libs[0].ID,
+			OperationType: "rename",
+			FolderPaths:   []string{member.RelPath},
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := created.Workset.WorksetID
+	gen, err := svc.StartGeneration(
+		t.Context(),
+		id,
+		"rename",
+		workset.StartGenerationRequest{IfMatchVersion: 1, IdempotencyKey: "plan"},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	svc.DispatcherHandle().Start()
+	t.Cleanup(svc.DispatcherHandle().Stop)
+	var finished *workset.GenerationView
+	deadline := time.Now().Add(10 * time.Second)
+	for time.Now().Before(deadline) {
+		finished, err = svc.GetGeneration(t.Context(), id, "rename", gen.Generation.GenerationID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if finished.Status == workset.GenStatusCompleted || finished.Status == workset.GenStatusFailed {
+			break
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	if finished.Status != workset.GenStatusCompleted {
+		t.Fatalf("generation: %+v", finished)
+	}
+	if _, reviewErr := svc.GetRevision(t.Context(), id, "rename", finished.RevisionID); reviewErr != nil {
+		t.Fatal(reviewErr)
+	}
+	verifyHTTPReviewAndRefusal(t, svc, id, finished.RevisionID)
+	var executions int
+	if err := repo.DB().
+		QueryRow("SELECT count(*) FROM plan_executions").
+		Scan(&executions); err != nil ||
+		executions != 0 {
+		t.Fatalf("execution records: %d, %v", executions, err)
+	}
+	if _, err := os.Stat(member.FolderPath); err != nil {
+		t.Fatal("source modified", err)
+	}
+}
+
+func verifyHTTPReviewAndRefusal(t *testing.T, svc workset.Service, id, revision string) {
+	t.Helper()
+	handler := httpapi.NewServer(httpapi.Dependencies{Token: "test-token", WorksetService: svc})
+	reviewRequest := httptest.NewRequest(
+		http.MethodGet,
+		"/api/v1/worksets/"+id+"/operations/rename/revisions/"+revision,
+		nil,
+	)
+	reviewRequest.Header.Set("Authorization", "Bearer test-token")
+	reviewResponse := httptest.NewRecorder()
+	handler.ServeHTTP(reviewResponse, reviewRequest)
+	if reviewResponse.Code != http.StatusOK {
+		t.Fatalf("review HTTP: %d, %s", reviewResponse.Code, reviewResponse.Body.String())
+	}
+	var wire struct {
+		Task struct {
+			Kind    string `json:"kind"`
+			Payload struct {
+				Components []struct {
+					TargetName string `json:"target_name"`
+				} `json:"components"`
+			} `json:"payload"`
+		} `json:"task"`
+	}
+	if decodeErr := json.Unmarshal(reviewResponse.Body.Bytes(), &wire); decodeErr != nil {
+		t.Fatal(decodeErr)
+	}
+	if wire.Task.Kind != "rename" || len(wire.Task.Payload.Components) != 1 ||
+		wire.Task.Payload.Components[0].TargetName != "[RJ00000001] title" {
+		t.Fatalf("review payload: %s", reviewResponse.Body.String())
+	}
+	op, err := svc.GetOperation(t.Context(), id, "rename")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = svc.StartExecution(
+		t.Context(),
+		id,
+		"rename",
+		revision,
+		workset.StartExecutionRequest{IfMatchVersion: op.Version, IdempotencyKey: "execute"},
+	)
+	werr, ok := workset.AsError(err)
+	if !ok || werr.Code != "PLAN_NOT_EXECUTABLE" || len(werr.Details) != 1 ||
+		werr.Details[0] != "RENAME_EXECUTION_NOT_IMPLEMENTED" {
+		t.Fatalf("execution guard: %v", err)
+	}
+	executionRequest := httptest.NewRequest(http.MethodPost, reviewRequest.URL.Path+"/executions", nil)
+	executionRequest.Header.Set("Authorization", "Bearer test-token")
+	executionRequest.Header.Set("If-Match", strconv.Itoa(op.Version))
+	executionRequest.Header.Set("Idempotency-Key", "http-execute")
+	executionResponse := httptest.NewRecorder()
+	handler.ServeHTTP(executionResponse, executionRequest)
+	var failure struct {
+		Code    string   `json:"code"`
+		Details []string `json:"details"`
+	}
+	if decodeErr := json.Unmarshal(executionResponse.Body.Bytes(), &failure); decodeErr != nil {
+		t.Fatal(decodeErr)
+	}
+	if executionResponse.Code != http.StatusConflict || failure.Code != "PLAN_NOT_EXECUTABLE" ||
+		len(failure.Details) != 1 ||
+		failure.Details[0] != "RENAME_EXECUTION_NOT_IMPLEMENTED" {
+		t.Fatalf("execute HTTP: %d, %s", executionResponse.Code, executionResponse.Body.String())
+	}
+}
+
+func TestMissingSourceIsReportedOnceInReview(t *testing.T) {
+	repo, task, member := fixture(t, "title")
+	if err := os.Remove(member.FolderPath); err != nil {
+		t.Fatal(err)
+	}
+	draft, _, _ := task.SeedDraft(nil)
+	snapshot, err := task.PlanSession(
+		t.Context(),
+		workset.PlanSessionInput{RawDraft: draft, Members: []*workset.WorksetMember{member}},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(snapshot.Units) != 1 || snapshot.Units[0].ReasonCode != "SOURCE_MISSING" ||
+		snapshot.Roots[0].Status != "missing" {
+		t.Fatalf("missing root: %+v", snapshot)
+	}
+	svc := workset.NewService(repo, 1, 1, []workset.Task{task}, nil, nil)
+	libs, err := repo.ListLibraries()
+	if err != nil {
+		t.Fatal(err)
+	}
+	created, err := svc.CreateCurrentWorkset(
+		t.Context(),
+		workset.CreateCurrentRequest{
+			LibraryID:     libs[0].ID,
+			OperationType: "rename",
+			FolderPaths:   []string{member.RelPath},
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := created.Workset.WorksetID
+	gen, err := svc.StartGeneration(
+		t.Context(),
+		id,
+		"rename",
+		workset.StartGenerationRequest{IfMatchVersion: 1, IdempotencyKey: "missing"},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	svc.DispatcherHandle().Start()
+	t.Cleanup(svc.DispatcherHandle().Stop)
+	var finished *workset.GenerationView
+	deadline := time.Now().Add(10 * time.Second)
+	for time.Now().Before(deadline) {
+		finished, err = svc.GetGeneration(t.Context(), id, "rename", gen.Generation.GenerationID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if finished.Status == workset.GenStatusCompleted || finished.Status == workset.GenStatusFailed {
+			break
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	if finished.Status != workset.GenStatusCompleted {
+		t.Fatalf("generation: %+v", finished)
+	}
+	review, err := svc.GetRevision(t.Context(), id, "rename", finished.RevisionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if review.Counts.Blocked != 1 || review.Counts.Unchanged != 0 {
+		t.Fatalf("one missing member counted twice: %+v", review.Counts)
+	}
+}

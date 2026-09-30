@@ -40,6 +40,9 @@ func (t *Task) encoder() execute.Encoder {
 
 func (*Task) Kind() string { return workset.OperationTypeConversion }
 
+// RequiresAudio keeps conversion membership limited to scanned audio directories.
+func (*Task) RequiresAudio() bool { return true }
+
 // SeedDraft builds the initial sparse draft of a new conversion operation: no
 // member records at all (everyone participates and inherits the common
 // settings), mode available_sources stored explicitly, tag literals copied

@@ -19,7 +19,8 @@ type stubTask struct {
 	moved bool
 }
 
-func (s stubTask) Kind() string { return s.kind }
+func (s stubTask) Kind() string      { return s.kind }
+func (stubTask) RequiresAudio() bool { return true }
 
 func (s stubTask) SeedDraft(common json.RawMessage) ([]byte, string, int) {
 	if len(common) > 0 {

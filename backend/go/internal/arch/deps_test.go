@@ -30,6 +30,18 @@ const module = "github.com/onsei/organizer/backend/internal"
 
 var rules = []rule{
 	{
+		name:   "business packages use ports",
+		pkg:    module + "/covers",
+		banned: []string{module + "/adapters", module + "/app"},
+		why:    "cover delivery owns durable coordination, not its adapters",
+	},
+	{
+		name:   "business packages use ports",
+		pkg:    module + "/metadatatask",
+		banned: []string{module + "/adapters", module + "/app"},
+		why:    "metadata task connects business entries without transport or storage knowledge",
+	},
+	{
 		name:   "business packages use read-only ports",
 		pkg:    module + "/rename",
 		banned: []string{module + "/adapters", module + "/app"},
@@ -96,10 +108,16 @@ var rules = []rule{
 		why:    "every route reaches a business entry; only that entry knows the schema",
 	},
 	{
-		name:   "the generic side does not know the task",
-		pkg:    module + "/workset",
-		banned: []string{module + "/conversion", module + "/rename"},
-		why:    "the conversion task implements the workset's seam, never the other way round",
+		name: "the generic side does not know the task",
+		pkg:  module + "/workset",
+		banned: []string{
+			module + "/conversion",
+			module + "/rename",
+			module + "/metadatatask",
+			module + "/covers",
+			module + "/metadata",
+		},
+		why: "the conversion task implements the workset's seam, never the other way round",
 	},
 	{
 		name:   "business packages do not know the process",

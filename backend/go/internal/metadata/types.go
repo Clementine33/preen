@@ -20,17 +20,21 @@ type Request struct {
 
 // Issue identifies a failure without hiding other works' committed results.
 type Issue struct {
-	Group   works.DataGroup
-	Source  works.Source
-	Code    string
-	Message string
+	Group   works.DataGroup `json:"group,omitempty"`
+	Source  works.Source    `json:"source,omitempty"`
+	Code    string          `json:"code"`
+	Message string          `json:"message"`
 }
 
 // WorkResult contains a work's import outcome and channel failures.
 type WorkResult struct {
-	WorkCode works.WorkCode
-	Outcome  works.ImportOutcome
-	Issues   []Issue
+	MainChecked   bool                `json:"-"`
+	BackupChecked bool                `json:"-"`
+	WorkCode      works.WorkCode      `json:"rj"`
+	MainURL       string              `json:"main_url,omitempty"`
+	BackupURL     string              `json:"backup_url,omitempty"`
+	Outcome       works.ImportOutcome `json:"outcome"`
+	Issues        []Issue             `json:"issues"`
 }
 
 // Result is ordered by canonical work number, including partial results on cancellation.

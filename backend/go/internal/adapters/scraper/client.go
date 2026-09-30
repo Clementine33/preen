@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/onsei/organizer/backend/internal/metadata"
 	"github.com/onsei/organizer/backend/internal/works"
 )
 
@@ -59,24 +60,33 @@ func requestCode(id works.WorkCode) string {
 }
 
 // FetchStatic reads only this work's basic description and edition report.
-func (c *Client) FetchStatic(ctx context.Context, id works.WorkCode, locale string) (works.ImportRequest, error) {
+func (c *Client) FetchStatic(ctx context.Context, id works.WorkCode, locale string) (metadata.Snapshot, error) {
 	var items []record
 	query := url.Values{"workno": {requestCode(id)}, "locale": {locale}}
 	if err := c.get(ctx, "https://www.dlsite.com/maniax/api/=/product.json?"+query.Encode(), &items); err != nil {
-		return works.ImportRequest{}, err
+		return metadata.Snapshot{}, err
 	}
 	if len(items) != 1 {
-		return works.ImportRequest{}, fmt.Errorf("static work is unavailable")
+		return metadata.Snapshot{}, fmt.Errorf("static work is unavailable")
 	}
 	actual := scalar[string](items[0], "workno")
 	if actual == nil {
-		return works.ImportRequest{}, fmt.Errorf("static response has no work number")
+		return metadata.Snapshot{}, fmt.Errorf("static response has no work number")
 	}
 	code, ok := works.ParseWorkCode(*actual)
 	if !ok || code != id {
-		return works.ImportRequest{}, fmt.Errorf("static response belongs to another work")
+		return metadata.Snapshot{}, fmt.Errorf("static response belongs to another work")
 	}
-	return validSnapshot(id, dlsiteSnapshot(items[0], time.Now().UTC().Format(works.TimestampFormat))), nil
+	var image record
+	_ = json.Unmarshal(items[0]["image_main"], &image)
+	main := ""
+	if value := cleanURL(scalar[string](image, "url")); value != nil {
+		main = *value
+	}
+	return metadata.Snapshot{
+		ImportRequest: validSnapshot(id, dlsiteSnapshot(items[0], time.Now().UTC().Format(works.TimestampFormat))),
+		MainURL:       main,
+	}, nil
 }
 
 // FetchDynamic reads a stable batch; missing keys remain absent from the result.
@@ -153,7 +163,7 @@ func decodeDynamic(
 }
 
 // FetchASMR is implemented separately from DLsite's independent channels.
-func (c *Client) FetchASMR(ctx context.Context, id works.WorkCode, locale string) (works.ImportRequest, error) {
+func (c *Client) FetchASMR(ctx context.Context, id works.WorkCode, locale string) (metadata.Snapshot, error) {
 	var data record
 	if err := c.get(
 		ctx,
@@ -165,15 +175,22 @@ func (c *Client) FetchASMR(ctx context.Context, id works.WorkCode, locale string
 		}.Encode(),
 		&data,
 	); err != nil {
-		return works.ImportRequest{}, err
+		return metadata.Snapshot{}, err
 	}
 	raw := scalar[string](data, "source_id")
 	if raw == nil {
-		return works.ImportRequest{}, fmt.Errorf("backup response has no work number")
+		return metadata.Snapshot{}, fmt.Errorf("backup response has no work number")
 	}
 	actual, ok := works.ParseWorkCode(*raw)
 	if !ok || actual != id {
-		return works.ImportRequest{}, fmt.Errorf("backup response belongs to another work")
+		return metadata.Snapshot{}, fmt.Errorf("backup response belongs to another work")
 	}
-	return validSnapshot(id, asmrSnapshot(data, time.Now().UTC().Format(works.TimestampFormat))), nil
+	main := ""
+	if value := cleanURL(scalar[string](data, "mainCoverUrl")); value != nil {
+		main = *value
+	}
+	return metadata.Snapshot{
+		ImportRequest: validSnapshot(id, asmrSnapshot(data, time.Now().UTC().Format(works.TimestampFormat))),
+		MainURL:       main,
+	}, nil
 }

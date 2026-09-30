@@ -12,9 +12,10 @@ func (s *Service) refreshWork(
 	req Request,
 	item *WorkResult,
 	want map[works.DataGroup]bool,
+	storedSource works.Source,
 	dynamic works.ImportRequest,
 	failure error,
-) {
+) error {
 	data := works.ImportRequest{}
 	if want[works.GroupCore] || want[works.GroupEditions] {
 		snapshot, err := s.dlsite.FetchStatic(ctx, item.WorkCode, req.Locale)
@@ -24,11 +25,13 @@ func (s *Service) refreshWork(
 				Issue{Source: works.SourceDLsite, Code: "STATIC_FAILED", Message: err.Error()},
 			)
 		} else {
-			data = snapshot
+			item.MainChecked = true
+			data = snapshot.ImportRequest
+			item.MainURL = snapshot.MainURL
 		}
 	}
 	if ctx.Err() != nil {
-		return
+		return nil
 	}
 	data.Statistics = dynamic.Statistics
 	if dynamic.Relations != nil {
@@ -40,9 +43,25 @@ func (s *Service) refreshWork(
 			Issue{Source: works.SourceDLsite, Code: "DYNAMIC_FAILED", Message: failure.Error()},
 		)
 	}
+	if data.Core != nil && data.Core.CoverURL != nil {
+		item.MainURL = *data.Core.CoverURL
+	}
 	data = s.supplyMissing(ctx, req, item, data, want)
+	if item.MainURL == "" && !want[works.GroupCore] {
+		saved, e := s.catalog.Detail(item.WorkCode)
+		if e != nil && e.Kind == works.KindInternal {
+			return e
+		}
+		if e == nil && saved.CoverURL != nil {
+			if storedSource == works.SourceDLsite {
+				item.MainURL = *saved.CoverURL
+			} else if item.BackupURL == "" {
+				item.BackupURL = *saved.CoverURL
+			}
+		}
+	}
 	if ctx.Err() != nil {
-		return
+		return nil
 	}
 	missing := missingGroups(data, want)
 	groups := make([]works.DataGroup, 0, len(missing))
@@ -58,13 +77,17 @@ func (s *Service) refreshWork(
 	}
 	data = retain(data, want)
 	if len(availableGroups(data)) == 0 {
-		return
+		return nil
 	}
 	outcome, err := s.catalog.Import(item.WorkCode, data)
 	item.Outcome = outcome
 	if err != nil {
 		item.Issues = append(item.Issues, Issue{Code: err.Code, Message: err.Message})
+		if err.Kind == works.KindInternal {
+			return err
+		}
 	}
+	return nil
 }
 
 func (s *Service) supplyMissing(
@@ -86,6 +109,8 @@ func (s *Service) supplyMissing(
 		)
 		return data
 	}
+	item.BackupChecked = true
+	item.BackupURL = fallback.MainURL
 	if missing[works.GroupCore] {
 		data.Core = fallback.Core
 	}

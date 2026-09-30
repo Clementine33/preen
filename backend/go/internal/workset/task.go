@@ -170,6 +170,7 @@ type PlannedUnit struct {
 // PlanSnapshot is what one planning pass freezes into a revision: generic
 // input facts plus the task's opaque payloads.
 type PlanSnapshot struct {
+	StepType             string
 	RootPath             string
 	Payload              json.RawMessage // plan-level payload (persisted as the step policy JSON)
 	PayloadHash          string
@@ -244,15 +245,17 @@ type UnitRunInput struct {
 
 // UnitResult is one unit run's observed facts.
 type UnitResult struct {
-	Canceled       bool
-	Stage          string
-	ErrorCode      string
-	ErrorMessage   string
-	Committed      []string
-	Removed        []string
-	Remaining      []string
-	Recovery       []string
-	InventoryError string
+	TaskResult          json.RawMessage
+	CompletedOperations *int
+	Canceled            bool
+	Stage               string
+	ErrorCode           string
+	ErrorMessage        string
+	Committed           []string
+	Removed             []string
+	Remaining           []string
+	Recovery            []string
+	InventoryError      string
 	// InventoryRemoved are entry paths whose rows the generic side drops, and
 	// InventoryRefreshed the on-disk facts it re-reads into the inventory.
 	InventoryRemoved   []string

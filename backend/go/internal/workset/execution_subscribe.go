@@ -49,10 +49,8 @@ func (s *serviceImpl) SubscribeExecution(
 		return emitExecutionTerminal(emit, e)
 	}
 
-	// The frozen worklist never changes, and the snapshot carried every result
-	// recorded so far. Commits are strictly ascending in component index, so
-	// resuming after the last recorded one cannot skip a result; results written
-	// out of that order belong to teardown, which the terminal event follows.
+	// The frozen worklist never changes. Audio commits advance a cursor; batch
+	// results can arrive in any order, so those streams track delivered indices.
 	req, err := parseExecutionRequest(e.RequestJSON)
 	if err != nil {
 		return NewError(ErrKindInternal, "REQUEST_LOAD_FAILED", "failed to load the frozen request", err)
@@ -62,13 +60,18 @@ func (s *serviceImpl) SubscribeExecution(
 	for i := range identity {
 		at[identity[i].ComponentIndex] = i
 	}
-	recorded, err := s.repo.ListExecutionComponentResults(executionID, 0, 0)
-	if err != nil {
-		return NewError(ErrKindInternal, "INTERNAL", "failed to load the component results", err)
-	}
+	_, unordered := s.batchExecutors[operationType]
+	seen := make(map[int]bool, len(snapshot.Components))
 	cursor := 0
-	for _, res := range recorded {
-		cursor = max(cursor, res.ComponentIndex+1)
+	// Seed from what the client actually saw, not a later database read.
+	for _, entry := range snapshot.Components {
+		if entry.Status == ExecComponentPending {
+			continue
+		}
+		seen[entry.ComponentIndex] = true
+		if !unordered {
+			cursor = max(cursor, entry.ComponentIndex+1)
+		}
 	}
 
 	ticker := time.NewTicker(1 * time.Second)
@@ -92,6 +95,9 @@ func (s *serviceImpl) SubscribeExecution(
 			return nil // disconnect fallback, as above
 		}
 		for _, res := range results {
+			if unordered && seen[res.ComponentIndex] {
+				continue
+			}
 			idx, ok := at[res.ComponentIndex]
 			if !ok {
 				continue // a result that belongs to no frozen component
@@ -101,7 +107,10 @@ func (s *serviceImpl) SubscribeExecution(
 			if emitErr := emit(ExecutionEventComponent, entry); emitErr != nil {
 				return emitErr
 			}
-			cursor = res.ComponentIndex + 1
+			seen[res.ComponentIndex] = true
+			if !unordered {
+				cursor = res.ComponentIndex + 1
+			}
 		}
 		if executionTerminal(cur.Status) {
 			return emitExecutionTerminal(emit, cur)

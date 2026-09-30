@@ -143,6 +143,25 @@ func (s *Server) getWork(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, toWorkDetail(detail))
 }
 
+// getWorkContent answers one work's file manifest (ADR 0016 §2). The response
+// is the works.Content itself: its types carry the manifest's JSON contract.
+func (s *Server) getWorkContent(w http.ResponseWriter, r *http.Request) {
+	service, ok := s.catalog(w)
+	if !ok {
+		return
+	}
+	code, ok := s.workPath(w, r)
+	if !ok {
+		return
+	}
+	content, refusal := service.Content(code)
+	if refusal != nil {
+		writeWorksError(w, refusal)
+		return
+	}
+	writeJSON(w, http.StatusOK, content)
+}
+
 // ==================== metadata import ====================
 
 // appliedGroupResponse is one group that was written.

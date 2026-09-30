@@ -80,6 +80,9 @@ func NewServer(deps Dependencies) http.Handler {
 	// binding route here.
 	mux.Handle("GET /api/v1/works", protect(http.HandlerFunc(s.listWorks)))
 	mux.Handle("GET /api/v1/works/{rj}", protect(http.HandlerFunc(s.getWork)))
+	// The file manifest of one work: every bound copy's tree as the detail
+	// page's deck, bay and leaf read it (ADR 0016 §2).
+	mux.Handle("GET /api/v1/works/{rj}/content", protect(http.HandlerFunc(s.getWorkContent)))
 	mux.Handle("PUT /api/v1/works/{rj}/metadata", protect(http.HandlerFunc(s.putWorkMetadata)))
 	mux.Handle("PATCH /api/v1/works/{rj}/user-data", protect(http.HandlerFunc(s.patchWorkUserData)))
 	mux.Handle("PUT /api/v1/works/{rj}/user-tags", protect(http.HandlerFunc(s.putWorkUserTags)))

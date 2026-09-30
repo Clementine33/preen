@@ -187,7 +187,7 @@ func buildServices(repo *sqlite.Repository, configDir string, generationConcurre
 		fileOps: fileops.NewService(gate, scanSvc.RefreshMember),
 		workset: worksetSvc,
 		catalog: conversion.NewCatalog(repo, repo, appconfig.NewReader(configDir)),
-		works:   works.NewService(repo),
+		works:   works.NewService(repo, repo, fileops.ResolveMember),
 	}
 }
 

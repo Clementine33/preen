@@ -2,6 +2,7 @@ package sqlite
 
 import (
 	"database/sql"
+	"errors"
 	"strings"
 	"time"
 
@@ -9,6 +10,41 @@ import (
 
 	"github.com/onsei/organizer/backend/internal/works"
 )
+
+// WorkCopyRoots reads the copies of one work joined to their library roots
+// (ADR 0016 §2). The existence check is the work row itself: a placeholder
+// work — reachable in the catalog, never on disk — is found with no copies.
+func (r *Repository) WorkCopyRoots(id works.WorkCode) ([]works.CopyRoot, bool, error) {
+	var one int
+	switch err := r.db.QueryRow("SELECT 1 FROM works WHERE id = ?", string(id)).Scan(&one); {
+	case errors.Is(err, sql.ErrNoRows):
+		return nil, false, nil
+	case err != nil:
+		return nil, false, err
+	}
+
+	rows, err := r.db.Query(`
+		SELECT wc.id, wc.library_id, wc.rel_path, l.root_path
+		FROM work_copies wc
+		JOIN libraries l ON l.id = wc.library_id
+		WHERE wc.work_id = ?
+		ORDER BY wc.rel_path
+	`, string(id))
+	if err != nil {
+		return nil, true, err
+	}
+	defer rows.Close()
+
+	var out []works.CopyRoot
+	for rows.Next() {
+		var root works.CopyRoot
+		if scanErr := rows.Scan(&root.CopyID, &root.LibraryID, &root.RelPath, &root.RootPath); scanErr != nil {
+			return nil, true, scanErr
+		}
+		out = append(out, root)
+	}
+	return out, true, rows.Err()
+}
 
 // exampleDirLimit caps the sample of unclear directory names a scan reports.
 const exampleDirLimit = 20

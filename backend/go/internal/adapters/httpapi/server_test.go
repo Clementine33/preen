@@ -50,6 +50,7 @@ func wireInventory(d *Dependencies, fixture *sqlite.Repository, gate *admission.
 			sqlite.NewScanStaging(fixture),
 			filesystem.WalkRootEntriesParallel,
 			filesystem.WalkFolderEntries,
+			nil,
 		),
 		fixture,
 		gate,

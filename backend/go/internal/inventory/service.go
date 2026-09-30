@@ -137,11 +137,17 @@ type MergeOutcome struct {
 // library's directory bindings, and the reconciliation has to happen inside the
 // same transaction as the merge. An empty library means the merge is a member
 // refresh, which leaves every binding alone.
+//
+// The media-fact pair brackets the enrichment pass that runs after the merge
+// (enrich.go): it names what a scan touched with unknown media facts, and
+// writes the measured ones back.
 type StagingStore interface {
 	WriteStagingEntries(sessionID string, entries []StagingEntry) error
 	MergeStaging(sessionID, libraryID, rootPath string) (MergeOutcome, error)
 	CreateScanSession(session *ScanSession) error
 	UpdateScanSessionStatus(sessionID, status, errorCode, errorMessage string) error
+	EntriesMissingMediaFacts(scanID string) ([]MediaCandidate, error)
+	UpdateEntryMediaFacts(updates []MediaFactsUpdate) error
 }
 
 // StagingEntry represents an entry to be written to staging.
@@ -195,22 +201,25 @@ func detectFormatFromPath(path string, isDir bool) string {
 // Pipeline runs one scan: it walks a root (or one member directory) through
 // the injected traversal, stages every observed entry through the store, and
 // merges the staged rows into the inventory. The traversal is a port so this
-// pipeline never reads the filesystem itself.
+// pipeline never reads the filesystem itself; the prober is the port its
+// post-merge enrichment measures media facts through, nil when unwired.
 type Pipeline struct {
 	repo            StagingStore
 	walkRoot        WalkRoot
 	walkMember      WalkMember
+	prober          MediaProber
 	rootConcurrency int
 }
 
 // NewPipeline creates a scan pipeline. walkRoot is the full-root traversal and
 // walkMember the single-directory one; both are wired from the filesystem
-// adapter.
-func NewPipeline(repo StagingStore, walkRoot WalkRoot, walkMember WalkMember) *Pipeline {
+// adapter. prober measures the media facts of the merged entries.
+func NewPipeline(repo StagingStore, walkRoot WalkRoot, walkMember WalkMember, prober MediaProber) *Pipeline {
 	return &Pipeline{
 		repo:            repo,
 		walkRoot:        walkRoot,
 		walkMember:      walkMember,
+		prober:          prober,
 		rootConcurrency: defaultRootConcurrency,
 	}
 }
@@ -403,6 +412,11 @@ func (s *Pipeline) ScanRootCtx(ctx context.Context, rootPath string, opts ...Sca
 			_ = s.repo.UpdateScanSessionStatus(sessionID, "failed", "MERGE_FAILED", err.Error())
 			return "", fmt.Errorf("merge staging: %w", err)
 		}
+
+		// The merged entries' unknown media facts are measured while the scan
+		// still holds its admission slot, so a completed scan has answered
+		// everything it could (enrich.go).
+		s.enrichMediaFacts(ctx, sessionID)
 
 		// The classifications are only known once the bindings have been
 		// reconciled, so they travel in a report of their own rather than in the
@@ -602,6 +616,7 @@ func (s *Pipeline) ScanFolderCtx(
 			_ = s.repo.UpdateScanSessionStatus(sessionID, "failed", "MERGE_FAILED", err.Error())
 			return "", err
 		}
+		s.enrichMediaFacts(ctx, sessionID)
 
 		if err := s.repo.UpdateScanSessionStatus(sessionID, "completed", "", ""); err != nil {
 			return "", err

@@ -1,5 +1,7 @@
 package inventory
 
+import "context"
+
 // ObservedAudio is one observed audio file as the inventory stores it, with the
 // generation credential recorded beside it when a generation wrote that path.
 // It is deliberately the storage shape: the SQL, its null handling and its
@@ -31,4 +33,33 @@ type GeneratedCredential struct {
 type BitrateUpdate struct {
 	Path        string
 	BitrateKbps int64
+}
+
+// MediaCandidate is one entry of a finished scan whose media facts are still
+// unknown: an image without recorded dimensions or an audio file without a
+// recorded duration (ADR 0015 §2).
+type MediaCandidate struct {
+	Path   string
+	Format string
+}
+
+// MediaFactsUpdate is one measured media fact to write back onto an entry. A
+// zero field stores NULL: an image never carries a duration and an audio file
+// never carries dimensions, so one write shape covers both.
+type MediaFactsUpdate struct {
+	Path        string
+	Width       int
+	Height      int
+	DurationSec float64
+}
+
+// MediaProber measures the scan-time media facts recorded beside an entry.
+// Both probes are best-effort at the call site: a file that cannot be measured
+// keeps NULL facts and never fails the scan it belongs to.
+type MediaProber interface {
+	// ImageDimensions reads only the image header, never the pixels.
+	ImageDimensions(pathPosix string) (width, height int, err error)
+	// AudioDurationSec probes the duration with ffprobe, the same tool the
+	// bitrate pass uses.
+	AudioDurationSec(ctx context.Context, pathPosix string) (sec float64, err error)
 }

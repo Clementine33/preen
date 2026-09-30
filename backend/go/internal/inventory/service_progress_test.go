@@ -30,7 +30,7 @@ func TestScanRootCtxEmitsProgressAndCounts(t *testing.T) {
 	}
 
 	store := &fakeStagingStore{MergeOutcome: inventory.MergeOutcome{Merged: n}}
-	svc := inventory.NewPipeline(store, filesystem.WalkRootEntriesParallel, filesystem.WalkFolderEntries)
+	svc := inventory.NewPipeline(store, filesystem.WalkRootEntriesParallel, filesystem.WalkFolderEntries, nil)
 
 	var progress []inventory.Progress
 	scanID, err := svc.ScanRootCtx(context.Background(), tmp, inventory.WithProgress(func(p inventory.Progress) {
@@ -81,7 +81,7 @@ func TestScanRootCtxCancellationCleansStagingAndSkipsTheMerge(t *testing.T) {
 	// A session of this size walks several batches, so cancellation lands
 	// mid-pipeline rather than after everything was staged.
 	store := &fakeStagingStore{WriteBatch: 1000}
-	svc := inventory.NewPipeline(store, filesystem.WalkRootEntriesParallel, filesystem.WalkFolderEntries)
+	svc := inventory.NewPipeline(store, filesystem.WalkRootEntriesParallel, filesystem.WalkFolderEntries, nil)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

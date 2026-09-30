@@ -34,6 +34,7 @@ func TestTheInternalRefreshIsNotRefusedByTheSlotItHolds(t *testing.T) {
 			sqlite.NewScanStaging(repo),
 			filesystem.WalkRootEntriesParallel,
 			filesystem.WalkFolderEntries,
+			nil,
 		),
 		repo,
 		gate,

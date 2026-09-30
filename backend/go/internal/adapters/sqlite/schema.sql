@@ -11,6 +11,11 @@ CREATE TABLE entries (
     scan_id TEXT NOT NULL DEFAULT '',
     content_rev INTEGER NOT NULL DEFAULT 1,
     bitrate INTEGER,
+    -- Scan-time media facts (ADR 0015 §2, ADR 0016 §5): image pixel size and
+    -- audio duration in seconds, NULL while unmeasured.
+    width INTEGER,
+    height INTEGER,
+    duration_sec REAL,
     dirty_flag INTEGER NOT NULL DEFAULT 0,
     is_error INTEGER NOT NULL DEFAULT 0,
     error_reason TEXT,

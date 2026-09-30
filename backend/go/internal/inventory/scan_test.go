@@ -59,6 +59,20 @@ type fakeStagingStore struct {
 	// pipeline's failure paths are exercised.
 	failStagingError   error
 	writeStagingCalled bool
+	// MediaCandidates is what EntriesMissingMediaFacts answers; a nil prober
+	// (every pipeline test) skips the pass before asking, so only the
+	// enrichment tests set it. FactsWritten records what went back.
+	MediaCandidates []inventory.MediaCandidate
+	FactsWritten    []inventory.MediaFactsUpdate
+}
+
+func (m *fakeStagingStore) EntriesMissingMediaFacts(scanID string) ([]inventory.MediaCandidate, error) {
+	return m.MediaCandidates, nil
+}
+
+func (m *fakeStagingStore) UpdateEntryMediaFacts(updates []inventory.MediaFactsUpdate) error {
+	m.FactsWritten = append(m.FactsWritten, updates...)
+	return nil
 }
 
 func (m *fakeStagingStore) WriteStagingEntries(sessionID string, entries []inventory.StagingEntry) error {
@@ -138,7 +152,7 @@ func TestScannerService_ScanRoot_CreatesSessionAndMerges(t *testing.T) {
 		MergeOutcome: inventory.MergeOutcome{Merged: 2},
 	}
 
-	svc := inventory.NewPipeline(mock, filesystem.WalkRootEntriesParallel, filesystem.WalkFolderEntries)
+	svc := inventory.NewPipeline(mock, filesystem.WalkRootEntriesParallel, filesystem.WalkFolderEntries, nil)
 
 	sessionID, err := svc.ScanRoot(tmp)
 	if err != nil {
@@ -190,7 +204,7 @@ func TestScannerService_ScanRoot_WithoutRepo(t *testing.T) {
 	mustMkdirAll(t, filepath.Join(tmp, "album"), 0755)
 	mustWriteFile(t, filepath.Join(tmp, "album", "song.wav"), []byte("dummy"), 0644)
 
-	svc := inventory.NewPipeline(nil, filesystem.WalkRootEntriesParallel, filesystem.WalkFolderEntries)
+	svc := inventory.NewPipeline(nil, filesystem.WalkRootEntriesParallel, filesystem.WalkFolderEntries, nil)
 
 	sessionID, err := svc.ScanRoot(tmp)
 	if err != nil {
@@ -246,7 +260,7 @@ func TestScanRootStagingWriteFailureIsNotReportedAsCancellation(t *testing.T) {
 
 	injected := errors.New("simulated staging write failure")
 	mock := &failingBatchRepo{fakeStagingStore: &fakeStagingStore{}, batchErr: injected}
-	svc := inventory.NewPipeline(mock, filesystem.WalkRootEntriesParallel, filesystem.WalkFolderEntries)
+	svc := inventory.NewPipeline(mock, filesystem.WalkRootEntriesParallel, filesystem.WalkFolderEntries, nil)
 
 	_, err := svc.ScanRoot(tmp)
 	if err == nil {
@@ -287,7 +301,7 @@ func TestScanFolderStagingWriteFailureIsNotReportedAsCancellation(t *testing.T) 
 
 	injected := errors.New("simulated folder staging write failure")
 	mock := &failingBatchRepo{fakeStagingStore: &fakeStagingStore{}, batchErr: injected}
-	svc := inventory.NewPipeline(mock, filesystem.WalkRootEntriesParallel, filesystem.WalkFolderEntries)
+	svc := inventory.NewPipeline(mock, filesystem.WalkRootEntriesParallel, filesystem.WalkFolderEntries, nil)
 
 	_, err := svc.ScanFolder(album, tmp)
 	if err == nil {
@@ -312,7 +326,7 @@ func TestScannerService_ScanRoot_UpdatesSessionOnFailure(t *testing.T) {
 		CreateErr: os.ErrInvalid,
 	}
 
-	svc := inventory.NewPipeline(mock, filesystem.WalkRootEntriesParallel, filesystem.WalkFolderEntries)
+	svc := inventory.NewPipeline(mock, filesystem.WalkRootEntriesParallel, filesystem.WalkFolderEntries, nil)
 
 	_, err := svc.ScanRoot(tmp)
 	if err == nil {
@@ -330,7 +344,7 @@ func TestScannerService_ScanFolder_ScopedToSingleFolder(t *testing.T) {
 		MergeOutcome: inventory.MergeOutcome{Merged: 1},
 	}
 
-	svc := inventory.NewPipeline(mock, filesystem.WalkRootEntriesParallel, filesystem.WalkFolderEntries)
+	svc := inventory.NewPipeline(mock, filesystem.WalkRootEntriesParallel, filesystem.WalkFolderEntries, nil)
 
 	sessionID, err := svc.ScanFolder(album, tmp)
 	if err != nil {
@@ -371,7 +385,7 @@ func TestScannerService_ScanFolder_DoesNotPassScannedPathsForStaleCleanup(t *tes
 		MergeError:   nil,
 	}
 
-	svc := inventory.NewPipeline(mock, filesystem.WalkRootEntriesParallel, filesystem.WalkFolderEntries)
+	svc := inventory.NewPipeline(mock, filesystem.WalkRootEntriesParallel, filesystem.WalkFolderEntries, nil)
 
 	_, err := svc.ScanFolder(album, tmp)
 	if err != nil {
@@ -396,7 +410,7 @@ func TestScanRoot_UsesRootPath(t *testing.T) {
 	mustWriteFile(t, filepath.Join(subDir, "song.wav"), []byte("dummy"), 0644)
 
 	mock := &fakeStagingStore{MergeOutcome: inventory.MergeOutcome{Merged: 1}}
-	svc := inventory.NewPipeline(mock, filesystem.WalkRootEntriesParallel, filesystem.WalkFolderEntries)
+	svc := inventory.NewPipeline(mock, filesystem.WalkRootEntriesParallel, filesystem.WalkFolderEntries, nil)
 
 	_, err := svc.ScanRoot(tmp)
 	if err != nil {
@@ -430,7 +444,7 @@ func TestScanFolder_UsesFolderPath(t *testing.T) {
 	mustWriteFile(t, filepath.Join(album, "song.wav"), []byte("dummy"), 0644)
 
 	mock := &fakeStagingStore{MergeOutcome: inventory.MergeOutcome{Merged: 1}}
-	svc := inventory.NewPipeline(mock, filesystem.WalkRootEntriesParallel, filesystem.WalkFolderEntries)
+	svc := inventory.NewPipeline(mock, filesystem.WalkRootEntriesParallel, filesystem.WalkFolderEntries, nil)
 
 	_, err := svc.ScanFolder(album, tmp)
 	if err != nil {
@@ -466,7 +480,7 @@ func TestPipeline_WalkAndWriterConcurrent(t *testing.T) {
 	mustWriteFile(t, filepath.Join(tmp, "album", "song2.wav"), []byte("dummy2"), 0644)
 
 	mock := &fakeStagingStore{MergeOutcome: inventory.MergeOutcome{Merged: 2}}
-	svc := inventory.NewPipeline(mock, filesystem.WalkRootEntriesParallel, filesystem.WalkFolderEntries)
+	svc := inventory.NewPipeline(mock, filesystem.WalkRootEntriesParallel, filesystem.WalkFolderEntries, nil)
 
 	_, err := svc.ScanRoot(tmp)
 	if err != nil {
@@ -499,7 +513,7 @@ func TestPipeline_FailureNoMerge(t *testing.T) {
 	}
 	repo.MergeOutcome = inventory.MergeOutcome{Merged: 42}
 
-	svc := inventory.NewPipeline(repo, filesystem.WalkRootEntriesParallel, filesystem.WalkFolderEntries)
+	svc := inventory.NewPipeline(repo, filesystem.WalkRootEntriesParallel, filesystem.WalkFolderEntries, nil)
 
 	_, err := svc.ScanRoot(tmp)
 	if err == nil {
@@ -534,7 +548,7 @@ func TestPipeline_CleanupOnFailure(t *testing.T) {
 		failStagingError: errors.New("simulated staging failure"),
 	}
 
-	svc := inventory.NewPipeline(repo, filesystem.WalkRootEntriesParallel, filesystem.WalkFolderEntries)
+	svc := inventory.NewPipeline(repo, filesystem.WalkRootEntriesParallel, filesystem.WalkFolderEntries, nil)
 	_, err := svc.ScanRoot(tmp)
 	if err == nil {
 		t.Fatal("expected error from ScanRoot")
@@ -555,7 +569,7 @@ func TestScanFolder_SingleEnumerator(t *testing.T) {
 	mustWriteFile(t, filepath.Join(album, "song.wav"), []byte("dummy"), 0644)
 
 	mock := &fakeStagingStore{MergeOutcome: inventory.MergeOutcome{Merged: 1}}
-	svc := inventory.NewPipeline(mock, filesystem.WalkRootEntriesParallel, filesystem.WalkFolderEntries)
+	svc := inventory.NewPipeline(mock, filesystem.WalkRootEntriesParallel, filesystem.WalkFolderEntries, nil)
 
 	sessionID, err := svc.ScanFolder(album, tmp)
 	if err != nil {
@@ -595,7 +609,7 @@ func TestScanFolder_InlineMetadataAndPipeline(t *testing.T) {
 	mustWriteFile(t, filepath.Join(album, "song2.wav"), []byte("dummy2"), 0644)
 
 	mock := &fakeStagingStore{MergeOutcome: inventory.MergeOutcome{Merged: 2}}
-	svc := inventory.NewPipeline(mock, filesystem.WalkRootEntriesParallel, filesystem.WalkFolderEntries)
+	svc := inventory.NewPipeline(mock, filesystem.WalkRootEntriesParallel, filesystem.WalkFolderEntries, nil)
 
 	_, err := svc.ScanFolder(album, tmp)
 	if err != nil {

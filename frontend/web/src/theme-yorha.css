@@ -42,6 +42,10 @@
   --font-mono: 'IBM Plex Mono', 'JetBrains Mono', ui-monospace, monospace;
   --font-ui: 'Noto Sans SC', 'BIZ UDPGothic', 'PingFang SC', 'Microsoft YaHei', sans-serif;
   --font-mincho: 'Shippori Mincho', 'Noto Serif JP', 'Noto Serif SC', serif;
+  /* The Japanese face for the work detail page's lang="ja" spans (v3's
+     --sans-ja: the reading script's vertical setting above all). Scoped there
+     on purpose: the UI stack stays CN-first (ADR 0012 §3, unchanged). */
+  --font-ja: 'Noto Sans JP', 'BIZ UDPGothic', sans-serif;
 
   /* ── Light palette ── */
   --bg-canvas: #f6f5f0;

@@ -6,20 +6,34 @@ import "time"
 // pure functions of this package; the service composes them with storage.
 type Service struct {
 	store Store
-	// entries and resolveMember are the content manifest's disk-and-inventory
-	// side (content.go): the stored entries under one member directory, and
-	// whether a member root is currently on disk.
-	entries       ContentEntries
-	resolveMember ResolveMember
+	// entries, resolveMember and resolveMemberFile are the content
+	// manifest's disk-and-inventory side (content.go): the stored entries,
+	// whether a member root is currently on disk, and the containment-checked
+	// resolution of one manifest file.
+	entries           ContentEntries
+	resolveMember     ResolveMember
+	resolveMemberFile ResolveMemberFile
 	// now is the clock, injectable so a test can pin the timestamps a write
 	// records.
 	now func() time.Time
 }
 
 // NewService creates the catalog entry. entries serves the content manifest;
-// resolveMember decides a copy's online flag.
-func NewService(store Store, entries ContentEntries, resolveMember ResolveMember) *Service {
-	return &Service{store: store, entries: entries, resolveMember: resolveMember, now: time.Now}
+// resolveMember decides a copy's online flag; resolveMemberFile resolves one
+// manifest path for byte serving (ADR 0016 §3).
+func NewService(
+	store Store,
+	entries ContentEntries,
+	resolveMember ResolveMember,
+	resolveMemberFile ResolveMemberFile,
+) *Service {
+	return &Service{
+		store:             store,
+		entries:           entries,
+		resolveMember:     resolveMember,
+		resolveMemberFile: resolveMemberFile,
+		now:               time.Now,
+	}
 }
 
 // List returns one page of the ordinary listing. It validates the filter,

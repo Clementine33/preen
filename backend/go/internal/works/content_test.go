@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/onsei/organizer/backend/internal/fileops"
 	"github.com/onsei/organizer/backend/internal/inventory"
 	"github.com/onsei/organizer/backend/internal/works"
 )
@@ -148,6 +149,15 @@ func (f *fakeEntries) ListEntriesUnderPath(_ string) ([]inventory.Entry, error) 
 	return f.entries, nil
 }
 
+func (f *fakeEntries) EntryByPath(path string) (inventory.Entry, bool, error) {
+	for _, entry := range f.entries {
+		if entry.Path == path && !entry.IsDir {
+			return entry, true, nil
+		}
+	}
+	return inventory.Entry{}, false, nil
+}
+
 func TestContentManifest(t *testing.T) {
 	offline := errors.New("member gone")
 	service := works.NewService(
@@ -163,6 +173,9 @@ func TestContentManifest(t *testing.T) {
 				return "", offline
 			}
 			return rootPath + "/" + memberRel, nil
+		},
+		func(rootPath, memberRel, rel string) (string, error) {
+			return rootPath + "/" + memberRel + "/" + rel, nil
 		},
 	)
 
@@ -189,8 +202,73 @@ func TestContentManifest(t *testing.T) {
 		t.Fatal("expected a refusal for an unknown work")
 	}
 	placeholder := works.NewService(&contentStore{found: true}, &fakeEntries{},
-		func(string, string) (string, error) { return "", nil })
+		func(string, string) (string, error) { return "", nil },
+		func(string, string, string) (string, error) { return "", nil })
 	if content, refusal = placeholder.Content("RJ01000001"); refusal != nil || len(content.Copies) != 0 {
 		t.Fatalf("placeholder answers empty copies, got %+v refusal %v", content, refusal)
+	}
+}
+
+func TestContentFileLocatesManifestPaths(t *testing.T) {
+	const rj = works.WorkCode("RJ01000001")
+	roots := []works.CopyRoot{
+		{CopyID: "c-1", LibraryID: "lib-1", RelPath: "RJ01000001", RootPath: "/lib"},
+	}
+	newService := func(entries *fakeEntries) *works.Service {
+		return works.NewService(
+			&contentStore{roots: roots, found: true},
+			entries,
+			func(rootPath, memberRel string) (string, error) {
+				return rootPath + "/" + memberRel, nil
+			},
+			func(rootPath, memberRel, rel string) (string, error) {
+				return rootPath + "/" + memberRel + "/" + rel, nil
+			},
+		)
+	}
+
+	// The manifest holds the cover; the file resolves and carries its facts.
+	service := newService(&fakeEntries{entries: []inventory.Entry{
+		{Path: "/lib/RJ01000001/表紙/cover_main.jpg", Name: "cover_main.jpg",
+			Format: "image/jpeg", Size: 4096, Mtime: 1759000000, ContentRev: 3},
+	}})
+	loc, refusal := service.ContentFile(rj, "c-1", "表紙/cover_main.jpg")
+	if refusal != nil {
+		t.Fatalf("refusal: %v", refusal)
+	}
+	if loc.AbsPath != "/lib/RJ01000001/表紙/cover_main.jpg" || loc.Kind != works.KindImage {
+		t.Errorf("location wrong: %+v", loc)
+	}
+	if loc.Size != 4096 || loc.Mtime != 1759000000 || loc.ContentRev != 3 {
+		t.Errorf("etag facts wrong: %+v", loc)
+	}
+
+	// A path the inventory does not hold is not served, whatever the disk has.
+	if _, refusal = service.ContentFile(rj, "c-1", "not-in-manifest.bin"); refusal == nil ||
+		refusal.Code != works.CodeWorkNotFound {
+		t.Fatalf("unlisted path must be refused, got %+v", refusal)
+	}
+	// Neither is another work's copy id, or an unknown work's.
+	if _, refusal = service.ContentFile(rj, "c-other", "表紙/cover_main.jpg"); refusal == nil {
+		t.Fatal("a foreign copy must be refused")
+	}
+	if _, refusal = service.ContentFile("RJ99999999", "c-1", "x"); refusal == nil {
+		t.Fatal("an unknown work must be refused")
+	}
+
+	// A containment refusal crosses as the catalog's own refusal.
+	rejecting := works.NewService(
+		&contentStore{roots: roots, found: true},
+		&fakeEntries{entries: []inventory.Entry{
+			{Path: "/lib/RJ01000001/escape", Name: "escape"},
+		}},
+		func(rootPath, memberRel string) (string, error) { return rootPath + "/" + memberRel, nil },
+		func(string, string, string) (string, error) {
+			return "", &fileops.PathError{Code: fileops.CodeSymlink, Message: "the path goes through a symbolic link"}
+		},
+	)
+	if _, refusal = rejecting.ContentFile(rj, "c-1", "escape"); refusal == nil ||
+		refusal.Kind != works.KindNotFound {
+		t.Fatalf("symlink must be refused as not-found, got %+v", refusal)
 	}
 }

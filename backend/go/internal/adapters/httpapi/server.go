@@ -83,6 +83,12 @@ func NewServer(deps Dependencies) http.Handler {
 	// The file manifest of one work: every bound copy's tree as the detail
 	// page's deck, bay and leaf read it (ADR 0016 §2).
 	mux.Handle("GET /api/v1/works/{rj}/content", protect(http.HandlerFunc(s.getWorkContent)))
+	// One manifest file's bytes: the copy, the member-relative path, and the
+	// HTTP semantics (range, revalidation, content typing) in ADR 0016 §3.
+	mux.Handle(
+		"GET /api/v1/works/{rj}/content/{copy}/{path...}",
+		protect(http.HandlerFunc(s.getWorkContentFile)),
+	)
 	mux.Handle("PUT /api/v1/works/{rj}/metadata", protect(http.HandlerFunc(s.putWorkMetadata)))
 	mux.Handle("PATCH /api/v1/works/{rj}/user-data", protect(http.HandlerFunc(s.patchWorkUserData)))
 	mux.Handle("PUT /api/v1/works/{rj}/user-tags", protect(http.HandlerFunc(s.putWorkUserTags)))

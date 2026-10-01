@@ -24,7 +24,13 @@ watch(
   async (rel) => {
     lines.value = []
     if (!rel || !store.rj || !store.activeCopy) return
-    const text = await api.getWorkText({ rj: store.rj, copyId: store.activeCopy.copy_id, relPath: rel })
+    let text: string
+    try {
+      text = await api.getWorkText({ rj: store.rj, copyId: store.activeCopy.copy_id, relPath: rel })
+    } catch {
+      // Gone since the scan, or unreachable: the leaf stays empty.
+      return
+    }
     // The pairing may have moved on while the text loaded.
     if (lrcRel.value !== rel) return
     lines.value = parseLrc(text)

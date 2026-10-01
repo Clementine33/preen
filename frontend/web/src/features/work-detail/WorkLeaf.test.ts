@@ -18,12 +18,12 @@ import { useWorkDetailStore } from '@/stores/work-detail'
 
 const RJ = 'RJ01000001'
 
-async function mountLeaf() {
+async function mountLeaf(overrides: Record<string, unknown> = {}) {
   const pinia = createPinia()
   setActivePinia(pinia)
   const store = useWorkDetailStore()
   store.bind(RJ, sampleWorkContent(RJ))
-  const api = apiStub({ getWork: vi.fn().mockResolvedValue(makeWorkDetail()) } as never)
+  const api = apiStub({ getWork: vi.fn().mockResolvedValue(makeWorkDetail()), ...overrides } as never)
   const wrapper = mount(WorkLeaf, {
     global: { plugins: [pinia, installTestQueryPlugin()], provide: { [apiClientKey as symbol]: api } },
   })
@@ -70,6 +70,17 @@ describe('WorkLeaf', () => {
     store.setLeaf('colophon')
     await flushPromises()
     expect(wrapper.findAll('.seg-b').some((button) => button.text().includes('READ'))).toBe(true)
+  })
+
+  it('leaves a leaf empty when its text cannot be loaded', async () => {
+    const { wrapper, store } = await mountLeaf({ getWorkText: vi.fn().mockRejectedValue(new Error('gone')) })
+    store.startTrack(1)
+    await flushPromises()
+    store.selectFile(findFile(store.copy!, '台本/台本_全編.txt'))
+    await flushPromises()
+    // The rejection is absorbed: the leaf opens, it just has no lines.
+    expect(store.leaf).toBe('script')
+    expect(wrapper.find('.gauge').exists()).toBe(true)
   })
 
   it('pairs a lyric by hand and switches the strip to PAIRED', async () => {

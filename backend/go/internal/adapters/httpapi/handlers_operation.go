@@ -95,6 +95,40 @@ func toDraftPayload(req draftDocumentRequest) json.RawMessage {
 	return raw
 }
 
+// decodeDraftBody splits a draft PUT body into the task payload and the
+// apply_common_settings transport flag. Conversion keeps its typed shape;
+// every other task owns its payload (ADR 0004), so the body passes through
+// and that task's own strict decode validates it.
+func decodeDraftBody(w http.ResponseWriter, r *http.Request) (json.RawMessage, bool, bool) {
+	if r.PathValue("type") == workset.OperationTypeConversion {
+		var req draftDocumentRequest
+		if err := decodeJSON(w, r, &req); err != nil {
+			writeDecodeError(w, err, "invalid draft payload")
+			return nil, false, false
+		}
+		return toDraftPayload(req), req.ApplyCommonSettings, true
+	}
+	var body map[string]json.RawMessage
+	if err := decodeJSON(w, r, &body); err != nil {
+		writeDecodeError(w, err, "invalid draft payload")
+		return nil, false, false
+	}
+	var apply bool
+	if raw, present := body["apply_common_settings"]; present {
+		if err := json.Unmarshal(raw, &apply); err != nil {
+			writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", "apply_common_settings must be a boolean")
+			return nil, false, false
+		}
+		delete(body, "apply_common_settings")
+	}
+	raw, err := json.Marshal(body)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", "invalid draft payload")
+		return nil, false, false
+	}
+	return raw, apply, true
+}
+
 // ==================== Handlers ====================
 
 // getOperation handles GET /api/v1/worksets/{id}/operations/{type}.
@@ -135,9 +169,8 @@ func (s *Server) putOperationDraft(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "INTERNAL", "workset service not configured")
 		return
 	}
-	var req draftDocumentRequest
-	if decodeErr := decodeJSON(w, r, &req); decodeErr != nil {
-		writeDecodeError(w, decodeErr, "invalid draft payload")
+	document, apply, ok := decodeDraftBody(w, r)
+	if !ok {
 		return
 	}
 	version, valid := ifMatchVersion(r)
@@ -151,9 +184,9 @@ func (s *Server) putOperationDraft(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	view, err := svc.SaveDraft(r.Context(), r.PathValue("id"), r.PathValue("type"), workset.SaveDraftRequest{
-		Document:            toDraftPayload(req),
+		Document:            document,
 		IfMatchVersion:      version,
-		ApplyCommonSettings: req.ApplyCommonSettings,
+		ApplyCommonSettings: apply,
 	})
 	if err != nil {
 		writeWorksetError(w, err)

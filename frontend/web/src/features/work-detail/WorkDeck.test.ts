@@ -107,4 +107,23 @@ describe('WorkDeck', () => {
     // The next arrow hides at the end; prev remains.
     expect(wrapper.find('.step.next').isVisible()).toBe(false)
   })
+
+  it('still frames an image the scan never measured', async () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const store = useWorkDetailStore()
+    const content = sampleWorkContent(RJ)
+    const cover = content.copies[0].tree!.children.find((node) => node.name === '表紙')
+    if (!cover || !('children' in cover)) throw new Error('fixture has a cover set')
+    for (const item of cover.children) Object.assign(item, { width: null, height: null })
+    store.bind(RJ, content)
+    const api = apiStub({ getWork: vi.fn().mockResolvedValue(makeWorkDetail()) } as never)
+    const wrapper = mount(WorkDeck, {
+      global: { plugins: [pinia, installTestQueryPlugin()], provide: { [apiClientKey as symbol]: api } },
+    })
+    await flushPromises()
+    store.step(1)
+    await flushPromises()
+    expect(wrapper.get('.plate').attributes('style')).not.toContain('width: 0px')
+  })
 })

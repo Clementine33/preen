@@ -32,6 +32,8 @@ const frontSrc = computed(() => {
   const ref = refOf(file.value)
   return ref ? api.workFileUrl(ref) : ''
 })
+// Double quotes: encodeURIComponent leaves an apostrophe in a file name as is.
+const frontStyle = computed(() => ({ backgroundImage: `url("${frontSrc.value}")` }))
 
 const mode = computed(() => (store.flipped ? 'REVERSE' : set.value?.cover && store.idx === 0 ? 'PLATE' : 'VIEW'))
 const count = computed(() =>
@@ -50,18 +52,21 @@ let observer: ResizeObserver | null = null
 
 function layoutPlate(): void {
   const item = file.value
-  if (!item || !slotEl.value || item.width === null || item.height === null || item.height === 0) return
+  if (!item || !slotEl.value) return
+  // An unmeasured image (null facts, docs/api.md) still gets a plate: a 4:3
+  // frame it is contained in, never upscaled past the frame's native guess.
+  const [width, height] = item.width !== null && item.height ? [item.width, item.height] : [1200, 900]
   const rect = slotEl.value.getBoundingClientRect()
   const sw = Math.max(120, rect.width - (isMobile.value ? 72 : 96))
   const sh = Math.max(120, rect.height - 12)
-  const ratio = item.width / item.height
+  const ratio = width / height
   let w: number
   let h: number
-  if (isScrollShape(item.width, item.height)) {
+  if (isScrollShape(width, height)) {
     w = Math.min(sw, 360)
     h = sh
   } else {
-    w = Math.min(sw, sh * ratio, item.width)
+    w = Math.min(sw, sh * ratio, width)
     h = w / ratio
   }
   if (store.flipped) {
@@ -70,7 +75,7 @@ function layoutPlate(): void {
   }
   plateW.value = Math.round(w)
   plateH.value = Math.round(h)
-  scrollMode.value = isScrollShape(item.width, item.height) && !veiled.value
+  scrollMode.value = isScrollShape(width, height) && !veiled.value
 }
 
 /** Ghost depth: the frames still behind this one, up to three (v3). */
@@ -222,7 +227,7 @@ const NEXT_ICON = 'M2 0l7 5-7 5z'
       <div v-if="file" class="plate" :class="{ flipped: store.flipped, 'is-scroll': scrollMode }"
         :style="{ width: `${plateW}px`, height: `${plateH}px`, boxShadow: ghosts }">
         <div class="face front" :class="{ enter: entering, run: running, veil: veiled, scroll: scrollMode }"
-          :style="veiled || scrollMode ? {} : { backgroundImage: `url('${frontSrc}')` }"
+          :style="veiled || scrollMode ? {} : frontStyle"
           :role="veiled ? 'button' : undefined" :tabindex="veiled ? 0 : undefined" @click="veiled ? store.unveil() : openViewer()">
           <img v-if="scrollMode && !veiled" :src="frontSrc" :alt="file.name" />
         </div>

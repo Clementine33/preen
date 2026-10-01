@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -207,5 +208,50 @@ func TestMissingSourceIsReportedOnceInReview(t *testing.T) {
 	}
 	if review.Counts.Blocked != 1 || review.Counts.Unchanged != 0 {
 		t.Fatalf("one missing member counted twice: %+v", review.Counts)
+	}
+}
+
+func TestDraftPutPassesTheRenamePayloadToTheTask(t *testing.T) {
+	repo, task, member := fixture(t, "title")
+	svc := workset.NewService(repo, 1, 1, []workset.Task{task}, nil, nil)
+	libs, err := repo.ListLibraries()
+	if err != nil {
+		t.Fatal(err)
+	}
+	created, err := svc.CreateCurrentWorkset(t.Context(), workset.CreateCurrentRequest{
+		LibraryID: libs[0].ID, OperationType: "rename", FolderPaths: []string{member.RelPath},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := created.Workset.WorksetID
+	handler := httpapi.NewServer(httpapi.Dependencies{Token: "test-token", WorksetService: svc})
+	put := func(version int, body string) *httptest.ResponseRecorder {
+		request := httptest.NewRequest(http.MethodPut, "/api/v1/worksets/"+id+"/operations/rename/draft",
+			strings.NewReader(body))
+		request.Header.Set("Authorization", "Bearer test-token")
+		request.Header.Set("If-Match", strconv.Itoa(version))
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		return response
+	}
+
+	// The transport flag never reaches the task's strict decode.
+	saved := put(1, `{"schema_version":1,"common":{"template":"{rj}"},"members":[],"apply_common_settings":true}`)
+	if saved.Code != http.StatusOK {
+		t.Fatalf("save: %d, %s", saved.Code, saved.Body.String())
+	}
+	draft, err := svc.GetDraft(t.Context(), id, "rename")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(draft.Document), `"template":"{rj}"`) {
+		t.Fatalf("stored draft: %s", draft.Document)
+	}
+
+	// Validation stays the task's: an unknown field is its INVALID_DRAFT.
+	refused := put(draft.Version, `{"schema_version":1,"common":{"template":"{rj}"},"members":[],"extra":1}`)
+	if refused.Code != http.StatusBadRequest || !strings.Contains(refused.Body.String(), "INVALID_DRAFT") {
+		t.Fatalf("unknown field: %d, %s", refused.Code, refused.Body.String())
 	}
 }

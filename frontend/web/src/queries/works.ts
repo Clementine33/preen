@@ -1,4 +1,4 @@
-import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
+import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/vue-query'
 import { computed, toValue, type MaybeRefOrGetter } from 'vue'
 import { useApiClient } from '@/lib/api/client'
 import type {
@@ -9,6 +9,15 @@ import type {
   WorkUserTag,
 } from '@/lib/api/types'
 import { queryKeys } from './query-keys'
+import { refreshOrRemoveQueries } from './cache-sync'
+
+/** Inventory and bindings changed; personal tag vocabulary is unaffected. */
+export async function sweepWorkCaches(client: QueryClient): Promise<void> {
+  await Promise.all([
+    queryKeys.works.listPrefix(), queryKeys.works.detailPrefix(),
+    queryKeys.works.contentPrefix(), queryKeys.works.facetsPrefix(),
+  ].map((prefix) => refreshOrRemoveQueries(client, prefix)))
+}
 
 // ---------- query options ----------
 

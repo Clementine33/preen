@@ -72,6 +72,8 @@ func TestMediaAuthTakesTheTokenFromTheAddress(t *testing.T) {
 		{"no token", "/", "", http.StatusUnauthorized},
 		// A header that is present decides; the query cannot rescue it.
 		{"wrong header beats right query", "/?access_token=secret", "Bearer wrong", http.StatusUnauthorized},
+		{"malformed header beats right query", "/?access_token=secret", "Basic secret", http.StatusUnauthorized},
+		{"empty bearer beats right query", "/?access_token=secret", "Bearer ", http.StatusUnauthorized},
 	}
 	for _, tc := range cases {
 		if got := run(media, tc.target, tc.auth); got != tc.want {
@@ -81,5 +83,33 @@ func TestMediaAuthTakesTheTokenFromTheAddress(t *testing.T) {
 	// The ordinary routes never read the address.
 	if got := run(authMiddleware("secret")(ok), "/?access_token=secret", ""); got != http.StatusUnauthorized {
 		t.Errorf("header-only route accepted a query token: %d", got)
+	}
+	r := httptest.NewRequest(http.MethodGet, "/?access_token=secret", nil)
+	r.Header.Set("Authorization", "")
+	w := httptest.NewRecorder()
+	media.ServeHTTP(w, r)
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("an explicitly empty authorization header accepted a query token: %d", w.Code)
+	}
+}
+
+func TestCORSExposesRetryAfterOnlyToAllowedOrigins(t *testing.T) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Retry-After", "3")
+		w.WriteHeader(http.StatusServiceUnavailable)
+	})
+	h := corsMiddleware([]string{"http://localhost:5173"})(handler)
+	for _, origin := range []string{"http://localhost:5173", "http://untrusted.example"} {
+		r := httptest.NewRequest(http.MethodGet, "/", nil)
+		r.Header.Set("Origin", origin)
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, r)
+		want := ""
+		if origin == "http://localhost:5173" {
+			want = "Retry-After"
+		}
+		if got := w.Header().Get("Access-Control-Expose-Headers"); got != want {
+			t.Errorf("origin %s: exposed %q, want %q", origin, got, want)
+		}
 	}
 }

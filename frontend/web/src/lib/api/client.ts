@@ -15,6 +15,7 @@ import type {
   FileOperationResult,
   LibraryDir,
   MemberTreeResponse,
+  MediaFactsEvent,
   DraftEnvelopeResponse,
   DraftResponse,
   ExecutionEvent,
@@ -286,9 +287,12 @@ export class ApiClient implements ApiClientContract {
    * <audio>): such an element cannot send the bearer header, so the token
    * rides in the address — the one route that accepts it (ADR 0016 §3).
    */
-  workFileUrl(ref: ContentFileRef): string {
-    const qs = this.token ? `?access_token=${encodeURIComponent(this.token)}` : ''
-    return this.url(contentPath('content', ref) + qs)
+  workFileUrl(ref: ContentFileRef, version?: string): string {
+    const params = new URLSearchParams()
+    if (this.token) params.set('access_token', this.token)
+    if (version) params.set('v', version)
+    const qs = params.toString()
+    return this.url(contentPath('content', ref) + (qs ? `?${qs}` : ''))
   }
 
   /**
@@ -533,6 +537,10 @@ export class ApiClient implements ApiClientContract {
     )
   }
 
+  streamMediaFactsEvents(signal: AbortSignal): AsyncGenerator<MediaFactsEvent> {
+    return this.streamEvents('/inventory/media-facts/events', signal, 'Media facts events')
+  }
+
   streamExecutionEvents(
     worksetId: string,
     operation: OperationType,
@@ -642,14 +650,18 @@ function contentPath(route: 'content' | 'thumbs', ref: ContentFileRef): string {
 }
 
 /** Waits the server's Retry-After, ending early with the caller's abort. */
-function backOff(seconds: number, signal?: AbortSignal): Promise<void> {
+export function backOff(seconds: number, signal?: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
     if (signal?.aborted) return reject(signal.reason)
-    const timer = setTimeout(resolve, seconds * 1000)
-    signal?.addEventListener('abort', () => {
+    const onAbort = () => {
       clearTimeout(timer)
-      reject(signal.reason)
-    }, { once: true })
+      reject(signal?.reason)
+    }
+    const timer = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort)
+      resolve()
+    }, seconds * 1000)
+    signal?.addEventListener('abort', onAbort, { once: true })
   })
 }
 

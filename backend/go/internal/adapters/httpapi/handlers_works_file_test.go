@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"golang.org/x/text/encoding/japanese"
+	"golang.org/x/text/encoding/simplifiedchinese"
 	"golang.org/x/text/transform"
 
 	"github.com/onsei/organizer/backend/internal/adapters/sqlite"
@@ -184,5 +185,90 @@ func TestWorkFileRangeAndRevalidation(t *testing.T) {
 	}
 	if w.Body.Len() != 4 {
 		t.Errorf("range answered %d bytes, want 4", w.Body.Len())
+	}
+	w = doRequest(t, engine, http.MethodGet, target, nil, map[string]string{"Range": "bytes=999999-"})
+	if w.Code != http.StatusRequestedRangeNotSatisfiable {
+		t.Errorf("invalid range = %d, want 416", w.Code)
+	}
+	w = doRequest(t, engine, http.MethodGet, target, nil, map[string]string{"Range": "bytes=0-1,3-4"})
+	if w.Code != http.StatusOK {
+		t.Errorf("multi range = %d, want whole file", w.Code)
+	}
+}
+
+func TestWorkFileRejectsDirectoriesLinksAndFakeImageTypes(t *testing.T) {
+	var files *fileFixture
+	engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) {
+		wireWorks(d, fixture)
+		files = seedWorkFiles(t, fixture)
+	})
+	w := doRequest(t, engine, http.MethodGet, fileURL("c-1", "表紙"), nil, nil)
+	if w.Code != http.StatusNotFound {
+		t.Errorf("directory = %d, want 404", w.Code)
+	}
+	cover := filepath.Join(files.member, "表紙", "cover_main.jpg")
+	if err := os.WriteFile(cover, []byte("<html>not an image</html>"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	w = doRequest(t, engine, http.MethodGet, fileURL("c-1", "表紙", "cover_main.jpg"), nil, nil)
+	if w.Code != http.StatusOK || w.Header().Get("Content-Type") != "application/octet-stream" {
+		t.Errorf("fake image = %d %s", w.Code, w.Header().Get("Content-Type"))
+	}
+	if err := os.Remove(cover); err != nil {
+		t.Fatal(err)
+	}
+	outside := filepath.Join(t.TempDir(), "private.txt")
+	if err := os.WriteFile(outside, []byte("private"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, cover); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	w = doRequest(t, engine, http.MethodGet, fileURL("c-1", "表紙", "cover_main.jpg"), nil, nil)
+	if w.Code != http.StatusNotFound {
+		t.Errorf("symlink = %d, want 404", w.Code)
+	}
+}
+
+func TestTextCharsetDoesNotMistakeSampleBoundaryForInvalidBytes(t *testing.T) {
+	sjis, _, err := transform.Bytes(japanese.ShiftJIS.NewEncoder(), []byte("こんにちは声"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	gb, _, err := transform.Bytes(simplifiedchinese.GB18030.NewEncoder(), []byte("𠀀𠀀"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		charset  string
+		bytes    []byte
+		charSize int
+	}{
+		{"utf-8", []byte("日本語あ"), 3},
+		{"shift_jis", sjis, 2},
+		{"gb18030", gb, 4},
+	} {
+		for cut := 1; cut < tc.charSize; cut++ {
+			t.Run(tc.charset+strings.Repeat("-", cut), func(t *testing.T) {
+				var files *fileFixture
+				engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) {
+					wireWorks(d, fixture)
+					files = seedWorkFiles(t, fixture)
+				})
+				prefix := tc.bytes[:len(tc.bytes)-tc.charSize]
+				data := append(bytes.Clone(prefix), bytes.Repeat([]byte("A"), 64*1024-len(prefix)-cut)...)
+				data = append(data, tc.bytes[len(prefix):]...)
+				if err := os.WriteFile(filepath.Join(files.member, "はじめにお読みください.txt"), data, 0o644); err != nil {
+					t.Fatal(err)
+				}
+				w := doRequest(t, engine, http.MethodGet, fileURL("c-1", "はじめにお読みください.txt"), nil, nil)
+				if got := w.Header().Get("Content-Type"); got != "text/plain; charset="+tc.charset {
+					t.Errorf("charset = %s, want %s", got, tc.charset)
+				}
+				if !bytes.Equal(w.Body.Bytes(), data) {
+					t.Error("the endpoint changed the source bytes")
+				}
+			})
+		}
 	}
 }

@@ -80,6 +80,7 @@ func TestAFullQueueRefusesAndALeavingRequestFreesItsPlace(t *testing.T) {
 		if err := <-queued; !errors.Is(err, context.Canceled) {
 			t.Errorf("leaving request: got %v", err)
 		}
+		synctest.Wait() // cancellation returns before the shared flight releases its queue slot
 		done := make(chan error, 1)
 		go func() { done <- get(context.Background(), "/d") }()
 		synctest.Wait()

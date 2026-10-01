@@ -3,6 +3,7 @@ import { useApiClient } from '@/lib/api/client'
 import { refreshOrRemoveQueries } from '@/queries/cache-sync'
 import { queryKeys } from '@/queries/query-keys'
 import { sweepWorksetCaches } from '@/queries/worksets'
+import { sweepWorkCaches } from '@/queries/works'
 import { useScanStore, type ScanStatus, type ScanTerminal } from '@/stores/scan'
 
 async function refreshLibraries(queryClient: QueryClient): Promise<void> {
@@ -52,6 +53,7 @@ export async function syncAfterScan(
       refreshLibraries(queryClient),
       refreshLibraryDerived(queryClient, libraryId),
       sweepWorksetCaches(queryClient),
+      sweepWorkCaches(queryClient),
     ])
     return
   }

@@ -75,3 +75,36 @@ func TestAudioFactsRejectsNonAudio(t *testing.T) {
 		t.Fatal("expected an error for a non-audio file")
 	}
 }
+
+func TestAudioFactsReadsLiveToolPathOnlyForFallback(t *testing.T) {
+	ffprobe, err := exec.LookPath("ffprobe")
+	if err != nil {
+		t.Skip("ffprobe unavailable")
+	}
+	if _, err := exec.LookPath("ffmpeg"); err != nil {
+		t.Skip("ffmpeg unavailable")
+	}
+	dir := t.TempDir()
+	wav, flac := filepath.Join(dir, "tone.wav"), filepath.Join(dir, "tone.flac")
+	for _, path := range []string{wav, flac} {
+		out, err := exec.Command("ffmpeg", "-nostdin", "-v", "error", "-f", "lavfi",
+			"-i", "sine=duration=2", path).CombinedOutput()
+		if err != nil {
+			t.Fatalf("generate %s: %v: %s", path, err, out)
+		}
+	}
+	p := media.New(filepath.Join(dir, "missing-at-startup"))
+	p.PathSource = func() string { t.Error("native WAV read tool settings"); return "" }
+	if sec, _, err := p.AudioFacts(context.Background(), wav); err != nil || sec != 2 {
+		t.Fatalf("native probe = %v, %v", sec, err)
+	}
+	path := ffprobe
+	p.PathSource = func() string { return path }
+	if sec, _, err := p.AudioFacts(context.Background(), flac); err != nil || sec != 2 {
+		t.Fatalf("configured fallback = %v, %v", sec, err)
+	}
+	path = filepath.Join(dir, "changed-to-missing")
+	if _, _, err := p.AudioFacts(context.Background(), flac); err == nil {
+		t.Error("fallback retained the old tool path after settings changed")
+	}
+}

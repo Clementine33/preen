@@ -19,7 +19,7 @@ const src = computed(() => {
   const item = file.value
   if (!item || !store.rj || !store.activeCopy) return ''
   const ref: ContentFileRef = { rj: store.rj, copyId: store.activeCopy.copy_id, relPath: item.rel_path }
-  return api.workFileUrl(ref)
+  return api.workFileUrl(ref, item.thumb_v ?? undefined)
 })
 
 // ── Open/close: jsdom has no showModal, so tests render the same DOM by the

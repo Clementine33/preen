@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { QueryObserver } from '@tanstack/vue-query'
 import type { Library, LibraryDir, TreeNode } from '@/lib/api/types'
 import { queryKeys } from '@/queries/query-keys'
 import { createTestQueryClient } from '@/test/query-client'
@@ -46,6 +47,7 @@ const seededWorkset = {
 
 function seedLibraryDomain(client: ReturnType<typeof createTestQueryClient>) {
   client.setQueryData(queryKeys.libraries.list(), [library])
+  for (const key of [queryKeys.works.content('RJ01000001'), queryKeys.works.detail('RJ01000001'), queryKeys.works.list({})]) client.setQueryData(key, 'cached')
   client.setQueryData(queryKeys.libraries.dirs('lib-a', 'd:/music'), dirs)
   client.setQueryData(queryKeys.libraries.memberTree('lib-a', 'd:/music', 'folder-a'), tree)
 }
@@ -79,6 +81,20 @@ describe('syncAfterScan terminal cache matrix', () => {
     // …and workset validation caches are conservatively dropped (stale is
     // derived from the live inventory, which a completed scan just changed).
     expect(feedUntouched(client)).toBe(false)
+    for (const key of [queryKeys.works.content('RJ01000001'), queryKeys.works.detail('RJ01000001'), queryKeys.works.list({})]) expect(client.getQueryData(key)).toBeUndefined()
+  })
+
+  it('completed updates an actively viewed work list, detail and manifest', async () => {
+    const client = createTestQueryClient()
+    const keys = [queryKeys.works.list({}), queryKeys.works.detail('RJ01000001'), queryKeys.works.content('RJ01000001')]
+    const stops = keys.map((key) => {
+      client.setQueryData(key, 'old inventory')
+      return new QueryObserver(client, { queryKey: key, queryFn: async () => 'new inventory' }).subscribe(() => {})
+    })
+    await syncAfterScan(client, 'lib-a', 'completed', 'event')
+    for (const key of keys) expect(client.getQueryData(key)).toBe('new inventory')
+    for (const stop of stops) stop()
+    client.clear()
   })
 
   it('confirmed cancel/error over SSE only refreshes library metadata', async () => {
@@ -95,6 +111,7 @@ describe('syncAfterScan terminal cache matrix', () => {
     expect(client.getQueryState(queryKeys.libraries.list())?.isInvalidated).toBe(true)
     // Nothing was committed: the workset domain keeps its caches.
     expect(feedUntouched(client)).toBe(true)
+    expect(client.getQueryData(queryKeys.works.content('RJ01000001'))).toBe('cached')
   })
 
   it('transport failure conservatively refreshes derived caches and worksets', async () => {
@@ -110,6 +127,7 @@ describe('syncAfterScan terminal cache matrix', () => {
     expect(client.getQueryData(treeKey)).toBeUndefined()
     expect(client.getQueryState(queryKeys.libraries.list())?.isInvalidated).toBe(true)
     expect(feedUntouched(client)).toBe(false)
+    for (const key of [queryKeys.works.content('RJ01000001'), queryKeys.works.detail('RJ01000001'), queryKeys.works.list({})]) expect(client.getQueryData(key)).toBeUndefined()
   })
 
   it('transport failure before the first SSE event skips the derived refresh', async () => {
@@ -127,6 +145,7 @@ describe('syncAfterScan terminal cache matrix', () => {
     expect(client.getQueryData(treeKey)).toEqual(tree)
     expect(client.getQueryState(queryKeys.libraries.list())?.isInvalidated).toBe(true)
     expect(feedUntouched(client)).toBe(true)
+    expect(client.getQueryData(queryKeys.works.content('RJ01000001'))).toBe('cached')
   })
 
   it('user cancel is metadata-only even when the stream had started', async () => {
@@ -145,5 +164,6 @@ describe('syncAfterScan terminal cache matrix', () => {
     expect(client.getQueryData(treeKey)).toEqual(tree)
     expect(client.getQueryState(queryKeys.libraries.list())?.isInvalidated).toBe(true)
     expect(feedUntouched(client)).toBe(true)
+    expect(client.getQueryData(queryKeys.works.content('RJ01000001'))).toBe('cached')
   })
 })

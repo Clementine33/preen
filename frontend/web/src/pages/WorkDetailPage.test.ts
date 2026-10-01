@@ -1,15 +1,17 @@
-import { flushPromises, mount } from '@vue/test-utils'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 import { createPinia } from 'pinia'
 import WorkDetailPage from './WorkDetailPage.vue'
 import { apiClientKey } from '@/lib/api/client'
 import { sampleWorkContent } from '@/test/work-content-fixture'
 import { apiStub } from '@/test/api-stub'
-import { installTestQueryPlugin } from '@/test/query-client'
+import { createTestQueryClient, installTestQueryPlugin } from '@/test/query-client'
 import { makeWorkDetail } from '@/test/work-fixture'
 import { usePlayerStore } from '@/stores/player'
 import { useWorkDetailStore } from '@/stores/work-detail'
+import { queryKeys } from '@/queries/query-keys'
+import { VueQueryPlugin } from '@tanstack/vue-query'
 
 /**
  * The page-level contracts: the route's work number
@@ -58,6 +60,8 @@ beforeEach(() => {
   document.body.innerHTML = ''
   vi.clearAllMocks()
 })
+
+enableAutoUnmount(afterEach)
 
 describe('work detail page', () => {
   it('renders the work and its colophon from the detail query', async () => {
@@ -125,4 +129,54 @@ describe('work detail page', () => {
     expect(player.paused).toBe(false) // the note keeps its keys
     wrapper.unmount()
   })
+  it('binds cached works on entry and preserves reading, pairing and playback on refetch', async () => {
+    const client = createTestQueryClient()
+    const cached = structuredClone(sampleWorkContent(RJ))
+    client.setQueryData(queryKeys.works.content(RJ), cached)
+    const other = 'RJ01000002'
+    client.setQueryData(queryKeys.works.content(other), sampleWorkContent(other))
+    const api = apiStub({ getWork: vi.fn().mockResolvedValue(makeWorkDetail()) })
+    const router = routerFor()
+    await router.push(`/works/${RJ}`)
+    await router.isReady()
+    const wrapper = mount(WorkDetailPage, { global: {
+      plugins: [createPinia(), router, [VueQueryPlugin, { queryClient: client }]],
+      provide: { [apiClientKey as symbol]: api },
+    } })
+    await flushPromises()
+    const store = useWorkDetailStore()
+    expect(store.sets.length).toBeGreaterThan(0)
+    await router.push(`/works/${other}`)
+    await flushPromises()
+    expect(store.rj).toBe(other)
+    await router.push(`/works/${RJ}`)
+    await flushPromises()
+    expect(store.rj).toBe(RJ)
+    expect(store.tracks).toHaveLength(8)
+    expect(api.getWorkContent).not.toHaveBeenCalled()
+    store.pairLrc(0, '本編/lyrics/04_おやすみ.lrc')
+    store.startTrack(0)
+    store.activeTxt = '台本/台本_全編.txt'
+    store.setLeaf('script')
+    store.step(1)
+    const player = usePlayerStore()
+    const play = vi.spyOn(player, 'play')
+    const updated = structuredClone(cached)
+    const cover = updated.copies[0].tree!.children.find((entry) => entry.name === '表紙')!
+    if (!('children' in cover)) throw new Error('cover directory missing')
+    Object.assign(cover.children[0], { width: 2000, height: 1000 })
+    client.setQueryData(queryKeys.works.content(RJ), updated)
+    await flushPromises()
+    expect(store.sets[0].files[0].width).toBe(2000)
+    expect(store.idx).toBe(1)
+    expect(store.leaf).toBe('script')
+    expect(store.activeTxt).toBe('台本/台本_全編.txt')
+    expect(store.pairs[0]).toBe('本編/lyrics/04_おやすみ.lrc')
+    expect(player.trackIndex).toBe(0)
+    expect(player.paused).toBe(false)
+    expect(play).not.toHaveBeenCalled()
+    wrapper.unmount()
+    client.clear()
+  })
+
 })

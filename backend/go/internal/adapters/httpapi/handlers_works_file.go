@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"io"
 	"mime"
 	"net/http"
@@ -16,6 +17,7 @@ import (
 
 	"golang.org/x/text/encoding/japanese"
 	"golang.org/x/text/encoding/simplifiedchinese"
+	"golang.org/x/text/encoding/unicode"
 	"golang.org/x/text/transform"
 
 	"github.com/onsei/organizer/backend/internal/works"
@@ -47,6 +49,11 @@ func (s *Server) getWorkContentFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer file.Close()
+	info, err := file.Stat()
+	if err != nil || !info.Mode().IsRegular() {
+		writeError(w, http.StatusNotFound, "WORK_NOT_FOUND", "the path is not a regular file")
+		return
+	}
 
 	// The ETag keys on the manifest facts: size, mtime and the inventory's
 	// content revision — a same-size rewrite bumps the revision, so a stale
@@ -91,12 +98,14 @@ func contentETag(loc works.ContentFileLocation) string {
 func setWorkFileContentType(h http.Header, file *os.File, kind works.ContentFileKind) error {
 	switch kind {
 	case works.KindImage, works.KindAudio:
-		sample, err := readSample(file, 512)
+		sample, _, err := readSample(file, 512)
 		if err != nil {
 			return err
 		}
 		contentType := http.DetectContentType(sample)
-		if !strings.HasPrefix(contentType, "image/") && !strings.HasPrefix(contentType, "audio/") {
+		if kind == works.KindImage && !strings.HasPrefix(contentType, "image/") {
+			contentType = "application/octet-stream"
+		} else if kind == works.KindAudio && !strings.HasPrefix(contentType, "audio/") {
 			contentType = mime.TypeByExtension(filepath.Ext(file.Name()))
 			if contentType == "" {
 				contentType = "application/octet-stream"
@@ -104,11 +113,11 @@ func setWorkFileContentType(h http.Header, file *os.File, kind works.ContentFile
 		}
 		h.Set("Content-Type", contentType)
 	case works.KindText, works.KindLyrics:
-		sample, err := readSample(file, 64*1024)
+		sample, eof, err := readSample(file, 64*1024)
 		if err != nil {
 			return err
 		}
-		h.Set("Content-Type", "text/plain; charset="+sniffTextCharset(sample))
+		h.Set("Content-Type", "text/plain; charset="+sniffTextCharset(sample, eof))
 	case works.KindUnknown:
 		h.Set("Content-Type", "application/octet-stream")
 	}
@@ -117,16 +126,16 @@ func setWorkFileContentType(h http.Header, file *os.File, kind works.ContentFile
 
 // readSample reads the first n bytes of the file and rewinds it, so the read
 // that types the content never steals from the read that serves it.
-func readSample(file *os.File, n int) ([]byte, error) {
-	sample := make([]byte, n)
+func readSample(file *os.File, n int) ([]byte, bool, error) {
+	sample := make([]byte, n+1)
 	read, err := io.ReadFull(file, sample)
 	if err != nil && err != io.ErrUnexpectedEOF && err != io.EOF {
-		return nil, err
+		return nil, false, err
 	}
 	if _, err := file.Seek(0, io.SeekStart); err != nil {
-		return nil, err
+		return nil, false, err
 	}
-	return sample[:read], nil
+	return sample[:min(read, n)], read <= n, nil
 }
 
 // sniffTextCharset names the character set a text body is in, by decoding a
@@ -134,7 +143,7 @@ func readSample(file *os.File, n int) ([]byte, error) {
 // cleanly (ADR 0016 §3: the bytes are served exactly as stored — the header
 // tells the client how to decode, and a wrong guess is mojibake, which is
 // why the sniff happens here, once, instead of in every client).
-func sniffTextCharset(sample []byte) string {
+func sniffTextCharset(sample []byte, eof bool) string {
 	if utf8.Valid(sample) {
 		return "utf-8"
 	}
@@ -142,12 +151,16 @@ func sniffTextCharset(sample []byte) string {
 		name    string
 		decoder transform.Transformer
 	}{
+		{"utf-8", unicode.UTF8.NewDecoder()},
 		{"shift_jis", japanese.ShiftJIS.NewDecoder()},
 		{"gb18030", simplifiedchinese.GB18030.NewDecoder()},
 	}
 	for _, candidate := range candidates {
-		decoded, _, err := transform.Bytes(candidate.decoder, sample)
-		if err == nil && !bytes.ContainsRune(decoded, '�') {
+		decoded := make([]byte, len(sample)*4+4)
+		n, _, err := candidate.decoder.Transform(decoded, sample, eof)
+		// A bounded sample may stop in a valid multi-byte character. Only at
+		// the real EOF does an incomplete suffix count as invalid encoding.
+		if (err == nil || (!eof && errors.Is(err, transform.ErrShortSrc))) && !bytes.ContainsRune(decoded[:n], '�') {
 			return candidate.name
 		}
 	}

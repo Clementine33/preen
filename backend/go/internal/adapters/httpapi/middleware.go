@@ -29,7 +29,7 @@ func tokenAuth(token string, fromQuery bool) func(http.Handler) http.Handler {
 			}
 			const prefix = "Bearer "
 			got, ok := strings.CutPrefix(r.Header.Get("Authorization"), prefix)
-			if !ok && fromQuery {
+			if len(r.Header.Values("Authorization")) == 0 && fromQuery {
 				got, ok = r.URL.Query().Get("access_token"), true
 			}
 			if !ok || subtle.ConstantTimeCompare([]byte(got), []byte(token)) != 1 {
@@ -57,6 +57,7 @@ func corsMiddleware(origins []string) func(http.Handler) http.Handler {
 			}
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 			w.Header().Set("Vary", "Origin")
+			w.Header().Set("Access-Control-Expose-Headers", "Retry-After")
 			if r.Method == http.MethodOptions {
 				w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PATCH, PUT, DELETE, OPTIONS")
 				w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type, If-Match, Idempotency-Key")

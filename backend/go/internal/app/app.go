@@ -156,7 +156,9 @@ func buildServices(repo *sqlite.Repository, configDir string, generationConcurre
 	gate := admission.NewGate(repo.HasActiveSession)
 	// The background media pass holds the gate's preemptible slot, so it
 	// never reads alongside a scan's walk; every merge kicks it.
-	mediaFacts := inventory.NewMediaEnricher(sqlite.NewScanStaging(repo), media.New(""), gate.BeginBackground)
+	prober := media.New("")
+	prober.PathSource = func() string { return appconfig.NewReader(configDir).Tools().FFprobePath }
+	mediaFacts := inventory.NewMediaEnricher(sqlite.NewScanStaging(repo), prober, gate.BeginBackground)
 	librarySvc := library.NewService(repo, gate, repo, fileops.ResolveMember)
 	scanSvc := inventory.NewService(
 		inventory.NewPipeline(
@@ -261,6 +263,7 @@ func runServer(ctx context.Context, repo *sqlite.Repository, cfg Config) {
 			CORSOrigins:    ParseCORSOrigins(os.Getenv("ONSEI_CORS_ORIGINS")),
 			Version:        cfg.Version,
 			Inventory:      services.scan,
+			MediaFacts:     services.mediaFacts,
 			WorksetService: services.workset,
 			FileOps:        services.fileOps,
 			Works:          services.works,

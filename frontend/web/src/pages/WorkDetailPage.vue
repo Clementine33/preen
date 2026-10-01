@@ -36,12 +36,10 @@ const { content } = useWorkContent(rj)
 
 // A different work is a new session, dropped the moment the route changes;
 // the manifest of the new work rehydrates when it lands.
-watch(rj, (now) => {
-  if (store.rj !== now) store.$reset()
-})
-watch(content, (now) => {
-  if (now !== null && rj.value !== null) store.bind(rj.value, now, (ref) => api.workFileUrl(ref))
-})
+watch([rj, content], ([id, now]) => {
+  if (store.rj !== id) store.$reset()
+  if (now !== null && id !== null && now.rj === id) store.bind(id, now, (ref) => api.workFileUrl(ref))
+}, { immediate: true })
 
 function backToWall(): void {
   router.push({ name: 'works', query: rj.value !== null ? { rj: rj.value } : {} })

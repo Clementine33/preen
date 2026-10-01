@@ -16,6 +16,7 @@ import { useLibraryUiStore } from '@/stores/library-ui'
 import { refreshOrRemoveQueries } from './cache-sync'
 import { TREE_GC_TIME } from './query-client'
 import { queryKeys } from './query-keys'
+import { sweepWorkCaches } from './works'
 
 // ---------- query options ----------
 
@@ -113,6 +114,7 @@ export function fileOperationMutationOptions(
       body: { member_path: string; operation: FileOperation; items: FileOperationItem[] }
     }) => api.applyFileOperation(libraryId, input.body),
     onSuccess: (result: FileOperationResult, input: { dirId: string }) => {
+      void sweepWorkCaches(queryClient)
       void refreshOrRemoveQueries(
         queryClient,
         queryKeys.libraries.memberTree(libraryId, rootIdentity, input.dirId),
@@ -156,6 +158,7 @@ export function updateLibraryMutationOptions(api: ApiClientContract, queryClient
         old ? old.map((item) => (item.id === updated.id ? updated : item)) : old,
       )
       if (previous && rootPathIdentityKey(previous.root_path) !== rootPathIdentityKey(updated.root_path)) {
+        void sweepWorkCaches(queryClient)
         // Genuine root identity change: the backend discarded materialized
         // folders, so every derived folder/tree cache for this library is
         // invalid. Mounted observers refetch; inactive entries are dropped.
@@ -171,6 +174,7 @@ export function deleteLibraryMutationOptions(api: ApiClientContract, queryClient
   return {
     mutationFn: (id: string) => api.deleteLibrary(id),
     onSuccess: (_result: void, id: string, _context: unknown) => {
+      void sweepWorkCaches(queryClient)
       queryClient.setQueryData<Library[]>(queryKeys.libraries.list(), (old) =>
         old ? old.filter((item) => item.id !== id) : old,
       )

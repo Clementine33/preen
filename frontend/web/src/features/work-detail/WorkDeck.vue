@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { imageUrl, type ContentFileRef } from '@/features/work-detail/content-source'
+import { useApiClient } from '@/lib/api/client'
 import { isScrollShape } from '@/features/work-detail/derive'
 import WorkColophon from '@/features/work-detail/WorkColophon.vue'
 import { useMediaQuery, WALL_MOBILE_QUERY } from '@/composables/use-media-query'
 import { useWorkDetail } from '@/queries/works'
 import { useWorkDetailStore } from '@/stores/work-detail'
-import type { WorkContentFile } from '@/lib/api/types'
+import type { ContentFileRef, WorkContentFile } from '@/lib/api/types'
 
 // The specimen deck (v3): a plate that shrink-wraps the current image's true
 // ratio and never upscales past native width, ghost frames behind it showing
@@ -15,6 +15,7 @@ import type { WorkContentFile } from '@/lib/api/types'
 // set but the cover's.
 
 const store = useWorkDetailStore()
+const api = useApiClient()
 const { work } = useWorkDetail(() => store.rj)
 const isMobile = useMediaQuery(WALL_MOBILE_QUERY)
 
@@ -29,7 +30,7 @@ function refOf(item: WorkContentFile | null): ContentFileRef | null {
 }
 const frontSrc = computed(() => {
   const ref = refOf(file.value)
-  return ref ? imageUrl(ref) : ''
+  return ref ? api.workFileUrl(ref) : ''
 })
 
 const mode = computed(() => (store.flipped ? 'REVERSE' : set.value?.cover && store.idx === 0 ? 'PLATE' : 'VIEW'))
@@ -109,43 +110,52 @@ watch(
   },
 )
 
-// ── Filmstrip: 4 loads in flight, nearest first; a set switch abandons the
-//    batch; each image loads once per visit (v3's loadThumbs). ──
-const loaded = ref(new Set<string>())
-let loadGen = 0
-const pendingTimers: number[] = []
+// ── Filmstrip: 4 thumbnail requests in flight, nearest first; a set switch
+//    aborts the batch so the server drops its queued renders; each thumbnail
+//    loads once per visit (ADR 0015 §6). ──
+const THUMB_HEIGHT = 40
+/** rel_path → object URL of its loaded thumbnail, for this visit. */
+const thumbs = ref(new Map<string, string>())
+let batch: AbortController | null = null
 
 function scheduleThumbs(): void {
-  loadGen++
-  for (const timer of pendingTimers) window.clearTimeout(timer)
-  pendingTimers.length = 0
+  batch?.abort()
+  batch = new AbortController()
+  const signal = batch.signal
   const current = set.value
-  if (!current || veiled.value) return
+  const ref = refOf(current?.files[0] ?? null)
+  if (!current || !ref || veiled.value) return
   const queue = current.files
     .map((item, i) => ({ item, i }))
-    .filter((entry) => !loaded.value.has(entry.item.rel_path))
+    .filter(({ item }) => item.thumb_v !== null && !thumbs.value.has(item.rel_path))
     .sort((a, b) => Math.abs(a.i - store.idx) - Math.abs(b.i - store.idx))
-  const gen = loadGen
-  const next = (): void => {
-    if (gen !== loadGen) return
-    const entry = queue.shift()
-    if (!entry) return
-    pendingTimers.push(
-      // ponytail: the 80–260ms tick is the mock's simulated network; B4 swaps
-      // it for the real thumbnail request's completion.
-      window.setTimeout(() => {
-        if (gen !== loadGen) return
-        loaded.value = new Set(loaded.value).add(entry.item.rel_path)
-        next()
-      }, 80 + Math.random() * 180),
-    )
+  const height = Math.ceil(THUMB_HEIGHT * (window.devicePixelRatio || 1))
+  const worker = async (): Promise<void> => {
+    for (let entry = queue.shift(); entry && !signal.aborted; entry = queue.shift()) {
+      try {
+        const blob = await api.getWorkThumb({ ...ref, relPath: entry.item.rel_path }, height, entry.item.thumb_v ?? '', signal)
+        if (signal.aborted) return
+        thumbs.value = new Map(thumbs.value).set(entry.item.rel_path, URL.createObjectURL(blob))
+      } catch {
+        // Aborted, or refused (too large / undecodable): the hatch stays.
+      }
+    }
   }
-  for (let k = 0; k < 4; k++) next()
+  for (let k = 0; k < 4; k++) void worker()
+}
+
+function dropThumbs(): void {
+  batch?.abort()
+  for (const url of thumbs.value.values()) URL.revokeObjectURL(url)
+  thumbs.value = new Map()
 }
 
 watch(veiled, (now) => {
   if (!now) scheduleThumbs()
 })
+// Another set is another batch: the previous one is aborted, its loaded
+// thumbnails kept for the visit.
+watch(() => store.set, () => scheduleThumbs())
 
 onMounted(() => {
   observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => layoutPlate())
@@ -154,8 +164,7 @@ onMounted(() => {
 })
 onBeforeUnmount(() => {
   observer?.disconnect()
-  loadGen++
-  for (const timer of pendingTimers) window.clearTimeout(timer)
+  dropThumbs()
 })
 watch(
   () => [store.rj, store.set, veiled.value, store.flipped, file.value, isMobile.value, store.dock] as const,
@@ -165,7 +174,7 @@ watch(
 watch(
   () => store.rj,
   () => {
-    loaded.value = new Set()
+    dropThumbs()
     scheduleThumbs()
   },
 )
@@ -175,8 +184,8 @@ function thumbStyle(item: WorkContentFile): { width: string; backgroundImage?: s
   const raw = 40 * ratio
   return {
     width: `${Math.round(Math.max(24, Math.min(110, raw)))}px`,
-    ...(loaded.value.has(item.rel_path) && !veiled.value
-      ? { backgroundImage: `url("${frontSrcOf(item)}")` }
+    ...(thumbs.value.has(item.rel_path) && !veiled.value
+      ? { backgroundImage: `url("${thumbs.value.get(item.rel_path)}")` }
       : {}),
   }
 }
@@ -184,10 +193,6 @@ const isCropped = (item: WorkContentFile): boolean => {
   const ratio = item.width !== null && item.height !== null && item.height > 0 ? item.width / item.height : 1
   const raw = 40 * ratio
   return raw !== Math.max(24, Math.min(110, raw))
-}
-function frontSrcOf(item: WorkContentFile): string {
-  const ref = refOf(item)
-  return ref ? imageUrl(ref) : ''
 }
 
 function openViewer(): void {
@@ -236,7 +241,7 @@ const NEXT_ICON = 'M2 0l7 5-7 5z'
 
     <div v-show="!reading" v-if="set && set.files.length >= 2" class="film">
       <button v-for="(item, i) in set.files" :key="item.rel_path" class="thumb"
-        :class="{ crop: isCropped(item), pending: !loaded.has(item.rel_path) && !veiled, veiled }" type="button"
+        :class="{ crop: isCropped(item), pending: !thumbs.has(item.rel_path) && !veiled, veiled }" type="button"
         :style="thumbStyle(item)" :aria-current="i === store.idx ? 'true' : undefined" :title="item.name"
         @click="store.showImg(store.set, i)"></button>
     </div>

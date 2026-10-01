@@ -366,6 +366,14 @@ export interface WorkContentFile {
   thumb_v: string | null
 }
 
+/** The identity of one file of one copy: what every content route addresses. */
+export interface ContentFileRef {
+  rj: string
+  copyId: string
+  /** Copy-root-relative manifest path, '/'-joined. */
+  relPath: string
+}
+
 export interface WorkContentDir {
   name: string
   rel_path: string
@@ -934,6 +942,10 @@ export interface ApiClientContract {
   getWorkset(id: string, signal?: AbortSignal): Promise<Workset>
   listWorks(params?: ListWorksParams, signal?: AbortSignal): Promise<WorkListResponse>
   getWork(rj: string, signal?: AbortSignal): Promise<WorkDetail>
+  getWorkContent(rj: string, signal?: AbortSignal): Promise<WorkContent>
+  workFileUrl(ref: ContentFileRef): string
+  getWorkText(ref: ContentFileRef, signal?: AbortSignal): Promise<string>
+  getWorkThumb(ref: ContentFileRef, height: number, version: string, signal?: AbortSignal): Promise<Blob>
   listWorkFacets(kind: WorkFacetKind, library?: string, signal?: AbortSignal): Promise<WorkFacet[]>
   updateWorkUserData(rj: string, input: PatchWorkUserDataParams): Promise<WorkUserData>
   replaceWorkUserTags(rj: string, tagIds: string[]): Promise<WorkUserTag[]>

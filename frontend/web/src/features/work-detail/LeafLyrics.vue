@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { loadText } from '@/features/work-detail/content-source'
+import { useApiClient } from '@/lib/api/client'
 import { fmtT, parseLrc, type LrcLine } from '@/features/work-detail/derive'
 import { useWorkDetailStore } from '@/stores/work-detail'
 import { usePlayerStore } from '@/stores/player'
@@ -11,6 +11,7 @@ import { usePlayerStore } from '@/stores/player'
 // the silent clock today (draft spec §7.9), to the audio once Phase D lands.
 
 const store = useWorkDetailStore()
+const api = useApiClient()
 const player = usePlayerStore()
 
 const lrcRel = computed(() => store.lrcFor(store.track))
@@ -23,7 +24,7 @@ watch(
   async (rel) => {
     lines.value = []
     if (!rel || !store.rj || !store.activeCopy) return
-    const text = await loadText({ rj: store.rj, copyId: store.activeCopy.copy_id, relPath: rel })
+    const text = await api.getWorkText({ rj: store.rj, copyId: store.activeCopy.copy_id, relPath: rel })
     // The pairing may have moved on while the text loaded.
     if (lrcRel.value !== rel) return
     lines.value = parseLrc(text)

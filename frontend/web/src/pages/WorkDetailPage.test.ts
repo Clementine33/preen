@@ -4,6 +4,7 @@ import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 import { createPinia } from 'pinia'
 import WorkDetailPage from './WorkDetailPage.vue'
 import { apiClientKey } from '@/lib/api/client'
+import { loadWorkContent } from '@/features/work-detail/mock-content'
 import { apiStub } from '@/test/api-stub'
 import { installTestQueryPlugin } from '@/test/query-client'
 import { makeWorkDetail } from '@/test/work-fixture'
@@ -30,7 +31,10 @@ function routerFor(): Router {
 }
 
 async function mountPage(path = `/works/${RJ}`, attach = false): Promise<{ wrapper: ReturnType<typeof mount>; router: Router }> {
-  const api = apiStub({ getWork: vi.fn().mockResolvedValue(makeWorkDetail()) } as never)
+  const api = apiStub({
+    getWork: vi.fn().mockResolvedValue(makeWorkDetail()),
+    getWorkContent: vi.fn((rj: string) => loadWorkContent(rj)),
+  } as never)
   const router = routerFor()
   await router.push(path)
   await router.isReady()

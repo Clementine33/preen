@@ -35,7 +35,7 @@ type BitrateUpdate struct {
 	BitrateKbps int64
 }
 
-// MediaCandidate is one entry of a finished scan whose media facts are still
+// MediaCandidate is one inventory entry whose media facts are still
 // unknown: an image without recorded dimensions or an audio file without a
 // recorded duration (ADR 0015 §2).
 type MediaCandidate struct {
@@ -53,13 +53,12 @@ type MediaFactsUpdate struct {
 	DurationSec float64
 }
 
-// MediaProber measures the scan-time media facts recorded beside an entry.
-// Both probes are best-effort at the call site: a file that cannot be measured
-// keeps NULL facts and never fails the scan it belongs to.
+// MediaProber measures the media facts recorded beside an entry. Both probes
+// are best-effort at the call site: a file that cannot be measured keeps NULL
+// facts, which the next pass tries again (enrich.go).
 type MediaProber interface {
 	// ImageDimensions reads only the image header, never the pixels.
 	ImageDimensions(pathPosix string) (width, height int, err error)
-	// AudioDurationSec probes the duration with ffprobe, the same tool the
-	// bitrate pass uses.
+	// AudioDurationSec measures the duration, from the header where it can.
 	AudioDurationSec(ctx context.Context, pathPosix string) (sec float64, err error)
 }

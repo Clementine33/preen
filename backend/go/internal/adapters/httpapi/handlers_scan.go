@@ -26,9 +26,6 @@ type scanEventData struct {
 	RootPath     string `json:"root_path,omitempty"`
 	FilesScanned int    `json:"files_scanned,omitempty"`
 	DirsScanned  int    `json:"dirs_scanned,omitempty"`
-	// The "media" stage's progress: facts measured after the merge.
-	MediaProbed int `json:"media_probed,omitempty"`
-	MediaTotal  int `json:"media_total,omitempty"`
 	// How the scan classified the library's direct child directories whose
 	// names it could not read as exactly one work number. The list is capped and
 	// says so, so a large library cannot turn the response into a transcript.
@@ -126,11 +123,9 @@ func (s *Server) postLibraryScan(w http.ResponseWriter, r *http.Request) {
 			// progress is forwarded, the handler owns the terminal events.
 			if ev.Type == "progress" {
 				_ = sw.Send("progress", scanEventData{
-					Stage:        ev.Stage,
+					Stage:        "scan",
 					FilesScanned: ev.FilesScanned,
 					DirsScanned:  ev.DirsScanned,
-					MediaProbed:  ev.MediaProbed,
-					MediaTotal:   ev.MediaTotal,
 				})
 			}
 		},

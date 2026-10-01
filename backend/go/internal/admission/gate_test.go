@@ -5,6 +5,8 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"testing/synctest"
+	"time"
 
 	"github.com/onsei/organizer/backend/internal/admission"
 )
@@ -198,4 +200,46 @@ func TestGateReportsTheTasksCheckFailure(t *testing.T) {
 	} else if admission.IsBusy(err) {
 		t.Fatal("a failed check is not a busy answer")
 	}
+}
+
+// TestGateBackgroundYieldsToEverything pins the preemptible slot: it is refused
+// while a scan runs, and a scan arriving while it is held stops it and starts
+// only once the holder has released - after its last write, never alongside it.
+func TestGateBackgroundYieldsToEverything(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		gate := admission.NewGate(nil)
+
+		releaseScan, err := gate.BeginScan()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, busyErr := gate.BeginBackground(func() {}); !admission.IsBusy(busyErr) {
+			t.Fatalf("background during a scan = %v, want busy", busyErr)
+		}
+		releaseScan()
+
+		stopped := make(chan struct{})
+		var stopOnce sync.Once
+		releaseBackground, err := gate.BeginBackground(func() { stopOnce.Do(func() { close(stopped) }) })
+		if err != nil {
+			t.Fatalf("BeginBackground: %v", err)
+		}
+		// The holder finishes its last write after being stopped, then lets go.
+		var wroteLast bool
+		go func() {
+			<-stopped
+			time.Sleep(time.Second)
+			wroteLast = true
+			releaseBackground()
+		}()
+
+		releaseScan, err = gate.BeginScan()
+		if err != nil {
+			t.Fatalf("a scan must preempt, not be refused: %v", err)
+		}
+		if !wroteLast {
+			t.Fatal("the scan started before the background holder released")
+		}
+		releaseScan()
+	})
 }

@@ -1,0 +1,184 @@
+package inventory_test
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"sort"
+	"sync"
+	"testing"
+	"testing/synctest"
+	"time"
+
+	"github.com/onsei/organizer/backend/internal/admission"
+	"github.com/onsei/organizer/backend/internal/inventory"
+)
+
+// factsStore is an in-memory inventory of files with unknown media facts.
+type factsStore struct {
+	mu      sync.Mutex
+	missing map[string]string // path -> format
+	written map[string]inventory.MediaFactsUpdate
+}
+
+func newFactsStore(n int) *factsStore {
+	s := &factsStore{missing: map[string]string{}, written: map[string]inventory.MediaFactsUpdate{}}
+	for i := range n {
+		format := "audio/mpeg"
+		if i%5 == 0 {
+			format = "image/png"
+		}
+		s.missing[fmt.Sprintf("/lib/rj1/%04d", i)] = format
+	}
+	return s
+}
+
+func (s *factsStore) EntriesMissingMediaFacts(after string, limit int) ([]inventory.MediaCandidate, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var out []inventory.MediaCandidate
+	for path, format := range s.missing {
+		if path > after {
+			out = append(out, inventory.MediaCandidate{Path: path, Format: format})
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Path < out[j].Path })
+	return out[:min(limit, len(out))], nil
+}
+
+func (s *factsStore) UpdateEntryMediaFacts(updates []inventory.MediaFactsUpdate) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, u := range updates {
+		delete(s.missing, u.Path)
+		s.written[u.Path] = u
+	}
+	return nil
+}
+
+func (s *factsStore) counts() (missing, written int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return len(s.missing), len(s.written)
+}
+
+// slowProber takes 10ms a probe, stops when its context ends, and cannot
+// measure the paths in fail. It counts what it was asked.
+type slowProber struct {
+	mu    sync.Mutex
+	fail  map[string]bool
+	asked int
+}
+
+func (p *slowProber) answer(ctx context.Context, path string) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-time.After(10 * time.Millisecond):
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.asked++
+	if p.fail[path] {
+		return errors.New("unmeasurable")
+	}
+	return nil
+}
+
+func (p *slowProber) ImageDimensions(path string) (int, int, error) {
+	if err := p.answer(context.Background(), path); err != nil {
+		return 0, 0, err
+	}
+	return 1200, 900, nil
+}
+
+func (p *slowProber) AudioDurationSec(ctx context.Context, path string) (float64, error) {
+	if err := p.answer(ctx, path); err != nil {
+		return 0, err
+	}
+	return 185.5, nil
+}
+
+func (p *slowProber) askedCount() int {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.asked
+}
+
+// runEnricher serves kicks until the test's bubble ends.
+func runEnricher(t *testing.T, e *inventory.MediaEnricher) {
+	t.Helper()
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		e.Run(ctx)
+	}()
+	t.Cleanup(func() {
+		cancel()
+		<-done
+	})
+}
+
+func TestMediaEnricherMeasuresEveryCandidateOncePerKick(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		store := newFactsStore(150) // more than two batches
+		prober := &slowProber{fail: map[string]bool{"/lib/rj1/0007": true, "/lib/rj1/0100": true}}
+		e := inventory.NewMediaEnricher(store, prober, nil)
+		runEnricher(t, e)
+
+		e.Kick()
+		time.Sleep(time.Minute)
+		missing, written := store.counts()
+		if missing != 2 || written != 148 {
+			t.Fatalf("missing %d, written %d; want the two unmeasurable left, the rest written", missing, written)
+		}
+		if u := store.written["/lib/rj1/0005"]; u.Width != 1200 || u.Height != 900 {
+			t.Errorf("image fact = %+v", u)
+		}
+		// The unmeasurable stay NULL and are not retried until the next kick:
+		// the count is the contract, a pass must not loop on broken files.
+		if asked := prober.askedCount(); asked != 150 {
+			t.Fatalf("probes after one kick = %d, want 150", asked)
+		}
+		e.Kick()
+		time.Sleep(time.Minute)
+		if asked := prober.askedCount(); asked != 152 {
+			t.Errorf("probes after a second kick = %d, want 152 (only the two unknowns again)", asked)
+		}
+	})
+}
+
+func TestMediaEnricherYieldsToAScanAndResumes(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		gate := admission.NewGate(nil)
+		store := newFactsStore(200)
+		e := inventory.NewMediaEnricher(store, &slowProber{}, gate.BeginBackground)
+		e.Workers = 4
+		runEnricher(t, e)
+
+		e.Kick()
+		time.Sleep(25 * time.Millisecond) // mid-way through the first batch
+
+		releaseScan, err := gate.BeginScan()
+		if err != nil {
+			t.Fatalf("a scan must preempt the pass, not be refused: %v", err)
+		}
+		// What was measured before the stop is already written: the scan only
+		// starts after the pass's last write.
+		_, atStop := store.counts()
+		if atStop == 0 || atStop == 200 {
+			t.Fatalf("written at the scan's start = %d, want the measured part of the first batch", atStop)
+		}
+		time.Sleep(10 * time.Second) // retries are refused while the scan runs
+		if _, written := store.counts(); written != atStop {
+			t.Fatalf("the pass wrote %d facts during the scan", written-atStop)
+		}
+
+		releaseScan()
+		time.Sleep(time.Minute)
+		if missing, _ := store.counts(); missing != 0 {
+			t.Errorf("after the scan the pass must resume and finish; %d left", missing)
+		}
+	})
+}

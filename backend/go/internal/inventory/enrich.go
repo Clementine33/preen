@@ -5,99 +5,185 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
-// mediaProbeWorkers bounds the concurrent probes of one enrichment pass, the
-// same width the bitrate analyzer uses.
-const mediaProbeWorkers = 4
+const (
+	// mediaProbeWorkers is the default probe width. Each probe reads a few KiB,
+	// so on a network share or a mechanical disk concurrency hides round trips
+	// and lets the disk reorder its queue; past eight the gain is small while
+	// every probe waits longer, and a shared disk keeps room for its other users.
+	mediaProbeWorkers = 8
+	// mediaBatchSize bounds how much a preempted pass can lose: facts are
+	// written back after every batch, and once more when the pass is stopped.
+	mediaBatchSize = 64
+	// mediaRetryDelay paces the retries of a pass that was refused admission or
+	// preempted; a kicked pass keeps retrying until it has run to the end.
+	mediaRetryDelay = 2 * time.Second
+)
 
-// mediaReportEvery spaces the pass's progress reports: a probe over a network
-// share takes about half a second, so a few hundred files would otherwise run
-// for minutes behind a progress line that never moves.
-const mediaReportEvery = 16
+// MediaFactsStore is the inventory the enricher reads its candidates from and
+// writes measured facts back to.
+type MediaFactsStore interface {
+	// EntriesMissingMediaFacts lists, in path order after the given path, up to
+	// limit files whose dimensions or duration are still unknown.
+	EntriesMissingMediaFacts(after string, limit int) ([]MediaCandidate, error)
+	UpdateEntryMediaFacts(updates []MediaFactsUpdate) error
+}
 
-// enrichMediaFacts probes the entries this scan touched whose image dimensions
-// or audio duration are still unknown, and writes the measured facts back
-// (ADR 0015 §2). It runs after the merge, inside the scan's admission slot,
-// and reports (probed, total) as it goes — first with 0, last with total.
+// BeginBackground takes the preemptible admission slot: stop is called when
+// other work needs the slot, and the returned release frees it.
+type BeginBackground func(stop func()) (release func(), err error)
+
+// MediaEnricher measures the media facts the inventory does not know yet -
+// image dimensions, audio duration - in the background, after the scan that
+// recorded the entries has completed (ADR 0015 §2). It never runs alongside a
+// scan's walk or anything else the admission slot serializes: it holds the
+// preemptible slot, and whatever arrives stops it and waits for its last write.
 //
-// The whole pass is best-effort and deliberately cannot fail the scan: the
-// merge is already committed, so reporting failure would misreport an updated
-// inventory, and a fact left NULL is simply re-probed by the next scan that
-// touches the entry. A prober that is not wired (nil) skips the pass, which is
-// the state every pipeline test runs in.
-func (s *Pipeline) enrichMediaFacts(ctx context.Context, sessionID string, report func(probed, total int)) {
-	if s.prober == nil {
-		return
-	}
-	candidates, err := s.repo.EntriesMissingMediaFacts(sessionID)
-	if err != nil || len(candidates) == 0 {
-		return
-	}
-	report(0, len(candidates))
+// A pass runs only when kicked (a scan or member refresh merged, the process
+// started), so a file that cannot be measured is retried once per kick, never
+// in a loop. Unknown is a value, not a failure: the facts stay NULL.
+type MediaEnricher struct {
+	store  MediaFactsStore
+	prober MediaProber
+	begin  BeginBackground
+	kick   chan struct{}
 
-	var updates []MediaFactsUpdate
-	var mu sync.Mutex
-	probed := 0
-	var next atomic.Int64
-	var wg sync.WaitGroup
-	for range min(mediaProbeWorkers, len(candidates)) {
-		wg.Go(func() {
-			for {
-				i := int(next.Add(1)) - 1
-				if i >= len(candidates) || ctx.Err() != nil {
-					return
-				}
-				u, ok := s.probeMediaFacts(ctx, candidates[i])
-				// One lock serializes the report too: the callback writes the
-				// scan's event stream, which is not safe for concurrent use.
-				mu.Lock()
-				if ok {
-					updates = append(updates, u)
-				}
-				probed++
-				if probed%mediaReportEvery == 0 || probed == len(candidates) {
-					report(probed, len(candidates))
-				}
-				mu.Unlock()
-			}
-		})
-	}
-	wg.Wait()
+	// Workers overrides the probe width; zero means mediaProbeWorkers.
+	Workers int
+}
 
-	if len(updates) > 0 {
-		_ = s.repo.UpdateEntryMediaFacts(updates)
+// NewMediaEnricher creates the enricher. A nil begin runs every pass without
+// admission, the state tests run in.
+func NewMediaEnricher(store MediaFactsStore, prober MediaProber, begin BeginBackground) *MediaEnricher {
+	return &MediaEnricher{store: store, prober: prober, begin: begin, kick: make(chan struct{}, 1)}
+}
+
+// Kick asks for a pass. It never blocks: a kick that arrives while a pass is
+// running is kept, and starts one more pass from the beginning once it ends.
+func (e *MediaEnricher) Kick() {
+	select {
+	case e.kick <- struct{}{}:
+	default:
 	}
 }
 
-// mediaReporter turns the pass's counts into the scan's "media" progress,
-// carrying the walk's totals so the stream's last counts stay true.
-func mediaReporter(progress func(Progress), walked Progress) func(probed, total int) {
-	return func(probed, total int) {
-		if progress != nil {
-			progress(Progress{
-				FilesScanned: walked.FilesScanned,
-				DirsScanned:  walked.DirsScanned,
-				Stage:        "media",
-				MediaProbed:  probed,
-				MediaTotal:   total,
-			})
+// Run serves kicks until ctx is cancelled.
+func (e *MediaEnricher) Run(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-e.kick:
+		}
+		e.pass(ctx)
+	}
+}
+
+// pass walks every candidate once, in path order, resuming after each refusal
+// or preemption from the last batch it finished.
+func (e *MediaEnricher) pass(ctx context.Context) {
+	after := ""
+	for {
+		if e.admitted(ctx, &after) || !sleep(ctx, mediaRetryDelay) {
+			return
 		}
 	}
 }
 
-// probeMediaFacts measures one candidate; false means unmeasurable, which
-// stays NULL rather than zero.
-func (s *Pipeline) probeMediaFacts(ctx context.Context, c MediaCandidate) (MediaFactsUpdate, bool) {
+// admitted runs batches while it holds the slot. It reports true when the pass
+// is over: every candidate visited, or the store failing (the next kick tries
+// again). False means refused or preempted: retry later.
+func (e *MediaEnricher) admitted(ctx context.Context, after *string) bool {
+	passCtx, stop := context.WithCancel(ctx)
+	defer stop()
+	release := func() {}
+	if e.begin != nil {
+		var err error
+		if release, err = e.begin(stop); err != nil {
+			return false
+		}
+	}
+	defer release()
+
+	for passCtx.Err() == nil {
+		batch, err := e.store.EntriesMissingMediaFacts(*after, mediaBatchSize)
+		if err != nil || len(batch) == 0 {
+			return true
+		}
+		updates := e.measure(passCtx, batch)
+		// Written even when stopped mid-batch: the facts are measured, and the
+		// release (deferred above) waits for this write.
+		if len(updates) > 0 {
+			if err := e.store.UpdateEntryMediaFacts(updates); err != nil {
+				return true
+			}
+		}
+		if passCtx.Err() != nil {
+			break
+		}
+		// Only a whole batch moves the cursor; a stopped one is asked again,
+		// and its measured files no longer qualify.
+		*after = batch[len(batch)-1].Path
+	}
+	return ctx.Err() != nil
+}
+
+// measure probes one batch with the configured width and returns what it
+// could measure.
+func (e *MediaEnricher) measure(ctx context.Context, batch []MediaCandidate) []MediaFactsUpdate {
+	workers := e.Workers
+	if workers <= 0 {
+		workers = mediaProbeWorkers
+	}
+	var updates []MediaFactsUpdate
+	var mu sync.Mutex
+	var next atomic.Int64
+	var wg sync.WaitGroup
+	for range min(workers, len(batch)) {
+		wg.Go(func() {
+			for {
+				i := int(next.Add(1)) - 1
+				if i >= len(batch) || ctx.Err() != nil {
+					return
+				}
+				if u, ok := e.probe(ctx, batch[i]); ok {
+					mu.Lock()
+					updates = append(updates, u)
+					mu.Unlock()
+				}
+			}
+		})
+	}
+	wg.Wait()
+	return updates
+}
+
+// probe measures one candidate; false means unmeasurable, which stays NULL
+// rather than zero.
+func (e *MediaEnricher) probe(ctx context.Context, c MediaCandidate) (MediaFactsUpdate, bool) {
 	u := MediaFactsUpdate{Path: c.Path}
 	var err error
 	switch {
 	case strings.HasPrefix(c.Format, "image/"):
-		u.Width, u.Height, err = s.prober.ImageDimensions(c.Path)
+		u.Width, u.Height, err = e.prober.ImageDimensions(c.Path)
 	case strings.HasPrefix(c.Format, "audio/"):
-		u.DurationSec, err = s.prober.AudioDurationSec(ctx, c.Path)
+		u.DurationSec, err = e.prober.AudioDurationSec(ctx, c.Path)
 	default:
 		return u, false
 	}
 	return u, err == nil && (u.Width > 0 || u.DurationSec > 0)
+}
+
+// sleep waits d and reports false when ctx ends first.
+func sleep(ctx context.Context, d time.Duration) bool {
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return false
+	case <-timer.C:
+		return true
+	}
 }

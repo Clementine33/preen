@@ -315,8 +315,6 @@ const libraryRoot = computed(() => activeLibrary.value?.root_path ?? '')
             :status="scan.status"
             :files-scanned="scan.filesScanned"
             :dirs-scanned="scan.dirsScanned"
-            :media-probed="scan.mediaProbed"
-            :media-total="scan.mediaTotal"
             :error-code="scan.errorCode"
             :error-message="scan.errorMessage"
           />

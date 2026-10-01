@@ -7,18 +7,21 @@ import (
 	"github.com/onsei/organizer/backend/internal/inventory"
 )
 
-// EntriesMissingMediaFacts names the files of one scan whose image dimensions
-// or audio duration are still unknown (ADR 0015 §2). The scan_id scoping is
-// exact: after the merge every row the scan touched carries this session's id,
-// so the pass never re-probes files another root owns. The format filter keeps
-// the pass to the two kinds a prober can measure.
-func (a *ScanStaging) EntriesMissingMediaFacts(scanID string) ([]inventory.MediaCandidate, error) {
+// EntriesMissingMediaFacts pages, in path order after the given path, through
+// the inventory's files whose image dimensions or audio duration are still
+// unknown (ADR 0015 §2). It spans every root: the background pass resumes
+// whatever an earlier pass, or an earlier process, left unmeasured. The format
+// filter keeps it to the two kinds a prober can measure; the path key makes
+// the cursor an index walk.
+func (a *ScanStaging) EntriesMissingMediaFacts(after string, limit int) ([]inventory.MediaCandidate, error) {
 	rows, err := a.repo.DB().Query(`
 		SELECT path, format FROM entries
-		WHERE scan_id = ? AND is_dir = 0 AND format IS NOT NULL
+		WHERE path > ? AND is_dir = 0 AND format IS NOT NULL
 			AND ((format LIKE 'image/%' AND (width IS NULL OR height IS NULL))
 				OR (format LIKE 'audio/%' AND duration_sec IS NULL))
-	`, scanID)
+		ORDER BY path
+		LIMIT ?
+	`, after, limit)
 	if err != nil {
 		return nil, fmt.Errorf("select media-fact candidates: %w", err)
 	}

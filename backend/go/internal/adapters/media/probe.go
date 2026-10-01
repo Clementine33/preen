@@ -1,6 +1,6 @@
 // Package media measures the scan-time media facts the inventory records
 // beside an entry: image dimensions from the file's header, audio duration
-// through ffprobe. It implements the inventory prober port (ADR 0009) and
+// from the header for WAV and MP3 and through ffprobe for the rest. It implements the inventory prober port (ADR 0009) and
 // never writes a file.
 package media
 
@@ -35,7 +35,7 @@ func New(ffprobePath string) *Prober {
 }
 
 // ImageDimensions reads only the image header (image.DecodeConfig), never the
-// pixels — the same boundary ADR 0015 §2 draws for the scan.
+// pixels — the boundary ADR 0015 §2 draws for media facts.
 func (p *Prober) ImageDimensions(pathPosix string) (int, int, error) {
 	f, err := os.Open(filepath.FromSlash(pathPosix))
 	if err != nil {
@@ -52,12 +52,22 @@ func (p *Prober) ImageDimensions(pathPosix string) (int, int, error) {
 	return cfg.Width, cfg.Height, nil
 }
 
-// AudioDurationSec probes a file's duration. The stream's own duration is the
-// exact fact; a stream that declares none (mp3) falls back to the container's
-// average, the same fallback order the bitrate probe uses for its rate.
+// AudioDurationSec measures a file's duration: from the header for WAV and
+// MP3 (duration.go), and through ffprobe for everything else or for a header
+// the native parsers do not recognize.
+func (p *Prober) AudioDurationSec(ctx context.Context, pathPosix string) (float64, error) {
+	if sec, err := nativeDuration(pathPosix); err == nil {
+		return sec, nil
+	}
+	return p.ffprobeDuration(ctx, pathPosix)
+}
+
+// ffprobeDuration probes with ffprobe. The stream's own duration is the exact
+// fact; a stream that declares none falls back to the container's average,
+// the same fallback order the bitrate probe uses for its rate.
 //
 //nolint:gosec // Tool path comes from local config; arguments are passed directly without a shell.
-func (p *Prober) AudioDurationSec(ctx context.Context, pathPosix string) (float64, error) {
+func (p *Prober) ffprobeDuration(ctx context.Context, pathPosix string) (float64, error) {
 	data, err := exec.CommandContext(ctx, p.ffprobePath, "-v", "error", "-select_streams", "a:0",
 		"-show_entries", "stream=duration:format=duration", "-of", "json",
 		"-i", filepath.FromSlash(pathPosix)).Output()

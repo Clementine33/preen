@@ -132,16 +132,13 @@ disconnects.
 | Event | Data fields |
 | --- | --- |
 | `started` | `stage`, `message` |
-| `progress` | `stage`, `files_scanned`, `dirs_scanned`, `media_probed`, `media_total` |
+| `progress` | `stage`, `files_scanned`, `dirs_scanned` |
 | `completed` | `stage`, `scan_id`, `root_path`, `files_scanned` |
 | `error` | `stage`, `code`, `message` |
 | `cancelled` | `stage`, `message` |
 
 A successful scan always emits `started` then one or more `progress` then
-`completed` (`scan_id` is set). After the walk is merged, a `progress` with
-`stage: "media"` reports the measuring of image dimensions and audio durations
-still unknown (ADR 0015 §2): `media_probed` of `media_total`, from 0 to the
-total; a scan with nothing to measure sends none. Failures end with `error`;
+`completed` (`scan_id` is set). Failures end with `error`;
 client-initiated cancellation with `cancelled`. The scan writes the library's
 inventory — the only listing source: there is no separate derived folder table
 to rebuild, and a rescan cannot renumber anything the workbench navigates by.
@@ -720,8 +717,10 @@ work answers an empty `copies` array, not 404. `kind` classifies each file
 (`aud`, `img`, `txt`, `lrc`, `bin`); directories carry `children` (empty
 included) and files carry no `children`, always carry `size`, and carry
 `format` only for audio, as the container name the track list aggregates by.
-`width`/`height`/`duration_sec`/`bitrate` are the scan-time facts (ADR 0015
-§2): `null` means unmeasured, not zero. `thumb_v` is an image's opaque
+`width`/`height`/`duration_sec`/`bitrate` are the inventory's facts (ADR 0015
+§2): `null` means unmeasured, not zero. Dimensions and durations are measured
+in the background after a scan completes, so a freshly scanned work can answer
+`null` for a while. `thumb_v` is an image's opaque
 thumbnail version (`null` for every other kind), the `v` its thumbnail address
 carries.
 

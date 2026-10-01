@@ -46,3 +46,13 @@ Object.defineProperty(window, 'matchMedia', {
     dispatchEvent: () => false,
   }),
 })
+// jsdom implements no media playback: play() returns nothing and logs "not
+// implemented". Inert stubs keep the player's real path quiet in tests that
+// only care about state; player tests substitute their own Audio.
+for (const [name, fn] of Object.entries({
+  play: (): Promise<void> => Promise.resolve(),
+  pause: (): void => undefined,
+  load: (): void => undefined,
+})) {
+  Object.defineProperty(HTMLMediaElement.prototype, name, { configurable: true, writable: true, value: fn })
+}

@@ -7,8 +7,8 @@ import { usePlayerStore } from '@/stores/player'
 
 // LISTEN (v3): the paired lyric, framed like subtitles (30% above, 60% below),
 // the current line inverted with its ■ marker and scrolled to 38% of the pane,
-// past lines dimmed, sound-effect lines smaller. Clicking a line seeks — to
-// the silent clock today, to the audio once playback lands.
+// past lines dimmed, sound-effect lines smaller. Clicking a line seeks the
+// playing track.
 
 const store = useWorkDetailStore()
 const api = useApiClient()
@@ -61,8 +61,7 @@ watch(nowIndex, () => {
 })
 
 function seek(line: LrcLine): void {
-  // Phase A: the seek moves the silent clock only — the UI never fakes sound.
-  player.elapsed = line.time
+  player.seek(line.time)
 }
 
 const lineTime = (line: LrcLine): string => fmtT(line.time)

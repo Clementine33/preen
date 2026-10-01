@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useApiClient } from '@/lib/api/client'
 import { computed, onBeforeUnmount, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { canonicalRj } from '@/app/route-params'
@@ -29,6 +30,7 @@ const rj = computed(() => {
   return typeof raw === 'string' && raw !== '' ? canonicalRj(raw) : null
 })
 
+const api = useApiClient()
 const { work } = useWorkDetail(rj)
 const { content } = useWorkContent(rj)
 
@@ -38,7 +40,7 @@ watch(rj, (now) => {
   if (store.rj !== now) store.$reset()
 })
 watch(content, (now) => {
-  if (now !== null && rj.value !== null) store.bind(rj.value, now)
+  if (now !== null && rj.value !== null) store.bind(rj.value, now, (ref) => api.workFileUrl(ref))
 })
 
 function backToWall(): void {

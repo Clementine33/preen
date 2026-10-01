@@ -3,23 +3,28 @@ import { computed } from 'vue'
 import { usePlayerStore } from '@/stores/player'
 
 // The bottom baseline (ADR 0012 §4): the thick top line is the progress track,
-// and the second double-bar edge of the page. The player is silent — no audio
-// source exists yet — so the laser rests at its origin, the total time and the
-// format stay em-dashes, and prev/next render disabled rather than pretending.
-// Elapsed time is real: the store's clock only runs while playing.
+// and the second double-bar edge of the page. A real track fills the laser to
+// its position and shows its length and format; a silent play (from the wall,
+// with no file behind it) leaves the laser at its origin and both as
+// em-dashes. Prev/next render disabled: there is no queue to step through.
 
 const player = usePlayerStore()
 
 const active = computed(() => player.rj !== null)
 const playingTitle = computed(() => (active.value ? `${player.title}` : ''))
 
-function mmss(seconds: number): string {
+function mmss(raw: number): string {
+  const seconds = Math.floor(raw)
   const m = Math.floor(seconds / 60)
   const s = seconds % 60
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
 }
 
 const elapsed = computed(() => (active.value ? mmss(player.elapsed) : '--:--'))
+const total = computed(() => (active.value && player.duration !== null ? mmss(player.duration) : '—'))
+const progress = computed(() =>
+  active.value && player.duration ? `${Math.min(100, (player.elapsed / player.duration) * 100)}%` : '0%',
+)
 
 const PREV_ICON = 'M10 0L3 5l7 5zM0 0h2v10H0z'
 const NEXT_ICON = 'M0 0l7 5-7 5zM8 0h2v10H8z'
@@ -29,6 +34,7 @@ const PAUSE_ICON = 'M1 0h3v10H1zM6 0h3v10H6z'
 
 <template>
   <footer class="baseline substrate-panel" :class="{ paused: player.paused || !active }">
+    <i class="bl-laser" :style="{ width: progress }" aria-hidden="true"></i>
     <div class="bl-left">
       <span class="bl-dot"></span>
       <span class="bl-rj">{{ player.rj ?? '' }}</span>
@@ -52,9 +58,9 @@ const PAUSE_ICON = 'M1 0h3v10H1zM6 0h3v10H6z'
           <svg viewBox="0 0 10 10" aria-hidden="true"><path :d="NEXT_ICON" /></svg>
         </button>
       </div>
-      <span class="t">—</span>
+      <span class="t">{{ total }}</span>
     </div>
-    <div class="bl-right lbl"><span>—</span></div>
+    <div class="bl-right lbl"><span>{{ (active && player.format) || '—' }}</span></div>
   </footer>
 </template>
 
@@ -67,6 +73,10 @@ const PAUSE_ICON = 'M1 0h3v10H1zM6 0h3v10H6z'
 .baseline::before {
   content: ''; position: absolute; left: 0; right: 0; top: 0; height: 4px;
   border-top: 2px solid var(--laser-track); border-bottom: 1px solid var(--wire-fine);
+}
+.bl-laser {
+  position: absolute; left: 0; top: 0; height: 2px; background: var(--laser);
+  box-shadow: 0 0 6px var(--laser-glow); z-index: 1; pointer-events: none;
 }
 .bl-left { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; padding-top: 2px; }
 .bl-dot { width: 6px; height: 6px; background: var(--now); flex-shrink: 0; }

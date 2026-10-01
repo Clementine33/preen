@@ -29,6 +29,24 @@ describe('editor session', () => {
     setActivePinia(createPinia())
   })
 
+  it('re-picking the stored common values in another key order or the default delete mode is not dirty', () => {
+    const store = useWorksetEditorStore()
+    store.open({
+      worksetId: 'ws-1',
+      operation: 'conversion',
+      target: { kind: 'common' },
+      baseVersion: 3,
+      baseDocument: base,
+    })
+    store.setDeleteMode('soft')
+    store.setUnit('mode', { intent: 'set', value: 'available_sources' })
+    store.setUnit('unmatched', {
+      intent: 'set',
+      value: { encoded: { quality: { bitrate: 320, kind: 'bitrate' }, codec: 'mp3' } },
+    })
+    expect(store.isDirty).toBe(false)
+  })
+
   it('builds the pending document from base plus intents', () => {
     const store = useWorksetEditorStore()
     openMember(store, 'm-1')

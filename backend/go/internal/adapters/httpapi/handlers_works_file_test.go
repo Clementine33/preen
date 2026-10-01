@@ -2,6 +2,7 @@ package httpapi //nolint:testpackage // white-box tests drive the routes through
 
 import (
 	"bytes"
+	"encoding/json"
 	"image"
 	"image/png"
 	"net/http"
@@ -150,6 +151,47 @@ func TestWorkFileServesTheBytesItStores(t *testing.T) {
 		"/api/v1/works/RJ01000001/content/c-1/"+url.PathEscape("../outside.txt"), nil, nil)
 	if w.Code != http.StatusNotFound && w.Code != http.StatusBadRequest {
 		t.Errorf("traversal status = %d, want 404 or 400", w.Code)
+	}
+}
+
+func TestWorkTimedLyricsAreListedAndServed(t *testing.T) {
+	for _, ext := range []string{"vtt", "VTT"} {
+		t.Run(ext, func(t *testing.T) {
+			name := "01_導入." + ext
+			text := "WEBVTT\n\n00:01.000 --> 00:03.000\nこんにちは\n"
+			engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) {
+				wireWorks(d, fixture)
+				files := seedWorkFiles(t, fixture)
+				if err := os.WriteFile(filepath.Join(files.member, name), []byte(text), 0o644); err != nil {
+					t.Fatal(err)
+				}
+				if _, err := fixture.DB().Exec(`
+					INSERT INTO entries (path, root_path, parent_path, name, is_dir, size, mtime)
+					VALUES (?, ?, ?, ?, 0, ?, ?)
+				`, files.member+"/"+name, filepath.ToSlash(files.root), files.member, name, len(text), time.Now().Unix()); err != nil {
+					t.Fatal(err)
+				}
+			})
+			manifest := doRequest(t, engine, http.MethodGet, "/api/v1/works/RJ01000001/content", nil, nil)
+			var body contentResponse
+			if err := json.Unmarshal(manifest.Body.Bytes(), &body); err != nil {
+				t.Fatal(err)
+			}
+			found := false
+			for _, node := range body.Copies[0].Tree.Children {
+				if node.Name == name && node.Kind == "lrc" {
+					found = true
+				}
+			}
+			if !found {
+				t.Fatal("timed lyrics missing from manifest")
+			}
+			w := doRequest(t, engine, http.MethodGet, fileURL("c-1", name), nil, nil)
+			if w.Code != http.StatusOK || w.Body.String() != text ||
+				w.Header().Get("Content-Type") != "text/vtt; charset=utf-8" {
+				t.Fatalf("lyrics response = %d %s %q", w.Code, w.Header().Get("Content-Type"), w.Body.String())
+			}
+		})
 	}
 }
 

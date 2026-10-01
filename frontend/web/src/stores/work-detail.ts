@@ -3,6 +3,7 @@ import {
   deriveTracks,
   dirAt,
   imageSets,
+  lrcFilesOf,
   trackFormats,
   type ImageSet,
   type Track,
@@ -51,11 +52,10 @@ export const useWorkDetailStore = defineStore('work-detail', {
     /** Sticky once READ has opened: the switcher keeps the item afterwards. */
     scriptSeen: false,
     activeTxt: null as string | null,
-    vertical: true,
-    /** Track index → manually paired .lrc, this session only (v3 parity). */
+    /** Track index → manually paired timed lyrics, this session only. */
     pairs: {} as Record<number, string>,
-    /** The LRC ▾ pair menu, open on the leaf's strip. */
-    picking: false,
+    /** The bay's LRC chip: the track list shows lyric files instead of audio (fmt stays as is). */
+    lrcMode: false,
     /** The track the page is on (playing or last played), like v3's S.track. */
     track: 0,
     /** The format of the file actually playing. */
@@ -81,6 +81,10 @@ export const useWorkDetailStore = defineStore('work-detail', {
     sets(): ImageSet[] {
       return this.copy ? imageSets(this.copy) : []
     },
+    /** Every timed-lyrics file of the copy, the LRC chip's rows. */
+    lrcFiles(): WorkContentFile[] {
+      return this.copy ? lrcFilesOf(this.copy) : []
+    },
     tracks(): Track[] {
       return this.copy ? deriveTracks(this.copy) : []
     },
@@ -94,7 +98,7 @@ export const useWorkDetailStore = defineStore('work-detail', {
     currentFile(state): WorkContentFile | null {
       return this.currentSet?.files[state.idx] ?? null
     },
-    /** The automatic pairing: the same-basename .lrc of the given track. */
+    /** The automatic pairing: the same-basename timed lyrics of the given track. */
     autoLrc(): (track: number) => string | null {
       return (track) => this.tracks[track]?.lrcRel ?? null
     },
@@ -162,7 +166,6 @@ export const useWorkDetailStore = defineStore('work-detail', {
       if (mode === 'lrc' && !this.lrcFor(this.track)) mode = 'colophon'
       if (mode === 'script') this.scriptSeen = true
       this.leaf = mode
-      this.picking = false
     },
 
     setDock(dock: BayDock) {
@@ -181,6 +184,11 @@ export const useWorkDetailStore = defineStore('work-detail', {
 
     setFmt(fmt: string) {
       this.fmt = fmt
+      this.lrcMode = false
+    },
+
+    showLrc() {
+      this.lrcMode = true
     },
 
     toggleVeil() {
@@ -200,14 +208,9 @@ export const useWorkDetailStore = defineStore('work-detail', {
       this.viewerOpen = false
     },
 
-    togglePicking() {
-      this.picking = !this.picking
-    },
-
-    /** Pair one track with one .lrc by hand; the leaf follows into LISTEN (v3). */
+    /** Pair one track with timed lyrics by hand; the leaf follows into LISTEN. */
     pairLrc(track: number, rel: string) {
       this.pairs[track] = rel
-      this.picking = false
       this.leaf = 'lrc'
     },
 
@@ -222,7 +225,6 @@ export const useWorkDetailStore = defineStore('work-detail', {
       this.playFmt = fmt ?? (entry.files[this.fmt] ? this.fmt : entry.formats[0]) ?? null
       // A script being read is never interrupted; lyrics swap; else the colophon.
       if (this.leaf !== 'script') this.leaf = this.lrcFor(track) ? 'lrc' : 'colophon'
-      this.picking = false
       if (this.rj === null) return
       const file = this.playFmt ? entry.files[this.playFmt] : undefined
       const copy = this.activeCopy
@@ -242,26 +244,15 @@ export const useWorkDetailStore = defineStore('work-detail', {
     },
 
     /**
-     * A file row: images locate their set, lyrics pair and play, texts open in
-     * READ, audio starts its track; a non-audio pick closes the bottom drawer.
+     * A file row: images locate their set, lyrics and texts open in READ,
+     * audio starts its track; a non-audio pick closes the bottom drawer.
      */
     selectFile(f: WorkContentFile) {
       this.sel = f.rel_path
       if (f.kind === 'img') {
         const setIdx = this.sets.findIndex((set) => set.files.some((img) => img.rel_path === f.rel_path))
         if (setIdx >= 0) this.showImg(setIdx, this.sets[setIdx].files.findIndex((img) => img.rel_path === f.rel_path))
-      } else if (f.kind === 'lrc') {
-        // Opening a lyric explicitly pairs it: with its automatic track if one
-        // exists, else with the track the page is on (v3). The explicit open
-        // also wins over the script rule — the user asked for these lyrics.
-        const track = this.tracks.findIndex((entry) => entry.lrcRel === f.rel_path)
-        const target = track >= 0 ? track : this.track
-        if (!this.lrcFor(target)) this.pairs[target] = f.rel_path
-        this.picking = false
-        const player = usePlayerStore()
-        if (player.rj !== this.rj || player.trackIndex !== target) this.startTrack(target)
-        this.leaf = 'lrc'
-      } else if (f.kind === 'txt') {
+      } else if (f.kind === 'txt' || f.kind === 'lrc') {
         this.activeTxt = f.rel_path
         this.scriptSeen = true
         this.leaf = 'script'

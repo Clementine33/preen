@@ -4,42 +4,52 @@ import { fmtT } from '@/features/work-detail/derive'
 import { useWorkDetailStore } from '@/stores/work-detail'
 import { usePlayerStore } from '@/stores/player'
 
-// The one track list (v3): every track of the work, the format chosen by the
-// bay's chips. A track missing the browsed format stays listed, dimmed and
-// tagged with its only format, and clicking it plays that one. The 2px bar
+// The merged track list keeps its order across format chips. A missing format
+// plays the track's first available format. The 2px bar
 // after the name is the track's share of the whole work; the ¶ marks a
-// paired lyric.
+// paired lyric. With the LRC chip on, the list is the copy's lyric files
+// instead: a click pairs one with the current track (and may be repeated).
 
 const store = useWorkDetailStore()
 const player = usePlayerStore()
 
-const maxDuration = computed(() => Math.max(...store.tracks.map((track) => track.duration ?? 0), 0))
-
-function row(t: number) {
+const fileFor = (t: number) => {
   const track = store.tracks[t]
-  const missing = track !== undefined && track.files[store.fmt] === undefined
-  const only = track?.formats.length === 1 ? track.formats[0] : null
-  const now = player.rj === store.rj && player.trackIndex === t
-  return { missing, only, now }
+  return track?.files[store.fmt] ?? track?.files[track.formats[0]]
 }
+const maxDuration = computed(() => Math.max(...store.tracks.map((_, t) => fileFor(t)?.duration_sec ?? 0), 0))
+const isPlaying = (t: number): boolean => player.rj === store.rj && player.trackIndex === t
+const missing = (t: number): boolean => store.tracks[t]?.files[store.fmt] === undefined
 
 const barWidth = (t: number): string => {
-  const track = store.tracks[t]
-  return `${Math.round(((track?.duration ?? 0) / (maxDuration.value || 1)) * 160)}px`
+  return `${Math.round(((fileFor(t)?.duration_sec ?? 0) / (maxDuration.value || 1)) * 160)}px`
 }
-const duration = (t: number): string => fmtT(store.tracks[t]?.duration ?? 0)
+const duration = (t: number): string => {
+  const seconds = fileFor(t)?.duration_sec
+  return seconds == null ? '—' : fmtT(seconds)
+}
 const hasLrc = (t: number): boolean => store.lrcFor(t) !== null
+const pairedRel = computed(() => store.lrcFor(store.track))
 </script>
 
 <template>
-  <div class="list" lang="ja">
+  <div v-if="store.lrcMode" class="list" lang="ja">
+    <button v-for="(lrc, i) in store.lrcFiles" :key="lrc.rel_path" class="trk" type="button"
+      :class="{ now: lrc.rel_path === pairedRel }" :aria-current="lrc.rel_path === pairedRel ? 'true' : undefined"
+      @click="store.pairLrc(store.track, lrc.rel_path)">
+      <span class="no lbl">{{ String(i + 1).padStart(2, '0') }}</span>
+      <span class="nm-wrap"><span class="nm">{{ lrc.name }}</span></span>
+      <span class="dur lbl">{{ lrc.rel_path === pairedRel ? 'TRACK ' + String(store.track + 1).padStart(2, '0') : '' }}</span>
+    </button>
+  </div>
+  <div v-else class="list" lang="ja">
     <button v-for="(track, t) in store.tracks" :key="track.stem" class="trk" type="button"
-      :class="{ missing: row(t).missing, now: row(t).now }" :aria-current="row(t).now ? 'true' : undefined"
+      :class="{ missing: missing(t), now: isPlaying(t) }" :aria-current="isPlaying(t) ? 'true' : undefined"
       @click="store.startTrack(t)">
       <span class="no lbl">{{ String(t + 1).padStart(2, '0') }}</span>
       <span class="nm-wrap">
         <span class="nm">{{ track.stem }}</span>
-        <span v-if="row(t).only && !track.files[store.fmt]" class="only">{{ row(t).only }} ONLY</span>
+        <span v-if="missing(t) && track.formats.length === 1" class="only">{{ track.formats[0] }} ONLY</span>
         <span v-if="hasLrc(t)" class="has-lrc" title="有歌词">¶</span>
         <span class="bar" :style="{ width: barWidth(t) }"></span>
       </span>
@@ -49,7 +59,7 @@ const hasLrc = (t: number): boolean => store.lrcFor(t) !== null
 </template>
 
 <style scoped>
-.list { overflow-y: auto; flex: 1; min-height: 0; scrollbar-width: thin; padding-bottom: var(--sp-2); font-family: var(--font-ja); }
+.list { overflow-y: auto; flex: 1; min-height: 0; padding-bottom: var(--sp-2); font-family: var(--font-ja); }
 
 /* The duration bar is the track's weight in the whole work; the right dock and
    the phone drop it (v3). */

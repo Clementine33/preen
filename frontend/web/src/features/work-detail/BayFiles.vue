@@ -7,8 +7,8 @@ import type { WorkContentDir, WorkContentFile } from '@/lib/api/types'
 
 // The FILES tab (v3): an OpenList browser of the copy's tree — breadcrumbs,
 // kind glyphs, recursive directory counts, no filter (work folders are small).
-// Rows act on the whole page: an image locates its set on the deck, a lyric
-// pairs and plays, a text opens in READ, an audio starts its track.
+// Rows act on the whole page: an image locates its set on the deck, lyrics
+// and texts open in READ, an audio starts its track.
 
 const store = useWorkDetailStore()
 const player = usePlayerStore()
@@ -99,7 +99,7 @@ function isPlaying(entry: WorkContentDir | WorkContentFile): boolean {
 .list-head, .row { display: grid; grid-template-columns: 14px 18px minmax(0, 1fr) auto 64px; align-items: center; gap: var(--sp-2); padding: 0 var(--sp-4) 0 var(--sp-1); }
 .list-head { height: 22px; border-bottom: 1px solid var(--wire-strong); flex-shrink: 0; }
 .list-head .lbl:nth-child(4), .list-head .lbl:nth-child(5), .row .info, .row .size { text-align: right; }
-.list { overflow-y: auto; flex: 1; min-height: 0; scrollbar-width: thin; padding-bottom: var(--sp-2); }
+.list { overflow-y: auto; flex: 1; min-height: 0; padding-bottom: var(--sp-2); }
 
 .row { position: relative; isolation: isolate; height: 28px; border-bottom: 1px solid var(--wire-fine); cursor: pointer; width: 100%; text-align: left; background: none; color: var(--fg-base); border-top: none; border-left: none; border-right: none; font-family: inherit; }
 .row::before { content: ''; position: absolute; inset: 0; z-index: -1; background: var(--bg-subtle); clip-path: inset(0 100% 0 0); transition: clip-path var(--dur-out) var(--ease-in); }

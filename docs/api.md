@@ -885,6 +885,12 @@ containment checks direct file management applies (out-of-bounds segments and
 symlink traversal is refused; an unscanned file on disk is 404, not a guess).
 Directories are refused, and the opened object must still be a regular file.
 
+The `lrc` kind includes timed lyrics with `.lrc` or `.vtt` extensions
+(case-insensitive). The detail page pairs these by audio basename, preferring
+`.vtt` and falling back to `.lrc`. A manual pairing takes precedence. It reads
+their bytes through the content route and follows the playing track's audio position. WebVTT cue end times
+clear the highlight during gaps; clicking a line seeks only its matching track.
+
 - Besides the `Authorization` header, this route (and only this one) accepts
   the token as `?access_token=…`, so an `<img>` or `<audio>` element can load
   it by address. Only a completely absent Authorization header permits this
@@ -905,6 +911,7 @@ Directories are refused, and the opened object must still be a regular file.
   header, using `arrayBuffer()` and `TextDecoder` (not `Response.text()`).
   A multibyte character cut off at the sample boundary is not an invalid
   encoding; truncated characters at actual EOF remain invalid.
+  WebVTT files use `text/vtt`; other text uses `text/plain`.
 
 `GET /api/v1/works/{rj}/thumbs/{copyId}/{path...}?h=…&v=…` serves one
 manifest image scaled to a height (ADR 0015 §3). The source goes through the

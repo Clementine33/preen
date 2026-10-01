@@ -6,9 +6,12 @@ import type { WorkContentDir, WorkContentFile, WorkFileKind } from '@/lib/api/ty
 
 /* ── Tree walking ── */
 
-function* walkFiles(dir: WorkContentDir): Generator<WorkContentFile> {
-  for (const child of dir.children) {
-    if ('children' in child) yield* walkFiles(child)
+function* walkFiles(dir: WorkContentDir, naturalOrder = false): Generator<WorkContentFile> {
+  const children = naturalOrder ? [...dir.children].sort((a, b) =>
+    Number('children' in a) - Number('children' in b) || a.name.localeCompare(b.name, undefined, { numeric: true }),
+  ) : dir.children
+  for (const child of children) {
+    if ('children' in child) yield* walkFiles(child, naturalOrder)
     else yield child
   }
 }
@@ -85,11 +88,11 @@ export function isScrollShape(width: number | null, height: number | null): bool
 export interface Track {
   /** The extension-stripped basename every format of this track shares. */
   stem: string
-  /** The file per format; a track missing the browsed format still lists. */
+  /** The file per format; tracks remain listed when the browsed format is missing. */
   files: Partial<Record<string, WorkContentFile>>
   /** Every format this track exists in, in first-seen order. */
   formats: string[]
-  /** The same-basename .lrc, the automatic pairing (v3's AUTO_PAIR). */
+  /** The same-basename timed lyrics (LRC or WebVTT), the automatic pairing. */
   lrcRel: string | null
   duration: number | null
 }
@@ -98,15 +101,18 @@ const stemOf = (name: string): string => name.replace(/\.[^.]+$/, '')
 
 /**
  * The one track list: audio files aggregate by extension-stripped basename,
- * naturally ordered; nothing is invented — a missing slot is a missing file.
+ * in files-first natural depth-first order. A later format fills the existing
+ * track without moving its first-seen position.
  */
 export function deriveTracks(tree: WorkContentDir): Track[] {
   const audio: WorkContentFile[] = []
   const lrcs: WorkContentFile[] = []
-  for (const f of walkFiles(tree)) {
-    if (f.kind === 'aud') audio.push(f)
-    else if (f.kind === 'lrc') lrcs.push(f)
+  for (const file of walkFiles(tree, true)) {
+    if (file.kind === 'aud') audio.push(file)
+    else if (file.kind === 'lrc') lrcs.push(file)
   }
+  const priority = (name: string) => /\.vtt$/i.test(name) ? 0 : 1
+  lrcs.sort((a, b) => priority(a.name) - priority(b.name))
   const byStem = new Map<string, { files: Partial<Record<string, WorkContentFile>>; formats: string[] }>()
   for (const f of audio) {
     const stem = stemOf(f.name)
@@ -118,7 +124,6 @@ export function deriveTracks(tree: WorkContentDir): Track[] {
     byStem.set(stem, entry)
   }
   return [...byStem]
-    .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
     .map(([stem, entry]) => ({
       stem,
       files: entry.files,
@@ -128,17 +133,25 @@ export function deriveTracks(tree: WorkContentDir): Track[] {
     }))
 }
 
+/** Every timed-lyrics file in the same files-first natural depth-first order as audio. */
+export function lrcFilesOf(tree: WorkContentDir): WorkContentFile[] {
+  return [...walkFiles(tree, true)].filter((f) => f.kind === 'lrc')
+}
+
 /** The format labels a work's audio actually ships, for the browse chips. */
 export function trackFormats(tracks: readonly Track[]): string[] {
   const seen: string[] = []
   for (const track of tracks) for (const format of track.formats) if (!seen.includes(format)) seen.push(format)
-  return seen
+  const priority = (format: string) => format === 'MP3' ? 0 : format === 'WAV' ? 1 : 2
+  return seen.sort((a, b) => priority(a) - priority(b))
 }
 
 /* ── Raw text parsing ── */
 
 export interface LrcLine {
   time: number
+  /** WebVTT cues stop at this time; LRC stays until the next line. */
+  endTime?: number
   text: string
   /** A full-line parenthetical is a sound effect: set smaller (v3's sfx). */
   sfx: boolean
@@ -147,7 +160,7 @@ export interface LrcLine {
 /** `[mm:ss.xx]`-tagged lines; the first tag on a line wins, untagged lines skip. */
 export function parseLrc(text: string): LrcLine[] {
   const lines: LrcLine[] = []
-  for (const raw of text.split('\n')) {
+  for (const raw of text.split(/\r\n?|\n/)) {
     // One time is enough; any further tags on the line are dropped with it.
     const match = /\[(\d{1,2}):(\d{1,2}(?:\.\d+)?)\](?:\[[^\]]*\])*(.*)$/.exec(raw)
     if (!match) continue
@@ -156,7 +169,37 @@ export function parseLrc(text: string): LrcLine[] {
     if (body === '') continue
     lines.push({ time: seconds, text: body, sfx: body.startsWith('（') })
   }
-  return lines
+  return lines.sort((a, b) => a.time - b.time)
+}
+
+/** Timed text for the LISTEN pane; WebVTT layout tags are displayed as plain text. */
+export function parseLyrics(text: string, relPath: string): LrcLine[] {
+  if (!/\.vtt$/i.test(relPath)) return parseLrc(text)
+  const source = text.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n')
+  if (!/^WEBVTT(?:[ \t].*)?(?:\n|$)/.test(source)) return []
+  const lines: LrcLine[] = []
+  for (const block of source.split(/\n[ \t]*\n/).slice(1)) {
+    const rows = block.split('\n')
+    if (/^(?:NOTE(?:[ \t]|$)|STYLE$|REGION$)/.test(rows[0])) continue
+    const timing = rows[0].includes('-->') ? 0 : 1
+    const match = /^(\S+)[ \t]+-->[ \t]+(\S+)(?:[ \t].*)?$/.exec(rows[timing] ?? '')
+    if (!match) continue
+    const time = vttTime(match[1])
+    const endTime = vttTime(match[2])
+    if (time === null || endTime === null || endTime <= time) continue
+    // Strip cue tags before decoding entities; escaped angle brackets remain text.
+    const body = rows.slice(timing + 1).join('\n').replace(/<[^>]*>/g, '').replace(
+      /&(amp|lt|gt|nbsp|lrm|rlm);/g,
+      (_, entity: string) => ({ amp: '&', lt: '<', gt: '>', nbsp: '\u00a0', lrm: '\u200e', rlm: '\u200f' })[entity]!,
+    ).trim()
+    if (body) lines.push({ time, endTime, text: body, sfx: body.startsWith('（') })
+  }
+  return lines.sort((a, b) => a.time - b.time)
+}
+
+function vttTime(value: string): number | null {
+  const match = /^(?:(\d{2,}):)?([0-5]\d):([0-5]\d)\.(\d{3})$/.exec(value)
+  return match ? Number(match[1] ?? 0) * 3600 + Number(match[2]) * 60 + Number(match[3]) + Number(match[4]) / 1000 : null
 }
 
 export type ScriptLine = { kind: 'scene'; text: string } | { kind: 'sfx'; text: string } | { kind: 'sp'; text: string }

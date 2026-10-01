@@ -144,7 +144,7 @@ const NEXT_ICON = 'M2 0l7 5-7 5z'
 .seg { display: inline-flex; border: 1px solid var(--wire-mid); }
 .seg :deep(.btn-s + .btn-s) { border-left: 1px solid var(--wire-fine); }
 
-.vw-body { position: relative; overflow: auto; display: grid; place-items: center; scrollbar-color: var(--wire-mid) transparent; }
+.vw-body { position: relative; overflow: auto; display: grid; place-items: center; }
 .vw-body img { display: block; max-width: calc(100vw - 112px); max-height: calc(100vh - 96px); box-shadow: 0 0 0 1px var(--wire-mid), 4px 4px 0 -1px var(--bg-canvas), 4px 4px 0 0 var(--wire-mid); }
 .vw-body img.big { cursor: zoom-in; }
 .vw-body.real { place-items: start; cursor: grab; }

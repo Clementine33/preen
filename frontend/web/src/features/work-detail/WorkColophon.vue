@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import { dottedDate } from '@/features/work-detail/derive'
 import { useWorkDetail, useCreateUserTag, useReplaceWorkUserTags, useUpdateWorkUserData, useUserTags } from '@/queries/works'
+import { useLibraryList } from '@/queries/libraries'
 import { useWorkDetailStore } from '@/stores/work-detail'
 import type { WorkEdition, WorkRelation, WorkUserTag } from '@/lib/api/types'
 
@@ -16,6 +17,7 @@ const props = defineProps<{
 
 const store = useWorkDetailStore()
 const { work } = useWorkDetail(() => store.rj)
+const { librariesData } = useLibraryList()
 const { tags: allTags } = useUserTags()
 const userData = useUpdateWorkUserData(() => store.rj)
 const tagReplace = useReplaceWorkUserTags(() => store.rj)
@@ -106,7 +108,11 @@ function relationText(relation: WorkRelation | null): string {
       <div class="colo-row"><dt>作品</dt><dd><span class="mono">{{ work?.rj ?? '—' }}</span></dd></div>
       <div class="colo-row"><dt>社团</dt><dd><span lang="ja">{{ work?.circle ?? '—' }}</span></dd></div>
       <div class="colo-row"><dt>声优</dt><dd><span lang="ja">{{ voice }}</span></dd></div>
-      <div class="colo-row"><dt>发售</dt><dd><span class="mono">{{ dottedDate(work?.release_date ?? null) }}</span></dd></div>
+      <div class="colo-row"><dt>发售</dt>
+        <dd><span class="mono">{{ dottedDate(work?.release_date ?? null) }}</span>
+          <template v-if="work?.dl_count !== null && work?.dl_count !== undefined"><span class="sep">·</span><span class="lbl">DL<b>{{ work.dl_count.toLocaleString() }}</b></span></template>
+        </dd>
+      </div>
       <div class="colo-row"><dt>分级</dt>
         <dd><span class="mono">{{ age }}</span><template v-if="work?.language"><span class="sep">·</span><span class="mono">{{ work.language }}</span></template></dd>
       </div>
@@ -127,15 +133,11 @@ function relationText(relation: WorkRelation | null): string {
         <dd><span class="copy">
           <template v-for="copy in work.copies" :key="copy.copy_id">
             <span class="lib-state" :class="{ off: copyOnline(copy.copy_id) === false }"></span>
-            <span><span class="mono">{{ copy.library_id }}</span><span class="sep">·</span><span class="mono">{{ copy.rel_path }}</span><template v-if="copyOnline(copy.copy_id) === false"><span class="sep">·</span><span class="lbl">OFFLINE</span></template></span>
+            <span>{{ librariesData.find(library => library.id === copy.library_id)?.name ?? '—' }}<template v-if="copyOnline(copy.copy_id) === false"><span class="sep">·</span><span class="lbl">OFFLINE</span></template></span>
           </template>
         </span></dd>
       </div>
-      <div class="colo-row"><dt>收录</dt>
-        <dd><span class="mono">{{ dotted(work?.collected_at ?? null) }}</span>
-          <template v-if="work?.dl_count !== null && work?.dl_count !== undefined"><span class="sep">·</span><span class="lbl">DL<b>{{ work.dl_count.toLocaleString() }}</b></span></template>
-        </dd>
-      </div>
+      <div class="colo-row"><dt>收录</dt><dd><span class="mono">{{ dotted(work?.collected_at ?? null) }}</span></dd></div>
       <div v-if="work?.source_url" class="colo-row"><dt>来源</dt>
         <dd><a :href="work.source_url" target="_blank" rel="noreferrer">{{ work.source_url.replace('https://', '') }}</a></dd>
       </div>
@@ -180,7 +182,7 @@ function relationText(relation: WorkRelation | null): string {
 
     <div class="colo-foot">
       <span class="lbl">ONSEI ARCHIVE</span>
-      <span class="lbl">{{ props.compact ? 'FLIP BACK ◢' : 'PRINTED ON THE PLATE REVERSE' }}</span>
+      <span class="lbl">{{ props.compact ? 'FLIP BACK ◢' : '' }}</span>
     </div>
   </div>
 </template>
@@ -211,7 +213,6 @@ function relationText(relation: WorkRelation | null): string {
 .ed { display: flex; flex-wrap: wrap; gap: 4px; }
 .copy { display: grid; grid-template-columns: auto 1fr; gap: 2px var(--sp-2); }
 .copy > span:nth-child(even) { min-width: 0; overflow-wrap: anywhere; }
-.copy .mono { white-space: nowrap; }
 .lib-state { width: 6px; height: 6px; background: var(--invert-bg); align-self: center; }
 .lib-state.off { background: repeating-linear-gradient(-45deg, var(--fg-meta) 0 1px, transparent 1px 3px); box-shadow: inset 0 0 0 1px var(--fg-meta); }
 .rating { display: inline-flex; gap: 3px; vertical-align: middle; }

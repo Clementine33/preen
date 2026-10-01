@@ -81,10 +81,6 @@ function onKeydown(event: KeyboardEvent): void {
     // The viewer is a native dialog: the browser closes it on Esc; the page
     // only ever closes the layer underneath the topmost one.
     if (store.viewerOpen) return
-    if (store.picking) {
-      store.picking = false
-      return
-    }
     if (store.dock === 'bottom' && store.bayOpen) store.closeBay()
     return
   }
@@ -118,8 +114,6 @@ onBeforeUnmount(() => {
         <button v-if="work?.nsfw === true" class="btn btn-s" type="button" :aria-pressed="store.veil"
           title="观看者选项：R18 作品的插画先以排线遮盖，点击后显示"
           @click="store.toggleVeil()">R18<span class="veil-state">{{ store.veil ? ' VEIL ON' : ' VEIL OFF' }}</span></button>
-        <button class="btn btn-s dock-btn" type="button" title="机库停靠位置"
-          @click="store.setDock(store.dock === 'right' ? 'bottom' : 'right')">{{ store.dock === 'right' ? 'BAY RIGHT' : 'BAY BOTTOM' }}</button>
       </div>
     </header>
 
@@ -167,7 +161,7 @@ onBeforeUnmount(() => {
 @media (max-width: 768px) {
   .header { padding: 0 var(--sp-4); }
   .header::after { left: var(--sp-4); right: var(--sp-4); }
-  .h-title, .dock-btn, .veil-state { display: none !important; }
+  .h-title, .veil-state { display: none !important; }
   [data-dock='bottom'] .main, [data-dock='right'] .main { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
   [data-dock='bottom'] .stage, [data-dock='bottom'] .stage.read,
   [data-dock='right'] .stage, [data-dock='right'] .stage.read {

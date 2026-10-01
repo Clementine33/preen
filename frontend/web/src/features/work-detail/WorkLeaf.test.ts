@@ -11,9 +11,8 @@ import { useWorkDetailStore } from '@/stores/work-detail'
 
 /**
  * The leaf switcher lists only what exists right now: no
- * LISTEN without a pairing (the `LRC ▾` entry replaces it), no READ before a
- * script has been opened, the colophon always. A manual pairing switches the
- * strip to PAIRED.
+ * LISTEN without a pairing, no READ before a script has been opened, the
+ * colophon always. Pairing status labels are hidden; the playing dot remains.
  */
 
 const RJ = 'RJ01000001'
@@ -38,11 +37,9 @@ beforeEach(() => {
 describe('WorkLeaf', () => {
   it('starts on the colophon with only the entries that exist', async () => {
     const { wrapper } = await mountLeaf()
-    const buttons = wrapper.findAll('.seg-b').filter((button) => !button.classes().some((name) => name === 'pick'))
+    const buttons = wrapper.findAll('.seg-b')
     expect(buttons).toHaveLength(1)
-    expect(buttons[0].text()).toContain('奥付')
-    // No pairing for the track the page is on: the pair entry replaces LISTEN.
-    expect(wrapper.get('.seg-b.pick').text()).toBe('LRC ▾')
+    expect(buttons[0].text()).toContain('COLOPHON')
   })
 
   it('shows LISTEN when the track has a pairing, and follows a new track back to the colophon', async () => {
@@ -64,12 +61,35 @@ describe('WorkLeaf', () => {
     store.selectFile(findFile(store.copy!, '台本/台本_全編.txt'))
     await flushPromises()
     expect(store.leaf).toBe('script')
+    expect(wrapper.find('.orient').exists()).toBe(false)
+    expect(wrapper.find('.script-wrap').exists()).toBe(true)
     // The percentage gauge is the strip's only position instrument.
     expect(wrapper.find('.gauge').exists()).toBe(true)
     // READ stays after switching away: it is sticky.
     store.setLeaf('colophon')
     await flushPromises()
     expect(wrapper.findAll('.seg-b').some((button) => button.text().includes('READ'))).toBe(true)
+  })
+
+  it.each(['lrc', 'vtt'])('opens a %s file in READ without changing playback or lyric pairing', async (ext) => {
+    const text = ext === 'lrc'
+      ? '[00:01.00]欢迎来到精灵乐园\r\n[00:02.00]请慢慢休息'
+      : 'WEBVTT\n\n00:01.000 --> 00:02.000\n欢迎来到精灵乐园\n\n00:02.000 --> 00:03.000\n请慢慢休息'
+    const getWorkText = vi.fn().mockResolvedValue(text)
+    const { wrapper, store } = await mountLeaf({ getWorkText })
+    store.startTrack(1)
+    const paired = store.lrcFor(1)
+    const lyric = findFile(store.copy!, paired!)
+    const rel = `lyrics/read.${ext}`
+    store.selectFile({ ...lyric, name: `read.${ext}`, rel_path: rel })
+    await flushPromises()
+    expect(store.leaf).toBe('script')
+    expect(store.activeTxt).toBe(rel)
+    expect(store.track).toBe(1)
+    expect(store.lrcFor(1)).toBe(paired)
+    expect(getWorkText).toHaveBeenLastCalledWith({ rj: RJ, copyId: 'copy-a', relPath: rel })
+    expect(wrapper.findAll('.script p').map(line => line.text())).toEqual(['1　欢迎来到精灵乐园', '2　请慢慢休息'])
+    expect(wrapper.find('.orient').exists()).toBe(false)
   })
 
   it('leaves a leaf empty when its text cannot be loaded', async () => {
@@ -83,17 +103,17 @@ describe('WorkLeaf', () => {
     expect(wrapper.find('.gauge').exists()).toBe(true)
   })
 
-  it('pairs a lyric by hand and switches the strip to PAIRED', async () => {
+  it('shows manually paired lyrics without status labels, keeping the playing dot', async () => {
     const { wrapper, store } = await mountLeaf()
     store.startTrack(0)
     await flushPromises()
     expect(store.leaf).toBe('colophon')
-    await wrapper.get('.seg-b.pick').trigger('click')
-    const items = wrapper.findAll('.menu-item')
-    expect(items).toHaveLength(2)
-    await items[0].trigger('click')
+    store.pairLrc(0, store.autoLrc(1)!)
+    await flushPromises()
     expect(store.leaf).toBe('lrc')
-    expect(store.pairs[0]).toBeDefined()
-    expect(wrapper.text()).toContain('PAIRED')
+    expect(wrapper.get('.strip').text()).not.toContain('PAIRED')
+    expect(wrapper.get('.strip').text()).not.toContain('SYNC')
+    expect(wrapper.find('.live').exists()).toBe(true)
+    expect(wrapper.find('.strip-file').exists()).toBe(false)
   })
 })

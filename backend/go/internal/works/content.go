@@ -171,11 +171,11 @@ func thumbVersion(e *inventory.Entry, engine string) string {
 }
 
 // classifyContentKind names a file's kind from its extension and stored
-// format. Extensions decide the text kinds first: .lrc carries no MIME type
+// format. Extensions decide the text kinds first: timed text carries no MIME type
 // the scan would have recorded.
 func classifyContentKind(name, format string) ContentFileKind {
 	switch strings.ToLower(extOf(name)) {
-	case ".lrc":
+	case ".lrc", ".vtt":
 		return KindLyrics
 	case ".txt":
 		return KindText

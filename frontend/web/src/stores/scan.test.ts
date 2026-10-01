@@ -40,6 +40,28 @@ describe('scan store', () => {
     expect(store.rootPath).toBe('/music')
   })
 
+  it('follows the media stage after the walk without losing the walk counts', async () => {
+    const api = apiWithScan(
+      vi.fn(() =>
+        events([
+          { type: 'progress', data: { stage: 'scan', files_scanned: 8, dirs_scanned: 2 } },
+          { type: 'progress', data: { stage: 'media', files_scanned: 8, dirs_scanned: 2, media_total: 5 } },
+          {
+            type: 'progress',
+            data: { stage: 'media', files_scanned: 8, dirs_scanned: 2, media_probed: 5, media_total: 5 },
+          },
+        ]),
+      ),
+    )
+    const store = useScanStore()
+
+    await store.start('lib-a', api)
+
+    expect(store.filesScanned).toBe(8)
+    expect(store.mediaProbed).toBe(5)
+    expect(store.mediaTotal).toBe(5)
+  })
+
   it('aborts an active scan and settles as cancelled', async () => {
     const scanLibrary = vi.fn((_id: string, signal: AbortSignal) => ({
       async *[Symbol.asyncIterator]() {

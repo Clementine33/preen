@@ -5,14 +5,17 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 
 	"github.com/onsei/organizer/backend/internal/adapters/filesystem"
 	"github.com/onsei/organizer/backend/internal/inventory"
 )
 
-// fakeProber answers scripted facts and records the paths it was asked for.
+// fakeProber answers scripted facts and records the paths it was asked for;
+// the enrichment's workers call it concurrently.
 type fakeProber struct {
+	mu      sync.Mutex
 	dims    map[string][2]int
 	durs    map[string]float64
 	asked   []string
@@ -20,6 +23,8 @@ type fakeProber struct {
 }
 
 func (p *fakeProber) ImageDimensions(pathPosix string) (int, int, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
 	p.asked = append(p.asked, pathPosix)
 	if p.failAll {
 		return 0, 0, errors.New("unmeasurable")
@@ -32,6 +37,8 @@ func (p *fakeProber) ImageDimensions(pathPosix string) (int, int, error) {
 }
 
 func (p *fakeProber) AudioDurationSec(_ context.Context, pathPosix string) (float64, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
 	p.asked = append(p.asked, pathPosix)
 	if p.failAll {
 		return 0, errors.New("unmeasurable")
@@ -105,5 +112,47 @@ func TestEnrichMediaFactsSurvivesTotalProbeFailure(t *testing.T) {
 	})
 	if len(store.FactsWritten) != 0 {
 		t.Errorf("nothing measurable means nothing written, got %v", store.FactsWritten)
+	}
+}
+
+func TestEnrichMediaFactsReportsItsProgress(t *testing.T) {
+	// The pass can run for minutes over a network share: it must report as it
+	// goes, starting at zero and ending at the total, never past it.
+	candidates := make([]inventory.MediaCandidate, 40)
+	for i := range candidates {
+		candidates[i] = inventory.MediaCandidate{
+			Path: filepath.Join("/lib/rj1", string(rune('a'+i))), Format: "audio/mpeg",
+		}
+	}
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "dummy.wav"), []byte("dummy"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	store := &fakeStagingStore{MergeOutcome: inventory.MergeOutcome{Merged: 1}, MediaCandidates: candidates}
+	pipeline := inventory.NewPipeline(
+		store, filesystem.WalkRootEntriesParallel, filesystem.WalkFolderEntries, &fakeProber{failAll: true})
+
+	var media []inventory.Progress
+	_, err := pipeline.ScanRootCtx(context.Background(), root, inventory.WithProgress(func(p inventory.Progress) {
+		if p.Stage == "media" {
+			media = append(media, p)
+		}
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(media) < 2 {
+		t.Fatalf("expected a start and an end report, got %+v", media)
+	}
+	if first := media[0]; first.MediaProbed != 0 || first.MediaTotal != 40 {
+		t.Errorf("first report = %+v, want 0 of 40", first)
+	}
+	if last := media[len(media)-1]; last.MediaProbed != 40 || last.MediaTotal != 40 {
+		t.Errorf("last report = %+v, want 40 of 40", last)
+	}
+	for i := 1; i < len(media); i++ {
+		if media[i].MediaProbed < media[i-1].MediaProbed {
+			t.Errorf("progress went backwards: %+v", media)
+		}
 	}
 }

@@ -18,6 +18,9 @@ export const useScanStore = defineStore('scan', {
     libraryId: null as string | null,
     filesScanned: 0,
     dirsScanned: 0,
+    /** Media facts measured after the merge; total 0 until that stage starts. */
+    mediaProbed: 0,
+    mediaTotal: 0,
     scanId: null as string | null,
     rootPath: null as string | null,
     message: '',
@@ -38,6 +41,8 @@ export const useScanStore = defineStore('scan', {
       this.libraryId = libraryId
       this.filesScanned = 0
       this.dirsScanned = 0
+      this.mediaProbed = 0
+      this.mediaTotal = 0
       this.scanId = null
       this.rootPath = null
       this.message = ''
@@ -84,6 +89,10 @@ export const useScanStore = defineStore('scan', {
       } else if (event.type === 'progress') {
         this.filesScanned = data.files_scanned ?? this.filesScanned
         this.dirsScanned = data.dirs_scanned ?? this.dirsScanned
+        if (data.stage === 'media') {
+          this.mediaProbed = data.media_probed ?? 0
+          this.mediaTotal = data.media_total ?? 0
+        }
       } else if (event.type === 'completed') {
         this.status = 'completed'
         this.terminal = 'event'

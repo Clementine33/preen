@@ -112,6 +112,9 @@ export interface ScanEventData {
   root_path?: string
   files_scanned?: number
   dirs_scanned?: number
+  /** The "media" stage: facts measured after the merge (docs/api.md). */
+  media_probed?: number
+  media_total?: number
   code?: string
 }
 

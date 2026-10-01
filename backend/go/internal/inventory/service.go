@@ -27,6 +27,12 @@ type Progress struct {
 	FilesScanned int
 	DirsScanned  int
 
+	// Stage is "media" while the merged entries' unknown facts are measured
+	// (enrich.go), with MediaProbed of MediaTotal done; empty during the walk.
+	Stage       string
+	MediaProbed int
+	MediaTotal  int
+
 	// DirsWithoutNumber and DirsWithMultipleNumbers count the library's direct
 	// child directories whose names yielded no work number or more than one.
 	DirsWithoutNumber       int
@@ -416,7 +422,7 @@ func (s *Pipeline) ScanRootCtx(ctx context.Context, rootPath string, opts ...Sca
 		// The merged entries' unknown media facts are measured while the scan
 		// still holds its admission slot, so a completed scan has answered
 		// everything it could (enrich.go).
-		s.enrichMediaFacts(ctx, sessionID)
+		s.enrichMediaFacts(ctx, sessionID, mediaReporter(o.progress, scanned))
 
 		// The classifications are only known once the bindings have been
 		// reconciled, so they travel in a report of their own rather than in the
@@ -616,7 +622,8 @@ func (s *Pipeline) ScanFolderCtx(
 			_ = s.repo.UpdateScanSessionStatus(sessionID, "failed", "MERGE_FAILED", err.Error())
 			return "", err
 		}
-		s.enrichMediaFacts(ctx, sessionID)
+		// A member refresh streams no progress: nothing to report to.
+		s.enrichMediaFacts(ctx, sessionID, mediaReporter(nil, Progress{}))
 
 		if err := s.repo.UpdateScanSessionStatus(sessionID, "completed", "", ""); err != nil {
 			return "", err

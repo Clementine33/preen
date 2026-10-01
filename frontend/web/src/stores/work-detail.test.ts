@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
-import { loadWorkContent } from '@/features/work-detail/mock-content'
+import { sampleWorkContent } from '@/test/work-content-fixture'
 import { findFile } from '@/test/work-fixture'
 import { usePlayerStore } from './player'
 import { useWorkDetailStore } from './work-detail'
 
 /**
- * The session state of the detail page (draft spec §6.3): one work is one
+ * The session state of the detail page: one work is one
  * session, followTrack never interrupts a script being read, a track missing
  * the browsed format plays in its only one, and every selection clamps or
  * resets against the bound manifest.
@@ -17,7 +17,7 @@ const OTHER = 'RJ02000002'
 
 async function bind(rj = RJ): Promise<void> {
   const store = useWorkDetailStore()
-  store.bind(rj, await loadWorkContent(rj))
+  store.bind(rj, sampleWorkContent(rj))
 }
 
 /** A real file object from the bound manifest, addressed by rel_path. */
@@ -48,14 +48,14 @@ describe('work-detail store', () => {
     store.pairs[2] = '本編/lyrics/02_本編 ―雨音と耳かき―.lrc'
     store.veil = true
 
-    store.bind(OTHER, await loadWorkContent(OTHER))
+    store.bind(OTHER, sampleWorkContent(OTHER))
     expect(store.rj).toBe(OTHER)
     expect(store.scriptSeen).toBe(false)
     expect(store.pairs).toEqual({})
     expect(store.veil).toBe(false)
 
     store.scriptSeen = true
-    store.bind(OTHER, await loadWorkContent(OTHER))
+    store.bind(OTHER, sampleWorkContent(OTHER))
     expect(store.scriptSeen).toBe(true)
   })
 

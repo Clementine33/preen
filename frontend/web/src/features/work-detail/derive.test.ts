@@ -17,8 +17,7 @@ import {
 import type { WorkContentDir, WorkContentFile, WorkFileKind } from '@/lib/api/types'
 
 /**
- * The pure derivations (draft spec §6.1) must stay green through the Phase C
- * seam swap: they are everything the mock and the real manifest share.
+ * The pure derivations: everything the page reads off the manifest.
 
  * jsdom has no layout, so the geometry decisions live here as plain data:
  * which directory is a set, which set is the cover, what a track's slots are.

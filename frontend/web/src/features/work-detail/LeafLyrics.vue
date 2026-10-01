@@ -8,7 +8,7 @@ import { usePlayerStore } from '@/stores/player'
 // LISTEN (v3): the paired lyric, framed like subtitles (30% above, 60% below),
 // the current line inverted with its ■ marker and scrolled to 38% of the pane,
 // past lines dimmed, sound-effect lines smaller. Clicking a line seeks — to
-// the silent clock today (draft spec §7.9), to the audio once Phase D lands.
+// the silent clock today, to the audio once playback lands.
 
 const store = useWorkDetailStore()
 const api = useApiClient()

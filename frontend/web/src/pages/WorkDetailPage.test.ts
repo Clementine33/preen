@@ -4,7 +4,7 @@ import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 import { createPinia } from 'pinia'
 import WorkDetailPage from './WorkDetailPage.vue'
 import { apiClientKey } from '@/lib/api/client'
-import { loadWorkContent } from '@/features/work-detail/mock-content'
+import { sampleWorkContent } from '@/test/work-content-fixture'
 import { apiStub } from '@/test/api-stub'
 import { installTestQueryPlugin } from '@/test/query-client'
 import { makeWorkDetail } from '@/test/work-fixture'
@@ -12,7 +12,7 @@ import { usePlayerStore } from '@/stores/player'
 import { useWorkDetailStore } from '@/stores/work-detail'
 
 /**
- * The page-level contracts (draft spec §6.4): the route's work number
+ * The page-level contracts: the route's work number
  * canonicalizes, the address keeps no query of its own, and the keyboard is
  * the prototype's — I flips, the arrows step, Esc closes the topmost layer,
  * Space only pauses and never inside a text field.
@@ -33,7 +33,7 @@ function routerFor(): Router {
 async function mountPage(path = `/works/${RJ}`, attach = false): Promise<{ wrapper: ReturnType<typeof mount>; router: Router }> {
   const api = apiStub({
     getWork: vi.fn().mockResolvedValue(makeWorkDetail()),
-    getWorkContent: vi.fn((rj: string) => loadWorkContent(rj)),
+    getWorkContent: vi.fn(async (rj: string) => sampleWorkContent(rj)),
   } as never)
   const router = routerFor()
   await router.push(path)

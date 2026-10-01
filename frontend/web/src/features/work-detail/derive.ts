@@ -1,7 +1,6 @@
-// The detail page's pure derivations (draft spec §2): everything computed from
-// the content manifest and raw text, independent of the seam and of any
-// component. They survive the Phase C swap unchanged, so they are the unit-test
-// focus: if these stay green after the swap, the swap changed nothing.
+// The detail page's pure derivations: everything computed from the content
+// manifest (docs/api.md "Work content manifest") and raw text, independent of
+// any component — which makes them the unit-test focus.
 
 import type { WorkContentDir, WorkContentFile, WorkFileKind } from '@/lib/api/types'
 

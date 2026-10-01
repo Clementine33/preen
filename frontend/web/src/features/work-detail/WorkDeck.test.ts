@@ -1,7 +1,7 @@
 import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { loadWorkContent } from '@/features/work-detail/mock-content'
+import { sampleWorkContent } from '@/test/work-content-fixture'
 import WorkDeck from './WorkDeck.vue'
 import { apiClientKey } from '@/lib/api/client'
 import { apiStub } from '@/test/api-stub'
@@ -10,7 +10,7 @@ import { makeWorkDetail } from '@/test/work-fixture'
 import { useWorkDetailStore } from '@/stores/work-detail'
 
 /**
- * The deck's data-driven contracts (draft spec §6.8): set chips carry
+ * The deck's data-driven contracts: set chips carry
  * aria-pressed, filmstrip thumbs aria-current, the R18 veil hatches every
  * set but the cover's, and the corner tick flips to the colophon reverse.
  * The shrink-wrap geometry is jsdom-blind and covered by e2e.
@@ -22,7 +22,7 @@ async function mountDeck() {
   const pinia = createPinia()
   setActivePinia(pinia)
   const store = useWorkDetailStore()
-  store.bind(RJ, await loadWorkContent(RJ))
+  store.bind(RJ, sampleWorkContent(RJ))
   const api = apiStub({ getWork: vi.fn().mockResolvedValue(makeWorkDetail({ nsfw: true })) } as never)
   const wrapper = mount(WorkDeck, {
     global: { plugins: [pinia, installTestQueryPlugin()], provide: { [apiClientKey as symbol]: api } },
@@ -88,7 +88,7 @@ describe('WorkDeck', () => {
     const pinia = createPinia()
     setActivePinia(pinia)
     const store = useWorkDetailStore()
-    store.bind(RJ, await loadWorkContent(RJ))
+    store.bind(RJ, sampleWorkContent(RJ))
     store.toggleVeil()
     store.showSet(1)
     const api = apiStub({ getWork: vi.fn().mockResolvedValue(makeWorkDetail({ nsfw: false })) } as never)

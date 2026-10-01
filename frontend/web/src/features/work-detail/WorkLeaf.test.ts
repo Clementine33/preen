@@ -1,7 +1,7 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { loadWorkContent } from '@/features/work-detail/mock-content'
+import { sampleWorkContent } from '@/test/work-content-fixture'
 import WorkLeaf from './WorkLeaf.vue'
 import { apiClientKey } from '@/lib/api/client'
 import { apiStub } from '@/test/api-stub'
@@ -10,7 +10,7 @@ import { findFile, makeWorkDetail } from '@/test/work-fixture'
 import { useWorkDetailStore } from '@/stores/work-detail'
 
 /**
- * The leaf switcher lists only what exists right now (draft spec §6.7): no
+ * The leaf switcher lists only what exists right now: no
  * LISTEN without a pairing (the `LRC ▾` entry replaces it), no READ before a
  * script has been opened, the colophon always. A manual pairing switches the
  * strip to PAIRED.
@@ -22,7 +22,7 @@ async function mountLeaf() {
   const pinia = createPinia()
   setActivePinia(pinia)
   const store = useWorkDetailStore()
-  store.bind(RJ, await loadWorkContent(RJ))
+  store.bind(RJ, sampleWorkContent(RJ))
   const api = apiStub({ getWork: vi.fn().mockResolvedValue(makeWorkDetail()) } as never)
   const wrapper = mount(WorkLeaf, {
     global: { plugins: [pinia, installTestQueryPlugin()], provide: { [apiClientKey as symbol]: api } },

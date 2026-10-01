@@ -12,8 +12,8 @@ import (
 	"strings"
 )
 
-// Native duration parsing for the two formats a voice library is mostly made
-// of. Each reads a few KiB of header where ffprobe reads up to megabytes to
+// Native duration parsing for the formats a voice library is mostly made of:
+// WAV, MP3 and AAC in MP4 (m4a). Each reads a few KiB of header where ffprobe reads up to megabytes to
 // analyze the stream, which on a network share or a mechanical disk is most of
 // the probe's cost (ADR 0015 §2). Anything these parsers do not recognize
 // returns errNotNative and goes to ffprobe; they never guess.
@@ -23,11 +23,13 @@ var errNotNative = errors.New("not natively parsable")
 // maxPlausibleSec rejects a header that decodes to nonsense (a week).
 const maxPlausibleSec = 7 * 24 * 3600
 
-// nativeDuration answers from the header for .wav and .mp3, errNotNative
-// otherwise.
+// nativeDuration answers from the header for .wav, .mp3 and the MP4 family,
+// errNotNative otherwise.
 func nativeDuration(pathPosix string) (float64, error) {
 	ext := strings.ToLower(filepath.Ext(pathPosix))
-	if ext != ".wav" && ext != ".mp3" {
+	switch ext {
+	case ".wav", ".mp3", ".m4a", ".m4b", ".mp4":
+	default:
 		return 0, errNotNative
 	}
 	f, err := os.Open(filepath.FromSlash(pathPosix))
@@ -35,14 +37,18 @@ func nativeDuration(pathPosix string) (float64, error) {
 		return 0, err
 	}
 	defer f.Close()
+	info, err := f.Stat()
+	if err != nil {
+		return 0, err
+	}
 	var sec float64
-	if ext == ".wav" {
+	switch ext {
+	case ".wav":
 		sec, err = wavDuration(f)
-	} else {
-		var info os.FileInfo
-		if info, err = f.Stat(); err == nil {
-			sec, err = mp3Duration(f, info.Size())
-		}
+	case ".mp3":
+		sec, err = mp3Duration(f, info.Size())
+	default:
+		sec, err = mp4Duration(f, info.Size())
 	}
 	if err != nil {
 		return 0, err
@@ -234,4 +240,79 @@ func vbrFrames(frame []byte, h mp3Header) (uint32, bool) {
 		}
 	}
 	return 0, false
+}
+
+// mp4Duration reads the movie header: mvhd's duration over its timescale. That
+// is the edit-trimmed length ffprobe reports; the track's mdhd still counts the
+// encoder priming (ffmpeg's 1024 samples), and qaac writes no edit list at
+// all. moov is found by box headers alone, seeking past mdat wherever it sits;
+// the sample tables after mvhd are never read. A fragmented file's mvhd
+// carries no duration and goes to ffprobe.
+func mp4Duration(r io.ReaderAt, size int64) (float64, error) {
+	moov, moovEnd, err := findBox(r, 0, size, "moov")
+	if err != nil {
+		return 0, err
+	}
+	mvhd, mvhdEnd, err := findBox(r, moov, moovEnd, "mvhd")
+	if err != nil || mvhdEnd-mvhd < 32 {
+		return 0, errNotNative
+	}
+	var b [32]byte
+	if _, err := r.ReadAt(b[:], mvhd); err != nil {
+		return 0, errNotNative
+	}
+	var timescale uint32
+	var duration uint64
+	if b[0] == 1 { // 64-bit times
+		timescale, duration = binary.BigEndian.Uint32(b[20:24]), binary.BigEndian.Uint64(b[24:32])
+		if duration == math.MaxUint64 {
+			return 0, errNotNative
+		}
+	} else {
+		timescale, duration = binary.BigEndian.Uint32(b[12:16]), uint64(binary.BigEndian.Uint32(b[16:20]))
+		if duration == math.MaxUint32 { // all ones: unknown
+			return 0, errNotNative
+		}
+	}
+	if timescale == 0 {
+		return 0, errNotNative
+	}
+	return float64(duration) / float64(timescale), nil
+}
+
+// findBox scans the boxes in [off, end) for one type and returns its body's
+// bounds. It reads only box headers: a 64-bit size follows a size of 1, and a
+// size of 0 runs to the end.
+func findBox(r io.ReaderAt, off, end int64, typ string) (int64, int64, error) {
+	for range 256 { // a real file has a handful of boxes at each level
+		if off+8 > end {
+			break
+		}
+		var h [16]byte
+		if _, err := r.ReadAt(h[:8], off); err != nil {
+			return 0, 0, errNotNative
+		}
+		size, headerLen := int64(binary.BigEndian.Uint32(h[0:4])), int64(8)
+		switch size {
+		case 1:
+			if _, err := r.ReadAt(h[8:16], off+8); err != nil {
+				return 0, 0, errNotNative
+			}
+			large := binary.BigEndian.Uint64(h[8:16])
+			if large > math.MaxInt64 {
+				return 0, 0, errNotNative
+			}
+			size, headerLen = int64(large), 16
+		case 0:
+			size = end - off
+		}
+		if size < headerLen || size > end-off {
+			return 0, 0, errNotNative
+		}
+		if string(h[4:8]) == typ {
+			return off + headerLen, off + size, nil
+		}
+		off += size
+	}
+	return 0, 0, errNotNative
 }

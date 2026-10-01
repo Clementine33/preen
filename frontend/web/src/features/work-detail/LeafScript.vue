@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { loadText } from '@/features/work-detail/content-source'
+import { useApiClient } from '@/lib/api/client'
 import { parseTxt, type ScriptLine } from '@/features/work-detail/derive'
 import { useWorkDetailStore } from '@/stores/work-detail'
 
@@ -13,6 +13,7 @@ import { useWorkDetailStore } from '@/stores/work-detail'
 const emit = defineEmits<{ progress: [percent: string] }>()
 
 const store = useWorkDetailStore()
+const api = useApiClient()
 const txtRel = computed(() => store.activeTxt)
 const lines = ref<ScriptLine[]>([])
 const wrapEl = ref<HTMLElement | null>(null)
@@ -22,7 +23,7 @@ watch(
   async (rel) => {
     lines.value = []
     if (!rel || !store.rj || !store.activeCopy) return
-    const text = await loadText({ rj: store.rj, copyId: store.activeCopy.copy_id, relPath: rel })
+    const text = await api.getWorkText({ rj: store.rj, copyId: store.activeCopy.copy_id, relPath: rel })
     if (txtRel.value !== rel) return
     lines.value = parseTxt(text)
     // A gauge for text with no overflow reads 100% (v3), so measure after paint.

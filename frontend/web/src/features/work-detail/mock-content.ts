@@ -6,7 +6,7 @@
 // renderers downstream run the real path, never a pre-structured shortcut.
 
 import type { WorkContent, WorkContentDir, WorkContentFile, WorkFileKind } from '@/lib/api/types'
-import type { ContentFileRef } from './content-source'
+import type { ContentFileRef } from '@/lib/api/types'
 
 /* ═══ The sample work: one realistically messy directory ═══ */
 

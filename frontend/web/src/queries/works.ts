@@ -1,7 +1,6 @@
 import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { computed, toValue, type MaybeRefOrGetter } from 'vue'
 import { useApiClient } from '@/lib/api/client'
-import { loadWorkContent } from '@/features/work-detail/content-source'
 import type {
   ApiClientContract,
   ListWorksParams,
@@ -84,20 +83,17 @@ export function useWorkDetail(rj: MaybeRefOrGetter<string | null>) {
   return { query, work }
 }
 
-/**
- * One work's file manifest, through the content seam. The seam's implementation
- * is the mock today; Phase C points the same functions at the API client and
- * this composable keeps its key, its loading state and its cache untouched.
- */
+/** One work's file manifest (docs/api.md "Work content manifest"). */
 export function useWorkContent(rj: MaybeRefOrGetter<string | null>) {
+  const api = useApiClient()
   const query = useQuery(
     computed(() => ({
       queryKey: queryKeys.works.content(toValue(rj) ?? ''),
       enabled: toValue(rj) !== null,
-      queryFn: () => {
+      queryFn: ({ signal }: { signal?: AbortSignal }) => {
         const value = toValue(rj)
         if (value === null) throw new Error('work content query requires a work number')
-        return loadWorkContent(value)
+        return api.getWorkContent(value, signal)
       },
     })),
   )

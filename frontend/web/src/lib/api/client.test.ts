@@ -213,3 +213,41 @@ describe('ApiClient', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 })
+
+describe('work content routes', () => {
+  const ref = { rj: 'RJ01000001', copyId: 'c-1', relPath: '表紙/cover main.jpg' }
+
+  it('puts the token in an element-loaded file address, each segment escaped', () => {
+    expect(createClient({ token: 't&1' }).workFileUrl(ref)).toBe(
+      'http://example.test/api/v1/works/RJ01000001/content/c-1/%E8%A1%A8%E7%B4%99/cover%20main.jpg?access_token=t%261',
+    )
+    expect(createClient().workFileUrl(ref)).not.toContain('access_token')
+  })
+
+  it('decodes text by the charset the server declared', async () => {
+    // 「こんにちは」 in Shift_JIS.
+    const sjis = new Uint8Array([0x82, 0xb1, 0x82, 0xf1, 0x82, 0xc9, 0x82, 0xbf, 0x82, 0xcd])
+    mockFetch(() => new Response(sjis, { headers: { 'Content-Type': 'text/plain; charset=shift_jis' } }))
+    await expect(createClient().getWorkText(ref)).resolves.toBe('こんにちは')
+  })
+
+  it('backs off a full thumbnail queue by Retry-After, header-authenticated', async () => {
+    vi.useFakeTimers()
+    let calls = 0
+    const fetchMock = mockFetch(() =>
+      ++calls === 1
+        ? new Response(null, { status: 503, headers: { 'Retry-After': '2' } })
+        : new Response('png', { headers: { 'Content-Type': 'image/png' } }),
+    )
+    const pending = createClient({ token: 'secret' }).getWorkThumb(ref, 120, 'v1')
+    await vi.advanceTimersByTimeAsync(2000)
+    const blob = await pending
+    vi.useRealTimers()
+    expect(await blob.text()).toBe('png')
+    const [url, init] = fetchMock.mock.calls[1]
+    expect(String(url)).toContain('/thumbs/c-1/')
+    expect(String(url)).toContain('?h=120&v=v1')
+    expect(String(url)).not.toContain('secret')
+    expect(new Headers(init?.headers).get('Authorization')).toBe('Bearer secret')
+  })
+})

@@ -37,6 +37,8 @@ import type {
   UpdateLibraryInput,
   PatchWorkUserDataParams,
   WorkDetail,
+  WorkContent,
+  ContentFileRef,
   WorkFacet,
   WorkFacetKind,
   WorkListResponse,
@@ -272,6 +274,57 @@ export class ApiClient implements ApiClientContract {
     // The backend normalizes both 6- and 8-digit spellings to the canonical
     // 8-digit form; the path only ever carries the work number.
     return this.request(`/works/${encodeURIComponent(rj)}`, { signal })
+  }
+
+  /** The work's file manifest (docs/api.md "Work content manifest"). */
+  getWorkContent(rj: string, signal?: AbortSignal): Promise<WorkContent> {
+    return this.request(`/works/${encodeURIComponent(rj)}/content`, { signal })
+  }
+
+  /**
+   * One manifest file's address for an element that loads it itself (<img>,
+   * <audio>): such an element cannot send the bearer header, so the token
+   * rides in the address — the one route that accepts it (ADR 0016 §3).
+   */
+  workFileUrl(ref: ContentFileRef): string {
+    const qs = this.token ? `?access_token=${encodeURIComponent(this.token)}` : ''
+    return this.url(contentPath('content', ref) + qs)
+  }
+
+  /**
+   * A text file's body, decoded once by the charset the server sniffed and
+   * declared (ADR 0016 §3). Response.text() would always decode UTF-8, so the
+   * bytes go through a TextDecoder for the declared label.
+   */
+  async getWorkText(ref: ContentFileRef, signal?: AbortSignal): Promise<string> {
+    const response = await fetch(this.url(contentPath('content', ref)), { headers: this.headers(false), signal })
+    if (!response.ok) throw await this.toApiError(response)
+    const charset = /charset=([^;]+)/i.exec(response.headers.get('Content-Type') ?? '')?.[1]?.trim() ?? 'utf-8'
+    const bytes = await response.arrayBuffer()
+    try {
+      return new TextDecoder(charset).decode(bytes)
+    } catch {
+      // An unknown label: UTF-8 with replacements beats no text at all.
+      return new TextDecoder().decode(bytes)
+    }
+  }
+
+  /**
+   * One image's thumbnail (ADR 0015 §3/§6): fetched with the bearer header so
+   * the immutable address carries no token; a full render queue answers 503
+   * and the request backs off by Retry-After until it is admitted or aborted.
+   */
+  async getWorkThumb(ref: ContentFileRef, height: number, version: string, signal?: AbortSignal): Promise<Blob> {
+    const path = `${contentPath('thumbs', ref)}?h=${height}&v=${encodeURIComponent(version)}`
+    for (;;) {
+      const response = await fetch(this.url(path), { headers: this.headers(false), signal })
+      if (response.status === 503) {
+        await backOff(Number(response.headers.get('Retry-After')) || 1, signal)
+        continue
+      }
+      if (!response.ok) throw await this.toApiError(response)
+      return response.blob()
+    }
   }
 
   // The circles or voice actors listed works carry, scoped like the listing's
@@ -580,6 +633,24 @@ export class ApiClient implements ApiClientContract {
       envelope.details ?? [],
     )
   }
+}
+
+/** A content route's path: each manifest segment escaped on its own. */
+function contentPath(route: 'content' | 'thumbs', ref: ContentFileRef): string {
+  const segments = ref.relPath.split('/').map(encodeURIComponent).join('/')
+  return `/works/${encodeURIComponent(ref.rj)}/${route}/${encodeURIComponent(ref.copyId)}/${segments}`
+}
+
+/** Waits the server's Retry-After, ending early with the caller's abort. */
+function backOff(seconds: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) return reject(signal.reason)
+    const timer = setTimeout(resolve, seconds * 1000)
+    signal?.addEventListener('abort', () => {
+      clearTimeout(timer)
+      reject(signal.reason)
+    }, { once: true })
+  })
 }
 
 export const apiClientKey: InjectionKey<ApiClientContract> = Symbol('api-client')

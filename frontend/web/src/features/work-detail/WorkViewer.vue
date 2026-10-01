@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { imageUrl, type ContentFileRef } from '@/features/work-detail/content-source'
+import { useApiClient } from '@/lib/api/client'
+import type { ContentFileRef } from '@/lib/api/types'
 import { useWorkDetailStore } from '@/stores/work-detail'
 
 // The fullscreen viewer (v3): a native <dialog> on a solid substrate — no
@@ -9,6 +10,7 @@ import { useWorkDetailStore } from '@/stores/work-detail'
 // here moves the plate too, and closing leaves it on the last viewed image.
 
 const store = useWorkDetailStore()
+const api = useApiClient()
 const file = computed(() => store.currentFile)
 const count = computed(() =>
   `${String(store.idx + 1).padStart(2, '0')} / ${String(store.currentSet?.files.length ?? 0).padStart(2, '0')}`,
@@ -17,7 +19,7 @@ const src = computed(() => {
   const item = file.value
   if (!item || !store.rj || !store.activeCopy) return ''
   const ref: ContentFileRef = { rj: store.rj, copyId: store.activeCopy.copy_id, relPath: item.rel_path }
-  return imageUrl(ref)
+  return api.workFileUrl(ref)
 })
 
 // ── Open/close: jsdom has no showModal, so tests render the same DOM by the

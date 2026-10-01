@@ -7,22 +7,27 @@ import {
   type ImageSet,
   type Track,
 } from '@/features/work-detail/derive'
-import type { WorkContent, WorkContentDir, WorkContentFile } from '@/lib/api/types'
+import type { ContentFileRef, WorkContent, WorkContentDir, WorkContentFile } from '@/lib/api/types'
 import { usePlayerStore } from './player'
 
 /**
  * The detail page's session state: the v3 prototype's `S`,
  * reactive and shared across the deck, leaf, bay and viewer. One work is one
  * session — binding a different rj resets everything personal to the visit
- * (scriptSeen, pairings, veil). Playback itself stays in the player store,
- * untouched; this store only records which format is playing (`playFmt`),
- * which the player deliberately does not know.
+ * (scriptSeen, pairings, veil). Playback itself lives in the player store:
+ * this store picks the file (`playFmt`, the format fallback) and hands the
+ * player its address, which outlives the page.
  *
  * The content manifest is hydrated here by the page's query, because every
  * orchestration below — start a track, open a file, pair lyrics — reads it.
  * Catalog fields (nsfw, titles) are not duplicated: components read them
  * from the work detail query, which the mutation layer keeps fresh.
  */
+
+/** Resolves a manifest file to its playable address; set by the page at bind. */
+type FileUrl = (ref: ContentFileRef) => string
+// A function, not state: it never needs to be reactive or reset with the visit.
+let fileUrl: FileUrl | null = null
 
 export type BayDock = 'bottom' | 'right'
 export type BayTab = 'tracks' | 'files'
@@ -109,8 +114,10 @@ export const useWorkDetailStore = defineStore('work-detail', {
      * everything resets. A refetch of the same rj keeps the session and only
      * clamps the selections against the fresh data.
      */
-    bind(rj: string, content: WorkContent) {
+    bind(rj: string, content: WorkContent, resolveFileUrl?: FileUrl) {
       if (this.rj !== rj) this.$reset()
+      // Without a resolver (a test binding the sample) tracks play silently.
+      fileUrl = resolveFileUrl ?? null
       this.rj = rj
       this.content = content
       if (!this.formats.includes(this.fmt)) this.fmt = this.formats[0] ?? ''
@@ -216,7 +223,17 @@ export const useWorkDetailStore = defineStore('work-detail', {
       // A script being read is never interrupted; lyrics swap; else the colophon.
       if (this.leaf !== 'script') this.leaf = this.lrcFor(track) ? 'lrc' : 'colophon'
       this.picking = false
-      if (this.rj !== null) usePlayerStore().play({ rj: this.rj, title: entry.stem }, track)
+      if (this.rj === null) return
+      const file = this.playFmt ? entry.files[this.playFmt] : undefined
+      const copy = this.activeCopy
+      const source = file && copy && fileUrl
+        ? {
+            src: fileUrl({ rj: this.rj, copyId: copy.copy_id, relPath: file.rel_path }),
+            durationSec: file.duration_sec,
+            format: file.format,
+          }
+        : undefined
+      usePlayerStore().play({ rj: this.rj, title: entry.stem }, track, source)
     },
 
     /** A directory row navigates the browser. */

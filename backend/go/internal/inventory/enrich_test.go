@@ -92,11 +92,11 @@ func (p *slowProber) ImageDimensions(path string) (int, int, error) {
 	return 1200, 900, nil
 }
 
-func (p *slowProber) AudioDurationSec(ctx context.Context, path string) (float64, error) {
+func (p *slowProber) AudioFacts(ctx context.Context, path string) (float64, int64, error) {
 	if err := p.answer(ctx, path); err != nil {
-		return 0, err
+		return 0, 0, err
 	}
-	return 185.5, nil
+	return 185.5, 320000, nil
 }
 
 func (p *slowProber) askedCount() int {
@@ -135,6 +135,9 @@ func TestMediaEnricherMeasuresEveryCandidateOncePerKick(t *testing.T) {
 		}
 		if u := store.written["/lib/rj1/0005"]; u.Width != 1200 || u.Height != 900 {
 			t.Errorf("image fact = %+v", u)
+		}
+		if u := store.written["/lib/rj1/0001"]; u.DurationSec != 185.5 || u.Bitrate != 320000 {
+			t.Errorf("audio facts = %+v", u)
 		}
 		// The unmeasurable stay NULL and are not retried until the next kick:
 		// the count is the contract, a pass must not loop on broken files.

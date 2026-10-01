@@ -148,3 +148,53 @@ func candidatePaths(candidates []inventory.MediaCandidate) string {
 	}
 	return strings.Join(paths, " ")
 }
+
+func TestEncodedAudioWaitsForItsBitrateAndKeepsKnownFacts(t *testing.T) {
+	repo, err := NewRepository(":memory:")
+	if err != nil {
+		t.Fatalf("create repo: %v", err)
+	}
+	defer repo.Close()
+
+	now := time.Now().Unix()
+	stageFactsRow(t, repo, "/music", "/music/a.mp3", "audio/mpeg", 10, now, "scan-1")
+	stageFactsRow(t, repo, "/music", "/music/b.wav", "audio/wav", 20, now, "scan-1")
+	if err = repo.MergeStagingSimple("scan-1", "/music"); err != nil {
+		t.Fatal(err)
+	}
+	adapter := NewScanStaging(repo)
+	if err = adapter.UpdateEntryMediaFacts([]inventory.MediaFactsUpdate{
+		{Path: "/music/a.mp3", DurationSec: 60},
+		{Path: "/music/b.wav", DurationSec: 90},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	// The MP3 still lacks the bitrate the planner compares; a WAV carries none.
+	candidates, err := adapter.EntriesMissingMediaFacts("", 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := candidatePaths(candidates); got != "/music/a.mp3" {
+		t.Fatalf("expected only the MP3 awaiting its bitrate, got %q", got)
+	}
+
+	// A pass that measures only the bitrate keeps the duration it already had.
+	if err := adapter.UpdateEntryMediaFacts([]inventory.MediaFactsUpdate{
+		{Path: "/music/a.mp3", Bitrate: 320000},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	var duration sql.NullFloat64
+	var bitrate sql.NullInt64
+	if err := repo.db.QueryRow("SELECT duration_sec, bitrate FROM entries WHERE path = ?", "/music/a.mp3").
+		Scan(&duration, &bitrate); err != nil {
+		t.Fatal(err)
+	}
+	if duration.Float64 != 60 || bitrate.Int64 != 320000 {
+		t.Errorf("facts = %v s, %v bps; want 60 s, 320000 bps", duration.Float64, bitrate.Int64)
+	}
+	if candidates, _ := adapter.EntriesMissingMediaFacts("", 10); len(candidates) != 0 {
+		t.Errorf("nothing should remain, got %q", candidatePaths(candidates))
+	}
+}

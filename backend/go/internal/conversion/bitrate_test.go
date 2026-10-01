@@ -13,6 +13,8 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/onsei/organizer/backend/internal/adapters/media"
+
 	"github.com/onsei/organizer/backend/internal/conversion/reconcile"
 )
 
@@ -74,7 +76,7 @@ func TestEnrichMissing_HandsOnlyScopedEntriesToTheInventory(t *testing.T) {
 	writeTestMP3Frame(t, filepath.FromSlash(outOfScopePath))
 
 	inv := &recordingInventory{}
-	a := newBitrateAnalyzer(inv, "")
+	a := newBitrateAnalyzer(inv, media.ProbeBitrate, "")
 	if err := a.enrichMissing(context.Background(), scopedEntries, true); err != nil {
 		t.Fatalf("enrich scoped entries: %v", err)
 	}
@@ -120,7 +122,7 @@ func TestEnrichMissing_ReturnsPersistError(t *testing.T) {
 
 	writeErr := errors.New("write failed")
 	inv := &recordingInventory{writeErr: writeErr}
-	a := newBitrateAnalyzer(inv, "")
+	a := newBitrateAnalyzer(inv, media.ProbeBitrate, "")
 	err := a.enrichMissing(context.Background(),
 		[]reconcile.AudioEntry{{PathPosix: filepath.ToSlash(mp3Path), Bitrate: 0, Format: "audio/mpeg"}}, true,
 	)

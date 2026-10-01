@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/onsei/organizer/backend/internal/adapters/media"
+
 	appconfig "github.com/onsei/organizer/backend/internal/adapters/settings"
 	"github.com/onsei/organizer/backend/internal/adapters/sqlite"
 	"github.com/onsei/organizer/backend/internal/conversion"
@@ -61,7 +63,7 @@ func TestPlanReadsAnOpusBitrateFromTheContainer(t *testing.T) {
 		ClassifierTags: []string{"SEなし"}, Matched: profile, Unmatched: profile,
 	}
 	in := conversion.Input{Policy: policy, Roots: []conversion.RootInput{{Path: dir, Policy: policy}}}
-	res, err := conversion.Plan(t.Context(), repo, appconfig.NewReader(dir), in)
+	res, err := conversion.Plan(t.Context(), repo, appconfig.NewReader(dir), media.ProbeBitrate, in)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -137,7 +139,7 @@ func TestPlanProbesMissingBitrate(t *testing.T) {
 		if _, resetErr := repo.DB().Exec("UPDATE entries SET bitrate = 0"); resetErr != nil {
 			t.Fatal(resetErr)
 		}
-		res, runErr := conversion.Plan(t.Context(), repo, appconfig.NewReader(dir), in)
+		res, runErr := conversion.Plan(t.Context(), repo, appconfig.NewReader(dir), media.ProbeBitrate, in)
 		if runErr != nil {
 			t.Fatal(runErr)
 		}
@@ -157,7 +159,7 @@ func TestPlanProbesMissingBitrate(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-	_, err = conversion.Plan(ctx, repo, appconfig.NewReader(dir), in)
+	_, err = conversion.Plan(ctx, repo, appconfig.NewReader(dir), media.ProbeBitrate, in)
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("canceled Plan: %v", err)
 	}

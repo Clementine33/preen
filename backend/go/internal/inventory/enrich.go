@@ -26,7 +26,8 @@ const (
 // writes measured facts back to.
 type MediaFactsStore interface {
 	// EntriesMissingMediaFacts lists, in path order after the given path, up to
-	// limit files whose dimensions or duration are still unknown.
+	// limit files whose dimensions, duration or encoded bitrate are still
+	// unknown.
 	EntriesMissingMediaFacts(after string, limit int) ([]MediaCandidate, error)
 	UpdateEntryMediaFacts(updates []MediaFactsUpdate) error
 }
@@ -36,9 +37,9 @@ type MediaFactsStore interface {
 type BeginBackground func(stop func()) (release func(), err error)
 
 // MediaEnricher measures the media facts the inventory does not know yet -
-// image dimensions, audio duration - in the background, after the scan that
-// recorded the entries has completed (ADR 0015 §2). It never runs alongside a
-// scan's walk or anything else the admission slot serializes: it holds the
+// image dimensions, audio duration, the bitrate of encoded audio - in the
+// background, after the scan that recorded the entries has completed (ADR 0015
+// §2). It never runs alongside a scan's walk or anything else the admission slot serializes: it holds the
 // preemptible slot, and whatever arrives stops it and waits for its last write.
 //
 // A pass runs only when kicked (a scan or member refresh merged, the process
@@ -169,11 +170,11 @@ func (e *MediaEnricher) probe(ctx context.Context, c MediaCandidate) (MediaFacts
 	case strings.HasPrefix(c.Format, "image/"):
 		u.Width, u.Height, err = e.prober.ImageDimensions(c.Path)
 	case strings.HasPrefix(c.Format, "audio/"):
-		u.DurationSec, err = e.prober.AudioDurationSec(ctx, c.Path)
+		u.DurationSec, u.Bitrate, err = e.prober.AudioFacts(ctx, c.Path)
 	default:
 		return u, false
 	}
-	return u, err == nil && (u.Width > 0 || u.DurationSec > 0)
+	return u, err == nil && (u.Width > 0 || u.DurationSec > 0 || u.Bitrate > 0)
 }
 
 // sleep waits d and reports false when ctx ends first.

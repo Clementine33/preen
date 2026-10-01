@@ -182,7 +182,7 @@ func buildServices(repo *sqlite.Repository, configDir string, generationConcurre
 		repo,
 		generationConcurrency,
 		0,
-		[]workset.Task{conversion.New(repo, appconfig.NewReader(configDir), ffmpeg.New)},
+		[]workset.Task{conversion.New(repo, appconfig.NewReader(configDir), ffmpeg.New, media.ProbeBitrate)},
 		scanSvc.RefreshMember,
 		gate.Enqueue,
 	)

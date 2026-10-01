@@ -21,14 +21,16 @@ type Task struct {
 	inventory    Inventory
 	settings     Settings
 	buildEncoder execute.EncoderFactory
+	probeBitrate ProbeBitrate
 }
 
 // New creates the conversion task: its input facts come from the injected
 // inventory, its configuration from the injected settings, and the media tool
 // it prepares with from the injected factory — built when a unit is prepared,
-// so the tool paths in force are the ones configured at that moment.
-func New(inv Inventory, settings Settings, buildEncoder execute.EncoderFactory) *Task {
-	return &Task{inventory: inv, settings: settings, buildEncoder: buildEncoder}
+// so the tool paths in force are the ones configured at that moment. probe
+// measures the bitrates a plan needs that the inventory has not recorded.
+func New(inv Inventory, settings Settings, buildEncoder execute.EncoderFactory, probe ProbeBitrate) *Task {
+	return &Task{inventory: inv, settings: settings, buildEncoder: buildEncoder, probeBitrate: probe}
 }
 
 // encoder builds the media tool for the tool paths the configuration names now.
@@ -197,7 +199,7 @@ func (t *Task) PlanSession(
 			in.Progress(workset.PlanProgress(p))
 		}
 	}
-	snap, err := Plan(ctx, t.inventory, t.settings, Input{
+	snap, err := Plan(ctx, t.inventory, t.settings, t.probeBitrate, Input{
 		Policy:           CommonPolicy(doc),
 		Roots:            roots,
 		MarkMissingRoots: true,

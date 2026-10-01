@@ -40,6 +40,9 @@ type ActiveTasks func() (bool, error)
 //	task enqueue:          refused while direct file management is in flight
 //	maintenance:           refused while either of the above is in flight, and
 //	                       refuses them while it holds the slot
+//	background:            refused while anything above is in flight or a
+//	                       session is queued or running; never refuses them -
+//	                       each of them cancels it and waits for it to let go
 //
 // Every check and its registration happen under one mutex. An enqueue inserts
 // its session row inside that mutex, so a file management request that starts
@@ -56,6 +59,11 @@ type Gate struct {
 	maint  bool
 	scans  int
 	tasks  ActiveTasks
+
+	// The preemptible background holder (BeginBackground): how to stop it, and
+	// the channel its release closes. Both nil when the slot is free.
+	bgStop func()
+	bgDone chan struct{}
 }
 
 // NewGate creates the process-wide gate. tasks reports the database-side
@@ -68,7 +76,7 @@ func NewGate(tasks ActiveTasks) *Gate {
 // refresh). The returned release must be called exactly once when the scan
 // finishes.
 func (g *Gate) BeginScan() (func(), error) {
-	g.mu.Lock()
+	g.lockPreempting()
 	defer g.mu.Unlock()
 	if g.manual {
 		return nil, &BusyError{Reason: "direct file management is in progress"}
@@ -88,7 +96,7 @@ func (g *Gate) BeginScan() (func(), error) {
 // Library root changes and deletions take this same slot, so they cannot
 // interleave with file management.
 func (g *Gate) BeginManual() (func(), error) {
-	g.mu.Lock()
+	g.lockPreempting()
 	defer g.mu.Unlock()
 	if g.manual {
 		return nil, &BusyError{Reason: "another file operation is in progress"}
@@ -124,7 +132,7 @@ func (g *Gate) BeginManual() (func(), error) {
 // slot and asks again, so a task that arrives in that gap is admitted and the
 // pass gives up until the next tick.
 func (g *Gate) BeginMaintenance() (func(), error) {
-	g.mu.Lock()
+	g.lockPreempting()
 	defer g.mu.Unlock()
 	if g.manual {
 		return nil, &BusyError{Reason: "direct file management is in progress"}
@@ -154,7 +162,7 @@ func (g *Gate) BeginMaintenance() (func(), error) {
 // after it sees the queued session in the database, never a half-registered
 // one.
 func (g *Gate) Enqueue(fn func() error) error {
-	g.mu.Lock()
+	g.lockPreempting()
 	defer g.mu.Unlock()
 	if g.manual {
 		return &BusyError{Reason: "direct file management is in progress"}
@@ -163,6 +171,59 @@ func (g *Gate) Enqueue(fn func() error) error {
 		return &BusyError{Reason: "database maintenance is in progress"}
 	}
 	return fn()
+}
+
+// BeginBackground acquires the preemptible slot for low-priority disk reads
+// that must not overlap a scan's walk or anything the slot serializes (ADR
+// 0015 §2). It is refused while anything else is in flight, and never refuses
+// in return: every other entry calls stop and waits for the holder's release
+// before proceeding. stop must make the holder release promptly; the wait is
+// what guarantees the holder's last write lands before, never during, the
+// work that preempted it.
+func (g *Gate) BeginBackground(stop func()) (func(), error) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	switch {
+	case g.bgStop != nil:
+		return nil, &BusyError{Reason: "a background pass is already running"}
+	case g.manual:
+		return nil, &BusyError{Reason: "direct file management is in progress"}
+	case g.maint:
+		return nil, &BusyError{Reason: "database maintenance is in progress"}
+	case g.scans > 0:
+		return nil, &BusyError{Reason: "a scan is running"}
+	}
+	if g.tasks != nil {
+		active, err := g.tasks()
+		if err != nil {
+			return nil, fmt.Errorf("check active sessions: %w", err)
+		}
+		if active {
+			return nil, &BusyError{Reason: "a planning session or execution is queued or running"}
+		}
+	}
+	done := make(chan struct{})
+	g.bgStop, g.bgDone = stop, done
+	return func() {
+		g.mu.Lock()
+		defer g.mu.Unlock()
+		g.bgStop, g.bgDone = nil, nil
+		close(done)
+	}, nil
+}
+
+// lockPreempting takes the mutex with no background holder left: it stops the
+// holder and waits for its release outside the mutex (the release takes it),
+// then checks again.
+func (g *Gate) lockPreempting() {
+	g.mu.Lock()
+	for g.bgStop != nil {
+		stop, done := g.bgStop, g.bgDone
+		g.mu.Unlock()
+		stop()
+		<-done
+		g.mu.Lock()
+	}
 }
 
 func (g *Gate) releaseScan() {

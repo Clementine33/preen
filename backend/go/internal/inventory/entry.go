@@ -25,9 +25,6 @@ type Event struct {
 	Stage        string
 	FilesScanned int
 	DirsScanned  int
-	// MediaProbed of MediaTotal: the "media" stage's progress (enrich.go).
-	MediaProbed int
-	MediaTotal  int
 	// The binding classifications of a completed full scan: how many of the
 	// library's direct child directories named no work number or more than one.
 	DirsWithoutNumber       int
@@ -224,14 +221,7 @@ func (s *service) Scan(ctx context.Context, req Request, emit func(Event)) (Resu
 	// dropping it here leaves the catalog with no works ever bound.
 	scanID, err := s.pipeline.ScanRootCtx(ctx, req.RootPath, WithLibrary(req.LibraryID), WithProgress(func(p Progress) {
 		lastProgress = p
-		stage := p.Stage
-		if stage == "" {
-			stage = "scan"
-		}
-		emit(Event{
-			Type: "progress", Stage: stage, FilesScanned: p.FilesScanned, DirsScanned: p.DirsScanned,
-			MediaProbed: p.MediaProbed, MediaTotal: p.MediaTotal,
-		})
+		emit(Event{Type: "progress", Stage: "scan", FilesScanned: p.FilesScanned, DirsScanned: p.DirsScanned})
 	}))
 	if err != nil {
 		if errors.Is(err, context.Canceled) {

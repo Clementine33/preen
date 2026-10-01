@@ -59,20 +59,6 @@ type fakeStagingStore struct {
 	// pipeline's failure paths are exercised.
 	failStagingError   error
 	writeStagingCalled bool
-	// MediaCandidates is what EntriesMissingMediaFacts answers; a nil prober
-	// (every pipeline test) skips the pass before asking, so only the
-	// enrichment tests set it. FactsWritten records what went back.
-	MediaCandidates []inventory.MediaCandidate
-	FactsWritten    []inventory.MediaFactsUpdate
-}
-
-func (m *fakeStagingStore) EntriesMissingMediaFacts(scanID string) ([]inventory.MediaCandidate, error) {
-	return m.MediaCandidates, nil
-}
-
-func (m *fakeStagingStore) UpdateEntryMediaFacts(updates []inventory.MediaFactsUpdate) error {
-	m.FactsWritten = append(m.FactsWritten, updates...)
-	return nil
 }
 
 func (m *fakeStagingStore) WriteStagingEntries(sessionID string, entries []inventory.StagingEntry) error {

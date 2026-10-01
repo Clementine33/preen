@@ -12,7 +12,7 @@ type Entry struct {
 	Mtime      int64
 	Bitrate    *int32
 	Format     string
-	// Scan-time media facts (ADR 0015 §2), NULL while unmeasured.
+	// Media facts measured after the scan (ADR 0015 §2), NULL while unmeasured.
 	Width       *int
 	Height      *int
 	DurationSec *float64

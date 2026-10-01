@@ -2,6 +2,7 @@ package sqlite //nolint:testpackage // white-box tests share the package's own h
 
 import (
 	"database/sql"
+	"strings"
 	"testing"
 	"time"
 
@@ -86,16 +87,24 @@ func TestEntriesMissingMediaFactsAndWriteBack(t *testing.T) {
 	if mergeErr := repo.MergeStagingSimple("scan-1", "/music"); mergeErr != nil {
 		t.Fatal(mergeErr)
 	}
-	// A row another scan owns must not be re-probed by this scan's pass.
+	// Another root's row qualifies too: the pass spans the whole inventory.
 	mergeFactsFixture(t, repo, "/other", "/other/other.wav", "audio/wav", 40, now, "scan-other")
 
 	adapter := NewScanStaging(repo)
-	candidates, err := adapter.EntriesMissingMediaFacts("scan-1")
+	candidates, err := adapter.EntriesMissingMediaFacts("", 10)
 	if err != nil {
 		t.Fatalf("select candidates: %v", err)
 	}
-	if len(candidates) != 2 {
-		t.Fatalf("expected the image and the audio of this scan, got %d: %v", len(candidates), candidates)
+	if got := candidatePaths(candidates); got != "/music/cover.png /music/track.mp3 /other/other.wav" {
+		t.Fatalf("expected every unmeasured media file in path order, got %q", got)
+	}
+	// The cursor pages: after a path, at most limit rows.
+	page, err := adapter.EntriesMissingMediaFacts("/music/cover.png", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := candidatePaths(page); got != "/music/track.mp3" {
+		t.Errorf("expected the next candidate only, got %q", got)
 	}
 
 	// The image is measured; the audio probe fails, which the pass records by
@@ -106,12 +115,12 @@ func TestEntriesMissingMediaFactsAndWriteBack(t *testing.T) {
 		t.Fatalf("update media facts: %v", updateErr)
 	}
 
-	remaining, err := adapter.EntriesMissingMediaFacts("scan-1")
+	remaining, err := adapter.EntriesMissingMediaFacts("", 10)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(remaining) != 1 || remaining[0].Path != "/music/track.mp3" {
-		t.Errorf("expected only the unmeasured audio to remain, got %v", remaining)
+	if got := candidatePaths(remaining); got != "/music/track.mp3 /other/other.wav" {
+		t.Errorf("expected only the unmeasured audio to remain, got %q", got)
 	}
 
 	// A zero duration stores NULL rather than 0: unmeasured is not zero
@@ -130,4 +139,12 @@ func TestEntriesMissingMediaFactsAndWriteBack(t *testing.T) {
 	if !duration.Valid || duration.Float64 != 185.5 {
 		t.Errorf("expected duration 185.5, got %v", duration.Float64)
 	}
+}
+
+func candidatePaths(candidates []inventory.MediaCandidate) string {
+	paths := make([]string, len(candidates))
+	for i, c := range candidates {
+		paths[i] = c.Path
+	}
+	return strings.Join(paths, " ")
 }

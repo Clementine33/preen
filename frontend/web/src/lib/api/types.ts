@@ -112,9 +112,6 @@ export interface ScanEventData {
   root_path?: string
   files_scanned?: number
   dirs_scanned?: number
-  /** The "media" stage: facts measured after the merge (docs/api.md). */
-  media_probed?: number
-  media_total?: number
   code?: string
 }
 
@@ -361,10 +358,10 @@ export interface WorkContentFile {
   /** Audio container: 'MP3' | 'WAV' | … */
   format: string | null
   bitrate: number | null
-  /** Image pixels, recorded at scan time (image.DecodeConfig, ADR 0015 §2). */
+  /** Image pixels from the header (image.DecodeConfig, ADR 0015 §2); null until measured. */
   width: number | null
   height: number | null
-  /** Audio seconds, recorded at scan time. */
+  /** Audio seconds; null until measured after the scan. */
   duration_sec: number | null
   /** Image thumbnail version, the `v` of its immutable thumbnail address (ADR 0015 §3); null for other kinds. */
   thumb_v: string | null

@@ -5,9 +5,6 @@ defineProps<{
   status: ScanStatus
   filesScanned: number
   dirsScanned: number
-  /** The media stage: facts measured after the walk; 0 total before it. */
-  mediaProbed?: number
-  mediaTotal?: number
   errorCode?: string | null
   errorMessage?: string | null
 }>()
@@ -30,9 +27,6 @@ defineProps<{
       </span>
       <span v-if="status === 'scanning' || status === 'completed'" class="font-mono text-muted-foreground">
         {{ filesScanned }} 个文件 · {{ dirsScanned }} 个目录
-      </span>
-      <span v-if="status === 'scanning' && mediaTotal" class="font-mono text-muted-foreground" data-testid="scan-media">
-        测量媒体信息 {{ mediaProbed }} / {{ mediaTotal }}
       </span>
       <span v-if="status === 'error'" class="truncate">
         {{ errorCode }}<template v-if="errorCode && errorMessage"> · </template>{{ errorMessage }}

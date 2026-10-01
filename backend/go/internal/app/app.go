@@ -139,6 +139,9 @@ type services struct {
 	catalog *conversion.Catalog
 	// works is the logical work catalog the library's directories bind to.
 	works *works.Service
+	// mediaFacts measures the inventory's unknown media facts in the
+	// background, after scans (ADR 0015 §2).
+	mediaFacts *inventory.MediaEnricher
 }
 
 // buildServices wires the process. Direct file management and the managed task
@@ -151,15 +154,16 @@ type services struct {
 // planning or writing all go through the same pipeline.
 func buildServices(repo *sqlite.Repository, configDir string, generationConcurrency int) services {
 	gate := admission.NewGate(repo.HasActiveSession)
+	// The background media pass holds the gate's preemptible slot, so it
+	// never reads alongside a scan's walk; every merge kicks it.
+	mediaFacts := inventory.NewMediaEnricher(sqlite.NewScanStaging(repo), media.New(""), gate.BeginBackground)
 	librarySvc := library.NewService(repo, gate, repo, fileops.ResolveMember)
 	scanSvc := inventory.NewService(
 		inventory.NewPipeline(
 			sqlite.NewScanStaging(repo),
 			filesystem.WalkRootEntriesParallel,
 			filesystem.WalkFolderEntries,
-			// The enrichment pass measures the merged entries' unknown media
-			// facts (ADR 0015 §2) with the same ffprobe the encoder adapter uses.
-			media.New(""),
+			mediaFacts.Kick,
 		),
 		repo,
 		gate,
@@ -192,6 +196,7 @@ func buildServices(repo *sqlite.Repository, configDir string, generationConcurre
 		works: works.NewService(
 			repo, repo, fileops.ResolveMember, fileops.ResolveMemberFile, media.ThumbEngineVersion,
 		),
+		mediaFacts: mediaFacts,
 	}
 }
 
@@ -238,6 +243,13 @@ func runServer(ctx context.Context, repo *sqlite.Repository, cfg Config) {
 	go func() {
 		defer close(maintenanceDone)
 		maintenanceLoop.Run(ctx)
+	}()
+	// The startup kick picks up whatever an earlier process left unmeasured.
+	services.mediaFacts.Kick()
+	mediaFactsDone := make(chan struct{})
+	go func() {
+		defer close(mediaFactsDone)
+		services.mediaFacts.Run(ctx)
 	}()
 
 	httpSrv := &http.Server{
@@ -299,9 +311,10 @@ func runServer(ctx context.Context, repo *sqlite.Repository, cfg Config) {
 	log.Printf("onsei-backend listening on http 127.0.0.1:%d (data=%s)", httpPort, cfg.DataDir)
 	<-ctx.Done()
 	gracefulStop()
-	// The pass may be mid-statement; let it return before the repository it
-	// reads from is closed by main.
+	// The passes may be mid-statement; let them return before the repository
+	// they read from is closed by main.
 	<-maintenanceDone
+	<-mediaFactsDone
 }
 
 // interruptStaleSessions marks leftover queued/running sessions of a previous

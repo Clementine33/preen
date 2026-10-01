@@ -27,12 +27,6 @@ type Progress struct {
 	FilesScanned int
 	DirsScanned  int
 
-	// Stage is "media" while the merged entries' unknown facts are measured
-	// (enrich.go), with MediaProbed of MediaTotal done; empty during the walk.
-	Stage       string
-	MediaProbed int
-	MediaTotal  int
-
 	// DirsWithoutNumber and DirsWithMultipleNumbers count the library's direct
 	// child directories whose names yielded no work number or more than one.
 	DirsWithoutNumber       int
@@ -143,17 +137,11 @@ type MergeOutcome struct {
 // library's directory bindings, and the reconciliation has to happen inside the
 // same transaction as the merge. An empty library means the merge is a member
 // refresh, which leaves every binding alone.
-//
-// The media-fact pair brackets the enrichment pass that runs after the merge
-// (enrich.go): it names what a scan touched with unknown media facts, and
-// writes the measured ones back.
 type StagingStore interface {
 	WriteStagingEntries(sessionID string, entries []StagingEntry) error
 	MergeStaging(sessionID, libraryID, rootPath string) (MergeOutcome, error)
 	CreateScanSession(session *ScanSession) error
 	UpdateScanSessionStatus(sessionID, status, errorCode, errorMessage string) error
-	EntriesMissingMediaFacts(scanID string) ([]MediaCandidate, error)
-	UpdateEntryMediaFacts(updates []MediaFactsUpdate) error
 }
 
 // StagingEntry represents an entry to be written to staging.
@@ -207,25 +195,26 @@ func detectFormatFromPath(path string, isDir bool) string {
 // Pipeline runs one scan: it walks a root (or one member directory) through
 // the injected traversal, stages every observed entry through the store, and
 // merges the staged rows into the inventory. The traversal is a port so this
-// pipeline never reads the filesystem itself; the prober is the port its
-// post-merge enrichment measures media facts through, nil when unwired.
+// pipeline never reads the filesystem itself. merged is told after every
+// successful merge, which is how the media enricher learns there may be facts
+// to measure (enrich.go); nil when unwired.
 type Pipeline struct {
 	repo            StagingStore
 	walkRoot        WalkRoot
 	walkMember      WalkMember
-	prober          MediaProber
+	merged          func()
 	rootConcurrency int
 }
 
 // NewPipeline creates a scan pipeline. walkRoot is the full-root traversal and
 // walkMember the single-directory one; both are wired from the filesystem
-// adapter. prober measures the media facts of the merged entries.
-func NewPipeline(repo StagingStore, walkRoot WalkRoot, walkMember WalkMember, prober MediaProber) *Pipeline {
+// adapter. merged (may be nil) is called after every successful merge.
+func NewPipeline(repo StagingStore, walkRoot WalkRoot, walkMember WalkMember, merged func()) *Pipeline {
 	return &Pipeline{
 		repo:            repo,
 		walkRoot:        walkRoot,
 		walkMember:      walkMember,
-		prober:          prober,
+		merged:          merged,
 		rootConcurrency: defaultRootConcurrency,
 	}
 }
@@ -419,10 +408,9 @@ func (s *Pipeline) ScanRootCtx(ctx context.Context, rootPath string, opts ...Sca
 			return "", fmt.Errorf("merge staging: %w", err)
 		}
 
-		// The merged entries' unknown media facts are measured while the scan
-		// still holds its admission slot, so a completed scan has answered
-		// everything it could (enrich.go).
-		s.enrichMediaFacts(ctx, sessionID, mediaReporter(o.progress, scanned))
+		// The merged entries' unknown media facts are measured in the
+		// background, after this scan releases the slot (ADR 0015 §2).
+		s.notifyMerged()
 
 		// The classifications are only known once the bindings have been
 		// reconciled, so they travel in a report of their own rather than in the
@@ -622,8 +610,7 @@ func (s *Pipeline) ScanFolderCtx(
 			_ = s.repo.UpdateScanSessionStatus(sessionID, "failed", "MERGE_FAILED", err.Error())
 			return "", err
 		}
-		// A member refresh streams no progress: nothing to report to.
-		s.enrichMediaFacts(ctx, sessionID, mediaReporter(nil, Progress{}))
+		s.notifyMerged()
 
 		if err := s.repo.UpdateScanSessionStatus(sessionID, "completed", "", ""); err != nil {
 			return "", err
@@ -631,6 +618,13 @@ func (s *Pipeline) ScanFolderCtx(
 	}
 
 	return sessionID, nil
+}
+
+// notifyMerged tells the wired listener that the inventory changed.
+func (s *Pipeline) notifyMerged() {
+	if s.merged != nil {
+		s.merged()
+	}
 }
 
 // DirEntryToStagingEntry converts a DirEntry to StagingEntry with format detection.

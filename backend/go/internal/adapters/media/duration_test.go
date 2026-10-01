@@ -146,3 +146,78 @@ func TestAudioDurationFallsBackToFFprobe(t *testing.T) {
 		t.Errorf("expected ~2s, got %v", sec)
 	}
 }
+
+func box(typ string, body ...[]byte) []byte {
+	var payload []byte
+	for _, b := range body {
+		payload = append(payload, b...)
+	}
+	//nolint:gosec // test boxes are a few KiB at most
+	out := binary.BigEndian.AppendUint32(nil, uint32(8+len(payload)))
+	return append(append(out, typ...), payload...)
+}
+
+// mvhd is a movie header: version 0 has 32-bit times, version 1 64-bit ones.
+func mvhd(version byte, timescale uint32, duration uint64) []byte {
+	b := []byte{version, 0, 0, 0}
+	if version == 1 {
+		b = append(b, make([]byte, 16)...) // creation, modification
+		b = binary.BigEndian.AppendUint32(b, timescale)
+		b = binary.BigEndian.AppendUint64(b, duration)
+	} else {
+		b = append(b, make([]byte, 8)...)
+		b = binary.BigEndian.AppendUint32(b, timescale)
+		b = binary.BigEndian.AppendUint32(b, uint32(duration)) //nolint:gosec // test values fit
+	}
+	return box("mvhd", append(b, make([]byte, 80)...))
+}
+
+// moovWith stands for a real moov: the movie header, then a track whose
+// sample tables the parser must never need.
+func moovWith(header []byte) []byte {
+	return box("moov", header, box("trak", box("mdia", make([]byte, 4096))))
+}
+
+func TestMP4DurationFromMovieHeader(t *testing.T) {
+	ftyp := box("ftyp", []byte("M4A \x00\x00\x00\x00M4A mp42isom"))
+	// A 64-bit mdat size: size 1, then the large size after the type.
+	large := binary.BigEndian.AppendUint32(nil, 1)
+	large = append(large, "mdat"...)
+	large = binary.BigEndian.AppendUint64(large, 16+2000)
+	large = append(large, make([]byte, 2000)...)
+
+	cases := map[string]struct {
+		file []byte
+		want float64
+	}{
+		// ffmpeg and qaac without faststart: moov after the audio.
+		"moov at the end": {
+			file: bytes.Join([][]byte{ftyp, box("mdat", make([]byte, 5000)), moovWith(mvhd(0, 1000, 253938))}, nil),
+			want: 253.938,
+		},
+		"moov first, 64-bit header": {
+			file: bytes.Join([][]byte{ftyp, moovWith(mvhd(1, 44100, 44100*90)), box("mdat", make([]byte, 5000))}, nil),
+			want: 90,
+		},
+		"64-bit mdat size": {
+			file: bytes.Join([][]byte{ftyp, large, moovWith(mvhd(0, 48000, 48000*12))}, nil),
+			want: 12,
+		},
+	}
+	for name, c := range cases {
+		sec, err := noFFprobe(t).AudioDurationSec(context.Background(), writeFile(t, "a.m4a", c.file))
+		if err != nil {
+			t.Errorf("%s: %v", name, err)
+			continue
+		}
+		assertSeconds(t, sec, c.want)
+	}
+}
+
+func TestMP4WithoutMovieDurationIsNotGuessed(t *testing.T) {
+	// A fragmented file's movie header carries no duration: ffprobe's job.
+	file := bytes.Join([][]byte{moovWith(mvhd(0, 1000, 0)), box("moof"), box("mdat", make([]byte, 100))}, nil)
+	if _, err := noFFprobe(t).AudioDurationSec(context.Background(), writeFile(t, "frag.m4a", file)); err == nil {
+		t.Fatal("expected no header answer for a fragmented file")
+	}
+}

@@ -1,7 +1,7 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { loadWorkContent } from '@/features/work-detail/mock-content'
+import { sampleWorkContent } from '@/test/work-content-fixture'
 import WorkColophon from './WorkColophon.vue'
 import { apiClientKey } from '@/lib/api/client'
 import { apiStub } from '@/test/api-stub'
@@ -10,7 +10,7 @@ import { makeWorkDetail } from '@/test/work-fixture'
 import { useWorkDetailStore } from '@/stores/work-detail'
 
 /**
- * The personal rows write straight through (draft spec §6.5): a rating click
+ * The personal rows write straight through: a rating click
  * PATCHes user-data, the favorite toggles, the note saves on change, and the
  * tag chips replace the set. jsdom has no layout; only the calls' contracts.
  */
@@ -21,7 +21,7 @@ async function mountColophon(overrides: Record<string, ReturnType<typeof vi.fn>>
   const pinia = createPinia()
   setActivePinia(pinia)
   const store = useWorkDetailStore()
-  store.bind(RJ, await loadWorkContent(RJ))
+  store.bind(RJ, sampleWorkContent(RJ))
   const api = apiStub({ getWork: vi.fn().mockResolvedValue(makeWorkDetail()), ...overrides } as never)
   const wrapper = mount(WorkColophon, {
     global: { plugins: [pinia, installTestQueryPlugin()], provide: { [apiClientKey as symbol]: api } },
@@ -102,7 +102,7 @@ describe('WorkColophon', () => {
     const pinia = createPinia()
     setActivePinia(pinia)
     const store = useWorkDetailStore()
-    store.bind(RJ, await loadWorkContent(RJ))
+    store.bind(RJ, sampleWorkContent(RJ))
     const api = apiStub({ getWork: vi.fn().mockResolvedValue(makeWorkDetail({ placeholder: true })) } as never)
     const wrapper = mount(WorkColophon, {
       global: { plugins: [pinia, installTestQueryPlugin()], provide: { [apiClientKey as symbol]: api } },

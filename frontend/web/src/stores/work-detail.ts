@@ -11,7 +11,7 @@ import type { WorkContent, WorkContentDir, WorkContentFile } from '@/lib/api/typ
 import { usePlayerStore } from './player'
 
 /**
- * The detail page's session state (draft spec §2): the v3 prototype's `S`,
+ * The detail page's session state: the v3 prototype's `S`,
  * reactive and shared across the deck, leaf, bay and viewer. One work is one
  * session — binding a different rj resets everything personal to the visit
  * (scriptSeen, pairings, veil). Playback itself stays in the player store,
@@ -64,7 +64,7 @@ export const useWorkDetailStore = defineStore('work-detail', {
   }),
 
   getters: {
-    /** Phase A reads the first online copy (draft spec §7.5); offline ones stay listed. */
+    /** The page reads the first online copy; offline ones stay listed. */
     activeCopy(state) {
       const online = state.content?.copies.find((copy) => copy.online)
       return online ?? state.content?.copies[0] ?? null

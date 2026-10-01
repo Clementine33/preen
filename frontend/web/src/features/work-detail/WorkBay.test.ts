@@ -1,7 +1,7 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { loadWorkContent } from '@/features/work-detail/mock-content'
+import { sampleWorkContent } from '@/test/work-content-fixture'
 import WorkBay from './WorkBay.vue'
 import { apiClientKey } from '@/lib/api/client'
 import { apiStub } from '@/test/api-stub'
@@ -11,7 +11,7 @@ import { usePlayerStore } from '@/stores/player'
 import { useWorkDetailStore } from '@/stores/work-detail'
 
 /**
- * The bay's contracts (draft spec §6.6): a tab click lifts, the open tab's
+ * The bay's contracts: a tab click lifts, the open tab's
  * click closes; the track list is one list with format chips — a track missing
  * the browsed format stays listed, tagged with its only one, and plays it;
  * the FILES tab's rows act on the whole page.
@@ -23,7 +23,7 @@ async function mountBay() {
   const pinia = createPinia()
   setActivePinia(pinia)
   const store = useWorkDetailStore()
-  store.bind(RJ, await loadWorkContent(RJ))
+  store.bind(RJ, sampleWorkContent(RJ))
   const api = apiStub({ getWork: vi.fn().mockResolvedValue(makeWorkDetail()) } as never)
   const wrapper = mount(WorkBay, {
     global: { plugins: [pinia, installTestQueryPlugin()], provide: { [apiClientKey as symbol]: api } },

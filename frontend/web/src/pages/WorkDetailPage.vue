@@ -12,7 +12,7 @@ import { useWorkContent, useWorkDetail } from '@/queries/works'
 import { usePlayerStore } from '@/stores/player'
 import { useWorkDetailStore } from '@/stores/work-detail'
 
-// The work detail page (draft spec §2): a 48px header over a stage of deck
+// The work detail page: a 48px header over a stage of deck
 // and leaf with the file bay docked below or pinned right, and the player
 // baseline at the very bottom. All of it is one session in the work-detail
 // store; the address carries exactly one fact, the work number — no query
@@ -45,7 +45,7 @@ function backToWall(): void {
   router.push({ name: 'works', query: rj.value !== null ? { rj: rj.value } : {} })
 }
 
-// ── Keyboard (draft spec §5): I flips, the arrows step (the viewer shares
+// ── Keyboard: I flips, the arrows step (the viewer shares
 //    the same set/idx), Esc closes the topmost layer, Space only pauses. ──
 
 /** A text field or an open menu keeps every key it receives. */

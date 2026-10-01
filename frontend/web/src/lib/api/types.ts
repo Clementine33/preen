@@ -340,8 +340,9 @@ export interface PatchWorkUserDataParams {
 }
 
 // ==================== Work content manifest ====================
-// The detail page's content contract (draft spec §3). Deliberately not shared
-// with the conversion workbench's MemberTree: this projection classifies files
+// The detail page's content contract (docs/api.md "Work content manifest").
+// Deliberately not shared with the conversion workbench's MemberTree: this
+// projection classifies files
 // by kind and carries scan-time image dimensions and durations, for different
 // consumers at a different change rate (ADR 0009's logic).
 

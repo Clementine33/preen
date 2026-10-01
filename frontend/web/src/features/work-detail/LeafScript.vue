@@ -1,12 +1,11 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useApiClient } from '@/lib/api/client'
-import { parseTxt, type ScriptLine } from '@/features/work-detail/derive'
+import { parseLyrics, parseTxt, type ScriptLine } from '@/features/work-detail/derive'
 import { useWorkDetailStore } from '@/stores/work-detail'
 
-// READ (v3): the TXT script as a Japanese book — vertical-rl right-to-left by
-// default, Gothic (--font-ja) at line-height 2, scene heads sideways, sound
-// effects under （SE）, speech numbered; 横 switches to a horizontal measure.
+// READ: horizontal scripts and lyric text, with sound effects under （SE）
+// and speech numbered. Timed lyrics are read without their timestamps.
 // The only position instrument is the strip's percentage gauge (no scene
 // index, no resume point — both rejected); nothing is persisted.
 
@@ -31,7 +30,9 @@ watch(
       return
     }
     if (txtRel.value !== rel) return
-    lines.value = parseTxt(text)
+    lines.value = parseTxt(/\.(?:lrc|vtt)$/i.test(rel)
+      ? parseLyrics(text, rel).map(line => line.text).join('\n')
+      : text)
     // A gauge for text with no overflow reads 100% (v3), so measure after paint.
     requestAnimationFrame(trackReading)
   },
@@ -47,18 +48,17 @@ const numbered = computed(() => {
 function trackReading(): void {
   const wrap = wrapEl.value
   if (!wrap) return
-  // Vertical reads right-to-left, so rtl containers scroll negative.
-  const max = store.vertical ? wrap.scrollWidth - wrap.clientWidth : wrap.scrollHeight - wrap.clientHeight
-  const p = max > 0 ? Math.min(1, (store.vertical ? Math.abs(wrap.scrollLeft) : wrap.scrollTop) / max) : 1
+  const max = wrap.scrollHeight - wrap.clientHeight
+  const p = max > 0 ? Math.min(1, wrap.scrollTop / max) : 1
   emit('progress', `${Math.round(p * 100)}%`)
 }
-watch([txtRel, () => store.vertical], () => {
+watch(txtRel, () => {
   emit('progress', '0%')
 })
 </script>
 
 <template>
-  <div ref="wrapEl" class="script-wrap" :class="{ 'script-h': !store.vertical }" @scroll.passive="trackReading">
+  <div ref="wrapEl" class="script-wrap" @scroll.passive="trackReading">
     <div class="script" lang="ja">
       <template v-for="(line, i) in numbered" :key="i">
         <p v-if="line.kind === 'scene'" class="scene">{{ line.text }}</p>
@@ -70,18 +70,15 @@ watch([txtRel, () => store.vertical], () => {
 </template>
 
 <style scoped>
-.script-wrap { height: 100%; overflow-x: auto; overflow-y: hidden; direction: rtl; scrollbar-width: thin; }
+.script-wrap { height: 100%; overflow-y: auto; overflow-x: hidden; }
 .script {
-  direction: ltr; writing-mode: vertical-rl; height: 100%;
   padding: var(--sp-5) var(--sp-4);
-  font-family: var(--font-ja); font-size: 15px; line-height: 2; letter-spacing: .04em;
-  font-feature-settings: 'vpal'; color: var(--fg-base);
+  font-family: var(--font-ja); font-size: 15px; line-height: 1.9; letter-spacing: .04em;
+  color: var(--fg-base);
 }
 .script p { text-indent: 1em; margin: 0; }
 .script .sp { text-indent: 0; }
 .script .spk { font-weight: 700; font-size: var(--fs-s); color: var(--fg-muted); }
-.script .no { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--fg-meta); text-combine-upright: all; letter-spacing: 0; }
-.script .scene { font-family: var(--font-mono); font-size: var(--fs-xs); letter-spacing: .14em; color: var(--fg-meta); margin: 0 1.2em; text-orientation: sideways; text-indent: 0; }
-.script-h { direction: ltr; overflow-y: auto; overflow-x: hidden; }
-.script-h .script { writing-mode: horizontal-tb; height: auto; max-width: 38em; line-height: 1.9; }
+.script .no { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--fg-meta); letter-spacing: 0; }
+.script .scene { font-family: var(--font-mono); font-size: var(--fs-xs); letter-spacing: .14em; color: var(--fg-meta); margin: 0 1.2em; text-indent: 0; }
 </style>

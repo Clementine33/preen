@@ -117,7 +117,11 @@ func setWorkFileContentType(h http.Header, file *os.File, kind works.ContentFile
 		if err != nil {
 			return err
 		}
-		h.Set("Content-Type", "text/plain; charset="+sniffTextCharset(sample, eof))
+		mediaType := "text/plain"
+		if strings.EqualFold(filepath.Ext(file.Name()), ".vtt") {
+			mediaType = "text/vtt"
+		}
+		h.Set("Content-Type", mediaType+"; charset="+sniffTextCharset(sample, eof))
 	case works.KindUnknown:
 		h.Set("Content-Type", "application/octet-stream")
 	}

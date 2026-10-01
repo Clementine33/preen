@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useApiClient } from '@/lib/api/client'
-import { fmtT, parseLrc, type LrcLine } from '@/features/work-detail/derive'
+import { fmtT, parseLyrics, type LrcLine } from '@/features/work-detail/derive'
 import { useWorkDetailStore } from '@/stores/work-detail'
 import { usePlayerStore } from '@/stores/player'
 
@@ -17,34 +17,38 @@ const player = usePlayerStore()
 const lrcRel = computed(() => store.lrcFor(store.track))
 const lines = ref<LrcLine[]>([])
 const bodyEl = ref<HTMLElement | null>(null)
-let firstPaint = true
+const currentTrack = computed(() => player.rj === store.rj && player.trackIndex === store.track)
+const status = ref('')
 
 watch(
-  lrcRel,
-  async (rel) => {
+  [() => store.rj, () => store.activeCopy?.copy_id, lrcRel],
+  async ([rj, copyId, rel], _, onCleanup) => {
+    const controller = new AbortController()
+    onCleanup(() => controller.abort())
     lines.value = []
-    if (!rel || !store.rj || !store.activeCopy) return
+    status.value = ''
+    if (!rel || !rj || !copyId) return
+    status.value = '正在读取歌词…'
     let text: string
     try {
-      text = await api.getWorkText({ rj: store.rj, copyId: store.activeCopy.copy_id, relPath: rel })
+      text = await api.getWorkText({ rj, copyId, relPath: rel }, controller.signal)
     } catch {
-      // Gone since the scan, or unreachable: the leaf stays empty.
+      if (!controller.signal.aborted) status.value = '无法读取歌词文件'
       return
     }
-    // The pairing may have moved on while the text loaded.
-    if (lrcRel.value !== rel) return
-    lines.value = parseLrc(text)
-    firstPaint = true
-    sync(true)
+    if (controller.signal.aborted) return
+    lines.value = parseLyrics(text, rel)
+    status.value = lines.value.length ? '' : '未找到有效的时间轴歌词'
   },
   { immediate: true },
 )
 
 /** The last line at or before the clock — what "now" is. */
 const nowIndex = computed(() => {
-  let index = 0
+  if (!currentTrack.value) return -1
+  let index = -1
   lines.value.forEach((line, i) => {
-    if (player.elapsed >= line.time) index = i
+    if (player.elapsed >= line.time && (line.endTime === undefined || player.elapsed < line.endTime)) index = i
   })
   return index
 })
@@ -55,13 +59,10 @@ function sync(jump: boolean): void {
   if (!body || !now) return
   body.scrollTo({ top: now.offsetTop - body.clientHeight * 0.38, behavior: jump ? 'auto' : 'smooth' })
 }
-watch(nowIndex, () => {
-  sync(firstPaint)
-  firstPaint = false
-})
+watch([lines, nowIndex], (_, previous) => sync(previous[0] !== lines.value), { flush: 'post' })
 
 function seek(line: LrcLine): void {
-  player.seek(line.time)
+  if (currentTrack.value) player.seek(line.time)
 }
 
 const lineTime = (line: LrcLine): string => fmtT(line.time)
@@ -69,9 +70,10 @@ const lineTime = (line: LrcLine): string => fmtT(line.time)
 
 <template>
   <div ref="bodyEl" class="lrc-scroll">
+    <p v-if="status" role="status">{{ status }}</p>
     <div class="lrc" lang="ja">
       <button v-for="(line, i) in lines" :key="`${i}-${line.time}`" class="lrc-line" type="button"
-        :class="{ now: i === nowIndex, past: i < nowIndex, sfx: line.sfx }" @click="seek(line)">
+        :disabled="!currentTrack" :class="{ now: i === nowIndex, past: currentTrack && i !== nowIndex && player.elapsed >= (line.endTime ?? line.time), sfx: line.sfx }" @click="seek(line)">
         <span class="t">{{ lineTime(line) }}</span>
         <span>{{ line.text }}</span>
       </button>
@@ -80,9 +82,11 @@ const lineTime = (line: LrcLine): string => fmtT(line.time)
 </template>
 
 <style scoped>
-.lrc-scroll { height: 100%; overflow-y: auto; scrollbar-width: thin; }
+.lrc-scroll { height: 100%; overflow-y: auto; }
 .lrc { padding: 30% var(--sp-2) 60%; display: flex; flex-direction: column; gap: 2px; font-family: var(--font-ja); }
-.lrc-line { display: grid; grid-template-columns: 44px 1fr; gap: var(--sp-3); padding: 6px var(--sp-2); font-size: var(--fs-m); line-height: 22px; color: var(--fg-meta); transition: color var(--dur-out) linear; position: relative; background: none; border: none; cursor: pointer; text-align: left; font-family: inherit; }
+.lrc-line { display: grid; grid-template-columns: 44px 1fr; gap: var(--sp-3); padding: 6px var(--sp-2); font-size: var(--fs-m); line-height: 22px; color: var(--fg-meta); transition: color var(--dur-out) linear; position: relative; background: none; border: none; cursor: pointer; text-align: left; font-family: inherit; white-space: pre-line; }
+.lrc-line:disabled { cursor: default; }
+.lrc-scroll > p { padding: var(--sp-3); color: var(--fg-meta); }
 .lrc-line .t { font-family: var(--font-mono); font-size: var(--fs-xs); letter-spacing: .04em; padding-top: 5px; }
 .lrc-line.past { color: var(--fg-muted); }
 .lrc-line.now { background: var(--invert-bg); color: var(--invert-fg); font-weight: 700; }

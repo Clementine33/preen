@@ -8,7 +8,8 @@ import { useWorkDetailStore } from '@/stores/work-detail'
 // The bay (v3): one file chamber, two dockings. Bottom = a lifting drawer
 // (32px tab strip; a tab click lifts, the open tab's click closes). Right =
 // a pinned column beside a stage re-stacked deck-over-leaf. Both dockings
-// are the same two tabs: the track list and the OpenList browser.
+// are the same two tabs: the track list and the OpenList browser. The TRACKS
+// chips are MP3 / WAV / LRC, one level: LRC swaps the list for lyric files.
 
 const store = useWorkDetailStore()
 
@@ -19,7 +20,7 @@ const fileTotal = computed(() => (store.copy ? fileCount(store.copy) : 0))
 const summary = computed(() => {
   const counts = store.copy ? dirCounts(store.copy) : { aud: 0, img: 0, txt: 0 }
   const browsed = store.tracks.filter((track) => track.files[store.fmt])
-  const total = browsed.reduce((sum, track) => sum + (track.duration ?? 0), 0)
+  const total = browsed.reduce((sum, track) => sum + (track.files[store.fmt]?.duration_sec ?? 0), 0)
   return `${trackCount.value} TRACKS · ${total > 0 ? fmtLong(total) : '—'} · ♪${counts.aud} ▢${counts.img} ¶${counts.txt}`
 })
 
@@ -38,7 +39,9 @@ function pin(): void {
         @click="store.openBayTab('files')"><span class="lbl">FILES</span><span class="lbl">{{ fileTotal }}</span></button>
       <span v-show="store.tab === 'tracks'" class="chips">
         <button v-for="format in store.formats" :key="format" class="chip" type="button"
-          :aria-pressed="store.fmt === format" @click="store.setFmt(format)">{{ format }}</button>
+          :aria-pressed="!store.lrcMode && store.fmt === format" @click="store.setFmt(format)">{{ format }}</button>
+        <button v-if="store.lrcFiles.length" class="chip" type="button" :aria-pressed="store.lrcMode" title="歌词文件：选择当前音轨的 LRC / VTT"
+          @click="store.showLrc()">LRC</button>
       </span>
       <span class="bay-sum lbl">{{ summary }}</span>
       <span class="grow"></span>

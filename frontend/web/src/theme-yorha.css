@@ -107,6 +107,21 @@
 .sep { color: var(--fg-meta); padding: 0 .5em; letter-spacing: 0; }
 .lbl > b { margin-left: var(--sp-2); }
 
+/* ── Scrollbars, app-wide: a flat 6px square wire on no track, no arrows.
+     Chromium/WebKit draw it from the pseudo-elements, which Chromium ignores
+     on any element with a non-auto scrollbar-width/-color — so components set
+     only `scrollbar-width: none` (to hide one), never `thin` or a colour.
+     Firefox has no pseudo-elements and gets the standard pair. ── */
+@supports selector(::-webkit-scrollbar) {
+  ::-webkit-scrollbar { width: 6px; height: 6px; background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--wire-mid); border-radius: 0; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--wire-strong); }
+  ::-webkit-scrollbar-corner, ::-webkit-scrollbar-button { display: none; background: transparent; }
+}
+@supports not selector(::-webkit-scrollbar) {
+  * { scrollbar-color: var(--wire-mid) transparent; }
+}
+
 /* ── Substrate: flat colour + fine grain. Grain only ever sits on backgrounds;
      a cover image is opaque and must never be grained. ── */
 .substrate { background: var(--grain), var(--bg-canvas); }

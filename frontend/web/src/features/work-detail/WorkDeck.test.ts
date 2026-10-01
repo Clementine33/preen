@@ -41,6 +41,8 @@ describe('WorkDeck', () => {
   it('marks the active set chip and the current thumb', async () => {
     const { wrapper, store } = await mountDeck()
     const chips = wrapper.findAll('.chip')
+    const reveal = vi.fn()
+    chips[1].element.scrollIntoView = reveal
     expect(chips.length).toBe(store.sets.length)
     expect(chips[0].attributes('aria-pressed')).toBe('true')
     // The cover set (表紙) carries three images.
@@ -53,6 +55,29 @@ describe('WorkDeck', () => {
     await chips[1].trigger('click')
     expect(store.set).toBe(1)
     expect(store.idx).toBe(0)
+    await flushPromises()
+    expect(reveal).toHaveBeenCalledWith({ block: 'nearest', inline: 'nearest' })
+  })
+
+  it('labels the root image-set chip as 封面 and keeps it usable', async () => {
+    const { wrapper, store } = await mountDeck()
+    const content = structuredClone(sampleWorkContent(RJ))
+    const root = content.copies[0].tree!
+    const image = store.sets[0].files[0]
+    root.name = 'RJ01000001 very long root folder name'
+    root.children.push({ ...image, name: 'root.jpg', rel_path: 'root.jpg' })
+    store.bind(RJ, content)
+    await flushPromises()
+    const chip = wrapper.findAll('.chip')[0]
+    expect(chip.text()).toBe('封面1')
+    expect(chip.get('.jp').text()).toBe('封面')
+    expect(chip.attributes('title')).toBe('根目录图片')
+    expect(chip.attributes('aria-label')).toBe('根目录图片，1 张')
+    store.showSet(1)
+    await flushPromises()
+    await chip.trigger('click')
+    expect(store.currentFile?.rel_path).toBe('root.jpg')
+    expect(wrapper.findAll('.chip')[0].attributes('aria-pressed')).toBe('true')
   })
 
   it('flips to the reverse and back by the corner tick', async () => {

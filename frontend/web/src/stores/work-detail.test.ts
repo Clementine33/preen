@@ -121,6 +121,24 @@ describe('work-detail store', () => {
     expect(store.playFmt).toBe('WAV')
   })
 
+  it('automatically opens same-stem VTT on playback, with LRC fallback and manual overrides', () => {
+    const store = useWorkDetailStore()
+    const content = structuredClone(sampleWorkContent(RJ))
+    const tree = content.copies[0].tree!
+    const lrc = findFile(tree, '本編/lyrics/02_本編 ―雨音と耳かき―.lrc')
+    const name = lrc.name.replace(/\.lrc$/, '.vtt')
+    tree.children.push({ ...lrc, name, rel_path: name })
+    store.bind(RJ, content)
+    store.startTrack(1)
+    expect(store.lrcFor(1)).toBe(name)
+    expect(store.leaf).toBe('lrc')
+    store.startTrack(3)
+    expect(store.lrcFor(3)).toBe('本編/lyrics/04_おやすみ.lrc')
+    store.pairLrc(1, lrc.rel_path)
+    store.startTrack(1)
+    expect(store.lrcFor(1)).toBe(lrc.rel_path)
+  })
+
   it('plays the chosen format file by its address, with the scanned length', () => {
     const store = useWorkDetailStore()
     const addresses: string[] = []
@@ -140,7 +158,7 @@ describe('work-detail store', () => {
     expect(player.format).toBe('MP3')
   })
 
-  it('pairs lyrics by hand through the menu action and follows into LISTEN', async () => {
+  it('pairs lyrics by hand through the LRC chip and follows into LISTEN', async () => {
     await bind()
     const store = useWorkDetailStore()
     expect(store.lrcFor(0)).toBeNull()
@@ -149,7 +167,7 @@ describe('work-detail store', () => {
     expect(store.leaf).toBe('lrc')
   })
 
-  it('acts on file rows: an image locates its set, a text opens READ, a lyric pairs and plays', async () => {
+  it('acts on file rows: an image locates its set, text and lyrics open READ', async () => {
     await bind()
     const store = useWorkDetailStore()
     const img = store.sets[1].files[0]
@@ -163,10 +181,10 @@ describe('work-detail store', () => {
 
     const lyric = fileAt('本編/lyrics/04_おやすみ.lrc')
     store.selectFile(lyric)
-    expect(store.leaf).toBe('lrc')
-    // Its automatic pairing exists, so no manual pair is recorded.
+    expect(store.leaf).toBe('script')
+    expect(store.activeTxt).toBe(lyric.rel_path)
     expect(store.pairs).toEqual({})
-    expect(usePlayerStore().trackIndex).toBe(3)
+    expect(usePlayerStore().trackIndex).toBe(1)
 
     store.selectFile(fileAt('台本/台本_全編.txt'))
     expect(store.leaf).toBe('script')
@@ -182,6 +200,18 @@ describe('work-detail store', () => {
     const audio = Object.values(store.tracks[0].files)[0]!
     store.selectFile(audio)
     expect(store.bayOpen).toBe(true)
+  })
+
+  it('reads selected lyrics without replacing the current track’s manual pairing', async () => {
+    await bind()
+    const store = useWorkDetailStore()
+    store.pairLrc(1, '本編/lyrics/04_おやすみ.lrc')
+    const lyric = fileAt('本編/lyrics/02_本編 ―雨音と耳かき―.lrc')
+    store.selectFile(lyric)
+    expect(store.lrcFor(1)).toBe('本編/lyrics/04_おやすみ.lrc')
+    expect(store.activeTxt).toBe(lyric.rel_path)
+    expect(store.leaf).toBe('script')
+    expect(store.track).toBe(0)
   })
 
   it('lifts a tab click and closes the open tab clicked again', async () => {

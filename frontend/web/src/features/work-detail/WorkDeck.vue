@@ -42,6 +42,11 @@ const count = computed(() =>
 
 /** True while READ owns the stage: the deck steps down to a postage stamp (v3). */
 const reading = computed(() => store.leaf === 'script')
+const chipsEl = ref<HTMLElement | null>(null)
+watch(() => store.set, async () => {
+  await nextTick()
+  chipsEl.value?.querySelector<HTMLElement>('[aria-pressed="true"]')?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' })
+})
 
 // ── Shrink-wrap geometry: measure the slot, hug the image, never upscale. ──
 const slotEl = ref<HTMLElement | null>(null)
@@ -226,10 +231,11 @@ const NEXT_ICON = 'M2 0l7 5-7 5z'
     <div class="strip">
       <span class="strip-name lbl">{{ mode }}</span>
       <span v-show="!reading" class="strip-side">
-        <span class="chips">
+        <span ref="chipsEl" class="chips">
           <button v-for="(entry, i) in store.sets" :key="entry.path" class="chip" type="button"
-            :aria-pressed="i === store.set" :title="entry.path || entry.id"
-            @click="store.showSet(i)"><span class="jp">{{ entry.id }}</span>{{ entry.files.length }}</button>
+            :aria-pressed="i === store.set" :title="entry.path || '根目录图片'"
+            :aria-label="entry.path ? undefined : `根目录图片，${entry.files.length} 张`"
+            @click="store.showSet(i)"><span class="jp">{{ entry.path ? entry.id : '封面' }}</span>{{ entry.files.length }}</button>
         </span>
         <span class="lbl">{{ count }}</span>
       </span>
@@ -267,18 +273,22 @@ const NEXT_ICON = 'M2 0l7 5-7 5z'
 
 <style scoped>
 .deck { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+.strip { gap: var(--sp-3); }
 
-.chips { display: inline-flex; gap: var(--sp-1); }
-.chip { height: 16px; padding: 0 6px; font-family: var(--font-mono); font-size: var(--fs-xs); letter-spacing: .08em; color: var(--fg-muted); border: 1px solid var(--wire-fine); display: inline-flex; align-items: center; gap: 4px; background: none; cursor: pointer; }
+.strip-name, .strip-side > .lbl { flex-shrink: 0; white-space: nowrap; }
+.strip-side { display: flex; align-items: center; gap: var(--sp-3); min-width: 0; }
+.chips { display: inline-flex; gap: var(--sp-1); overflow-x: auto; scrollbar-width: none; min-width: 0; }
+.chips::-webkit-scrollbar { display: none; }
+.chip { height: 16px; padding: 0 6px; font-family: var(--font-mono); font-size: var(--fs-xs); letter-spacing: .08em; color: var(--fg-muted); border: 1px solid var(--wire-fine); display: inline-flex; align-items: center; gap: 4px; background: none; cursor: pointer; flex-shrink: 0; }
 .chip:hover { border-color: var(--wire-mid); color: var(--fg-base); }
 .chip[aria-pressed='true'] { background: var(--invert-bg); color: var(--invert-fg); border-color: var(--invert-bg); font-weight: 700; }
-.chip .jp { font-family: var(--font-ui); letter-spacing: 0; }
+.chip .jp { font-family: var(--font-ui); letter-spacing: 0; max-width: 8em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .slot { position: relative; flex: 1; min-height: 0; display: grid; place-items: center; margin: var(--sp-4) 0 var(--sp-3); }
 .plate { position: relative; transition: width 240ms var(--ease-out), height 240ms var(--ease-out), box-shadow 160ms linear; }
 .face { position: absolute; inset: 0; overflow: hidden; }
 .face.front { clip-path: inset(0 0 0 0); background-size: contain; background-position: center; background-repeat: no-repeat; box-shadow: inset 0 0 0 1px var(--wire-fine); }
-.face.front.scroll { overflow-y: auto; background: none; scrollbar-width: thin; }
+.face.front.scroll { overflow-y: auto; background: none; }
 .face.front.scroll img { display: block; width: 100%; }
 .face.front.enter { clip-path: inset(0 100% 0 0); }
 .face.front.run { transition: clip-path 240ms var(--ease-out); }
@@ -312,7 +322,7 @@ const NEXT_ICON = 'M2 0l7 5-7 5z'
 .face.front.veil:hover::after { color: var(--invert-fg); background: var(--invert-bg); border-color: var(--invert-bg); }
 
 /* The filmstrip: equal heights, widths follow the ratio; extremes are cropped with a hatch mark. */
-.film { display: flex; gap: 6px; height: 48px; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; flex-shrink: 0; padding: 2px 2px 4px; }
+.film { display: flex; gap: 6px; height: 48px; overflow-x: auto; overflow-y: hidden; flex-shrink: 0; padding: 2px 2px 4px; }
 .thumb { position: relative; height: 40px; flex-shrink: 0; background-size: cover; background-position: center; box-shadow: inset 0 0 0 1px var(--wire-fine); opacity: .62; transition: opacity var(--dur-out) linear; border: none; padding: 0; cursor: pointer; background-color: var(--bg-panel); }
 .thumb:hover { opacity: 1; box-shadow: inset 0 0 0 1px var(--wire-strong); }
 .thumb[aria-current='true'] { opacity: 1; box-shadow: 0 0 0 1px var(--wire-strong), 3px 3px 0 0 var(--wire-mid); }

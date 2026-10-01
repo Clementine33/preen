@@ -12,8 +12,8 @@ import { useWorkDetailStore } from '@/stores/work-detail'
 
 /**
  * The bay's contracts: a tab click lifts, the open tab's
- * click closes; the track list is one list with format chips — a track missing
- * the browsed format stays listed, tagged with its only one, and plays it;
+ * click closes; format chips keep the merged track list without changing
+ * playback indices or lyric pairings;
  * the FILES tab's rows act on the whole page.
  */
 
@@ -50,7 +50,7 @@ describe('WorkBay', () => {
     expect(store.bayOpen).toBe(false)
   })
 
-  it('lists every track and plays the missing-format one in its only format', async () => {
+  it('lists mixed formats and plays a missing-format track in its available format', async () => {
     const { wrapper } = await mountBay()
     const store = useWorkDetailStore()
     const player = usePlayerStore()
@@ -58,7 +58,6 @@ describe('WorkBay', () => {
     await flushPromises()
     const rows = wrapper.findAll('.trk')
     expect(rows).toHaveLength(8)
-    // 08 exists only as WAV: listed, dimmed, tagged — and playable.
     const last = rows[7]
     expect(last.classes()).toContain('missing')
     expect(last.text()).toContain('WAV ONLY')
@@ -68,19 +67,75 @@ describe('WorkBay', () => {
     expect(store.playFmt).toBe('WAV')
   })
 
-  it('flips the missing tags with the format chips', async () => {
-    const { wrapper } = await mountBay()
-    const store = useWorkDetailStore()
+  it('switches audio chips without changing order, playback or manual lyric pairing', async () => {
+    const { wrapper, store } = await mountBay()
+    const player = usePlayerStore()
+    store.pairLrc(1, store.lrcFiles[1].rel_path)
+    store.startTrack(1)
+    const paired = store.lrcFor(1)
     store.openBayTab('tracks')
     await flushPromises()
     const chips = wrapper.findAll('.chip')
-    expect(chips.map((chip) => chip.attributes('aria-pressed'))).toEqual(['true', 'false'])
+    const before = wrapper.findAll('.trk').map((row) => [row.get('.no').text(), row.get('.nm').text()])
+    expect(chips.map((chip) => chip.attributes('aria-pressed'))).toEqual(['true', 'false', 'false'])
     await chips[1].trigger('click')
     expect(store.fmt).toBe('WAV')
     const rows = wrapper.findAll('.trk')
+    expect(rows).toHaveLength(8)
+    expect(rows.map((row) => [row.get('.no').text(), row.get('.nm').text()])).toEqual(before)
     expect(rows[7].classes()).not.toContain('missing')
     expect(rows[7].text()).not.toContain('ONLY')
     expect(rows[7].find('.only').exists()).toBe(false)
+    expect(player.trackIndex).toBe(1)
+    expect(store.playFmt).toBe('MP3')
+    expect(store.lrcFor(1)).toBe(paired)
+    expect(rows[1].attributes('aria-current')).toBe('true')
+    await chips[0].trigger('click')
+    expect(wrapper.findAll('.trk').map((row) => [row.get('.no').text(), row.get('.nm').text()])).toEqual(before)
+    expect(wrapper.findAll('.trk')[7].text()).toContain('WAV ONLY')
+    expect(store.lrcFor(1)).toBe(paired)
+  })
+
+  it('keeps merged indices and uses selected or fallback file durations', async () => {
+    const { wrapper, store } = await mountBay()
+    const wav = store.tracks[0].files.WAV!
+    const mp3 = store.tracks[0].files.MP3!
+    const lyric = store.lrcFiles[0]
+    const content = sampleWorkContent(RJ)
+    store.bind(RJ, { ...content, copies: [{ ...content.copies[0], tree: {
+      ...store.copy!, children: [
+        { ...wav, name: '0.wav', rel_path: '0.wav' },
+        { ...wav, name: '1.wav', rel_path: '1.wav', duration_sec: 120 },
+        { ...wav, name: '2.wav', rel_path: '2.wav', duration_sec: 240 },
+        { name: 'mp3', rel_path: 'mp3', children: [
+          { ...mp3, name: '1.mp3', rel_path: 'mp3/1.mp3', duration_sec: 30 },
+          { ...mp3, name: '2.mp3', rel_path: 'mp3/2.mp3', duration_sec: null },
+        ] },
+        { ...lyric, name: '1.vtt', rel_path: '1.vtt' },
+      ],
+    } }] }, (ref) => `/media/${ref.relPath}`)
+    await flushPromises()
+    const rows = wrapper.findAll('.trk')
+    expect(rows.map((row) => row.get('.no').text())).toEqual(['01', '02', '03'])
+    expect(rows.map((row) => row.get('.nm').text())).toEqual(['0', '1', '2'])
+    expect(rows.map((row) => row.get('.dur').text())).toEqual(['04:12', '00:30', '—'])
+    expect(rows.map((row) => row.get('.bar').attributes('style'))).toEqual(['width: 160px;', 'width: 19px;', 'width: 0px;'])
+    expect(wrapper.get('.bay-sum').text()).toContain('00:30')
+    await rows[1].trigger('click')
+    expect(usePlayerStore().trackIndex).toBe(1)
+    expect(usePlayerStore().format).toBe('MP3')
+    expect(store.lrcFor(1)).toBe('1.vtt')
+    expect(store.leaf).toBe('lrc')
+    expect(wrapper.findAll('.trk')[1].attributes('aria-current')).toBe('true')
+    // The lyric chip still targets the same merged index.
+    await wrapper.findAll('.chip')[2].trigger('click')
+    expect(wrapper.findAll('.trk')[0].get('.dur').text()).toBe('TRACK 02')
+    await wrapper.findAll('.trk')[0].trigger('click')
+    expect(store.pairs[1]).toBe('1.vtt')
+    await wrapper.findAll('.chip')[1].trigger('click')
+    expect(wrapper.findAll('.trk').map((row) => row.get('.nm').text())).toEqual(['0', '1', '2'])
+    expect(wrapper.findAll('.trk')[1].get('.dur').text()).toBe('02:00')
+    expect(store.playFmt).toBe('MP3')
   })
 
   it('navigates directories and acts on file rows', async () => {
@@ -118,5 +173,54 @@ describe('WorkBay', () => {
     const mp3Row = wrapper.findAll('.row').find((row) => row.text().includes('01_導入'))!
     await mp3Row.trigger('click')
     expect(player.trackIndex).toBe(0)
+
+    // Lyrics in FILES are read; changing the playback pairing stays under LRC.
+    await wrapper.get('.row.dir').trigger('click')
+    await wrapper.findAll('.row.dir').find((row) => row.text().includes('lyrics'))!.trigger('click')
+    const lyricRow = wrapper.findAll('.row').find((row) => row.text().includes('04_おやすみ.lrc'))!
+    await lyricRow.trigger('click')
+    expect(store.leaf).toBe('script')
+    expect(store.activeTxt).toBe('本編/lyrics/04_おやすみ.lrc')
+    expect(player.trackIndex).toBe(0)
+    expect(store.pairs).toEqual({})
+  })
+
+  it('swaps the list for lyric files under the LRC chip and re-pairs the current track repeatedly', async () => {
+    const { wrapper, store } = await mountBay()
+    store.startTrack(1) // 02 has the automatic pairing
+    await flushPromises()
+    const before = store.lrcFor(1)
+    const chips = wrapper.findAll('.chip')
+    expect(chips.map((chip) => chip.text())).toEqual(['MP3', 'WAV', 'LRC'])
+    await chips[2].trigger('click')
+    expect(store.lrcMode).toBe(true)
+    expect(chips.map((chip) => chip.attributes('aria-pressed'))).toEqual(['false', 'false', 'true'])
+    expect(wrapper.findAll('.trk')).toHaveLength(2)
+    const other = () => wrapper.findAll('.trk').find((row) => row.attributes('aria-current') === undefined)!
+
+    await other().trigger('click')
+    expect(store.lrcFor(1)).not.toBe(before)
+    expect(store.leaf).toBe('lrc')
+    expect(store.track).toBe(1) // pairing never moves the playing track
+    // Never locked: switch back.
+    await other().trigger('click')
+    expect(store.lrcFor(1)).toBe(before)
+
+    // A format chip returns to the tracks, still on the same browsed format rules.
+    await chips[1].trigger('click')
+    expect(store.lrcMode).toBe(false)
+    expect(store.fmt).toBe('WAV')
+    expect(wrapper.findAll('.trk')).toHaveLength(8)
+  })
+
+  it('pairs an unpaired track by hand from the LRC list', async () => {
+    const { wrapper, store } = await mountBay()
+    store.startTrack(0) // 01 has none
+    await flushPromises()
+    expect(store.leaf).toBe('colophon')
+    await wrapper.findAll('.chip')[2].trigger('click')
+    await wrapper.findAll('.trk')[0].trigger('click')
+    expect(store.pairs[0]).toBeDefined()
+    expect(store.leaf).toBe('lrc')
   })
 })

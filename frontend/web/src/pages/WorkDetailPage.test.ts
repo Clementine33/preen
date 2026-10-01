@@ -100,14 +100,10 @@ describe('work detail page', () => {
     expect(wrapper.get('.flip-hint').text()).toBe('FRONT')
   })
 
-  it('closes the topmost layer with Esc: pair menu first, then the lifted bay', async () => {
+  it('closes the lifted bay with Esc', async () => {
     await mountPage()
     const store = useWorkDetailStore()
     store.openBayTab('tracks')
-    store.picking = true
-    press('Escape')
-    expect(store.picking).toBe(false)
-    expect(store.bayOpen).toBe(true)
     press('Escape')
     expect(store.bayOpen).toBe(false)
   })

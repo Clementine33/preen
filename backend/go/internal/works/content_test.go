@@ -14,6 +14,8 @@ import (
 func TestClassifyContentKind(t *testing.T) {
 	cases := map[[2]string]works.ContentFileKind{
 		{"track01.lrc", ""}:                    works.KindLyrics,
+		{"track01.vtt", ""}:                    works.KindLyrics,
+		{"track01.VTT", "text/vtt"}:            works.KindLyrics,
 		{"はじめにお読みください.txt", ""}:                works.KindText,
 		{"01_導入.mp3", "audio/mpeg"}:            works.KindAudio,
 		{"cover.png", "image/png"}:             works.KindImage,

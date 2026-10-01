@@ -43,6 +43,21 @@ describe('WorkColophon', () => {
     expect(wrapper.text()).toContain('2024.03.08')
   })
 
+  it('shows each copy’s library name and retains its offline state', async () => {
+    const { wrapper } = await mountColophon({
+      getWork: vi.fn().mockResolvedValue(makeWorkDetail({ copies: [
+        { copy_id: 'copy-a', library_id: 'lib-a', rel_path: 'works/RJ01000001' },
+        { copy_id: 'copy-b', library_id: 'lib-b', rel_path: 'backup/RJ01000001' },
+      ] })),
+      listLibraries: vi.fn().mockResolvedValue([
+        { id: 'lib-b', name: '备份库' },
+        { id: 'lib-a', name: '音声库' },
+      ]),
+    })
+    expect(wrapper.get('.copy').text()).toBe('音声库备份库·OFFLINE')
+    expect(wrapper.findAll('.lib-state.off')).toHaveLength(1)
+  })
+
   it('PATCHes a rating click and clears it by clicking the set value', async () => {
     const update = vi.fn().mockResolvedValue({ rating: 3, favorite: true, note: '' })
     const { wrapper } = await mountColophon({ updateWorkUserData: update })

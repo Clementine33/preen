@@ -11,8 +11,11 @@ import {
   imageSets,
   isScrollShape,
   kindGlyph,
+  lrcFilesOf,
   parseLrc,
+  parseLyrics,
   parseTxt,
+  trackFormats,
 } from './derive'
 import type { WorkContentDir, WorkContentFile, WorkFileKind } from '@/lib/api/types'
 
@@ -93,14 +96,93 @@ describe('deriveTracks', () => {
     expect(tracks[2].formats).toEqual(['WAV'])
   })
 
+  it('merges later formats without moving root files or prioritizing multi-format tracks', () => {
+    const tree = d('', [
+      d('mp3', [10, 2, 1].map((n) => f(`mp3/${n}.mp3`, 'aud', { format: 'MP3' }))),
+      f('10.wav', 'aud', { format: 'WAV' }),
+      d('bonus', [d('bonus/ex', [f('bonus/ex/bonus.mp3', 'aud', { format: 'MP3' })])]),
+      f('2.wav', 'aud', { format: 'WAV' }),
+      f('1.wav', 'aud', { format: 'WAV' }),
+    ])
+    const original = JSON.stringify(tree)
+    const tracks = deriveTracks(tree)
+    expect(tracks.map((track) => track.stem)).toEqual(['1', '2', '10', 'bonus'])
+    expect(tracks[0].files.WAV?.rel_path).toBe('1.wav')
+    expect(tracks[0].files.MP3?.rel_path).toBe('mp3/1.mp3')
+    expect(trackFormats(tracks)).toEqual(['MP3', 'WAV'])
+    expect(JSON.stringify(tree)).toBe(original)
+
+    tree.children.push(f('0.wav', 'aud', { format: 'WAV' }))
+    expect(deriveTracks(tree).map((track) => track.stem)).toEqual(['0', '1', '2', '10', 'bonus'])
+  })
+
+  it('finishes each naturally ordered directory before its next sibling', () => {
+    const tree = d('', [
+      d('10', [f('10/a.mp3', 'aud', { format: 'MP3' })]),
+      d('2', [
+        d('2/child', [f('2/child/b.mp3', 'aud', { format: 'MP3' })]),
+        f('2/z.mp3', 'aud', { format: 'MP3' }),
+      ]),
+      f('root.mp3', 'aud', { format: 'MP3' }),
+    ])
+    expect(deriveTracks(tree).map((track) => track.stem)).toEqual(['root', 'z', 'b', 'a'])
+  })
+
+  it('puts MP3 and WAV chips before other formats, regardless of discovery order', () => {
+    const tracks = deriveTracks(d('', ['FLAC', 'WAV', 'OGG', 'MP3'].map((format) =>
+      f(`track.${format.toLowerCase()}`, 'aud', { format }),
+    )))
+    expect(trackFormats(tracks)).toEqual(['MP3', 'WAV', 'FLAC', 'OGG'])
+  })
+
   it('pairs the same-basename .lrc automatically', () => {
     const tracks = deriveTracks(tree)
     expect(tracks[1].lrcRel).toBe('本編/lyrics/02_本編.lrc')
     expect(tracks[0].lrcRel).toBeNull()
   })
 
+  it('pairs WebVTT lyrics using the same manifest kind', () => {
+    const tracks = deriveTracks(d('', [f('a.mp3', 'aud', { format: 'MP3' }), f('a.vtt', 'lrc')]))
+    expect(tracks[0].lrcRel).toBe('a.vtt')
+  })
+
+  it.each([
+    [['a.lrc', 'a.VTT'], 'a.VTT'],
+    [['a.VTT', 'a.lrc'], 'a.VTT'],
+    [['a.lrc'], 'a.lrc'],
+    [['other.vtt', 'a.lrc'], 'a.lrc'],
+    [['other.vtt'], null],
+  ] as const)('prefers same-stem VTT with LRC fallback for %j', (names, expected) => {
+    const tracks = deriveTracks(d('', [
+      f('a.mp3', 'aud', { format: 'MP3' }),
+      ...names.map((name) => f(`lyrics/${name}`, 'lrc')),
+    ]))
+    expect(tracks[0].lrcRel).toBe(expected === null ? null : `lyrics/${expected}`)
+  })
+
   it('keeps the duration of whichever format reported one', () => {
     expect(deriveTracks(tree)[0].duration).toBe(252)
+  })
+})
+
+describe('lrcFilesOf', () => {
+  it('uses files-first natural depth-first order for all lyric formats without merging files', () => {
+    const tree = d('', [
+      d('10', [f('10/a.lrc', 'lrc')]),
+      d('2', [
+        d('2/nested', [f('2/nested/1.lrc', 'lrc')]),
+        f('2/z.vtt', 'lrc'),
+      ]),
+      f('10.lrc', 'lrc'),
+      f('2.vtt', 'lrc'),
+      f('1.lrc', 'lrc'),
+      f('audio.mp3', 'aud', { format: 'MP3' }),
+    ])
+    const original = JSON.stringify(tree)
+    expect(lrcFilesOf(tree).map((file) => file.rel_path)).toEqual([
+      '1.lrc', '2.vtt', '10.lrc', '2/z.vtt', '2/nested/1.lrc', '10/a.lrc',
+    ])
+    expect(JSON.stringify(tree)).toBe(original)
   })
 })
 
@@ -122,6 +204,15 @@ describe('tree walking', () => {
 })
 
 describe('parseLrc', () => {
+  it('keeps every timestamped line in Windows CRLF files, including a final line without a newline', () => {
+    const lines = parseLrc('\uFEFF[ti:track]\r\n[00:03.50]first\r\n[00:10.83]second\r\n[04:37.23]last')
+    expect(lines).toEqual([
+      { time: 3.5, text: 'first', sfx: false },
+      { time: 10.83, text: 'second', sfx: false },
+      { time: 277.23, text: 'last', sfx: false },
+    ])
+  })
+
   it('takes the first tag of a line and skips untagged ones', () => {
     const lines = parseLrc('[00:09.00]あ、降ってきたね。\n[00:15][00:20.5]こっち。\nplain line')
     expect(lines).toEqual([
@@ -133,6 +224,22 @@ describe('parseLrc', () => {
   it('marks full-line parentheticals as sound effects', () => {
     expect(parseLrc('[01:00.00]（耳かきの音、左から）')[0].sfx).toBe(true)
     expect(parseLrc('[01:11.00]痛くない？')[0].sfx).toBe(false)
+  })
+})
+
+describe('parseLyrics', () => {
+  it('reads WebVTT identifiers, settings, hours, multiline text, tags and entities', () => {
+    const text = '\uFEFFWEBVTT\r\n\r\nNOTE comment\r\n00:00.000 --> 00:01.000\r\nignored\r\n\r\nSTYLE\r\n::cue { color: red; }\r\n\r\ncue-1\r\n01:02:03.125 --> 01:02:05.000 align:start\r\n<v speaker><b>hello</b> &amp; &lt;world&gt;\r\nsecond line\r\n\r\n00:01.000 --> 00:02.000\r\n（音）'
+    expect(parseLyrics(text, 'a.VTT')).toEqual([
+      { time: 1, endTime: 2, text: '（音）', sfx: true },
+      { time: 3723.125, endTime: 3725, text: 'hello & <world>\nsecond line', sfx: false },
+    ])
+  })
+
+  it('rejects invalid WebVTT headers and timestamps, and keeps LRC supported', () => {
+    expect(parseLyrics('not WEBVTT\n\n00:01.000 --> 00:02.000\ntext', 'a.vtt')).toEqual([])
+    expect(parseLyrics('WEBVTT\n\n00:99.000 --> 01:00.000\nbad\n\n00:02.000 --> 00:01.000\nbackwards', 'a.vtt')).toEqual([])
+    expect(parseLyrics('[00:10]later\n[00:01]first', 'a.lrc').map((line) => line.time)).toEqual([1, 10])
   })
 })
 

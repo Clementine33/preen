@@ -115,7 +115,16 @@ function overrideValue(record: DraftMember | undefined, unit: OverrideUnit): { p
 
 /** Structural equality of two unit values (a mode string, tags, a profile). */
 export function sameUnitValue(a: unknown, b: unknown): boolean {
-  return JSON.stringify(a) === JSON.stringify(b)
+  return canonical(a) === canonical(b)
+}
+
+/** JSON with sorted keys and no undefined, so key order never reads as a change. */
+function canonical(value: unknown): string {
+  return JSON.stringify(value, (_key, v) =>
+    v && typeof v === 'object' && !Array.isArray(v)
+      ? Object.fromEntries(Object.entries(v).sort(([x], [y]) => (x < y ? -1 : x > y ? 1 : 0)))
+      : v,
+  )
 }
 
 /**
@@ -125,7 +134,12 @@ export function sameUnitValue(a: unknown, b: unknown): boolean {
  * event (a generation publication advancing the version) compares equal.
  */
 export function sameDocument(a: OperationDraftDocument, b: OperationDraftDocument): boolean {
-  return sameUnitValue(a, b)
+  return sameUnitValue(withDefaults(a), withDefaults(b))
+}
+
+/** The server omits empty mode/delete_mode: absent and the default are one fact. */
+function withDefaults(doc: OperationDraftDocument): OperationDraftDocument {
+  return { ...doc, mode: doc.mode ?? 'available_sources', delete_mode: doc.delete_mode ?? 'soft' }
 }
 
 /**

@@ -24,6 +24,8 @@ const router: Router = createRouter({
       name: 'conversion-settings',
       component: { template: '<div />' },
     },
+    { path: '/worksets/:libraryId/rename', name: 'rename', component: { template: '<div />' } },
+    { path: '/worksets/:libraryId/metadata', name: 'metadata-refresh', component: { template: '<div />' } },
   ],
 })
 

@@ -22,15 +22,22 @@ import { updateLibraryMutationOptions, deleteLibraryMutationOptions } from '@/qu
 import { createCurrentRecordMutationOptions, currentRecordQueryOptions } from '@/queries/worksets'
 import { useLibraryUiStore } from '@/stores/library-ui'
 import { useScanStore } from '@/stores/scan'
-import { CONVERSION, type SkippedFolder, type SkippedReason } from '@/lib/api/types'
+import {
+  CONVERSION,
+  METADATA_REFRESH,
+  RENAME,
+  type OperationType,
+  type SkippedFolder,
+  type SkippedReason,
+} from '@/lib/api/types'
 
 /**
  * The workbench overview of one library (ADR 0001 §1, §2).
  *
  * The library IS the workbench: entering it lists every direct child directory
  * the last scan saw — empty ones and ones without audio included — and that is
- * where a conversion scope is chosen. Choosing folders creates the library's
- * conversion record explicitly; browsing alone creates nothing.
+ * where an operation's scope is chosen. Choosing folders creates the library's
+ * record for that operation explicitly; browsing alone creates nothing.
  */
 const route = useRoute()
 const router = useRouter()
@@ -70,8 +77,25 @@ const dirsError = computed(() => {
   return error ? errorDetails(error) : null
 })
 
-const recordQuery = useQuery(() => currentRecordQueryOptions(api, libraryId.value, CONVERSION))
-const record = computed(() => recordQuery.data.value?.workset ?? null)
+const OPERATIONS = [CONVERSION, RENAME, METADATA_REFRESH] as const
+const OPERATION_LABEL: Record<OperationType, string> = {
+  conversion: '转换',
+  rename: '重命名',
+  metadata_refresh: '获取元数据',
+}
+const OPERATION_ROUTE: Record<OperationType, string> = {
+  conversion: 'conversion',
+  rename: 'rename',
+  metadata_refresh: 'metadata-refresh',
+}
+
+// Each operation has its own current record per library.
+const recordQueries = OPERATIONS.map((op) => useQuery(() => currentRecordQueryOptions(api, libraryId.value, op)))
+const recordOf = (op: OperationType) => recordQueries[OPERATIONS.indexOf(op)].data.value?.workset ?? null
+const record = computed(() => recordOf(CONVERSION))
+const replacing = computed(
+  () => Object.fromEntries(OPERATIONS.map((op) => [op, Boolean(recordOf(op))])) as Record<OperationType, boolean>,
+)
 const conversionOperation = computed(
   () => record.value?.operations.find((operation) => operation.operation_type === CONVERSION) ?? null,
 )
@@ -87,11 +111,12 @@ const confirmOpen = ref(false)
 const createError = ref<string | null>(null)
 const skipped = ref<SkippedFolder[]>([])
 let idempotencyKey = ''
+const pendingOperation = ref<OperationType>(CONVERSION)
 
-const createMutation = useMutation(
-  createCurrentRecordMutationOptions(api, queryClient, libraryId.value, CONVERSION),
+const createMutations = OPERATIONS.map((op) =>
+  useMutation(createCurrentRecordMutationOptions(api, queryClient, libraryId.value, op)),
 )
-const creating = computed(() => createMutation.isPending.value)
+const creating = computed(() => createMutations.some((mutation) => mutation.isPending.value))
 
 const SKIP_TEXT: Record<SkippedReason, string> = {
   no_audio: '没有音频，将跳过',
@@ -107,12 +132,13 @@ const selectedDirs = computed(() => dirs.value.filter((dir) => ui.selectedDirPat
 /** A directory the conversion will skip: it is selectable, but holds no audio. */
 const selectedWithoutAudio = computed(() => selectedDirs.value.filter((dir) => dir.audio_file_count === 0))
 
-function startEnterConversion() {
+function startEnter(op: OperationType) {
   if (ui.selectedDirPaths.length === 0) return
   skipped.value = []
   createError.value = null
   idempotencyKey = crypto.randomUUID()
-  if (record.value) {
+  pendingOperation.value = op
+  if (recordOf(op)) {
     // Replacing deletes member edits, plan and execution results; common
     // settings remain available to seed the new record.
     confirmOpen.value = true
@@ -122,21 +148,22 @@ function startEnterConversion() {
 }
 
 async function submit() {
+  const op = pendingOperation.value
   createError.value = null
   try {
-    const response = await createMutation.mutateAsync({
+    const response = await createMutations[OPERATIONS.indexOf(op)].mutateAsync({
       request: {
         folder_paths: [...ui.selectedDirPaths],
         // The record the caller saw as current: a concurrent replace is a
         // conflict, not an overwrite.
-        expected_current_id: record.value?.workset_id,
+        expected_current_id: recordOf(op)?.workset_id,
       },
       idempotencyKey,
     })
     skipped.value = response.skipped
     confirmOpen.value = false
     ui.clearSelection()
-    await router.push({ name: 'conversion', params: { libraryId: libraryId.value } })
+    await router.push({ name: OPERATION_ROUTE[op], params: { libraryId: libraryId.value } })
   } catch (error) {
     const apiError = error as { code?: string; message?: string; details?: string[] }
     skipped.value = (apiError.details ?? []).map((detail) => {
@@ -409,10 +436,10 @@ const libraryRoot = computed(() => activeLibrary.value?.root_path ?? '')
         v-if="!filesOpen && ui.selectedDirPaths.length > 0"
         :selected-count="ui.selectedDirPaths.length"
         :loading="creating"
-        :replacing="Boolean(record)"
+        :replacing="replacing"
         :audio-less-count="selectedWithoutAudio.length"
         @clear="ui.clearSelection()"
-        @generate="startEnterConversion"
+        @enter="startEnter"
       />
     </template>
   </WorkbenchShell>
@@ -432,9 +459,13 @@ const libraryRoot = computed(() => activeLibrary.value?.root_path ?? '')
 
   <!-- The replace confirmation is a page-level decision, not a carrier: it is
        portalled, so it reaches the user at every container tier. -->
-  <Modal :open="confirmOpen" title="替换当前转换记录？" @update:open="confirmOpen = false">
+  <Modal
+    :open="confirmOpen"
+    :title="`替换当前${OPERATION_LABEL[pendingOperation]}记录？`"
+    @update:open="confirmOpen = false"
+  >
     <p class="text-xs">
-      这个媒体库已有一条转换记录。创建新记录会删除它的成员设置、当前计划与执行结果，且无法恢复；全局转换设置会保留。
+      这个媒体库已有一条{{ OPERATION_LABEL[pendingOperation] }}记录。创建新记录会删除它的成员设置、当前计划与执行结果，且无法恢复；全局设置会保留。
     </p>
     <p class="text-[11px] text-[var(--text-muted)]">文件本身不会被修改。</p>
     <div class="flex justify-end gap-2">

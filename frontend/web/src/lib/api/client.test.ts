@@ -42,6 +42,23 @@ describe('ApiClient', () => {
     expect(draft.common_settings_current).toBe(true)
   })
 
+  it('passes a non-conversion draft through without conversion defaults', async () => {
+    // Rename and metadata drafts reject unknown fields, so a save of what was
+    // read must not carry conversion's classifier_tags back.
+    const payload = { schema_version: 1, common: { template: '{rj}' }, members: [] }
+    mockFetch(async () => okJson({
+      workset_id: 'ws-1',
+      operation_type: 'rename',
+      version: 2,
+      common_settings_current: true,
+      task: { kind: 'rename', schema_version: 1, payload },
+      updated_at: '',
+    }))
+
+    const draft = await createClient().getOperationDraft('ws-1', 'rename')
+    expect(draft.document).toEqual(payload)
+  })
+
   it('wires the query-owned AbortSignal through to fetch', async () => {
     const captured: AbortSignal[] = []
     const fetchMock = mockFetch((_input, init) => {

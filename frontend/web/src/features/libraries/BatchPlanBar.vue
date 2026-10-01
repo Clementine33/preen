@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { Layers, X } from '@lucide/vue'
+import { Download, Layers, PenLine, X } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
+import type { OperationType } from '@/lib/api/types'
 
 /**
  * The overview's scope bar (ADR 0001 §1, §2). It belongs to a selection, so
@@ -15,14 +16,14 @@ import { Button } from '@/components/ui/button'
 defineProps<{
   selectedCount: number
   loading: boolean
-  /** Entering conversion replaces the record that is already there. */
-  replacing: boolean
-  /** Selected folders that will be skipped, because they hold no audio. */
+  /** Per operation: entering it replaces the record that is already there. */
+  replacing: Record<OperationType, boolean>
+  /** Selected folders conversion will skip, because they hold no audio. */
   audioLessCount: number
 }>()
 const emit = defineEmits<{
   clear: []
-  generate: []
+  enter: [operation: OperationType]
 }>()
 </script>
 
@@ -32,10 +33,10 @@ const emit = defineEmits<{
   >
     <div class="h-5 w-1 shrink-0 bg-[var(--ring)]" aria-hidden="true" />
     <div class="min-w-0">
-      <p class="font-heading text-xs font-semibold">转换范围</p>
+      <p class="font-heading text-xs font-semibold">处理范围</p>
       <p class="font-mono text-[11px] text-muted-foreground">已选择 {{ selectedCount }} 个文件夹</p>
       <p v-if="audioLessCount > 0" class="text-[10px] text-[var(--warning-ink,var(--text-secondary))]" data-testid="audio-less-note">
-        其中 {{ audioLessCount }} 个没有音频，进入转换时会跳过
+        其中 {{ audioLessCount }} 个没有音频，转换会跳过
       </p>
     </div>
     <div class="ml-auto flex shrink-0 items-center gap-2">
@@ -51,14 +52,36 @@ const emit = defineEmits<{
         清除
       </Button>
       <Button
+        data-testid="enter-rename"
+        class="h-11 rail:h-7"
+        variant="outline"
+        size="sm"
+        :disabled="loading"
+        @click="emit('enter', 'rename')"
+      >
+        <PenLine class="size-3.5" />
+        {{ replacing.rename ? '替换重命名记录' : '重命名' }}
+      </Button>
+      <Button
+        data-testid="enter-metadata"
+        class="h-11 rail:h-7"
+        variant="outline"
+        size="sm"
+        :disabled="loading"
+        @click="emit('enter', 'metadata_refresh')"
+      >
+        <Download class="size-3.5" />
+        {{ replacing.metadata_refresh ? '替换元数据记录' : '获取元数据' }}
+      </Button>
+      <Button
         data-testid="enter-conversion"
         class="h-11 rail:h-7"
         size="sm"
         :disabled="loading"
-        @click="emit('generate')"
+        @click="emit('enter', 'conversion')"
       >
         <Layers class="size-3.5" />
-        {{ loading ? '处理中…' : replacing ? '替换当前转换记录' : '进入转换' }}
+        {{ loading ? '处理中…' : replacing.conversion ? '替换当前转换记录' : '进入转换' }}
       </Button>
     </div>
   </div>

@@ -20,7 +20,7 @@ import (
 // types; callers persist it through their own adapter.
 //
 //nolint:gocognit,funlen // per-root outcome branches; split when more steps appear
-func Plan(ctx context.Context, inv Inventory, settings Settings, in Input) (*Snapshot, error) {
+func Plan(ctx context.Context, inv Inventory, settings Settings, probe ProbeBitrate, in Input) (*Snapshot, error) {
 	if len(in.Roots) == 0 {
 		return nil, workset.NewError(
 			workset.ErrKindInvalidArgument,
@@ -86,7 +86,7 @@ func Plan(ctx context.Context, inv Inventory, settings Settings, in Input) (*Sna
 				outcomes <- planOutcome{index: i, root: root.Path, err: collectErr}
 				return
 			}
-			enriched, enrichErr := enrichBitrate(ctx, inv, entries, planCfg)
+			enriched, enrichErr := enrichBitrate(ctx, inv, probe, entries, planCfg)
 			if enrichErr != nil {
 				outcomes <- planOutcome{index: i, root: root.Path, err: enrichErr}
 				return
@@ -236,15 +236,16 @@ func aggregateSummaryReason(s reconcile.StepSummary) string {
 	}
 }
 
-// enrichBitrate probes the missing MP3/AAC bitrates of the entries and
-// persists them, returning the entries with the probed values applied.
+// enrichBitrate measures the missing MP3/AAC bitrates of the entries and
+// persists them, returning the entries with the measured values applied.
 func enrichBitrate(
 	ctx context.Context,
 	inv Inventory,
+	probe ProbeBitrate,
 	entries []reconcile.AudioEntry,
 	cfg PlanConfig,
 ) ([]reconcile.AudioEntry, error) {
-	analyzer := newBitrateAnalyzer(inv, cfg.FFprobePath)
+	analyzer := newBitrateAnalyzer(inv, probe, cfg.FFprobePath)
 	if err := analyzer.enrichMissing(ctx, entries, cfg.BatchUpdate); err != nil {
 		return nil, err
 	}

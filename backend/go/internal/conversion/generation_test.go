@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/onsei/organizer/backend/internal/adapters/media"
+
 	"github.com/onsei/organizer/backend/internal/adapters/ffmpeg"
 	appconfig "github.com/onsei/organizer/backend/internal/adapters/settings"
 	"github.com/onsei/organizer/backend/internal/adapters/sqlite"
@@ -91,7 +93,7 @@ func TestGenerationRecordClosesTheLoop(t *testing.T) {
 	assertRecordDescribesFile(t, record, target)
 
 	// The loop closes: the next plan accepts the output on that record.
-	plan, err := conversion.Plan(t.Context(), repo, appconfig.NewReader(dir), conversion.Input{
+	plan, err := conversion.Plan(t.Context(), repo, appconfig.NewReader(dir), media.ProbeBitrate, conversion.Input{
 		Policy: policy,
 		Roots:  []conversion.RootInput{{Path: filepath.ToSlash(root), Policy: policy}},
 	})
@@ -130,7 +132,7 @@ func runOneEncodedUnit(
 		Partition: string(outcome.Partition), Operations: len(outcome.Operations),
 		Payload: jsonBytes(t, profile),
 	}
-	prepared, err := conversion.New(repo, appconfig.NewReader(configDir), ffmpeg.New).
+	prepared, err := conversion.New(repo, appconfig.NewReader(configDir), ffmpeg.New, media.ProbeBitrate).
 		PrepareUnit(t.Context(), workset.UnitRunInput{
 			WorksetRoot: filepath.ToSlash(root),
 			Options:     json.RawMessage(`{"delete_mode":"soft"}`),

@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/onsei/organizer/backend/internal/adapters/media"
+
 	appconfig "github.com/onsei/organizer/backend/internal/adapters/settings"
 	"github.com/onsei/organizer/backend/internal/adapters/sqlite"
 	"github.com/onsei/organizer/backend/internal/conversion"
@@ -99,10 +101,16 @@ func TestPlanBalancedSatisfied(t *testing.T) {
 	seedRootEntries(t, repo)
 
 	policy := balancedPolicy()
-	res, err := conversion.Plan(context.Background(), repo, appconfig.NewReader(""), conversion.Input{
-		Policy: policy,
-		Roots:  []conversion.RootInput{{Path: "/music", Policy: policy}},
-	})
+	res, err := conversion.Plan(
+		context.Background(),
+		repo,
+		appconfig.NewReader(""),
+		media.ProbeBitrate,
+		conversion.Input{
+			Policy: policy,
+			Roots:  []conversion.RootInput{{Path: "/music", Policy: policy}},
+		},
+	)
 	if err != nil {
 		t.Fatalf("Plan: %v", err)
 	}
@@ -150,7 +158,7 @@ func TestPlanInvalidPolicy(t *testing.T) {
 
 	policy := balancedPolicy()
 	policy.SchemaVersion = 99
-	_, err = conversion.Plan(context.Background(), repo, appconfig.NewReader(""), conversion.Input{
+	_, err = conversion.Plan(context.Background(), repo, appconfig.NewReader(""), media.ProbeBitrate, conversion.Input{
 		Policy: policy,
 		Roots:  []conversion.RootInput{{Path: "/music", Policy: policy}},
 	})
@@ -180,10 +188,16 @@ func TestPlanSurvivesABrokenConfiguration(t *testing.T) {
 	seedRootEntries(t, repo)
 
 	policy := balancedPolicy()
-	res, err := conversion.Plan(context.Background(), repo, appconfig.NewReader(configDir), conversion.Input{
-		Policy: policy,
-		Roots:  []conversion.RootInput{{Path: "/music", Policy: policy}},
-	})
+	res, err := conversion.Plan(
+		context.Background(),
+		repo,
+		appconfig.NewReader(configDir),
+		media.ProbeBitrate,
+		conversion.Input{
+			Policy: policy,
+			Roots:  []conversion.RootInput{{Path: "/music", Policy: policy}},
+		},
+	)
 	if err != nil {
 		t.Fatalf("Plan on a broken configuration: %v", err)
 	}

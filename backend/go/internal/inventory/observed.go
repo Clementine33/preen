@@ -36,21 +36,24 @@ type BitrateUpdate struct {
 }
 
 // MediaCandidate is one inventory entry whose media facts are still
-// unknown: an image without recorded dimensions or an audio file without a
-// recorded duration (ADR 0015 §2).
+// unknown: an image without recorded dimensions, an audio file without a
+// recorded duration, or an encoded one without a recorded bitrate (ADR 0015
+// §2).
 type MediaCandidate struct {
 	Path   string
 	Format string
 }
 
-// MediaFactsUpdate is one measured media fact to write back onto an entry. A
-// zero field stores NULL: an image never carries a duration and an audio file
-// never carries dimensions, so one write shape covers both.
+// MediaFactsUpdate is the measured media facts to write back onto an entry. A
+// zero field is not measured and leaves the stored value as it is, so one
+// write shape covers images and audio alike.
 type MediaFactsUpdate struct {
 	Path        string
 	Width       int
 	Height      int
 	DurationSec float64
+	// Bitrate is in bits per second, the unit the planner's gate compares.
+	Bitrate int64
 }
 
 // MediaProber measures the media facts recorded beside an entry. Both probes
@@ -59,6 +62,7 @@ type MediaFactsUpdate struct {
 type MediaProber interface {
 	// ImageDimensions reads only the image header, never the pixels.
 	ImageDimensions(pathPosix string) (width, height int, err error)
-	// AudioDurationSec measures the duration, from the header where it can.
-	AudioDurationSec(ctx context.Context, pathPosix string) (sec float64, err error)
+	// AudioFacts measures the duration and the bitrate (bits per second),
+	// from the header where it can; a zero is unknown.
+	AudioFacts(ctx context.Context, pathPosix string) (sec float64, bitrate int64, err error)
 }

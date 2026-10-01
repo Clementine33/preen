@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/onsei/organizer/backend/internal/adapters/media"
+
 	"github.com/onsei/organizer/backend/internal/conversion/reconcile"
 )
 
@@ -24,7 +26,7 @@ func TestEnrichBitrateProbesAACContainers(t *testing.T) {
 			track = filepath.ToSlash(track)
 			entries := []reconcile.AudioEntry{{PathPosix: track}}
 			inv := &recordingInventory{}
-			a := newBitrateAnalyzer(inv, "")
+			a := newBitrateAnalyzer(inv, media.ProbeBitrate, "")
 			if err := a.enrichMissing(t.Context(), entries, true); err != nil {
 				t.Fatal(err)
 			}
@@ -64,7 +66,7 @@ func TestEnrichBitrateKeepsUnknownAndCachedValues(t *testing.T) {
 			{PathPosix: filepath.ToSlash(filepath.Join(dir, "missing.mp3"))},
 			{PathPosix: filepath.ToSlash(invalid), Bitrate: 192000},
 		}
-		a := newBitrateAnalyzer(nil, tool)
+		a := newBitrateAnalyzer(nil, media.ProbeBitrate, tool)
 		if enrichErr := a.enrichMissing(t.Context(), entries, true); enrichErr != nil {
 			t.Fatal(enrichErr)
 		}
@@ -74,7 +76,7 @@ func TestEnrichBitrateKeepsUnknownAndCachedValues(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-	err = newBitrateAnalyzer(nil, probe).enrichMissing(ctx,
+	err = newBitrateAnalyzer(nil, media.ProbeBitrate, probe).enrichMissing(ctx,
 		[]reconcile.AudioEntry{{PathPosix: filepath.ToSlash(invalid)}}, true)
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("canceled enrichment: %v", err)

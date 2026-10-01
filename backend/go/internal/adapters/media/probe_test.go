@@ -44,7 +44,7 @@ func TestImageDimensionsRejectsNonImage(t *testing.T) {
 	}
 }
 
-func TestAudioDurationSecProbesRealFile(t *testing.T) {
+func TestAudioFactsProbesRealFile(t *testing.T) {
 	if _, err := exec.LookPath("ffmpeg"); err != nil {
 		t.Skip("ffmpeg unavailable")
 	}
@@ -56,7 +56,7 @@ func TestAudioDurationSecProbesRealFile(t *testing.T) {
 		t.Fatalf("generate wav: %v: %s", err, output)
 	}
 
-	sec, err := media.New("").AudioDurationSec(context.Background(), path)
+	sec, _, err := media.New("").AudioFacts(context.Background(), path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -65,13 +65,13 @@ func TestAudioDurationSecProbesRealFile(t *testing.T) {
 	}
 }
 
-func TestAudioDurationSecRejectsNonAudio(t *testing.T) {
+func TestAudioFactsRejectsNonAudio(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.ToSlash(filepath.Join(dir, "noise.bin"))
 	if err := os.WriteFile(filepath.FromSlash(path), []byte("not audio"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := media.New("").AudioDurationSec(context.Background(), path); err == nil {
+	if _, _, err := media.New("").AudioFacts(context.Background(), path); err == nil {
 		t.Fatal("expected an error for a non-audio file")
 	}
 }

@@ -89,9 +89,11 @@ func NewServer(deps Dependencies) http.Handler {
 	mux.Handle("GET /api/v1/works/{rj}/content", protect(http.HandlerFunc(s.getWorkContent)))
 	// One manifest file's bytes: the copy, the member-relative path, and the
 	// HTTP semantics (range, revalidation, content typing) in ADR 0016 §3.
+	// Elements load it by address, so it also takes the token as a query
+	// parameter.
 	mux.Handle(
 		"GET /api/v1/works/{rj}/content/{copy}/{path...}",
-		protect(http.HandlerFunc(s.getWorkContentFile)),
+		mediaAuthMiddleware(deps.Token)(http.HandlerFunc(s.getWorkContentFile)),
 	)
 	// One manifest image's thumbnail at a served height (ADR 0015 §3).
 	mux.Handle(

@@ -47,3 +47,39 @@ func TestAuthMiddlewareDirect(t *testing.T) {
 		})
 	}
 }
+
+func TestMediaAuthTakesTheTokenFromTheAddress(t *testing.T) {
+	ok := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	run := func(h http.Handler, target, auth string) int {
+		r := httptest.NewRequest(http.MethodGet, target, nil)
+		if auth != "" {
+			r.Header.Set("Authorization", auth)
+		}
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, r)
+		return w.Code
+	}
+	media := mediaAuthMiddleware("secret")(ok)
+	cases := []struct {
+		name, target, auth string
+		want               int
+	}{
+		{"query token", "/?access_token=secret", "", http.StatusOK},
+		{"header token", "/", "Bearer secret", http.StatusOK},
+		{"wrong query token", "/?access_token=wrong", "", http.StatusUnauthorized},
+		{"no token", "/", "", http.StatusUnauthorized},
+		// A header that is present decides; the query cannot rescue it.
+		{"wrong header beats right query", "/?access_token=secret", "Bearer wrong", http.StatusUnauthorized},
+	}
+	for _, tc := range cases {
+		if got := run(media, tc.target, tc.auth); got != tc.want {
+			t.Errorf("%s: status = %d, want %d", tc.name, got, tc.want)
+		}
+	}
+	// The ordinary routes never read the address.
+	if got := run(authMiddleware("secret")(ok), "/?access_token=secret", ""); got != http.StatusUnauthorized {
+		t.Errorf("header-only route accepted a query token: %d", got)
+	}
+}

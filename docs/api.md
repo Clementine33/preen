@@ -728,6 +728,9 @@ the manifest holds are served, resolved inside the member under the same
 containment checks direct file management applies (out-of-bounds segments and
 symlink escapes are refused; an unscanned file on disk is 404, not a guess).
 
+- Besides the `Authorization` header, this route (and only this one) accepts
+  the token as `?access_token=…`, so an `<img>` or `<audio>` element can load
+  it by address. A present header decides; the query cannot override it.
 - `ETag` keys on `(size, mtime, content_rev)`; `Cache-Control: no-cache`
   revalidates before reuse, so a rescan that changed the bytes changes the
   tag and a match answers 304.

@@ -10,6 +10,17 @@ import (
 // authMiddleware enforces a static bearer token on protected routes. An empty
 // configured token disables auth entirely (local-developer mode).
 func authMiddleware(token string) func(http.Handler) http.Handler {
+	return tokenAuth(token, false)
+}
+
+// mediaAuthMiddleware also accepts the token as the access_token query
+// parameter: an <img> or <audio> element cannot send a header, so the routes
+// those elements load from take it in the address (ADR 0016 §3).
+func mediaAuthMiddleware(token string) func(http.Handler) http.Handler {
+	return tokenAuth(token, true)
+}
+
+func tokenAuth(token string, fromQuery bool) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if token == "" {
@@ -17,13 +28,11 @@ func authMiddleware(token string) func(http.Handler) http.Handler {
 				return
 			}
 			const prefix = "Bearer "
-			header := r.Header.Get("Authorization")
-			if !strings.HasPrefix(header, prefix) {
-				writeError(w, http.StatusUnauthorized, "UNAUTHORIZED", "missing or invalid bearer token")
-				return
+			got, ok := strings.CutPrefix(r.Header.Get("Authorization"), prefix)
+			if !ok && fromQuery {
+				got, ok = r.URL.Query().Get("access_token"), true
 			}
-			got := strings.TrimPrefix(header, prefix)
-			if subtle.ConstantTimeCompare([]byte(got), []byte(token)) != 1 {
+			if !ok || subtle.ConstantTimeCompare([]byte(got), []byte(token)) != 1 {
 				writeError(w, http.StatusUnauthorized, "UNAUTHORIZED", "missing or invalid bearer token")
 				return
 			}

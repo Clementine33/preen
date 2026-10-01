@@ -407,9 +407,11 @@ export interface WorkContent {
 
 export type PlanningState = 'unplanned' | 'planned' | 'needs_planning' | 'planning' | 'orphaned'
 export type GenerationStatus = 'queued' | 'running' | 'completed' | 'failed' | 'canceled' | 'interrupted'
-export type OperationType = 'conversion'
-/** The only publicly addressable operation type in this iteration. */
+export type OperationType = 'conversion' | 'rename' | 'metadata_refresh'
 export const CONVERSION: OperationType = 'conversion'
+/** Plans directory names only; execution is refused (ADR 0014 §2). */
+export const RENAME: OperationType = 'rename'
+export const METADATA_REFRESH: OperationType = 'metadata_refresh'
 
 export interface LibraryRef {
   library_id: string
@@ -583,6 +585,30 @@ export interface OperationDraftDocument {
   members: DraftMember[]
 }
 
+/** A member exclusion: the only per-member fact rename and metadata drafts store. */
+export interface TaskDraftMember {
+  member_id: string
+  excluded: boolean
+}
+
+export interface RenameDraftDocument {
+  schema_version: number
+  common: { template: string }
+  members: TaskDraftMember[]
+}
+
+export type MetadataMode = 'fill_missing' | 'refresh_dynamic' | 'refresh_all'
+export type MetadataLocale = 'ja-jp' | 'zh-cn' | 'zh-tw'
+
+export interface MetadataDraftDocument {
+  schema_version: number
+  common: { mode: MetadataMode; locale: MetadataLocale; download_cover: boolean }
+  members: TaskDraftMember[]
+}
+
+/** Any operation's draft document; the payload belongs to its task (ADR 0004). */
+export type AnyDraftDocument = OperationDraftDocument | RenameDraftDocument | MetadataDraftDocument
+
 /** The wire shape of a persisted draft: document wrapped in its task envelope. */
 export interface DraftEnvelopeResponse {
   workset_id: string
@@ -595,13 +621,13 @@ export interface DraftEnvelopeResponse {
 }
 
 /** The unwrapped draft editors consume; the API client maps the envelope to it. */
-export interface DraftResponse {
+export interface DraftResponse<D = OperationDraftDocument> {
   workset_id: string
   operation_type: OperationType
   /** The OPERATION version: echo it back as If-Match on the next save. */
   version: number
   schema_version: number
-  document: OperationDraftDocument
+  document: D
   common_settings_current: boolean
   updated_at: string
 }
@@ -713,6 +739,8 @@ export interface ExecutionComponent {
   error_message?: string
   inventory_synced: boolean
   inventory_sync_error?: string
+  /** Task-owned outcome (metadata refresh: `MetadataTaskResult`). */
+  task_result?: unknown
 }
 
 /** The session detail payload; also the SSE snapshot. */
@@ -872,6 +900,70 @@ export interface ConversionPlanPayload {
   components: ComponentOutcome[]
 }
 
+/** One frozen rename proposal. */
+export interface RenameComponent {
+  member_id: string
+  source_name: string
+  work_code: string
+  raw_name: string
+  target_name: string
+  action: 'rename' | 'noop' | 'blocked'
+  reason_code?: string
+}
+
+export interface CoverTarget {
+  copy_id: string
+  rj: string
+  library_root: string
+  rel_path: string
+  identity: string
+}
+
+/** One frozen metadata refresh target. */
+export interface MetadataComponent {
+  member_id: string
+  target: CoverTarget
+  action: 'refresh' | 'skip'
+  reason_code?: string
+}
+
+/** The plan payload of rename and metadata refresh: one component per member. */
+export interface TaskPlanPayload<C> {
+  components: C[]
+}
+
+export interface MetadataIssue {
+  group?: string
+  source?: string
+  code: string
+  message: string
+}
+
+/** An executed metadata component's `task_result` (a skip carries no issues). */
+export interface MetadataTaskResult {
+  rj?: string
+  issues?: MetadataIssue[]
+}
+
+export type CoverStatus = 'pending' | 'running' | 'succeeded' | 'skipped' | 'failed' | 'canceled'
+
+export interface CoverDelivery {
+  id: string
+  execution_id: string
+  target: CoverTarget
+  refresh: boolean
+  status: CoverStatus
+  error_code?: string
+  error_message?: string
+}
+
+/** One metadata execution's asynchronous cover deliveries. */
+export interface CoverReport {
+  items: CoverDelivery[]
+  counts: Record<CoverStatus, number>
+  downloads: Record<'total' | 'queued' | 'running' | 'done', number>
+}
+
 /** One member of a frozen revision: effective settings plus unit provenance. */
 export interface RevisionMember {
   member_id: string
@@ -889,7 +981,7 @@ export interface RevisionMember {
   sources: Record<string, string>
 }
 
-export interface RevisionDetailResponse {
+export interface RevisionDetailResponse<P = ConversionPlanPayload> {
   plan_id: string
   revision_index: number
   created_at: string
@@ -904,7 +996,7 @@ export interface RevisionDetailResponse {
     summary_reason: string
   }
   /** The plan snapshot, wrapped in its task envelope. */
-  task: TaskEnvelope<ConversionPlanPayload>
+  task: TaskEnvelope<P>
   counts: RevisionCounts
   /** Frozen per-member effective settings and inheritance sources. */
   members: RevisionMember[]
@@ -964,7 +1056,7 @@ export interface ApiClientContract {
   saveOperationDraft(
     worksetId: string,
     operation: OperationType,
-    document: OperationDraftDocument,
+    document: AnyDraftDocument,
     ifMatchVersion: number,
     applyCommonSettings?: boolean,
   ): Promise<Operation>
@@ -1017,4 +1109,6 @@ export interface ApiClientContract {
     executionId: string,
     signal: AbortSignal,
   ): AsyncIterable<ExecutionEvent>
+  getExecutionCovers(worksetId: string, executionId: string, signal?: AbortSignal): Promise<CoverReport>
+  changeExecutionCovers(worksetId: string, executionId: string, action: 'retry' | 'cancel'): Promise<CoverReport>
 }

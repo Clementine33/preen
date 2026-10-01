@@ -3,9 +3,11 @@ import { inject } from 'vue'
 import { parseSSEStream, type SSEEvent } from './sse'
 import type {
   ApiClientContract,
+  AnyDraftDocument,
   ApiConfig,
   ClassifierCustomTag,
   ClassifierTagLibraryResponse,
+  CoverReport,
   CreateLibraryInput,
   CreateRecordInput,
   CreateRecordResponse,
@@ -27,7 +29,6 @@ import type {
   ListWorksParams,
   ListWorksetsParams,
   Operation,
-  OperationDraftDocument,
   OperationType,
   PolicySlot,
   RevisionDetailResponse,
@@ -389,13 +390,17 @@ export class ApiClient implements ApiClientContract {
       operation_type: wire.operation_type,
       version: wire.version,
       schema_version: wire.task.schema_version,
-      // The stored document is sparse: absent keys mean "no records", and the
-      // editors rely on the arrays being present.
-      document: {
-        ...payload,
-        classifier_tags: payload.classifier_tags ?? [],
-        members: payload.members ?? [],
-      },
+      // The stored conversion document is sparse: absent keys mean "no
+      // records", and the editors rely on the arrays being present. Other
+      // tasks reject unknown fields, so their payload passes through as is.
+      document:
+        operation === 'conversion'
+          ? {
+              ...payload,
+              classifier_tags: payload.classifier_tags ?? [],
+              members: payload.members ?? [],
+            }
+          : payload,
       common_settings_current: wire.common_settings_current,
       updated_at: wire.updated_at,
     }
@@ -405,7 +410,7 @@ export class ApiClient implements ApiClientContract {
   saveOperationDraft(
     worksetId: string,
     operation: OperationType,
-    document: OperationDraftDocument,
+    document: AnyDraftDocument,
     ifMatchVersion: number,
     applyCommonSettings = false,
   ): Promise<Operation> {
@@ -517,6 +522,20 @@ export class ApiClient implements ApiClientContract {
       `${this.operationPath(worksetId, operation)}/executions/${encodeURIComponent(executionId)}/cancel`,
       { method: 'POST', body: {} },
     )
+  }
+
+  /** The asynchronous cover deliveries one metadata execution queued. */
+  getExecutionCovers(worksetId: string, executionId: string, signal?: AbortSignal): Promise<CoverReport> {
+    return this.request(this.coversPath(worksetId, executionId), { signal })
+  }
+
+  /** Retry failed/stopped deliveries, or stop pending ones; answers the updated report. */
+  changeExecutionCovers(worksetId: string, executionId: string, action: 'retry' | 'cancel'): Promise<CoverReport> {
+    return this.request(`${this.coversPath(worksetId, executionId)}/${action}`, { method: 'POST', body: {} })
+  }
+
+  private coversPath(worksetId: string, executionId: string): string {
+    return `${this.operationPath(worksetId, 'metadata_refresh')}/executions/${encodeURIComponent(executionId)}/covers`
   }
 
   /** Every mutable planning resource is addressed through its operation. */

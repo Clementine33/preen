@@ -11,6 +11,7 @@ const MemberDetailPage = () => import('@/pages/MemberDetailPage.vue')
 const MemberEditPage = () => import('@/pages/MemberEditPage.vue')
 const BatchEditPage = () => import('@/pages/BatchEditPage.vue')
 const ExecutionDetailPage = () => import('@/pages/ExecutionDetailPage.vue')
+const TaskOperationPage = () => import('@/pages/TaskOperationPage.vue')
 const NotFoundPage = () => import('@/pages/NotFoundPage.vue')
 const MemberFiles = () => import('@/features/folders/MemberFiles.vue')
 
@@ -114,6 +115,21 @@ export const router = createRouter({
           meta: { carrier: true, title: '修改此文件夹' },
         },
       ],
+    },
+
+    // Rename and metadata refresh: one page each, no carriers (ADR 0014). The
+    // two share a component, so it reads its operation from the prop.
+    {
+      path: '/worksets/:libraryId/rename',
+      name: 'rename',
+      component: TaskOperationPage,
+      props: { operation: 'rename' },
+    },
+    {
+      path: '/worksets/:libraryId/metadata',
+      name: 'metadata-refresh',
+      component: TaskOperationPage,
+      props: { operation: 'metadata_refresh' },
     },
 
     // An address that names no page of this workbench. The retired long routes

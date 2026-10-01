@@ -1,11 +1,12 @@
 import { infiniteQueryOptions, queryOptions, type QueryClient } from '@tanstack/vue-query'
 import type {
+  AnyDraftDocument,
   ApiClientContract,
+  CoverReport,
   CreateRecordInput,
   CreateRecordResponse,
   ExecutionView,
   ListWorksetsParams,
-  OperationDraftDocument,
   OperationType,
   ResolvedPolicy,
   StartExecutionResponse,
@@ -220,7 +221,7 @@ export function saveOperationDraftMutationOptions(api: ApiClientContract, queryC
     mutationFn: (input: {
       worksetId: string
       operation: OperationType
-      document: OperationDraftDocument
+      document: AnyDraftDocument
       ifMatchVersion: number
       applyCommonSettings?: boolean
     }) =>
@@ -334,6 +335,37 @@ export function cancelExecutionMutationOptions(api: ApiClientContract, queryClie
         queryKeys.worksets.execution(view.workset_id, view.operation_type, view.execution_id),
         view,
       )
+    },
+  }
+}
+
+// A metadata execution's cover deliveries finish after the execution itself,
+// so the report polls while any delivery is still pending or running.
+export function executionCoversQueryOptions(
+  api: ApiClientContract,
+  worksetId: string | null | undefined,
+  executionId: string | null | undefined,
+) {
+  return queryOptions({
+    queryKey: queryKeys.worksets.covers(worksetId ?? '', executionId ?? ''),
+    enabled: Boolean(worksetId && executionId),
+    staleTime: 0,
+    queryFn: ({ signal }: { signal?: AbortSignal }) =>
+      api.getExecutionCovers(worksetId as string, executionId as string, signal),
+    refetchInterval: (query: { state: { data?: CoverReport } }) => {
+      const counts = query.state.data?.counts
+      return counts && counts.pending + counts.running > 0 ? 2000 : false
+    },
+  })
+}
+
+// Retry or stop the deliveries; the answer is the updated report.
+export function changeExecutionCoversMutationOptions(api: ApiClientContract, queryClient: QueryClient) {
+  return {
+    mutationFn: (input: { worksetId: string; executionId: string; action: 'retry' | 'cancel' }) =>
+      api.changeExecutionCovers(input.worksetId, input.executionId, input.action),
+    onSuccess: (report: CoverReport, input: { worksetId: string; executionId: string }) => {
+      queryClient.setQueryData(queryKeys.worksets.covers(input.worksetId, input.executionId), report)
     },
   }
 }

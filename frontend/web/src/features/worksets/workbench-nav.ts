@@ -11,7 +11,7 @@ import type { Operation } from '@/lib/api/types'
  * from a *named* route plus `libraryId`, so a path rename cannot quietly
  * break navigation.
  */
-export type WorkbenchNavId = 'overview' | 'conversion' | 'conversion-settings'
+export type WorkbenchNavId = 'overview' | 'conversion' | 'conversion-settings' | 'rename' | 'metadata-refresh'
 
 export interface WorkbenchNavItem {
   id: WorkbenchNavId
@@ -21,8 +21,8 @@ export interface WorkbenchNavItem {
   children?: WorkbenchNavItem[]
 }
 
-/** The workbench's own entries for one workset: the two sections, and the
- *  settings page nested under 转换 (the only nesting this round defines). */
+/** The workbench's own entries for one workset: one section per operation,
+ *  and the settings page nested under 转换 (the only nesting defined). */
 export function workbenchNav(libraryId: string): WorkbenchNavItem[] {
   return [
     {
@@ -45,6 +45,18 @@ export function workbenchNav(libraryId: string): WorkbenchNavItem[] {
         },
       ],
     },
+    {
+      id: 'rename',
+      label: '重命名',
+      icon: '✎',
+      to: { name: 'rename', params: { libraryId } },
+    },
+    {
+      id: 'metadata-refresh',
+      label: '获取元数据',
+      icon: '⇣',
+      to: { name: 'metadata-refresh', params: { libraryId } },
+    },
   ]
 }
 
@@ -59,6 +71,8 @@ export type WorkbenchRouteName =
   | 'conversion-member-edit'
   | 'conversion-batch-edit'
   | 'conversion-execution'
+  | 'rename'
+  | 'metadata-refresh'
 
 export interface WorkbenchNavPosition {
   /** The entry that IS the current page. */
@@ -83,6 +97,8 @@ const POSITION_BY_ROUTE_NAME: Record<WorkbenchRouteName, WorkbenchNavPosition> =
   'conversion-member-edit': { current: 'conversion' },
   'conversion-batch-edit': { current: 'conversion' },
   'conversion-execution': { current: 'conversion' },
+  rename: { current: 'rename' },
+  'metadata-refresh': { current: 'metadata-refresh' },
 }
 
 export function workbenchNavPosition(routeName: unknown): WorkbenchNavPosition | null {

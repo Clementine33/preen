@@ -63,6 +63,8 @@ function routerFor(): Router {
       { path: '/worksets/:libraryId/f/:dirId', name: 'overview-files', component: { template: '<div />' } },
       { path: '/worksets/:libraryId/conversion', name: 'conversion', component: { template: '<div />' } },
       { path: '/worksets/:libraryId/conversion/settings', name: 'conversion-settings', component: { template: '<div />' } },
+      { path: '/worksets/:libraryId/rename', name: 'rename', component: { template: '<div />' } },
+      { path: '/worksets/:libraryId/metadata', name: 'metadata-refresh', component: { template: '<div />' } },
       { path: '/worksets', name: 'worksets', component: { template: '<div />' } },
     ],
   })
@@ -134,6 +136,20 @@ describe('workbench overview', () => {
     expect(router.currentRoute.value.name).toBe('conversion')
   })
 
+  it('creates a rename record from the same selection and opens its page', async () => {
+    const createCurrentRecord = vi.fn().mockResolvedValue({ workset: record, created: true, recorded: 1, skipped: [] })
+    const { wrapper, router } = await mountOverview({ createCurrentRecord })
+    ui().toggleDir('docs', dirs)
+    await flushPromises()
+    await wrapper.get('[data-testid="enter-rename"]').trigger('click')
+    await flushPromises()
+
+    const request = createCurrentRecord.mock.calls[0] as unknown as [string, string, { folder_paths: string[] }]
+    expect(request[1]).toBe('rename')
+    expect(request[2].folder_paths).toEqual(['docs'])
+    expect(router.currentRoute.value.name).toBe('rename')
+  })
+
   it('reports the folders a creation skipped instead of hiding them', async () => {
     const createCurrentRecord = vi.fn().mockResolvedValue({
       workset: record,
@@ -170,7 +186,7 @@ describe('workbench overview', () => {
     // the document that holds it.
     expect(createCurrentRecord).not.toHaveBeenCalled()
     expect(document.body.textContent).toContain('删除它的成员设置、当前计划与执行结果')
-    expect(document.body.textContent).toContain('全局转换设置会保留')
+    expect(document.body.textContent).toContain('全局设置会保留')
     const confirm = document.body.querySelector('[data-testid="confirm-replace"]') as HTMLElement
     confirm.click()
     await flushPromises()

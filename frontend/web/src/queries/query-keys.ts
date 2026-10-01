@@ -79,5 +79,9 @@ export const queryKeys = {
       ['worksets', 'executions', worksetId, operation] as const,
     execution: (worksetId: string, operation: string, executionId: string) =>
       ['worksets', 'executions', worksetId, operation, executionId] as const,
+    // A metadata execution's cover deliveries live under that execution, so
+    // the execution sweeps refresh them too.
+    covers: (worksetId: string, executionId: string) =>
+      ['worksets', 'executions', worksetId, 'metadata_refresh', executionId, 'covers'] as const,
   },
 } as const

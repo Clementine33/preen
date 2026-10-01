@@ -55,6 +55,8 @@ export function apiStub(overrides: Partial<ApiClientContract> = {}): ApiClientCo
     getExecution: vi.fn(),
     cancelExecution: vi.fn(),
     streamExecutionEvents: vi.fn(),
+    getExecutionCovers: vi.fn(),
+    changeExecutionCovers: vi.fn(),
   } as ApiClientContract
   return Object.assign(base, overrides)
 }

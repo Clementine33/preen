@@ -3,10 +3,12 @@ import { router } from '@/app/router'
 import { workbenchNav, workbenchNavPosition } from './workbench-nav'
 
 describe('workbench navigation definition', () => {
-  it('lists the two sections and nests the settings page under 转换', () => {
+  it('lists one section per operation and nests the settings page under 转换', () => {
     const nav = workbenchNav('lib-1')
 
-    expect(nav.map((item) => item.label)).toEqual(['概览与成员', '转换'])
+    expect(nav.map((item) => item.label)).toEqual(['概览与成员', '转换', '重命名', '获取元数据'])
+    expect(nav[2].to).toEqual({ name: 'rename', params: { libraryId: 'lib-1' } })
+    expect(nav[3].to).toEqual({ name: 'metadata-refresh', params: { libraryId: 'lib-1' } })
     expect(nav[0].to).toEqual({ name: 'workbench-overview', params: { libraryId: 'lib-1' } })
     expect(nav[1].to).toEqual({ name: 'conversion', params: { libraryId: 'lib-1' } })
     expect(nav[1].children?.map((child) => child.label)).toEqual(['转换全局设置'])
@@ -42,6 +44,9 @@ describe('workbench navigation definition', () => {
     expect(workbenchNavPosition('conversion-member')).toEqual({ current: 'conversion' })
     expect(workbenchNavPosition('conversion-member-edit')).toEqual({ current: 'conversion' })
     expect(workbenchNavPosition('conversion-batch-edit')).toEqual({ current: 'conversion' })
+
+    expect(workbenchNavPosition('rename')).toEqual({ current: 'rename' })
+    expect(workbenchNavPosition('metadata-refresh')).toEqual({ current: 'metadata-refresh' })
   })
 
   it('has no position for routes outside the workbench', () => {

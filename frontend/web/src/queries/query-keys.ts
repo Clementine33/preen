@@ -17,6 +17,7 @@ export const queryKeys = {
     // overview and the conversion entry derive the same identity for the same
     // directory, so they share this entry instead of reading the tree twice.
     memberTreesPrefix: (libraryId: string) => ['libraries', 'member-trees', libraryId] as const,
+    memberTreesAll: () => ['libraries', 'member-trees'] as const,
     memberTree: (libraryId: string, rootIdentity: string, dirId: string) =>
       ['libraries', 'member-trees', libraryId, rootIdentity, dirId] as const,
   },
@@ -41,6 +42,9 @@ export const queryKeys = {
     listPrefix: () => ['works', 'list'] as const,
     list: (filters: ListWorksParams) => ['works', 'list', filters] as const,
     detail: (rj: string) => ['works', 'detail', rj] as const,
+    detailPrefix: () => ['works', 'detail'] as const,
+    contentPrefix: () => ['works', 'content'] as const,
+    facetsPrefix: () => ['works', 'facets'] as const,
     // One work's file manifest: the detail page's deck, bay and leaf read it.
     // The copy's tree identity is part of the content's own response, so the
     // work number alone addresses it.

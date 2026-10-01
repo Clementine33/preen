@@ -14,6 +14,7 @@ import (
 // whitelist as the file endpoint; the answer is immutable only at the image's
 // current version, so a stale address never pins the wrong bytes.
 func (s *Server) getWorkThumb(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
 	service, ok := s.catalog(w)
 	if !ok {
 		return
@@ -39,13 +40,13 @@ func (s *Server) getWorkThumb(w http.ResponseWriter, r *http.Request) {
 	}
 
 	etag := `"` + loc.ThumbV + "-" + strconv.Itoa(height) + `"`
-	w.Header().Set("ETag", etag)
+	cacheControl := "no-cache"
 	if r.URL.Query().Get("v") == loc.ThumbV {
-		w.Header().Set("Cache-Control", "private, max-age=31536000, immutable")
-	} else {
-		w.Header().Set("Cache-Control", "no-cache")
+		cacheControl = "private, max-age=31536000, immutable"
 	}
 	if r.Header.Get("If-None-Match") == etag {
+		w.Header().Set("ETag", etag)
+		w.Header().Set("Cache-Control", cacheControl)
 		w.WriteHeader(http.StatusNotModified)
 		return
 	}
@@ -69,6 +70,8 @@ func (s *Server) getWorkThumb(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "INTERNAL", "the thumbnail could not be rendered")
 		return
 	}
+	w.Header().Set("ETag", etag)
+	w.Header().Set("Cache-Control", cacheControl)
 	w.Header().Set("Content-Type", img.ContentType)
 	w.Header().Set("Content-Length", strconv.Itoa(len(img.Bytes)))
 	_, _ = w.Write(img.Bytes)

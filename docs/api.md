@@ -666,6 +666,7 @@ work, while `RJ1657200` (7 digits) is refused.
 | --- | --- | --- |
 | GET | `/api/v1/works` | 200 `{"works":[…],"next_cursor":"…"}`. Filters and paging below. |
 | GET | `/api/v1/works/{rj}` | 200 the work in full: metadata, personal data, resolved relation, language editions and every copy. A work declared by a relation but never found on disk answers `"placeholder":true` and is absent from the listing. |
+| GET | `/api/v1/inventory/media-facts/events` | Bearer-authenticated SSE; `changed` with `{}` after a committed measurement batch, and once on connection. See below. |
 | GET | `/api/v1/works/{rj}/content` | 200 the work's file manifest (ADR 0016 §2): every bound copy's tree, below. |
 | GET | `/api/v1/works/{rj}/content/{copyId}/{path...}` | 200 one manifest file's bytes (ADR 0016 §3): `path` is the copy-root-relative manifest path. See below. |
 | GET | `/api/v1/works/{rj}/thumbs/{copyId}/{path...}?h=240&v=…` | 200 one manifest image's thumbnail (ADR 0015 §3). See below. |
@@ -728,21 +729,29 @@ carries.
 file's bytes. The route is read-only and takes no admission slot: only paths
 the manifest holds are served, resolved inside the member under the same
 containment checks direct file management applies (out-of-bounds segments and
-symlink escapes are refused; an unscanned file on disk is 404, not a guess).
+symlink traversal is refused; an unscanned file on disk is 404, not a guess).
+Directories are refused, and the opened object must still be a regular file.
 
 - Besides the `Authorization` header, this route (and only this one) accepts
   the token as `?access_token=…`, so an `<img>` or `<audio>` element can load
-  it by address. A present header decides; the query cannot override it.
+  it by address. Only a completely absent Authorization header permits this
+  fallback: malformed, empty or incorrect header credentials are refused.
 - `ETag` keys on `(size, mtime, content_rev)`; `Cache-Control: no-cache`
   revalidates before reuse, so a rescan that changed the bytes changes the
-  tag and a match answers 304.
+  tag and a match answers 304. Original image addresses may carry optional
+  `v=thumb_v` to reload a changed path; this does not change file cache semantics.
 - `Accept-Ranges: bytes` with single-range 206 (`Range: bytes=0-99`). A
-  multi-range request is answered with the whole file.
-- Images and audio carry the `Content-Type` their own bytes sniff as, not
-  their extension. Text (`txt`/`lrc`) declares the character set the server
+  multi-range request is answered with the whole file; an unsatisfiable range
+  answers 416 with `Content-Range: bytes */<size>`.
+- Images carry the type recognized from their bytes; unrecognized image
+  bytes use `application/octet-stream`, regardless of extension. Audio can
+  fall back to the container extension when byte sniffing is inconclusive.
+  Text (`txt`/`lrc`) declares the character set the server
   sniffed (`UTF-8` → `Shift_JIS` → `GB18030` candidates) and the body is
   served exactly as stored — decoding happens once, at the client, per the
-  header.
+  header, using `arrayBuffer()` and `TextDecoder` (not `Response.text()`).
+  A multibyte character cut off at the sample boundary is not an invalid
+  encoding; truncated characters at actual EOF remain invalid.
 
 `GET /api/v1/works/{rj}/thumbs/{copyId}/{path...}?h=…&v=…` serves one
 manifest image scaled to a height (ADR 0015 §3). The source goes through the
@@ -752,15 +761,46 @@ path is `NOT_AN_IMAGE` (404). Read-only, no admission slot.
 - `h` (required, positive) snaps up to a served height: 120, 240, 480 or 960.
   A source shorter than that is never upscaled.
 - `v` is the image's `thumb_v` from the manifest, a digest of the file's size,
-  mtime, `content_rev` and the engine version. At the current version the
-  answer is `Cache-Control: private, max-age=31536000, immutable`; any other
+  mtime, `content_rev` and the engine version. Successful responses and their
+  matching 304 at the current version have
+  `Cache-Control: private, max-age=31536000, immutable`; any other
   `v` (or none) still answers, but `no-cache`, so a stale address never pins
   old bytes. `ETag` is `"<v>-<height>"`; a match answers 304.
 - Opaque sources answer `image/jpeg`, sources with transparency `image/png`.
 - `BUSY` (503) with `Retry-After` when the render queue is full — back off and
   retry. `IMAGE_TOO_LARGE` (422) over the pixel limit (about 100M pixels,
   checked from the header), `IMAGE_UNDECODABLE` (422) for bytes that do not
-  decode; the page draws its hatched placeholder for both.
+  decode; the page draws its hatched placeholder for both. Errors (including
+  500) use `Cache-Control: no-store` and carry no successful-content ETag.
+  Allowed cross-origin responses expose `Retry-After` to the client.
+
+### Background media facts notifications
+
+`GET /api/v1/inventory/media-facts/events` is a bearer-authenticated SSE
+connection; query-token authentication is not accepted. It responds with
+`Content-Type: text/event-stream` and `Cache-Control: no-cache`.
+
+```text
+event: changed
+data: {}
+
+```
+
+A successful batch commit sends one notification; failed writes send none.
+Each subscriber has only one pending notification, so slow clients coalesce
+changes without blocking measurement. Every connection receives an initial
+notification to cover changes while disconnected. A `: keep-alive` comment
+is sent every 15 seconds; disconnection unregisters the subscriber. There are
+no event IDs, replay history or persistent event fields.
+
+The root application maintains one connection, reconnecting after 1, 2, 4
+seconds up to 30 seconds; 401 stops retries, and unmount cancels both the stream
+and pending wait. Notifications cancel any older in-flight reads, refresh
+active work-content and member-tree queries, and remove inactive caches.
+Scanning and file/library mutations also refresh or remove work lists, details
+and manifests. Rebinding a manifest preserves reading, lyric pairing and
+playback. Thumbnail blobs are keyed by copy, path and `thumb_v`; changed
+versions revoke the old blob and reload both thumbnail and original image.
 
 ### Source metadata import
 

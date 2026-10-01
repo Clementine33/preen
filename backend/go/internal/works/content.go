@@ -333,7 +333,7 @@ func (s *Service) ContentFile(id WorkCode, copyID, relPath string) (ContentFileL
 	if err != nil {
 		return ContentFileLocation{}, asInternal(err)
 	}
-	if !listed {
+	if !listed || entry.IsDir {
 		return ContentFileLocation{}, NotFound(CodeWorkNotFound, "the path is not in the work's manifest")
 	}
 	loc := ContentFileLocation{

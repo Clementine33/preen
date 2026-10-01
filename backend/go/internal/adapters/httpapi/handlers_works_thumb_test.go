@@ -1,6 +1,7 @@
 package httpapi //nolint:testpackage // white-box tests drive the routes through the real router
 
 import (
+	"errors"
 	"net/http"
 	"strings"
 	"testing"
@@ -8,10 +9,52 @@ import (
 	"github.com/onsei/organizer/backend/internal/adapters/media"
 	"github.com/onsei/organizer/backend/internal/adapters/sqlite"
 	"github.com/onsei/organizer/backend/internal/thumbnail"
+	"github.com/onsei/organizer/backend/internal/works"
 )
 
 func thumbURL(query string, segments ...string) string {
 	return strings.Replace(fileURL(segments...), "/content/", "/thumbs/", 1) + "?" + query
+}
+
+type failedThumbEngine struct{ err error }
+
+func (e failedThumbEngine) Thumbnail(string, int) (thumbnail.Image, error) {
+	return thumbnail.Image{}, e.err
+}
+
+func TestWorkThumbErrorsNeverCacheTheSuccessfulVersion(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		err    error
+		status int
+	}{
+		{"busy", thumbnail.ErrBusy, http.StatusServiceUnavailable},
+		{"too large", thumbnail.ErrTooLarge, http.StatusUnprocessableEntity},
+		{"undecodable", thumbnail.ErrUndecodable, http.StatusUnprocessableEntity},
+		{"io failure", errors.New("read failed"), http.StatusInternalServerError},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var version string
+			engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) {
+				wireWorks(d, fixture)
+				seedWorkFiles(t, fixture)
+				d.Thumbs = thumbnail.New(failedThumbEngine{tc.err}, t.TempDir(), 1<<20, 1, 1)
+				content, refusal := d.Works.Content(works.WorkCode("RJ01000001"))
+				if refusal != nil {
+					t.Fatal(refusal)
+				}
+				version = content.Copies[0].Tree.Children[0].Children[0].ThumbV
+			})
+			w := doRequest(t, engine, http.MethodGet,
+				thumbURL("h=120&v="+version, "c-1", "表紙", "cover_main.jpg"), nil, nil)
+			if w.Code != tc.status || w.Header().Get("Cache-Control") != "no-store" || w.Header().Get("ETag") != "" {
+				t.Errorf("error response = %d %v", w.Code, w.Header())
+			}
+			if tc.status == http.StatusServiceUnavailable && w.Header().Get("Retry-After") == "" {
+				t.Error("busy response lost Retry-After")
+			}
+		})
+	}
 }
 
 func TestWorkThumbIsImmutableOnlyAtItsVersion(t *testing.T) {

@@ -30,7 +30,7 @@ function refOf(item: WorkContentFile | null): ContentFileRef | null {
 }
 const frontSrc = computed(() => {
   const ref = refOf(file.value)
-  return ref ? api.workFileUrl(ref) : ''
+  return ref ? api.workFileUrl(ref, file.value?.thumb_v ?? undefined) : ''
 })
 // Double quotes: encodeURIComponent leaves an apostrophe in a file name as is.
 const frontStyle = computed(() => ({ backgroundImage: `url("${frontSrc.value}")` }))
@@ -119,9 +119,13 @@ watch(
 //    aborts the batch so the server drops its queued renders; each thumbnail
 //    loads once per visit (ADR 0015 §6). ──
 const THUMB_HEIGHT = 40
-/** rel_path → object URL of its loaded thumbnail, for this visit. */
+/** Copy, relative path and version identify a loaded thumbnail. */
 const thumbs = ref(new Map<string, string>())
 let batch: AbortController | null = null
+
+function thumbKey(item: WorkContentFile): string {
+  return JSON.stringify([store.activeCopy?.copy_id, item.rel_path, item.thumb_v])
+}
 
 function scheduleThumbs(): void {
   batch?.abort()
@@ -131,8 +135,8 @@ function scheduleThumbs(): void {
   const ref = refOf(current?.files[0] ?? null)
   if (!current || !ref || veiled.value) return
   const queue = current.files
-    .map((item, i) => ({ item, i }))
-    .filter(({ item }) => item.thumb_v !== null && !thumbs.value.has(item.rel_path))
+    .map((item, i) => ({ item, i, key: thumbKey(item) }))
+    .filter(({ item, key }) => item.thumb_v !== null && !thumbs.value.has(key))
     .sort((a, b) => Math.abs(a.i - store.idx) - Math.abs(b.i - store.idx))
   const height = Math.ceil(THUMB_HEIGHT * (window.devicePixelRatio || 1))
   const worker = async (): Promise<void> => {
@@ -140,7 +144,7 @@ function scheduleThumbs(): void {
       try {
         const blob = await api.getWorkThumb({ ...ref, relPath: entry.item.rel_path }, height, entry.item.thumb_v ?? '', signal)
         if (signal.aborted) return
-        thumbs.value = new Map(thumbs.value).set(entry.item.rel_path, URL.createObjectURL(blob))
+        thumbs.value = new Map(thumbs.value).set(entry.key, URL.createObjectURL(blob))
       } catch {
         // Aborted, or refused (too large / undecodable): the hatch stays.
       }
@@ -160,7 +164,15 @@ watch(veiled, (now) => {
 })
 // Another set is another batch: the previous one is aborted, its loaded
 // thumbnails kept for the visit.
-watch(() => store.set, () => scheduleThumbs())
+watch(set, () => {
+  const valid = new Set(store.sets.flatMap((entry) => entry.files.map(thumbKey)))
+  for (const [key, url] of thumbs.value) {
+    if (valid.has(key)) continue
+    URL.revokeObjectURL(url)
+    thumbs.value.delete(key)
+  }
+  scheduleThumbs()
+})
 
 onMounted(() => {
   observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => layoutPlate())
@@ -189,8 +201,8 @@ function thumbStyle(item: WorkContentFile): { width: string; backgroundImage?: s
   const raw = 40 * ratio
   return {
     width: `${Math.round(Math.max(24, Math.min(110, raw)))}px`,
-    ...(thumbs.value.has(item.rel_path) && !veiled.value
-      ? { backgroundImage: `url("${thumbs.value.get(item.rel_path)}")` }
+    ...(thumbs.value.has(thumbKey(item)) && !veiled.value
+      ? { backgroundImage: `url("${thumbs.value.get(thumbKey(item))}")` }
       : {}),
   }
 }
@@ -246,7 +258,7 @@ const NEXT_ICON = 'M2 0l7 5-7 5z'
 
     <div v-show="!reading" v-if="set && set.files.length >= 2" class="film">
       <button v-for="(item, i) in set.files" :key="item.rel_path" class="thumb"
-        :class="{ crop: isCropped(item), pending: !thumbs.has(item.rel_path) && !veiled, veiled }" type="button"
+        :class="{ crop: isCropped(item), pending: !thumbs.has(thumbKey(item)) && !veiled, veiled }" type="button"
         :style="thumbStyle(item)" :aria-current="i === store.idx ? 'true' : undefined" :title="item.name"
         @click="store.showImg(store.set, i)"></button>
     </div>

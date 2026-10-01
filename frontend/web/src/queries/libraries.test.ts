@@ -7,6 +7,7 @@ import { queryKeys } from './query-keys'
 import {
   createLibraryMutationOptions,
   deleteLibraryMutationOptions,
+  fileOperationMutationOptions,
   updateLibraryMutationOptions,
 } from './libraries'
 
@@ -43,7 +44,10 @@ function apiStub(overrides: Partial<ApiClientContract> = {}): ApiClientContract 
   return sharedApiStub(overrides)
 }
 
+const workKeys = [queryKeys.works.content('RJ01000001'), queryKeys.works.detail('RJ01000001'), queryKeys.works.list({})]
+
 function seedDerivedCaches(client: ReturnType<typeof createTestQueryClient>) {
+  for (const key of workKeys) client.setQueryData(key, 'cached')
   client.setQueryData(queryKeys.libraries.dirs('lib-a', rootPathIdentityKey(libA.root_path)), dirs)
   client.setQueryData(
     queryKeys.libraries.memberTree('lib-a', rootPathIdentityKey(libA.root_path), 'dir-alpha'),
@@ -88,6 +92,7 @@ describe('library mutation cache synchronization', () => {
     options.onSuccess?.(updated, { id: 'lib-a', input: { name: 'Renamed' } }, undefined)
 
     expect(client.getQueryData<Library[]>(queryKeys.libraries.list())).toContainEqual(renamed)
+    for (const key of workKeys) expect(client.getQueryData(key)).toBe('cached')
     expect(client.getQueryData(queryKeys.libraries.dirs('lib-a', rootPathIdentityKey(libA.root_path)))).toEqual(
       dirs,
     )
@@ -121,6 +126,7 @@ describe('library mutation cache synchronization', () => {
 
     expect(client.getQueryData<Library[]>(queryKeys.libraries.list())).toContainEqual(libADifferentRoot)
     await vi.waitFor(() => {
+      for (const key of workKeys) expect(client.getQueryData(key)).toBeUndefined()
       expect(client.getQueryData(queryKeys.libraries.dirs('lib-a', rootPathIdentityKey(libA.root_path)))).toBeUndefined()
       expect(
         client.getQueryData(queryKeys.libraries.memberTree('lib-a', rootPathIdentityKey(libA.root_path), 'Alpha')),
@@ -140,10 +146,23 @@ describe('library mutation cache synchronization', () => {
 
     expect(client.getQueryData<Library[]>(queryKeys.libraries.list())?.map((lib) => lib.id)).toEqual(['lib-new'])
     await vi.waitFor(() => {
+      for (const key of workKeys) expect(client.getQueryData(key)).toBeUndefined()
       expect(client.getQueryData(queryKeys.libraries.dirs('lib-a', rootPathIdentityKey(libA.root_path)))).toBeUndefined()
       expect(
         client.getQueryData(queryKeys.libraries.memberTree('lib-a', rootPathIdentityKey(libA.root_path), 'Alpha')),
       ).toBeUndefined()
     })
   })
+  it('file operations remove stale work list, detail and manifest caches', async () => {
+    const client = createTestQueryClient()
+    seedDerivedCaches(client)
+    const options = fileOperationMutationOptions(apiStub(), client, 'lib-a', rootPathIdentityKey(libA.root_path))
+    const input = { dirId: 'dir-alpha', body: { member_path: 'Alpha', operation: 'soft_delete' as const, items: [] } }
+    const result = await options.mutationFn(input)
+    options.onSuccess(result, input)
+    await vi.waitFor(() => {
+      for (const key of workKeys) expect(client.getQueryData(key)).toBeUndefined()
+    })
+  })
+
 })

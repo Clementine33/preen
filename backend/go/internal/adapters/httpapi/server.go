@@ -29,6 +29,7 @@ type Dependencies struct {
 	CORSOrigins    []string
 	Version        string
 	Inventory      inventory.Service
+	MediaFacts     *inventory.MediaEnricher
 	WorksetService workset.Service
 	// FileOps applies direct file management inside a member. It and every
 	// other path that takes an admission slot own that decision themselves, so
@@ -52,6 +53,7 @@ func NewServer(deps Dependencies) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/v1/health", s.handleHealth)
 	protect := authMiddleware(deps.Token)
+	mux.Handle("GET /api/v1/inventory/media-facts/events", protect(http.HandlerFunc(s.mediaFactsEvents)))
 	mux.Handle("POST /api/v1/libraries", protect(http.HandlerFunc(s.createLibrary)))
 	mux.Handle("GET /api/v1/libraries", protect(http.HandlerFunc(s.listLibraries)))
 	mux.Handle("GET /api/v1/libraries/{id}", protect(http.HandlerFunc(s.getLibrary)))

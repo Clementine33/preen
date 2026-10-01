@@ -3,6 +3,12 @@ export interface ApiConfig {
   token: string | null
 }
 
+/** A reload signal for committed media facts, including the initial connection. */
+export interface MediaFactsEvent {
+  type: 'changed'
+  data: Record<string, never>
+}
+
 export interface HealthResponse {
   ok: boolean
   version: string
@@ -916,6 +922,7 @@ export interface ApiClientContract {
   updateLibrary(id: string, input: UpdateLibraryInput): Promise<Library>
   deleteLibrary(id: string): Promise<void>
   scanLibrary(id: string, signal: AbortSignal, rootPath?: string): AsyncIterable<ScanEvent>
+  streamMediaFactsEvents(signal: AbortSignal): AsyncIterable<MediaFactsEvent>
   listDirs(libraryId: string, signal?: AbortSignal): Promise<LibraryDir[]>
   getMemberTree(libraryId: string, folderRelPath: string, signal?: AbortSignal): Promise<MemberTreeResponse>
   refreshMemberTree(libraryId: string, folderRelPath: string): Promise<MemberTreeResponse>
@@ -944,7 +951,7 @@ export interface ApiClientContract {
   listWorks(params?: ListWorksParams, signal?: AbortSignal): Promise<WorkListResponse>
   getWork(rj: string, signal?: AbortSignal): Promise<WorkDetail>
   getWorkContent(rj: string, signal?: AbortSignal): Promise<WorkContent>
-  workFileUrl(ref: ContentFileRef): string
+  workFileUrl(ref: ContentFileRef, version?: string): string
   getWorkText(ref: ContentFileRef, signal?: AbortSignal): Promise<string>
   getWorkThumb(ref: ContentFileRef, height: number, version: string, signal?: AbortSignal): Promise<Blob>
   listWorkFacets(kind: WorkFacetKind, library?: string, signal?: AbortSignal): Promise<WorkFacet[]>

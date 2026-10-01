@@ -224,6 +224,27 @@ describe('work content routes', () => {
     expect(createClient().workFileUrl(ref)).not.toContain('access_token')
   })
 
+  it('versions original images without changing the file route or token', () => {
+    const url = new URL(createClient({ token: 'secret' }).workFileUrl(ref, 'v&2'))
+    expect(url.searchParams.get('v')).toBe('v&2')
+    expect(url.searchParams.get('access_token')).toBe('secret')
+    expect(url.pathname).toContain('/content/c-1/')
+  })
+
+  it('parses media notifications through the authenticated SSE client', async () => {
+    const fetchMock = mockFetch(() => new Response('event: changed\ndata: {}\n\n: keep-alive\n\n', {
+      headers: { 'Content-Type': 'text/event-stream' },
+    }))
+    const signal = new AbortController().signal
+    const events = []
+    for await (const event of createClient({ token: 'secret' }).streamMediaFactsEvents(signal)) events.push(event)
+    expect(events).toEqual([{ type: 'changed', data: {} }])
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(String(url)).toContain('/inventory/media-facts/events')
+    expect(new Headers(init?.headers).get('Authorization')).toBe('Bearer secret')
+    expect(init?.signal).toBe(signal)
+  })
+
   it('decodes text by the charset the server declared', async () => {
     // 「こんにちは」 in Shift_JIS.
     const sjis = new Uint8Array([0x82, 0xb1, 0x82, 0xf1, 0x82, 0xc9, 0x82, 0xbf, 0x82, 0xcd])

@@ -126,4 +126,77 @@ describe('WorkDeck', () => {
     await flushPromises()
     expect(wrapper.get('.plate').attributes('style')).not.toContain('width: 0px')
   })
+  it('replaces image blobs and original URLs when the version or copy changes', async () => {
+    let serial = 0
+    const create = vi.spyOn(URL, 'createObjectURL').mockImplementation(() => `blob:thumb-${++serial}`)
+    const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const store = useWorkDetailStore()
+    const content = structuredClone(sampleWorkContent(RJ))
+    store.bind(RJ, content)
+    const api = apiStub({
+      getWork: vi.fn().mockResolvedValue(makeWorkDetail()),
+      getWorkThumb: vi.fn().mockResolvedValue(new Blob(['png'])),
+      workFileUrl: vi.fn((ref, version) => `/content/${ref.copyId}/${ref.relPath}?v=${version}`),
+    })
+    const wrapper = mount(WorkDeck, {
+      global: { plugins: [pinia, installTestQueryPlugin()], provide: { [apiClientKey as symbol]: api } },
+    })
+    await flushPromises()
+    const oldThumb = wrapper.get('.thumb').attributes('style')
+    expect(oldThumb).toContain('blob:thumb-1')
+    const updated = structuredClone(content)
+    const cover = updated.copies[0].tree!.children.find((entry) => entry.name === '表紙')!
+    if (!('children' in cover)) throw new Error('cover directory missing')
+    Object.assign(cover.children[0], { thumb_v: 'new', width: 1000, height: 500 })
+    store.bind(RJ, updated)
+    await flushPromises()
+    expect(revoke).toHaveBeenCalledWith('blob:thumb-1')
+    expect(wrapper.get('.thumb').attributes('style')).not.toBe(oldThumb)
+    expect(wrapper.get('.face.front').attributes('style')).toContain('?v=new')
+    expect(api.getWorkThumb).toHaveBeenCalledWith(expect.objectContaining({ copyId: 'copy-a' }), expect.any(Number), 'new', expect.any(AbortSignal))
+    const beforeCopy = wrapper.get('.thumb').attributes('style')
+    const nextCopy = structuredClone(updated)
+    nextCopy.copies[0].copy_id = 'copy-new'
+    store.bind(RJ, nextCopy)
+    await flushPromises()
+    expect(wrapper.get('.thumb').attributes('style')).not.toBe(beforeCopy)
+    expect(api.workFileUrl).toHaveBeenLastCalledWith(expect.objectContaining({ copyId: 'copy-new' }), 'new')
+    wrapper.unmount()
+    expect(revoke).toHaveBeenCalledTimes(create.mock.calls.length)
+    vi.restoreAllMocks()
+  })
+
+  it('does not cache a late old-copy response under the newly bound copy', async () => {
+    let finish!: (blob: Blob) => void
+    let serial = 0
+    vi.spyOn(URL, 'createObjectURL').mockImplementation(() => `blob:late-${++serial}`)
+    const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const store = useWorkDetailStore()
+    const content = structuredClone(sampleWorkContent(RJ))
+    store.bind(RJ, content)
+    const thumbs = vi.fn().mockResolvedValue(new Blob(['new']))
+    thumbs.mockImplementationOnce(() => new Promise<Blob>((resolve) => { finish = resolve }))
+    const api = apiStub({ getWork: vi.fn().mockResolvedValue(makeWorkDetail()), getWorkThumb: thumbs })
+    const wrapper = mount(WorkDeck, { global: {
+      plugins: [pinia, installTestQueryPlugin()], provide: { [apiClientKey as symbol]: api },
+    } })
+    await flushPromises()
+    // Resolve just before the reactive watcher runs for a new copy: the
+    // request's key must still name the old copy even in this narrow interval.
+    finish(new Blob(['old']))
+    const next = structuredClone(content)
+    next.copies[0].copy_id = 'copy-new'
+    store.bind(RJ, next)
+    await flushPromises()
+    expect(thumbs.mock.calls.filter(([ref]) => ref.copyId === 'copy-new')).toHaveLength(3)
+    expect(wrapper.get('.thumb').classes()).not.toContain('pending')
+    wrapper.unmount()
+    expect(revoke).toHaveBeenCalledTimes(serial)
+    vi.restoreAllMocks()
+  })
+
 })

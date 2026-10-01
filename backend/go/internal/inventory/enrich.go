@@ -50,6 +50,8 @@ type MediaEnricher struct {
 	prober MediaProber
 	begin  BeginBackground
 	kick   chan struct{}
+	subMu  sync.Mutex
+	subs   map[chan struct{}]struct{}
 
 	// Workers overrides the probe width; zero means mediaProbeWorkers.
 	Workers int
@@ -120,6 +122,7 @@ func (e *MediaEnricher) admitted(ctx context.Context, after *string) bool {
 			if err := e.store.UpdateEntryMediaFacts(updates); err != nil {
 				return true
 			}
+			e.notify()
 		}
 		if passCtx.Err() != nil {
 			break

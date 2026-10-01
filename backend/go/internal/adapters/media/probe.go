@@ -26,6 +26,9 @@ import (
 // PATH, the same default the encoder adapter takes.
 type Prober struct {
 	ffprobePath string
+	// PathSource reads live tool settings only when a native header cannot
+	// answer. Nil uses the path captured by New.
+	PathSource func() string
 }
 
 // New builds the prober over one ffprobe path.
@@ -93,10 +96,15 @@ func carriesBitrate(pathPosix string) bool {
 //   - Bitrate: the stream's own (MP3, AAC); Ogg/Opus declares none, so the
 //     container's average - for the CBR the executor writes it sits a little
 //     above the target, which the satisfaction comparison can use.
-//
-//nolint:gosec // Tool path comes from local config; arguments are passed directly without a shell.
 func (p *Prober) ffprobeAudio(ctx context.Context, pathPosix string) (float64, int64, error) {
-	data, err := exec.CommandContext(ctx, p.ffprobePath, "-v", "error", "-select_streams", "a:0",
+	probe := p.ffprobePath
+	if p.PathSource != nil {
+		probe = p.PathSource()
+		if probe == "" {
+			probe = "ffprobe"
+		}
+	}
+	data, err := exec.CommandContext(ctx, probe, "-v", "error", "-select_streams", "a:0",
 		"-show_entries", "stream=duration,bit_rate:format=duration,bit_rate", "-of", "json",
 		"-i", filepath.FromSlash(pathPosix)).Output()
 	if err != nil {

@@ -11,6 +11,9 @@ export async function refreshOrRemoveQueries(
   queryClient: QueryClient,
   prefix: readonly unknown[],
 ): Promise<void> {
+  // An initial read may predate the commit; invalidation alone can keep that
+  // request running when no data is cached yet. Cancel it before refetching.
+  await queryClient.cancelQueries({ queryKey: prefix })
   await queryClient.invalidateQueries({ queryKey: prefix })
   const inactive = queryClient
     .getQueryCache()

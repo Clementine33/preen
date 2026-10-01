@@ -16,9 +16,10 @@ import (
 
 // factsStore is an in-memory inventory of files with unknown media facts.
 type factsStore struct {
-	mu      sync.Mutex
-	missing map[string]string // path -> format
-	written map[string]inventory.MediaFactsUpdate
+	mu       sync.Mutex
+	missing  map[string]string // path -> format
+	written  map[string]inventory.MediaFactsUpdate
+	writeErr error
 }
 
 func newFactsStore(n int) *factsStore {
@@ -49,11 +50,62 @@ func (s *factsStore) EntriesMissingMediaFacts(after string, limit int) ([]invent
 func (s *factsStore) UpdateEntryMediaFacts(updates []inventory.MediaFactsUpdate) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.writeErr != nil {
+		return s.writeErr
+	}
 	for _, u := range updates {
 		delete(s.missing, u.Path)
 		s.written[u.Path] = u
 	}
 	return nil
+}
+
+func TestMediaFactsNotifyOnlyCommittedBatchesAndCoalesce(t *testing.T) {
+	for _, fail := range []bool{false, true} {
+		t.Run(fmt.Sprintf("write failure %v", fail), func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				store := newFactsStore(130)
+				if fail {
+					store.writeErr = errors.New("write failed")
+				}
+				e := inventory.NewMediaEnricher(store, &slowProber{}, nil)
+				changes, unsubscribe := e.Subscribe()
+				<-changes // initial reload
+				runEnricher(t, e)
+				e.Kick()
+				time.Sleep(time.Second)
+				synctest.Wait()
+				want := 1
+				if fail {
+					want = 0
+				}
+				if len(changes) != want {
+					t.Errorf("pending signals = %d, want %d", len(changes), want)
+				}
+				if !fail {
+					<-changes
+					if missing, written := store.counts(); missing != 0 || written != 130 {
+						t.Errorf("notification preceded commit: missing %d written %d", missing, written)
+					}
+				}
+				unsubscribe()
+				unsubscribe() // cancellation is idempotent
+				store.mu.Lock()
+				store.missing["/lib/another.wav"] = "audio/wav"
+				store.mu.Unlock()
+				e.Kick()
+				time.Sleep(time.Second)
+				if len(changes) != 0 {
+					t.Error("unsubscribed reader received a notification")
+				}
+				fresh, stop := e.Subscribe()
+				defer stop()
+				if len(fresh) != 1 {
+					t.Error("reconnecting reader missed the initial reload")
+				}
+			})
+		})
+	}
 }
 
 func (s *factsStore) counts() (missing, written int) {

@@ -2,7 +2,8 @@
 // manifest (docs/api.md "Work content manifest") and raw text, independent of
 // any component — which makes them the unit-test focus.
 
-import type { WorkContentDir, WorkContentFile, WorkFileKind } from '@/lib/api/types'
+import type { WorkContent, WorkContentCopy, WorkContentDir, WorkContentFile, WorkFileKind } from '@/lib/api/types'
+import type { QueueItem } from '@/stores/player'
 
 /* ── Tree walking ── */
 
@@ -131,6 +132,27 @@ export function deriveTracks(tree: WorkContentDir): Track[] {
       lrcRel: lrcs.find((lrc) => stemOf(lrc.name) === stem)?.rel_path ?? null,
       duration: Object.values(entry.files).find((f) => f?.duration_sec != null)?.duration_sec ?? null,
     }))
+}
+
+/** The copy a work plays and reads from: the first online one, else the first. */
+export function playableCopy(content: WorkContent | null): WorkContentCopy | null {
+  const copies = content?.copies ?? []
+  return copies.find((copy) => copy.online) ?? copies[0] ?? null
+}
+
+/**
+ * The player's queue over a track list: each track in `fmt`, or in its first
+ * format when it lacks that one (v3's onlyIn). Without an address resolver
+ * every entry plays silently.
+ */
+export function trackQueue(tracks: Track[], fmt: string, src?: (file: WorkContentFile) => string): QueueItem[] {
+  return tracks.map((track) => {
+    const file = track.files[fmt] ?? track.files[track.formats[0]]
+    return {
+      title: track.stem,
+      source: file && src ? { src: src(file), durationSec: file.duration_sec, format: file.format } : undefined,
+    }
+  })
 }
 
 /** Every timed-lyrics file in the same files-first natural depth-first order as audio. */

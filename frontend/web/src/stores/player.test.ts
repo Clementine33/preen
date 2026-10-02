@@ -21,7 +21,7 @@ describe('player store', () => {
     const store = usePlayerStore()
     expect(store.rj).toBeNull()
 
-    store.play({ rj: 'RJ01113012', title: '双子の妹たちの夜伽メルヘン' })
+    store.play('RJ01113012', [{ title: '双子の妹たちの夜伽メルヘン' }])
     expect(store.rj).toBe('RJ01113012')
     expect(store.paused).toBe(false)
 
@@ -48,9 +48,9 @@ describe('player store', () => {
 
   it('replaces the now-playing work with a fresh clock, never a second one', () => {
     const store = usePlayerStore()
-    store.play({ rj: 'RJ01113012', title: 'A' })
+    store.play('RJ01113012', [{ title: 'A' }])
     vi.advanceTimersByTime(2_000)
-    store.play({ rj: 'RJ01098411', title: 'B' })
+    store.play('RJ01098411', [{ title: 'B' }])
 
     expect(store.rj).toBe('RJ01098411')
     expect(store.title).toBe('B')
@@ -62,7 +62,7 @@ describe('player store', () => {
 
   it('keeps the now-playing work while pausing and resuming', () => {
     const store = usePlayerStore()
-    store.play({ rj: 'RJ01113012', title: 'A' })
+    store.play('RJ01113012', [{ title: 'A' }])
     store.togglePause()
     expect(store.paused).toBe(true)
     expect(store.rj).toBe('RJ01113012')
@@ -115,7 +115,7 @@ describe('player store, real track', () => {
 
   it('follows the element: position, length, pause, end', () => {
     const store = usePlayerStore()
-    store.play(work, 0, source)
+    store.play(work.rj, [{ title: work.title, source }])
     const el = FakeAudio.made[0]
     expect(el.src).toBe('/content/a.mp3')
     expect(store.duration).toBe(252) // the scan's fact until the element knows
@@ -137,12 +137,35 @@ describe('player store, real track', () => {
     store.togglePause()
     expect(store.paused).toBe(false)
     el.dispatchEvent(new Event('ended'))
-    expect(store.paused).toBe(true)
+    expect(store.paused).toBe(true) // the last track of its queue
+  })
+
+  it('steps through the queue and starts the next track when one ends', () => {
+    const store = usePlayerStore()
+    const queue = ['a', 'b', 'c'].map((name) => ({ title: name, source: { ...source, src: `/content/${name}.mp3` } }))
+    store.play(work.rj, queue)
+    expect([store.hasPrev, store.hasNext]).toEqual([false, true])
+
+    store.step(-1) // nothing before the first
+    expect(FakeAudio.made).toHaveLength(1)
+    FakeAudio.made[0].dispatchEvent(new Event('ended'))
+    expect(store.trackIndex).toBe(1)
+    expect(store.title).toBe('b')
+    expect(FakeAudio.made[1].src).toBe('/content/b.mp3')
+    expect(store.paused).toBe(false)
+
+    store.step(1)
+    expect([store.hasPrev, store.hasNext]).toEqual([true, false])
+    store.step(1) // nothing after the last
+    expect(store.trackIndex).toBe(2)
+    store.step(-2)
+    expect(store.title).toBe('a')
+    expect(FakeAudio.made.at(-1)?.src).toBe('/content/a.mp3')
   })
 
   it('seeks the element', () => {
     const store = usePlayerStore()
-    store.play(work, 0, source)
+    store.play(work.rj, [{ title: work.title, source }])
     store.seek(60)
     expect(FakeAudio.made[0].currentTime).toBe(60)
     expect(store.elapsed).toBe(60)
@@ -158,9 +181,9 @@ describe('player store, real track', () => {
         abort = reject
       })
     })
-    store.play(work, 0, source)
+    store.play(work.rj, [{ title: work.title, source }])
     const first = FakeAudio.made[0]
-    store.play(work, 1, { ...source, src: '/content/b.mp3' })
+    store.play(work.rj, [{ title: 'a', source }, { title: 'b', source: { ...source, src: '/content/b.mp3' } }], 1)
     abort(new DOMException('replaced', 'AbortError'))
     // Late events from the released element change nothing either.
     first.dispatchEvent(new Event('error'))
@@ -178,14 +201,14 @@ describe('player store, real track', () => {
     const refused = Promise.reject(new DOMException('blocked', 'NotAllowedError'))
     refused.catch(() => {})
     vi.spyOn(FakeAudio.prototype, 'play').mockReturnValue(refused)
-    store.play(work, 0, source)
+    store.play(work.rj, [{ title: work.title, source }])
     await vi.waitFor(() => expect(store.paused).toBe(true))
   })
 
   it('a silent play releases the element and runs the clock', () => {
     const store = usePlayerStore()
-    store.play(work, 0, source)
-    store.play({ rj: 'RJ01113012', title: 'wall' })
+    store.play(work.rj, [{ title: work.title, source }])
+    store.play('RJ01113012', [{ title: 'wall' }])
     expect(FakeAudio.made[0].src).toBe('')
     expect(store.duration).toBeNull()
     expect(store.format).toBeNull()

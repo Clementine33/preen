@@ -3,7 +3,8 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { REDUCED_MOTION_QUERY, useMediaQuery } from '@/composables/use-media-query'
 import type { WorkDetail } from '@/lib/api/types'
-import { deriveTracks, fmtLong, fmtT } from '@/features/work-detail/derive'
+import { deriveTracks, fmtLong, fmtT, playableCopy } from '@/features/work-detail/derive'
+import { usePlayWork } from '@/features/works/use-play-work'
 import { useWorkContent, useWorkDetail } from '@/queries/works'
 import { usePlayerStore } from '@/stores/player'
 
@@ -152,13 +153,12 @@ const tags = computed(() =>
 )
 
 // ── Tracklist: the detail page's track list (deriveTracks over the first
-// online copy), read-only here. The manifest follows the deferred work, so
+// online copy); a row plays the work from that track. The manifest follows the deferred work, so
 // cruising the wall fetches only the works it settles on. The list takes the
 // height the 1440x900 frame leaves and scrolls inside it. ──
 const { content, query: contentQuery } = useWorkContent(() => deferredWork.value?.rj ?? null)
 const tracks = computed(() => {
-  const copies = content.value?.copies ?? []
-  const tree = (copies.find((copy) => copy.online) ?? copies[0])?.tree
+  const tree = playableCopy(content.value)?.tree
   return tree ? deriveTracks(tree) : []
 })
 const tracksSummary = computed(() => {
@@ -167,10 +167,17 @@ const tracksSummary = computed(() => {
   return total > 0 ? `${tracks.value.length} · ${fmtLong(total)}` : String(tracks.value.length)
 })
 
-// PLAY needs the loaded work: it plays what the inspector shows, by name.
+const { playFrom, playWork } = usePlayWork()
+const isPlaying = (t: number): boolean => player.rj === deferredWork.value?.rj && player.trackIndex === t
+function playTrack(t: number) {
+  const shown = deferredWork.value
+  if (shown) playFrom({ rj: shown.rj, title: shown.title ?? shown.rj }, content.value, t)
+}
+
+// PLAY needs the loaded work: it plays what the inspector shows from track 01.
 const canPlay = computed(() => workNow.value !== null)
 function playNowPlaying() {
-  if (workNow.value) player.play({ rj: workNow.value.rj, title: workNow.value.title ?? workNow.value.rj })
+  if (workNow.value) void playWork({ rj: workNow.value.rj, title: workNow.value.title ?? workNow.value.rj })
 }
 function openDetail() {
   if (props.rj !== null) router.push({ name: 'work-detail', params: { rj: props.rj } })
@@ -210,11 +217,12 @@ const playIcon = 'M1 0l9 5-9 5z'
       <span class="lbl">{{ tracksSummary }}</span>
     </div>
     <div class="tracks" :class="{ dim }" lang="ja">
-      <div v-for="(track, t) in tracks" :key="track.stem" class="trk">
+      <button v-for="(track, t) in tracks" :key="track.stem" class="trk" :class="{ now: isPlaying(t) }"
+        type="button" :aria-current="isPlaying(t) || undefined" @click="playTrack(t)">
         <span class="no lbl">{{ String(t + 1).padStart(2, '0') }}</span>
         <span class="nm">{{ track.stem }}</span>
         <span class="dur">{{ track.duration === null ? '—' : fmtT(track.duration) }}</span>
-      </div>
+      </button>
       <p v-if="tracks.length === 0 && !contentQuery.isPending.value" class="no-tracks lbl">NO TRACK DATA</p>
     </div>
 
@@ -296,11 +304,19 @@ const playIcon = 'M1 0l9 5-9 5z'
 }
 .trk {
   display: grid; grid-template-columns: 24px minmax(0, 1fr) 44px; align-items: center; gap: var(--sp-3);
-  height: 28px; padding: 0 var(--sp-2); border-bottom: 1px solid var(--wire-fine);
+  width: 100%; height: 28px; padding: 0 var(--sp-2); border-bottom: 1px solid var(--wire-fine);
+  text-align: left; color: var(--fg-base); font-family: inherit; cursor: pointer;
 }
+.trk:hover { background: var(--bg-subtle); }
+.trk:focus-visible { outline: 1px solid var(--wire-strong); outline-offset: -1px; }
 .trk .lbl { letter-spacing: .04em; }
 .trk .nm { font-size: var(--fs-s); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .trk .dur { text-align: right; font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--fg-muted); }
+/* The playing track: inverted with the bay's ■ marker (ADR 0012 --now). */
+.trk.now { background: var(--invert-bg); color: var(--invert-fg); font-weight: 700; }
+.trk.now .lbl, .trk.now .dur { color: var(--invert-fg); }
+.trk .no { position: relative; }
+.trk.now .no::after { content: ''; position: absolute; left: 16px; top: 3px; width: 6px; height: 6px; background: var(--now); }
 .no-tracks {
   display: flex; align-items: center; height: 28px;
   padding: 0 var(--sp-2); border-bottom: 1px solid var(--wire-fine);

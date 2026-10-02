@@ -41,6 +41,11 @@ watch([rj, content], ([id, now]) => {
   if (now !== null && id !== null && now.rj === id) store.bind(id, now, (ref) => api.workFileUrl(ref))
 }, { immediate: true })
 
+// Prev/next and a track's end move the player on; the bay and the leaf follow.
+watch(() => player.trackIndex, (track) => {
+  if (player.rj === store.rj && track !== store.track) store.followTrack(track)
+})
+
 function backToWall(): void {
   router.push({ name: 'works', query: rj.value !== null ? { rj: rj.value } : {} })
 }

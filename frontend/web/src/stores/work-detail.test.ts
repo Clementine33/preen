@@ -141,21 +141,21 @@ describe('work-detail store', () => {
 
   it('plays the chosen format file by its address, with the scanned length', () => {
     const store = useWorkDetailStore()
-    const addresses: string[] = []
-    store.bind(RJ, sampleWorkContent(RJ), (ref) => {
-      addresses.push(`${ref.copyId}:${ref.relPath}`)
-      return `/files/${ref.relPath}`
-    })
+    store.bind(RJ, sampleWorkContent(RJ), (ref) => `/files/${ref.copyId}/${ref.relPath}`)
     const player = usePlayerStore()
+    const playing = () => player.queue[player.trackIndex].source?.src
 
     store.startTrack(7) // WAV only: the fallback format's file plays
-    expect(addresses.at(-1)).toBe('copy-a:本編/wav/08_後日談.wav')
+    expect(playing()).toBe('/files/copy-a/本編/wav/08_後日談.wav')
     expect(player.format).toBe('WAV')
     expect(player.duration).toBe(480)
 
     store.startTrack(0)
-    expect(addresses.at(-1)).toBe('copy-a:本編/mp3/01_導入 ―縁側にて―.mp3')
+    expect(playing()).toBe('/files/copy-a/本編/mp3/01_導入 ―縁側にて―.mp3')
     expect(player.format).toBe('MP3')
+    // The whole list queues in the browsed format, so next stays in MP3.
+    expect(player.queue).toHaveLength(store.tracks.length)
+    expect(player.queue[1].source?.format).toBe('MP3')
   })
 
   it('pairs lyrics by hand through the LRC chip and follows into LISTEN', async () => {

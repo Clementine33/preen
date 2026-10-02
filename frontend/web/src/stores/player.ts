@@ -27,6 +27,18 @@ export interface QueueItem {
   source?: PlaySource
 }
 
+/** The listener's volume, a per-browser convenience: unreadable storage means full volume. */
+const VOLUME_KEY = 'onsei.player.volume'
+function readVolume(): { volume: number; muted: boolean } {
+  try {
+    const saved = JSON.parse(localStorage.getItem(VOLUME_KEY) ?? 'null') as { volume?: unknown; muted?: unknown } | null
+    const volume = typeof saved?.volume === 'number' ? Math.min(1, Math.max(0, saved.volume)) : 1
+    return { volume, muted: saved?.muted === true }
+  } catch {
+    return { volume: 1, muted: false }
+  }
+}
+
 /** The 1s silent clock and the playing element: handles owned by the store, not state. */
 let clockTimer: number | null = null
 let audio: HTMLAudioElement | null = null
@@ -45,6 +57,8 @@ export const usePlayerStore = defineStore('player', {
     format: null as string | null,
     /** The playing work's tracks, in order; prev/next and the end step through it. */
     queue: [] as QueueItem[],
+    /** 0–1, kept across tracks and visits; muting leaves it as it was. */
+    ...readVolume(),
   }),
   getters: {
     hasPrev: (state) => state.rj !== null && state.trackIndex > 0,
@@ -96,10 +110,33 @@ export const usePlayerStore = defineStore('player', {
       if (audio) audio.currentTime = seconds
       this.elapsed = seconds
     },
+    setVolume(volume: number) {
+      this.volume = Math.min(1, Math.max(0, volume))
+      // Turning the volume up is the way out of mute.
+      if (this.volume > 0) this.muted = false
+      this.applyVolume()
+    },
+    toggleMute() {
+      this.muted = !this.muted
+      this.applyVolume()
+    },
+    applyVolume() {
+      if (audio) {
+        audio.volume = this.volume
+        audio.muted = this.muted
+      }
+      try {
+        localStorage.setItem(VOLUME_KEY, JSON.stringify({ volume: this.volume, muted: this.muted }))
+      } catch {
+        /* storage unavailable: the volume still applies for this visit */
+      }
+    },
     /** One element per play: every handler checks it is still the current one. */
     attach(src: string) {
       const el = new Audio()
       audio = el
+      el.volume = this.volume
+      el.muted = this.muted
       const current = () => el === audio
       el.addEventListener('timeupdate', () => {
         if (current()) this.elapsed = el.currentTime

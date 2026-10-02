@@ -7,7 +7,9 @@ import { usePlayerStore } from '@/stores/player'
 // its position and shows its length and format; a silent play (from the wall,
 // with no file behind it) leaves the laser at its origin and both as
 // em-dashes. Prev/next step through the work's track queue, and the laser's
-// line is a seek slider while the track's length is known.
+// line is a seek slider while the track's length is known. A mouse gets a
+// volume control; a touch screen gets larger controls instead, and its own
+// hardware volume (iOS ignores an element's volume anyway).
 
 const player = usePlayerStore()
 
@@ -32,10 +34,19 @@ function onSeek(event: Event): void {
   player.seek(Number((event.target as HTMLInputElement).value))
 }
 
+function onVolume(event: Event): void {
+  player.setVolume(Number((event.target as HTMLInputElement).value))
+}
+const silent = computed(() => player.muted || player.volume === 0)
+const volumeFill = computed(() => `${(silent.value ? 0 : player.volume) * 100}%`)
+
 const PREV_ICON = 'M10 0L3 5l7 5zM0 0h2v10H0z'
 const NEXT_ICON = 'M0 0l7 5-7 5zM8 0h2v10H8z'
 const PLAY_ICON = 'M1 0l9 5-9 5z'
 const PAUSE_ICON = 'M1 0h3v10H1zM6 0h3v10H6z'
+const SPEAKER_ICON = 'M0 3.5h2.2L5 1v8L2.2 6.5H0z'
+const WAVES_ICON = 'M6.3 3.6h1v2.8h-1zM8.3 2.2h1v5.6h-1z'
+const MUTED_ICON = 'M6 3.7l.7-.7L8 4.3 9.3 3l.7.7L8.7 5 10 6.3l-.7.7L8 5.7 6.7 7 6 6.3 7.3 5z'
 </script>
 
 <template>
@@ -69,13 +80,25 @@ const PAUSE_ICON = 'M1 0h3v10H1zM6 0h3v10H6z'
       </div>
       <span class="t">{{ total }}</span>
     </div>
-    <div class="bl-right lbl"><span>{{ (active && player.format) || '—' }}</span></div>
+    <div class="bl-right">
+      <div class="bl-vol">
+        <button class="btn btn-icon bl-mute" type="button" :aria-pressed="player.muted"
+          aria-label="Mute" title="Mute" @click="player.toggleMute()">
+          <svg viewBox="0 0 10 10" aria-hidden="true">
+            <path :d="SPEAKER_ICON" /><path :d="silent ? MUTED_ICON : WAVES_ICON" />
+          </svg>
+        </button>
+        <input class="bl-volume" type="range" aria-label="Volume" min="0" max="1" step="0.05"
+          :value="player.muted ? 0 : player.volume" :style="{ '--fill': volumeFill }" @input="onVolume" />
+      </div>
+      <span class="lbl">{{ (active && player.format) || '—' }}</span>
+    </div>
   </footer>
 </template>
 
 <style scoped>
 .baseline {
-  position: relative; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
+  height: 28px; position: relative; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
   gap: var(--sp-4); padding: 0 var(--sp-6);
 }
 /* The second double-bar edge: the thick line doubles as the laser's track. */
@@ -117,7 +140,39 @@ const PAUSE_ICON = 'M1 0h3v10H1zM6 0h3v10H6z'
 .bl-ctrls .btn-main { width: 32px; border-color: var(--wire-mid); }
 .bl-ctrls .btn:disabled { cursor: not-allowed; opacity: .5; }
 
-.bl-right { display: flex; justify-content: flex-end; padding-top: 2px; }
+.bl-right { display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-4); padding-top: 2px; }
+
+/* Volume: the mute toggle and a 72px fader, its fill drawn like the laser. */
+.bl-vol { display: flex; align-items: center; gap: var(--sp-2); }
+.bl-mute { width: 22px; border-color: transparent; }
+.bl-mute svg { width: 10px; height: 10px; }
+.bl-volume {
+  width: 72px; height: 18px; margin: 0; appearance: none; background: transparent; cursor: pointer;
+}
+.bl-volume:focus-visible { outline: 1px solid var(--wire-strong); outline-offset: 2px; }
+.bl-volume::-webkit-slider-runnable-track {
+  height: 2px; background: linear-gradient(to right, var(--fg-base) var(--fill), var(--wire-mid) var(--fill));
+}
+.bl-volume::-webkit-slider-thumb {
+  appearance: none; width: 4px; height: 10px; margin-top: -4px; background: var(--fg-base);
+}
+.bl-volume::-moz-range-track { height: 2px; background: var(--wire-mid); }
+.bl-volume::-moz-range-progress { height: 2px; background: var(--fg-base); }
+.bl-volume::-moz-range-thumb { width: 4px; height: 10px; border: 0; border-radius: 0; background: var(--fg-base); }
+
+/* A finger needs room: a taller bar, 44px-wide buttons and a seek strip the
+   height of a fingertip. Touch volume is the device's own. */
+@media (pointer: coarse) {
+  .baseline { height: 52px; }
+  .bl-seek { top: -8px; height: 24px; }
+  .bl-seek::-webkit-slider-runnable-track, .bl-seek::-webkit-slider-thumb { height: 24px; }
+  .bl-seek::-moz-range-track, .bl-seek::-moz-range-thumb { height: 24px; }
+  .bl-ctrls { gap: var(--sp-2); }
+  .bl-ctrls .btn-icon { width: 44px; height: 40px; }
+  .bl-ctrls .btn-main { width: 56px; }
+  .bl-ctrls .btn-icon svg { width: 12px; height: 12px; }
+  .bl-vol { display: none; }
+}
 
 @media (max-width: 768px) {
   .baseline { padding: 0 var(--sp-4); grid-template-columns: 1fr auto; }

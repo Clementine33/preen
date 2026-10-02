@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { canonicalRj } from '@/app/route-params'
 import { useMediaQuery, WALL_MOBILE_QUERY } from '@/composables/use-media-query'
@@ -54,14 +54,14 @@ function facetOptions(facets: WorkFacet[]): RailOption[] {
 const voiceActorOptions = computed(() => facetOptions(voiceActorFacets.value))
 const circleOptions = computed(() => facetOptions(circleFacets.value))
 
-// Unknown is its own answer, not a synonym for 全年龄 (docs/api.md `nsfw`).
+// Age categories preserve the upstream distinction between 全年龄, R15 and R18.
 const AGE_OPTIONS: RailOption[] = [
   { value: '', label: 'ALL' },
   { value: 'safe', label: '全年龄' },
+  { value: 'r15', label: 'R15' },
   { value: 'r18', label: 'R18' },
-  { value: 'unknown', label: 'UNKNOWN' },
 ]
-const AGE_PARAM: Record<string, ListWorksParams['nsfw']> = { safe: false, r18: true, unknown: 'unknown' }
+const AGE_PARAM: Record<string, ListWorksParams['age_category']> = { safe: 1, r15: 2, r18: 3 }
 
 // Every order runs newest / highest first; unknown dates and unrated works
 // trail in either direction.
@@ -74,13 +74,16 @@ const SORT_OPTIONS: RailOption[] = [
 const findText = ref('')
 const findQuery = ref('')
 let findTimer: number | null = null
+let findSubmission = 0
 watch(findText, (value) => {
+  findSubmission++
   if (findTimer !== null) window.clearTimeout(findTimer)
   findTimer = window.setTimeout(() => {
     findQuery.value = value.trim()
   }, 200)
 })
 onBeforeUnmount(() => {
+  findSubmission++
   if (findTimer !== null) window.clearTimeout(findTimer)
 })
 
@@ -88,13 +91,33 @@ const filters = computed<ListWorksParams>(() => ({
   ...(libraryUi.activeLibraryId ? { library: libraryUi.activeLibraryId } : {}),
   ...(voiceActor.value ? { voice_actor: voiceActor.value, voice_actor_match: 'any' as const } : {}),
   ...(circle.value ? { circle: circle.value } : {}),
-  ...(age.value ? { nsfw: AGE_PARAM[age.value] } : {}),
+  ...(age.value ? { age_category: AGE_PARAM[age.value] } : {}),
   ...(findQuery.value ? { q: findQuery.value } : {}),
   sort: sort.value,
   direction: 'desc',
 }))
 
 const { works, query } = useWorksList(filters)
+
+async function submitFind(event: KeyboardEvent): Promise<void> {
+  if (event.isComposing || event.keyCode === 229) return
+  const code = canonicalRj(findText.value.trim())
+  if (!code) return
+  event.preventDefault()
+  if (findTimer !== null) window.clearTimeout(findTimer)
+  findQuery.value = findText.value.trim()
+  const submission = ++findSubmission
+  await nextTick()
+  const scope = JSON.stringify(filters.value)
+  const response = await query.refetch()
+  if (submission !== findSubmission || scope !== JSON.stringify(filters.value) || response.isError) return
+  const first = response.data?.pages[0]
+  if (!first) return
+  const collected = first.works.filter((candidate) => candidate.copy_count > 0)
+  const exact = collected.find((candidate) => candidate.rj === code)
+  if (exact) openWork(exact.rj)
+  else if (!first.next_cursor && collected.length === 1) openWork(collected[0].rj)
+}
 // No total exists in the listing (keyset pages only): the header count is what
 // has loaded so far and grows while you scroll.
 const loadedCount = computed(() => works.value.length)
@@ -234,7 +257,7 @@ onBeforeUnmount(() => {
         <RailSelect v-model="sort" label="SORT" :options="SORT_OPTIONS" />
         <label class="find">
           <span class="lbl">FIND</span>
-          <input v-model="findText" type="text" placeholder="RJ / TITLE" />
+          <input v-model="findText" type="text" placeholder="RJ / TITLE" @keydown.enter="submitFind" />
         </label>
       </div>
     </div>

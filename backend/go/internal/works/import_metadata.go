@@ -25,6 +25,7 @@ type ImportCore struct {
 	Title          *string            `json:"title"`
 	Circle         *ImportCircle      `json:"circle"`
 	NSFW           *bool              `json:"nsfw"`
+	AgeCategory    *int               `json:"age_category"`
 	ReleaseDate    *string            `json:"release_date"`
 	SourceURL      *string            `json:"source_url"`
 	CoverURL       *string            `json:"cover_url"`
@@ -105,6 +106,7 @@ type CoreGroup struct {
 	Title          *string
 	Circle         *EntityInput
 	NSFW           *bool
+	AgeCategory    *int
 	ReleaseDate    *string
 	SourceURL      *string
 	CoverURL       *string
@@ -241,6 +243,18 @@ func validateCore(core ImportCore) (*CoreGroup, *Error) {
 	if err != nil {
 		return nil, err
 	}
+	if !validAgeCategory(core.AgeCategory) {
+		return nil, Invalid(CodeInvalidArgument, "age_category must be 1, 2 or 3")
+	}
+	if core.AgeCategory != nil {
+		nsfw := *core.AgeCategory == 3
+		if core.NSFW != nil && *core.NSFW != nsfw {
+			return nil, Invalid(CodeInvalidArgument, "nsfw conflicts with age_category")
+		}
+		core.NSFW = &nsfw
+	} else if core.NSFW != nil && *core.NSFW {
+		core.AgeCategory = new(3)
+	}
 	if core.ReleaseDate != nil && !validDate(*core.ReleaseDate) {
 		return nil, Invalid(CodeInvalidArgument, "release_date must be YYYY-MM-DD")
 	}
@@ -250,6 +264,7 @@ func validateCore(core ImportCore) (*CoreGroup, *Error) {
 		FetchedAt:      fetchedAt,
 		Title:          core.Title,
 		NSFW:           core.NSFW,
+		AgeCategory:    core.AgeCategory,
 		ReleaseDate:    core.ReleaseDate,
 		SourceURL:      core.SourceURL,
 		CoverURL:       core.CoverURL,
@@ -405,4 +420,8 @@ type ImportOutcome struct {
 	Ignored             []IgnoredGroup    `json:"ignored"`
 	Warnings            []RelationWarning `json:"warnings"`
 	CreatedPlaceholders []WorkCode        `json:"created_placeholders"`
+}
+
+func validAgeCategory(age *int) bool {
+	return age == nil || *age >= 1 && *age <= 3
 }

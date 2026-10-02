@@ -25,6 +25,7 @@ export function makeWorkDetail(overrides: Partial<WorkDetail> = {}): WorkDetail 
     circle: 'mete0r',
     language: 'JPN',
     nsfw: true,
+    age_category: 3,
     release_date: '2024-03-08',
     dl_count: 12_480,
     rating: 8,

@@ -108,7 +108,7 @@ onBeforeUnmount(() => {
           <svg viewBox="0 0 10 10" aria-hidden="true" style="transform: scaleX(-1)"><path d="M0 4.5h7.2L4.6 1.9l.7-.7L9.1 5 5.3 8.8l-.7-.7 2.6-2.6H0z" /></svg>WALL
         </button>
         <span class="lbl">{{ rj ?? '—' }}</span>
-        <span class="h-title" lang="ja">{{ work?.title ?? '' }}</span>
+        <span class="h-title" :lang="work?.relation?.language === 'CHI_HANS' ? 'zh-Hans' : work?.relation?.language === 'CHI_HANT' ? 'zh-Hant' : 'ja'">{{ work?.title ?? '' }}</span>
       </div>
       <div class="header-meta">
         <button v-if="work?.nsfw === true" class="btn btn-s" type="button" :aria-pressed="store.veil"

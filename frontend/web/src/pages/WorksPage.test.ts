@@ -35,6 +35,7 @@ function makeWorks(base: number, count: number): WorkSummary[] {
     circle: 'CIRCLE',
     language: null,
     nsfw: false,
+    age_category: 1,
     release_date: '2024-03-08',
     dl_count: null,
     rating: null,
@@ -213,9 +214,12 @@ describe('works page', () => {
     const { wrapper, listWorks } = await mountWorks('/works')
 
     await pick(wrapper, 'AGE', 'R18')
-    expect(lastParams(listWorks)).toMatchObject({ nsfw: true })
-    await pick(wrapper, 'AGE', 'UNKNOWN')
-    expect(lastParams(listWorks)).toMatchObject({ nsfw: 'unknown' })
+    expect(lastParams(listWorks)).toMatchObject({ age_category: 3 })
+    await pick(wrapper, 'AGE', 'R15')
+    expect(lastParams(listWorks)).toMatchObject({ age_category: 2 })
+    await pick(wrapper, 'AGE', '全年龄')
+    expect(lastParams(listWorks)).toMatchObject({ age_category: 1 })
+    expect(wrapper.text()).not.toContain('UNKNOWN')
 
     // A voice actor filter always states its match mode, which the API requires.
     await pick(wrapper, 'VOICE', '伊ヶ崎綾香')
@@ -290,6 +294,51 @@ describe('works page', () => {
     await flushPromises()
     expect(router.currentRoute.value.name).toBe('work-detail')
     expect(router.currentRoute.value.params.rj).toBe(A2)
+  })
+
+  it('opens the sole collected translation when FIND submits a parent number', async () => {
+    const { wrapper, router, listWorks } = await mountWorks()
+    listWorks.mockResolvedValue({ works: makeWorks(1_526_629, 1) })
+    await wrapper.get('.find input').setValue('RJ01526615')
+    await wrapper.get('.find input').trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+    expect(lastParams(listWorks)).toMatchObject({ q: 'RJ01526615' })
+    expect(router.currentRoute.value.params.rj).toBe('RJ01526629')
+    wrapper.unmount()
+  })
+
+  it('keeps multiple parent matches on the wall', async () => {
+    const { wrapper, router, listWorks } = await mountWorks()
+    listWorks.mockResolvedValue({ works: makeWorks(1_526_629, 2) })
+    await wrapper.get('.find input').setValue('RJ01526615')
+    await wrapper.get('.find input').trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+    expect(router.currentRoute.value.name).toBe('works')
+    wrapper.unmount()
+  })
+
+  it('discards a pending jump when the input changes', async () => {
+    const { wrapper, router, listWorks } = await mountWorks()
+    let resolve!: (value: { works: WorkSummary[] }) => void
+    listWorks.mockImplementation(() => new Promise((done) => { resolve = done }))
+    await wrapper.get('.find input').setValue('RJ01526615')
+    await wrapper.get('.find input').trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+    await wrapper.get('.find input').setValue('another query')
+    resolve({ works: makeWorks(1_526_629, 1) })
+    await flushPromises()
+    expect(router.currentRoute.value.name).toBe('works')
+    wrapper.unmount()
+  })
+
+  it('does not submit a composing Enter', async () => {
+    const { wrapper, router, listWorks } = await mountWorks()
+    listWorks.mockResolvedValue({ works: makeWorks(1_526_629, 1) })
+    await wrapper.get('.find input').setValue('RJ01526615')
+    await wrapper.get('.find input').trigger('keydown', { key: 'Enter', isComposing: true })
+    await flushPromises()
+    expect(router.currentRoute.value.name).toBe('works')
+    wrapper.unmount()
   })
 
   it('leaves keys typed into FIND to the text box', async () => {

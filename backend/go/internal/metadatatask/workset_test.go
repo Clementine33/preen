@@ -2,6 +2,7 @@ package metadatatask_test
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -271,9 +272,10 @@ func TestMetadataSSEIncludesResultsThatFinishOutOfOrder(t *testing.T) {
 		case <-ctx.Done():
 			return ctx.Err()
 		}
+		completed := 1
 		if err := in.Progress(
 			in.Units[1].Index,
-			workset.UnitResult{TaskResult: []byte(`{"rj":"second"}`)},
+			workset.UnitResult{TaskResult: []byte(`{"rj":"second"}`), CompletedOperations: &completed},
 		); err != nil {
 			return err
 		}
@@ -282,7 +284,9 @@ func TestMetadataSSEIncludesResultsThatFinishOutOfOrder(t *testing.T) {
 		case <-ctx.Done():
 			return ctx.Err()
 		}
-		return in.Progress(in.Units[0].Index, workset.UnitResult{TaskResult: []byte(`{"rj":"first"}`)})
+		return in.Progress(in.Units[0].Index, workset.UnitResult{
+			TaskResult: []byte(`{"rj":"first"}`), CompletedOperations: &completed,
+		})
 	}
 	svc, _, _, _, names, libID, _ := worksetFixture(t, run)
 	record, err := svc.CreateCurrentWorkset(
@@ -294,9 +298,7 @@ func TestMetadataSSEIncludesResultsThatFinishOutOfOrder(t *testing.T) {
 	}
 	id := record.Workset.WorksetID
 	gen, err := svc.StartGeneration(
-		t.Context(),
-		id,
-		metadatatask.Kind,
+		t.Context(), id, metadatatask.Kind,
 		workset.StartGenerationRequest{IfMatchVersion: 1, IdempotencyKey: "sse-plan"},
 	)
 	if err != nil {
@@ -310,16 +312,19 @@ func TestMetadataSSEIncludesResultsThatFinishOutOfOrder(t *testing.T) {
 		t.Fatal(err)
 	}
 	execution, err := svc.StartExecution(
-		t.Context(),
-		id,
-		metadatatask.Kind,
-		plan.RevisionID,
+		t.Context(), id, metadatatask.Kind, plan.RevisionID,
 		workset.StartExecutionRequest{IfMatchVersion: op.Version, IdempotencyKey: "sse-run"},
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
 	seen := map[int]bool{}
+	var progress struct {
+		Status              string `json:"status"`
+		CompletedComponents int    `json:"completed_components"`
+		CompletedOperations int    `json:"completed_operations"`
+	}
+	terminal := false
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 	err = svc.SubscribeExecution(
@@ -328,10 +333,22 @@ func TestMetadataSSEIncludesResultsThatFinishOutOfOrder(t *testing.T) {
 		metadatatask.Kind,
 		execution.Execution.ExecutionID,
 		func(name string, data any) error {
-			if name == workset.ExecutionEventSnapshot {
+			switch name {
+			case workset.ExecutionEventProgress:
+				raw, marshalErr := json.Marshal(data)
+				if marshalErr != nil {
+					return marshalErr
+				}
+				return json.Unmarshal(raw, &progress)
+			case workset.ExecutionEventSucceeded:
+				terminal = true
+				if progress.Status != workset.ExecStatusSucceeded ||
+					progress.CompletedComponents != 2 || progress.CompletedOperations != 2 {
+					t.Fatalf("terminal arrived with stale progress: %+v, want succeeded with 2/2", progress)
+				}
+			case workset.ExecutionEventSnapshot:
 				close(begin)
-			}
-			if name == workset.ExecutionEventComponent {
+			case workset.ExecutionEventComponent:
 				if entry, ok := data.(workset.ExecutionComponentView); ok {
 					seen[entry.ComponentIndex] = true
 					if len(seen) == 1 {
@@ -342,7 +359,88 @@ func TestMetadataSSEIncludesResultsThatFinishOutOfOrder(t *testing.T) {
 			return nil
 		},
 	)
-	if err != nil || len(seen) != 2 {
+	if err != nil || len(seen) != 2 || !terminal {
 		t.Fatalf("out-of-order component omitted: %v %v", seen, err)
+	}
+}
+
+func TestRefreshAllCanRunAgainWithoutChangingSettingsOrFolders(t *testing.T) {
+	svc, _, _, _, names, libID, statics := worksetFixture(t)
+	record, err := svc.CreateCurrentWorkset(t.Context(), workset.CreateCurrentRequest{
+		LibraryID: libID, OperationType: metadatatask.Kind, FolderPaths: names,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := record.Workset.WorksetID
+	draft, err := svc.GetDraft(t.Context(), id, metadatatask.Kind)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var document metadatatask.Draft
+	if err = json.Unmarshal(draft.Document, &document); err != nil {
+		t.Fatal(err)
+	}
+	document.Common.Mode = metadata.RefreshAll
+	document.Common.DownloadCover = false
+	raw, err := json.Marshal(document)
+	if err != nil {
+		t.Fatal(err)
+	}
+	op, err := svc.SaveDraft(t.Context(), id, metadatatask.Kind, workset.SaveDraftRequest{
+		Document: raw, IfMatchVersion: draft.Version,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	svc.DispatcherHandle().Start()
+	defer svc.DispatcherHandle().Stop()
+	previousPlan := ""
+	for _, key := range []string{"first", "second"} {
+		gen, e := svc.StartGeneration(t.Context(), id, metadatatask.Kind, workset.StartGenerationRequest{
+			IfMatchVersion: op.Version, IdempotencyKey: "plan-" + key,
+		})
+		if e != nil {
+			t.Fatal(e)
+		}
+		if !gen.Created || gen.Generation == nil {
+			t.Fatalf("%s generation reused the executed plan instead of creating a fresh plan: %+v", key, gen)
+		}
+		plan := waitGeneration(t, svc, id, gen.Generation.GenerationID)
+		if plan.RevisionID == previousPlan {
+			t.Fatal("repeated refresh kept the old plan")
+		}
+		op, e = svc.GetOperation(t.Context(), id, metadatatask.Kind)
+		if e != nil {
+			t.Fatal(e)
+		}
+		execution, e := svc.StartExecution(
+			t.Context(), id, metadatatask.Kind, plan.RevisionID,
+			workset.StartExecutionRequest{IfMatchVersion: op.Version, IdempotencyKey: "run-" + key},
+		)
+		if e != nil {
+			t.Fatal(e)
+		}
+		result := waitExecution(t, svc, id, execution.Execution.ExecutionID)
+		if result.Status != "succeeded" {
+			t.Fatalf("refresh failed: %+v", result)
+		}
+		previousPlan = plan.RevisionID
+		op, e = svc.GetOperation(t.Context(), id, metadatatask.Kind)
+		if e != nil {
+			t.Fatal(e)
+		}
+		replay, e := svc.StartGeneration(t.Context(), id, metadatatask.Kind, workset.StartGenerationRequest{
+			IfMatchVersion: op.Version, IdempotencyKey: "plan-" + key,
+		})
+		if e != nil {
+			t.Fatal(e)
+		}
+		if replay.Created || replay.Generation == nil || replay.Generation.GenerationID != gen.Generation.GenerationID {
+			t.Fatalf("a retry with the original key created new work: %+v", replay)
+		}
+	}
+	if statics.Load() != 2 {
+		t.Fatalf("the second execution did not fetch fresh metadata: %d static requests", statics.Load())
 	}
 }

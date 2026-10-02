@@ -237,7 +237,7 @@ func TestFailedInitialMigrationCanBeRetried(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer repo.Close()
-	if version := migrationVersion(t, repo.DB()); version != 2 {
+	if version := migrationVersion(t, repo.DB()); version != 3 {
 		t.Fatalf("initial retry version = %d", version)
 	}
 }
@@ -270,5 +270,45 @@ func TestMainCoverMigrationPreservesExistingWorkData(t *testing.T) {
 	}
 	if _, err = upgraded.DB().Exec(`SELECT * FROM cover_candidates;SELECT * FROM cover_deliveries`); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestAgeMigrationPreservesDataAndDoesNotGuessNonAdultAges(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "cache.db")
+	old, err := sqlite.OpenReleaseWithMigrations(path, releaseFixture(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = old.DB().Exec(`
+		INSERT INTO works(id,nsfw,title,created_at,updated_at) VALUES
+		('RJ00000001',1,'adult','now','now'),('RJ00000002',0,'non-adult','now','now'),('RJ00000003',NULL,'unreported','now','now');
+		INSERT INTO work_user_data(work_id,rating,note) VALUES ('RJ00000002',8,'keep');
+	`); err != nil {
+		t.Fatal(err)
+	}
+	if err = old.Close(); err != nil {
+		t.Fatal(err)
+	}
+	upgraded, err := sqlite.NewRepository(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer upgraded.Close()
+	for _, id := range []string{"RJ00000001", "RJ00000002", "RJ00000003"} {
+		var age sql.NullInt64
+		if err = upgraded.DB().QueryRow("SELECT age_category FROM works WHERE id=?", id).Scan(&age); err != nil {
+			t.Fatal(err)
+		}
+		if id == "RJ00000001" && (!age.Valid || age.Int64 != 3) || id != "RJ00000001" && age.Valid {
+			t.Fatalf("guessed or lost age for %s: %+v", id, age)
+		}
+	}
+	var note, title string
+	var rating int
+	if err = upgraded.DB().
+		QueryRow(`SELECT w.title,u.rating,u.note FROM works w JOIN work_user_data u ON w.id=u.work_id WHERE w.id='RJ00000002'`).
+		Scan(&title, &rating, &note); err != nil || title != "non-adult" || rating != 8 ||
+		note != "keep" {
+		t.Fatalf("data lost during upgrade: %s %d %s %v", title, rating, note, err)
 	}
 }

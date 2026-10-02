@@ -56,6 +56,7 @@ func (s *Service) RefreshWithProgress(
 		}
 	}
 	dynamic, failures := s.dynamic(ctx, dynamicIDs, req.Locale)
+	run := &refreshRun{service: s, dynamic: dynamic, finished: map[works.WorkCode][]Issue{}}
 	jobs := make(chan int)
 	var workers sync.WaitGroup
 	for range min(8, len(result.Works)) {
@@ -63,7 +64,7 @@ func (s *Service) RefreshWithProgress(
 			for i := range jobs {
 				item := &result.Works[i]
 				if len(item.Issues) == 0 && ctx.Err() == nil {
-					if e := s.refreshWork(
+					if _, e := s.refreshWork(
 						ctx,
 						req,
 						item,
@@ -71,6 +72,7 @@ func (s *Service) RefreshWithProgress(
 						states[item.WorkCode][works.GroupCore].Source,
 						dynamic[item.WorkCode],
 						failures[item.WorkCode],
+						run, false,
 					); e != nil {
 						cancel(e)
 					}

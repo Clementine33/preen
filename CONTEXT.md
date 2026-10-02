@@ -46,11 +46,32 @@ edition list exists only on its static one.
 _Avoid_: One combined snapshot that forces a crawler to resubmit what it did
 not fetch.
 
+**Age Category**:
+The source's explicit age rating: all ages, R15 or R18. Missing source information
+stays absent and has no visible UNKNOWN label. The compatibility NSFW flag only
+identifies R18; a false flag cannot distinguish R15 from all ages.
+_Avoid_: Treating every non-R18 work as all ages.
+
 **Metadata Refresh**:
 A request to retrieve source data groups for explicitly selected existing Works,
 including Relation Placeholders. Missing-only refresh fills unreported groups;
 dynamic refresh renews sales and relation reports; full refresh renews all groups.
-_Avoid_: Discovering new works; recursively collecting a translation family.
+Reported Chinese translation ancestors are filled as Relation Placeholders.
+_Avoid_: Collecting sibling translations or following every language edition.
+
+**Tag Language**:
+The selected language for source tag names. It does not select a Work's title
+language or its circle: Chinese edition titles follow their own edition language,
+and their circle belongs to the Japanese original under its Japanese name.
+_Avoid_: A title translation preference; the translator as the work's circle.
+
+**Chinese Translation Chain**:
+The Japanese original, a simplified or traditional Chinese edition page, and
+an individual translation Work. The edition page and translation have distinct
+Work Numbers even when their titles match. Several translations may share one
+edition page; only translations with Copies in the current Library are in-library
+lookup candidates.
+_Avoid_: Treating the edition page as an alias that replaces a translation's identity.
 
 **Relation Evidence / Resolved Relation**:
 *Evidence* is what sources said — a work's own relation report, and the child

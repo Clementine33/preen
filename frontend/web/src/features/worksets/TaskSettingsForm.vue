@@ -87,7 +87,7 @@ function save() {
           </select>
         </label>
         <label class="flex items-center gap-1">
-          语言
+          标签语言
           <select v-model="locale" class="rounded-md border border-border bg-background px-1 py-0.5" :disabled="disabled" data-testid="metadata-locale">
             <option v-for="item in LOCALES" :key="item.value" :value="item.value">{{ item.label }}</option>
           </select>

@@ -23,6 +23,7 @@ function detail(rj: string, voice: string): WorkDetail {
     circle: 'mete0r',
     language: null,
     nsfw: false,
+    age_category: 1,
     release_date: '2024-03-08',
     dl_count: null,
     rating: null,

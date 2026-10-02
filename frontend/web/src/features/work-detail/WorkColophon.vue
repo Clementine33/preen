@@ -33,7 +33,7 @@ const voice = computed(() =>
   work.value && work.value.voice_actors.length > 0 ? work.value.voice_actors.map((actor) => actor.name).join(' / ') : '—',
 )
 const age = computed(() =>
-  work.value?.nsfw === true ? 'R18' : work.value?.nsfw === false ? '全年龄' : 'UNKNOWN',
+  work.value?.age_category ? ({ 1: '全年龄', 2: 'R15', 3: 'R18' }[work.value.age_category]) : null,
 )
 
 function setRating(n: number): void {
@@ -91,8 +91,18 @@ function editionLabel(edition: WorkEdition): string {
 
 function relationText(relation: WorkRelation | null): string {
   if (!relation || relation.role === null) return '—'
-  const other = relation.original_rj ?? relation.parent_rj
-  return other ? `${relation.role} · ${other}` : relation.role
+  const nodes: string[] = []
+  const ids = new Set<string>()
+  function add(id: string | null | undefined, label: string): void {
+    if (!id || ids.has(id)) return
+    ids.add(id)
+    nodes.push(`${label} ${id}`)
+  }
+  add(relation.original_rj, '原作')
+  const page = relation.language === 'CHI_HANS' ? '简中页面' : relation.language === 'CHI_HANT' ? '繁中页面' : '父页面'
+  add(relation.parent_rj, page)
+  add(work.value?.rj, relation.role === 'original' ? '原作' : relation.role === 'parent' ? page : '翻译作品')
+  return nodes.join(' → ')
 }
 </script>
 
@@ -102,7 +112,7 @@ function relationText(relation: WorkRelation | null): string {
       <span class="strip-name lbl">奥付<span class="jp"> · COLOPHON</span></span>
       <span class="lbl">{{ work?.rj ?? '—' }}</span>
     </div>
-    <h2 class="colo-title" lang="ja">{{ work?.title ?? '—' }}</h2>
+    <h2 class="colo-title" :lang="work?.relation?.language === 'CHI_HANS' ? 'zh-Hans' : work?.relation?.language === 'CHI_HANT' ? 'zh-Hant' : 'ja'">{{ work?.title ?? '—' }}</h2>
 
     <dl class="colo-box">
       <div class="colo-row"><dt>作品</dt><dd><span class="mono">{{ work?.rj ?? '—' }}</span></dd></div>
@@ -113,8 +123,8 @@ function relationText(relation: WorkRelation | null): string {
           <template v-if="work?.dl_count !== null && work?.dl_count !== undefined"><span class="sep">·</span><span class="lbl">DL<b>{{ work.dl_count.toLocaleString() }}</b></span></template>
         </dd>
       </div>
-      <div class="colo-row"><dt>分级</dt>
-        <dd><span class="mono">{{ age }}</span><template v-if="work?.language"><span class="sep">·</span><span class="mono">{{ work.language }}</span></template></dd>
+      <div v-if="age" class="colo-row"><dt>分级</dt>
+        <dd><span class="mono">{{ age }}</span></dd>
       </div>
       <div v-if="work?.series_name" class="colo-row"><dt>系列</dt><dd><span lang="ja">{{ work.series_name }}</span></dd></div>
       <div v-if="work?.language_editions?.length" class="colo-row"><dt>版本</dt>
@@ -127,7 +137,7 @@ function relationText(relation: WorkRelation | null): string {
       </div>
       <div class="colo-row"><dt>关系</dt><dd>{{ relationText(work?.relation ?? null) }}</dd></div>
       <div v-if="work?.source_tags.length" class="colo-row"><dt>标签</dt>
-        <dd><span class="tags" lang="ja"><span v-for="tag in work.source_tags" :key="tag.id" class="tag">{{ tag.name }}</span></span></dd>
+        <dd><span class="tags"><span v-for="tag in work.source_tags" :key="tag.id" class="tag">{{ tag.name }}</span></span></dd>
       </div>
       <div v-if="work?.copies.length" class="colo-row"><dt>副本</dt>
         <dd><span class="copy">

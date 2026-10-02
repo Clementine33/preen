@@ -42,6 +42,7 @@ function makeWorks(count: number): WorkSummary[] {
     circle: 'CIRCLE',
     language: null,
     nsfw: false,
+    age_category: 1,
     release_date: '2024-03-08',
     dl_count: null,
     rating: null,

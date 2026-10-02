@@ -169,11 +169,11 @@ func applyCoreGroup(
 
 	if _, err := tx.Exec(`
 		UPDATE works
-		SET title = ?, circle_id = ?, nsfw = ?, release_date = ?, source_url = ?,
+		SET title = ?, circle_id = ?, nsfw = ?, age_category = ?, release_date = ?, source_url = ?,
 		    cover_url = ?, thumbnail_url = ?, sample_cover_url = ?, series_id = ?, series_name = ?,
 		    updated_at = ?
 		WHERE id = ?
-	`, nullableString(group.Title), circleID, nullableBool(group.NSFW), nullableString(group.ReleaseDate),
+	`, nullableString(group.Title), circleID, nullableBool(group.NSFW), nullableInt(group.AgeCategory), nullableString(group.ReleaseDate),
 		nullableString(group.SourceURL), nullableString(group.CoverURL), nullableString(group.ThumbnailURL),
 		nullableString(group.SampleCoverURL), nullableString(group.SeriesID), nullableString(group.SeriesName),
 		formatWorksTimestamp(now), string(target),
@@ -296,6 +296,12 @@ func upsertEntity(
 		).Scan(&found)
 	}
 	if err == nil {
+		if sourceID != nil && (table == "tags" || table == "circles") {
+			// Accepted snapshots refresh display names without changing entity identity.
+			if _, updateErr := tx.Exec("UPDATE "+table+" SET name = ? WHERE id = ?", name, found); updateErr != nil {
+				return "", updateErr
+			}
+		}
 		return found, nil
 	}
 	if !errors.Is(err, sql.ErrNoRows) {

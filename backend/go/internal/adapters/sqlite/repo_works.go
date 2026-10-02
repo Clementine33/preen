@@ -22,7 +22,7 @@ var _ works.Store = (*Repository)(nil)
 // copies is a correlated subquery rather than a join, so a work with several
 // copies stays one row.
 const listProjection = `
-	SELECT w.id, w.title, w.thumbnail_url, c.name, t.language, w.nsfw, w.release_date,
+	SELECT w.id, w.title, w.thumbnail_url, c.name, t.language, w.nsfw, w.age_category, w.release_date,
 	       s.dl_count, u.rating, COALESCE(u.favorite, 0),
 	       CASE WHEN COALESCE(u.note, '') <> '' THEN 1 ELSE 0 END,
 	       w.collected_at,
@@ -88,6 +88,7 @@ func (r *Repository) ListWorks(filter works.Filter) (works.Page, error) {
 			circleName  sql.NullString
 			language    sql.NullString
 			nsfw        sql.NullInt64
+			ageCategory sql.NullInt64
 			releaseDate sql.NullString
 			dlCount     sql.NullInt64
 			rating      sql.NullInt64
@@ -97,7 +98,7 @@ func (r *Repository) ListWorks(filter works.Filter) (works.Page, error) {
 			copyCount   int
 		)
 		if scanErr := rows.Scan(
-			&id, &title, &thumbnail, &circleName, &language, &nsfw, &releaseDate,
+			&id, &title, &thumbnail, &circleName, &language, &nsfw, &ageCategory, &releaseDate,
 			&dlCount, &rating, &favorite, &hasNote, &collectedAt, &copyCount,
 		); scanErr != nil {
 			return works.Page{}, scanErr
@@ -108,6 +109,7 @@ func (r *Repository) ListWorks(filter works.Filter) (works.Page, error) {
 		summary.CircleName = nullString(circleName)
 		summary.Language = nullString(language)
 		summary.NSFW = nullBool(nsfw)
+		summary.AgeCategory = nullInt(ageCategory)
 		summary.ReleaseDate = nullString(releaseDate)
 		summary.DLCount = nullInt(dlCount)
 		summary.Rating = nullInt(rating)
@@ -291,6 +293,9 @@ func (b *listQueryBuilder) applyFilters(filter works.Filter) {
 		// dimension asks about a value, and unknown is not one of the values.
 		b.add("t.language IN ("+placeholderList(len(filter.Languages))+")", textArgs(filter.Languages)...)
 	}
+	if filter.AgeCategory != nil {
+		b.add("w.age_category = ?", *filter.AgeCategory)
+	}
 	switch filter.NSFW {
 	case works.NSFWAny:
 		// No constraint: every value of the flag is wanted.
@@ -339,8 +344,10 @@ func (b *listQueryBuilder) addQuery(query string) {
 	if code, ok := works.ParseWorkCode(query); ok {
 		// A query that is itself a number matches that work exactly, so the
 		// short spelling finds the row stored in the canonical one.
-		b.add("(instr(w.id, ?) > 0 OR instr(COALESCE(w.title, ''), ?) > 0 OR w.id = ?)",
-			query, query, string(code))
+		b.add(`(w.id = ? OR
+		    (t.parent_work_id = ? AND t.language IN ('CHI_HANS', 'CHI_HANT') AND
+		     EXISTS (SELECT 1 FROM work_copies lookup_copy WHERE lookup_copy.work_id = w.id)))`,
+			string(code), string(code))
 		return
 	}
 	b.add("(instr(w.id, ?) > 0 OR instr(COALESCE(w.title, ''), ?) > 0)", query, query)
@@ -439,7 +446,7 @@ func (r *Repository) GetWork(id works.WorkCode) (*works.WorkDetail, bool, error)
 	detail := &works.WorkDetail{}
 	var (
 		title, thumbnail, circleName sql.NullString
-		nsfw, favorite               sql.NullInt64
+		nsfw, favorite, ageCategory  sql.NullInt64
 		releaseDate                  sql.NullString
 		dlCount, rating              sql.NullInt64
 		collectedAt                  sql.NullString
@@ -450,7 +457,7 @@ func (r *Repository) GetWork(id works.WorkCode) (*works.WorkDetail, bool, error)
 		copyCount                    int
 	)
 	err := r.db.QueryRow(`
-		SELECT w.title, w.thumbnail_url, c.name, w.nsfw, w.release_date, w.source_url,
+		SELECT w.title, w.thumbnail_url, c.name, w.nsfw, w.age_category, w.release_date, w.source_url,
 		       w.cover_url, w.sample_cover_url, w.series_id, w.series_name,
 		       w.collected_at, s.dl_count, u.rating, u.favorite, u.note, t.language,
 		       (SELECT COUNT(*) FROM work_copies wc WHERE wc.work_id = w.id)
@@ -461,7 +468,7 @@ func (r *Repository) GetWork(id works.WorkCode) (*works.WorkDetail, bool, error)
 		LEFT JOIN work_user_data u ON u.work_id = w.id
 		WHERE w.id = ?
 	`, string(id)).Scan(
-		&title, &thumbnail, &circleName, &nsfw, &releaseDate, &sourceURL,
+		&title, &thumbnail, &circleName, &nsfw, &ageCategory, &releaseDate, &sourceURL,
 		&coverURL, &sampleCoverURL, &seriesID, &seriesName,
 		&collectedAt, &dlCount, &rating, &favorite, &note, &language, &copyCount,
 	)
@@ -477,6 +484,7 @@ func (r *Repository) GetWork(id works.WorkCode) (*works.WorkDetail, bool, error)
 	detail.ThumbnailURL = nullString(thumbnail)
 	detail.CircleName = nullString(circleName)
 	detail.NSFW = nullBool(nsfw)
+	detail.AgeCategory = nullInt(ageCategory)
 	detail.ReleaseDate = nullString(releaseDate)
 	detail.SourceURL = nullString(sourceURL)
 	detail.CoverURL = nullString(coverURL)

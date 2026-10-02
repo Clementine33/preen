@@ -517,3 +517,73 @@ func TestRepeatedEntityInOnePayloadIsListedOnce(t *testing.T) {
 		t.Errorf("tags = %d, want one", len(detail.SourceTags))
 	}
 }
+
+func TestParentNumberLookupUsesChineseCopiesInTheSelectedLibrary(t *testing.T) {
+	repo := newTestRepository(t)
+	parent := seedWork(t, repo, "RJ01526615", false)
+	first := seedWork(t, repo, "RJ01526629", true)
+	second := seedWork(t, repo, "RJ01535135", true)
+	english := seedWork(t, repo, "RJ01535136", true)
+	orphan := seedWork(t, repo, "RJ01535137", true)
+	libA, err := repo.CreateLibrary("A", "/a")
+	if err != nil {
+		t.Fatal(err)
+	}
+	libB, err := repo.CreateLibrary("B", "/b")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, row := range []struct {
+		id       works.WorkCode
+		language string
+		library  string
+	}{
+		{first, "CHI_HANS", libA.ID}, {second, "CHI_HANS", libB.ID},
+		{english, "ENG", libA.ID}, {orphan, "CHI_HANS", ""},
+	} {
+		importGroups(t, repo, row.id, &works.ValidatedImport{Target: row.id,
+			Relations: &works.RelationsGroup{Source: works.SourceDLsite, FetchedAt: mustTime(t, testStamp),
+				Role: works.RoleChild, Language: &row.language, ParentRJ: &parent},
+		})
+		if row.library != "" {
+			if _, err := repo.DB().
+				Exec("INSERT INTO work_copies (id, work_id, library_id, rel_path, created_at) VALUES (?, ?, ?, ?, ?)",
+					string(row.id), string(row.id), row.library, string(row.id), testStamp); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	for _, tc := range []struct {
+		library []string
+		count   int
+	}{
+		{nil, 2}, {[]string{libA.ID}, 1}, {[]string{libB.ID}, 1},
+	} {
+		page, err := repo.ListWorks(works.Filter{Query: new(string(parent)), Libraries: tc.library})
+		if err != nil || len(page.Works) != tc.count {
+			t.Fatalf("parent lookup: %+v, %v", page, err)
+		}
+	}
+}
+
+func TestAcceptedCoreRefreshesSourceTagNamesWithoutChangingIdentity(t *testing.T) {
+	repo := newTestRepository(t)
+	id := seedWork(t, repo, "RJ00000001", true)
+	for i, name := range []string{"日本語タグ", "简体中文标签"} {
+		importGroups(t, repo, id, &works.ValidatedImport{Target: id, Core: &works.CoreGroup{
+			Source: works.SourceDLsite, FetchedAt: mustTime(t, testStamp).Add(time.Duration(i) * time.Second),
+			Tags: []works.EntityInput{{SourceID: new("68"), Name: name}},
+		}})
+		detail, _, err := repo.GetWork(id)
+		if err != nil || len(detail.SourceTags) != 1 || detail.SourceTags[0].Name != name {
+			t.Fatalf("tags: %+v, %v", detail, err)
+		}
+	}
+	var count int
+	if err := repo.DB().
+		QueryRow("SELECT COUNT(*) FROM tags WHERE source_tag_id = '68'").
+		Scan(&count); err != nil ||
+		count != 1 {
+		t.Fatalf("tag identity drifted: %d, %v", count, err)
+	}
+}

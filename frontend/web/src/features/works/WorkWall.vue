@@ -165,11 +165,20 @@ function onCellClick(work: WorkSummary) {
 }
 
 // Keyset paging: ask for the next page before the scroll reaches the bottom.
-function onScroll() {
+function nearEnd(): boolean {
   const el = wallEl.value
-  if (el === null) return
-  if (el.scrollTop + el.clientHeight >= el.scrollHeight - 600) emit('loadMore')
+  return el !== null && el.scrollTop + el.clientHeight >= el.scrollHeight - 600
 }
+function onScroll() {
+  if (nearEnd()) emit('loadMore')
+}
+// A page that does not fill the wall leaves nothing to scroll, so no scroll
+// event would ever ask for the next one: ask again whenever the grid's height
+// settles. The page lets one request run at a time, so this walks forward a
+// page at a time until the wall scrolls or the listing ends.
+watch(totalSize, () => {
+  if (nearEnd()) emit('loadMore')
+}, { flush: 'post' })
 </script>
 
 <template>

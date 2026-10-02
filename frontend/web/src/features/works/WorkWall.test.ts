@@ -56,7 +56,9 @@ function makeWorks(count: number): WorkSummary[] {
 
 const WORKS = makeWorks(8)
 
-async function scaffold(options: { works?: WorkSummary[]; selectedRj?: string | null; attach?: boolean } = {}) {
+async function scaffold(
+  options: { works?: WorkSummary[]; selectedRj?: string | null; attach?: boolean; contentHeight?: number } = {},
+) {
   vi.stubGlobal('ResizeObserver', StubResizeObserver)
   const wrapper = mount(WorkWall, {
     ...(options.attach ? { attachTo: document.body.appendChild(document.createElement('div')) } : {}),
@@ -74,6 +76,9 @@ async function scaffold(options: { works?: WorkSummary[]; selectedRj?: string | 
     offsetHeight: { configurable: true, get: () => 560 },
     offsetWidth: { configurable: true, get: () => 800 },
     scrollTop: { configurable: true, get: () => top, set: (v: number) => (top = v) },
+    clientHeight: { configurable: true, get: () => 560 },
+    // Taller than the viewport by default: the wall has somewhere to scroll.
+    scrollHeight: { configurable: true, get: () => options.contentHeight ?? 5000 },
   })
   // The virtualizer registers its own observer before the wall's; deliver the
   // measurement to every one, as a real layout settle would.
@@ -222,6 +227,16 @@ describe('WorkWall', () => {
     const { wrapper, setScrollTop } = await scaffold({ selectedRj: WORKS[0].rj })
 
     setScrollTop(0)
+    expect(wrapper.emitted('loadMore')).toBeUndefined()
+    setScrollTop(4000)
     expect(wrapper.emitted('loadMore')).toHaveLength(1)
+  })
+
+  it('asks for the next page without a scroll when the page does not fill the wall', async () => {
+    // A tall or ultrawide screen: the first page sits wholly inside the
+    // viewport, so no scroll event will ever arrive.
+    const { wrapper } = await scaffold({ contentHeight: 400 })
+
+    expect(wrapper.emitted('loadMore')?.length).toBeGreaterThan(0)
   })
 })

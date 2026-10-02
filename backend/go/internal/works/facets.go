@@ -1,13 +1,17 @@
 package works
 
 // FacetKind is a source entity the listing can filter by and a caller can list
-// to offer that filter: the circle, the voice actor.
+// to offer that filter: the circle, the voice actor, the source's tags and the
+// user's own.
 type FacetKind string
 
-// The listable facets. Each one names the listing parameter it feeds.
+// The listable facets. Each one names the listing parameter it feeds; the two
+// tag kinds also feed the combined `tag` parameter.
 const (
 	FacetCircle     FacetKind = "circle"
 	FacetVoiceActor FacetKind = "voice_actor"
+	FacetSourceTag  FacetKind = "source_tag"
+	FacetUserTag    FacetKind = "user_tag"
 )
 
 // Facet is one filterable entity: the id the listing parameter takes, the name

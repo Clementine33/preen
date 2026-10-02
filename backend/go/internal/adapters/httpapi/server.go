@@ -113,6 +113,7 @@ func NewServer(deps Dependencies) http.Handler {
 	// the same name.
 	mux.Handle("GET /api/v1/circles", protect(http.HandlerFunc(s.listCircles)))
 	mux.Handle("GET /api/v1/voice-actors", protect(http.HandlerFunc(s.listVoiceActors)))
+	mux.Handle("GET /api/v1/tags", protect(http.HandlerFunc(s.listTags)))
 	mux.Handle("GET /api/v1/user-tags", protect(http.HandlerFunc(s.listUserTags)))
 	mux.Handle("POST /api/v1/user-tags", protect(http.HandlerFunc(s.createUserTag)))
 	mux.Handle("PATCH /api/v1/user-tags/{id}", protect(http.HandlerFunc(s.patchUserTag)))

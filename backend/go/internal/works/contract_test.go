@@ -114,6 +114,31 @@ func TestFilterDigestIgnoresSetOrder(t *testing.T) {
 	}
 }
 
+// TestFilterDigestFollowsTagGroups: the combined tag choice is part of the
+// query a cursor belongs to, written in any order, and its mode is too.
+func TestFilterDigestFollowsTagGroups(t *testing.T) {
+	asmr := works.TagGroup{{Kind: works.TagSource, ID: "s1"}, {Kind: works.TagUser, ID: "u1"}}
+	ear := works.TagGroup{{Kind: works.TagSource, ID: "s2"}}
+	base := works.Filter{TagGroups: []works.TagGroup{asmr, ear}, TagMatch: works.MatchAll}
+	reordered := works.Filter{
+		TagGroups: []works.TagGroup{ear, {asmr[1], asmr[0]}},
+		TagMatch:  works.MatchAll,
+	}
+	if base.Digest() != reordered.Digest() {
+		t.Error("the same tag choice written in another order produced a different digest")
+	}
+	for name, other := range map[string]works.Filter{
+		"mode":   {TagGroups: base.TagGroups, TagMatch: works.MatchAny},
+		"groups": {TagGroups: []works.TagGroup{asmr}, TagMatch: works.MatchAll},
+		// Two groups are two tags; one group of both ids is one tag.
+		"grouping": {TagGroups: []works.TagGroup{append(append(works.TagGroup{}, asmr...), ear...)}, TagMatch: works.MatchAll},
+	} {
+		if other.Digest() == base.Digest() {
+			t.Errorf("a different %s kept the digest", name)
+		}
+	}
+}
+
 func TestFilterValidation(t *testing.T) {
 	cases := []struct {
 		name string

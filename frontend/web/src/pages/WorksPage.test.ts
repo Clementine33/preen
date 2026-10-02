@@ -372,6 +372,11 @@ describe('works page', () => {
     const seek = wrapper.get<HTMLInputElement>('input[aria-label="Seek"]')
     await seek.setValue('42')
     expect(player.elapsed).toBe(42)
+
+    await wrapper.get<HTMLInputElement>('input[aria-label="Volume"]').setValue('0.3')
+    expect(player.volume).toBe(0.3)
+    await wrapper.get('[aria-label="Mute"]').trigger('click')
+    expect(player.muted).toBe(true)
   })
 
   it('opens the detail page with Enter', async () => {

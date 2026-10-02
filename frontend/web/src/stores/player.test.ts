@@ -79,6 +79,8 @@ class FakeAudio extends EventTarget {
   currentTime = 0
   duration = Number.NaN
   paused = true
+  volume = 1
+  muted = false
   constructor() {
     super()
     FakeAudio.made.push(this)
@@ -161,6 +163,27 @@ describe('player store, real track', () => {
     store.step(-2)
     expect(store.title).toBe('a')
     expect(FakeAudio.made.at(-1)?.src).toBe('/content/a.mp3')
+  })
+
+  it('keeps the volume across tracks and visits, and mutes without losing it', () => {
+    localStorage.clear()
+    const store = usePlayerStore()
+    expect([store.volume, store.muted]).toEqual([1, false])
+    store.play(work.rj, [{ title: 'a', source }, { title: 'b', source }])
+    store.setVolume(0.4)
+    store.toggleMute()
+    const first = FakeAudio.made[0]
+    expect([first.volume, first.muted]).toEqual([0.4, true])
+
+    store.step(1) // the next element starts at the same level
+    const second = FakeAudio.made[1]
+    expect([second.volume, second.muted]).toEqual([0.4, true])
+    store.setVolume(0.6) // raising the fader unmutes
+    expect(second.muted).toBe(false)
+
+    setActivePinia(createPinia())
+    expect([usePlayerStore().volume, usePlayerStore().muted]).toEqual([0.6, false])
+    localStorage.clear()
   })
 
   it('seeks the element', () => {

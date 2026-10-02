@@ -53,6 +53,10 @@ export const queryKeys = {
     userTags: () => ['works', 'user-tags'] as const,
     // One facet list per kind and library scope ('' = every library).
     facets: (kind: WorkFacetKind, library: string) => ['works', 'facets', kind, library] as const,
+    // Both tag vocabularies, under the facets prefix so every facet sweep
+    // covers them; their own prefix lets a user-tag write refresh only them.
+    tagFacetsPrefix: () => ['works', 'facets', 'tag'] as const,
+    tagFacets: (library: string) => ['works', 'facets', 'tag', library] as const,
   },
   // Every mutable workset resource is keyed by (workset, operation): the same
   // workset id must never address two operations' drafts, sessions or

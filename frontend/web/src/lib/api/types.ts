@@ -293,6 +293,12 @@ export interface WorkFacet {
 
 export type WorkFacetKind = 'circle' | 'voice_actor'
 
+/** Both tag vocabularies under one scope (docs/api.md `GET /tags`): the wall's tag index. */
+export interface TagFacets {
+  source_tags: WorkFacet[]
+  user_tags: WorkFacet[]
+}
+
 /**
  * Exactly the parameters the backend accepts (docs/api.md listing filters):
  * anything else is INVALID_ARGUMENT. The three id-list filters each require
@@ -312,6 +318,13 @@ export interface ListWorksParams {
   voice_actor_match?: 'all' | 'any'
   source_tag_match?: 'all' | 'any'
   user_tag_match?: 'all' | 'any'
+  /**
+   * Both vocabularies at once: comma-separated groups of `|`-joined `s:<id>` /
+   * `u:<id>` refs. A group is one picked tag (any of its ids); `tag_match`
+   * combines the groups and is required with it.
+   */
+  tag?: string
+  tag_match?: 'all' | 'any'
   /** A work that never reported the adult flag. */
   nsfw?: boolean | 'unknown'
   age_category?: 1 | 2 | 3
@@ -1050,6 +1063,7 @@ export interface ApiClientContract {
   getWorkText(ref: ContentFileRef, signal?: AbortSignal): Promise<string>
   getWorkThumb(ref: ContentFileRef, height: number, version: string, signal?: AbortSignal): Promise<Blob>
   listWorkFacets(kind: WorkFacetKind, library?: string, signal?: AbortSignal): Promise<WorkFacet[]>
+  listTagFacets(library?: string, signal?: AbortSignal): Promise<TagFacets>
   updateWorkUserData(rj: string, input: PatchWorkUserDataParams): Promise<WorkUserData>
   replaceWorkUserTags(rj: string, tagIds: string[]): Promise<WorkUserTag[]>
   listUserTags(signal?: AbortSignal): Promise<WorkUserTag[]>

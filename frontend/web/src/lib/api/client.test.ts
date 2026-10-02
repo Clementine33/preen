@@ -35,6 +35,16 @@ describe('ApiClient', () => {
     expect(query.get('age_category')).toBe(age === undefined ? null : String(age))
   })
 
+  it('sends the combined tag filter and its mode in the works request', async () => {
+    const fetchMock = mockFetch(async () => okJson({ works: [] }))
+
+    await createClient().listWorks({ tag: 's:a|u:b,s:c', tag_match: 'any' })
+
+    const query = new URL(String(fetchMock.mock.calls[0]![0])).searchParams
+    expect(query.get('tag')).toBe('s:a|u:b,s:c')
+    expect(query.get('tag_match')).toBe('any')
+  })
+
   it('passes the persisted global-settings status through the draft envelope', async () => {
     mockFetch(async () => okJson({
       workset_id: 'ws-1',

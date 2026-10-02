@@ -6,6 +6,7 @@ import { useMediaQuery, WALL_MOBILE_QUERY } from '@/composables/use-media-query'
 import type { ListWorksParams, WorkFacet, WorksSort } from '@/lib/api/types'
 import GlobalMenu from '@/components/layout/GlobalMenu.vue'
 import LibrarySwitcher from '@/features/works/LibrarySwitcher.vue'
+import TagIndex, { type TagSelection } from '@/features/works/TagIndex.vue'
 import PlayerBar from '@/features/works/PlayerBar.vue'
 import RailSelect, { type RailOption } from '@/features/works/RailSelect.vue'
 import WorkInspector from '@/features/works/WorkInspector.vue'
@@ -30,6 +31,7 @@ const isMobile = useMediaQuery(WALL_MOBILE_QUERY)
 const voiceActor = ref('')
 const circle = ref('')
 const age = ref('')
+const tags = ref<TagSelection>({ picks: [], mode: 'all' })
 const sort = ref<WorksSort>('release_date')
 
 // The address's library wins over the store's: a reload starts the store empty,
@@ -95,6 +97,9 @@ const filters = computed<ListWorksParams>(() => ({
   ...(voiceActor.value ? { voice_actor: voiceActor.value, voice_actor_match: 'any' as const } : {}),
   ...(circle.value ? { circle: circle.value } : {}),
   ...(age.value ? { age_category: AGE_PARAM[age.value] } : {}),
+  ...(tags.value.picks.length > 0
+    ? { tag: tags.value.picks.map((pick) => pick.refs.join('|')).join(','), tag_match: tags.value.mode }
+    : {}),
   ...(findQuery.value ? { q: findQuery.value } : {}),
   sort: sort.value,
   direction: 'desc',
@@ -132,15 +137,17 @@ const selectedRj = ref<string | null>(restoredRj)
 // The address may name a work beyond the pages loaded so far: it stays
 // inspected until the user changes the listing under it.
 let keepRestored = restoredRj !== null
-watch([voiceActor, circle, age, sort, findQuery], () => {
+watch([voiceActor, circle, age, tags, sort, findQuery], () => {
   keepRestored = false
 })
-// A voice actor or circle belongs to the library it was picked in. The first
-// resolution of the active library (null → the stored or first one) is not a
-// switch, so it leaves the address's work alone.
+// A voice actor, circle or tag belongs to the library it was picked in. The
+// first resolution of the active library (null → the stored or first one) is
+// not a switch, so it leaves the address's work alone — which is also why the
+// tags are only replaced when there is something to clear.
 watch(libraryScope, (_now, before) => {
   voiceActor.value = ''
   circle.value = ''
+  if (tags.value.picks.length > 0) tags.value = { picks: [], mode: tags.value.mode }
   if (before !== null) keepRestored = false
 })
 
@@ -187,6 +194,8 @@ function ownsKeys(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false
   return (
     target.closest('[data-own-keys]') !== null ||
+    // A dialog (the tag index) is portalled outside the page: its keys are its own.
+    target.closest('[role="dialog"]') !== null ||
     target instanceof HTMLInputElement ||
     target instanceof HTMLTextAreaElement ||
     target instanceof HTMLSelectElement ||
@@ -257,6 +266,7 @@ onBeforeUnmount(() => {
         <RailSelect v-model="voiceActor" label="VOICE" :options="voiceActorOptions" marks-active searchable />
         <RailSelect v-model="circle" label="CIRCLE" :options="circleOptions" marks-active searchable />
         <RailSelect v-model="age" label="AGE" :options="AGE_OPTIONS" marks-active />
+        <TagIndex v-model="tags" :library="libraryScope" />
       </div>
       <div class="rail-right">
         <RailSelect v-model="sort" label="SORT" :options="SORT_OPTIONS" />

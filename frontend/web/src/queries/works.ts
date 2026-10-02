@@ -47,6 +47,14 @@ export function workFacetsQueryOptions(api: ApiClientContract, kind: WorkFacetKi
   }
 }
 
+/** Both tag vocabularies under one library scope, the tag index's two sections. */
+export function tagFacetsQueryOptions(api: ApiClientContract, library: string | null) {
+  return {
+    queryKey: queryKeys.works.tagFacets(library ?? ''),
+    queryFn: ({ signal }: { signal?: AbortSignal }) => api.listTagFacets(library ?? undefined, signal),
+  }
+}
+
 /**
  * One work in full. The rj may be null while nothing is selected: the query
  * sits disabled instead of firing with an empty work number.
@@ -81,6 +89,14 @@ export function useWorkFacets(kind: WorkFacetKind, library: MaybeRefOrGetter<str
   const api = useApiClient()
   const query = useQuery(computed(() => workFacetsQueryOptions(api, kind, toValue(library))))
   const facets = computed(() => query.data.value ?? [])
+  return { query, facets }
+}
+
+/** The tag index's entries behind a reactive library scope (null = every library). */
+export function useTagFacets(library: MaybeRefOrGetter<string | null>) {
+  const api = useApiClient()
+  const query = useQuery(computed(() => tagFacetsQueryOptions(api, toValue(library))))
+  const facets = computed(() => query.data.value ?? { source_tags: [], user_tags: [] })
   return { query, facets }
 }
 
@@ -150,6 +166,7 @@ export function useUpdateWorkUserData(rj: MaybeRefOrGetter<string | null>) {
 /** Replaces the work's user-tag set and merges the answer into the cached detail. */
 export function useReplaceWorkUserTags(rj: MaybeRefOrGetter<string | null>) {
   const api = useApiClient()
+  const client = useQueryClient()
   const merge = mergeIntoWorkCache(() => toValue(rj))
   return useMutation({
     mutationFn: (tagIds: string[]) => {
@@ -157,7 +174,13 @@ export function useReplaceWorkUserTags(rj: MaybeRefOrGetter<string | null>) {
       if (value === null) throw new Error('a user-tag write requires a work number')
       return api.replaceWorkUserTags(value, tagIds)
     },
-    onSuccess: (userTags) => merge({ user_tags: userTags }),
+    onSuccess: (userTags) => {
+      merge({ user_tags: userTags })
+      // The tag index counts this work under its tags, and a listing filtered
+      // by a user tag may now gain or lose it.
+      void refreshOrRemoveQueries(client, queryKeys.works.tagFacetsPrefix())
+      void refreshOrRemoveQueries(client, queryKeys.works.listPrefix())
+    },
   })
 }
 

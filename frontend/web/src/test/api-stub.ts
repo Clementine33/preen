@@ -39,6 +39,7 @@ export function apiStub(overrides: Partial<ApiClientContract> = {}): ApiClientCo
     getWorkText: vi.fn().mockResolvedValue(''),
     getWorkThumb: vi.fn(() => new Promise<Blob>(() => {})),
     listWorkFacets: vi.fn().mockResolvedValue([]),
+    listTagFacets: vi.fn().mockResolvedValue({ source_tags: [], user_tags: [] }),
     updateWorkUserData: vi.fn(),
     replaceWorkUserTags: vi.fn().mockResolvedValue([]),
     listUserTags: vi.fn().mockResolvedValue([]),

@@ -2,6 +2,7 @@ import type { InjectionKey } from 'vue'
 import { inject } from 'vue'
 import { parseSSEStream, type SSEEvent } from './sse'
 import type {
+  TagFacets,
   ApiClientContract,
   AnyDraftDocument,
   ApiConfig,
@@ -253,6 +254,8 @@ export class ApiClient implements ApiClientContract {
       'voice_actor_match',
       'source_tag_match',
       'user_tag_match',
+      'tag',
+      'tag_match',
       'released_from',
       'released_to',
       'sort',
@@ -342,6 +345,12 @@ export class ApiClient implements ApiClientContract {
     }
     const body = await this.request<{ voice_actors: WorkFacet[] }>(`/voice-actors${qs}`, { signal })
     return body.voice_actors
+  }
+
+  /** Both tag vocabularies under one library scope (docs/api.md `GET /tags`). */
+  listTagFacets(library?: string, signal?: AbortSignal): Promise<TagFacets> {
+    const qs = library ? `?library=${encodeURIComponent(library)}` : ''
+    return this.request(`/tags${qs}`, { signal })
   }
 
   // A partial personal-data update: only the fields present are applied, and

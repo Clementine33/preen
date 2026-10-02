@@ -101,6 +101,10 @@ async function mountWorks(
     listLibraries: vi.fn().mockResolvedValue([library(LIB_A, 'Archive', '/music'), library(LIB_B, 'Brazil', '/brazil')]),
     listWorks,
     listWorkFacets,
+    listTagFacets: vi.fn().mockResolvedValue({
+      source_tags: [{ id: 's-asmr', name: 'ASMR', work_count: 4 }],
+      user_tags: [{ id: 'u-asmr', name: 'ASMR', work_count: 1 }],
+    }),
   } as never)
   const router = routerFor()
   await router.push(initialPath)
@@ -201,6 +205,26 @@ describe('works page', () => {
     useLibraryUiStore().setActiveLibrary(LIB_B)
     await flushPromises()
     expect(router.currentRoute.value.query).toMatchObject({ library: LIB_B, rj: worksB[0].rj })
+  })
+
+  it('lists by the applied tags and drops them with the library', async () => {
+    const { wrapper, listWorks } = await mountWorks('/works', true)
+
+    await wrapper.get('.ti-trigger').trigger('click')
+    await flushPromises()
+    const chip = [...document.querySelectorAll<HTMLButtonElement>('.ti-chips .chip')][0]
+    chip.click()
+    await flushPromises()
+    ;[...document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')]
+      .find((button) => button.textContent === 'APPLY')!.click()
+    await flushPromises()
+    // One name is one group: both vocabularies' ids, either one matches.
+    expect(lastParams(listWorks)).toMatchObject({ tag: 's:s-asmr|u:u-asmr', tag_match: 'all' })
+
+    useLibraryUiStore().setActiveLibrary(LIB_B)
+    await flushPromises()
+    expect(lastParams(listWorks)).toMatchObject({ library: LIB_B })
+    expect(lastParams(listWorks)).not.toHaveProperty('tag')
   })
 
   it('resets the selection when switching libraries', async () => {

@@ -10,11 +10,17 @@ import { nextTick, onBeforeUnmount, onMounted, type Ref } from 'vue'
  * list changes while the menu lives (libraries load, a search narrows it).
  * Handled keys stop here, and the panel carries `data-own-keys`, so the wall's
  * keyboard never acts underneath an open menu.
+ *
+ * A virtualized list only has the rows in view in the DOM, so it passes `step`
+ * (move the focus by one option, by index) and `focusCurrent` (focus the
+ * selected option, scrolling it in first) instead of being read from the DOM.
  */
 export function usePopupMenu(options: {
   root: Ref<HTMLElement | null>
   trigger: Ref<HTMLElement | null>
   open: Ref<boolean>
+  step?: (delta: 1 | -1) => void
+  focusCurrent?: () => void
 }) {
   const { root, trigger, open } = options
 
@@ -29,6 +35,10 @@ export function usePopupMenu(options: {
       const search = root.value?.querySelector<HTMLInputElement>('input[type="search"]')
       if (search) {
         search.focus({ preventScroll: true })
+        return
+      }
+      if (options.focusCurrent) {
+        options.focusCurrent()
         return
       }
       const list = items()
@@ -51,6 +61,8 @@ export function usePopupMenu(options: {
     const up = event.key === 'ArrowUp' || (!inSearch && event.key === 'k')
     if (event.key === 'Escape') {
       close(true)
+    } else if ((down || up) && options.step) {
+      options.step(down ? 1 : -1)
     } else if (down) {
       list[Math.min(list.length - 1, at + 1)]?.focus({ preventScroll: true })
     } else if (up) {

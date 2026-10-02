@@ -1,0 +1,112 @@
+import { flushPromises, mount } from '@vue/test-utils'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { defineComponent, h, ref } from 'vue'
+import RailSelect, { type RailOption } from './RailSelect.vue'
+
+/**
+ * A history's voice actors and circles run to about a thousand, so the rail's
+ * list is virtualized: only the rows in view exist, and the keyboard still
+ * walks the whole list by index. jsdom has no layout and no scrolling, so the
+ * scroller reports the panel's size and `scrollTo` moves it the way a browser
+ * would, scroll event included.
+ */
+
+const descriptors = {
+  offsetHeight: Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetHeight')!,
+  offsetWidth: Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetWidth')!,
+}
+/** The stubs below live on HTMLElement; deleting them re-exposes Element's own. */
+const shadowed = ['scrollTop', 'scrollHeight', 'clientHeight'] as const
+const nativeScrollTo = HTMLElement.prototype.scrollTo
+beforeAll(() => {
+  const isList = (el: HTMLElement) => el.classList.contains('rs-list')
+  Object.defineProperties(HTMLElement.prototype, {
+    offsetHeight: { configurable: true, get(this: HTMLElement) { return isList(this) ? 320 : 0 } },
+    offsetWidth: { configurable: true, get(this: HTMLElement) { return isList(this) ? 280 : 0 } },
+    clientHeight: { configurable: true, get(this: HTMLElement) { return isList(this) ? 320 : 0 } },
+    // The virtualizer clamps a jump to scrollHeight - clientHeight.
+    scrollHeight: {
+      configurable: true,
+      get(this: HTMLElement) {
+        return isList(this) ? parseFloat((this.firstElementChild as HTMLElement | null)?.style.height ?? '0') : 0
+      },
+    },
+  })
+  // jsdom keeps scrollTop at 0, so the scroller remembers its own.
+  const tops = new WeakMap<HTMLElement, number>()
+  Object.defineProperty(HTMLElement.prototype, 'scrollTop', {
+    configurable: true,
+    get(this: HTMLElement) { return tops.get(this) ?? 0 },
+    set(this: HTMLElement, value: number) { tops.set(this, value) },
+  })
+  HTMLElement.prototype.scrollTo = function (this: HTMLElement, options?: ScrollToOptions | number) {
+    if (typeof options === 'object' && options.top !== undefined) this.scrollTop = options.top
+    this.dispatchEvent(new Event('scroll'))
+  } as typeof HTMLElement.prototype.scrollTo
+})
+afterAll(() => {
+  Object.defineProperties(HTMLElement.prototype, descriptors)
+  for (const name of shadowed) delete (HTMLElement.prototype as unknown as Record<string, unknown>)[name]
+  HTMLElement.prototype.scrollTo = nativeScrollTo
+})
+
+const OPTIONS: RailOption[] = [
+  { value: '', label: 'ALL' },
+  ...Array.from({ length: 1000 }, (_, i) => ({ value: `va-${i}`, label: `声優${String(i).padStart(4, '0')}`, count: 1 })),
+]
+
+async function mountSelect(initial = '', searchable = true) {
+  const value = ref(initial)
+  const wrapper = mount(
+    defineComponent(() => () =>
+      h(RailSelect, {
+        label: 'VOICE', options: OPTIONS, searchable, marksActive: true,
+        modelValue: value.value, 'onUpdate:modelValue': (next: string) => (value.value = next),
+      }),
+    ),
+    { attachTo: document.body.appendChild(document.createElement('div')) },
+  )
+  await flushPromises()
+  return { wrapper, value }
+}
+
+const frame = () => new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)))
+const focusedIndex = () => Number((document.activeElement as HTMLElement).dataset.index ?? -1)
+
+describe('RailSelect', () => {
+  it('draws only the rows in view of a thousand options', async () => {
+    const { wrapper } = await mountSelect()
+
+    const rows = wrapper.findAll('[role="option"]')
+    expect(rows.length).toBeGreaterThan(0)
+    expect(rows.length).toBeLessThan(30)
+    // Every row still says where it sits in the whole list.
+    expect(rows[1].attributes('aria-setsize')).toBe('1001')
+  })
+
+  it('walks past the drawn rows with the keyboard', async () => {
+    const { wrapper } = await mountSelect()
+    await wrapper.get('.rs-trigger').trigger('click')
+    await flushPromises()
+
+    // From the search box the first step lands on the first row.
+    const list = wrapper.get('.rs')
+    // Back to back, as a held key sends them: no step waits for the focus.
+    for (let i = 0; i < 40; i++) await list.trigger('keydown', { key: 'ArrowDown' })
+    await flushPromises()
+    for (let f = 0; f < 6; f++) await frame()
+    expect(focusedIndex()).toBe(39)
+    expect((document.activeElement as HTMLElement).textContent).toContain('声優0038')
+  })
+
+  it('opens on the selected option even when it lies far down the list', async () => {
+    // A list without a search box focuses its current option on open.
+    const { wrapper } = await mountSelect('va-700', false)
+    await wrapper.get('.rs-trigger').trigger('click')
+    await flushPromises()
+    for (let i = 0; i < 6; i++) await frame()
+
+    expect(focusedIndex()).toBe(701)
+    expect(document.activeElement?.getAttribute('aria-selected')).toBe('true')
+  })
+})

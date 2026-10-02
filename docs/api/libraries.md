@@ -1,0 +1,213 @@
+# Libraries, scans and file management
+
+[API reference](../api.md) · [Common conventions](common.md)
+
+## Endpoints
+
+| Method | Path | Auth | Status | Response |
+| --- | --- | --- | --- | --- |
+| GET | `/api/v1/libraries` | yes | 200 | `{"libraries":[{...}]}` |
+| POST | `/api/v1/libraries` | yes | 201 | library object |
+| GET | `/api/v1/libraries/:id` | yes | 200 | library object |
+| PATCH | `/api/v1/libraries/:id` | yes | 200 | library object |
+| DELETE | `/api/v1/libraries/:id` | yes | 204 | — |
+| POST | `/api/v1/libraries/:id/scans` | yes | 200 | SSE stream (see below) |
+| GET | `/api/v1/libraries/:id/dirs` | yes | 200 | `{"dirs":[{...}]}` |
+| GET | `/api/v1/libraries/:id/tree?dir=…` | yes | 200 | `{"tree":{...},"dir_id":…,"member_path":…}` (see below) |
+| POST | `/api/v1/libraries/:id/tree/refresh?dir=…` | yes | 200 | `{"tree":{...},"dir_id":…,"member_path":…,"refreshed":true}` |
+| POST | `/api/v1/libraries/:id/file-operations` | yes | 200 | per-item result (see below) |
+| GET | `/api/v1/libraries/:id/operations/:type/current` | yes | 200 | `{"workset":{...}\|null}` |
+| PUT | `/api/v1/libraries/:id/operations/:type/current` | yes | 201/200 | record + `skipped[]` (see [Processing records](worksets.md#creating-the-current-record)) |
+
+## Library object
+
+```json
+{
+  "id": "uuid",
+  "name": "Music",
+  "root_path": "/home/me/music",
+  "created_at": "2026-08-22T00:00:00Z",
+  "updated_at": "2026-08-22T00:00:00Z",
+  "last_scan_at": null,
+  "last_scan_status": "",
+  "last_scan_error": ""
+}
+```
+
+`POST /api/v1/libraries` body: `{"name":"...","root_path":"/abs/path"}`.
+`PATCH` applies only the fields present (`name`, `root_path`). Changing
+`root_path` clears the scanned inventory of the old root and the prior scan
+state; the library must be scanned again before anything is planned from it.
+A root change is rejected with `LIBRARY_HAS_WORKSETS` while the library still
+has a processing record: delete the library — its record goes with it — and
+re-create it at the new root.
+Both a root change and a deletion take the direct-file-management slot, so
+neither interleaves with file management (ADR 0002 §2).
+
+`DELETE /api/v1/libraries/:id` removes the library **together with its
+processing record**: the record's members, operation, draft, current plan and
+execution results go in the same transaction, so no orphaned record survives
+its library. Media files and the library-level `Delete/` recovery directory on
+disk are never touched. Deletion is blocked by active operation generation
+(`GENERATION_IN_PROGRESS`) and by an active execution session
+(`EXECUTION_IN_PROGRESS`).
+
+## Scan: POST + SSE
+
+`POST /api/v1/libraries/:id/scans` takes a JSON object body; an empty body is
+read as "no override", like `{}`. An optional `root_path` is retained for
+client compatibility but must resolve to the selected library's configured
+root; cross-library scan overrides are rejected with
+`ROOT_PATH_OUTSIDE_LIBRARY`. The response is
+`Content-Type: text/event-stream` and is cancelled automatically if the client
+disconnects.
+
+| Event | Data fields |
+| --- | --- |
+| `started` | `stage`, `message` |
+| `progress` | `stage`, `files_scanned`, `dirs_scanned` |
+| `completed` | `stage`, `scan_id`, `root_path`, `files_scanned` |
+| `error` | `stage`, `code`, `message` |
+| `cancelled` | `stage`, `message` |
+
+A successful scan always emits `started` then one or more `progress` then
+`completed` (`scan_id` is set). Failures end with `error`;
+client-initiated cancellation with `cancelled`. The scan writes the library's
+inventory — the only listing source: there is no separate derived folder table
+to rebuild, and a rescan cannot renumber anything the workbench navigates by.
+A `completed` scan state is recorded on the library.
+
+A scan is refused with `EXECUTION_IN_PROGRESS` (409) while any record of the
+library has a queued/running execution: an execution validates the inventory
+the scan would rewrite. It is also refused with `BUSY` (409) while direct file
+management holds the admission slot, and it takes the scanning side of that
+slot itself, so a file operation refuses a running scan in turn (ADR 0002 §2).
+
+## Directories and member trees
+
+`GET /api/v1/libraries/:id/dirs` lists **every** direct child directory of the
+library root, whether or not it holds audio, with that directory's subtree
+counts. The library-level recovery directory is not a member and is left out:
+
+```json
+{
+  "dirs": [
+    { "name": "albumA", "path": "/home/me/music/albumA", "rel_path": "albumA",
+      "dir_id": "4b7fa32eebf5b001bcf43b1976c1b163",
+      "audio_file_count": 4, "file_count": 7 }
+  ]
+}
+```
+
+`rel_path` is the data identity: it is stable across rescans, where a
+scan-scoped folder id is not, and it is what a record's scope and file
+management address. `dir_id` is the navigation identity a page address carries
+instead of the name (ADR 0003): the backend derives it from a fixed version
+marker, the library, the canonical identity of its root and the stored relative
+path (SHA-256, first 128 bits, lowercase hex). The same root and path keep the
+same value across rescans and restarts; renaming the directory, or changing the
+library root, makes the old value unknown. It is an identity, **not** a
+credential: the same auth and path checks apply to it as to any other route.
+
+`GET /api/v1/libraries/:id/tree?dir=<dir_id>` returns the stored tree of one
+member directory, and answers with the identity it resolved and the path that
+identity stands for, so a caller that only holds the identity learns both. The
+tree carries each node's `rel_path` (relative to the member root), which is what
+file management addresses:
+
+```json
+{
+  "dir_id": "4b7fa32eebf5b001bcf43b1976c1b163",
+  "member_path": "albumA",
+  "tree": {
+    "name": "albumA", "path": "/home/me/music/albumA", "rel_path": "", "type": "dir",
+    "children": [
+      { "name": "track1.flac", "path": "/home/me/music/albumA/track1.flac",
+        "rel_path": "track1.flac",
+        "type": "file", "size": 12345, "bitrate": 920000, "format": "flac" }
+    ]
+  }
+}
+```
+
+The identity is resolved against the library's scanned inventory — the direct
+child directories its listing shows, recovery directory excluded — and only the
+single match is then checked on disk. The refusals are distinct:
+
+| Condition | Answer |
+|---|---|
+| No `dir` parameter | 400 `DIR_ID_REQUIRED` |
+| Not 32 lowercase hex characters | 400 `DIR_ID_INVALID` |
+| No directory of this library has that identity | 404 `DIRECTORY_NOT_FOUND` |
+| More than one directory claims it | 409 `DIRECTORY_AMBIGUOUS` (never the first match) |
+| A direct child in the inventory that is gone from disk | 404 `MEMBER_MISSING` |
+| Names the recovery directory, or is a symlink | 400 `MEMBER_PATH_INVALID` / `MEMBER_IS_SYMLINK` |
+
+The retired `?folder=<rel_path>` parameter is not read: a request that carries
+it instead of `dir` is answered as a missing identity. A directory that no scan
+has recorded yet has no identity to address.
+
+`POST /api/v1/libraries/:id/tree/refresh?dir=<dir_id>` re-scans that one
+member directory and answers `{"tree": …, "dir_id": …, "member_path": …,
+"refreshed": true}`; the refreshed directory keeps its own row in the inventory,
+so it stays listed and stays addressable. It takes the
+scanning side of the admission slot (see above) and answers `BUSY` (409) while
+a file operation holds it. A failed refresh is `502` with the scan's code: the
+caller keeps the tree it already shows and marks it unrefreshed.
+
+## Direct file management
+
+`POST /api/v1/libraries/:id/file-operations` is the second, explicitly
+non-plan write path (ADR 0002 §1). It holds the direct-file-management slot
+for the whole request — including the inventory refresh that follows the
+writes — and is refused with `BUSY` (409) while any scan is running or any
+planning session or execution is queued or running.
+
+Body:
+
+```json
+{
+  "member_path": "albumA",
+  "operation": "rename",
+  "items": [ { "source": "track1.flac", "name": "track01.flac" } ]
+}
+```
+
+| Operation | Items |
+| --- | --- |
+| `rename` | one item; `name` is a plain name, never a path (`INVALID_NAME`) |
+| `move` | one item; `target_dir` is an existing directory of the same member (`INVALID_TARGET_DIR`, `MOVE_INTO_SELF`) |
+| `soft_delete` | one or more items, applied in order |
+
+Every path is validated independently of the request: absolute paths,
+traversal, a path that leaves the member, a path through a symlink and a
+symlink itself are refused (`PATH_INVALID`, `OUTSIDE_MEMBER`, `SYMLINK`), and
+the member root is never an item. A destination that exists is refused
+(`TARGET_EXISTS`) — a rename or move never overwrites, and the no-replace
+rename of the target platform is what enforces it. A batch stops at its first
+failure: the rest are reported as `not_attempted`, and nothing already done is
+undone. Selecting a directory and something inside it is one operation: the
+child is reported `skipped` with `COVERED_BY_PARENT`.
+
+Response (200):
+
+```json
+{
+  "operation": "soft_delete",
+  "member_path": "albumA",
+  "items": [
+    { "source": "track1.flac", "status": "ok", "recovered_path": "Delete/albumA/track1.flac" },
+    { "source": "cover.jpg", "status": "failed", "code": "TARGET_EXISTS", "message": "…" }
+  ],
+  "succeeded": 1, "failed": 1, "untouched": 0,
+  "refresh": { "ok": false, "code": "REFRESH_FAILED", "message": "files were modified, but refreshing the inventory failed: …" }
+}
+```
+
+`status` is `ok`, `failed`, `skipped` or `not_attempted`; a rename or move
+reports where the item landed as `target` (member-relative). A soft delete keeps
+the item's path relative to the library root under `<library root>/Delete/` and
+never overwrites media recycled earlier (a collision becomes `<stem>.N<ext>`);
+`recovered_path` is that location, for the user to restore from with their own
+file manager. A refresh failure is reported beside the item results and never
+replaces them: the files were modified, and both facts are stated.

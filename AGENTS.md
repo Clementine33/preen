@@ -56,7 +56,7 @@ Five canonical labels, each label string equal to its name: needs-triage, needs-
 
 ### Domain docs
 
-Single-context: [CONTEXT.md](CONTEXT.md) defines domain language, `docs/adr/` holds the architecture records, and [docs/api.md](docs/api.md) describes HTTP/SSE contracts. `docs/` contains only ADRs and the API reference — a task-control spec is not a repository artifact.
+Single-context: [CONTEXT.md](CONTEXT.md) defines domain language, `docs/adr/` holds the architecture records, and [docs/api.md](docs/api.md) indexes the HTTP/SSE contracts in `docs/api/`; read the relevant contract and [common conventions](docs/api/common.md) when changing an API. `docs/` contains only ADRs and the API reference — a task-control spec is not a repository artifact.
 
 The record set and each record's status live in [docs/adr/0000-index.md](docs/adr/0000-index.md).
 
@@ -66,5 +66,5 @@ The record set and each record's status live in [docs/adr/0000-index.md](docs/ad
 - **Before the branch merges, every ADR is a Draft.** A Draft records intent and reasoning, not system facts. Only a decision on the mainline is `Accepted`, so a reader can always tell a proposal from a commitment.
 - **Keep published ADRs historical.** Add a compatible decision in a new Draft ADR and cite the earlier record there; do not edit an Accepted or Superseded ADR. Only a conflicting decision permits a narrow edit to the older record. If it replaces that record's decision, mark the old record `Superseded`, point to the replacement ADR, and update 0000 in the same commit.
 - **Distil drafts; do not chain drafts.** Refactors and fixes before merge converge in the affected Draft ADR: rewrite that draft and fold overturned reasons into its "Rejected alternatives".
-- **Cite the record, not the task.** Source comments cite `ADR NNNN §n` or `docs/api.md`; a task-control spec is not a repository artifact and is never cited from the tree.
+- **Cite the record, not the task.** Source comments cite `ADR NNNN §n` or the relevant `docs/api/*.md` contract; a task-control spec is not a repository artifact and is never cited from the tree.
 - **0000 is the index, not a decision.** It lists the records and mirrors their statuses, carries no `Status` line of its own, and is updated in the same commit that changes a record's status.

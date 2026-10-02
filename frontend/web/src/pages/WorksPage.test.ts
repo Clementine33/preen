@@ -1,5 +1,5 @@
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 import { createPinia } from 'pinia'
 import { apiClientKey } from '@/lib/api/client'
@@ -143,6 +143,20 @@ async function pick(wrapper: VueWrapper, label: string, option: string): Promise
   await item.trigger('click')
   await flushPromises()
 }
+
+// jsdom has no layout: the rail's virtualized option lists measure their
+// scroller through offsetWidth/offsetHeight, so those report the panel's size.
+const offsetHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetHeight')!
+const offsetWidth = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetWidth')!
+beforeAll(() => {
+  Object.defineProperties(HTMLElement.prototype, {
+    offsetHeight: { configurable: true, get(this: HTMLElement) { return this.classList.contains('rs-list') ? 320 : 0 } },
+    offsetWidth: { configurable: true, get(this: HTMLElement) { return this.classList.contains('rs-list') ? 280 : 0 } },
+  })
+})
+afterAll(() => {
+  Object.defineProperties(HTMLElement.prototype, { offsetHeight, offsetWidth })
+})
 
 beforeEach(() => {
   localStorage.clear()

@@ -1,11 +1,16 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
+import { useVirtualizer } from '@tanstack/vue-virtual'
 import { usePopupMenu } from './use-popup-menu'
 
 // One select of the filter rail (ADR 0012 §4): a rail tab that unfolds the
 // library switcher's specimen panel. A tab with a value set reads inverted, the
 // way a pressed tab does; long lists (voice actors, circles) carry a search box
 // that narrows the options by name.
+//
+// A history can hold about a thousand voice actors or circles, so the list is
+// virtualized: only the rows in view exist, closed or open, and the keyboard
+// moves by index rather than through the DOM.
 
 export interface RailOption {
   /** '' is the "no constraint" entry every select opens with. */
@@ -27,7 +32,7 @@ const model = defineModel<string>({ required: true })
 const open = ref(false)
 const root = ref<HTMLElement | null>(null)
 const trigger = ref<HTMLButtonElement | null>(null)
-const menu = usePopupMenu({ root, trigger, open })
+const listEl = ref<HTMLElement | null>(null)
 
 const search = ref('')
 watch(open, (value) => {
@@ -38,6 +43,71 @@ const shown = computed(() => {
   if (needle === '') return props.options
   // The empty entry stays reachable while narrowing: clearing is one step.
   return props.options.filter((option) => option.value === '' || option.label.toLowerCase().includes(needle))
+})
+
+/** One row: 32px including its rule, the height `.rs-item` draws. */
+const ROW = 32
+const LIST_MAX = 320
+const virtualizer = useVirtualizer(
+  computed(() => ({
+    count: shown.value.length,
+    getScrollElement: () => listEl.value,
+    estimateSize: () => ROW,
+    overscan: 6,
+    // The panel is laid out while hidden, but jsdom has no layout at all.
+    initialRect: { width: 280, height: LIST_MAX },
+  })),
+)
+const virtualRows = computed(() => virtualizer.value.getVirtualItems())
+const listHeight = computed(() => `${Math.min(LIST_MAX, shown.value.length * ROW)}px`)
+// A narrower list starts from its top, not from wherever the last one was.
+watch(search, () => virtualizer.value.scrollToOffset(0))
+// Opening shows the current value in place, even when the search box takes
+// the focus: in a thousand rows it would otherwise sit far out of view.
+watch(open, (value) => {
+  const index = shown.value.findIndex((option) => option.value === model.value)
+  if (value && index > 0) virtualizer.value.scrollToIndex(index, { align: 'center' })
+})
+
+/**
+ * Scroll one option into view, then focus it once its row exists: the
+ * virtualizer settles a jump over the next frames, so the row may not be drawn
+ * on the tick after the scroll.
+ */
+function focusRow(index: number): void {
+  if (index < 0 || index >= shown.value.length) return
+  virtualizer.value.scrollToIndex(index)
+  let frames = 0
+  const attempt = () => {
+    const row = listEl.value?.querySelector<HTMLElement>(`[data-index="${index}"]`)
+    if (row) row.focus({ preventScroll: true })
+    else if (open.value && frames++ < 5) requestAnimationFrame(attempt)
+  }
+  void nextTick(attempt)
+}
+
+// The row the keyboard is on. It moves the moment a key arrives, not when the
+// focus lands a frame later: a held arrow key would otherwise re-read a row it
+// already left. A row focused any other way (pointer, Tab) resets it, and so
+// does the search box (-1: the next step lands on row 0).
+let cursor = -1
+function onListFocus(event: FocusEvent): void {
+  const index = (event.target as HTMLElement).dataset.index
+  cursor = index === undefined ? -1 : Number(index)
+}
+
+const menu = usePopupMenu({
+  root,
+  trigger,
+  open,
+  step: (delta) => {
+    cursor = Math.min(shown.value.length - 1, Math.max(0, cursor + delta))
+    focusRow(cursor)
+  },
+  focusCurrent: () => {
+    cursor = Math.max(0, shown.value.findIndex((option) => option.value === model.value))
+    focusRow(cursor)
+  },
 })
 
 const current = computed(() => props.options.find((option) => option.value === model.value) ?? null)
@@ -52,7 +122,8 @@ const chevron = 'M0 2.5h10L5 8z'
 </script>
 
 <template>
-  <div ref="root" class="rs" :class="{ open, active }" @keydown="menu.onKeydown" @focusout="menu.onFocusOut">
+  <div ref="root" class="rs" :class="{ open, active }" @keydown="menu.onKeydown" @focusout="menu.onFocusOut"
+    @focusin="onListFocus">
     <button ref="trigger" class="rs-trigger" type="button" aria-haspopup="listbox" :aria-expanded="open"
       @click="menu.setOpen(!open)">
       <span class="lbl rs-lbl">{{ label }}</span>
@@ -68,16 +139,20 @@ const chevron = 'M0 2.5h10L5 8z'
         <span class="lbl">FIND</span>
         <input v-model="search" type="search" :aria-label="`Find ${label.toLowerCase()}`" />
       </label>
-      <div class="rs-list" role="listbox" :aria-label="label">
-        <button v-for="(option, i) in shown" :key="option.value" class="rs-item" type="button" role="option"
-          :aria-selected="option.value === model" :style="{ '--d': `${Math.min(i, 8) * 24 + 30}ms` }"
-          @click="choose(option.value)">
-          <span class="rs-mark"></span>
-          <span class="rs-name">{{ option.label }}</span>
-          <span v-if="option.count !== undefined" class="lbl rs-count">{{ option.count }}</span>
-        </button>
-        <p v-if="shown.length === 0" class="rs-empty lbl">NO MATCH</p>
+      <div ref="listEl" class="rs-list" role="listbox" :aria-label="label" :style="{ height: listHeight }">
+        <div class="rs-rows" :style="{ height: `${virtualizer.getTotalSize()}px` }">
+          <button v-for="row in virtualRows" :key="shown[row.index].value" class="rs-item" type="button"
+            role="option" :data-index="row.index" :aria-selected="shown[row.index].value === model"
+            :aria-setsize="shown.length" :aria-posinset="row.index + 1"
+            :style="{ top: `${row.start}px`, '--d': `${Math.min(row.index, 8) * 24 + 30}ms` }"
+            @click="choose(shown[row.index].value)">
+            <span class="rs-mark"></span>
+            <span class="rs-name">{{ shown[row.index].label }}</span>
+            <span v-if="shown[row.index].count !== undefined" class="lbl rs-count">{{ shown[row.index].count }}</span>
+          </button>
+        </div>
       </div>
+      <p v-if="shown.length === 0" class="rs-empty lbl">NO MATCH</p>
     </div>
   </div>
 </template>
@@ -135,9 +210,12 @@ const chevron = 'M0 2.5h10L5 8z'
 }
 .rs-search input:focus { border-color: var(--wire-strong); outline: none; }
 
-.rs-list { max-height: 320px; overflow-y: auto; padding: 0 var(--sp-2) var(--sp-2); }
+.rs-list { overflow-y: auto; margin: 0 var(--sp-2) var(--sp-2); }
+/* Rows sit at their virtual offset; `top`, not a transform, because the
+   entrance animation already owns the row's transform. */
+.rs-rows { position: relative; }
 .rs-item {
-  position: relative; isolation: isolate; width: 100%;
+  position: absolute; left: 0; isolation: isolate; width: 100%;
   display: grid; grid-template-columns: 14px 1fr auto; align-items: center; gap: var(--sp-2);
   height: 32px; padding: 0 var(--sp-2) 0 var(--sp-1); text-align: left;
   color: var(--fg-base); border-bottom: 1px solid var(--wire-fine);

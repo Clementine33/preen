@@ -32,6 +32,9 @@ const circle = ref('')
 const age = ref('')
 const sort = ref<WorksSort>('release_date')
 
+// The address's library wins over the store's: a reload starts the store empty,
+// and an id that no longer exists is replaced by reconcileLibraries.
+if (typeof route.query.library === 'string') libraryUi.setActiveLibrary(route.query.library)
 const libraryScope = computed(() => libraryUi.activeLibraryId)
 const { facets: voiceActorFacets } = useWorkFacets('voice_actor', libraryScope)
 const { facets: circleFacets } = useWorkFacets('circle', libraryScope)
@@ -149,11 +152,13 @@ watch(works, (list) => {
   selectedRj.value = list.length > 0 ? list[0].rj : null
 })
 
-watch(selectedRj, (rj) => {
+// One writer for both identities: two replaces in one tick would each spread
+// the not-yet-updated query and drop the other's value.
+watch([libraryScope, selectedRj], ([library, rj]) => {
   // Replace, not push: inspecting a neighbouring work is one state, not a
   // page in history.
-  router.replace({ query: { ...route.query, rj: rj ?? undefined } })
-})
+  router.replace({ query: { ...route.query, library: library ?? undefined, rj: rj ?? undefined } })
+}, { immediate: true })
 
 // ── Keyboard: the wall's dispatch, with the same guards as the prototype. ──
 const wall = ref<InstanceType<typeof WorkWall> | null>(null)

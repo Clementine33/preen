@@ -27,6 +27,9 @@ const OPEN_VALUE: Record<string, RegExp> = {
   // The selected work of the wall: a work number in either spelling the API
   // accepts (6 or 8 digits, any case); 7 digits is no work number (docs/api.md).
   rj: /^RJ(\d{6}|\d{8})$/i,
+  // The wall's media library: a library id, so a reload keeps the library
+  // instead of falling back to the first one.
+  library: /^[\w-]{1,64}$/,
 }
 
 /**
@@ -58,7 +61,7 @@ const CONVERSION_SUBTREE = [
 const ALLOWED_PARAMS: Record<string, readonly string[]> = {
   ...Object.fromEntries(CONVERSION_SUBTREE.map((name) => [name, ['filter']])),
   'conversion-member-files': ['filter', 'view'],
-  works: ['rj'],
+  works: ['rj', 'library'],
 }
 
 /** The filter an address asks for, or the unfiltered list. */

@@ -3,7 +3,8 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { REDUCED_MOTION_QUERY, useMediaQuery } from '@/composables/use-media-query'
 import type { WorkDetail } from '@/lib/api/types'
-import { useWorkDetail } from '@/queries/works'
+import { deriveTracks, fmtLong, fmtT } from '@/features/work-detail/derive'
+import { useWorkContent, useWorkDetail } from '@/queries/works'
 import { usePlayerStore } from '@/stores/player'
 
 // The inspector: the detail of the selected work, rendered to fit 1440x900
@@ -25,7 +26,9 @@ const { work } = useWorkDetail(() => props.rj)
 const workNow = computed(() => (work.value && props.rj !== null && work.value.rj === props.rj ? work.value : null))
 
 // ── Deferred body: cover + SPEC + TRACKLIST swap after a 70ms pause. ──
-const deferredWork = ref<WorkDetail | null>(null)
+// Seeded from the cache: a remount (the wall leaving and re-entering the
+// desktop layout) finds the work already loaded, and no change would fill it.
+const deferredWork = ref<WorkDetail | null>(workNow.value)
 const dim = ref(false)
 let detailTimer: number | null = null
 const reducedMotion = useMediaQuery(REDUCED_MOTION_QUERY)
@@ -103,9 +106,11 @@ function scramble(text: string) {
 const coverBack = ref<HTMLElement | null>(null)
 const coverFront = ref<HTMLElement | null>(null)
 let shownCover: string | null = null
+// The plates are watched too: a body filled during setup is painted once
+// they mount.
 watch(
-  () => (deferredWork.value ? deferredWork.value.cover_url ?? deferredWork.value.thumbnail_url : null),
-  (url) => {
+  () => [deferredWork.value ? deferredWork.value.cover_url ?? deferredWork.value.thumbnail_url : null, coverFront.value] as const,
+  ([url]) => {
     if (url === shownCover || !coverBack.value || !coverFront.value) return
     if (reducedMotion.value) {
       // No wipe, but the cover still has to be painted.
@@ -140,6 +145,28 @@ const voice = computed(() =>
     : '—',
 )
 
+const tags = computed(() =>
+  deferredWork.value && deferredWork.value.source_tags.length > 0
+    ? deferredWork.value.source_tags.map((tag) => tag.name).join(' / ')
+    : '—',
+)
+
+// ── Tracklist: the detail page's track list (deriveTracks over the first
+// online copy), read-only here. The manifest follows the deferred work, so
+// cruising the wall fetches only the works it settles on. The list takes the
+// height the 1440x900 frame leaves and scrolls inside it. ──
+const { content, query: contentQuery } = useWorkContent(() => deferredWork.value?.rj ?? null)
+const tracks = computed(() => {
+  const copies = content.value?.copies ?? []
+  const tree = (copies.find((copy) => copy.online) ?? copies[0])?.tree
+  return tree ? deriveTracks(tree) : []
+})
+const tracksSummary = computed(() => {
+  if (tracks.value.length === 0) return '—'
+  const total = tracks.value.reduce((sum, track) => sum + (track.duration ?? 0), 0)
+  return total > 0 ? `${tracks.value.length} · ${fmtLong(total)}` : String(tracks.value.length)
+})
+
 // PLAY needs the loaded work: it plays what the inspector shows, by name.
 const canPlay = computed(() => workNow.value !== null)
 function playNowPlaying() {
@@ -164,8 +191,8 @@ const playIcon = 'M1 0l9 5-9 5z'
       <div class="plate-frame">
         <div ref="coverBack" class="cover back"></div>
         <div ref="coverFront" class="cover front hatch"></div>
+        <i class="tick tl"></i><i class="tick tr"></i><i class="tick bl"></i><i class="tick br"></i>
       </div>
-      <i class="tick tl"></i><i class="tick tr"></i><i class="tick bl"></i><i class="tick br"></i>
     </div>
 
     <span class="insp-circle lbl">CIRCLE<b>{{ workNow?.circle ?? '—' }}</b></span>
@@ -175,16 +202,20 @@ const playIcon = 'M1 0l9 5-9 5z'
     <dl class="spec" :class="{ dim }">
       <div class="spec-row"><dt class="lbl">VOICE</dt><dd>{{ voice }}</dd></div>
       <div class="spec-row"><dt class="lbl">RELEASE</dt><dd>{{ dottedDate(deferredWork?.release_date ?? null) }}</dd></div>
-      <div class="spec-row"><dt class="lbl">FORMAT</dt><dd>—</dd></div>
-      <div class="spec-row"><dt class="lbl">SIZE</dt><dd>—</dd></div>
+      <div class="spec-row"><dt class="lbl">TAG</dt><dd class="clamp" :title="tags">{{ tags }}</dd></div>
     </dl>
 
     <div class="strip">
       <span class="strip-name lbl">TRACKLIST</span>
-      <span class="lbl">—</span>
+      <span class="lbl">{{ tracksSummary }}</span>
     </div>
-    <div class="tracks" :class="{ dim }">
-      <p class="no-tracks lbl">NO TRACK DATA</p>
+    <div class="tracks" :class="{ dim }" lang="ja">
+      <div v-for="(track, t) in tracks" :key="track.stem" class="trk">
+        <span class="no lbl">{{ String(t + 1).padStart(2, '0') }}</span>
+        <span class="nm">{{ track.stem }}</span>
+        <span class="dur">{{ track.duration === null ? '—' : fmtT(track.duration) }}</span>
+      </div>
+      <p v-if="tracks.length === 0 && !contentQuery.isPending.value" class="no-tracks lbl">NO TRACK DATA</p>
     </div>
 
     <div class="insp-foot">
@@ -208,14 +239,19 @@ const playIcon = 'M1 0l9 5-9 5z'
   overflow-y: auto; min-height: 0;
   display: flex; flex-direction: column;
   padding: var(--sp-5) var(--sp-6) var(--sp-5);
+  container-type: inline-size;
 }
 
 /* The specimen plate: a 4:3 cover never scaled above its native 560px. */
 .plate {
   position: relative; width: 100%; max-width: var(--cover-native);
-  margin: var(--sp-4) 0 var(--sp-3);
+  margin: var(--sp-4) auto var(--sp-3);
 }
-.plate-frame { position: relative; width: 100%; aspect-ratio: var(--cover-ratio); }
+/* On a short screen the plate is what gives way: it starts at its full-width
+   4:3 height (0.75 = 1 / --cover-ratio) and shrinks until the rest fits, and
+   the frame keeps 4:3 by narrowing, centred in the column. */
+.insp > .plate { flex: 0 1 calc(min(100cqi, var(--cover-native)) * 0.75); min-height: 160px; }
+.plate-frame { position: relative; height: 100%; max-width: 100%; aspect-ratio: var(--cover-ratio); margin: 0 auto; }
 .cover {
   position: absolute; inset: 0; overflow: hidden;
   background-size: cover; background-position: center;
@@ -240,22 +276,31 @@ const playIcon = 'M1 0l9 5-9 5z'
   letter-spacing: 0; min-height: var(--lh-l);
 }
 
-.spec {
-  display: grid; grid-template-columns: 1fr 1fr; column-gap: var(--sp-5);
-  margin: var(--sp-1) 0 var(--sp-4);
-}
+.spec { margin: var(--sp-1) 0 var(--sp-4); }
+/* One field per row: a fixed label column, and the value wraps rather than
+   widening the panel — a cast or tag list is as long as the work says. */
 .spec-row {
-  display: flex; justify-content: space-between; align-items: baseline; gap: var(--sp-2);
-  height: 28px; padding-top: 8px; border-bottom: 1px solid var(--wire-fine);
+  display: grid; grid-template-columns: 64px minmax(0, 1fr); align-items: baseline; gap: var(--sp-2);
+  min-height: 28px; padding: 8px 0 6px; border-bottom: 1px solid var(--wire-fine);
 }
-.spec-row dd {
-  font-size: var(--fs-s); line-height: var(--lh-s); font-weight: 500;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
+.spec-row dd { font-size: var(--fs-s); line-height: var(--lh-s); font-weight: 500; overflow-wrap: anywhere; }
+/* A tag list is open-ended: two lines, the rest on hover. */
+.spec-row dd.clamp { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
 .spec, .tracks { transition: opacity 80ms linear; }
 .dim { opacity: .3; }
 
-.tracks { margin-top: var(--sp-2); }
+.insp > * { flex-shrink: 0; }
+.tracks {
+  margin-top: var(--sp-2); font-family: var(--font-ja);
+  flex: 1 1 0; min-height: 84px; overflow-y: auto;
+}
+.trk {
+  display: grid; grid-template-columns: 24px minmax(0, 1fr) 44px; align-items: center; gap: var(--sp-3);
+  height: 28px; padding: 0 var(--sp-2); border-bottom: 1px solid var(--wire-fine);
+}
+.trk .lbl { letter-spacing: .04em; }
+.trk .nm { font-size: var(--fs-s); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.trk .dur { text-align: right; font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--fg-muted); }
 .no-tracks {
   display: flex; align-items: center; height: 28px;
   padding: 0 var(--sp-2); border-bottom: 1px solid var(--wire-fine);

@@ -1,10 +1,10 @@
 import { defineStore } from 'pinia'
 
 /**
- * The bottom baseline's player. A work played from the detail page plays its
- * real file: an audio element loading the content route by address (ADR 0016
- * §3, single-range 206 for seeking). A work played from the wall has no
- * manifest to play from, so it runs the silent state machine (ADR 0012 §4): a
+ * The bottom baseline's player. A work plays as a queue of its tracks: each
+ * real file through an audio element loading the content route by address
+ * (ADR 0016 §3, single-range 206 for seeking); the end of one starts the next.
+ * A work with no audio file runs the silent state machine (ADR 0012 §4): a
  * real elapsed clock, an unknown total, no fabricated waveform.
  *
  * Playback is fully decoupled from the wall's selection, and from the page:
@@ -19,6 +19,12 @@ export interface PlaySource {
   durationSec: number | null
   /** Container label for the baseline: 'MP3' | 'WAV' | … */
   format: string | null
+}
+
+/** One entry of the playing work's queue; without a source it plays silently. */
+export interface QueueItem {
+  title: string
+  source?: PlaySource
 }
 
 /** The 1s silent clock and the playing element: handles owned by the store, not state. */
@@ -37,17 +43,33 @@ export const usePlayerStore = defineStore('player', {
     /** Seconds the track lasts; null while unknown (always, when silent). */
     duration: null as number | null,
     format: null as string | null,
+    /** The playing work's tracks, in order; prev/next and the end step through it. */
+    queue: [] as QueueItem[],
   }),
+  getters: {
+    hasPrev: (state) => state.rj !== null && state.trackIndex > 0,
+    hasNext: (state) => state.rj !== null && state.trackIndex < state.queue.length - 1,
+  },
   actions: {
     /**
-     * Start a work. With a source the file plays; without one the silent clock
-     * runs. Called synchronously from the click, so the browser treats the
-     * element's play() as user-initiated.
+     * Start a work at one of its tracks. Called synchronously from the click,
+     * so the browser treats the element's play() as user-initiated.
      */
-    play(work: { rj: string; title: string }, track = 0, source?: PlaySource) {
-      this.rj = work.rj
-      this.title = work.title
-      this.trackIndex = track
+    play(rj: string, queue: QueueItem[], index = 0) {
+      this.rj = rj
+      this.queue = queue
+      this.start(index)
+    },
+    /** Prev / next within the queue; past either end nothing changes. */
+    step(delta: number) {
+      const index = this.trackIndex + delta
+      if (this.rj !== null && index >= 0 && index < this.queue.length) this.start(index)
+    },
+    /** With a source the file plays; without one the silent clock runs. */
+    start(index: number) {
+      const source = this.queue[index]?.source
+      this.title = this.queue[index]?.title ?? ''
+      this.trackIndex = index
       this.elapsed = 0
       this.paused = false
       this.stopClock()
@@ -88,7 +110,12 @@ export const usePlayerStore = defineStore('player', {
       el.addEventListener('play', () => {
         if (current()) this.paused = false
       })
-      for (const stop of ['pause', 'ended', 'error']) {
+      el.addEventListener('ended', () => {
+        if (!current()) return
+        if (this.hasNext) this.step(1)
+        else this.paused = true
+      })
+      for (const stop of ['pause', 'error']) {
         el.addEventListener(stop, () => {
           if (current()) this.paused = true
         })

@@ -6,6 +6,7 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 import { apiClientKey } from '@/lib/api/client'
 import type { WorkDetail } from '@/lib/api/types'
 import { apiStub } from '@/test/api-stub'
+import { usePlayerStore } from '@/stores/player'
 import { installTestQueryPlugin } from '@/test/query-client'
 import WorkInspector from './WorkInspector.vue'
 
@@ -158,6 +159,14 @@ describe('WorkInspector', () => {
     expect(rows).toEqual(['0101' + '01:30', '0202' + '—'])
     expect(wrapper.text()).toContain('2 · 01:30')
     expect(wrapper.text()).not.toContain('NO TRACK DATA')
+
+    // A row plays the work from that track, in its first format, and is marked.
+    await wrapper.findAll('.trk')[1].trigger('click')
+    const player = usePlayerStore()
+    expect(player.rj).toBe(FIRST)
+    expect(player.trackIndex).toBe(1)
+    expect(player.queue.map((item) => item.source?.src)).toEqual(['/files/01.mp3', '/files/02.mp3'])
+    expect(wrapper.findAll('.trk').map((row) => row.classes('now'))).toEqual([false, true])
   })
   it('fills a remounted inspector from the cached work', async () => {
     const getWork = vi.fn((rj: string) => Promise.resolve(detail(rj, '沢城みゆき')))

@@ -5,6 +5,7 @@ import {
   imageSets,
   lrcFilesOf,
   trackFormats,
+  trackQueue,
   type ImageSet,
   type Track,
 } from '@/features/work-detail/derive'
@@ -216,26 +217,29 @@ export const useWorkDetailStore = defineStore('work-detail', {
 
     /**
      * Play a track: followTrack picks the leaf, the file plays in the browsed
-     * format or, when the track misses it, in its first one (v3's onlyIn).
+     * format or, when the track misses it, in its first one (v3's onlyIn). The
+     * player gets the whole list in that format, so it can step on.
      */
     startTrack(track: number, fmt?: string) {
       const entry = this.tracks[track]
       if (!entry) return
-      this.track = track
       this.playFmt = fmt ?? (entry.files[this.fmt] ? this.fmt : entry.formats[0]) ?? null
+      this.followTrack(track)
+      if (this.rj === null) return
+      const rj = this.rj
+      const copy = this.activeCopy
+      const resolve = fileUrl
+      const src = copy && resolve
+        ? (file: WorkContentFile) => resolve({ rj, copyId: copy.copy_id, relPath: file.rel_path })
+        : undefined
+      usePlayerStore().play(rj, trackQueue(this.tracks, this.playFmt ?? '', src), track)
+    },
+
+    /** The page is on a track the player moved to (it ended, or prev/next). */
+    followTrack(track: number) {
+      this.track = track
       // A script being read is never interrupted; lyrics swap; else the colophon.
       if (this.leaf !== 'script') this.leaf = this.lrcFor(track) ? 'lrc' : 'colophon'
-      if (this.rj === null) return
-      const file = this.playFmt ? entry.files[this.playFmt] : undefined
-      const copy = this.activeCopy
-      const source = file && copy && fileUrl
-        ? {
-            src: fileUrl({ rj: this.rj, copyId: copy.copy_id, relPath: file.rel_path }),
-            durationSec: file.duration_sec,
-            format: file.format,
-          }
-        : undefined
-      usePlayerStore().play({ rj: this.rj, title: entry.stem }, track, source)
     },
 
     /** A directory row navigates the browser. */

@@ -125,6 +125,18 @@ describe('work detail page', () => {
     expect(player.paused).toBe(false) // the note keeps its keys
     wrapper.unmount()
   })
+  it('follows the player onto the next track', async () => {
+    await mountPage()
+    const store = useWorkDetailStore()
+    store.startTrack(0) // 01 has no lyrics
+    expect(store.leaf).toBe('colophon')
+
+    usePlayerStore().step(1) // the end of 01, or NEXT on the baseline
+    await flushPromises()
+    expect(store.track).toBe(1)
+    expect(store.leaf).toBe('lrc') // 02 has the automatic pairing
+  })
+
   it('binds cached works on entry and preserves reading, pairing and playback on refetch', async () => {
     const client = createTestQueryClient()
     const cached = structuredClone(sampleWorkContent(RJ))

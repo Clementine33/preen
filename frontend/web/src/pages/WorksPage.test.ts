@@ -105,6 +105,17 @@ async function mountWorks(
       source_tags: [{ id: 's-asmr', name: 'ASMR', work_count: 4 }],
       user_tags: [{ id: 'u-asmr', name: 'ASMR', work_count: 1 }],
     }),
+    // Every work ships two tracks, so P has a real queue to play.
+    getWorkContent: vi.fn(async (rj: string) => ({
+      rj,
+      copies: [{
+        copy_id: 'c', library_id: LIB_A, dir_id: 'd', online: true,
+        tree: { name: '', rel_path: '', children: ['01.mp3', '02.mp3'].map((name) => ({
+          name, rel_path: name, kind: 'aud', size: 1, format: 'MP3', bitrate: null,
+          width: null, height: null, duration_sec: 120, thumb_v: null,
+        })) },
+      }],
+    })),
   } as never)
   const router = routerFor()
   await router.push(initialPath)
@@ -329,6 +340,9 @@ describe('works page', () => {
     const player = usePlayerStore()
     expect(player.rj).toBe(A1)
     expect(player.paused).toBe(false)
+    // The work's first track, by its address, with the rest queued behind it.
+    expect(player.queue.map((item) => item.source?.src)).toEqual(['/files/01.mp3', '/files/02.mp3'])
+    expect(player.trackIndex).toBe(0)
 
     press('j') // browse away from the playing work
     await flushPromises()
@@ -339,6 +353,25 @@ describe('works page', () => {
     await flushPromises()
     expect(player.paused).toBe(true)
     expect(player.rj).toBe(A1) // pausing never changes the work either
+  })
+
+  it('steps and seeks the playing track from the baseline', async () => {
+    const { wrapper } = await mountWorks(`/works?rj=${A1}`)
+    press('p')
+    await flushPromises()
+    const player = usePlayerStore()
+    const prev = wrapper.get('[aria-label="Previous track"]')
+    const next = wrapper.get('[aria-label="Next track"]')
+    expect([prev.attributes('disabled'), next.attributes('disabled')]).toEqual(['', undefined])
+
+    await next.trigger('click')
+    expect(player.trackIndex).toBe(1)
+    expect(player.title).toBe('02')
+    expect(next.attributes('disabled')).toBe('')
+
+    const seek = wrapper.get<HTMLInputElement>('input[aria-label="Seek"]')
+    await seek.setValue('42')
+    expect(player.elapsed).toBe(42)
   })
 
   it('opens the detail page with Enter', async () => {

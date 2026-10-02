@@ -6,7 +6,8 @@ import { usePlayerStore } from '@/stores/player'
 // and the second double-bar edge of the page. A real track fills the laser to
 // its position and shows its length and format; a silent play (from the wall,
 // with no file behind it) leaves the laser at its origin and both as
-// em-dashes. Prev/next render disabled: there is no queue to step through.
+// em-dashes. Prev/next step through the work's track queue, and the laser's
+// line is a seek slider while the track's length is known.
 
 const player = usePlayerStore()
 
@@ -26,6 +27,11 @@ const progress = computed(() =>
   active.value && player.duration ? `${Math.min(100, (player.elapsed / player.duration) * 100)}%` : '0%',
 )
 
+const seekable = computed(() => active.value && player.duration !== null)
+function onSeek(event: Event): void {
+  player.seek(Number((event.target as HTMLInputElement).value))
+}
+
 const PREV_ICON = 'M10 0L3 5l7 5zM0 0h2v10H0z'
 const NEXT_ICON = 'M0 0l7 5-7 5zM8 0h2v10H8z'
 const PLAY_ICON = 'M1 0l9 5-9 5z'
@@ -35,6 +41,8 @@ const PAUSE_ICON = 'M1 0h3v10H1zM6 0h3v10H6z'
 <template>
   <footer class="baseline substrate-panel" :class="{ paused: player.paused || !active }">
     <i class="bl-laser" :style="{ width: progress }" aria-hidden="true"></i>
+    <input class="bl-seek" type="range" aria-label="Seek" min="0" step="any"
+      :max="player.duration ?? 0" :value="player.elapsed" :disabled="!seekable" @input="onSeek" />
     <div class="bl-left">
       <span class="bl-dot"></span>
       <span class="bl-rj">{{ player.rj ?? '' }}</span>
@@ -44,7 +52,7 @@ const PAUSE_ICON = 'M1 0h3v10H1zM6 0h3v10H6z'
       <span class="t pos">{{ elapsed }}</span>
       <div class="bl-ctrls">
         <button class="btn btn-icon" type="button" aria-label="Previous track" title="Previous track"
-          :disabled="!active">
+          :disabled="!player.hasPrev" @click="player.step(-1)">
           <svg viewBox="0 0 10 10" aria-hidden="true"><path :d="PREV_ICON" /></svg>
         </button>
         <button class="btn btn-icon btn-main" type="button"
@@ -54,7 +62,8 @@ const PAUSE_ICON = 'M1 0h3v10H1zM6 0h3v10H6z'
             <path :d="player.paused ? PLAY_ICON : PAUSE_ICON" />
           </svg>
         </button>
-        <button class="btn btn-icon" type="button" aria-label="Next track" title="Next track" :disabled="!active">
+        <button class="btn btn-icon" type="button" aria-label="Next track" title="Next track"
+          :disabled="!player.hasNext" @click="player.step(1)">
           <svg viewBox="0 0 10 10" aria-hidden="true"><path :d="NEXT_ICON" /></svg>
         </button>
       </div>
@@ -78,6 +87,17 @@ const PAUSE_ICON = 'M1 0h3v10H1zM6 0h3v10H6z'
   position: absolute; left: 0; top: 0; height: 2px; background: var(--laser);
   box-shadow: 0 0 6px var(--laser-glow); z-index: 1; pointer-events: none;
 }
+/* The seek slider: transparent over the laser's line, a taller hit area. */
+.bl-seek {
+  position: absolute; left: 0; right: 0; top: -4px; height: 12px; margin: 0; z-index: 2;
+  appearance: none; background: transparent; cursor: pointer;
+}
+.bl-seek:disabled { pointer-events: none; }
+.bl-seek:focus-visible { outline: 1px solid var(--wire-strong); outline-offset: -1px; }
+.bl-seek::-webkit-slider-runnable-track { height: 12px; background: transparent; }
+.bl-seek::-webkit-slider-thumb { appearance: none; width: 2px; height: 12px; background: transparent; }
+.bl-seek::-moz-range-track { height: 12px; background: transparent; }
+.bl-seek::-moz-range-thumb { width: 2px; height: 12px; border: 0; background: transparent; }
 .bl-left { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; padding-top: 2px; }
 .bl-dot { width: 6px; height: 6px; background: var(--now); flex-shrink: 0; }
 .paused .bl-dot { background: var(--fg-meta); }

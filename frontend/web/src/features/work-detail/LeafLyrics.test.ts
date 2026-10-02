@@ -76,7 +76,7 @@ it.each(['vtt', 'VTT'])('loads %s cues and respects their end times and gaps', a
 
 it('does not highlight or seek another playing work', async () => {
   const wrapper = await listen('lyrics/a.lrc', '[00:01]first')
-  usePlayerStore().play({ rj: 'RJ02000002', title: 'other' }, 0, { src: '/other.mp3', durationSec: null, format: 'MP3' })
+  usePlayerStore().play('RJ02000002', [{ title: 'other', source: { src: '/other.mp3', durationSec: null, format: 'MP3' } }])
   audio.currentTime = 2
   audio.dispatchEvent(new Event('timeupdate'))
   await flushPromises()

@@ -7,6 +7,7 @@ import type { ListWorksParams, WorkFacet, WorksSort } from '@/lib/api/types'
 import GlobalMenu from '@/components/layout/GlobalMenu.vue'
 import LibrarySwitcher from '@/features/works/LibrarySwitcher.vue'
 import TagIndex, { type TagSelection } from '@/features/works/TagIndex.vue'
+import { usePlayWork } from '@/features/works/use-play-work'
 import PlayerBar from '@/features/works/PlayerBar.vue'
 import RailSelect, { type RailOption } from '@/features/works/RailSelect.vue'
 import WorkInspector from '@/features/works/WorkInspector.vue'
@@ -170,9 +171,10 @@ watch([libraryScope, selectedRj], ([library, rj]) => {
 // ── Keyboard: the wall's dispatch, with the same guards as the prototype. ──
 const wall = ref<InstanceType<typeof WorkWall> | null>(null)
 
+const { playWork } = usePlayWork()
 function playSelected(): void {
   const work = works.value.find((candidate) => candidate.rj === selectedRj.value)
-  if (work) player.play({ rj: work.rj, title: work.title ?? work.rj })
+  if (work) void playWork({ rj: work.rj, title: work.title ?? work.rj })
 }
 
 function loadMore(): void {

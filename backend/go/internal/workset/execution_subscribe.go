@@ -112,14 +112,16 @@ func (s *serviceImpl) SubscribeExecution(
 				cursor = res.ComponentIndex + 1
 			}
 		}
-		if executionTerminal(cur.Status) {
-			return emitExecutionTerminal(emit, cur)
-		}
+		// Publish the persisted final counts before the terminal event: clients
+		// stop consuming the stream as soon as they receive that event.
 		if next := progressOf(cur); next != last {
 			last = next
 			if emitErr := emit(ExecutionEventProgress, next); emitErr != nil {
 				return emitErr
 			}
+		}
+		if executionTerminal(cur.Status) {
+			return emitExecutionTerminal(emit, cur)
 		}
 	}
 }

@@ -68,6 +68,7 @@ type workSummaryResponse struct {
 	Circle       *string           `json:"circle"`
 	Language     *string           `json:"language"`
 	NSFW         *bool             `json:"nsfw"`
+	AgeCategory  *int              `json:"age_category"`
 	ReleaseDate  *string           `json:"release_date"`
 	DLCount      *int              `json:"dl_count"`
 	Rating       *int              `json:"rating"`
@@ -86,6 +87,7 @@ func toWorkSummary(summary works.WorkSummary) workSummaryResponse {
 		Circle:       summary.CircleName,
 		Language:     summary.Language,
 		NSFW:         summary.NSFW,
+		AgeCategory:  summary.AgeCategory,
 		ReleaseDate:  summary.ReleaseDate,
 		DLCount:      summary.DLCount,
 		Rating:       summary.Rating,
@@ -134,7 +136,7 @@ var filterKeys = map[string]bool{
 	"voice_actor": true, "voice_actor_match": true,
 	"source_tag": true, "source_tag_match": true,
 	"user_tag": true, "user_tag_match": true,
-	"language": true, "nsfw": true,
+	"language": true, "nsfw": true, "age_category": true,
 	"released_from": true, "released_to": true,
 	"rating_from": true, "rating_to": true, "unrated": true,
 	"favorite": true, "library": true, "has_copy": true,
@@ -235,7 +237,7 @@ func parseIntAndFlagFilters(query url.Values, first func(string) *string, filter
 	for _, integer := range []struct {
 		key  string
 		into **int
-	}{{"rating_from", &filter.RatingFrom}, {"rating_to", &filter.RatingTo}} {
+	}{{"rating_from", &filter.RatingFrom}, {"rating_to", &filter.RatingTo}, {"age_category", &filter.AgeCategory}} {
 		value := first(integer.key)
 		if value == nil {
 			continue

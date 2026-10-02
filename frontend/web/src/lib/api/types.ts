@@ -208,6 +208,8 @@ export interface WorkSummary {
   circle: string | null
   language: string | null
   nsfw: boolean | null
+  /** 1 = 全年龄, 2 = R15, 3 = R18; null means not reported. */
+  age_category: 1 | 2 | 3 | null
   /** `YYYY-MM-DD`; unknown release dates sort last in either direction. */
   release_date: string | null
   dl_count: number | null
@@ -312,6 +314,7 @@ export interface ListWorksParams {
   user_tag_match?: 'all' | 'any'
   /** A work that never reported the adult flag. */
   nsfw?: boolean | 'unknown'
+  age_category?: 1 | 2 | 3
   /** `YYYY-MM-DD`, inclusive; unknown dates are outside the range. */
   released_from?: string
   released_to?: string

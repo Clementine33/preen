@@ -158,6 +158,7 @@ func dlsiteCore(data record, at string) *works.ImportCore {
 		core.Circle = &works.ImportCircle{SourceCircleID: scalar[string](data, "maker_id"), Name: *name}
 	}
 	if age := scalar[int](data, "age_category"); age != nil {
+		core.AgeCategory = age
 		nsfw := *age == 3
 		core.NSFW = &nsfw
 	}

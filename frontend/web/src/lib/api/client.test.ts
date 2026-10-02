@@ -26,6 +26,15 @@ afterEach(() => {
 })
 
 describe('ApiClient', () => {
+  it.each([1, 2, 3, undefined] as const)('sends the selected age category %s in the works request', async (age) => {
+    const fetchMock = mockFetch(async () => okJson({ works: [] }))
+
+    await createClient().listWorks({ age_category: age })
+
+    const query = new URL(String(fetchMock.mock.calls[0]![0])).searchParams
+    expect(query.get('age_category')).toBe(age === undefined ? null : String(age))
+  })
+
   it('passes the persisted global-settings status through the draft envelope', async () => {
     mockFetch(async () => okJson({
       workset_id: 'ws-1',

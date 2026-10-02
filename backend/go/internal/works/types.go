@@ -151,6 +151,7 @@ type WorkSummary struct {
 	CircleName   *string
 	Language     *string
 	NSFW         *bool
+	AgeCategory  *int
 	ReleaseDate  *string
 	DLCount      *int
 	Rating       *int

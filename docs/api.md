@@ -355,7 +355,7 @@ All routes require auth and use the standard error envelope.
 | GET | `/api/v1/worksets/{id}/operations/{type}` | Operation view: `version`, `planning_state`, `current_revision`, `active_generation`, `latest_generation`, `active_execution`, `latest_execution`. Unknown workset, unsupported type and unestablished operation are all 404 (`UNKNOWN_OPERATION_TYPE` for a type this iteration does not implement). |
 | GET | `/api/v1/worksets/{id}/operations/{type}/draft` | The operation version plus the sparse draft wrapped in its task envelope: `task: {kind, schema_version, payload}`. The payload is task-owned (conversion: the sparse document). `common_settings_current` is true only when this draft's common settings match a stored deployment-wide value; it is false before the first global save. |
 | PUT | `/api/v1/worksets/{id}/operations/{type}/draft` | Full replacement of the sparse document, `If-Match` = operation version. Structural validation only: an incomplete draft saves. A save whose common settings differ from the ones this operation holds is deployment-wide: the stored common settings and every other editable record's common fields move in the same transaction, each with its draft hash and operation version, while member overrides, exclusions and generated plans stay exactly as they were (ADR 0010 §2). `GENERATION_IN_PROGRESS` while this operation's session is queued/running; `EXECUTION_IN_PROGRESS` while its execution session is; `COMMON_SETTINGS_BUSY` (409) when another record of the same kind holds one — the whole save is refused then, never a part of it; `ORPHANED_WORKSET` when read-only. |
-| POST | `/api/v1/worksets/{id}/operations/{type}/revisions` | Start generation. No request body; `If-Match` (operation version) and `Idempotency-Key` are both required. 202 `{"created":true,"generation":…}`; 200 with `revision` when nothing semantic changed, or 202 with `generation` for a key replay. Conflicts: `GENERATION_IN_PROGRESS`, `EXECUTION_IN_PROGRESS`, `SCAN_IN_PROGRESS`, `NO_ACTIVE_MEMBERS`, `VERSION_CONFLICT`; `INVALID_POLICY` is 400. |
+| POST | `/api/v1/worksets/{id}/operations/{type}/revisions` | Start generation. No request body; `If-Match` (operation version) and `Idempotency-Key` are both required. 202 `{"created":true,"generation":…}`; 200 with `revision` when the current revision has never executed and nothing semantic changed, or 202 with `generation` for a key replay. A new key after execution creates a fresh plan even with unchanged settings and folders. Conflicts: `GENERATION_IN_PROGRESS`, `EXECUTION_IN_PROGRESS`, `SCAN_IN_PROGRESS`, `NO_ACTIVE_MEMBERS`, `VERSION_CONFLICT`; `INVALID_POLICY` is 400. |
 | GET | `/api/v1/worksets/{id}/operations/{type}/planning-sessions/{genId}` | Session detail. Statuses `queued`, `running`, `completed`, `failed`, `canceled`, `interrupted`. A session of another workset or operation is 404. |
 | GET | `/api/v1/worksets/{id}/operations/{type}/planning-sessions/{genId}/events` | SSE progress (`session_snapshot`, `progress`, terminal event). |
 | POST | `/api/v1/worksets/{id}/operations/{type}/planning-sessions/{genId}/cancel` | Cooperative cancel; idempotent on terminal sessions. |
@@ -506,7 +506,22 @@ relations may fill unavailable dynamic reports. ASMR.one supplies only missing
 core/relations/editions; sales always come from DLsite. Independently validated
 complete groups go through the existing works import, preserving source priority,
 timestamps, copies and personal data. Missing reports stay absent; explicit empty
-edition/credit arrays remain empty. No parent guessing or recursive family fetch.
+edition/credit arrays remain empty. `Locale` / draft `locale` selects source tag
+names only (UI: 标签语言); titles follow the Work's reported Chinese edition
+language (`CHI_HANS` → `zh-cn`, `CHI_HANT` → `zh-tw`), and originals use `ja-jp`.
+Chinese pages/translations take their circle from the Japanese original's
+`ja-jp` snapshot. Accepted Core snapshots refresh source tag/circle display names
+without changing entity IDs. Missing localized titles or original circles leave
+Core unsubmitted and report issues; other complete groups still apply.
+
+Refresh follows only reported parent/original references upward, importing
+ancestor core/relations/editions into relation placeholders, without ancestor
+sales or cover demands. Translation reports and edition lists are limited to
+`CHI_HANS` and `CHI_HANT`; the original remains a separate root. Sibling IDs in
+Chinese parent reports may create placeholders but are not fetched. Responses
+are shared by Work/source/locale within one refresh. Upstream failures are
+attached to the selected Work's issues with the upstream ID; progress/results
+still describe only selected Works. No guessed parents or downward family crawl.
 
 Static workers: 8; dynamic batches: 500, recursively split on HTTP 414. Shared
 client limits: DLsite 8 in flight / 10 starts per second; ASMR.one 2 in flight /
@@ -616,8 +631,11 @@ detail above), then `component` (one component's own entry, exactly as it
 appears in `components[]`, sent as that component's result lands), `progress`
 (counts + current component; never a fabricated percentage) and exactly one
 terminal event: `succeeded`, `failed`, `canceled` or `interrupted`. A component
-result is emitted before a terminal event that follows it, so a client that
-watches a run to its end has seen every component it ran. There is no event-log
+result and the final persisted progress are emitted before the terminal event,
+so a client that watches a run to its end has seen every component it ran and
+the final counts, including partial counts after failure or cancellation.
+A connection to an already-terminal session gets those counts in its initial
+snapshot. There is no event-log
 replay: a client that missed events — or attached late, or holds only the first
 page of a large run — re-reads the detail route, and the terminal event's
 calibration read closes any gap left by a result written outside component
@@ -977,6 +995,7 @@ the set is empty. A submission with no group at all is refused.
     "title": "…",
     "circle": { "source_circle_id": "RG01038998", "name": "mete0r" },
     "nsfw": true,
+    "age_category": 3,
     "release_date": "2025-06-25",
     "source_url": "https://…",
     "cover_url": "…", "thumbnail_url": "…", "sample_cover_url": "…",
@@ -1002,6 +1021,8 @@ the set is empty. A submission with no group at all is refused.
   }
 }
 ```
+
+Work detail presents both `original_rj` and `parent_rj` when available; they are different hops, not alternative labels. On the library wall, Enter in FIND opens an exact in-library number first, otherwise the sole in-library Chinese translation; multiple candidates remain on the wall. Typing alone does not navigate.
 
 `relations` and `editions` are separate groups on purpose: `translation_info`
 is available on DLsite's dynamic endpoint, `language_editions` only on its
@@ -1031,10 +1052,11 @@ seen on disk is created as a relation placeholder, listed in
 
 | Parameter | Meaning |
 | --- | --- |
-| `q` | Literal substring of the work number or the title. `%` and `_` are ordinary characters, not wildcards. A query that *is* a work number also matches that work exactly, so the short spelling finds it. |
+| `q` | Literal substring of the work number or the title. `%` and `_` are ordinary characters, not wildcards. A query that *is* a work number matches that canonical number or Chinese translations whose effective parent is that number and which have a current copy; other filters, including library scope, still apply. The short spelling finds the same identities. Such a query does not search title substrings. |
 | `circle`, `language`, `library` | Comma-separated id lists; a work matches if it has any of them. |
 | `voice_actor` / `source_tag` / `user_tag` | Comma-separated id lists, each **requiring** its `…_match=all\|any` companion (`MATCH_MODE_REQUIRED`, 400, if absent). |
-| `nsfw` | `true`, `false` or `unknown` (a work that never reported the flag). |
+| `nsfw` | Compatibility adult flag: `true`, `false` or `unknown` (not reported). `false` includes both all ages and R15. |
+| `age_category` | Exact age rating: `1` (all ages), `2` (R15), `3` (R18); intersects other filters. |
 | `released_from` / `released_to` | `YYYY-MM-DD`, inclusive; works with an unknown release date are not in the range. |
 | `rating_from` / `rating_to` | Integer 1–10, inclusive. |
 | `unrated` | `true`/`false`. It **unions** with the rating range inside that dimension: `rating_from=8&unrated=true` means "8 or more, or not rated". |
@@ -1055,10 +1077,17 @@ so a page boundary cannot repeat or skip a row. There is no cross-request snapsh
 concurrent metadata change can move a later page's contents.
 
 The listing returns the work number, title, thumbnail, circle, language, adult
-flag, release date, **sales**, personal rating, favorite flag, user tags,
+flag, exact age category, release date, **sales**, personal rating, favorite flag, user tags,
 whether a note exists, when it was first collected, and its copy count. It does
 not return the note text, the full edition list, relation details or the file
 tree.
+
+作品 Core、列表与详情的 `age_category` 使用 `1`（全年龄）、`2`（R15）、`3`（R18），
+未报告时为 `null`。导入拒绝其他数字及与 `nsfw` 冲突的值；指定分级时自动同步兼容
+`nsfw`（仅 R18 为 true）。只有旧 `nsfw=true` 可确认为 R18，`false` 不推断为全年龄。
+DLsite 保存其原始分级，ASMR.one 仅提供布尔值时遵循同样规则。界面年龄筛选只有
+三档和全部；未报告的年龄不显示标签，也不显示 UNKNOWN，仍可在全部中找到作品。
+旧库升级保留所有作品和个人数据；非 R18 作品需全部刷新才能恢复准确年龄档位。
 
 ## Paths: the one rule
 

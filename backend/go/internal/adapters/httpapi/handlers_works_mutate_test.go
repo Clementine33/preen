@@ -3,6 +3,7 @@ package httpapi //nolint:testpackage // white-box tests drive the routes through
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"testing"
 
 	"github.com/onsei/organizer/backend/internal/adapters/sqlite"
@@ -438,5 +439,62 @@ func TestDetailAddressesTheCanonicalNumber(t *testing.T) {
 		if detail.RJ != "RJ00123456" {
 			t.Errorf("%s resolved to %s", spelling, detail.RJ)
 		}
+	}
+}
+
+func TestAgeCategoriesPersistAndFilterIndependently(t *testing.T) {
+	ids := []string{"RJ00000001", "RJ00000002", "RJ00000003"}
+	engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) {
+		wireWorks(d, fixture)
+		for _, id := range ids {
+			seedHTTPWork(t, fixture, id, "work")
+		}
+		seedHTTPWork(t, fixture, "RJ00000004", "unreported age")
+	})
+	for i, id := range ids {
+		age := i + 1
+		w := doRequest(t, engine, http.MethodPut, "/api/v1/works/"+id+"/metadata", map[string]any{
+			"core": map[string]any{"source": "dlsite", "fetched_at": stamp, "age_category": age},
+		}, nil)
+		if w.Code != http.StatusOK {
+			t.Fatalf("import: %d %s", w.Code, w.Body.String())
+		}
+		w = doRequest(t, engine, http.MethodGet, "/api/v1/works/"+id, nil, nil)
+		var detail struct {
+			AgeCategory *int  `json:"age_category"`
+			NSFW        *bool `json:"nsfw"`
+		}
+		if err := json.Unmarshal(w.Body.Bytes(), &detail); err != nil {
+			t.Fatal(err)
+		}
+		if detail.AgeCategory == nil || *detail.AgeCategory != age || detail.NSFW == nil || *detail.NSFW != (age == 3) {
+			t.Fatalf("incorrect age: %s", w.Body.String())
+		}
+		w = doRequest(t, engine, http.MethodGet, "/api/v1/works?age_category="+strconv.Itoa(age), nil, nil)
+		var page struct {
+			Works []struct {
+				RJ          string `json:"rj"`
+				AgeCategory *int   `json:"age_category"`
+			} `json:"works"`
+		}
+		if err := json.Unmarshal(w.Body.Bytes(), &page); err != nil {
+			t.Fatal(err)
+		}
+		if w.Code != http.StatusOK || len(page.Works) != 1 || page.Works[0].RJ != id ||
+			page.Works[0].AgeCategory == nil || *page.Works[0].AgeCategory != age {
+			t.Fatalf("incorrect age filter: %s", w.Body.String())
+		}
+	}
+	for _, value := range []any{0, 4, 1.5, "bad"} {
+		w := doRequest(t, engine, http.MethodPut, "/api/v1/works/RJ00000001/metadata", map[string]any{
+			"core": map[string]any{"source": "dlsite", "fetched_at": stamp, "age_category": value},
+		}, nil)
+		if w.Code != http.StatusBadRequest {
+			t.Fatalf("invalid age accepted: %v", value)
+		}
+	}
+	w := doRequest(t, engine, http.MethodGet, "/api/v1/works?age_category=4", nil, nil)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("invalid filter accepted: %s", w.Body.String())
 	}
 }

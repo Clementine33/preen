@@ -170,14 +170,22 @@ func (s *serviceImpl) rejectActiveSession(op *Operation) (*StartGenerationResult
 }
 
 // replayCurrentRevision answers a new enqueue with the existing current
-// revision when nothing semantic changed: same operation, same draft, same
-// members, same live input facts (ADR 0001 §2).
+// unexecuted revision when nothing semantic changed: same operation, same draft,
+// same members, same live input facts (ADR 0001 §2). Execution spends a revision,
+// so another run needs a fresh plan even when its inputs are unchanged.
 func (s *serviceImpl) replayCurrentRevision(
 	ctx context.Context,
 	input *generationInput,
 ) (*StartGenerationResult, bool, error) {
 	op := input.operation
 	if op.CurrentRevisionID == "" {
+		return nil, false, nil
+	}
+	execution, err := s.repo.GetExecutionForRevision(op.CurrentRevisionID)
+	if err != nil {
+		return nil, false, NewError(ErrKindInternal, "INTERNAL", "failed to check executed revision", err)
+	}
+	if execution != nil {
 		return nil, false, nil
 	}
 	rev, err := s.repo.GetOperationRevision(op.WorksetID, op.OperationType, op.CurrentRevisionID)

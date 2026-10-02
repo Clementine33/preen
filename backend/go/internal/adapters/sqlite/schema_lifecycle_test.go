@@ -74,7 +74,10 @@ func schemaSnapshot(t *testing.T, db *sql.DB) []string {
 		if checkErr := rows.Scan(&ddl); checkErr != nil {
 			t.Fatal(checkErr)
 		}
-		schema = append(schema, strings.Join(strings.Fields(ddl), " "))
+		// ALTER TABLE changes punctuation spacing without changing the schema.
+		normalized := strings.Join(strings.Fields(ddl), " ")
+		normalized = strings.NewReplacer(" ,", ",", " )", ")", "( ", "(").Replace(normalized)
+		schema = append(schema, normalized)
 	}
 	if checkErr := rows.Err(); checkErr != nil {
 		t.Fatal(checkErr)

@@ -35,6 +35,14 @@ beforeEach(() => {
 })
 
 describe('WorkColophon', () => {
+  it('shows the original and intermediate Chinese page rather than choosing one', async () => {
+    const { wrapper } = await mountColophon({ getWork: vi.fn().mockResolvedValue(makeWorkDetail({
+      rj: 'RJ01449056',
+      relation: { role: 'child', language: 'CHI_HANS', original_rj: 'RJ01407907', parent_rj: 'RJ01449055' },
+    })) })
+    expect(wrapper.text()).toContain('原作 RJ01407907 → 简中页面 RJ01449055 → 翻译作品 RJ01449056')
+  })
+
   it('renders the catalog rows the detail query answers', async () => {
     const { wrapper } = await mountColophon()
     expect(wrapper.get('.colo-title').text()).toContain('雨宿り')
@@ -127,4 +135,12 @@ describe('WorkColophon', () => {
     expect(wrapper.find('.rating i[role="button"]').exists()).toBe(false)
     expect(wrapper.get('textarea.note').attributes('disabled')).toBeDefined()
   })
+})
+
+
+it.each([[1, '全年龄'], [2, 'R15'], [3, 'R18'], [null, null]] as const)('shows age category %s without UNKNOWN', async (age_category, label) => {
+  const { wrapper } = await mountColophon({ getWork: vi.fn().mockResolvedValue(makeWorkDetail({ age_category })) })
+  expect(wrapper.text()).not.toContain('UNKNOWN')
+  if (label) expect(wrapper.text()).toContain(label)
+  else for (const age of ['全年龄', 'R15', 'R18']) expect(wrapper.text()).not.toContain(age)
 })

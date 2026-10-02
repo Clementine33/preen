@@ -261,7 +261,7 @@ export class ApiClient implements ApiClientContract {
     ] as const) {
       if (params[key]) query.set(key, params[key])
     }
-    for (const key of ['rating_from', 'rating_to', 'limit'] as const) {
+    for (const key of ['rating_from', 'rating_to', 'age_category', 'limit'] as const) {
       if (params[key] !== undefined) query.set(key, String(params[key]))
     }
     for (const key of ['nsfw', 'unrated', 'favorite', 'has_copy'] as const) {

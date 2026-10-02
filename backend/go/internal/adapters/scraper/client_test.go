@@ -178,3 +178,37 @@ func TestMainURLSurvivesInvalidCoreGroup(t *testing.T) {
 		t.Fatalf("cover depends on valid core: %+v %v", result, err)
 	}
 }
+
+func TestStaticPreservesThreeAgeCategories(t *testing.T) {
+	for _, age := range []any{1, 2, 3, nil, 4, "bad"} {
+		body, err := json.Marshal([]map[string]any{{"workno": "RJ000001", "product_name": "work", "age_category": age}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		client := scraper.New(&http.Client{Transport: transportFunc(func(*http.Request) (*http.Response, error) {
+			return response(http.StatusOK, string(body)), nil
+		})})
+		snapshot, err := client.FetchStatic(t.Context(), "RJ00000001", "ja-jp")
+		if err != nil {
+			t.Fatal(err)
+		}
+		value, numeric := age.(int)
+		if age != nil && (!numeric || value > 3) {
+			if snapshot.Core != nil {
+				t.Fatalf("invalid age %v overwrites core", age)
+			}
+			continue
+		}
+		if snapshot.Core == nil {
+			t.Fatalf("missing core for age %v", age)
+		}
+		if age == nil {
+			if snapshot.Core.AgeCategory != nil {
+				t.Fatal("invented an unreported age")
+			}
+		} else if snapshot.Core.AgeCategory == nil || *snapshot.Core.AgeCategory != value ||
+			snapshot.Core.NSFW == nil || *snapshot.Core.NSFW != (value == 3) {
+			t.Fatalf("incorrect age %v: %+v", age, snapshot.Core)
+		}
+	}
+}

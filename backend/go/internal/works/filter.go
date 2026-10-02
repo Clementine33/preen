@@ -102,8 +102,9 @@ type Filter struct {
 	UserTags        []string
 	UserTagMatch    MatchMode
 
-	Languages []string
-	NSFW      NSFWFilter
+	Languages   []string
+	NSFW        NSFWFilter
+	AgeCategory *int
 
 	ReleasedFrom *string
 	ReleasedTo   *string
@@ -150,6 +151,9 @@ func (f *Filter) Validate() *Error {
 	}
 	if !f.Direction.Valid() {
 		return Invalid(CodeInvalidArgument, "direction must be asc or desc")
+	}
+	if !validAgeCategory(f.AgeCategory) {
+		return Invalid(CodeInvalidArgument, "age_category must be 1, 2 or 3")
 	}
 	if !f.NSFW.Valid() {
 		return Invalid(CodeInvalidArgument, "nsfw must be true, false or unknown")
@@ -278,6 +282,7 @@ func (f *Filter) Digest() string {
 	add("user_tag_match", string(f.UserTagMatch))
 	addSet("language", f.Languages)
 	add("nsfw", string(f.NSFW))
+	add("age_category", intPoint(f.AgeCategory))
 	add("released_from", point(f.ReleasedFrom))
 	add("released_to", point(f.ReleasedTo))
 	add("rating_from", intPoint(f.RatingFrom))

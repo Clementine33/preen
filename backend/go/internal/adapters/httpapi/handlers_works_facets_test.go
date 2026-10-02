@@ -3,6 +3,8 @@ package httpapi //nolint:testpackage // white-box tests drive the routes through
 import (
 	"encoding/json"
 	"net/http"
+	"net/http/httptest"
+	"slices"
 	"testing"
 
 	"github.com/onsei/organizer/backend/internal/adapters/sqlite"
@@ -154,5 +156,101 @@ func TestFacetListsFeedTheListingFilters(t *testing.T) {
 	}
 	if code, _ := errorEnvelope(t, response); code != works.CodeInvalidArgument {
 		t.Errorf("code = %q, want %q", code, works.CodeInvalidArgument)
+	}
+}
+
+// TestTagIndexCombinesBothVocabularies: /tags lists the source's tags and the
+// user's own under one scope, and the combined `tag` filter treats one group as
+// one picked tag (any of its ids, either vocabulary) while tag_match combines
+// the groups.
+func TestTagIndexCombinesBothVocabularies(t *testing.T) {
+	engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) {
+		wireWorks(d, fixture)
+		for _, id := range []string{"RJ00000001", "RJ00000002", "RJ00000003", "RJ00000004"} {
+			seedHTTPWork(t, fixture, id, "titled")
+		}
+		execAll(t, fixture,
+			"INSERT INTO libraries (id, name, root_path, root_path_key) VALUES ('lib-a', 'A', '/a', '/a')",
+			"INSERT INTO work_copies (id, work_id, library_id, rel_path, created_at) VALUES "+
+				"('c1', 'RJ00000002', 'lib-a', 'RJ00000002', '"+stamp+"')",
+			"INSERT INTO circles (id, source, source_circle_id, name) VALUES ('ci-1', 'dlsite', 'RG1', 'mete0r')",
+			"UPDATE works SET circle_id = 'ci-1' WHERE id = 'RJ00000001'",
+			"INSERT INTO tags (id, source, source_tag_id, name) VALUES ('s-asmr', 'dlsite', '1', 'ASMR')",
+			"INSERT INTO tags (id, source, source_tag_id, name) VALUES ('s-ear', 'dlsite', '2', '掏耳')",
+			"INSERT INTO work_tags (work_id, tag_id, position) VALUES ('RJ00000001', 's-asmr', 0)",
+			"INSERT INTO work_tags (work_id, tag_id, position) VALUES ('RJ00000002', 's-asmr', 0)",
+			"INSERT INTO work_tags (work_id, tag_id, position) VALUES ('RJ00000002', 's-ear', 1)",
+			"INSERT INTO work_tags (work_id, tag_id, position) VALUES ('RJ00000003', 's-ear', 0)",
+			// The user's own tag of the same name: one choice in the index.
+			"INSERT INTO user_tags (id, name) VALUES ('u-asmr', 'ASMR')",
+			"INSERT INTO user_tags (id, name) VALUES ('u-mine', 'mine')",
+			"INSERT INTO work_user_tags (work_id, tag_id) VALUES ('RJ00000004', 'u-asmr')",
+			"INSERT INTO work_user_tags (work_id, tag_id) VALUES ('RJ00000001', 'u-mine')",
+		)
+	})
+
+	type facet struct {
+		ID        string `json:"id"`
+		Name      string `json:"name"`
+		WorkCount int    `json:"work_count"`
+	}
+	read := func(path string) map[string][]facet {
+		t.Helper()
+		response := doRequest(t, engine, http.MethodGet, path, nil, nil)
+		if response.Code != http.StatusOK {
+			t.Fatalf("%s: status = %d (body=%s)", path, response.Code, response.Body.String())
+		}
+		var body map[string][]facet
+		if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
+			t.Fatal(err)
+		}
+		return body
+	}
+	all := read("/api/v1/tags")
+	if want := []facet{{"s-asmr", "ASMR", 2}, {"s-ear", "掏耳", 2}}; !slices.Equal(all["source_tags"], want) {
+		t.Errorf("source_tags = %+v, want %+v", all["source_tags"], want)
+	}
+	if want := []facet{{"u-asmr", "ASMR", 1}, {"u-mine", "mine", 1}}; !slices.Equal(all["user_tags"], want) {
+		t.Errorf("user_tags = %+v, want %+v", all["user_tags"], want)
+	}
+	// The library scope narrows both vocabularies; an empty one is still a list.
+	scoped := read("/api/v1/tags?library=lib-a")
+	if want := []facet{{"s-asmr", "ASMR", 1}, {"s-ear", "掏耳", 1}}; !slices.Equal(scoped["source_tags"], want) {
+		t.Errorf("scoped source_tags = %+v, want %+v", scoped["source_tags"], want)
+	}
+	if scoped["user_tags"] == nil || len(scoped["user_tags"]) != 0 {
+		t.Errorf("scoped user_tags = %#v, want []", scoped["user_tags"])
+	}
+
+	list := func(query string) *httptest.ResponseRecorder {
+		return doRequest(t, engine, http.MethodGet, "/api/v1/works?"+query, nil, nil)
+	}
+	asmr := "s:s-asmr|u:u-asmr"
+	// One group: a work carrying the tag in either vocabulary.
+	assertWorks(t, list("tag="+asmr+"&tag_match=any"), "RJ00000001", "RJ00000002", "RJ00000004")
+	assertWorks(t, list("tag="+asmr+",s:s-ear&tag_match=all"), "RJ00000002")
+	assertWorks(t, list("tag="+asmr+",s:s-ear&tag_match=any"),
+		"RJ00000001", "RJ00000002", "RJ00000003", "RJ00000004")
+	// Across vocabularies, OR is now expressible; AND finds nobody here.
+	assertWorks(t, list("tag=s:s-ear,u:u-mine&tag_match=any"), "RJ00000001", "RJ00000002", "RJ00000003")
+	assertWorks(t, list("tag=s:s-ear,u:u-mine&tag_match=all"))
+	// The tag dimension still intersects with the others.
+	assertWorks(t, list("tag=s:s-ear,u:u-mine&tag_match=any&circle=ci-1"), "RJ00000001")
+
+	for query, code := range map[string]string{
+		"tag=" + asmr:                     works.CodeMatchModeRequired,
+		"tag_match=any":                   works.CodeInvalidArgument,
+		"tag=x:s-asmr&tag_match=any":      works.CodeInvalidArgument,
+		"tag=s:&tag_match=any":            works.CodeInvalidArgument,
+		"tag=" + asmr + "&tag_match=most": works.CodeInvalidArgument,
+	} {
+		response := list(query)
+		if response.Code != http.StatusBadRequest {
+			t.Errorf("%s: status = %d, want 400", query, response.Code)
+			continue
+		}
+		if got, _ := errorEnvelope(t, response); got != code {
+			t.Errorf("%s: code = %q, want %q", query, got, code)
+		}
 	}
 }

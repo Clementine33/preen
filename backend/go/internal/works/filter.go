@@ -101,6 +101,10 @@ type Filter struct {
 	SourceTagMatch  MatchMode
 	UserTags        []string
 	UserTagMatch    MatchMode
+	// TagGroups combine both vocabularies, one group per picked tag (see
+	// TagGroup); TagMatch combines the groups.
+	TagGroups []TagGroup
+	TagMatch  MatchMode
 
 	Languages   []string
 	NSFW        NSFWFilter
@@ -162,15 +166,16 @@ func (f *Filter) Validate() *Error {
 	// A set filter without a match mode has no defensible default: choosing
 	// one would silently answer a different question than the caller asked.
 	for _, set := range []struct {
-		name  string
-		ids   []string
-		match MatchMode
+		name    string
+		present bool
+		match   MatchMode
 	}{
-		{"voice_actor", f.VoiceActors, f.VoiceActorMatch},
-		{"source_tag", f.SourceTags, f.SourceTagMatch},
-		{"user_tag", f.UserTags, f.UserTagMatch},
+		{"voice_actor", len(f.VoiceActors) > 0, f.VoiceActorMatch},
+		{"source_tag", len(f.SourceTags) > 0, f.SourceTagMatch},
+		{"user_tag", len(f.UserTags) > 0, f.UserTagMatch},
+		{"tag", len(f.TagGroups) > 0, f.TagMatch},
 	} {
-		if len(set.ids) == 0 {
+		if !set.present {
 			if set.match != "" {
 				return Invalid(CodeInvalidArgument, set.name+"_match needs "+set.name)
 			}
@@ -280,6 +285,8 @@ func (f *Filter) Digest() string {
 	add("source_tag_match", string(f.SourceTagMatch))
 	addSet("user_tag", f.UserTags)
 	add("user_tag_match", string(f.UserTagMatch))
+	add("tag", canonicalTagGroups(f.TagGroups))
+	add("tag_match", string(f.TagMatch))
 	addSet("language", f.Languages)
 	add("nsfw", string(f.NSFW))
 	add("age_category", intPoint(f.AgeCategory))

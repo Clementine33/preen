@@ -846,6 +846,7 @@ work, while `RJ1657200` (7 digits) is refused.
 | PUT | `/api/v1/works/{rj}/user-tags` | Body `{"tag_ids":["…"]}`; replaces the work's tag set with exactly these. 200 `{"user_tags":[…]}`. Unknown ids are `USER_TAG_NOT_FOUND` (404). |
 | GET | `/api/v1/circles` | 200 `{"circles":[{"id":"…","name":"…","work_count":3}]}`: every circle a listed work carries, ordered by name. `library` (comma-separated ids) scopes the circles and their counts to works with a copy there; any other parameter is `INVALID_ARGUMENT` (400). |
 | GET | `/api/v1/voice-actors` | 200 `{"voice_actors":[…]}`, the same shape and scoping for voice actors. Each `id` is what the listing's `circle` / `voice_actor` parameter takes. |
+| GET | `/api/v1/tags` | 200 `{"source_tags":[…],"user_tags":[…]}`: the same shape and scoping for both tag vocabularies at once (the wall's tag index). A `source_tags` id is an `s:` ref of the listing's `tag` parameter (and a `source_tag` id), a `user_tags` id a `u:` ref. A user tag no listed work carries is absent here; `GET /user-tags` is the whole vocabulary. |
 | GET | `/api/v1/user-tags` | 200 `{"user_tags":[{"id":"…","name":"…"}]}`. |
 | POST | `/api/v1/user-tags` | Body `{"name":"…"}`; 200 the tag, **creating it if new and returning the existing one otherwise** — creating by name is idempotent. |
 | PATCH | `/api/v1/user-tags/{id}` | Body `{"name":"…"}`; 200 the tag, `USER_TAG_EXISTS` (409) on a name another tag holds. |
@@ -1055,6 +1056,7 @@ seen on disk is created as a relation placeholder, listed in
 | `q` | Literal substring of the work number or the title. `%` and `_` are ordinary characters, not wildcards. A query that *is* a work number matches that canonical number or Chinese translations whose effective parent is that number and which have a current copy; other filters, including library scope, still apply. The short spelling finds the same identities. Such a query does not search title substrings. |
 | `circle`, `language`, `library` | Comma-separated id lists; a work matches if it has any of them. |
 | `voice_actor` / `source_tag` / `user_tag` | Comma-separated id lists, each **requiring** its `…_match=all\|any` companion (`MATCH_MODE_REQUIRED`, 400, if absent). |
+| `tag` | Both tag vocabularies in one filter: comma-separated **groups**, each group `\|`-joined refs `s:<source tag id>` or `u:<user tag id>`. A group is one picked tag and matches a work carrying **any** of its ids (a name spelled by several entities is one group); **requires** `tag_match=all\|any`, which combines the groups. A malformed ref is `INVALID_ARGUMENT` (400). Intersects every other filter, `source_tag` and `user_tag` included. |
 | `nsfw` | Compatibility adult flag: `true`, `false` or `unknown` (not reported). `false` includes both all ages and R15. |
 | `age_category` | Exact age rating: `1` (all ages), `2` (R15), `3` (R18); intersects other filters. |
 | `released_from` / `released_to` | `YYYY-MM-DD`, inclusive; works with an unknown release date are not in the range. |

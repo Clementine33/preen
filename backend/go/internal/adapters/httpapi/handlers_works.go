@@ -136,6 +136,7 @@ var filterKeys = map[string]bool{
 	"voice_actor": true, "voice_actor_match": true,
 	"source_tag": true, "source_tag_match": true,
 	"user_tag": true, "user_tag_match": true,
+	"tag": true, "tag_match": true,
 	"language": true, "nsfw": true, "age_category": true,
 	"released_from": true, "released_to": true,
 	"rating_from": true, "rating_to": true, "unrated": true,
@@ -181,6 +182,13 @@ func parseWorkFilter(r *http.Request) (works.Filter, *works.Error) {
 	filter.VoiceActors = set("voice_actor")
 	filter.SourceTags = set("source_tag")
 	filter.UserTags = set("user_tag")
+	if value := first("tag"); value != nil {
+		groups, refusal := works.ParseTagGroups(*value)
+		if refusal != nil {
+			return filter, refusal
+		}
+		filter.TagGroups = groups
+	}
 	filter.Languages = set("language")
 	filter.Libraries = set("library")
 
@@ -191,6 +199,7 @@ func parseWorkFilter(r *http.Request) (works.Filter, *works.Error) {
 		{"voice_actor_match", &filter.VoiceActorMatch},
 		{"source_tag_match", &filter.SourceTagMatch},
 		{"user_tag_match", &filter.UserTagMatch},
+		{"tag_match", &filter.TagMatch},
 	}
 	for _, mode := range modes {
 		if value := first(mode.key); value != nil {

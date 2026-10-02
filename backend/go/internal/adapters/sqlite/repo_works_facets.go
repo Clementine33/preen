@@ -5,13 +5,20 @@ import (
 )
 
 // facetJoins is, per kind, how a listed work reaches the entity: the circle is
-// a column of the work, the voice actors a relation table.
+// a column of the work, the voice actors and both tag vocabularies a relation
+// table.
 var facetJoins = map[works.FacetKind]string{
 	works.FacetCircle: `
 		JOIN circles e ON e.id = w.circle_id`,
 	works.FacetVoiceActor: `
 		JOIN work_voice_actors m ON m.work_id = w.id
 		JOIN voice_actors e ON e.id = m.voice_actor_id`,
+	works.FacetSourceTag: `
+		JOIN work_tags m ON m.work_id = w.id
+		JOIN tags e ON e.id = m.tag_id`,
+	works.FacetUserTag: `
+		JOIN work_user_tags m ON m.work_id = w.id
+		JOIN user_tags e ON e.id = m.tag_id`,
 }
 
 // ListFacets counts, per entity, the listed works that carry it. Only works

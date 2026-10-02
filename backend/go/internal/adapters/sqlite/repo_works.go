@@ -287,6 +287,7 @@ func (b *listQueryBuilder) applyFilters(filter works.Filter) {
 	b.addSet("work_voice_actors", "voice_actor_id", filter.VoiceActors, filter.VoiceActorMatch)
 	b.addSet("work_tags", "tag_id", filter.SourceTags, filter.SourceTagMatch)
 	b.addSet("work_user_tags", "tag_id", filter.UserTags, filter.UserTagMatch)
+	b.addTagGroups(filter.TagGroups, filter.TagMatch)
 
 	if len(filter.Languages) > 0 {
 		// A work that reported no language cannot match a language filter: the
@@ -371,6 +372,50 @@ func (b *listQueryBuilder) addSet(table, column string, ids []string, mode works
 			placeholderList(len(ids))+"))",
 		textArgs(ids)...,
 	)
+}
+
+// addTagGroups matches the combined tag filter. One group is one picked tag:
+// the work carries any of its ids, in either vocabulary. All groups must hold
+// under MatchAll; under MatchAny one is enough, so the groups form a single
+// OR'd fragment instead of intersecting like the other dimensions.
+func (b *listQueryBuilder) addTagGroups(groups []works.TagGroup, mode works.MatchMode) {
+	if len(groups) == 0 {
+		return
+	}
+	fragments := make([]string, 0, len(groups))
+	var args []any
+	for _, group := range groups {
+		var source, user []string
+		for _, ref := range group {
+			if ref.Kind == works.TagUser {
+				user = append(user, ref.ID)
+			} else {
+				source = append(source, ref.ID)
+			}
+		}
+		var sides []string
+		for _, side := range []struct {
+			table string
+			ids   []string
+		}{{"work_tags", source}, {"work_user_tags", user}} {
+			if len(side.ids) == 0 {
+				continue
+			}
+			sides = append(sides, "EXISTS (SELECT 1 FROM "+side.table+
+				" m WHERE m.work_id = w.id AND m.tag_id IN ("+placeholderList(len(side.ids))+"))")
+			args = append(args, textArgs(side.ids)...)
+		}
+		fragment := "(" + strings.Join(sides, " OR ") + ")"
+		if mode == works.MatchAll {
+			b.add(fragment, args...)
+			args = nil
+			continue
+		}
+		fragments = append(fragments, fragment)
+	}
+	if mode != works.MatchAll {
+		b.add("("+strings.Join(fragments, " OR ")+")", args...)
+	}
 }
 
 // addCopyFilter answers "does this work have a copy" - in the named libraries

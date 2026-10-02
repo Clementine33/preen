@@ -1,6 +1,7 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createPinia } from 'pinia'
+import { defineComponent, h, ref } from 'vue'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import { apiClientKey } from '@/lib/api/client'
 import type { WorkDetail } from '@/lib/api/types'
@@ -63,7 +64,11 @@ function reducedMotion(matches: boolean): void {
   }))
 }
 
-async function mountInspector(getWork: ReturnType<typeof vi.fn>, props: { rj: string; standalone?: boolean }) {
+async function mountInspector(
+  getWork: ReturnType<typeof vi.fn>,
+  props: { rj: string; standalone?: boolean },
+  getWorkContent?: ReturnType<typeof vi.fn>,
+) {
   const router = createRouter({
     history: createMemoryHistory(),
     routes: [{ path: '/', component: { template: '<div />' } }],
@@ -72,7 +77,7 @@ async function mountInspector(getWork: ReturnType<typeof vi.fn>, props: { rj: st
     props,
     global: {
       plugins: [createPinia(), router, installTestQueryPlugin()],
-      provide: { [apiClientKey as symbol]: apiStub({ getWork } as never) },
+      provide: { [apiClientKey as symbol]: apiStub({ getWork, ...(getWorkContent ? { getWorkContent } : {}) } as never) },
     },
   })
   await flushPromises()
@@ -128,5 +133,55 @@ describe('WorkInspector', () => {
     const standalone = await mountInspector(getWork, { rj: FIRST, standalone: true })
     expect(standalone.text()).not.toContain('OPEN DETAIL')
     expect(standalone.find('.keys').exists()).toBe(false)
+  })
+  it('lists the tracks of the first online copy', async () => {
+    const getWork = vi.fn((rj: string) => Promise.resolve(detail(rj, '沢城みゆき')))
+    const aud = (name: string, format: string, duration: number | null) => ({
+      name, rel_path: name, kind: 'aud', size: 1, format, bitrate: null,
+      width: null, height: null, duration_sec: duration, thumb_v: null,
+    })
+    const getWorkContent = vi.fn(async (rj: string) => ({
+      rj,
+      copies: [
+        { copy_id: 'off', library_id: 'l', dir_id: 'd0', online: false },
+        {
+          copy_id: 'on', library_id: 'l', dir_id: 'd1', online: true,
+          tree: { name: '', rel_path: '', children: [aud('01.mp3', 'MP3', 90), aud('01.wav', 'WAV', 90), aud('02.mp3', 'MP3', null)] },
+        },
+      ],
+    }))
+    const wrapper = await mountInspector(getWork, { rj: FIRST }, getWorkContent)
+    await settle()
+
+    // One row per track, not per format; an unmeasured duration reads as a dash.
+    const rows = wrapper.findAll('.trk').map((row) => row.text())
+    expect(rows).toEqual(['0101' + '01:30', '0202' + '—'])
+    expect(wrapper.text()).toContain('2 · 01:30')
+    expect(wrapper.text()).not.toContain('NO TRACK DATA')
+  })
+  it('fills a remounted inspector from the cached work', async () => {
+    const getWork = vi.fn((rj: string) => Promise.resolve(detail(rj, '沢城みゆき')))
+    // The wall's layout switch: the same page unmounts and remounts the
+    // inspector while the work stays cached.
+    const shown = ref(true)
+    const Host = defineComponent(() => () => (shown.value ? h(WorkInspector, { rj: FIRST }) : null))
+    const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/', component: { template: '<div />' } }] })
+    const wrapper = mount(Host, {
+      global: {
+        plugins: [createPinia(), router, installTestQueryPlugin()],
+        provide: { [apiClientKey as symbol]: apiStub({ getWork } as never) },
+      },
+    })
+    await flushPromises()
+    await settle()
+    shown.value = false
+    await flushPromises()
+    shown.value = true
+    await flushPromises()
+
+    expect(wrapper.get('.spec').text()).toContain('沢城みゆき')
+    const front = wrapper.get<HTMLElement>('.cover.front').element
+    expect(front.classList.contains('hatch')).toBe(false)
+    expect(front.style.backgroundImage).toContain(`${FIRST}.jpg`)
   })
 })

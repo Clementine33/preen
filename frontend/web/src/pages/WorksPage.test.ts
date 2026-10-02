@@ -187,6 +187,22 @@ describe('works page', () => {
     expect(router.currentRoute.value.query.rj).toBe(A0)
   })
 
+  it('keeps the address library across a reload instead of the first one', async () => {
+    const { router, listWorks } = await mountWorks(`/works?library=${LIB_B}`)
+
+    expect(lastParams(listWorks)).toMatchObject({ library: LIB_B })
+    expect(router.currentRoute.value.query.library).toBe(LIB_B)
+  })
+
+  it('writes the active library to the address', async () => {
+    const { router } = await mountWorks('/works')
+
+    expect(router.currentRoute.value.query.library).toBe(LIB_A)
+    useLibraryUiStore().setActiveLibrary(LIB_B)
+    await flushPromises()
+    expect(router.currentRoute.value.query).toMatchObject({ library: LIB_B, rj: worksB[0].rj })
+  })
+
   it('resets the selection when switching libraries', async () => {
     const { wrapper, router } = await mountWorks(`/works?rj=${A3}`)
 

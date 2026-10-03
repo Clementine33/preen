@@ -172,7 +172,15 @@ func buildServices(repo *sqlite.Repository, configDir, dataDir string, generatio
 	scanSvc := inventory.NewService(
 		inventory.NewPipeline(
 			sqlite.NewScanStaging(repo),
-			filesystem.WalkRootEntriesParallel,
+			func(ctx context.Context, rootPath, basePath string, _ int, emit func(inventory.DirEntry) error) error {
+				return filesystem.WalkRootEntriesParallel(
+					ctx,
+					rootPath,
+					basePath,
+					appconfig.NewReader(configDir).ScanWorkers(),
+					emit,
+				)
+			},
 			filesystem.WalkFolderEntries,
 			mediaFacts.Kick,
 		),
@@ -218,7 +226,17 @@ func buildServices(repo *sqlite.Repository, configDir, dataDir string, generatio
 			rename.New(repo, filesystem.ReadRenameDirectory),
 			metadatatask.New(repo, filesystem.CoverDirectoryIdentity),
 		},
-		scanSvc.RefreshMember,
+		func(ctx context.Context, folderPath, rootPath string) error {
+			rel, err := filepath.Rel(filepath.FromSlash(rootPath), filepath.FromSlash(folderPath))
+			if err != nil {
+				return err
+			}
+			folder, err := fileops.ResolveMember(rootPath, filepath.ToSlash(rel))
+			if err != nil {
+				return err
+			}
+			return scanSvc.RefreshMember(ctx, folder, rootPath)
+		},
 		gate.Enqueue,
 		map[string]workset.BatchExecutor{metadatatask.Kind: metadataExecutor.Run},
 	)

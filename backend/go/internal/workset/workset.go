@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"path"
 	"sort"
 	"strconv"
 	"strings"
@@ -280,7 +281,7 @@ func (s *serviceImpl) persistCurrentWorkset(
 // resolveSelectedMembers turns selected library-relative paths into ordered
 // members. Every path that cannot join is reported with its reason rather than
 // dropped in silence, and a path is only accepted when the scanned inventory
-// knows it as an immediate directory of the library root. Tasks may additionally
+// marks it as a work root of the library. Tasks may additionally
 // require scanned audio beneath it.
 func (s *serviceImpl) resolveSelectedMembers(
 	lib *library.Library,
@@ -300,12 +301,6 @@ func (s *serviceImpl) resolveSelectedMembers(
 			skipped = append(skipped, SkippedFolder{Path: rel, Reason: SkipDuplicate})
 			continue
 		}
-		// A member is a direct child of the library root: a nested directory is
-		// browsable inside its member, never a scope of its own (ADR 0001 §1).
-		if strings.Contains(rel, "/") {
-			skipped = append(skipped, SkippedFolder{Path: rel, Reason: SkipNotDirect})
-			continue
-		}
 		if isRecoveryRelPath(lib.RootPath, rel) {
 			skipped = append(skipped, SkippedFolder{Path: rel, Reason: SkipRecoveryDir})
 			continue
@@ -318,6 +313,14 @@ func (s *serviceImpl) resolveSelectedMembers(
 	if err != nil {
 		return nil, nil, NewError(ErrKindInternal, "INTERNAL", "failed to read the scanned inventory", err)
 	}
+	roots, err := s.repo.ListLibraryWorkRoots(lib.RootPath)
+	if err != nil {
+		return nil, nil, NewError(ErrKindInternal, "INTERNAL", "failed to read work roots", err)
+	}
+	workRoots := make(map[string]bool, len(roots))
+	for _, rel := range roots {
+		workRoots[rel] = true
+	}
 	out := make([]WorksetMember, 0, len(clean))
 	for _, rel := range clean {
 		count, known := counts[rel]
@@ -327,6 +330,10 @@ func (s *serviceImpl) resolveSelectedMembers(
 			skipped = append(skipped, SkippedFolder{Path: rel, Reason: SkipMissing})
 			continue
 		}
+		if !workRoots[rel] {
+			skipped = append(skipped, SkippedFolder{Path: rel, Reason: SkipNotWorkRoot})
+			continue
+		}
 		if requiresAudio && count == 0 {
 			skipped = append(skipped, SkippedFolder{Path: rel, Reason: SkipNoAudio})
 			continue
@@ -334,7 +341,7 @@ func (s *serviceImpl) resolveSelectedMembers(
 		out = append(out, WorksetMember{
 			RelPath:    rel,
 			FolderPath: pathnorm.JoinRel(lib.RootPath, rel),
-			FolderName: rel,
+			FolderName: path.Base(rel),
 		})
 	}
 	return out, skipped, nil
@@ -343,6 +350,7 @@ func (s *serviceImpl) resolveSelectedMembers(
 // isRecoveryRelPath reports whether a relative path names the library-level
 // recovery directory; it is never a member.
 func isRecoveryRelPath(rootPath, rel string) bool {
+	rel, _, _ = strings.Cut(rel, "/")
 	if rel == pathnorm.RecoveryDirName {
 		return true
 	}

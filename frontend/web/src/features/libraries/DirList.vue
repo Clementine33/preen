@@ -7,7 +7,7 @@ import type { LibraryDir } from '@/lib/api/types'
 /**
  * The overview's directory list (ADR 0001 §1).
  *
- * Every direct child directory of the library root, empty ones and ones
+ * Every scanned work root in the library, empty ones and ones
  * without audio included: the audio count is shown as a status, never used to
  * hide a row, and a directory without audio says so. Rows are virtualized
  * because a library root can hold hundreds of folders.
@@ -140,10 +140,10 @@ function dirAt(index: number): LibraryDir {
               >
                 {{ dirAt(virtualItem.index).name }}
               </span>
-              <!-- The phone tier's second line; the desktop tier has its own
-                   column for the same fact. -->
-              <span class="block truncate font-mono text-[11px] text-muted-foreground rail:hidden">
-                {{ dirAt(virtualItem.index).audio_file_count }} 个音频文件
+              <span class="block truncate font-mono text-[11px] text-muted-foreground"
+                :title="dirAt(virtualItem.index).rel_path">
+                {{ dirAt(virtualItem.index).rel_path }}
+                <span class="rail:hidden"> · {{ dirAt(virtualItem.index).audio_file_count }} 个音频文件</span>
               </span>
             </span>
           </button>

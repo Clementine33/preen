@@ -153,7 +153,7 @@ func RelPath(rel string) (string, bool) {
 // have validated the relative path with RelPath; this joins in the persisted
 // POSIX form so the result matches the paths the scanner stores.
 func JoinRel(rootPath, relPath string) string {
-	return path.Join(NormalizeToPOSIX(rootPath), relPath)
+	return CleanRootPath(strings.TrimRight(NormalizeToPOSIX(rootPath), "/") + "/" + relPath)
 }
 
 // CleanRootPath normalizes a library root for storage: backslashes become

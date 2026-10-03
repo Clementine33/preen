@@ -126,8 +126,8 @@ func TestWalkRootParallel_IncludesFilesAndDirs(t *testing.T) {
 	}
 }
 
-// TestWalkRootParallel_DefaultConcurrency verifies default concurrency of 4.
-// TestWalkRootParallel_DefaultConcurrency verifies default concurrency of 4.
+// TestWalkRootParallel_DefaultConcurrency verifies default concurrency of 32.
+// TestWalkRootParallel_DefaultConcurrency verifies default concurrency of 32.
 func TestWalkRootParallel_DefaultConcurrency(t *testing.T) {
 	tmp := t.TempDir()
 	mustWriteFile(t, filepath.Join(tmp, "file.txt"), []byte("dummy"), 0644)
@@ -143,7 +143,7 @@ func TestWalkRootParallel_DefaultConcurrency(t *testing.T) {
 		return nil
 	}
 
-	// Test with 0 concurrency (should default to 4)
+	// Test with 0 concurrency (should default to 32)
 	err := WalkRootEntriesParallel(ctx, tmp, tmp, 0, emit)
 	if err != nil {
 		t.Fatalf("WalkRootEntriesParallel with 0 concurrency failed: %v", err)

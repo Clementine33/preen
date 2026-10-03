@@ -241,8 +241,8 @@ func recoveryRoots(m *member, recycled []string) []string {
 const RecoveryDir = pathnorm.RecoveryDirName
 
 // ResolveMember validates a library-relative member path for reading (no
-// admission, no write): it must be a direct child directory of the library
-// root and must exist as a real directory. Reading a member tree and writing
+// admission, no write): it must be a descendant directory of the library
+// root with real directories along every component. Reading a member tree and writing
 // inside one resolve the member through this same function, so both refuse the
 // same paths.
 func ResolveMember(rootPath, memberRel string) (string, error) {

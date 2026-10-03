@@ -268,8 +268,8 @@ func TestHTTPWorksetExecutionLoop(t *testing.T) {
 	binPath := buildBackendBinary(t)
 	dataDir := t.TempDir()
 	rootPath := filepath.Join(dataDir, "music")
-	albumA := filepath.Join(rootPath, "albumA")
-	albumB := filepath.Join(rootPath, "albumB")
+	albumA := filepath.Join(rootPath, "RJ000001 albumA")
+	albumB := filepath.Join(rootPath, "RJ000002 albumB")
 	for _, dir := range []string{albumA, albumB} {
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			t.Fatalf("mkdir %s: %v", dir, err)
@@ -296,11 +296,11 @@ func TestHTTPWorksetExecutionLoop(t *testing.T) {
 
 	satisfiedA, err := os.Stat(filepath.Join(albumA, "00.mp3"))
 	if err != nil {
-		t.Fatalf("stat albumA mp3: %v", err)
+		t.Fatalf("stat RJ000001 albumA mp3: %v", err)
 	}
 	// The default seeded draft (available_sources, wav + mp3@320) is the plan
 	// under test: no draft edit happens here.
-	f := setupScannedWorkset(t, binPath, dataDir, rootPath, []string{"albumA", "albumB"}, nil)
+	f := setupScannedWorkset(t, binPath, dataDir, rootPath, []string{"RJ000001 albumA", "RJ000002 albumB"}, nil)
 	version := f.opVersion
 
 	// Start the session, then let the SSE connection drop: the worker must keep
@@ -348,7 +348,7 @@ func TestHTTPWorksetExecutionLoop(t *testing.T) {
 		t.Fatalf("components = %d/%d, want 2/2", done.CompletedComponents, done.TotalComponents)
 	}
 	if done.TotalOperations != 2 || done.CompletedOperations != 2 {
-		t.Fatalf("operations = %d/%d, want 2/2 (albumB encode + albumB remove)",
+		t.Fatalf("operations = %d/%d, want 2/2 (RJ000002 albumB encode + RJ000002 albumB remove)",
 			done.CompletedOperations, done.TotalOperations)
 	}
 	var committed, removed, recovery []string
@@ -366,10 +366,10 @@ func TestHTTPWorksetExecutionLoop(t *testing.T) {
 		recovery = append(recovery, c.Recovery...)
 	}
 	if len(committed) != 1 || filepath.Base(filepath.FromSlash(committed[0])) != "00.mp3" {
-		t.Fatalf("committed = %v, want the rebuilt albumB mp3", committed)
+		t.Fatalf("committed = %v, want the rebuilt RJ000002 albumB mp3", committed)
 	}
 	if len(removed) != 1 || filepath.Base(filepath.FromSlash(removed[0])) != "00.m4a" {
-		t.Fatalf("removed = %v, want the obsolete albumB aac", removed)
+		t.Fatalf("removed = %v, want the obsolete RJ000002 albumB aac", removed)
 	}
 
 	// Disk facts: the satisfied album is untouched, the obsolete variant and
@@ -377,15 +377,15 @@ func TestHTTPWorksetExecutionLoop(t *testing.T) {
 	// the album folder, not inside it), and the mp3 now holds the frozen target
 	// quality.
 	if kept, keptErr := os.Stat(filepath.Join(albumA, "00.mp3")); keptErr != nil || kept.Size() != satisfiedA.Size() {
-		t.Fatalf("albumA must stay untouched: %v", keptErr)
+		t.Fatalf("RJ000001 albumA must stay untouched: %v", keptErr)
 	}
 	if _, statErr := os.Stat(filepath.Join(albumB, "00.m4a")); statErr == nil {
-		t.Fatal("albumB/00.m4a must have left its place")
+		t.Fatal("RJ000002 albumB/00.m4a must have left its place")
 	}
 	for _, preserved := range []string{"00.m4a", "00.mp3"} {
-		recovered, statErr := os.Stat(filepath.Join(rootPath, "Delete", "albumB", preserved))
+		recovered, statErr := os.Stat(filepath.Join(rootPath, "Delete", "RJ000002 albumB", preserved))
 		if statErr != nil || recovered.Size() == 0 {
-			t.Fatalf("Delete/albumB/%s missing: %v", preserved, statErr)
+			t.Fatalf("Delete/RJ000002 albumB/%s missing: %v", preserved, statErr)
 		}
 	}
 	if _, statErr := os.Stat(filepath.Join(albumB, "Delete")); statErr == nil {
@@ -555,7 +555,7 @@ func TestHTTPWorksetExecutionRejectsChangedDisk(t *testing.T) {
 	binPath := buildBackendBinary(t)
 	dataDir := t.TempDir()
 	rootPath := filepath.Join(dataDir, "music")
-	album := filepath.Join(rootPath, "albumA")
+	album := filepath.Join(rootPath, "RJ000001 albumA")
 	if err := os.MkdirAll(album, 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
@@ -567,7 +567,7 @@ func TestHTTPWorksetExecutionRejectsChangedDisk(t *testing.T) {
 	if err != nil {
 		t.Fatalf("stat mp3: %v", err)
 	}
-	f := setupScannedWorkset(t, binPath, dataDir, rootPath, []string{"albumA"}, nil)
+	f := setupScannedWorkset(t, binPath, dataDir, rootPath, []string{"RJ000001 albumA"}, nil)
 	version := f.opVersion
 
 	// The wav is rewritten after the plan was frozen: same path, new content, and

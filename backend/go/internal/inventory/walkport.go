@@ -9,11 +9,12 @@ type DirEntry struct {
 	ParentPath string
 	Name       string
 	IsDir      bool
+	IsWorkRoot bool
 	Size       int64
 	Mtime      int64
 }
 
-// WalkRoot is one full-root traversal strategy: parallel directory descent
+// WalkRoot is one full-root traversal strategy: bounded work scanning
 // under the root, emitting every directory and file it finds. The pipeline
 // reads the filesystem through this port, so the traversal lives in the
 // filesystem adapter and the pipeline stays testable without one.

@@ -16,7 +16,7 @@ import (
 const (
 	pipelineBatchSize      = 1000
 	taskQueueSize          = 100 // Buffered channel for backpressure
-	defaultRootConcurrency = 4
+	DefaultScanWorkers     = 32
 	progressEntryThreshold = 500                    // emit progress at most every 500 entries
 	progressTimeInterval   = 100 * time.Millisecond // emit progress at most every 100ms
 )
@@ -118,7 +118,7 @@ func (t *progressTracker) emit() {
 }
 
 // MergeOutcome is what one merge did beyond moving rows: how many entries it
-// merged, and how the library's direct child directories were classified while
+// merged, and how the library's work roots were classified while
 // the bindings were reconciled. The classifications are the scan's answer for a
 // directory whose name it could not read as exactly one work number - the scan
 // does not guess, so it reports.
@@ -152,6 +152,7 @@ type StagingEntry struct {
 	ParentPath string
 	Name       string
 	IsDir      bool
+	IsWorkRoot bool
 	Size       int64
 	Mtime      int64
 	Format     string
@@ -215,25 +216,25 @@ func NewPipeline(repo StagingStore, walkRoot WalkRoot, walkMember WalkMember, me
 		walkRoot:        walkRoot,
 		walkMember:      walkMember,
 		merged:          merged,
-		rootConcurrency: defaultRootConcurrency,
+		rootConcurrency: DefaultScanWorkers,
 	}
 }
 
 // ScanRoot performs a full scan of the given root path using
-// parallel directory descent + inline metadata + staging pipeline.
+// bounded work scanning + inline metadata + staging pipeline.
 //
-// Invariant: Root = parallel directory descent + inline metadata + pipeline.
+// Invariant: Root = bounded work scanning + inline metadata + pipeline.
 func (s *Pipeline) ScanRoot(rootPath string) (string, error) {
 	return s.ScanRootCtx(context.Background(), rootPath)
 }
 
 // ScanRootCtx performs a full scan of the given root path using
-// parallel directory descent + inline metadata + staging pipeline.
+// bounded work scanning + inline metadata + staging pipeline.
 // It is context-aware: on ctx cancellation the merge is skipped, the scan
 // session is marked canceled (error_code SCAN_CANCELLED), and staging rows
 // are cleaned up best-effort.
 //
-// Invariant: Root = parallel directory descent + inline metadata + pipeline.
+// Invariant: Root = bounded work scanning + inline metadata + pipeline.
 //
 //nolint:gocognit,funlen // producer/consumer pipeline with cancellation has many coordinated branches
 func (s *Pipeline) ScanRootCtx(ctx context.Context, rootPath string, opts ...ScanOption) (string, error) {
@@ -605,7 +606,7 @@ func (s *Pipeline) ScanFolderCtx(
 		}
 
 		// A member refresh reconciles nothing: it is scoped to one subtree, and
-		// the library's direct children are not its to rewrite.
+		// the library's work roots are not its to rewrite.
 		if _, err := s.repo.MergeStaging(sessionID, "", normalizedRootPath); err != nil {
 			_ = s.repo.UpdateScanSessionStatus(sessionID, "failed", "MERGE_FAILED", err.Error())
 			return "", err
@@ -636,6 +637,7 @@ func DirEntryToStagingEntry(entry DirEntry, sessionID, rootPath string) StagingE
 		ParentPath: filepath.ToSlash(entry.ParentPath),
 		Name:       entry.Name,
 		IsDir:      entry.IsDir,
+		IsWorkRoot: entry.IsWorkRoot,
 		Size:       entry.Size,
 		Mtime:      entry.Mtime,
 		Format:     detectFormatFromPath(entry.Path, entry.IsDir),

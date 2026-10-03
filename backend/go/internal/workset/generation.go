@@ -23,10 +23,11 @@ type generationInput struct {
 // Freezing the draft here means a session never reads a later draft, whatever
 // happens to the operation while it waits in the queue.
 type generationRequest struct {
-	DraftHash  string          `json:"draft_hash"`
-	MemberHash string          `json:"member_hash"`
-	Roots      int             `json:"roots"`
-	Draft      json.RawMessage `json:"draft"`
+	LibraryRoot string          `json:"library_root"`
+	DraftHash   string          `json:"draft_hash"`
+	MemberHash  string          `json:"member_hash"`
+	Roots       int             `json:"roots"`
+	Draft       json.RawMessage `json:"draft"`
 }
 
 // StartGeneration enqueues one planning session for an operation. The operation
@@ -142,10 +143,11 @@ func (s *serviceImpl) prepareGeneration(
 		members:   members,
 		draftHash: draft.DraftHash,
 		request: generationRequest{
-			DraftHash:  draft.DraftHash,
-			MemberHash: hashMembers(members),
-			Roots:      len(members),
-			Draft:      json.RawMessage(draft.DraftJSON),
+			LibraryRoot: w.RootPath,
+			DraftHash:   draft.DraftHash,
+			MemberHash:  hashMembers(members),
+			Roots:       len(members),
+			Draft:       json.RawMessage(draft.DraftJSON),
 		},
 	}, nil
 }
@@ -412,9 +414,10 @@ func (s *serviceImpl) runGeneration(
 		return nil, err
 	}
 	return task.PlanSession(ctx, PlanSessionInput{
-		RawDraft: req.Draft,
-		Members:  members,
-		Progress: progress,
+		LibraryRoot: req.LibraryRoot,
+		RawDraft:    req.Draft,
+		Members:     members,
+		Progress:    progress,
 	})
 }
 

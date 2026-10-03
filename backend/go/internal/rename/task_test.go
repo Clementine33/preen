@@ -61,7 +61,11 @@ func TestPlanSuggestsCleanNamesWithoutModifyingDirectories(t *testing.T) {
 	draft, _, _ := task.SeedDraft(nil)
 	snapshot, err := task.PlanSession(
 		t.Context(),
-		workset.PlanSessionInput{RawDraft: draft, Members: []*workset.WorksetMember{member}},
+		workset.PlanSessionInput{
+			LibraryRoot: filepath.ToSlash(filepath.Dir(filepath.FromSlash(member.FolderPath))),
+			RawDraft:    draft,
+			Members:     []*workset.WorksetMember{member},
+		},
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -99,7 +103,11 @@ func TestMetadataBracesAreLiteralAndDraftsCannotOverrideMembers(t *testing.T) {
 	draft := []byte(`{"schema_version":1,"common":{"template":"[{rj}] {title} {circle}"},"members":[]}`)
 	snapshot, err := task.PlanSession(
 		t.Context(),
-		workset.PlanSessionInput{RawDraft: draft, Members: []*workset.WorksetMember{member}},
+		workset.PlanSessionInput{
+			LibraryRoot: filepath.ToSlash(filepath.Dir(filepath.FromSlash(member.FolderPath))),
+			RawDraft:    draft,
+			Members:     []*workset.WorksetMember{member},
+		},
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -153,7 +161,11 @@ func TestRevisionOnlyTracksUsedMetadataAndRelevantDirectories(t *testing.T) {
 	draft, _, _ := task.SeedDraft(nil)
 	snapshot, err := task.PlanSession(
 		t.Context(),
-		workset.PlanSessionInput{RawDraft: draft, Members: []*workset.WorksetMember{member}},
+		workset.PlanSessionInput{
+			LibraryRoot: filepath.ToSlash(filepath.Dir(filepath.FromSlash(member.FolderPath))),
+			RawDraft:    draft,
+			Members:     []*workset.WorksetMember{member},
+		},
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -226,7 +238,11 @@ func TestNamesBlockMissingMetadataOccupiedTargetsAndUnsafeLengths(t *testing.T) 
 			)
 			snapshot, err := task.PlanSession(
 				t.Context(),
-				workset.PlanSessionInput{RawDraft: draft, Members: []*workset.WorksetMember{member}},
+				workset.PlanSessionInput{
+					LibraryRoot: filepath.ToSlash(filepath.Dir(filepath.FromSlash(member.FolderPath))),
+					RawDraft:    draft,
+					Members:     []*workset.WorksetMember{member},
+				},
 			)
 			if err != nil {
 				t.Fatal(err)
@@ -267,7 +283,11 @@ func TestTwoCopiesCannotPlanTheSameTarget(t *testing.T) {
 	draft, _, _ := task.SeedDraft(nil)
 	snapshot, err := task.PlanSession(
 		t.Context(),
-		workset.PlanSessionInput{RawDraft: draft, Members: []*workset.WorksetMember{member, second}},
+		workset.PlanSessionInput{
+			LibraryRoot: filepath.ToSlash(filepath.Dir(filepath.FromSlash(member.FolderPath))),
+			RawDraft:    draft,
+			Members:     []*workset.WorksetMember{member, second},
+		},
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -281,6 +301,66 @@ func TestTwoCopiesCannotPlanTheSameTarget(t *testing.T) {
 
 // namedCatalog supplies the public read port for Windows paths on any test host.
 type namedCatalog struct{ bindings map[string]rename.Work }
+
+func TestNestedCopiesUseTheirOwnParentForConflictsAndFreshness(t *testing.T) {
+	repo, task, member := fixture(t, "title")
+	root := filepath.Dir(member.FolderPath)
+	for _, parent := range []string{"one", "two"} {
+		if err := os.MkdirAll(filepath.Join(root, parent, member.FolderName), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	libs, err := repo.ListLibraries()
+	if err != nil {
+		t.Fatal(err)
+	}
+	pipeline := inventory.NewPipeline(
+		sqlite.NewScanStaging(repo),
+		filesystem.WalkRootEntriesParallel,
+		filesystem.WalkFolderEntries,
+		nil,
+	)
+	if _, err = pipeline.ScanRootCtx(t.Context(), root, inventory.WithLibrary(libs[0].ID)); err != nil {
+		t.Fatal(err)
+	}
+	members := []*workset.WorksetMember{}
+	for _, parent := range []string{"one", "two"} {
+		rel := parent + "/" + member.FolderName
+		members = append(
+			members,
+			&workset.WorksetMember{
+				MemberID:   parent,
+				RelPath:    rel,
+				FolderName: member.FolderName,
+				FolderPath: filepath.ToSlash(filepath.Join(root, rel)),
+			},
+		)
+	}
+	draft, _, _ := task.SeedDraft(nil)
+	snapshot, err := task.PlanSession(
+		t.Context(),
+		workset.PlanSessionInput{LibraryRoot: root, RawDraft: draft, Members: members},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, unit := range snapshot.Units {
+		if unit.Status != "ok" {
+			t.Fatalf("cross-parent collision: %+v", unit)
+		}
+	}
+	var outcome rename.Outcome
+	if err = json.Unmarshal(snapshot.Units[1].Payload, &outcome); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.Mkdir(filepath.Join(root, "two", outcome.TargetName), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	health, err := task.EvaluateRevision(workset.RevisionFacts{Detail: detail(snapshot)})
+	if err != nil || !health.InputMoved || len(health.StaleRoots) != 1 || health.StaleRoots[0] != 1 {
+		t.Fatalf("parent freshness = %+v, %v", health, err)
+	}
+}
 
 func (c namedCatalog) RenameWorks(context.Context, string, []string) (map[string]rename.Work, error) {
 	return c.bindings, nil
@@ -305,7 +385,11 @@ func TestWindowsCaseOnlyRenameAndTargetOccupancyAreBlocked(t *testing.T) {
 	draft, _, _ := task.SeedDraft(nil)
 	snapshot, err := task.PlanSession(
 		t.Context(),
-		workset.PlanSessionInput{RawDraft: draft, Members: []*workset.WorksetMember{member}},
+		workset.PlanSessionInput{
+			LibraryRoot: filepath.ToSlash(filepath.Dir(filepath.FromSlash(member.FolderPath))),
+			RawDraft:    draft,
+			Members:     []*workset.WorksetMember{member},
+		},
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -332,7 +416,11 @@ func TestExcludedMissingMemberIsOmittedAndSourceLossStalesPlan(t *testing.T) {
 	)
 	snapshot, err := task.PlanSession(
 		t.Context(),
-		workset.PlanSessionInput{RawDraft: raw, Members: []*workset.WorksetMember{member, other}},
+		workset.PlanSessionInput{
+			LibraryRoot: filepath.ToSlash(filepath.Dir(filepath.FromSlash(member.FolderPath))),
+			RawDraft:    raw,
+			Members:     []*workset.WorksetMember{member, other},
+		},
 	)
 	if err != nil {
 		t.Fatal(err)

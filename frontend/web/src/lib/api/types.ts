@@ -518,7 +518,7 @@ export type SkippedReason =
   | 'recovery_dir'
   | 'duplicate'
   | 'invalid_path'
-  | 'not_direct_child'
+  | 'not_work_root'
 
 export interface SkippedFolder {
   path: string

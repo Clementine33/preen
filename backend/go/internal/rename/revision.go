@@ -3,6 +3,7 @@ package rename
 import (
 	"context"
 	"encoding/json"
+	"path/filepath"
 
 	"github.com/onsei/organizer/backend/internal/workset"
 )
@@ -102,7 +103,7 @@ func (t *Task) EvaluateRevision(in workset.RevisionFacts) (workset.RevisionHealt
 	if err != nil {
 		return health, err
 	}
-	directory, readErr := t.readDirectory(ctx, in.Detail.Plan.RootPath)
+	directories, readErrors := t.readParentDirectories(ctx, paths)
 	outcomes := map[int]Outcome{}
 	for _, c := range in.Detail.Components {
 		var o Outcome
@@ -113,8 +114,10 @@ func (t *Task) EvaluateRevision(in workset.RevisionFacts) (workset.RevisionHealt
 		health.UnitsBlocked = health.UnitsBlocked || c.Status == "blocked"
 	}
 	for _, r := range in.Detail.Roots {
+		parent := filepath.ToSlash(filepath.Dir(filepath.FromSlash(r.RootPath)))
+		directory := directories[parent]
 		o := outcomes[r.RootIndex]
-		if readErr != nil ||
+		if readErrors[parent] != nil ||
 			fingerprint(
 				common.Template,
 				o,

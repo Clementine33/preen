@@ -169,3 +169,7 @@ Cancellation stops new requests/imports. Neither scanning nor startup triggers
 refresh automatically.
 
 Shared [operation routes and versions](worksets.md) and [execution sessions](executions.md#execution-sessions) apply to these tasks. Metadata imports use the [work catalog contract](works.md#source-metadata-import).
+
+Rename planning accepts nested scanned work roots and changes only their basename. Occupancy and batch conflicts are checked within each actual parent; equal targets in distinct parents are allowed. Plan freshness checks each participating parent. Rename execution remains unavailable.
+
+Conversion planning handles at most four work roots concurrently per session and preserves request order. Scan, planning and encoding limits are independent. Metadata planning also uses the saved library root and accepts copies beneath different classification directories.

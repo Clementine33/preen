@@ -3,7 +3,6 @@ package metadatatask
 import (
 	"context"
 	"encoding/json"
-	"path/filepath"
 	"strings"
 
 	"github.com/onsei/organizer/backend/internal/covers"
@@ -28,11 +27,11 @@ func (t *Task) PlanSession(ctx context.Context, in workset.PlanSessionInput) (*w
 	if err := t.ValidateSessionInput(in.RawDraft, in.Members); err != nil {
 		return nil, err
 	}
-	if len(in.Members) == 0 {
-		return nil, invalid("no members")
+	if len(in.Members) == 0 || strings.TrimSpace(in.LibraryRoot) == "" {
+		return nil, invalid("library root and members are required")
 	}
 	d, _ := decode(in.RawDraft)
-	root := filepath.ToSlash(filepath.Dir(in.Members[0].FolderPath))
+	root := pathnorm.CleanRootPath(in.LibraryRoot)
 	excluded := map[string]bool{}
 	excludedIDs := []string{}
 	for _, m := range d.Members {
@@ -43,8 +42,9 @@ func (t *Task) PlanSession(ctx context.Context, in workset.PlanSessionInput) (*w
 	}
 	paths := []string{}
 	for _, m := range in.Members {
-		if pathnorm.RootPathKey(filepath.Dir(m.FolderPath)) != pathnorm.RootPathKey(root) {
-			return nil, invalid("members must share one root")
+		rel, ok := pathnorm.RelPath(m.RelPath)
+		if !ok || pathnorm.RootPathKey(pathnorm.JoinRel(root, rel)) != pathnorm.RootPathKey(m.FolderPath) {
+			return nil, invalid("members must be beneath the saved library root")
 		}
 		if !excluded[m.MemberID] {
 			paths = append(paths, m.FolderPath)

@@ -124,7 +124,7 @@ const SKIP_TEXT: Record<SkippedReason, string> = {
   recovery_dir: '回收目录不作为成员',
   duplicate: '重复选择',
   invalid_path: '路径不合法',
-  not_direct_child: '不是媒体库根的直接子目录',
+  not_work_root: '不是扫描识别的作品根目录',
 }
 
 /** The selection as the caller sees it, so the confirmation names it. */

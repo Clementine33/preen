@@ -25,10 +25,10 @@ func TestHTTPWorksetGenerationLoop(t *testing.T) {
 	binPath := buildBackendBinary(t)
 	dataDir := t.TempDir()
 	rootPath := filepath.Join(dataDir, "music")
-	mustWriteFile(t, filepath.Join(rootPath, "albumA", "test1.mp3"), "dummy audio")
-	mustWriteFile(t, filepath.Join(rootPath, "albumA", "test1.flac"), "dummy audio")
-	mustWriteFile(t, filepath.Join(rootPath, "albumA", "test2.mp3"), "dummy audio")
-	mustWriteFile(t, filepath.Join(rootPath, "albumA", "test2.flac"), "dummy audio")
+	mustWriteFile(t, filepath.Join(rootPath, "RJ000001 albumA", "test1.mp3"), "dummy audio")
+	mustWriteFile(t, filepath.Join(rootPath, "RJ000001 albumA", "test1.flac"), "dummy audio")
+	mustWriteFile(t, filepath.Join(rootPath, "RJ000001 albumA", "test2.mp3"), "dummy audio")
+	mustWriteFile(t, filepath.Join(rootPath, "RJ000001 albumA", "test2.flac"), "dummy audio")
 
 	const token = "e2e-token"
 	proc := startBackendBinary(t, binPath, dataDir, token)
@@ -81,12 +81,12 @@ func TestHTTPWorksetGenerationLoop(t *testing.T) {
 	}
 	albumRel, albumDirID := "", ""
 	for _, d := range dirs.Dirs {
-		if d.RelPath == "albumA" {
+		if d.RelPath == "RJ000001 albumA" {
 			albumRel, albumDirID = d.RelPath, d.DirID
 		}
 	}
 	if albumRel == "" || albumDirID == "" {
-		t.Fatalf("albumA missing from the overview listing: %+v", dirs.Dirs)
+		t.Fatalf("RJ000001 albumA missing from the overview listing: %+v", dirs.Dirs)
 	}
 
 	// The identity the listing hands out opens that directory's tree: the
@@ -105,7 +105,7 @@ func TestHTTPWorksetGenerationLoop(t *testing.T) {
 		token,
 		nil,
 		&tree,
-	); code != http.StatusOK || tree.MemberPath != "albumA" || tree.DirID != albumDirID {
+	); code != http.StatusOK || tree.MemberPath != "RJ000001 albumA" || tree.DirID != albumDirID {
 		t.Fatalf("tree by identity: code=%d %+v (identity=%s)", code, tree, albumDirID)
 	}
 
@@ -179,7 +179,7 @@ func TestHTTPWorksetGenerationLoop(t *testing.T) {
 		token,
 		nil,
 		&tree,
-	); code != http.StatusOK || tree.MemberPath != "albumA" {
+	); code != http.StatusOK || tree.MemberPath != "RJ000001 albumA" {
 		t.Fatalf("tree by the record's identity: code=%d %+v (identity=%s)", code, tree, member.DirID)
 	}
 
@@ -196,7 +196,7 @@ func TestHTTPWorksetGenerationLoop(t *testing.T) {
 		token,
 		map[string]any{},
 		&tree,
-	); code != http.StatusOK || tree.MemberPath != "albumA" {
+	); code != http.StatusOK || tree.MemberPath != "RJ000001 albumA" {
 		t.Fatalf("refresh by identity: code=%d %+v (identity=%s)", code, tree, member.DirID)
 	}
 	var afterRefresh struct {
@@ -218,8 +218,8 @@ func TestHTTPWorksetGenerationLoop(t *testing.T) {
 	); code != http.StatusOK || len(afterRefresh.Dirs) != 1 {
 		t.Fatalf("listing after a member refresh: code=%d %+v", code, afterRefresh.Dirs)
 	}
-	if afterRefresh.Dirs[0].RelPath != "albumA" || afterRefresh.Dirs[0].DirID != member.DirID {
-		t.Fatalf("the refreshed member came back as %+v, want albumA with identity %q",
+	if afterRefresh.Dirs[0].RelPath != "RJ000001 albumA" || afterRefresh.Dirs[0].DirID != member.DirID {
+		t.Fatalf("the refreshed member came back as %+v, want RJ000001 albumA with identity %q",
 			afterRefresh.Dirs[0], member.DirID)
 	}
 
@@ -438,7 +438,7 @@ func TestHTTPWorksetGenerationLoop(t *testing.T) {
 
 	// Deleting the library moved no media: the album folders are still there.
 	for _, name := range []string{"test1.mp3", "test1.flac"} {
-		if _, statErr := os.Stat(filepath.Join(rootPath, "albumA", name)); statErr != nil {
+		if _, statErr := os.Stat(filepath.Join(rootPath, "RJ000001 albumA", name)); statErr != nil {
 			t.Fatalf("library deletion touched media: %v", statErr)
 		}
 	}

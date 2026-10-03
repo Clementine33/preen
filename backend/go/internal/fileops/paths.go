@@ -39,7 +39,7 @@ type member struct {
 }
 
 // openMember validates a library-relative member path and resolves it. The
-// member is the scope of every file operation: it must be a direct child
+// member is the scope of every file operation: it must be a descendant
 // directory of the library root (the recovery directory is never one), and it
 // must exist on disk as a real directory — a symlink is not a member, so
 // nothing below it would be reachable through a link.
@@ -48,10 +48,10 @@ func openMember(rootPath, memberRel string) (*member, error) {
 		return nil, &PathError{CodePathInvalid, "the library root is unknown"}
 	}
 	rel, ok := pathnorm.RelPath(memberRel)
-	if !ok || strings.Contains(rel, "/") {
-		return nil, &PathError{CodePathInvalid, "a member path is one library-relative directory name"}
+	if !ok {
+		return nil, &PathError{CodePathInvalid, "a member path is a library-relative directory path"}
 	}
-	if isRecoveryName(rootPath, rel) {
+	if isRecoveryName(rootPath, strings.SplitN(rel, "/", 2)[0]) {
 		return nil, &PathError{CodeMemberRoot, "the recovery directory is not a member"}
 	}
 	m := &member{
@@ -61,18 +61,29 @@ func openMember(rootPath, memberRel string) (*member, error) {
 		nativeAbs:  filepath.FromSlash(pathnorm.JoinRel(rootPath, rel)),
 		nativeRoot: filepath.FromSlash(pathnorm.NormalizeToPOSIX(rootPath)),
 	}
-	info, err := os.Lstat(m.nativeAbs)
-	if err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
-			return nil, &PathError{CodeMemberMissing, "the member directory does not exist"}
+	native := m.nativeRoot
+	for _, segment := range append([]string{""}, strings.Split(rel, "/")...) {
+		native = filepath.Join(native, filepath.FromSlash(segment))
+		info, err := os.Lstat(native)
+		if err != nil {
+			if errors.Is(err, fs.ErrNotExist) {
+				return nil, &PathError{CodeMemberMissing, "the member directory does not exist"}
+			}
+			return nil, &PathError{errCode(err), err.Error()}
 		}
+		if info.Mode()&fs.ModeSymlink != 0 {
+			return nil, &PathError{CodeSymlink, "the member path goes through a symbolic link"}
+		}
+		if !info.IsDir() {
+			return nil, &PathError{CodeMemberRoot, "the member path is not a directory"}
+		}
+	}
+	inside, err := pathnorm.IsResolvedWithinRoot(m.nativeRoot, m.nativeAbs)
+	if err != nil {
 		return nil, &PathError{errCode(err), err.Error()}
 	}
-	if info.Mode()&fs.ModeSymlink != 0 {
-		return nil, &PathError{CodeSymlink, "the member directory is a symbolic link"}
-	}
-	if !info.IsDir() {
-		return nil, &PathError{CodeMemberRoot, "the member path is not a directory"}
+	if !inside {
+		return nil, &PathError{CodeOutsideMember, "the member is outside the library root"}
 	}
 	return m, nil
 }
@@ -103,7 +114,11 @@ func (m *member) resolve(rel string) (string, error) {
 	// Containment is decided on resolved forms as well as on the shape of the
 	// relative path, so a path that is lexically inside but leaves through a
 	// link is refused rather than trusted.
-	if !insideMember(m.nativeAbs, native) {
+	inside, err := pathnorm.IsResolvedWithinRoot(m.nativeAbs, native)
+	if err != nil {
+		return "", &PathError{errCode(err), err.Error()}
+	}
+	if !inside {
 		return "", &PathError{CodeOutsideMember, "the path is outside the member"}
 	}
 	return native, nil

@@ -24,7 +24,7 @@ const audioExtCond = `(lower(name) LIKE '%.mp3' OR lower(name) LIKE '%.flac' OR 
 // case-insensitive by default, which would conflate case-distinct POSIX
 // siblings (`/music/Rock` vs `/music/rock`), so path identity here must be
 // exact and case-sensitive; % and _ are ordinary characters.
-const subtreeFilePredicateSQL = `(f.path = d.path OR substr(f.path, 1, length(d.path) + 1) = d.path || '/')`
+const subtreeFilePredicateSQL = `(f.path >= d.path || '/' AND f.path < d.path || '0')`
 
 // isUniqueConstraintError reports whether err is a SQLite UNIQUE constraint
 // violation.
@@ -311,7 +311,7 @@ func scanLibrary(row interface{ Scan(...any) error }) (*library.Library, error) 
 
 // ==================== Overview listing ====================
 
-// ListLibraryDirs returns the direct child directories of a library root that
+// ListLibraryDirs returns the scanned work roots of a library root that
 // the workbench overview shows: every directory the last scan saw, whether or
 // not it holds audio, with the audio and file counts of its subtree. The
 // library-level recovery directory is not a member and is left out. Order is
@@ -321,19 +321,16 @@ func scanLibrary(row interface{ Scan(...any) error }) (*library.Library, error) 
 // it describes exactly the state the rest of the workbench reads, and its
 // identity is the library-relative path, which a rescan cannot change.
 func (r *Repository) ListLibraryDirs(rootPath string) ([]*inventory.LibraryDir, error) {
-	rootPath = pathnorm.NormalizeToPOSIX(rootPath)
-	if len(rootPath) > 1 {
-		rootPath = strings.TrimRight(rootPath, "/")
-	}
+	rootPath = pathnorm.CleanRootPath(rootPath)
 	rows, err := r.db.Query(`
 		SELECT d.path, d.name,
 		       (SELECT COUNT(*) FROM entries f
-		         WHERE f.is_dir = 0 AND `+subtreeFilePredicateSQL+` AND `+audioExtCond+`) AS audio_count,
+		         WHERE f.root_path = d.root_path AND f.is_dir = 0 AND `+subtreeFilePredicateSQL+` AND `+audioExtCond+`) AS audio_count,
 		       (SELECT COUNT(*) FROM entries f
-		         WHERE f.is_dir = 0 AND `+subtreeFilePredicateSQL+`) AS file_count
+		         WHERE f.root_path = d.root_path AND f.is_dir = 0 AND `+subtreeFilePredicateSQL+`) AS file_count
 		FROM entries d
 		WHERE d.is_dir = 1
-		  AND d.parent_path = ?
+		  AND d.root_path = ? AND d.is_work_root = 1
 		ORDER BY d.path
 	`, rootPath)
 	if err != nil {
@@ -352,7 +349,7 @@ func (r *Repository) ListLibraryDirs(rootPath string) ([]*inventory.LibraryDir, 
 			return nil, err
 		}
 		d.RelPath = strings.TrimPrefix(pathnorm.NormalizeToPOSIX(d.Path), prefix)
-		if isRecoveryDirName(rootPath, d.Name) {
+		if isRecoveryDirName(rootPath, strings.SplitN(d.RelPath, "/", 2)[0]) {
 			continue
 		}
 		out = append(out, &d)
@@ -360,21 +357,18 @@ func (r *Repository) ListLibraryDirs(rootPath string) ([]*inventory.LibraryDir, 
 	return out, rows.Err()
 }
 
-// ListLibraryChildDirs returns the library-relative path of every direct child
-// directory of a library root that the inventory knows. It carries no subtree
+// ListLibraryWorkRoots returns the library-relative path of every scanned work
+// root. It carries no subtree
 // statistics: resolving a directory identity needs the identities only, not the
 // counts the overview listing shows. The library-level recovery directory is not
 // a member and is left out, exactly as in the overview listing.
-func (r *Repository) ListLibraryChildDirs(rootPath string) ([]string, error) {
-	rootPath = pathnorm.NormalizeToPOSIX(rootPath)
-	if len(rootPath) > 1 {
-		rootPath = strings.TrimRight(rootPath, "/")
-	}
+func (r *Repository) ListLibraryWorkRoots(rootPath string) ([]string, error) {
+	rootPath = pathnorm.CleanRootPath(rootPath)
 	rows, err := r.db.Query(`
 		SELECT path, name
 		FROM entries
 		WHERE is_dir = 1
-		  AND parent_path = ?
+		  AND root_path = ? AND is_work_root = 1
 		ORDER BY path
 	`, rootPath)
 	if err != nil {
@@ -392,7 +386,10 @@ func (r *Repository) ListLibraryChildDirs(rootPath string) ([]string, error) {
 		if err := rows.Scan(&path, &name); err != nil {
 			return nil, err
 		}
-		if isRecoveryDirName(rootPath, name) {
+		if isRecoveryDirName(
+			rootPath,
+			strings.SplitN(strings.TrimPrefix(pathnorm.NormalizeToPOSIX(path), prefix), "/", 2)[0],
+		) {
 			continue
 		}
 		out = append(out, strings.TrimPrefix(pathnorm.NormalizeToPOSIX(path), prefix))
@@ -424,7 +421,7 @@ func (r *Repository) DirAudioCounts(rootPath string, relPaths []string) (map[str
 	if len(relPaths) == 0 {
 		return out, nil
 	}
-	args := make([]any, 0, len(relPaths))
+	args := make([]any, 0, len(relPaths)+1)
 	placeholders := make([]string, 0, len(relPaths))
 	byPath := make(map[string]string, len(relPaths))
 	for _, rel := range relPaths {
@@ -436,12 +433,13 @@ func (r *Repository) DirAudioCounts(rootPath string, relPaths []string) (map[str
 		args = append(args, abs)
 		placeholders = append(placeholders, "?")
 	}
+	args = append(args, pathnorm.CleanRootPath(rootPath))
 	rows, err := r.db.Query(`
 		SELECT d.path,
 		       (SELECT COUNT(*) FROM entries f
-		         WHERE f.is_dir = 0 AND `+subtreeFilePredicateSQL+` AND `+audioExtCond+`) AS audio_count
+		         WHERE f.root_path = d.root_path AND f.is_dir = 0 AND `+subtreeFilePredicateSQL+` AND `+audioExtCond+`) AS audio_count
 		FROM entries d
-		WHERE d.is_dir = 1 AND d.path IN (`+strings.Join(placeholders, ", ")+`)
+		WHERE d.is_dir = 1 AND d.path IN (`+strings.Join(placeholders, ", ")+`) AND d.root_path = ?
 	`, args...)
 	if err != nil {
 		return nil, err
@@ -465,13 +463,13 @@ func (r *Repository) DirAudioCounts(rootPath string, relPaths []string) (map[str
 // exact, so folder names like "100%_hits" match only their own subtree and
 // case-distinct siblings stay distinct.
 func (r *Repository) ListEntriesUnderPath(pathPrefix string) ([]inventory.Entry, error) {
-	pathPrefix = pathnorm.NormalizeToPOSIX(pathPrefix)
+	pathPrefix = pathnorm.CleanRootPath(pathPrefix)
 	rows, err := r.db.Query(`
 		SELECT path, parent_path, name, is_dir, size, mtime, bitrate, format, width, height, duration_sec, content_rev
 		FROM entries
-		WHERE path = ? OR substr(path, 1, length(?) + 1) = ? || '/'
+		WHERE path = ? OR (path >= ? AND path < ?)
 		ORDER BY path
-	`, pathPrefix, pathPrefix, pathPrefix)
+	`, pathPrefix, strings.TrimRight(pathPrefix, "/")+"/", strings.TrimRight(pathPrefix, "/")+"0")
 	if err != nil {
 		return nil, err
 	}

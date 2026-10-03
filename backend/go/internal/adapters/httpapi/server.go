@@ -62,7 +62,7 @@ func NewServer(deps Dependencies) http.Handler {
 	mux.Handle("PATCH /api/v1/libraries/{id}", protect(http.HandlerFunc(s.patchLibrary)))
 	mux.Handle("DELETE /api/v1/libraries/{id}", protect(http.HandlerFunc(s.deleteLibrary)))
 	mux.Handle("POST /api/v1/libraries/{id}/scans", protect(http.HandlerFunc(s.postLibraryScan)))
-	// The workbench overview lists every direct child directory; a member tree
+	// The workbench overview lists every scanned work root; a member tree
 	// is read by its library-relative path and refreshed by re-scanning that
 	// member.
 	mux.Handle("GET /api/v1/libraries/{id}/dirs", protect(http.HandlerFunc(s.listLibraryDirs)))

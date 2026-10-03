@@ -17,17 +17,17 @@ type Work struct {
 	Values map[string]string `json:"values"`
 }
 
-// Entry describes an immediate library entry without following symlinks.
+// Entry describes an immediate parent entry without following symlinks.
 type Entry struct {
 	Directory bool  `json:"directory"`
 	Symlink   bool  `json:"symlink"`
 	Modified  int64 `json:"modified"`
 }
 
-// Directory is a read-only view of immediate library entries.
+// Directory is a read-only view of immediate parent entries.
 type Directory map[string]Entry
 
-// Task plans top-level directory names without writing to disk.
+// Task plans work directory basenames without writing to disk.
 type Task struct {
 	catalog       Catalog
 	readDirectory func(context.Context, string) (Directory, error)

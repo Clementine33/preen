@@ -198,7 +198,7 @@ const (
 	SkipRecoveryDir   = "recovery_dir"
 	SkipDuplicate     = "duplicate"
 	SkipInvalidPath   = "invalid_path"
-	SkipNotDirect     = "not_direct_child"
+	SkipNotWorkRoot   = "not_work_root"
 	SkipOutsideMember = "outside_member"
 )
 

@@ -32,6 +32,7 @@ type Store interface {
 	CreateGeneration(g *PlanGeneration) error
 	// DirAudioCounts is one operation of the lifecycle.
 	DirAudioCounts(rootPath string, relPaths []string) (map[string]int, error)
+	ListLibraryWorkRoots(rootPath string) ([]string, error)
 	// FinishExecution is one operation of the lifecycle.
 	FinishExecution(executionID, status, errorCode, errorMessage string) error
 	// GetActiveExecutionForOperation is one operation of the lifecycle.

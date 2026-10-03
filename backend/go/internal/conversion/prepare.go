@@ -62,6 +62,7 @@ func (t *Task) prepareComponent(
 		Specs:      profile,
 		DeleteMode: mode,
 		Encoder:    t.encoder(),
+		Recover:    t.recoverFile,
 	})
 	if prepErr != nil {
 		return nil, reconcile.DesiredProfile{}, unitFailureOf(prepErr)

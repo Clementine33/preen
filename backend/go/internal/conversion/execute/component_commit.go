@@ -1,6 +1,7 @@
 package execute
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 
@@ -28,7 +29,9 @@ func replacedAsidePath(target string) string {
 // landed — a cleanup failure after a landing output still reports true — and
 // the returned recovery paths (persisted form) still hold old media whenever
 // replacement or cleanup did not fully complete.
-func commitOutput(tk *componentToolkit, absRoot string, enc *plannedEncode, soft bool) ([]string, bool, error) {
+func commitOutput(
+	ctx context.Context, tk *componentToolkit, workRoot string, enc *plannedEncode, soft bool,
+) ([]string, bool, error) {
 	target := posixForm(enc.target)
 	if !enc.replace {
 		if err := tk.rename(enc.temp, enc.target); err != nil {
@@ -37,7 +40,7 @@ func commitOutput(tk *componentToolkit, absRoot string, enc *plannedEncode, soft
 		return nil, true, nil
 	}
 	if soft {
-		recoveryDest, err := softRemove(tk, absRoot, enc.target)
+		recoveryDest, err := tk.recoverFile(ctx, workRoot, enc.target)
 		if err != nil {
 			return nil, false, fmt.Errorf("protect replaced output %s: %w", target, err)
 		}

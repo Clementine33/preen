@@ -11,6 +11,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/onsei/organizer/backend/internal/adapters/filesystem"
+
 	"github.com/onsei/organizer/backend/internal/adapters/ffmpeg"
 	"github.com/onsei/organizer/backend/internal/conversion/execute"
 	"github.com/onsei/organizer/backend/internal/conversion/reconcile"
@@ -111,6 +113,7 @@ func runRequest(
 		Specs:      specs,
 		DeleteMode: mode,
 		Encoder:    ffmpeg.New(execute.ToolsConfig{}),
+		Recover:    filesystem.Recover,
 	}
 }
 
@@ -460,6 +463,27 @@ func TestComponentRun_SoftDeleteWithoutRootRefused(t *testing.T) {
 				t.Fatal("no fallback to hard deletion is allowed")
 			}
 		})
+	}
+}
+
+func TestComponentRun_MissingRecoveryDoesNotFallBackToHardDelete(t *testing.T) {
+	root := t.TempDir()
+	source := filepath.Join(root, "obsolete.mp3")
+	writeBytes(t, source, []byte("obsolete"))
+	component := componentFixture([]reconcile.FileTuple{freezeFile(t, source)}, removeOp("cmp-1", source))
+	req := runRequest(root, component, reconcile.DesiredProfile{}, execute.DeleteModeSoft)
+	req.Recover = nil
+	_, err := execute.RunComponent(t.Context(), req)
+	if err == nil || errorCode(t, err) != execute.ComponentCodeInvalidRequest {
+		t.Fatalf("expected missing recovery rejection, got %v", err)
+	}
+	if string(readBytes(t, source)) != "obsolete" {
+		t.Fatal("source changed without a recovery operation")
+	}
+	req.DeleteMode = execute.DeleteModeHard
+	result, err := execute.RunComponent(t.Context(), req)
+	if err != nil || len(result.Removed) != 1 {
+		t.Fatalf("hard deletion should not require recovery: %+v, %v", result, err)
 	}
 }
 

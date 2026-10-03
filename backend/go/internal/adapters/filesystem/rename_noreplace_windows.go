@@ -1,16 +1,16 @@
 //go:build windows
 
-package fileops
+package filesystem
 
 import (
 	"os"
 	"syscall"
 )
 
-// renameNoReplace renames src to dst and fails when dst exists. Windows gets
+// RenameNoReplace renames src to dst and fails when dst exists. Windows gets
 // the real primitive: MoveFileW refuses an existing destination, which is
 // exactly the no-overwrite guarantee this operation needs.
-func renameNoReplace(src, dst string) error {
+func RenameNoReplace(src, dst string) error {
 	srcPtr, err := syscall.UTF16PtrFromString(src)
 	if err != nil {
 		return &os.LinkError{Op: "rename", Old: src, New: dst, Err: err}

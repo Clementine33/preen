@@ -38,11 +38,8 @@ type plannedRemove struct {
 type plannedComponent struct {
 	absRoot  string
 	realRoot string
-	// recoveryRoot is the base soft removals are made relative to; it may be
-	// above absRoot (the work's parent directory), never below it.
-	recoveryRoot string
-	encodes      []plannedEncode
-	removes      []plannedRemove
+	encodes  []plannedEncode
+	removes  []plannedRemove
 }
 
 // nativePath returns the filesystem form of a path as persisted.
@@ -99,6 +96,10 @@ func newPlannedComponent(req ComponentRunRequest) (*plannedComponent, *Component
 		return nil, componentError(ComponentStagePrecheck, ComponentCodeInvalidRequest, "",
 			fmt.Sprintf("unsupported delete mode %q", req.DeleteMode), nil)
 	}
+	if req.DeleteMode == DeleteModeSoft && req.Recover == nil {
+		return nil, componentError(ComponentStagePrecheck, ComponentCodeInvalidRequest, "",
+			"recovery operation is required for soft deletion", nil)
+	}
 	if req.Root == "" {
 		return nil, componentError(ComponentStagePrecheck, ComponentCodeInvalidRequest, "",
 			"member root is required", nil)
@@ -123,44 +124,10 @@ func newPlannedComponent(req ComponentRunRequest) (*plannedComponent, *Component
 			"member root is not a directory", nil)
 	}
 	plan := &plannedComponent{absRoot: absRoot, realRoot: realRoot}
-	recoveryRoot, rerr := resolveRecoveryRoot(req, absRoot)
-	if rerr != nil {
-		return nil, rerr
-	}
-	plan.recoveryRoot = recoveryRoot
 	if cerr := plan.validateComponent(req.Component); cerr != nil {
 		return nil, cerr
 	}
 	return plan, nil
-}
-
-// resolveRecoveryRoot resolves the base soft removals are made relative to. It
-// defaults to the member's parent and must be an existing directory: a recovery
-// copy is never written through a path that cannot be resolved.
-func resolveRecoveryRoot(req ComponentRunRequest, absRoot string) (string, *ComponentError) {
-	if req.RecoveryRoot == "" {
-		return filepath.Dir(absRoot), nil
-	}
-	recoveryRoot := filepath.Clean(filepath.FromSlash(req.RecoveryRoot))
-	if !filepath.IsAbs(recoveryRoot) {
-		return "", componentError(ComponentStagePrecheck, ComponentCodeInvalidRequest, "",
-			fmt.Sprintf("recovery root must be absolute: %s", req.RecoveryRoot), nil)
-	}
-	resolved, err := filepath.EvalSymlinks(recoveryRoot)
-	if err != nil {
-		return "", componentError(ComponentStagePrecheck, ComponentCodeInvalidRequest, "",
-			"recovery root does not resolve", err)
-	}
-	info, err := os.Lstat(resolved)
-	if err != nil {
-		return "", componentError(ComponentStagePrecheck, ComponentCodeInvalidRequest, "",
-			"cannot inspect recovery root", err)
-	}
-	if !info.IsDir() {
-		return "", componentError(ComponentStagePrecheck, ComponentCodeInvalidRequest, "",
-			"recovery root is not a directory", nil)
-	}
-	return recoveryRoot, nil
 }
 
 // validateComponent refuses blocked or malformed components.

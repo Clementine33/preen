@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/onsei/organizer/backend/internal/adapters/filesystem"
+
 	"github.com/onsei/organizer/backend/internal/adapters/media"
 
 	"github.com/onsei/organizer/backend/internal/adapters/ffmpeg"
@@ -81,7 +83,7 @@ func (f *fixture) open() {
 	}
 	f.repo = repo
 	f.svc = workset.NewService(repo, 1, 1, []workset.Task{
-		conversion.New(repo, appconfig.NewReader(f.configDir), ffmpeg.New, media.ProbeBitrate),
+		conversion.New(repo, appconfig.NewReader(f.configDir), ffmpeg.New, media.ProbeBitrate, filesystem.Recover),
 	}, f.scan, nil)
 }
 

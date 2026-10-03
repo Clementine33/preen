@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/onsei/organizer/backend/internal/adapters/filesystem"
+
 	"github.com/onsei/organizer/backend/internal/adapters/sqlite"
 	"github.com/onsei/organizer/backend/internal/admission"
 	"github.com/onsei/organizer/backend/internal/fileops"
@@ -77,7 +79,12 @@ func fileOpsServer(t *testing.T) (http.Handler, string, *blockingScan) {
 		scan.gate = gate
 		d.Inventory = scan
 		testGate(d, fixture, gate)
-		d.FileOps = fileops.NewService(gate, func(context.Context, string, string) error { return nil })
+		d.FileOps = fileops.NewService(
+			gate,
+			func(context.Context, string, string) error { return nil },
+			filesystem.Recover,
+			filesystem.RenameNoReplace,
+		)
 	})
 	if _, err := repo.CreateLibrary("Music", filepath.ToSlash(root)); err != nil {
 		t.Fatalf("create library: %v", err)

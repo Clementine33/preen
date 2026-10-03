@@ -19,17 +19,26 @@ import (
 // service does not depend on the scanner.
 type MemberScan func(ctx context.Context, folderPath, rootPath string) error
 
+// RecoverFile moves an item into the recovery directory beside its work root.
+type RecoverFile func(ctx context.Context, workRoot, source string) (string, error)
+
+// RenameFile moves an item without replacing an existing destination.
+type RenameFile func(source, target string) error
+
 // Service applies direct file-management requests inside a library member.
 type Service struct {
-	gate *admission.Gate
-	scan MemberScan
+	gate        *admission.Gate
+	scan        MemberScan
+	recoverFile RecoverFile
+	renameFile  RenameFile
 }
 
 // NewService creates the file-management service. gate is the process-wide
 // admission control; scan refreshes the affected inventory after a write (nil
 // means the writes are reported without a refresh, which the tests use).
-func NewService(gate *admission.Gate, scan MemberScan) *Service {
-	return &Service{gate: gate, scan: scan}
+// recoverFile and renameFile provide the filesystem moves used by the request.
+func NewService(gate *admission.Gate, scan MemberScan, recoverFile RecoverFile, renameFile RenameFile) *Service {
+	return &Service{gate: gate, scan: scan, recoverFile: recoverFile, renameFile: renameFile}
 }
 
 // Apply runs one request: admission first, then the items in order, then the
@@ -53,6 +62,9 @@ func (s *Service) Apply(ctx context.Context, req Request) (*Result, error) {
 	}
 	if s.gate == nil {
 		return nil, errors.New("file operations are not wired to admission control")
+	}
+	if s.recoverFile == nil || s.renameFile == nil {
+		return nil, errors.New("file moves are not wired")
 	}
 	release, err := s.gate.BeginManual()
 	if err != nil {
@@ -102,7 +114,7 @@ func (s *Service) Apply(ctx context.Context, req Request) (*Result, error) {
 				Message: "not attempted: an earlier item failed",
 			})
 		default:
-			itemResult := applyOperation(m, req.Operation, planned.item)
+			itemResult := s.applyOperation(ctx, m, req.Operation, planned.item)
 			result.Items = append(result.Items, itemResult)
 			if itemResult.Status == StatusFailed {
 				stopped = true

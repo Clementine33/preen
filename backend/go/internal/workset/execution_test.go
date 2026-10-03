@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/onsei/organizer/backend/internal/adapters/filesystem"
+
 	"github.com/onsei/organizer/backend/internal/adapters/media"
 
 	"github.com/onsei/organizer/backend/internal/adapters/ffmpeg"
@@ -72,7 +74,7 @@ func newExecFixtureWithTask(
 	}
 	if tasks == nil {
 		tasks = []workset.Task{
-			conversion.New(repo, appconfig.NewReader(tmp), ffmpeg.New, media.ProbeBitrate),
+			conversion.New(repo, appconfig.NewReader(tmp), ffmpeg.New, media.ProbeBitrate, filesystem.Recover),
 		}
 	}
 	root := filepath.Join(tmp, "music")

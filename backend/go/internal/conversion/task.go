@@ -22,6 +22,7 @@ type Task struct {
 	settings     Settings
 	buildEncoder execute.EncoderFactory
 	probeBitrate ProbeBitrate
+	recoverFile  execute.RecoverFile
 }
 
 // New creates the conversion task: its input facts come from the injected
@@ -29,8 +30,18 @@ type Task struct {
 // it prepares with from the injected factory — built when a unit is prepared,
 // so the tool paths in force are the ones configured at that moment. probe
 // measures the bitrates a plan needs that the inventory has not recorded.
-func New(inv Inventory, settings Settings, buildEncoder execute.EncoderFactory, probe ProbeBitrate) *Task {
-	return &Task{inventory: inv, settings: settings, buildEncoder: buildEncoder, probeBitrate: probe}
+// recoverFile protects removed and replaced media through the filesystem adapter.
+func New(
+	inv Inventory, settings Settings, buildEncoder execute.EncoderFactory, probe ProbeBitrate,
+	recoverFile execute.RecoverFile,
+) *Task {
+	return &Task{
+		inventory:    inv,
+		settings:     settings,
+		buildEncoder: buildEncoder,
+		probeBitrate: probe,
+		recoverFile:  recoverFile,
+	}
 }
 
 // encoder builds the media tool for the tool paths the configuration names now.

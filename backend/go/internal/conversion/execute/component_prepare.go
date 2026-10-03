@@ -22,7 +22,7 @@ type PreparedComponent struct {
 // dependencies, paths, disk facts and tool availability — split so a session
 // can prepare a component before it decides to encode it.
 func PrepareComponent(ctx context.Context, req ComponentRunRequest) (*PreparedComponent, error) {
-	return prepareComponent(ctx, req, defaultComponentToolkit(req.Encoder))
+	return prepareComponent(ctx, req, defaultComponentToolkit(req))
 }
 
 func prepareComponent(ctx context.Context, req ComponentRunRequest, tk *componentToolkit) (*PreparedComponent, error) {
@@ -111,7 +111,7 @@ func (p *PreparedComponent) Commit(ctx context.Context) (ComponentRunResult, err
 		if ctxErr := ctx.Err(); ctxErr != nil {
 			return stopCanceled(p.plan, p.tk, result, ComponentStageCommit, ctxErr)
 		}
-		recovery, committed, err := commitOutput(p.tk, p.plan.recoveryRoot, enc, p.soft)
+		recovery, committed, err := commitOutput(context.WithoutCancel(ctx), p.tk, p.plan.absRoot, enc, p.soft)
 		result.Recovery = append(result.Recovery, recovery...)
 		if committed {
 			result.Committed = append(result.Committed, posixForm(enc.target))
@@ -133,7 +133,7 @@ func (p *PreparedComponent) Commit(ctx context.Context) (ComponentRunResult, err
 		if ctxErr := ctx.Err(); ctxErr != nil {
 			return stopCanceled(p.plan, p.tk, result, ComponentStageRemove, ctxErr)
 		}
-		recoveryPath, err := removeObsolete(p.tk, p.plan.recoveryRoot, rem.source, p.soft)
+		recoveryPath, err := removeObsolete(context.WithoutCancel(ctx), p.tk, p.plan.absRoot, rem.source, p.soft)
 		if err != nil {
 			return stopRun(p.plan, p.tk, result, ComponentStatusFailed, ComponentStageRemove, &ComponentError{
 				Stage:   ComponentStageRemove,

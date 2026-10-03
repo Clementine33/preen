@@ -222,7 +222,7 @@ func buildServices(repo *sqlite.Repository, configDir, dataDir string, generatio
 		generationConcurrency,
 		0,
 		[]workset.Task{
-			conversion.New(repo, appconfig.NewReader(configDir), ffmpeg.New, media.ProbeBitrate),
+			conversion.New(repo, appconfig.NewReader(configDir), ffmpeg.New, media.ProbeBitrate, filesystem.Recover),
 			rename.New(repo, filesystem.ReadRenameDirectory),
 			metadatatask.New(repo, filesystem.CoverDirectoryIdentity),
 		},
@@ -244,7 +244,7 @@ func buildServices(repo *sqlite.Repository, configDir, dataDir string, generatio
 		gate:       gate,
 		library:    librarySvc,
 		scan:       scanSvc,
-		fileOps:    fileops.NewService(gate, scanSvc.RefreshMember),
+		fileOps:    fileops.NewService(gate, scanSvc.RefreshMember, filesystem.Recover, filesystem.RenameNoReplace),
 		workset:    worksetSvc,
 		catalog:    conversion.NewCatalog(repo, repo, appconfig.NewReader(configDir)),
 		works:      worksSvc,

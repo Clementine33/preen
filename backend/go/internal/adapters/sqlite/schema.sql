@@ -628,10 +628,6 @@ CREATE INDEX idx_entries_path_posix ON entries(path_posix);
 -- second index to maintain on every inventory write.
 CREATE INDEX idx_entries_root_dir_path ON entries(root_path, is_dir, path);
 
--- Staging indexes
-CREATE INDEX idx_staging_session ON entries_staging(session_id);
-CREATE INDEX idx_entries_staging_status ON entries_staging(status);
-
 -- Scan session indexes
 CREATE INDEX idx_scan_sessions_root ON scan_sessions(root_path);
 CREATE INDEX idx_scan_sessions_status ON scan_sessions(status);

@@ -346,3 +346,36 @@ func TestFindingAPlaceholderPromotesItWithoutLosingItsMetadata(t *testing.T) {
 		)
 	}
 }
+
+// A rescan repairs a binding to another work without replacing the copy or collection time.
+func TestRescanRepairsWorkBindingWithoutReplacingCopy(t *testing.T) {
+	repo := newTestRepository(t)
+	library, err := repo.CreateLibrary("music", "/music")
+	if err != nil {
+		t.Fatal(err)
+	}
+	seedWork(t, repo, "RJ00000001", true)
+	seedWork(t, repo, "RJ00000002", true)
+	if _, err := repo.DB().Exec(`
+		INSERT INTO work_copies (id, work_id, library_id, rel_path, created_at)
+		VALUES ('original-copy', 'RJ00000002', ?, 'RJ00000001 album', ?)
+	`, library.ID, testStamp); err != nil {
+		t.Fatal(err)
+	}
+
+	stageDir(t, repo, "rescan", "/music", "RJ00000001 album")
+	if _, err := repo.MergeStaging("rescan", library.ID, "/music"); err != nil {
+		t.Fatal(err)
+	}
+	var id, workID, created, collected string
+	if err := repo.DB().QueryRow(`
+		SELECT c.id, c.work_id, c.created_at, w.collected_at
+		FROM work_copies c JOIN works w ON w.id = c.work_id
+		WHERE c.library_id = ?
+	`, library.ID).Scan(&id, &workID, &created, &collected); err != nil {
+		t.Fatal(err)
+	}
+	if id != "original-copy" || workID != "RJ00000001" || created != testStamp || collected != testStamp {
+		t.Fatalf("copy=%s work=%s created=%s collected=%s", id, workID, created, collected)
+	}
+}

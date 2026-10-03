@@ -3,9 +3,76 @@ package sqlite //nolint:testpackage // white-box tests exercise unexported inter
 import (
 	"database/sql"
 	"fmt"
+	"path"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/onsei/organizer/backend/internal/inventory"
 )
+
+func TestMergeUpdatesOnlyObservedChanges(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		root     string
+		format   string
+		workRoot int
+		changed  bool
+	}{
+		{name: "unchanged", root: "/music"},
+		{name: "work_root", root: "/music", workRoot: 1, changed: true},
+		{name: "format", root: "/music", format: "flac", changed: true},
+		{name: "root_path", root: "/other", changed: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			repo, err := NewRepository(t.TempDir() + "/test.db")
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer repo.Close()
+			const oldUpdated = "2000-01-01T00:00:00Z"
+			_, err = repo.db.Exec(`INSERT INTO entries
+				(path, root_path, parent_path, name, is_dir, is_work_root, size, mtime, format, dirty_flag, scan_id, updated_at)
+				VALUES ('/music/work', '/music', '/music', 'work', 1, 0, 10, 20, NULL, 0, 'old-scan', ?)`, oldUpdated)
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, err = repo.db.Exec(`INSERT INTO entries_staging
+				(session_id, path, root_path, parent_path, name, is_dir, is_work_root, size, mtime, format)
+				VALUES ('new-scan', '/music/work', ?, '/music', 'work', 1, ?, 10, 20, ?)`, tc.root, tc.workRoot, tc.format)
+			if err != nil {
+				t.Fatal(err)
+			}
+			outcome, err := repo.MergeStaging("new-scan", "", tc.root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if outcome.Merged != 1 {
+				t.Fatalf("merged = %d, want 1", outcome.Merged)
+			}
+			var root, scanID, updated string
+			var workRoot int
+			var format sql.NullString
+			err = repo.db.QueryRow(`SELECT root_path, is_work_root, format, scan_id, updated_at FROM entries WHERE path = '/music/work'`).
+				Scan(&root, &workRoot, &format, &scanID, &updated)
+			if err != nil {
+				t.Fatal(err)
+			}
+			wantFormat := sql.NullString{String: tc.format, Valid: tc.format != ""}
+			if root != tc.root || workRoot != tc.workRoot || format != wantFormat {
+				t.Fatalf("observed fields = %q, %d, %+v; want %q, %d, %+v",
+					root, workRoot, format, tc.root, tc.workRoot, wantFormat)
+			}
+			if tc.changed {
+				if scanID != "new-scan" || updated == oldUpdated || updated == "" {
+					t.Fatalf("changed row scan_id=%q updated_at=%q", scanID, updated)
+				}
+			} else if scanID != "old-scan" || updated != oldUpdated {
+				t.Fatalf("unchanged row scan_id=%q updated_at=%q", scanID, updated)
+			}
+		})
+	}
+}
 
 func TestMergePreservesBitrateWhenUnchanged(t *testing.T) {
 	// Setup: create temp database
@@ -1109,5 +1176,151 @@ func TestMergeScopedCleanupKeepsTheScopeAndItsNeighbours(t *testing.T) {
 		if kept := count == 1; kept != want.kept {
 			t.Errorf("entries[%s] kept=%v, want %v", want.path, kept, want.kept)
 		}
+	}
+}
+
+// BenchmarkMergeStaging times only merge; set TMPDIR to a disk-backed directory for WAL/fsync measurements.
+func BenchmarkMergeStaging(b *testing.B) {
+	entries := mergeBenchmarkEntries()
+	for _, phase := range []string{"cold", "warm"} {
+		b.Run(phase, func(b *testing.B) {
+			b.StopTimer()
+			for range b.N {
+				repo, libraryID := prepareMergeBenchmark(b, entries)
+				if phase == "warm" {
+					if _, err := repo.MergeStaging("benchmark", libraryID, "/bench/onsei"); err != nil {
+						b.Fatal(err)
+					}
+					stageMergeBenchmark(b, repo, entries)
+				}
+				b.StartTimer()
+				outcome, err := repo.MergeStaging("benchmark", libraryID, "/bench/onsei")
+				b.StopTimer()
+				if err != nil {
+					b.Fatal(err)
+				}
+				if outcome.Merged != 28839 {
+					b.Fatalf("merged=%d, want 28839", outcome.Merged)
+				}
+				checkMergeBenchmark(b, repo)
+				if err = repo.Close(); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
+	}
+}
+
+func mergeBenchmarkEntries() []inventory.StagingEntry {
+	const root = "/bench/onsei"
+	entries := make([]inventory.StagingEntry, 0, 28839)
+	works := make([]string, 940)
+	directories := make([]string, 0, 4820)
+	for i := range works {
+		name := fmt.Sprintf("RJ%08d-%s-%03d", i+1, strings.Repeat("work", 11), i)
+		works[i] = path.Join(root, name)
+		entries = append(
+			entries,
+			inventory.StagingEntry{
+				SessionID:  "benchmark",
+				RootPath:   root,
+				Path:       works[i],
+				ParentPath: root,
+				Name:       name,
+				IsDir:      true,
+				IsWorkRoot: true,
+				Size:       4096,
+				Mtime:      1700000000,
+			},
+		)
+	}
+	for i := range 4820 {
+		name := fmt.Sprintf("disc-%02d", i/940)
+		parent := works[i%940]
+		directory := path.Join(parent, name)
+		directories = append(directories, directory)
+		entries = append(
+			entries,
+			inventory.StagingEntry{
+				SessionID:  "benchmark",
+				RootPath:   root,
+				Path:       directory,
+				ParentPath: parent,
+				Name:       name,
+				IsDir:      true,
+				Size:       4096,
+				Mtime:      1700000000,
+			},
+		)
+	}
+	for i := range 23079 {
+		name := fmt.Sprintf("track-%05d-sample.flac", i)
+		parent := directories[i%len(directories)]
+		entries = append(
+			entries,
+			inventory.StagingEntry{
+				SessionID:  "benchmark",
+				RootPath:   root,
+				Path:       path.Join(parent, name),
+				ParentPath: parent,
+				Name:       name,
+				Size:       int64(1000000 + i),
+				Mtime:      1700000000,
+				Format:     "flac",
+			},
+		)
+	}
+	return entries
+}
+
+func prepareMergeBenchmark(b *testing.B, entries []inventory.StagingEntry) (*Repository, string) {
+	b.Helper()
+	repo, err := NewDevelopmentRepository(path.Join(b.TempDir(), "merge.db"))
+	if err != nil {
+		b.Fatal(err)
+	}
+	library, err := repo.CreateLibrary("Merge benchmark", "/bench/onsei")
+	if err != nil {
+		repo.Close()
+		b.Fatal(err)
+	}
+	stageMergeBenchmark(b, repo, entries)
+	return repo, library.ID
+}
+
+func stageMergeBenchmark(b *testing.B, repo *Repository, entries []inventory.StagingEntry) {
+	b.Helper()
+	store := NewScanStaging(repo)
+	for start := 0; start < len(entries); start += defaultBatchSize {
+		end := min(start+defaultBatchSize, len(entries))
+		if err := store.WriteStagingBatch("benchmark", entries[start:end]); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func checkMergeBenchmark(b *testing.B, repo *Repository) {
+	b.Helper()
+	var rows, dirs, roots, copies, staging int
+	err := repo.db.QueryRow(`SELECT COUNT(*),SUM(is_dir),SUM(is_work_root) FROM entries`).
+		Scan(&rows, &dirs, &roots)
+	if err != nil {
+		b.Fatal(err)
+	}
+	if err = repo.db.QueryRow("SELECT COUNT(*) FROM work_copies").Scan(&copies); err != nil {
+		b.Fatal(err)
+	}
+	if err = repo.db.QueryRow("SELECT COUNT(*) FROM entries_staging").Scan(&staging); err != nil {
+		b.Fatal(err)
+	}
+	if rows != 28839 || dirs != 5760 || roots != 940 || copies != 940 || staging != 0 {
+		b.Fatalf(
+			"inventory rows=%d dirs=%d roots=%d copies=%d staging=%d",
+			rows,
+			dirs,
+			roots,
+			copies,
+			staging,
+		)
 	}
 }

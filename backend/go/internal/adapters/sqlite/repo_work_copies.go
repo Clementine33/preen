@@ -149,11 +149,8 @@ func syncWorkCopies(tx *sql.Tx, libraryID, rootPath string) (bindingOutcome, err
 	if err := unbindMissing(tx, libraryID, bound); err != nil {
 		return outcome, err
 	}
-	now := formatWorksTimestamp(time.Now())
-	for relPath, workID := range bound {
-		if err := bindDirectory(tx, libraryID, relPath, workID, now); err != nil {
-			return outcome, err
-		}
+	if err := bindDirectories(tx, libraryID, bound); err != nil {
+		return outcome, err
 	}
 	return outcome, nil
 }
@@ -188,28 +185,39 @@ func unbindMissing(tx *sql.Tx, libraryID string, bound map[string]works.WorkCode
 	return err
 }
 
-// bindDirectory points one directory at one work.
-//
-// The work row is created on first sight with collected_at set, and an existing
-// row only gains a collected_at if it had none: that is what turns a relation
-// placeholder into an ordinary entry, and why unbinding and rebinding never
-// reset when a work was first collected. The binding keeps its own id while the
-// library and the path persist, so a directory that changes which work it holds
-// keeps the identity it had.
-func bindDirectory(tx *sql.Tx, libraryID, relPath string, workID works.WorkCode, now string) error {
-	if _, err := tx.Exec(`
+// bindDirectories reconciles the works and copies discovered in this scan.
+// Existing collection times and copy identities survive rescans and changed bindings.
+func bindDirectories(tx *sql.Tx, libraryID string, bound map[string]works.WorkCode) error {
+	workStmt, err := tx.Prepare(`
 		INSERT INTO works (id, collected_at, created_at, updated_at)
 		VALUES (?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET collected_at = COALESCE(works.collected_at, excluded.collected_at)
-	`, string(workID), now, now, now); err != nil {
+		WHERE works.collected_at IS NULL
+	`)
+	if err != nil {
 		return err
 	}
-	_, err := tx.Exec(`
+	defer workStmt.Close()
+	copyStmt, err := tx.Prepare(`
 		INSERT INTO work_copies (id, work_id, library_id, rel_path, created_at)
 		VALUES (?, ?, ?, ?, ?)
 		ON CONFLICT(library_id, rel_path) DO UPDATE SET work_id = excluded.work_id
-	`, uuid.NewString(), string(workID), libraryID, relPath, now)
-	return err
+		WHERE work_copies.work_id IS NOT excluded.work_id
+	`)
+	if err != nil {
+		return err
+	}
+	defer copyStmt.Close()
+	now := formatWorksTimestamp(time.Now())
+	for relPath, workID := range bound {
+		if _, err := workStmt.Exec(string(workID), now, now, now); err != nil {
+			return err
+		}
+		if _, err := copyStmt.Exec(uuid.NewString(), string(workID), libraryID, relPath, now); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // unbindLibraryCopies drops every binding of one library, which a root change

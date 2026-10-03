@@ -47,6 +47,8 @@ func (r *Repository) MergeStagingSimple(scanID, rootPath string) error {
 	return err
 }
 
+// SELECT skips the rows rejected by DO UPDATE; unchanged content yields excluded dirty_flag=0.
+// Format uses NULLIF normalization, and unique staging paths prevent inter-row effects.
 const mergeObservedEntriesSQL = `
 		INSERT INTO entries (
 			path, root_path, parent_path, name, is_dir, is_work_root, size, mtime,
@@ -97,6 +99,16 @@ CASE
 		FROM entries_staging s
 		LEFT JOIN entries e ON s.path = e.path
 		WHERE s.session_id = ?
+		  AND (e.path IS NULL
+		    OR e.root_path IS NOT s.root_path
+		    OR e.parent_path IS NOT s.parent_path
+		    OR e.name IS NOT s.name
+		    OR e.is_dir IS NOT s.is_dir
+		    OR e.is_work_root IS NOT s.is_work_root
+		    OR e.size IS NOT s.size
+		    OR e.mtime IS NOT s.mtime
+		    OR e.format IS NOT NULLIF(s.format, '')
+		    OR e.dirty_flag IS NOT 0)
 		ON CONFLICT(path) DO UPDATE SET
 			root_path = excluded.root_path,
 			parent_path = excluded.parent_path,

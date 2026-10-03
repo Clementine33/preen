@@ -92,7 +92,7 @@ WebP 仅增加解码校验，不引入图片编码器；所有落盘字节保持
 和旧文件名；重试只在确认新文件已经落地后清理旧文件。发布失败保留旧封面，inventory
 刷新失败单独报告已经发布的文件。
 
-数据库开发 schema 与新增发布迁移遵循 [ADR 0013](0013-development-schema-and-release-migrations.md)。
+数据库仍采用 [ADR 0013](0013-development-schema-and-release-migrations.md) 选择的开发与发布两种生命周期，本决策不改变该边界。
 接口见 [API reference](../api.md)。
 
 转换规划同样以作品根为单位，每会话最多同时处理 4 个作品，结果保持请求顺序。

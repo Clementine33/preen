@@ -43,7 +43,7 @@ Date: 2026-09-30
 
 ## 5 引擎端口
 
-缩放引擎是消费方声明的端口（ADR 0009）：输入源文件读取器与目标高度，输出编码字节与内容类型。
+缩放引擎采用消费方声明的端口：输入源文件读取器与目标高度，输出编码字节与内容类型。
 
 - **首个实现：纯 Go**。`image/jpeg`、`image/png`、`golang.org/x/image/webp` 解码，`golang.org/x/image/draw` 缩放；输出 JPEG，带透明通道的源输出 PNG。进程内执行，不产生子进程，也不引入新工具链。
 - **升级路径：wazero 加 Rust WASI 模块**（`jpeg-decoder` 以 1/2 至 1/8 缩尺解码 JPEG，`fast_image_resize` 用 wasm SIMD 缩放），编译为 `wasm32-wasip1` 后以 `go:embed` 嵌入，实例池化。只在剖析显示解码是瓶颈时切换，只替换本层。

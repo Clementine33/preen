@@ -116,8 +116,7 @@ func syncWorkCopies(tx *sql.Tx, libraryID, rootPath string) (bindingOutcome, err
 	workRoots := map[string]bool{}
 	for _, child := range children {
 		relPath := strings.TrimPrefix(child.path, prefix)
-		first, _, _ := strings.Cut(relPath, "/")
-		if isRecoveryDirName(rootPath, first) || !child.isWorkRoot {
+		if pathnorm.IsRecoveryRelPath(rootPath, relPath) || !child.isWorkRoot {
 			continue
 		}
 		extraction := works.CodesInDirName(child.name)
@@ -128,8 +127,7 @@ func syncWorkCopies(tx *sql.Tx, libraryID, rootPath string) (bindingOutcome, err
 	}
 	for _, child := range children {
 		relPath := strings.TrimPrefix(child.path, prefix)
-		first, _, _ := strings.Cut(relPath, "/")
-		if isRecoveryDirName(rootPath, first) || child.isWorkRoot ||
+		if pathnorm.IsRecoveryRelPath(rootPath, relPath) || child.isWorkRoot ||
 			works.CodesInDirName(child.name).Kind != works.DirCodeMultiple {
 			continue
 		}

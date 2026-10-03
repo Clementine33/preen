@@ -126,11 +126,12 @@ container-specific picture handling.
 
 **Inventory sync.** After each component the observed disk changes are applied
 to the entries inventory for the affected paths only (removed sources lose
-their row, committed outputs and `Delete/…` recovery files are refreshed with
-the scan merge's `content_rev` semantics). A soft removal lands under the
-library root (`<library root>/Delete/<member path>/…`), beside the member
-folder rather than inside it, so recovered media never re-enters a member's own
-inventory. A sync failure is disclosed per
+their row, committed outputs are refreshed with the scan merge's `content_rev`
+semantics). A soft removal lands under
+`<work parent>/Delete/<work name>/<member-relative path>`, so a nested member
+`分类/RJ000001` recovers beside itself at `分类/Delete/RJ000001/…`.
+Recovery paths remain in the execution report; recovery files are excluded from
+the inventory and scans at every depth. A sync failure is disclosed per
 component (`inventory_synced:false`, `inventory_sync_error`) instead of being
 reported as "unchanged". The library folder counts are computed from the
 inventory, so a component's sync moves them before the next scan does. The

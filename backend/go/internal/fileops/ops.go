@@ -93,14 +93,14 @@ type Result struct {
 // result. It never overwrites: every destination is claimed with a no-replace
 // rename, and a name that appeared since the check is a refusal, not a
 // clobber.
-func applyOperation(m *member, op string, item Item, recycled *[]string) ItemResult {
+func applyOperation(m *member, op string, item Item) ItemResult {
 	switch op {
 	case OpRename:
 		return renameItem(m, item)
 	case OpMove:
 		return moveItem(m, item)
 	case OpSoftDelete:
-		return softDeleteItem(m, item, recycled)
+		return softDeleteItem(m, item)
 	default:
 		return failed(item.Source, CodeOperationDenied, "unsupported operation "+op)
 	}
@@ -157,27 +157,28 @@ func moveItem(m *member, item Item) ItemResult {
 	return ItemResult{Source: item.Source, Status: StatusOK, Target: memberRelative(m, target)}
 }
 
-// softDeleteItem moves one item into the library-level recovery directory,
-// keeping its path relative to the library root, and reports where it went.
+// softDeleteItem moves one item into the recovery directory beside its work,
+// keeping the work name and its internal path, and reports where it went.
 // An existing recovery file is never overwritten: a collision gets the first
 // free "<stem>.N<ext>" name.
-func softDeleteItem(m *member, item Item, recycled *[]string) ItemResult {
+func softDeleteItem(m *member, item Item) ItemResult {
 	source, err := m.resolve(item.Source)
 	if err != nil {
 		return fromError(item.Source, err)
 	}
-	relToRoot, relErr := filepath.Rel(m.nativeRoot, source)
+	recoveryRoot := filepath.Dir(m.nativeAbs)
+	relToRoot, relErr := filepath.Rel(recoveryRoot, source)
 	if relErr != nil || relToRoot == "." || strings.HasPrefix(relToRoot, ".."+string(filepath.Separator)) ||
 		filepath.IsAbs(relToRoot) {
 		return failed(item.Source, CodeOutsideMember, "the item is not inside the library root")
 	}
 	relDir := filepath.Dir(relToRoot)
-	if pathnorm.IsWindowsUNCPath(m.nativeRoot) {
+	if pathnorm.IsWindowsUNCPath(recoveryRoot) {
 		// Long UNC paths have a tight component budget; keep a share for the
 		// name itself.
 		relDir = pathnorm.TruncatePathComponentsToBytes(relDir, 214)
 	}
-	recoveryDir := filepath.Join(m.nativeRoot, pathnorm.RecoveryDirName, relDir)
+	recoveryDir := filepath.Join(recoveryRoot, pathnorm.RecoveryDirName, relDir)
 	if mkdirErr := os.MkdirAll(recoveryDir, 0o755); mkdirErr != nil {
 		return fromError(
 			item.Source,
@@ -191,7 +192,6 @@ func softDeleteItem(m *member, item Item, recycled *[]string) ItemResult {
 	if err := renameNoReplace(source, target); err != nil {
 		return fromError(item.Source, err)
 	}
-	*recycled = append(*recycled, target)
 	relToLibrary, relErr := filepath.Rel(m.nativeRoot, target)
 	if relErr != nil {
 		relToLibrary = target

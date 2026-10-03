@@ -18,8 +18,8 @@ type ToolsConfig struct {
 }
 
 // DeleteMode selects how obsolete files leave their place. Soft deletion keeps
-// the legacy <root>/Delete/<relative path> recovery convention; it is never
-// downgraded to a hard delete when the root is missing or unusable.
+// removed files beside their work root; it is never downgraded to a hard
+// delete when recovery is unavailable.
 type DeleteMode string
 
 const (
@@ -74,10 +74,8 @@ type ComponentRunRequest struct {
 	// never builds one itself: it is handed the encoder the process is
 	// configured with, so a run can be driven by a test double as well.
 	Encoder Encoder
-	// RecoveryRoot is the root soft removals are made relative to — the
-	// workset's library root, so a recovered file lands under
-	// <RecoveryRoot>/Delete/<path relative to it>, beside the member folder
-	// rather than nested inside it. Empty falls back to Root.
+	// RecoveryRoot is the base soft removals are made relative to. Empty
+	// uses the work's parent, placing recovery media beside its folder.
 	RecoveryRoot string
 }
 

@@ -268,11 +268,10 @@ func TestSoftDeleteIntoTheLibraryRecoveryDirectory(t *testing.T) {
 	if !result.Refresh.OK {
 		t.Fatalf("refresh = %+v", result.Refresh)
 	}
-	// Both the member and the recovery tree were refreshed.
+	// Recovery media is excluded; only the member inventory is refreshed.
 	sort.Strings(f.refreshed)
-	if len(f.refreshed) != 2 || filepath.Base(f.refreshed[0]) != fileops.RecoveryDir ||
-		filepath.Base(f.refreshed[1]) != "albumA" {
-		t.Fatalf("refreshed = %v, want the member and the recovery directory", f.refreshed)
+	if len(f.refreshed) != 1 || filepath.Base(f.refreshed[0]) != "albumA" {
+		t.Fatalf("refreshed = %v, want the member", f.refreshed)
 	}
 }
 
@@ -598,6 +597,10 @@ func TestNestedMemberRejectsLinkedAncestorAndRecovery(t *testing.T) {
 	if _, err := fileops.ResolveMember(f.root, "Delete/分类/RJ000001"); err == nil {
 		t.Fatal("recovery descendant accepted")
 	}
+	f.mkdir("分类/Delete/RJ000001")
+	if _, err := fileops.ResolveMember(f.root, "分类/Delete/RJ000001"); err == nil {
+		t.Fatal("nested recovery descendant accepted")
+	}
 	if err := os.Symlink(filepath.Join(f.root, "分类"), filepath.Join(f.root, "linked")); err != nil {
 		t.Skipf("symlink unavailable: %v", err)
 	}
@@ -610,5 +613,25 @@ func TestNestedMemberRejectsLinkedAncestorAndRecovery(t *testing.T) {
 	}
 	if _, err := fileops.ResolveMember(alias, "分类/RJ000001"); err == nil {
 		t.Fatal("linked library root accepted")
+	}
+}
+
+func TestSoftDeleteBesideNestedWorkRoot(t *testing.T) {
+	f := newFixture(t, false)
+	f.write("分类/RJ000001/disc/01.mp3", "obsolete")
+	f.write("分类/Delete/RJ000001/disc/01.mp3", "earlier")
+	result := f.apply(fileops.Request{
+		MemberPath: "分类/RJ000001", Operation: fileops.OpSoftDelete,
+		Items: []fileops.Item{{Source: "disc/01.mp3"}},
+	})
+	if result.Succeeded != 1 || result.Items[0].RecoveredPath != "分类/Delete/RJ000001/disc/01.1.mp3" {
+		t.Fatalf("nested recovery = %+v", result)
+	}
+	if f.read("分类/Delete/RJ000001/disc/01.mp3") != "earlier" ||
+		f.read(result.Items[0].RecoveredPath) != "obsolete" || f.exists("分类/RJ000001/disc/01.mp3") {
+		t.Fatal("recovered content or source is incorrect")
+	}
+	if f.exists("Delete") {
+		t.Fatal("nested deletion created a library-root recovery directory")
 	}
 }

@@ -185,7 +185,7 @@ func (r *Repository) UpdateLibrary(id, name, rootPath string) (*library.Library,
 // DeleteLibrary removes a library together with every processing record it
 // owns, in one transaction: the records' plans, executions, members, drafts and
 // sessions go with them, so no orphaned record survives its library. Media
-// files and the library-level recovery directory on disk are never touched.
+// files and recovery directories on disk are never touched.
 //
 // It fails with ErrGenerationInProgress while a record has a queued or running
 // planning session and with ErrExecutionInProgress while one has a queued or
@@ -314,7 +314,7 @@ func scanLibrary(row interface{ Scan(...any) error }) (*library.Library, error) 
 // ListLibraryDirs returns the scanned work roots of a library root that
 // the workbench overview shows: every directory the last scan saw, whether or
 // not it holds audio, with the audio and file counts of its subtree. The
-// library-level recovery directory is not a member and is left out. Order is
+// recovery directories at every depth are not members and are left out. Order is
 // by path, so the caller sees a stable listing.
 //
 // The listing comes from the scanned inventory rather than from the disk, so
@@ -349,7 +349,7 @@ func (r *Repository) ListLibraryDirs(rootPath string) ([]*inventory.LibraryDir, 
 			return nil, err
 		}
 		d.RelPath = strings.TrimPrefix(pathnorm.NormalizeToPOSIX(d.Path), prefix)
-		if isRecoveryDirName(rootPath, strings.SplitN(d.RelPath, "/", 2)[0]) {
+		if pathnorm.IsRecoveryRelPath(rootPath, d.RelPath) {
 			continue
 		}
 		out = append(out, &d)
@@ -360,8 +360,8 @@ func (r *Repository) ListLibraryDirs(rootPath string) ([]*inventory.LibraryDir, 
 // ListLibraryWorkRoots returns the library-relative path of every scanned work
 // root. It carries no subtree
 // statistics: resolving a directory identity needs the identities only, not the
-// counts the overview listing shows. The library-level recovery directory is not
-// a member and is left out, exactly as in the overview listing.
+// counts the overview listing shows. Recovery directories at every depth are not
+// members and are left out, exactly as in the overview listing.
 func (r *Repository) ListLibraryWorkRoots(rootPath string) ([]string, error) {
 	rootPath = pathnorm.CleanRootPath(rootPath)
 	rows, err := r.db.Query(`
@@ -386,29 +386,15 @@ func (r *Repository) ListLibraryWorkRoots(rootPath string) ([]string, error) {
 		if err := rows.Scan(&path, &name); err != nil {
 			return nil, err
 		}
-		if isRecoveryDirName(
+		if pathnorm.IsRecoveryRelPath(
 			rootPath,
-			strings.SplitN(strings.TrimPrefix(pathnorm.NormalizeToPOSIX(path), prefix), "/", 2)[0],
+			strings.TrimPrefix(pathnorm.NormalizeToPOSIX(path), prefix),
 		) {
 			continue
 		}
 		out = append(out, strings.TrimPrefix(pathnorm.NormalizeToPOSIX(path), prefix))
 	}
 	return out, rows.Err()
-}
-
-// isRecoveryDirName reports whether a direct child of the root is the
-// library-level recovery directory. The name is the recovery convention's
-// ("Delete"); on a case-insensitive filesystem the comparison folds case so
-// `delete/` is recognized as the same directory the writer uses.
-func isRecoveryDirName(rootPath, name string) bool {
-	if name == pathnorm.RecoveryDirName {
-		return true
-	}
-	if pathnorm.IsWindowsCaseInsensitivePath(rootPath) {
-		return strings.EqualFold(name, pathnorm.RecoveryDirName)
-	}
-	return false
 }
 
 // DirAudioCounts returns the subtree audio-file count of each requested

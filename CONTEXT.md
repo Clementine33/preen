@@ -119,7 +119,7 @@ The read-only view of one member's frozen plan: what will be kept, deleted or ge
 _Avoid_: Using the current-files tree as the plan's view.
 
 **Direct File Management**:
-Renaming one item, moving one item inside its member, and soft-deleting one or more items into the library-level `Delete/`, without a plan. It validates its own paths and conflicts, reports per-item results, and never overwrites a destination.
+Renaming one item, moving one item inside its member, and soft-deleting one or more items into `Delete/<work name>/` beside the Work Root, without a plan. It validates its own paths and conflicts, reports per-item results, and never overwrites a destination.
 _Avoid_: Treating these writes as a conversion step; disguising them as a plan.
 
 **File Management Admission**:
@@ -204,7 +204,7 @@ An execution's request to deliver a Main Cover to one selected Copy. It can be s
 _Avoid_: Extending a metadata Execution Session until its covers finish.
 
 **Obsolete Audio Handling**:
-The whole-operation choice of what happens to replaced and obsolete audio at execution: soft (moved to the library-level `Delete/`, under the member's own path — beside the member folder, never inside it — and recoverable) or hard (removed). It is a draft setting, never a per-member override; the plan freezes it and the run uses the frozen value.
+The whole-operation choice of what happens to replaced and obsolete audio at execution: soft (moved to `Delete/<work name>/` in the Work Root's parent directory, preserving the work's internal paths and recoverable) or hard (removed). It is a draft setting, never a per-member override; the plan freezes it and the run uses the frozen value.
 _Avoid_: Delete mode as a per-run option.
 
 **Input Validity**:

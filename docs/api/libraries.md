@@ -47,7 +47,7 @@ neither interleaves with file management (ADR 0002 §2).
 `DELETE /api/v1/libraries/:id` removes the library **together with its
 processing record**: the record's members, operation, draft, current plan and
 execution results go in the same transaction, so no orphaned record survives
-its library. Media files and the library-level `Delete/` recovery directory on
+its library. Media files and all `Delete/` recovery directories on
 disk are never touched. Deletion is blocked by active operation generation
 (`GENERATION_IN_PROGRESS`) and by an active execution session
 (`EXECUTION_IN_PROGRESS`).
@@ -77,6 +77,13 @@ inventory — the only listing source: there is no separate derived folder table
 to rebuild, and a rescan cannot renumber anything the workbench navigates by.
 A `completed` scan state is recorded on the library.
 
+`Delete/` is a reserved recovery directory name at every depth. Such directories
+and their descendants are skipped before reading their metadata or traversing
+them, including old library-level recovery directories. They are not stored in
+the inventory or counted in scan progress. A successful full rescan removes
+recovery entries and copy bindings left by older scans. Windows paths compare
+the name case-insensitively; POSIX paths compare it exactly.
+
 A scan is refused with `EXECUTION_IN_PROGRESS` (409) while any record of the
 library has a queued/running execution: an execution validates the inventory
 the scan would rewrite. It is also refused with `BUSY` (409) while direct file
@@ -87,7 +94,7 @@ slot itself, so a file operation refuses a running scan in turn (ADR 0002 §2).
 
 `GET /api/v1/libraries/:id/dirs` lists **every scanned work root** of the
 library, whether or not it holds audio, with that directory's subtree
-counts. The library-level recovery directory is not a member and is left out:
+counts. Recovery directories at every depth are not members and are left out:
 
 ```json
 {
@@ -206,9 +213,12 @@ Response (200):
 
 `status` is `ok`, `failed`, `skipped` or `not_attempted`; a rename or move
 reports where the item landed as `target` (member-relative). A soft delete keeps
-the item's path relative to the library root under `<library root>/Delete/` and
-never overwrites media recycled earlier (a collision becomes `<stem>.N<ext>`);
-`recovered_path` is that location, for the user to restore from with their own
+the work name and the item's member-relative path under
+`<work parent>/Delete/<work name>/` and never overwrites media recycled earlier
+(a collision becomes `<stem>.N<ext>`). For example, deleting
+`分类/RJ000001/disc/track.flac` recovers it as
+`分类/Delete/RJ000001/disc/track.flac`;
+`recovered_path` is that location relative to the library root, for the user to restore from with their own
 file manager. A refresh failure is reported beside the item results and never
 replaces them: the files were modified, and both facts are stated.
 
@@ -217,7 +227,7 @@ basename as `name` and the full library-relative path as `rel_path`; `dir_id`
 keeps the existing identity algorithm. A work's internal RJ directories are not
 separate list rows. Browsing, refresh and file operations resolve the same scanned
 root and reject symbolic links along its entire ancestor chain, invalid paths,
-escapes and the library-level `Delete` subtree.
+escapes and any `Delete` subtree.
 
 `completed.scan_id` still identifies this scan session. An entry's stored `scan_id`
 is the last scan that actually wrote it; unchanged rescans leave `updated_at`

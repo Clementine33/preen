@@ -85,8 +85,8 @@ slot itself, so a file operation refuses a running scan in turn (ADR 0002 §2).
 
 ## Directories and member trees
 
-`GET /api/v1/libraries/:id/dirs` lists **every** direct child directory of the
-library root, whether or not it holds audio, with that directory's subtree
+`GET /api/v1/libraries/:id/dirs` lists **every scanned work root** of the
+library, whether or not it holds audio, with that directory's subtree
 counts. The library-level recovery directory is not a member and is left out:
 
 ```json
@@ -130,8 +130,8 @@ file management addresses:
 }
 ```
 
-The identity is resolved against the library's scanned inventory — the direct
-child directories its listing shows, recovery directory excluded — and only the
+The identity is resolved against the library's scanned inventory — the work
+roots its listing shows, recovery directory excluded — and only the
 single match is then checked on disk. The refusals are distinct:
 
 | Condition | Answer |
@@ -140,7 +140,7 @@ single match is then checked on disk. The refusals are distinct:
 | Not 32 lowercase hex characters | 400 `DIR_ID_INVALID` |
 | No directory of this library has that identity | 404 `DIRECTORY_NOT_FOUND` |
 | More than one directory claims it | 409 `DIRECTORY_AMBIGUOUS` (never the first match) |
-| A direct child in the inventory that is gone from disk | 404 `MEMBER_MISSING` |
+| A work root in the inventory that is gone from disk | 404 `MEMBER_MISSING` |
 | Names the recovery directory, or is a symlink | 400 `MEMBER_PATH_INVALID` / `MEMBER_IS_SYMLINK` |
 
 The retired `?folder=<rel_path>` parameter is not read: a request that carries
@@ -211,3 +211,16 @@ never overwrites media recycled earlier (a collision becomes `<stem>.N<ext>`);
 `recovered_path` is that location, for the user to restore from with their own
 file manager. A refresh failure is reported beside the item results and never
 replaces them: the files were modified, and both facts are stated.
+
+Work roots may be nested beneath classification directories. The list exposes the
+basename as `name` and the full library-relative path as `rel_path`; `dir_id`
+keeps the existing identity algorithm. A work's internal RJ directories are not
+separate list rows. Browsing, refresh and file operations resolve the same scanned
+root and reject symbolic links along its entire ancestor chain, invalid paths,
+escapes and the library-level `Delete` subtree.
+
+`completed.scan_id` still identifies this scan session. An entry's stored `scan_id`
+is the last scan that actually wrote it; unchanged rescans leave `updated_at`
+untouched. Staging records every observed entry for stale deletion. Changed size,
+mtime or file/directory type invalidates media facts and advances the content
+revision; other observed changes preserve facts and error status.

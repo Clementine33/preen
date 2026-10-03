@@ -25,11 +25,8 @@ func (t *Task) PlanSession(ctx context.Context, in workset.PlanSessionInput) (*w
 	if err := t.ValidateSessionInput(in.RawDraft, in.Members); err != nil {
 		return nil, err
 	}
-	if len(in.Members) == 0 {
-		return nil, invalid("no members")
-	}
 	d, _ := decodeDraft(in.RawDraft)
-	root := filepath.ToSlash(filepath.Dir(filepath.FromSlash(in.Members[0].FolderPath)))
+	root := pathnorm.CleanRootPath(in.LibraryRoot)
 	paths, excluded, excludedIDs, err := planningScope(root, d, in.Members)
 	if err != nil {
 		return nil, err
@@ -39,9 +36,12 @@ func (t *Task) PlanSession(ctx context.Context, in workset.PlanSessionInput) (*w
 	if err != nil {
 		return nil, err
 	}
-	directory, err := t.readDirectory(ctx, root)
-	if err != nil {
-		return nil, err
+	directories, readErrors := t.readParentDirectories(ctx, paths)
+	for _, folder := range paths {
+		parent := filepath.ToSlash(filepath.Dir(filepath.FromSlash(folder)))
+		if readErr := readErrors[parent]; readErr != nil {
+			return nil, readErr
+		}
 	}
 	snapshot := &workset.PlanSnapshot{
 		RootPath:             root,
@@ -58,10 +58,11 @@ func (t *Task) PlanSession(ctx context.Context, in workset.PlanSessionInput) (*w
 		if excluded[m.MemberID] {
 			continue
 		}
-		o := planName(d.Common.Template, m, works[m.FolderPath], directory, root)
+		parent := filepath.ToSlash(filepath.Dir(filepath.FromSlash(m.FolderPath)))
+		o := planName(d.Common.Template, m, works[m.FolderPath], directories[parent], parent)
 		outcomes[m.MemberID] = o
 		if o.ReasonCode == "" {
-			targets[pathnorm.RootPathKey(filepath.ToSlash(filepath.Join(root, o.TargetName)))]++
+			targets[pathnorm.RootPathKey(filepath.ToSlash(filepath.Join(parent, o.TargetName)))]++
 		}
 	}
 	for _, m := range in.Members {
@@ -71,9 +72,10 @@ func (t *Task) PlanSession(ctx context.Context, in workset.PlanSessionInput) (*w
 		if excluded[m.MemberID] {
 			continue
 		}
+		parent := filepath.ToSlash(filepath.Dir(filepath.FromSlash(m.FolderPath)))
 		outcome := outcomes[m.MemberID]
 		if outcome.ReasonCode == "" &&
-			targets[pathnorm.RootPathKey(filepath.ToSlash(filepath.Join(root, outcome.TargetName)))] > 1 {
+			targets[pathnorm.RootPathKey(filepath.ToSlash(filepath.Join(parent, outcome.TargetName)))] > 1 {
 			outcome.Action = "blocked"
 			outcome.ReasonCode = "TARGET_COLLISION"
 		}
@@ -98,7 +100,7 @@ func (t *Task) PlanSession(ctx context.Context, in workset.PlanSessionInput) (*w
 				Payload:    payload,
 			},
 		)
-		facts := freezeRoot(index, m, d.Common.Template, outcome, works[m.FolderPath], directory, root)
+		facts := freezeRoot(index, m, d.Common.Template, outcome, works[m.FolderPath], directories[parent], parent)
 		snapshot.Roots = append(snapshot.Roots, facts)
 		if facts.Status == "missing" {
 			summary.ErrorCount++
@@ -154,6 +156,9 @@ func planningScope(
 	d Draft,
 	members []*workset.WorksetMember,
 ) ([]string, map[string]bool, []string, error) {
+	if len(members) == 0 || strings.TrimSpace(root) == "" || root == "." {
+		return nil, nil, nil, invalid("library root and members are required")
+	}
 	paths := []string{}
 	excluded := map[string]bool{}
 	excludedIDs := []string{}
@@ -164,12 +169,9 @@ func planningScope(
 		}
 	}
 	for _, m := range members {
-		if pathnorm.RootPathKey(
-			filepath.ToSlash(filepath.Dir(filepath.FromSlash(m.FolderPath))),
-		) != pathnorm.RootPathKey(
-			root,
-		) {
-			return nil, nil, nil, invalid("members must be immediate children of one library")
+		rel, ok := pathnorm.RelPath(m.RelPath)
+		if !ok || pathnorm.RootPathKey(pathnorm.JoinRel(root, rel)) != pathnorm.RootPathKey(m.FolderPath) {
+			return nil, nil, nil, invalid("members must be beneath the saved library root")
 		}
 		if !excluded[m.MemberID] {
 			paths = append(paths, m.FolderPath)
@@ -202,4 +204,18 @@ func freezeRoot(
 		facts.ErrorMessage = "source directory is missing"
 	}
 	return facts
+}
+
+// readParentDirectories snapshots occupancy once for each participating parent.
+func (t *Task) readParentDirectories(ctx context.Context, paths []string) (map[string]Directory, map[string]error) {
+	directories := map[string]Directory{}
+	readErrors := map[string]error{}
+	for _, folder := range paths {
+		parent := filepath.ToSlash(filepath.Dir(filepath.FromSlash(folder)))
+		if _, ok := directories[parent]; ok {
+			continue
+		}
+		directories[parent], readErrors[parent] = t.readDirectory(ctx, parent)
+	}
+	return directories, readErrors
 }

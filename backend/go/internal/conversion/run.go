@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"strings"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/onsei/organizer/backend/internal/conversion/reconcile"
 	"github.com/onsei/organizer/backend/internal/workset"
 )
@@ -75,44 +77,50 @@ func Plan(ctx context.Context, inv Inventory, settings Settings, probe ProbeBitr
 		err     error
 	}
 	outcomes := make(chan planOutcome, len(in.Roots))
+	var group errgroup.Group
+	group.SetLimit(4)
 	for i, root := range in.Roots {
-		go func(i int, root RootInput, classifier reconcile.Classifier) {
+		rootClassifier := rootClassifiers[i]
+		group.Go(func() error {
 			if ctx.Err() != nil {
 				outcomes <- planOutcome{index: i, root: root.Path, err: ctx.Err()}
-				return
+				return nil
 			}
 			entries, collectErr := collectRootEntries(inv, root.Path)
 			if collectErr != nil {
 				outcomes <- planOutcome{index: i, root: root.Path, err: collectErr}
-				return
+				return nil
 			}
 			enriched, enrichErr := enrichBitrate(ctx, inv, probe, entries, planCfg)
 			if enrichErr != nil {
 				outcomes <- planOutcome{index: i, root: root.Path, err: enrichErr}
-				return
+				return nil
 			}
 			result, recErr := reconcile.Reconcile(reconcile.ReconcileInput{
 				RootPath:   root.Path,
 				Entries:    enriched,
 				Policy:     root.Policy,
-				Classifier: classifier,
+				Classifier: rootClassifier,
 			})
 			if recErr != nil {
 				outcomes <- planOutcome{index: i, root: root.Path, err: recErr}
-				return
+				return nil
 			}
 			missing := false
 			if in.MarkMissingRoots && len(enriched) == 0 {
 				exists, existsErr := rootExistsInInventory(inv, root.Path)
 				if existsErr != nil {
 					outcomes <- planOutcome{index: i, root: root.Path, err: existsErr}
-					return
+					return nil
 				}
 				missing = !exists
 			}
 			outcomes <- planOutcome{index: i, root: root.Path, result: result, missing: missing}
-		}(i, root, rootClassifiers[i])
+			return nil
+		})
 	}
+
+	_ = group.Wait()
 
 	ordered := make([]planOutcome, len(in.Roots))
 	for range in.Roots {

@@ -25,7 +25,8 @@ CREATE TABLE entries (
     path_posix TEXT NOT NULL DEFAULT '',
     file_size INTEGER,
     duration_ms INTEGER,
-    format TEXT
+    format TEXT,
+    is_work_root INTEGER NOT NULL DEFAULT 0
 );
 
 -- Staging table for scan operations (session-scoped)
@@ -45,6 +46,7 @@ CREATE TABLE entries_staging (
     duration_ms INTEGER,
     format TEXT,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    is_work_root INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (session_id, path)
 );
 
@@ -665,3 +667,5 @@ CREATE TABLE cover_files (
  copy_id TEXT PRIMARY KEY REFERENCES work_copies(id) ON DELETE CASCADE,
  url TEXT NOT NULL, name TEXT NOT NULL, digest TEXT NOT NULL, etag TEXT NOT NULL, last_modified TEXT NOT NULL
 ) STRICT;
+
+CREATE INDEX idx_entries_work_roots ON entries(root_path, path) WHERE is_work_root = 1;

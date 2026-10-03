@@ -81,7 +81,7 @@ func deliveryFixture(t *testing.T) (*covers.Service, *sqlite.Repository, *downlo
 		}
 		folders = append(folders, filepath.ToSlash(dir))
 		if _, err = repo.DB().
-			Exec(`INSERT INTO entries_staging(session_id,path,root_path,parent_path,name,is_dir,size,mtime,operation) VALUES('scan',?,?,?, ?,1,0,0,'upsert')`, filepath.ToSlash(dir), filepath.ToSlash(root), filepath.ToSlash(root), name); err != nil {
+			Exec(`INSERT INTO entries_staging(session_id,path,root_path,parent_path,name,is_dir,is_work_root,size,mtime,operation) VALUES('scan',?,?,?, ?,1,1,0,0,'upsert')`, filepath.ToSlash(dir), filepath.ToSlash(root), filepath.ToSlash(root), name); err != nil {
 			t.Fatal(err)
 		}
 	}

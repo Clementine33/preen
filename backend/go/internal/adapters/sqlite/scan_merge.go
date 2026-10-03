@@ -5,9 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/onsei/organizer/backend/internal/inventory"
+	"github.com/onsei/organizer/backend/internal/pathnorm"
 )
 
 // MergeStaging merges one scan session's staged entries into the inventory and
@@ -19,7 +21,7 @@ import (
 // change and the bindings not.
 //
 // libraryID may be empty, which is the case for a member refresh: a refresh
-// does not reconcile the library's direct children and must not touch another
+// does not reconcile the library's work roots and must not touch another
 // copy's binding.
 func (r *Repository) MergeStaging(sessionID, libraryID, rootPath string) (inventory.MergeOutcome, error) {
 	tx, err := r.db.Begin()
@@ -45,21 +47,9 @@ func (r *Repository) MergeStagingSimple(scanID, rootPath string) error {
 	return err
 }
 
-// mergeStagingEntries is the set-based merge plus session-scoped stale cleanup
-// and, for a full-root scan, the binding reconciliation.
-func mergeStagingEntries(tx *sql.Tx, scanID, libraryID, rootPath string) (inventory.MergeOutcome, error) {
-	now := time.Now()
-
-	// Step 1: Set-based merge with content_rev lifecycle logic
-	// Using INSERT ... SELECT ... ON CONFLICT for efficient batch processing
-	// Semantics:
-	// - new row => content_rev=1, dirty_flag=0
-	// - changed size/mtime => increment content_rev, dirty_flag=1, bitrate and
-	//   the media facts (width/height/duration, ADR 0015 §2) cleared
-	// - unchanged size/mtime => preserve content_rev, bitrate and media facts
-	_, err := tx.Exec(`
+const mergeObservedEntriesSQL = `
 		INSERT INTO entries (
-			path, root_path, parent_path, name, is_dir, size, mtime,
+			path, root_path, parent_path, name, is_dir, is_work_root, size, mtime,
 			scan_id, content_rev, dirty_flag, bitrate, width, height, duration_sec, format, updated_at
 		)
 		SELECT
@@ -68,37 +58,38 @@ func mergeStagingEntries(tx *sql.Tx, scanID, libraryID, rootPath string) (invent
 			s.parent_path,
 			s.name,
 			s.is_dir,
+			s.is_work_root,
 			s.size,
 			s.mtime,
 			?,
 			CASE
 				WHEN e.path IS NULL THEN 1
-				WHEN e.size != s.size OR e.mtime != s.mtime THEN e.content_rev + 1
+				WHEN e.size IS NOT s.size OR e.mtime IS NOT s.mtime OR e.is_dir IS NOT s.is_dir THEN e.content_rev + 1
 				ELSE e.content_rev
 			END,
 CASE
 			WHEN e.path IS NULL THEN 0
-			WHEN e.size != s.size OR e.mtime != s.mtime THEN 1
+			WHEN e.size IS NOT s.size OR e.mtime IS NOT s.mtime OR e.is_dir IS NOT s.is_dir THEN 1
 			ELSE 0
 		END,
 			CASE
 			WHEN e.path IS NULL THEN NULL
-			WHEN e.size != s.size OR e.mtime != s.mtime THEN NULL
+			WHEN e.size IS NOT s.size OR e.mtime IS NOT s.mtime OR e.is_dir IS NOT s.is_dir THEN NULL
 			ELSE e.bitrate
 		END,
 			CASE
 			WHEN e.path IS NULL THEN NULL
-			WHEN e.size != s.size OR e.mtime != s.mtime THEN NULL
+			WHEN e.size IS NOT s.size OR e.mtime IS NOT s.mtime OR e.is_dir IS NOT s.is_dir THEN NULL
 			ELSE e.width
 		END,
 			CASE
 			WHEN e.path IS NULL THEN NULL
-			WHEN e.size != s.size OR e.mtime != s.mtime THEN NULL
+			WHEN e.size IS NOT s.size OR e.mtime IS NOT s.mtime OR e.is_dir IS NOT s.is_dir THEN NULL
 			ELSE e.height
 		END,
 			CASE
 			WHEN e.path IS NULL THEN NULL
-			WHEN e.size != s.size OR e.mtime != s.mtime THEN NULL
+			WHEN e.size IS NOT s.size OR e.mtime IS NOT s.mtime OR e.is_dir IS NOT s.is_dir THEN NULL
 			ELSE e.duration_sec
 		END,
 			NULLIF(s.format, ''),
@@ -111,6 +102,7 @@ CASE
 			parent_path = excluded.parent_path,
 			name = excluded.name,
 			is_dir = excluded.is_dir,
+			is_work_root = excluded.is_work_root,
 			size = excluded.size,
 			mtime = excluded.mtime,
 			scan_id = excluded.scan_id,
@@ -122,7 +114,30 @@ CASE
 			duration_sec = excluded.duration_sec,
 			format = excluded.format,
 			updated_at = excluded.updated_at
-	`, scanID, now.Format(timeFormat), scanID)
+            WHERE entries.root_path IS NOT excluded.root_path
+               OR entries.parent_path IS NOT excluded.parent_path
+               OR entries.name IS NOT excluded.name
+               OR entries.is_dir IS NOT excluded.is_dir
+               OR entries.is_work_root IS NOT excluded.is_work_root
+               OR entries.size IS NOT excluded.size
+               OR entries.mtime IS NOT excluded.mtime
+               OR entries.format IS NOT excluded.format
+               OR entries.dirty_flag IS NOT excluded.dirty_flag
+	`
+
+// mergeStagingEntries is the set-based merge plus session-scoped stale cleanup
+// and, for a full-root scan, the binding reconciliation.
+func mergeStagingEntries(tx *sql.Tx, scanID, libraryID, rootPath string) (inventory.MergeOutcome, error) {
+	now := time.Now()
+
+	// Step 1: Set-based merge with content_rev lifecycle logic
+	// Using INSERT ... SELECT ... ON CONFLICT for efficient batch processing
+	// Semantics:
+	// - new row => content_rev=1, dirty_flag=0
+	// - changed size/mtime/type => increment content_rev, dirty_flag=1, bitrate and
+	//   the media facts (width/height/duration, ADR 0015 §2) cleared
+	// - unchanged size/mtime/type => preserve content_rev, bitrate and media facts
+	_, err := tx.Exec(mergeObservedEntriesSQL, scanID, now.Format(timeFormat), scanID)
 	if err != nil {
 		return inventory.MergeOutcome{}, fmt.Errorf("failed to merge staging entries: %w", err)
 	}
@@ -137,10 +152,11 @@ CASE
 	}
 
 	// Step 3: Reconcile the bindings against the surviving directories. Only a
-	// full scan is authoritative for a library's direct children; a member
+	// full scan is authoritative for a library's work roots; a member
 	// refresh leaves every other copy alone.
 	var merged int
-	if err := tx.QueryRow("SELECT COUNT(*) FROM entries WHERE scan_id = ?", scanID).Scan(&merged); err != nil {
+	if err := tx.QueryRow("SELECT COUNT(*) FROM entries_staging WHERE session_id = ?", scanID).
+		Scan(&merged); err != nil {
 		return inventory.MergeOutcome{}, fmt.Errorf("failed to count merged entries: %w", err)
 	}
 	outcome := inventory.MergeOutcome{Merged: merged}
@@ -232,15 +248,15 @@ func cleanupStaleEntries(tx *sql.Tx, scanID, rootPath string) (root string, full
 	// was just scanned — the overview listing and the directory identity
 	// the workbench addresses both read that row.
 	//
-	// The prefix is compared with substr, not LIKE: a directory name is
-	// free to contain `%` or `_`, which a LIKE pattern would read as
-	// wildcards and match siblings by accident.
+	// Binary path ranges preserve slash boundaries and treat `%` and `_`
+	// literally. Pin the primary path index: without this hint SQLite can
+	// choose root_path alone and visit the entire library for a member refresh.
 	if _, err := tx.Exec(`
 		DELETE FROM entries
 		WHERE root_path = ?
-			AND substr(path, 1, length(?) + 1) = ? || '/'
+			AND path >= ? AND path < ? AND path <> ?
 			AND path NOT IN (SELECT path FROM entries_staging WHERE session_id = ?)
-	`, rootPath, scopePath, scopePath, scanID); err != nil {
+	`, rootPath, strings.TrimRight(scopePath, "/")+"/", strings.TrimRight(scopePath, "/")+"0", pathnorm.CleanRootPath(scopePath), scanID); err != nil {
 		return rootPath, false, err
 	}
 	return rootPath, false, nil

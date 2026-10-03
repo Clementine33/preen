@@ -30,12 +30,12 @@ func TestHTTPLibraryScanLoop(t *testing.T) {
 	rootPath := filepath.Join(dataDir, "music")
 	// albumA holds lossy+lossless stems; albumB is audio-only so the folders
 	// index is non-empty across the root.
-	mustWriteFile(t, filepath.Join(rootPath, "albumA", "test1.mp3"), "dummy audio")
-	mustWriteFile(t, filepath.Join(rootPath, "albumA", "test1.flac"), "dummy audio")
-	mustWriteFile(t, filepath.Join(rootPath, "albumA", "test2.mp3"), "dummy audio")
-	mustWriteFile(t, filepath.Join(rootPath, "albumA", "test2.flac"), "dummy audio")
-	mustWriteFile(t, filepath.Join(rootPath, "albumB", "song1.mp3"), "dummy audio")
-	mustWriteFile(t, filepath.Join(rootPath, "albumB", "song2.mp3"), "dummy audio")
+	mustWriteFile(t, filepath.Join(rootPath, "RJ000001 albumA", "test1.mp3"), "dummy audio")
+	mustWriteFile(t, filepath.Join(rootPath, "RJ000001 albumA", "test1.flac"), "dummy audio")
+	mustWriteFile(t, filepath.Join(rootPath, "RJ000001 albumA", "test2.mp3"), "dummy audio")
+	mustWriteFile(t, filepath.Join(rootPath, "RJ000001 albumA", "test2.flac"), "dummy audio")
+	mustWriteFile(t, filepath.Join(rootPath, "RJ000002 albumB", "song1.mp3"), "dummy audio")
+	mustWriteFile(t, filepath.Join(rootPath, "RJ000002 albumB", "song2.mp3"), "dummy audio")
 
 	const token = "e2e-token"
 	proc := startBackendBinary(t, binPath, dataDir, token)
@@ -128,8 +128,8 @@ func TestHTTPLibraryScanLoop(t *testing.T) {
 	for _, d := range dirs.Dirs {
 		seen[d.RelPath] = true
 	}
-	if !seen["albumA"] || !seen["albumB"] {
-		t.Fatalf("GET /dirs: expected albumA and albumB, got %+v", dirs.Dirs)
+	if !seen["RJ000001 albumA"] || !seen["RJ000002 albumB"] {
+		t.Fatalf("GET /dirs: expected RJ000001 albumA and RJ000002 albumB, got %+v", dirs.Dirs)
 	}
 
 	t.Logf(

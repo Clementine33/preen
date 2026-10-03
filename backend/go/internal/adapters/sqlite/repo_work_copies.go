@@ -3,11 +3,13 @@ package sqlite
 import (
 	"database/sql"
 	"errors"
+	"path"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 
+	"github.com/onsei/organizer/backend/internal/pathnorm"
 	"github.com/onsei/organizer/backend/internal/works"
 )
 
@@ -71,28 +73,26 @@ func syncWorkCopies(tx *sql.Tx, libraryID, rootPath string) (bindingOutcome, err
 	if libraryID == "" {
 		return outcome, nil
 	}
-	// The root is compared against stored parent paths, so it must be in the
-	// same POSIX form the merge wrote. The trailing slash is dropped unless the
-	// root is "/" itself, which has nothing to drop.
-	rootPath = strings.ReplaceAll(rootPath, "\\", "/")
-	if len(rootPath) > 1 {
-		rootPath = strings.TrimRight(rootPath, "/")
-	}
+	// Match the canonical stored root, preserving drive and UNC root forms.
+	rootPath = pathnorm.CleanRootPath(rootPath)
 
 	rows, err := tx.Query(`
-		SELECT path, name
+		SELECT path, name, is_work_root
 		FROM entries
-		WHERE is_dir = 1 AND parent_path = ?
+		WHERE is_dir = 1 AND root_path = ?
 		ORDER BY path
 	`, rootPath)
 	if err != nil {
 		return outcome, err
 	}
-	type childDir struct{ path, name string }
+	type childDir struct {
+		path, name string
+		isWorkRoot bool
+	}
 	var children []childDir
 	for rows.Next() {
 		var child childDir
-		if err := rows.Scan(&child.path, &child.name); err != nil {
+		if err := rows.Scan(&child.path, &child.name, &child.isWorkRoot); err != nil {
 			rows.Close()
 			return outcome, err
 		}
@@ -113,20 +113,36 @@ func syncWorkCopies(tx *sql.Tx, libraryID, rootPath string) (bindingOutcome, err
 	// this library is unbound below, which is also what removes the binding of a
 	// directory that no longer exists.
 	bound := map[string]works.WorkCode{}
+	workRoots := map[string]bool{}
 	for _, child := range children {
-		if isRecoveryDirName(rootPath, child.name) {
+		relPath := strings.TrimPrefix(child.path, prefix)
+		first, _, _ := strings.Cut(relPath, "/")
+		if isRecoveryDirName(rootPath, first) || !child.isWorkRoot {
 			continue
 		}
-		relPath := strings.TrimPrefix(strings.ReplaceAll(child.path, "\\", "/"), prefix)
-		switch extraction := works.CodesInDirName(child.name); extraction.Kind {
-		case works.DirCodeSingle:
+		extraction := works.CodesInDirName(child.name)
+		if extraction.Kind == works.DirCodeSingle {
 			bound[relPath] = extraction.Code
-		case works.DirCodeMultiple:
+			workRoots[child.path] = true
+		}
+	}
+	for _, child := range children {
+		relPath := strings.TrimPrefix(child.path, prefix)
+		first, _, _ := strings.Cut(relPath, "/")
+		if isRecoveryDirName(rootPath, first) || child.isWorkRoot ||
+			works.CodesInDirName(child.name).Kind != works.DirCodeMultiple {
+			continue
+		}
+		insideWork := false
+		for parent := path.Dir(child.path); parent != rootPath && parent != "." && parent != "/"; parent = path.Dir(parent) {
+			if workRoots[parent] {
+				insideWork = true
+				break
+			}
+		}
+		if !insideWork {
 			outcome.multiple++
-			outcome.addExample(child.name)
-		case works.DirCodeNone:
-			outcome.unnumbered++
-			outcome.addExample(child.name)
+			outcome.addExample(relPath)
 		}
 	}
 

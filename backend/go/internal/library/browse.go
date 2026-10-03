@@ -11,12 +11,12 @@ import (
 // the inventory (it is the only writer of that table); the library owns what
 // the overview lists and which identity each directory carries.
 type InventoryReader interface {
-	// ListLibraryDirs returns the direct child directories of a library root,
-	// the recovery directory among them.
+	// ListLibraryDirs returns the scanned work roots of a library root,
+	// excluding the recovery directory.
 	ListLibraryDirs(rootPath string) ([]*inventory.LibraryDir, error)
-	// ListLibraryChildDirs returns the library-relative paths of the direct
-	// child directories: the candidates an identity resolves against.
-	ListLibraryChildDirs(rootPath string) ([]string, error)
+	// ListLibraryWorkRoots returns the library-relative paths of scanned work
+	// roots: the candidates an identity resolves against.
+	ListLibraryWorkRoots(rootPath string) ([]string, error)
 	// ListEntriesUnderPath returns the stored entries at or beneath a path.
 	ListEntriesUnderPath(pathPrefix string) ([]inventory.Entry, error)
 }
@@ -27,7 +27,7 @@ type InventoryReader interface {
 // them here so that browsing and writing agree on what a member is.
 type ResolveMember func(rootPath, memberRel string) (string, error)
 
-// Dir is one direct child directory as the overview lists it: the inventory's
+// Dir is one scanned work root as the overview lists it: the inventory's
 // observed facts plus the navigation identity this library derives for it.
 type Dir struct {
 	inventory.LibraryDir
@@ -72,11 +72,10 @@ func AsError(err error) (*Error, bool) {
 	return e, ok
 }
 
-// Dirs lists the direct child directories of one library as the overview
-// shows them: every child directory, empty or audio-less ones included, each
-// with the identity a page address carries. The recovery directory is the
-// inventory's own boundary and stays in the listing; callers that must not
-// offer it (member resolution) filter it themselves.
+// Dirs lists the scanned work roots of one library as the overview
+// shows them: every work root, empty or audio-less ones included, each
+// with the identity a page address carries. The recovery directory and its
+// descendants are excluded from both the list and member resolution.
 func (s *Service) Dirs(lib *Library) ([]Dir, error) {
 	found, err := s.inventory.ListLibraryDirs(lib.RootPath)
 	if err != nil {
@@ -93,7 +92,7 @@ func (s *Service) Dirs(lib *Library) ([]Dir, error) {
 }
 
 // Member resolves the directory id of a member-scoped request. The identity is
-// looked up among the direct child directories this library's inventory knows —
+// looked up among the scanned work roots this library's inventory knows —
 // an identity that names none of them, that is malformed, or that two
 // directories claim, is refused — and only the single match is then validated
 // on disk, so the workbench never invents a directory and a symlinked member is
@@ -105,7 +104,7 @@ func (s *Service) Member(lib *Library, rawDirID string) (*Member, error) {
 	if !ValidDirID(rawDirID) {
 		return nil, &Error{ErrKindInvalidArgument, "DIR_ID_INVALID", "dir is not a directory id"}
 	}
-	children, err := s.inventory.ListLibraryChildDirs(lib.RootPath)
+	children, err := s.inventory.ListLibraryWorkRoots(lib.RootPath)
 	if err != nil {
 		return nil, err
 	}

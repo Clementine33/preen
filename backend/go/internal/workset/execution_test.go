@@ -156,8 +156,8 @@ func insertInventoryDir(t *testing.T, repo *sqlite.Repository, root, name string
 	t.Helper()
 	now := time.Now().Format(timeFmt)
 	if _, err := repo.DB().Exec(`
-		INSERT INTO entries (path, root_path, parent_path, name, is_dir, size, mtime, format, content_rev, updated_at)
-		VALUES (?, ?, ?, ?, 1, 0, 0, '', 1, ?)
+		INSERT INTO entries (path, root_path, parent_path, name, is_dir, is_work_root, size, mtime, format, content_rev, updated_at)
+		VALUES (?, ?, ?, ?, 1, 1, 0, 0, '', 1, ?)
 	`, root+"/"+name, root, root, name, now); err != nil {
 		t.Fatalf("insert inventory dir: %v", err)
 	}
@@ -169,8 +169,8 @@ func insertInventoryAudio(t *testing.T, repo *sqlite.Repository, dir, name strin
 	now := time.Now().Format(timeFmt)
 	if _, err := repo.DB().Exec(`
 		INSERT INTO entries (path, root_path, parent_path, name, is_dir, size, mtime, format, content_rev, updated_at)
-		VALUES (?, '', ?, ?, 0, 0, 0, 'flac', 1, ?)
-	`, filepath.ToSlash(filepath.Join(dir, name)), filepath.ToSlash(dir), name, now); err != nil {
+		VALUES (?, ?, ?, ?, 0, 0, 0, 'flac', 1, ?)
+	`, filepath.ToSlash(filepath.Join(dir, name)), filepath.ToSlash(filepath.Dir(dir)), filepath.ToSlash(dir), name, now); err != nil {
 		t.Fatalf("insert inventory audio: %v", err)
 	}
 }

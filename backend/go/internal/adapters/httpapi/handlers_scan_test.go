@@ -17,7 +17,7 @@ import (
 func seedScanTree(t *testing.T) string {
 	t.Helper()
 	root := filepath.Join(t.TempDir(), "music")
-	for _, album := range []string{"album-01", "album-02"} {
+	for _, album := range []string{"RJ000001 album-01", "RJ000002 album-02"} {
 		dir := filepath.Join(root, album)
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			t.Fatalf("mkdir %s: %v", dir, err)

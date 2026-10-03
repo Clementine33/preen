@@ -9,7 +9,7 @@ import (
 	"github.com/onsei/organizer/backend/internal/pathnorm"
 )
 
-// LibraryDir is one direct child directory of a library root as the workbench
+// LibraryDir is one scanned work root of a library root as the workbench
 // overview lists it: identity is the library-relative path (stable across
 // rescans), and the audio count is a status fact — a directory without audio
 // is still listed and still browsable.

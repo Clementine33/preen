@@ -97,8 +97,8 @@ func seedMember(t *testing.T, repo *sqlite.Repository, rel string) {
 	t.Helper()
 	_ = rel
 	for _, stmt := range []string{
-		`INSERT INTO entries (path, root_path, parent_path, name, is_dir, size, mtime, format)
-		 VALUES ('/music/albumA', '/music', '/music', 'albumA', 1, 0, 0, '')`,
+		`INSERT INTO entries (path, root_path, parent_path, name, is_dir, is_work_root, size, mtime, format)
+		 VALUES ('/music/albumA', '/music', '/music', 'albumA', 1, 1, 0, 0, '')`,
 		`INSERT INTO entries (path, root_path, parent_path, name, is_dir, size, mtime, format)
 		 VALUES ('/music/albumA/01.flac', '/music', '/music/albumA', '01.flac', 0, 1024, 0, 'flac')`,
 	} {

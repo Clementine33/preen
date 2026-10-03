@@ -11,7 +11,7 @@ import (
 	"github.com/onsei/organizer/backend/internal/library"
 )
 
-// dirResponse is one direct child directory of a library root: the observed
+// dirResponse is one scanned work root of a library root: the observed
 // facts plus the identity a page address carries.
 type dirResponse struct {
 	Name           string `json:"name"`
@@ -22,7 +22,7 @@ type dirResponse struct {
 	FileCount      int    `json:"file_count"`
 }
 
-// listLibraryDirs returns every direct child directory of the library root,
+// listLibraryDirs returns every scanned work root of the library root,
 // including empty ones and ones holding no audio. The library-level recovery
 // directory is not a member and is left out.
 func (s *Server) listLibraryDirs(w http.ResponseWriter, r *http.Request) {

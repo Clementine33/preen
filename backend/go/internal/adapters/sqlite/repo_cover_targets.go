@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"path/filepath"
 
 	"github.com/onsei/organizer/backend/internal/covers"
 	"github.com/onsei/organizer/backend/internal/pathnorm"
@@ -34,7 +33,7 @@ func (r *Repository) CoverTargets(
 		if err = rows.Scan(&t.CopyID, &t.WorkCode, &t.RelPath, &t.LibraryRoot); err != nil {
 			return nil, err
 		}
-		folder := filepath.ToSlash(filepath.Join(t.LibraryRoot, t.RelPath))
+		folder := pathnorm.JoinRel(t.LibraryRoot, t.RelPath)
 		if selected, ok := wanted[pathnorm.RootPathKey(folder)]; ok {
 			out[selected] = t
 		}

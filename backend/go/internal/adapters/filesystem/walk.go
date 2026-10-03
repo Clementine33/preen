@@ -5,282 +5,113 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"sync"
+
+	"golang.org/x/sync/errgroup"
 
 	"github.com/onsei/organizer/backend/internal/inventory"
+	"github.com/onsei/organizer/backend/internal/pathnorm"
+	"github.com/onsei/organizer/backend/internal/works"
 )
 
 // dirEntryInfoFunc is a seam for testing Info() error paths.
-// In production, this is nil and job.d.Info() is called directly.
-// Tests can override to inject deterministic errors.
 var dirEntryInfoFunc func(fs.DirEntry) (fs.FileInfo, error)
 
-// walkDirItem represents a directory to be processed in parallel walk.
-type walkDirItem struct {
-	path string
-}
-
-type walkResult struct {
-	subdirs []string
-	err     error
-}
-
-// WalkRootEntriesParallel walks the root directory using bounded parallel directory descent
-// with inline metadata collection. It does NOT emit the root itself.
-//
-// Invariant: Root = parallel directory descent + inline metadata + pipeline
-//
-// Parameters:
-//   - ctx: context for cancellation
-//   - rootPath: the root directory to walk
-//   - basePath: the base path for parent path normalization
-//   - dirConcurrency: number of concurrent directory readers (default 4)
-//   - emit: callback for each inventory.DirEntry found; returning error cancels the walk
-//
-// Returns error if walk fails or if emit returns error.
-//
-//nolint:gocognit,gocyclo,funlen // worker-pool coordinator (dispatch/collect/cancel) is inherently branched
+// WalkRootEntriesParallel discovers work roots while bounded workers scan each
+// work sequentially. Classification directories are traversed by the discoverer.
+// Every entry is emitted once; the library root itself is excluded.
 func WalkRootEntriesParallel(
 	ctx context.Context,
 	rootPath, basePath string,
-	dirConcurrency int,
+	workers int,
 	emit func(inventory.DirEntry) error,
 ) error {
-	if dirConcurrency <= 0 {
-		dirConcurrency = 4 // Default as per plan
+	if workers <= 0 {
+		workers = inventory.DefaultScanWorkers
 	}
-	if dirConcurrency > 32 {
-		dirConcurrency = 32
-	}
-
-	// Context for cancellation on first error
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	// Worker input/output channels.
-	// IMPORTANT: only coordinator enqueues jobs; workers only consume jobs and report results.
-	jobCh := make(chan walkDirItem, dirConcurrency*2)
-	resultCh := make(chan walkResult, dirConcurrency*2)
-
-	var wg sync.WaitGroup
-
-	// Start worker pool
-	for range dirConcurrency {
-		wg.Go(func() {
+	workers = min(workers, 32)
+	group, ctx := errgroup.WithContext(ctx)
+	jobs := make(chan string, 2*workers)
+	group.Go(func() error {
+		defer close(jobs)
+		return walkEntries(ctx, rootPath, basePath, emit, jobs)
+	})
+	for range workers {
+		group.Go(func() error {
 			for {
 				select {
 				case <-ctx.Done():
-					return
-				case dir, ok := <-jobCh:
+					return ctx.Err()
+				case folder, ok := <-jobs:
 					if !ok {
-						return
+						return ctx.Err()
 					}
-
-					dirEntries, readErr := os.ReadDir(dir.path)
-					if readErr != nil {
-						select {
-						case <-ctx.Done():
-							return
-						case resultCh <- walkResult{err: readErr}:
-						}
-						return
-					}
-
-					subdirs := make([]string, 0)
-					for _, d := range dirEntries {
-						select {
-						case <-ctx.Done():
-							return
-						default:
-						}
-
-						entryPath := filepath.Join(dir.path, d.Name())
-						parentPath := filepath.Dir(entryPath)
-						if parentPath == "." {
-							parentPath = basePath
-						}
-
-						// Inline metadata collection - call Info() directly
-						var info fs.FileInfo
-						var infoErr error
-						if dirEntryInfoFunc != nil {
-							info, infoErr = dirEntryInfoFunc(d)
-						} else {
-							info, infoErr = d.Info()
-						}
-
-						if infoErr != nil {
-							select {
-							case <-ctx.Done():
-								return
-							case resultCh <- walkResult{err: infoErr}:
-							}
-							return
-						}
-
-						entry := inventory.DirEntry{
-							Path:       entryPath,
-							ParentPath: parentPath,
-							Name:       d.Name(),
-							IsDir:      d.IsDir(),
-							Size:       info.Size(),
-							Mtime:      info.ModTime().Unix(),
-						}
-
-						if emitErr := emit(entry); emitErr != nil {
-							select {
-							case <-ctx.Done():
-								return
-							case resultCh <- walkResult{err: emitErr}:
-							}
-							return
-						}
-
-						if d.IsDir() {
-							subdirs = append(subdirs, entryPath)
-						}
-					}
-
-					select {
-					case <-ctx.Done():
-						return
-					case resultCh <- walkResult{subdirs: subdirs}:
+					if err := WalkFolderEntries(ctx, folder, basePath, emit); err != nil {
+						return err
 					}
 				}
 			}
 		})
 	}
-
-	// Coordinator loop: owns work accounting and all enqueue operations.
-	pendingWork := 1
-	queued := []walkDirItem{{path: rootPath}}
-	for pendingWork > 0 {
-		var sendCh chan walkDirItem
-		var next walkDirItem
-		if len(queued) > 0 {
-			sendCh = jobCh
-			next = queued[0]
-		}
-
-		select {
-		case <-ctx.Done():
-			close(jobCh)
-			wg.Wait()
-			return ctx.Err()
-		case sendCh <- next:
-			queued = queued[1:]
-		case res := <-resultCh:
-			pendingWork--
-
-			if res.err != nil {
-				cancel()
-				close(jobCh)
-				wg.Wait()
-				return res.err
-			}
-
-			if len(res.subdirs) > 0 {
-				pendingWork += len(res.subdirs)
-				for _, subdir := range res.subdirs {
-					queued = append(queued, walkDirItem{path: subdir})
-				}
-			}
-		}
-	}
-
-	close(jobCh)
-	wg.Wait()
-
-	if err := ctx.Err(); err != nil {
-		return err
-	}
-
-	return nil
+	return group.Wait()
 }
 
-// WalkFolderEntries walks a single folder using os.ReadDir (single-enumerator pattern)
-// with inline metadata collection. It does NOT emit the folder itself.
-//
-// Invariant: Folder = single-enumerator directory discovery + inline metadata + pipeline
-//
-// Parameters:
-//   - ctx: context for cancellation
-//   - folderPath: the folder to walk
-//   - basePath: the base path for parent path normalization
-//   - emit: callback for each inventory.DirEntry found; returning error cancels the walk
-//
-// Returns error if walk fails or if emit returns error.
-//
-// CONTRACT: This function is streaming - it MUST call emit immediately for each
-// entry as it's discovered, without pre-aggregating into []inventory.DirEntry.
+// WalkFolderEntries streams a single work's descendants in name order without
+// recognizing additional works. The work root's inventory marker is preserved.
 func WalkFolderEntries(ctx context.Context, folderPath, basePath string, emit func(inventory.DirEntry) error) error {
-	// Validate context
-	if err := ctx.Err(); err != nil {
+	return walkEntries(ctx, folderPath, basePath, emit, nil)
+}
+
+func walkEntries(
+	ctx context.Context,
+	currentPath, basePath string,
+	emit func(inventory.DirEntry) error,
+	jobs chan<- string,
+) error {
+	if contextErr := ctx.Err(); contextErr != nil {
+		return contextErr
+	}
+	entries, err := os.ReadDir(currentPath)
+	if err != nil {
 		return err
 	}
-
-	var walk func(string) error
-	walk = func(currentPath string) error {
-		if err := ctx.Err(); err != nil {
-			return err
+	for _, d := range entries {
+		if contextErr := ctx.Err(); contextErr != nil {
+			return contextErr
 		}
-
-		dirEntries, err := os.ReadDir(currentPath)
+		var info fs.FileInfo
+		if dirEntryInfoFunc != nil {
+			info, err = dirEntryInfoFunc(d)
+		} else {
+			info, err = d.Info()
+		}
 		if err != nil {
 			return err
 		}
-
-		for _, d := range dirEntries {
+		entryPath := filepath.Join(currentPath, d.Name())
+		isWorkRoot := jobs != nil && d.IsDir() &&
+			works.CodesInDirName(d.Name()).Kind == works.DirCodeSingle &&
+			!pathnorm.IsWithinRoot(pathnorm.JoinRel(basePath, pathnorm.RecoveryDirName), entryPath)
+		entry := inventory.DirEntry{
+			Path: entryPath, ParentPath: filepath.Dir(entryPath), Name: d.Name(),
+			IsDir: d.IsDir(), IsWorkRoot: isWorkRoot, Size: info.Size(), Mtime: info.ModTime().Unix(),
+		}
+		if err := emit(entry); err != nil {
+			return err
+		}
+		if !d.IsDir() {
+			continue
+		}
+		if isWorkRoot {
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
-			default:
+			case jobs <- entryPath:
 			}
-
-			entryPath := filepath.Join(currentPath, d.Name())
-			parentPath := filepath.Dir(entryPath)
-			if parentPath == "." {
-				parentPath = basePath
-			}
-
-			// Inline metadata collection - call Info() directly
-			var info fs.FileInfo
-			var infoErr error
-			if dirEntryInfoFunc != nil {
-				info, infoErr = dirEntryInfoFunc(d)
-			} else {
-				info, infoErr = d.Info()
-			}
-
-			if infoErr != nil {
-				return infoErr
-			}
-
-			entry := inventory.DirEntry{
-				Path:       entryPath,
-				ParentPath: parentPath,
-				Name:       d.Name(),
-				IsDir:      d.IsDir(),
-				Size:       info.Size(),
-				Mtime:      info.ModTime().Unix(),
-			}
-
-			// Emit entry via callback - IMMEDIATE STREAMING
-			if emitErr := emit(entry); emitErr != nil {
-				return emitErr
-			}
-
-			if d.IsDir() {
-				if err := walk(entryPath); err != nil {
-					return err
-				}
-			}
+		} else if err := walkEntries(ctx, entryPath, basePath, emit, jobs); err != nil {
+			return err
 		}
-
-		return nil
 	}
-
-	return walk(folderPath)
+	return ctx.Err()
 }
 
 // Allowed audio extensions.

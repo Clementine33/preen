@@ -3,6 +3,8 @@ package settings
 import (
 	"sort"
 	"strings"
+
+	"github.com/onsei/organizer/backend/internal/inventory"
 )
 
 // PruneConfig defines prune-related settings in config.json. LiteralTags is
@@ -71,8 +73,13 @@ type WorksetConfig struct {
 	GenerationConcurrency int `json:"generation_concurrency"`
 }
 
+type ScanConfig struct {
+	Workers int `json:"workers"`
+}
+
 // AppConfig represents the full application configuration from config.json.
 type AppConfig struct {
+	Scan    ScanConfig    `json:"scan"`
 	Prune   PruneConfig   `json:"prune"`
 	Tools   ToolsConfig   `json:"tools"`
 	Execute ExecuteConfig `json:"execute"`
@@ -82,6 +89,7 @@ type AppConfig struct {
 
 func DefaultAppConfig() AppConfig {
 	return AppConfig{
+		Scan: ScanConfig{Workers: inventory.DefaultScanWorkers},
 		Execute: ExecuteConfig{
 			MaxIOWorkers: 4,
 			Precheck: ExecutePrecheckConfig{

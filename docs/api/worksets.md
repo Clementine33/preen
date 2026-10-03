@@ -31,14 +31,14 @@ directory that did not become a member instead of dropping it silently:
 | --- | --- |
 | `no_audio` | the directory holds no audio anywhere beneath it; conversion skips it |
 | `missing` | the inventory does not know it as a directory of this root |
-| `not_direct_child` | only direct children of the library root are members |
+| `not_work_root` | a scanned directory is not marked as a work root |
 | `recovery_dir` | the library-level `Delete/` is not a member |
 | `invalid_path` | not a plain library-relative path |
 | `duplicate` | selected more than once |
 
 A selection whose every entry is unusable creates nothing and answers
 `NO_AUDIO_MEMBERS` (400) for conversion, or `NO_MEMBERS` (400) for rename,
-with the skipped paths in `details`. Rename accepts scanned direct-child
+with the skipped paths in `details`. Rename accepts scanned work-root
 directories even when their audio count is zero. More than 500
 selected paths is `INVALID_FOLDER_COUNT` (400) — never a silent truncation.
 `expected_current_id` is the record the caller saw as current (absent when it
@@ -87,3 +87,5 @@ All routes require auth and use the [standard error envelope](common.md#error-en
 | POST | `/api/v1/worksets/{id}/operations/{type}/executions/{executionId}/cancel` | Cooperative cancel; idempotent on terminal sessions (200 with the session either way). |
 
 Task payloads: [Audio conversion](conversion.md), [rename and metadata refresh](tasks.md). Frozen conversion revisions are described in [Frozen revisions](conversion.md#frozen-revisions).
+
+Member `rel_path` and creation `folder_paths` may contain nested library-relative paths, for example `分类/RJ000001 album`. Classification directories and internal directories of a work are not members. Conversion requires scanned audio; rename and metadata tasks do not.

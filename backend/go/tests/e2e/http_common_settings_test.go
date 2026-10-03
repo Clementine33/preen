@@ -21,9 +21,9 @@ func TestHTTPCommonSettingsSyncAcrossRecords(t *testing.T) {
 	dataDir := t.TempDir()
 	for _, name := range []string{"musicA", "musicB", "musicC"} {
 		root := filepath.Join(dataDir, name)
-		mustWriteFile(t, filepath.Join(root, "albumA", "test1.mp3"), "dummy audio")
-		mustWriteFile(t, filepath.Join(root, "albumA", "test1.flac"), "dummy audio")
-		mustWriteFile(t, filepath.Join(root, "albumA", "test2.mp3"), "dummy audio")
+		mustWriteFile(t, filepath.Join(root, "RJ000001 albumA", "test1.mp3"), "dummy audio")
+		mustWriteFile(t, filepath.Join(root, "RJ000001 albumA", "test1.flac"), "dummy audio")
+		mustWriteFile(t, filepath.Join(root, "RJ000001 albumA", "test2.mp3"), "dummy audio")
 	}
 
 	const token = "e2e-token"
@@ -140,7 +140,7 @@ func createAndScanLibrary(
 		t, client, ctx, base, http.MethodPut,
 		"/api/v1/libraries/"+lib.ID+"/operations/conversion/current", token,
 		map[string]string{"Idempotency-Key": "create-" + dir},
-		map[string]any{"folder_paths": []string{"albumA"}}, &created,
+		map[string]any{"folder_paths": []string{"RJ000001 albumA"}}, &created,
 	); code != http.StatusCreated {
 		t.Fatalf("create record for %s: %d", name, code)
 	}

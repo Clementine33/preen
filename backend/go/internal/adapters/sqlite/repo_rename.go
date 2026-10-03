@@ -3,6 +3,7 @@ package sqlite
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -21,7 +22,15 @@ func (r *Repository) RenameWorks(ctx context.Context, root string, folders []str
 	marks := make([]string, len(folders))
 	for i, folder := range folders {
 		marks[i] = "?"
-		args = append(args, filepath.Base(filepath.FromSlash(folder)))
+		rel, err := filepath.Rel(filepath.FromSlash(root), filepath.FromSlash(folder))
+		if err != nil {
+			return nil, err
+		}
+		rel, ok := pathnorm.RelPath(filepath.ToSlash(rel))
+		if !ok {
+			return nil, fmt.Errorf("invalid rename member path %q", folder)
+		}
+		args = append(args, rel)
 	}
 	rows, err := r.db.QueryContext(
 		ctx,
@@ -49,7 +58,7 @@ func (r *Repository) RenameWorks(ctx context.Context, root string, folders []str
 		}
 		slices.Sort(actors)
 		actors = slices.Compact(actors)
-		out[filepath.ToSlash(filepath.Join(root, rel))] = rename.Work{
+		out[pathnorm.JoinRel(root, rel)] = rename.Work{
 			Code: code,
 			Values: map[string]string{
 				"title":        title,

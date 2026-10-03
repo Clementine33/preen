@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -150,7 +151,11 @@ func TestMissingSourceIsReportedOnceInReview(t *testing.T) {
 	draft, _, _ := task.SeedDraft(nil)
 	snapshot, err := task.PlanSession(
 		t.Context(),
-		workset.PlanSessionInput{RawDraft: draft, Members: []*workset.WorksetMember{member}},
+		workset.PlanSessionInput{
+			LibraryRoot: filepath.ToSlash(filepath.Dir(filepath.FromSlash(member.FolderPath))),
+			RawDraft:    draft,
+			Members:     []*workset.WorksetMember{member},
+		},
 	)
 	if err != nil {
 		t.Fatal(err)

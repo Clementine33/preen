@@ -40,6 +40,10 @@ func seedDir(t *testing.T, repo *sqlite.Repository, root, rel string) string {
 		parent = root
 	}
 	insertTreeEntry(t, repo, root, abs, parent, filepath.Base(abs), true, 0, nil, "")
+	if _, err := repo.DB().
+		Exec("UPDATE entries SET is_work_root = ? WHERE path = ?", parent == root, filepath.ToSlash(abs)); err != nil {
+		t.Fatal(err)
+	}
 	return abs
 }
 

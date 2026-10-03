@@ -230,6 +230,9 @@ func TestJoinRel(t *testing.T) {
 		{"/music/", "albumA", "/music/albumA"},
 		{`C:\music`, "albumA", "C:/music/albumA"},
 		{"/music", "albumA/disc2", "/music/albumA/disc2"},
+		{"C:/", "分类/RJ000001", "C:/分类/RJ000001"},
+		{`\\SERVER\Share`, "分类/RJ000001", "//SERVER/Share/分类/RJ000001"},
+		{`\\?\C:\music`, "分类/RJ000001", "//?/C:/music/分类/RJ000001"},
 	}
 	for _, tc := range cases {
 		if got := pathnorm.JoinRel(tc.root, tc.rel); got != tc.want {

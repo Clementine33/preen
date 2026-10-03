@@ -29,7 +29,7 @@ collection time, not the source's report, is what makes it collected.
 _Avoid_: A second way to create a work.
 
 **Copy (Work Binding)**:
-One library directory bound to one work. The binding is maintained by scanning
+One scanned Work Root bound to one work. The binding is maintained by scanning
 and identified by the library and the relative path, so re-scanning keeps it
 and a directory that stops naming a work is simply unbound. It carries no
 foreign key to the inventory: a rescan deleting rows must never delete a work
@@ -87,15 +87,23 @@ _Avoid_: Reading the derived relation as a source of truth about references.
 **Library**:
 A named media collection rooted at one directory, whose scanned inventory supplies the member directories and media facts. It owns the workbench: entering a library is entering its overview, its browsing, its conversion record and its file management. Its deletion removes its entry (and that entry's record) but never the media.
 
+**Work Root**:
+The first directory in a Library descendant chain whose name unambiguously carries one Work Number. Its whole subtree belongs to that independent work, even when an internal directory also carries a Work Number.
+_Avoid_: Treating every RJ directory inside a work as another copy.
+
+**Classification Directory**:
+A directory organizing paths above Work Roots, with no work binding of its own. Its descendants may contain independent Work Roots.
+_Avoid_: Selecting a category as one processing member.
+
 **Album Folder / Planning Root**:
-A direct-child directory of a Library, including its descendants. It is listed whether or not it holds audio — the audio count is a status, not a filter — and each *selected* folder becomes one planning root, an independent boundary for classification, association and planning.
+A Work Root of a Library, including its descendants. It is listed whether or not it holds audio, and each selected root is an independent boundary for classification, association and planning.
 
 **Workset (processing record)**:
 The current record of one (Library, operation) pair: a fixed, ordered set of 1–500 member directories the user selected, plus that operation's settings and its current plan. At most one exists per pair, and creating a new one replaces the record it supersedes — together with that record's plan and execution results. The product entry keeps the name 工作集.
 _Avoid_: Multiple named collections per library; permanent per-record history.
 
 **Member / Member ID**:
-A directory of one processing record. Its library-relative path (`rel_path`) is the durable data identity — a rescan cannot renumber it, and file management addresses items relative to it — `member_id` is the record-scoped identity the conversion routes carry, and `dir_id` is the identity its *page address* carries.
+A scanned Work Root selected into one processing record. Its library-relative path (`rel_path`) is the durable data identity — a rescan cannot renumber it, and file management addresses items relative to it — `member_id` is the record-scoped identity the conversion routes carry, and `dir_id` is the identity its *page address* carries.
 _Avoid_: Scan folder ID, list index, or the absolute path as member identity.
 
 **Directory Identity (`dir_id`)**:
@@ -154,7 +162,7 @@ One kind of work a Workset Operation can carry: it owns that work's draft docume
 _Avoid_: Workflow, job, plugin.
 
 **Directory Rename Proposal**:
-A member's proposed top-level directory name, rendered from one common naming
+A member's proposed directory basename, rendered from one common naming
 template and the bound Work's metadata. It preserves that Work Number and records
 the raw name, cleaned name and any reason the proposal is blocked.
 _Avoid_: Renaming the Work; a member-specific naming override.

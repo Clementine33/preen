@@ -110,7 +110,7 @@ func TestCreateCurrentSkipsUnusableFolders(t *testing.T) {
 		"emptyDir":     workset.SkipNoAudio,
 		"albumA":       workset.SkipDuplicate,
 		"nope":         workset.SkipMissing,
-		"nested/child": workset.SkipNotDirect,
+		"nested/child": workset.SkipNotWorkRoot,
 	}
 	for path, reason := range want {
 		if reasons[path] != reason {

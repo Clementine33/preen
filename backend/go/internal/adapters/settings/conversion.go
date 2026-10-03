@@ -7,6 +7,7 @@ import (
 
 	"github.com/onsei/organizer/backend/internal/conversion"
 	"github.com/onsei/organizer/backend/internal/conversion/execute"
+	"github.com/onsei/organizer/backend/internal/inventory"
 )
 
 // Reader reads the configuration the conversion task works from: it implements
@@ -78,4 +79,13 @@ func (r Reader) decode(cfg *AppConfig) bool {
 		return false
 	}
 	return json.Unmarshal(data, cfg) == nil
+}
+
+// ScanWorkers reads the independent scan limit. Invalid values retain the default.
+func (r Reader) ScanWorkers() int {
+	cfg := DefaultAppConfig()
+	if !r.decode(&cfg) || cfg.Scan.Workers < 1 || cfg.Scan.Workers > 32 {
+		return inventory.DefaultScanWorkers
+	}
+	return cfg.Scan.Workers
 }

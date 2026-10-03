@@ -26,7 +26,7 @@ type scanEventData struct {
 	RootPath     string `json:"root_path,omitempty"`
 	FilesScanned int    `json:"files_scanned,omitempty"`
 	DirsScanned  int    `json:"dirs_scanned,omitempty"`
-	// How the scan classified the library's direct child directories whose
+	// How the scan classified the library's scanned work roots whose
 	// names it could not read as exactly one work number. The list is capped and
 	// says so, so a large library cannot turn the response into a transcript.
 	DirsWithoutNumber       int      `json:"dirs_without_number,omitempty"`

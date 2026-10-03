@@ -62,3 +62,24 @@ func TestToolsFallsBackToPath(t *testing.T) {
 		t.Fatalf("tools without a configuration = %+v, want the zero value", empty)
 	}
 }
+
+func TestScanWorkersDefaultsAndBounds(t *testing.T) {
+	for _, tc := range []struct {
+		config string
+		want   int
+	}{
+		{`{}`, 32}, {`{"scan":{"workers":1}}`, 1}, {`{"scan":{"workers":16}}`, 16},
+		{`{"scan":{"workers":32}}`, 32}, {`{"scan":{"workers":33}}`, 32},
+		{`{"scan":{"workers":0}}`, 32}, {`invalid`, 32},
+	} {
+		t.Run(tc.config, func(t *testing.T) {
+			dir := t.TempDir()
+			if err := os.WriteFile(filepath.Join(dir, "config.json"), []byte(tc.config), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			if got := settings.NewReader(dir).ScanWorkers(); got != tc.want {
+				t.Fatalf("workers = %d, want %d", got, tc.want)
+			}
+		})
+	}
+}

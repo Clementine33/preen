@@ -173,9 +173,9 @@ func (f *fixture) insertDirEntry(abs, root, name string) {
 	f.t.Helper()
 	now := time.Now().Format(timeFmt)
 	f.exec(`
-		INSERT INTO entries (path, root_path, parent_path, name, is_dir, size, mtime, format, created_at, updated_at)
-		VALUES (?, ?, ?, ?, 1, 0, 0, '', ?, ?)
-	`, abs, root, root, name, now, now)
+		INSERT INTO entries (path, root_path, parent_path, name, is_dir, is_work_root, size, mtime, format, created_at, updated_at)
+		VALUES (?, ?, ?, ?, 1, ?, 0, 0, '', ?, ?)
+	`, abs, root, filepath.Dir(abs), filepath.Base(abs), filepath.Dir(abs) == root, now, now)
 }
 
 func (f *fixture) insertAudioEntry(path, root string, size, mtime int64) {

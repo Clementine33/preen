@@ -424,7 +424,7 @@ func TestRefusedMembers(t *testing.T) {
 		member string
 		code   string
 	}{
-		{"nested path", "albumA/sub", fileops.CodePathInvalid},
+		{"missing nested path", "albumA/sub", fileops.CodeMemberMissing},
 		{"traversal", "../albumA", fileops.CodePathInvalid},
 		{"absolute", "", fileops.CodePathInvalid},
 		{"the recovery directory", fileops.RecoveryDir, fileops.CodeMemberRoot},
@@ -583,5 +583,32 @@ func TestRequestsWithoutItemsAreRefused(t *testing.T) {
 		Operation:   fileops.OpSoftDelete,
 	}); err == nil {
 		t.Fatal("an empty request must be refused")
+	}
+}
+
+func TestNestedMemberRejectsLinkedAncestorAndRecovery(t *testing.T) {
+	f := newFixture(t, false)
+	f.write("分类/RJ000001/01.mp3", "one")
+	result := f.apply(fileops.Request{MemberPath: "分类/RJ000001", Operation: fileops.OpRename,
+		Items: []fileops.Item{{Source: "01.mp3", Name: "02.mp3"}}})
+	if result.Succeeded != 1 || !f.exists("分类/RJ000001/02.mp3") {
+		t.Fatalf("nested rename: %+v", result)
+	}
+	f.mkdir("Delete/分类/RJ000001")
+	if _, err := fileops.ResolveMember(f.root, "Delete/分类/RJ000001"); err == nil {
+		t.Fatal("recovery descendant accepted")
+	}
+	if err := os.Symlink(filepath.Join(f.root, "分类"), filepath.Join(f.root, "linked")); err != nil {
+		t.Skipf("symlink unavailable: %v", err)
+	}
+	if _, err := fileops.ResolveMember(f.root, "linked/RJ000001"); err == nil {
+		t.Fatal("linked ancestor accepted")
+	}
+	alias := filepath.Join(t.TempDir(), "library-link")
+	if err := os.Symlink(f.root, alias); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fileops.ResolveMember(alias, "分类/RJ000001"); err == nil {
+		t.Fatal("linked library root accepted")
 	}
 }

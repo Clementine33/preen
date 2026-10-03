@@ -65,9 +65,9 @@ func insertEntry(t *testing.T, repo *Repository, path, parentPath, name string, 
 		isDirInt = 1
 	}
 	_, err := repo.DB().Exec(`
-		INSERT INTO entries (path, root_path, parent_path, name, is_dir, size, mtime, scan_id, content_rev)
-		VALUES (?, '/music', ?, ?, ?, 0, 0, 'scan-1', 1)
-	`, path, parentPath, name, isDirInt)
+		INSERT INTO entries (path, root_path, parent_path, name, is_dir, is_work_root, size, mtime, scan_id, content_rev)
+		VALUES (?, '/music', ?, ?, ?, ?, 0, 0, 'scan-1', 1)
+	`, path, parentPath, name, isDirInt, isDir && parentPath == "/music")
 	if err != nil {
 		t.Fatalf("failed to insert entry %s: %v", path, err)
 	}

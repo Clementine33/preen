@@ -130,9 +130,10 @@ type PreparedUnit interface {
 
 // PlanSessionInput is the frozen input of one generation session.
 type PlanSessionInput struct {
-	RawDraft []byte
-	Members  []*WorksetMember
-	Progress func(PlanProgress)
+	LibraryRoot string
+	RawDraft    []byte
+	Members     []*WorksetMember
+	Progress    func(PlanProgress)
 }
 
 // PlanProgress is a root-level progress report for async generation. It

@@ -26,7 +26,7 @@ type Event struct {
 	FilesScanned int
 	DirsScanned  int
 	// The binding classifications of a completed full scan: how many of the
-	// library's direct child directories named no work number or more than one.
+	// library's scanned work roots named no work number or more than one.
 	DirsWithoutNumber       int
 	DirsWithMultipleNumbers int
 	ExampleDirs             []string

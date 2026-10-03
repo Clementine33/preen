@@ -62,9 +62,6 @@ func (t *Task) prepareComponent(
 		Specs:      profile,
 		DeleteMode: mode,
 		Encoder:    t.encoder(),
-		// Recovery copies land under <workset root>/Delete/..., beside the
-		// member folders, so they never re-enter the member's own inventory.
-		RecoveryRoot: in.WorksetRoot,
 	})
 	if prepErr != nil {
 		return nil, reconcile.DesiredProfile{}, unitFailureOf(prepErr)
@@ -124,7 +121,7 @@ func (p *preparedUnit) resultOf(res execute.ComponentRunResult, cause error) wor
 		result.Canceled = true
 		result.ErrorMessage = "component run canceled"
 	}
-	fillInventoryFacts(&result, p.in)
+	fillInventoryFacts(&result)
 	return result
 }
 
@@ -217,17 +214,10 @@ func fileSHA256(path string) (string, error) {
 }
 
 // fillInventoryFacts gathers the observed disk facts of one unit: the removed
-// sources plus the committed outputs and soft-delete destinations that are
-// real media in their scanned place. A stat failure is disclosed instead of
-// being reported as "unchanged".
-func fillInventoryFacts(result *workset.UnitResult, in workset.UnitRunInput) {
-	paths := make([]string, 0, len(result.Committed)+len(result.Recovery))
-	paths = append(paths, result.Committed...)
-	for _, p := range result.Recovery {
-		if underRecoveryDir(in.WorksetRoot, p) {
-			paths = append(paths, p)
-		}
-	}
+// sources plus the committed outputs. Recovery files stay outside the inventory.
+// A stat failure is disclosed instead of being reported as "unchanged".
+func fillInventoryFacts(result *workset.UnitResult) {
+	paths := result.Committed
 	facts := make([]inventory.InventoryFile, 0, len(paths))
 	for _, p := range paths {
 		info, err := os.Stat(filepath.FromSlash(p))
@@ -239,18 +229,6 @@ func fillInventoryFacts(result *workset.UnitResult, in workset.UnitRunInput) {
 	}
 	result.InventoryRemoved = result.Removed
 	result.InventoryRefreshed = facts
-}
-
-// underRecoveryDir reports whether a persisted path is inside the member root's
-// soft-delete recovery folder: the only recovery entries that are real media in
-// their scanned place. A temp leftover is not an inventory fact.
-func underRecoveryDir(componentRoot, p string) bool {
-	rel, err := filepath.Rel(filepath.FromSlash(componentRoot), filepath.FromSlash(p))
-	if err != nil {
-		return false
-	}
-	parts := strings.Split(filepath.ToSlash(rel), "/")
-	return len(parts) > 1 && parts[0] == execute.RecoveryDirName
 }
 
 // nonNil turns a nil path slice into an empty one so a persisted component

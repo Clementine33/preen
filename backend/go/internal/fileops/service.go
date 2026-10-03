@@ -8,9 +8,6 @@ package fileops
 import (
 	"context"
 	"errors"
-	"path"
-	"path/filepath"
-	"sort"
 	"strings"
 
 	"github.com/onsei/organizer/backend/internal/admission"
@@ -87,7 +84,6 @@ func (s *Service) Apply(ctx context.Context, req Request) (*Result, error) {
 		Items:      make([]ItemResult, 0, len(worklist)),
 	}
 
-	var recycled []string
 	stopped := false
 	for _, planned := range worklist {
 		switch {
@@ -106,7 +102,7 @@ func (s *Service) Apply(ctx context.Context, req Request) (*Result, error) {
 				Message: "not attempted: an earlier item failed",
 			})
 		default:
-			itemResult := applyOperation(m, req.Operation, planned.item, &recycled)
+			itemResult := applyOperation(m, req.Operation, planned.item)
 			result.Items = append(result.Items, itemResult)
 			if itemResult.Status == StatusFailed {
 				stopped = true
@@ -124,7 +120,7 @@ func (s *Service) Apply(ctx context.Context, req Request) (*Result, error) {
 			result.Untouched++
 		}
 	}
-	result.Refresh = s.refreshAfter(ctx, m, recycled)
+	result.Refresh = s.refreshAfter(ctx, m)
 	return result, nil
 }
 
@@ -186,57 +182,23 @@ func isDescendant(candidate, ancestor string) bool {
 	return strings.HasPrefix(candidate, strings.TrimSuffix(ancestor, "/")+"/")
 }
 
-// refreshAfter re-reads the inventory of everything the writes touched: the
-// member itself, and for a soft delete the recovery directory that received
-// the media. The refresh belongs to the same admitted operation, so it does
-// not ask for admission again.
-func (s *Service) refreshAfter(ctx context.Context, m *member, recycled []string) RefreshState {
+// refreshAfter re-reads the member inventory; recovery files are excluded from
+// scanning. The refresh keeps the same admission as the writes.
+func (s *Service) refreshAfter(ctx context.Context, m *member) RefreshState {
 	if s.scan == nil {
 		return RefreshState{OK: true}
 	}
-	scopes := []string{m.nativeAbs}
-	scopes = append(scopes, recoveryRoots(m, recycled)...)
-	for _, scope := range scopes {
-		if err := s.scan(ctx, filepath.FromSlash(scope), m.nativeRoot); err != nil {
-			return RefreshState{
-				OK:      false,
-				Code:    "REFRESH_FAILED",
-				Message: "files were modified, but refreshing the inventory failed: " + err.Error(),
-			}
+	if err := s.scan(ctx, m.nativeAbs, m.nativeRoot); err != nil {
+		return RefreshState{
+			OK:      false,
+			Code:    "REFRESH_FAILED",
+			Message: "files were modified, but refreshing the inventory failed: " + err.Error(),
 		}
 	}
 	return RefreshState{OK: true}
 }
 
-// recoveryRoots is the set of library-root-level directories that received
-// recycled media, deepest-last so each is refreshed once.
-func recoveryRoots(m *member, recycled []string) []string {
-	seen := map[string]struct{}{}
-	for _, recovered := range recycled {
-		rel, err := filepath.Rel(m.nativeRoot, recovered)
-		if err != nil {
-			continue
-		}
-		relDir := filepath.ToSlash(filepath.Dir(rel))
-		// Refresh the top of the recovery tree rather than each leaf directory:
-		// one scan covers them all.
-		parts := strings.Split(relDir, "/")
-		if len(parts) == 0 || parts[0] == "" {
-			continue
-		}
-		top := parts[0]
-		abs := path.Join(pathnorm.NormalizeToPOSIX(m.root), top)
-		seen[abs] = struct{}{}
-	}
-	out := make([]string, 0, len(seen))
-	for abs := range seen {
-		out = append(out, abs)
-	}
-	sort.Strings(out)
-	return out
-}
-
-// RecoveryDir is the library-root-level directory that receives recycled
+// RecoveryDir is the work-parent-level directory that receives recycled
 // media. It is not a member and never a browsing scope.
 const RecoveryDir = pathnorm.RecoveryDirName
 

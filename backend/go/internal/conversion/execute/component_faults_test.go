@@ -68,7 +68,11 @@ func TestComponentRun_CommitFailureStopsCleanup(t *testing.T) {
 	if leftovers := tempFiles(t, root); len(leftovers) != 0 {
 		t.Fatalf("staging leftovers: %v", leftovers)
 	}
-	if _, statErr := os.Lstat(filepath.Join(root, "Delete")); !os.IsNotExist(statErr) {
+	if _, statErr := os.Lstat(
+		filepath.Join(filepath.Dir(root), "Delete", filepath.Base(root)),
+	); !os.IsNotExist(
+		statErr,
+	) {
 		t.Fatal("no removal may start after a failed commit")
 	}
 }
@@ -116,7 +120,9 @@ func TestComponentRun_DeleteFailureStopsRemovals(t *testing.T) {
 	if !slices.Equal(result.Removed, []string{filepath.ToSlash(one)}) {
 		t.Fatalf("removed = %v", result.Removed)
 	}
-	wantRecovery := []string{filepath.ToSlash(filepath.Join(root, "Delete", "one.mp3"))}
+	wantRecovery := []string{
+		filepath.ToSlash(filepath.Join(filepath.Dir(root), "Delete", filepath.Base(root), "one.mp3")),
+	}
 	if !slices.Equal(result.Recovery, wantRecovery) {
 		t.Fatalf("recovery = %v", result.Recovery)
 	}

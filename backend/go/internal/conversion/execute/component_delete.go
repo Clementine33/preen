@@ -12,7 +12,7 @@ import (
 	"github.com/onsei/organizer/backend/internal/pathnorm"
 )
 
-// RecoveryDirName is the in-root recovery folder of soft deletion: removed
+// RecoveryDirName is the work-parent recovery folder of soft deletion: removed
 // media is preserved at <recoveryRoot>/Delete/<relative path>. The name is
 // defined once in pathnorm, so every reader and writer agrees on it.
 const RecoveryDirName = pathnorm.RecoveryDirName

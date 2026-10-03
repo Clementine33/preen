@@ -12,12 +12,21 @@ func NormalizeToPOSIX(p string) string {
 	return strings.ReplaceAll(p, "\\", "/")
 }
 
-// RecoveryDirName is the library-root-level recovery directory of soft
-// deletion: removed media is preserved at <library root>/Delete/<relative
-// path>. It is the single definition of the name — the writer (soft delete)
-// and every reader (the workbench listing, the conversion planner's
-// leftover detection) agree on it. It is not a member of any library.
+// RecoveryDirName is the reserved soft-deletion directory beside a work root.
+// Removed media is preserved at <work parent>/Delete/<work name>/<relative path>.
 const RecoveryDirName = "Delete"
+
+// IsRecoveryRelPath reports whether a library-relative path enters a recovery
+// directory at any depth. Windows path components compare case-insensitively.
+func IsRecoveryRelPath(rootPath, rel string) bool {
+	for name := range strings.SplitSeq(NormalizeToPOSIX(rel), "/") {
+		if name == RecoveryDirName ||
+			(IsWindowsCaseInsensitivePath(rootPath) && strings.EqualFold(name, RecoveryDirName)) {
+			return true
+		}
+	}
+	return false
+}
 
 // IsWindowsCaseInsensitivePath reports whether a path is syntactically a
 // Windows path (drive, UNC or device form), where component names compare

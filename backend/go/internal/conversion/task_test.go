@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -15,6 +16,60 @@ import (
 	"github.com/onsei/organizer/backend/internal/conversion/reconcile"
 	"github.com/onsei/organizer/backend/internal/workset"
 )
+
+func TestConversionRecoversBesideNestedWorkRoot(t *testing.T) {
+	library := t.TempDir()
+	root := filepath.Join(library, "分类", "RJ000001")
+	source := filepath.Join(root, "disc", "obsolete.mp3")
+	if err := os.MkdirAll(filepath.Dir(source), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(source, []byte("obsolete"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	outcome, err := json.Marshal(reconcile.ComponentOutcome{
+		ComponentID: "delete-only", Status: reconcile.StatusOK,
+		Files: []reconcile.FileTuple{{Path: filepath.ToSlash(source), Size: info.Size(), Mtime: info.ModTime().Unix()}},
+		Operations: []reconcile.Operation{{
+			ComponentID: "delete-only", Kind: reconcile.OpKindRemoveObsolete,
+			Phase: reconcile.PhaseRemoveObsoleteAudio, SourcePath: filepath.ToSlash(source),
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	task := conversion.New(nil, appconfig.NewReader(t.TempDir()), ffmpeg.New, media.ProbeBitrate)
+	prepared, err := task.PrepareUnit(t.Context(), workset.UnitRunInput{
+		WorksetRoot: library, Outcome: outcome, Options: json.RawMessage(`{"delete_mode":"soft"}`),
+		Unit: workset.ExecutionUnit{RootPath: filepath.ToSlash(root), Payload: json.RawMessage(`{}`)},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := prepared.Commit(t.Context())
+	if err != nil || result.ErrorCode != "" || result.InventoryError != "" {
+		t.Fatalf("commit = %+v, err = %v", result, err)
+	}
+	recovered := filepath.Join(library, "分类", "Delete", "RJ000001", "disc", "obsolete.mp3")
+	if !slices.Equal(result.Recovery, []string{filepath.ToSlash(recovered)}) {
+		t.Fatalf("recovery = %v, want %s", result.Recovery, recovered)
+	}
+	content, err := os.ReadFile(recovered)
+	if err != nil || string(content) != "obsolete" {
+		t.Fatalf("recovered bytes = %q, err = %v", content, err)
+	}
+	if !slices.Equal(result.InventoryRemoved, []string{filepath.ToSlash(source)}) ||
+		len(result.InventoryRefreshed) != 0 {
+		t.Fatalf("inventory facts include recovery media: %+v", result)
+	}
+	if _, err := os.Stat(source); !os.IsNotExist(err) {
+		t.Fatalf("obsolete source remains: %v", err)
+	}
+}
 
 // draftJSON builds a minimal structurally valid draft with the given
 // obsolete-audio handling (empty omits the field entirely).
@@ -78,7 +133,8 @@ func TestSeedDraftReadsTheTagLiterals(t *testing.T) {
 			if err := os.WriteFile(filepath.Join(dir, "config.json"), []byte(tc.config), 0o644); err != nil {
 				t.Fatalf("write config: %v", err)
 			}
-			raw, _, _ := conversion.New(nil, appconfig.NewReader(dir), ffmpeg.New, media.ProbeBitrate).SeedDraft(nil)
+			raw, _, _ := conversion.New(nil, appconfig.NewReader(dir), ffmpeg.New, media.ProbeBitrate).
+				SeedDraft(nil)
 			var doc struct {
 				ClassifierTags []string `json:"classifier_tags"`
 			}

@@ -51,7 +51,7 @@ func openMember(rootPath, memberRel string) (*member, error) {
 	if !ok {
 		return nil, &PathError{CodePathInvalid, "a member path is a library-relative directory path"}
 	}
-	if isRecoveryName(rootPath, strings.SplitN(rel, "/", 2)[0]) {
+	if pathnorm.IsRecoveryRelPath(rootPath, rel) {
 		return nil, &PathError{CodeMemberRoot, "the recovery directory is not a member"}
 	}
 	m := &member{
@@ -202,13 +202,3 @@ type PathError struct {
 }
 
 func (e *PathError) Error() string { return e.Code + ": " + e.Message }
-
-// isRecoveryName reports whether a directory name is the library-level
-// recovery directory, folding case on a case-insensitive filesystem.
-func isRecoveryName(rootPath, name string) bool {
-	if name == pathnorm.RecoveryDirName {
-		return true
-	}
-	return pathnorm.IsWindowsCaseInsensitivePath(rootPath) &&
-		strings.EqualFold(name, pathnorm.RecoveryDirName)
-}

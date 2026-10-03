@@ -39,7 +39,7 @@ type plannedComponent struct {
 	absRoot  string
 	realRoot string
 	// recoveryRoot is the base soft removals are made relative to; it may be
-	// above absRoot (the library root), never below it.
+	// above absRoot (the work's parent directory), never below it.
 	recoveryRoot string
 	encodes      []plannedEncode
 	removes      []plannedRemove
@@ -135,11 +135,11 @@ func newPlannedComponent(req ComponentRunRequest) (*plannedComponent, *Component
 }
 
 // resolveRecoveryRoot resolves the base soft removals are made relative to. It
-// defaults to the member root and must be an existing directory: a recovery
+// defaults to the member's parent and must be an existing directory: a recovery
 // copy is never written through a path that cannot be resolved.
 func resolveRecoveryRoot(req ComponentRunRequest, absRoot string) (string, *ComponentError) {
 	if req.RecoveryRoot == "" {
-		return absRoot, nil
+		return filepath.Dir(absRoot), nil
 	}
 	recoveryRoot := filepath.Clean(filepath.FromSlash(req.RecoveryRoot))
 	if !filepath.IsAbs(recoveryRoot) {

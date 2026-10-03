@@ -71,7 +71,9 @@ func newExecFixtureWithTask(
 		t.Fatalf("write config: %v", cfgErr)
 	}
 	if tasks == nil {
-		tasks = []workset.Task{conversion.New(repo, appconfig.NewReader(tmp), ffmpeg.New, media.ProbeBitrate)}
+		tasks = []workset.Task{
+			conversion.New(repo, appconfig.NewReader(tmp), ffmpeg.New, media.ProbeBitrate),
+		}
 	}
 	root := filepath.Join(tmp, "music")
 	f := &execFixture{
@@ -636,14 +638,14 @@ func TestExecutionSoftDeleteMovesAndSyncsInventory(t *testing.T) {
 	if n != 0 {
 		t.Fatal("the moved source row must leave the inventory")
 	}
-	var name string
+	var recoveryRows int
 	if err := f.repo.DB().QueryRow(
-		"SELECT name FROM entries WHERE path = ?", filepath.ToSlash(recovered),
-	).Scan(&name); err != nil {
+		"SELECT COUNT(*) FROM entries WHERE path = ?", filepath.ToSlash(recovered),
+	).Scan(&recoveryRows); err != nil {
 		t.Fatalf("recovery row: %v", err)
 	}
-	if name != "00.mp3" {
-		t.Fatalf("recovery row name = %q", name)
+	if recoveryRows != 0 {
+		t.Fatal("recovery files must stay outside the inventory")
 	}
 }
 

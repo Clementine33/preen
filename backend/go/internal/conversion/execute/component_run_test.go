@@ -281,7 +281,9 @@ func TestComponentRun_SecondOutputFailureKeepsOldAudio(t *testing.T) {
 	if _, statErr := os.Stat(obsolete); statErr != nil {
 		t.Fatalf("old audio was deleted: %v", statErr)
 	}
-	if _, statErr := os.Lstat(filepath.Join(root, "Delete")); !os.IsNotExist(statErr) {
+	if _, statErr := os.Lstat(
+		filepath.Join(filepath.Dir(root), "Delete", filepath.Base(root)),
+	); !os.IsNotExist(statErr) {
 		t.Fatal("no recovery directory may be created on a failed run")
 	}
 	if leftovers := tempFiles(t, root); len(leftovers) != 0 {
@@ -318,11 +320,11 @@ func TestComponentRun_SamePathReplacementPreservesOldOutput(t *testing.T) {
 	}
 	// The replaced target now holds the new output and was not deleted.
 	assertEncodedStream(t, probeStream(t, target), reconcile.CodecMp3, encoded)
-	replacedCopy := filepath.Join(root, "Delete", "track.mp3")
+	replacedCopy := filepath.Join(filepath.Dir(root), "Delete", filepath.Base(root), "track.mp3")
 	if string(readBytes(t, replacedCopy)) != string(oldBytes) {
 		t.Fatal("old output content is not preserved under Delete/")
 	}
-	removedCopy := filepath.Join(root, "Delete", "legacy.flac")
+	removedCopy := filepath.Join(filepath.Dir(root), "Delete", filepath.Base(root), "legacy.flac")
 	if _, statErr := os.Stat(removedCopy); statErr != nil {
 		t.Fatalf("obsolete file was not recovered: %v", statErr)
 	}
@@ -336,7 +338,7 @@ func TestComponentRun_SoftDeleteNeverOverwritesRecovery(t *testing.T) {
 	root := t.TempDir()
 	obsolete := filepath.Join(root, "obs.mp3")
 	writeBytes(t, obsolete, []byte("orphan audio"))
-	earlier := filepath.Join(root, "Delete", "obs.mp3")
+	earlier := filepath.Join(filepath.Dir(root), "Delete", filepath.Base(root), "obs.mp3")
 	if err := os.MkdirAll(filepath.Dir(earlier), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -355,7 +357,7 @@ func TestComponentRun_SoftDeleteNeverOverwritesRecovery(t *testing.T) {
 	if string(readBytes(t, earlier)) != "earlier recovery" {
 		t.Fatal("an existing recovery file was overwritten")
 	}
-	unique := filepath.Join(root, "Delete", "obs.1.mp3")
+	unique := filepath.Join(filepath.Dir(root), "Delete", filepath.Base(root), "obs.1.mp3")
 	if !slices.Equal(result.Recovery, []string{filepath.ToSlash(unique)}) {
 		t.Fatalf("recovery = %v", result.Recovery)
 	}
@@ -389,7 +391,9 @@ func TestComponentRun_HardDeleteRemovesOnlyListedFiles(t *testing.T) {
 	if string(readBytes(t, note)) != "not audio" {
 		t.Fatal("non-audio file was touched")
 	}
-	if _, statErr := os.Lstat(filepath.Join(root, "Delete")); !os.IsNotExist(statErr) {
+	if _, statErr := os.Lstat(
+		filepath.Join(filepath.Dir(root), "Delete", filepath.Base(root)),
+	); !os.IsNotExist(statErr) {
 		t.Fatal("hard mode must not create a recovery directory")
 	}
 	if len(result.Removed) != 1 || len(result.Recovery) != 0 {
@@ -474,7 +478,7 @@ func TestComponentRun_SoftDeletePreservesRelativePath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("run: %v", err)
 	}
-	want := filepath.Join(root, "Delete", "album", "disc", "obs.mp3")
+	want := filepath.Join(filepath.Dir(root), "Delete", filepath.Base(root), "album", "disc", "obs.mp3")
 	if !slices.Equal(result.Recovery, []string{filepath.ToSlash(want)}) {
 		t.Fatalf("recovery = %v, want %s", result.Recovery, want)
 	}
@@ -487,9 +491,8 @@ func TestComponentRun_SoftDeletePreservesRelativePath(t *testing.T) {
 }
 
 // TestComponentRun_RecoversBesideTheMemberFolder covers the workset layout: the
-// recovery base is the library root, so a recovered file lands in the
-// library-level Delete/ under the member's own name instead of being nested
-// inside the member folder (where the next scan would see it as live media).
+// recovery base is the work parent, so a recovered file lands beside its
+// member folder under Delete/ and keeps its internal relative path.
 func TestComponentRun_RecoversBesideTheMemberFolder(t *testing.T) {
 	library := t.TempDir()
 	root := filepath.Join(library, "album")
@@ -505,7 +508,6 @@ func TestComponentRun_RecoversBesideTheMemberFolder(t *testing.T) {
 		reconcile.DesiredProfile{},
 		execute.DeleteModeSoft,
 	)
-	req.RecoveryRoot = library
 	result, err := execute.RunComponent(t.Context(), req)
 	if err != nil {
 		t.Fatalf("run: %v", err)

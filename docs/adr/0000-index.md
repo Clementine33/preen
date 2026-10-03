@@ -21,3 +21,4 @@
 | [0015](0015-thumbnail-service.md) | 缩略图服务：可丢弃的派生缓存与可替换的缩放引擎 | Draft |
 | [0016](0016-work-file-content-distribution.md) | 作品文件内容的只读分发：清单与字节 | Draft |
 | [0017](0017-inventory-scanning-and-sqlite-merge.md) | 库存扫描：作品级调度、完整观察集与按变化合并 | Draft |
+| [0018](0018-work-local-recovery-directories.md) | 深层作品的同级回收目录与扫描排除 | Draft |

@@ -18,7 +18,7 @@ var dirEntryInfoFunc func(fs.DirEntry) (fs.FileInfo, error)
 
 // WalkRootEntriesParallel discovers work roots while bounded workers scan each
 // work sequentially. Classification directories are traversed by the discoverer.
-// Every entry is emitted once; the library root itself is excluded.
+// Every entry is emitted once; the library root and its recovery subtree are excluded.
 func WalkRootEntriesParallel(
 	ctx context.Context,
 	rootPath, basePath string,
@@ -58,6 +58,13 @@ func WalkRootEntriesParallel(
 // WalkFolderEntries streams a single work's descendants in name order without
 // recognizing additional works. The work root's inventory marker is preserved.
 func WalkFolderEntries(ctx context.Context, folderPath, basePath string, emit func(inventory.DirEntry) error) error {
+	rel, err := filepath.Rel(basePath, folderPath)
+	if err != nil {
+		return err
+	}
+	if pathnorm.IsRecoveryRelPath(basePath, filepath.ToSlash(rel)) {
+		return ctx.Err()
+	}
 	return walkEntries(ctx, folderPath, basePath, emit, nil)
 }
 
@@ -78,6 +85,11 @@ func walkEntries(
 		if contextErr := ctx.Err(); contextErr != nil {
 			return contextErr
 		}
+		entryPath := filepath.Join(currentPath, d.Name())
+		// Soft-deleted media is outside the inventory; skip before stat or descent.
+		if d.IsDir() && pathnorm.IsRecoveryRelPath(basePath, d.Name()) {
+			continue
+		}
 		var info fs.FileInfo
 		if dirEntryInfoFunc != nil {
 			info, err = dirEntryInfoFunc(d)
@@ -87,10 +99,8 @@ func walkEntries(
 		if err != nil {
 			return err
 		}
-		entryPath := filepath.Join(currentPath, d.Name())
 		isWorkRoot := jobs != nil && d.IsDir() &&
-			works.CodesInDirName(d.Name()).Kind == works.DirCodeSingle &&
-			!pathnorm.IsWithinRoot(pathnorm.JoinRel(basePath, pathnorm.RecoveryDirName), entryPath)
+			works.CodesInDirName(d.Name()).Kind == works.DirCodeSingle
 		entry := inventory.DirEntry{
 			Path: entryPath, ParentPath: filepath.Dir(entryPath), Name: d.Name(),
 			IsDir: d.IsDir(), IsWorkRoot: isWorkRoot, Size: info.Size(), Mtime: info.ModTime().Unix(),

@@ -32,7 +32,7 @@ directory that did not become a member instead of dropping it silently:
 | `no_audio` | the directory holds no audio anywhere beneath it; conversion skips it |
 | `missing` | the inventory does not know it as a directory of this root |
 | `not_work_root` | a scanned directory is not marked as a work root |
-| `recovery_dir` | the library-level `Delete/` is not a member |
+| `recovery_dir` | `Delete/` and its descendants at any depth are not members |
 | `invalid_path` | not a plain library-relative path |
 | `duplicate` | selected more than once |
 

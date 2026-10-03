@@ -5,12 +5,64 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
+	"slices"
 	"sync"
 	"testing"
 
 	"github.com/onsei/organizer/backend/internal/adapters/filesystem"
 	"github.com/onsei/organizer/backend/internal/inventory"
 )
+
+func TestWorkWalkSkipsRecoveryDirectoriesAtEveryDepth(t *testing.T) {
+	root := t.TempDir()
+	for _, rel := range []string{
+		"Delete/RJ000002 recovered/track.mp3",
+		"RJ000001/Delete/track.mp3",
+		"Delete extras/RJ000003/track.mp3",
+		"分类/Delete/RJ000004/track.mp3",
+		"分类/RJ000005/track.mp3",
+	} {
+		file := filepath.Join(root, filepath.FromSlash(rel))
+		if err := os.MkdirAll(filepath.Dir(file), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(file, nil, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var paths []string
+	var mu sync.Mutex
+	err := filesystem.WalkRootEntriesParallel(t.Context(), root, root, 2, func(e inventory.DirEntry) error {
+		rel, err := filepath.Rel(root, e.Path)
+		if err != nil {
+			return err
+		}
+		mu.Lock()
+		defer mu.Unlock()
+		paths = append(paths, filepath.ToSlash(rel))
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	slices.Sort(paths)
+	want := []string{
+		"Delete extras", "Delete extras/RJ000003", "Delete extras/RJ000003/track.mp3",
+		"RJ000001",
+		"分类", "分类/RJ000005", "分类/RJ000005/track.mp3",
+	}
+	if !reflect.DeepEqual(paths, want) {
+		t.Fatalf("scanned paths = %v, want %v", paths, want)
+	}
+	if err := filesystem.WalkFolderEntries(t.Context(), filepath.Join(root, "分类", "Delete"), root,
+		func(e inventory.DirEntry) error {
+			t.Errorf("recovery refresh emitted %s", e.Path)
+			return nil
+		}); err != nil {
+		t.Fatal(err)
+	}
+}
 
 func TestWorkWalkDoesNotFollowLinksOrRepeatNestedWorkRoots(t *testing.T) {
 	root := t.TempDir()

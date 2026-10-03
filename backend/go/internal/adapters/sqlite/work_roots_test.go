@@ -22,6 +22,7 @@ func TestNestedWorkInventoryAndNoOpRescan(t *testing.T) {
 		"分类/B/RJ000001 second/track.flac",
 		"RJ000002 RJ000003/RJ000004 work/track.flac",
 		"Delete/RJ000005 recovered/track.flac",
+		"分类/A/Delete/RJ000006 recovered/track.flac",
 	} {
 		file := filepath.Join(root, filepath.FromSlash(rel))
 		if err := os.MkdirAll(filepath.Dir(file), 0o755); err != nil {
@@ -40,6 +41,16 @@ func TestNestedWorkInventoryAndNoOpRescan(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// An older scan included recovered media; a full rescan must remove those rows.
+	if _, err = repo.DB().Exec("INSERT INTO entries(path,root_path,is_dir) VALUES(?,?,1),(?,?,0)",
+		pathnorm.JoinRel(root, "Delete"), root,
+		pathnorm.JoinRel(root, "Delete/RJ000005 recovered/track.flac"), root); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = repo.DB().Exec("INSERT INTO entries(path,root_path,name,is_dir,is_work_root) VALUES(?,?,?,1,1)",
+		pathnorm.JoinRel(root, "分类/A/Delete/RJ000006 recovered"), root, "RJ000006 recovered"); err != nil {
+		t.Fatal(err)
+	}
 	pipeline := inventory.NewPipeline(
 		sqlite.NewScanStaging(repo),
 		filesystem.WalkRootEntriesParallel,
@@ -55,6 +66,14 @@ func TestNestedWorkInventoryAndNoOpRescan(t *testing.T) {
 		return id
 	}
 	first := scan()
+	recovered, err := repo.ListEntriesUnderPath(pathnorm.JoinRel(root, "Delete"))
+	if err != nil || len(recovered) != 0 {
+		t.Fatalf("recovery inventory = %v, err = %v", recovered, err)
+	}
+	recovered, err = repo.ListEntriesUnderPath(pathnorm.JoinRel(root, "分类/A/Delete"))
+	if err != nil || len(recovered) != 0 {
+		t.Fatalf("nested recovery inventory = %v, err = %v", recovered, err)
+	}
 	roots, err := repo.ListLibraryWorkRoots(root)
 	if err != nil {
 		t.Fatal(err)
@@ -117,6 +136,26 @@ func TestNestedWorkInventoryAndNoOpRescan(t *testing.T) {
 	roots, err = repo.ListLibraryWorkRoots(root)
 	if err != nil || !reflect.DeepEqual(roots, want) {
 		t.Fatalf("refresh roots = %v, %v", roots, err)
+	}
+}
+
+func TestLibraryListingsExcludeLegacyNestedRecovery(t *testing.T) {
+	repo, err := sqlite.NewDevelopmentRepository(filepath.Join(t.TempDir(), "cache.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = repo.Close() })
+	if _, err = repo.DB().Exec("INSERT INTO entries(path,root_path,name,is_dir,is_work_root) VALUES(?,?,?,1,1)",
+		"/music/分类/Delete/RJ000006", "/music", "RJ000006"); err != nil {
+		t.Fatal(err)
+	}
+	listed, err := repo.ListLibraryDirs("/music")
+	if err != nil || len(listed) != 0 {
+		t.Fatalf("legacy recovery listed as work = %v, err = %v", listed, err)
+	}
+	roots, err := repo.ListLibraryWorkRoots("/music")
+	if err != nil || len(roots) != 0 {
+		t.Fatalf("legacy recovery accepted as member = %v, err = %v", roots, err)
 	}
 }
 

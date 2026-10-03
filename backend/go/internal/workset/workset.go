@@ -301,7 +301,7 @@ func (s *serviceImpl) resolveSelectedMembers(
 			skipped = append(skipped, SkippedFolder{Path: rel, Reason: SkipDuplicate})
 			continue
 		}
-		if isRecoveryRelPath(lib.RootPath, rel) {
+		if pathnorm.IsRecoveryRelPath(lib.RootPath, rel) {
 			skipped = append(skipped, SkippedFolder{Path: rel, Reason: SkipRecoveryDir})
 			continue
 		}
@@ -345,17 +345,6 @@ func (s *serviceImpl) resolveSelectedMembers(
 		})
 	}
 	return out, skipped, nil
-}
-
-// isRecoveryRelPath reports whether a relative path names the library-level
-// recovery directory; it is never a member.
-func isRecoveryRelPath(rootPath, rel string) bool {
-	rel, _, _ = strings.Cut(rel, "/")
-	if rel == pathnorm.RecoveryDirName {
-		return true
-	}
-	return pathnorm.IsWindowsCaseInsensitivePath(rootPath) &&
-		strings.EqualFold(rel, pathnorm.RecoveryDirName)
 }
 
 // skipPaths lists the skipped paths as error details, so a refused creation

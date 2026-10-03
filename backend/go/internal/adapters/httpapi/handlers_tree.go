@@ -23,8 +23,8 @@ type dirResponse struct {
 }
 
 // listLibraryDirs returns every scanned work root of the library root,
-// including empty ones and ones holding no audio. The library-level recovery
-// directory is not a member and is left out.
+// including empty ones and ones holding no audio. Recovery directories at every
+// depth are not members and are left out.
 func (s *Server) listLibraryDirs(w http.ResponseWriter, r *http.Request) {
 	lib, ok := s.library(w, r)
 	if !ok {

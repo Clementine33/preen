@@ -15,7 +15,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/onsei/organizer/backend/internal/library"
-	"github.com/onsei/organizer/backend/internal/pathnorm"
+	"github.com/onsei/organizer/backend/internal/librarypath"
 )
 
 // MaxMembers caps the ordered album folders in one workset.
@@ -204,7 +204,7 @@ func (s *serviceImpl) persistCurrentWorkset(
 		LibraryID:           lib.ID,
 		OperationType:       req.OperationType,
 		RootPath:            lib.RootPath,
-		RootPathKey:         pathnorm.RootPathKey(lib.RootPath),
+		RootPathKey:         librarypath.RootPathKey(lib.RootPath),
 		Version:             1,
 		CreationIdemKey:     req.IdempotencyKey,
 		CreationRequestHash: requestHash,
@@ -292,7 +292,7 @@ func (s *serviceImpl) resolveSelectedMembers(
 	skipped := make([]SkippedFolder, 0)
 	seen := make(map[string]struct{}, len(relPaths))
 	for _, raw := range relPaths {
-		rel, ok := pathnorm.RelPath(raw)
+		rel, ok := librarypath.RelPath(raw)
 		if !ok {
 			skipped = append(skipped, SkippedFolder{Path: raw, Reason: SkipInvalidPath})
 			continue
@@ -301,7 +301,7 @@ func (s *serviceImpl) resolveSelectedMembers(
 			skipped = append(skipped, SkippedFolder{Path: rel, Reason: SkipDuplicate})
 			continue
 		}
-		if pathnorm.IsRecoveryRelPath(lib.RootPath, rel) {
+		if librarypath.IsRecoveryRelPath(lib.RootPath, rel) {
 			skipped = append(skipped, SkippedFolder{Path: rel, Reason: SkipRecoveryDir})
 			continue
 		}
@@ -340,7 +340,7 @@ func (s *serviceImpl) resolveSelectedMembers(
 		}
 		out = append(out, WorksetMember{
 			RelPath:    rel,
-			FolderPath: pathnorm.JoinRel(lib.RootPath, rel),
+			FolderPath: librarypath.JoinRel(lib.RootPath, rel),
 			FolderName: path.Base(rel),
 		})
 	}
@@ -364,7 +364,7 @@ func skipPaths(skipped []SkippedFolder) []string {
 func createRequestHash(req CreateCurrentRequest) string {
 	paths := make([]string, 0, len(req.FolderPaths))
 	for _, p := range req.FolderPaths {
-		if rel, ok := pathnorm.RelPath(p); ok {
+		if rel, ok := librarypath.RelPath(p); ok {
 			paths = append(paths, rel)
 		} else {
 			paths = append(paths, p)

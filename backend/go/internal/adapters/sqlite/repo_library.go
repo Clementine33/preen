@@ -10,7 +10,7 @@ import (
 
 	"github.com/onsei/organizer/backend/internal/inventory"
 	"github.com/onsei/organizer/backend/internal/library"
-	"github.com/onsei/organizer/backend/internal/pathnorm"
+	"github.com/onsei/organizer/backend/internal/librarypath"
 )
 
 // ==================== Types ====================
@@ -43,8 +43,8 @@ func isUniqueConstraintError(err error) bool {
 // on the canonical identity key, so equivalent spellings (`/music/.`,
 // `C:/Music` vs `c:/music`) conflict.
 func (r *Repository) CreateLibrary(name, rootPath string) (*library.Library, error) {
-	rootPath = pathnorm.CleanRootPath(rootPath)
-	rootPathKey := pathnorm.RootPathKey(rootPath)
+	rootPath = librarypath.CleanRootPath(rootPath)
+	rootPathKey := librarypath.RootPathKey(rootPath)
 	now := time.Now().Format(timeFormat)
 	id := uuid.NewString()
 	_, err := r.db.Exec(`
@@ -118,8 +118,8 @@ func (r *Repository) GetLibrary(id string) (*library.Library, error) {
 // to the library (a record keeps its root until it is replaced); name
 // edits stay allowed.
 func (r *Repository) UpdateLibrary(id, name, rootPath string) (*library.Library, error) {
-	candidateRoot := pathnorm.CleanRootPath(rootPath)
-	rootPathKey := pathnorm.RootPathKey(candidateRoot)
+	candidateRoot := librarypath.CleanRootPath(rootPath)
+	rootPathKey := librarypath.RootPathKey(candidateRoot)
 	tx, err := r.db.Begin()
 	if err != nil {
 		return nil, err
@@ -138,7 +138,7 @@ func (r *Repository) UpdateLibrary(id, name, rootPath string) (*library.Library,
 	// A root change is judged on the canonical identity key, so a spelling-only
 	// edit (e.g. `/music/.` for `/music`) must not invalidate folders or scan
 	// state, while `C:/Music` -> `c:/music` is genuinely unchanged on Windows.
-	rootChanged := pathnorm.RootPathKey(currentRoot) != rootPathKey
+	rootChanged := librarypath.RootPathKey(currentRoot) != rootPathKey
 	if rootChanged {
 		var n int
 		if err := tx.QueryRow("SELECT COUNT(*) FROM worksets WHERE library_id = ?", id).Scan(&n); err != nil {
@@ -321,7 +321,7 @@ func scanLibrary(row interface{ Scan(...any) error }) (*library.Library, error) 
 // it describes exactly the state the rest of the workbench reads, and its
 // identity is the library-relative path, which a rescan cannot change.
 func (r *Repository) ListLibraryDirs(rootPath string) ([]*inventory.LibraryDir, error) {
-	rootPath = pathnorm.CleanRootPath(rootPath)
+	rootPath = librarypath.CleanRootPath(rootPath)
 	rows, err := r.db.Query(`
 		SELECT d.path, d.name,
 		       (SELECT COUNT(*) FROM entries f
@@ -348,8 +348,8 @@ func (r *Repository) ListLibraryDirs(rootPath string) ([]*inventory.LibraryDir, 
 		if err := rows.Scan(&d.Path, &d.Name, &d.AudioFileCount, &d.FileCount); err != nil {
 			return nil, err
 		}
-		d.RelPath = strings.TrimPrefix(pathnorm.NormalizeToPOSIX(d.Path), prefix)
-		if pathnorm.IsRecoveryRelPath(rootPath, d.RelPath) {
+		d.RelPath = strings.TrimPrefix(librarypath.NormalizeToPOSIX(d.Path), prefix)
+		if librarypath.IsRecoveryRelPath(rootPath, d.RelPath) {
 			continue
 		}
 		out = append(out, &d)
@@ -363,7 +363,7 @@ func (r *Repository) ListLibraryDirs(rootPath string) ([]*inventory.LibraryDir, 
 // counts the overview listing shows. Recovery directories at every depth are not
 // members and are left out, exactly as in the overview listing.
 func (r *Repository) ListLibraryWorkRoots(rootPath string) ([]string, error) {
-	rootPath = pathnorm.CleanRootPath(rootPath)
+	rootPath = librarypath.CleanRootPath(rootPath)
 	rows, err := r.db.Query(`
 		SELECT path, name
 		FROM entries
@@ -386,13 +386,13 @@ func (r *Repository) ListLibraryWorkRoots(rootPath string) ([]string, error) {
 		if err := rows.Scan(&path, &name); err != nil {
 			return nil, err
 		}
-		if pathnorm.IsRecoveryRelPath(
+		if librarypath.IsRecoveryRelPath(
 			rootPath,
-			strings.TrimPrefix(pathnorm.NormalizeToPOSIX(path), prefix),
+			strings.TrimPrefix(librarypath.NormalizeToPOSIX(path), prefix),
 		) {
 			continue
 		}
-		out = append(out, strings.TrimPrefix(pathnorm.NormalizeToPOSIX(path), prefix))
+		out = append(out, strings.TrimPrefix(librarypath.NormalizeToPOSIX(path), prefix))
 	}
 	return out, rows.Err()
 }
@@ -414,12 +414,12 @@ func (r *Repository) DirAudioCounts(rootPath string, relPaths []string) (map[str
 		if _, ok := byPath[rel]; ok {
 			continue
 		}
-		abs := pathnorm.JoinRel(rootPath, rel)
+		abs := librarypath.JoinRel(rootPath, rel)
 		byPath[abs] = rel
 		args = append(args, abs)
 		placeholders = append(placeholders, "?")
 	}
-	args = append(args, pathnorm.CleanRootPath(rootPath))
+	args = append(args, librarypath.CleanRootPath(rootPath))
 	rows, err := r.db.Query(`
 		SELECT d.path,
 		       (SELECT COUNT(*) FROM entries f
@@ -449,7 +449,7 @@ func (r *Repository) DirAudioCounts(rootPath string, relPaths []string) (map[str
 // exact, so folder names like "100%_hits" match only their own subtree and
 // case-distinct siblings stay distinct.
 func (r *Repository) ListEntriesUnderPath(pathPrefix string) ([]inventory.Entry, error) {
-	pathPrefix = pathnorm.CleanRootPath(pathPrefix)
+	pathPrefix = librarypath.CleanRootPath(pathPrefix)
 	rows, err := r.db.Query(`
 		SELECT path, parent_path, name, is_dir, size, mtime, bitrate, format, width, height, duration_sec, content_rev
 		FROM entries
@@ -483,7 +483,7 @@ func (r *Repository) EntryByPath(path string) (inventory.Entry, bool, error) {
 		SELECT path, parent_path, name, is_dir, size, mtime, bitrate, format, width, height, duration_sec, content_rev
 		FROM entries
 		WHERE path = ? AND is_dir = 0
-	`, pathnorm.NormalizeToPOSIX(path))
+	`, librarypath.NormalizeToPOSIX(path))
 	if err != nil {
 		return inventory.Entry{}, false, err
 	}

@@ -6,7 +6,7 @@ import (
 
 	"facette.io/natsort"
 
-	"github.com/onsei/organizer/backend/internal/pathnorm"
+	"github.com/onsei/organizer/backend/internal/librarypath"
 )
 
 // LibraryDir is one scanned work root of a library root as the workbench
@@ -85,8 +85,8 @@ func BuildMemberTree(rootPath string, entries []Entry) *TreeNode {
 
 // relativeToMember renders an absolute entry path as member-relative POSIX.
 func relativeToMember(memberPath, entryPath string) string {
-	prefix := strings.TrimSuffix(pathnorm.NormalizeToPOSIX(memberPath), "/") + "/"
-	normalized := pathnorm.NormalizeToPOSIX(entryPath)
+	prefix := strings.TrimSuffix(librarypath.NormalizeToPOSIX(memberPath), "/") + "/"
+	normalized := librarypath.NormalizeToPOSIX(entryPath)
 	return strings.TrimPrefix(normalized, prefix)
 }
 

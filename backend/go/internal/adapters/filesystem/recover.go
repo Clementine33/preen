@@ -11,7 +11,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/onsei/organizer/backend/internal/pathnorm"
+	"github.com/onsei/organizer/backend/internal/librarypath"
 )
 
 // Recover moves one file or directory from a work root into
@@ -41,10 +41,10 @@ func recoverFile(
 	}
 	parent := filepath.Dir(workRoot)
 	relDir := filepath.Join(filepath.Base(workRoot), filepath.Dir(rel))
-	if pathnorm.IsWindowsUNCPath(parent) {
-		relDir = pathnorm.TruncatePathComponentsToBytes(relDir, 214)
+	if librarypath.IsWindowsUNCPath(parent) {
+		relDir = librarypath.TruncatePathComponentsToBytes(relDir, 214)
 	}
-	dir, err := createRecoveryDirectory(parent, filepath.Join(pathnorm.RecoveryDirName, relDir))
+	dir, err := createRecoveryDirectory(parent, filepath.Join(librarypath.RecoveryDirName, relDir))
 	if err != nil {
 		return "", err
 	}

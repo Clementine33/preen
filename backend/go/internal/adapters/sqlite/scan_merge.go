@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/onsei/organizer/backend/internal/inventory"
-	"github.com/onsei/organizer/backend/internal/pathnorm"
+	"github.com/onsei/organizer/backend/internal/librarypath"
 )
 
 // MergeStaging merges one scan session's staged entries into the inventory and
@@ -268,7 +268,7 @@ func cleanupStaleEntries(tx *sql.Tx, scanID, rootPath string) (root string, full
 		WHERE root_path = ?
 			AND path >= ? AND path < ? AND path <> ?
 			AND path NOT IN (SELECT path FROM entries_staging WHERE session_id = ?)
-	`, rootPath, strings.TrimRight(scopePath, "/")+"/", strings.TrimRight(scopePath, "/")+"0", pathnorm.CleanRootPath(scopePath), scanID); err != nil {
+	`, rootPath, strings.TrimRight(scopePath, "/")+"/", strings.TrimRight(scopePath, "/")+"0", librarypath.CleanRootPath(scopePath), scanID); err != nil {
 		return rootPath, false, err
 	}
 	return rootPath, false, nil

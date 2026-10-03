@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/onsei/organizer/backend/internal/conversion/reconcile"
-	"github.com/onsei/organizer/backend/internal/pathnorm"
+	"github.com/onsei/organizer/backend/internal/librarypath"
 )
 
 // Root-boundary and disk-fact guards of a component run: they keep every
@@ -62,7 +62,7 @@ func (p *plannedComponent) checkPath(native string) *ComponentError {
 		return pathUnsafe(posixForm(native), "path is not absolute")
 	}
 	posix := posixForm(native)
-	if posix == posixForm(p.absRoot) || !pathnorm.IsWithinRoot(posixForm(p.absRoot), posix) {
+	if posix == posixForm(p.absRoot) || !librarypath.IsWithinRoot(posixForm(p.absRoot), posix) {
 		return pathUnsafe(posix, "path escapes the member root")
 	}
 	rel, err := filepath.Rel(p.absRoot, native)
@@ -168,7 +168,7 @@ func (p *plannedComponent) checkFrozenFile(
 			)
 		}
 	}
-	if within, err := pathnorm.IsResolvedWithinRoot(posixForm(p.absRoot), posix); err != nil || !within {
+	if within, err := librarypath.IsResolvedWithinRoot(posixForm(p.absRoot), posix); err != nil || !within {
 		return pathUnsafe(posix, "resolved path escapes the member root")
 	}
 	return nil
@@ -199,7 +199,7 @@ func (p *plannedComponent) checkFreeTarget(native string) *ComponentError {
 		return componentError(ComponentStagePrecheck, ComponentCodeConflict, posix,
 			"target directory is not a directory", nil)
 	}
-	if within, err := pathnorm.IsResolvedWithinRoot(posixForm(p.absRoot), posixForm(parent)); err != nil || !within {
+	if within, err := librarypath.IsResolvedWithinRoot(posixForm(p.absRoot), posixForm(parent)); err != nil || !within {
 		return pathUnsafe(posix, "target directory resolves outside the member root")
 	}
 	return nil

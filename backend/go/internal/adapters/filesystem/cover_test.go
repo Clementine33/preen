@@ -13,7 +13,7 @@ import (
 	"testing"
 
 	"github.com/onsei/organizer/backend/internal/adapters/filesystem"
-	"github.com/onsei/organizer/backend/internal/covers"
+	"github.com/onsei/organizer/backend/internal/works/coverdelivery"
 )
 
 func TestCoverPublicationPreservesFillAndReplacesOnlyCoverFiles(t *testing.T) {
@@ -36,7 +36,7 @@ func TestCoverPublicationPreservesFillAndReplacesOnlyCoverFiles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	target := covers.Target{
+	target := coverdelivery.Target{
 		CopyID:      "copy",
 		WorkCode:    "RJ00000001",
 		LibraryRoot: root,
@@ -60,7 +60,7 @@ func TestCoverPublicationPreservesFillAndReplacesOnlyCoverFiles(t *testing.T) {
 	}
 }
 
-func coverFixture(t *testing.T) (covers.Target, []byte) {
+func coverFixture(t *testing.T) (coverdelivery.Target, []byte) {
 	t.Helper()
 	root := t.TempDir()
 	dir := filepath.Join(root, "RJ00000001")
@@ -75,7 +75,7 @@ func coverFixture(t *testing.T) (covers.Target, []byte) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return covers.Target{LibraryRoot: root, RelPath: "RJ00000001", Identity: id}, b.Bytes()
+	return coverdelivery.Target{LibraryRoot: root, RelPath: "RJ00000001", Identity: id}, b.Bytes()
 }
 func TestPublishedCoverRecoveryIsVisibleBeforeCleanup(t *testing.T) {
 	target, data := coverFixture(t)
@@ -146,7 +146,7 @@ func TestCoverConflictAndDamagedImage(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "cover.jpg"), data, 0600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := files.Publish(t.Context(), target, data, false); covers.Code(err) != "COVER_CONFLICT" {
+	if _, err := files.Publish(t.Context(), target, data, false); coverdelivery.Code(err) != "COVER_CONFLICT" {
 		t.Fatalf("multiple covers accepted: %v", err)
 	}
 	if _, err := files.Publish(t.Context(), target, data, true); err != nil {
@@ -167,7 +167,7 @@ func TestCoverRefusesReplacedDirectoryAndSymlinks(t *testing.T) {
 		target,
 		data,
 		true,
-	); covers.Code(
+	); coverdelivery.Code(
 		err,
 	) != "INPUT_CHANGED" {
 		t.Fatalf("replaced directory accepted: %v", err)
@@ -185,7 +185,7 @@ func TestCoverRefusesReplacedDirectoryAndSymlinks(t *testing.T) {
 		target,
 		data,
 		true,
-	); covers.Code(
+	); coverdelivery.Code(
 		err,
 	) != "COVER_CONFLICT" {
 		t.Fatalf("symlink accepted: %v", err)
@@ -245,7 +245,7 @@ func TestRecoveryNeverRemovesDirectoryAtAnOldCoverName(t *testing.T) {
 		target,
 		data,
 		true,
-	); covers.Code(
+	); coverdelivery.Code(
 		err,
 	) != "COVER_CONFLICT" {
 		t.Fatalf("changed old path accepted: %v", err)

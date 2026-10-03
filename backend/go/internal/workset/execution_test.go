@@ -21,7 +21,7 @@ import (
 	"github.com/onsei/organizer/backend/internal/adapters/sqlite"
 	"github.com/onsei/organizer/backend/internal/conversion"
 	"github.com/onsei/organizer/backend/internal/conversion/reconcile"
-	"github.com/onsei/organizer/backend/internal/pathnorm"
+	"github.com/onsei/organizer/backend/internal/librarypath"
 	"github.com/onsei/organizer/backend/internal/workset"
 )
 
@@ -93,7 +93,7 @@ func newExecFixtureWithTask(
 	if _, insertErr := repo.DB().Exec(`
 		INSERT INTO libraries (id, name, root_path, root_path_key, created_at, updated_at)
 		VALUES (?, 'Onsei', ?, ?, ?, ?)
-	`, f.libraryID, root, pathnorm.RootPathKey(root), now, now); insertErr != nil {
+	`, f.libraryID, root, librarypath.RootPathKey(root), now, now); insertErr != nil {
 		t.Fatalf("insert library: %v", insertErr)
 	}
 	members := make([]string, 0, 2)

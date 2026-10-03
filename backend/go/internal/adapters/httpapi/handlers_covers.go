@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/onsei/organizer/backend/internal/covers"
+	"github.com/onsei/organizer/backend/internal/works/coverdelivery"
 	"github.com/onsei/organizer/backend/internal/workset"
 )
 
@@ -17,7 +17,7 @@ func (s *Server) coverService(w http.ResponseWriter) bool {
 	return true
 }
 func writeCoverError(w http.ResponseWriter, err error) {
-	code := covers.Code(err)
+	code := coverdelivery.Code(err)
 	status := http.StatusInternalServerError
 	switch code {
 	case "COPY_NOT_FOUND", "COVER_UNAVAILABLE":
@@ -42,7 +42,7 @@ func (s *Server) getCopyCover(w http.ResponseWriter, r *http.Request) {
 		writeCoverError(w, err)
 		return
 	}
-	_, mime, err := covers.Inspect(image.Data)
+	_, mime, err := coverdelivery.Inspect(image.Data)
 	if err != nil {
 		writeCoverError(w, err)
 		return

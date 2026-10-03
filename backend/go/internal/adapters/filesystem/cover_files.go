@@ -13,8 +13,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/onsei/organizer/backend/internal/covers"
 	"github.com/onsei/organizer/backend/internal/fileops"
+	"github.com/onsei/organizer/backend/internal/works/coverdelivery"
 )
 
 // CoverFiles confines cover publication to one checked library member.
@@ -30,7 +30,7 @@ func CoverDirectoryIdentity(path string) (string, error) {
 	}
 	return coverIdentity(info, filepath.FromSlash(path))
 }
-func openCoverRoot(t covers.Target) (*os.Root, error) {
+func openCoverRoot(t coverdelivery.Target) (*os.Root, error) {
 	dir, err := fileops.ResolveMember(t.LibraryRoot, t.RelPath)
 	if err != nil {
 		return nil, err
@@ -42,7 +42,7 @@ func openCoverRoot(t covers.Target) (*os.Root, error) {
 	id, err := CoverDirectoryIdentity(dir)
 	if err != nil || t.Identity != "" && id != t.Identity {
 		root.Close()
-		return nil, covers.Failure("INPUT_CHANGED", fmt.Errorf("directory replaced"))
+		return nil, coverdelivery.Failure("INPUT_CHANGED", fmt.Errorf("directory replaced"))
 	}
 	return root, nil
 }
@@ -54,33 +54,33 @@ func coverName(name string) bool {
 	return false
 }
 func digest(data []byte) string { v := sha256.Sum256(data); return hex.EncodeToString(v[:]) }
-func readImage(root *os.Root, name string) (*covers.Existing, error) {
+func readImage(root *os.Root, name string) (*coverdelivery.Existing, error) {
 	info, err := root.Lstat(name)
 	if err != nil {
 		return nil, err
 	}
 	if !info.Mode().IsRegular() {
-		return nil, covers.Failure("COVER_CONFLICT", fmt.Errorf("cover is not a regular file"))
+		return nil, coverdelivery.Failure("COVER_CONFLICT", fmt.Errorf("cover is not a regular file"))
 	}
-	if info.Size() > covers.MaxBytes {
-		return nil, covers.Failure("INVALID_IMAGE", fmt.Errorf("image exceeds limit"))
+	if info.Size() > coverdelivery.MaxBytes {
+		return nil, coverdelivery.Failure("INVALID_IMAGE", fmt.Errorf("image exceeds limit"))
 	}
 	f, err := root.Open(name)
 	if err != nil {
 		return nil, err
 	}
 	defer f.Close()
-	data, err := io.ReadAll(io.LimitReader(f, covers.MaxBytes+1))
+	data, err := io.ReadAll(io.LimitReader(f, coverdelivery.MaxBytes+1))
 	if err != nil {
 		return nil, err
 	}
-	ext, _, err := covers.Inspect(data)
+	ext, _, err := coverdelivery.Inspect(data)
 	if err != nil {
 		return nil, err
 	}
-	return &covers.Existing{Name: name, Data: data, Extension: ext, Digest: digest(data)}, nil
+	return &coverdelivery.Existing{Name: name, Data: data, Extension: ext, Digest: digest(data)}, nil
 }
-func existingCover(root *os.Root) (*covers.Existing, error) {
+func existingCover(root *os.Root) (*coverdelivery.Existing, error) {
 	dir, err := root.Open(".")
 	if err != nil {
 		return nil, err
@@ -90,7 +90,7 @@ func existingCover(root *os.Root) (*covers.Existing, error) {
 	if err != nil {
 		return nil, err
 	}
-	var found *covers.Existing
+	var found *coverdelivery.Existing
 	for _, entry := range entries {
 		if !coverName(entry.Name()) {
 			continue
@@ -100,23 +100,23 @@ func existingCover(root *os.Root) (*covers.Existing, error) {
 			return nil, e
 		}
 		if !info.Mode().IsRegular() {
-			return nil, covers.Failure("COVER_CONFLICT", fmt.Errorf("cover path is not a regular file"))
+			return nil, coverdelivery.Failure("COVER_CONFLICT", fmt.Errorf("cover path is not a regular file"))
 		}
 		image, e := readImage(root, entry.Name())
 		if e != nil {
-			if covers.Code(e) == "INVALID_IMAGE" {
+			if coverdelivery.Code(e) == "INVALID_IMAGE" {
 				continue
 			}
 			return nil, e
 		}
 		if found != nil {
-			return nil, covers.Failure("COVER_CONFLICT", fmt.Errorf("multiple valid covers"))
+			return nil, coverdelivery.Failure("COVER_CONFLICT", fmt.Errorf("multiple valid covers"))
 		}
 		found = image
 	}
 	return found, nil
 }
-func (CoverFiles) Existing(t covers.Target) (*covers.Existing, error) {
+func (CoverFiles) Existing(t coverdelivery.Target) (*coverdelivery.Existing, error) {
 	root, err := openCoverRoot(t)
 	if err != nil {
 		return nil, err
@@ -149,7 +149,7 @@ func recoverCover(root *os.Root) error {
 		return err
 	}
 	if !info.Mode().IsRegular() || info.Size() > 8192 {
-		return covers.Failure("COVER_CONFLICT", fmt.Errorf("invalid publication journal"))
+		return coverdelivery.Failure("COVER_CONFLICT", fmt.Errorf("invalid publication journal"))
 	}
 	raw, err := root.ReadFile(coverJournal)
 	if err != nil {
@@ -177,7 +177,7 @@ func recoverCover(root *os.Root) error {
 				return statErr
 			}
 			if !info.Mode().IsRegular() {
-				return covers.Failure("COVER_CONFLICT", fmt.Errorf("old cover is no longer a regular file"))
+				return coverdelivery.Failure("COVER_CONFLICT", fmt.Errorf("old cover is no longer a regular file"))
 			}
 			if e = root.Remove(old); e != nil && !os.IsNotExist(e) {
 				return e
@@ -189,33 +189,39 @@ func recoverCover(root *os.Root) error {
 	}
 	return root.Remove(coverJournal)
 }
-func (CoverFiles) Publish(ctx context.Context, t covers.Target, data []byte, refresh bool) (covers.Publication, error) {
+
+func (CoverFiles) Publish(
+	ctx context.Context,
+	t coverdelivery.Target,
+	data []byte,
+	refresh bool,
+) (coverdelivery.Publication, error) {
 	root, err := openCoverRoot(t)
 	if err != nil {
-		return covers.Publication{}, err
+		return coverdelivery.Publication{}, err
 	}
 	defer root.Close()
 	if err = recoverCover(root); err != nil {
-		return covers.Publication{}, err
+		return coverdelivery.Publication{}, err
 	}
 	if !refresh {
 		old, e := existingCover(root)
 		if e != nil {
-			return covers.Publication{}, e
+			return coverdelivery.Publication{}, e
 		}
 		if old != nil {
-			return covers.Publication{Name: old.Name, Digest: old.Digest, Skipped: true}, nil
+			return coverdelivery.Publication{Name: old.Name, Digest: old.Digest, Skipped: true}, nil
 		}
 	}
-	ext, _, err := covers.Inspect(data)
+	ext, _, err := coverdelivery.Inspect(data)
 	if err != nil {
-		return covers.Publication{}, err
+		return coverdelivery.Publication{}, err
 	}
 	name := "cover." + ext
 	temp := ".onsei-cover-" + uuid.NewString() + ".tmp"
 	f, err := root.OpenFile(temp, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
 	if err != nil {
-		return covers.Publication{}, err
+		return coverdelivery.Publication{}, err
 	}
 	defer func() { _ = root.Remove(temp) }()
 	if _, err = f.Write(data); err == nil {
@@ -226,21 +232,21 @@ func (CoverFiles) Publish(ctx context.Context, t covers.Target, data []byte, ref
 		err = closeErr
 	}
 	if err != nil {
-		return covers.Publication{}, err
+		return coverdelivery.Publication{}, err
 	}
 	journal, err := prepareCoverPublication(root, name, temp, data)
 	if err != nil {
-		return covers.Publication{}, err
+		return coverdelivery.Publication{}, err
 	}
 
 	if err = ctx.Err(); err != nil {
-		return covers.Publication{}, err
+		return coverdelivery.Publication{}, err
 	}
 	j, err := root.OpenFile(coverJournal, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
 	if err != nil {
-		return covers.Publication{}, err
+		return coverdelivery.Publication{}, err
 	}
-	_, err = j.WriteString(covers.Encode(journal))
+	_, err = j.WriteString(coverdelivery.Encode(journal))
 	if err == nil {
 		err = j.Sync()
 	}
@@ -250,12 +256,12 @@ func (CoverFiles) Publish(ctx context.Context, t covers.Target, data []byte, ref
 	}
 	if err != nil {
 		_ = root.Remove(coverJournal)
-		return covers.Publication{}, err
+		return coverdelivery.Publication{}, err
 	}
 	if err = root.Rename(temp, name); err != nil {
-		return covers.Publication{}, err
+		return coverdelivery.Publication{}, err
 	}
-	publication := covers.Publication{Name: name, Digest: journal.Digest}
+	publication := coverdelivery.Publication{Name: name, Digest: journal.Digest}
 	if err = recoverCover(root); err != nil {
 		return publication, err
 	}
@@ -280,7 +286,7 @@ func prepareCoverPublication(root *os.Root, name, temp string, data []byte) (cov
 				return coverPublication{}, e
 			}
 			if !info.Mode().IsRegular() {
-				return coverPublication{}, covers.Failure(
+				return coverPublication{}, coverdelivery.Failure(
 					"COVER_CONFLICT",
 					fmt.Errorf("cover path is not a regular file"),
 				)

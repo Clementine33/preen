@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	"github.com/onsei/organizer/backend/internal/admission"
-	"github.com/onsei/organizer/backend/internal/pathnorm"
+	"github.com/onsei/organizer/backend/internal/librarypath"
 )
 
 // MemberScan refreshes one directory subtree in the stored inventory. It is
@@ -151,7 +151,7 @@ type planned struct {
 func planItems(items []Item) []planned {
 	cleaned := make([]string, len(items))
 	for i, item := range items {
-		if rel, ok := pathnorm.RelPath(item.Source); ok {
+		if rel, ok := librarypath.RelPath(item.Source); ok {
 			cleaned[i] = rel
 		} else {
 			cleaned[i] = item.Source
@@ -212,7 +212,7 @@ func (s *Service) refreshAfter(ctx context.Context, m *member) RefreshState {
 
 // RecoveryDir is the work-parent-level directory that receives recycled
 // media. It is not a member and never a browsing scope.
-const RecoveryDir = pathnorm.RecoveryDirName
+const RecoveryDir = librarypath.RecoveryDirName
 
 // ResolveMember validates a library-relative member path for reading (no
 // admission, no write): it must be a descendant directory of the library

@@ -14,7 +14,7 @@ import (
 	"github.com/onsei/organizer/backend/internal/fileops"
 	"github.com/onsei/organizer/backend/internal/inventory"
 	"github.com/onsei/organizer/backend/internal/library"
-	"github.com/onsei/organizer/backend/internal/pathnorm"
+	"github.com/onsei/organizer/backend/internal/librarypath"
 )
 
 // ==================== content manifest (ADR 0016 §2) ====================
@@ -223,7 +223,7 @@ type contentBuilder struct {
 // thumbEngine is the thumbnail engine's version, folded into each image's
 // ThumbV.
 func BuildContentTree(memberPath string, entries []inventory.Entry, thumbEngine string) *ContentNode {
-	memberKey := pathnorm.NormalizeToPOSIX(memberPath)
+	memberKey := librarypath.NormalizeToPOSIX(memberPath)
 	index := map[string]*contentBuilder{
 		memberKey: {node: ContentNode{Name: lastSegment(memberPath)}},
 	}
@@ -232,7 +232,7 @@ func BuildContentTree(memberPath string, entries []inventory.Entry, thumbEngine 
 	for i := range entries {
 		e := &entries[i]
 		// The member root's own entry is already the root node.
-		key := pathnorm.NormalizeToPOSIX(e.Path)
+		key := librarypath.NormalizeToPOSIX(e.Path)
 		if _, exists := index[key]; exists {
 			continue
 		}
@@ -250,7 +250,7 @@ func BuildContentTree(memberPath string, entries []inventory.Entry, thumbEngine 
 		}
 		index[key] = b
 		// Entries are ordered by path, so a parent always precedes its children.
-		if parent, ok := index[pathnorm.NormalizeToPOSIX(e.ParentPath)]; ok {
+		if parent, ok := index[librarypath.NormalizeToPOSIX(e.ParentPath)]; ok {
 			parent.children = append(parent.children, b)
 		}
 	}
@@ -329,7 +329,7 @@ func (s *Service) ContentFile(id WorkCode, copyID, relPath string) (ContentFileL
 	if resolveErr != nil {
 		return ContentFileLocation{}, pathRefusal(resolveErr)
 	}
-	entry, listed, err := s.entries.EntryByPath(pathnorm.NormalizeToPOSIX(memberAbs) + "/" + relPath)
+	entry, listed, err := s.entries.EntryByPath(librarypath.NormalizeToPOSIX(memberAbs) + "/" + relPath)
 	if err != nil {
 		return ContentFileLocation{}, asInternal(err)
 	}

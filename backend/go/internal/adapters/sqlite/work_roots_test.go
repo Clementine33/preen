@@ -11,7 +11,7 @@ import (
 	"github.com/onsei/organizer/backend/internal/adapters/filesystem"
 	"github.com/onsei/organizer/backend/internal/adapters/sqlite"
 	"github.com/onsei/organizer/backend/internal/inventory"
-	"github.com/onsei/organizer/backend/internal/pathnorm"
+	"github.com/onsei/organizer/backend/internal/librarypath"
 )
 
 //nolint:funlen // Covers full scan, no-op rescan and scoped refresh as one lifecycle.
@@ -43,12 +43,12 @@ func TestNestedWorkInventoryAndNoOpRescan(t *testing.T) {
 	}
 	// An older scan included recovered media; a full rescan must remove those rows.
 	if _, err = repo.DB().Exec("INSERT INTO entries(path,root_path,is_dir) VALUES(?,?,1),(?,?,0)",
-		pathnorm.JoinRel(root, "Delete"), root,
-		pathnorm.JoinRel(root, "Delete/RJ000005 recovered/track.flac"), root); err != nil {
+		librarypath.JoinRel(root, "Delete"), root,
+		librarypath.JoinRel(root, "Delete/RJ000005 recovered/track.flac"), root); err != nil {
 		t.Fatal(err)
 	}
 	if _, err = repo.DB().Exec("INSERT INTO entries(path,root_path,name,is_dir,is_work_root) VALUES(?,?,?,1,1)",
-		pathnorm.JoinRel(root, "分类/A/Delete/RJ000006 recovered"), root, "RJ000006 recovered"); err != nil {
+		librarypath.JoinRel(root, "分类/A/Delete/RJ000006 recovered"), root, "RJ000006 recovered"); err != nil {
 		t.Fatal(err)
 	}
 	pipeline := inventory.NewPipeline(
@@ -66,11 +66,11 @@ func TestNestedWorkInventoryAndNoOpRescan(t *testing.T) {
 		return id
 	}
 	first := scan()
-	recovered, err := repo.ListEntriesUnderPath(pathnorm.JoinRel(root, "Delete"))
+	recovered, err := repo.ListEntriesUnderPath(librarypath.JoinRel(root, "Delete"))
 	if err != nil || len(recovered) != 0 {
 		t.Fatalf("recovery inventory = %v, err = %v", recovered, err)
 	}
-	recovered, err = repo.ListEntriesUnderPath(pathnorm.JoinRel(root, "分类/A/Delete"))
+	recovered, err = repo.ListEntriesUnderPath(librarypath.JoinRel(root, "分类/A/Delete"))
 	if err != nil || len(recovered) != 0 {
 		t.Fatalf("nested recovery inventory = %v, err = %v", recovered, err)
 	}
@@ -244,12 +244,12 @@ func TestWorkRootsKeepWindowsRootForms(t *testing.T) {
 				t.Fatal(err)
 			}
 			rel := "分类/RJ000001"
-			folder := pathnorm.JoinRel(root, rel)
+			folder := librarypath.JoinRel(root, rel)
 			entry := inventory.StagingEntry{
 				SessionID:  "scan",
 				RootPath:   root,
 				Path:       folder,
-				ParentPath: pathnorm.JoinRel(root, "分类"),
+				ParentPath: librarypath.JoinRel(root, "分类"),
 				Name:       "RJ000001",
 				IsDir:      true,
 				IsWorkRoot: true,

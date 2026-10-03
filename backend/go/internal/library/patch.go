@@ -1,6 +1,6 @@
 package library
 
-import "github.com/onsei/organizer/backend/internal/pathnorm"
+import "github.com/onsei/organizer/backend/internal/librarypath"
 
 // Patch applies a partial edit: only the fields the caller sent change, the
 // rest keep the value the current row holds.
@@ -24,7 +24,7 @@ func (s *Service) Patch(id string, name, rootPath *string) (*Library, error) {
 		newRoot = *rootPath
 	}
 
-	if pathnorm.RootPathKey(newRoot) != pathnorm.RootPathKey(lib.RootPath) {
+	if librarypath.RootPathKey(newRoot) != librarypath.RootPathKey(lib.RootPath) {
 		release, err := s.beginManual()
 		if err != nil {
 			return nil, err

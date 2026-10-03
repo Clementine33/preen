@@ -30,13 +30,13 @@ import (
 	"github.com/onsei/organizer/backend/internal/adapters/sqlite"
 	"github.com/onsei/organizer/backend/internal/admission"
 	"github.com/onsei/organizer/backend/internal/conversion"
-	"github.com/onsei/organizer/backend/internal/covers"
 	"github.com/onsei/organizer/backend/internal/fileops"
 	"github.com/onsei/organizer/backend/internal/inventory"
 	"github.com/onsei/organizer/backend/internal/library"
-	"github.com/onsei/organizer/backend/internal/metadata"
-	"github.com/onsei/organizer/backend/internal/metadatatask"
-	"github.com/onsei/organizer/backend/internal/rename"
+	"github.com/onsei/organizer/backend/internal/works/coverdelivery"
+	"github.com/onsei/organizer/backend/internal/works/refresh"
+
+	"github.com/onsei/organizer/backend/internal/dirrename"
 	"github.com/onsei/organizer/backend/internal/thumbnail"
 	"github.com/onsei/organizer/backend/internal/works"
 	"github.com/onsei/organizer/backend/internal/workset"
@@ -149,8 +149,8 @@ type services struct {
 	// background, after scans (ADR 0015 §2).
 	mediaFacts *inventory.MediaEnricher
 	// Metadata execution belongs to worksets; cover delivery owns its background queue.
-	metadata *metadata.Service
-	covers   *covers.Service
+	metadata *refresh.Service
+	covers   *coverdelivery.Service
 }
 
 // buildServices wires the process. Direct file management and the managed task
@@ -201,9 +201,9 @@ func buildServices(repo *sqlite.Repository, configDir, dataDir string, generatio
 		repo, repo, fileops.ResolveMember, fileops.ResolveMemberFile, media.ThumbEngineVersion,
 	)
 	scraperClient := scraper.New(nil)
-	metadataSvc := metadata.New(worksSvc, repo, scraperClient, scraperClient)
-	coverSvc, err := covers.New(
-		covers.Dependencies{
+	metadataSvc := refresh.NewService(worksSvc, repo, scraperClient, scraperClient)
+	coverSvc, err := coverdelivery.New(
+		coverdelivery.Dependencies{
 			Store:      repo,
 			Downloader: coverhttp.New(nil),
 			Source:     scraperClient,
@@ -216,15 +216,15 @@ func buildServices(repo *sqlite.Repository, configDir, dataDir string, generatio
 	if err != nil {
 		log.Fatalf("cover staging: %v", err)
 	}
-	metadataExecutor := metadatatask.Executor{Metadata: metadataSvc, Covers: coverSvc}
+	metadataExecutor := refresh.Executor{Metadata: metadataSvc, Covers: coverSvc}
 	worksetSvc := workset.NewService(
 		repo,
 		generationConcurrency,
 		0,
 		[]workset.Task{
 			conversion.New(repo, appconfig.NewReader(configDir), ffmpeg.New, media.ProbeBitrate, filesystem.Recover),
-			rename.New(repo, filesystem.ReadRenameDirectory),
-			metadatatask.New(repo, filesystem.CoverDirectoryIdentity),
+			dirrename.New(repo, filesystem.ReadRenameDirectory),
+			refresh.NewTask(repo, filesystem.CoverDirectoryIdentity),
 		},
 		func(ctx context.Context, folderPath, rootPath string) error {
 			rel, err := filepath.Rel(filepath.FromSlash(rootPath), filepath.FromSlash(folderPath))
@@ -238,7 +238,7 @@ func buildServices(repo *sqlite.Repository, configDir, dataDir string, generatio
 			return scanSvc.RefreshMember(ctx, folder, rootPath)
 		},
 		gate.Enqueue,
-		map[string]workset.BatchExecutor{metadatatask.Kind: metadataExecutor.Run},
+		map[string]workset.BatchExecutor{refresh.Kind: metadataExecutor.Run},
 	)
 	return services{
 		gate:       gate,
@@ -255,7 +255,7 @@ func buildServices(repo *sqlite.Repository, configDir, dataDir string, generatio
 }
 
 // startCoverWorkers restores the persistent queue before accepting requests.
-func startCoverWorkers(ctx context.Context, service *covers.Service) <-chan struct{} {
+func startCoverWorkers(ctx context.Context, service *coverdelivery.Service) <-chan struct{} {
 	if err := service.Recover(ctx); err != nil {
 		log.Fatalf("recover cover queue: %v", err)
 	}

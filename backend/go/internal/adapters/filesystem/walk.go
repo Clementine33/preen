@@ -9,7 +9,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/onsei/organizer/backend/internal/inventory"
-	"github.com/onsei/organizer/backend/internal/pathnorm"
+	"github.com/onsei/organizer/backend/internal/librarypath"
 	"github.com/onsei/organizer/backend/internal/works"
 )
 
@@ -62,7 +62,7 @@ func WalkFolderEntries(ctx context.Context, folderPath, basePath string, emit fu
 	if err != nil {
 		return err
 	}
-	if pathnorm.IsRecoveryRelPath(basePath, filepath.ToSlash(rel)) {
+	if librarypath.IsRecoveryRelPath(basePath, filepath.ToSlash(rel)) {
 		return ctx.Err()
 	}
 	return walkEntries(ctx, folderPath, basePath, emit, nil)
@@ -87,7 +87,7 @@ func walkEntries(
 		}
 		entryPath := filepath.Join(currentPath, d.Name())
 		// Soft-deleted media is outside the inventory; skip before stat or descent.
-		if d.IsDir() && pathnorm.IsRecoveryRelPath(basePath, d.Name()) {
+		if d.IsDir() && librarypath.IsRecoveryRelPath(basePath, d.Name()) {
 			continue
 		}
 		var info fs.FileInfo

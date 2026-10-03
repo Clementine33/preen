@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/onsei/organizer/backend/internal/pathnorm"
+	"github.com/onsei/organizer/backend/internal/librarypath"
 )
 
 // Operation names accepted by Apply. They are the first version's whole
@@ -177,7 +177,7 @@ func (s *Service) softDeleteItem(ctx context.Context, m *member, item Item) Item
 	return ItemResult{
 		Source:        item.Source,
 		Status:        StatusOK,
-		RecoveredPath: pathnorm.NormalizeToPOSIX(relToLibrary),
+		RecoveredPath: librarypath.NormalizeToPOSIX(relToLibrary),
 	}
 }
 
@@ -217,9 +217,9 @@ func refuseIntoSelf(source, dir string) error {
 func memberRelative(m *member, native string) string {
 	rel, err := filepath.Rel(m.nativeAbs, native)
 	if err != nil {
-		return pathnorm.NormalizeToPOSIX(native)
+		return librarypath.NormalizeToPOSIX(native)
 	}
-	return pathnorm.NormalizeToPOSIX(rel)
+	return librarypath.NormalizeToPOSIX(rel)
 }
 
 func samePath(a, b string) bool {

@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/onsei/organizer/backend/internal/adapters/sqlite"
-	"github.com/onsei/organizer/backend/internal/covers"
+	"github.com/onsei/organizer/backend/internal/works/coverdelivery"
 )
 
 func TestCoverQueueSharesDownloadsAndRecoversWithoutRevivingCanceledRequests(t *testing.T) {
@@ -19,12 +19,12 @@ func TestCoverQueueSharesDownloadsAndRecoversWithoutRevivingCanceledRequests(t *
 		Exec(`INSERT INTO worksets(id) VALUES('set'); INSERT INTO plan_executions(execution_id,workset_id,plan_id) VALUES('exec-a','set','plan-a'),('exec-b','set','plan-b');`); err != nil {
 		t.Fatal(err)
 	}
-	req := covers.Request{
+	req := coverdelivery.Request{
 		ExecutionID: "exec-a",
 		WorkCode:    "RJ00000001",
 		URL:         "https://img.dlsite.jp/main.webp",
 		Locale:      "ja-jp",
-		Targets:     []covers.Target{{CopyID: "copy-a", WorkCode: "RJ00000001"}},
+		Targets:     []coverdelivery.Target{{CopyID: "copy-a", WorkCode: "RJ00000001"}},
 	}
 	if err = repo.EnqueueCovers(ctx, req); err != nil {
 		t.Fatal(err)

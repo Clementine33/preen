@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-// The layering rules of ADR 0009, as dependencies rather than as intentions.
+// The backend's dependency boundaries, asserted against production imports.
 //
 // A rule is checked with go list -deps, which lists a package's transitive
 // closure and — without -test — only its production edges: a package's own

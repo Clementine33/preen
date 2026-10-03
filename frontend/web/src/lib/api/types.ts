@@ -366,7 +366,7 @@ export interface PatchWorkUserDataParams {
 // Deliberately not shared with the conversion workbench's MemberTree: this
 // projection classifies files
 // by kind and carries scan-time image dimensions and durations, for different
-// consumers at a different change rate (ADR 0009's logic).
+// consumers at a different change rate.
 
 export type WorkFileKind = 'aud' | 'img' | 'txt' | 'lrc' | 'bin'
 

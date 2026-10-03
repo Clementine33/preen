@@ -1,8 +1,11 @@
-// Package media measures the media facts the inventory records beside an
-// entry: image dimensions, audio duration and bitrate - from the file's header
-// where it can, through ffprobe for the rest. It implements the inventory
-// prober port and the planner's bitrate port (ADR 0009) and never writes a
-// file.
+// Package media implements media probing and image scaling for inventory,
+// conversion planning and thumbnail consumers. It reads image dimensions,
+// audio duration and bitrate from native headers where possible, using ffprobe
+// otherwise; its thumbnail engine decodes and scales images into encoded bytes.
+//
+// Consumers own enrichment scheduling, conversion policy and thumbnail caching.
+// This adapter reads source files and returns facts or bytes without publishing
+// files or owning their cache lifecycle.
 package media
 
 import (

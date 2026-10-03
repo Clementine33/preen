@@ -171,17 +171,31 @@ func unbindMissing(tx *sql.Tx, libraryID string, bound map[string]works.WorkCode
 		_, err := tx.Exec("DELETE FROM work_copies WHERE library_id = ?", libraryID)
 		return err
 	}
-	placeholders := make([]string, 0, len(bound))
-	args := make([]any, 0, len(bound)+1)
-	args = append(args, libraryID)
-	for relPath := range bound {
-		placeholders = append(placeholders, "?")
-		args = append(args, relPath)
+	// Keep the Go classification authoritative without one SQL parameter per work.
+	// The temporary table belongs to this transaction; rollback also removes its DDL.
+	if _, err := tx.Exec(
+		`CREATE TEMP TABLE scan_bound_copy_paths (rel_path TEXT PRIMARY KEY) WITHOUT ROWID`,
+	); err != nil {
+		return err
 	}
-	_, err := tx.Exec(
-		"DELETE FROM work_copies WHERE library_id = ? AND rel_path NOT IN ("+strings.Join(placeholders, ", ")+")",
-		args...,
-	)
+	paths := make([]any, 0, len(bound))
+	for relPath := range bound {
+		paths = append(paths, relPath)
+	}
+	for start := 0; start < len(paths); start += defaultBatchSize {
+		batch := paths[start:min(start+defaultBatchSize, len(paths))]
+		values := strings.TrimSuffix(strings.Repeat("(?),", len(batch)), ",")
+		if _, err := tx.Exec("INSERT INTO temp.scan_bound_copy_paths (rel_path) VALUES "+values, batch...); err != nil {
+			return err
+		}
+	}
+	if _, err := tx.Exec(`
+		DELETE FROM work_copies WHERE library_id = ?
+		AND rel_path NOT IN (SELECT rel_path FROM temp.scan_bound_copy_paths)
+	`, libraryID); err != nil {
+		return err
+	}
+	_, err := tx.Exec("DROP TABLE temp.scan_bound_copy_paths")
 	return err
 }
 

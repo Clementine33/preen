@@ -1,6 +1,7 @@
 package sqlite //nolint:testpackage // white-box tests drive the merge against the real schema
 
 import (
+	"fmt"
 	"slices"
 	"testing"
 
@@ -377,5 +378,73 @@ func TestRescanRepairsWorkBindingWithoutReplacingCopy(t *testing.T) {
 	}
 	if id != "original-copy" || workID != "RJ00000001" || created != testStamp || collected != testStamp {
 		t.Fatalf("copy=%s work=%s created=%s collected=%s", id, workID, created, collected)
+	}
+}
+
+func TestMergeBindsMoreThanSQLiteVariableLimit(t *testing.T) {
+	repo := newTestRepository(t)
+	library, createErr := repo.CreateLibrary("large", "/music")
+	if createErr != nil {
+		t.Fatal(createErr)
+	}
+	stageDir(t, repo, "before", "/music", "RJ00000001 album")
+	stageDir(t, repo, "before", "/music", "RJ99999999 stale")
+	if _, err := repo.MergeStaging("before", library.ID, "/music"); err != nil {
+		t.Fatal(err)
+	}
+	var originalID string
+	if err := repo.DB().
+		QueryRow(`SELECT id FROM work_copies WHERE library_id = ? AND rel_path = 'RJ00000001 album'`, library.ID).
+		Scan(&originalID); err != nil {
+		t.Fatal(err)
+	}
+
+	const count = 32767
+	store := NewScanStaging(repo)
+	batch := make([]inventory.StagingEntry, 0, defaultBatchSize)
+	for i := 1; i <= count; i++ {
+		name := fmt.Sprintf("RJ%08d album", i)
+		batch = append(batch, inventory.StagingEntry{
+			SessionID: "large", RootPath: "/music", Path: "/music/" + name,
+			ParentPath: "/music", Name: name, IsDir: true, IsWorkRoot: true,
+		})
+		if len(batch) == defaultBatchSize || i == count {
+			if err := store.WriteStagingBatch("large", batch); err != nil {
+				t.Fatal(err)
+			}
+			batch = batch[:0]
+		}
+	}
+	outcome, err := repo.MergeStaging("large", library.ID, "/music")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var copies, stale int
+	var copyID string
+	if err := repo.DB().
+		QueryRow("SELECT COUNT(*) FROM work_copies WHERE library_id = ?", library.ID).
+		Scan(&copies); err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.DB().
+		QueryRow("SELECT COUNT(*) FROM work_copies WHERE library_id = ? AND rel_path = 'RJ99999999 stale'", library.ID).
+		Scan(&stale); err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.DB().
+		QueryRow("SELECT id FROM work_copies WHERE library_id = ? AND rel_path = 'RJ00000001 album'", library.ID).
+		Scan(&copyID); err != nil {
+		t.Fatal(err)
+	}
+	if outcome.Merged != count || copies != count || stale != 0 || copyID != originalID {
+		t.Fatalf(
+			"merged=%d copies=%d stale=%d copy=%s, want %d and original copy %s",
+			outcome.Merged,
+			copies,
+			stale,
+			copyID,
+			count,
+			originalID,
+		)
 	}
 }

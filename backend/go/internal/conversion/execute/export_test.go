@@ -20,19 +20,19 @@ type ComponentRunTestKit struct {
 func PrepareComponentWithTestKit(
 	ctx context.Context, req ComponentRunRequest, kit ComponentRunTestKit,
 ) (*PreparedComponent, error) {
-	return prepareComponent(ctx, req, testToolkit(req.Encoder, kit))
+	return prepareComponent(ctx, req, testToolkit(req, kit))
 }
 
 // RunComponentWithTestKit runs the exported component entry with replaced IO.
 func RunComponentWithTestKit(
 	ctx context.Context, req ComponentRunRequest, kit ComponentRunTestKit,
 ) (ComponentRunResult, error) {
-	return runComponent(ctx, req, testToolkit(req.Encoder, kit))
+	return runComponent(ctx, req, testToolkit(req, kit))
 }
 
 // testToolkit is the component IO surface of one test kit.
-func testToolkit(encoder Encoder, kit ComponentRunTestKit) *componentToolkit {
-	tk := defaultComponentToolkit(encoder)
+func testToolkit(req ComponentRunRequest, kit ComponentRunTestKit) *componentToolkit {
+	tk := defaultComponentToolkit(req)
 	if kit.Encode != nil {
 		tk.encode = kit.Encode
 	}

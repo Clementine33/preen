@@ -22,6 +22,9 @@ type ToolsConfig struct {
 // delete when recovery is unavailable.
 type DeleteMode string
 
+// RecoverFile moves a file into the recovery directory beside its work root.
+type RecoverFile func(ctx context.Context, workRoot, source string) (string, error)
+
 const (
 	DeleteModeSoft DeleteMode = "soft"
 	DeleteModeHard DeleteMode = "hard"
@@ -74,9 +77,8 @@ type ComponentRunRequest struct {
 	// never builds one itself: it is handed the encoder the process is
 	// configured with, so a run can be driven by a test double as well.
 	Encoder Encoder
-	// RecoveryRoot is the base soft removals are made relative to. Empty
-	// uses the work's parent, placing recovery media beside its folder.
-	RecoveryRoot string
+	// Recover is required for soft deletion and protects replaced output files.
+	Recover RecoverFile
 }
 
 // ComponentRunResult reports what actually happened to one Component. On a
@@ -125,17 +127,19 @@ func (e *ComponentError) Unwrap() error { return e.Err }
 // componentToolkit is the component-run IO surface. Function fields keep every
 // filesystem or encoder failure injectable without mocks.
 type componentToolkit struct {
-	encode func(ctx context.Context, src, dst string, spec reconcile.AudioOutputSpec) error
-	rename func(oldpath, newpath string) error
-	remove func(path string) error
+	encode      func(ctx context.Context, src, dst string, spec reconcile.AudioOutputSpec) error
+	rename      func(oldpath, newpath string) error
+	remove      func(path string) error
+	recoverFile RecoverFile
 }
 
 // defaultComponentToolkit returns the real encoder and filesystem operations.
-func defaultComponentToolkit(encoder Encoder) *componentToolkit {
+func defaultComponentToolkit(req ComponentRunRequest) *componentToolkit {
 	return &componentToolkit{
-		encode: encoder.Encode,
-		rename: os.Rename,
-		remove: os.Remove,
+		encode:      req.Encoder.Encode,
+		rename:      os.Rename,
+		remove:      os.Remove,
+		recoverFile: req.Recover,
 	}
 }
 
@@ -145,7 +149,7 @@ func defaultComponentToolkit(encoder Encoder) *componentToolkit {
 // uncommitted. It takes no cross-run lock: callers must serialize runs over
 // the same or overlapping roots (the execution session layer owns that).
 func RunComponent(ctx context.Context, req ComponentRunRequest) (ComponentRunResult, error) {
-	return runComponent(ctx, req, defaultComponentToolkit(req.Encoder))
+	return runComponent(ctx, req, defaultComponentToolkit(req))
 }
 
 func runComponent(ctx context.Context, req ComponentRunRequest, tk *componentToolkit) (ComponentRunResult, error) {

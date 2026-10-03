@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/onsei/organizer/backend/internal/adapters/filesystem"
+
 	"github.com/onsei/organizer/backend/internal/admission"
 	"github.com/onsei/organizer/backend/internal/fileops"
 )
@@ -37,7 +39,7 @@ func newFixture(t *testing.T, tasksActive bool) *fixture {
 	f.svc = fileops.NewService(f.gate, func(_ context.Context, folderPath, _ string) error {
 		f.refreshed = append(f.refreshed, folderPath)
 		return f.scanErr
-	})
+	}, filesystem.Recover, filesystem.RenameNoReplace)
 	return f
 }
 

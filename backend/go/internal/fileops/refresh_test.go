@@ -42,7 +42,7 @@ func TestTheInternalRefreshIsNotRefusedByTheSlotItHolds(t *testing.T) {
 	)
 
 	f := &fixture{t: t, root: root, gate: gate}
-	f.svc = fileops.NewService(gate, scanSvc.RefreshMember)
+	f.svc = fileops.NewService(gate, scanSvc.RefreshMember, filesystem.Recover, filesystem.RenameNoReplace)
 	f.mkdir("albumA")
 	f.write("albumA/01.flac", "audio")
 

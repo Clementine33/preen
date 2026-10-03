@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/onsei/organizer/backend/internal/adapters/filesystem"
+
 	"github.com/onsei/organizer/backend/internal/adapters/ffmpeg"
 	"github.com/onsei/organizer/backend/internal/conversion/execute"
 	"github.com/onsei/organizer/backend/internal/conversion/reconcile"
@@ -70,10 +72,76 @@ func TestComponentRun_CommitFailureStopsCleanup(t *testing.T) {
 	}
 	if _, statErr := os.Lstat(
 		filepath.Join(filepath.Dir(root), "Delete", filepath.Base(root)),
-	); !os.IsNotExist(
-		statErr,
-	) {
+	); !os.IsNotExist(statErr) {
 		t.Fatal("no removal may start after a failed commit")
+	}
+}
+
+func TestComponentRun_SoftReplacementCommitFailureRestoresOriginal(t *testing.T) {
+	root, wav := newAudioRoot(t)
+	target := filepath.Join(root, "track.mp3")
+	writeBytes(t, target, []byte("old output"))
+	spec := reconcile.AudioOutputSpec{
+		Codec:   reconcile.CodecMp3,
+		Quality: &reconcile.Quality{Kind: reconcile.QualityBitrate, Bitrate: 192},
+	}
+	component := componentFixture(
+		[]reconcile.FileTuple{freezeFile(t, wav), freezeFile(t, target)},
+		encodeOp("cmp-1", wav, target),
+	)
+	component.Variants = declaredReplacement(target)
+	kit := execute.ComponentRunTestKit{Rename: func(src, dst string) error {
+		if strings.HasPrefix(filepath.Base(src), "track.mp3.tmp.") {
+			return errors.New("injected commit failure")
+		}
+		return os.Rename(src, dst)
+	}}
+	result, err := execute.RunComponentWithTestKit(t.Context(), runRequest(
+		root, component, reconcile.DesiredProfile{Encoded: &spec}, execute.DeleteModeSoft,
+	), kit)
+	if err == nil || errorCode(t, err) != execute.ComponentCodeCommitFailed {
+		t.Fatalf("expected commit failure, got %v", err)
+	}
+	if string(readBytes(t, target)) != "old output" {
+		t.Fatal("old output was not restored")
+	}
+	if len(result.Committed) != 0 || len(result.Recovery) != 0 || len(tempFiles(t, root)) != 0 {
+		t.Fatalf("failed replacement left committed or recovery files: %+v", result)
+	}
+}
+
+func TestComponentRun_CancelDuringRecoveryCompletesReplacement(t *testing.T) {
+	root, wav := newAudioRoot(t)
+	target := filepath.Join(root, "track.mp3")
+	writeBytes(t, target, []byte("old output"))
+	spec := reconcile.AudioOutputSpec{
+		Codec:   reconcile.CodecMp3,
+		Quality: &reconcile.Quality{Kind: reconcile.QualityBitrate, Bitrate: 192},
+	}
+	component := componentFixture(
+		[]reconcile.FileTuple{freezeFile(t, wav), freezeFile(t, target)},
+		encodeOp("cmp-1", wav, target), removeOp("cmp-1", wav, target),
+	)
+	component.Variants = declaredReplacement(target)
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	req := runRequest(root, component, reconcile.DesiredProfile{Encoded: &spec}, execute.DeleteModeSoft)
+	req.Recover = func(recoveryCtx context.Context, workRoot, source string) (string, error) {
+		cancel()
+		return filesystem.Recover(recoveryCtx, workRoot, source)
+	}
+	result, err := execute.RunComponent(ctx, req)
+	if !errors.Is(err, context.Canceled) || result.Stage != execute.ComponentStageRemove {
+		t.Fatalf("expected cancellation after replacement, got %+v, %v", result, err)
+	}
+	if len(result.Committed) != 1 || len(result.Recovery) != 1 || len(result.Removed) != 0 {
+		t.Fatalf("replacement incomplete: %+v", result)
+	}
+	if string(readBytes(t, filepath.FromSlash(result.Recovery[0]))) != "old output" {
+		t.Fatal("old output was not preserved")
+	}
+	if len(readBytes(t, target)) == 0 || len(readBytes(t, wav)) == 0 {
+		t.Fatal("committed output or untouched source missing")
 	}
 }
 
@@ -95,16 +163,14 @@ func TestComponentRun_DeleteFailureStopsRemovals(t *testing.T) {
 		removeOp("cmp-1", one, first),
 		removeOp("cmp-1", two, first),
 	)
-	kit := execute.ComponentRunTestKit{Rename: func(oldpath, newpath string) error {
-		if strings.Contains(newpath, string(filepath.Separator)+"Delete"+string(filepath.Separator)) &&
-			strings.HasPrefix(filepath.Base(newpath), "two.") {
-			return errors.New("injected rename failure")
+	req := runRequest(root, component, reconcile.DesiredProfile{Encoded: &spec}, execute.DeleteModeSoft)
+	req.Recover = func(ctx context.Context, workRoot, source string) (string, error) {
+		if filepath.Base(source) == "two.mp3" {
+			return "", errors.New("injected recovery failure")
 		}
-		return os.Rename(oldpath, newpath)
-	}}
-	result, err := execute.RunComponentWithTestKit(t.Context(), runRequest(
-		root, component, reconcile.DesiredProfile{Encoded: &spec}, execute.DeleteModeSoft,
-	), kit)
+		return filesystem.Recover(ctx, workRoot, source)
+	}
+	result, err := execute.RunComponent(t.Context(), req)
 	if err == nil {
 		t.Fatal("expected the second removal to fail")
 	}

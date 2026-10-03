@@ -1,8 +1,8 @@
 package fileops
 
 import (
+	"context"
 	"errors"
-	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -93,21 +93,21 @@ type Result struct {
 // result. It never overwrites: every destination is claimed with a no-replace
 // rename, and a name that appeared since the check is a refusal, not a
 // clobber.
-func applyOperation(m *member, op string, item Item) ItemResult {
+func (s *Service) applyOperation(ctx context.Context, m *member, op string, item Item) ItemResult {
 	switch op {
 	case OpRename:
-		return renameItem(m, item)
+		return s.renameItem(m, item)
 	case OpMove:
-		return moveItem(m, item)
+		return s.moveItem(m, item)
 	case OpSoftDelete:
-		return softDeleteItem(m, item)
+		return s.softDeleteItem(ctx, m, item)
 	default:
 		return failed(item.Source, CodeOperationDenied, "unsupported operation "+op)
 	}
 }
 
 // renameItem changes one item's name inside its own directory.
-func renameItem(m *member, item Item) ItemResult {
+func (s *Service) renameItem(m *member, item Item) ItemResult {
 	name, err := targetName(item.Name)
 	if err != nil {
 		return fromError(item.Source, err)
@@ -120,7 +120,7 @@ func renameItem(m *member, item Item) ItemResult {
 	if err := claimTarget(m, source, target); err != nil {
 		return fromError(item.Source, err)
 	}
-	if err := renameNoReplace(source, target); err != nil {
+	if err := s.renameFile(source, target); err != nil {
 		return fromError(item.Source, err)
 	}
 	return ItemResult{Source: item.Source, Status: StatusOK, Target: memberRelative(m, target)}
@@ -129,7 +129,7 @@ func renameItem(m *member, item Item) ItemResult {
 // moveItem moves one item into an existing directory of the same member. The
 // destination directory is resolved first, so a move whose target directory
 // vanished or is not a directory is refused before anything moves.
-func moveItem(m *member, item Item) ItemResult {
+func (s *Service) moveItem(m *member, item Item) ItemResult {
 	if strings.TrimSpace(item.TargetDir) == "" {
 		return failed(item.Source, CodeInvalidTarget, "a move needs a destination directory")
 	}
@@ -151,7 +151,7 @@ func moveItem(m *member, item Item) ItemResult {
 	if err := claimTarget(m, source, target); err != nil {
 		return fromError(item.Source, err)
 	}
-	if err := renameNoReplace(source, target); err != nil {
+	if err := s.renameFile(source, target); err != nil {
 		return fromError(item.Source, err)
 	}
 	return ItemResult{Source: item.Source, Status: StatusOK, Target: memberRelative(m, target)}
@@ -161,35 +161,13 @@ func moveItem(m *member, item Item) ItemResult {
 // keeping the work name and its internal path, and reports where it went.
 // An existing recovery file is never overwritten: a collision gets the first
 // free "<stem>.N<ext>" name.
-func softDeleteItem(m *member, item Item) ItemResult {
+func (s *Service) softDeleteItem(ctx context.Context, m *member, item Item) ItemResult {
 	source, err := m.resolve(item.Source)
 	if err != nil {
 		return fromError(item.Source, err)
 	}
-	recoveryRoot := filepath.Dir(m.nativeAbs)
-	relToRoot, relErr := filepath.Rel(recoveryRoot, source)
-	if relErr != nil || relToRoot == "." || strings.HasPrefix(relToRoot, ".."+string(filepath.Separator)) ||
-		filepath.IsAbs(relToRoot) {
-		return failed(item.Source, CodeOutsideMember, "the item is not inside the library root")
-	}
-	relDir := filepath.Dir(relToRoot)
-	if pathnorm.IsWindowsUNCPath(recoveryRoot) {
-		// Long UNC paths have a tight component budget; keep a share for the
-		// name itself.
-		relDir = pathnorm.TruncatePathComponentsToBytes(relDir, 214)
-	}
-	recoveryDir := filepath.Join(recoveryRoot, pathnorm.RecoveryDirName, relDir)
-	if mkdirErr := os.MkdirAll(recoveryDir, 0o755); mkdirErr != nil {
-		return fromError(
-			item.Source,
-			&PathError{errCode(mkdirErr), "failed to create the recovery directory: " + mkdirErr.Error()},
-		)
-	}
-	target, err := freeRecoveryPath(recoveryDir, filepath.Base(source))
+	target, err := s.recoverFile(ctx, m.nativeAbs, source)
 	if err != nil {
-		return fromError(item.Source, err)
-	}
-	if err := renameNoReplace(source, target); err != nil {
 		return fromError(item.Source, err)
 	}
 	relToLibrary, relErr := filepath.Rel(m.nativeRoot, target)
@@ -235,32 +213,6 @@ func refuseIntoSelf(source, dir string) error {
 	return nil
 }
 
-// freeRecoveryPath returns the first free recovery name for base, so recycled
-// media never replaces media recycled earlier.
-func freeRecoveryPath(dir, base string) (string, error) {
-	const maxAttempts = 100
-	for attempt := 0; attempt <= maxAttempts; attempt++ {
-		candidate := filepath.Join(dir, recoveryName(base, attempt))
-		_, err := os.Lstat(candidate)
-		if errors.Is(err, fs.ErrNotExist) {
-			return candidate, nil
-		}
-		if err != nil {
-			return "", &PathError{errCode(err), err.Error()}
-		}
-	}
-	return "", &PathError{CodeTargetExists, fmt.Sprintf("no free recovery name for %s", base)}
-}
-
-// recoveryName is base itself for attempt 0 and "<stem>.<N><ext>" afterwards.
-func recoveryName(base string, attempt int) string {
-	if attempt == 0 {
-		return base
-	}
-	ext := filepath.Ext(base)
-	return fmt.Sprintf("%s.%d%s", strings.TrimSuffix(base, ext), attempt, ext)
-}
-
 // memberRelative renders an absolute path as member-relative POSIX form.
 func memberRelative(m *member, native string) string {
 	rel, err := filepath.Rel(m.nativeAbs, native)
@@ -289,5 +241,5 @@ func fromError(source string, err error) ItemResult {
 	if pathErr, ok := errors.AsType[*os.PathError](err); ok {
 		return failed(source, errCode(pathErr.Err), pathErr.Err.Error())
 	}
-	return failed(source, CodeIOError, err.Error())
+	return failed(source, errCode(err), err.Error())
 }

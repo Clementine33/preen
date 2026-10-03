@@ -5,7 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 
-	"github.com/onsei/organizer/backend/internal/pathnorm"
+	"github.com/onsei/organizer/backend/internal/librarypath"
 )
 
 // dirIDVersion is the fixed version marker of the directory identity. It is
@@ -29,7 +29,7 @@ func DirID(libraryID, rootPath, relPath string) string {
 	payload, err := json.Marshal([4]string{
 		dirIDVersion,
 		libraryID,
-		pathnorm.RootPathKey(rootPath),
+		librarypath.RootPathKey(rootPath),
 		relPath,
 	})
 	if err != nil {

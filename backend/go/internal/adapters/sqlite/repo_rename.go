@@ -8,17 +8,21 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/onsei/organizer/backend/internal/pathnorm"
-	"github.com/onsei/organizer/backend/internal/rename"
+	"github.com/onsei/organizer/backend/internal/dirrename"
+	"github.com/onsei/organizer/backend/internal/librarypath"
 )
 
 // RenameWorks reads catalog bindings and naming fields in a single query snapshot.
-func (r *Repository) RenameWorks(ctx context.Context, root string, folders []string) (map[string]rename.Work, error) {
-	out := make(map[string]rename.Work, len(folders))
+func (r *Repository) RenameWorks(
+	ctx context.Context,
+	root string,
+	folders []string,
+) (map[string]dirrename.Work, error) {
+	out := make(map[string]dirrename.Work, len(folders))
 	if len(folders) == 0 {
 		return out, nil
 	}
-	args := []any{pathnorm.RootPathKey(root)}
+	args := []any{librarypath.RootPathKey(root)}
 	marks := make([]string, len(folders))
 	for i, folder := range folders {
 		marks[i] = "?"
@@ -26,7 +30,7 @@ func (r *Repository) RenameWorks(ctx context.Context, root string, folders []str
 		if err != nil {
 			return nil, err
 		}
-		rel, ok := pathnorm.RelPath(filepath.ToSlash(rel))
+		rel, ok := librarypath.RelPath(filepath.ToSlash(rel))
 		if !ok {
 			return nil, fmt.Errorf("invalid rename member path %q", folder)
 		}
@@ -58,7 +62,7 @@ func (r *Repository) RenameWorks(ctx context.Context, root string, folders []str
 		}
 		slices.Sort(actors)
 		actors = slices.Compact(actors)
-		out[pathnorm.JoinRel(root, rel)] = rename.Work{
+		out[librarypath.JoinRel(root, rel)] = dirrename.Work{
 			Code: code,
 			Values: map[string]string{
 				"title":        title,

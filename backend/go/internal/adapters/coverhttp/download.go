@@ -12,7 +12,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/onsei/organizer/backend/internal/covers"
+	"github.com/onsei/organizer/backend/internal/works/coverdelivery"
 )
 
 type Client struct{ http *http.Client }
@@ -43,7 +43,7 @@ func New(client *http.Client) *Client {
 func allowed(u *url.URL) error {
 	if u.Scheme != "https" || u.Hostname() != "img.dlsite.jp" || u.User != nil ||
 		(u.Port() != "" && u.Port() != "443") {
-		return covers.Failure("UNSUPPORTED_CDN", fmt.Errorf("unsupported cover host"))
+		return coverdelivery.Failure("UNSUPPORTED_CDN", fmt.Errorf("unsupported cover host"))
 	}
 	return nil
 }
@@ -73,7 +73,7 @@ func dialPublic(ctx context.Context, network, address string) (net.Conn, error) 
 	}
 	for _, ip := range ips {
 		if !public(ip) {
-			return nil, covers.Failure("UNSUPPORTED_CDN", fmt.Errorf("nonpublic CDN address"))
+			return nil, coverdelivery.Failure("UNSUPPORTED_CDN", fmt.Errorf("nonpublic CDN address"))
 		}
 	}
 	var last error
@@ -87,13 +87,13 @@ func dialPublic(ctx context.Context, network, address string) (net.Conn, error) 
 	}
 	return nil, last
 }
-func (c *Client) Download(ctx context.Context, raw string, v covers.Validators) (covers.Download, error) {
+func (c *Client) Download(ctx context.Context, raw string, v coverdelivery.Validators) (coverdelivery.Download, error) {
 	u, err := url.Parse(raw)
 	if err != nil {
-		return covers.Download{}, covers.Failure("UNSUPPORTED_CDN", err)
+		return coverdelivery.Download{}, coverdelivery.Failure("UNSUPPORTED_CDN", err)
 	}
 	if err = allowed(u); err != nil {
-		return covers.Download{}, err
+		return coverdelivery.Download{}, err
 	}
 	for attempt := range 3 {
 		result, retry, delay, e := c.once(ctx, raw, v)
@@ -107,21 +107,21 @@ func (c *Client) Download(ctx context.Context, raw string, v covers.Validators) 
 		select {
 		case <-ctx.Done():
 			timer.Stop()
-			return covers.Download{}, ctx.Err()
+			return coverdelivery.Download{}, ctx.Err()
 		case <-timer.C:
 		}
 	}
-	return covers.Download{}, fmt.Errorf("download failed")
+	return coverdelivery.Download{}, fmt.Errorf("download failed")
 }
 
 func (c *Client) once(
 	ctx context.Context,
 	raw string,
-	v covers.Validators,
-) (covers.Download, bool, time.Duration, error) {
+	v coverdelivery.Validators,
+) (coverdelivery.Download, bool, time.Duration, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, raw, nil)
 	if err != nil {
-		return covers.Download{}, false, 0, err
+		return coverdelivery.Download{}, false, 0, err
 	}
 	req.Header.Set("Accept", "image/webp,image/png,image/jpeg,image/gif")
 	if v.ETag != "" {
@@ -132,10 +132,10 @@ func (c *Client) once(
 	}
 	res, err := c.http.Do(req)
 	if err != nil {
-		return covers.Download{}, ctx.Err() == nil && covers.Code(err) != "UNSUPPORTED_CDN", 0, err
+		return coverdelivery.Download{}, ctx.Err() == nil && coverdelivery.Code(err) != "UNSUPPORTED_CDN", 0, err
 	}
 	defer res.Body.Close()
-	out := covers.Download{ETag: res.Header.Get("ETag"), LastModified: res.Header.Get("Last-Modified")}
+	out := coverdelivery.Download{ETag: res.Header.Get("ETag"), LastModified: res.Header.Get("Last-Modified")}
 	if res.StatusCode == http.StatusNotModified && (v.ETag != "" || v.LastModified != "") {
 		out.NotModified = true
 		return out, false, 0, nil
@@ -148,18 +148,18 @@ func (c *Client) once(
 			delay = min(time.Until(until), 5*time.Minute)
 		}
 		retry := res.StatusCode >= 500 || res.StatusCode == http.StatusTooManyRequests
-		return out, retry, delay, covers.Failure("DOWNLOAD_FAILED", fmt.Errorf("CDN HTTP %d", res.StatusCode))
+		return out, retry, delay, coverdelivery.Failure("DOWNLOAD_FAILED", fmt.Errorf("CDN HTTP %d", res.StatusCode))
 	}
-	if res.ContentLength > covers.MaxBytes {
-		return out, false, 0, covers.Failure("IMAGE_TOO_LARGE", fmt.Errorf("cover exceeds size limit"))
+	if res.ContentLength > coverdelivery.MaxBytes {
+		return out, false, 0, coverdelivery.Failure("IMAGE_TOO_LARGE", fmt.Errorf("cover exceeds size limit"))
 	}
-	out.Data, err = io.ReadAll(io.LimitReader(res.Body, covers.MaxBytes+1))
+	out.Data, err = io.ReadAll(io.LimitReader(res.Body, coverdelivery.MaxBytes+1))
 	if err != nil {
 		return out, true, 0, err
 	}
-	if len(out.Data) > covers.MaxBytes {
-		return out, false, 0, covers.Failure("IMAGE_TOO_LARGE", fmt.Errorf("cover exceeds size limit"))
+	if len(out.Data) > coverdelivery.MaxBytes {
+		return out, false, 0, coverdelivery.Failure("IMAGE_TOO_LARGE", fmt.Errorf("cover exceeds size limit"))
 	}
-	out.Extension, out.ContentType, err = covers.Inspect(out.Data)
+	out.Extension, out.ContentType, err = coverdelivery.Inspect(out.Data)
 	return out, false, 0, err
 }

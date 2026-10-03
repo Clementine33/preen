@@ -5,16 +5,16 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/onsei/organizer/backend/internal/rename"
+	"github.com/onsei/organizer/backend/internal/dirrename"
 )
 
 // ReadRenameDirectory lists immediate entries without traversing symlinks.
-func ReadRenameDirectory(ctx context.Context, root string) (rename.Directory, error) {
+func ReadRenameDirectory(ctx context.Context, root string) (dirrename.Directory, error) {
 	entries, err := os.ReadDir(filepath.FromSlash(root))
 	if err != nil {
 		return nil, err
 	}
-	out := make(rename.Directory, len(entries))
+	out := make(dirrename.Directory, len(entries))
 	for _, entry := range entries {
 		if err := ctx.Err(); err != nil {
 			return nil, err
@@ -23,7 +23,7 @@ func ReadRenameDirectory(ctx context.Context, root string) (rename.Directory, er
 		if err != nil {
 			return nil, err
 		}
-		out[entry.Name()] = rename.Entry{
+		out[entry.Name()] = dirrename.Entry{
 			Directory: info.IsDir(),
 			Symlink:   info.Mode()&os.ModeSymlink != 0,
 			Modified:  info.ModTime().UnixNano(),

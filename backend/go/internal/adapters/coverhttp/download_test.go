@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/onsei/organizer/backend/internal/adapters/coverhttp"
-	"github.com/onsei/organizer/backend/internal/covers"
+	"github.com/onsei/organizer/backend/internal/works/coverdelivery"
 )
 
 type transport func(*http.Request) (*http.Response, error)
@@ -33,14 +33,18 @@ func TestDownloadUsesContentFormatAndRejectsUntrustedSources(t *testing.T) {
 			Body:       io.NopCloser(bytes.NewReader(b.Bytes())),
 		}, nil
 	})})
-	got, err := client.Download(context.Background(), "https://img.dlsite.jp/incorrect.webp", covers.Validators{})
+	got, err := client.Download(
+		context.Background(),
+		"https://img.dlsite.jp/incorrect.webp",
+		coverdelivery.Validators{},
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if got.Extension != "png" || got.ContentType != "image/png" {
 		t.Fatalf("format was guessed from URL/header: %+v", got)
 	}
-	if _, err = client.Download(t.Context(), "https://127.0.0.1/image", covers.Validators{}); err == nil {
+	if _, err = client.Download(t.Context(), "https://127.0.0.1/image", coverdelivery.Validators{}); err == nil {
 		t.Fatal("untrusted source accepted")
 	}
 }
@@ -56,7 +60,7 @@ func TestDownloadRejectsCrossCDNRedirectAndInvalidBodies(t *testing.T) {
 	}{
 		{"redirect", 302, http.Header{"Location": {"https://evil.example/main.webp"}}, 0, "", "UNSUPPORTED_CDN"},
 		{"html", 200, nil, 0, "<html>denied</html>", "INVALID_IMAGE"},
-		{"large", 200, nil, covers.MaxBytes + 1, "", "IMAGE_TOO_LARGE"},
+		{"large", 200, nil, coverdelivery.MaxBytes + 1, "", "IMAGE_TOO_LARGE"},
 		{"unsolicited 304", 304, nil, 0, "", "DOWNLOAD_FAILED"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -77,8 +81,8 @@ func TestDownloadRejectsCrossCDNRedirectAndInvalidBodies(t *testing.T) {
 				if _, err := client.Download(
 					t.Context(),
 					"https://img.dlsite.jp/main.webp",
-					covers.Validators{},
-				); covers.Code(
+					coverdelivery.Validators{},
+				); coverdelivery.Code(
 					err,
 				) != tc.code {
 					t.Fatalf("failure: %v", err)
@@ -99,7 +103,11 @@ func TestDownloadBackoffIsBoundedAndHonorsCancellation(t *testing.T) {
 			}, nil
 		})})
 		at := time.Now()
-		if _, err := client.Download(t.Context(), "https://img.dlsite.jp/main.webp", covers.Validators{}); err == nil {
+		if _, err := client.Download(
+			t.Context(),
+			"https://img.dlsite.jp/main.webp",
+			coverdelivery.Validators{},
+		); err == nil {
 			t.Fatal("429 accepted")
 		}
 		if calls != 3 || time.Since(at) != 4*time.Second {
@@ -107,7 +115,7 @@ func TestDownloadBackoffIsBoundedAndHonorsCancellation(t *testing.T) {
 		}
 		ctx, cancel := context.WithCancel(t.Context())
 		cancel()
-		if _, err := client.Download(ctx, "https://img.dlsite.jp/main.webp", covers.Validators{}); err == nil {
+		if _, err := client.Download(ctx, "https://img.dlsite.jp/main.webp", coverdelivery.Validators{}); err == nil {
 			t.Fatal("cancellation ignored")
 		}
 	})
@@ -120,7 +128,11 @@ func TestDownloadConditionalsAreIndependentOfCredentials(t *testing.T) {
 		}
 		return &http.Response{StatusCode: http.StatusNotModified, Body: io.NopCloser(bytes.NewReader(nil))}, nil
 	})})
-	result, err := client.Download(t.Context(), "https://img.dlsite.jp/main.webp", covers.Validators{ETag: "saved"})
+	result, err := client.Download(
+		t.Context(),
+		"https://img.dlsite.jp/main.webp",
+		coverdelivery.Validators{ETag: "saved"},
+	)
 	if err != nil || !result.NotModified {
 		t.Fatalf("304: %+v %v", result, err)
 	}

@@ -8,7 +8,7 @@ import (
 
 	"github.com/onsei/organizer/backend/internal/admission"
 	"github.com/onsei/organizer/backend/internal/inventory"
-	"github.com/onsei/organizer/backend/internal/pathnorm"
+	"github.com/onsei/organizer/backend/internal/librarypath"
 )
 
 // scanRequest is the POST /api/v1/libraries/:id/scans payload. root_path is
@@ -70,7 +70,8 @@ func (s *Server) postLibraryScan(w http.ResponseWriter, r *http.Request) {
 	rootPath := lib.RootPath
 	if req.RootPath != nil {
 		rootPath = *req.RootPath
-		isLibraryRoot := pathnorm.IsWithinRoot(lib.RootPath, rootPath) && pathnorm.IsWithinRoot(rootPath, lib.RootPath)
+		isLibraryRoot := librarypath.IsWithinRoot(lib.RootPath, rootPath) &&
+			librarypath.IsWithinRoot(rootPath, lib.RootPath)
 		if !isLibraryRoot {
 			writeError(
 				w,

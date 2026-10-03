@@ -9,7 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/onsei/organizer/backend/internal/pathnorm"
+	"github.com/onsei/organizer/backend/internal/librarypath"
 	"github.com/onsei/organizer/backend/internal/works"
 )
 
@@ -74,7 +74,7 @@ func syncWorkCopies(tx *sql.Tx, libraryID, rootPath string) (bindingOutcome, err
 		return outcome, nil
 	}
 	// Match the canonical stored root, preserving drive and UNC root forms.
-	rootPath = pathnorm.CleanRootPath(rootPath)
+	rootPath = librarypath.CleanRootPath(rootPath)
 
 	rows, err := tx.Query(`
 		SELECT path, name, is_work_root
@@ -116,7 +116,7 @@ func syncWorkCopies(tx *sql.Tx, libraryID, rootPath string) (bindingOutcome, err
 	workRoots := map[string]bool{}
 	for _, child := range children {
 		relPath := strings.TrimPrefix(child.path, prefix)
-		if pathnorm.IsRecoveryRelPath(rootPath, relPath) || !child.isWorkRoot {
+		if librarypath.IsRecoveryRelPath(rootPath, relPath) || !child.isWorkRoot {
 			continue
 		}
 		extraction := works.CodesInDirName(child.name)
@@ -127,7 +127,7 @@ func syncWorkCopies(tx *sql.Tx, libraryID, rootPath string) (bindingOutcome, err
 	}
 	for _, child := range children {
 		relPath := strings.TrimPrefix(child.path, prefix)
-		if pathnorm.IsRecoveryRelPath(rootPath, relPath) || child.isWorkRoot ||
+		if librarypath.IsRecoveryRelPath(rootPath, relPath) || child.isWorkRoot ||
 			works.CodesInDirName(child.name).Kind != works.DirCodeMultiple {
 			continue
 		}

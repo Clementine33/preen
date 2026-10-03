@@ -12,7 +12,7 @@ import (
 	"github.com/onsei/organizer/backend/internal/adapters/sqlite"
 	"github.com/onsei/organizer/backend/internal/fileops"
 	"github.com/onsei/organizer/backend/internal/library"
-	"github.com/onsei/organizer/backend/internal/pathnorm"
+	"github.com/onsei/organizer/backend/internal/librarypath"
 )
 
 // serverOnDB builds a server over one database file. Opening the same file
@@ -80,8 +80,8 @@ func listedDirs(t *testing.T, engine http.Handler, token, libID string) []dirRes
 // rescan of the library would record instead.
 func renameInventoryDir(t *testing.T, repo *sqlite.Repository, root, from, to string) {
 	t.Helper()
-	fromAbs := pathnorm.NormalizeToPOSIX(filepath.Join(root, filepath.FromSlash(from)))
-	toAbs := pathnorm.NormalizeToPOSIX(filepath.Join(root, filepath.FromSlash(to)))
+	fromAbs := librarypath.NormalizeToPOSIX(filepath.Join(root, filepath.FromSlash(from)))
+	toAbs := librarypath.NormalizeToPOSIX(filepath.Join(root, filepath.FromSlash(to)))
 	if err := os.Rename(filepath.FromSlash(fromAbs), filepath.FromSlash(toAbs)); err != nil {
 		t.Fatalf("rename %s -> %s: %v", fromAbs, toAbs, err)
 	}

@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/onsei/organizer/backend/internal/pathnorm"
+	"github.com/onsei/organizer/backend/internal/librarypath"
 )
 
 // Path error codes reported per item. They are stable machine codes: the UI
@@ -47,19 +47,19 @@ func openMember(rootPath, memberRel string) (*member, error) {
 	if strings.TrimSpace(rootPath) == "" {
 		return nil, &PathError{CodePathInvalid, "the library root is unknown"}
 	}
-	rel, ok := pathnorm.RelPath(memberRel)
+	rel, ok := librarypath.RelPath(memberRel)
 	if !ok {
 		return nil, &PathError{CodePathInvalid, "a member path is a library-relative directory path"}
 	}
-	if pathnorm.IsRecoveryRelPath(rootPath, rel) {
+	if librarypath.IsRecoveryRelPath(rootPath, rel) {
 		return nil, &PathError{CodeMemberRoot, "the recovery directory is not a member"}
 	}
 	m := &member{
-		root:       pathnorm.NormalizeToPOSIX(rootPath),
+		root:       librarypath.NormalizeToPOSIX(rootPath),
 		rel:        rel,
-		abs:        pathnorm.JoinRel(rootPath, rel),
-		nativeAbs:  filepath.FromSlash(pathnorm.JoinRel(rootPath, rel)),
-		nativeRoot: filepath.FromSlash(pathnorm.NormalizeToPOSIX(rootPath)),
+		abs:        librarypath.JoinRel(rootPath, rel),
+		nativeAbs:  filepath.FromSlash(librarypath.JoinRel(rootPath, rel)),
+		nativeRoot: filepath.FromSlash(librarypath.NormalizeToPOSIX(rootPath)),
 	}
 	native := m.nativeRoot
 	for _, segment := range append([]string{""}, strings.Split(rel, "/")...) {
@@ -78,7 +78,7 @@ func openMember(rootPath, memberRel string) (*member, error) {
 			return nil, &PathError{CodeMemberRoot, "the member path is not a directory"}
 		}
 	}
-	inside, err := pathnorm.IsResolvedWithinRoot(m.nativeRoot, m.nativeAbs)
+	inside, err := librarypath.IsResolvedWithinRoot(m.nativeRoot, m.nativeAbs)
 	if err != nil {
 		return nil, &PathError{errCode(err), err.Error()}
 	}
@@ -93,7 +93,7 @@ func openMember(rootPath, memberRel string) (*member, error) {
 // symbolic link: the first version offers no operation on a link or through
 // one, so a link can never be used to reach outside the member (ADR 0002 §1; ADR 0001 §3).
 func (m *member) resolve(rel string) (string, error) {
-	clean, ok := pathnorm.RelPath(rel)
+	clean, ok := librarypath.RelPath(rel)
 	if !ok {
 		return "", &PathError{CodePathInvalid, "the path is not a member-relative path"}
 	}
@@ -114,7 +114,7 @@ func (m *member) resolve(rel string) (string, error) {
 	// Containment is decided on resolved forms as well as on the shape of the
 	// relative path, so a path that is lexically inside but leaves through a
 	// link is refused rather than trusted.
-	inside, err := pathnorm.IsResolvedWithinRoot(m.nativeAbs, native)
+	inside, err := librarypath.IsResolvedWithinRoot(m.nativeAbs, native)
 	if err != nil {
 		return "", &PathError{errCode(err), err.Error()}
 	}
@@ -154,7 +154,7 @@ func targetName(name string) (string, error) {
 	if trimmed == "" || trimmed != name {
 		return "", &PathError{CodeInvalidName, "the new name is empty or padded with spaces"}
 	}
-	if _, ok := pathnorm.RelPath(name); !ok || strings.Contains(name, "/") {
+	if _, ok := librarypath.RelPath(name); !ok || strings.Contains(name, "/") {
 		return "", &PathError{CodeInvalidName, "the new name is a plain file or folder name"}
 	}
 	if name == "." || name == ".." {

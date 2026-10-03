@@ -7,12 +7,12 @@ import (
 	"strings"
 
 	"github.com/onsei/organizer/backend/internal/conversion"
-	"github.com/onsei/organizer/backend/internal/covers"
 	"github.com/onsei/organizer/backend/internal/fileops"
 	"github.com/onsei/organizer/backend/internal/inventory"
 	"github.com/onsei/organizer/backend/internal/library"
 	"github.com/onsei/organizer/backend/internal/thumbnail"
 	"github.com/onsei/organizer/backend/internal/works"
+	"github.com/onsei/organizer/backend/internal/works/coverdelivery"
 	"github.com/onsei/organizer/backend/internal/workset"
 )
 
@@ -42,7 +42,7 @@ type Dependencies struct {
 	// Thumbs renders and caches manifest image thumbnails (ADR 0015); a
 	// read-only path that takes no admission slot.
 	Thumbs *thumbnail.Service
-	Covers *covers.Service
+	Covers *coverdelivery.Service
 }
 
 // Dependencies names no storage: every route reaches its business entry, and

@@ -8,10 +8,10 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/onsei/organizer/backend/internal/covers"
+	"github.com/onsei/organizer/backend/internal/works/coverdelivery"
 )
 
-func (r *Repository) EnqueueCovers(ctx context.Context, req covers.Request) error {
+func (r *Repository) EnqueueCovers(ctx context.Context, req coverdelivery.Request) error {
 	if len(req.Targets) == 0 {
 		return nil
 	}
@@ -90,7 +90,7 @@ func (r *Repository) EnqueueCovers(ctx context.Context, req covers.Request) erro
 			id,
 			req.ExecutionID,
 			target.CopyID,
-			covers.Encode(target),
+			coverdelivery.Encode(target),
 			req.Refresh,
 		); err != nil {
 			return err
@@ -101,8 +101,8 @@ func (r *Repository) EnqueueCovers(ctx context.Context, req covers.Request) erro
 
 const coverJobColumns = `id,work_code,url,backup_url,locale,refresh,version,stage_path,extension,digest,etag,last_modified,main_checked,backup_checked`
 
-func (r *Repository) ClaimCover(ctx context.Context) (*covers.Job, error) {
-	var j covers.Job
+func (r *Repository) ClaimCover(ctx context.Context) (*coverdelivery.Job, error) {
+	var j coverdelivery.Job
 	err := r.db.QueryRowContext(ctx, `UPDATE cover_downloads SET status='running' WHERE id=(SELECT id FROM cover_downloads WHERE status='queued' ORDER BY rowid LIMIT 1) AND status='queued' RETURNING `+coverJobColumns).
 		Scan(&j.ID, &j.WorkCode, &j.URL, &j.BackupURL, &j.Locale, &j.Refresh, &j.Version, &j.StagePath, &j.Extension, &j.Digest, &j.ETag, &j.LastModified, &j.MainChecked, &j.BackupChecked)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -110,7 +110,7 @@ func (r *Repository) ClaimCover(ctx context.Context) (*covers.Job, error) {
 	}
 	return &j, err
 }
-func (r *Repository) SaveCoverStage(ctx context.Context, j covers.Job) error {
+func (r *Repository) SaveCoverStage(ctx context.Context, j coverdelivery.Job) error {
 	_, err := r.db.ExecContext(
 		ctx,
 		`UPDATE cover_downloads SET url=?,backup_url=?,stage_path=?,extension=?,digest=?,etag=?,last_modified=?,main_checked=?,backup_checked=? WHERE id=? AND status='running'`,
@@ -127,7 +127,7 @@ func (r *Repository) SaveCoverStage(ctx context.Context, j covers.Job) error {
 	)
 	return err
 }
-func (r *Repository) CoverDestinations(ctx context.Context, id string) ([]covers.Destination, error) {
+func (r *Repository) CoverDestinations(ctx context.Context, id string) ([]coverdelivery.Destination, error) {
 	return r.coverDestinations(ctx, `d.job_id=?`, id, false)
 }
 
@@ -136,7 +136,7 @@ func (r *Repository) coverDestinations(
 	where string,
 	id string,
 	running bool,
-) ([]covers.Destination, error) {
+) ([]coverdelivery.Destination, error) {
 	status := "d.status"
 	if running {
 		status = "CASE WHEN d.status='pending' AND j.status='running' THEN 'running' ELSE d.status END"
@@ -150,9 +150,9 @@ func (r *Repository) coverDestinations(
 		return nil, err
 	}
 	defer rows.Close()
-	out := []covers.Destination{}
+	out := []coverdelivery.Destination{}
 	for rows.Next() {
-		var d covers.Destination
+		var d coverdelivery.Destination
 		var raw string
 		if err = rows.Scan(
 			&d.ID,
@@ -174,7 +174,7 @@ func (r *Repository) coverDestinations(
 	}
 	return out, rows.Err()
 }
-func (r *Repository) SaveCoverDestination(ctx context.Context, d covers.Destination) error {
+func (r *Repository) SaveCoverDestination(ctx context.Context, d coverdelivery.Destination) error {
 	_, err := r.db.ExecContext(
 		ctx,
 		`UPDATE cover_deliveries SET status=?,error_code=?,error_message=?,published=?,digest=? WHERE id=? AND status='pending'`,
@@ -187,7 +187,7 @@ func (r *Repository) SaveCoverDestination(ctx context.Context, d covers.Destinat
 	)
 	return err
 }
-func (r *Repository) CoverCurrent(ctx context.Context, j covers.Job) (bool, error) {
+func (r *Repository) CoverCurrent(ctx context.Context, j coverdelivery.Job) (bool, error) {
 	var count int
 	err := r.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM cover_candidates c WHERE c.work_code=? AND c.version=? AND EXISTS(SELECT 1 FROM cover_deliveries WHERE job_id=? AND status='pending')`, j.WorkCode, j.Version, j.ID).
 		Scan(&count)
@@ -222,9 +222,9 @@ func (r *Repository) RecoverCovers(ctx context.Context) error {
 	_, err := r.db.ExecContext(ctx, `UPDATE cover_downloads SET status='queued' WHERE status='running'`)
 	return err
 }
-func (r *Repository) CoverReport(ctx context.Context, id string) (covers.Report, error) {
+func (r *Repository) CoverReport(ctx context.Context, id string) (coverdelivery.Report, error) {
 	items, err := r.coverDestinations(ctx, `d.execution_id=?`, id, true)
-	out := covers.Report{
+	out := coverdelivery.Report{
 		Items:  items,
 		Counts: map[string]int{"pending": 0, "running": 0, "succeeded": 0, "skipped": 0, "failed": 0, "canceled": 0},
 	}
@@ -286,8 +286,8 @@ func (r *Repository) ChangeCoverRequests(ctx context.Context, id string, retry b
 	}
 	return tx.Commit()
 }
-func (r *Repository) StoredCover(ctx context.Context, id string) (*covers.Stored, error) {
-	var c covers.Stored
+func (r *Repository) StoredCover(ctx context.Context, id string) (*coverdelivery.Stored, error) {
+	var c coverdelivery.Stored
 	err := r.db.QueryRowContext(ctx, `SELECT url,name,digest,etag,last_modified FROM cover_files WHERE copy_id=?`, id).
 		Scan(&c.URL, &c.Name, &c.Digest, &c.ETag, &c.LastModified)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -295,7 +295,7 @@ func (r *Repository) StoredCover(ctx context.Context, id string) (*covers.Stored
 	}
 	return &c, err
 }
-func (r *Repository) SaveStoredCover(ctx context.Context, id string, c covers.Stored) error {
+func (r *Repository) SaveStoredCover(ctx context.Context, id string, c coverdelivery.Stored) error {
 	_, err := r.db.ExecContext(
 		ctx,
 		`INSERT INTO cover_files VALUES(?,?,?,?,?,?) ON CONFLICT(copy_id) DO UPDATE SET url=excluded.url,name=excluded.name,digest=excluded.digest,etag=excluded.etag,last_modified=excluded.last_modified`,
@@ -309,4 +309,4 @@ func (r *Repository) SaveStoredCover(ctx context.Context, id string, c covers.St
 	return err
 }
 
-var _ covers.Store = (*Repository)(nil)
+var _ coverdelivery.Store = (*Repository)(nil)

@@ -2,7 +2,6 @@ package coverdelivery
 
 import (
 	"context"
-	"path/filepath"
 
 	"github.com/onsei/organizer/backend/internal/admission"
 )
@@ -38,11 +37,8 @@ func (s *Service) deliver(ctx context.Context, j Job, d Destination, data []byte
 	if !active {
 		return false, nil
 	}
-	target, err := s.resolve(ctx, d.Target)
-	var result Publication
-	if err == nil {
-		result, err = s.deps.Files.Publish(ctx, target, data, d.Refresh)
-	}
+	target := d.Target
+	result, err := s.deps.Files.Publish(ctx, target, data, j.Digest, d.Refresh)
 	if err != nil {
 		if ctx.Err() != nil {
 			return false, ctx.Err()
@@ -73,12 +69,17 @@ func (s *Service) deliver(ctx context.Context, j Job, d Destination, data []byte
 			)
 		}
 	}
-	// A successful publication is disclosed even if recording or inventory refresh fails.
-	if result.Name != "" && s.deps.Refresh != nil {
-		if e := s.deps.Refresh(ctx, filepath.Join(target.LibraryRoot, target.RelPath), target.LibraryRoot); e != nil {
+	// Persist actual changes even when old-extension cleanup partially failed.
+	if (result.File != nil || len(result.Removed) > 0) && s.deps.SyncInventory != nil {
+		if e := s.deps.SyncInventory(ctx, target, result); e != nil {
 			d.Status = "failed"
 			d.ErrorCode = "INVENTORY_REFRESH_FAILED"
 			d.ErrorMessage = e.Error()
+		}
+	}
+	if err == nil && d.ErrorCode == "" {
+		if e := s.deps.Files.CompletePublication(target); e != nil {
+			d.Status, d.ErrorCode, d.ErrorMessage = "failed", Code(e), e.Error()
 		}
 	}
 	if err != nil && d.ErrorCode == "" {

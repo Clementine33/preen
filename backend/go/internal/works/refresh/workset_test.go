@@ -184,6 +184,15 @@ func worksetFixture(
 	override ...workset.BatchExecutor,
 ) (workset.Service, *coverdelivery.Service, *works.Service, string, []string, string, *atomic.Int32) {
 	t.Helper()
+	return worksetFixtureWithRefresh(t, nil, override...)
+}
+
+func worksetFixtureWithRefresh(
+	t *testing.T,
+	onRefresh func(context.Context, string, []string) error,
+	override ...workset.BatchExecutor,
+) (workset.Service, *coverdelivery.Service, *works.Service, string, []string, string, *atomic.Int32) {
+	t.Helper()
 	repo, err := sqlite.NewDevelopmentRepository(filepath.Join(t.TempDir(), "cache.db"))
 	if err != nil {
 		t.Fatal(err)
@@ -215,18 +224,19 @@ func worksetFixture(
 	gate := admission.NewGate(repo.HasActiveSession)
 	cover, err := coverdelivery.New(
 		coverdelivery.Dependencies{
-			Store:      repo,
-			Downloader: coverhttp.New(nil),
-			Source:     source,
-			Files:      filesystem.CoverFiles{},
-			Staging:    coverStaging(t, t.TempDir()),
-			Acquire:    gate.BeginManual,
+			Store:           repo,
+			Downloader:      coverhttp.New(nil),
+			Source:          source,
+			Files:           filesystem.CoverFiles{},
+			Staging:         coverStaging(t, t.TempDir()),
+			Acquire:         gate.BeginManual,
+			RefreshSelected: onRefresh,
 		},
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
-	task := refresh.NewTask(repo, filesystem.CoverDirectoryIdentity)
+	task := refresh.NewTask(repo, filesystem.CheckWorkDirectory)
 	executor := refresh.Executor{Metadata: meta, Covers: cover}
 	run := executor.Run
 	if len(override) > 0 {
@@ -237,7 +247,7 @@ func worksetFixture(
 		1,
 		1,
 		[]workset.Task{task},
-		nil,
+		func(context.Context, string, string) error { t.Error("metadata entered member scan"); return nil },
 		gate.Enqueue,
 		map[string]workset.BatchExecutor{refresh.Kind: run},
 	)

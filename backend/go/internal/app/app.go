@@ -158,9 +158,9 @@ type services struct {
 // planning session or execution is running, and starting one of those is
 // refused while a file operation holds the slot (ADR 0002 §2).
 //
-// There is one scanning entry for the whole process — scanning a library,
-// refreshing one member directory, and the refresh a session does before
-// planning or writing all go through the same pipeline.
+// Library scans, manual member refresh and inventory-based tasks share one
+// pipeline. Directory-only tasks bypass it; covers synchronize exact file deltas
+// and metadata's completed cover queue triggers one selected batch reconciliation.
 func buildServices(repo *sqlite.Repository, configDir, dataDir string, generationConcurrency int) services {
 	gate := admission.NewGate(repo.HasActiveSession)
 	// The background media pass holds the gate's preemptible slot, so it
@@ -208,13 +208,14 @@ func buildServices(repo *sqlite.Repository, configDir, dataDir string, generatio
 	}
 	coverSvc, err := coverdelivery.New(
 		coverdelivery.Dependencies{
-			Store:      repo,
-			Downloader: coverhttp.New(nil),
-			Source:     scraperClient,
-			Files:      filesystem.CoverFiles{},
-			Staging:    coverStage,
-			Acquire:    gate.BeginManual,
-			Refresh:    scanSvc.RefreshMember,
+			Store:           repo,
+			Downloader:      coverhttp.New(nil),
+			Source:          scraperClient,
+			Files:           filesystem.CoverFiles{},
+			Staging:         coverStage,
+			Acquire:         gate.BeginManual,
+			SyncInventory:   coverInventorySync(repo),
+			RefreshSelected: metadataInventoryRefresh(configDir, scanPipeline),
 		},
 	)
 	if err != nil {
@@ -236,7 +237,7 @@ func buildServices(repo *sqlite.Repository, configDir, dataDir string, generatio
 				conversionIO(configDir, scanPipeline),
 			),
 			dirrename.New(repo, filesystem.ReadRenameDirectory),
-			refresh.NewTask(repo, filesystem.CoverDirectoryIdentity),
+			refresh.NewTask(repo, filesystem.CheckWorkDirectory),
 		},
 		func(ctx context.Context, folderPath, rootPath string) error {
 			rel, err := filepath.Rel(filepath.FromSlash(rootPath), filepath.FromSlash(folderPath))
@@ -269,6 +270,25 @@ func buildServices(repo *sqlite.Repository, configDir, dataDir string, generatio
 		metadata:   metadataSvc,
 		covers:     coverSvc,
 		mediaFacts: mediaFacts,
+	}
+}
+
+// coverInventorySync translates cover publication facts into exact inventory
+// updates, without invoking scans or changing bindings and audio media facts.
+func coverInventorySync(
+	repo *sqlite.Repository,
+) func(context.Context, coverdelivery.Target, coverdelivery.Publication) error {
+	return func(_ context.Context, target coverdelivery.Target, result coverdelivery.Publication) error {
+		var changed []inventory.InventoryFile
+		if result.File != nil {
+			changed = append(changed, *result.File)
+		}
+		return repo.SyncObservedInventory(
+			target.LibraryRoot,
+			result.Removed,
+			changed,
+			nil,
+		)
 	}
 }
 

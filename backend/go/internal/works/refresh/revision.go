@@ -3,6 +3,9 @@ package refresh
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"io/fs"
+	"slices"
 
 	"github.com/onsei/organizer/backend/internal/workset"
 )
@@ -28,17 +31,20 @@ func (t *Task) EvaluateRevision(in workset.RevisionFacts) (workset.RevisionHealt
 	if err := validate(in); err != nil {
 		return h, err
 	}
-	paths := []string{}
 	for _, r := range in.Detail.Roots {
-		paths = append(paths, r.RootPath)
-	}
-	bindings, err := t.catalog.CoverTargets(context.Background(), in.Detail.Plan.RootPath, paths)
-	if err != nil {
-		return h, err
-	}
-	for _, r := range in.Detail.Roots {
-		_, hash, e := t.facts(r.RootPath, bindings[r.RootPath])
-		if e != nil || hash != r.InventoryFingerprint {
+		if in.InputRoots != nil && !slices.Contains(in.InputRoots, r.RootPath) {
+			continue
+		}
+		err := t.checkDirectory(r.RootPath)
+		if err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return h, workset.NewError(
+				workset.ErrKindInternal,
+				"SCAN_FAILED",
+				"cannot check frozen work directory: "+r.RootPath,
+				err,
+			)
+		}
+		if err != nil || r.RootStatus == "missing" {
 			h.StaleRoots = append(h.StaleRoots, r.RootIndex)
 		}
 	}

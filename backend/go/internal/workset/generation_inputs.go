@@ -2,8 +2,8 @@ package workset
 
 import "context"
 
-// GenerationInputRefresher optionally batches a task's selected inventory
-// refresh. The fallback preserves the original serial pipeline for other tasks.
+// GenerationInputRefresher lets a task batch inventory refresh or leave its
+// directory-only checks to planning. The fallback refreshes members serially.
 type GenerationInputRefresher interface {
 	RefreshGenerationInputs(context.Context, []string, string, func(), func() error) error
 }

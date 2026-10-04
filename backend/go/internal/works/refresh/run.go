@@ -24,6 +24,7 @@ func (e Executor) Run(ctx context.Context, in workset.BatchExecutionInput) error
 	if err := validateCommon(common); err != nil {
 		return err
 	}
+	defer e.scheduleInventoryRefresh(in)
 	byCode := map[string][]workset.ExecutionUnit{}
 	targets := map[string][]coverdelivery.Target{}
 	codes := []string{}

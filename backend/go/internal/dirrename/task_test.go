@@ -171,6 +171,12 @@ func TestRevisionOnlyTracksUsedMetadataAndRelevantDirectories(t *testing.T) {
 		t.Fatal(err)
 	}
 	facts := workset.RevisionFacts{Detail: detail(snapshot)}
+	// Old plans may carry an mtime-based fingerprint; child changes are no
+	// longer rename inputs and compatibility is decided from frozen proposals.
+	facts.Detail.Roots[0].InventoryFingerprint = "legacy-mtime-fingerprint"
+	if err = os.WriteFile(filepath.Join(member.FolderPath, "changed.wav"), []byte("media"), 0000); err != nil {
+		t.Fatal(err)
+	}
 	svc := works.NewService(repo, nil, nil, nil, "")
 	if _, err := svc.PatchUserData("RJ00000001", works.UserDataRequest{Note: new("new note")}); err != nil {
 		t.Fatal(err)
@@ -205,6 +211,22 @@ func TestRevisionOnlyTracksUsedMetadataAndRelevantDirectories(t *testing.T) {
 	health, err = task.EvaluateRevision(facts)
 	if err != nil || !health.InputMoved {
 		t.Fatalf("occupied target did not stale revision: %+v, %v", health, err)
+	}
+	if err = os.Remove(filepath.Join(snapshot.RootPath, "[RJ00000001] title")); err != nil {
+		t.Fatal(err)
+	}
+	title = "different title"
+	if _, importErr := svc.Import(
+		"RJ00000001",
+		works.ImportRequest{
+			Core: &works.ImportCore{Source: "dlsite", FetchedAt: "2022-01-01T00:00:00.000000000Z", Title: &title},
+		},
+	); importErr != nil {
+		t.Fatal(importErr)
+	}
+	health, err = task.EvaluateRevision(facts)
+	if err != nil || !health.InputMoved {
+		t.Fatalf("used metadata change: %+v %v", health, err)
 	}
 }
 
@@ -296,6 +318,10 @@ func TestTwoCopiesCannotPlanTheSameTarget(t *testing.T) {
 		if unit.ReasonCode != "TARGET_COLLISION" {
 			t.Fatalf("duplicate target accepted: %+v", unit)
 		}
+	}
+	health, err := task.EvaluateRevision(workset.RevisionFacts{Detail: detail(snapshot)})
+	if err != nil || health.InputMoved || !health.UnitsBlocked {
+		t.Fatalf("frozen batch collision: %+v %v", health, err)
 	}
 }
 

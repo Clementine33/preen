@@ -1,6 +1,7 @@
 package dirrename_test
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -17,7 +18,10 @@ import (
 
 func TestWorksetAcceptsNoAudioRenameAndPersistsReviewButNoExecution(t *testing.T) {
 	repo, task, member := fixture(t, "title")
-	svc := workset.NewService(repo, 1, 1, []workset.Task{task}, nil, nil)
+	svc := workset.NewService(repo, 1, 1, []workset.Task{task}, func(context.Context, string, string) error {
+		t.Error("rename entered member scan")
+		return nil
+	}, nil)
 	libs, err := repo.ListLibraries()
 	if err != nil {
 		t.Fatal(err)

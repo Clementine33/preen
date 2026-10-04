@@ -117,14 +117,15 @@ func (t *Task) EvaluateRevision(in workset.RevisionFacts) (workset.RevisionHealt
 		parent := filepath.ToSlash(filepath.Dir(filepath.FromSlash(r.RootPath)))
 		directory := directories[parent]
 		o := outcomes[r.RootIndex]
-		if readErrors[parent] != nil ||
-			fingerprint(
-				common.Template,
-				o,
-				works[r.RootPath],
-				directory,
-				in.Detail.Plan.RootPath,
-			) != r.InventoryFingerprint {
+		live := planName(common.Template, &workset.WorksetMember{
+			MemberID: o.MemberID, FolderPath: r.RootPath,
+		}, works[r.RootPath], directory, parent)
+		// Batch collisions are frozen globally; a per-root read cannot recreate
+		// that reason. Comparing proposals also supports older mtime fingerprints.
+		if o.ReasonCode == "TARGET_COLLISION" && live.ReasonCode == "" {
+			live.Action, live.ReasonCode = o.Action, o.ReasonCode
+		}
+		if readErrors[parent] != nil || live != o {
 			health.StaleRoots = append(health.StaleRoots, r.RootIndex)
 		}
 	}

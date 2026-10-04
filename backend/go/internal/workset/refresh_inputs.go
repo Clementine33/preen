@@ -5,17 +5,16 @@ import (
 )
 
 // FolderScan refreshes one folder subtree's stored inventory from disk. It is
-// the seam a session uses to plan and to execute against what is on disk now
-// rather than against whatever the last scan left behind (ADR 0001 §2).
+// the fallback seam for inventory-based tasks. Directory-only tasks replace
+// generation refresh and execution prechecks through their session capabilities.
 //
 // rootPath is the owning library's root: entries are keyed by it, so a scoped
 // scan must not rewrite that key with the folder it walked.
 type FolderScan func(ctx context.Context, folderPath, rootPath string) error
 
-// refreshRoots scans every participating folder before a session reads or
-// writes the filesystem. A scan failure is fatal to the session: planning from
-// unverified facts is exactly what this exists to prevent. onRoot runs between
-// folders so a session can observe its cooperative cancel flag.
+// refreshRoots is the serial inventory refresh fallback and conversion's
+// best-effort refresh after input drift. onRoot observes cooperative cancellation
+// between folders; tasks using directory-only inputs do not call this flow.
 func (s *serviceImpl) refreshRoots(
 	ctx context.Context,
 	folders []string,

@@ -18,6 +18,11 @@ func (s *Service) Run(ctx context.Context) error {
 				if err != nil && ctx.Err() == nil {
 					log.Printf("covers: %v", err)
 				}
+				refreshed, refreshErr := s.RefreshNext(ctx)
+				if refreshErr != nil && ctx.Err() == nil {
+					log.Printf("metadata inventory refresh: %v", refreshErr)
+				}
+				worked = worked || refreshed
 				if !worked || err != nil {
 					timer := time.NewTimer(250 * time.Millisecond)
 					select {
@@ -145,16 +150,19 @@ func (s *Service) skipExisting(ctx context.Context, d *Destination) (bool, error
 	if d.Refresh || d.Published != "" {
 		return false, nil
 	}
-	target, err := s.resolve(ctx, d.Target)
-	if err != nil {
-		return false, nil
-	}
-	image, err := s.deps.Files.Existing(target)
+	image, err := s.deps.Files.Existing(d.Target)
 	if err != nil || image == nil || image.NeedsRecovery {
 		return false, nil
 	}
 	d.Status = "skipped"
 	d.Published = image.Name
 	d.Digest = image.Digest
+	if s.deps.SyncInventory != nil {
+		if err := s.deps.SyncInventory(ctx, d.Target, Publication{
+			Name: image.Name, Digest: image.Digest, Skipped: true, File: &image.File,
+		}); err != nil {
+			d.Status, d.ErrorCode, d.ErrorMessage = "failed", "INVENTORY_REFRESH_FAILED", err.Error()
+		}
+	}
 	return true, s.deps.Store.SaveCoverDestination(ctx, *d)
 }

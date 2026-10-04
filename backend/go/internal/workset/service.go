@@ -10,8 +10,8 @@ type serviceImpl struct {
 	// planning or execution session can never be started against each other
 	// (ADR 0002 §2). Nil means no direct file management is wired.
 	enqueueGuard EnqueueGuard
-	// scanFolder refreshes a member folder's inventory before a session plans
-	// or writes. Nil keeps the stored inventory as the only input facts.
+	// scanFolder is the fallback inventory refresh. Tasks may replace it with
+	// generation and execution session capabilities. Nil disables the fallback.
 	scanFolder FolderScan
 	// encodeConcurrency bounds how many encode tasks one execution session runs
 	// at once, and with them how many components it keeps open. Zero means the
@@ -27,8 +27,8 @@ type EnqueueGuard func(fn func() error) error
 // NewService creates the workset usecase service. The registered tasks are the
 // wiring point for task kinds: creating a record materializes the requested
 // operation and its seed draft, and every operation-scoped call resolves its
-// task from this list. scanFolder is the disk → inventory seam every session
-// uses to refresh its member folders before planning or executing.
+// task from this list. scanFolder supplies the default disk → inventory refresh;
+// task-specific generation and execution capabilities may replace that flow.
 // generationConcurrency bounds the planning workers; encodeConcurrency bounds
 // one execution session's shared encode pool (0 = automatic). enqueueGuard is
 // the file-management admission seam for session starts.

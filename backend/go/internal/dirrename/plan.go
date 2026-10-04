@@ -3,6 +3,8 @@ package dirrename
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"io/fs"
 	"path/filepath"
 	"strings"
 
@@ -39,7 +41,7 @@ func (t *Task) PlanSession(ctx context.Context, in workset.PlanSessionInput) (*w
 	directories, readErrors := t.readParentDirectories(ctx, paths)
 	for _, folder := range paths {
 		parent := filepath.ToSlash(filepath.Dir(filepath.FromSlash(folder)))
-		if readErr := readErrors[parent]; readErr != nil {
+		if readErr := readErrors[parent]; readErr != nil && !errors.Is(readErr, fs.ErrNotExist) {
 			return nil, readErr
 		}
 	}
@@ -129,6 +131,7 @@ func fingerprint(template string, o Outcome, work Work, entries Directory, root 
 		}
 	}
 	source, exists := entries[o.SourceName]
+	source.Modified = 0 // Directory mtime describes child changes, not a rename input.
 	occupied := false
 	for name := range entries {
 		if librarypath.RootPathKey(

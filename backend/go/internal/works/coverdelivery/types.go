@@ -4,7 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
+
+	"github.com/onsei/organizer/backend/internal/inventory"
 )
 
 const MaxBytes = 16 << 20
@@ -35,7 +36,8 @@ type Downloader interface {
 	Download(context.Context, string, Validators) (Download, error)
 }
 
-// Target identifies a binding, never an arbitrary caller-supplied file path.
+// Target freezes one selected copy and its path. Identity is a legacy payload
+// field; delivery no longer compares physical directory identities or bindings.
 type Target struct {
 	CopyID      string `json:"copy_id"`
 	WorkCode    string `json:"rj"`
@@ -119,8 +121,6 @@ func Code(err error) string {
 func Encode(value any) string          { b, _ := json.Marshal(value); return string(b) }
 func unavailable(message string) error { return &Error{Code: "COVER_UNAVAILABLE", Message: message} }
 
-func changed() error { return Failure("INPUT_CHANGED", fmt.Errorf("copy identity or binding changed")) }
-
 // Existing is a validated on-disk main image.
 type Existing struct {
 	Name          string
@@ -128,15 +128,20 @@ type Existing struct {
 	Extension     string
 	Digest        string
 	NeedsRecovery bool
+	File          inventory.InventoryFile
 }
 type Publication struct {
 	Name    string
 	Digest  string
 	Skipped bool
+	File    *inventory.InventoryFile
+	Removed []string
 }
 type Files interface {
 	Existing(Target) (*Existing, error)
-	Publish(context.Context, Target, []byte, bool) (Publication, error)
+	Publish(context.Context, Target, []byte, string, bool) (Publication, error)
+	// CompletePublication releases the recovery journal after inventory sync.
+	CompletePublication(Target) error
 }
 
 // Staging retains validated download bytes across delivery attempts. Saved paths

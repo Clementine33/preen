@@ -61,18 +61,14 @@ func (s *Service) download(ctx context.Context, j *Job, targets []Destination) (
 	var local *Existing
 	if j.Refresh {
 		for _, d := range targets {
-			target, e := s.resolve(ctx, d.Target)
-			if e != nil {
-				continue
-			}
-			saved, e := s.deps.Store.StoredCover(ctx, target.CopyID)
+			saved, e := s.deps.Store.StoredCover(ctx, d.Target.CopyID)
 			if e != nil {
 				return Download{}, e
 			}
 			if saved == nil || saved.URL != j.URL {
 				continue
 			}
-			image, e := s.deps.Files.Existing(target)
+			image, e := s.deps.Files.Existing(d.Target)
 			if e == nil && image != nil && image.Digest == saved.Digest && image.Name == saved.Name {
 				local = image
 				v = Validators{ETag: saved.ETag, LastModified: saved.LastModified}

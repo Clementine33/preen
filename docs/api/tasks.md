@@ -34,9 +34,13 @@ are removed. The result must still identify exactly the bound Work. Names over
 Block reasons: `METADATA_MISSING`, `WORK_UNBOUND`, `SOURCE_MISSING`,
 `SOURCE_NOT_DIRECTORY`, `NAME_TOO_LONG`, `NAME_RESERVED`, `WORK_CODE_AMBIGUOUS`,
 `TARGET_EXISTS`, `TARGET_COLLISION` (multiple proposals), `CASE_ONLY_RENAME`
-(Windows roots). Fingerprints cover binding, used metadata, source directory
-state and relevant target occupancy. Sales, personal data, fetch timestamps and
-unused fields do not stale plans. Review always shows frozen names. Execution
+(Windows roots). Planning uses the selected work paths directly and reads each
+distinct parent once, without scanning classification directories or work
+subtrees. Freshness compares the live naming proposal with the frozen proposal:
+binding, template-used naming fields, source existence/name/type and target
+occupancy. Directory mtime, media changes, sales, personal data, fetch timestamps
+and unused fields do not stale plans. Existing plans use the same rules, ignoring
+their old mtime-based fingerprints. Review always shows frozen names. Execution
 returns `PLAN_NOT_EXECUTABLE` (409), with `RENAME_EXECUTION_NOT_IMPLEMENTED` in
 `details`, before an execution row is written.
 
@@ -58,15 +62,43 @@ Modes: `fill_missing`, `refresh_dynamic`, `refresh_all`; locales: `ja-jp`,
 fields and duplicate/unknown members are rejected. Dynamic refresh normalizes
 `download_cover` to false. Common saves follow the deployment-wide rules.
 
-Planning freezes selected directories, copy/work bindings, physical directory
-identities and settings without upstream requests or writes. Each participating
+Planning freezes selected directories, copy/work targets and settings without
+upstream requests or inventory scans. It checks each selected directory directly,
+without scanning its contents or the classification directories. Each participating
 member produces a frozen component with `member_id`, `target` (`copy_id`, `rj`,
 `library_root`, `rel_path`, `identity`), `action` (`refresh` or `skip`) and an
 optional `reason_code`. An unbound directory skips with `NO_WORK_BINDING`;
 a missing directory blocks with `SOURCE_MISSING`. Summary adds `work_count`
-(distinct RJ); `operation_count` counts bound participating copies. Binding or
-directory identity changes stale the plan; changing metadata or cover bytes does
-not. Execution folder scope applies before deduplication and cover enqueueing.
+(distinct RJ); `operation_count` counts bound participating copies. New plans
+write `identity:""`; the same lightweight rule applies to existing plans and
+their legacy identity fields are ignored. Freshness checks only the directory's
+existence, real-directory type and frozen basename, using one Lstat. Binding,
+physical identity, mtime, metadata and media/cover changes do not stale the plan.
+Same-name directory replacements are allowed; rebinding does not change the
+frozen RJ or cover target. Execution folder scope applies before deduplication
+and cover enqueueing. Unbound skips are not re-resolved during execution.
+
+StartExecution and the worker check the same actual execution scope; full runs
+check all units, selected runs check only selected units, and empty worklists
+access no directories. Global blocking, version, admission and one-session
+rules still apply. Missing/renamed/non-directory inputs yield `INPUT_CHANGED`
+(an admission `PLAN_NOT_EXECUTABLE` detail, or worker session failure). Permission
+and I/O failures retain diagnostics as `SCAN_FAILED`; cancellation takes
+precedence as `CANCELED`. No retries or scan fallback are performed. The batch
+does not revalidate directories/inventory after importing metadata.
+
+After the batch has stopped enqueueing covers and its execution is terminal,
+an independent background refresh waits for this execution's cover demands to
+be terminal (`succeeded`, `skipped`, `failed`, or `canceled`). It then reconciles
+only the actual executed folder scope, including frozen skips, using bounded
+parallel folder walks (`scan.workers`, at most 32), one staging writer and one
+selected-range merge. Unselected inventory and bindings are preserved. No covers
+or disabled cover downloading does not prevent this refresh; empty executions
+do not schedule it. It waits for file-operation admission, not unrelated shared
+downloads. Scan failures are logged and do not change metadata or cover results;
+there is no automatic scan retry. Pending completion refreshes are process-local
+and do not resume after backend restart. Explicit cover retries do not schedule
+another completion scan; they retain normal incremental inventory updates.
 
 Execution deduplicates upstream metadata by RJ and retains every selected copy
 as a cover target. Per-work source failures continue; database failures or
@@ -118,15 +150,27 @@ Two workers share temporary staged bytes, retaining them while targets remain.
 Restart requeues interrupted transfers, reuses complete stages and cleans
 unreferenced staging files; stopped demands remain stopped. Network transfers do
 not hold directory admission. Publication waits for file-operation admission,
-then verifies binding, directory identity and safe paths again, and never creates
-a replacement directory. A directory moved/removed/replaced fails only its target.
+then checks the frozen directory exists with its frozen name and retains safe
+path containment and symlink restrictions. It uses the frozen copy target without
+comparing its current binding or physical identity and never creates a missing
+directory. A moved/removed/non-directory path fails only its target; a same-name
+directory replacement is accepted. The cover GET route still verifies current
+copy ownership.
 
 `fill_missing` skips exactly one valid supported `cover.*`; damaged files can be
 replaced; multiple valid covers are `COVER_CONFLICT`. `refresh_all` publishes
 `cover.{actual ext}` before removing old top-level supported `cover` names, never
 other pictures. A durable publication journal completes extension cleanup on
-retry after interruption; failed publication keeps the old cover. Successful
-publication refreshes inventory and records its independent failure if necessary.
+retry after interruption. Normal publication checks write/Sync/Close, reuses the
+downloaded bytes' digest and cleans old extensions without rereading the new
+image. Recovery still confirms the journal digest before deleting old covers.
+Partial cleanup reports the known published file and actual deletions. Observed
+file facts and exact removed paths synchronize only those cover inventory rows,
+preserving audio facts, bindings and unrelated rows without a member scan.
+`INVENTORY_REFRESH_FAILED` retains `published` and does not roll back the file or
+change metadata execution's terminal status. The journal remains until inventory
+synchronization succeeds; retry can therefore remove stale inventory rows for
+old files already deleted in a previous attempt.
 No permanent central cover cache or scaled variants are created.
 
 ## Callable metadata refresh service

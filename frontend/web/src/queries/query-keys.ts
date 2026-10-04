@@ -67,6 +67,10 @@ export const queryKeys = {
     list: (libraryId: string | null) => ['worksets', 'list', libraryId ?? ''] as const,
     // A library's current record for one operation: at most one, addressed by
     // the pair rather than by a record id the UI would have to know first.
+    currentsPrefix: () => ['worksets', 'current'] as const,
+    currentPrefix: (libraryId: string) => ['worksets', 'current', libraryId] as const,
+    detailsPrefix: () => ['worksets', 'detail'] as const,
+    revisionsRecordPrefix: (worksetId: string) => ['worksets', 'revisions', worksetId] as const,
     current: (libraryId: string, operation: string) =>
       ['worksets', 'current', libraryId, operation] as const,
     detail: (worksetId: string) => ['worksets', 'detail', worksetId] as const,

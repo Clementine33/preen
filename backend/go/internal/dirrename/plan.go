@@ -61,7 +61,7 @@ func (t *Task) PlanSession(ctx context.Context, in workset.PlanSessionInput) (*w
 			continue
 		}
 		parent := filepath.ToSlash(filepath.Dir(filepath.FromSlash(m.FolderPath)))
-		o := planName(d.Common.Template, m, works[m.FolderPath], directories[parent], parent)
+		o := planName(d.Common, m, works[m.FolderPath], directories[parent], parent)
 		outcomes[m.MemberID] = o
 		if o.ReasonCode == "" {
 			targets[librarypath.RootPathKey(filepath.ToSlash(filepath.Join(parent, o.TargetName)))]++

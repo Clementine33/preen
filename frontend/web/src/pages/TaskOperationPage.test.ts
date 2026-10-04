@@ -119,12 +119,60 @@ async function mountPage(
 }
 
 describe('task operation page', () => {
-  it('reviews frozen rename proposals and offers no execution', async () => {
+  it('reviews frozen rename proposals and offers execution', async () => {
     const { wrapper, api } = await mountPage('/worksets/lib-1/rename')
 
     expect(api.getCurrentRecord).toHaveBeenCalledWith('lib-1', 'rename', expect.anything())
     expect(wrapper.get('[data-testid="task-plan-table"]').text()).toContain('[RJ01] Title')
     expect((wrapper.get('[data-testid="rename-template"]').element as HTMLInputElement).value).toBe('[{rj}] {title}')
+    expect(wrapper.find('[data-testid="execute"]').exists()).toBe(true)
+  })
+
+  it('saves all title filters and executes rename', async () => {
+    const { wrapper, api } = await mountPage('/worksets/lib-1/rename')
+    expect((wrapper.get('[data-testid="rename-strip-bracketed"]').element as HTMLInputElement).checked).toBe(false)
+    expect((wrapper.get('[data-testid="rename-strip-tilde"]').element as HTMLInputElement).checked).toBe(false)
+    expect((wrapper.get('[data-testid="rename-strip-book"]').element as HTMLInputElement).checked).toBe(false)
+    await wrapper.get('[data-testid="rename-strip-bracketed"]').setValue(true)
+    await wrapper.get('[data-testid="rename-strip-tilde"]').setValue(true)
+    await wrapper.get('[data-testid="rename-strip-book"]').setValue(true)
+    expect(wrapper.get('[data-testid="task-settings"]').text()).not.toContain('〜')
+    await wrapper.get('[data-testid="task-settings"]').trigger('submit')
+    await flushPromises()
+    expect(vi.mocked(api.saveOperationDraft).mock.calls[0][2]).toMatchObject({
+      common: { strip_bracketed_title: true, strip_tilde_title: true, strip_book_title: true },
+    })
+    await wrapper.get('[data-testid="execute"]').trigger('click')
+    await flushPromises()
+    expect(api.startExecution).toHaveBeenCalledWith('ws-1', 'rename', 'p-1', expect.objectContaining({ ifMatchVersion: 3 }))
+  })
+
+  it('points a blocked rename plan to exclusion and regeneration', async () => {
+    const { wrapper } = await mountPage('/worksets/lib-1/rename', {
+      getRevision: vi.fn(async () => ({
+        plan_id: 'p-1', counts: { blocked: 1 },
+        task: { kind: 'rename', schema_version: 1, payload: { components: COMPONENTS.rename } },
+      })) as never,
+    })
+    expect(wrapper.text()).toContain('排除阻塞项后重新生成')
+    expect(wrapper.find('[data-testid="execute"]').exists()).toBe(false)
+  })
+
+  it('shows recovered rename results while the session stays interrupted', async () => {
+    const { wrapper } = await mountPage('/worksets/lib-1/rename', {
+      getRevision: vi.fn(async () => ({
+        plan_id: 'p-1', task: { kind: 'rename', schema_version: 1, payload: { components: COMPONENTS.rename } },
+        execution: { execution_id: 'e-1' },
+      })) as never,
+      getExecution: vi.fn(async () => ({
+        execution_id: 'e-1', status: 'interrupted', completed_components: 1, total_components: 2,
+        components: [{ component_id: 'm-1', root_path: '/music/a', status: 'succeeded',
+          task_result: { source_path: '/music/a', target_path: '/music/title', renamed: true, recovered: true } }],
+      })) as never,
+    })
+    expect(wrapper.get('[data-testid="execution"]').text()).toContain('已中断')
+    expect(wrapper.get('[data-testid="rename-results"]').text()).toContain('已改名（启动恢复）')
+    expect(wrapper.get('[data-testid="rename-results"]').text()).toContain('/music/title')
     expect(wrapper.find('[data-testid="execute"]').exists()).toBe(false)
   })
 

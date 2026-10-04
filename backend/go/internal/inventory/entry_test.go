@@ -15,8 +15,8 @@ import (
 	"github.com/onsei/organizer/backend/internal/works"
 )
 
-// fakeScanStore answers the one question the scanning entry asks storage:
-// whether an execution is running against a root.
+// fakeScanStore reports full-scan execution admission; member refresh remains
+// allowed for these non-rename execution fixtures.
 type fakeScanStore struct {
 	executing bool
 	err       error
@@ -26,6 +26,10 @@ type fakeScanStore struct {
 func (f *fakeScanStore) HasActiveExecutionForRoot(rootPath string) (bool, error) {
 	f.asked = append(f.asked, rootPath)
 	return f.executing, f.err
+}
+
+func (f *fakeScanStore) HasActiveRenameExecutionForRoot(rootPath string) (bool, error) {
+	return false, nil
 }
 
 // newEntry wires the scanning entry over a real pipeline and a real store, the
@@ -166,7 +170,7 @@ func TestAdmissionChecksAreNotSharedAcrossScanKinds(t *testing.T) {
 		t.Fatalf("full scan admission = %v, want EXECUTION_IN_PROGRESS while an execution runs", err)
 	}
 
-	release, err := svc.AdmitMemberRefresh()
+	release, err := svc.AdmitMemberRefresh("/library")
 	if err != nil {
 		t.Fatalf("a member refresh must be admitted during an execution: %v", err)
 	}
@@ -203,11 +207,11 @@ func TestAdmissionRefusalPropagatesTheGateError(t *testing.T) {
 
 	// Two scans run beside each other: the gate counts them and excludes only
 	// file management and maintenance.
-	first, err := svc.AdmitMemberRefresh()
+	first, err := svc.AdmitMemberRefresh("/library")
 	if err != nil {
 		t.Fatalf("first refresh admission: %v", err)
 	}
-	second, err := svc.AdmitMemberRefresh()
+	second, err := svc.AdmitMemberRefresh("/library")
 	if err != nil {
 		t.Fatalf("a second scan runs beside the first: %v", err)
 	}
@@ -227,7 +231,7 @@ func TestAdmissionRefusalPropagatesTheGateError(t *testing.T) {
 	}
 	defer manual()
 
-	if _, err = svc.AdmitMemberRefresh(); !admission.IsBusy(err) {
+	if _, err = svc.AdmitMemberRefresh("/library"); !admission.IsBusy(err) {
 		t.Fatalf("a refresh while file management runs must be refused as busy, got %v", err)
 	}
 	if _, err = svc.AdmitLibraryScan("/music"); !admission.IsBusy(err) {

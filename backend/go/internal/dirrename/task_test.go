@@ -48,6 +48,8 @@ func fixture(t *testing.T, title string) (*sqlite.Repository, *dirrename.Task, *
 	return repo, dirrename.New(
 		repo,
 		filesystem.ReadRenameDirectory,
+		dirrename.ExecutionIO{ResolveDirectory: filesystem.ResolveMember, Rename: filesystem.RenameNoReplace,
+			Relocate: repo.RelocateDirectory, PendingCovers: repo.HasPendingRenameCovers},
 	), &workset.WorksetMember{
 		MemberID:   "member-1",
 		RelPath:    name,
@@ -88,7 +90,7 @@ func TestPlanSuggestsCleanNamesWithoutModifyingDirectories(t *testing.T) {
 		t.Fatal("planning created the target")
 	}
 	_, reasons, freezeErr := task.FreezeExecution(workset.RevisionFacts{})
-	if freezeErr != nil || len(reasons) != 1 || reasons[0] != "RENAME_EXECUTION_NOT_IMPLEMENTED" {
+	if freezeErr == nil || len(reasons) != 0 {
 		t.Fatalf("execution: %v, %v", reasons, freezeErr)
 	}
 }
@@ -150,7 +152,13 @@ func detail(snapshot *workset.PlanSnapshot) *workset.PlanDetail {
 	for _, u := range snapshot.Units {
 		d.Components = append(
 			d.Components,
-			workset.PlanComponentRecord{RootIndex: u.RootIndex, OutcomeJSON: string(u.Payload), Status: u.Status},
+			workset.PlanComponentRecord{
+				ComponentIndex: u.Index,
+				ComponentID:    u.ID,
+				RootIndex:      u.RootIndex,
+				OutcomeJSON:    string(u.Payload),
+				Status:         u.Status,
+			},
 		)
 	}
 	return d

@@ -3,22 +3,13 @@ package dirrename
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"io/fs"
 	"path/filepath"
+	"slices"
 
 	"github.com/onsei/organizer/backend/internal/workset"
 )
-
-func (*Task) FreezeExecution(workset.RevisionFacts) (workset.FrozenExecution, []string, error) {
-	return workset.FrozenExecution{}, []string{"RENAME_EXECUTION_NOT_IMPLEMENTED"}, nil
-}
-func (*Task) PrepareUnit(context.Context, workset.UnitRunInput) (workset.PreparedUnit, error) {
-	return nil, workset.NewError(
-		workset.ErrKindConflict,
-		"RENAME_EXECUTION_NOT_IMPLEMENTED",
-		"rename execution is not implemented",
-		nil,
-	)
-}
 
 func (*Task) RevisionMembers(in workset.RevisionFacts) ([]workset.RevisionMemberFacts, error) {
 	d, err := decodeDraft(in.DraftSnapshot)
@@ -96,7 +87,9 @@ func (t *Task) EvaluateRevision(in workset.RevisionFacts) (workset.RevisionHealt
 	}
 	paths := make([]string, 0, len(in.Detail.Roots))
 	for _, r := range in.Detail.Roots {
-		paths = append(paths, r.RootPath)
+		if in.InputRoots == nil || slices.Contains(in.InputRoots, r.RootPath) {
+			paths = append(paths, r.RootPath)
+		}
 	}
 	ctx := context.Background()
 	works, err := t.catalog.RenameWorks(ctx, in.Detail.Plan.RootPath, paths)
@@ -104,6 +97,11 @@ func (t *Task) EvaluateRevision(in workset.RevisionFacts) (workset.RevisionHealt
 		return health, err
 	}
 	directories, readErrors := t.readParentDirectories(ctx, paths)
+	for _, err := range readErrors {
+		if err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return health, err
+		}
+	}
 	outcomes := map[int]Outcome{}
 	for _, c := range in.Detail.Components {
 		var o Outcome
@@ -114,10 +112,13 @@ func (t *Task) EvaluateRevision(in workset.RevisionFacts) (workset.RevisionHealt
 		health.UnitsBlocked = health.UnitsBlocked || c.Status == "blocked"
 	}
 	for _, r := range in.Detail.Roots {
+		if !slices.Contains(paths, r.RootPath) {
+			continue
+		}
 		parent := filepath.ToSlash(filepath.Dir(filepath.FromSlash(r.RootPath)))
 		directory := directories[parent]
 		o := outcomes[r.RootIndex]
-		live := planName(common.Template, &workset.WorksetMember{
+		live := planName(common, &workset.WorksetMember{
 			MemberID: o.MemberID, FolderPath: r.RootPath,
 		}, works[r.RootPath], directory, parent)
 		// Batch collisions are frozen globally; a per-root read cannot recreate

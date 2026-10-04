@@ -88,6 +88,7 @@ func AsError(err error) (*Error, bool) {
 // tracks them.
 type Store interface {
 	HasActiveExecutionForRoot(rootPath string) (bool, error)
+	HasActiveRenameExecutionForRoot(rootPath string) (bool, error)
 }
 
 // RecordScanState records the outcome of a scan on the library row. The fact
@@ -105,11 +106,9 @@ type Service interface {
 	// running execution validates against.
 	AdmitLibraryScan(rootPath string) (func(), error)
 
-	// AdmitMemberRefresh takes the admission slot for a page refresh of one
-	// member directory. A refresh reads one subtree rather than rewriting the
-	// inventory, so it does not take the execution check its full-scan sibling
-	// takes.
-	AdmitMemberRefresh() (func(), error)
+	// AdmitMemberRefresh atomically excludes queued/running directory rename
+	// executions of this library while the member inventory is refreshed.
+	AdmitMemberRefresh(rootPath string) (func(), error)
 
 	// Scan validates the root, streams started/progress/completed events via
 	// emit, records the outcome on the library row, and returns the result. On
@@ -137,34 +136,41 @@ func NewService(pipeline *Pipeline, store Store, gate *admission.Gate, record Re
 	return &service{pipeline: pipeline, store: store, gate: gate, record: record}
 }
 
-// beginScan registers one scanning operation, or reports the slot as busy.
-func (s *service) beginScan() (func(), error) {
+// beginScan checks database admission and registers a scan in one gate section.
+func (s *service) beginScan(check func() error) (func(), error) {
 	if s.gate == nil {
+		if err := check(); err != nil {
+			return nil, err
+		}
 		return func() {}, nil
 	}
-	return s.gate.BeginScan()
+	return s.gate.BeginScanChecked(check)
 }
 
-// AdmitLibraryScan takes the slot for a full scan of one root.
+// AdmitLibraryScan excludes every execution of this library.
 func (s *service) AdmitLibraryScan(rootPath string) (func(), error) {
-	executing, err := s.store.HasActiveExecutionForRoot(rootPath)
+	return s.beginScan(func() error { return s.checkExecution(s.store.HasActiveExecutionForRoot, rootPath) })
+}
+
+// AdmitMemberRefresh excludes directory rename, leaving other tasks unchanged.
+func (s *service) AdmitMemberRefresh(rootPath string) (func(), error) {
+	return s.beginScan(func() error { return s.checkExecution(s.store.HasActiveRenameExecutionForRoot, rootPath) })
+}
+
+func (s *service) checkExecution(check func(string) (bool, error), root string) error {
+	active, err := check(root)
 	if err != nil {
-		return nil, NewError(ErrKindInternal, "INTERNAL", "failed to check active executions", err)
+		return NewError(ErrKindInternal, "INTERNAL", "failed to check active executions", err)
 	}
-	if executing {
-		return nil, NewError(
+	if active {
+		return NewError(
 			ErrKindConflict,
 			"EXECUTION_IN_PROGRESS",
 			"cancel or wait for the active execution before scanning",
 			nil,
 		)
 	}
-	return s.beginScan()
-}
-
-// AdmitMemberRefresh takes the slot for one member refresh.
-func (s *service) AdmitMemberRefresh() (func(), error) {
-	return s.beginScan()
+	return nil
 }
 
 // Scan validates the root, runs the pipeline and records the outcome on the

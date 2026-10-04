@@ -31,6 +31,9 @@ const LOCALES = [
 ] as const
 
 const template = ref('')
+const stripBracketedTitle = ref(false)
+const stripTildeTitle = ref(false)
+const stripBookTitle = ref(false)
 const mode = ref<MetadataDraftDocument['common']['mode']>('fill_missing')
 const locale = ref<MetadataDraftDocument['common']['locale']>('ja-jp')
 const downloadCover = ref(true)
@@ -40,8 +43,12 @@ watch(
   () => props.common,
   (common) => {
     if (!common) return
-    if ('template' in common) template.value = common.template
-    else {
+    if ('template' in common) {
+      template.value = common.template
+      stripBracketedTitle.value = common.strip_bracketed_title ?? false
+      stripTildeTitle.value = common.strip_tilde_title ?? false
+      stripBookTitle.value = common.strip_book_title ?? false
+    } else {
       mode.value = common.mode
       locale.value = common.locale
       downloadCover.value = common.download_cover
@@ -57,7 +64,12 @@ function save() {
   emit(
     'save',
     props.operation === 'rename'
-      ? { template: template.value }
+      ? {
+          template: template.value,
+          strip_bracketed_title: stripBracketedTitle.value,
+          strip_tilde_title: stripTildeTitle.value,
+          strip_book_title: stripBookTitle.value,
+        }
       : { mode: mode.value, locale: locale.value, download_cover: !coverDisabled.value && downloadCover.value },
   )
 }
@@ -77,6 +89,20 @@ function save() {
       <p class="text-[10px] text-[var(--text-muted)]">
         必须且只能包含一个 {rj}。可用占位符：<span class="font-mono">{{ PLACEHOLDERS.join(' ') }}</span>
       </p>
+      <div class="flex flex-wrap gap-3 text-xs">
+        <label class="flex items-center gap-1">
+          <input v-model="stripBracketedTitle" type="checkbox" :disabled="disabled" data-testid="rename-strip-bracketed" />
+          移除标题中的【…】
+        </label>
+        <label class="flex items-center gap-1">
+          <input v-model="stripTildeTitle" type="checkbox" :disabled="disabled" data-testid="rename-strip-tilde" />
+          移除标题中的 ~…~、～…～
+        </label>
+        <label class="flex items-center gap-1">
+          <input v-model="stripBookTitle" type="checkbox" :disabled="disabled" data-testid="rename-strip-book" />
+          移除标题中的《…》
+        </label>
+      </div>
     </template>
     <template v-else>
       <div class="flex flex-wrap items-center gap-3 text-xs">

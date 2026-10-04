@@ -378,7 +378,7 @@ type fakeScanService struct {
 
 func (f *fakeScanService) AdmitLibraryScan(string) (func(), error) { return f.admit() }
 
-func (f *fakeScanService) AdmitMemberRefresh() (func(), error) { return f.admit() }
+func (f *fakeScanService) AdmitMemberRefresh(string) (func(), error) { return f.admit() }
 
 func (f *fakeScanService) admit() (func(), error) {
 	if f.gate == nil {

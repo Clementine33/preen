@@ -16,7 +16,7 @@ import (
 	"github.com/onsei/organizer/backend/internal/workset"
 )
 
-func TestWorksetAcceptsNoAudioRenameAndPersistsReviewButNoExecution(t *testing.T) {
+func TestWorksetAcceptsNoAudioRenameAndExecutesFrozenProposal(t *testing.T) {
 	repo, task, member := fixture(t, "title")
 	svc := workset.NewService(repo, 1, 1, []workset.Task{task}, func(context.Context, string, string) error {
 		t.Error("rename entered member scan")
@@ -67,20 +67,25 @@ func TestWorksetAcceptsNoAudioRenameAndPersistsReviewButNoExecution(t *testing.T
 	if _, reviewErr := svc.GetRevision(t.Context(), id, "rename", finished.RevisionID); reviewErr != nil {
 		t.Fatal(reviewErr)
 	}
-	verifyHTTPReviewAndRefusal(t, svc, id, finished.RevisionID)
+	verifyHTTPReviewAndExecution(t, svc, id, finished.RevisionID)
 	var executions int
 	if err := repo.DB().
 		QueryRow("SELECT count(*) FROM plan_executions").
 		Scan(&executions); err != nil ||
-		executions != 0 {
+		executions != 1 {
 		t.Fatalf("execution records: %d, %v", executions, err)
 	}
-	if _, err := os.Stat(member.FolderPath); err != nil {
-		t.Fatal("source modified", err)
+	deadline = time.Now().Add(10 * time.Second)
+	for time.Now().Before(deadline) {
+		if _, err := os.Stat(member.FolderPath); os.IsNotExist(err) {
+			return
+		}
+		time.Sleep(5 * time.Millisecond)
 	}
+	t.Fatal("rename did not move source")
 }
 
-func verifyHTTPReviewAndRefusal(t *testing.T, svc workset.Service, id, revision string) {
+func verifyHTTPReviewAndExecution(t *testing.T, svc workset.Service, id, revision string) {
 	t.Helper()
 	handler := httpapi.NewServer(httpapi.Dependencies{Token: "test-token", WorksetService: svc})
 	reviewRequest := httptest.NewRequest(
@@ -115,34 +120,13 @@ func verifyHTTPReviewAndRefusal(t *testing.T, svc workset.Service, id, revision 
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = svc.StartExecution(
-		t.Context(),
-		id,
-		"rename",
-		revision,
-		workset.StartExecutionRequest{IfMatchVersion: op.Version, IdempotencyKey: "execute"},
-	)
-	werr, ok := workset.AsError(err)
-	if !ok || werr.Code != "PLAN_NOT_EXECUTABLE" || len(werr.Details) != 1 ||
-		werr.Details[0] != "RENAME_EXECUTION_NOT_IMPLEMENTED" {
-		t.Fatalf("execution guard: %v", err)
-	}
 	executionRequest := httptest.NewRequest(http.MethodPost, reviewRequest.URL.Path+"/executions", nil)
 	executionRequest.Header.Set("Authorization", "Bearer test-token")
 	executionRequest.Header.Set("If-Match", strconv.Itoa(op.Version))
 	executionRequest.Header.Set("Idempotency-Key", "http-execute")
 	executionResponse := httptest.NewRecorder()
 	handler.ServeHTTP(executionResponse, executionRequest)
-	var failure struct {
-		Code    string   `json:"code"`
-		Details []string `json:"details"`
-	}
-	if decodeErr := json.Unmarshal(executionResponse.Body.Bytes(), &failure); decodeErr != nil {
-		t.Fatal(decodeErr)
-	}
-	if executionResponse.Code != http.StatusConflict || failure.Code != "PLAN_NOT_EXECUTABLE" ||
-		len(failure.Details) != 1 ||
-		failure.Details[0] != "RENAME_EXECUTION_NOT_IMPLEMENTED" {
+	if executionResponse.Code != http.StatusAccepted {
 		t.Fatalf("execute HTTP: %d, %s", executionResponse.Code, executionResponse.Body.String())
 	}
 }

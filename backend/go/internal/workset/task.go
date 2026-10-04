@@ -292,3 +292,9 @@ type UnitReview struct {
 	Payload    json.RawMessage
 	Operations int
 }
+
+// ExclusiveExecutionAdmission lets a task isolate its directory moves from
+// library generation and in-process scans. Other tasks keep existing admission.
+type ExclusiveExecutionAdmission interface {
+	RequiresExclusiveExecution() bool
+}

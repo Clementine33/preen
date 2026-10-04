@@ -11,9 +11,12 @@ import (
 	"github.com/onsei/organizer/backend/internal/workset"
 )
 
-// Common holds the single naming template shared by all members.
+// Common holds the naming template and title filters shared by all members.
 type Common struct {
-	Template string `json:"template"`
+	Template            string `json:"template"`
+	StripBracketedTitle bool   `json:"strip_bracketed_title,omitempty"`
+	StripTildeTitle     bool   `json:"strip_tilde_title,omitempty"`
+	StripBookTitle      bool   `json:"strip_book_title,omitempty"`
 }
 
 // Member records only an exclusion, never an override.
@@ -77,6 +80,7 @@ func (*Task) ApplyCommonSettings(raw []byte, common json.RawMessage) ([]byte, st
 	if err != nil {
 		return nil, "", err
 	}
+	d.Common = Common{} // Common settings replace the group; omitted switches are off.
 	dec := json.NewDecoder(bytes.NewReader(common))
 	dec.DisallowUnknownFields()
 	if err = dec.Decode(&d.Common); err != nil {

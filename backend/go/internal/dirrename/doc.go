@@ -1,6 +1,6 @@
-// Package dirrename owns directory naming drafts, template validation, conflict
-// detection and revision facts. Its workset Task plans names without writing
-// directories; catalog and directory occupancy arrive through read-only ports.
-// Planning reads only selected work roots' parents, never member inventories.
-// The stored and HTTP operation kind remains "rename" regardless of package name.
+// Package dirrename owns naming drafts, title filters, conflict detection and
+// frozen directory rename execution. Planning reads selected roots' parents,
+// never member inventories. Execution uses no-replace moves and atomic path
+// relocation; startup repairs the first missing result without resuming a run.
+// The stored and HTTP operation kind remains "rename".
 package dirrename

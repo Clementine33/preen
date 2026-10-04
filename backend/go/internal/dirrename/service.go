@@ -27,18 +27,36 @@ type Entry struct {
 // Directory is a read-only view of immediate parent entries.
 type Directory map[string]Entry
 
-// Task plans work directory basenames without writing to disk.
+// ExecutionIO supplies directory moves and atomic path-state relocation.
+type ExecutionIO struct {
+	ResolveDirectory func(root, relative string) (string, error)
+	Rename           func(source, target string) error
+	Relocate         func(context.Context, string, string, string) error
+	PendingCovers    func(context.Context, string, []string) (bool, error)
+}
+
+// Task plans and executes frozen work-directory basename changes.
 type Task struct {
 	catalog       Catalog
 	readDirectory func(context.Context, string) (Directory, error)
+	io            ExecutionIO
 }
 
-// New builds a rename task from its read-only dependencies.
-func New(catalog Catalog, readDirectory func(context.Context, string) (Directory, error)) *Task {
-	return &Task{catalog: catalog, readDirectory: readDirectory}
+// New wires naming reads and optional move, path-relocation and cover-admission dependencies.
+func New(
+	catalog Catalog,
+	readDirectory func(context.Context, string) (Directory, error),
+	execution ...ExecutionIO,
+) *Task {
+	t := &Task{catalog: catalog, readDirectory: readDirectory}
+	if len(execution) > 0 {
+		t.io = execution[0]
+	}
+	return t
 }
 
-func (*Task) Kind() string        { return "rename" }
-func (*Task) RequiresAudio() bool { return false }
+func (*Task) Kind() string                     { return "rename" }
+func (*Task) RequiresAudio() bool              { return false }
+func (*Task) RequiresExclusiveExecution() bool { return true }
 
 var _ workset.Task = (*Task)(nil)

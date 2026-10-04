@@ -60,6 +60,25 @@ const draftDocument = {
 }
 
 describe('workset mutation cache synchronization', () => {
+  it('rename refreshes sibling records from the current-record cache without touching another library', async () => {
+    const client = createTestQueryClient()
+    const sibling = { ...workset, workset_id: 'ws-sibling' }
+    client.setQueryData(queryKeys.worksets.current('lib-a', 'rename'), { workset })
+    client.setQueryData(queryKeys.worksets.current('lib-a', 'metadata_refresh'), { workset: sibling })
+    client.setQueryData(queryKeys.worksets.operation('ws-sibling', 'metadata_refresh'), { marker: 'old path' })
+    client.setQueryData(queryKeys.worksets.revision('ws-sibling', 'metadata_refresh', 'plan-old'), { marker: 'old freshness' })
+    client.setQueryData(queryKeys.worksets.current('lib-other', 'conversion'), { marker: 'other library' })
+    client.setQueryData(queryKeys.worksets.operation('ws-other', 'conversion'), { marker: 'other library' })
+    client.setQueryData(queryKeys.works.content('RJ01'), { marker: 'old copy path' })
+    await syncAfterExecutionTerminal(client, 'ws-1', 'rename')
+    expect(client.getQueryData(queryKeys.worksets.operation('ws-sibling', 'metadata_refresh'))).toBeUndefined()
+    expect(client.getQueryData(queryKeys.worksets.revision('ws-sibling', 'metadata_refresh', 'plan-old'))).toBeUndefined()
+    expect(client.getQueryData(queryKeys.worksets.current('lib-a', 'metadata_refresh'))).toBeUndefined()
+    expect(client.getQueryData(queryKeys.works.content('RJ01'))).toBeUndefined()
+    expect(client.getQueryData(queryKeys.worksets.current('lib-other', 'conversion'))).toEqual({ marker: 'other library' })
+    expect(client.getQueryData(queryKeys.worksets.operation('ws-other', 'conversion'))).toEqual({ marker: 'other library' })
+  })
+
   it('creating the current record seeds the pair entry and drops what it replaced', async () => {
     const client = createTestQueryClient()
     client.setQueryData(queryKeys.worksets.detail('ws-old'), { marker: 'replaced' })

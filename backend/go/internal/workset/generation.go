@@ -297,7 +297,15 @@ func (s *serviceImpl) persistGeneration(
 		TotalRoots:           len(s.participatingMembers(input)),
 		CreatedAt:            now,
 	}
-	if err := s.enqueue(func() error { return s.repo.CreateGeneration(gen) }); err != nil {
+	if err := s.enqueue(func() error {
+		if err := s.checkGenerationAdmission(input.request.LibraryRoot); err != nil {
+			return err
+		}
+		return s.repo.CreateGeneration(gen)
+	}); err != nil {
+		if _, ok := AsError(err); ok {
+			return nil, err
+		}
 		if errors.Is(err, ErrGenerationIdemConflict) {
 			existing, loadErr := s.repo.GetGenerationByOperationKey(op.WorksetID, op.OperationType, key)
 			if loadErr == nil && existing != nil {

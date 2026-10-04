@@ -18,6 +18,8 @@ import (
 // setting across every editable record — because each of them is one
 // transaction whose invariants the caller cannot re-establish from outside.
 type Store interface {
+	HasActiveGenerationForRoot(string) (bool, error)
+	HasActiveExecutionForRootKinds(string, []string) (bool, error)
 	// CancelExecution is one operation of the lifecycle.
 	CancelExecution(executionID string) error
 	// CancelGeneration is one operation of the lifecycle.

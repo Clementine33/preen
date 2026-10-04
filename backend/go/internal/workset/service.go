@@ -9,7 +9,8 @@ type serviceImpl struct {
 	// file-management admission control: a direct file operation and a queued
 	// planning or execution session can never be started against each other
 	// (ADR 0002 §2). Nil means no direct file management is wired.
-	enqueueGuard EnqueueGuard
+	enqueueGuard          EnqueueGuard
+	exclusiveEnqueueGuard EnqueueGuard
 	// scanFolder is the fallback inventory refresh. Tasks may replace it with
 	// generation and execution session capabilities. Nil disables the fallback.
 	scanFolder FolderScan

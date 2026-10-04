@@ -29,7 +29,7 @@ collection time, not the source's report, is what makes it collected.
 _Avoid_: A second way to create a work.
 
 **Copy (Work Binding)**:
-One scanned Work Root bound to one work. The binding is maintained by scanning
+One scanned Work Root bound to one work. The binding is maintained by scanning and directory rename
 and identified by the library and the relative path, so re-scanning keeps it
 and a directory that stops naming a work is simply unbound. It carries no
 foreign key to the inventory: a rescan deleting rows must never delete a work
@@ -127,7 +127,7 @@ The process-wide rule that direct file management and the managed task paths (sc
 _Avoid_: Frontend-only disabling; a queue of waiting file operations.
 
 **Workset Operation**:
-An independent business activity on a record's members, owning its draft, participation scope, planning sessions and its current plan. Conversion, metadata refresh and directory rename planning are the available activities; a record is created for one of them.
+An independent business activity on a record's members, owning its draft, participation scope, planning sessions and its current plan. Conversion, metadata refresh and directory rename are the available activities; a record is created for one of them.
 _Avoid_: Workflow step; filesystem Operation when referring to this activity.
 
 **Operation Draft**:
@@ -158,7 +158,7 @@ Reusable literal classification tags, comprising installation defaults and user-
 ### Planning and review
 
 **Task**:
-One kind of work a Workset Operation can carry: it owns that work's draft document shape, its planning pass, its input facts and its execution. The generic workset module names the kind and payload schema version but never reads a task's payload; conversion, metadata refresh and directory rename planning supply their own task content.
+One kind of work a Workset Operation can carry: it owns that work's draft document shape, its planning pass, its input facts and its execution. The generic workset module names the kind and payload schema version but never reads a task's payload; conversion, metadata refresh and directory rename supply their own task content.
 _Avoid_: Workflow, job, plugin.
 
 **Directory Rename Proposal**:
@@ -188,7 +188,7 @@ What a plan was made from: per Planning Root, the identity, inventory fingerprin
 _Avoid_: Snapshot token, ETag.
 
 **Execution Session**:
-The asynchronous, durable run of one Plan Revision, across the whole revision or the members selected for this run. It is cooperatively cancelable, retains each committed result across interruption and does not resume automatically. Audio execution commits its frozen file decisions; metadata execution refreshes each distinct Work and records any cover demands for the selected Copies.
+The asynchronous, durable run of one Plan Revision, across the whole revision or the members selected for this run. It is cooperatively cancelable, retains each committed result across interruption and does not resume automatically. Audio execution commits its frozen file decisions; metadata execution refreshes each distinct Work and records any cover demands for the selected Copies. Directory rename execution applies frozen basenames while retaining the Copies and recorded media outcomes.
 _Avoid_: Treating a cover delivery's later failure as a change to the execution's final result.
 
 **Metadata Refresh**:

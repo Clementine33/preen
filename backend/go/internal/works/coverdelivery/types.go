@@ -1,4 +1,3 @@
-// Package covers owns main-cover delivery to selected physical copies.
 package coverdelivery
 
 import (
@@ -138,6 +137,15 @@ type Publication struct {
 type Files interface {
 	Existing(Target) (*Existing, error)
 	Publish(context.Context, Target, []byte, bool) (Publication, error)
+}
+
+// Staging retains validated download bytes across delivery attempts. Saved paths
+// are opaque to the workflow; the adapter checks them against the job's location.
+type Staging interface {
+	Read(jobID, savedPath string) ([]byte, error)
+	Write(jobID string, data []byte) (string, error)
+	Remove(jobID, savedPath string) error
+	Cleanup(activeJobs map[string]bool) error
 }
 
 type Stored struct {

@@ -23,6 +23,7 @@ type Task struct {
 	buildEncoder execute.EncoderFactory
 	probeBitrate ProbeBitrate
 	recoverFile  execute.RecoverFile
+	withinRoot   execute.ResolvedWithinRoot
 }
 
 // New creates the conversion task: its input facts come from the injected
@@ -30,10 +31,11 @@ type Task struct {
 // it prepares with from the injected factory — built when a unit is prepared,
 // so the tool paths in force are the ones configured at that moment. probe
 // measures the bitrates a plan needs that the inventory has not recorded.
-// recoverFile protects removed and replaced media through the filesystem adapter.
+// recoverFile protects removed and replaced media; withinRoot checks resolved
+// containment through the execute consumer's filesystem operation.
 func New(
 	inv Inventory, settings Settings, buildEncoder execute.EncoderFactory, probe ProbeBitrate,
-	recoverFile execute.RecoverFile,
+	recoverFile execute.RecoverFile, withinRoot execute.ResolvedWithinRoot,
 ) *Task {
 	return &Task{
 		inventory:    inv,
@@ -41,6 +43,7 @@ func New(
 		buildEncoder: buildEncoder,
 		probeBitrate: probe,
 		recoverFile:  recoverFile,
+		withinRoot:   withinRoot,
 	}
 }
 

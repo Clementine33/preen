@@ -120,7 +120,7 @@ func deliveryFixture(
 			Store:      repo,
 			Downloader: dl,
 			Files:      filesystem.CoverFiles{},
-			StageDir:   stage,
+			Staging:    coverStaging(t, stage),
 			Acquire:    gate.BeginManual,
 		},
 	)
@@ -138,7 +138,7 @@ func TestBusyDeliveryResumesItsStageAfterRestart(t *testing.T) {
 			Store:      repo,
 			Downloader: dl,
 			Files:      filesystem.CoverFiles{},
-			StageDir:   stage,
+			Staging:    coverStaging(t, stage),
 			Acquire: func() (func(), error) {
 				if busy {
 					return nil, &admission.BusyError{Reason: "test admission"}
@@ -186,7 +186,7 @@ func TestBusyDeliveryResumesItsStageAfterRestart(t *testing.T) {
 			Store:      reopened,
 			Downloader: dl,
 			Files:      filesystem.CoverFiles{},
-			StageDir:   stage,
+			Staging:    coverStaging(t, stage),
 			Acquire:    admission.NewGate(nil).BeginManual,
 		},
 	)
@@ -349,7 +349,7 @@ func TestInventoryFailureKeepsPublicationAndLocalRead(t *testing.T) {
 			Store:      repo,
 			Downloader: dl,
 			Files:      filesystem.CoverFiles{},
-			StageDir:   stage,
+			Staging:    coverStaging(t, stage),
 			Acquire:    admission.NewGate(nil).BeginManual,
 			Refresh:    func(context.Context, string, string) error { return fmt.Errorf("inventory unavailable") },
 		},
@@ -469,7 +469,7 @@ func TestKnownMissingMainUsesBackupWithoutRepeatingMetadata(t *testing.T) {
 			Downloader: dl,
 			Source:     fetchedSource{t},
 			Files:      filesystem.CoverFiles{},
-			StageDir:   stage,
+			Staging:    coverStaging(t, stage),
 			Acquire:    admission.NewGate(nil).BeginManual,
 		},
 	)
@@ -486,4 +486,13 @@ func TestKnownMissingMainUsesBackupWithoutRepeatingMetadata(t *testing.T) {
 	if err != nil || report.Counts["succeeded"] != 2 || dl.calls != 1 {
 		t.Fatalf("main fallback: %+v %v", report, err)
 	}
+}
+
+func coverStaging(t *testing.T, dir string) *filesystem.CoverStaging {
+	t.Helper()
+	stage, err := filesystem.NewCoverStaging(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return stage
 }

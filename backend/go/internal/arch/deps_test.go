@@ -1,219 +1,129 @@
 package arch_test
 
 import (
+	"bytes"
+	"encoding/json"
+	"errors"
+	"io"
 	"os/exec"
 	"strings"
 	"testing"
 )
 
-// The backend's dependency boundaries, asserted against production imports.
-//
-// A rule is checked with go list -deps, which lists a package's transitive
-// closure and — without -test — only its production edges: a package's own
-// tests may import the real adapter they need to be honest, while the package
-// itself may not. The exception is a rule about a package's own files, where
-// only its direct imports carry the meaning.
-type rule struct {
-	// name is what the rule is, in the words a reviewer would use.
-	name string
-	// pkg is the package the rule constrains.
-	pkg string
-	// banned are import paths that must not appear among the package's edges.
-	banned []string
-	// direct judges the package's own import lines instead of its closure.
-	direct bool
-	// why explains what the rule buys, for the failure message.
-	why string
-}
-
 const module = "github.com/onsei/organizer/backend/internal"
 
-var rules = []rule{
-	{
-		name:   "business packages use ports",
-		pkg:    module + "/works/coverdelivery",
-		banned: []string{module + "/adapters", module + "/app"},
-		why:    "cover delivery owns durable coordination, not its adapters",
-	},
-	{
-		name:   "business packages use ports",
-		pkg:    module + "/works/refresh",
-		banned: []string{module + "/adapters", module + "/app"},
-		why:    "metadata task connects business entries without transport or storage knowledge",
-	},
-	{
-		name:   "business packages use read-only ports",
-		pkg:    module + "/dirrename",
-		banned: []string{module + "/adapters", module + "/app"},
-		why:    "rename owns naming rules, not storage or disk access",
-	},
-	{
-		name:   "business packages use ports",
-		pkg:    module + "/works/refresh",
-		banned: []string{module + "/adapters", module + "/app"},
-		why:    "metadata orchestrates imports, not transport or storage",
-	},
-	{
-		name:   "business packages reach storage and tools through ports",
-		pkg:    module + "/library",
-		banned: []string{module + "/adapters"},
-		why:    "a business package that names an adapter cannot be tested or reused without it",
-	},
-	{
-		name:   "business packages reach storage and tools through ports",
-		pkg:    module + "/inventory",
-		banned: []string{module + "/adapters"},
-		why:    "the scan pipeline is injected with its walker and its staging store",
-	},
-	{
-		name:   "business packages reach storage and tools through ports",
-		pkg:    module + "/workset",
-		banned: []string{module + "/adapters"},
-		why:    "the record types are the workset's own; Store is what it asks for",
-	},
-	{
-		name:   "business packages reach storage and tools through ports",
-		pkg:    module + "/conversion",
-		banned: []string{module + "/adapters"},
-		why:    "the task reads the inventory and the configuration through its own ports",
-	},
-	{
-		name:   "business packages reach storage and tools through ports",
-		pkg:    module + "/conversion/execute",
-		banned: []string{module + "/adapters"},
-		why:    "the encoder is a port: the execution rules never name ffmpeg",
-	},
-	{
-		name:   "business packages reach storage and tools through ports",
-		pkg:    module + "/works",
-		banned: []string{module + "/adapters"},
-		why:    "the catalog's rules are pure functions; Store is what they ask for",
-	},
-	{
-		name:   "business packages reach storage and tools through ports",
-		pkg:    module + "/thumbnail",
-		banned: []string{module + "/adapters"},
-		why:    "the scaling engine is a port: the request path never names a decoder",
-	},
-	{
-		name:   "business packages reach storage and tools through ports",
-		pkg:    module + "/fileops",
-		banned: []string{module + "/adapters"},
-		why:    "direct file management takes its inventory refresh through a seam",
-	},
-	{
-		name:   "the transport does not talk to the database",
-		pkg:    module + "/adapters/httpapi",
-		banned: []string{module + "/adapters/sqlite"},
-		why:    "every route reaches a business entry; only that entry knows the schema",
-	},
-	{
-		name: "the generic side does not know the task",
-		pkg:  module + "/workset",
-		banned: []string{
-			module + "/conversion",
-			module + "/dirrename",
-			module + "/works/refresh",
-			module + "/works/coverdelivery",
-			module + "/works/refresh",
-		},
-		why: "the conversion task implements the workset's seam, never the other way round",
-	},
-	{
-		name:   "business packages do not know the process",
-		pkg:    module + "/library",
-		banned: []string{module + "/app"},
-		why:    "assembly depends on the modules, never the reverse",
-	},
-	{
-		name:   "business packages do not know the process",
-		pkg:    module + "/inventory",
-		banned: []string{module + "/app"},
-		why:    "a module that could start the process can no longer be driven by a caller",
-	},
-	{
-		name:   "business packages do not know the process",
-		pkg:    module + "/workset",
-		banned: []string{module + "/app"},
-		why:    "the session layer is handed its seams by the assembly root",
-	},
-	{
-		name:   "business packages do not know the process",
-		pkg:    module + "/conversion",
-		banned: []string{module + "/app"},
-		why:    "the task is constructed by the assembly root and knows nothing of it",
-	},
-	{
-		name:   "business packages do not know the process",
-		pkg:    module + "/works",
-		banned: []string{module + "/app"},
-		why:    "the catalog is driven by its callers, not by the process",
-	},
-	{
-		name:   "business packages do not know the process",
-		pkg:    module + "/thumbnail",
-		banned: []string{module + "/app"},
-		why:    "the thumbnail cache is handed its engine and directory by the assembly root",
-	},
-	{
-		name:   "business packages do not know the process",
-		pkg:    module + "/fileops",
-		banned: []string{module + "/app"},
-		why:    "file management is driven by its callers, not by the process",
-	},
-	{
-		// The process itself is judged on the package's own imports: `os` is a
-		// transitive dependency of almost everything (fmt reaches it), so only
-		// a package's own files say whether it touches the process.
-		name:   "the planning rules stay pure",
-		pkg:    module + "/conversion/reconcile",
-		banned: []string{"os", "os/exec", "database/sql", "net/http"},
-		direct: true,
-		why:    "reconciliation decides what should be on disk; it may not touch it",
-	},
-	{
-		// The rest have no innocent transitive path in: reaching one from here
-		// means the planning rules grew a dependency that does I/O.
-		name:   "the planning rules stay pure",
-		pkg:    module + "/conversion/reconcile",
-		banned: []string{"os/exec", "database/sql", "net/http"},
-		why:    "and not through a dependency either, since none of these arrives on its own",
-	},
+// goPackage describes production edges only: tests may use real adapters.
+type goPackage struct {
+	ImportPath string
+	Imports    []string
+	Deps       []string
 }
 
-// TestDependenciesFollowTheLayeringRules walks the table. Every rule is checked
-// against the production dependency graph, so a rule is violated exactly when
-// the shipped code violates it.
+type rule struct {
+	name   string
+	pkg    string
+	banned []string
+	direct bool
+	why    string
+}
+
+// Pure cores opt in by name; other business packages may coordinate I/O through
+// ports. os is judged directly because innocent stdlib code such as fmt uses it.
+var pureCores = []string{"/conversion/reconcile", "/librarypath"}
+
 func TestDependenciesFollowTheLayeringRules(t *testing.T) {
+	packages := productionPackages(t)
+	rules := architectureRules(packages)
 	for _, tc := range rules {
-		t.Run(tc.pkg+"/"+strings.Join(tc.banned, ","), func(t *testing.T) {
-			edges := deps(t, tc.pkg, tc.direct)
+		t.Run(tc.pkg+"/"+tc.name, func(t *testing.T) {
+			if tc.why == "" {
+				t.Fatal("an architecture rule must explain its purpose")
+			}
+			pkg, ok := packages[tc.pkg]
+			if !ok {
+				t.Fatalf("architecture rule references missing package %s", tc.pkg)
+			}
+			edges := pkg.Deps
+			if tc.direct {
+				edges = pkg.Imports
+			}
 			for _, banned := range tc.banned {
 				if hit := match(edges, banned); hit != "" {
-					t.Fatalf("%s depends on %s (%s): %s\n%s", tc.pkg, banned, tc.why, hit, tc.name)
+					t.Fatalf("%s: %s imports %s: %s", tc.name, tc.pkg, hit, tc.why)
 				}
 			}
 		})
 	}
 }
 
-// deps lists what a package depends on: its transitive closure, or — for a rule
-// about the package's own files — its direct imports.
-func deps(t *testing.T, pkg string, direct bool) []string {
-	t.Helper()
-	args := []string{"list", "-deps", pkg}
-	if direct {
-		args = []string{"list", "-f", `{{join .Imports "\n"}}`, pkg}
+func architectureRules(packages map[string]goPackage) []rule {
+	var rules []rule
+	// Default inclusion prevents new business packages escaping the boundary by
+	// omission from a registry. Only assembly, adapters and the guard are exempt.
+	for path := range packages {
+		if (path != module && !strings.HasPrefix(path, module+"/")) ||
+			match([]string{path}, module+"/adapters") != "" ||
+			match([]string{path}, module+"/app") != "" ||
+			match([]string{path}, module+"/arch") != "" {
+			continue
+		}
+		rules = append(rules, rule{
+			name: "business uses consumer ports", pkg: path,
+			banned: []string{module + "/adapters", module + "/app"},
+			why:    "business rules remain reusable without storage, transport or process assembly",
+		})
 	}
-	out, err := exec.Command("go", args...).Output()
+	for _, core := range pureCores {
+		rules = append(rules, rule{
+			name: "pure core has no I/O", pkg: module + core, direct: true,
+			banned: []string{"os", "net", "os/exec", "database/sql", "io/fs"},
+			why:    "path semantics and reconciliation must work from supplied facts on every host",
+		}, rule{
+			name: "pure core has no I/O dependency", pkg: module + core,
+			banned: []string{"os/exec", "database/sql", "net"},
+			why:    "a core cannot delegate process, database or network access to another package",
+		})
+	}
+	return append(rules,
+		rule{
+			name: "transport uses business entries", pkg: module + "/adapters/httpapi",
+			banned: []string{module + "/adapters/sqlite"},
+			why:    "HTTP routes must preserve the validation and transaction boundaries of their use cases",
+		},
+		rule{
+			name: "generic lifecycle is independent of task kinds", pkg: module + "/workset",
+			banned: []string{module + "/conversion", module + "/dirrename", module + "/works/refresh",
+				module + "/works/coverdelivery"},
+			why: "tasks implement workset seams so adding a kind does not change the generic lifecycle",
+		},
+		rule{
+			name: "catalog is independent of child workflows", pkg: module + "/works",
+			banned: []string{module + "/works/refresh", module + "/works/coverdelivery"},
+			why:    "nested directories state ownership; the base catalog remains reusable by its workflows",
+		},
+	)
+}
+
+func productionPackages(t *testing.T) map[string]goPackage {
+	t.Helper()
+	out, err := exec.Command("go", "list", "-json", module+"/...").Output()
 	if err != nil {
 		t.Fatalf("go list: %v", err)
 	}
-	return strings.Split(string(out), "\n")
+	packages := map[string]goPackage{}
+	decoder := json.NewDecoder(bytes.NewReader(out))
+	for {
+		var pkg goPackage
+		if err = decoder.Decode(&pkg); errors.Is(err, io.EOF) {
+			break
+		} else if err != nil {
+			t.Fatalf("go list output: %v", err)
+		}
+		packages[pkg.ImportPath] = pkg
+	}
+	return packages
 }
 
-// match reports the first edge naming the banned path, rendering it for the
-// failure message.
 func match(edges []string, banned string) string {
 	for _, edge := range edges {
 		if edge == banned || strings.HasPrefix(edge, banned+"/") {

@@ -83,7 +83,14 @@ func (f *fixture) open() {
 	}
 	f.repo = repo
 	f.svc = workset.NewService(repo, 1, 1, []workset.Task{
-		conversion.New(repo, appconfig.NewReader(f.configDir), ffmpeg.New, media.ProbeBitrate, filesystem.Recover),
+		conversion.New(
+			repo,
+			appconfig.NewReader(f.configDir),
+			ffmpeg.New,
+			media.ProbeBitrate,
+			filesystem.Recover,
+			filesystem.IsResolvedWithinRoot,
+		),
 	}, f.scan, nil)
 }
 

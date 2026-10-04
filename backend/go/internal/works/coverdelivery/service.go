@@ -3,7 +3,6 @@ package coverdelivery
 import (
 	"context"
 	"fmt"
-	"os"
 	"sync"
 )
 
@@ -13,7 +12,7 @@ type Dependencies struct {
 	Downloader Downloader
 	Source     Source
 	Files      Files
-	StageDir   string
+	Staging    Staging
 	Acquire    func() (func(), error)
 	Refresh    func(context.Context, string, string) error
 }
@@ -30,11 +29,8 @@ type Service struct {
 }
 
 func New(d Dependencies) (*Service, error) {
-	if d.Store == nil || d.Downloader == nil || d.Files == nil || d.Acquire == nil {
+	if d.Store == nil || d.Downloader == nil || d.Files == nil || d.Staging == nil || d.Acquire == nil {
 		return nil, fmt.Errorf("incomplete cover dependencies")
-	}
-	if err := os.MkdirAll(d.StageDir, 0700); err != nil {
-		return nil, err
 	}
 	return &Service{deps: d, active: map[string]*activeDownload{}}, nil
 }

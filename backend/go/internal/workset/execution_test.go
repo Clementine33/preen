@@ -74,7 +74,14 @@ func newExecFixtureWithTask(
 	}
 	if tasks == nil {
 		tasks = []workset.Task{
-			conversion.New(repo, appconfig.NewReader(tmp), ffmpeg.New, media.ProbeBitrate, filesystem.Recover),
+			conversion.New(
+				repo,
+				appconfig.NewReader(tmp),
+				ffmpeg.New,
+				media.ProbeBitrate,
+				filesystem.Recover,
+				filesystem.IsResolvedWithinRoot,
+			),
 		}
 	}
 	root := filepath.Join(tmp, "music")

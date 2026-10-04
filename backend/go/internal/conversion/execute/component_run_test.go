@@ -114,6 +114,7 @@ func runRequest(
 		DeleteMode: mode,
 		Encoder:    ffmpeg.New(execute.ToolsConfig{}),
 		Recover:    filesystem.Recover,
+		WithinRoot: filesystem.IsResolvedWithinRoot,
 	}
 }
 

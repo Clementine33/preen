@@ -1,19 +1,21 @@
 # Go backend
 
 ## Responsibility placement
-- Place a new use case with the business package that owns the affected state and invariants; keep its types, validation and lifecycle together. Read that package's doc comment and public seam before extending it.
-- Keep business policy and coordination in business packages; place HTTP/SQL, external tools and filesystem mechanisms in `internal/adapters`. Classify technical capabilities by their contract, rather than treating every worker or queue as business policy.
-- Declare storage, filesystem, tool and network ports at their business consumer, with only the methods it calls; adapters implement them. Keep each atomic storage operation as one port method so callers do not reconstruct a transaction from separate reads and writes.
-- Dependencies point from assembly to adapters to business and lower-level capabilities. Business packages import neither `internal/adapters` nor `internal/app`; `internal/app` assembles dependencies and `cmd` handles process startup. `internal/arch` checks the enforced dependency boundaries.
-- Keep generic workset lifecycle independent of task kinds: a task implements the workset's seam and owns its payload and policy; the workset owns operation/session identity, versions and scheduling.
-- Extend an existing owner first; create a package or local subpackage when it has a distinct responsibility and a useful interface. Give new packages a responsibility comment, and update comments at both sides when moving a responsibility.
+- Place use cases with the business module owning their state and invariants; keep types, validation and lifecycle together so one change has one owner. Read its package comment and public seam before extending it.
+- Keep business policy and coordination in business packages, and HTTP/SQL, external tools and filesystem mechanisms in `internal/adapters`, so mechanisms can change without rewriting policy. Judge workers and queues by their contract: cover delivery owns persistent per-work outcomes under `works/`; thumbnail owns a disposable derived cache as a technical capability.
+- Declare ports at their consumers with only the operations they call, so dependencies express actual needs. A consumer needing only resolved containment takes that single function, not a shared `PathResolver`. Keep atomic storage operations in one method to preserve transaction boundaries; recovery path truncation stays behind the existing Recover seam.
+- Dependencies point from assembly to adapters to business and lower-level capabilities, so business stays reusable. Business imports neither adapters nor app; app assembles dependencies and cmd handles startup. Nesting expresses ownership, not Go dependency: child workflows may import their base owner, which remains independent of those workflows.
+- Keep workset lifecycle independent of task kinds, so adding a kind does not change generic scheduling. Tasks own their payload and policy; workset owns operation/session identity, versions and scheduling.
+- Keep Task integration in its feature package unless that workflow has a real production consumer outside workset; then use a distinct name such as `refreshtask`, so that consumer can use the workflow without importing workset. A generic `task` package obscures which feature callers use.
+- Extend an existing owner first; split a package when a distinct responsibility yields a useful interface, so directory layers do not add indirection by themselves. Package comments describe current responsibilities, AGENTS holds working rules, and ADRs retain decisions and reasons; update comments on both sides of a move.
+- `internal/arch` classifies every production package under `internal/` as business except `adapters/**`, `app` and `arch`, so new packages cannot escape checks by omission. Pure cores opt in by name (`conversion/reconcile`, `librarypath`): their direct imports forbid `os`, `net/**`, `os/exec`, `database/sql` and `io/fs`; process, database and network dependencies are also checked transitively. This keeps supplied-fact algorithms independent of I/O without declaring all orchestration pure. Every automated rule must explain its purpose.
 
 ## Engineering rules
 - Each file has one clear responsibility. Split when responsibilities change independently or a struct and its methods become difficult to read; line counts alone do not justify a split.
 - `service.go` holds only types, constructors and DI wiring (≤80 lines); put use cases in files named by business verb, such as `run.go`, `persist.go` or `load_plan.go`.
 - Use responsibility-bearing filenames rather than `helpers.go`, `util.go` or `common.go` dumps.
 - Line-count guidelines: functions ≤100 lines; files ≤400 lines comfortably, >600 calls for reviewing the split.
-- A structural refactor preserves stored payloads, hashes, admission timing and HTTP/SSE behavior. Change those contracts explicitly when they are part of the requested scope.
+- A package move preserves stored operation kinds (including `"rename"` and `"metadata_refresh"`), payloads and hashes, error codes, HTTP routes, SSE event names and admission timing: package names are not data contracts. Change these only as an explicit contract change in the requested scope.
 
 ## Tests
 - New test files default to `package <pkg>_test`; same-package tests are allowed only where the test really exercises internals, and must keep the `//nolint:testpackage` note explaining why.

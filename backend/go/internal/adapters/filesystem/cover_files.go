@@ -13,7 +13,6 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/onsei/organizer/backend/internal/fileops"
 	"github.com/onsei/organizer/backend/internal/works/coverdelivery"
 )
 
@@ -31,7 +30,7 @@ func CoverDirectoryIdentity(path string) (string, error) {
 	return coverIdentity(info, filepath.FromSlash(path))
 }
 func openCoverRoot(t coverdelivery.Target) (*os.Root, error) {
-	dir, err := fileops.ResolveMember(t.LibraryRoot, t.RelPath)
+	dir, err := ResolveMember(t.LibraryRoot, t.RelPath)
 	if err != nil {
 		return nil, err
 	}

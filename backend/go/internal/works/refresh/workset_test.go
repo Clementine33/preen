@@ -219,7 +219,7 @@ func worksetFixture(
 			Downloader: coverhttp.New(nil),
 			Source:     source,
 			Files:      filesystem.CoverFiles{},
-			StageDir:   t.TempDir(),
+			Staging:    coverStaging(t, t.TempDir()),
 			Acquire:    gate.BeginManual,
 		},
 	)
@@ -443,4 +443,13 @@ func TestRefreshAllCanRunAgainWithoutChangingSettingsOrFolders(t *testing.T) {
 	if statics.Load() != 2 {
 		t.Fatalf("the second execution did not fetch fresh metadata: %d static requests", statics.Load())
 	}
+}
+
+func coverStaging(t *testing.T, dir string) *filesystem.CoverStaging {
+	t.Helper()
+	stage, err := filesystem.NewCoverStaging(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return stage
 }

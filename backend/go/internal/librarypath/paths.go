@@ -2,10 +2,7 @@ package librarypath
 
 import (
 	"path"
-	"path/filepath"
-	"runtime"
 	"strings"
-	"unicode/utf8"
 )
 
 func NormalizeToPOSIX(p string) string {
@@ -71,53 +68,6 @@ func IsWithinRoot(root, candidate string) bool {
 		return strings.HasPrefix(normalizedCandidate, "/")
 	}
 	return strings.HasPrefix(normalizedCandidate, strings.TrimSuffix(normalizedRoot, "/")+"/")
-}
-
-// IsResolvedWithinRoot reports whether candidate resolves to root or one of its
-// descendants on the local filesystem. Both paths must exist. EvalSymlinks
-// also resolves Windows junctions, preventing filesystem indirection from
-// escaping a lexically valid library root.
-func IsResolvedWithinRoot(root, candidate string) (bool, error) {
-	if root == "" || candidate == "" {
-		return false, nil
-	}
-
-	rootPath, err := filepath.Abs(filepath.FromSlash(NormalizeToPOSIX(root)))
-	if err != nil {
-		return false, err
-	}
-	resolvedRoot, err := filepath.EvalSymlinks(rootPath)
-	if err != nil {
-		return false, err
-	}
-
-	candidatePath, err := filepath.Abs(filepath.FromSlash(NormalizeToPOSIX(candidate)))
-	if err != nil {
-		return false, err
-	}
-	resolvedCandidate, err := filepath.EvalSymlinks(candidatePath)
-	if err != nil {
-		return false, err
-	}
-
-	// filepath.Rel compares path elements case-sensitively and
-	// filepath.EvalSymlinks does not canonicalize letter case, so on Windows a
-	// drive-letter or component case mismatch (C:/Music vs C:/MUSIC/album)
-	// would produce a ..-prefixed result and falsely report the candidate as
-	// outside the root. Fold case for the containment comparison only, so this
-	// check agrees with IsWithinRoot (which already folds Windows case).
-	relRoot, relCandidate := resolvedRoot, resolvedCandidate
-	if runtime.GOOS == "windows" {
-		relRoot = strings.ToLower(resolvedRoot)
-		relCandidate = strings.ToLower(resolvedCandidate)
-	}
-	relative, err := filepath.Rel(relRoot, relCandidate)
-	if err != nil {
-		return false, err
-	}
-	return relative != ".." &&
-		!strings.HasPrefix(relative, ".."+string(filepath.Separator)) &&
-		!filepath.IsAbs(relative), nil
 }
 
 // RelPath validates a library-relative path and returns its cleaned POSIX
@@ -224,39 +174,4 @@ func IsWindowsUNCPath(path string) bool {
 	normalized := strings.ReplaceAll(path, "/", "\\")
 	return strings.HasPrefix(normalized, `\\?\UNC\`) ||
 		(strings.HasPrefix(normalized, `\\`) && !strings.HasPrefix(normalized, `\\?\`))
-}
-
-func TruncatePathComponentsToBytes(path string, maxBytes int) string {
-	if maxBytes <= 0 || path == "" || path == "." {
-		return path
-	}
-
-	sep := string(filepath.Separator)
-	parts := strings.Split(path, sep)
-	for i, part := range parts {
-		if part == "" || part == "." || part == ".." {
-			continue
-		}
-		parts[i] = truncateUTF8ToMaxBytes(part, maxBytes)
-	}
-	return strings.Join(parts, sep)
-}
-
-func truncateUTF8ToMaxBytes(s string, maxBytes int) string {
-	if len(s) <= maxBytes {
-		return s
-	}
-
-	byteCount := 0
-	cut := 0
-	for _, r := range s {
-		runeBytes := utf8.RuneLen(r)
-		if byteCount+runeBytes > maxBytes {
-			break
-		}
-		byteCount += runeBytes
-		cut += runeBytes
-	}
-
-	return s[:cut]
 }

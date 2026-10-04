@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"log"
-	"os"
-	"path/filepath"
 	"sync"
 	"time"
 )
@@ -75,10 +73,8 @@ func (s *Service) ProcessNext(ctx context.Context) (bool, error) {
 	if current {
 		return done, err
 	}
-	if job.StagePath == filepath.Join(s.deps.StageDir, job.ID+".image") {
-		if e := os.Remove(job.StagePath); e != nil && !os.IsNotExist(e) {
-			return true, errors.Join(err, e)
-		}
+	if e := s.deps.Staging.Remove(job.ID, job.StagePath); e != nil {
+		return true, errors.Join(err, e)
 	}
 	return true, err
 }

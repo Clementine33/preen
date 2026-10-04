@@ -36,10 +36,11 @@ type plannedRemove struct {
 
 // plannedComponent is a frozen component that passed the full precheck.
 type plannedComponent struct {
-	absRoot  string
-	realRoot string
-	encodes  []plannedEncode
-	removes  []plannedRemove
+	absRoot    string
+	realRoot   string
+	withinRoot ResolvedWithinRoot
+	encodes    []plannedEncode
+	removes    []plannedRemove
 }
 
 // nativePath returns the filesystem form of a path as persisted.
@@ -100,6 +101,10 @@ func newPlannedComponent(req ComponentRunRequest) (*plannedComponent, *Component
 		return nil, componentError(ComponentStagePrecheck, ComponentCodeInvalidRequest, "",
 			"recovery operation is required for soft deletion", nil)
 	}
+	if req.WithinRoot == nil {
+		return nil, componentError(ComponentStagePrecheck, ComponentCodeInvalidRequest, "",
+			"resolved containment operation is required", nil)
+	}
 	if req.Root == "" {
 		return nil, componentError(ComponentStagePrecheck, ComponentCodeInvalidRequest, "",
 			"member root is required", nil)
@@ -123,7 +128,7 @@ func newPlannedComponent(req ComponentRunRequest) (*plannedComponent, *Component
 		return nil, componentError(ComponentStagePrecheck, ComponentCodeInvalidRequest, "",
 			"member root is not a directory", nil)
 	}
-	plan := &plannedComponent{absRoot: absRoot, realRoot: realRoot}
+	plan := &plannedComponent{absRoot: absRoot, realRoot: realRoot, withinRoot: req.WithinRoot}
 	if cerr := plan.validateComponent(req.Component); cerr != nil {
 		return nil, cerr
 	}

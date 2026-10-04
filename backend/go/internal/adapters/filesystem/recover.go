@@ -42,7 +42,7 @@ func recoverFile(
 	parent := filepath.Dir(workRoot)
 	relDir := filepath.Join(filepath.Base(workRoot), filepath.Dir(rel))
 	if librarypath.IsWindowsUNCPath(parent) {
-		relDir = librarypath.TruncatePathComponentsToBytes(relDir, 214)
+		relDir = TruncatePathComponentsToBytes(relDir, 214)
 	}
 	dir, err := createRecoveryDirectory(parent, filepath.Join(librarypath.RecoveryDirName, relDir))
 	if err != nil {

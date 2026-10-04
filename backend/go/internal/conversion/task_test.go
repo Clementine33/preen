@@ -51,6 +51,7 @@ func TestConversionRecoversBesideNestedWorkRoot(t *testing.T) {
 		media.ProbeBitrate,
 		filesystem.Recover,
 		filesystem.IsResolvedWithinRoot,
+		conversion.ExecutionIO{Moves: filesystem.ConversionMoves{}, Files: filesystem.ConversionHandles{}},
 	)
 	prepared, err := task.PrepareUnit(t.Context(), workset.UnitRunInput{
 		WorksetRoot: library, Outcome: outcome, Options: json.RawMessage(`{"delete_mode":"soft"}`),
@@ -101,6 +102,7 @@ func TestDraftDeleteModeValidation(t *testing.T) {
 		media.ProbeBitrate,
 		filesystem.Recover,
 		filesystem.IsResolvedWithinRoot,
+		conversion.ExecutionIO{Moves: filesystem.ConversionMoves{}, Files: filesystem.ConversionHandles{}},
 	)
 
 	for _, accepted := range []string{"", "soft", "hard"} {
@@ -124,6 +126,7 @@ func TestNormalizeDraftKeepsDeleteMode(t *testing.T) {
 		media.ProbeBitrate,
 		filesystem.Recover,
 		filesystem.IsResolvedWithinRoot,
+		conversion.ExecutionIO{Moves: filesystem.ConversionMoves{}, Files: filesystem.ConversionHandles{}},
 	)
 
 	canonical, _, _, err := task.NormalizeDraft(draftJSON("hard"), nil)
@@ -156,7 +159,7 @@ func TestSeedDraftReadsTheTagLiterals(t *testing.T) {
 			if err := os.WriteFile(filepath.Join(dir, "config.json"), []byte(tc.config), 0o644); err != nil {
 				t.Fatalf("write config: %v", err)
 			}
-			raw, _, _ := conversion.New(nil, appconfig.NewReader(dir), ffmpeg.New, media.ProbeBitrate, filesystem.Recover, filesystem.IsResolvedWithinRoot).
+			raw, _, _ := conversion.New(nil, appconfig.NewReader(dir), ffmpeg.New, media.ProbeBitrate, filesystem.Recover, filesystem.IsResolvedWithinRoot, conversion.ExecutionIO{Moves: filesystem.ConversionMoves{}, Files: filesystem.ConversionHandles{}}).
 				SeedDraft(nil)
 			var doc struct {
 				ClassifierTags []string `json:"classifier_tags"`
@@ -188,6 +191,7 @@ func TestCommonSettingsProjectionAndApply(t *testing.T) {
 		media.ProbeBitrate,
 		filesystem.Recover,
 		filesystem.IsResolvedWithinRoot,
+		conversion.ExecutionIO{Moves: filesystem.ConversionMoves{}, Files: filesystem.ConversionHandles{}},
 	)
 	strict := reconcile.ModeStrict
 	tags := []string{"自定义"}
@@ -281,6 +285,7 @@ func TestCommonSettingsRefusesUnknownStoredDraftSchema(t *testing.T) {
 		media.ProbeBitrate,
 		filesystem.Recover,
 		filesystem.IsResolvedWithinRoot,
+		conversion.ExecutionIO{Moves: filesystem.ConversionMoves{}, Files: filesystem.ConversionHandles{}},
 	)
 	stored := []byte(`{"schema_version":2,"classifier_tags":[],"matched":{},"unmatched":{}}`)
 	if _, err := task.CommonSettings(stored); err == nil {
@@ -310,6 +315,7 @@ func TestSeedDraftUsesTheStoredCommonSettings(t *testing.T) {
 		media.ProbeBitrate,
 		filesystem.Recover,
 		filesystem.IsResolvedWithinRoot,
+		conversion.ExecutionIO{Moves: filesystem.ConversionMoves{}, Files: filesystem.ConversionHandles{}},
 	)
 
 	stored := json.RawMessage(

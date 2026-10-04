@@ -22,3 +22,4 @@
 | [0016](0016-work-file-content-distribution.md) | 作品文件内容的只读分发：清单与字节 | Draft |
 | [0017](0017-inventory-scanning-and-sqlite-merge.md) | 库存扫描：作品级调度、完整观察集与按变化合并 | Draft |
 | [0018](0018-work-local-recovery-directories.md) | 深层作品的同级回收目录与扫描排除 | Draft |
+| [0019](0019-conversion-execution-and-selected-generation.md) | 转换执行的只读校验、安全发布与选中范围生成 | Draft |

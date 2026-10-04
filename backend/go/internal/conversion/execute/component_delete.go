@@ -7,16 +7,24 @@ import (
 
 // removeObsolete removes one obsolete file per the selected mode. Soft removal
 // reports the recovery location in persisted form; hard removal reports none.
-func removeObsolete(ctx context.Context, tk *componentToolkit, workRoot, source string, soft bool) (string, error) {
+func removeObsolete(
+	ctx context.Context,
+	tk *componentToolkit,
+	workRoot, source string,
+	soft bool,
+) (string, bool, error) {
 	if !soft {
 		if err := tk.remove(source); err != nil {
-			return "", fmt.Errorf("hard delete %s: %w", posixForm(source), err)
+			return "", false, fmt.Errorf("hard delete %s: %w", posixForm(source), err)
 		}
-		return "", nil
+		return "", true, nil
 	}
-	dest, err := tk.recoverFile(ctx, workRoot, source)
-	if err != nil {
-		return "", err
+	dest, result, err := tk.recoverMove(ctx, workRoot, source)
+	if dest != "" {
+		dest = posixForm(dest)
 	}
-	return posixForm(dest), nil
+	if err == nil && (!result.SourceRemoved || result.Unverified) {
+		err = fmt.Errorf("recovery move incomplete")
+	}
+	return dest, result.SourceRemoved && !result.Unverified, err
 }

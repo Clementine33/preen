@@ -15,6 +15,7 @@ type PreparedComponent struct {
 	encoder Encoder
 	plan    *plannedComponent
 	soft    bool
+	files   FileHandles
 }
 
 // PrepareComponent prechecks a frozen component and writes nothing. It is the
@@ -33,11 +34,13 @@ func prepareComponent(ctx context.Context, req ComponentRunRequest, tk *componen
 	if precheckErr != nil {
 		return nil, precheckErr
 	}
+	tk.observeMoves()
 	return &PreparedComponent{
 		tk:      tk,
 		encoder: req.Encoder,
 		plan:    plan,
 		soft:    req.DeleteMode == DeleteModeSoft,
+		files:   req.Files,
 	}, nil
 }
 
@@ -58,7 +61,7 @@ func (p *PreparedComponent) EncodeOne(ctx context.Context, index int) error {
 		return canceledComponentError(ComponentStageMaterialize, ctxErr)
 	}
 	enc.temp = tempOutputPath(enc.target)
-	if err := p.tk.encode(ctx, enc.source, enc.temp, enc.spec); err != nil {
+	if err := p.materialize(ctx, enc); err != nil {
 		if ctxErr := ctx.Err(); ctxErr != nil {
 			return canceledComponentError(ComponentStageMaterialize, ctxErr)
 		}
@@ -73,7 +76,7 @@ func (p *PreparedComponent) EncodeOne(ctx context.Context, index int) error {
 	return nil
 }
 
-// Commit re-probes every staged output, commits them in frozen order and then
+// Commit checks every staged identity, commits them in frozen order and then
 // removes the obsolete audio. It is terminal and single-threaded: the caller
 // must have every EncodeOne returned. A stop — cancellation as much as a
 // failed sibling — is honoured between operations, never mid-operation, so a
@@ -82,14 +85,14 @@ func (p *PreparedComponent) EncodeOne(ctx context.Context, index int) error {
 func (p *PreparedComponent) Commit(ctx context.Context) (ComponentRunResult, error) {
 	result := ComponentRunResult{Status: ComponentStatusSucceeded}
 
-	// Validate: every staged output is re-probed on disk before any commit can
+	// Validate: every staged output is checked on disk before any commit can
 	// touch existing media.
 	for i := range p.plan.encodes {
 		enc := &p.plan.encodes[i]
 		if ctxErr := ctx.Err(); ctxErr != nil {
 			return stopCanceled(p.plan, p.tk, result, ComponentStageValidate, ctxErr)
 		}
-		if err := validateStagedOutput(ctx, p.encoder, enc.temp, enc.spec); err != nil {
+		if err := checkStagedIdentity(enc); err != nil {
 			if ctxErr := ctx.Err(); ctxErr != nil {
 				return stopCanceled(p.plan, p.tk, result, ComponentStageValidate, ctxErr)
 			}
@@ -111,10 +114,54 @@ func (p *PreparedComponent) Commit(ctx context.Context) (ComponentRunResult, err
 		if ctxErr := ctx.Err(); ctxErr != nil {
 			return stopCanceled(p.plan, p.tk, result, ComponentStageCommit, ctxErr)
 		}
+		if err := checkStagedIdentity(enc); err != nil {
+			return stopRun(
+				p.plan,
+				p.tk,
+				result,
+				ComponentStatusFailed,
+				ComponentStageCommit,
+				componentError(
+					ComponentStageCommit,
+					ComponentCodeCommitFailed,
+					posixForm(enc.target),
+					"staged output changed before publish",
+					err,
+				),
+			)
+		}
+		if enc.replace {
+			if err := p.plan.checkRuntimeInput(enc.target); err != nil {
+				return stopRun(
+					p.plan,
+					p.tk,
+					result,
+					ComponentStatusFailed,
+					ComponentStageCommit,
+					componentError(
+						ComponentStageCommit,
+						ComponentCodeCommitFailed,
+						posixForm(enc.target),
+						"replaced output changed",
+						err,
+					),
+				)
+			}
+		}
 		recovery, committed, err := commitOutput(context.WithoutCancel(ctx), p.tk, p.plan.absRoot, enc, p.soft)
 		result.Recovery = append(result.Recovery, recovery...)
 		if committed {
 			result.Committed = append(result.Committed, posixForm(enc.target))
+			result.Outputs = append(
+				result.Outputs,
+				OutputFacts{
+					Path:   posixForm(enc.target),
+					Size:   enc.artifact.Size(),
+					Mtime:  enc.artifact.ModTime().Unix(),
+					SHA256: enc.hash,
+					Spec:   enc.spec,
+				},
+			)
 		}
 		if err != nil {
 			return stopRun(p.plan, p.tk, result, ComponentStatusFailed, ComponentStageCommit, &ComponentError{
@@ -127,13 +174,45 @@ func (p *PreparedComponent) Commit(ctx context.Context) (ComponentRunResult, err
 		}
 	}
 
+	return p.remove(ctx, result)
+}
+
+func (p *PreparedComponent) remove(ctx context.Context, result ComponentRunResult) (ComponentRunResult, error) {
 	// Remove: obsolete audio is cleaned only after every commit succeeded.
 	for i := range p.plan.removes {
 		rem := &p.plan.removes[i]
 		if ctxErr := ctx.Err(); ctxErr != nil {
 			return stopCanceled(p.plan, p.tk, result, ComponentStageRemove, ctxErr)
 		}
-		recoveryPath, err := removeObsolete(context.WithoutCancel(ctx), p.tk, p.plan.absRoot, rem.source, p.soft)
+		if err := p.plan.checkRuntimeInput(rem.source); err != nil {
+			return stopRun(
+				p.plan,
+				p.tk,
+				result,
+				ComponentStatusFailed,
+				ComponentStageRemove,
+				componentError(
+					ComponentStageRemove,
+					ComponentCodeDeleteFailed,
+					posixForm(rem.source),
+					"obsolete file changed",
+					err,
+				),
+			)
+		}
+		recoveryPath, removed, err := removeObsolete(
+			context.WithoutCancel(ctx),
+			p.tk,
+			p.plan.absRoot,
+			rem.source,
+			p.soft,
+		)
+		if recoveryPath != "" {
+			result.Recovery = append(result.Recovery, recoveryPath)
+		}
+		if removed {
+			result.Removed = append(result.Removed, posixForm(rem.source))
+		}
 		if err != nil {
 			return stopRun(p.plan, p.tk, result, ComponentStatusFailed, ComponentStageRemove, &ComponentError{
 				Stage:   ComponentStageRemove,
@@ -142,10 +221,6 @@ func (p *PreparedComponent) Commit(ctx context.Context) (ComponentRunResult, err
 				Message: "removing an obsolete file failed",
 				Err:     err,
 			})
-		}
-		result.Removed = append(result.Removed, posixForm(rem.source))
-		if recoveryPath != "" {
-			result.Recovery = append(result.Recovery, recoveryPath)
 		}
 	}
 

@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/onsei/organizer/backend/internal/inventory"
+
 	"github.com/onsei/organizer/backend/internal/adapters/filesystem"
 
 	"github.com/onsei/organizer/backend/internal/adapters/media"
@@ -81,6 +83,13 @@ func newExecFixtureWithTask(
 				media.ProbeBitrate,
 				filesystem.Recover,
 				filesystem.IsResolvedWithinRoot,
+				conversion.ExecutionIO{
+					Walk: func(ctx context.Context, roots []string, base string, emit func(string, inventory.DirEntry) error) error {
+						return filesystem.WalkSelectedEntriesParallel(ctx, roots, base, 32, emit)
+					},
+					Moves: filesystem.ConversionMoves{},
+					Files: filesystem.ConversionHandles{},
+				},
 			),
 		}
 	}
@@ -126,6 +135,9 @@ func newExecFixtureWithTask(
 	})
 	if err != nil {
 		t.Fatalf("CreateCurrentWorkset: %v", err)
+	}
+	if _, deleteErr := repo.DB().Exec("DELETE FROM entries WHERE name = '__member__.flac'"); deleteErr != nil {
+		t.Fatal(deleteErr)
 	}
 	f.worksetID = res.Workset.WorksetID
 	for _, m := range res.Workset.Members {
@@ -801,6 +813,20 @@ func TestExecutionScopedToSelectedFolders(t *testing.T) {
 			files:     []reconcile.FileTuple{{Path: bSource, Size: bSize, Mtime: bMtime}},
 		},
 	)
+
+	// Drift both disk and inventory for the unselected root. Admission and the
+	// worker must agree on the selected units, while detail remains globally stale.
+	if _, driftErr := f.repo.DB().Exec("UPDATE entries SET size = size + 1 WHERE path = ?", aSource); driftErr != nil {
+		t.Fatal(driftErr)
+	}
+	if writeErr := os.WriteFile(filepath.FromSlash(aSource), []byte("unselected-changed"), 0o600); writeErr != nil {
+		t.Fatal(writeErr)
+	}
+	_, fullErr := f.startExecution("plan-scope", "key-full")
+	fullCode, fullDetails := errorDetail(t, fullErr)
+	if fullCode != "PLAN_NOT_EXECUTABLE" || !contains(fullDetails, "INPUT_CHANGED") {
+		t.Fatalf("full execution = %s %v", fullCode, fullDetails)
+	}
 
 	// Only albumB was asked for: the session holds that folder's work alone, and
 	// it says so, so a client that did not start the run can tell it was scoped.

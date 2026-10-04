@@ -144,6 +144,9 @@ jobs:
           cache: true
           cache_key_prefix: mise-windows
       - run: task build:go:windows-x64
+      - name: Check conversion handles and strict moves on Windows
+        working-directory: backend/go
+        run: go test ./internal/adapters/filesystem -run "TestConversion(SourceHandleKeepsPlatformIdentity|Probe)" -count=1
       - name: Check SQLite connection pragmas on Windows
         working-directory: backend/go
         run: go test ./internal/adapters/sqlite -run TestConnectionPragmasAreAppliedToEveryConnection -count=1

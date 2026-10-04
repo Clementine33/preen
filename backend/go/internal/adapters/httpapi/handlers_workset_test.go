@@ -2,6 +2,7 @@ package httpapi //nolint:testpackage // white-box tests exercise unexported inte
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -11,6 +12,8 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/onsei/organizer/backend/internal/inventory"
 
 	"github.com/onsei/organizer/backend/internal/adapters/filesystem"
 
@@ -46,6 +49,13 @@ func newWorksetServer(t *testing.T) (http.Handler, *sqlite.Repository) {
 			media.ProbeBitrate,
 			filesystem.Recover,
 			filesystem.IsResolvedWithinRoot,
+			conversion.ExecutionIO{
+				Walk: func(ctx context.Context, roots []string, base string, emit func(string, inventory.DirEntry) error) error {
+					return filesystem.WalkSelectedEntriesParallel(ctx, roots, base, 32, emit)
+				},
+				Moves: filesystem.ConversionMoves{},
+				Files: filesystem.ConversionHandles{},
+			},
 		),
 	}, nil, nil)
 	handler := NewServer(Dependencies{

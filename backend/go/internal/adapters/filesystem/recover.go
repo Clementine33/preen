@@ -29,22 +29,11 @@ func recoverFile(
 	if err := ctx.Err(); err != nil {
 		return "", err
 	}
-	workRoot = filepath.Clean(workRoot)
-	source = filepath.Clean(source)
-	if !filepath.IsAbs(workRoot) || !filepath.IsAbs(source) {
-		return "", fmt.Errorf("recovery paths must be absolute")
+	parent, relDir, err := recoveryDirectory(workRoot, source)
+	if err != nil {
+		return "", err
 	}
-	rel, err := filepath.Rel(workRoot, source)
-	if err != nil || rel == "." || rel == ".." || filepath.IsAbs(rel) ||
-		strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-		return "", fmt.Errorf("recover %s: not inside the work root", source)
-	}
-	parent := filepath.Dir(workRoot)
-	relDir := filepath.Join(filepath.Base(workRoot), filepath.Dir(rel))
-	if librarypath.IsWindowsUNCPath(parent) {
-		relDir = TruncatePathComponentsToBytes(relDir, 214)
-	}
-	dir, err := createRecoveryDirectory(parent, filepath.Join(librarypath.RecoveryDirName, relDir))
+	dir, err := createRecoveryDirectory(parent, relDir)
 	if err != nil {
 		return "", err
 	}
@@ -111,6 +100,9 @@ func renameRecovery(ctx context.Context, source, target string, rename func(stri
 }
 
 func recoveryMoveLocked(err error) bool {
+	if _, incomplete := errors.AsType[*recoveryMoveIncompleteError](err); incomplete {
+		return false
+	}
 	if errors.Is(err, fs.ErrPermission) || errors.Is(err, fs.ErrExist) {
 		return false
 	}
@@ -120,4 +112,24 @@ func recoveryMoveLocked(err error) bool {
 	message := strings.ToLower(err.Error())
 	return strings.Contains(message, "locked") || strings.Contains(message, "being used") ||
 		strings.Contains(message, "accessed by another process")
+}
+
+// recoveryDirectory shares the established layout and UNC truncation with probes.
+func recoveryDirectory(workRoot, source string) (string, string, error) {
+	workRoot = filepath.Clean(workRoot)
+	source = filepath.Clean(source)
+	if !filepath.IsAbs(workRoot) || !filepath.IsAbs(source) {
+		return "", "", fmt.Errorf("recovery paths must be absolute")
+	}
+	rel, err := filepath.Rel(workRoot, source)
+	if err != nil || rel == "." || rel == ".." || filepath.IsAbs(rel) ||
+		strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", "", fmt.Errorf("recover %s: not inside the work root", source)
+	}
+	parent := filepath.Dir(workRoot)
+	relDir := filepath.Join(filepath.Base(workRoot), filepath.Dir(rel))
+	if librarypath.IsWindowsUNCPath(parent) {
+		relDir = TruncatePathComponentsToBytes(relDir, 214)
+	}
+	return parent, filepath.Join(librarypath.RecoveryDirName, relDir), nil
 }

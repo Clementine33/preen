@@ -33,7 +33,7 @@ Status: Draft — 2026-10-04
 
 一个发现过程逐层读取分类目录，遇到首个含单一有效 RJ 编号的目录即输出作品根，投递给 worker。worker 顺序读取该作品全部内容，内部 RJ 子目录不另立作品。发现与扫描重叠，作品任务队列容量为 `2 × workers`，不预先收集全库作品路径。分类、普通文件及未绑定目录仍入库存；每一层的 `Delete/` 回收子树在读取属性和下探之前跳过，不入库存、不计入扫描进度，后续完整扫描会清理旧扫描留下的回收库存与副本绑定（[ADR 0018 §1](0018-work-local-recovery-directories.md)）。仓库根本身不输出，目录符号链接不下探，作品根只输出一次。
 
-采用名称排序的 `os.ReadDir`，逐条读取 `Info()`。默认 32 个作品 worker，`scan.workers` 可调低，上限 32；entry 缓冲保持 100、写入批次 1000、默认 GC。成员刷新顺序扫描一个已验证作品，并保留作品根标记。展示顺序由查询及界面明确排序，不依赖并发扫描的输出顺序。
+采用名称排序的 `os.ReadDir`，逐条读取 `Info()`。默认 32 个作品 worker，`scan.workers` 可调低，上限 32；entry 缓冲保持 100、写入批次 1000、默认 GC。成员刷新顺序扫描一个已验证作品，并保留作品根标记。conversion 生成使用同样的顺序作品遍历，多个选中作品有界并发，共享一个 staging writer 和一次显式范围事务；目录自身标记、未选库存、绑定及未变化媒体事实保留。空范围不清理，selected 会话禁止进入依据空 scope 的完整 merge。采用依据见 [ADR 0019 §4](0019-conversion-execution-and-selected-generation.md)。展示顺序由查询及界面明确排序，不依赖并发扫描的输出顺序。
 
 `is_work_root` 写入扫描条目、staging 与 entries，作品根查询使用部分索引 `(root_path, path) WHERE is_work_root=1`。完整 merge 根据库存事实在同一事务维护任意深度的 `work_copies`；局部刷新不重新识别分类或作品身份。路径查询使用二进制后代范围 `P + "/" <= path < P + "0"`，自身按接口语义另行处理，保留原始大小写、Unicode、`%` 和 `_`。
 

@@ -234,10 +234,12 @@ const EXECUTE_CODES: Record<string, string> = {
   IDEMPOTENCY_KEY_REUSED: '该请求与之前的执行冲突，请刷新后重试',
   ORPHANED_WORKSET: '媒体库已删除：该记录只读',
   INVALID_DELETE_MODE: '删除模式无效',
+  FILESYSTEM_OPERATION_UNSUPPORTED: '未开始转换：文件系统不支持所需的安全移动',
+  FILESYSTEM_PRECHECK_FAILED: '未开始转换：文件系统检查失败',
 }
 
 /** Why 执行当前版本 is disabled right now; null when it may start. */
-const executeBlocked = computed(() => {
+function executionBlocked(selected = false): string | null {
   const op = operation.value
   if (!op?.current_revision || op.active_execution) return null
   // The terminal fact outranks the derived ones: once a revision ran, that is
@@ -247,11 +249,12 @@ const executeBlocked = computed(() => {
   if (op.planning_state === 'orphaned') return '媒体库已删除：该记录只读'
   if (op.active_generation || op.planning_state === 'planning') return '生成中，完成后才能执行'
   if (op.planning_state === 'needs_planning') return '草稿已改变，需重新生成计划版本'
-  if (op.current_revision.validation_state === 'stale') return '输入已变化，需重新生成计划版本'
+  if (!selected && op.current_revision.validation_state === 'stale') return '输入已变化，需重新生成计划版本'
   if (op.current_revision.validation_state === 'unavailable') return '媒体库不可用，无法校验该版本'
   if ((counts.value?.blocked ?? 0) > 0) return '存在阻塞项，处理后才能执行'
   return null
-})
+}
+const executeBlocked = computed(() => executionBlocked())
 
 /** A refused generation start is stated in place, never swallowed. */
 async function onGenerate() {
@@ -293,15 +296,25 @@ async function startExecution(folderPaths?: string[]) {
   }
 }
 
-/** The plan may run right now: the header's 执行当前版本 gate, reused. */
-const planRunnable = computed(
-  () => Boolean(operation.value?.current_revision) && !operation.value?.active_execution && executeBlocked.value === null,
-)
-
 /** The selection as the record names it — the scope of a partial run. */
 const selectedFolderPaths = computed(() =>
   members.value.filter((member) => ui.selectedMemberIds.has(member.member_id)).map((member) => member.rel_path),
 )
+
+/** Selected execution checks only roots owned by selected frozen units. */
+const selectedExecuteBlocked = computed(() => {
+  const global = executionBlocked(true)
+  if (global) return global
+  const view = revision.value
+  if (!view || view.plan_id !== operation.value?.current_revision?.plan_id) return '计划详情加载中…'
+  const selected = new Set(members.value.filter((m) => ui.selectedMemberIds.has(m.member_id)).map((m) => m.folder_path))
+  const owned = new Set(view.component_roots.map((c) => c.root_index))
+  if (view.roots.some((r) => selected.has(r.root_path) && owned.has(r.root_index) && (r.stale || r.root_status === 'missing'))) {
+    return '选中文件夹输入已变化，需重新生成计划版本'
+  }
+  return null
+})
+const selectedPlanRunnable = computed(() => Boolean(operation.value?.current_revision) && !busy.value && !operation.value?.active_execution && selectedExecuteBlocked.value === null)
 
 async function openExecution() {
   await router.push({
@@ -483,14 +496,13 @@ const parentLink = computed(() => {
             <Button size="xs" variant="secondary" data-testid="batch-edit" @click="startBatchEdit">
               批量修改
             </Button>
-            <!-- Executing a part of the revision: the same gate as 执行当前版本,
-                 and the sentence that says what happens to the rest. -->
+            <!-- A scoped run still spends this revision. -->
             <Button
               size="xs"
               variant="outline"
               data-testid="execute-selected"
-              :disabled="!planRunnable"
-              :title="planRunnable ? '只执行选中的文件夹；未选中的需重新生成计划后执行' : (executeBlocked ?? '还没有可执行的计划版本')"
+              :disabled="!selectedPlanRunnable"
+              :title="selectedPlanRunnable ? '只执行选中的文件夹；未选中的需重新生成计划后执行' : (selectedExecuteBlocked ?? '还没有可执行的计划版本')"
               @click="startExecution(selectedFolderPaths)"
             >
               仅执行选中（{{ selectedFolderPaths.length }}）

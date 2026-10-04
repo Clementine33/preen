@@ -48,14 +48,55 @@ scope, so the same key with a different `folder_paths` is
 sessions do not auto-retry: refresh the inputs (rescan), then generate a new
 revision — a revision never runs twice.
 
-**Fresh facts before writing.** A session refreshes the scanned inventory of
-its roots through the scanner before its first write and re-judges the
-revision's recorded inputs against what is on disk now. A drifted folder stops
-the session as `failed` with `INPUT_CHANGED` and every file untouched — the
-drift is caught at the start, never component by component halfway through. A
-refresh that cannot complete (`SCAN_FAILED`) also leaves the disk alone.
-Generation works the same way: its session scans the participating member
-folders before planning, so a plan is never made from a stale inventory.
+**Fresh facts before writing.** Conversion admission compares stored inventory
+only for the roots owned by actual execution units. Revision detail continues
+to evaluate the whole plan; clients use each root's existing `stale` and missing
+status for selected execution, while draft, version, global blocked components
+and one-session rules still apply. An empty worklist checks no input roots.
+
+Before preparing any conversion unit, the worker walks those same roots with
+bounded folder concurrency and sequential descendants. Audio count and
+fingerprint use integer Unix-second mtime, matching inventory storage. A match
+performs no scan session, staging write or inventory merge and does not refresh
+non-audio inventory. Drift or a missing root triggers a best-effort serial
+member refresh and fails with `INPUT_CHANGED`, including any refresh diagnostic.
+Initial walk permission/I/O errors are `SCAN_FAILED`; cancellation is `CANCELED`.
+Rename and metadata retain their original refresh flow.
+
+Conversion fixes the tool configuration once per session. Actual encode work
+checks tools and their version once, then verifies each actual output container
+through a short PCM WAV FD encode/probe/full-decode roundtrip. Pure deletion and
+empty execution require no encoder. Source path prechecks and live handles use
+the same size rules and ±1 second frozen-mtime tolerance. Staged output identity,
+size and full mtime are checked for the entire ready component before its first
+publication (`validate`), then again immediately before each publication
+(`commit`). The first check waits only for that component's encodes. A second
+check failure preserves prior published outputs; obsolete audio is removed only
+after all component outputs publish. Encoding workers capture hashes and facts;
+commit does not reopen published outputs to hash or stat them.
+
+After input validation and before the first encode, actual required moves are
+probed once per mount. Linux uses mount IDs, including bind mounts, rather than
+device numbers. Strict publication and recovery refuse overwrite; unsupported
+no-replace rename may use regular-file hard links within the same mount. An
+uncertain outcome protects possible surviving names and discloses inventory
+uncertainty. Link success followed by source unlink failure reports the known
+published output and preserves both names. Recovery targets claimed by another
+process are preserved. Probe scratch uses `.tmp.<unique>` names and its own
+cleanup list; leftovers are disclosed and naming does not promise automatic
+scan exclusion or cross-process cleanup.
+
+| Session failure | Meaning |
+| --- | --- |
+| `FILESYSTEM_OPERATION_UNSUPPORTED` | conversion did not start: required strict moves or mount boundaries are unsupported |
+| `FILESYSTEM_PRECHECK_FAILED` | conversion did not start: permission/I/O or scratch cleanup prevented the filesystem probe |
+
+These codes do not claim that scratch creation/cleanup left the disk untouched.
+Soft recovery is probed only for actual removals or replacements, in the deepest
+existing planned recovery ancestor. Hard mode creates no recovery directory.
+Generation refreshes participating scopes through one bounded walk pool, one
+staging writer and one explicit selected-range merge; failed or canceled scans
+do not merge, and an empty selection cannot mean a whole-library cleanup.
 
 **Audio lifecycle.** Statuses `queued` → `running` → `succeeded` | `failed` |
 `canceled` | `interrupted`; a terminal status never regresses. Sessions run

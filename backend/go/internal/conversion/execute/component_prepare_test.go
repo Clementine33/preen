@@ -52,7 +52,7 @@ func TestPreparedComponent_CommitKeepsFrozenOrderWhenEncodesFinishReversed(t *te
 		} else {
 			defer close(secondDone)
 		}
-		return encoder.Encode(ctx, src, dst, outSpec)
+		return encodePaths(encoder, ctx, src, dst, outSpec)
 	}}
 	prepared, err := execute.PrepareComponentWithTestKit(t.Context(), runRequest(
 		root,
@@ -191,7 +191,7 @@ func TestPreparedComponent_DiscardAfterCancellation(t *testing.T) {
 	kit := execute.ComponentRunTestKit{Encode: func(
 		encCtx context.Context, src, dst string, outSpec reconcile.AudioOutputSpec,
 	) error {
-		err := encoder.Encode(encCtx, src, dst, outSpec)
+		err := encodePaths(encoder, encCtx, src, dst, outSpec)
 		cancel()
 		return err
 	}}

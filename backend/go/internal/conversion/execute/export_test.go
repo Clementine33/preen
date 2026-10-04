@@ -2,6 +2,7 @@ package execute
 
 import (
 	"context"
+	"os"
 
 	"github.com/onsei/organizer/backend/internal/conversion/reconcile"
 )
@@ -13,6 +14,7 @@ type ComponentRunTestKit struct {
 	Encode func(ctx context.Context, src, dst string, spec reconcile.AudioOutputSpec) error
 	Rename func(oldpath, newpath string) error
 	Remove func(path string) error
+	Move   func(string, string) (MoveResult, error)
 }
 
 // PrepareComponentWithTestKit prepares one component with replaced IO, the
@@ -33,11 +35,29 @@ func RunComponentWithTestKit(
 // testToolkit is the component IO surface of one test kit.
 func testToolkit(req ComponentRunRequest, kit ComponentRunTestKit) *componentToolkit {
 	tk := defaultComponentToolkit(req)
+	if req.Recover != nil {
+		tk.recoverMove = func(ctx context.Context, root, src string) (string, MoveResult, error) {
+			dst, err := req.Recover(ctx, root, src)
+			return dst, MoveResult{TargetCreated: err == nil, SourceRemoved: err == nil}, err
+		}
+	}
 	if kit.Encode != nil {
-		tk.encode = kit.Encode
+		tk.encode = func(ctx context.Context, src, dst *os.File, spec reconcile.AudioOutputSpec) (AudioStream, error) {
+			if err := kit.Encode(ctx, src.Name(), dst.Name(), spec); err != nil {
+				return AudioStream{}, err
+			}
+			stream, err := req.Encoder.Probe(context.WithoutCancel(ctx), dst.Name())
+			return stream, err
+		}
 	}
 	if kit.Rename != nil {
-		tk.rename = kit.Rename
+		tk.move = func(src, dst string) (MoveResult, error) {
+			err := kit.Rename(src, dst)
+			return MoveResult{TargetCreated: err == nil, SourceRemoved: err == nil}, err
+		}
+	}
+	if kit.Move != nil {
+		tk.move = kit.Move
 	}
 	if kit.Remove != nil {
 		tk.remove = kit.Remove

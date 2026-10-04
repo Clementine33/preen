@@ -34,42 +34,70 @@ func commitOutput(
 ) ([]string, bool, error) {
 	target := posixForm(enc.target)
 	if !enc.replace {
-		if err := tk.rename(enc.temp, enc.target); err != nil {
-			return nil, false, fmt.Errorf("commit %s: %w", target, err)
+		return publishOutput(tk, enc)
+	}
+	var protected string
+	var result MoveResult
+	var err error
+	if soft {
+		protected, result, err = tk.recoverMove(ctx, workRoot, enc.target)
+	} else {
+		protected = replacedAsidePath(enc.target)
+		result, err = tk.move(enc.target, protected)
+	}
+	if err != nil || !result.SourceRemoved || result.Unverified {
+		paths := []string{}
+		if result.TargetCreated || result.Unverified {
+			paths = append(paths, posixForm(protected))
 		}
-		return nil, true, nil
+		if result.Unverified {
+			paths = append(paths, target)
+		}
+		return paths, false, fmt.Errorf("protect replaced output %s: %w", target, err)
+	}
+	paths, committed, publishErr := publishOutput(tk, enc)
+	if publishErr != nil {
+		// A target known to contain the new output must never be restored over.
+		if committed || enc.protected {
+			return append(paths, posixForm(protected)), committed, publishErr
+		}
+		restored, restoreErr := tk.move(protected, enc.target)
+		if restoreErr != nil || !restored.SourceRemoved || restored.Unverified {
+			return []string{
+				posixForm(protected),
+				target,
+			}, false, fmt.Errorf(
+				"commit %s: %w; restore failed: %w",
+				target,
+				publishErr,
+				restoreErr,
+			)
+		}
+		return nil, false, publishErr
 	}
 	if soft {
-		recoveryDest, err := tk.recoverFile(ctx, workRoot, enc.target)
-		if err != nil {
-			return nil, false, fmt.Errorf("protect replaced output %s: %w", target, err)
-		}
-		if err := tk.rename(enc.temp, enc.target); err != nil {
-			restoreErr := tk.rename(recoveryDest, enc.target)
-			if restoreErr != nil {
-				return []string{posixForm(recoveryDest)}, false, fmt.Errorf(
-					"commit %s: %w (old file kept at %s; restoring it failed: %w)",
-					target, err, posixForm(recoveryDest), restoreErr)
-			}
-			return nil, false, fmt.Errorf("commit %s: %w", target, err)
-		}
-		return []string{posixForm(recoveryDest)}, true, nil
+		return []string{posixForm(protected)}, true, nil
 	}
-	aside := replacedAsidePath(enc.target)
-	if err := tk.rename(enc.target, aside); err != nil {
-		return nil, false, fmt.Errorf("protect replaced output %s: %w", target, err)
+	if err := tk.remove(protected); err != nil {
+		return []string{posixForm(protected)}, true, fmt.Errorf("remove replaced old output: %w", err)
 	}
-	if err := tk.rename(enc.temp, enc.target); err != nil {
-		restoreErr := tk.rename(aside, enc.target)
-		if restoreErr != nil {
-			return []string{posixForm(aside)}, false, fmt.Errorf(
-				"commit %s: %w (old file kept at %s; restoring it failed: %w)",
-				target, err, posixForm(aside), restoreErr)
-		}
-		return nil, false, fmt.Errorf("commit %s: %w", target, err)
+	return nil, true, nil
+}
+
+func publishOutput(tk *componentToolkit, enc *plannedEncode) ([]string, bool, error) {
+	result, err := tk.move(enc.temp, enc.target)
+	if result.Unverified || (result.TargetCreated && !result.SourceRemoved) {
+		enc.protected = true
 	}
-	if err := tk.remove(aside); err != nil {
-		return []string{posixForm(aside)}, true, fmt.Errorf("remove replaced old output %s: %w", posixForm(aside), err)
+	if result.Unverified {
+		return []string{posixForm(enc.target)}, false, fmt.Errorf("publish outcome unverified: %w", err)
 	}
+	if err != nil {
+		return nil, result.TargetCreated, fmt.Errorf("commit %s: %w", posixForm(enc.target), err)
+	}
+	if !result.TargetCreated || !result.SourceRemoved {
+		return nil, result.TargetCreated, fmt.Errorf("incomplete publish")
+	}
+	enc.temp = ""
 	return nil, true, nil
 }

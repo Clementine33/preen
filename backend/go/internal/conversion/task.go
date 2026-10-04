@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/onsei/organizer/backend/internal/conversion/execute"
@@ -18,37 +19,49 @@ import (
 
 // Task implements workset.Task for the conversion operation.
 type Task struct {
-	inventory    Inventory
-	settings     Settings
-	buildEncoder execute.EncoderFactory
-	probeBitrate ProbeBitrate
-	recoverFile  execute.RecoverFile
-	withinRoot   execute.ResolvedWithinRoot
+	inventory      Inventory
+	settings       Settings
+	buildEncoder   execute.EncoderFactory
+	probeBitrate   ProbeBitrate
+	withinRoot     execute.ResolvedWithinRoot
+	executionWalk  SelectedWalk
+	moves          execute.FileMoves
+	sessionEncoder execute.Encoder
+	sessionFixed   bool
+	selectedScan   SelectedScan
+	files          execute.FileHandles
 }
 
-// New creates the conversion task: its input facts come from the injected
-// inventory, its configuration from the injected settings, and the media tool
-// it prepares with from the injected factory — built when a unit is prepared,
-// so the tool paths in force are the ones configured at that moment. probe
-// measures the bitrates a plan needs that the inventory has not recorded.
-// recoverFile protects removed and replaced media; withinRoot checks resolved
-// containment through the execute consumer's filesystem operation.
+// New creates conversion's planning and execution task. Generation reads the
+// injected inventory and tool settings. NewExecutionSession fixes the encoder
+// configuration once and verifies actual execution roots with ExecutionIO;
+// units use that session's strict moves and root-confined file handles.
+// probe supplies missing bitrate facts, and withinRoot checks resolved paths.
+// The recovery callback parameter is retained for constructor compatibility;
+// execution uses the strict Moves capability from ExecutionIO.
 func New(
 	inv Inventory, settings Settings, buildEncoder execute.EncoderFactory, probe ProbeBitrate,
-	recoverFile execute.RecoverFile, withinRoot execute.ResolvedWithinRoot,
+	_ execute.RecoverFile, withinRoot execute.ResolvedWithinRoot, io ...ExecutionIO,
 ) *Task {
-	return &Task{
+	task := &Task{
 		inventory:    inv,
 		settings:     settings,
 		buildEncoder: buildEncoder,
 		probeBitrate: probe,
-		recoverFile:  recoverFile,
 		withinRoot:   withinRoot,
 	}
+	if len(io) > 0 {
+		task.executionWalk, task.moves, task.selectedScan = io[0].Walk, io[0].Moves, io[0].Scan
+		task.files = io[0].Files
+	}
+	return task
 }
 
 // encoder builds the media tool for the tool paths the configuration names now.
 func (t *Task) encoder() execute.Encoder {
+	if t.sessionFixed {
+		return t.sessionEncoder
+	}
 	return t.buildEncoder(t.settings.Tools())
 }
 
@@ -286,6 +299,9 @@ func (t *Task) EvaluateRevision(
 		}
 	}
 	for _, r := range in.Detail.Roots {
+		if in.InputRoots != nil && !slices.Contains(in.InputRoots, r.RootPath) {
+			continue
+		}
 		stale := rootIsStale(t.inventory, r)
 		if stale {
 			out.StaleRoots = append(out.StaleRoots, r.RootIndex)

@@ -173,7 +173,7 @@ func encodeAllTargets(
 				spec.Quality = &reconcile.Quality{Kind: reconcile.QualityBitrate, Bitrate: 192}
 			}
 			dst := filepath.Join(t.TempDir(), "output"+reconcile.ExtForCodec(codec))
-			if err := encoder.Encode(t.Context(), src, dst, spec); err != nil {
+			if err := encodePaths(encoder, t.Context(), src, dst, spec); err != nil {
 				t.Fatal(err)
 			}
 			check(t, codec, probeTags(t, dst))
@@ -327,7 +327,7 @@ func TestFFmpegConvertsSourcesWithUnusableTags(t *testing.T) {
 			src := filepath.Join(t.TempDir(), "unusable.wav")
 			writeTaggedWAV(t, src, tc.info, nil, false)
 			dst := filepath.Join(t.TempDir(), "output.flac")
-			err := encoder.Encode(t.Context(), src, dst,
+			err := encodePaths(encoder, t.Context(), src, dst,
 				reconcile.AudioOutputSpec{Codec: reconcile.CodecFlac})
 			if err != nil {
 				t.Fatalf("tags gated the conversion: %v", err)

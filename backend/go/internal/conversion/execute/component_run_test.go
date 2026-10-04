@@ -114,6 +114,8 @@ func runRequest(
 		DeleteMode: mode,
 		Encoder:    ffmpeg.New(execute.ToolsConfig{}),
 		Recover:    filesystem.Recover,
+		Moves:      filesystem.ConversionMoves{},
+		Files:      filesystem.ConversionHandles{},
 		WithinRoot: filesystem.IsResolvedWithinRoot,
 	}
 }
@@ -473,7 +475,7 @@ func TestComponentRun_MissingRecoveryDoesNotFallBackToHardDelete(t *testing.T) {
 	writeBytes(t, source, []byte("obsolete"))
 	component := componentFixture([]reconcile.FileTuple{freezeFile(t, source)}, removeOp("cmp-1", source))
 	req := runRequest(root, component, reconcile.DesiredProfile{}, execute.DeleteModeSoft)
-	req.Recover = nil
+	req.Moves = nil
 	_, err := execute.RunComponent(t.Context(), req)
 	if err == nil || errorCode(t, err) != execute.ComponentCodeInvalidRequest {
 		t.Fatalf("expected missing recovery rejection, got %v", err)

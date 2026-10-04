@@ -130,7 +130,7 @@ func TestComponentRun_CancelDuringRecoveryCompletesReplacement(t *testing.T) {
 		cancel()
 		return filesystem.Recover(recoveryCtx, workRoot, source)
 	}
-	result, err := execute.RunComponent(ctx, req)
+	result, err := execute.RunComponentWithTestKit(ctx, req, execute.ComponentRunTestKit{})
 	if !errors.Is(err, context.Canceled) || result.Stage != execute.ComponentStageRemove {
 		t.Fatalf("expected cancellation after replacement, got %+v, %v", result, err)
 	}
@@ -170,7 +170,7 @@ func TestComponentRun_DeleteFailureStopsRemovals(t *testing.T) {
 		}
 		return filesystem.Recover(ctx, workRoot, source)
 	}
-	result, err := execute.RunComponent(t.Context(), req)
+	result, err := execute.RunComponentWithTestKit(t.Context(), req, execute.ComponentRunTestKit{})
 	if err == nil {
 		t.Fatal("expected the second removal to fail")
 	}
@@ -265,7 +265,7 @@ func TestComponentRun_CancelStopsAtSafeBoundary(t *testing.T) {
 	encoder := ffmpeg.New(execute.ToolsConfig{})
 	kit := execute.ComponentRunTestKit{
 		Encode: func(encCtx context.Context, src, dst string, outSpec reconcile.AudioOutputSpec) error {
-			err := encoder.Encode(encCtx, src, dst, outSpec)
+			err := encodePaths(encoder, encCtx, src, dst, outSpec)
 			cancel()
 			return err
 		},

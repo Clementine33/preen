@@ -5,13 +5,13 @@
 package ffmpeg
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"math"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -110,28 +110,36 @@ func (f Encoder) TargetFacts(spec reconcile.AudioOutputSpec) (encoder, mode stri
 // instead of copied as mojibake. An embedded picture does not come with it: no
 // target gets container-specific handling for one.
 // AAC uses bitrate-controlled CBR (-b:a), never quality/VBR (-q:a).
-// The destination must be a new absolute staging path. Partial output on failure
+// The caller owns a newly created seekable destination handle. Partial output on failure
 // belongs to the caller; this adapter never commits, removes or replaces media.
-func (f Encoder) Encode(ctx context.Context, src, dst string, spec reconcile.AudioOutputSpec) error {
-	if !filepath.IsAbs(src) || !filepath.IsAbs(dst) || src == dst {
-		return fmt.Errorf("distinct absolute source and destination paths required")
+func (f Encoder) Encode(
+	ctx context.Context,
+	src, dst *os.File,
+	spec reconcile.AudioOutputSpec,
+) (execute.AudioStream, error) {
+	if src == nil || dst == nil || src == dst {
+		return execute.AudioStream{}, fmt.Errorf("distinct source and destination handles required")
 	}
-	if _, err := os.Lstat(dst); err == nil {
-		return fmt.Errorf("destination already exists: %s", dst)
-	} else if !os.IsNotExist(err) {
-		return err
-	}
-	input, err := f.Probe(ctx, src)
+	stream, err := f.encodeHandles(ctx, src, dst, spec)
+	return stream, err
+}
+
+func (f Encoder) encodeHandles(
+	ctx context.Context,
+	src, dst *os.File,
+	spec reconcile.AudioOutputSpec,
+) (execute.AudioStream, error) {
+	input, err := f.probeHandle(ctx, src)
 	if err != nil {
-		return err
+		return execute.AudioStream{}, err
 	}
 	codecArgs, err := audioEncodingArgs(input, spec)
 	if err != nil {
-		return err
+		return execute.AudioStream{}, err
 	}
-	tagArgs, err := f.sourceTagArgs(ctx, src)
+	tagArgs, err := f.sourceTagHandleArgs(ctx, src)
 	if err != nil {
-		return err
+		return execute.AudioStream{}, err
 	}
 	args := []string{
 		"-nostdin",
@@ -140,8 +148,10 @@ func (f Encoder) Encode(ctx context.Context, src, dst string, spec reconcile.Aud
 		"error",
 		"-xerror",
 		"-n",
+		"-fd",
+		"0",
 		"-i",
-		src,
+		"fd:",
 		"-map",
 		"0:a:0",
 		"-map_metadata",
@@ -150,35 +160,107 @@ func (f Encoder) Encode(ctx context.Context, src, dst string, spec reconcile.Aud
 	}
 	args = append(args, tagArgs...)
 	args = append(args, codecArgs.Args...)
+	args = append(args, "-fd", "1", "fd:")
 	encoder, _ := f.paths()
-	if output, runErr := exec.CommandContext(ctx, encoder, append(args, dst)...).CombinedOutput(); runErr != nil {
-		return fmt.Errorf("encode: %w: %s", runErr, output)
+	if _, seekErr := src.Seek(0, 0); seekErr != nil {
+		return execute.AudioStream{}, seekErr
 	}
-	output, err := f.Probe(ctx, dst)
+	if _, seekErr := dst.Seek(0, 0); seekErr != nil {
+		return execute.AudioStream{}, seekErr
+	}
+	cmd := exec.CommandContext(ctx, encoder, args...)
+	cmd.Stdin, cmd.Stdout = src, dst
+	var diagnostic bytes.Buffer
+	cmd.Stderr = &diagnostic
+	if runErr := cmd.Run(); runErr != nil {
+		return execute.AudioStream{}, fmt.Errorf("encode: %w: %s", runErr, diagnostic.String())
+	}
+	output, err := f.probeHandle(ctx, dst)
 	if err != nil {
-		return err
+		return execute.AudioStream{}, err
 	}
 	if output.Codec != codecArgs.Codec {
-		return fmt.Errorf("unexpected output codec: %s", output.Codec)
+		return execute.AudioStream{}, fmt.Errorf("unexpected output codec: %s", output.Codec)
 	}
 	inputDuration, inputErr := strconv.ParseFloat(input.Duration, 64)
 	outputDuration, outputErr := strconv.ParseFloat(output.Duration, 64)
 	if inputErr != nil || outputErr != nil || inputDuration <= 0 || outputDuration <= 0 ||
 		math.Abs(inputDuration-outputDuration) > 0.1 {
-		return fmt.Errorf("output duration does not match source")
+		return execute.AudioStream{}, fmt.Errorf("output duration does not match source")
 	}
 	if output.Channels != input.Channels {
-		return fmt.Errorf("output changed channel count")
+		return execute.AudioStream{}, fmt.Errorf("output changed channel count")
 	}
-	// Opus is a 48 kHz format: a 44.1 kHz source is resampled by the codec
-	// itself, which is the one sample-rate change that is the format's, not a
-	// defect of the encode.
 	if output.SampleRate != input.SampleRate && spec.Codec != reconcile.CodecOpus {
-		return fmt.Errorf("output changed sample rate")
+		return execute.AudioStream{}, fmt.Errorf("output changed sample rate")
 	}
-	if output, err := exec.CommandContext(ctx, encoder, "-nostdin", "-v", "error", "-xerror", "-i", dst, "-map", "0:a:0", "-f", "null", "-").
-		CombinedOutput(); err != nil {
-		return fmt.Errorf("validate output: %w: %s", err, output)
+	if err := f.decodeHandle(ctx, dst); err != nil {
+		return execute.AudioStream{}, err
+	}
+	return output, nil
+}
+
+func (f Encoder) decodeHandle(ctx context.Context, file *os.File) error {
+	if _, seekErr := file.Seek(0, 0); seekErr != nil {
+		return seekErr
+	}
+	encoder, _ := f.paths()
+	cmd := exec.CommandContext(
+		ctx,
+		encoder,
+		"-nostdin",
+		"-v",
+		"error",
+		"-xerror",
+		"-fd",
+		"0",
+		"-i",
+		"fd:",
+		"-map",
+		"0:a:0",
+		"-f",
+		"null",
+		"-",
+	)
+	cmd.Stdin = file
+	if data, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("validate output: %w: %s", err, data)
 	}
 	return nil
+}
+
+func (f Encoder) probeHandle(ctx context.Context, file *os.File) (execute.AudioStream, error) {
+	_, probe := f.paths()
+	if _, err := file.Seek(0, 0); err != nil {
+		return execute.AudioStream{}, err
+	}
+	cmd := exec.CommandContext(
+		ctx,
+		probe,
+		"-v",
+		"error",
+		"-select_streams",
+		"a:0",
+		"-show_streams",
+		"-of",
+		"json",
+		"-fd",
+		"0",
+		"fd:",
+	)
+	cmd.Stdin = file
+	data, err := cmd.Output()
+	if err != nil {
+		return execute.AudioStream{}, fmt.Errorf("probe handle: %w", err)
+	}
+	var result struct {
+		Streams []execute.AudioStream `json:"streams"`
+	}
+	if err := json.Unmarshal(data, &result); err != nil {
+		return execute.AudioStream{}, err
+	}
+	if len(result.Streams) != 1 || result.Streams[0].Channels < 1 {
+		return execute.AudioStream{}, fmt.Errorf("no audio stream")
+	}
+	return result.Streams[0], nil
 }

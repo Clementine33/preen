@@ -228,7 +228,7 @@ type sessionRun struct {
 	d      *dispatcher
 	ex     *PlanExecution
 	run    *executionRun
-	task   Task
+	task   UnitPreparer
 	ctx    context.Context
 	report []ExecutionComponentView
 

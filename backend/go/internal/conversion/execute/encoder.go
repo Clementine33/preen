@@ -2,12 +2,13 @@ package execute
 
 import (
 	"context"
+	"os"
 
 	"github.com/onsei/organizer/backend/internal/conversion/reconcile"
 )
 
 // AudioStream is the probed shape of one audio stream: what the pipeline reads
-// a staged output back as before it commits it.
+// from the handles used by an encoding worker.
 type AudioStream struct {
 	Codec      string `json:"codec_name"`
 	SampleRate string `json:"sample_rate"`
@@ -22,12 +23,13 @@ type AudioStream struct {
 // command — everything ffmpeg is made of (tool paths, arguments, the checks a
 // written file passes) belongs to the adapter that implements it.
 type Encoder interface {
-	// Encode writes one output at a new absolute staging path and leaves a
-	// readable, spec-conforming file there; a failure leaves the partial output
-	// to the caller.
-	Encode(ctx context.Context, src, dst string, spec reconcile.AudioOutputSpec) error
-	// Check reports both tools being available before any filesystem changes.
+	// Encode uses independently opened, seekable handles and returns the fully
+	// probed and decoded output stream. Handles remain owned by the caller.
+	Encode(ctx context.Context, src, dst *os.File, spec reconcile.AudioOutputSpec) (AudioStream, error)
+	// Check reports both tools being available before encoding.
 	Check() error
+	// CheckFD probes actual output containers once per encoding session.
+	CheckFD(context.Context, []reconcile.AudioOutputSpec) error
 	// Probe reads the first audio stream of one file.
 	Probe(ctx context.Context, path string) (AudioStream, error)
 	// Version reports the encoder's own version line, the diagnostic a
@@ -40,7 +42,6 @@ type Encoder interface {
 	TargetFacts(spec reconcile.AudioOutputSpec) (encoder, mode string, err error)
 }
 
-// EncoderFactory builds the encoder one tools configuration names. The pipeline
-// asks for it when it prepares a unit, so the tool paths in force are the ones
-// configured at that moment.
+// EncoderFactory builds one configured encoder. Conversion captures it once
+// per execution session; later settings changes affect subsequent sessions.
 type EncoderFactory func(ToolsConfig) Encoder

@@ -168,7 +168,13 @@ func (d *dispatcher) execute(gen *PlanGeneration) {
 		d.fail(gen, "MEMBERS_LOAD_FAILED", "failed to resolve the participating members")
 		return
 	}
-	if scanErr := d.svc.refreshRoots(ctx, memberFolders, w.RootPath, checkCancel); scanErr != nil {
+	if scanErr := d.svc.refreshGenerationInputs(
+		ctx,
+		gen.OperationType,
+		memberFolders,
+		w.RootPath,
+		checkCancel,
+	); scanErr != nil {
 		if ctx.Err() != nil {
 			_ = d.svc.repo.CompleteGenerationCanceled(gen.GenerationID)
 			return

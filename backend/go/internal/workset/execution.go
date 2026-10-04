@@ -179,7 +179,7 @@ func (s *serviceImpl) StartExecution(
 		replayed {
 		return result, replayErr
 	}
-	reasons, frozen, gateErr := s.executionEligibility(op, planID, req.IfMatchVersion)
+	reasons, frozen, gateErr := s.executionEligibility(op, planID, req.IfMatchVersion, selection)
 	if gateErr != nil {
 		return nil, gateErr
 	}
@@ -303,7 +303,7 @@ func (s *serviceImpl) replayExecution(
 // order and returns the fail-forward reasons plus the frozen execution units.
 // Reasons are accumulated so one response names all the disqualifiers.
 func (s *serviceImpl) executionEligibility(
-	op *Operation, planID string, ifMatchVersion int,
+	op *Operation, planID string, ifMatchVersion int, selection []string,
 ) ([]string, FrozenExecution, error) {
 	if op.CurrentRevisionID == "" || op.CurrentRevisionID != planID {
 		return []string{ExecBlockedNotCurrent}, FrozenExecution{}, nil
@@ -331,7 +331,7 @@ func (s *serviceImpl) executionEligibility(
 			nil,
 		)
 	}
-	detail, reasons, err := s.executionBlockReasons(op, planID, rev)
+	detail, reasons, err := s.executionBlockReasons(op, planID, rev, selection)
 	if err != nil {
 		return nil, FrozenExecution{}, err
 	}
@@ -366,7 +366,7 @@ func (s *serviceImpl) executionEligibility(
 // input freshness. Terminating errors are returned separately from the
 // fail-forward reasons.
 func (s *serviceImpl) executionBlockReasons(
-	op *Operation, planID string, rev *OperationRevision,
+	op *Operation, planID string, rev *OperationRevision, selection []string,
 ) (*PlanDetail, []string, error) {
 	reasons := make([]string, 0, 4)
 	done, err := s.repo.GetExecutionForRevision(planID)
@@ -394,7 +394,11 @@ func (s *serviceImpl) executionBlockReasons(
 	if err != nil {
 		return nil, nil, NewError(ErrKindNotFound, "REVISION_NOT_FOUND", "revision not found", nil)
 	}
-	health, healthErr := s.revisionHealth(op.OperationType, detail)
+	roots, scopeErr := s.executionInputRoots(op.WorksetID, detail, selection)
+	if scopeErr != nil {
+		return nil, nil, scopeErr
+	}
+	health, healthErr := s.revisionHealth(op.OperationType, detail, roots)
 	if healthErr != nil {
 		return nil, nil, NewError(ErrKindInternal, "INTERNAL", "failed to evaluate revision health", healthErr)
 	}

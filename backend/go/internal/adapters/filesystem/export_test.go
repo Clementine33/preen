@@ -8,3 +8,8 @@ func RecoverWithRename(
 ) (string, error) {
 	return recoverFile(ctx, workRoot, source, rename)
 }
+
+var ProbeConversionMovesForTest = probeConversionMoves
+var ProbeConversionDirectoryForTest = probeConversionDirectory
+
+var ConversionRecoverForTest = conversionRecover

@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/onsei/organizer/backend/internal/conversion/reconcile"
 	"github.com/onsei/organizer/backend/internal/librarypath"
@@ -150,24 +149,10 @@ func (p *plannedComponent) checkFrozenFile(
 	if err != nil {
 		return fileChanged(posix, "cannot inspect "+role)
 	}
-	if !info.Mode().IsRegular() {
-		return fileChanged(posix, role+" is not a regular file")
+	if err := CompareFrozenFacts(tuple, info); err != nil {
+		return fileChanged(posix, role+": "+err.Error())
 	}
-	if tuple.Size > 0 && info.Size() != tuple.Size {
-		return fileChanged(posix, fmt.Sprintf("size changed: frozen %d, disk %d", tuple.Size, info.Size()))
-	}
-	if tuple.Mtime > 0 {
-		delta := info.ModTime().Sub(time.Unix(tuple.Mtime, 0))
-		if delta < 0 {
-			delta = -delta
-		}
-		if delta > time.Second {
-			return fileChanged(
-				posix,
-				fmt.Sprintf("mtime changed: frozen %d, disk %d", tuple.Mtime, info.ModTime().Unix()),
-			)
-		}
-	}
+	p.inputs[posix] = info
 	if within, err := p.withinRoot(posixForm(p.absRoot), posix); err != nil || !within {
 		return pathUnsafe(posix, "resolved path escapes the member root")
 	}

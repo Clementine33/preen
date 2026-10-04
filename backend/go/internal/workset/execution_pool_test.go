@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/onsei/organizer/backend/internal/workset"
 )
@@ -206,4 +207,36 @@ func TestExecutionAtScaleRecordsEveryComponentOnce(t *testing.T) {
 				done.Components[200+i].ComponentID)
 		}
 	}
+}
+
+func TestReadyComponentPersistsWhileLaterComponentIsStillEncoding(t *testing.T) {
+	f, obs := poolFixture(t, 2, poolUnit(1), poolUnit(1))
+	obs.gate("u1")
+	defer obs.release("u1")
+	f.seedRevision("plan-ready", poolComponent("u0", "albumA"), poolComponent("u1", "albumB"))
+	started := f.mustStart("plan-ready", "key-ready")
+	obs.waitEncode(t, "u1")
+	obs.waitEvent(t, "commit u0")
+	for range 1000 {
+		view, err := f.svc.GetExecution(
+			t.Context(),
+			f.worksetID,
+			"conversion",
+			started.ExecutionID,
+			workset.ExecutionPage{},
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if view.CompletedComponents == 1 {
+			if entryOf(t, view, "u0").Status != "succeeded" {
+				t.Fatal("first result is not persisted")
+			}
+			obs.release("u1")
+			f.waitTerminal(started.ExecutionID)
+			return
+		}
+		time.Sleep(time.Millisecond)
+	}
+	t.Fatal("first component did not persist before later encode returned")
 }

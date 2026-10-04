@@ -202,6 +202,10 @@ type RevisionFacts struct {
 	DraftSnapshot []byte
 	Members       []*WorksetMember
 	Detail        *PlanDetail
+	// InputRoots optionally limits execution freshness checks. Nil means the
+	// whole revision; a non-nil empty slice means no execution inputs. Tasks
+	// opt in to this scope without changing their global blocked-unit rules.
+	InputRoots []string
 }
 
 // RevisionHealth is a task's business evaluation of one frozen revision.

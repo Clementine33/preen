@@ -81,6 +81,9 @@ func TestExecutionRevalidatesInputsAfterRefresh(t *testing.T) {
 		files:     []reconcile.FileTuple{{Path: source, Size: size, Mtime: mtime}},
 	})
 
+	if err := os.WriteFile(filepath.FromSlash(source), []byte("changed-input"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	started := f.mustStart("plan-drift", "k-drift")
 	done := f.waitTerminal(started.ExecutionID)
 	if done.Status != workset.ExecStatusFailed || done.ErrorCode != workset.ExecBlockedInput {
@@ -115,10 +118,13 @@ func TestExecutionFailsWhenTheRefreshFails(t *testing.T) {
 		files:     []reconcile.FileTuple{{Path: source, Size: size, Mtime: mtime}},
 	})
 
+	if err := os.WriteFile(filepath.FromSlash(source), []byte("changed-input"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	started := f.mustStart("plan-scanfail", "k-scanfail")
 	done := f.waitTerminal(started.ExecutionID)
-	if done.Status != workset.ExecStatusFailed || done.ErrorCode != "SCAN_FAILED" {
-		t.Fatalf("status = %s (%s: %s), want SCAN_FAILED", done.Status, done.ErrorCode, done.ErrorMessage)
+	if done.Status != workset.ExecStatusFailed || done.ErrorCode != "INPUT_CHANGED" {
+		t.Fatalf("status = %s (%s: %s), want INPUT_CHANGED", done.Status, done.ErrorCode, done.ErrorMessage)
 	}
 	if _, err := os.Stat(filepath.Join(f.root, "albumA", "00.mp3")); err != nil {
 		t.Fatalf("an unverified run must not touch files: %v", err)

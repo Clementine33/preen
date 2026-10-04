@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"sort"
@@ -30,67 +29,6 @@ var repairableTags = map[string]struct{}{
 	"genre":   {},
 	"title":   {},
 	"track":   {},
-}
-
-// sourceTagArgs returns the `-metadata key=value` arguments that repair a source
-// file's legacy RIFF INFO tags, or nil when there is nothing to repair.
-//
-// A WAV written by common Japanese production tools keeps its tags in a RIFF
-// INFO chunk as raw Shift-JIS bytes with no encoding declaration. ffmpeg copies
-// metadata values verbatim, so those bytes land in the output as invalid UTF-8:
-// mojibake in every player, with no error anywhere — exit code 0, empty stderr.
-// ffprobe already reports the value ffmpeg will pick, so this repairs only that
-// value's encoding and never re-ranks the candidates: a source that currently
-// reads correctly must keep reading correctly.
-//
-// Only RIFF/WAVE sources are examined. A source whose tags cannot be read is
-// converted exactly as before — repairing metadata is best-effort, and must
-// never turn a working conversion into a failed one. A canceled context is not
-// such a failure: it is the caller's own signal and is returned.
-func (f Encoder) sourceTagArgs(ctx context.Context, src string) ([]string, error) {
-	if !isRiffWave(src) {
-		return nil, nil
-	}
-	pairs, err := f.probeTagPairs(ctx, src)
-	if err != nil {
-		if ctxErr := ctx.Err(); ctxErr != nil {
-			return nil, ctxErr
-		}
-		return nil, nil
-	}
-	return repairedTagArgs(pairs), nil
-}
-
-// isRiffWave reports whether the file is a RIFF/WAVE container. Every other
-// container is left alone, so a FLAC source — which reconciliation may pick
-// instead of a WAV — pays one 12-byte read and nothing more.
-func isRiffWave(path string) bool {
-	file, err := os.Open(path)
-	if err != nil {
-		return false
-	}
-	defer func() { _ = file.Close() }()
-	var header [12]byte
-	if _, err := io.ReadFull(file, header[:]); err != nil {
-		return false
-	}
-	return string(header[0:4]) == "RIFF" && string(header[8:12]) == "WAVE"
-}
-
-// probeTagPairs reads every tag ffprobe reports, in the order the container
-// declared them and with repeated keys kept.
-//
-// string_validation=ignore is what makes this possible: without it ffprobe
-// replaces the invalid bytes this repair exists to recover, and the tags are
-// destroyed before any caller can see them.
-func (f Encoder) probeTagPairs(ctx context.Context, path string) ([]rawTag, error) {
-	_, probe := f.paths()
-	data, err := exec.CommandContext(ctx, probe, "-v", "error", "-show_entries", "format_tags",
-		"-of", "json=string_validation=ignore", path).Output()
-	if err != nil {
-		return nil, fmt.Errorf("probe tags %s: %w", path, err)
-	}
-	return parseTagPairs(data)
 }
 
 // rawTag is one reported tag, its value still the container's raw bytes.
@@ -352,4 +290,57 @@ func decodeShiftJIS(raw []byte) (string, bool) {
 		return "", false
 	}
 	return text, true
+}
+
+// sourceTagHandleArgs reads legacy WAV tags from the same object used to encode.
+// sourceTagHandleArgs returns the `-metadata key=value` arguments that repair a source
+// file's legacy RIFF INFO tags, or nil when there is nothing to repair.
+//
+// A WAV written by common Japanese production tools keeps its tags in a RIFF
+// INFO chunk as raw Shift-JIS bytes with no encoding declaration. ffmpeg copies
+// metadata values verbatim, so those bytes land in the output as invalid UTF-8:
+// mojibake in every player, with no error anywhere — exit code 0, empty stderr.
+// ffprobe already reports the value ffmpeg will pick, so this repairs only that
+// value's encoding and never re-ranks the candidates: a source that currently
+// reads correctly must keep reading correctly.
+//
+// Only RIFF/WAVE sources are examined. A source whose tags cannot be read is
+// converted exactly as before — repairing metadata is best-effort, and must
+// never turn a working conversion into a failed one. A canceled context is not
+// such a failure: it is the caller's own signal and is returned.
+func (f Encoder) sourceTagHandleArgs(ctx context.Context, file *os.File) ([]string, error) {
+	var header [12]byte
+	if _, err := file.ReadAt(header[:], 0); err != nil || string(header[:4]) != "RIFF" || string(header[8:]) != "WAVE" {
+		return nil, nil
+	}
+	if _, err := file.Seek(0, 0); err != nil {
+		return nil, err
+	}
+	_, probe := f.paths()
+	cmd := exec.CommandContext(
+		ctx,
+		probe,
+		"-v",
+		"error",
+		"-show_entries",
+		"format_tags",
+		"-of",
+		"json=string_validation=ignore",
+		"-fd",
+		"0",
+		"fd:",
+	)
+	cmd.Stdin = file
+	data, err := cmd.Output()
+	if err != nil {
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+		return nil, nil
+	}
+	pairs, err := parseTagPairs(data)
+	if err != nil {
+		return nil, nil
+	}
+	return repairedTagArgs(pairs), nil
 }

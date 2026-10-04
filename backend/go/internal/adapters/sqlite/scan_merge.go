@@ -198,15 +198,19 @@ func mergeStagingEntries(tx *sql.Tx, scanID, libraryID, rootPath string) (invent
 func cleanupStaleEntries(tx *sql.Tx, scanID, rootPath string) (root string, fullRoot bool, err error) {
 	var sessionRootPath string
 	var sessionScopePath sql.NullString
+	var sessionKind string
 	sessionErr := tx.QueryRow(`
-		SELECT root_path, scope_path
+		SELECT root_path, scope_path, kind
 		FROM scan_sessions
 		WHERE session_id = ?
-	`, scanID).Scan(&sessionRootPath, &sessionScopePath)
+	`, scanID).Scan(&sessionRootPath, &sessionScopePath, &sessionKind)
 	if sessionErr != nil && sessionErr != sql.ErrNoRows {
 		return rootPath, false, sessionErr
 	}
 
+	if sessionKind == "selected" {
+		return rootPath, false, fmt.Errorf("selected scan requires explicit ranges")
+	}
 	if rootPath == "" {
 		rootPath = sessionRootPath
 	}

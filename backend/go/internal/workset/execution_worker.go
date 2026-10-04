@@ -156,29 +156,23 @@ func (d *dispatcher) executeRun(ex *PlanExecution) {
 	}
 	req, report := run.req, run.report
 
+	// The report is indexed by the frozen unit order and every unit needs its
+	// frozen payload; a mismatch would mislabel facts, so the session fails
+	// closed before anything is written.
+	if code, message, ready := worklistReady(req, run); !ready {
+		d.finishExecution(ex, ExecStatusFailed, code, message)
+		return
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	stopWatch := make(chan struct{})
 	go watchExecutionCancel(ctx, cancel, stopWatch, d.svc.repo, ex.ExecutionID)
 	defer close(stopWatch)
 
-	// The run revalidates the revision's recorded inputs against the disk before
-	// the first write: a folder that drifted after planning stops the session
-	// here, with every file untouched, instead of failing component by component
-	// halfway through (ADR 0001 §2).
-	if code, message, verified := d.verifyInputs(ctx, ex, run); !verified {
-		status := ExecStatusFailed
-		if code == "CANCELED" {
-			status = ExecStatusCanceled
-		}
-		d.finishExecution(ex, status, code, message)
-		return
-	}
-	// The report is indexed by the frozen unit order and every unit needs its
-	// frozen payload; a mismatch would mislabel facts, so the session fails
-	// closed before anything is written.
-	if code, message, ready := worklistReady(req, run); !ready {
-		d.finishExecution(ex, ExecStatusFailed, code, message)
+	preparer, prepareErr := d.executionPreparer(ctx, ex, run, task)
+	if prepareErr != nil {
+		d.finishPreparationFailure(ex, prepareErr)
 		return
 	}
 
@@ -190,7 +184,7 @@ func (d *dispatcher) executeRun(ex *PlanExecution) {
 		d:      d,
 		ex:     ex,
 		run:    run,
-		task:   task,
+		task:   preparer,
 		ctx:    ctx,
 		report: report,
 		window: d.svc.encodeWindow(),
@@ -482,4 +476,16 @@ func (d *dispatcher) syncUnitInventory(worksetRoot string, res UnitResult, entry
 		return
 	}
 	entry.InventorySynced = true
+}
+
+func (d *dispatcher) finishPreparationFailure(ex *PlanExecution, err error) {
+	code, message := "REQUEST_LOAD_FAILED", err.Error()
+	if e, ok := AsError(err); ok {
+		code, message = e.Code, e.Message
+	}
+	status := ExecStatusFailed
+	if code == "CANCELED" {
+		status = ExecStatusCanceled
+	}
+	d.finishExecution(ex, status, code, message)
 }

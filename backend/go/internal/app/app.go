@@ -169,21 +169,22 @@ func buildServices(repo *sqlite.Repository, configDir, dataDir string, generatio
 	prober.PathSource = func() string { return appconfig.NewReader(configDir).Tools().FFprobePath }
 	mediaFacts := inventory.NewMediaEnricher(sqlite.NewScanStaging(repo), prober, gate.BeginBackground)
 	librarySvc := library.NewService(repo, gate, repo, filesystem.ResolveMember)
+	scanPipeline := inventory.NewPipeline(
+		sqlite.NewScanStaging(repo),
+		func(ctx context.Context, rootPath, basePath string, _ int, emit func(inventory.DirEntry) error) error {
+			return filesystem.WalkRootEntriesParallel(
+				ctx,
+				rootPath,
+				basePath,
+				appconfig.NewReader(configDir).ScanWorkers(),
+				emit,
+			)
+		},
+		filesystem.WalkFolderEntries,
+		mediaFacts.Kick,
+	)
 	scanSvc := inventory.NewService(
-		inventory.NewPipeline(
-			sqlite.NewScanStaging(repo),
-			func(ctx context.Context, rootPath, basePath string, _ int, emit func(inventory.DirEntry) error) error {
-				return filesystem.WalkRootEntriesParallel(
-					ctx,
-					rootPath,
-					basePath,
-					appconfig.NewReader(configDir).ScanWorkers(),
-					emit,
-				)
-			},
-			filesystem.WalkFolderEntries,
-			mediaFacts.Kick,
-		),
+		scanPipeline,
 		repo,
 		gate,
 		librarySvc.RecordScanState,
@@ -194,8 +195,8 @@ func buildServices(repo *sqlite.Repository, configDir, dataDir string, generatio
 	// Task registration: every kind a workset operation can carry. Creation
 	// materializes only the requested operation and its seed draft.
 	//
-	// Sessions refresh their member folders before planning and before writing:
-	// conversion reads that refreshed inventory; rename also reads current
+	// Generation refreshes inventory; conversion execution checks disk facts
+	// without writing inventory. Rename also reads current
 	// catalog metadata and immediate directory occupancy.
 	worksSvc := works.NewService(
 		repo, repo, filesystem.ResolveMember, filesystem.ResolveMemberFile, media.ThumbEngineVersion,
@@ -233,6 +234,7 @@ func buildServices(repo *sqlite.Repository, configDir, dataDir string, generatio
 				media.ProbeBitrate,
 				filesystem.Recover,
 				filesystem.IsResolvedWithinRoot,
+				conversionIO(configDir, scanPipeline),
 			),
 			dirrename.New(repo, filesystem.ReadRenameDirectory),
 			refresh.NewTask(repo, filesystem.CoverDirectoryIdentity),
@@ -459,4 +461,39 @@ func StartPprofServer(addr string, serveFn func(string, http.Handler) error) {
 			log.Printf("pprof server exited: %v", err)
 		}
 	}()
+}
+
+func conversionIO(configDir string, scanPipeline *inventory.Pipeline) conversion.ExecutionIO {
+	return conversion.ExecutionIO{
+		Walk: func(ctx context.Context, roots []string, base string, emit func(string, inventory.DirEntry) error) error {
+			return filesystem.WalkSelectedEntriesParallel(
+				ctx,
+				roots,
+				base,
+				appconfig.NewReader(configDir).ScanWorkers(),
+				emit,
+			)
+		},
+		Moves: filesystem.ConversionMoves{},
+		Files: filesystem.ConversionHandles{},
+		Scan: func(ctx context.Context, folders []string, root string, checkCancel func()) error {
+			for _, folder := range folders {
+				rel, relErr := filepath.Rel(filepath.FromSlash(root), filepath.FromSlash(folder))
+				if relErr != nil {
+					return relErr
+				}
+				if _, resolveErr := filesystem.ResolveMember(root, filepath.ToSlash(rel)); resolveErr != nil {
+					return resolveErr
+				}
+			}
+			_, err := scanPipeline.ScanFoldersCtx(
+				ctx,
+				folders,
+				root,
+				appconfig.NewReader(configDir).ScanWorkers(),
+				inventory.WithProgress(func(inventory.Progress) { checkCancel() }),
+			)
+			return err
+		},
+	}
 }

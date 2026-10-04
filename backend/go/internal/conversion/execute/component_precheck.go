@@ -20,11 +20,14 @@ var audioExtensions = map[string]bool{
 // plannedEncode is one validated materialize operation. Paths are native
 // absolute filesystem paths; temp is set when materialization starts.
 type plannedEncode struct {
-	source  string
-	target  string
-	spec    reconcile.AudioOutputSpec
-	replace bool
-	temp    string
+	source    string
+	target    string
+	spec      reconcile.AudioOutputSpec
+	replace   bool
+	temp      string
+	artifact  os.FileInfo
+	hash      string
+	protected bool
 }
 
 // plannedRemove is one validated obsolete-removal operation with its frozen
@@ -41,6 +44,8 @@ type plannedComponent struct {
 	withinRoot ResolvedWithinRoot
 	encodes    []plannedEncode
 	removes    []plannedRemove
+	inputs     map[string]os.FileInfo
+	frozen     map[string]reconcile.FileTuple
 }
 
 // nativePath returns the filesystem form of a path as persisted.
@@ -63,6 +68,11 @@ func precheckComponentRequest(req ComponentRunRequest) (*plannedComponent, *Comp
 	if cerr != nil {
 		return nil, cerr
 	}
+	plan.inputs = map[string]os.FileInfo{}
+	plan.frozen = map[string]reconcile.FileTuple{}
+	for _, tuple := range req.Component.Files {
+		plan.frozen[posixForm(nativePath(tuple.Path))] = tuple
+	}
 	specs, cerr := encodeSpecsByExtension(req.Specs)
 	if cerr != nil {
 		return nil, cerr
@@ -83,6 +93,15 @@ func precheckComponentRequest(req ComponentRunRequest) (*plannedComponent, *Comp
 		return nil, cerr
 	}
 	if len(plan.encodes) > 0 {
+		if req.Encoder == nil || req.Files == nil {
+			return nil, componentError(
+				ComponentStagePrecheck,
+				ComponentCodeToolsUnavailable,
+				"",
+				"encode capabilities unavailable",
+				nil,
+			)
+		}
 		if err := req.Encoder.Check(); err != nil {
 			return nil, componentError(ComponentStagePrecheck, ComponentCodeToolsUnavailable, "",
 				"encode tools unavailable", err)
@@ -97,7 +116,7 @@ func newPlannedComponent(req ComponentRunRequest) (*plannedComponent, *Component
 		return nil, componentError(ComponentStagePrecheck, ComponentCodeInvalidRequest, "",
 			fmt.Sprintf("unsupported delete mode %q", req.DeleteMode), nil)
 	}
-	if req.DeleteMode == DeleteModeSoft && req.Recover == nil {
+	if req.DeleteMode == DeleteModeSoft && req.Moves == nil {
 		return nil, componentError(ComponentStagePrecheck, ComponentCodeInvalidRequest, "",
 			"recovery operation is required for soft deletion", nil)
 	}

@@ -212,13 +212,17 @@ func (s *serviceImpl) replayCurrentRevision(
 // revisionHealth asks the operation's task for the business health of one
 // frozen revision.
 func (s *serviceImpl) revisionHealth(
-	operationType string, detail *PlanDetail,
+	operationType string, detail *PlanDetail, scope ...[]string,
 ) (RevisionHealth, error) {
 	task, err := s.requireTask(operationType)
 	if err != nil {
 		return RevisionHealth{}, err
 	}
-	return task.EvaluateRevision(RevisionFacts{Detail: detail})
+	facts := RevisionFacts{Detail: detail}
+	if len(scope) > 0 {
+		facts.InputRoots = scope[0]
+	}
+	return task.EvaluateRevision(facts)
 }
 
 // participatingMembers filters the member list to those taking part, resolved

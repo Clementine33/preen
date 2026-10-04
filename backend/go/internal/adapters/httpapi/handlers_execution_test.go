@@ -1,12 +1,15 @@
 package httpapi //nolint:testpackage // white-box tests exercise unexported internals
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"slices"
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/onsei/organizer/backend/internal/inventory"
 
 	"github.com/onsei/organizer/backend/internal/adapters/filesystem"
 
@@ -86,6 +89,13 @@ func TestExecutionHTTPStartGatesAndShapes(t *testing.T) {
 			media.ProbeBitrate,
 			filesystem.Recover,
 			filesystem.IsResolvedWithinRoot,
+			conversion.ExecutionIO{
+				Walk: func(ctx context.Context, roots []string, base string, emit func(string, inventory.DirEntry) error) error {
+					return filesystem.WalkSelectedEntriesParallel(ctx, roots, base, 32, emit)
+				},
+				Moves: filesystem.ConversionMoves{},
+				Files: filesystem.ConversionHandles{},
+			},
 		),
 	}, nil, nil)
 	opPath := "/api/v1/worksets/" + wsID + "/operations/conversion"

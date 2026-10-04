@@ -4,6 +4,8 @@
  * primary text the user reads.
  */
 const SESSION_FAILURES: Record<string, string> = {
+  FILESYSTEM_OPERATION_UNSUPPORTED: '未开始转换：文件系统不支持所需的安全移动',
+  FILESYSTEM_PRECHECK_FAILED: '未开始转换：文件系统检查失败',
   SCAN_FAILED: '重新扫描文件夹失败：未做任何改动',
   INPUT_CHANGED: '文件夹输入已变化：未做任何改动，请重新生成计划版本后再执行',
   REVISION_LOAD_FAILED: '计划版本数据不可读',

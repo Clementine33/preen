@@ -2,14 +2,8 @@ package conversion
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io"
-	"os"
-	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/onsei/organizer/backend/internal/conversion/execute"
@@ -25,11 +19,11 @@ func (t *Task) PrepareUnit(
 	ctx context.Context,
 	in workset.UnitRunInput,
 ) (workset.PreparedUnit, error) {
-	component, profile, err := t.prepareComponent(ctx, in)
+	component, _, err := t.prepareComponent(ctx, in)
 	if err != nil {
 		return nil, err
 	}
-	return &preparedUnit{in: in, component: component, profile: profile, encoder: t.encoder()}, nil
+	return &preparedUnit{component: component, encoder: t.encoder()}, nil
 }
 
 // prepareComponent decodes the frozen unit payloads and prechecks the
@@ -62,8 +56,9 @@ func (t *Task) prepareComponent(
 		Specs:      profile,
 		DeleteMode: mode,
 		Encoder:    t.encoder(),
-		Recover:    t.recoverFile,
 		WithinRoot: t.withinRoot,
+		Moves:      t.moves,
+		Files:      t.files,
 	})
 	if prepErr != nil {
 		return nil, reconcile.DesiredProfile{}, unitFailureOf(prepErr)
@@ -75,9 +70,7 @@ func (t *Task) prepareComponent(
 // its outputs are written for, and the component whose staged outputs the
 // session encodes and commits.
 type preparedUnit struct {
-	in        workset.UnitRunInput
 	component *execute.PreparedComponent
-	profile   reconcile.DesiredProfile
 	encoder   execute.Encoder
 }
 
@@ -97,7 +90,7 @@ func (p *preparedUnit) EncodeTask(ctx context.Context, index int) error {
 func (p *preparedUnit) Commit(ctx context.Context) (workset.UnitResult, error) {
 	res, err := p.component.Commit(ctx)
 	result := p.resultOf(res, err)
-	p.recordGenerations(ctx, &result)
+	p.recordGenerations(ctx, &result, res.Outputs)
 	return result, nil
 }
 
@@ -115,6 +108,9 @@ func (p *preparedUnit) resultOf(res execute.ComponentRunResult, cause error) wor
 		Remaining: nonNil(res.Remaining),
 		Recovery:  nonNil(res.Recovery),
 	}
+	if res.Unverified {
+		result.InventoryError = "file move outcome unverified; refresh inventory before generating another plan"
+	}
 	if cause != nil {
 		result.Stage, result.ErrorCode, result.ErrorMessage = componentErrorOf(cause)
 	}
@@ -123,7 +119,13 @@ func (p *preparedUnit) resultOf(res execute.ComponentRunResult, cause error) wor
 		result.Canceled = true
 		result.ErrorMessage = "component run canceled"
 	}
-	fillInventoryFacts(&result)
+	result.InventoryRemoved = result.Removed
+	for _, output := range res.Outputs {
+		result.InventoryRefreshed = append(
+			result.InventoryRefreshed,
+			inventory.InventoryFile{Path: output.Path, Size: output.Size, Mtime: output.Mtime},
+		)
+	}
 	return result
 }
 
@@ -134,103 +136,32 @@ func unitFailureOf(err error) error {
 	return workset.NewError(workset.ErrKindInternal, code, message, err).WithStage(stage)
 }
 
-// recordGenerations gathers the generation credential of every encoded output
-// this unit committed: the target it was written for, the encoder that wrote
-// it, and the hash of the bytes now sitting at its path. These are the facts the
-// next plan judges such a file by where its measured rate cannot — a VBR average,
-// or an encoder that saturates — so they are read back from the committed file
-// itself, never from the plan that asked for it.
-//
-// A failure here discloses itself on the unit and drops the whole batch with
-// the inventory refresh: a generation is then committed but unrecorded, which
-// costs one redundant rebuild and never a wrong acceptance.
-func (p *preparedUnit) recordGenerations(ctx context.Context, result *workset.UnitResult) {
-	version, probed := "", false
-	for _, path := range result.Committed {
-		spec, ok := p.encodedSpecFor(path)
-		if !ok {
+// recordGenerations uses the encode worker's captured hash and file facts for
+// successful publications. The session's fixed tool version and target settings
+// complete the credentials without reopening a committed file.
+func (p *preparedUnit) recordGenerations(
+	ctx context.Context,
+	result *workset.UnitResult,
+	outputs []execute.OutputFacts,
+) {
+	version := ""
+	for _, output := range outputs {
+		spec := output.Spec
+		if spec.Lossless() || spec.Quality == nil {
 			continue
 		}
-		if !probed {
-			version, probed = p.encoder.Version(ctx), true
+		if version == "" {
+			version = p.encoder.Version(ctx)
 		}
-		encoder, mode, factsErr := p.encoder.TargetFacts(spec)
-		if factsErr != nil {
-			result.InventoryError = fmt.Sprintf("generation facts for %s: %v", path, factsErr)
-			return
-		}
-		info, statErr := os.Stat(filepath.FromSlash(path))
-		if statErr != nil {
-			result.InventoryError = fmt.Sprintf("stat committed output %s: %v", path, statErr)
-			return
-		}
-		digest, hashErr := fileSHA256(filepath.FromSlash(path))
-		if hashErr != nil {
-			result.InventoryError = fmt.Sprintf("hash committed output %s: %v", path, hashErr)
-			return
-		}
-		result.Generated = append(result.Generated, inventory.GenerationRecord{
-			Path:           path,
-			Codec:          string(spec.Codec),
-			Encoder:        encoder,
-			EncoderVersion: version,
-			BitrateKbps:    spec.Quality.Bitrate,
-			Mode:           mode,
-			Size:           info.Size(),
-			Mtime:          info.ModTime().Unix(),
-			ContentSHA256:  digest,
-			CreatedAt:      time.Now(),
-		})
-	}
-}
-
-// encodedSpecFor returns the encoded target one committed path was written for,
-// or false when the unit's profile declares none for that extension. The
-// lossless lane carries no credential: a lossless target is accepted on its
-// codec, where there is no rate to mis-read.
-func (p *preparedUnit) encodedSpecFor(path string) (reconcile.AudioOutputSpec, bool) {
-	spec := p.profile.Encoded
-	if spec == nil || spec.Quality == nil {
-		return reconcile.AudioOutputSpec{}, false
-	}
-	if reconcile.ExtForCodec(spec.Codec) != strings.ToLower(filepath.Ext(path)) {
-		return reconcile.AudioOutputSpec{}, false
-	}
-	return *spec, true
-}
-
-// fileSHA256 hashes one committed output: the credential's binding to the exact
-// bytes, kept so a deep re-check stays possible even though a plan compares the
-// cheaper size and mtime.
-func fileSHA256(path string) (string, error) {
-	file, err := os.Open(path)
-	if err != nil {
-		return "", err
-	}
-	defer file.Close()
-	digest := sha256.New()
-	if _, err := io.Copy(digest, file); err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(digest.Sum(nil)), nil
-}
-
-// fillInventoryFacts gathers the observed disk facts of one unit: the removed
-// sources plus the committed outputs. Recovery files stay outside the inventory.
-// A stat failure is disclosed instead of being reported as "unchanged".
-func fillInventoryFacts(result *workset.UnitResult) {
-	paths := result.Committed
-	facts := make([]inventory.InventoryFile, 0, len(paths))
-	for _, p := range paths {
-		info, err := os.Stat(filepath.FromSlash(p))
+		encoder, mode, err := p.encoder.TargetFacts(spec)
 		if err != nil {
-			result.InventoryError = fmt.Sprintf("stat %s: %v", p, err)
+			result.InventoryError = fmt.Sprintf("generation facts for %s: %v", output.Path, err)
 			return
 		}
-		facts = append(facts, inventory.InventoryFile{Path: p, Size: info.Size(), Mtime: info.ModTime().Unix()})
+		result.Generated = append(result.Generated, inventory.GenerationRecord{Path: output.Path,
+			Codec: string(spec.Codec), Encoder: encoder, EncoderVersion: version, BitrateKbps: spec.Quality.Bitrate,
+			Mode: mode, Size: output.Size, Mtime: output.Mtime, ContentSHA256: output.SHA256, CreatedAt: time.Now()})
 	}
-	result.InventoryRemoved = result.Removed
-	result.InventoryRefreshed = facts
 }
 
 // nonNil turns a nil path slice into an empty one so a persisted component

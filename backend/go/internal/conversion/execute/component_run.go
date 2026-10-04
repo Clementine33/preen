@@ -3,10 +3,8 @@ package execute
 import (
 	"context"
 	"errors"
-	"fmt"
 	"io/fs"
 	"os"
-	"strings"
 
 	"github.com/onsei/organizer/backend/internal/conversion/reconcile"
 )
@@ -80,6 +78,8 @@ type ComponentRunRequest struct {
 	// Recover is required for soft deletion and protects replaced output files.
 	Recover    RecoverFile
 	WithinRoot ResolvedWithinRoot
+	Moves      FileMoves
+	Files      FileHandles
 }
 
 // ResolvedWithinRoot checks containment after host filesystem indirection.
@@ -92,7 +92,10 @@ type ResolvedWithinRoot func(root, candidate string) (bool, error)
 // the disk.
 type ComponentRunResult struct {
 	// Status is succeeded, failed or canceled.
-	Status string
+	Status  string
+	Outputs []OutputFacts
+	// Unverified reports a move whose on-disk outcome could not be established.
+	Unverified bool
 	// Stage is the stage the run stopped in; empty on success and when the
 	// canceled request never entered a stage.
 	Stage string
@@ -132,20 +135,28 @@ func (e *ComponentError) Unwrap() error { return e.Err }
 // componentToolkit is the component-run IO surface. Function fields keep every
 // filesystem or encoder failure injectable without mocks.
 type componentToolkit struct {
-	encode      func(ctx context.Context, src, dst string, spec reconcile.AudioOutputSpec) error
-	rename      func(oldpath, newpath string) error
+	encode      func(ctx context.Context, src, dst *os.File, spec reconcile.AudioOutputSpec) (AudioStream, error)
+	move        func(oldpath, newpath string) (MoveResult, error)
 	remove      func(path string) error
-	recoverFile RecoverFile
+	recoverMove func(context.Context, string, string) (string, MoveResult, error)
+	unverified  bool
 }
 
 // defaultComponentToolkit returns the real encoder and filesystem operations.
 func defaultComponentToolkit(req ComponentRunRequest) *componentToolkit {
-	return &componentToolkit{
-		encode:      req.Encoder.Encode,
-		rename:      os.Rename,
-		remove:      os.Remove,
-		recoverFile: req.Recover,
+	tk := &componentToolkit{remove: os.Remove}
+	if req.Encoder != nil {
+		tk.encode = req.Encoder.Encode
 	}
+	if req.Moves != nil {
+		tk.move, tk.recoverMove = req.Moves.Move, req.Moves.Recover
+	} else {
+		tk.move = func(string, string) (MoveResult, error) { return MoveResult{}, ErrMoveUnsupported }
+		tk.recoverMove = func(context.Context, string, string) (string, MoveResult, error) {
+			return "", MoveResult{}, ErrMoveUnsupported
+		}
+	}
+	return tk
 }
 
 // RunComponent executes one frozen Component: every output is materialized and
@@ -176,6 +187,7 @@ func runComponent(ctx context.Context, req ComponentRunRequest, tk *componentToo
 func stopRun(
 	plan *plannedComponent, tk *componentToolkit, result ComponentRunResult, status, stage string, cause error,
 ) (ComponentRunResult, error) {
+	result.Unverified = tk.unverified
 	result.Status = status
 	result.Stage = stage
 	result.Remaining = remainingOps(plan, len(result.Committed), len(result.Removed))
@@ -210,7 +222,19 @@ func cleanupTemps(tk *componentToolkit, plan *plannedComponent) []string {
 	var left []string
 	for i := range plan.encodes {
 		temp := plan.encodes[i].temp
+		if plan.encodes[i].protected {
+			left = append(left, posixForm(temp))
+			continue
+		}
 		if temp == "" {
+			continue
+		}
+		info, inspectErr := os.Lstat(temp)
+		if errors.Is(inspectErr, fs.ErrNotExist) {
+			continue
+		}
+		if inspectErr != nil || plan.encodes[i].artifact == nil || !os.SameFile(plan.encodes[i].artifact, info) {
+			left = append(left, posixForm(temp))
 			continue
 		}
 		if err := tk.remove(temp); err != nil && !errors.Is(err, fs.ErrNotExist) {
@@ -220,43 +244,23 @@ func cleanupTemps(tk *componentToolkit, plan *plannedComponent) []string {
 	return left
 }
 
-// validateStagedOutput re-probes a staged output before any commit: the file
-// must still be a readable audio stream of the frozen codec class.
-func validateStagedOutput(ctx context.Context, encoder Encoder, temp string, spec reconcile.AudioOutputSpec) error {
-	stream, err := encoder.Probe(ctx, temp)
-	if err != nil {
-		return fmt.Errorf("probe staged output: %w", err)
-	}
-	if !codecMatchesSpec(stream.Codec, spec) {
-		return fmt.Errorf("staged output codec %q does not match target codec %q", stream.Codec, spec.Codec)
-	}
-	return nil
-}
-
-// codecMatchesSpec reports whether an ffprobe codec name belongs to the spec's
-// codec class.
-func codecMatchesSpec(codec string, spec reconcile.AudioOutputSpec) bool {
-	switch spec.Codec {
-	case reconcile.CodecWav:
-		return strings.HasPrefix(codec, "pcm_")
-	case reconcile.CodecFlac:
-		return codec == "flac"
-	case reconcile.CodecMp3:
-		return codec == "mp3"
-	case reconcile.CodecAac:
-		return codec == "aac"
-	case reconcile.CodecOpus:
-		return codec == "opus"
-	}
-	return false
-}
-
 // canceledComponentError builds the error of a canceled run.
 func canceledComponentError(stage string, cause error) *ComponentError {
-	return &ComponentError{
-		Stage:   stage,
-		Code:    ComponentCodeCanceled,
-		Message: "component run canceled",
-		Err:     cause,
+	return &ComponentError{Stage: stage, Code: ComponentCodeCanceled, Message: "component run canceled", Err: cause}
+}
+
+// observeMoves remembers uncertainty without allowing later cleanup to claim a
+// complete inventory observation. Moves only run in the serial commit phase.
+func (tk *componentToolkit) observeMoves() {
+	move, recoverMove := tk.move, tk.recoverMove
+	tk.move = func(src, dst string) (MoveResult, error) {
+		result, err := move(src, dst)
+		tk.unverified = tk.unverified || result.Unverified
+		return result, err
+	}
+	tk.recoverMove = func(ctx context.Context, root, src string) (string, MoveResult, error) {
+		path, result, err := recoverMove(ctx, root, src)
+		tk.unverified = tk.unverified || result.Unverified
+		return path, result, err
 	}
 }

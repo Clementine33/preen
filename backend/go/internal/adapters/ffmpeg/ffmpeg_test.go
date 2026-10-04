@@ -59,7 +59,7 @@ func TestFFmpegEncodesFrozenTargets(t *testing.T) {
 				spec.Quality = &reconcile.Quality{Kind: reconcile.QualityBitrate, Bitrate: 192}
 			}
 			dst := filepath.Join(t.TempDir(), "output.stage") // explicit muxer, not suffix guessing
-			if err := encoder.Encode(t.Context(), src, dst, spec); err != nil {
+			if err := encodePaths(encoder, t.Context(), src, dst, spec); err != nil {
 				t.Fatal(err)
 			}
 			assertEncodedStream(t, probeStream(t, dst), codec, spec)
@@ -73,7 +73,7 @@ func TestFFmpegEncodesFrozenTargets(t *testing.T) {
 					t.Fatalf("opus container average out of plausible range: %d", container)
 				}
 			}
-			if err := encoder.Encode(t.Context(), src, dst, spec); err == nil {
+			if err := encodePaths(encoder, t.Context(), src, dst, spec); err == nil {
 				t.Fatal("must not replace an existing target")
 			}
 		})
@@ -112,7 +112,7 @@ func TestFFmpegKeepsTags(t *testing.T) {
 				spec.Quality = &reconcile.Quality{Kind: reconcile.QualityBitrate, Bitrate: 192}
 			}
 			dst := filepath.Join(t.TempDir(), "output"+reconcile.ExtForCodec(codec))
-			if err := encoder.Encode(t.Context(), src, dst, spec); err != nil {
+			if err := encodePaths(encoder, t.Context(), src, dst, spec); err != nil {
 				t.Fatal(err)
 			}
 			tags := probeTags(t, dst)
@@ -253,19 +253,22 @@ func TestFFmpegRefusesInvalidAndCanceledConversion(t *testing.T) {
 	encoder, src := audioFixture(t)
 	spec := reconcile.AudioOutputSpec{Codec: reconcile.CodecAac}
 	dst := filepath.Join(t.TempDir(), "invalid.m4a")
-	if err := encoder.Encode(t.Context(), src, dst, spec); err == nil {
+	if err := encodePaths(encoder, t.Context(), src, dst, spec); err == nil {
 		t.Fatal("missing bitrate accepted")
 	}
-	if _, err := os.Stat(dst); !os.IsNotExist(err) {
-		t.Fatalf("invalid request created output: %v", err)
+	if info, err := os.Stat(dst); err != nil || info.Size() != 0 {
+		t.Fatalf("invalid spec wrote output: %v", err)
+	}
+	if err := os.Remove(dst); err != nil {
+		t.Fatal(err)
 	}
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 	spec.Quality = &reconcile.Quality{Kind: reconcile.QualityBitrate, Bitrate: 256}
-	if err := encoder.Encode(ctx, src, dst, spec); err == nil {
+	if err := encodePaths(encoder, ctx, src, dst, spec); err == nil {
 		t.Fatal("cancellation ignored")
 	}
-	if err := encoder.Encode(t.Context(), src, src, spec); err == nil {
+	if err := encodePaths(encoder, t.Context(), src, src, spec); err == nil {
 		t.Fatal("source overwrite accepted")
 	}
 	if err := ffmpeg.New(execute.ToolsConfig{FFmpegPath: filepath.Join(t.TempDir(), "missing")}).Check(); err == nil {

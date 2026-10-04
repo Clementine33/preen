@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/onsei/organizer/backend/internal/inventory"
+
 	"github.com/onsei/organizer/backend/internal/adapters/filesystem"
 
 	"github.com/onsei/organizer/backend/internal/adapters/media"
@@ -90,6 +92,13 @@ func (f *fixture) open() {
 			media.ProbeBitrate,
 			filesystem.Recover,
 			filesystem.IsResolvedWithinRoot,
+			conversion.ExecutionIO{
+				Walk: func(ctx context.Context, roots []string, base string, emit func(string, inventory.DirEntry) error) error {
+					return filesystem.WalkSelectedEntriesParallel(ctx, roots, base, 32, emit)
+				},
+				Moves: filesystem.ConversionMoves{},
+				Files: filesystem.ConversionHandles{},
+			},
 		),
 	}, f.scan, nil)
 }

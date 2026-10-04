@@ -134,7 +134,7 @@ func runOneEncodedUnit(
 		Partition: string(outcome.Partition), Operations: len(outcome.Operations),
 		Payload: jsonBytes(t, profile),
 	}
-	prepared, err := conversion.New(repo, appconfig.NewReader(configDir), ffmpeg.New, media.ProbeBitrate, filesystem.Recover, filesystem.IsResolvedWithinRoot).
+	prepared, err := conversion.New(repo, appconfig.NewReader(configDir), ffmpeg.New, media.ProbeBitrate, filesystem.Recover, filesystem.IsResolvedWithinRoot, conversion.ExecutionIO{Moves: filesystem.ConversionMoves{}, Files: filesystem.ConversionHandles{}}).
 		PrepareUnit(t.Context(), workset.UnitRunInput{
 			WorksetRoot: filepath.ToSlash(root),
 			Options:     json.RawMessage(`{"delete_mode":"soft"}`),

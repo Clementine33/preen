@@ -177,7 +177,6 @@ func mergeStagingEntries(tx *sql.Tx, scanID, libraryID, rootPath string) (invent
 		if bindErr != nil {
 			return inventory.MergeOutcome{}, fmt.Errorf("failed to reconcile work bindings: %w", bindErr)
 		}
-		outcome.DirsWithoutNumber = bindings.unnumbered
 		outcome.DirsWithMultipleNumbers = bindings.multiple
 		outcome.ExampleDirs = bindings.examples
 		outcome.ExamplesTruncated = bindings.truncated

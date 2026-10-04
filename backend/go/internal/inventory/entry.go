@@ -26,8 +26,7 @@ type Event struct {
 	FilesScanned int
 	DirsScanned  int
 	// The binding classifications of a completed full scan: how many of the
-	// library's scanned work roots named no work number or more than one.
-	DirsWithoutNumber       int
+	// library's directories outside any work that named more than one work number.
 	DirsWithMultipleNumbers int
 	ExampleDirs             []string
 	ExamplesTruncated       bool
@@ -40,7 +39,6 @@ type Result struct {
 	ScanID                  string
 	RootPath                string
 	FilesScanned            int
-	DirsWithoutNumber       int
 	DirsWithMultipleNumbers int
 	ExampleDirs             []string
 	ExamplesTruncated       bool

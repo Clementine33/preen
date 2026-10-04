@@ -63,6 +63,7 @@ func (t *Task) prepareComponent(
 		DeleteMode: mode,
 		Encoder:    t.encoder(),
 		Recover:    t.recoverFile,
+		WithinRoot: t.withinRoot,
 	})
 	if prepErr != nil {
 		return nil, reconcile.DesiredProfile{}, unitFailureOf(prepErr)

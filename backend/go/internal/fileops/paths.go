@@ -36,6 +36,7 @@ type member struct {
 	abs        string // absolute member directory
 	nativeAbs  string // the same path in the host's separator form
 	nativeRoot string
+	withinRoot ResolvedWithinRoot
 }
 
 // openMember validates a library-relative member path and resolves it. The
@@ -43,7 +44,7 @@ type member struct {
 // directory of the library root (the recovery directory is never one), and it
 // must exist on disk as a real directory — a symlink is not a member, so
 // nothing below it would be reachable through a link.
-func openMember(rootPath, memberRel string) (*member, error) {
+func openMember(rootPath, memberRel string, withinRoot ResolvedWithinRoot) (*member, error) {
 	if strings.TrimSpace(rootPath) == "" {
 		return nil, &PathError{CodePathInvalid, "the library root is unknown"}
 	}
@@ -54,12 +55,16 @@ func openMember(rootPath, memberRel string) (*member, error) {
 	if librarypath.IsRecoveryRelPath(rootPath, rel) {
 		return nil, &PathError{CodeMemberRoot, "the recovery directory is not a member"}
 	}
+	if withinRoot == nil {
+		return nil, errors.New("resolved containment operation is not wired")
+	}
 	m := &member{
 		root:       librarypath.NormalizeToPOSIX(rootPath),
 		rel:        rel,
 		abs:        librarypath.JoinRel(rootPath, rel),
 		nativeAbs:  filepath.FromSlash(librarypath.JoinRel(rootPath, rel)),
 		nativeRoot: filepath.FromSlash(librarypath.NormalizeToPOSIX(rootPath)),
+		withinRoot: withinRoot,
 	}
 	native := m.nativeRoot
 	for _, segment := range append([]string{""}, strings.Split(rel, "/")...) {
@@ -78,7 +83,7 @@ func openMember(rootPath, memberRel string) (*member, error) {
 			return nil, &PathError{CodeMemberRoot, "the member path is not a directory"}
 		}
 	}
-	inside, err := librarypath.IsResolvedWithinRoot(m.nativeRoot, m.nativeAbs)
+	inside, err := m.withinRoot(m.nativeRoot, m.nativeAbs)
 	if err != nil {
 		return nil, &PathError{errCode(err), err.Error()}
 	}
@@ -114,7 +119,7 @@ func (m *member) resolve(rel string) (string, error) {
 	// Containment is decided on resolved forms as well as on the shape of the
 	// relative path, so a path that is lexically inside but leaves through a
 	// link is refused rather than trusted.
-	inside, err := librarypath.IsResolvedWithinRoot(m.nativeAbs, native)
+	inside, err := m.withinRoot(m.nativeAbs, native)
 	if err != nil {
 		return "", &PathError{errCode(err), err.Error()}
 	}

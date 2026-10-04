@@ -39,7 +39,7 @@ func newFixture(t *testing.T, tasksActive bool) *fixture {
 	f.svc = fileops.NewService(f.gate, func(_ context.Context, folderPath, _ string) error {
 		f.refreshed = append(f.refreshed, folderPath)
 		return f.scanErr
-	}, filesystem.Recover, filesystem.RenameNoReplace)
+	}, filesystem.Recover, filesystem.RenameNoReplace, filesystem.IsResolvedWithinRoot)
 	return f
 }
 
@@ -596,24 +596,24 @@ func TestNestedMemberRejectsLinkedAncestorAndRecovery(t *testing.T) {
 		t.Fatalf("nested rename: %+v", result)
 	}
 	f.mkdir("Delete/分类/RJ000001")
-	if _, err := fileops.ResolveMember(f.root, "Delete/分类/RJ000001"); err == nil {
+	if _, err := filesystem.ResolveMember(f.root, "Delete/分类/RJ000001"); err == nil {
 		t.Fatal("recovery descendant accepted")
 	}
 	f.mkdir("分类/Delete/RJ000001")
-	if _, err := fileops.ResolveMember(f.root, "分类/Delete/RJ000001"); err == nil {
+	if _, err := filesystem.ResolveMember(f.root, "分类/Delete/RJ000001"); err == nil {
 		t.Fatal("nested recovery descendant accepted")
 	}
 	if err := os.Symlink(filepath.Join(f.root, "分类"), filepath.Join(f.root, "linked")); err != nil {
 		t.Skipf("symlink unavailable: %v", err)
 	}
-	if _, err := fileops.ResolveMember(f.root, "linked/RJ000001"); err == nil {
+	if _, err := filesystem.ResolveMember(f.root, "linked/RJ000001"); err == nil {
 		t.Fatal("linked ancestor accepted")
 	}
 	alias := filepath.Join(t.TempDir(), "library-link")
 	if err := os.Symlink(f.root, alias); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := fileops.ResolveMember(alias, "分类/RJ000001"); err == nil {
+	if _, err := filesystem.ResolveMember(alias, "分类/RJ000001"); err == nil {
 		t.Fatal("linked library root accepted")
 	}
 }

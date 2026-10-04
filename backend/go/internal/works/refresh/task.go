@@ -1,4 +1,3 @@
-// Package metadatatask supplies workset planning and batched metadata refresh.
 package refresh
 
 import (

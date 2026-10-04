@@ -1,6 +1,8 @@
 package httpapi //nolint:testpackage // white-box tests exercise unexported internals
 
 import (
+	"github.com/onsei/organizer/backend/internal/adapters/filesystem"
+
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -10,7 +12,6 @@ import (
 	"testing"
 
 	"github.com/onsei/organizer/backend/internal/adapters/sqlite"
-	"github.com/onsei/organizer/backend/internal/fileops"
 	"github.com/onsei/organizer/backend/internal/library"
 	"github.com/onsei/organizer/backend/internal/librarypath"
 )
@@ -33,7 +34,7 @@ func serverOnDB(t *testing.T, dbPath string) (http.Handler, *sqlite.Repository) 
 		t.Fatalf("open repository: %v", err)
 	}
 	return NewServer(Dependencies{
-		Library:     library.NewService(repo, nil, repo, fileops.ResolveMember),
+		Library:     library.NewService(repo, nil, repo, filesystem.ResolveMember),
 		CORSOrigins: []string{},
 		Version:     "dev",
 	}), repo

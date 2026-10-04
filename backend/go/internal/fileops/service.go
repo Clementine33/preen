@@ -25,20 +25,32 @@ type RecoverFile func(ctx context.Context, workRoot, source string) (string, err
 // RenameFile moves an item without replacing an existing destination.
 type RenameFile func(source, target string) error
 
+// ResolvedWithinRoot checks existing paths after host filesystem indirection.
+// The consumer needs only containment, not a general path-resolution service.
+type ResolvedWithinRoot func(root, candidate string) (bool, error)
+
 // Service applies direct file-management requests inside a library member.
 type Service struct {
 	gate        *admission.Gate
 	scan        MemberScan
 	recoverFile RecoverFile
 	renameFile  RenameFile
+	withinRoot  ResolvedWithinRoot
 }
 
 // NewService creates the file-management service. gate is the process-wide
 // admission control; scan refreshes the affected inventory after a write (nil
 // means the writes are reported without a refresh, which the tests use).
-// recoverFile and renameFile provide the filesystem moves used by the request.
-func NewService(gate *admission.Gate, scan MemberScan, recoverFile RecoverFile, renameFile RenameFile) *Service {
-	return &Service{gate: gate, scan: scan, recoverFile: recoverFile, renameFile: renameFile}
+// recoverFile and renameFile provide moves; withinRoot resolves host filesystem
+// indirection without exposing a general filesystem interface.
+func NewService(
+	gate *admission.Gate,
+	scan MemberScan,
+	recoverFile RecoverFile,
+	renameFile RenameFile,
+	withinRoot ResolvedWithinRoot,
+) *Service {
+	return &Service{gate: gate, scan: scan, recoverFile: recoverFile, renameFile: renameFile, withinRoot: withinRoot}
 }
 
 // Apply runs one request: admission first, then the items in order, then the
@@ -63,7 +75,7 @@ func (s *Service) Apply(ctx context.Context, req Request) (*Result, error) {
 	if s.gate == nil {
 		return nil, errors.New("file operations are not wired to admission control")
 	}
-	if s.recoverFile == nil || s.renameFile == nil {
+	if s.recoverFile == nil || s.renameFile == nil || s.withinRoot == nil {
 		return nil, errors.New("file moves are not wired")
 	}
 	release, err := s.gate.BeginManual()
@@ -72,7 +84,7 @@ func (s *Service) Apply(ctx context.Context, req Request) (*Result, error) {
 	}
 	defer release()
 
-	m, err := openMember(req.LibraryRoot, req.MemberPath)
+	m, err := openMember(req.LibraryRoot, req.MemberPath, s.withinRoot)
 	if err != nil {
 		return nil, err
 	}
@@ -219,8 +231,8 @@ const RecoveryDir = librarypath.RecoveryDirName
 // root with real directories along every component. Reading a member tree and writing
 // inside one resolve the member through this same function, so both refuse the
 // same paths.
-func ResolveMember(rootPath, memberRel string) (string, error) {
-	m, err := openMember(rootPath, memberRel)
+func ResolveMember(rootPath, memberRel string, withinRoot ResolvedWithinRoot) (string, error) {
+	m, err := openMember(rootPath, memberRel, withinRoot)
 	if err != nil {
 		return "", err
 	}
@@ -232,8 +244,8 @@ func ResolveMember(rootPath, memberRel string) (string, error) {
 // §1): every component must exist, none may be a symlink, and the resolved
 // form must stay inside the member. Read-only consumers (ADR 0016 §3) share
 // the seam so a link can never be read through either.
-func ResolveMemberFile(rootPath, memberRel, rel string) (string, error) {
-	m, err := openMember(rootPath, memberRel)
+func ResolveMemberFile(rootPath, memberRel, rel string, withinRoot ResolvedWithinRoot) (string, error) {
+	m, err := openMember(rootPath, memberRel, withinRoot)
 	if err != nil {
 		return "", err
 	}

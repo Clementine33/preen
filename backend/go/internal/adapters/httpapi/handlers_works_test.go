@@ -1,13 +1,14 @@
 package httpapi //nolint:testpackage // white-box tests drive the routes through the real router
 
 import (
+	"github.com/onsei/organizer/backend/internal/adapters/filesystem"
+
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/onsei/organizer/backend/internal/adapters/sqlite"
-	"github.com/onsei/organizer/backend/internal/fileops"
 	"github.com/onsei/organizer/backend/internal/works"
 )
 
@@ -16,7 +17,7 @@ import (
 // members on disk the way direct file management does, so a test that wants
 // an online copy creates the member directory under its library root.
 func wireWorks(d *Dependencies, fixture *sqlite.Repository) {
-	d.Works = works.NewService(fixture, fixture, fileops.ResolveMember, fileops.ResolveMemberFile, "test")
+	d.Works = works.NewService(fixture, fixture, filesystem.ResolveMember, filesystem.ResolveMemberFile, "test")
 }
 
 const stamp = "2026-09-27T10:00:00.000000000Z"

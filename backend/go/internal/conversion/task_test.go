@@ -44,7 +44,14 @@ func TestConversionRecoversBesideNestedWorkRoot(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	task := conversion.New(nil, appconfig.NewReader(t.TempDir()), ffmpeg.New, media.ProbeBitrate, filesystem.Recover)
+	task := conversion.New(
+		nil,
+		appconfig.NewReader(t.TempDir()),
+		ffmpeg.New,
+		media.ProbeBitrate,
+		filesystem.Recover,
+		filesystem.IsResolvedWithinRoot,
+	)
 	prepared, err := task.PrepareUnit(t.Context(), workset.UnitRunInput{
 		WorksetRoot: library, Outcome: outcome, Options: json.RawMessage(`{"delete_mode":"soft"}`),
 		Unit: workset.ExecutionUnit{RootPath: filepath.ToSlash(root), Payload: json.RawMessage(`{}`)},
@@ -87,7 +94,14 @@ func draftJSON(deleteMode string) []byte {
 // accepted values, the soft default (an absent field), and a rejection for
 // anything else.
 func TestDraftDeleteModeValidation(t *testing.T) {
-	task := conversion.New(nil, appconfig.NewReader(t.TempDir()), ffmpeg.New, media.ProbeBitrate, filesystem.Recover)
+	task := conversion.New(
+		nil,
+		appconfig.NewReader(t.TempDir()),
+		ffmpeg.New,
+		media.ProbeBitrate,
+		filesystem.Recover,
+		filesystem.IsResolvedWithinRoot,
+	)
 
 	for _, accepted := range []string{"", "soft", "hard"} {
 		if err := task.ValidateDraft(draftJSON(accepted), nil); err != nil {
@@ -103,7 +117,14 @@ func TestDraftDeleteModeValidation(t *testing.T) {
 // TestNormalizeDraftKeepsDeleteMode proves the setting survives the sparse
 // round trip, so a saved choice reaches every later revision snapshot.
 func TestNormalizeDraftKeepsDeleteMode(t *testing.T) {
-	task := conversion.New(nil, appconfig.NewReader(t.TempDir()), ffmpeg.New, media.ProbeBitrate, filesystem.Recover)
+	task := conversion.New(
+		nil,
+		appconfig.NewReader(t.TempDir()),
+		ffmpeg.New,
+		media.ProbeBitrate,
+		filesystem.Recover,
+		filesystem.IsResolvedWithinRoot,
+	)
 
 	canonical, _, _, err := task.NormalizeDraft(draftJSON("hard"), nil)
 	if err != nil {
@@ -135,7 +156,7 @@ func TestSeedDraftReadsTheTagLiterals(t *testing.T) {
 			if err := os.WriteFile(filepath.Join(dir, "config.json"), []byte(tc.config), 0o644); err != nil {
 				t.Fatalf("write config: %v", err)
 			}
-			raw, _, _ := conversion.New(nil, appconfig.NewReader(dir), ffmpeg.New, media.ProbeBitrate, filesystem.Recover).
+			raw, _, _ := conversion.New(nil, appconfig.NewReader(dir), ffmpeg.New, media.ProbeBitrate, filesystem.Recover, filesystem.IsResolvedWithinRoot).
 				SeedDraft(nil)
 			var doc struct {
 				ClassifierTags []string `json:"classifier_tags"`
@@ -160,7 +181,14 @@ func TestSeedDraftReadsTheTagLiterals(t *testing.T) {
 // member record, and applying it moves the base without touching a single
 // member record (ADR 0010 §2).
 func TestCommonSettingsProjectionAndApply(t *testing.T) {
-	task := conversion.New(nil, appconfig.NewReader(t.TempDir()), ffmpeg.New, media.ProbeBitrate, filesystem.Recover)
+	task := conversion.New(
+		nil,
+		appconfig.NewReader(t.TempDir()),
+		ffmpeg.New,
+		media.ProbeBitrate,
+		filesystem.Recover,
+		filesystem.IsResolvedWithinRoot,
+	)
 	strict := reconcile.ModeStrict
 	tags := []string{"自定义"}
 	doc := &conversion.DraftDoc{
@@ -246,7 +274,14 @@ func TestCommonSettingsProjectionAndApply(t *testing.T) {
 }
 
 func TestCommonSettingsRefusesUnknownStoredDraftSchema(t *testing.T) {
-	task := conversion.New(nil, appconfig.NewReader(t.TempDir()), ffmpeg.New, media.ProbeBitrate, filesystem.Recover)
+	task := conversion.New(
+		nil,
+		appconfig.NewReader(t.TempDir()),
+		ffmpeg.New,
+		media.ProbeBitrate,
+		filesystem.Recover,
+		filesystem.IsResolvedWithinRoot,
+	)
 	stored := []byte(`{"schema_version":2,"classifier_tags":[],"matched":{},"unmatched":{}}`)
 	if _, err := task.CommonSettings(stored); err == nil {
 		t.Fatal("CommonSettings accepted an unknown stored draft schema")
@@ -268,7 +303,14 @@ func TestSeedDraftUsesTheStoredCommonSettings(t *testing.T) {
 	); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
-	task := conversion.New(nil, appconfig.NewReader(dir), ffmpeg.New, media.ProbeBitrate, filesystem.Recover)
+	task := conversion.New(
+		nil,
+		appconfig.NewReader(dir),
+		ffmpeg.New,
+		media.ProbeBitrate,
+		filesystem.Recover,
+		filesystem.IsResolvedWithinRoot,
+	)
 
 	stored := json.RawMessage(
 		`{"mode":"strict","delete_mode":"hard","classifier_tags":["反転"],` +

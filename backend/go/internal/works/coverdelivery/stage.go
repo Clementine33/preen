@@ -5,15 +5,11 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"io"
-	"os"
-	"path/filepath"
 )
 
 func (s *Service) stage(ctx context.Context, j *Job, targets []Destination) ([]byte, error) {
-	path := filepath.Join(s.deps.StageDir, j.ID+".image")
-	if j.StagePath == path {
-		data, err := readStage(path)
+	if j.StagePath != "" {
+		data, err := s.deps.Staging.Read(j.ID, j.StagePath)
 		if err == nil {
 			ext, _, e := Inspect(data)
 			sum := sha256.Sum256(data)
@@ -50,12 +46,8 @@ func (s *Service) stage(ctx context.Context, j *Job, targets []Destination) ([]b
 	j.Extension = ext
 	j.ETag = result.ETag
 	j.LastModified = result.LastModified
-	temp := path + ".tmp"
-	defer func() { _ = os.Remove(temp) }()
-	if err = os.WriteFile(temp, result.Data, 0600); err != nil {
-		return nil, err
-	}
-	if err = os.Rename(temp, path); err != nil {
+	path, err := s.deps.Staging.Write(j.ID, result.Data)
+	if err != nil {
 		return nil, err
 	}
 	j.StagePath = path
@@ -106,13 +98,4 @@ func (s *Service) download(ctx context.Context, j *Job, targets []Destination) (
 		}
 	}
 	return result, err
-}
-
-func readStage(path string) ([]byte, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-	return io.ReadAll(io.LimitReader(f, MaxBytes+1))
 }

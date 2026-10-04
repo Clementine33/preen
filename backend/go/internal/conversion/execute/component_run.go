@@ -78,8 +78,13 @@ type ComponentRunRequest struct {
 	// configured with, so a run can be driven by a test double as well.
 	Encoder Encoder
 	// Recover is required for soft deletion and protects replaced output files.
-	Recover RecoverFile
+	Recover    RecoverFile
+	WithinRoot ResolvedWithinRoot
 }
+
+// ResolvedWithinRoot checks containment after host filesystem indirection.
+// It is the execute consumer's single filesystem-resolution operation.
+type ResolvedWithinRoot func(root, candidate string) (bool, error)
 
 // ComponentRunResult reports what actually happened to one Component. On a
 // failed or canceled run the lists describe the partial outcome; file changes

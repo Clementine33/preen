@@ -168,7 +168,7 @@ func (p *plannedComponent) checkFrozenFile(
 			)
 		}
 	}
-	if within, err := librarypath.IsResolvedWithinRoot(posixForm(p.absRoot), posix); err != nil || !within {
+	if within, err := p.withinRoot(posixForm(p.absRoot), posix); err != nil || !within {
 		return pathUnsafe(posix, "resolved path escapes the member root")
 	}
 	return nil
@@ -199,7 +199,7 @@ func (p *plannedComponent) checkFreeTarget(native string) *ComponentError {
 		return componentError(ComponentStagePrecheck, ComponentCodeConflict, posix,
 			"target directory is not a directory", nil)
 	}
-	if within, err := librarypath.IsResolvedWithinRoot(posixForm(p.absRoot), posixForm(parent)); err != nil || !within {
+	if within, err := p.withinRoot(posixForm(p.absRoot), posixForm(parent)); err != nil || !within {
 		return pathUnsafe(posix, "target directory resolves outside the member root")
 	}
 	return nil

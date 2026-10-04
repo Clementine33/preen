@@ -168,7 +168,7 @@ func buildServices(repo *sqlite.Repository, configDir, dataDir string, generatio
 	prober := media.New("")
 	prober.PathSource = func() string { return appconfig.NewReader(configDir).Tools().FFprobePath }
 	mediaFacts := inventory.NewMediaEnricher(sqlite.NewScanStaging(repo), prober, gate.BeginBackground)
-	librarySvc := library.NewService(repo, gate, repo, fileops.ResolveMember)
+	librarySvc := library.NewService(repo, gate, repo, filesystem.ResolveMember)
 	scanSvc := inventory.NewService(
 		inventory.NewPipeline(
 			sqlite.NewScanStaging(repo),
@@ -198,17 +198,21 @@ func buildServices(repo *sqlite.Repository, configDir, dataDir string, generatio
 	// conversion reads that refreshed inventory; rename also reads current
 	// catalog metadata and immediate directory occupancy.
 	worksSvc := works.NewService(
-		repo, repo, fileops.ResolveMember, fileops.ResolveMemberFile, media.ThumbEngineVersion,
+		repo, repo, filesystem.ResolveMember, filesystem.ResolveMemberFile, media.ThumbEngineVersion,
 	)
 	scraperClient := scraper.New(nil)
 	metadataSvc := refresh.NewService(worksSvc, repo, scraperClient, scraperClient)
+	coverStage, err := filesystem.NewCoverStaging(filepath.Join(dataDir, "cover-staging"))
+	if err != nil {
+		log.Fatalf("cover staging: %v", err)
+	}
 	coverSvc, err := coverdelivery.New(
 		coverdelivery.Dependencies{
 			Store:      repo,
 			Downloader: coverhttp.New(nil),
 			Source:     scraperClient,
 			Files:      filesystem.CoverFiles{},
-			StageDir:   filepath.Join(dataDir, "cover-staging"),
+			Staging:    coverStage,
 			Acquire:    gate.BeginManual,
 			Refresh:    scanSvc.RefreshMember,
 		},
@@ -222,7 +226,14 @@ func buildServices(repo *sqlite.Repository, configDir, dataDir string, generatio
 		generationConcurrency,
 		0,
 		[]workset.Task{
-			conversion.New(repo, appconfig.NewReader(configDir), ffmpeg.New, media.ProbeBitrate, filesystem.Recover),
+			conversion.New(
+				repo,
+				appconfig.NewReader(configDir),
+				ffmpeg.New,
+				media.ProbeBitrate,
+				filesystem.Recover,
+				filesystem.IsResolvedWithinRoot,
+			),
 			dirrename.New(repo, filesystem.ReadRenameDirectory),
 			refresh.NewTask(repo, filesystem.CoverDirectoryIdentity),
 		},
@@ -231,7 +242,7 @@ func buildServices(repo *sqlite.Repository, configDir, dataDir string, generatio
 			if err != nil {
 				return err
 			}
-			folder, err := fileops.ResolveMember(rootPath, filepath.ToSlash(rel))
+			folder, err := filesystem.ResolveMember(rootPath, filepath.ToSlash(rel))
 			if err != nil {
 				return err
 			}
@@ -241,10 +252,16 @@ func buildServices(repo *sqlite.Repository, configDir, dataDir string, generatio
 		map[string]workset.BatchExecutor{refresh.Kind: metadataExecutor.Run},
 	)
 	return services{
-		gate:       gate,
-		library:    librarySvc,
-		scan:       scanSvc,
-		fileOps:    fileops.NewService(gate, scanSvc.RefreshMember, filesystem.Recover, filesystem.RenameNoReplace),
+		gate:    gate,
+		library: librarySvc,
+		scan:    scanSvc,
+		fileOps: fileops.NewService(
+			gate,
+			scanSvc.RefreshMember,
+			filesystem.Recover,
+			filesystem.RenameNoReplace,
+			filesystem.IsResolvedWithinRoot,
+		),
 		workset:    worksetSvc,
 		catalog:    conversion.NewCatalog(repo, repo, appconfig.NewReader(configDir)),
 		works:      worksSvc,

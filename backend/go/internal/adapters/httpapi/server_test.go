@@ -15,7 +15,6 @@ import (
 	"github.com/onsei/organizer/backend/internal/adapters/sqlite"
 	"github.com/onsei/organizer/backend/internal/admission"
 	"github.com/onsei/organizer/backend/internal/conversion"
-	"github.com/onsei/organizer/backend/internal/fileops"
 	"github.com/onsei/organizer/backend/internal/inventory"
 	"github.com/onsei/organizer/backend/internal/library"
 )
@@ -28,7 +27,7 @@ func newTestServer(t *testing.T, mutate func(d *Dependencies, fixture *sqlite.Re
 	t.Helper()
 	fixture := newHTTPTestRepository(t)
 	deps := Dependencies{
-		Library:     library.NewService(fixture, nil, fixture, fileops.ResolveMember),
+		Library:     library.NewService(fixture, nil, fixture, filesystem.ResolveMember),
 		Catalog:     conversion.NewCatalog(fixture, fixture, appconfig.NewReader("")),
 		Token:       "",
 		CORSOrigins: []string{},
@@ -63,7 +62,7 @@ func wireInventory(d *Dependencies, fixture *sqlite.Repository, gate *admission.
 // management — so a test that holds the slot really refuses them all. One
 // shared gate is the point: a path holding its own would pass vacuously.
 func testGate(d *Dependencies, fixture *sqlite.Repository, gate *admission.Gate) {
-	d.Library = library.NewService(fixture, gate, fixture, fileops.ResolveMember)
+	d.Library = library.NewService(fixture, gate, fixture, filesystem.ResolveMember)
 	if d.Inventory == nil {
 		wireInventory(d, fixture, gate)
 	}

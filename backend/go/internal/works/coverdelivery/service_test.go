@@ -102,10 +102,7 @@ func deliveryFixture(
 	}
 	for _, dir := range folders {
 		target := targets[dir]
-		target.Identity, err = filesystem.CoverDirectoryIdentity(dir)
-		if err != nil {
-			t.Fatal(err)
-		}
+		target.Identity = "legacy-identity"
 		req.Targets = append(req.Targets, target)
 	}
 	var b bytes.Buffer
@@ -323,23 +320,24 @@ func TestNewSourceVersionPreventsOldPublication(t *testing.T) {
 	}
 }
 
-func TestMissingBindingOnlyFailsItsOwnCopy(t *testing.T) {
+func TestBindingChangeKeepsFrozenCoverTarget(t *testing.T) {
 	svc, repo, dl, req, folders, _ := deliveryFixture(t)
 	if err := svc.Enqueue(t.Context(), req); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := repo.DB().Exec(`DELETE FROM work_copies WHERE id=?`, req.Targets[0].CopyID); err != nil {
+	if _, err := repo.DB().
+		Exec(`UPDATE work_copies SET rel_path=rel_path||'-changed' WHERE id=?`, req.Targets[0].CopyID); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := svc.ProcessNext(t.Context()); err != nil {
 		t.Fatal(err)
 	}
 	report, err := svc.Report(t.Context(), "exec")
-	if err != nil || report.Counts["failed"] != 1 || report.Counts["succeeded"] != 1 || dl.calls != 1 {
+	if err != nil || report.Counts["succeeded"] != 2 || dl.calls != 1 {
 		t.Fatalf("copies: %+v %v", report, err)
 	}
-	if _, err = os.Stat(filepath.Join(folders[0], "cover.png")); !os.IsNotExist(err) {
-		t.Fatal("unbound copy written")
+	if _, err = os.Stat(filepath.Join(folders[0], "cover.png")); err != nil {
+		t.Fatal("frozen copy target was not written", err)
 	}
 }
 func TestInventoryFailureKeepsPublicationAndLocalRead(t *testing.T) {
@@ -351,7 +349,9 @@ func TestInventoryFailureKeepsPublicationAndLocalRead(t *testing.T) {
 			Files:      filesystem.CoverFiles{},
 			Staging:    coverStaging(t, stage),
 			Acquire:    admission.NewGate(nil).BeginManual,
-			Refresh:    func(context.Context, string, string) error { return fmt.Errorf("inventory unavailable") },
+			SyncInventory: func(context.Context, coverdelivery.Target, coverdelivery.Publication) error {
+				return fmt.Errorf("inventory unavailable")
+			},
 		},
 	)
 	if err != nil {

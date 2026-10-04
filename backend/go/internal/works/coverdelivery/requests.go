@@ -3,7 +3,6 @@ package coverdelivery
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 )
 
 func (s *Service) Enqueue(ctx context.Context, r Request) error {
@@ -50,19 +49,6 @@ func (s *Service) Read(ctx context.Context, code, copyID string) (*Existing, err
 	}
 	return image, nil
 }
-func (s *Service) resolve(ctx context.Context, t Target) (Target, error) {
-	now, err := s.deps.Store.ResolveCoverCopy(ctx, t.CopyID)
-	if err != nil {
-		return t, err
-	}
-	if now.WorkCode != t.WorkCode || filepath.Clean(now.LibraryRoot) != filepath.Clean(t.LibraryRoot) ||
-		now.RelPath != t.RelPath {
-		return t, changed()
-	}
-	now.Identity = t.Identity
-	return now, nil
-}
-
 func (s *Service) stopUnneeded(ctx context.Context) error {
 	s.activeMu.Lock()
 	defer s.activeMu.Unlock()

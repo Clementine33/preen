@@ -19,14 +19,9 @@ func ReadRenameDirectory(ctx context.Context, root string) (dirrename.Directory,
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
-		info, err := entry.Info()
-		if err != nil {
-			return nil, err
-		}
 		out[entry.Name()] = dirrename.Entry{
-			Directory: info.IsDir(),
-			Symlink:   info.Mode()&os.ModeSymlink != 0,
-			Modified:  info.ModTime().UnixNano(),
+			Directory: entry.IsDir(),
+			Symlink:   entry.Type()&os.ModeSymlink != 0,
 		}
 	}
 	return out, nil

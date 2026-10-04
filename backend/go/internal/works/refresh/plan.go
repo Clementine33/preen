@@ -18,9 +18,9 @@ type Outcome struct {
 }
 
 func (t *Task) facts(folder string, target coverdelivery.Target) (coverdelivery.Target, string, error) {
-	id, err := t.identity(folder)
-	target.Identity = id
-	b, _ := json.Marshal(target)
+	err := t.checkDirectory(folder)
+	target.Identity = ""
+	b, _ := json.Marshal(folder)
 	return target, workset.CanonicalJSONHash(b), err
 }
 func (t *Task) PlanSession(ctx context.Context, in workset.PlanSessionInput) (*workset.PlanSnapshot, error) {

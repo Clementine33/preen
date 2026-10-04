@@ -11,6 +11,7 @@ import (
 type BatchExecutor func(context.Context, BatchExecutionInput) error
 type BatchExecutionInput struct {
 	ExecutionID string
+	LibraryRoot string
 	Units       []ExecutionUnit
 	Options     json.RawMessage
 	Progress    func(int, UnitResult) error
@@ -36,6 +37,7 @@ func (d *dispatcher) executeBatch(ctx context.Context, ex *PlanExecution, run *e
 		ctx,
 		BatchExecutionInput{
 			ExecutionID: ex.ExecutionID,
+			LibraryRoot: run.rootPath,
 			Units:       run.req.Units,
 			Options:     run.req.Options,
 			Progress:    progress,

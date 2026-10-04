@@ -11,7 +11,7 @@ type UnitPreparer interface {
 }
 
 // ExecutionSessionFactory optionally replaces the inventory-refresh execution
-// gate and fixes task dependencies for a session, before any encode is admitted.
+// gate and fixes task dependencies before unit preparation or batch execution.
 // Tasks without this capability retain the existing execution flow.
 type ExecutionSessionFactory interface {
 	NewExecutionSession(context.Context, ExecutionSessionInput) (UnitPreparer, error)

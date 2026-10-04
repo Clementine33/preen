@@ -4,4 +4,8 @@
 // Its only production workflow entry is a workset execution, so Task, revision
 // policy and batch execution live here together. The stored operation kind is
 // still "metadata_refresh"; package placement does not change payloads or events.
+// Planning freezes work targets; freshness and execution check only directory
+// existence and basename, without scans or post-execution inventory checks.
+// After the batch finishes, coverdelivery schedules one independent selected
+// inventory refresh once this execution's cover demands are terminal.
 package refresh

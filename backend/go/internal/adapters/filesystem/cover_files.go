@@ -1,34 +1,20 @@
 package filesystem
 
 import (
-	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
 
-	"github.com/google/uuid"
-
+	"github.com/onsei/organizer/backend/internal/inventory"
 	"github.com/onsei/organizer/backend/internal/works/coverdelivery"
 )
 
 // CoverFiles confines cover publication to one checked library member.
 type CoverFiles struct{}
 
-func CoverDirectoryIdentity(path string) (string, error) {
-	info, err := os.Lstat(filepath.FromSlash(path))
-	if err != nil {
-		return "", err
-	}
-	if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
-		return "", fmt.Errorf("not a real directory")
-	}
-	return coverIdentity(info, filepath.FromSlash(path))
-}
 func openCoverRoot(t coverdelivery.Target) (*os.Root, error) {
 	dir, err := ResolveMember(t.LibraryRoot, t.RelPath)
 	if err != nil {
@@ -38,10 +24,9 @@ func openCoverRoot(t coverdelivery.Target) (*os.Root, error) {
 	if err != nil {
 		return nil, err
 	}
-	id, err := CoverDirectoryIdentity(dir)
-	if err != nil || t.Identity != "" && id != t.Identity {
+	if err := CheckWorkDirectory(dir); err != nil {
 		root.Close()
-		return nil, coverdelivery.Failure("INPUT_CHANGED", fmt.Errorf("directory replaced"))
+		return nil, coverdelivery.Failure("INPUT_CHANGED", err)
 	}
 	return root, nil
 }
@@ -77,7 +62,10 @@ func readImage(root *os.Root, name string) (*coverdelivery.Existing, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &coverdelivery.Existing{Name: name, Data: data, Extension: ext, Digest: digest(data)}, nil
+	return &coverdelivery.Existing{
+		Name: name, Data: data, Extension: ext, Digest: digest(data),
+		File: inventory.InventoryFile{Size: info.Size(), Mtime: info.ModTime().Unix()},
+	}, nil
 }
 func existingCover(root *os.Root) (*coverdelivery.Existing, error) {
 	dir, err := root.Open(".")
@@ -123,6 +111,7 @@ func (CoverFiles) Existing(t coverdelivery.Target) (*coverdelivery.Existing, err
 	defer root.Close()
 	image, err := existingCover(root)
 	if image != nil {
+		image.File.Path = filepath.ToSlash(filepath.Join(t.LibraryRoot, t.RelPath, image.Name))
 		_, pending := root.Lstat(coverJournal)
 		image.NeedsRecovery = !os.IsNotExist(pending)
 	}
@@ -138,136 +127,7 @@ type coverPublication struct {
 	Old    []string `json:"old"`
 }
 
-// recoverCover cleans old extensions only if the new bytes really landed.
-func recoverCover(root *os.Root) error {
-	info, err := root.Lstat(coverJournal)
-	if os.IsNotExist(err) {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-	if !info.Mode().IsRegular() || info.Size() > 8192 {
-		return coverdelivery.Failure("COVER_CONFLICT", fmt.Errorf("invalid publication journal"))
-	}
-	raw, err := root.ReadFile(coverJournal)
-	if err != nil {
-		return err
-	}
-	var j coverPublication
-	if err = json.Unmarshal(raw, &j); err != nil {
-		return err
-	}
-	if !coverName(j.Name) || !strings.HasPrefix(j.Temp, ".onsei-cover-") || !strings.HasSuffix(j.Temp, ".tmp") ||
-		filepath.Base(j.Temp) != j.Temp {
-		return fmt.Errorf("invalid cover journal paths")
-	}
-	image, e := readImage(root, j.Name)
-	if e == nil && image.Digest == j.Digest {
-		for _, old := range j.Old {
-			if !coverName(old) || old == j.Name {
-				continue
-			}
-			info, statErr := root.Lstat(old)
-			if os.IsNotExist(statErr) {
-				continue
-			}
-			if statErr != nil {
-				return statErr
-			}
-			if !info.Mode().IsRegular() {
-				return coverdelivery.Failure("COVER_CONFLICT", fmt.Errorf("old cover is no longer a regular file"))
-			}
-			if e = root.Remove(old); e != nil && !os.IsNotExist(e) {
-				return e
-			}
-		}
-	}
-	if e = root.Remove(j.Temp); e != nil && !os.IsNotExist(e) {
-		return e
-	}
-	return root.Remove(coverJournal)
-}
-
-func (CoverFiles) Publish(
-	ctx context.Context,
-	t coverdelivery.Target,
-	data []byte,
-	refresh bool,
-) (coverdelivery.Publication, error) {
-	root, err := openCoverRoot(t)
-	if err != nil {
-		return coverdelivery.Publication{}, err
-	}
-	defer root.Close()
-	if err = recoverCover(root); err != nil {
-		return coverdelivery.Publication{}, err
-	}
-	if !refresh {
-		old, e := existingCover(root)
-		if e != nil {
-			return coverdelivery.Publication{}, e
-		}
-		if old != nil {
-			return coverdelivery.Publication{Name: old.Name, Digest: old.Digest, Skipped: true}, nil
-		}
-	}
-	ext, _, err := coverdelivery.Inspect(data)
-	if err != nil {
-		return coverdelivery.Publication{}, err
-	}
-	name := "cover." + ext
-	temp := ".onsei-cover-" + uuid.NewString() + ".tmp"
-	f, err := root.OpenFile(temp, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
-	if err != nil {
-		return coverdelivery.Publication{}, err
-	}
-	defer func() { _ = root.Remove(temp) }()
-	if _, err = f.Write(data); err == nil {
-		err = f.Sync()
-	}
-	closeErr := f.Close()
-	if err == nil {
-		err = closeErr
-	}
-	if err != nil {
-		return coverdelivery.Publication{}, err
-	}
-	journal, err := prepareCoverPublication(root, name, temp, data)
-	if err != nil {
-		return coverdelivery.Publication{}, err
-	}
-
-	if err = ctx.Err(); err != nil {
-		return coverdelivery.Publication{}, err
-	}
-	j, err := root.OpenFile(coverJournal, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
-	if err != nil {
-		return coverdelivery.Publication{}, err
-	}
-	_, err = j.WriteString(coverdelivery.Encode(journal))
-	if err == nil {
-		err = j.Sync()
-	}
-	closeErr = j.Close()
-	if err == nil {
-		err = closeErr
-	}
-	if err != nil {
-		_ = root.Remove(coverJournal)
-		return coverdelivery.Publication{}, err
-	}
-	if err = root.Rename(temp, name); err != nil {
-		return coverdelivery.Publication{}, err
-	}
-	publication := coverdelivery.Publication{Name: name, Digest: journal.Digest}
-	if err = recoverCover(root); err != nil {
-		return publication, err
-	}
-	return publication, nil
-}
-
-func prepareCoverPublication(root *os.Root, name, temp string, data []byte) (coverPublication, error) {
+func prepareCoverPublication(root *os.Root, name, temp, sum string) (coverPublication, error) {
 	dir, err := root.Open(".")
 	if err != nil {
 		return coverPublication{}, err
@@ -277,7 +137,7 @@ func prepareCoverPublication(root *os.Root, name, temp string, data []byte) (cov
 	if err != nil {
 		return coverPublication{}, err
 	}
-	journal := coverPublication{Name: name, Temp: temp, Digest: digest(data), Old: []string{}}
+	journal := coverPublication{Name: name, Temp: temp, Digest: sum, Old: []string{}}
 	for _, entry := range entries {
 		if coverName(entry.Name()) {
 			info, e := entry.Info()

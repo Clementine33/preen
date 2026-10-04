@@ -16,7 +16,7 @@ the plan's own facts, re-read at execution time:
 | --- | --- |
 | `PLAN_NOT_EXECUTABLE` + `NOT_CURRENT_REVISION` | the plan is not the operation's current revision |
 | `PLAN_NOT_EXECUTABLE` + `DRAFT_CHANGED` | the live draft no longer matches the revision's frozen draft hash |
-| `PLAN_NOT_EXECUTABLE` + `INPUT_CHANGED` | a root is missing or its live inventory fingerprint no longer matches the frozen one, or the revision's members no longer resolve |
+| `PLAN_NOT_EXECUTABLE` + `INPUT_CHANGED` | task-owned input freshness failed: conversion inventory changed, metadata's frozen directory is missing/renamed/non-directory, or revision members no longer resolve |
 | `PLAN_NOT_EXECUTABLE` + `BLOCKED_COMPONENTS` | the frozen snapshot has a blocked component |
 | `PLAN_NOT_EXECUTABLE` + `ALREADY_EXECUTED` | this revision already ran (any terminal status) |
 | `PLAN_NOT_EXECUTABLE` (no details) | a guard predicate refused the start under a concurrent change; re-read the operation |
@@ -61,7 +61,20 @@ performs no scan session, staging write or inventory merge and does not refresh
 non-audio inventory. Drift or a missing root triggers a best-effort serial
 member refresh and fails with `INPUT_CHANGED`, including any refresh diagnostic.
 Initial walk permission/I/O errors are `SCAN_FAILED`; cancellation is `CANCELED`.
-Rename and metadata retain their original refresh flow.
+Rename planning reads only distinct parent directories. Metadata planning skips
+inventory refresh, freezes targets and checks directories directly. Metadata
+admission and worker use the same directory-only rule for actual execution units:
+one Lstat, real directory, frozen basename. No inode/size/mtime or live binding
+comparison; same-name directory replacements are accepted. Empty worklists
+access no directories. Missing/name/type changes are `INPUT_CHANGED`, permission
+or I/O errors are `SCAN_FAILED` with diagnostics, and cancellation is `CANCELED`.
+The batch executes frozen RJ targets without post-import revalidation. After its
+execution and its own cover demands are terminal, a separate background job
+refreshes the actual selected inventory scope once; it also runs when no covers
+were requested. Empty executions schedule no refresh. This reconciliation does
+not change execution results or add HTTP/SSE fields; failures are logged
+independently. Pending refreshes are process-local and are not recovered after
+restart. See [metadata task lifecycle](tasks.md).
 
 Conversion fixes the tool configuration once per session. Actual encode work
 checks tools and their version once, then verifies each actual output container

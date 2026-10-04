@@ -449,6 +449,9 @@ func componentErrorOf(err error) (stage, code, message string) {
 	if cerr.Path != "" {
 		msg = fmt.Sprintf("%s (%s)", msg, cerr.Path)
 	}
+	if cerr.Err != nil {
+		msg += ": " + cerr.Err.Error()
+	}
 	return cerr.Stage, cerr.Code, msg
 }
 

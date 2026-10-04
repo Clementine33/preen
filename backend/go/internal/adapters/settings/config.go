@@ -91,7 +91,7 @@ func DefaultAppConfig() AppConfig {
 	return AppConfig{
 		Scan: ScanConfig{Workers: inventory.DefaultScanWorkers},
 		Execute: ExecuteConfig{
-			MaxIOWorkers: 4,
+			MaxIOWorkers: 0,
 			Precheck: ExecutePrecheckConfig{
 				ConcurrentStat: false,
 			},

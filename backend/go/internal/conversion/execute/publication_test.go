@@ -7,7 +7,6 @@ import (
 	"slices"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/onsei/organizer/backend/internal/adapters/filesystem"
 	"github.com/onsei/organizer/backend/internal/conversion/execute"
@@ -41,14 +40,8 @@ func TestComponentChecksAllStagedIdentitiesBeforeFirstPublish(t *testing.T) {
 	}
 	for _, path := range tempFiles(t, root) {
 		if strings.Contains(filepath.Base(path), "c.mp3") {
-			info, statErr := os.Stat(path)
-			if statErr != nil {
-				t.Fatal(statErr)
-			}
-			// Same seconds and size, different full mtime: runtime facts are strict.
-			mtime := info.ModTime().Add(time.Nanosecond)
-			if timeErr := os.Chtimes(path, mtime, mtime); timeErr != nil {
-				t.Fatal(timeErr)
+			if truncateErr := os.Truncate(path, 0); truncateErr != nil {
+				t.Fatal(truncateErr)
 			}
 		}
 	}

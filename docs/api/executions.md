@@ -67,8 +67,8 @@ Conversion fixes the tool configuration once per session. Actual encode work
 checks tools and their version once, then verifies each actual output container
 through a short PCM WAV FD encode/probe/full-decode roundtrip. Pure deletion and
 empty execution require no encoder. Source path prechecks and live handles use
-the same size rules and ±1 second frozen-mtime tolerance. Staged output identity,
-size and full mtime are checked for the entire ready component before its first
+the same size rules and ±1 second frozen-mtime tolerance. Staged output identity and
+size are checked for the entire ready component before its first
 publication (`validate`), then again immediately before each publication
 (`commit`). The first check waits only for that component's encodes. A second
 check failure preserves prior published outputs; obsolete audio is removed only
@@ -137,6 +137,62 @@ Each `components[]` entry: `component_index`, `component_id`, `root_path`,
 (preserved files needing operator attention: soft-delete destinations,
 replaced-old copies, leftover temporaries), `error_code`, `error_message`,
 `inventory_synced`, `inventory_sync_error`, optional task-owned `task_result`.
+
+Conversion component failure codes (the payload shape is unchanged):
+
+| `error_code` | Meaning / stage |
+| --- | --- |
+| `COMPONENT_INVALID_REQUEST` | malformed frozen request (`precheck`) |
+| `COMPONENT_BLOCKED` | frozen component is blocked (`precheck`) |
+| `COMPONENT_UNSUPPORTED_OPERATION` | unsupported frozen operation (`precheck`) |
+| `COMPONENT_INVALID_DEPENDENCY` | invalid operation dependencies (`precheck`) |
+| `COMPONENT_TARGET_CONFLICT` | target is occupied |
+| `COMPONENT_FILE_CHANGED` | frozen input facts or identity changed |
+| `COMPONENT_PATH_UNSAFE` | path containment or symlink check refused the path |
+| `COMPONENT_TOOLS_UNAVAILABLE` | required encoding tools are unavailable (`precheck`) |
+| `COMPONENT_ENCODE_FAILED` | source probing, preparation, or encoding the frozen target failed (`materialize`) |
+| `COMPONENT_VALIDATE_FAILED` | stage flush/close, encoded output probe, decode/hash (Ogg page checks for Opus) or post-encode object check failed (`materialize`); the whole ready component's pre-publication identity pass failed (`validate`) |
+| `COMPONENT_COMMIT_FAILED` | publication or replacement/recovery failed (`commit`) |
+| `COMPONENT_DELETE_FAILED` | obsolete-file removal failed (`remove`) |
+| `COMPONENT_CANCELED` | cancellation at the reported stage; cancellation takes precedence over a killed tool's diagnostics |
+
+`stage` and `error_code` describe different facts: output validation runs inside
+an encoding worker at `materialize`; `validate` names the component-wide pass
+before its first publication. Later publication checks report `commit`, preserve
+already published outputs, and never relabel that partial result as a validate
+failure. Clients display `error_message`, with `error_code` as fallback.
+Conversion failure messages retain the underlying diagnostic (tool stderr or
+filesystem/object-check error) alongside the affected path.
+
+Output validation starts after checking Sync/Close errors from the writable
+stage handle and safely reopening the same object read-only. Linux and Windows use
+the same lifecycle, with no SMB-specific stage lock or timestamp stabilization.
+Flush/close failures stop the component before validation or publication.
+Probe still checks codec, channels,
+sample rate and source duration (0.1 s tolerance). Validation commands use
+`-v error`: nonzero exit or non-whitespace stderr rejects the output, with
+cancellation checked first. MP3 and M4A retain full decoding followed by one
+SHA-256 read for lossy output credentials, without native MP3 Info/length/CRC
+or M4A box/chunk-offset parsing and without packet counting. Opus verifies every
+Ogg page CRC, sequence/continuation and a final EOS at EOF while hashing once,
+replacing its per-file full decode.
+
+Successful decoding and the duration comparison do not prove file completeness:
+MP3 frame-boundary truncation can pass silently and retain the Info-header
+duration; some M4A tail truncations can also pass. Reported encoding and writer
+close errors stop publication. Object-fact checks detect identity/size changes
+across writer close and read-only reopen, then identity/size changes during validation and before publication.
+Staged mtime is an observed inventory/credential fact, updated from the existing
+pre-publication stat; it is never an equality gate for an owned stage. Remote
+timestamp updates alone do not fail conversion. Silent storage failure and
+external mutations that preserve identity and size are accepted risks.
+SHA-256 records observed bytes; it is not an independent expected output checksum.
+
+The pool and component window read `execute.max_io_workers` once at startup.
+Values 1–32 are explicit; missing, malformed, nonpositive or out-of-range values
+mean automatic `min(4, CPU count)`. Workers include validation. A ready head
+component commits and persists even if later task delivery is backpressured;
+FIFO delivery and serial preparation/publication remain unchanged.
 
 **Events.** Every connection first receives `execution_snapshot` (the full
 detail above), then `component` (one component's own entry, exactly as it

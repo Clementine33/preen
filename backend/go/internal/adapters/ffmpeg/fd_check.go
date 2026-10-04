@@ -50,9 +50,20 @@ func (f Encoder) CheckFD(ctx context.Context, specs []reconcile.AudioOutputSpec)
 		if err != nil {
 			return err
 		}
-		_, encodeErr := f.Encode(ctx, input, output, spec)
+		source, encodeErr := f.Encode(ctx, input, output, spec)
 		closeErr := output.Close()
-		if err := errors.Join(encodeErr, closeErr); err != nil {
+		if joinedErr := errors.Join(encodeErr, closeErr); joinedErr != nil {
+			return fmt.Errorf("FD container %s: %w", spec.Codec, joinedErr)
+		}
+		reader, err := os.Open(output.Name())
+		if err != nil {
+			return err
+		}
+		_, validationErr := f.ValidateOutput(ctx, reader, spec, source)
+		if validationErr == nil && spec.Codec == reconcile.CodecOpus {
+			validationErr = f.decodeHandle(ctx, reader) // capability check still proves decoding
+		}
+		if err := errors.Join(validationErr, reader.Close()); err != nil {
 			return fmt.Errorf("FD container %s: %w", spec.Codec, err)
 		}
 	}

@@ -189,8 +189,7 @@ func buildServices(repo *sqlite.Repository, configDir, dataDir string, generatio
 		gate,
 		librarySvc.RecordScanState,
 	)
-	// Encode concurrency stays automatic (min(4, CPU count)); a user setting
-	// will feed this parameter later.
+	// Encode concurrency and its component window are fixed at process startup.
 	//
 	// Task registration: every kind a workset operation can carry. Creation
 	// materializes only the requested operation and its seed draft.
@@ -225,7 +224,7 @@ func buildServices(repo *sqlite.Repository, configDir, dataDir string, generatio
 	worksetSvc := workset.NewService(
 		repo,
 		generationConcurrency,
-		0,
+		appconfig.NewReader(configDir).EncodeWorkers(),
 		[]workset.Task{
 			conversion.New(
 				repo,

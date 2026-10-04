@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -187,14 +188,7 @@ func TestPreparedComponent_DiscardAfterCancellation(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
-	encoder := ffmpeg.New(execute.ToolsConfig{})
-	kit := execute.ComponentRunTestKit{Encode: func(
-		encCtx context.Context, src, dst string, outSpec reconcile.AudioOutputSpec,
-	) error {
-		err := encodePaths(encoder, encCtx, src, dst, outSpec)
-		cancel()
-		return err
-	}}
+	kit := execute.ComponentRunTestKit{}
 	prepared, err := execute.PrepareComponentWithTestKit(ctx, runRequest(
 		root,
 		componentFixture(
@@ -211,6 +205,7 @@ func TestPreparedComponent_DiscardAfterCancellation(t *testing.T) {
 	if encErr := prepared.EncodeOne(ctx, 0); encErr != nil {
 		t.Fatalf("first encode: %v", encErr)
 	}
+	cancel()
 	encErr := prepared.EncodeOne(ctx, 1)
 	if encErr == nil {
 		t.Fatal("expected the canceled encode to stop")
@@ -345,5 +340,54 @@ func TestPreparedComponent_ConcurrentEncodeFailureLeavesNothingStaged(t *testing
 		if _, statErr := os.Lstat(path); !os.IsNotExist(statErr) {
 			t.Fatalf("%s must not exist", path)
 		}
+	}
+}
+
+func TestPreparedComponentValidationFailureAndCancellation(t *testing.T) {
+	for _, canceled := range []bool{false, true} {
+		t.Run(strconv.FormatBool(canceled), func(t *testing.T) {
+			root, wav := newAudioRoot(t)
+			spec := mp3Spec()
+			target := filepath.Join(root, "a.mp3")
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+			kit := execute.ComponentRunTestKit{
+				Validate: func(_ context.Context, file *os.File, _ reconcile.AudioOutputSpec, _ execute.AudioStream) (execute.ValidatedOutput, error) {
+					if _, err := file.WriteString("x"); err == nil {
+						t.Fatal("validator received a writable handle")
+					}
+					if canceled {
+						cancel()
+					}
+					return execute.ValidatedOutput{}, errors.New("damaged staged output")
+				},
+			}
+			prepared, err := execute.PrepareComponentWithTestKit(
+				ctx,
+				runRequest(
+					root,
+					componentFixture([]reconcile.FileTuple{freezeFile(t, wav)}, encodeOp("cmp-1", wav, target)),
+					reconcile.DesiredProfile{Encoded: &spec},
+					execute.DeleteModeSoft,
+				),
+				kit,
+			)
+			if err != nil {
+				t.Fatal(err)
+			}
+			err = prepared.EncodeOne(ctx, 0)
+			want := execute.ComponentCodeValidateFailed
+			if canceled {
+				want = execute.ComponentCodeCanceled
+			}
+			if err == nil || errorCode(t, err) != want {
+				t.Fatalf("error=%v want %s", err, want)
+			}
+			requireStage(t, err, execute.ComponentStageMaterialize)
+			prepared.Discard(err)
+			if leftovers := tempFiles(t, root); len(leftovers) != 0 {
+				t.Fatalf("leftovers: %v", leftovers)
+			}
+		})
 	}
 }

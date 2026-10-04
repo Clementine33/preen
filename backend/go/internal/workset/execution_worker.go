@@ -210,15 +210,11 @@ func (d *dispatcher) executeRun(ex *PlanExecution) {
 		if i == 0 {
 			d.persistPosition(ex.ExecutionID, req.Units[i])
 		}
-		if stop := session.fill(req.Units); stop != nil {
+		if stop := session.advance(req.Units); stop != nil {
 			session.stopSession(*stop)
 			return
 		}
 		head := session.open[0]
-		if stop := session.wait(head); stop != nil {
-			session.stopSession(*stop)
-			return
-		}
 		// Commit admission: a sealed unit is no commit permit, so the stop is
 		// rechecked here and again by Commit before its first mutation.
 		if stop := session.stopNow(); stop != nil {

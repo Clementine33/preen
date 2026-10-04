@@ -3,6 +3,7 @@ package ffmpeg_test
 import (
 	"bytes"
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -23,8 +24,17 @@ func encodePaths(encoder execute.Encoder, ctx context.Context, src, dst string, 
 	if err != nil {
 		return err
 	}
-	defer output.Close()
-	_, err = encoder.Encode(ctx, input, output, spec)
+	source, encodeErr := encoder.Encode(ctx, input, output, spec)
+	closeErr := output.Close()
+	if joinedErr := errors.Join(encodeErr, closeErr); joinedErr != nil {
+		return joinedErr
+	}
+	reader, err := os.Open(dst)
+	if err != nil {
+		return err
+	}
+	defer reader.Close()
+	_, err = encoder.ValidateOutput(ctx, reader, spec, source)
 	return err
 }
 

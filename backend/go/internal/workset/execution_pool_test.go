@@ -240,3 +240,47 @@ func TestReadyComponentPersistsWhileLaterComponentIsStillEncoding(t *testing.T) 
 	}
 	t.Fatal("first component did not persist before later encode returned")
 }
+
+// A ready head must persist even while a many-task tail fills the delivery queue.
+func TestExecutionPoolReadyHeadBypassesDeliveryBackpressure(t *testing.T) {
+	f, obs := poolFixture(t, 2, poolUnit(1), poolUnit(8))
+	obs.gate("u0")
+	obs.gate("u1")
+	f.seedRevision("plan-backpressure", poolComponent("u0", "albumA"), poolComponent("u1", "albumB"))
+	started := f.mustStart("plan-backpressure", "k-backpressure")
+	obs.waitEncode(t, "u0")
+	obs.waitEncode(t, "u1")
+	obs.release("u0")
+
+	obs.waitEvent(t, "commit u0")
+	persisted := false
+	for range 1000 {
+		view, err := f.svc.GetExecution(
+			t.Context(),
+			f.worksetID,
+			"conversion",
+			started.ExecutionID,
+			workset.ExecutionPage{},
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if view.CompletedComponents == 1 {
+			persisted = entryOf(t, view, "u0").Status == "succeeded"
+			break
+		}
+		time.Sleep(time.Millisecond)
+	}
+	if !persisted {
+		t.Fatal("head did not persist under delivery backpressure")
+	}
+
+	if indexOf(obs.snapshot(), "return u1#0") >= 0 {
+		t.Fatal("tail unexpectedly finished before head persisted")
+	}
+	obs.release("u1")
+	done := f.waitTerminal(started.ExecutionID)
+	if done.Status != "succeeded" {
+		t.Fatalf("execution: %+v", done)
+	}
+}

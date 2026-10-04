@@ -13,7 +13,7 @@ import (
 // Reader reads the configuration the conversion task works from: it implements
 // conversion.Settings over the config.json in one config directory. Every call
 // reads the file, so a configuration edited between two sessions is picked up
-// by the second, and none of the defaults are captured at startup.
+// by the second, and the app captures only the explicit EncodeWorkers read at startup.
 type Reader struct{ configDir string }
 
 // NewReader roots a reader at one config directory.
@@ -88,4 +88,15 @@ func (r Reader) ScanWorkers() int {
 		return inventory.DefaultScanWorkers
 	}
 	return cfg.Scan.Workers
+}
+
+// EncodeWorkers bounds the shared encode/validation pool and component window.
+// Zero means automatic; invalid or unreadable values never create a large pool.
+// App assembly reads this once at startup, independently of session tool reads.
+func (r Reader) EncodeWorkers() int {
+	cfg := DefaultAppConfig()
+	if !r.decode(&cfg) || cfg.Execute.MaxIOWorkers < 1 || cfg.Execute.MaxIOWorkers > 32 {
+		return 0
+	}
+	return cfg.Execute.MaxIOWorkers
 }

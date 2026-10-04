@@ -18,14 +18,24 @@ type AudioStream struct {
 	Duration   string `json:"duration"`
 }
 
+// ValidatedOutput describes the final read-only object, including the digest
+// used by lossy generation credentials. Lossless outputs have no digest.
+type ValidatedOutput struct {
+	Stream AudioStream
+	SHA256 string
+}
+
 // Encoder is the media tool the component pipeline is written against: it
 // probes files and writes one frozen target specification. It is a port, not a
 // command — everything ffmpeg is made of (tool paths, arguments, the checks a
 // written file passes) belongs to the adapter that implements it.
 type Encoder interface {
-	// Encode uses independently opened, seekable handles and returns the fully
-	// probed and decoded output stream. Handles remain owned by the caller.
+	// Encode uses independently opened, seekable handles and returns source
+	// facts. The caller closes the writer before validating the final object.
 	Encode(ctx context.Context, src, dst *os.File, spec reconcile.AudioOutputSpec) (AudioStream, error)
+	// ValidateOutput probes and checks a read-only output against its source.
+	// Handles remain owned by the caller; sequential operations reset the cursor.
+	ValidateOutput(context.Context, *os.File, reconcile.AudioOutputSpec, AudioStream) (ValidatedOutput, error)
 	// Check reports both tools being available before encoding.
 	Check() error
 	// CheckFD probes actual output containers once per encoding session.

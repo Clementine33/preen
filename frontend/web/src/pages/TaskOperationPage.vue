@@ -8,6 +8,7 @@ import WorkbenchShell from '@/components/layout/WorkbenchShell.vue'
 import WorkbenchNav from '@/features/worksets/WorkbenchNav.vue'
 import TaskSettingsForm from '@/features/worksets/TaskSettingsForm.vue'
 import TaskPlanTable from '@/features/worksets/TaskPlanTable.vue'
+import VirtualRows from '@/features/worksets/VirtualRows.vue'
 import { useApiClient } from '@/lib/api/client'
 import { useWorksetGeneration } from '@/composables/use-workset-generation'
 import { useWorksetExecution } from '@/composables/use-workset-execution'
@@ -21,7 +22,6 @@ import {
   operationRevisionDetailQueryOptions,
   saveOperationDraftMutationOptions,
   syncAfterDraftConflict,
-  worksetDetailQueryOptions,
 } from '@/queries/worksets'
 import type {
   MetadataComponent,
@@ -62,7 +62,6 @@ const recordQuery = useQuery(() => currentRecordQueryOptions(api, libraryId.valu
 const record = computed(() => recordQuery.data.value?.workset ?? null)
 const worksetId = computed(() => record.value?.workset_id ?? null)
 
-const worksetQuery = useQuery(() => worksetDetailQueryOptions(api, worksetId.value))
 const operationQuery = useQuery(() => operationQueryOptions(api, worksetId.value, operation.value))
 const draftQuery = useQuery(() => operationDraftQueryOptions(api, worksetId.value, operation.value))
 const op = computed(() => operationQuery.data.value ?? null)
@@ -181,11 +180,21 @@ const executionView = computed(() => {
   if (store.view && store.operation === operation.value && store.executionId === executionId.value) return store.view
   return executionQuery.data.value ?? null
 })
-const issues = computed(() =>
-  (executionView.value?.components ?? []).flatMap((component) => {
-    const result = component.task_result as MetadataTaskResult | undefined
-    return (result?.issues ?? []).map((issue) => ({ rj: result?.rj ?? component.root_path, ...issue }))
-  }),
+// Every member is a bound work, so the outcome worth listing is the works whose
+// fetch failed; non-fatal source issues of a refreshed work are not shown.
+const FAILURES: Record<string, string> = {
+  METADATA_UNAVAILABLE: '元数据获取失败',
+  COVER_QUEUE_FAILED: '封面排队失败',
+}
+const failures = computed(() =>
+  (executionView.value?.components ?? [])
+    .filter((component) => component.status === 'failed')
+    .map((component) => ({
+      key: component.component_id,
+      rj: (component.task_result as MetadataTaskResult | undefined)?.rj ?? component.root_path,
+      reason: FAILURES[component.error_code ?? ''] ?? component.error_code ?? '',
+      message: component.error_message ?? '',
+    })),
 )
 
 const executeError = ref<string | null>(null)
@@ -322,7 +331,10 @@ watch(
               重命名目前只生成提案，不会修改磁盘上的目录。
             </p>
             <p v-if="!planId && !generationProgress" class="mt-2 text-[11px] text-[var(--text-muted)]">尚未生成计划。</p>
-            <TaskPlanTable v-else-if="components.length" class="mt-2" :components="components" :members="worksetQuery.data.value?.members ?? []" />
+            <p v-else-if="isMetadata" class="mt-2 text-[11px] text-[var(--text-secondary)]" data-testid="metadata-plan-count">
+              将刷新 {{ components.length }} 个文件夹
+            </p>
+            <TaskPlanTable v-else-if="components.length" class="mt-2" :components="components as RenameComponent[]" />
           </section>
 
           <section v-if="isMetadata && executionView" class="rounded-lg border border-border bg-card p-3" data-testid="execution">
@@ -330,6 +342,7 @@ watch(
               <h2 class="text-xs font-semibold text-[var(--text-secondary)]">执行</h2>
               <Badge tone="neutral">{{ EXECUTION_STATES[executionView.status] ?? executionView.status }}</Badge>
               <span class="font-mono text-[11px]">{{ executionView.completed_components }}/{{ executionView.total_components }}</span>
+              <Badge v-if="failures.length" tone="danger">失败 {{ failures.length }} 个作品</Badge>
               <Button
                 v-if="op?.active_execution"
                 class="ml-auto"
@@ -342,11 +355,13 @@ watch(
               </Button>
             </div>
             <p v-if="executionView.error_message" class="mt-1 text-[11px] text-destructive">{{ executionView.error_message }}</p>
-            <ul v-if="issues.length" class="mt-2 space-y-0.5 text-[11px]" data-testid="execution-issues">
-              <li v-for="(issue, index) in issues" :key="index">
-                <span class="font-mono">{{ issue.rj }}</span> · {{ issue.code }} {{ issue.message }}
-              </li>
-            </ul>
+            <VirtualRows v-if="failures.length" class="mt-2" :items="failures" :item-key="(failure) => failure.key" testid="execution-failures">
+              <template #default="{ item }">
+                <span class="font-mono">{{ item.rj }}</span>
+                <span class="truncate text-[var(--text-secondary)]" :title="item.message">{{ item.message }}</span>
+                <span class="text-[11px] text-destructive">{{ item.reason }}</span>
+              </template>
+            </VirtualRows>
 
             <div v-if="coversQuery.data.value" class="mt-3 flex flex-wrap items-center gap-2 text-[11px]" data-testid="covers">
               <span class="font-semibold text-[var(--text-secondary)]">封面</span>

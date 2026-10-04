@@ -1,6 +1,6 @@
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { createPinia } from 'pinia'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 import { apiClientKey } from '@/lib/api/client'
 import type { ApiClientContract, Operation, OperationType, Workset } from '@/lib/api/types'
@@ -11,7 +11,15 @@ import TaskOperationPage from './TaskOperationPage.vue'
 /**
  * The rename and metadata refresh pages (ADR 0014): one component on two
  * routes, reading the record, settings and frozen plan of its operation.
+ *
+ * jsdom has no layout, so the plan list's virtualizer would render an empty
+ * window; every element reports a fixed box instead.
  */
+beforeEach(() => {
+  vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(560)
+  vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(800)
+})
+afterEach(() => vi.restoreAllMocks())
 
 const workset: Workset = {
   workset_id: 'ws-1',
@@ -60,7 +68,7 @@ const COMPONENTS = {
   ],
 }
 
-function pageApi(): ApiClientContract {
+function pageApi(overrides: Partial<ApiClientContract> = {}): ApiClientContract {
   return apiStub({
     getCurrentRecord: vi.fn().mockResolvedValue({ workset }),
     getWorkset: vi.fn().mockResolvedValue(workset),
@@ -81,11 +89,15 @@ function pageApi(): ApiClientContract {
     })) as never,
     saveOperationDraft: vi.fn(async () => operationOf('metadata_refresh')),
     startExecution: vi.fn().mockReturnValue(new Promise(() => {})),
+    ...overrides,
   })
 }
 
-async function mountPage(path: string): Promise<{ wrapper: VueWrapper; api: ApiClientContract; router: Router }> {
-  const api = pageApi()
+async function mountPage(
+  path: string,
+  overrides: Partial<ApiClientContract> = {},
+): Promise<{ wrapper: VueWrapper; api: ApiClientContract; router: Router }> {
+  const api = pageApi(overrides)
   const router = createRouter({
     history: createMemoryHistory(),
     routes: [
@@ -114,6 +126,46 @@ describe('task operation page', () => {
     expect(wrapper.get('[data-testid="task-plan-table"]').text()).toContain('[RJ01] Title')
     expect((wrapper.get('[data-testid="rename-template"]').element as HTMLInputElement).value).toBe('[{rj}] {title}')
     expect(wrapper.find('[data-testid="execute"]').exists()).toBe(false)
+  })
+
+  it('summarizes the metadata plan as a count', async () => {
+    const { wrapper } = await mountPage('/worksets/lib-1/metadata')
+
+    expect(wrapper.get('[data-testid="metadata-plan-count"]').text()).toBe('将刷新 1 个文件夹')
+    expect(wrapper.find('[data-testid="task-plan-table"]').exists()).toBe(false)
+  })
+
+  it('lists only the works whose metadata fetch failed', async () => {
+    const component = { root_path: '/music/a', partition: 'matched', operations: 1, completed_operations: 1, committed: [], removed: [], remaining: [], recovery: [], inventory_synced: true }
+    const { wrapper } = await mountPage('/worksets/lib-1/metadata', {
+      getRevision: vi.fn(async () => ({
+        plan_id: 'p-1',
+        task: { kind: 'metadata_refresh', schema_version: 1, payload: { components: COMPONENTS.metadata_refresh } },
+        execution: { execution_id: 'e-1' },
+      })) as never,
+      getExecution: vi.fn(async () => ({
+        execution_id: 'e-1',
+        status: 'succeeded',
+        total_components: 2,
+        completed_components: 2,
+        error_message: '',
+        components: [
+          { ...component, component_index: 0, component_id: 'c-1', status: 'succeeded', task_result: { rj: 'RJ01', issues: [{ source: 'asmr.one', code: 'BACKUP_FAILED', message: 'x' }] } },
+          { ...component, component_index: 1, component_id: 'c-2', status: 'failed', error_code: 'METADATA_UNAVAILABLE', error_message: 'not found', task_result: { rj: 'RJ02' } },
+        ],
+      })) as never,
+      getExecutionCovers: vi.fn(async () => ({
+        items: [],
+        counts: { pending: 0, running: 0, succeeded: 0, skipped: 0, failed: 0, canceled: 0 },
+        downloads: {},
+      })) as never,
+    })
+
+    const rows = wrapper.get('[data-testid="execution-failures"]').findAll('li')
+    expect(rows).toHaveLength(1)
+    expect(rows[0].text()).toContain('RJ02')
+    expect(rows[0].text()).toContain('元数据获取失败')
+    expect(wrapper.get('[data-testid="execution"]').text()).toContain('失败 1 个作品')
   })
 
   it('saves metadata settings and executes the current plan', async () => {

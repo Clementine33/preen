@@ -11,10 +11,11 @@ import (
 // can be injected at specific filesystem boundaries; a nil field keeps the
 // real implementation.
 type ComponentRunTestKit struct {
-	Encode func(ctx context.Context, src, dst string, spec reconcile.AudioOutputSpec) error
-	Rename func(oldpath, newpath string) error
-	Remove func(path string) error
-	Move   func(string, string) (MoveResult, error)
+	Encode   func(ctx context.Context, src, dst string, spec reconcile.AudioOutputSpec) error
+	Validate func(context.Context, *os.File, reconcile.AudioOutputSpec, AudioStream) (ValidatedOutput, error)
+	Rename   func(oldpath, newpath string) error
+	Remove   func(path string) error
+	Move     func(string, string) (MoveResult, error)
 }
 
 // PrepareComponentWithTestKit prepares one component with replaced IO, the
@@ -46,9 +47,12 @@ func testToolkit(req ComponentRunRequest, kit ComponentRunTestKit) *componentToo
 			if err := kit.Encode(ctx, src.Name(), dst.Name(), spec); err != nil {
 				return AudioStream{}, err
 			}
-			stream, err := req.Encoder.Probe(context.WithoutCancel(ctx), dst.Name())
+			stream, err := req.Encoder.Probe(context.WithoutCancel(ctx), src.Name())
 			return stream, err
 		}
+	}
+	if kit.Validate != nil {
+		tk.validate = kit.Validate
 	}
 	if kit.Rename != nil {
 		tk.move = func(src, dst string) (MoveResult, error) {

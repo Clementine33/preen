@@ -136,6 +136,7 @@ func (e *ComponentError) Unwrap() error { return e.Err }
 // filesystem or encoder failure injectable without mocks.
 type componentToolkit struct {
 	encode      func(ctx context.Context, src, dst *os.File, spec reconcile.AudioOutputSpec) (AudioStream, error)
+	validate    func(context.Context, *os.File, reconcile.AudioOutputSpec, AudioStream) (ValidatedOutput, error)
 	move        func(oldpath, newpath string) (MoveResult, error)
 	remove      func(path string) error
 	recoverMove func(context.Context, string, string) (string, MoveResult, error)
@@ -147,6 +148,7 @@ func defaultComponentToolkit(req ComponentRunRequest) *componentToolkit {
 	tk := &componentToolkit{remove: os.Remove}
 	if req.Encoder != nil {
 		tk.encode = req.Encoder.Encode
+		tk.validate = req.Encoder.ValidateOutput
 	}
 	if req.Moves != nil {
 		tk.move, tk.recoverMove = req.Moves.Move, req.Moves.Recover

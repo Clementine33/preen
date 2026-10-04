@@ -9,10 +9,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"math"
 	"os"
 	"os/exec"
-	"strconv"
 	"strings"
 
 	"github.com/onsei/organizer/backend/internal/conversion/execute"
@@ -103,7 +101,8 @@ func (f Encoder) TargetFacts(spec reconcile.AudioOutputSpec) (encoder, mode stri
 	return target.Encoder, target.Mode, nil
 }
 
-// Encode creates and decodes a staged output before its caller can commit it.
+// Encode writes a staged output and returns its source facts. The caller closes
+// the writer and validates the final read-only object before publication.
 // The source's tags come with it, whichever container reconciliation picked as
 // the source — a declared lossless target, else WAV, else FLAC — and a WAV that
 // carries them as legacy Shift-JIS RIFF INFO bytes has those values repaired
@@ -129,15 +128,11 @@ func (f Encoder) encodeHandles(
 	src, dst *os.File,
 	spec reconcile.AudioOutputSpec,
 ) (execute.AudioStream, error) {
-	input, err := f.probeHandle(ctx, src)
+	input, tagArgs, err := f.sourceProbe(ctx, src)
 	if err != nil {
 		return execute.AudioStream{}, err
 	}
 	codecArgs, err := audioEncodingArgs(input, spec)
-	if err != nil {
-		return execute.AudioStream{}, err
-	}
-	tagArgs, err := f.sourceTagHandleArgs(ctx, src)
 	if err != nil {
 		return execute.AudioStream{}, err
 	}
@@ -175,29 +170,7 @@ func (f Encoder) encodeHandles(
 	if runErr := cmd.Run(); runErr != nil {
 		return execute.AudioStream{}, fmt.Errorf("encode: %w: %s", runErr, diagnostic.String())
 	}
-	output, err := f.probeHandle(ctx, dst)
-	if err != nil {
-		return execute.AudioStream{}, err
-	}
-	if output.Codec != codecArgs.Codec {
-		return execute.AudioStream{}, fmt.Errorf("unexpected output codec: %s", output.Codec)
-	}
-	inputDuration, inputErr := strconv.ParseFloat(input.Duration, 64)
-	outputDuration, outputErr := strconv.ParseFloat(output.Duration, 64)
-	if inputErr != nil || outputErr != nil || inputDuration <= 0 || outputDuration <= 0 ||
-		math.Abs(inputDuration-outputDuration) > 0.1 {
-		return execute.AudioStream{}, fmt.Errorf("output duration does not match source")
-	}
-	if output.Channels != input.Channels {
-		return execute.AudioStream{}, fmt.Errorf("output changed channel count")
-	}
-	if output.SampleRate != input.SampleRate && spec.Codec != reconcile.CodecOpus {
-		return execute.AudioStream{}, fmt.Errorf("output changed sample rate")
-	}
-	if err := f.decodeHandle(ctx, dst); err != nil {
-		return execute.AudioStream{}, err
-	}
-	return output, nil
+	return input, nil
 }
 
 func (f Encoder) decodeHandle(ctx context.Context, file *os.File) error {
@@ -223,44 +196,18 @@ func (f Encoder) decodeHandle(ctx context.Context, file *os.File) error {
 		"-",
 	)
 	cmd.Stdin = file
-	if data, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("validate output: %w: %s", err, data)
+	var diagnostic bytes.Buffer
+	cmd.Stderr = &diagnostic
+	if err := validationCommand(ctx, cmd, &diagnostic); err != nil {
+		return fmt.Errorf("decode output: %w", err)
 	}
 	return nil
 }
 
 func (f Encoder) probeHandle(ctx context.Context, file *os.File) (execute.AudioStream, error) {
-	_, probe := f.paths()
-	if _, err := file.Seek(0, 0); err != nil {
-		return execute.AudioStream{}, err
-	}
-	cmd := exec.CommandContext(
-		ctx,
-		probe,
-		"-v",
-		"error",
-		"-select_streams",
-		"a:0",
-		"-show_streams",
-		"-of",
-		"json",
-		"-fd",
-		"0",
-		"fd:",
-	)
-	cmd.Stdin = file
-	data, err := cmd.Output()
+	data, err := f.probeData(ctx, file, false, false)
 	if err != nil {
 		return execute.AudioStream{}, fmt.Errorf("probe handle: %w", err)
 	}
-	var result struct {
-		Streams []execute.AudioStream `json:"streams"`
-	}
-	if err := json.Unmarshal(data, &result); err != nil {
-		return execute.AudioStream{}, err
-	}
-	if len(result.Streams) != 1 || result.Streams[0].Channels < 1 {
-		return execute.AudioStream{}, fmt.Errorf("no audio stream")
-	}
-	return result.Streams[0], nil
+	return probeStream(data)
 }

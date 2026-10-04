@@ -2,11 +2,8 @@ package ffmpeg
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
-	"os"
-	"os/exec"
 	"sort"
 	"strconv"
 	"strings"
@@ -290,57 +287,4 @@ func decodeShiftJIS(raw []byte) (string, bool) {
 		return "", false
 	}
 	return text, true
-}
-
-// sourceTagHandleArgs reads legacy WAV tags from the same object used to encode.
-// sourceTagHandleArgs returns the `-metadata key=value` arguments that repair a source
-// file's legacy RIFF INFO tags, or nil when there is nothing to repair.
-//
-// A WAV written by common Japanese production tools keeps its tags in a RIFF
-// INFO chunk as raw Shift-JIS bytes with no encoding declaration. ffmpeg copies
-// metadata values verbatim, so those bytes land in the output as invalid UTF-8:
-// mojibake in every player, with no error anywhere — exit code 0, empty stderr.
-// ffprobe already reports the value ffmpeg will pick, so this repairs only that
-// value's encoding and never re-ranks the candidates: a source that currently
-// reads correctly must keep reading correctly.
-//
-// Only RIFF/WAVE sources are examined. A source whose tags cannot be read is
-// converted exactly as before — repairing metadata is best-effort, and must
-// never turn a working conversion into a failed one. A canceled context is not
-// such a failure: it is the caller's own signal and is returned.
-func (f Encoder) sourceTagHandleArgs(ctx context.Context, file *os.File) ([]string, error) {
-	var header [12]byte
-	if _, err := file.ReadAt(header[:], 0); err != nil || string(header[:4]) != "RIFF" || string(header[8:]) != "WAVE" {
-		return nil, nil
-	}
-	if _, err := file.Seek(0, 0); err != nil {
-		return nil, err
-	}
-	_, probe := f.paths()
-	cmd := exec.CommandContext(
-		ctx,
-		probe,
-		"-v",
-		"error",
-		"-show_entries",
-		"format_tags",
-		"-of",
-		"json=string_validation=ignore",
-		"-fd",
-		"0",
-		"fd:",
-	)
-	cmd.Stdin = file
-	data, err := cmd.Output()
-	if err != nil {
-		if ctx.Err() != nil {
-			return nil, ctx.Err()
-		}
-		return nil, nil
-	}
-	pairs, err := parseTagPairs(data)
-	if err != nil {
-		return nil, nil
-	}
-	return repairedTagArgs(pairs), nil
 }

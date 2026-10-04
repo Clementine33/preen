@@ -172,18 +172,6 @@ func (p *encodePool) work(job encodeJob) {
 	}
 }
 
-// deliver hands one task to the queue. A send the stop cut short is not
-// counted: the task never entered the pool.
-func (p *encodePool) deliver(unit *openUnit, index int) bool {
-	select {
-	case p.jobs <- encodeJob{unit: unit, index: index}:
-		unit.taskDelivered()
-		return true
-	case <-p.ctx.Done():
-		return false
-	}
-}
-
 // requestStop is the session's one stop entry point: it records the first real
 // error with its unit before canceling the shared session context. Later
 // failures are ignored, so the first recorded error decides the session and a
@@ -232,22 +220,12 @@ type sessionRun struct {
 	ctx    context.Context
 	report []ExecutionComponentView
 
-	pool   *encodePool
-	window int
-	open   []*openUnit
-	next   int
-}
-
-// fill opens frozen units into the window, in frozen order, until it is full
-// or the worklist ends. It reports the stop that cut admission short.
-func (s *sessionRun) fill(units []ExecutionUnit) *sessionStop {
-	for len(s.open) < s.window && s.next < len(units) {
-		if stop := s.prepare(units[s.next], s.next); stop != nil {
-			return stop
-		}
-		s.next++
-	}
-	return nil
+	pool         *encodePool
+	window       int
+	open         []*openUnit
+	next         int
+	pending      *openUnit
+	pendingIndex int
 }
 
 // settleHead closes the head's boundary. A head whose own operation failed
@@ -311,35 +289,59 @@ func (s *sessionRun) prepare(u ExecutionUnit, reportIdx int) *sessionStop {
 	}
 	unit := newOpenUnit(prepared, u, reportIdx)
 	s.open = append(s.open, unit)
-	for i := range unit.expected {
-		if !s.pool.deliver(unit, i) {
-			unit.endDelivery()
-			if stop := s.stopNow(); stop != nil {
-				return stop
-			}
-			return canceledStop()
-		}
+	if unit.expected == 0 {
+		unit.endDelivery()
+	} else {
+		s.pending, s.pendingIndex = unit, 0
 	}
-	unit.endDelivery()
 	return nil
 }
 
-// wait blocks until the head unit is sealed, or until the session must stop.
-// Waking on completion is not a commit permit: the stop is rechecked here and
-// again at admission, because a stop can be recorded while completion and
-// cancellation were both ready.
-func (s *sessionRun) wait(head *openUnit) *sessionStop {
-	select {
-	case <-head.done:
-	case <-s.ctx.Done():
+// advance interleaves FIFO delivery and serial admission with head completion.
+// A full later queue cannot prevent an already-ready head from committing.
+func (s *sessionRun) advance(units []ExecutionUnit) *sessionStop {
+	for {
+		if stop := s.stopNow(); stop != nil {
+			return stop
+		}
+		var headDone <-chan struct{}
+		if len(s.open) > 0 {
+			head := s.open[0]
+			headDone = head.done
+			select {
+			case <-headDone:
+				if !head.committable() {
+					return canceledStop()
+				}
+				return nil
+			default:
+			}
+		}
+		if s.pending == nil && len(s.open) < s.window && s.next < len(units) {
+			if stop := s.prepare(units[s.next], s.next); stop != nil {
+				return stop
+			}
+			s.next++
+			continue
+		}
+		var jobs chan encodeJob // nil disables delivery when no job is pending.
+		var job encodeJob
+		if s.pending != nil {
+			jobs = s.pool.jobs
+			job = encodeJob{unit: s.pending, index: s.pendingIndex}
+		}
+		select {
+		case <-headDone:
+		case jobs <- job:
+			job.unit.taskDelivered()
+			s.pendingIndex++
+			if s.pendingIndex == job.unit.expected {
+				job.unit.endDelivery()
+				s.pending = nil
+			}
+		case <-s.ctx.Done():
+		}
 	}
-	if stop := s.stopNow(); stop != nil {
-		return stop
-	}
-	if !head.committable() {
-		return canceledStop()
-	}
-	return nil
 }
 
 // stopNow is the stop pending at this instant, nil when the session may go on:
@@ -363,6 +365,7 @@ func canceledStop() *sessionStop { return &sessionStop{} }
 // be writing it — then the first real failure is reported on its own unit's
 // entry, and every unit still open is discarded and stays pending.
 func (s *sessionRun) stopSession(observed sessionStop) {
+	s.endPending()
 	s.pool.shutdown()
 	stop := observed
 	if recorded := s.pool.recordedStop(); recorded != nil {
@@ -389,6 +392,7 @@ func (s *sessionRun) stopSession(observed sessionStop) {
 // commit was already its own — and every other open unit is discarded and
 // stays pending.
 func (s *sessionRun) stopAfterHead(status, code, message string) {
+	s.endPending()
 	s.pool.shutdown()
 	s.discardOpen(nil)
 	s.d.finishExecution(s.ex, status, code, message)
@@ -463,4 +467,13 @@ func (s *sessionRun) recordUnit(
 // from the stored results, so a replay cannot double-count.
 func (s *sessionRun) persistEntry(entry *ExecutionComponentView, next ExecutionUnit) error {
 	return s.d.persistUnitResult(s.ex.ExecutionID, entry, next)
+}
+
+// endPending seals a delivery interrupted by teardown; its existing expected
+// count prevents this partially delivered unit from becoming committable.
+func (s *sessionRun) endPending() {
+	if s.pending != nil {
+		s.pending.endDelivery()
+		s.pending = nil
+	}
 }

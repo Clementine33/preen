@@ -83,3 +83,28 @@ func TestScanWorkersDefaultsAndBounds(t *testing.T) {
 		})
 	}
 }
+
+func TestEncodeWorkersDefaultsAndBounds(t *testing.T) {
+	for _, tc := range []struct {
+		config string
+		want   int
+	}{
+		{`{}`, 0}, {`{"execute":{"max_io_workers":1}}`, 1}, {`{"execute":{"max_io_workers":4}}`, 4},
+		{`{"execute":{"max_io_workers":6}}`, 6}, {`{"execute":{"max_io_workers":32}}`, 32},
+		{`{"execute":{"max_io_workers":33}}`, 0}, {`{"execute":{"max_io_workers":0}}`, 0},
+		{`{"execute":{"max_io_workers":-1}}`, 0}, {`{"execute":{"max_io_workers":"four"}}`, 0}, {`invalid`, 0},
+	} {
+		t.Run(tc.config, func(t *testing.T) {
+			dir := t.TempDir()
+			if err := os.WriteFile(filepath.Join(dir, "config.json"), []byte(tc.config), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			if got := settings.NewReader(dir).EncodeWorkers(); got != tc.want {
+				t.Fatalf("workers=%d want %d", got, tc.want)
+			}
+		})
+	}
+	if got := settings.NewReader(t.TempDir()).EncodeWorkers(); got != 0 {
+		t.Fatalf("missing configuration: %d", got)
+	}
+}

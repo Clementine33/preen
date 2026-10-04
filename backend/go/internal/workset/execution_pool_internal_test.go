@@ -47,3 +47,14 @@ func (sealingUnit) EncodeTask(context.Context, int) error { return nil }
 func (sealingUnit) Commit(context.Context) (UnitResult, error) { return UnitResult{}, nil }
 
 func (sealingUnit) Discard(error) UnitResult { return UnitResult{} }
+
+func TestOpenUnitPartialDeliveryCanSealButCannotCommit(t *testing.T) {
+	unit := newOpenUnit(sealingUnit{tasks: 3}, ExecutionUnit{ID: "partial"}, 0)
+	unit.taskDelivered()
+	unit.taskReturned(nil)
+	unit.endDelivery()
+	<-unit.done
+	if unit.committable() {
+		t.Fatal("teardown made a partially delivered unit committable")
+	}
+}

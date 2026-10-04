@@ -65,6 +65,9 @@ func (p *PreparedComponent) EncodeOne(ctx context.Context, index int) error {
 		if ctxErr := ctx.Err(); ctxErr != nil {
 			return canceledComponentError(ComponentStageMaterialize, ctxErr)
 		}
+		if validation, ok := errors.AsType[*ComponentError](err); ok && validation.Code == ComponentCodeValidateFailed {
+			return validation
+		}
 		return &ComponentError{
 			Stage:   ComponentStageMaterialize,
 			Code:    ComponentCodeEncodeFailed,

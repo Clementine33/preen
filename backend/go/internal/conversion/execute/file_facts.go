@@ -2,11 +2,8 @@ package execute
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"time"
 
@@ -42,8 +39,7 @@ type OutputFacts struct {
 
 func sameArtifact(expected, actual os.FileInfo) bool {
 	return expected != nil && actual.Mode().IsRegular() && os.SameFile(expected, actual) &&
-		expected.Size() == actual.Size() &&
-		expected.ModTime().Equal(actual.ModTime())
+		expected.Size() == actual.Size()
 }
 
 func checkStagedIdentity(enc *plannedEncode) error {
@@ -52,8 +48,9 @@ func checkStagedIdentity(enc *plannedEncode) error {
 		return err
 	}
 	if !sameArtifact(enc.artifact, info) {
-		return fmt.Errorf("staged output identity or facts changed")
+		return fmt.Errorf("staged output identity or size changed")
 	}
+	enc.artifact = info // Record the latest observed mtime without treating it as a guard.
 	return nil
 }
 
@@ -72,6 +69,13 @@ func (p *plannedComponent) checkRuntimeInput(native string) error {
 }
 
 func (p *PreparedComponent) materialize(ctx context.Context, enc *plannedEncode) (failure error) {
+	validating := false
+	defer func() {
+		if failure != nil && validating {
+			failure = componentError(ComponentStageMaterialize, ComponentCodeValidateFailed,
+				posixForm(enc.target), "staged output validation failed", failure)
+		}
+	}()
 	if err := p.plan.checkPath(enc.source); err != nil {
 		return err
 	}
@@ -111,49 +115,62 @@ func (p *PreparedComponent) materialize(ctx context.Context, enc *plannedEncode)
 		enc.protected = true
 		return err
 	}
-	if _, encodeErr := p.tk.encode(ctx, source, output, enc.spec); encodeErr != nil {
+	input, encodeErr := p.tk.encode(ctx, source, output, enc.spec)
+	if encodeErr != nil {
 		return encodeErr
+	}
+	validating = true
+	if syncErr := output.Sync(); syncErr != nil {
+		return syncErr
 	}
 	written, err := output.Stat()
 	if err != nil {
 		return err
 	}
-	// SMB may finalize mtime when the last writable handle closes, even after
-	// Sync. Close it before hashing and freezing the facts used by both publish
-	// checks. The read-only reopen must still identify the same encoded object.
+	// Validate a read-only handle after flushing and closing the writer. Remote
+	// mtime may still settle later; only identity and size guard this owned stage.
 	writer := output
 	output = nil
 	if closeErr := writer.Close(); closeErr != nil {
 		return closeErr
 	}
-	output, err = p.files.OpenSource(p.plan.absRoot, enc.temp)
+	var before os.FileInfo
+	output, before, err = p.reopenStagedOutput(enc, written)
 	if err != nil {
 		return err
 	}
-	before, err := output.Stat()
+	validated, err := p.tk.validate(ctx, output, enc.spec, input)
 	if err != nil {
 		return err
-	}
-	if !before.Mode().IsRegular() || !os.SameFile(written, before) || written.Size() != before.Size() {
-		return fmt.Errorf("output identity or size changed while closing writer")
-	}
-	if !enc.spec.Lossless() {
-		if _, seekErr := output.Seek(0, 0); seekErr != nil {
-			return seekErr
-		}
-		hash := sha256.New()
-		if _, hashErr := io.Copy(hash, output); hashErr != nil {
-			return hashErr
-		}
-		enc.hash = hex.EncodeToString(hash.Sum(nil))
 	}
 	after, err := output.Stat()
 	if err != nil {
 		return err
 	}
 	if !sameArtifact(before, after) {
-		return fmt.Errorf("output changed during hashing")
+		return fmt.Errorf("output identity or size changed during validation: same_file=%t, size=%d -> %d",
+			os.SameFile(before, after), before.Size(), after.Size())
 	}
-	enc.artifact = after // File.Stat materializes identity from the open handle.
+	enc.hash, enc.artifact = validated.SHA256, after // File.Stat materializes the open object's identity.
 	return nil
+}
+
+// Reopen after the writer closes. The read handle must name the encoded object
+// with the written size; mtime is an observed credential fact, not a guard.
+func (p *PreparedComponent) reopenStagedOutput(enc *plannedEncode, written os.FileInfo) (*os.File, os.FileInfo, error) {
+	file, err := p.files.OpenSource(p.plan.absRoot, enc.temp)
+	if err != nil {
+		return nil, nil, err
+	}
+	before, err := file.Stat()
+	if err == nil && (!before.Mode().IsRegular() || !os.SameFile(written, before) || written.Size() != before.Size()) {
+		err = fmt.Errorf(
+			"output identity or size changed while closing writer: regular=%t, same_file=%t, size=%d -> %d",
+			before.Mode().IsRegular(), os.SameFile(written, before), written.Size(), before.Size(),
+		)
+	}
+	if err != nil {
+		return nil, nil, errors.Join(err, file.Close())
+	}
+	return file, before, nil
 }

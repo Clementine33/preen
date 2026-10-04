@@ -107,14 +107,17 @@ func TestExecutionPoolPrepareFailureIsAttributedToItsUnit(t *testing.T) {
 // at the head's own commit: the head keeps its partial facts and is never
 // discarded, while every other open unit stays pending.
 func TestExecutionPoolStopInsideCommitKeepsPartialFacts(t *testing.T) {
-	head := poolUnit(0)
+	head := poolUnit(1)
 	head.CancelCommit = true
 	other := poolUnit(0)
 	other.Leftovers = []string{"/recovery/other-tmp"}
 	f, obs := poolFixture(t, 2, head, other)
+	obs.gate("u0")
 	f.seedRevision("plan-commit", poolComponent("u0", "albumA"), poolComponent("u1", "albumB"))
 
 	started := f.mustStart("plan-commit", "k-commit")
+	obs.waitEvent(t, "prepare u1")
+	obs.release("u0")
 	done := f.waitTerminal(started.ExecutionID)
 
 	if done.Status != "canceled" {
@@ -152,6 +155,7 @@ func TestExecutionPoolCancellationLeavesPendingTails(t *testing.T) {
 
 	started := f.mustStart("plan-cancel", "k-cancel")
 	obs.waitEncode(t, "u0")
+	obs.waitEncode(t, "u1")
 	if _, err := f.svc.CancelExecution(
 		f.t.Context(), f.worksetID, workset.OperationTypeConversion, started.ExecutionID,
 	); err != nil {
@@ -186,6 +190,7 @@ func TestExecutionPoolStopReachesACommitInFlight(t *testing.T) {
 	failing := poolUnit(1)
 	failing.FailEncode = 0
 	f, obs := poolFixture(t, 3, inCommit, failing, poolUnit(1))
+	obs.gate("u0")
 	obs.gate("u1")
 	obs.gate("u2")
 	f.seedRevision(
@@ -196,6 +201,8 @@ func TestExecutionPoolStopReachesACommitInFlight(t *testing.T) {
 	)
 
 	started := f.mustStart("plan-inflight", "k-inflight")
+	obs.waitEncode(t, "u2")
+	obs.release("u0")
 	obs.waitEvent(t, "commit u0") // the coordinator is inside u0's commit
 	obs.release("u1")             // a sibling's encode fails meanwhile
 	done := f.waitTerminal(started.ExecutionID)

@@ -88,9 +88,9 @@ describe('LibrarySwitcher', () => {
 
     expect(wrapper.get('.lib-trigger').attributes('aria-expanded')).toBe('true')
     const options = wrapper.findAll('[role="option"]')
-    expect(options).toHaveLength(2)
-    expect(options[0].attributes('aria-selected')).toBe('true')
-    expect(options[1].attributes('aria-selected')).toBe('false')
+    // ALL LIBRARIES leads, then every root.
+    expect(options).toHaveLength(3)
+    expect(options.map((option) => option.attributes('aria-selected'))).toEqual(['false', 'true', 'false'])
     // The panel states its scale itself: two roots, no per-library work counts.
     expect(wrapper.get('.lib-menu').text()).toContain('2 ROOTS')
   })
@@ -100,7 +100,7 @@ describe('LibrarySwitcher', () => {
     await wrapper.get('.lib-trigger').trigger('click')
     await nextTick()
 
-    await wrapper.findAll('[role="option"]')[1].trigger('click')
+    await wrapper.findAll('[role="option"]')[2].trigger('click')
     await nextTick()
 
     const ui = useLibraryUiStore()
@@ -108,6 +108,20 @@ describe('LibrarySwitcher', () => {
     expect(wrapper.get('.lib-trigger').attributes('aria-expanded')).toBe('false')
     expect(wrapper.get('.lib-name').text()).toBe('Brazil')
     expect(document.activeElement).toBe(wrapper.get('.lib-trigger').element)
+  })
+
+  it('offers the ALL scope ahead of the roots', async () => {
+    const wrapper = await mountSwitcher()
+    await wrapper.get('.lib-trigger').trigger('click')
+    await nextTick()
+
+    await wrapper.findAll('[role="option"]')[0].trigger('click')
+    await nextTick()
+
+    expect(useLibraryUiStore().allLibraries).toBe(true)
+    expect(wrapper.get('.lib-name').text()).toBe('ALL')
+    expect(wrapper.findAll('[role="option"]').map((option) => option.attributes('aria-selected')))
+      .toEqual(['true', 'false', 'false'])
   })
 
   it('moves inside the menu with J/K and stops the events from reaching the wall', async () => {

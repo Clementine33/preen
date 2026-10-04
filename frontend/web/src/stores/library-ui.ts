@@ -13,6 +13,11 @@ import type { Library, LibraryDir } from '@/lib/api/types'
 export const useLibraryUiStore = defineStore('library-ui', {
   state: () => ({
     activeLibraryId: null as string | null,
+    /**
+     * The work wall's aggregate scope: every library at once. Only the wall
+     * reads it; the active ID stays a real library for every other page.
+     */
+    allLibraries: false,
     selectedDirPaths: [] as string[],
     /**
      * The overview list's scroll offset, kept across a trip into a member's
@@ -22,10 +27,17 @@ export const useLibraryUiStore = defineStore('library-ui', {
   }),
   actions: {
     setActiveLibrary(id: string) {
+      this.allLibraries = false
       if (id === this.activeLibraryId) return
       this.activeLibraryId = id
       // Switching libraries clears the previous library's temporary
       // selection; a scroll offset of another list means nothing here either.
+      this.selectedDirPaths = []
+      this.overviewScroll = 0
+    },
+    showAllLibraries() {
+      if (this.allLibraries) return
+      this.allLibraries = true
       this.selectedDirPaths = []
       this.overviewScroll = 0
     },

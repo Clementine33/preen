@@ -232,6 +232,27 @@ describe('works page', () => {
     expect(router.currentRoute.value.query).toMatchObject({ library: LIB_B, rj: worksB[0].rj })
   })
 
+  it('lists every library at once under the ALL scope and leaves it for one library', async () => {
+    const { router, listWorks } = await mountWorks('/works')
+
+    useLibraryUiStore().showAllLibraries()
+    await flushPromises()
+    expect(lastParams(listWorks)).toMatchObject({ library: `${LIB_A},${LIB_B}` })
+    expect(router.currentRoute.value.query.library).toBe('all')
+
+    useLibraryUiStore().setActiveLibrary(LIB_B)
+    await flushPromises()
+    expect(lastParams(listWorks)).toMatchObject({ library: LIB_B })
+    expect(router.currentRoute.value.query.library).toBe(LIB_B)
+  })
+
+  it('keeps the ALL scope across a reload', async () => {
+    const { router, listWorks } = await mountWorks('/works?library=all')
+
+    expect(lastParams(listWorks)).toMatchObject({ library: `${LIB_A},${LIB_B}` })
+    expect(router.currentRoute.value.query.library).toBe('all')
+  })
+
   it('lists by the applied tags and drops them with the library', async () => {
     const { wrapper, listWorks } = await mountWorks('/works', true)
 

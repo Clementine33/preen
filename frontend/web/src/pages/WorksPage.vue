@@ -12,6 +12,7 @@ import PlayerBar from '@/features/works/PlayerBar.vue'
 import RailSelect, { type RailOption } from '@/features/works/RailSelect.vue'
 import WorkInspector from '@/features/works/WorkInspector.vue'
 import WorkWall from '@/features/works/WorkWall.vue'
+import { useLibraryList } from '@/queries/libraries'
 import { useWorkFacets, useWorksList } from '@/queries/works'
 import { useLibraryUiStore } from '@/stores/library-ui'
 import { usePlayerStore } from '@/stores/player'
@@ -36,9 +37,17 @@ const tags = ref<TagSelection>({ picks: [], mode: 'all' })
 const sort = ref<WorksSort>('release_date')
 
 // The address's library wins over the store's: a reload starts the store empty,
-// and an id that no longer exists is replaced by reconcileLibraries.
-if (typeof route.query.library === 'string') libraryUi.setActiveLibrary(route.query.library)
-const libraryScope = computed(() => libraryUi.activeLibraryId)
+// and an id that no longer exists is replaced by reconcileLibraries. `all` is
+// the aggregate wall: every library's id, so the listing, the facets and FIND
+// share one copy-scoped filter and a work held twice is listed once.
+if (route.query.library === 'all') libraryUi.showAllLibraries()
+else if (typeof route.query.library === 'string') libraryUi.setActiveLibrary(route.query.library)
+const { librariesData } = useLibraryList()
+const libraryScope = computed(() =>
+  libraryUi.allLibraries
+    ? (librariesData.value.map((library) => library.id).join(',') || null)
+    : libraryUi.activeLibraryId,
+)
 const { facets: voiceActorFacets } = useWorkFacets('voice_actor', libraryScope)
 const { facets: circleFacets } = useWorkFacets('circle', libraryScope)
 // An entity without a source id is kept per work (ADR 0011 §6), so one name
@@ -94,7 +103,7 @@ onBeforeUnmount(() => {
 })
 
 const filters = computed<ListWorksParams>(() => ({
-  ...(libraryUi.activeLibraryId ? { library: libraryUi.activeLibraryId } : {}),
+  ...(libraryScope.value ? { library: libraryScope.value } : {}),
   ...(voiceActor.value ? { voice_actor: voiceActor.value, voice_actor_match: 'any' as const } : {}),
   ...(circle.value ? { circle: circle.value } : {}),
   ...(age.value ? { age_category: AGE_PARAM[age.value] } : {}),
@@ -165,7 +174,8 @@ watch(works, (list) => {
 watch([libraryScope, selectedRj], ([library, rj]) => {
   // Replace, not push: inspecting a neighbouring work is one state, not a
   // page in history.
-  router.replace({ query: { ...route.query, library: library ?? undefined, rj: rj ?? undefined } })
+  const address = libraryUi.allLibraries ? 'all' : (library ?? undefined)
+  router.replace({ query: { ...route.query, library: address, rj: rj ?? undefined } })
 }, { immediate: true })
 
 // ── Keyboard: the wall's dispatch, with the same guards as the prototype. ──

@@ -432,7 +432,7 @@ export type PlanningState = 'unplanned' | 'planned' | 'needs_planning' | 'planni
 export type GenerationStatus = 'queued' | 'running' | 'completed' | 'failed' | 'canceled' | 'interrupted'
 export type OperationType = 'conversion' | 'rename' | 'metadata_refresh'
 export const CONVERSION: OperationType = 'conversion'
-/** Plans directory names only; execution is refused (ADR 0014 §2). */
+/** Plans and executes directory renames (ADR 0014 §2). */
 export const RENAME: OperationType = 'rename'
 export const METADATA_REFRESH: OperationType = 'metadata_refresh'
 
@@ -616,7 +616,7 @@ export interface TaskDraftMember {
 
 export interface RenameDraftDocument {
   schema_version: number
-  common: { template: string }
+  common: { template: string; strip_bracketed_title?: boolean; strip_tilde_title?: boolean; strip_book_title?: boolean }
   members: TaskDraftMember[]
 }
 
@@ -1135,4 +1135,13 @@ export interface ApiClientContract {
   ): AsyncIterable<ExecutionEvent>
   getExecutionCovers(worksetId: string, executionId: string, signal?: AbortSignal): Promise<CoverReport>
   changeExecutionCovers(worksetId: string, executionId: string, action: 'retry' | 'cancel'): Promise<CoverReport>
+}
+
+/** Observed directory location; an interrupted session may contain a recovered success. */
+export interface RenameTaskResult {
+ source_path: string
+ target_path: string
+ renamed: boolean
+ rolled_back?: boolean
+ recovered?: boolean
 }

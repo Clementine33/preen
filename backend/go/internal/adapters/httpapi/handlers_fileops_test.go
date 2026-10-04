@@ -32,7 +32,7 @@ type blockingScan struct {
 // observes when a file operation is refused while a scan runs.
 func (b *blockingScan) AdmitLibraryScan(string) (func(), error) { return b.admit() }
 
-func (b *blockingScan) AdmitMemberRefresh() (func(), error) { return b.admit() }
+func (b *blockingScan) AdmitMemberRefresh(string) (func(), error) { return b.admit() }
 
 func (b *blockingScan) admit() (func(), error) {
 	if b.gate == nil {

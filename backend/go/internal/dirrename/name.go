@@ -2,6 +2,7 @@ package dirrename
 
 import (
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/onsei/organizer/backend/internal/librarypath"
@@ -9,7 +10,12 @@ import (
 	"github.com/onsei/organizer/backend/internal/workset"
 )
 
-func planName(template string, m *workset.WorksetMember, work Work, entries Directory, root string) Outcome {
+var bracketedTitle = regexp.MustCompile(`(?s)【.*?】`)
+var tildeTitle = regexp.MustCompile(`(?s)~.*?~|～.*?～`)
+var bookTitle = regexp.MustCompile(`(?s)《.*?》`)
+
+func planName(common Common, m *workset.WorksetMember, work Work, entries Directory, root string) Outcome {
+	template := common.Template
 	o := Outcome{
 		MemberID:   m.MemberID,
 		SourceName: filepath.Base(filepath.FromSlash(m.FolderPath)),
@@ -35,6 +41,17 @@ func planName(template string, m *workset.WorksetMember, work Work, entries Dire
 		value := work.Values[key]
 		if key == "rj" {
 			value = work.Code
+		}
+		if key == "title" {
+			if common.StripBracketedTitle {
+				value = bracketedTitle.ReplaceAllString(value, "")
+			}
+			if common.StripTildeTitle {
+				value = tildeTitle.ReplaceAllString(value, "")
+			}
+			if common.StripBookTitle {
+				value = bookTitle.ReplaceAllString(value, "")
+			}
 		}
 		if strings.TrimSpace(value) == "" {
 			o.ReasonCode = "METADATA_MISSING"

@@ -51,8 +51,8 @@ type ActiveTasks func() (bool, error)
 // running, and a task that arrives while it is held is refused, so a pass can
 // never start alongside the work it would race.
 //
-// The gate deliberately does not change how scans, generations and executions
-// behave towards each other: those rules stay where they were.
+// Callers supply scan/task policy through checked scan registration and
+// exclusive enqueue. The gate keeps each check atomic with its registration.
 type Gate struct {
 	mu     sync.Mutex
 	manual bool
@@ -76,6 +76,12 @@ func NewGate(tasks ActiveTasks) *Gate {
 // refresh). The returned release must be called exactly once when the scan
 // finishes.
 func (g *Gate) BeginScan() (func(), error) {
+	return g.BeginScanChecked(nil)
+}
+
+// BeginScanChecked checks task admission and registers the scan under one lock.
+// check must not re-enter the gate. A refused check does not register a scan.
+func (g *Gate) BeginScanChecked(check func() error) (func(), error) {
 	g.lockPreempting()
 	defer g.mu.Unlock()
 	if g.manual {
@@ -83,6 +89,11 @@ func (g *Gate) BeginScan() (func(), error) {
 	}
 	if g.maint {
 		return nil, &BusyError{Reason: "database maintenance is in progress"}
+	}
+	if check != nil {
+		if err := check(); err != nil {
+			return nil, err
+		}
 	}
 	g.scans++
 	return g.releaseScan, nil
@@ -162,6 +173,16 @@ func (g *Gate) BeginMaintenance() (func(), error) {
 // after it sees the queued session in the database, never a half-registered
 // one.
 func (g *Gate) Enqueue(fn func() error) error {
+	return g.enqueue(fn, false)
+}
+
+// EnqueueExclusive also refuses in-process scans, including member refreshes
+// without a persisted scan session. The session write holds the same lock.
+func (g *Gate) EnqueueExclusive(fn func() error) error {
+	return g.enqueue(fn, true)
+}
+
+func (g *Gate) enqueue(fn func() error, exclusive bool) error {
 	g.lockPreempting()
 	defer g.mu.Unlock()
 	if g.manual {
@@ -169,6 +190,10 @@ func (g *Gate) Enqueue(fn func() error) error {
 	}
 	if g.maint {
 		return &BusyError{Reason: "database maintenance is in progress"}
+	}
+	// ponytail: global scan count; track library roots if cross-library contention matters.
+	if exclusive && g.scans > 0 {
+		return &BusyError{Reason: "a scan is running"}
 	}
 	return fn()
 }

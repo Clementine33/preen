@@ -9,7 +9,7 @@ Use the operation routes with `{type}=rename`. The draft payload is:
 ```json
 {
   "schema_version": 1,
-  "common": { "template": "[{rj}] {title}" },
+  "common": { "template": "[{rj}] {title}", "strip_bracketed_title": false, "strip_tilde_title": false, "strip_book_title": false },
   "members": [{ "member_id": "…", "excluded": true }]
 }
 ```
@@ -20,10 +20,19 @@ settings rules. Exactly one `{rj}` is required; the other allowed placeholders
 are `{title}`, `{circle}`, `{voice_actors}`, `{language}`, `{release_date}`.
 Unknown placeholders, unmatched braces, duplicate/unknown members and overrides
 are `INVALID_DRAFT` (400); unknown versions are `UNSUPPORTED_SCHEMA_VERSION`
-(400). Metadata text stays literal.
+(400). Metadata text stays literal. Optional `strip_bracketed_title`, `strip_tilde_title` and `strip_book_title`
+(default false, omitted when false) filter only the `{title}` value. Brackets
+match `【…】`; tildes match same-kind `~…~` or `～…～`; book-title brackets match `《…》`.
+U+301C `〜` stays literal to avoid removing words. All complete
+segments are removed, including delimiters, using the nearest terminator rather
+than nesting: `【a【b】` is removed in full. Mixed/unclosed pairs remain. Brackets
+run first, then tildes, then book-title brackets. Internal spaces stay unchanged (`Title 【特典】 Vol.2`
+becomes `Title  Vol.2`). An empty used title is still `METADATA_MISSING`. Old
+plans decode absent switches as off; schema version and old off-state hashes remain
+compatible.
 
 Each participating member produces one frozen component without modifying disk
-or bindings. `task.payload.policy` holds the template;
+or bindings. `task.payload.policy` holds the template and filters;
 `task.payload.components[]` contains `member_id`, `source_name`, `work_code`,
 `raw_name`, `target_name`, `action` (`rename`, `noop`, `blocked`) and optional
 `reason_code`. The classifier has empty tags. Used metadata must be nonempty.
@@ -40,9 +49,28 @@ subtrees. Freshness compares the live naming proposal with the frozen proposal:
 binding, template-used naming fields, source existence/name/type and target
 occupancy. Directory mtime, media changes, sales, personal data, fetch timestamps
 and unused fields do not stale plans. Existing plans use the same rules, ignoring
-their old mtime-based fingerprints. Review always shows frozen names. Execution
-returns `PLAN_NOT_EXECUTABLE` (409), with `RENAME_EXECUTION_NOT_IMPLEMENTED` in
-`details`, before an execution row is written.
+their old mtime-based fingerprints. Review always shows frozen names.
+
+Execution uses the existing execution routes and per-component progress. Full
+runs check the whole execution scope; selected runs check only selected roots;
+empty runs access no directories. A blocked component anywhere still rejects
+execution: exclude it and regenerate. Pending cover deliveries under actual
+rename roots refuse admission with `COVER_DELIVERY_PENDING` (409); wait or cancel
+those deliveries first. Noops and terminal failed deliveries do not block.
+
+Same-library generation and queued/running rename exclude each other, atomically
+with session creation. Member refresh refuses queued/running rename in its
+library, atomically with scan registration. Rename enqueue also refuses any
+registered scan under the process-wide scan count (`BUSY`), including member
+refreshes performed by generations in other libraries. Other-library queued
+generation alone does not block. Execution performs no subtree scan or postcheck.
+
+Each successful rename relocates inventory paths, conversion credentials, copy
+bindings and all same-library workset member paths in one transaction. IDs and
+media facts remain unchanged; frozen plans, requests and cover targets remain
+historical. Other affected plans become stale. Existing recovery folders keep
+their old names. Results and interrupted repair are described in
+[Operation execution](executions.md).
 
 ## Metadata refresh task (schema version 1)
 

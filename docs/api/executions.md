@@ -4,7 +4,7 @@
 
 ## Execution sessions
 
-Audio execution applies the frozen file decisions. Metadata execution is described in [Metadata refresh task](tasks.md#metadata-refresh-task-schema-version-1); asynchronous cover publication has its own write lifecycle. It runs exactly one
+Audio execution applies the frozen file decisions. Rename execution applies frozen directory basenames and preserves mutable path identities. Metadata execution is described in [Metadata refresh task](tasks.md#metadata-refresh-task-schema-version-1); asynchronous cover publication has its own write lifecycle. It runs exactly one
 operation revision, as frozen: the revision's component outcomes, roots and
 effective targets are consumed as persisted — no reconcile, no live draft, no
 client-supplied file list.
@@ -16,12 +16,15 @@ the plan's own facts, re-read at execution time:
 | --- | --- |
 | `PLAN_NOT_EXECUTABLE` + `NOT_CURRENT_REVISION` | the plan is not the operation's current revision |
 | `PLAN_NOT_EXECUTABLE` + `DRAFT_CHANGED` | the live draft no longer matches the revision's frozen draft hash |
-| `PLAN_NOT_EXECUTABLE` + `INPUT_CHANGED` | task-owned input freshness failed: conversion inventory changed, metadata's frozen directory is missing/renamed/non-directory, or revision members no longer resolve |
+| `PLAN_NOT_EXECUTABLE` + `INPUT_CHANGED` | task-owned input freshness failed: conversion inventory changed, metadata's frozen directory is missing/renamed/non-directory, rename naming inputs changed, or revision members no longer resolve |
 | `PLAN_NOT_EXECUTABLE` + `BLOCKED_COMPONENTS` | the frozen snapshot has a blocked component |
 | `PLAN_NOT_EXECUTABLE` + `ALREADY_EXECUTED` | this revision already ran (any terminal status) |
 | `PLAN_NOT_EXECUTABLE` (no details) | a guard predicate refused the start under a concurrent change; re-read the operation |
 | `EXECUTION_IN_PROGRESS` | another session of this operation is queued/running |
 | `SCAN_IN_PROGRESS` | the library root is being scanned |
+| `COVER_DELIVERY_PENDING` | actual rename roots still have pending cover deliveries |
+| `BUSY` | rename enqueue conflicts with a registered scan, including another library's generation refresh |
+| `PLAN_NOT_EXECUTABLE` + `GENERATION_IN_PROGRESS` | rename conflicts with any same-library generation |
 | `VERSION_CONFLICT` | stale `If-Match`; re-read the operation |
 | `IDEMPOTENCY_KEY_REUSED` | the key was used for another revision |
 | `ORPHANED_WORKSET` | the library is gone; orphaned worksets are read-only |
@@ -255,3 +258,35 @@ on both routes), the owning library cannot be deleted, and its library root
 cannot be scanned.
 
 Session routes and version guards are listed in [Processing records and operations](worksets.md#routes). Conversion drafts and frozen revisions are described in [Audio conversion](conversion.md).
+
+## Rename component results and interrupted repair
+
+Rename uses zero-encode components, commits directories serially in frozen order,
+and persists each result before the next commit. Noop completes zero operations;
+a committed rename completes one. `task_result` carries `source_path`,
+`target_path`, `renamed`, optional `rolled_back`, and optional `recovered`.
+Failures report the actual disk location through these facts and the existing
+committed/removed fields:
+
+| Component error code | Meaning |
+| --- | --- |
+| `COMPONENT_RENAME_FAILED` | target conflict or filesystem rename failure |
+| `RENAME_STATE_SYNC_FAILED` | path-state transaction failed; this directory was moved back |
+| `RENAME_ROLLBACK_FAILED` | path-state transaction and reverse move failed; disk may retain the new name while the database retains the old path |
+
+Earlier committed directories remain on failure/cancellation. Target precheck is
+only an explanatory check; platform no-replace primitives and process admission
+provide the existing move guarantees.
+
+Startup repair runs before workers and HTTP. For each interrupted rename it
+checks only the first frozen unit with no component result. Source-present and
+target-absent is unstarted and produces no diagnostic; later units are untouched.
+Source-absent and a valid target directory triggers idempotent path relocation,
+then the existing component-result write records success with `renamed:true` and
+`recovered:true`, recalculates counts and clears position. This also covers a
+crash after sync but before the result write. The session remains `interrupted`;
+no remaining rename is executed. Repair failures leave the result absent for a
+later startup retry. Already persisted failures, including
+`RENAME_ROLLBACK_FAILED`, are not retried; resolve the underlying conflict and
+rescan/regenerate manually, with the usual risk of losing old-path credentials.
+No new journal, schema or HTTP/SSE envelope is introduced.

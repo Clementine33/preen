@@ -151,6 +151,7 @@ type services struct {
 	// Metadata execution belongs to worksets; cover delivery owns its background queue.
 	metadata *refresh.Service
 	covers   *coverdelivery.Service
+	rename   *dirrename.Task
 }
 
 // buildServices wires the process. Direct file management and the managed task
@@ -222,6 +223,12 @@ func buildServices(repo *sqlite.Repository, configDir, dataDir string, generatio
 		log.Fatalf("cover staging: %v", err)
 	}
 	metadataExecutor := refresh.Executor{Metadata: metadataSvc, Covers: coverSvc}
+	renameTask := dirrename.New(repo, filesystem.ReadRenameDirectory, dirrename.ExecutionIO{
+		ResolveDirectory: filesystem.ResolveMember,
+		Rename:           filesystem.RenameNoReplace,
+		Relocate:         repo.RelocateDirectory,
+		PendingCovers:    repo.HasPendingRenameCovers,
+	})
 	worksetSvc := workset.NewService(
 		repo,
 		generationConcurrency,
@@ -236,25 +243,17 @@ func buildServices(repo *sqlite.Repository, configDir, dataDir string, generatio
 				filesystem.IsResolvedWithinRoot,
 				conversionIO(configDir, scanPipeline),
 			),
-			dirrename.New(repo, filesystem.ReadRenameDirectory),
+			renameTask,
 			refresh.NewTask(repo, filesystem.CheckWorkDirectory),
 		},
-		func(ctx context.Context, folderPath, rootPath string) error {
-			rel, err := filepath.Rel(filepath.FromSlash(rootPath), filepath.FromSlash(folderPath))
-			if err != nil {
-				return err
-			}
-			folder, err := filesystem.ResolveMember(rootPath, filepath.ToSlash(rel))
-			if err != nil {
-				return err
-			}
-			return scanSvc.RefreshMember(ctx, folder, rootPath)
-		},
+		memberInventoryRefresh(scanSvc),
 		gate.Enqueue,
 		map[string]workset.BatchExecutor{refresh.Kind: metadataExecutor.Run},
 	)
+	worksetSvc.SetExclusiveEnqueueGuard(gate.EnqueueExclusive)
 	return services{
 		gate:    gate,
+		rename:  renameTask,
 		library: librarySvc,
 		scan:    scanSvc,
 		fileOps: fileops.NewService(
@@ -270,6 +269,26 @@ func buildServices(repo *sqlite.Repository, configDir, dataDir string, generatio
 		metadata:   metadataSvc,
 		covers:     coverSvc,
 		mediaFacts: mediaFacts,
+	}
+}
+
+// memberInventoryRefresh registers task-owned member walks in the shared gate.
+func memberInventoryRefresh(scanSvc inventory.Service) workset.FolderScan {
+	return func(ctx context.Context, folderPath, rootPath string) error {
+		release, err := scanSvc.AdmitMemberRefresh(rootPath)
+		if err != nil {
+			return err
+		}
+		defer release()
+		rel, err := filepath.Rel(filepath.FromSlash(rootPath), filepath.FromSlash(folderPath))
+		if err != nil {
+			return err
+		}
+		folder, err := filesystem.ResolveMember(rootPath, filepath.ToSlash(rel))
+		if err != nil {
+			return err
+		}
+		return scanSvc.RefreshMember(ctx, folder, rootPath)
 	}
 }
 
@@ -332,6 +351,9 @@ func runServer(ctx context.Context, repo *sqlite.Repository, cfg Config) {
 	// Startup recovery: any session left queued/running by a previous process
 	// is marked interrupted before the dispatcher starts from an empty queue.
 	interruptStaleSessions(repo)
+	for _, err := range services.rename.RecoverInterrupted(ctx, repo) {
+		log.Printf("rename startup repair failed: %v", err)
+	}
 	services.workset.DispatcherHandle().Start()
 	defer services.workset.DispatcherHandle().Stop()
 

@@ -338,7 +338,7 @@ func (s *serviceImpl) executionEligibility(
 	if len(reasons) > 0 {
 		return reasons, FrozenExecution{}, nil
 	}
-	frozen, freezeErr := s.freezeExecution(op, detail, rev)
+	frozen, freezeErr := s.freezeExecution(op, detail, rev, selection)
 	if freezeErr != nil {
 		return nil, FrozenExecution{}, freezeErr
 	}
@@ -421,6 +421,7 @@ func (s *serviceImpl) freezeExecution(
 	op *Operation,
 	detail *PlanDetail,
 	rev *OperationRevision,
+	selection []string,
 ) (FrozenExecution, error) {
 	task, err := s.requireTask(op.OperationType)
 	if err != nil {
@@ -430,10 +431,15 @@ func (s *serviceImpl) freezeExecution(
 	if err != nil {
 		return FrozenExecution{}, NewError(ErrKindInternal, "INTERNAL", "failed to load members", err)
 	}
+	roots, err := s.executionInputRoots(op.WorksetID, detail, selection)
+	if err != nil {
+		return FrozenExecution{}, err
+	}
 	frozen, reasons, err := task.FreezeExecution(RevisionFacts{
 		DraftSnapshot: []byte(rev.DraftSnapshot),
 		Members:       members,
 		Detail:        detail,
+		InputRoots:    roots,
 	})
 	if err != nil {
 		return FrozenExecution{}, err
@@ -480,7 +486,7 @@ func (s *serviceImpl) persistExecution(
 		TotalOperations: frozen.TotalOperations,
 		CreatedAt:       time.Now(),
 	}
-	createErr := s.enqueue(func() error {
+	createErr := s.enqueueExecution(op, func() error {
 		return s.repo.CreateExecutionGuarded(exec, ExecutionGuards{
 			ExpectedOperationVersion: op.Version,
 			ExpectedCurrentRevision:  planID,
@@ -488,6 +494,9 @@ func (s *serviceImpl) persistExecution(
 		})
 	})
 	if err := createErr; err != nil {
+		if _, ok := AsError(err); ok {
+			return nil, err
+		}
 		if errors.Is(err, ErrExecutionIdemConflict) {
 			// The insert collided with the key index (same operation+key) or with
 			// the one-execution-per-revision index. Read the outcome: a matching

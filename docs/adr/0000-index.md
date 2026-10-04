@@ -17,7 +17,7 @@
 | [0011](0011-work-catalog.md) | 作品目录：作品号身份、来源数据组与派生关系 | Draft |
 | [0012](0012-yorha-design-base.md) | YoRHa 视觉底座与三阶段落地 | Draft |
 | [0013](0013-development-schema-and-release-migrations.md) | 开发 schema 自由迭代，发布库通过 goose 升级 | Draft |
-| [0014](0014-metadata-refresh-and-directory-rename-planning.md) | 元数据刷新、作品目录主封面与目录重命名规划 | Draft |
+| [0014](0014-metadata-refresh-and-directory-rename-planning.md) | 元数据刷新、作品目录主封面与目录重命名 | Draft |
 | [0015](0015-thumbnail-service.md) | 缩略图服务：可丢弃的派生缓存与可替换的缩放引擎 | Draft |
 | [0016](0016-work-file-content-distribution.md) | 作品文件内容的只读分发：清单与字节 | Draft |
 | [0017](0017-inventory-scanning-and-sqlite-merge.md) | 库存扫描：作品级调度、完整观察集与按变化合并 | Draft |

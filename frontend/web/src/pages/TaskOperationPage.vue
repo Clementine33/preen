@@ -27,6 +27,7 @@ import type {
   MetadataComponent,
   MetadataDraftDocument,
   MetadataTaskResult,
+  RenameTaskResult,
   OperationType,
   RenameComponent,
   RenameDraftDocument,
@@ -38,8 +39,8 @@ import type {
  * The rename and metadata refresh section of one library's workbench
  * (ADR 0014). Like the conversion page it addresses the library: the current
  * record of this operation is looked up, and its settings, plan and sessions
- * are what the page shows. Rename only proposes names; its execution is
- * refused by the backend, so the page offers none.
+ * are what the page shows. Both execute their frozen task units; cover delivery
+ * remains an independent metadata queue.
  *
  * Both routes share this component and the router reuses the instance across
  * them, so every query reads `operation` reactively instead of capturing it.
@@ -154,11 +155,12 @@ const planNote = computed(() => {
   const state = op.value?.planning_state
   if (state === 'orphaned') return '媒体库已删除：该记录只读'
   if (state === 'needs_planning') return '设置已改变，需重新生成计划'
+  if (!isMetadata.value && revision.value?.counts?.blocked) return '排除阻塞项后重新生成'
   if (op.value?.current_revision?.validation_state === 'stale') return '输入已变化，需重新生成计划'
   return null
 })
 
-// ---- execution (metadata refresh only) -------------------------------------
+// ---- execution (frozen task units) -------------------------------------
 
 const EXECUTION_STATES: Record<string, string> = {
   queued: '排队中',
@@ -197,10 +199,25 @@ const failures = computed(() =>
     })),
 )
 
+const renameResults = computed(() => (executionView.value?.components ?? []).map((component) => {
+  const facts = component.task_result as RenameTaskResult | undefined
+  const status = component.status === 'pending' ? '未执行' :
+    component.status === 'failed' ? (facts?.rolled_back ? '失败（已恢复原名称）' : facts?.renamed ? '失败（目录已改名）' : '失败') :
+    facts?.recovered ? '已改名（启动恢复）' : facts?.renamed ? '已改名' :
+    component.status === 'succeeded' ? '名称无需改变' : component.status
+  return {
+    key: component.component_id,
+    source: facts?.source_path ?? component.root_path,
+    target: facts?.target_path ?? '',
+    status,
+    message: component.error_message ?? '',
+  }
+}))
+
 const executeError = ref<string | null>(null)
 const canExecute = computed(
   () =>
-    isMetadata.value &&
+    Boolean(revision.value) &&
     Boolean(planId.value) &&
     !revision.value?.execution &&
     !sessionActive.value &&
@@ -327,9 +344,6 @@ watch(
             </div>
             <p v-if="generateError" class="mt-2 text-[11px] text-destructive" role="alert">{{ generateError }}</p>
             <p v-if="executeError" class="mt-2 text-[11px] text-destructive" role="alert">{{ executeError }}</p>
-            <p v-if="!isMetadata && planId" class="mt-2 text-[11px] text-[var(--text-muted)]">
-              重命名目前只生成提案，不会修改磁盘上的目录。
-            </p>
             <p v-if="!planId && !generationProgress" class="mt-2 text-[11px] text-[var(--text-muted)]">尚未生成计划。</p>
             <p v-else-if="isMetadata" class="mt-2 text-[11px] text-[var(--text-secondary)]" data-testid="metadata-plan-count">
               将刷新 {{ components.length }} 个文件夹
@@ -337,12 +351,12 @@ watch(
             <TaskPlanTable v-else-if="components.length" class="mt-2" :components="components as RenameComponent[]" />
           </section>
 
-          <section v-if="isMetadata && executionView" class="rounded-lg border border-border bg-card p-3" data-testid="execution">
+          <section v-if="executionView" class="rounded-lg border border-border bg-card p-3" data-testid="execution">
             <div class="flex flex-wrap items-center gap-2">
               <h2 class="text-xs font-semibold text-[var(--text-secondary)]">执行</h2>
               <Badge tone="neutral">{{ EXECUTION_STATES[executionView.status] ?? executionView.status }}</Badge>
               <span class="font-mono text-[11px]">{{ executionView.completed_components }}/{{ executionView.total_components }}</span>
-              <Badge v-if="failures.length" tone="danger">失败 {{ failures.length }} 个作品</Badge>
+              <Badge v-if="isMetadata && failures.length" tone="danger">失败 {{ failures.length }} 个作品</Badge>
               <Button
                 v-if="op?.active_execution"
                 class="ml-auto"
@@ -355,7 +369,7 @@ watch(
               </Button>
             </div>
             <p v-if="executionView.error_message" class="mt-1 text-[11px] text-destructive">{{ executionView.error_message }}</p>
-            <VirtualRows v-if="failures.length" class="mt-2" :items="failures" :item-key="(failure) => failure.key" testid="execution-failures">
+            <VirtualRows v-if="isMetadata && failures.length" class="mt-2" :items="failures" :item-key="(failure) => failure.key" testid="execution-failures">
               <template #default="{ item }">
                 <span class="font-mono">{{ item.rj }}</span>
                 <span class="truncate text-[var(--text-secondary)]" :title="item.message">{{ item.message }}</span>
@@ -363,7 +377,15 @@ watch(
               </template>
             </VirtualRows>
 
-            <div v-if="coversQuery.data.value" class="mt-3 flex flex-wrap items-center gap-2 text-[11px]" data-testid="covers">
+            <VirtualRows v-if="!isMetadata && renameResults.length" class="mt-2" :items="renameResults" :item-key="(item) => item.key" testid="rename-results">
+              <template #default="{ item }">
+                <span class="truncate" :title="item.source">{{ item.source }}</span>
+                <span class="truncate" :title="item.target">{{ item.target }}</span>
+                <span class="text-[11px]" :title="item.message">{{ item.status }}<span v-if="item.message" class="block text-destructive">{{ item.message }}</span></span>
+              </template>
+            </VirtualRows>
+
+            <div v-if="isMetadata && coversQuery.data.value" class="mt-3 flex flex-wrap items-center gap-2 text-[11px]" data-testid="covers">
               <span class="font-semibold text-[var(--text-secondary)]">封面</span>
               <span>完成 {{ coversQuery.data.value.counts.succeeded }}</span>
               <span>等待 {{ coversQuery.data.value.counts.pending + coversQuery.data.value.counts.running }}</span>

@@ -93,7 +93,7 @@ func (s *Server) refreshMemberTree(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "INTERNAL", "scan service not configured")
 		return
 	}
-	release, admitErr := s.deps.Inventory.AdmitMemberRefresh()
+	release, admitErr := s.deps.Inventory.AdmitMemberRefresh(member.Library.RootPath)
 	if admitErr != nil {
 		writeScanAdmissionError(w, admitErr)
 		return

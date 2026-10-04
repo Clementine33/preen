@@ -375,6 +375,8 @@ type Dispatcher interface {
 // the workset id and the operation type: no mutable state is addressable by
 // workset id alone.
 type Service interface {
+	// SetExclusiveEnqueueGuard wires scan-exclusive session admission before workers start.
+	SetExclusiveEnqueueGuard(EnqueueGuard)
 	DispatcherHandle() Dispatcher
 	CreateCurrentWorkset(ctx context.Context, req CreateCurrentRequest) (*CreateCurrentResult, error)
 	GetCurrentWorkset(ctx context.Context, libraryID, operationType string) (*WorksetView, error)

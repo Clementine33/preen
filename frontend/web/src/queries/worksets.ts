@@ -380,8 +380,11 @@ export async function syncAfterExecutionTerminal(
   operation: OperationType,
 ): Promise<void> {
   const detail = queryClient.getQueryData<Workset>(queryKeys.worksets.detail(worksetId))
-  const libraryId = detail?.library?.library_id ?? null
+  const libraryId = detail?.library?.library_id ?? queryClient
+    .getQueriesData<{ workset: Workset | null }>({ queryKey: queryKeys.worksets.currentsPrefix() })
+    .find(([, record]) => record?.workset?.workset_id === worksetId)?.[1]?.workset?.library?.library_id ?? null
   await Promise.all([
+    ...(operation === 'rename' && libraryId ? [syncRenamedLibrary(queryClient, libraryId, worksetId)] : []),
     refreshOrRemoveQueries(queryClient, queryKeys.worksets.listPrefix()),
     refreshOrRemoveQueries(queryClient, queryKeys.worksets.detail(worksetId)),
     refreshOrRemoveQueries(queryClient, queryKeys.worksets.operation(worksetId, operation)),
@@ -396,6 +399,27 @@ export async function syncAfterExecutionTerminal(
           refreshOrRemoveQueries(queryClient, queryKeys.libraries.memberTreesPrefix(libraryId)),
         ]
       : []),
+  ])
+}
+
+// Rename changes members across the library's current records, while their
+// frozen plans stay unchanged and must have freshness re-read.
+async function syncRenamedLibrary(queryClient: QueryClient, libraryId: string, worksetId: string) {
+  const ids = new Set([worksetId])
+  for (const [, detail] of queryClient.getQueriesData<Workset>({ queryKey: queryKeys.worksets.detailsPrefix() })) {
+    if (detail?.library?.library_id === libraryId) ids.add(detail.workset_id)
+  }
+  for (const [, record] of queryClient.getQueriesData<{ workset: Workset | null }>({ queryKey: queryKeys.worksets.currentPrefix(libraryId) })) {
+    if (record?.workset) ids.add(record.workset.workset_id)
+  }
+  await Promise.all([
+    refreshOrRemoveQueries(queryClient, queryKeys.worksets.currentPrefix(libraryId)),
+    refreshOrRemoveQueries(queryClient, queryKeys.works.all()),
+    ...[...ids].flatMap((id) => [
+      refreshOrRemoveQueries(queryClient, queryKeys.worksets.detail(id)),
+      refreshOrRemoveQueries(queryClient, queryKeys.worksets.operationPrefix(id)),
+      refreshOrRemoveQueries(queryClient, queryKeys.worksets.revisionsRecordPrefix(id)),
+    ]),
   ])
 }
 

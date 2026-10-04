@@ -30,7 +30,7 @@ async function mountIndex(initial: TagSelection = { picks: [], mode: 'all' }) {
   const selection = ref<TagSelection>(initial)
   const Host = defineComponent(() => () =>
     h(TagIndex, {
-      library: null,
+      scope: {},
       modelValue: selection.value,
       'onUpdate:modelValue': (value: TagSelection) => (selection.value = value),
     }),

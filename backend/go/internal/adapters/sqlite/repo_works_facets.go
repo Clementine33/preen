@@ -1,6 +1,8 @@
 package sqlite
 
 import (
+	"strings"
+
 	"github.com/onsei/organizer/backend/internal/works"
 )
 
@@ -24,26 +26,29 @@ var facetJoins = map[works.FacetKind]string{
 // ListFacets counts, per entity, the listed works that carry it. Only works
 // the listing would show count - a relation placeholder never found on disk is
 // not a work a filter can return - so an entity with no listed work is absent.
-func (r *Repository) ListFacets(kind works.FacetKind, libraries []string) ([]works.Facet, error) {
+// The filter is applied exactly as the listing applies it, over the same
+// joins its fragments name.
+func (r *Repository) ListFacets(kind works.FacetKind, filter works.Filter) ([]works.Facet, error) {
 	join, ok := facetJoins[kind]
 	if !ok {
 		return nil, works.Invalid(works.CodeInvalidArgument, "unknown facet")
 	}
+	filter.Cursor = nil
+	builder := listQueryBuilder{}
+	builder.applyFilters(filter)
 	query := `
 		SELECT e.id, e.name, COUNT(DISTINCT w.id)
-		FROM works w` + join + `
+		FROM works w
+		LEFT JOIN work_translations t ON t.work_id = w.id
+		LEFT JOIN work_user_data u ON u.work_id = w.id` + join + `
 		WHERE w.collected_at IS NOT NULL`
-	args := []any{}
-	if len(libraries) > 0 {
-		query += `
-		  AND EXISTS (SELECT 1 FROM work_copies wc
-		              WHERE wc.work_id = w.id AND wc.library_id IN (` + placeholderList(len(libraries)) + `))`
-		args = textArgs(libraries)
+	if len(builder.where) > 0 {
+		query += "\n\t\t  AND " + strings.Join(builder.where, "\n\t\t  AND ")
 	}
 	query += `
 		GROUP BY e.id, e.name
 		ORDER BY e.name, e.id`
-	rows, err := r.db.Query(query, args...)
+	rows, err := r.db.Query(query, builder.args...)
 	if err != nil {
 		return nil, err
 	}

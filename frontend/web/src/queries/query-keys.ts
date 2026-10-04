@@ -1,7 +1,7 @@
 // Central query-key factories. Pages and composables must never construct
 // keys ad hoc: cache isolation, prefix invalidation, and stale-response
 // protection all depend on these exact tuple shapes.
-import type { ListWorksParams, WorkFacetKind } from '@/lib/api/types'
+import type { ListWorksParams, WorkFacetKind, WorksScope } from '@/lib/api/types'
 
 export const queryKeys = {
   libraries: {
@@ -51,12 +51,12 @@ export const queryKeys = {
     content: (rj: string) => ['works', 'content', rj] as const,
     // The account's own tag vocabulary, shared by every work's personal section.
     userTags: () => ['works', 'user-tags'] as const,
-    // One facet list per kind and library scope ('' = every library).
-    facets: (kind: WorkFacetKind, library: string) => ['works', 'facets', kind, library] as const,
+    // One facet list per kind and listing scope (the wall's other filters).
+    facets: (kind: WorkFacetKind, scope: WorksScope) => ['works', 'facets', kind, scope] as const,
     // Both tag vocabularies, under the facets prefix so every facet sweep
     // covers them; their own prefix lets a user-tag write refresh only them.
     tagFacetsPrefix: () => ['works', 'facets', 'tag'] as const,
-    tagFacets: (library: string) => ['works', 'facets', 'tag', library] as const,
+    tagFacets: (scope: WorksScope) => ['works', 'facets', 'tag', scope] as const,
   },
   // Every mutable workset resource is keyed by (workset, operation): the same
   // workset id must never address two operations' drafts, sessions or

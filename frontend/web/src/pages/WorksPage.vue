@@ -3,7 +3,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { canonicalRj } from '@/app/route-params'
 import { useMediaQuery, WALL_MOBILE_QUERY } from '@/composables/use-media-query'
-import type { ListWorksParams, WorkFacet, WorksSort } from '@/lib/api/types'
+import type { ListWorksParams, WorkFacet, WorksScope, WorksSort } from '@/lib/api/types'
 import GlobalMenu from '@/components/layout/GlobalMenu.vue'
 import LibrarySwitcher from '@/features/works/LibrarySwitcher.vue'
 import TagIndex, { type TagSelection } from '@/features/works/TagIndex.vue'
@@ -48,12 +48,13 @@ const libraryScope = computed(() =>
     ? (librariesData.value.map((library) => library.id).join(',') || null)
     : libraryUi.activeLibraryId,
 )
-const { facets: voiceActorFacets } = useWorkFacets('voice_actor', libraryScope)
-const { facets: circleFacets } = useWorkFacets('circle', libraryScope)
 // An entity without a source id is kept per work (ADR 0011 §6), so one name
 // can arrive as several ids. The rail offers the name once and asks for all of
-// its ids: the listing matches any id of a comma-separated list.
-function facetOptions(facets: WorkFacet[]): RailOption[] {
+// its ids: the listing matches any id of a comma-separated list. A pick the
+// other filters have since narrowed away stays on offer at 0, under the name it
+// was picked by, so the tab still says what the wall is filtered by.
+const pickedNames = new Map<string, string>()
+function facetOptions(facets: WorkFacet[], picked: string): RailOption[] {
   const byName = new Map<string, { ids: string[]; count: number }>()
   for (const facet of facets) {
     const entry = byName.get(facet.name) ?? { ids: [], count: 0 }
@@ -61,13 +62,14 @@ function facetOptions(facets: WorkFacet[]): RailOption[] {
     entry.count += facet.work_count
     byName.set(facet.name, entry)
   }
-  return [
-    { value: '', label: 'ALL' },
-    ...[...byName].map(([name, entry]) => ({ value: entry.ids.join(','), label: name, count: entry.count })),
-  ]
+  const options = [...byName].map(([name, entry]) => ({ value: entry.ids.join(','), label: name, count: entry.count }))
+  for (const option of options) pickedNames.set(option.value, option.label)
+  const label = pickedNames.get(picked)
+  if (picked !== '' && label !== undefined && !options.some((option) => option.value === picked)) {
+    options.push({ value: picked, label, count: 0 })
+  }
+  return [{ value: '', label: 'ALL' }, ...options]
 }
-const voiceActorOptions = computed(() => facetOptions(voiceActorFacets.value))
-const circleOptions = computed(() => facetOptions(circleFacets.value))
 
 // Age categories preserve the upstream distinction between 全年龄, R15 and R18.
 const AGE_OPTIONS: RailOption[] = [
@@ -102,7 +104,8 @@ onBeforeUnmount(() => {
   if (findTimer !== null) window.clearTimeout(findTimer)
 })
 
-const filters = computed<ListWorksParams>(() => ({
+// The set of works on the wall; the order only arranges it.
+const scope = computed<WorksScope>(() => ({
   ...(libraryScope.value ? { library: libraryScope.value } : {}),
   ...(voiceActor.value ? { voice_actor: voiceActor.value, voice_actor_match: 'any' as const } : {}),
   ...(circle.value ? { circle: circle.value } : {}),
@@ -111,9 +114,23 @@ const filters = computed<ListWorksParams>(() => ({
     ? { tag: tags.value.picks.map((pick) => pick.refs.join('|')).join(','), tag_match: tags.value.mode }
     : {}),
   ...(findQuery.value ? { q: findQuery.value } : {}),
-  sort: sort.value,
-  direction: 'desc',
 }))
+const filters = computed<ListWorksParams>(() => ({ ...scope.value, sort: sort.value, direction: 'desc' }))
+
+// Each rail offers what the wall's other filters can still combine with, and
+// leaves its own pick out so the alternatives to it stay on offer.
+function scopeWithout(...keys: (keyof WorksScope)[]) {
+  return computed(() => {
+    const rest = { ...scope.value }
+    for (const key of keys) delete rest[key]
+    return rest
+  })
+}
+const { facets: voiceActorFacets } = useWorkFacets('voice_actor', scopeWithout('voice_actor', 'voice_actor_match'))
+const { facets: circleFacets } = useWorkFacets('circle', scopeWithout('circle'))
+const tagScope = scopeWithout('tag', 'tag_match')
+const voiceActorOptions = computed(() => facetOptions(voiceActorFacets.value, voiceActor.value))
+const circleOptions = computed(() => facetOptions(circleFacets.value, circle.value))
 
 const { works, query } = useWorksList(filters)
 
@@ -278,7 +295,7 @@ onBeforeUnmount(() => {
         <RailSelect v-model="voiceActor" label="VOICE" :options="voiceActorOptions" marks-active searchable />
         <RailSelect v-model="circle" label="CIRCLE" :options="circleOptions" marks-active searchable />
         <RailSelect v-model="age" label="AGE" :options="AGE_OPTIONS" marks-active />
-        <TagIndex v-model="tags" :library="libraryScope" />
+        <TagIndex v-model="tags" :scope="tagScope" />
       </div>
       <div class="rail-right">
         <RailSelect v-model="sort" label="SORT" :options="SORT_OPTIONS" />

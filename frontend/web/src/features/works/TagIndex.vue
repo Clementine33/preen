@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { Modal } from '@/components/ui/modal'
-import type { WorkFacet } from '@/lib/api/types'
+import type { WorkFacet, WorksScope } from '@/lib/api/types'
 import { useTagFacets } from '@/queries/works'
 
 // The rail's tag index (ADR 0012 §4): a tab that opens a dialog, because a
@@ -33,10 +33,11 @@ interface Entry {
   userCount: number
 }
 
-const props = defineProps<{ library: string | null }>()
+/** The wall's other filters: the index offers only tags they can combine with. */
+const props = defineProps<{ scope: WorksScope }>()
 const model = defineModel<TagSelection>({ required: true })
 
-const { facets } = useTagFacets(() => props.library)
+const { facets } = useTagFacets(() => props.scope)
 
 // ADR 0011 §6 keeps same-named entities apart; the index offers the name once.
 const entries = computed(() => {

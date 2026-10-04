@@ -7,6 +7,7 @@ import type {
   WorkFacetKind,
   WorkListResponse,
   WorkUserTag,
+  WorksScope,
 } from '@/lib/api/types'
 import { queryKeys } from './query-keys'
 import { refreshOrRemoveQueries } from './cache-sync'
@@ -39,19 +40,24 @@ export function worksListQueryOptions(api: ApiClientContract, filters: ListWorks
   }
 }
 
-/** The circles or voice actors listed works carry, under one library scope. */
-export function workFacetsQueryOptions(api: ApiClientContract, kind: WorkFacetKind, library: string | null) {
+/**
+ * The circles or voice actors the works of one listing scope carry. A scope
+ * change keeps the previous options open instead of emptying the rail.
+ */
+export function workFacetsQueryOptions(api: ApiClientContract, kind: WorkFacetKind, scope: WorksScope) {
   return {
-    queryKey: queryKeys.works.facets(kind, library ?? ''),
-    queryFn: ({ signal }: { signal?: AbortSignal }) => api.listWorkFacets(kind, library ?? undefined, signal),
+    queryKey: queryKeys.works.facets(kind, scope),
+    queryFn: ({ signal }: { signal?: AbortSignal }) => api.listWorkFacets(kind, scope, signal),
+    placeholderData: keepPreviousData,
   }
 }
 
-/** Both tag vocabularies under one library scope, the tag index's two sections. */
-export function tagFacetsQueryOptions(api: ApiClientContract, library: string | null) {
+/** Both tag vocabularies under one listing scope, the tag index's two sections. */
+export function tagFacetsQueryOptions(api: ApiClientContract, scope: WorksScope) {
   return {
-    queryKey: queryKeys.works.tagFacets(library ?? ''),
-    queryFn: ({ signal }: { signal?: AbortSignal }) => api.listTagFacets(library ?? undefined, signal),
+    queryKey: queryKeys.works.tagFacets(scope),
+    queryFn: ({ signal }: { signal?: AbortSignal }) => api.listTagFacets(scope, signal),
+    placeholderData: keepPreviousData,
   }
 }
 
@@ -84,18 +90,18 @@ export function useWorksList(filters: MaybeRefOrGetter<ListWorksParams>) {
   return { query, works }
 }
 
-/** One facet list behind a reactive library scope (null = every library). */
-export function useWorkFacets(kind: WorkFacetKind, library: MaybeRefOrGetter<string | null>) {
+/** One facet list behind a reactive listing scope. */
+export function useWorkFacets(kind: WorkFacetKind, scope: MaybeRefOrGetter<WorksScope>) {
   const api = useApiClient()
-  const query = useQuery(computed(() => workFacetsQueryOptions(api, kind, toValue(library))))
+  const query = useQuery(computed(() => workFacetsQueryOptions(api, kind, toValue(scope))))
   const facets = computed(() => query.data.value ?? [])
   return { query, facets }
 }
 
-/** The tag index's entries behind a reactive library scope (null = every library). */
-export function useTagFacets(library: MaybeRefOrGetter<string | null>) {
+/** The tag index's entries behind a reactive listing scope. */
+export function useTagFacets(scope: MaybeRefOrGetter<WorksScope>) {
   const api = useApiClient()
-  const query = useQuery(computed(() => tagFacetsQueryOptions(api, toValue(library))))
+  const query = useQuery(computed(() => tagFacetsQueryOptions(api, toValue(scope))))
   const facets = computed(() => query.data.value ?? { source_tags: [], user_tags: [] })
   return { query, facets }
 }

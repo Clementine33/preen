@@ -44,6 +44,7 @@ import type {
   ContentFileRef,
   WorkFacet,
   WorkFacetKind,
+  WorksScope,
   WorkListResponse,
   WorkUserData,
   WorkUserTag,
@@ -70,6 +71,41 @@ export class ApiError extends Error {
     this.code = code
     this.details = details
   }
+}
+
+/** The listing's query string: only the parameters that are set ship. */
+function worksQuery(params: ListWorksParams): string {
+  const query = new URLSearchParams()
+  for (const key of [
+    'q',
+    'circle',
+    'language',
+    'library',
+    'voice_actor',
+    'source_tag',
+    'user_tag',
+    'voice_actor_match',
+    'source_tag_match',
+    'user_tag_match',
+    'tag',
+    'tag_match',
+    'released_from',
+    'released_to',
+    'sort',
+    'direction',
+    'cursor',
+  ] as const) {
+    if (params[key]) query.set(key, params[key])
+  }
+  for (const key of ['rating_from', 'rating_to', 'age_category', 'limit'] as const) {
+    if (params[key] !== undefined) query.set(key, String(params[key]))
+  }
+  for (const key of ['nsfw', 'unrated', 'favorite', 'has_copy'] as const) {
+    const value = params[key]
+    if (value !== undefined) query.set(key, String(value))
+  }
+  const qs = query.toString()
+  return qs ? `?${qs}` : ''
 }
 
 export class ApiClient implements ApiClientContract {
@@ -242,37 +278,7 @@ export class ApiClient implements ApiClientContract {
   // The works listing takes exactly the parameters the backend whitelists
   // (docs/api.md): unknown keys are INVALID_ARGUMENT, so only set ones ship.
   listWorks(params: ListWorksParams = {}, signal?: AbortSignal): Promise<WorkListResponse> {
-    const query = new URLSearchParams()
-    for (const key of [
-      'q',
-      'circle',
-      'language',
-      'library',
-      'voice_actor',
-      'source_tag',
-      'user_tag',
-      'voice_actor_match',
-      'source_tag_match',
-      'user_tag_match',
-      'tag',
-      'tag_match',
-      'released_from',
-      'released_to',
-      'sort',
-      'direction',
-      'cursor',
-    ] as const) {
-      if (params[key]) query.set(key, params[key])
-    }
-    for (const key of ['rating_from', 'rating_to', 'age_category', 'limit'] as const) {
-      if (params[key] !== undefined) query.set(key, String(params[key]))
-    }
-    for (const key of ['nsfw', 'unrated', 'favorite', 'has_copy'] as const) {
-      const value = params[key]
-      if (value !== undefined) query.set(key, String(value))
-    }
-    const qs = query.toString()
-    return this.request(`/works${qs ? `?${qs}` : ''}`, { signal })
+    return this.request(`/works${worksQuery(params)}`, { signal })
   }
 
   getWork(rj: string, signal?: AbortSignal): Promise<WorkDetail> {
@@ -335,10 +341,10 @@ export class ApiClient implements ApiClientContract {
     }
   }
 
-  // The circles or voice actors listed works carry, scoped like the listing's
-  // own `library` filter; each id is what that listing parameter takes.
-  async listWorkFacets(kind: WorkFacetKind, library?: string, signal?: AbortSignal): Promise<WorkFacet[]> {
-    const qs = library ? `?library=${encodeURIComponent(library)}` : ''
+  // The circles or voice actors the works of one listing scope carry; each id
+  // is what that listing parameter takes.
+  async listWorkFacets(kind: WorkFacetKind, scope: WorksScope = {}, signal?: AbortSignal): Promise<WorkFacet[]> {
+    const qs = worksQuery(scope)
     if (kind === 'circle') {
       const body = await this.request<{ circles: WorkFacet[] }>(`/circles${qs}`, { signal })
       return body.circles
@@ -347,10 +353,9 @@ export class ApiClient implements ApiClientContract {
     return body.voice_actors
   }
 
-  /** Both tag vocabularies under one library scope (docs/api.md `GET /tags`). */
-  listTagFacets(library?: string, signal?: AbortSignal): Promise<TagFacets> {
-    const qs = library ? `?library=${encodeURIComponent(library)}` : ''
-    return this.request(`/tags${qs}`, { signal })
+  /** Both tag vocabularies under one listing scope (docs/api.md `GET /tags`). */
+  listTagFacets(scope: WorksScope = {}, signal?: AbortSignal): Promise<TagFacets> {
+    return this.request(`/tags${worksQuery(scope)}`, { signal })
   }
 
   // A partial personal-data update: only the fields present are applied, and

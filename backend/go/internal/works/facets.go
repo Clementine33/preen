@@ -23,10 +23,14 @@ type Facet struct {
 }
 
 // Facets lists the entities of one kind that at least one listed work carries,
-// ordered by name. Naming libraries scopes both the entities and their counts
-// to works with a copy there, the way the listing's library filter does.
-func (s *Service) Facets(kind FacetKind, libraries []string) ([]Facet, *Error) {
-	facets, err := s.store.ListFacets(kind, libraries)
+// ordered by name. The filter is the listing's own, so the entities and their
+// counts narrow with the wall: a caller who wants the alternatives to its own
+// pick leaves that dimension out.
+func (s *Service) Facets(kind FacetKind, filter Filter) ([]Facet, *Error) {
+	if err := filter.Validate(); err != nil {
+		return nil, err
+	}
+	facets, err := s.store.ListFacets(kind, filter)
 	if err != nil {
 		return nil, asInternal(err)
 	}

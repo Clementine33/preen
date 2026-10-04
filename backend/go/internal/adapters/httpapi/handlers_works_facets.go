@@ -2,7 +2,6 @@ package httpapi
 
 import (
 	"net/http"
-	"strings"
 
 	"github.com/onsei/organizer/backend/internal/works"
 )
@@ -26,13 +25,13 @@ func (s *Server) listVoiceActors(w http.ResponseWriter, r *http.Request) {
 }
 
 // listTags answers both tag vocabularies at once: the tag index shows them
-// side by side, under the same library scope.
+// side by side, under the same filter.
 func (s *Server) listTags(w http.ResponseWriter, r *http.Request) {
 	service, ok := s.catalog(w)
 	if !ok {
 		return
 	}
-	libraries, refusal := facetScope(r)
+	filter, refusal := facetFilter(r)
 	if refusal != nil {
 		writeWorksError(w, refusal)
 		return
@@ -42,7 +41,7 @@ func (s *Server) listTags(w http.ResponseWriter, r *http.Request) {
 		kind works.FacetKind
 		key  string
 	}{{works.FacetSourceTag, "source_tags"}, {works.FacetUserTag, "user_tags"}} {
-		facets, refusal := service.Facets(kind.kind, libraries)
+		facets, refusal := service.Facets(kind.kind, filter)
 		if refusal != nil {
 			writeWorksError(w, refusal)
 			return
@@ -58,12 +57,12 @@ func (s *Server) listFacets(w http.ResponseWriter, r *http.Request, kind works.F
 	if !ok {
 		return
 	}
-	libraries, refusal := facetScope(r)
+	filter, refusal := facetFilter(r)
 	if refusal != nil {
 		writeWorksError(w, refusal)
 		return
 	}
-	facets, refusal := service.Facets(kind, libraries)
+	facets, refusal := service.Facets(kind, filter)
 	if refusal != nil {
 		writeWorksError(w, refusal)
 		return
@@ -71,22 +70,17 @@ func (s *Server) listFacets(w http.ResponseWriter, r *http.Request, kind works.F
 	writeJSON(w, http.StatusOK, map[string][]facetResponse{key: toFacetResponses(facets)})
 }
 
-// facetScope reads a facet list's only parameter, `library`; anything else is
-// refused the way the listing refuses it.
-func facetScope(r *http.Request) ([]string, *works.Error) {
-	query := r.URL.Query()
-	for name := range query {
-		if name != "library" {
-			return nil, works.Invalid(works.CodeInvalidArgument, "unknown query parameter: "+name)
+// facetFilter reads a facet list's parameters: the listing's filters, without
+// its order, page size or cursor, which describe a page rather than the set of
+// works. Anything else is refused the way the listing refuses it.
+func facetFilter(r *http.Request) (works.Filter, *works.Error) {
+	for name := range r.URL.Query() {
+		switch name {
+		case "sort", "direction", "limit", "cursor":
+			return works.Filter{}, works.Invalid(works.CodeInvalidArgument, "unknown query parameter: "+name)
 		}
 	}
-	var libraries []string
-	for part := range strings.SplitSeq(query.Get("library"), ",") {
-		if part = strings.TrimSpace(part); part != "" {
-			libraries = append(libraries, part)
-		}
-	}
-	return libraries, nil
+	return parseWorkFilter(r)
 }
 
 func toFacetResponses(facets []works.Facet) []facetResponse {

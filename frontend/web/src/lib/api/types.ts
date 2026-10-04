@@ -293,6 +293,13 @@ export interface WorkFacet {
 
 export type WorkFacetKind = 'circle' | 'voice_actor'
 
+/**
+ * The set of works a facet list counts over (docs/api.md facet lists): the
+ * listing's filters without the order, page size or cursor, which describe a
+ * page rather than the set.
+ */
+export type WorksScope = Omit<ListWorksParams, 'sort' | 'direction' | 'cursor' | 'limit'>
+
 /** Both tag vocabularies under one scope (docs/api.md `GET /tags`): the wall's tag index. */
 export interface TagFacets {
   source_tags: WorkFacet[]
@@ -1062,8 +1069,8 @@ export interface ApiClientContract {
   workFileUrl(ref: ContentFileRef, version?: string): string
   getWorkText(ref: ContentFileRef, signal?: AbortSignal): Promise<string>
   getWorkThumb(ref: ContentFileRef, height: number, version: string, signal?: AbortSignal): Promise<Blob>
-  listWorkFacets(kind: WorkFacetKind, library?: string, signal?: AbortSignal): Promise<WorkFacet[]>
-  listTagFacets(library?: string, signal?: AbortSignal): Promise<TagFacets>
+  listWorkFacets(kind: WorkFacetKind, scope?: WorksScope, signal?: AbortSignal): Promise<WorkFacet[]>
+  listTagFacets(scope?: WorksScope, signal?: AbortSignal): Promise<TagFacets>
   updateWorkUserData(rj: string, input: PatchWorkUserDataParams): Promise<WorkUserData>
   replaceWorkUserTags(rj: string, tagIds: string[]): Promise<WorkUserTag[]>
   listUserTags(signal?: AbortSignal): Promise<WorkUserTag[]>

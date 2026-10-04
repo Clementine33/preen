@@ -74,8 +74,8 @@ func TestRatingOrderPutsUnratedWorksLast(t *testing.T) {
 }
 
 // TestFacetListsFeedTheListingFilters: the circle and voice-actor lists name
-// exactly the entities listed works carry, with their counts, and a library
-// scopes both the entities and the counts.
+// exactly the entities listed works carry, with their counts, and the listing's
+// filters - the library among them - narrow both the entities and the counts.
 func TestFacetListsFeedTheListingFilters(t *testing.T) {
 	engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) {
 		wireWorks(d, fixture)
@@ -149,8 +149,20 @@ func TestFacetListsFeedTheListingFilters(t *testing.T) {
 		"/api/v1/works?voice_actor=va-2&voice_actor_match=any", nil, nil),
 		"RJ00000001", "RJ00000002")
 
-	// Anything but the library scope is refused, as the listing refuses it.
-	response := doRequest(t, engine, http.MethodGet, "/api/v1/circles?q=aqua", nil, nil)
+	// Any other listing filter narrows them the same way, so the rail offers
+	// only what the wall can still combine with.
+	assertFacets(read("/api/v1/circles?voice_actor=va-2&voice_actor_match=any", "circles"),
+		facet{"ci-1", "mete0r", 2})
+	assertFacets(read("/api/v1/voice-actors?circle=ci-1&voice_actor=va-1&voice_actor_match=any", "voice_actors"),
+		facet{"va-1", "伊ヶ崎綾香", 1}, facet{"va-2", "沢城みゆき", 1})
+	assertFacets(read("/api/v1/circles?q=RJ00000003", "circles"), facet{"ci-2", "Aqua", 1})
+	if got := read("/api/v1/voice-actors?circle=ci-2", "voice_actors"); got == nil || len(got) != 0 {
+		t.Fatalf("voice actors of a circle without any = %#v, want []", got)
+	}
+
+	// The order, page size and cursor describe a page, not the set: refused,
+	// as the listing refuses an unknown parameter.
+	response := doRequest(t, engine, http.MethodGet, "/api/v1/circles?sort=rating", nil, nil)
 	if response.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want 400", response.Code)
 	}

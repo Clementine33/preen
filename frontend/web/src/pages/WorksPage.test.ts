@@ -332,6 +332,33 @@ describe('works page', () => {
     expect(lastParams(listWorks)).toMatchObject({ voice_actor: 'va-7,va-9', voice_actor_match: 'any' })
   })
 
+  it('narrows every other rail to what the wall can still combine with', async () => {
+    const { wrapper, listWorkFacets } = await mountWorks('/works')
+    const lastScope = (kind: string) =>
+      listWorkFacets.mock.calls.filter((call) => call[0] === kind).at(-1)?.[1] as Record<string, unknown>
+
+    await pick(wrapper, 'VOICE', '伊ヶ崎綾香')
+    await pick(wrapper, 'AGE', 'R18')
+
+    // The circles follow the voice actor and the age; the voice actors follow
+    // the age but not their own pick, so the alternatives stay on offer.
+    expect(lastScope('circle')).toMatchObject({ library: LIB_A, voice_actor: 'va-1', age_category: 3 })
+    expect(lastScope('voice_actor')).toMatchObject({ library: LIB_A, age_category: 3 })
+    expect(lastScope('voice_actor')).not.toHaveProperty('voice_actor')
+    expect(lastScope('circle')).not.toHaveProperty('sort')
+  })
+
+  it('keeps a pick the other filters narrowed away on its tab', async () => {
+    const { wrapper, listWorkFacets } = await mountWorks('/works')
+    await pick(wrapper, 'VOICE', '伊ヶ崎綾香')
+
+    listWorkFacets.mockResolvedValue([])
+    await pick(wrapper, 'AGE', 'R18')
+
+    const select = wrapper.findAll('.rs').find((candidate) => candidate.find('.rs-lbl').text() === 'VOICE')!
+    expect(select.get('.rs-value').text()).toBe('伊ヶ崎綾香')
+  })
+
   it('narrows a long facet list by name', async () => {
     const { wrapper } = await mountWorks('/works')
     const select = wrapper.findAll('.rs').find((candidate) => candidate.find('.rs-lbl').text() === 'VOICE')!

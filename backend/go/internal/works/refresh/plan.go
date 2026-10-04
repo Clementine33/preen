@@ -63,11 +63,12 @@ func (t *Task) PlanSession(ctx context.Context, in workset.PlanSessionInput) (*w
 	}
 	snap.Payload, _ = json.Marshal(d.Common)
 	snap.PayloadHash = workset.CanonicalJSONHash(snap.Payload)
-	summary := struct {
+	var summary struct {
 		workset.PlanSummary
 
 		WorkCount int `json:"work_count"`
-	}{SummaryReason: "ok"}
+	}
+	summary.SummaryReason = "ok"
 	codes := map[string]bool{}
 	for _, m := range in.Members {
 		if err = ctx.Err(); err != nil {

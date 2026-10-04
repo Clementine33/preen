@@ -27,9 +27,9 @@ type Progress struct {
 	FilesScanned int
 	DirsScanned  int
 
-	// DirsWithoutNumber and DirsWithMultipleNumbers count the library's direct
-	// child directories whose names yielded no work number or more than one.
-	DirsWithoutNumber       int
+	// DirsWithMultipleNumbers counts the directories outside any work whose
+	// names yielded more than one work number. A name with none is no work
+	// root: the walk descends into it, so it needs no report.
 	DirsWithMultipleNumbers int
 	ExampleDirs             []string
 	ExamplesTruncated       bool
@@ -118,13 +118,11 @@ func (t *progressTracker) emit() {
 }
 
 // MergeOutcome is what one merge did beyond moving rows: how many entries it
-// merged, and how the library's work roots were classified while
-// the bindings were reconciled. The classifications are the scan's answer for a
-// directory whose name it could not read as exactly one work number - the scan
-// does not guess, so it reports.
+// merged, and which directories outside any work the reconciliation could not
+// bind. The classification is the scan's answer for a directory whose name
+// carries more than one work number - the scan does not guess, so it reports.
 type MergeOutcome struct {
 	Merged                  int
-	DirsWithoutNumber       int
 	DirsWithMultipleNumbers int
 	ExampleDirs             []string
 	ExamplesTruncated       bool
@@ -420,7 +418,6 @@ func (s *Pipeline) ScanRootCtx(ctx context.Context, rootPath string, opts ...Sca
 			o.progress(Progress{
 				FilesScanned:            scanned.FilesScanned,
 				DirsScanned:             scanned.DirsScanned,
-				DirsWithoutNumber:       outcome.DirsWithoutNumber,
 				DirsWithMultipleNumbers: outcome.DirsWithMultipleNumbers,
 				ExampleDirs:             outcome.ExampleDirs,
 				ExamplesTruncated:       outcome.ExamplesTruncated,

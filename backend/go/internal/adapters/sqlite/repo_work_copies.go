@@ -54,10 +54,9 @@ const exampleDirLimit = 20
 // bindingOutcome is what one reconciliation classified, in the scanner's own
 // vocabulary.
 type bindingOutcome struct {
-	unnumbered int
-	multiple   int
-	examples   []string
-	truncated  bool
+	multiple  int
+	examples  []string
+	truncated bool
 }
 
 // syncWorkCopies reconciles the library's bindings against the directories the

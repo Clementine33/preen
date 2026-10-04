@@ -44,9 +44,6 @@ func TestScanBindsDirectChildDirectories(t *testing.T) {
 		t.Fatalf("merge: %v", err)
 	}
 
-	if outcome.DirsWithoutNumber != 0 {
-		t.Errorf("dirs_without_number = %d, want 0", outcome.DirsWithoutNumber)
-	}
 	if outcome.DirsWithMultipleNumbers != 1 {
 		t.Errorf("dirs_with_multiple_numbers = %d, want 1", outcome.DirsWithMultipleNumbers)
 	}

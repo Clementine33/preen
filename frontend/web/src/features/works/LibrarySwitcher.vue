@@ -18,6 +18,11 @@ const root = ref<HTMLElement | null>(null)
 const trigger = ref<HTMLButtonElement | null>(null)
 const menu = usePopupMenu({ root, trigger, open })
 
+function selectAll(): void {
+  libraryUi.showAllLibraries()
+  menu.close(true)
+}
+
 function selectLibrary(id: string): void {
   libraryUi.setActiveLibrary(id)
   menu.close(true)
@@ -32,7 +37,7 @@ const chevron = 'M0 2.5h10L5 8z'
       :aria-expanded="open" @click="menu.setOpen(!open)">
       <span class="lbl lib-lbl">LIBRARY</span>
       <span class="lib-state" :class="{ ok: activeLibrary !== null }"></span>
-      <span class="lib-name">{{ activeLibrary?.name ?? '—' }}</span>
+      <span class="lib-name">{{ libraryUi.allLibraries ? 'ALL' : (activeLibrary?.name ?? '—') }}</span>
       <span class="lib-chev"><svg viewBox="0 0 10 10" aria-hidden="true"><path :d="chevron" /></svg></span>
     </button>
     <div class="lib-menu" data-own-keys>
@@ -41,8 +46,16 @@ const chevron = 'M0 2.5h10L5 8z'
         <span class="lbl">{{ librariesData.length }} ROOTS</span>
       </div>
       <div class="lib-list" role="listbox" aria-label="Media libraries">
+        <button class="lib-item" type="button" role="option" :aria-selected="libraryUi.allLibraries"
+          :style="{ '--d': '10ms' }" @click="selectAll">
+          <span class="lib-mark"></span>
+          <span class="lib-text">
+            <span class="nm">ALL LIBRARIES</span>
+            <span class="lbl path">{{ librariesData.length }} ROOTS</span>
+          </span>
+        </button>
         <button v-for="(library, i) in librariesData" :key="library.id" class="lib-item" type="button" role="option"
-          :aria-selected="library.id === libraryUi.activeLibraryId" :style="{ '--d': `${40 + i * 30}ms` }"
+          :aria-selected="!libraryUi.allLibraries && library.id === libraryUi.activeLibraryId" :style="{ '--d': `${40 + i * 30}ms` }"
           @click="selectLibrary(library.id)">
           <span class="lib-mark"></span>
           <span class="lib-text">

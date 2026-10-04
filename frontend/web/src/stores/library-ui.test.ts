@@ -52,6 +52,15 @@ describe('library-ui store', () => {
     expect(store.selectedDirPaths).toEqual([])
   })
 
+  it('leaves the ALL scope when a library is picked, even the active one', () => {
+    const store = useLibraryUiStore()
+    store.setActiveLibrary('lib-a')
+    store.showAllLibraries()
+    expect(store.allLibraries).toBe(true)
+    store.setActiveLibrary('lib-a')
+    expect(store.allLibraries).toBe(false)
+  })
+
   it('toggles, selects all and clears selection', () => {
     const store = useLibraryUiStore()
     store.toggleDir('Alpha')

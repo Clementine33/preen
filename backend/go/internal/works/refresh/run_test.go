@@ -29,10 +29,10 @@ func (s batchSource) FetchStatic(ctx context.Context, id works.WorkCode, _ strin
 		return refresh.Snapshot{}, ctx.Err()
 	}
 	title := "second"
-	return refresh.Snapshot{
-		Core:     &works.ImportCore{Source: "dlsite", FetchedAt: "2026-10-01T00:00:00.000000000Z", Title: &title},
-		Editions: &works.ImportEditions{Source: "dlsite", FetchedAt: "2026-10-01T00:00:00.000000000Z"},
-	}, nil
+	var snapshot refresh.Snapshot
+	snapshot.Core = &works.ImportCore{Source: "dlsite", FetchedAt: "2026-10-01T00:00:00.000000000Z", Title: &title}
+	snapshot.Editions = &works.ImportEditions{Source: "dlsite", FetchedAt: "2026-10-01T00:00:00.000000000Z"}
+	return snapshot, nil
 }
 func (batchSource) FetchASMR(context.Context, works.WorkCode, string) (refresh.Snapshot, error) {
 	return refresh.Snapshot{}, fmt.Errorf("backup unavailable")

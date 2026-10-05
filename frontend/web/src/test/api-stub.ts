@@ -32,7 +32,7 @@ export function apiStub(overrides: Partial<ApiClientContract> = {}): ApiClientCo
     createCurrentRecord: vi.fn(),
     listWorksets: vi.fn().mockResolvedValue({ worksets: [], next_cursor: undefined }),
     getWorkset: vi.fn(),
-    listWorks: vi.fn().mockResolvedValue({ works: [], next_cursor: undefined }),
+    listWorks: vi.fn().mockResolvedValue({ works: [], total: 0 }),
     getWork: vi.fn(),
     getWorkContent: vi.fn(async (rj: string) => ({ rj, copies: [] })),
     workFileUrl: vi.fn((ref: { relPath: string }) => `/files/${ref.relPath}`),

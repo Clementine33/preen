@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 
 	"github.com/onsei/organizer/backend/internal/adapters/sqlite"
@@ -86,7 +87,7 @@ func TestWorksListRequiresAMatchMode(t *testing.T) {
 }
 
 // TestWorksListFiltersAndPages is the ordinary listing end to end: a filter that
-// selects, an unknown value that is its own case, and a cursor that walks the
+// selects, an unknown value that is its own case, and numbered pages that walk the
 // whole set without repeating or skipping a row.
 func TestWorksListFiltersAndPages(t *testing.T) {
 	engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) {
@@ -158,49 +159,61 @@ func TestWorksListFiltersAndPages(t *testing.T) {
 	w = doRequest(t, engine, http.MethodGet, "/api/v1/works?released_from=2025-06-01&released_to=2025-06-01", nil, nil)
 	assertWorks(t, w, "RJ00000002")
 
-	// Paging with a cursor visits every row exactly once, in order.
+	// Numbered pages visit every row exactly once, in order, and each one
+	// carries the same total.
+	assertSequence(t, walkPages(t, engine, "/api/v1/works?limit=1&sort=release_date&direction=asc", 3),
+		[]string{"RJ00000001", "RJ00000002", "RJ00000003"})
+	// A page past the end is empty but still says how many works there are.
+	assertWorks(t, doRequest(t, engine, http.MethodGet, "/api/v1/works?limit=2&page=9", nil, nil))
+}
+
+// walkPages reads pages 1, 2, … of one listing until the total is covered,
+// checking that every page reports the same total.
+func walkPages(t *testing.T, engine http.Handler, base string, wantTotal int) []string {
+	t.Helper()
 	seen := []string{}
-	path := "/api/v1/works?limit=1&sort=release_date&direction=asc"
-	for range 5 {
-		pageResponse := doRequest(t, engine, http.MethodGet, path, nil, nil)
-		if pageResponse.Code != http.StatusOK {
-			t.Fatalf("status = %d (body=%s)", pageResponse.Code, pageResponse.Body.String())
+	for number := 1; ; number++ {
+		response := doRequest(t, engine, http.MethodGet, base+"&page="+strconv.Itoa(number), nil, nil)
+		if response.Code != http.StatusOK {
+			t.Fatalf("page %d: status = %d (body=%s)", number, response.Code, response.Body.String())
 		}
 		var page struct {
 			Works []struct {
 				RJ string `json:"rj"`
 			} `json:"works"`
-			NextCursor string `json:"next_cursor"`
+			Total int `json:"total"`
 		}
-		if err := json.Unmarshal(pageResponse.Body.Bytes(), &page); err != nil {
-			t.Fatalf("decode: %v", err)
+		if err := json.Unmarshal(response.Body.Bytes(), &page); err != nil {
+			t.Fatal(err)
+		}
+		if page.Total != wantTotal {
+			t.Fatalf("page %d: total = %d, want %d", number, page.Total, wantTotal)
+		}
+		if len(page.Works) == 0 {
+			return seen
 		}
 		for _, summary := range page.Works {
 			seen = append(seen, summary.RJ)
 		}
-		if page.NextCursor == "" {
-			break
-		}
-		path = "/api/v1/works?limit=1&sort=release_date&direction=asc&cursor=" + page.NextCursor
 	}
-	assertSequence(t, seen, []string{"RJ00000001", "RJ00000002", "RJ00000003"})
+}
 
-	// A cursor from one query is refused by another: it describes a position in
-	// a sequence that no longer exists.
-	first := doRequest(t, engine, http.MethodGet, "/api/v1/works?limit=1&sort=release_date&direction=asc", nil, nil)
-	var page struct {
-		NextCursor string `json:"next_cursor"`
+// TestWorksListValidatesThePageNumber: an absent page is the first, while a
+// supplied one has to be a whole number of at least 1.
+func TestWorksListValidatesThePageNumber(t *testing.T) {
+	engine := newTestServer(t, wireWorks)
+	for _, raw := range []string{"abc", "0", "-1", "1.5"} {
+		w := doRequest(t, engine, http.MethodGet, "/api/v1/works?page="+raw, nil, nil)
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("page=%s: status = %d, want 400", raw, w.Code)
+			continue
+		}
+		if code, _ := errorEnvelope(t, w); code != works.CodeInvalidPage {
+			t.Errorf("page=%s: code = %q, want %q", raw, code, works.CodeInvalidPage)
+		}
 	}
-	if err := json.Unmarshal(first.Body.Bytes(), &page); err != nil {
-		t.Fatal(err)
-	}
-	w = doRequest(t, engine, http.MethodGet,
-		"/api/v1/works?limit=1&sort=release_date&direction=asc&favorite=true&cursor="+page.NextCursor, nil, nil)
-	if w.Code != http.StatusBadRequest {
-		t.Fatalf("status = %d, want 400", w.Code)
-	}
-	if code, _ := errorEnvelope(t, w); code != works.CodeCursorMismatch {
-		t.Errorf("code = %q, want %q", code, works.CodeCursorMismatch)
+	if w := doRequest(t, engine, http.MethodGet, "/api/v1/works", nil, nil); w.Code != http.StatusOK {
+		t.Errorf("status = %d, want 200", w.Code)
 	}
 }
 
@@ -239,8 +252,8 @@ func assertSequence(t *testing.T, got, want []string) {
 
 // TestUnknownReleaseDatesAlwaysSortLast walks the whole set in both directions
 // across page boundaries: an unknown release date is last either way, no row is
-// repeated and none is skipped. Two unknown dates make the walk continue from
-// inside the unknown block, the cursor shape that carries no sort value.
+// repeated and none is skipped. Two unknown dates put a page boundary inside
+// the unknown block, where the work number alone orders the rows.
 func TestUnknownReleaseDatesAlwaysSortLast(t *testing.T) {
 	engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) {
 		wireWorks(d, fixture)
@@ -269,30 +282,7 @@ func TestUnknownReleaseDatesAlwaysSortLast(t *testing.T) {
 			// The known dates reverse; the unknown ones stay last, by number.
 			want = []string{"RJ00000003", "RJ00000002", "RJ00000001", "RJ00000004", "RJ00000005"}
 		}
-		seen := []string{}
-		path := "/api/v1/works?limit=1&sort=release_date&direction=" + direction
-		for range 7 {
-			response := doRequest(t, engine, http.MethodGet, path, nil, nil)
-			if response.Code != http.StatusOK {
-				t.Fatalf("%s: status = %d (body=%s)", direction, response.Code, response.Body.String())
-			}
-			var page struct {
-				Works []struct {
-					RJ string `json:"rj"`
-				} `json:"works"`
-				NextCursor string `json:"next_cursor"`
-			}
-			if err := json.Unmarshal(response.Body.Bytes(), &page); err != nil {
-				t.Fatal(err)
-			}
-			for _, summary := range page.Works {
-				seen = append(seen, summary.RJ)
-			}
-			if page.NextCursor == "" {
-				break
-			}
-			path = "/api/v1/works?limit=1&sort=release_date&direction=" + direction + "&cursor=" + page.NextCursor
-		}
+		seen := walkPages(t, engine, "/api/v1/works?limit=1&sort=release_date&direction="+direction, 5)
 		assertSequence(t, seen, want)
 	}
 

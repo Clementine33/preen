@@ -46,8 +46,16 @@ watch(() => player.trackIndex, (track) => {
   if (player.rj === store.rj && track !== store.track) store.followTrack(track)
 })
 
+// Back to the wall this work was opened from: that history entry holds the
+// wall's whole address and where it was scrolled, so stepping back restores
+// both. Arriving any other way, the wall opens on this work's number alone.
 function backToWall(): void {
-  router.push({ name: 'works', query: rj.value !== null ? { rj: rj.value } : {} })
+  const back = router.options.history.state.back
+  if (typeof back === 'string' && back.split('?')[0] === '/works') {
+    router.back()
+    return
+  }
+  void router.push({ name: 'works', query: rj.value !== null ? { rj: rj.value } : {} })
 }
 
 // ── Keyboard: I flips, the arrows step (the viewer shares

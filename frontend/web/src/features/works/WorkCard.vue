@@ -13,11 +13,6 @@ const props = defineProps<{
 }>()
 
 const cover = computed(() => props.work.thumbnail_url ?? null)
-// Built in script: the double-quoted url() tolerates the single quotes inside
-// the SVG data URIs, and the template stays free of quote-escape gymnastics.
-const coverStyle = computed(() =>
-  cover.value === null ? undefined : { backgroundImage: `url("${cover.value}")` },
-)
 
 /** `YYYY.MM` from the catalog's `YYYY-MM-DD`, or the empty-state dash. */
 const release = computed(() =>
@@ -28,7 +23,11 @@ const release = computed(() =>
 <template>
   <div class="cell" :class="{ active: selected }" role="option" :aria-selected="selected"
     :tabindex="selected ? 0 : -1" :data-rj="work.rj">
-    <div class="cover" :class="cover ? '' : 'hatch'" :style="coverStyle"></div>
+    <!-- Lazy and fill-and-crop: an off-screen cover costs nothing until it nears
+         the viewport, and every cover fills its 4:3 frame the same way. -->
+    <div class="cover" :class="cover ? '' : 'hatch'">
+      <img v-if="cover" :src="cover" alt="" loading="lazy" decoding="async" />
+    </div>
     <span v-if="playing" class="playing-tag">▶ NOW</span>
     <div class="cap">
       <div class="cap-meta">
@@ -46,9 +45,18 @@ const release = computed(() =>
 }
 .cover {
   width: 100%; aspect-ratio: var(--cover-ratio); position: relative; overflow: hidden;
-  background-size: cover; background-position: center;
   box-shadow: inset 0 0 0 1px var(--wire-fine);
   transition: box-shadow var(--dur-out) linear;
+}
+.cover img {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: cover; object-position: center;
+}
+/* The frame's inset rule draws over the picture, as it did over the old
+   background image; it follows the cover's hover and focus states. */
+.cover::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  box-shadow: inherit;
 }
 .cell:hover .cover { box-shadow: inset 0 0 0 1px var(--wire-strong); }
 .cell:not(.active):hover .cap { background: var(--bg-subtle); }

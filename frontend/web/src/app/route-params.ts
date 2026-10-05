@@ -4,9 +4,11 @@ import type { RouteLocationNormalized, Router } from 'vue-router'
  * The URL parameters each page supports (ADR 0003 §5).
  *
  * Addresses carry identities, never names: a page's own parameters are the few
- * closed vocabularies below, and everything else — a retired `folder`, a search
- * term, a campaign tag someone pasted on — is removed at the route entry. One
- * table therefore answers what any address can mean.
+ * closed vocabularies and id shapes below, and everything else — a retired
+ * `folder`, a campaign tag someone pasted on — is removed at the route entry.
+ * The work wall is the one page whose search text lives in its address: the
+ * wall's whole view is shareable state there (ADR 0012 §4). One table
+ * therefore answers what any address can mean.
  */
 export const MEMBER_FILTERS = ['all', 'change', 'warn', 'blocked', 'excluded'] as const
 
@@ -17,7 +19,19 @@ export type MemberFilter = (typeof MEMBER_FILTERS)[number]
 const ALLOWED_VALUES: Record<string, readonly string[]> = {
   view: ['current', 'plan'],
   filter: MEMBER_FILTERS,
+  // The wall's age rating, tag match mode, order and page size.
+  age: ['safe', 'r15', 'r18'],
+  mode: ['all', 'any'],
+  sort: ['release_date', 'collected_at', 'rating'],
+  size: ['24', '48', '96', '192'],
 }
+
+/**
+ * A list of entity ids. Its shape is checked, never its length: a name without
+ * a source id is one id per work (ADR 0011 §6), and dropping a long pick here
+ * would silently widen the wall. The wall itself refuses an overlong change.
+ */
+const ID_LIST = /^[\w-]+(,[\w-]+)*$/
 
 /**
  * Parameters whose values are identities rather than a closed vocabulary: each
@@ -30,6 +44,14 @@ const OPEN_VALUE: Record<string, RegExp> = {
   // The wall's media library: a library id, so a reload keeps the library
   // instead of falling back to the first one.
   library: /^[\w-]{1,64}$/,
+  // The wall's filters (ADR 0012 §4): voice-actor and circle id lists, tag
+  // groups in the listing's own `s:`/`u:` spelling, FIND text, and a page
+  // number of at least 1 (a malformed one falls back to the first page).
+  voice: ID_LIST,
+  circle: ID_LIST,
+  tag: /^[su]:[\w-]+([|,][su]:[\w-]+)*$/,
+  q: /\S/,
+  page: /^[1-9]\d{0,5}$/,
 }
 
 /**
@@ -61,7 +83,7 @@ const CONVERSION_SUBTREE = [
 const ALLOWED_PARAMS: Record<string, readonly string[]> = {
   ...Object.fromEntries(CONVERSION_SUBTREE.map((name) => [name, ['filter']])),
   'conversion-member-files': ['filter', 'view'],
-  works: ['rj', 'library'],
+  works: ['library', 'rj', 'voice', 'circle', 'age', 'tag', 'mode', 'sort', 'q', 'page', 'size'],
 }
 
 /** The filter an address asks for, or the unfiltered list. */

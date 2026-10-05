@@ -19,8 +19,6 @@ const (
 	CodeWorkNotFound      = "WORK_NOT_FOUND"
 	CodeWorkInUse         = "WORK_IN_USE"
 	CodeInvalidPage       = "INVALID_PAGE"
-	CodeInvalidCursor     = "INVALID_CURSOR"
-	CodeCursorMismatch    = "CURSOR_QUERY_MISMATCH"
 	CodeMatchModeRequired = "MATCH_MODE_REQUIRED"
 	CodeInvalidTagName    = "INVALID_TAG_NAME"
 	CodeUserTagExists     = "USER_TAG_EXISTS"

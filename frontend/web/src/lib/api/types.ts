@@ -273,8 +273,8 @@ export interface WorkDetail extends WorkSummary {
 
 export interface WorkListResponse {
   works: WorkSummary[]
-  /** Absent on the last page. */
-  next_cursor?: string
+  /** How many works the whole filter lists, every page together. */
+  total: number
 }
 
 /** `rating` puts unrated works last in either direction, as release_date does unknown dates. */
@@ -295,10 +295,10 @@ export type WorkFacetKind = 'circle' | 'voice_actor'
 
 /**
  * The set of works a facet list counts over (docs/api.md facet lists): the
- * listing's filters without the order, page size or cursor, which describe a
+ * listing's filters without the order, page size or page number, which describe a
  * page rather than the set.
  */
-export type WorksScope = Omit<ListWorksParams, 'sort' | 'direction' | 'cursor' | 'limit'>
+export type WorksScope = Omit<ListWorksParams, 'sort' | 'direction' | 'page' | 'limit'>
 
 /** Both tag vocabularies under one scope (docs/api.md `GET /tags`): the wall's tag index. */
 export interface TagFacets {
@@ -348,7 +348,8 @@ export interface ListWorksParams {
   direction?: 'asc' | 'desc'
   /** 1–200; an absent limit is 50. */
   limit?: number
-  cursor?: string
+  /** 1-based; an absent page is the first, and 0 is refused. */
+  page?: number
 }
 
 /** The personal data of one work, as the PATCH user-data route answers it. */

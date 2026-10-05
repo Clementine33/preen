@@ -85,11 +85,11 @@ type UserTagsRequest struct {
 	TagIDs []string `json:"tag_ids"`
 }
 
-// Page is one page of the ordinary listing plus where to continue from. Next
-// is nil when the page is the last one.
+// Page is one page of the ordinary listing plus how many works the whole
+// filter lists, which is what a numbered pager needs.
 type Page struct {
 	Works []WorkSummary
-	Next  *Cursor
+	Total int
 }
 
 // Store is the catalog storage this package needs, declared here by its
@@ -99,7 +99,7 @@ type Store interface {
 	// ListWorks returns one page of the ordinary listing.
 	ListWorks(filter Filter) (Page, error)
 	// ListFacets returns the entities of one kind that the works the filter
-	// lists carry, ordered by name. Order, page size and cursor play no part.
+	// lists carry, ordered by name. Order, page size and page number play no part.
 	ListFacets(kind FacetKind, filter Filter) ([]Facet, error)
 	// GetWork loads one work in full. The bool reports whether it exists.
 	GetWork(id WorkCode) (*WorkDetail, bool, error)

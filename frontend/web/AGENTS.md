@@ -5,6 +5,7 @@
 - Keep cacheable server resources, query keys, mutations and invalidation in `src/queries/` (Vue Query). Keep UI and selection state in `src/stores/` (Pinia); derive resource views from the query cache.
 - Transient SSE lifecycles stay in `src/stores/{scan,workset-generation,workset-execution}.ts`: these represent streaming process state. The matching `src/composables/use-*` file coordinates cache updates.
 - Keep reusable interaction orchestration in composables and rendering/event handling in components. Place new behavior with its state owner; extract a module when it has a distinct responsibility and useful interface.
+- A list view owns its view state in the URL (what is listed, the page, the page size, the selection) and writes it only through one composable's explicit actions, which carry the reset rules (e.g. `use-wall-query.ts`). The return position (scroll, focus target) lives in the history entry's state; localStorage holds only first-visit preferences; drafts, staged picks and open menus stay in components.
 - Document a module's responsibility and important seams beside its code when the boundary needs explanation; update that explanation when ownership changes. ADRs supply decision history, while these rules guide new code.
 
 ## Runtime and checks

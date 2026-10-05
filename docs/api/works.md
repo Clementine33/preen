@@ -13,7 +13,7 @@ work, while `RJ1657200` (7 digits) is refused.
 
 | Method | Path | Contract |
 | --- | --- | --- |
-| GET | `/api/v1/works` | 200 `{"works":[…],"next_cursor":"…"}`. Filters and paging below. |
+| GET | `/api/v1/works` | 200 `{"works":[…],"total":N}`: one numbered page and how many works the whole filter lists. Filters and paging below. |
 | GET | `/api/v1/works/{rj}` | 200 the work in full: metadata, personal data, resolved relation, language editions and every copy. A work declared by a relation but never found on disk answers `"placeholder":true` and is absent from the listing. |
 | GET | `/api/v1/inventory/media-facts/events` | Bearer-authenticated SSE; `changed` with `{}` after a committed measurement batch, and once on connection. See below. |
 | GET | `/api/v1/works/{rj}/content` | 200 the work's file manifest (ADR 0016 §2): every bound copy's tree, below. |
@@ -22,7 +22,7 @@ work, while `RJ1657200` (7 digits) is refused.
 | PUT | `/api/v1/works/{rj}/metadata` | Body: up to four independent data groups (below). 200 `{"applied":[…],"ignored":[…],"warnings":[…],"created_placeholders":[…]}`. |
 | PATCH | `/api/v1/works/{rj}/user-data` | Body `{"rating":8,"favorite":true,"note":"…"}`; only the fields present are applied, and `"rating":null` clears it. 200 the resulting state. |
 | PUT | `/api/v1/works/{rj}/user-tags` | Body `{"tag_ids":["…"]}`; replaces the work's tag set with exactly these. 200 `{"user_tags":[…]}`. Unknown ids are `USER_TAG_NOT_FOUND` (404). |
-| GET | `/api/v1/circles` | 200 `{"circles":[{"id":"…","name":"…","work_count":3}]}`: every circle a listed work carries, ordered by name. Takes the listing's filter parameters (below) and counts only the works they list, so `library` (comma-separated ids) scopes the circles and their counts to works with a copy there, and any other filter narrows them the same way; a caller offering alternatives to its own pick leaves that dimension out. `sort`, `direction`, `limit`, `cursor` and any unknown parameter are `INVALID_ARGUMENT` (400). |
+| GET | `/api/v1/circles` | 200 `{"circles":[{"id":"…","name":"…","work_count":3}]}`: every circle a listed work carries, ordered by name. Takes the listing's filter parameters (below) and counts only the works they list, so `library` (comma-separated ids) scopes the circles and their counts to works with a copy there, and any other filter narrows them the same way; a caller offering alternatives to its own pick leaves that dimension out. `sort`, `direction`, `limit`, `page` and any unknown parameter are `INVALID_ARGUMENT` (400). |
 | GET | `/api/v1/voice-actors` | 200 `{"voice_actors":[…]}`, the same shape and scoping for voice actors. Each `id` is what the listing's `circle` / `voice_actor` parameter takes. |
 | GET | `/api/v1/tags` | 200 `{"source_tags":[…],"user_tags":[…]}`: the same shape and scoping for both tag vocabularies at once (the wall's tag index). A `source_tags` id is an `s:` ref of the listing's `tag` parameter (and a `source_tag` id), a `user_tags` id a `u:` ref. A user tag no listed work carries is absent here; `GET /user-tags` is the whole vocabulary. |
 | GET | `/api/v1/user-tags` | 200 `{"user_tags":[{"id":"…","name":"…"}]}`. |
@@ -242,19 +242,20 @@ seen on disk is created as a relation placeholder, listed in
 | `unrated` | `true`/`false`. It **unions** with the rating range inside that dimension: `rating_from=8&unrated=true` means "8 or more, or not rated". |
 | `favorite`, `has_copy` | `true`/`false`. |
 | `sort` / `direction` | `rj` / `release_date` / `collected_at` / `rating`, and `asc` / `desc`. |
-| `limit`, `cursor` | Page size and continuation (below). |
+| `limit`, `page` | Page size and 1-based page number (below). |
 
 Different dimensions intersect. An absent `limit` is 50; a supplied one must be
 an integer 1–200, so `limit=abc`, `0`, `-1`, `201` and `1.5` are all
-`INVALID_PAGE` (400) rather than being replaced or clamped.
+`INVALID_PAGE` (400) rather than being replaced or clamped. An absent `page` is
+the first; a supplied one must be an integer of at least 1, so `page=0`, `-1`,
+`abc` and `1.5` are `INVALID_PAGE` too. A page past the end answers an empty
+`works` with the same `total`, which is what a caller corrects against.
 
-The cursor is opaque and carries the sort position plus a fingerprint of the
-query. Changing a filter or the ordering invalidates it
-(`CURSOR_QUERY_MISMATCH`, 400) instead of paging through a different sequence;
-changing only `limit` does not. Unknown release dates and unrated works always
-sort last, in either direction, and equal sort values are broken by work number
-so a page boundary cannot repeat or skip a row. There is no cross-request snapshot: a
-concurrent metadata change can move a later page's contents.
+Pages are offsets into one total order: unknown release dates and unrated works
+always sort last, in either direction, and equal sort values are broken by work
+number, so consecutive pages of an unchanged catalog neither repeat nor skip a
+row. There is no cross-request snapshot: a concurrent change can move a work
+across a page boundary, and `total` is counted with each page.
 
 The listing returns the work number, title, thumbnail, circle, language, adult
 flag, exact age category, release date, **sales**, personal rating, favorite flag, user tags,

@@ -42,17 +42,12 @@ func NewService(
 	}
 }
 
-// List returns one page of the ordinary listing. It validates the filter,
-// refuses a cursor that belongs to another query, and hands the storage a
-// filter it can turn into SQL directly.
+// List returns one page of the ordinary listing and the listing's total. It
+// validates the filter and hands the storage a filter it can turn into SQL
+// directly.
 func (s *Service) List(filter Filter) (Page, *Error) {
 	if err := filter.Validate(); err != nil {
 		return Page{}, err
-	}
-	if filter.Cursor != nil {
-		if err := filter.Cursor.Matches(filter); err != nil {
-			return Page{}, err
-		}
 	}
 	page, err := s.store.ListWorks(filter)
 	if err != nil {

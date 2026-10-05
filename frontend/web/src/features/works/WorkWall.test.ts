@@ -7,14 +7,12 @@ import WorkWall from './WorkWall.vue'
 /**
  * The wall's own contracts (ADR 0012 §4): the JS column count is the single
  * authority (it drives the grid style, the cursor and the keyboard steps),
- * exactly one cell is tabbable, and the cursor composes the virtual row offset
- * with the in-row offset — offsetTop of a transformed cell would miss the
- * virtualizer's translateY.
+ * exactly one cell is tabbable, the cursor is placed by row and column
+ * arithmetic, and a ±1 move off either end of the page asks for the next page.
  *
  * jsdom has no layout and no ResizeObserver: the grid width arrives through a
  * stub ResizeObserver — the same hook the production code measures with — and
- * the scroller's metrics are stubbed on the element right after mount, before
- * the virtualizer's own measurement flush runs (the DirList test's pattern).
+ * the scroller's metrics are stubbed on the element right after mount.
  */
 class StubResizeObserver {
   static instances: StubResizeObserver[] = []
@@ -57,7 +55,7 @@ function makeWorks(count: number): WorkSummary[] {
 const WORKS = makeWorks(8)
 
 async function scaffold(
-  options: { works?: WorkSummary[]; selectedRj?: string | null; attach?: boolean; contentHeight?: number } = {},
+  options: { works?: WorkSummary[]; selectedRj?: string | null; attach?: boolean } = {},
 ) {
   vi.stubGlobal('ResizeObserver', StubResizeObserver)
   const wrapper = mount(WorkWall, {
@@ -68,8 +66,6 @@ async function scaffold(
       playingRj: null,
     },
   })
-  // The scroller's metrics must be in place before the virtualizer's first
-  // measurement flush, which runs on the microtask after mount.
   const scroller = wrapper.find('[data-testid="work-wall"]').element as HTMLElement
   let top = 0
   Object.defineProperties(scroller, {
@@ -77,20 +73,19 @@ async function scaffold(
     offsetWidth: { configurable: true, get: () => 800 },
     scrollTop: { configurable: true, get: () => top, set: (v: number) => (top = v) },
     clientHeight: { configurable: true, get: () => 560 },
-    // Taller than the viewport by default: the wall has somewhere to scroll.
-    scrollHeight: { configurable: true, get: () => options.contentHeight ?? 5000 },
   })
-  // The virtualizer registers its own observer before the wall's; deliver the
-  // measurement to every one, as a real layout settle would.
+  // Deliver the measurement, as a real layout settle would.
   for (const observer of StubResizeObserver.instances) observer.trigger(800)
   await flushPromises()
   await nextTick()
   return {
     wrapper,
-    exposed: wrapper.vm as unknown as { columns: number; move(delta: number): void },
-    setScrollTop: (v: number) => {
-      top = v
-      scroller.dispatchEvent(new Event('scroll'))
+    exposed: wrapper.vm as unknown as {
+      columns: number
+      move(delta: number): void
+      claimFocus(): void
+      cellFor(rj: string): HTMLElement | null
+      scroller: HTMLElement | null
     },
   }
 }
@@ -111,19 +106,19 @@ describe('WorkWall', () => {
     expect(wrapper.find('.grid').attributes('style')).toContain('grid-template-columns: repeat(4, minmax(0, 1fr))')
   })
 
-  it('renders the windowed rows with exactly one tabbable cell', async () => {
+  it('renders the whole page with exactly one tabbable cell', async () => {
     const { wrapper } = await scaffold({ selectedRj: WORKS[2].rj })
     await flushPromises()
 
     const cells = wrapper.findAll('.cell')
-    expect(cells.length).toBeGreaterThan(0)
+    expect(cells).toHaveLength(WORKS.length)
     const tabbable = cells.filter((cell) => cell.attributes('tabindex') === '0')
     expect(tabbable).toHaveLength(1)
     expect(tabbable[0].attributes('data-rj')).toBe(WORKS[2].rj)
     expect(tabbable[0].attributes('aria-selected')).toBe('true')
   })
 
-  it('moves ±1 and ±columns, clamping at the edges without emitting', async () => {
+  it('moves ±1 and ±columns, clamping a row move at the edges without emitting', async () => {
     const { wrapper, exposed } = await scaffold({ selectedRj: WORKS[0].rj })
 
     exposed.move(4) // one full row down
@@ -169,21 +164,7 @@ describe('WorkWall', () => {
     wrapper.unmount()
   })
 
-  it('re-lays the rows when a resize changes their height but not the column count', async () => {
-    const { wrapper } = await scaffold({ selectedRj: WORKS[0].rj })
-    const rowOffset = () => wrapper.findAll('.vrow')[1].attributes('style')
-
-    // 800px: colWidth 185, cover 138.75, row 138.75 + 62 + 28.
-    expect(rowOffset()).toContain('translateY(228.75px)')
-
-    // 840px is still 4 columns, but every cover grows: colWidth 195, row 236.25.
-    for (const observer of StubResizeObserver.instances) observer.trigger(840)
-    await flushPromises()
-    await nextTick()
-    expect(rowOffset()).toContain('translateY(236.25px)')
-  })
-
-  it('composes the cursor from the virtual row offset and the in-row offset', async () => {
+  it('places the cursor by row and column', async () => {
     // Index 5 over 4 columns: row 1, column 1. colWidth = (800-60)/4 = 185,
     // coverHeight = 138.75, rowHeight = 228.75 — the cursor must sit at the
     // caption of that cell: x = 1*(185+20)-14, y = 1*228.75+138.75+14.
@@ -223,20 +204,30 @@ describe('WorkWall', () => {
     expect(wrapper.emitted('open')).toEqual([[WORKS[3].rj]])
   })
 
-  it('asks for the next keyset page before the scroll reaches the bottom', async () => {
-    const { wrapper, setScrollTop } = await scaffold({ selectedRj: WORKS[0].rj })
+  it('asks for the neighbouring page when a ±1 move runs off either end', async () => {
+    const { wrapper, exposed } = await scaffold({ selectedRj: WORKS[7].rj })
 
-    setScrollTop(0)
-    expect(wrapper.emitted('loadMore')).toBeUndefined()
-    setScrollTop(4000)
-    expect(wrapper.emitted('loadMore')).toHaveLength(1)
+    exposed.move(1)
+    expect(wrapper.emitted('edge')).toEqual([[1]])
+    await wrapper.setProps({ selectedRj: WORKS[0].rj })
+    exposed.move(-1)
+    expect(wrapper.emitted('edge')).toEqual([[1], [-1]])
+    // A row move still clamps inside the page.
+    exposed.move(-4)
+    expect(wrapper.emitted('edge')).toEqual([[1], [-1]])
+    expect(wrapper.emitted('select')).toBeUndefined()
   })
 
-  it('asks for the next page without a scroll when the page does not fill the wall', async () => {
-    // A tall or ultrawide screen: the first page sits wholly inside the
-    // viewport, so no scroll event will ever arrive.
-    const { wrapper } = await scaffold({ contentHeight: 400 })
+  it('focuses the next selection after a page turn it claimed, even at the same index', async () => {
+    const next = makeWorks(16).slice(8)
+    const { wrapper, exposed } = await scaffold({ selectedRj: WORKS[0].rj, attach: true })
 
-    expect(wrapper.emitted('loadMore')?.length).toBeGreaterThan(0)
+    exposed.claimFocus()
+    await wrapper.setProps({ works: next, selectedRj: next[0].rj })
+    await flushPromises()
+    expect((document.activeElement as HTMLElement).dataset.rj).toBe(next[0].rj)
+    expect(exposed.cellFor(next[0].rj)).toBe(document.activeElement)
+    expect(exposed.scroller).toBe(wrapper.find('[data-testid="work-wall"]').element)
+    wrapper.unmount()
   })
 })

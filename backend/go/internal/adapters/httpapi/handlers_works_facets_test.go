@@ -22,9 +22,8 @@ func execAll(t *testing.T, fixture *sqlite.Repository, statements ...string) {
 }
 
 // TestRatingOrderPutsUnratedWorksLast walks the rating order across page
-// boundaries in both directions. Several unrated works make the walk continue
-// from inside the unknown block, which is the cursor shape that carries no
-// value.
+// boundaries in both directions. Several unrated works put a page boundary
+// inside the unknown block, where the work number alone orders the rows.
 func TestRatingOrderPutsUnratedWorksLast(t *testing.T) {
 	engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) {
 		wireWorks(d, fixture)
@@ -45,30 +44,7 @@ func TestRatingOrderPutsUnratedWorksLast(t *testing.T) {
 		"desc": {"RJ00000004", "RJ00000005", "RJ00000002", "RJ00000001", "RJ00000003"},
 		"asc":  {"RJ00000002", "RJ00000004", "RJ00000005", "RJ00000001", "RJ00000003"},
 	} {
-		seen := []string{}
-		path := "/api/v1/works?limit=1&sort=rating&direction=" + direction
-		for range 8 {
-			response := doRequest(t, engine, http.MethodGet, path, nil, nil)
-			if response.Code != http.StatusOK {
-				t.Fatalf("%s: status = %d (body=%s)", direction, response.Code, response.Body.String())
-			}
-			var page struct {
-				Works []struct {
-					RJ string `json:"rj"`
-				} `json:"works"`
-				NextCursor string `json:"next_cursor"`
-			}
-			if err := json.Unmarshal(response.Body.Bytes(), &page); err != nil {
-				t.Fatal(err)
-			}
-			for _, summary := range page.Works {
-				seen = append(seen, summary.RJ)
-			}
-			if page.NextCursor == "" {
-				break
-			}
-			path = "/api/v1/works?limit=1&sort=rating&direction=" + direction + "&cursor=" + page.NextCursor
-		}
+		seen := walkPages(t, engine, "/api/v1/works?limit=1&sort=rating&direction="+direction, 5)
 		assertSequence(t, seen, want)
 	}
 }
@@ -160,7 +136,7 @@ func TestFacetListsFeedTheListingFilters(t *testing.T) {
 		t.Fatalf("voice actors of a circle without any = %#v, want []", got)
 	}
 
-	// The order, page size and cursor describe a page, not the set: refused,
+	// The order, page size and page number describe a page, not the set: refused,
 	// as the listing refuses an unknown parameter.
 	response := doRequest(t, engine, http.MethodGet, "/api/v1/circles?sort=rating", nil, nil)
 	if response.Code != http.StatusBadRequest {

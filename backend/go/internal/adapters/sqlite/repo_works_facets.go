@@ -1,8 +1,6 @@
 package sqlite
 
 import (
-	"strings"
-
 	"github.com/onsei/organizer/backend/internal/works"
 )
 
@@ -33,7 +31,6 @@ func (r *Repository) ListFacets(kind works.FacetKind, filter works.Filter) ([]wo
 	if !ok {
 		return nil, works.Invalid(works.CodeInvalidArgument, "unknown facet")
 	}
-	filter.Cursor = nil
 	builder := listQueryBuilder{}
 	builder.applyFilters(filter)
 	query := `
@@ -41,11 +38,7 @@ func (r *Repository) ListFacets(kind works.FacetKind, filter works.Filter) ([]wo
 		FROM works w
 		LEFT JOIN work_translations t ON t.work_id = w.id
 		LEFT JOIN work_user_data u ON u.work_id = w.id` + join + `
-		WHERE w.collected_at IS NOT NULL`
-	if len(builder.where) > 0 {
-		query += "\n\t\t  AND " + strings.Join(builder.where, "\n\t\t  AND ")
-	}
-	query += `
+		WHERE w.collected_at IS NOT NULL` + builder.whereTail() + `
 		GROUP BY e.id, e.name
 		ORDER BY e.name, e.id`
 	rows, err := r.db.Query(query, builder.args...)

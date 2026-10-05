@@ -8,20 +8,21 @@ import { useTagFacets } from '@/queries/works'
 // multi-pick with an AND/OR switch does not fit a dropdown. Source tags and the
 // user's own merge by name into one entry, listed in 作品标签 and/or 我的标签
 // with that vocabulary's count. Picks and the mode are staged in the dialog
-// and take effect on APPLY; any other way out discards them.
+// and take effect on APPLY; any other way out discards them. A pick that no
+// longer matches, or whose name cannot be found, stays under SELECTED with a
+// remove control, and APPLY keeps it.
 //
 // A history can hold a few hundred tags: only the two sections scroll, so FIND,
 // the mode and APPLY never leave the dialog, and 我的标签 — the short, personal
 // list — comes first instead of under the source vocabulary's long tail.
 
-/** One picked tag: its name and every id that spells it (`s:`/`u:` refs). */
-export interface TagPick {
-  name: string
-  refs: string[]
-}
-
+/**
+ * The applied tag choice, exactly as the address spells it: one group of refs
+ * (`s:`/`u:` ids) per picked tag, and how the groups combine. Names are looked
+ * up for display only, so a pick whose name cannot be found is still a pick.
+ */
 export interface TagSelection {
-  picks: TagPick[]
+  groups: string[][]
   mode: 'all' | 'any'
 }
 
@@ -33,18 +34,22 @@ interface Entry {
   userCount: number
 }
 
+/** One staged pick: its refs, and its name when one could be found. */
+interface Staged {
+  name: string | null
+  refs: string[]
+}
+
 /** The wall's other filters: the index offers only tags they can combine with. */
 const props = defineProps<{ scope: WorksScope }>()
 const model = defineModel<TagSelection>({ required: true })
 
-const { facets } = useTagFacets(() => props.scope)
-
 // ADR 0011 §6 keeps same-named entities apart; the index offers the name once.
-const entries = computed(() => {
-  const byName = new Map<string, Entry>()
+function byName(facets: { source_tags: WorkFacet[]; user_tags: WorkFacet[] }): Map<string, Entry> {
+  const out = new Map<string, Entry>()
   const fold = (list: WorkFacet[], kind: 's' | 'u') => {
     for (const facet of list) {
-      const entry = byName.get(facet.name) ??
+      const entry = out.get(facet.name) ??
         { name: facet.name, sourceRefs: [], userRefs: [], sourceCount: 0, userCount: 0 }
       if (kind === 's') {
         entry.sourceRefs.push(`s:${facet.id}`)
@@ -53,21 +58,45 @@ const entries = computed(() => {
         entry.userRefs.push(`u:${facet.id}`)
         entry.userCount += facet.work_count
       }
-      byName.set(facet.name, entry)
+      out.set(facet.name, entry)
     }
   }
-  fold(facets.value.source_tags, 's')
-  fold(facets.value.user_tags, 'u')
-  return byName
-})
+  fold(facets.source_tags, 's')
+  fold(facets.user_tags, 'u')
+  return out
+}
+
+const { facets } = useTagFacets(() => props.scope)
+const entries = computed(() => byName(facets.value))
+
+function nameIn(map: Map<string, Entry>, refs: string[]): string | null {
+  for (const entry of map.values()) {
+    if (refs.some((ref) => entry.sourceRefs.includes(ref) || entry.userRefs.includes(ref))) return entry.name
+  }
+  return null
+}
+
+// A pick the other filters have narrowed away is missing from the scoped
+// lists; its name comes from the library's whole vocabulary, asked for only
+// while such a pick exists.
+const unresolved = computed(() => model.value.groups.some((refs) => nameIn(entries.value, refs) === null))
+const { facets: libraryFacets } = useTagFacets(
+  () => (props.scope.library ? { library: props.scope.library } : {}),
+  unresolved,
+)
+const libraryEntries = computed(() => byName(libraryFacets.value))
+const nameOf = (refs: string[]) => nameIn(entries.value, refs) ?? nameIn(libraryEntries.value, refs)
+
+/** The trigger's count: applied groups, named or not. */
+const applied = computed(() => model.value.groups.length)
 
 const open = ref(false)
 const search = ref('')
-const staged = ref<string[]>([])
+const staged = ref<Staged[]>([])
 const stagedMode = ref<TagSelection['mode']>('all')
 
 function openIndex(): void {
-  staged.value = model.value.picks.map((pick) => pick.name)
+  staged.value = model.value.groups.map((refs) => ({ name: nameOf(refs), refs }))
   stagedMode.value = model.value.mode
   search.value = ''
   open.value = true
@@ -85,30 +114,35 @@ const sections = computed(() => {
   ]
 })
 
-function toggle(name: string): void {
-  staged.value = staged.value.includes(name)
-    ? staged.value.filter((picked) => picked !== name)
-    : [...staged.value, name]
+const isStaged = (name: string) => staged.value.some((pick) => pick.name === name)
+/** A staged pick the current lists do not carry: kept, and marked as matching nothing here. */
+const unmatched = (pick: Staged) => pick.name === null || !entries.value.has(pick.name)
+
+function toggle(entry: Entry): void {
+  staged.value = isStaged(entry.name)
+    ? staged.value.filter((pick) => pick.name !== entry.name)
+    : [...staged.value, { name: entry.name, refs: [...entry.sourceRefs, ...entry.userRefs] }]
+}
+
+function unstage(pick: Staged): void {
+  staged.value = staged.value.filter((candidate) => candidate !== pick)
 }
 
 function apply(): void {
-  // A staged name the current scope no longer lists cannot be asked for.
-  const picks = staged.value.flatMap((name) => {
-    const entry = entries.value.get(name)
-    return entry ? [{ name, refs: [...entry.sourceRefs, ...entry.userRefs] }] : []
-  })
-  model.value = { picks, mode: stagedMode.value }
+  // Every staged pick is committed as its refs, so a pick whose name could not
+  // be found is kept unless the user removed it.
+  model.value = { groups: staged.value.map((pick) => pick.refs), mode: stagedMode.value }
   open.value = false
 }
 
-const active = computed(() => model.value.picks.length > 0)
+const active = computed(() => applied.value > 0)
 </script>
 
 <template>
   <div class="ti" :class="{ active }">
     <button class="ti-trigger" type="button" aria-haspopup="dialog" :aria-expanded="open" @click="openIndex">
       <span class="lbl ti-lbl">TAG</span>
-      <span v-if="active" class="ti-value">{{ model.picks.length }} · {{ model.mode === 'all' ? 'AND' : 'OR' }}</span>
+      <span v-if="active" class="ti-value">{{ applied }} · {{ model.mode === 'all' ? 'AND' : 'OR' }}</span>
     </button>
     <Modal v-model:open="open" title="TAG INDEX" class="flex w-[min(44rem,calc(100vw-2rem))] flex-col overflow-hidden">
       <div class="ti-body">
@@ -125,8 +159,9 @@ const active = computed(() => model.value.picks.length > 0)
 
         <div class="ti-picked" aria-label="Selected tags">
           <span class="lbl">SELECTED</span>
-          <button v-for="name in staged" :key="name" class="chip on" type="button" :title="`移除 ${name}`"
-            @click="toggle(name)">{{ name }}<span aria-hidden="true">×</span></button>
+          <button v-for="pick in staged" :key="pick.refs.join('|')" class="chip on" type="button"
+            :title="`移除 ${pick.name ?? '未知标签'}`" @click="unstage(pick)">{{ pick.name ?? '未知标签' }}<span
+              v-if="unmatched(pick)" class="lbl n" title="当前筛选下无匹配">0</span><span aria-hidden="true">×</span></button>
           <span v-if="staged.length === 0" class="lbl none">NONE</span>
         </div>
 
@@ -138,8 +173,8 @@ const active = computed(() => model.value.picks.length > 0)
           </div>
           <div class="ti-chips">
             <button v-for="entry in section.entries" :key="entry.name" class="chip" type="button"
-              :class="{ on: staged.includes(entry.name) }" :aria-pressed="staged.includes(entry.name)"
-              @click="toggle(entry.name)">{{ entry.name }}<span class="lbl n">{{ section.count(entry) }}</span></button>
+              :class="{ on: isStaged(entry.name) }" :aria-pressed="isStaged(entry.name)"
+              @click="toggle(entry)">{{ entry.name }}<span class="lbl n">{{ section.count(entry) }}</span></button>
             <p v-if="section.entries.length === 0" class="lbl none">{{ search ? 'NO MATCH' : 'NO TAGS' }}</p>
           </div>
         </section>

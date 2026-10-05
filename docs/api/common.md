@@ -54,8 +54,7 @@ own guards: `IDEMPOTENCY_KEY_REQUIRED`, `VERSION_REQUIRED`,
 Codes such as `SCOPE_REQUIRED` are a planning session's `error_code`, never an
 HTTP envelope.
 
-The work catalog adds: `INVALID_PAGE` / `INVALID_CURSOR` /
-`CURSOR_QUERY_MISMATCH` / `MATCH_MODE_REQUIRED` / `INVALID_TAG_NAME` /
+The work catalog adds: `INVALID_PAGE` / `MATCH_MODE_REQUIRED` / `INVALID_TAG_NAME` /
 `INVALID_TIMESTAMP` (400), `WORK_NOT_FOUND` / `USER_TAG_NOT_FOUND` (404),
 `WORK_IN_USE` / `USER_TAG_EXISTS` / `WORK_IS_PLACEHOLDER` (409). A refusal may
 carry `details[]` naming the references that hold a work in place.

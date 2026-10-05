@@ -11,134 +11,6 @@ import (
 
 //go:fix inline
 
-// TestCursorRoundTrip covers every shape the listing writes: a known value, and
-// the unknown block of a nullable order, which carries no value at all.
-func TestCursorRoundTrip(t *testing.T) {
-	for _, want := range []works.Cursor{
-		{Sort: works.SortByReleaseDate, Direction: works.Descending, SortValue: "2025-06-25"},
-		{Sort: works.SortByReleaseDate, Direction: works.Ascending, NullRank: 1},
-		{Sort: works.SortByRating, Direction: works.Descending, SortValue: "8"},
-		{Sort: works.SortByRating, Direction: works.Descending, NullRank: 1},
-	} {
-		want.Digest = "0123456789abcdef"
-		want.WorkID = code("RJ01657200")
-		got, err := works.DecodeCursor(want.Encode())
-		if err != nil {
-			t.Fatalf("DecodeCursor refused a cursor this package wrote (%+v): %v", want, err)
-		}
-		if got != want {
-			t.Errorf("round trip changed the cursor: %+v -> %+v", want, got)
-		}
-	}
-}
-
-func TestDecodeCursorRefusesForeignInput(t *testing.T) {
-	valid := works.Cursor{
-		Sort:      works.SortByWorkID,
-		Direction: works.Ascending,
-		Digest:    "0123456789abcdef",
-		SortValue: "01657200",
-		WorkID:    code("RJ01657200"),
-	}.Encode()
-
-	for _, tc := range []struct {
-		name string
-		in   string
-	}{
-		{"empty", ""},
-		{"not enough fields", "v1|rj|asc|0123456789abcdef|0|01657200"},
-		{"too many fields", valid + "|extra"},
-		{"unknown version", "v2|rj|asc|0123456789abcdef|0|01657200|RJ01657200"},
-		{"unknown sort", "v1|title|asc|0123456789abcdef|0|01657200|RJ01657200"},
-		{"unknown direction", "v1|rj|sideways|0123456789abcdef|0|01657200|RJ01657200"},
-		{"bad null rank", "v1|rj|asc|0123456789abcdef|2|01657200|RJ01657200"},
-		{"empty sort value", "v1|rj|asc|0123456789abcdef|0||RJ01657200"},
-		{"unknown block of a total order", "v1|rj|asc|0123456789abcdef|1||RJ01657200"},
-		{"value inside the unknown block", "v1|release_date|asc|0123456789abcdef|1|2025-06-25|RJ01657200"},
-		{"rating out of range", "v1|rating|desc|0123456789abcdef|0|11|RJ01657200"},
-		{"rating not a number", "v1|rating|desc|0123456789abcdef|0|high|RJ01657200"},
-		{"not a work number", "v1|rj|asc|0123456789abcdef|0|01657200|nonsense"},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			if _, err := works.DecodeCursor(tc.in); err == nil {
-				t.Fatalf("DecodeCursor(%q) accepted a cursor it did not write", tc.in)
-			}
-		})
-	}
-}
-
-// TestCursorIsBoundToItsQuery: a cursor carries a fingerprint of the query, so
-// changing a filter or the ordering invalidates it instead of silently paging
-// through a different sequence.
-func TestCursorIsBoundToItsQuery(t *testing.T) {
-	base := works.Filter{Sort: works.SortByWorkID, Direction: works.Ascending}
-	baseCursor := works.Cursor{
-		Sort:      base.Sort,
-		Direction: base.Direction,
-		Digest:    base.Digest(),
-		SortValue: "01657200",
-		WorkID:    code("RJ01657200"),
-	}
-	if err := baseCursor.Matches(base); err != nil {
-		t.Fatalf("the cursor did not match its own query: %v", err)
-	}
-
-	changedFilter := base
-	changedFilter.Query = new("asmr")
-	if err := baseCursor.Matches(changedFilter); err == nil {
-		t.Error("a changed filter accepted the old cursor")
-	}
-
-	changedSort := base
-	changedSort.Direction = works.Descending
-	if err := baseCursor.Matches(changedSort); err == nil {
-		t.Error("a changed direction accepted the old cursor")
-	}
-
-	// The page size is not part of the fingerprint: continuing a scan with a
-	// different page size is legitimate.
-	changedLimit := base
-	changedLimit.Limit = 10
-	if err := baseCursor.Matches(changedLimit); err != nil {
-		t.Errorf("a changed page size should not invalidate the cursor: %v", err)
-	}
-}
-
-// TestFilterDigestIgnoresSetOrder: the same set written in another order is the
-// same query.
-func TestFilterDigestIgnoresSetOrder(t *testing.T) {
-	first := works.Filter{Circles: []string{"c1", "c2"}, Languages: []string{"JPN", "CHI_HANS"}}
-	second := works.Filter{Circles: []string{"c2", "c1"}, Languages: []string{"CHI_HANS", "JPN"}}
-	if first.Digest() != second.Digest() {
-		t.Error("the same filter written in another order produced a different digest")
-	}
-}
-
-// TestFilterDigestFollowsTagGroups: the combined tag choice is part of the
-// query a cursor belongs to, written in any order, and its mode is too.
-func TestFilterDigestFollowsTagGroups(t *testing.T) {
-	asmr := works.TagGroup{{Kind: works.TagSource, ID: "s1"}, {Kind: works.TagUser, ID: "u1"}}
-	ear := works.TagGroup{{Kind: works.TagSource, ID: "s2"}}
-	base := works.Filter{TagGroups: []works.TagGroup{asmr, ear}, TagMatch: works.MatchAll}
-	reordered := works.Filter{
-		TagGroups: []works.TagGroup{ear, {asmr[1], asmr[0]}},
-		TagMatch:  works.MatchAll,
-	}
-	if base.Digest() != reordered.Digest() {
-		t.Error("the same tag choice written in another order produced a different digest")
-	}
-	for name, other := range map[string]works.Filter{
-		"mode":   {TagGroups: base.TagGroups, TagMatch: works.MatchAny},
-		"groups": {TagGroups: []works.TagGroup{asmr}, TagMatch: works.MatchAll},
-		// Two groups are two tags; one group of both ids is one tag.
-		"grouping": {TagGroups: []works.TagGroup{append(append(works.TagGroup{}, asmr...), ear...)}, TagMatch: works.MatchAll},
-	} {
-		if other.Digest() == base.Digest() {
-			t.Errorf("a different %s kept the digest", name)
-		}
-	}
-}
-
 func TestFilterValidation(t *testing.T) {
 	cases := []struct {
 		name string
@@ -147,6 +19,7 @@ func TestFilterValidation(t *testing.T) {
 	}{
 		{"limit below one", works.Filter{Limit: -1}, works.CodeInvalidPage},
 		{"limit above the maximum", works.Filter{Limit: 201}, works.CodeInvalidPage},
+		{"page below one", works.Filter{Page: -1}, works.CodeInvalidPage},
 		{"unknown sort", works.Filter{Sort: "title"}, works.CodeInvalidArgument},
 		{"unknown direction", works.Filter{Direction: "sideways"}, works.CodeInvalidArgument},
 		{"unknown nsfw", works.Filter{NSFW: "maybe"}, works.CodeInvalidArgument},
@@ -182,6 +55,9 @@ func TestFilterDefaults(t *testing.T) {
 	}
 	if filter.Limit != works.DefaultLimit {
 		t.Errorf("limit = %d, want %d", filter.Limit, works.DefaultLimit)
+	}
+	if filter.Page != 1 {
+		t.Errorf("page = %d, want the first", filter.Page)
 	}
 	if filter.Sort != works.SortByWorkID || filter.Direction != works.Ascending {
 		t.Errorf("defaults = %s/%s, want rj/asc", filter.Sort, filter.Direction)

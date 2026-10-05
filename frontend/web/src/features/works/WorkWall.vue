@@ -1,15 +1,15 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { useVirtualizer } from '@tanstack/vue-virtual'
 import { useMediaQuery, WALL_MOBILE_QUERY } from '@/composables/use-media-query'
 import type { WorkSummary } from '@/lib/api/types'
 import WorkCard from './WorkCard.vue'
 
-// The wall: a virtualized grid of works with roving focus and one square
-// cursor (ADR 0012 §4). The column count is computed here and also drives the
-// grid's inline style, so the layout and the JS that moves the cursor and the
-// keyboard can never disagree. A selection change only toggles classes; the
-// wall itself is never rebuilt.
+// The wall: one page of works as a plain grid, with roving focus and one
+// square cursor (ADR 0012 §4). The page owns paging; the wall only reports a
+// keyboard move off either end of the page. The column count is computed here
+// and also drives the grid's inline style, so the layout and the JS that moves
+// the cursor and the keyboard can never disagree. A selection change only
+// toggles classes; the grid itself is never rebuilt.
 
 const props = defineProps<{
   works: WorkSummary[]
@@ -20,8 +20,8 @@ const props = defineProps<{
 const emit = defineEmits<{
   select: [rj: string]
   open: [rj: string]
-  /** The wall scrolled near its end: the page fetches the next keyset page. */
-  loadMore: []
+  /** A ±1 keyboard move ran off the page's first (-1) or last (+1) work. */
+  edge: [direction: -1 | 1]
 }>()
 
 const MIN_COL = 184
@@ -64,53 +64,51 @@ const colWidth = computed(
 const coverHeight = computed(() => (colWidth.value * 3) / 4)
 const rowHeight = computed(() => coverHeight.value + CAP_HEIGHT + GAP_Y)
 
-const rows = computed(() => {
-  const out: WorkSummary[][] = []
-  for (let i = 0; i < props.works.length; i += columns.value) {
-    out.push(props.works.slice(i, i + columns.value))
-  }
-  return out
-})
-
-const virtualizer = useVirtualizer(
-  computed(() => ({
-    count: rows.value.length,
-    getScrollElement: () => wallEl.value,
-    estimateSize: () => rowHeight.value,
-    overscan: 3,
-  })),
-)
-// The virtualizer caches row offsets until the row count changes; a resize
-// that keeps the column count still changes every row's height, so the cache
-// is dropped whenever the height does.
-watch(rowHeight, () => virtualizer.value.measure())
-const virtualRows = computed(() => virtualizer.value.getVirtualItems())
-const totalSize = computed(() => virtualizer.value.getTotalSize())
-
 const selectedIndex = computed(() =>
   props.selectedRj === null ? -1 : props.works.findIndex((work) => work.rj === props.selectedRj),
 )
 
 // Set by a keyboard move: only then does the new selection take focus. Any
-// other selection change — a filter answering, the first page landing, the
-// address restoring a work — must leave focus wherever the user put it.
+// other selection change — a filter answering, a page landing, the address
+// restoring a work — must leave focus wherever the user put it.
 let focusOnSelect = false
 
 /**
  * Column-aware movement for the page's keyboard dispatch: ±1 or ±columns.
- * With nothing on the wall selected (the address named a work further down the
- * listing), the first move lands on the first work.
+ * With nothing on the wall selected, the first move lands on the first work. A
+ * ±1 move past either end asks the page for the neighbouring page instead.
  */
 function move(delta: number): void {
   if (props.works.length === 0) return
-  const next =
-    selectedIndex.value < 0 ? 0 : Math.min(props.works.length - 1, Math.max(0, selectedIndex.value + delta))
+  const raw = selectedIndex.value < 0 ? 0 : selectedIndex.value + delta
+  if (selectedIndex.value >= 0 && Math.abs(delta) === 1 && (raw < 0 || raw >= props.works.length)) {
+    emit('edge', raw < 0 ? -1 : 1)
+    return
+  }
+  const next = Math.min(props.works.length - 1, Math.max(0, raw))
   if (next === selectedIndex.value) return
   focusOnSelect = true
   emit('select', props.works[next].rj)
 }
 
-defineExpose({ columns, move })
+/** The next selection takes focus: a page turned from the keyboard. */
+function claimFocus(): void {
+  focusOnSelect = true
+}
+
+function cellFor(rj: string): HTMLElement | null {
+  return gridEl.value?.querySelector<HTMLElement>(`.cell[data-rj="${CSS.escape(rj)}"]`) ?? null
+}
+
+defineExpose({
+  columns,
+  move,
+  claimFocus,
+  cellFor,
+  get scroller() {
+    return wallEl.value
+  },
+})
 
 // ── The square cursor: one for the whole wall. It slides to the current
 // caption's left (160ms), stays solid while cruising, and blinks twice about
@@ -126,9 +124,8 @@ function placeCursor() {
   if (selectedIndex.value < 0) return
   const rowIndex = Math.floor(selectedIndex.value / columns.value)
   const inRow = selectedIndex.value % columns.value
-  // Virtual rows sit at their own offset (all rows are the same height), so the
-  // cursor composes the row offset with the in-row offset; offsetTop of the
-  // transformed cell would not include the virtualizer's translate.
+  // Every row is the same height, so the cursor is placed by arithmetic rather
+  // than by measuring the cell.
   cursorX.value = inRow * (colWidth.value + gapX.value) - 14
   cursorY.value = rowIndex * rowHeight.value + coverHeight.value + 14
   idleTimer = window.setTimeout(() => {
@@ -136,18 +133,24 @@ function placeCursor() {
   }, 260)
 }
 
+// A new page starts at its top; the selection then scrolls itself into view.
+watch(() => props.works, () => {
+  if (wallEl.value) wallEl.value.scrollTop = 0
+})
+
 // Keep the selected work in view; focus its cell only after a keyboard move.
 let mounted = false
-watch(selectedIndex, async () => {
+// The work and its index both count: a page turn can land on the same index.
+watch([() => props.selectedRj, selectedIndex], async () => {
   placeCursor()
-  const claimFocus = focusOnSelect
-  focusOnSelect = false
   if (!mounted || selectedIndex.value < 0) return
-  virtualizer.value.scrollToIndex(Math.floor(selectedIndex.value / columns.value), { align: 'auto' })
-  if (!claimFocus) return
+  const claim = focusOnSelect
+  focusOnSelect = false
   await nextTick()
-  gridEl.value?.querySelector<HTMLElement>(`.cell[tabindex="0"]`)?.focus({ preventScroll: true })
-})
+  const cell = props.selectedRj === null ? null : cellFor(props.selectedRj)
+  cell?.scrollIntoView?.({ block: 'nearest' })
+  if (claim) cell?.focus({ preventScroll: true })
+}, { flush: 'post' })
 watch([columns, colWidth], () => placeCursor())
 onMounted(() => {
   mounted = true
@@ -163,39 +166,20 @@ function onCellClick(work: WorkSummary) {
   }
   emit('select', work.rj)
 }
-
-// Keyset paging: ask for the next page before the scroll reaches the bottom.
-function nearEnd(): boolean {
-  const el = wallEl.value
-  return el !== null && el.scrollTop + el.clientHeight >= el.scrollHeight - 600
-}
-function onScroll() {
-  if (nearEnd()) emit('loadMore')
-}
-// A page that does not fill the wall leaves nothing to scroll, so no scroll
-// event would ever ask for the next one: ask again whenever the grid's height
-// settles. The page lets one request run at a time, so this walks forward a
-// page at a time until the wall scrolls or the listing ends.
-watch(totalSize, () => {
-  if (nearEnd()) emit('loadMore')
-}, { flush: 'post' })
 </script>
 
 <template>
-  <section ref="wallEl" class="wall" data-testid="work-wall" @scroll.passive="onScroll">
+  <section ref="wallEl" class="wall" data-testid="work-wall">
     <div ref="gridEl" class="grid" role="listbox" aria-label="Works" :style="{
       gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
       columnGap: `${gapX}px`,
-      height: `${totalSize}px`,
+      rowGap: `${GAP_Y}px`,
     }">
       <div class="cursor" :class="{ idle: cursorIdle }" aria-hidden="true"
         :style="{ transform: `translate(${cursorX}px, ${cursorY}px)` }"></div>
-      <div v-for="virtualRow in virtualRows" :key="virtualRow.index" class="vrow"
-        :style="{ transform: `translateY(${virtualRow.start}px)` }">
-        <WorkCard v-for="work in rows[virtualRow.index]" :key="work.rj" :work="work"
-          :selected="work.rj === selectedRj" :playing="work.rj === playingRj"
-          @click="onCellClick(work)" @dblclick="emit('open', work.rj)" />
-      </div>
+      <WorkCard v-for="work in works" :key="work.rj" :work="work"
+        :selected="work.rj === selectedRj" :playing="work.rj === playingRj"
+        @click="onCellClick(work)" @dblclick="emit('open', work.rj)" />
     </div>
   </section>
 </template>
@@ -209,16 +193,9 @@ watch(totalSize, () => {
   .wall { padding: var(--sp-4) var(--sp-4) 40px; }
 }
 
+/* The JS column count is the only authority; cards size themselves inside it. */
 .grid {
-  position: relative; display: grid;
-}
-/* The virtual row mirrors the grid's own columns and gutters, so the JS column
-   count is the only authority and cards size themselves inside it. */
-.vrow {
-  position: absolute; top: 0; left: 0; width: 100%;
-  display: grid;
-  grid-template-columns: inherit;
-  column-gap: inherit;
+  position: relative; display: grid; align-items: start;
 }
 
 .cursor {

@@ -1,9 +1,6 @@
 package works
 
-import (
-	"sort"
-	"strings"
-)
+import "strings"
 
 // TagKind says which vocabulary a tag id belongs to: the source's tags, or the
 // user's own.
@@ -47,20 +44,4 @@ func ParseTagGroups(raw string) ([]TagGroup, *Error) {
 		groups = append(groups, group)
 	}
 	return groups, nil
-}
-
-// canonicalTagGroups is the order-free spelling of the groups the cursor
-// digest carries: the same choice written in another order is the same query.
-func canonicalTagGroups(groups []TagGroup) string {
-	out := make([]string, 0, len(groups))
-	for _, group := range groups {
-		refs := make([]string, 0, len(group))
-		for _, ref := range group {
-			refs = append(refs, string(ref.Kind)+":"+ref.ID)
-		}
-		sort.Strings(refs)
-		out = append(out, strings.Join(refs, "|"))
-	}
-	sort.Strings(out)
-	return strings.Join(out, ",")
 }

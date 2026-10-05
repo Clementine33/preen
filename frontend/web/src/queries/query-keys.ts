@@ -35,10 +35,8 @@ export const queryKeys = {
   },
   works: {
     all: () => ['works'] as const,
-    // The listing: the key carries the whole filter identity, so changing the
-    // active library or any filter reads a different entry and the keyset
-    // cursor's query fingerprint stays valid (a changed filter mid-cursor is
-    // a CURSOR_QUERY_MISMATCH 400, docs/api.md).
+    // The listing: one numbered page, keyed by the whole filter identity plus
+    // the page and its size, so every page of every filter is its own entry.
     listPrefix: () => ['works', 'list'] as const,
     list: (filters: ListWorksParams) => ['works', 'list', filters] as const,
     detail: (rj: string) => ['works', 'detail', rj] as const,

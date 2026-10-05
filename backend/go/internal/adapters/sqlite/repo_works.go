@@ -3,7 +3,6 @@ package sqlite
 import (
 	"database/sql"
 	"errors"
-	"strconv"
 	"strings"
 	"time"
 
@@ -21,18 +20,12 @@ var _ works.Store = (*Repository)(nil)
 // listProjection is the ordinary listing's fixed column set. The count of
 // copies is a correlated subquery rather than a join, so a work with several
 // copies stays one row.
-const listProjection = `
+var listProjection = `
 	SELECT w.id, w.title, w.thumbnail_url, c.name, t.language, w.nsfw, w.age_category, w.release_date,
 	       s.dl_count, u.rating, COALESCE(u.favorite, 0),
 	       CASE WHEN COALESCE(u.note, '') <> '' THEN 1 ELSE 0 END,
 	       w.collected_at,
-	       (SELECT COUNT(*) FROM work_copies wc WHERE wc.work_id = w.id)
-	FROM works w
-	LEFT JOIN circles c ON c.id = w.circle_id
-	LEFT JOIN work_translations t ON t.work_id = w.id
-	LEFT JOIN work_statistics s ON s.work_id = w.id
-	LEFT JOIN work_user_data u ON u.work_id = w.id
-	WHERE w.collected_at IS NOT NULL`
+	       (SELECT COUNT(*) FROM work_copies wc WHERE wc.work_id = w.id)` + listFrom
 
 // placeholderList renders "?, ?, ?" for an IN list.
 func placeholderList(n int) string {
@@ -48,37 +41,66 @@ func textArgs(ids []string) []any {
 	return args
 }
 
-// ListWorks returns one page of the ordinary listing: filters and ordering are
-// resolved in SQL, and only the page's works have their tags fetched, so the
-// query count does not grow with the page size.
+// listFrom is the FROM and WHERE head every listing query shares: the page,
+// its count and the facet counts read the same joins, so a filter fragment
+// that names t (translations) or u (user data) means the same thing in each.
+const listFrom = `
+	FROM works w
+	LEFT JOIN circles c ON c.id = w.circle_id
+	LEFT JOIN work_translations t ON t.work_id = w.id
+	LEFT JOIN work_statistics s ON s.work_id = w.id
+	LEFT JOIN work_user_data u ON u.work_id = w.id
+	WHERE w.collected_at IS NOT NULL`
+
+// whereTail renders the filter's fragments after the shared head.
+func (b *listQueryBuilder) whereTail() string {
+	if len(b.where) == 0 {
+		return ""
+	}
+	return "\n  AND " + strings.Join(b.where, "\n  AND ")
+}
+
+// listingSQL renders one page of the ordinary listing: the filter's fragments,
+// the ordering and the page window. The ordering is total, so consecutive
+// pages neither repeat nor skip a row.
+func listingSQL(filter works.Filter) (string, []any) {
+	builder := listQueryBuilder{}
+	builder.applyFilters(filter)
+	query := listProjection + builder.whereTail() +
+		"\n  ORDER BY " + orderClause(filter) + "\n  LIMIT ? OFFSET ?"
+	return query, append(builder.args, filter.Limit, (filter.Page-1)*filter.Limit)
+}
+
+// ListWorks returns one page of the ordinary listing and the number of works
+// the whole filter lists. Filters and ordering are resolved in SQL, and only
+// the page's works have their tags fetched, so the query count does not grow
+// with the page size.
 func (r *Repository) ListWorks(filter works.Filter) (works.Page, error) {
 	// The service validates the filter and fills the defaults before this is
-	// reached; the guard keeps a direct caller from turning an unset page size
-	// into a negative index.
+	// reached; the guards keep a direct caller from turning an unset page or
+	// page size into a negative window.
 	if filter.Limit <= 0 {
 		filter.Limit = works.DefaultLimit
 	}
+	if filter.Page <= 0 {
+		filter.Page = 1
+	}
+
+	page := works.Page{}
 	builder := listQueryBuilder{}
 	builder.applyFilters(filter)
-
-	// One extra row tells the caller whether another page exists without a
-	// second count query.
-	args := append(append([]any(nil), builder.args...), filter.Limit+1)
-	query := listProjection
-	// An unfiltered listing has no fragments to add: joining them anyway would
-	// leave a dangling "AND" in front of the ORDER BY.
-	if len(builder.where) > 0 {
-		query += "\n  AND " + strings.Join(builder.where, "\n  AND ")
+	if err := r.db.QueryRow("SELECT COUNT(*)"+listFrom+builder.whereTail(), builder.args...).
+		Scan(&page.Total); err != nil {
+		return works.Page{}, err
 	}
-	query += "\n  ORDER BY " + orderClause(filter) + "\n  LIMIT ?"
+
+	query, args := listingSQL(filter)
 	rows, err := r.db.Query(query, args...)
 	if err != nil {
 		return works.Page{}, err
 	}
 	defer rows.Close()
 
-	page := works.Page{}
-	cursors := make([]works.Cursor, 0, filter.Limit+1)
 	for rows.Next() {
 		var (
 			summary     works.WorkSummary
@@ -118,51 +140,14 @@ func (r *Repository) ListWorks(filter works.Filter) (works.Page, error) {
 		summary.CollectedAt = collectedAt.String
 		summary.CopyCount = copyCount
 		page.Works = append(page.Works, summary)
-		cursors = append(cursors, cursorForRow(filter, summary, id))
 	}
 	if err := rows.Err(); err != nil {
 		return works.Page{}, err
-	}
-
-	if len(page.Works) > filter.Limit {
-		page.Works = page.Works[:filter.Limit]
-		next := cursors[filter.Limit-1]
-		page.Next = &next
 	}
 	if err := r.attachUserTags(page.Works); err != nil {
 		return works.Page{}, err
 	}
 	return page, nil
-}
-
-// cursorForRow renders the position of one listed row, which is what the next
-// page continues from.
-func cursorForRow(filter works.Filter, summary works.WorkSummary, id string) works.Cursor {
-	cursor := works.Cursor{
-		Sort:      filter.Sort,
-		Direction: filter.Direction,
-		Digest:    filter.Digest(),
-		WorkID:    works.WorkCode(id),
-	}
-	switch filter.Sort {
-	case works.SortByReleaseDate:
-		if summary.ReleaseDate == nil {
-			cursor.NullRank = 1
-		} else {
-			cursor.SortValue = *summary.ReleaseDate
-		}
-	case works.SortByRating:
-		if summary.Rating == nil {
-			cursor.NullRank = 1
-		} else {
-			cursor.SortValue = strconv.Itoa(*summary.Rating)
-		}
-	case works.SortByCollectedAt:
-		cursor.SortValue = summary.CollectedAt
-	case works.SortByWorkID:
-		cursor.SortValue = strings.TrimPrefix(id, "RJ")
-	}
-	return cursor
 }
 
 // orderClause renders the ordering. The expression is chosen here from a
@@ -174,14 +159,6 @@ func orderClause(filter works.Filter) string {
 		direction = "DESC"
 	}
 	if column, ok := nullableSortColumn(filter.Sort); ok {
-		// Once the cursor has entered the trailing unknown block, every row in
-		// the result has a null sort value, so the first two ordering terms are
-		// constant and the order is the work number's alone. Saying only that
-		// keeps the expression one the index can answer instead of one the
-		// planner has to sort.
-		if filter.Cursor != nil && filter.Cursor.NullRank == 1 {
-			return "w.id ASC"
-		}
 		// Unknown values are always last, in either direction, which is why the
 		// null flag leads the ordering and never flips with it.
 		return "(" + column + " IS NULL) ASC, " + column + " " + direction + ", w.id ASC"
@@ -211,55 +188,6 @@ func nullableSortColumn(field works.SortField) (string, bool) {
 	case works.SortByWorkID, works.SortByCollectedAt:
 	}
 	return "", false
-}
-
-// addCursor adds the keyset predicate that continues a previous page. Each
-// branch mirrors the ordering it belongs to: a row comes after the cursor when
-// its sort value is past it, or when they tie and its number is larger.
-func (b *listQueryBuilder) addCursor(filter works.Filter) {
-	cursor := filter.Cursor
-	if cursor == nil {
-		return
-	}
-	ascending := filter.Direction != works.Descending
-	comparison := ">"
-	if !ascending {
-		comparison = "<"
-	}
-	if column, ok := nullableSortColumn(filter.Sort); ok {
-		if cursor.NullRank == 1 {
-			b.add("("+column+" IS NULL AND w.id > ?)", string(cursor.WorkID))
-			return
-		}
-		value := sortValueArg(filter.Sort, cursor.SortValue)
-		b.add(
-			"("+column+" IS NULL OR "+column+" "+comparison+" ? OR ("+column+" = ? AND w.id > ?))",
-			value, value, string(cursor.WorkID),
-		)
-		return
-	}
-	switch filter.Sort {
-	case works.SortByReleaseDate, works.SortByRating:
-		// Handled above as nullable orders.
-	case works.SortByCollectedAt:
-		b.add(
-			"(w.collected_at "+comparison+" ? OR (w.collected_at = ? AND w.id > ?))",
-			cursor.SortValue, cursor.SortValue, string(cursor.WorkID),
-		)
-	case works.SortByWorkID:
-		b.add("w.id "+comparison+" ?", "RJ"+cursor.SortValue)
-	}
-}
-
-// sortValueArg binds a cursor's value in the column's own type: the rating is
-// an integer column, and comparing it against text would compare the wrong
-// kind of value. DecodeCursor has already refused a rating that is no number.
-func sortValueArg(field works.SortField, value string) any {
-	if field == works.SortByRating {
-		rating, _ := strconv.Atoi(value)
-		return rating
-	}
-	return value
 }
 
 // listQueryBuilder accumulates the WHERE fragments and their bound values.
@@ -335,7 +263,6 @@ func (b *listQueryBuilder) applyFilters(filter works.Filter) {
 		b.add("COALESCE(u.favorite, 0) = ?", boolToInt(*filter.Favorite))
 	}
 	b.addCopyFilter(filter)
-	b.addCursor(filter)
 }
 
 // addQuery matches the literal text against the number and the title. `%` and

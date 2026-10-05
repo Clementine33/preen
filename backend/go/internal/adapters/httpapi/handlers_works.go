@@ -99,7 +99,7 @@ func toWorkSummary(summary works.WorkSummary) workSummaryResponse {
 	}
 }
 
-// listWorks answers one page of the ordinary listing.
+// listWorks answers one page of the ordinary listing and the listing's total.
 func (s *Server) listWorks(w http.ResponseWriter, r *http.Request) {
 	service, ok := s.catalog(w)
 	if !ok {
@@ -116,14 +116,11 @@ func (s *Server) listWorks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	out := struct {
-		Works      []workSummaryResponse `json:"works"`
-		NextCursor string                `json:"next_cursor,omitempty"`
-	}{Works: make([]workSummaryResponse, 0, len(page.Works))}
+		Works []workSummaryResponse `json:"works"`
+		Total int                   `json:"total"`
+	}{Works: make([]workSummaryResponse, 0, len(page.Works)), Total: page.Total}
 	for _, summary := range page.Works {
 		out.Works = append(out.Works, toWorkSummary(summary))
-	}
-	if page.Next != nil {
-		out.NextCursor = page.Next.Encode()
 	}
 	writeJSON(w, http.StatusOK, out)
 }
@@ -141,7 +138,7 @@ var filterKeys = map[string]bool{
 	"released_from": true, "released_to": true,
 	"rating_from": true, "rating_to": true, "unrated": true,
 	"favorite": true, "library": true, "has_copy": true,
-	"sort": true, "direction": true, "limit": true, "cursor": true,
+	"sort": true, "direction": true, "limit": true, "page": true,
 }
 
 // parseWorkFilter reads the listing's query parameters. Every refusal is a 400
@@ -228,14 +225,11 @@ func parseWorkFilter(r *http.Request) (works.Filter, *works.Error) {
 		return filter, refusal
 	}
 	filter.Limit = limit
-
-	if value := first("cursor"); value != nil {
-		cursor, cursorErr := works.DecodeCursor(*value)
-		if cursorErr != nil {
-			return filter, cursorErr
-		}
-		filter.Cursor = &cursor
+	page, refusal := parsePage(r)
+	if refusal != nil {
+		return filter, refusal
 	}
+	filter.Page = page
 	return filter, nil
 }
 
@@ -272,6 +266,21 @@ func parseIntAndFlagFilters(query url.Values, first func(string) *string, filter
 		*flag.into = &parsed
 	}
 	return nil
+}
+
+// parsePage reads the 1-based page number. An absent page is the first one;
+// a supplied one must be a whole number of at least 1, so `page=0` is refused
+// rather than read as "absent".
+func parsePage(r *http.Request) (int, *works.Error) {
+	values, present := r.URL.Query()["page"]
+	if !present || len(values) == 0 || values[0] == "" {
+		return 1, nil
+	}
+	page, err := strconv.Atoi(values[0])
+	if err != nil || page < 1 {
+		return 0, works.Invalid(works.CodeInvalidPage, "page must be an integer of at least 1")
+	}
+	return page, nil
 }
 
 // parseLimit reads the page size. An absent parameter takes the default, while

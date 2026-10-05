@@ -33,13 +33,9 @@ func TestListingOrderingsAreServedByIndexes(t *testing.T) {
 		{"by release date, descending", works.Filter{Sort: works.SortByReleaseDate, Direction: works.Descending}},
 		{"by collection time, ascending", works.Filter{Sort: works.SortByCollectedAt, Direction: works.Ascending}},
 		{"by collection time, descending", works.Filter{Sort: works.SortByCollectedAt, Direction: works.Descending}},
-		{
-			"a continuation page in the unknown-date tail",
-			works.Filter{Sort: works.SortByReleaseDate, Direction: works.Ascending, Cursor: &works.Cursor{
-				Sort: works.SortByReleaseDate, Direction: works.Ascending, NullRank: 1,
-				WorkID: works.WorkCode("RJ00000005"),
-			}},
-		},
+		{"by release date, a deep page", works.Filter{
+			Sort: works.SortByReleaseDate, Direction: works.Descending, Page: 3, Limit: 10,
+		}},
 	}
 
 	for _, tc := range cases {
@@ -63,16 +59,8 @@ func listingPlan(t *testing.T, repo *Repository, filter works.Filter) []string {
 	if err := filter.Validate(); err != nil {
 		t.Fatalf("filter: %v", err)
 	}
-	builder := listQueryBuilder{}
-	builder.applyFilters(filter)
-
-	query := "EXPLAIN QUERY PLAN " + listProjection
-	if len(builder.where) > 0 {
-		query += "\n  AND " + strings.Join(builder.where, "\n  AND ")
-	}
-	query += "\n  ORDER BY " + orderClause(filter) + "\n  LIMIT ?"
-
-	rows, err := repo.DB().Query(query, append(builder.args, filter.Limit+1)...)
+	query, args := listingSQL(filter)
+	rows, err := repo.DB().Query("EXPLAIN QUERY PLAN "+query, args...)
 	if err != nil {
 		t.Fatalf("explain: %v", err)
 	}

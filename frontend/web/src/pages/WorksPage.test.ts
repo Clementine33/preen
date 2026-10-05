@@ -11,15 +11,15 @@ import { usePlayerStore } from '@/stores/player'
 import type { Library, WorkSummary } from '@/lib/api/types'
 
 /**
- * The page-level contracts of the wall (ADR 0012 §4): the address carries
- * exactly one fact — the inspected work in `?rj=` — and every filter is
- * transient page state. The keyboard dispatch is the prototype's: J/K and the
- * arrows move, P plays, Space only pauses, and the library menu owns J/K while
- * it is open.
+ * The page-level contracts of the wall (ADR 0012 §4): the address owns what
+ * the wall shows — library, filters, FIND, order, page, page size and the
+ * inspected work — and the history entry owns where the wall was when a work
+ * was opened. The keyboard dispatch is the prototype's: J/K and the arrows
+ * move, P plays, Space only pauses, and the library menu owns J/K while it is
+ * open.
  *
- * jsdom has no layout, so the wall's virtualizer renders an empty window and
- * the inspector's strip is where the selection is observed. The wall's own
- * geometry is covered by the WorkWall test.
+ * jsdom has no layout: the inspector's strip is where the selection is
+ * observed, and the wall's own geometry is covered by the WorkWall test.
  */
 
 /** Real work numbers: the address only keeps a canonical `RJ` + 8 digits. */
@@ -50,7 +50,8 @@ function makeWorks(base: number, count: number): WorkSummary[] {
 const LIB_A = 'lib-a'
 const LIB_B = 'lib-b'
 // Below RJ01000000, so the listing's numbers also have a 6-digit spelling.
-const worksA = makeWorks(100_000, 6)
+// Thirty works: two pages at the smallest page size.
+const worksA = makeWorks(100_000, 30)
 const worksB = makeWorks(200_000, 2)
 const [A0, A1, A2, A3] = worksA.map((work) => work.rj)
 
@@ -78,19 +79,29 @@ function routerFor(): Router {
   })
 }
 
-async function mountWorks(
-  initialPath = '/works',
-  attach = false,
-): Promise<{
+interface Harness {
   wrapper: VueWrapper
   router: Router
   listWorks: ReturnType<typeof vi.fn>
   listWorkFacets: ReturnType<typeof vi.fn>
-}> {
-  const listWorks = vi.fn((params: { library?: string }) =>
-    Promise.resolve({ works: params.library === LIB_B ? worksB : worksA }),
-  )
-  const listWorkFacets = vi.fn((kind: string) =>
+}
+
+/** One page of the library's works, the way the listing pages them. */
+function pageOf(params: { library?: string; page?: number; limit?: number }) {
+  const all = params.library === LIB_B ? worksB : worksA
+  const limit = params.limit ?? 50
+  const start = ((params.page ?? 1) - 1) * limit
+  return { works: all.slice(start, start + limit), total: all.length }
+}
+
+async function mountWorks(
+  initialPath = '/works',
+  attach = false,
+  reuse: { router?: Router; listWorks?: ReturnType<typeof vi.fn>; listWorkFacets?: ReturnType<typeof vi.fn> } = {},
+): Promise<Harness> {
+  const listWorks = reuse.listWorks ?? vi.fn((params: { library?: string; page?: number; limit?: number }) =>
+    Promise.resolve(pageOf(params)))
+  const listWorkFacets = reuse.listWorkFacets ?? vi.fn((kind: string) =>
     Promise.resolve(
       kind === 'voice_actor'
         ? [{ id: 'va-1', name: '伊ヶ崎綾香', work_count: 3 }]
@@ -117,9 +128,11 @@ async function mountWorks(
       }],
     })),
   } as never)
-  const router = routerFor()
-  await router.push(initialPath)
-  await router.isReady()
+  const router = reuse.router ?? routerFor()
+  if (!reuse.router) {
+    await router.push(initialPath)
+    await router.isReady()
+  }
   const wrapper = mount(WorksPage, {
     ...(attach ? { attachTo: document.body.appendChild(document.createElement('div')) } : {}),
     global: {
@@ -196,18 +209,14 @@ describe('works page', () => {
     expect(inspected(wrapper)).toBe(A2)
   })
 
-  it('keeps an address work beyond the loaded pages inspected until the filters change', async () => {
-    const beyond = rjOf(9_000_000)
-    const { wrapper, listWorks } = await mountWorks(`/works?rj=${beyond}`)
+  it('falls back to the first work of the page when the address names a work not on it', async () => {
+    // A deleted work, one an order moved away, or a link to another page: the
+    // wall does not go looking for it, and the inspector never shows a work
+    // the wall does not.
+    const { wrapper, router } = await mountWorks(`/works?rj=${rjOf(9_000_000)}`)
 
-    // Not on the first page, still the inspected work: a refresh keeps it.
-    expect(inspected(wrapper)).toBe(beyond)
-
-    // The first move lands on the wall's first work.
-    press('j')
-    await flushPromises()
     expect(inspected(wrapper)).toBe(A0)
-    expect(listWorks).toHaveBeenCalled()
+    expect(router.currentRoute.value.query.rj).toBe(A0)
   })
 
   it('defaults the selection to the first work and writes it to the address', async () => {
@@ -438,7 +447,7 @@ describe('works page', () => {
 
   it('opens the sole collected translation when FIND submits a parent number', async () => {
     const { wrapper, router, listWorks } = await mountWorks()
-    listWorks.mockResolvedValue({ works: makeWorks(1_526_629, 1) })
+    listWorks.mockResolvedValue({ works: makeWorks(1_526_629, 1), total: 1 })
     await wrapper.get('.find input').setValue('RJ01526615')
     await wrapper.get('.find input').trigger('keydown', { key: 'Enter' })
     await flushPromises()
@@ -449,7 +458,7 @@ describe('works page', () => {
 
   it('keeps multiple parent matches on the wall', async () => {
     const { wrapper, router, listWorks } = await mountWorks()
-    listWorks.mockResolvedValue({ works: makeWorks(1_526_629, 2) })
+    listWorks.mockResolvedValue({ works: makeWorks(1_526_629, 2), total: 2 })
     await wrapper.get('.find input').setValue('RJ01526615')
     await wrapper.get('.find input').trigger('keydown', { key: 'Enter' })
     await flushPromises()
@@ -459,13 +468,13 @@ describe('works page', () => {
 
   it('discards a pending jump when the input changes', async () => {
     const { wrapper, router, listWorks } = await mountWorks()
-    let resolve!: (value: { works: WorkSummary[] }) => void
+    let resolve!: (value: { works: WorkSummary[]; total: number }) => void
     listWorks.mockImplementation(() => new Promise((done) => { resolve = done }))
     await wrapper.get('.find input').setValue('RJ01526615')
     await wrapper.get('.find input').trigger('keydown', { key: 'Enter' })
     await flushPromises()
     await wrapper.get('.find input').setValue('another query')
-    resolve({ works: makeWorks(1_526_629, 1) })
+    resolve({ works: makeWorks(1_526_629, 1), total: 1 })
     await flushPromises()
     expect(router.currentRoute.value.name).toBe('works')
     wrapper.unmount()
@@ -473,7 +482,7 @@ describe('works page', () => {
 
   it('does not submit a composing Enter', async () => {
     const { wrapper, router, listWorks } = await mountWorks()
-    listWorks.mockResolvedValue({ works: makeWorks(1_526_629, 1) })
+    listWorks.mockResolvedValue({ works: makeWorks(1_526_629, 1), total: 1 })
     await wrapper.get('.find input').setValue('RJ01526615')
     await wrapper.get('.find input').trigger('keydown', { key: 'Enter', isComposing: true })
     await flushPromises()
@@ -519,5 +528,242 @@ describe('works page', () => {
 
     expect(wrapper.find('[aria-label="Inspector"]').exists()).toBe(false)
     vi.restoreAllMocks()
+  })
+
+  describe('the address owns the view', () => {
+    it('writes every filter to the address and reads it back after a reload', async () => {
+      const first = await mountWorks('/works')
+      await pick(first.wrapper, 'VOICE', '伊ヶ崎綾香')
+      await pick(first.wrapper, 'AGE', 'R18')
+      const address = first.router.currentRoute.value.fullPath
+      expect(first.router.currentRoute.value.query).toMatchObject({ voice: 'va-1', age: 'r18', library: LIB_A })
+      first.wrapper.unmount()
+
+      // A fresh page (new store, new cache) on the same address.
+      const reloaded = await mountWorks(address)
+      expect(lastParams(reloaded.listWorks)).toMatchObject({
+        library: LIB_A, voice_actor: 'va-1', voice_actor_match: 'any', age_category: 3,
+      })
+      const tab = (label: string) =>
+        reloaded.wrapper.findAll('.rs').find((candidate) => candidate.find('.rs-lbl').text() === label)!
+      expect(tab('VOICE').get('.rs-value').text()).toBe('伊ヶ崎綾香')
+      expect(tab('AGE').get('.rs-value').text()).toBe('R18')
+    })
+
+    it('restores an address with another library without dropping its filters', async () => {
+      const { listWorks } = await mountWorks(`/works?library=${LIB_B}&voice=va-1`)
+
+      expect(lastParams(listWorks)).toMatchObject({ library: LIB_B, voice_actor: 'va-1' })
+    })
+
+    it('follows a change to its own address made from outside the page', async () => {
+      const { router, listWorks } = await mountWorks('/works')
+
+      await router.replace({ query: { ...router.currentRoute.value.query, voice: 'va-1', q: 'moon' } })
+      await flushPromises()
+      expect(lastParams(listWorks)).toMatchObject({ voice_actor: 'va-1', q: 'moon' })
+    })
+
+    it('lets an address change replace the FIND draft and cancel its pending write', async () => {
+      vi.useFakeTimers()
+      try {
+        const { wrapper, router } = await mountWorks('/works')
+        await wrapper.get('.find input').setValue('typed')
+        await router.replace({ query: { ...router.currentRoute.value.query, q: 'linked' } })
+        await flushPromises()
+        expect(wrapper.get<HTMLInputElement>('.find input').element.value).toBe('linked')
+
+        vi.advanceTimersByTime(500)
+        await flushPromises()
+        expect(router.currentRoute.value.query.q).toBe('linked')
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+  })
+
+  describe('pages', () => {
+    it('turns pages keeping the filters, and starts again at page 1 when they change', async () => {
+      const { wrapper, router, listWorks } = await mountWorks('/works?size=24')
+      await pick(wrapper, 'AGE', 'R18')
+
+      await wrapper.get('[aria-label="Page 2"]').trigger('click')
+      await flushPromises()
+      expect(lastParams(listWorks)).toMatchObject({ page: 2, limit: 24, age_category: 3 })
+      expect(router.currentRoute.value.query.page).toBe('2')
+      // The page's first work is selected, not one from page 1.
+      expect(inspected(wrapper)).toBe(worksA[24].rj)
+
+      await pick(wrapper, 'AGE', 'R15')
+      expect(lastParams(listWorks)).toMatchObject({ page: 1, age_category: 2 })
+      expect(router.currentRoute.value.query.page).toBeUndefined()
+
+      await wrapper.get('[aria-label="Page 2"]').trigger('click')
+      await flushPromises()
+      await pick(wrapper, 'SIZE', '48')
+      expect(lastParams(listWorks)).toMatchObject({ page: 1, limit: 48 })
+    })
+
+    it('reads the same page range from one link whatever the local size preference', async () => {
+      localStorage.setItem('works.pageSize', '96')
+      const named = await mountWorks('/works?page=2')
+      // A named page with no size is the fixed default, never the preference.
+      expect(named.listWorks.mock.calls[0][0]).toMatchObject({ page: 2, limit: 48 })
+      // Correcting the page past the end writes the size in effect, not the preference.
+      expect(named.router.currentRoute.value.query.size).toBe('48')
+      named.wrapper.unmount()
+
+      // A fresh visit takes the preference once, and the address carries it.
+      const fresh = await mountWorks('/works')
+      expect(fresh.router.currentRoute.value.query.size).toBe('96')
+      expect(lastParams(fresh.listWorks)).toMatchObject({ limit: 96 })
+    })
+
+    it('corrects a page past the end only once the listing has answered', async () => {
+      let answer!: (value: ReturnType<typeof pageOf>) => void
+      const listWorks = vi.fn((params: { page?: number; limit?: number }) =>
+        params.page === 9 ? new Promise((done) => { answer = done }) : Promise.resolve(pageOf(params)))
+      const { router } = await mountWorks('/works?size=24&page=9', false, { listWorks })
+
+      // Still waiting: nothing is corrected from what is not yet known.
+      expect(router.currentRoute.value.query.page).toBe('9')
+      answer({ works: [], total: worksA.length })
+      await flushPromises()
+      expect(router.currentRoute.value.query.page).toBe('2')
+      expect(lastParams(listWorks)).toMatchObject({ page: 2 })
+    })
+
+    it('says so when nothing matches, and selects nothing', async () => {
+      const listWorks = vi.fn(() => Promise.resolve({ works: [], total: 0 }))
+      const { wrapper, router } = await mountWorks(`/works?rj=${A1}`, false, { listWorks })
+
+      expect(wrapper.text()).toContain('没有作品')
+      expect(router.currentRoute.value.query.rj).toBeUndefined()
+    })
+
+    it('turns the page from the keyboard off either end of it', async () => {
+      const { wrapper, router, listWorks } = await mountWorks(`/works?size=24&rj=${worksA[23].rj}`)
+
+      press('j')
+      await flushPromises()
+      expect(lastParams(listWorks)).toMatchObject({ page: 2 })
+      expect(inspected(wrapper)).toBe(worksA[24].rj)
+
+      press('k')
+      await flushPromises()
+      // Page 1 answers from the cache; the address says where the wall is.
+      expect(router.currentRoute.value.query.page).toBeUndefined()
+      // Back off the first work lands on the previous page's last.
+      expect(inspected(wrapper)).toBe(worksA[23].rj)
+
+      press('PageDown')
+      await flushPromises()
+      expect(inspected(wrapper)).toBe(worksA[24].rj)
+    })
+  })
+
+  describe('opening a work and coming back', () => {
+    /**
+     * Opens the work, then steps back to the entry the wall was on. The first
+     * page stays mounted until the caller has mounted the returning one: the
+     * router resets itself when its last app unmounts.
+     */
+    async function openAndReturn(h: Harness, open: () => Promise<void> | void) {
+      await open()
+      await flushPromises()
+      expect(h.router.currentRoute.value.name).toBe('work-detail')
+      h.router.back()
+      await flushPromises()
+    }
+
+    it('commits the work and the wall\'s position before leaving, from every entry', async () => {
+      for (const open of [
+        (h: Harness) => h.wrapper.get(`[data-rj="${A3}"]`).trigger('dblclick'),
+        (h: Harness) => {
+          void h.wrapper.get(`[data-rj="${A3}"]`).trigger('click')
+          return flushPromises().then(() => press('Enter'))
+        },
+      ]) {
+        const h = await mountWorks('/works?size=24')
+        const scroller = h.wrapper.get('[data-testid="work-wall"]').element as HTMLElement
+        scroller.scrollTop = 120
+        await openAndReturn(h, () => open(h))
+        expect(h.router.currentRoute.value.query.rj).toBe(A3)
+        expect(h.router.options.history.state.wallReturn).toEqual({ scrollTop: 120, focusRj: A3 })
+        h.wrapper.unmount()
+      }
+    })
+
+    it('restores the scroll offset and then focus once a slow listing lands', async () => {
+      const h = await mountWorks('/works?size=24')
+      ;(h.wrapper.get('[data-testid="work-wall"]').element as HTMLElement).scrollTop = 120
+      await openAndReturn(h, () => h.wrapper.get(`[data-rj="${A3}"]`).trigger('dblclick'))
+
+      // A cold start: the listing has not answered when the wall mounts again.
+      let answer!: (value: ReturnType<typeof pageOf>) => void
+      const listWorks = vi.fn(() => new Promise((done) => { answer = done }))
+      const back = await mountWorks('', true, { router: h.router, listWorks })
+      h.wrapper.unmount()
+      expect(document.activeElement).toBe(document.body)
+
+      answer(pageOf({ limit: 24 }))
+      await flushPromises()
+      expect((back.wrapper.get('[data-testid="work-wall"]').element as HTMLElement).scrollTop).toBe(120)
+      expect((document.activeElement as HTMLElement).dataset.rj).toBe(A3)
+      // Used once: the entry no longer asks for a restore.
+      expect(h.router.options.history.state.wallReturn).toBeNull()
+      back.wrapper.unmount()
+    })
+
+    it('does not take focus when the user has already moved on', async () => {
+      const h = await mountWorks('/works?size=24')
+      await openAndReturn(h, () => h.wrapper.get(`[data-rj="${A3}"]`).trigger('dblclick'))
+
+      let answer!: (value: ReturnType<typeof pageOf>) => void
+      const listWorks = vi.fn(() => new Promise((done) => { answer = done }))
+      const back = await mountWorks('', true, { router: h.router, listWorks })
+      h.wrapper.unmount()
+      const find = back.wrapper.get<HTMLInputElement>('.find input').element
+      find.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))
+      find.focus()
+
+      answer(pageOf({ limit: 24 }))
+      await flushPromises()
+      expect(document.activeElement).toBe(find)
+      back.wrapper.unmount()
+    })
+  })
+
+  describe('picks that outlive their options', () => {
+    it('keeps a narrowed-away voice actor named, after a reload, and clearable', async () => {
+      // With R18 applied no work in scope has this voice actor; the library has.
+      const listWorkFacets = vi.fn((kind: string, scope: { age_category?: number }) =>
+        Promise.resolve(kind === 'voice_actor' && !scope.age_category
+          ? [{ id: 'va-1', name: '伊ヶ崎綾香', work_count: 3 }]
+          : []))
+      const { wrapper, listWorks } = await mountWorks('/works?age=r18&voice=va-1', false, { listWorkFacets })
+
+      const tab = wrapper.findAll('.rs').find((candidate) => candidate.find('.rs-lbl').text() === 'VOICE')!
+      expect(tab.get('.rs-value').text()).toBe('伊ヶ崎綾香')
+      expect(lastParams(listWorks)).toMatchObject({ voice_actor: 'va-1', age_category: 3 })
+      await pick(wrapper, 'VOICE', 'ALL')
+      expect(lastParams(listWorks)).not.toHaveProperty('voice_actor')
+    })
+
+    it('refuses a pick too long for the address out loud instead of widening the wall', async () => {
+      const { wrapper, router, listWorkFacets, listWorks } = await mountWorks('/works')
+      // One name without a source id, one id per work: 2,000 of them.
+      listWorkFacets.mockResolvedValue(Array.from({ length: 2000 }, (_, i) => ({
+        id: `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`, name: '同名', work_count: 1,
+      })))
+      await router.replace({ query: { ...router.currentRoute.value.query, age: 'r15' } })
+      await flushPromises()
+      const calls = listWorks.mock.calls.length
+
+      await pick(wrapper, 'VOICE', '同名')
+      expect(wrapper.text()).toContain('筛选条件过多，未应用')
+      expect(router.currentRoute.value.query.voice).toBeUndefined()
+      expect(listWorks.mock.calls.length).toBe(calls)
+    })
   })
 })

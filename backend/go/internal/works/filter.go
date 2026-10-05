@@ -1,12 +1,6 @@
 package works
 
-import (
-	"crypto/sha256"
-	"encoding/hex"
-	"sort"
-	"strconv"
-	"strings"
-)
+import "strconv"
 
 // Page size bounds for the ordinary listing.
 const (
@@ -61,10 +55,6 @@ const (
 	// the way unknown release dates do.
 	SortByRating SortField = "rating"
 )
-
-// Nullable reports whether the field can be unknown, which puts a trailing
-// block of unknown rows after every known one, in either direction.
-func (s SortField) Nullable() bool { return s == SortByReleaseDate || s == SortByRating }
 
 // Valid reports whether the field is sortable.
 func (s SortField) Valid() bool {
@@ -125,24 +115,16 @@ type Filter struct {
 	Direction Direction
 	Limit     int
 
-	// Cursor continues a previous page. It is not part of Digest - it is the
-	// position within the query, not a description of it.
-	Cursor *Cursor
+	// Page is the 1-based page of Limit works to answer; 0 means the first.
+	Page int
 }
 
 // Validate applies the filter contract: every set filter says how to match, a
 // range is ordered and within bounds, and the page size is inside its own
 // limits. Everything it refuses is a 400, never a silent default.
 func (f *Filter) Validate() *Error {
-	if f.Limit == 0 {
-		f.Limit = DefaultLimit
-	}
-	if f.Limit < 1 || f.Limit > MaxLimit {
-		return &Error{
-			Kind:    KindInvalid,
-			Code:    CodeInvalidPage,
-			Message: "limit must be between 1 and " + strconv.Itoa(MaxLimit),
-		}
+	if err := f.validateWindow(); err != nil {
+		return err
 	}
 	if f.Sort == "" {
 		f.Sort = SortByWorkID
@@ -237,70 +219,20 @@ func validDate(s string) bool {
 	return true
 }
 
-// Digest is the query fingerprint a cursor carries: everything that decides
-// which works are in the result and in what order. The page size is
-// deliberately not part of it - continuing a scan with a different page size
-// is a legitimate thing to do, and turning it into a 400 would only be
-// annoying.
-func (f *Filter) Digest() string {
-	parts := make([]string, 0, 16)
-	add := func(name, value string) {
-		if value != "" {
-			parts = append(parts, name+"="+value)
-		}
+// validateWindow fills and checks the page window: the page size within its
+// bounds and a page number of at least 1, the unset ones taking the defaults.
+func (f *Filter) validateWindow() *Error {
+	if f.Limit == 0 {
+		f.Limit = DefaultLimit
 	}
-	addSet := func(name string, values []string) {
-		if len(values) == 0 {
-			return
-		}
-		sorted := append([]string(nil), values...)
-		sort.Strings(sorted)
-		add(name, strings.Join(sorted, ","))
+	if f.Page == 0 {
+		f.Page = 1
 	}
-	point := func(value *string) string {
-		if value == nil {
-			return ""
-		}
-		return *value
+	if f.Page < 1 {
+		return Invalid(CodeInvalidPage, "page must be 1 or more")
 	}
-	intPoint := func(value *int) string {
-		if value == nil {
-			return ""
-		}
-		return strconv.Itoa(*value)
+	if f.Limit < 1 || f.Limit > MaxLimit {
+		return Invalid(CodeInvalidPage, "limit must be between 1 and "+strconv.Itoa(MaxLimit))
 	}
-	boolPoint := func(value *bool) string {
-		if value == nil {
-			return ""
-		}
-		return strconv.FormatBool(*value)
-	}
-	if f.Query != nil {
-		add("q", *f.Query)
-	}
-	addSet("circle", f.Circles)
-	addSet("voice_actor", f.VoiceActors)
-	add("voice_actor_match", string(f.VoiceActorMatch))
-	addSet("source_tag", f.SourceTags)
-	add("source_tag_match", string(f.SourceTagMatch))
-	addSet("user_tag", f.UserTags)
-	add("user_tag_match", string(f.UserTagMatch))
-	add("tag", canonicalTagGroups(f.TagGroups))
-	add("tag_match", string(f.TagMatch))
-	addSet("language", f.Languages)
-	add("nsfw", string(f.NSFW))
-	add("age_category", intPoint(f.AgeCategory))
-	add("released_from", point(f.ReleasedFrom))
-	add("released_to", point(f.ReleasedTo))
-	add("rating_from", intPoint(f.RatingFrom))
-	add("rating_to", intPoint(f.RatingTo))
-	add("unrated", boolPoint(f.Unrated))
-	add("favorite", boolPoint(f.Favorite))
-	addSet("library", f.Libraries)
-	add("has_copy", boolPoint(f.HasCopy))
-
-	sort.Strings(parts)
-	canonical := strings.Join(parts, "&") + "|" + string(f.Sort) + "|" + string(f.Direction)
-	sum := sha256.Sum256([]byte(canonical))
-	return hex.EncodeToString(sum[:])[:16]
+	return nil
 }

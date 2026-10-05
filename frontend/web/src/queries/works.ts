@@ -1,11 +1,10 @@
-import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/vue-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/vue-query'
 import { computed, toValue, type MaybeRefOrGetter } from 'vue'
 import { useApiClient } from '@/lib/api/client'
 import type {
   ApiClientContract,
   ListWorksParams,
   WorkFacetKind,
-  WorkListResponse,
   WorkUserTag,
   WorksScope,
 } from '@/lib/api/types'
@@ -22,21 +21,11 @@ export async function sweepWorkCaches(client: QueryClient): Promise<void> {
 
 // ---------- query options ----------
 
-/**
- * The works listing, one keyset page at a time. The cursor is opaque and only
- * valid for the exact filter fingerprint it was issued under, so the options
- * carry the whole filter set in one object that never changes mid-page.
- */
+/** One numbered page of the works listing, with the listing's total. */
 export function worksListQueryOptions(api: ApiClientContract, filters: ListWorksParams) {
   return {
     queryKey: queryKeys.works.list(filters),
-    queryFn: ({ signal, pageParam }: { signal?: AbortSignal; pageParam?: string }) =>
-      api.listWorks({ ...filters, cursor: pageParam }, signal),
-    initialPageParam: undefined as string | undefined,
-    getNextPageParam: (lastPage: WorkListResponse) => lastPage.next_cursor,
-    // A filter change keeps the previous wall on screen until the new listing
-    // lands, instead of blanking it; `isPlaceholderData` says which one shows.
-    placeholderData: keepPreviousData,
+    queryFn: ({ signal }: { signal?: AbortSignal }) => api.listWorks(filters, signal),
   }
 }
 
@@ -79,29 +68,49 @@ export function workDetailQueryOptions(api: ApiClientContract, rj: string | null
 // ---------- composables ----------
 
 /**
- * The works listing behind a reactive filter set (the active library, the
- * filter tab, the FIND box). Pages read `works` as one flat list; pages and
- * cursors accumulate while the filter identity stays unchanged.
+ * One page of the works listing behind a reactive filter set. A filter or page
+ * change keeps the previous page on screen until the new one lands instead of
+ * blanking the wall; `isPlaceholderData` says which one shows, and nothing may
+ * correct the page or the selection from a placeholder.
  */
-export function useWorksList(filters: MaybeRefOrGetter<ListWorksParams>) {
+export function useWorksList(filters: MaybeRefOrGetter<ListWorksParams>, enabled: MaybeRefOrGetter<boolean> = true) {
   const api = useApiClient()
-  const query = useInfiniteQuery(computed(() => worksListQueryOptions(api, toValue(filters))))
-  const works = computed(() => query.data.value?.pages.flatMap((page) => page.works) ?? [])
-  return { query, works }
+  const query = useQuery(computed(() => ({
+    ...worksListQueryOptions(api, toValue(filters)),
+    placeholderData: keepPreviousData,
+    enabled: toValue(enabled),
+  })))
+  const works = computed(() => query.data.value?.works ?? [])
+  const total = computed(() => query.data.value?.total ?? 0)
+  return { query, works, total }
 }
 
-/** One facet list behind a reactive listing scope. */
-export function useWorkFacets(kind: WorkFacetKind, scope: MaybeRefOrGetter<WorksScope>) {
+/**
+ * One facet list behind a reactive listing scope. `enabled` lets a caller ask
+ * only when it needs the answer (a name lookup for a pick the narrowed list no
+ * longer carries).
+ */
+export function useWorkFacets(
+  kind: WorkFacetKind,
+  scope: MaybeRefOrGetter<WorksScope>,
+  enabled: MaybeRefOrGetter<boolean> = true,
+) {
   const api = useApiClient()
-  const query = useQuery(computed(() => workFacetsQueryOptions(api, kind, toValue(scope))))
+  const query = useQuery(computed(() => ({
+    ...workFacetsQueryOptions(api, kind, toValue(scope)),
+    enabled: toValue(enabled),
+  })))
   const facets = computed(() => query.data.value ?? [])
   return { query, facets }
 }
 
-/** The tag index's entries behind a reactive listing scope. */
-export function useTagFacets(scope: MaybeRefOrGetter<WorksScope>) {
+/** The tag index's entries behind a reactive listing scope; `enabled` as above. */
+export function useTagFacets(scope: MaybeRefOrGetter<WorksScope>, enabled: MaybeRefOrGetter<boolean> = true) {
   const api = useApiClient()
-  const query = useQuery(computed(() => tagFacetsQueryOptions(api, toValue(scope))))
+  const query = useQuery(computed(() => ({
+    ...tagFacetsQueryOptions(api, toValue(scope)),
+    enabled: toValue(enabled),
+  })))
   const facets = computed(() => query.data.value ?? { source_tags: [], user_tags: [] })
   return { query, facets }
 }

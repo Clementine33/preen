@@ -26,7 +26,7 @@ const FACETS: TagFacets = {
   ],
 }
 
-async function mountIndex(initial: TagSelection = { picks: [], mode: 'all' }) {
+async function mountIndex(initial: TagSelection = { groups: [], mode: 'all' }, listTagFacets = vi.fn().mockResolvedValue(FACETS)) {
   const selection = ref<TagSelection>(initial)
   const Host = defineComponent(() => () =>
     h(TagIndex, {
@@ -39,13 +39,13 @@ async function mountIndex(initial: TagSelection = { picks: [], mode: 'all' }) {
     attachTo: document.body.appendChild(document.createElement('div')),
     global: {
       plugins: [installTestQueryPlugin()],
-      provide: { [apiClientKey as symbol]: apiStub({ listTagFacets: vi.fn().mockResolvedValue(FACETS) } as never) },
+      provide: { [apiClientKey as symbol]: apiStub({ listTagFacets } as never) },
     },
   })
   await flushPromises()
   await wrapper.get('.ti-trigger').trigger('click')
   await flushPromises()
-  return { wrapper, selection }
+  return { wrapper, selection, listTagFacets }
 }
 
 const dialog = () => document.querySelector<HTMLElement>('[role="dialog"]')
@@ -83,22 +83,16 @@ describe('TagIndex', () => {
     button('OR').click()
     await flushPromises()
     // Staged only: nothing reached the page yet.
-    expect(selection.value.picks).toEqual([])
+    expect(selection.value.groups).toEqual([])
 
     button('APPLY').click()
     await flushPromises()
-    expect(selection.value).toEqual({
-      picks: [
-        { name: 'ASMR', refs: ['s:s-asmr', 'u:u-asmr'] },
-        { name: '掏耳', refs: ['s:s-ear'] },
-      ],
-      mode: 'any',
-    })
+    expect(selection.value).toEqual({ groups: [['s:s-asmr', 'u:u-asmr'], ['s:s-ear']], mode: 'any' })
     expect(dialog()).toBeNull()
   })
 
   it('discards staged picks when closed without APPLY', async () => {
-    const initial: TagSelection = { picks: [{ name: 'mine', refs: ['u:u-mine'] }], mode: 'all' }
+    const initial: TagSelection = { groups: [['u:u-mine']], mode: 'all' }
     const { wrapper, selection } = await mountIndex(initial)
 
     // Opening starts from the applied selection.
@@ -127,5 +121,45 @@ describe('TagIndex', () => {
 
     expect([...sectionChips('作品标签')].map((b) => b.firstChild?.textContent)).toEqual(['ASMR'])
     expect([...sectionChips('我的标签')].map((b) => b.firstChild?.textContent)).toEqual(['ASMR'])
+  })
+
+  it('keeps a pick the scoped lists no longer carry, named from the library and removable', async () => {
+    // The wall's other filters leave no work with 治愈 in scope; the library has it.
+    const listTagFacets = vi.fn((scope: { library?: string; voice_actor?: string }) =>
+      Promise.resolve(scope.voice_actor ? { source_tags: [], user_tags: [] } : FACETS))
+    const selection = ref<TagSelection>({ groups: [['s:s-rare'], ['s:s-gone']], mode: 'all' })
+    const Host = defineComponent(() => () =>
+      h(TagIndex, {
+        scope: { library: 'lib-a', voice_actor: 'va-1' },
+        modelValue: selection.value,
+        'onUpdate:modelValue': (value: TagSelection) => (selection.value = value),
+      }),
+    )
+    const wrapper = mount(Host, {
+      attachTo: document.body.appendChild(document.createElement('div')),
+      global: {
+        plugins: [installTestQueryPlugin()],
+        provide: { [apiClientKey as symbol]: apiStub({ listTagFacets } as never) },
+      },
+    })
+    await flushPromises()
+    expect(wrapper.get('.ti-value').text()).toBe('2 · AND')
+    await wrapper.get('.ti-trigger').trigger('click')
+    await flushPromises()
+
+    const picked = () => [...document.querySelectorAll<HTMLButtonElement>('.ti-picked .chip')]
+    expect(picked().map((b) => b.firstChild?.textContent)).toEqual(['治愈', '未知标签'])
+    // APPLY without touching them keeps both; removing one drops only that one.
+    button('APPLY').click()
+    await flushPromises()
+    expect(selection.value.groups).toEqual([['s:s-rare'], ['s:s-gone']])
+
+    await wrapper.get('.ti-trigger').trigger('click')
+    await flushPromises()
+    picked()[1].click()
+    await flushPromises()
+    button('APPLY').click()
+    await flushPromises()
+    expect(selection.value.groups).toEqual([['s:s-rare']])
   })
 })

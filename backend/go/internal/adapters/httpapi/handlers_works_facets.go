@@ -71,12 +71,12 @@ func (s *Server) listFacets(w http.ResponseWriter, r *http.Request, kind works.F
 }
 
 // facetFilter reads a facet list's parameters: the listing's filters, without
-// its order, page size or cursor, which describe a page rather than the set of
-// works. Anything else is refused the way the listing refuses it.
+// its order, page size or page number, which describe a page rather than the
+// set of works. Anything else is refused the way the listing refuses it.
 func facetFilter(r *http.Request) (works.Filter, *works.Error) {
 	for name := range r.URL.Query() {
 		switch name {
-		case "sort", "direction", "limit", "cursor":
+		case "sort", "direction", "limit", "page":
 			return works.Filter{}, works.Invalid(works.CodeInvalidArgument, "unknown query parameter: "+name)
 		}
 	}

@@ -64,12 +64,18 @@ tasks:
       - pnpm build
 
   e2e:web:
-    desc: Run all browser e2e tests (Playwright; boots backend + Vite). Requires `pnpm exec playwright install chromium` once.
+    desc: Run full-stack browser e2e tests (Playwright; boots backend + Vite). Requires Chromium.
     dir: frontend/web
     env:
       BROWSER_E2E: '1'
     cmds:
       - pnpm exec playwright test
+
+  test:web:browser:
+    desc: Run browser component tests (Playwright; boots Vite only). Requires Chromium.
+    dir: frontend/web
+    cmds:
+      - pnpm exec playwright test -c playwright.components.config.ts
 
   e2e:web:install:
     desc: Install the Playwright Chromium browser for the web e2e smoke

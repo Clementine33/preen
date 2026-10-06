@@ -12,4 +12,5 @@
 - Vue 3 + TypeScript, entry `src/main.ts`, in the pnpm workspace. Tool versions are pinned in the root `mise.toml`.
 - From this directory: `pnpm typecheck`, `pnpm test`, `pnpm build`.
 - From the repository root: `task typecheck:web`, `task test:web`, `task build:web`; `task dev:web` starts backend + Vite and `task e2e:web` runs Playwright.
+- Keep full-stack browser tests for cross-stack user journeys. Backend disk/codec/session contracts belong in `backend/go/tests/e2e/`; browser-only layout/input checks run with `task test:web:browser` (Vite only).
 - Install Chromium once when needed for e2e: `pnpm exec playwright install chromium` from this directory.

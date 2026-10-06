@@ -19,7 +19,7 @@ async function pickUnitOption(page: Page, testId: string, option: string) {
  * The browser flow exercised here:
  *   1. create a library pointing at a generated fixture tree,
  *   2. run the scan to completion (SSE),
- *   3. select a folder and enter its conversion record (scope dialog → record),
+ *   3. select a folder batch and enter its conversion task,
  *   4. edit the common settings in place (direct fields, 恢复默认) and apply,
  *   5. generate a plan revision and read the five summary facts,
  *   6. generate again on a changed draft and confirm the new revision
@@ -64,7 +64,7 @@ test.describe('workset operation smoke', () => {
     await expect(page.getByRole('main').getByText(fixturePosix)).toBeVisible()
 
     // Entering the library is what opens the workbench: the overview lists
-    // every direct child directory the scan will record.
+    // the Work Roots identified by the scan.
     await page.getByRole('main').getByRole('link', { name: /E2E Library/ }).first().click()
     await expect(page).toHaveURL(/\/worksets\/[^/]+$/)
     await expect(page.getByTestId('overview')).toBeVisible()
@@ -73,13 +73,13 @@ test.describe('workset operation smoke', () => {
     await page.getByTestId('scan-button').click()
     await expect(page.getByText('扫描完成')).toBeVisible()
 
-    // Every direct child directory is listed, with its audio count as status.
-    await expect(page.getByTestId('dir-list')).toContainText('albumA')
+    // Each scanned Work Root is listed, with its audio count as status.
+    await expect(page.getByTestId('dir-list')).toContainText('RJ000001 albumA')
 
-    // 3. Select albumA and enter its conversion record. No naming step: the
+    // 3. Select RJ000001 albumA and enter its conversion record. No naming step: the
     //    record is the library's own.
-    await expect(page.getByRole('checkbox', { name: '选择 albumA' }).first()).toBeVisible()
-    await page.getByRole('checkbox', { name: '选择 albumA' }).first().check()
+    await expect(page.getByRole('checkbox', { name: '选择 RJ000001 albumA' }).first()).toBeVisible()
+    await page.getByRole('checkbox', { name: '选择 RJ000001 albumA' }).first().check()
     await expect(page.getByText('已选择 1 个文件夹')).toBeVisible()
     await page.getByTestId('enter-conversion').click()
 
@@ -177,6 +177,7 @@ test.describe('workset operation smoke', () => {
     // Back into the operation, then the same drill-down as before: the narrow
     // carrier is a full page, and the local back control returns to the fixed
     // parent of the page in view.
+    await page.getByTestId('workbench-nav-toggle').click()
     await page.getByTestId('nav-conversion').click()
     await expect(page.getByTestId('member-toolbar')).toBeVisible()
     await expect(page.getByTestId('workbench-back')).toHaveAttribute('href', /\/worksets\/[^/]+$/)

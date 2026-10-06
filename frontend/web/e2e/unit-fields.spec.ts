@@ -1,8 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
 
-test.skip(process.env.BROWSER_E2E !== '1' && !process.env.ONSEI_SELECT_TEST_URL, 'Needs a Vite server')
-test.use({ baseURL: process.env.ONSEI_SELECT_TEST_URL ?? 'http://127.0.0.1:5173' })
-
 async function expectAnchored(page: Page, trigger: Locator) {
   const menu = page.getByRole('listbox')
   await expect(menu).toBeVisible()

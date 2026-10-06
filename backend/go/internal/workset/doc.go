@@ -1,4 +1,4 @@
-// Package workset owns processing records and their ordered members, operation
+// Package workset owns one shared folder batch per library and its ordered members, operation
 // drafts and revisions, the current plan, and planning/execution sessions. It
 // coordinates identity, ownership, versions, idempotency and worker scheduling.
 //

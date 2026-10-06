@@ -26,7 +26,7 @@ type serviceImpl struct {
 type EnqueueGuard func(fn func() error) error
 
 // NewService creates the workset usecase service. The registered tasks are the
-// wiring point for task kinds: creating a record materializes the requested
+// wiring point for task kinds: creating a batch materializes each registered
 // operation and its seed draft, and every operation-scoped call resolves its
 // task from this list. scanFolder supplies the default disk → inventory refresh;
 // task-specific generation and execution capabilities may replace that flow.

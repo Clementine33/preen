@@ -118,7 +118,8 @@ describe('workbench overview', () => {
 
     ui().toggleDir('albumA', dirs)
     await flushPromises()
-    expect(wrapper.get('[data-testid="enter-conversion"]').text()).toContain('进入转换')
+    expect(wrapper.get('[data-testid="enter-rename"]').text()).toContain('重命名')
+    expect(wrapper.get('[data-testid="enter-metadata-refresh"]').exists()).toBe(true)
   })
 
   it('creates the record from the selected library-relative paths', async () => {
@@ -136,18 +137,18 @@ describe('workbench overview', () => {
     expect(router.currentRoute.value.name).toBe('conversion')
   })
 
-  it('creates a rename record from the same selection and opens its page', async () => {
+  it('keeps audio-less folders in the shared batch', async () => {
     const createCurrentRecord = vi.fn().mockResolvedValue({ workset: record, created: true, recorded: 1, skipped: [] })
     const { wrapper, router } = await mountOverview({ createCurrentRecord })
     ui().toggleDir('docs', dirs)
     await flushPromises()
-    await wrapper.get('[data-testid="enter-rename"]').trigger('click')
+    await wrapper.get('[data-testid="enter-conversion"]').trigger('click')
     await flushPromises()
 
     const request = createCurrentRecord.mock.calls[0] as unknown as [string, string, { folder_paths: string[] }]
-    expect(request[1]).toBe('rename')
+    expect(request[1]).toBe('conversion')
     expect(request[2].folder_paths).toEqual(['docs'])
-    expect(router.currentRoute.value.name).toBe('rename')
+    expect(router.currentRoute.value.name).toBe('conversion')
   })
 
   it('reports the folders a creation skipped instead of hiding them', async () => {
@@ -155,16 +156,17 @@ describe('workbench overview', () => {
       workset: record,
       created: true,
       recorded: 1,
-      skipped: [{ path: 'docs', reason: 'no_audio' }],
+      skipped: [{ path: 'docs', reason: 'missing' }],
     })
     const { wrapper } = await mountOverview({ createCurrentRecord })
     ui().toggleDir('albumA', dirs)
     await flushPromises()
-    await wrapper.get('[data-testid="enter-conversion"]').trigger('click')
+    await wrapper.get('[data-testid="enter-rename"]').trigger('click')
     await flushPromises()
 
+    // Staying on the overview is what lets the skipped folders be read.
     expect(wrapper.get('[data-testid="skipped-report"]').text()).toContain('docs')
-    expect(wrapper.get('[data-testid="skipped-report"]').text()).toContain('没有音频')
+    expect(wrapper.get('[data-testid="skipped-report"]').text()).toContain('目录不存在')
   })
 
   it('asks before replacing an existing record', async () => {
@@ -174,7 +176,7 @@ describe('workbench overview', () => {
       createCurrentRecord,
     })
 
-    expect(wrapper.get('[data-testid="current-record"]').text()).toContain('进入转换')
+    expect(wrapper.get('[data-testid="current-record"]').exists()).toBe(true)
     ui().toggleDir('albumA', dirs)
     await flushPromises()
 
@@ -185,7 +187,7 @@ describe('workbench overview', () => {
     // says what replacing costs (ADR 0001 §2). The modal is portalled, so it is
     // the document that holds it.
     expect(createCurrentRecord).not.toHaveBeenCalled()
-    expect(document.body.textContent).toContain('删除它的成员设置、当前计划与执行结果')
+    expect(document.body.textContent).toContain('删除所有 Task 的成员设置、当前计划与执行结果')
     expect(document.body.textContent).toContain('全局设置会保留')
     const confirm = document.body.querySelector('[data-testid="confirm-replace"]') as HTMLElement
     confirm.click()
@@ -200,7 +202,7 @@ describe('workbench overview', () => {
     const createCurrentRecord = vi
       .fn()
       .mockRejectedValue(
-        new ApiError(400, 'NO_AUDIO_MEMBERS', 'none of the selected folders can join', ['docs: no_audio']),
+        new ApiError(400, 'NO_MEMBERS', 'none of the selected folders can join', ['docs: missing']),
       )
     const { wrapper } = await mountOverview({ createCurrentRecord })
     ui().toggleDir('albumA', dirs)

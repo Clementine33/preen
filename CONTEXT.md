@@ -1,6 +1,6 @@
 # Onsei Media Organization
 
-Onsei organizes audio collections by comparing observed media with desired audio outputs. A media library IS the workbench: its folders are browsed, organized and converted there, and each operation keeps one current record of the folders it works on.
+Onsei organizes audio collections by comparing observed media with desired audio outputs. A media library IS the workbench: its folders are browsed, organized and converted there, and one shared Workset holds the current folder batch for every Task.
 
 ## Language
 
@@ -85,7 +85,7 @@ _Avoid_: Reading the derived relation as a source of truth about references.
 ### Collections and workbench
 
 **Library**:
-A named media collection rooted at one directory, whose scanned inventory supplies the member directories and media facts. It owns the workbench: entering a library is entering its overview, its browsing, its conversion record and its file management. Its deletion removes its entry (and that entry's record) but never the media.
+A named media collection rooted at one directory, whose scanned inventory supplies the member directories and media facts. It owns the workbench: entering a library is entering its overview, its browsing, its conversion record and its file management. Its deletion removes its entry (and that entry's shared Workset) but never the media.
 
 **Work Root**:
 The first directory in a Library descendant chain whose name unambiguously carries one Work Number. Its whole subtree belongs to that independent work, even when an internal directory also carries a Work Number.
@@ -98,9 +98,9 @@ _Avoid_: Selecting a category as one processing member.
 **Album Folder / Planning Root**:
 A Work Root of a Library, including its descendants. It is listed whether or not it holds audio, and each selected root is an independent boundary for classification, association and planning.
 
-**Workset (processing record)**:
-The current record of one (Library, operation) pair: a fixed, ordered set of 1–500 member directories the user selected, plus that operation's settings and its current plan. At most one exists per pair, and creating a new one replaces the record it supersedes — together with that record's plan and execution results. The product entry keeps the name 工作集.
-_Avoid_: Multiple named collections per library; permanent per-record history.
+**Workset (shared folder batch)**:
+The current, fixed, ordered set of 1–500 member directories selected in one Library. At most one exists per Library; conversion, metadata refresh and directory rename reuse the same members, including directories without audio. Replacing the batch replaces every activity's settings, current plan and execution results. The product entry keeps the name 工作集.
+_Avoid_: One batch per Task; multiple named collections per Library; permanent per-record history.
 
 **Member / Member ID**:
 A scanned Work Root selected into one processing record. Its library-relative path (`rel_path`) is the durable data identity — a rescan cannot renumber it, and file management addresses items relative to it — `member_id` is the record-scoped identity the conversion routes carry, and `dir_id` is the identity its *page address* carries.
@@ -127,7 +127,7 @@ The process-wide rule that direct file management and the managed task paths (sc
 _Avoid_: Frontend-only disabling; a queue of waiting file operations.
 
 **Workset Operation**:
-An independent business activity on a record's members, owning its draft, participation scope, planning sessions and its current plan. Conversion, metadata refresh and directory rename are the available activities; a record is created for one of them.
+An independent business activity on a Workset's shared members, owning its draft, participation scope, planning sessions and its current plan. Conversion, metadata refresh and directory rename are the available activities; each reuses the same selected batch and retains its own settings, plan and results.
 _Avoid_: Workflow step; filesystem Operation when referring to this activity.
 
 **Operation Draft**:
@@ -174,7 +174,7 @@ A reviewable proposal of media decisions and required filesystem changes, produc
 The frozen payload of one Plan Revision as its Task wrote it: opaque to the generic workset module, carries `kind` and `schema_version` so a reader knows what it is looking at.
 
 **Plan Revision (current plan)**:
-The immutable proposal a processing record currently holds: its draft, member participation, effective settings and sources, input facts and results are frozen. Publishing a new one retires the plan it replaced, with its payload and execution results, in the same transaction — a record keeps one plan.
+The immutable proposal one Workset Operation currently holds: its draft, member participation, effective settings and sources, input facts and results are frozen. Publishing a new one retires the plan it replaced, with its payload and execution results, in the same transaction — each activity keeps one plan.
 _Avoid_: Revision history; browsing an older plan of a record.
 
 **Planning Session**:

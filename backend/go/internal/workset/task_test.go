@@ -19,8 +19,7 @@ type stubTask struct {
 	moved bool
 }
 
-func (s stubTask) Kind() string      { return s.kind }
-func (stubTask) RequiresAudio() bool { return true }
+func (s stubTask) Kind() string { return s.kind }
 
 func (s stubTask) SeedDraft(common json.RawMessage) ([]byte, string, int) {
 	if len(common) > 0 {
@@ -158,35 +157,56 @@ func (stubTask) ReviewRevision(in workset.RevisionFacts) (workset.PlanReview, er
 	return out, nil
 }
 
-// TestCreateCurrentMaterializesOnlyTheRequestedTask covers the registry
-// contract: creating a record writes the operation that was requested and its
-// seeded draft, and never a task nobody asked for (ADR 0001 §1).
-func TestCreateCurrentMaterializesOnlyTheRequestedTask(t *testing.T) {
+// TestTasksReuseTheSameBatch covers shared members and independent task state.
+func TestTasksReuseTheSameBatch(t *testing.T) {
 	f := newFixture(t)
 	workset.RegisterTasksForTest(f.svc, []workset.Task{
 		stubTask{kind: workset.OperationTypeConversion, seed: `{"schema_version":1,"classifier_tags":[]}`},
 		stubTask{kind: "rename", seed: `{"schema_version":1,"template":"{title}"}`},
 	})
-	ids := f.standardLibrary("albumA")
-	ws := f.createCurrentOperation("lib-1", "rename", ids...)
-
-	if len(ws.Operations) != 1 || ws.Operations[0].OperationType != "rename" {
-		t.Fatalf("operations = %+v, want only the requested one", ws.Operations)
+	f.standardLibrary("albumA")
+	f.insertDir("/music", "emptyDir", false)
+	ws := f.createCurrentOperation("lib-1", "rename", "albumA", "emptyDir")
+	if len(ws.Operations) != 2 || len(ws.Members) != 2 {
+		t.Fatalf("shared batch = %+v", ws)
 	}
-	draft, err := f.repo.GetOperationDraft(ws.WorksetID, "rename")
-	if err != nil || draft == nil {
-		t.Fatalf("draft for rename: %+v err=%v", draft, err)
+	for _, kind := range []string{workset.OperationTypeConversion, "rename"} {
+		current, err := f.svc.GetCurrentWorkset(f.ctx, "lib-1", kind)
+		if err != nil || current == nil || current.WorksetID != ws.WorksetID ||
+			current.Members[1].MemberID != ws.Members[1].MemberID {
+			t.Fatalf("current %s = %+v, err=%v", kind, current, err)
+		}
+		draft, err := f.repo.GetOperationDraft(ws.WorksetID, kind)
+		if err != nil || draft == nil || draft.DraftHash != "hash-"+kind {
+			t.Fatalf("seeded draft %s = %+v, err=%v", kind, draft, err)
+		}
 	}
-	if draft.DraftJSON != `{"schema_version":1,"template":"{title}"}` || draft.DraftHash != "hash-rename" {
-		t.Fatalf("seeded draft = %+v", draft)
+	replay, err := f.svc.CreateCurrentWorkset(f.ctx, workset.CreateCurrentRequest{
+		LibraryID: "lib-1", OperationType: workset.OperationTypeConversion,
+		FolderPaths: []string{"albumA", "emptyDir"}, IdempotencyKey: "create-rename",
+	})
+	if err != nil || replay.Created || replay.Workset.WorksetID != ws.WorksetID {
+		t.Fatalf("cross-task replay = %+v, err=%v", replay, err)
 	}
-	if _, convErr := f.repo.GetOperation(ws.WorksetID, workset.OperationTypeConversion); convErr == nil {
-		t.Fatal("an operation nobody requested must not be materialized")
+	f.saveRenameDraft(ws.WorksetID)
+	if op := f.operation(ws.WorksetID); op.Version != 1 || op.CurrentRevision != nil {
+		t.Fatalf("rename changed conversion state: %+v", op)
 	}
-	// The conversion record of the same library is a different record.
-	conv := f.createCurrent("转换", ids...)
-	if conv.WorksetID == ws.WorksetID {
-		t.Fatal("operations are separate records")
+	renamed := f.operationFor(ws.WorksetID, "rename")
+	gen := f.runGenerationFor(ws.WorksetID, "rename", "shared-rename", renamed.Version)
+	if gen.Status != workset.GenStatusCompleted {
+		t.Fatalf("rename generation = %+v", gen)
+	}
+	converted := f.runGenerationFor(ws.WorksetID, workset.OperationTypeConversion, "shared-conversion", 1)
+	if converted.Status != workset.GenStatusCompleted || converted.RevisionID == gen.RevisionID {
+		t.Fatalf("conversion generation = %+v", converted)
+	}
+	if op := f.operationFor(
+		ws.WorksetID,
+		"rename",
+	); op.CurrentRevision == nil ||
+		op.CurrentRevision.PlanID != gen.RevisionID {
+		t.Fatalf("conversion replaced rename plan: %+v", op)
 	}
 }
 

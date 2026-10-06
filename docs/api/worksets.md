@@ -2,16 +2,16 @@
 
 [API reference](../api.md) · [Common conventions](common.md)
 
-A **record** is the current processing record of one `(library, operation)`
-pair: the fixed, ordered set of 1–500 member folders a user selected, plus the
-operation that works on them. `conversion` and `rename` are registered operation types. `rename` supports
-draft, generation and review; its execution is refused. At most one
-record exists per pair — that is a storage-level unique index, not an
-application check. Decisions: [ADR 0001](../adr/0001-library-workbench-and-processing-record.md).
+A **workset** is the library's shared current folder batch: a fixed, ordered
+set of 1–500 selected Work Roots, including roots without audio. Each library
+has at most one workset, enforced by a storage-level unique index.
+`conversion`, `rename` and `metadata_refresh` reuse the same members and each
+retain independent drafts, versions, planning sessions, current plans and
+execution results. Decision: [ADR 0020](../adr/0020-shared-workset-batch.md).
 
 **Status: implemented and machine-checked.** The Go handler, repository and
 e2e tests are the reference for the shapes below. There is no revision-history
-route: a record keeps exactly one plan, the current one, and publishing a new
+route: each operation keeps exactly one plan, the current one, and publishing a new
 plan retires the one it replaced — with its payload, roots, units and
 execution sessions — in the same transaction. The pre-operation workset routes
 (`/worksets/{id}/draft`, `/worksets/{id}/revisions`,
@@ -22,14 +22,16 @@ incompatible database is refused at startup, never migrated or cleared
 
 ## Creating the current record
 
-`PUT /api/v1/libraries/{id}/operations/{type}/current` is the only way a record
-comes into existence. It validates the requested scope against the **scanned
+`PUT /api/v1/libraries/{id}/operations/{type}/current` creates the library's
+shared batch and seeds every registered Task's independent draft from its
+common settings. The existing `{type}` entry point validates a registered
+Task; it does not select a separate batch. GET through any registered Task
+returns the same `workset_id` and member identities. It validates the requested scope against the **scanned
 inventory** — the same listing the caller selected from — and reports every
 directory that did not become a member instead of dropping it silently:
 
 | `skipped[].reason` | Meaning |
 | --- | --- |
-| `no_audio` | the directory holds no audio anywhere beneath it; conversion skips it |
 | `missing` | the inventory does not know it as a directory of this root |
 | `not_work_root` | a scanned directory is not marked as a work root |
 | `recovery_dir` | `Delete/` and its descendants at any depth are not members |
@@ -37,9 +39,8 @@ directory that did not become a member instead of dropping it silently:
 | `duplicate` | selected more than once |
 
 A selection whose every entry is unusable creates nothing and answers
-`NO_AUDIO_MEMBERS` (400) for conversion, or `NO_MEMBERS` (400) for rename,
-with the skipped paths in `details`. Rename accepts scanned work-root
-directories even when their audio count is zero. More than 500
+`NO_MEMBERS` (400), with the skipped paths in `details`. Batch membership does
+not depend on the entry-point Task or on audio count. More than 500
 selected paths is `INVALID_FOLDER_COUNT` (400) — never a silent truncation.
 `expected_current_id` is the record the caller saw as current (absent when it
 saw none): a mismatch is `RECORD_REPLACED` (409) instead of an overwrite, and a
@@ -68,8 +69,8 @@ All routes require auth and use the [standard error envelope](common.md#error-en
 
 | Method | Path | Behavior |
 | --- | --- | --- |
-| GET | `/api/v1/libraries/{id}/operations/{type}/current` | The library's current record for one operation, or `{"workset": null}` with 200 when it has none. A library that does not exist is 404. |
-| PUT | `/api/v1/libraries/{id}/operations/{type}/current` | Create or replace. Body `{"folder_paths":[...],"expected_current_id":"…","title":"…"}` (title optional; the library's name is the default), `Idempotency-Key` optional (`INVALID_IDEMPOTENCY_KEY` when malformed, and an absent key means the call is never a replay). 201 `{"workset":…,"created":true,"recorded":N,"skipped":[{"path","reason"}]}`; 200 for an idempotent replay. The new record and the removal of the one it replaces — members, operation, draft, plan and sessions — are one transaction. |
+| GET | `/api/v1/libraries/{id}/operations/{type}/current` | The library's shared current batch (the same for every registered type), or `{"workset": null}` with 200 when it has none. A library that does not exist is 404. |
+| PUT | `/api/v1/libraries/{id}/operations/{type}/current` | Create or replace. Body `{"folder_paths":[...],"expected_current_id":"…","title":"…"}` (title optional; the library's name is the default), `Idempotency-Key` optional (`INVALID_IDEMPOTENCY_KEY` when malformed, and an absent key means the call is never a replay). 201 `{"workset":…,"created":true,"recorded":N,"skipped":[{"path","reason"}]}`; 200 for an idempotent replay. The new record and the removal of the one it replaces — members and every operation, draft, plan and session — are one transaction. |
 | GET | `/api/v1/worksets` | Keyset list (`limit`, `cursor` → `next_cursor`, `library_id`, `status=active` excludes orphaned). |
 | GET | `/api/v1/worksets/{id}` | Metadata view: `workset_id`, `title`, `version`, `library`, `members[]`, `operations[]`. Member coverage and planning state belong to an operation, never to the member or the workset. |
 | PATCH | `/api/v1/worksets/{id}` | Rename only. `If-Match` = workset metadata version (`VERSION_REQUIRED` without it, `VERSION_CONFLICT` when stale, `ORPHANED_WORKSET` when the library is gone). |
@@ -88,4 +89,4 @@ All routes require auth and use the [standard error envelope](common.md#error-en
 
 Task payloads: [Audio conversion](conversion.md), [rename and metadata refresh](tasks.md). Frozen conversion revisions are described in [Frozen revisions](conversion.md#frozen-revisions).
 
-Member `rel_path` and creation `folder_paths` may contain nested library-relative paths, for example `分类/RJ000001 album`. Classification directories and internal directories of a work are not members. Conversion requires scanned audio; rename and metadata tasks do not.
+Member `rel_path` and creation `folder_paths` may contain nested library-relative paths, for example `分类/RJ000001 album`. Classification directories and internal directories of a work are not members. Audio count never filters the shared batch; conversion plans the observed audio within each participating member.

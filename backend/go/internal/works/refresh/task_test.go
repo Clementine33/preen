@@ -37,7 +37,7 @@ func TestMetadataPlanKeepsFrozenCopyTargetsAfterRebinding(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if task.RequiresAudio() || len(plan.Units) != 2 || plan.RootPath != root {
+	if len(plan.Units) != 2 || plan.RootPath != root {
 		t.Fatalf("copy scope lost: %+v", plan)
 	}
 	for _, unit := range plan.Units {

@@ -15,6 +15,9 @@ import (
 
 func metadataRecord(t *testing.T, f renameRun, otherLibrary bool) string {
 	t.Helper()
+	if !otherLibrary {
+		return f.worksetID
+	}
 	libraryID := f.libraryID
 	if otherLibrary {
 		root := t.TempDir()
@@ -49,7 +52,7 @@ func metadataRecord(t *testing.T, f renameRun, otherLibrary bool) string {
 	}
 	return created.Workset.WorksetID
 }
-func TestRenameAndOtherWorksetGenerationExcludeEachOther(t *testing.T) {
+func TestRenameAndSharedBatchGenerationExcludeEachOther(t *testing.T) {
 	for _, renameFirst := range []bool{false, true} {
 		t.Run(map[bool]string{false: "generation first", true: "rename first"}[renameFirst], func(t *testing.T) {
 			f := newRenameRun(t)

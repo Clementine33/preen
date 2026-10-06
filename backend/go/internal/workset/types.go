@@ -176,13 +176,13 @@ type WorksetView struct {
 }
 
 // CreateCurrentRequest is the create-or-replace payload of the current record
-// of one (library, operation) pair. FolderPaths are library-relative member
+// of one library, shared by all tasks. FolderPaths are library-relative member
 // directory paths — never scan-scoped ids — and ExpectedCurrentID is the
 // record the caller saw as current ("" when it saw none), which is what makes
 // a concurrent replace a conflict instead of an overwrite.
 type CreateCurrentRequest struct {
 	LibraryID         string
-	OperationType     string
+	OperationType     string // task entry point only; membership is shared
 	Title             string
 	FolderPaths       []string
 	ExpectedCurrentID string

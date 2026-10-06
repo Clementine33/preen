@@ -22,7 +22,6 @@ type Task struct {
 func NewTask(c TaskCatalog, checkDirectory func(string) error) *Task {
 	return &Task{catalog: c, checkDirectory: checkDirectory}
 }
-func (*Task) Kind() string        { return Kind }
-func (*Task) RequiresAudio() bool { return false }
+func (*Task) Kind() string { return Kind }
 
 var _ workset.Task = (*Task)(nil)

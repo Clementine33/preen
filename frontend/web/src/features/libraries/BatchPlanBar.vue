@@ -1,7 +1,16 @@
+<script lang="ts">
+/** Each entry makes the selection the shared batch, then opens its task. */
+const TASKS = [
+  { target: 'conversion', label: '转换' },
+  { target: 'rename', label: '重命名' },
+  { target: 'metadata-refresh', label: '获取元数据' },
+] as const
+export type TaskTarget = (typeof TASKS)[number]['target']
+</script>
+
 <script setup lang="ts">
-import { Download, Layers, PenLine, X } from '@lucide/vue'
+import { X } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
-import type { OperationType } from '@/lib/api/types'
 
 /**
  * The overview's scope bar (ADR 0001 §1, §2). It belongs to a selection, so
@@ -16,14 +25,14 @@ import type { OperationType } from '@/lib/api/types'
 defineProps<{
   selectedCount: number
   loading: boolean
-  /** Per operation: entering it replaces the record that is already there. */
-  replacing: Record<OperationType, boolean>
+  /** Replacing the batch clears the state of every task. */
+  replacing: boolean
   /** Selected folders conversion will skip, because they hold no audio. */
   audioLessCount: number
 }>()
 const emit = defineEmits<{
   clear: []
-  enter: [operation: OperationType]
+  enter: [target: TaskTarget]
 }>()
 </script>
 
@@ -52,36 +61,17 @@ const emit = defineEmits<{
         清除
       </Button>
       <Button
-        data-testid="enter-rename"
-        class="h-11 rail:h-7"
-        variant="outline"
-        size="sm"
-        :disabled="loading"
-        @click="emit('enter', 'rename')"
-      >
-        <PenLine class="size-3.5" />
-        {{ replacing.rename ? '替换重命名记录' : '重命名' }}
-      </Button>
-      <Button
-        data-testid="enter-metadata"
-        class="h-11 rail:h-7"
-        variant="outline"
-        size="sm"
-        :disabled="loading"
-        @click="emit('enter', 'metadata_refresh')"
-      >
-        <Download class="size-3.5" />
-        {{ replacing.metadata_refresh ? '替换元数据记录' : '获取元数据' }}
-      </Button>
-      <Button
-        data-testid="enter-conversion"
+        v-for="task in TASKS"
+        :key="task.target"
+        :data-testid="`enter-${task.target}`"
         class="h-11 rail:h-7"
         size="sm"
+        :variant="task.target === 'conversion' ? 'default' : 'outline'"
         :disabled="loading"
-        @click="emit('enter', 'conversion')"
+        :title="replacing ? '将替换当前工作集批次' : '设为工作集批次'"
+        @click="emit('enter', task.target)"
       >
-        <Layers class="size-3.5" />
-        {{ loading ? '处理中…' : replacing.conversion ? '替换当前转换记录' : '进入转换' }}
+        {{ task.label }}
       </Button>
     </div>
   </div>

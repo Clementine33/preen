@@ -225,7 +225,7 @@ export class ApiClient implements ApiClientContract {
 
   // ==================== Worksets ====================
 
-  /** The library's current record for one operation, or null when it has none. */
+  /** The library's shared current batch, read through a task entry point. */
   async getCurrentRecord(
     libraryId: string,
     operation: OperationType,
@@ -238,7 +238,7 @@ export class ApiClient implements ApiClientContract {
   }
 
   /**
-   * Create the current record of one (library, operation) pair, replacing the
+   * Create the library's shared current batch, replacing the
    * record the caller saw as current. The idempotency key makes a retried
    * request answer with the record it already created.
    */

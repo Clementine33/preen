@@ -93,7 +93,7 @@ func (s *serviceImpl) seedCommonSettings(
 		return nil, NewError(ErrKindInternal, "INTERNAL", "failed to load the replaced draft", err)
 	}
 	if draft == nil {
-		current, currentErr := s.repo.GetCurrentWorkset(libraryID, operationType)
+		current, currentErr := s.repo.GetCurrentWorkset(libraryID)
 		if currentErr != nil {
 			return nil, NewError(ErrKindInternal, "INTERNAL", "failed to load the current record", currentErr)
 		}

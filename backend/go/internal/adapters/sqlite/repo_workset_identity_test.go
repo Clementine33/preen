@@ -74,10 +74,10 @@ func TestMemberIdentityIsStableAcrossReopens(t *testing.T) {
 	}
 }
 
-// TestReplaceCurrentWorksetIsTheOnlyRecordForAPair pins the storage-level
-// uniqueness of one record per (library, operation): the second write for the
-// same pair must replace the first, not add another row.
-func TestReplaceCurrentWorksetIsTheOnlyRecordForAPair(t *testing.T) {
+// TestReplaceCurrentWorksetIsTheOnlyRecordForALibrary pins the storage-level
+// uniqueness of one record per library: the second write for the
+// same library must replace the first, not add another row.
+func TestReplaceCurrentWorksetIsTheOnlyRecordForALibrary(t *testing.T) {
 	repo := newTestRepository(t)
 	insertLibrary(t, repo, "lib-1")
 
@@ -92,6 +92,8 @@ func TestReplaceCurrentWorksetIsTheOnlyRecordForAPair(t *testing.T) {
 		t.Fatalf("first record: %v", err)
 	}
 	second, members2, op2, draft2 := newOperationFixture(t, "lib-1", "second")
+	op2.OperationType = "rename"
+	draft2.OperationType = "rename"
 	if err := repo.ReplaceCurrentWorkset(
 		second,
 		members2,
@@ -102,7 +104,7 @@ func TestReplaceCurrentWorksetIsTheOnlyRecordForAPair(t *testing.T) {
 		t.Fatalf("replacement: %v", err)
 	}
 
-	current, err := repo.GetCurrentWorkset("lib-1", "conversion")
+	current, err := repo.GetCurrentWorkset("lib-1")
 	if err != nil {
 		t.Fatalf("GetCurrentWorkset: %v", err)
 	}
@@ -119,7 +121,7 @@ func TestReplaceCurrentWorksetIsTheOnlyRecordForAPair(t *testing.T) {
 		t.Fatalf("count records: %v", countErr)
 	}
 	if rows != 1 {
-		t.Fatalf("expected exactly one record per (library, operation), got %d", rows)
+		t.Fatalf("expected exactly one record per library, got %d", rows)
 	}
 }
 
@@ -146,7 +148,7 @@ func TestReplaceCurrentWorksetRefusesAStaleExpectedRecord(t *testing.T) {
 	if err == nil {
 		t.Fatal("a stale expected record must refuse the write")
 	}
-	current, _ := repo.GetCurrentWorkset("lib-1", "conversion")
+	current, _ := repo.GetCurrentWorkset("lib-1")
 	if current == nil || current.ID != first.ID {
 		t.Fatalf("the newer record was overwritten: %+v", current)
 	}
@@ -185,7 +187,7 @@ func TestReplaceCurrentWorksetRefusesABusyRecord(t *testing.T) {
 	if err == nil {
 		t.Fatal("a record with a queued session must refuse the replacement")
 	}
-	if current, _ := repo.GetCurrentWorkset("lib-1", "conversion"); current == nil || current.ID != first.ID {
+	if current, _ := repo.GetCurrentWorkset("lib-1"); current == nil || current.ID != first.ID {
 		t.Fatalf("the busy record was replaced anyway: %+v", current)
 	}
 }

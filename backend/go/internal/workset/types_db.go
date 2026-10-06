@@ -10,17 +10,16 @@ import (
 )
 
 // Workset is the persisted current processing record of one
-// (library, operation) pair. Version is the metadata concurrency counter: only
+// library. Version is the metadata concurrency counter: only
 // renames advance it. Draft and generation state live on the operation
 // (workset_operations).
 type Workset struct {
-	ID            string
-	Title         string
-	LibraryID     string // "" when orphaned (library row vanished outside the delete path)
-	OperationType string
-	RootPath      string // snapshot: library root at creation
-	RootPathKey   string // snapshot: canonical root identity at creation
-	Version       int
+	ID          string
+	Title       string
+	LibraryID   string // "" when orphaned (library row vanished outside the delete path)
+	RootPath    string // snapshot: library root at creation
+	RootPathKey string // snapshot: canonical root identity at creation
+	Version     int
 	// CreationIdemKey is the key that created this record; "" when not set.
 	CreationIdemKey string
 	// CreationRequestHash is the canonical hash of the creation request that

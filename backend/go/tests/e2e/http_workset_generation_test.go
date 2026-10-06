@@ -264,7 +264,7 @@ func TestHTTPWorksetGenerationLoop(t *testing.T) {
 			} `json:"operations"`
 		}
 		_ = doJSON(t, client, ctx, base, http.MethodGet, wsPath, token, nil, &wsDetail)
-		if len(wsDetail.Operations) != 1 || wsDetail.Operations[0].OperationType != "conversion" {
+		if len(wsDetail.Operations) != 3 || wsDetail.Operations[0].OperationType != "conversion" {
 			t.Fatalf("workset operations: %+v", wsDetail.Operations)
 		}
 		if wsDetail.Operations[0].ActiveGeneration != nil {

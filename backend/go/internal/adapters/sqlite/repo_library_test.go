@@ -38,8 +38,8 @@ func seedRecordWithPlan(t *testing.T, repo *Repository, libraryID, worksetID, pl
 	t.Helper()
 	now := time.Now().Format(timeFormat)
 	for _, stmt := range []string{
-		`INSERT INTO worksets (id, title, library_id, operation_type, root_path, root_path_key, created_at, updated_at)
-		 VALUES ('` + worksetID + `', 'Music', '` + libraryID + `', 'conversion', '/music', '/music', '` + now + `', '` + now + `')`,
+		`INSERT INTO worksets (id, title, library_id, root_path, root_path_key, created_at, updated_at)
+		 VALUES ('` + worksetID + `', 'Music', '` + libraryID + `', '/music', '/music', '` + now + `', '` + now + `')`,
 		`INSERT INTO workset_members (workset_id, member_id, member_index, rel_path, folder_path, folder_name)
 		 VALUES ('` + worksetID + `', 'm-1', 0, 'albumA', '/music/albumA', 'albumA')`,
 		`INSERT INTO workset_operations (workset_id, operation_type, version, created_at, updated_at)

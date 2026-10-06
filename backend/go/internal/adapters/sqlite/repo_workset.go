@@ -15,7 +15,7 @@ import (
 
 // ==================== workset.Workset CRUD ====================
 
-const worksetColumns = `id, title, library_id, operation_type, root_path, root_path_key, version, creation_idem_key, creation_request_hash, created_at, updated_at`
+const worksetColumns = `id, title, library_id, root_path, root_path_key, version, creation_idem_key, creation_request_hash, created_at, updated_at`
 
 func scanWorkset(scanner interface{ Scan(...any) error }) (*workset.Workset, error) {
 	var w workset.Workset
@@ -25,7 +25,6 @@ func scanWorkset(scanner interface{ Scan(...any) error }) (*workset.Workset, err
 		&w.ID,
 		&w.Title,
 		&libraryID,
-		&w.OperationType,
 		&w.RootPath,
 		&w.RootPathKey,
 		&w.Version,
@@ -44,12 +43,11 @@ func scanWorkset(scanner interface{ Scan(...any) error }) (*workset.Workset, err
 }
 
 // GetCurrentWorkset returns the current processing record of one
-// (library, operation) pair, or nil when the pair has none.
-func (r *Repository) GetCurrentWorkset(libraryID, operationType string) (*workset.Workset, error) {
+// library, or nil when it has none.
+func (r *Repository) GetCurrentWorkset(libraryID string) (*workset.Workset, error) {
 	row := r.db.QueryRow(
-		`SELECT `+worksetColumns+` FROM worksets WHERE library_id = ? AND operation_type = ?`,
+		`SELECT `+worksetColumns+` FROM worksets WHERE library_id = ?`,
 		libraryID,
-		operationType,
 	)
 	w, err := scanWorkset(row)
 	if err != nil {
@@ -119,15 +117,14 @@ func (r *Repository) HasActiveSession() (bool, error) {
 	return false, nil
 }
 
-// ReplaceCurrentWorkset creates the new current record of one (library,
-// operation) pair and removes the record it replaces, all in one transaction:
+// ReplaceCurrentWorkset creates the library's new shared current batch and removes the record it replaces, all in one transaction:
 // members, operations, drafts, plan snapshots, revisions and sessions of the
 // old record are gone exactly when the new record becomes visible.
 //
 // expectedCurrentID is the record the caller saw as current ("" when it saw
 // none). A mismatch is workset.ErrCurrentRecordChanged. A replaced record holding a
 // queued or running session is workset.ErrRecordBusy. A second row for the same
-// (library, operation) is refused by the unique index; a repeated creation key
+// library is refused by the unique index; a repeated creation key
 // is workset.ErrWorksetIdemConflict.
 func (r *Repository) ReplaceCurrentWorkset(
 	w *workset.Workset,
@@ -142,7 +139,7 @@ func (r *Repository) ReplaceCurrentWorkset(
 	}
 	defer tx.Rollback()
 
-	current, err := currentWorksetTx(tx, w.LibraryID, w.OperationType)
+	current, err := currentWorksetTx(tx, w.LibraryID)
 	if err != nil {
 		return err
 	}
@@ -182,13 +179,12 @@ func (r *Repository) ReplaceCurrentWorkset(
 	return tx.Commit()
 }
 
-// currentWorksetTx reads the current record of a (library, operation) pair
+// currentWorksetTx reads the current record of a library
 // inside a transaction; nil when there is none.
-func currentWorksetTx(tx *sql.Tx, libraryID, operationType string) (*workset.Workset, error) {
+func currentWorksetTx(tx *sql.Tx, libraryID string) (*workset.Workset, error) {
 	w, err := scanWorkset(tx.QueryRow(
-		`SELECT `+worksetColumns+` FROM worksets WHERE library_id = ? AND operation_type = ?`,
+		`SELECT `+worksetColumns+` FROM worksets WHERE library_id = ?`,
 		libraryID,
-		operationType,
 	))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -268,9 +264,9 @@ func insertWorkset(tx *sql.Tx, w *workset.Workset, members []workset.WorksetMemb
 		idemKey = w.CreationIdemKey
 	}
 	if _, err := tx.Exec(`
-		INSERT INTO worksets (id, title, library_id, operation_type, root_path, root_path_key, version, creation_idem_key, creation_request_hash, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, w.ID, w.Title, libID, w.OperationType, w.RootPath, w.RootPathKey, w.Version, idemKey, w.CreationRequestHash, w.CreatedAt.Format(timeFormat), w.UpdatedAt.Format(timeFormat)); err != nil {
+		INSERT INTO worksets (id, title, library_id, root_path, root_path_key, version, creation_idem_key, creation_request_hash, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, w.ID, w.Title, libID, w.RootPath, w.RootPathKey, w.Version, idemKey, w.CreationRequestHash, w.CreatedAt.Format(timeFormat), w.UpdatedAt.Format(timeFormat)); err != nil {
 		if isUniqueConstraintError(err) {
 			return workset.ErrWorksetIdemConflict
 		}

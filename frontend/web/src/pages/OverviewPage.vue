@@ -12,7 +12,7 @@ import { settingsEditBlockedReason } from '@/features/worksets/workbench-nav'
 import ScanProgressBar from '@/features/libraries/ScanProgressBar.vue'
 import DirList from '@/features/libraries/DirList.vue'
 import LibraryManager from '@/features/libraries/LibraryManager.vue'
-import BatchPlanBar from '@/features/libraries/BatchPlanBar.vue'
+import BatchPlanBar, { type TaskTarget } from '@/features/libraries/BatchPlanBar.vue'
 import { useLibraryScan } from '@/composables/use-library-scan'
 import { useApiClient } from '@/lib/api/client'
 import { errorDetails } from '@/lib/api/error'
@@ -24,9 +24,6 @@ import { useLibraryUiStore } from '@/stores/library-ui'
 import { useScanStore } from '@/stores/scan'
 import {
   CONVERSION,
-  METADATA_REFRESH,
-  RENAME,
-  type OperationType,
   type SkippedFolder,
   type SkippedReason,
 } from '@/lib/api/types'
@@ -36,8 +33,8 @@ import {
  *
  * The library IS the workbench: entering it lists every direct child directory
  * the last scan saw — empty ones and ones without audio included — and that is
- * where an operation's scope is chosen. Choosing folders creates the library's
- * record for that operation explicitly; browsing alone creates nothing.
+ * where the shared batch is chosen. Choosing folders creates the library's
+ * workset explicitly; browsing alone creates nothing.
  */
 const route = useRoute()
 const router = useRouter()
@@ -77,25 +74,9 @@ const dirsError = computed(() => {
   return error ? errorDetails(error) : null
 })
 
-const OPERATIONS = [CONVERSION, RENAME, METADATA_REFRESH] as const
-const OPERATION_LABEL: Record<OperationType, string> = {
-  conversion: '转换',
-  rename: '重命名',
-  metadata_refresh: '获取元数据',
-}
-const OPERATION_ROUTE: Record<OperationType, string> = {
-  conversion: 'conversion',
-  rename: 'rename',
-  metadata_refresh: 'metadata-refresh',
-}
-
-// Each operation has its own current record per library.
-const recordQueries = OPERATIONS.map((op) => useQuery(() => currentRecordQueryOptions(api, libraryId.value, op)))
-const recordOf = (op: OperationType) => recordQueries[OPERATIONS.indexOf(op)].data.value?.workset ?? null
-const record = computed(() => recordOf(CONVERSION))
-const replacing = computed(
-  () => Object.fromEntries(OPERATIONS.map((op) => [op, Boolean(recordOf(op))])) as Record<OperationType, boolean>,
-)
+// One folder batch is shared by every task page.
+const recordQuery = useQuery(() => currentRecordQueryOptions(api, libraryId.value, CONVERSION))
+const record = computed(() => recordQuery.data.value?.workset ?? null)
 const conversionOperation = computed(
   () => record.value?.operations.find((operation) => operation.operation_type === CONVERSION) ?? null,
 )
@@ -111,12 +92,9 @@ const confirmOpen = ref(false)
 const createError = ref<string | null>(null)
 const skipped = ref<SkippedFolder[]>([])
 let idempotencyKey = ''
-const pendingOperation = ref<OperationType>(CONVERSION)
 
-const createMutations = OPERATIONS.map((op) =>
-  useMutation(createCurrentRecordMutationOptions(api, queryClient, libraryId.value, op)),
-)
-const creating = computed(() => createMutations.some((mutation) => mutation.isPending.value))
+const createMutation = useMutation(() => createCurrentRecordMutationOptions(api, queryClient, libraryId.value, CONVERSION))
+const creating = computed(() => createMutation.isPending.value)
 
 const SKIP_TEXT: Record<SkippedReason, string> = {
   no_audio: '没有音频，将跳过',
@@ -132,13 +110,16 @@ const selectedDirs = computed(() => dirs.value.filter((dir) => ui.selectedDirPat
 /** A directory the conversion will skip: it is selectable, but holds no audio. */
 const selectedWithoutAudio = computed(() => selectedDirs.value.filter((dir) => dir.audio_file_count === 0))
 
-function startEnter(op: OperationType) {
+/** The task to open once the selection is the batch. */
+let pendingTarget: TaskTarget = 'conversion'
+
+function startEnter(target: TaskTarget) {
+  pendingTarget = target
   if (ui.selectedDirPaths.length === 0) return
   skipped.value = []
   createError.value = null
   idempotencyKey = crypto.randomUUID()
-  pendingOperation.value = op
-  if (recordOf(op)) {
+  if (record.value) {
     // Replacing deletes member edits, plan and execution results; common
     // settings remain available to seed the new record.
     confirmOpen.value = true
@@ -148,22 +129,24 @@ function startEnter(op: OperationType) {
 }
 
 async function submit() {
-  const op = pendingOperation.value
   createError.value = null
   try {
-    const response = await createMutations[OPERATIONS.indexOf(op)].mutateAsync({
+    const response = await createMutation.mutateAsync({
       request: {
         folder_paths: [...ui.selectedDirPaths],
         // The record the caller saw as current: a concurrent replace is a
         // conflict, not an overwrite.
-        expected_current_id: recordOf(op)?.workset_id,
+        expected_current_id: record.value?.workset_id,
       },
       idempotencyKey,
     })
     skipped.value = response.skipped
     confirmOpen.value = false
     ui.clearSelection()
-    await router.push({ name: OPERATION_ROUTE[op], params: { libraryId: libraryId.value } })
+    // A skipped folder is reported here first; the task can be opened from the card.
+    if (response.skipped.length === 0) {
+      await router.push({ name: pendingTarget, params: { libraryId: libraryId.value } })
+    }
   } catch (error) {
     const apiError = error as { code?: string; message?: string; details?: string[] }
     skipped.value = (apiError.details ?? []).map((detail) => {
@@ -349,19 +332,20 @@ const libraryRoot = computed(() => activeLibrary.value?.root_path ?? '')
           <!-- The record entry: the current conversion record of this
                library, or the invitation to choose a scope. -->
           <section class="mt-4">
-            <h2 class="text-xs font-semibold text-[var(--text-secondary)]">转换</h2>
-            <RouterLink
+            <h2 class="text-xs font-semibold text-[var(--text-secondary)]">工作集批次</h2>
+            <div
               v-if="record"
-              :to="{ name: 'conversion', params: { libraryId } }"
-              class="mt-1 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 hover:border-[var(--brand-border)]"
+              class="mt-1 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card px-3 py-2"
               data-testid="current-record"
             >
               <span class="text-xs font-medium">{{ record.title }}</span>
               <Badge tone="neutral">{{ record.members.length }} 个文件夹</Badge>
-              <span class="ml-auto text-[11px] text-[var(--brand-ink)]">进入转换 →</span>
-            </RouterLink>
+              <RouterLink :to="{ name: 'conversion', params: { libraryId } }" class="ml-auto text-[11px] text-[var(--brand-ink)]">转换 →</RouterLink>
+              <RouterLink :to="{ name: 'rename', params: { libraryId } }" class="text-[11px] text-[var(--brand-ink)]">重命名 →</RouterLink>
+              <RouterLink :to="{ name: 'metadata-refresh', params: { libraryId } }" class="text-[11px] text-[var(--brand-ink)]">获取元数据 →</RouterLink>
+            </div>
             <p v-else class="mt-1 rounded-lg border border-dashed border-border px-3 py-2 text-[11px] text-[var(--text-muted)]">
-              还没有转换记录。在下面勾选要转换的文件夹，然后点击“进入转换”。
+              还没有工作集批次。在下面勾选文件夹，点击下方的任务入口，各 Task 共用这批文件夹。
             </p>
           </section>
 
@@ -436,7 +420,7 @@ const libraryRoot = computed(() => activeLibrary.value?.root_path ?? '')
         v-if="!filesOpen && ui.selectedDirPaths.length > 0"
         :selected-count="ui.selectedDirPaths.length"
         :loading="creating"
-        :replacing="replacing"
+        :replacing="Boolean(record)"
         :audio-less-count="selectedWithoutAudio.length"
         @clear="ui.clearSelection()"
         @enter="startEnter"
@@ -461,11 +445,11 @@ const libraryRoot = computed(() => activeLibrary.value?.root_path ?? '')
        portalled, so it reaches the user at every container tier. -->
   <Modal
     :open="confirmOpen"
-    :title="`替换当前${OPERATION_LABEL[pendingOperation]}记录？`"
+    title="替换当前工作集批次？"
     @update:open="confirmOpen = false"
   >
     <p class="text-xs">
-      这个媒体库已有一条{{ OPERATION_LABEL[pendingOperation] }}记录。创建新记录会删除它的成员设置、当前计划与执行结果，且无法恢复；全局设置会保留。
+      这个媒体库已有一个工作集批次。替换会删除所有 Task 的成员设置、当前计划与执行结果，且无法恢复；全局设置会保留。
     </p>
     <p class="text-[11px] text-[var(--text-muted)]">文件本身不会被修改。</p>
     <div class="flex justify-end gap-2">

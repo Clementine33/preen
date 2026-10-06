@@ -185,8 +185,8 @@ CREATE TABLE libraries (
 CREATE UNIQUE INDEX idx_libraries_root_path ON libraries(root_path);
 CREATE UNIQUE INDEX idx_libraries_root_path_key ON libraries(root_path_key);
 
--- Worksets: the current processing record of one (library, operation). At
--- most one row per pair — the unique index below is the storage-level
+-- Worksets: the shared current folder batch of one library. At
+-- most one row per library — the unique index below is the storage-level
 -- guarantee, not an application check. library_id is only NULL for a record
 -- whose library row vanished outside the delete path; the delete path removes
 -- the record instead of orphaning it. title duplicates are allowed. version is
@@ -199,7 +199,6 @@ CREATE TABLE worksets (
     id TEXT PRIMARY KEY,
     title TEXT NOT NULL DEFAULT '',
     library_id TEXT REFERENCES libraries(id) ON DELETE SET NULL,
-    operation_type TEXT NOT NULL DEFAULT '',
     root_path TEXT NOT NULL DEFAULT '',
     root_path_key TEXT NOT NULL DEFAULT '',
     version INTEGER NOT NULL DEFAULT 1,
@@ -210,8 +209,8 @@ CREATE TABLE worksets (
 );
 
 CREATE UNIQUE INDEX idx_worksets_idem ON worksets(creation_idem_key) WHERE creation_idem_key IS NOT NULL;
-CREATE UNIQUE INDEX idx_worksets_library_operation
-    ON worksets(library_id, operation_type) WHERE library_id IS NOT NULL;
+CREATE UNIQUE INDEX idx_worksets_library
+    ON worksets(library_id) WHERE library_id IS NOT NULL;
 CREATE INDEX idx_worksets_library_updated ON worksets(library_id, updated_at);
 CREATE INDEX idx_worksets_updated ON worksets(updated_at);
 

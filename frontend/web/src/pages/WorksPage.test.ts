@@ -50,8 +50,8 @@ function makeWorks(base: number, count: number): WorkSummary[] {
 const LIB_A = 'lib-a'
 const LIB_B = 'lib-b'
 // Below RJ01000000, so the listing's numbers also have a 6-digit spelling.
-// Thirty works: two pages at the smallest page size.
-const worksA = makeWorks(100_000, 30)
+// Forty works: two pages at the smallest page size.
+const worksA = makeWorks(100_000, 40)
 const worksB = makeWorks(200_000, 2)
 const [A0, A1, A2, A3] = worksA.map((work) => work.rj)
 
@@ -584,15 +584,15 @@ describe('works page', () => {
 
   describe('pages', () => {
     it('turns pages keeping the filters, and starts again at page 1 when they change', async () => {
-      const { wrapper, router, listWorks } = await mountWorks('/works?size=24')
+      const { wrapper, router, listWorks } = await mountWorks('/works?size=36')
       await pick(wrapper, 'AGE', 'R18')
 
       await wrapper.get('[aria-label="Page 2"]').trigger('click')
       await flushPromises()
-      expect(lastParams(listWorks)).toMatchObject({ page: 2, limit: 24, age_category: 3 })
+      expect(lastParams(listWorks)).toMatchObject({ page: 2, limit: 36, age_category: 3 })
       expect(router.currentRoute.value.query.page).toBe('2')
       // The page's first work is selected, not one from page 1.
-      expect(inspected(wrapper)).toBe(worksA[24].rj)
+      expect(inspected(wrapper)).toBe(worksA[36].rj)
 
       await pick(wrapper, 'AGE', 'R15')
       expect(lastParams(listWorks)).toMatchObject({ page: 1, age_category: 2 })
@@ -600,30 +600,30 @@ describe('works page', () => {
 
       await wrapper.get('[aria-label="Page 2"]').trigger('click')
       await flushPromises()
-      await pick(wrapper, 'SIZE', '48')
-      expect(lastParams(listWorks)).toMatchObject({ page: 1, limit: 48 })
+      await pick(wrapper, 'SIZE', '60')
+      expect(lastParams(listWorks)).toMatchObject({ page: 1, limit: 60 })
     })
 
     it('reads the same page range from one link whatever the local size preference', async () => {
-      localStorage.setItem('works.pageSize', '96')
+      localStorage.setItem('works.pageSize', '120')
       const named = await mountWorks('/works?page=2')
       // A named page with no size is the fixed default, never the preference.
-      expect(named.listWorks.mock.calls[0][0]).toMatchObject({ page: 2, limit: 48 })
+      expect(named.listWorks.mock.calls[0][0]).toMatchObject({ page: 2, limit: 60 })
       // Correcting the page past the end writes the size in effect, not the preference.
-      expect(named.router.currentRoute.value.query.size).toBe('48')
+      expect(named.router.currentRoute.value.query.size).toBe('60')
       named.wrapper.unmount()
 
       // A fresh visit takes the preference once, and the address carries it.
       const fresh = await mountWorks('/works')
-      expect(fresh.router.currentRoute.value.query.size).toBe('96')
-      expect(lastParams(fresh.listWorks)).toMatchObject({ limit: 96 })
+      expect(fresh.router.currentRoute.value.query.size).toBe('120')
+      expect(lastParams(fresh.listWorks)).toMatchObject({ limit: 120 })
     })
 
     it('corrects a page past the end only once the listing has answered', async () => {
       let answer!: (value: ReturnType<typeof pageOf>) => void
       const listWorks = vi.fn((params: { page?: number; limit?: number }) =>
         params.page === 9 ? new Promise((done) => { answer = done }) : Promise.resolve(pageOf(params)))
-      const { router } = await mountWorks('/works?size=24&page=9', false, { listWorks })
+      const { router } = await mountWorks('/works?size=36&page=9', false, { listWorks })
 
       // Still waiting: nothing is corrected from what is not yet known.
       expect(router.currentRoute.value.query.page).toBe('9')
@@ -642,23 +642,23 @@ describe('works page', () => {
     })
 
     it('turns the page from the keyboard off either end of it', async () => {
-      const { wrapper, router, listWorks } = await mountWorks(`/works?size=24&rj=${worksA[23].rj}`)
+      const { wrapper, router, listWorks } = await mountWorks(`/works?size=36&rj=${worksA[35].rj}`)
 
       press('j')
       await flushPromises()
       expect(lastParams(listWorks)).toMatchObject({ page: 2 })
-      expect(inspected(wrapper)).toBe(worksA[24].rj)
+      expect(inspected(wrapper)).toBe(worksA[36].rj)
 
       press('k')
       await flushPromises()
       // Page 1 answers from the cache; the address says where the wall is.
       expect(router.currentRoute.value.query.page).toBeUndefined()
       // Back off the first work lands on the previous page's last.
-      expect(inspected(wrapper)).toBe(worksA[23].rj)
+      expect(inspected(wrapper)).toBe(worksA[35].rj)
 
       press('PageDown')
       await flushPromises()
-      expect(inspected(wrapper)).toBe(worksA[24].rj)
+      expect(inspected(wrapper)).toBe(worksA[36].rj)
     })
   })
 
@@ -684,7 +684,7 @@ describe('works page', () => {
           return flushPromises().then(() => press('Enter'))
         },
       ]) {
-        const h = await mountWorks('/works?size=24')
+        const h = await mountWorks('/works?size=36')
         const scroller = h.wrapper.get('[data-testid="work-wall"]').element as HTMLElement
         scroller.scrollTop = 120
         await openAndReturn(h, () => open(h))
@@ -695,7 +695,7 @@ describe('works page', () => {
     })
 
     it('restores the scroll offset and then focus once a slow listing lands', async () => {
-      const h = await mountWorks('/works?size=24')
+      const h = await mountWorks('/works?size=36')
       ;(h.wrapper.get('[data-testid="work-wall"]').element as HTMLElement).scrollTop = 120
       await openAndReturn(h, () => h.wrapper.get(`[data-rj="${A3}"]`).trigger('dblclick'))
 
@@ -706,7 +706,7 @@ describe('works page', () => {
       h.wrapper.unmount()
       expect(document.activeElement).toBe(document.body)
 
-      answer(pageOf({ limit: 24 }))
+      answer(pageOf({ limit: 36 }))
       await flushPromises()
       expect((back.wrapper.get('[data-testid="work-wall"]').element as HTMLElement).scrollTop).toBe(120)
       expect((document.activeElement as HTMLElement).dataset.rj).toBe(A3)
@@ -716,7 +716,7 @@ describe('works page', () => {
     })
 
     it('does not take focus when the user has already moved on', async () => {
-      const h = await mountWorks('/works?size=24')
+      const h = await mountWorks('/works?size=36')
       await openAndReturn(h, () => h.wrapper.get(`[data-rj="${A3}"]`).trigger('dblclick'))
 
       let answer!: (value: ReturnType<typeof pageOf>) => void
@@ -727,7 +727,7 @@ describe('works page', () => {
       find.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))
       find.focus()
 
-      answer(pageOf({ limit: 24 }))
+      answer(pageOf({ limit: 36 }))
       await flushPromises()
       expect(document.activeElement).toBe(find)
       back.wrapper.unmount()

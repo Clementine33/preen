@@ -15,8 +15,10 @@ import type { WorksSort } from '@/lib/api/types'
 // action resolves once the address has actually changed, so a caller that
 // navigates on (FIND, opening a work) acts on the committed address.
 
-export const PAGE_SIZES = [24, 48, 96, 192] as const
-export const DEFAULT_SIZE = 48
+// Multiples of the column counts a wall actually has (2 on a phone; 4, 5, 6, 9
+// and 15 on common desktops), so a page's last row is usually full.
+export const PAGE_SIZES = [36, 60, 120, 180] as const
+export const DEFAULT_SIZE = 60
 const SIZE_KEY = 'works.pageSize'
 export const DEFAULT_SORT: WorksSort = 'release_date'
 /**

@@ -397,7 +397,7 @@ onBeforeUnmount(() => {
    outer edges carry the only double bar (1px fine + 2px strong); everything
    inside uses single 1px lines. */
 .works {
-  display: grid; grid-template-rows: 48px 40px minmax(0, 1fr) auto;
+  display: grid; grid-template-rows: 48px 40px minmax(0, 1fr) auto; grid-template-columns: minmax(0, 1fr);
   width: 100%; height: 100%;
   font-variant-numeric: tabular-nums;
 }

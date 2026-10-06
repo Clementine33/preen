@@ -100,7 +100,7 @@ describe('the wall address', () => {
     const ids = Array.from({ length: 300 }, (_, i) => `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`)
     const view = new URLSearchParams({
       library: 'all', voice: ids.join(','), circle: 'ci-1', age: 'r18', tag: 's:s-asmr|u:u-asmr,s:s-ear',
-      mode: 'any', sort: 'rating', q: '月 下', page: '3', size: '24', rj: 'RJ01113012',
+      mode: 'any', sort: 'rating', q: '月 下', page: '3', size: '36', rj: 'RJ01113012',
     })
     expect(cleanedQuery(routeOf(guardRouter(), `/works?${view}`))).toBeNull()
   })

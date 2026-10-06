@@ -7,6 +7,8 @@ import type { Operation, Workset } from '@/lib/api/types'
 import { apiStub } from '@/test/api-stub'
 import { installTestQueryPlugin } from '@/test/query-client'
 import { useWorksetUiStore } from '@/stores/workset-ui'
+import { useWorksetEditorStore } from '@/stores/workset-editor'
+import type { EditTarget } from '@/features/worksets/draft-intents'
 import ConversionPage from './ConversionPage.vue'
 
 const counts = { members: 2, changed: 2, unmet_targets: 0, blocked: 0, unchanged: 0 }
@@ -32,6 +34,7 @@ async function page(getRevision = vi.fn().mockResolvedValue(revision()), blocked
   const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/worksets/:libraryId/conversion', name: 'conversion', component: ConversionPage }, { path: '/overview', name: 'workbench-overview', component: { template: '<div />' } }] })
   await router.push('/worksets/lib/conversion')
   const api = apiStub({
+    saveOperationDraft: vi.fn().mockResolvedValue({ ...operation, version: 2 }),
     getCurrentRecord: vi.fn().mockResolvedValue({ workset }), getWorkset: vi.fn().mockResolvedValue(workset),
     getOperation: vi.fn().mockResolvedValue({ ...operation, current_revision: { ...operation.current_revision, counts: { ...counts, blocked } } }),
     getOperationDraft: vi.fn().mockResolvedValue({ version: 1, document: { schema_version: 1, classifier_tags: [], matched: {}, unmatched: {}, members: [] } }), getRevision,
@@ -67,4 +70,26 @@ describe('selected conversion execution', () => {
     expect(wrapper.get('[data-testid="execute-selected"]').attributes('title')).toContain('加载中')
     wrapper.unmount()
   })
+})
+
+describe('conversion editing status', () => {
+  it.each<EditTarget>([{ kind: 'member', memberId: 'a' }, { kind: 'batch', memberIds: ['a', 'b'] }])(
+    'hides the $kind editing status after applying changes', async (target) => {
+      const wrapper = await page()
+      const editor = useWorksetEditorStore()
+      editor.open({
+        worksetId: 'ws', operation: 'conversion', target, baseVersion: 1,
+        baseDocument: { schema_version: 1, classifier_tags: [], matched: {}, unmatched: {}, members: [] },
+      })
+      editor.setUnit('classifier_tags', { intent: 'set', value: ['tag'] })
+      await flushPromises()
+      expect(wrapper.get('[data-testid="edit-session-bar"]').text()).toContain('有未应用修改')
+      await wrapper.get('[data-testid="apply-session"]').trigger('click')
+      await flushPromises()
+      expect(editor.isDirty).toBe(false)
+      expect(editor.session?.baseVersion).toBe(2)
+      expect(wrapper.find('[data-testid="edit-session-bar"]').exists()).toBe(false)
+      wrapper.unmount()
+    },
+  )
 })

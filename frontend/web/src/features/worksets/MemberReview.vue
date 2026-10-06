@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import {
   componentOperationCount,
   decisionGroups,
@@ -78,6 +79,23 @@ function componentFacts(component: ComponentOutcome): { label: string; tone: 'su
       <p class="truncate font-mono text-[10px] text-[var(--text-muted)]" :title="member.folder_path">
         {{ member.rel_path }}
       </p>
+    </div>
+
+    <!-- An excluded member is still editable: participation is one of the
+         units the editor writes, so hiding the way in would trap it. The
+         caller decides whether the way in is offered at all. -->
+    <div v-if="editable">
+      <slot name="actions" :edit="emit">
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          data-testid="member-review-edit"
+          @click="emit('edit')"
+        >
+          修改此文件夹
+        </Button>
+      </slot>
     </div>
 
     <div class="flex flex-wrap gap-1.5">
@@ -164,21 +182,5 @@ function componentFacts(component: ComponentOutcome): { label: string; tone: 'su
         </li>
       </ul>
     </section>
-
-    <!-- An excluded member is still editable: participation is one of the
-         units the editor writes, so hiding the way in would trap it. The
-         caller decides whether the way in is offered at all. -->
-    <div v-if="editable">
-      <slot name="actions" :edit="emit">
-        <button
-          type="button"
-          class="text-xs font-medium text-[var(--brand-ink)] hover:underline focus-visible:ring-2 focus-visible:ring-[var(--brand)] focus-visible:outline-none"
-          data-testid="member-review-edit"
-          @click="emit('edit')"
-        >
-          修改此文件夹
-        </button>
-      </slot>
-    </div>
   </div>
 </template>

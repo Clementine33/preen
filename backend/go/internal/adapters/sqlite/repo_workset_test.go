@@ -17,15 +17,14 @@ func newOperationFixture(
 	t.Helper()
 	now := time.Now()
 	w := &workset.Workset{
-		ID:            "ws-test-" + title,
-		Title:         title,
-		LibraryID:     libID,
-		OperationType: "conversion",
-		RootPath:      "/music",
-		RootPathKey:   "/music",
-		Version:       1,
-		CreatedAt:     now,
-		UpdatedAt:     now,
+		ID:          "ws-test-" + title,
+		Title:       title,
+		LibraryID:   libID,
+		RootPath:    "/music",
+		RootPathKey: "/music",
+		Version:     1,
+		CreatedAt:   now,
+		UpdatedAt:   now,
 	}
 	members := []workset.WorksetMember{
 		{

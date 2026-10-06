@@ -95,10 +95,10 @@ func TestCreateCurrentSkipsUnusableFolders(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateCurrentWorkset: %v", err)
 	}
-	if res.Recorded != 1 || res.Created != true {
+	if res.Recorded != 2 || res.Created != true {
 		t.Fatalf("recorded=%d created=%v", res.Recorded, res.Created)
 	}
-	if len(res.Workset.Members) != 1 || res.Workset.Members[0].RelPath != "albumA" {
+	if len(res.Workset.Members) != 2 || res.Workset.Members[0].RelPath != "albumA" {
 		t.Fatalf("members = %+v", res.Workset.Members)
 	}
 	reasons := map[string]string{}
@@ -107,7 +107,6 @@ func TestCreateCurrentSkipsUnusableFolders(t *testing.T) {
 	}
 	want := map[string]string{
 		"../escape":    workset.SkipInvalidPath,
-		"emptyDir":     workset.SkipNoAudio,
 		"albumA":       workset.SkipDuplicate,
 		"nope":         workset.SkipMissing,
 		"nested/child": workset.SkipNotWorkRoot,
@@ -122,22 +121,22 @@ func TestCreateCurrentSkipsUnusableFolders(t *testing.T) {
 	_, err = f.svc.CreateCurrentWorkset(f.ctx, workset.CreateCurrentRequest{
 		LibraryID:      "lib-1",
 		OperationType:  workset.OperationTypeConversion,
-		FolderPaths:    []string{"emptyDir"},
+		FolderPaths:    []string{"nope"},
 		IdempotencyKey: "idem-none",
 	})
 	if err == nil {
 		t.Fatal("a selection with no usable directory must not create a record")
 	}
 	werr, ok := workset.AsError(err)
-	if !ok || werr.Code != "NO_AUDIO_MEMBERS" {
-		t.Fatalf("want NO_AUDIO_MEMBERS, got %v", err)
+	if !ok || werr.Code != "NO_MEMBERS" {
+		t.Fatalf("want NO_MEMBERS, got %v", err)
 	}
 	if len(werr.Details) == 0 {
 		t.Fatal("the refusal must name the folders it could not use")
 	}
 	// The refusal left the record that was already there untouched.
 	after, _ := f.svc.GetCurrentWorkset(f.ctx, "lib-1", workset.OperationTypeConversion)
-	if after == nil || after.WorksetID != res.Workset.WorksetID || len(after.Members) != 1 {
+	if after == nil || after.WorksetID != res.Workset.WorksetID || len(after.Members) != 2 {
 		t.Fatalf("a refused creation changed the current record: %+v", after)
 	}
 }
@@ -267,10 +266,18 @@ func TestCreateCurrentRefusesAStaleExpectation(t *testing.T) {
 func TestCreateCurrentRefusesABusyRecord(t *testing.T) {
 	f := newFixture(t)
 	ids := f.standardLibrary("albumA", "albumB")
+	workset.RegisterTasksForTest(f.svc, []workset.Task{
+		stubTask{kind: workset.OperationTypeConversion, seed: `{"schema_version":1}`},
+		stubTask{kind: "rename", seed: `{"schema_version":1}`},
+	})
 	first := f.createCurrent("占用", ids...)
 	// A queued session that nobody runs: the fixture's dispatcher is not
 	// started, so the session stays queued for the whole test.
-	f.startGeneration(first.WorksetID, f.operation(first.WorksetID).Version)
+	if _, err := f.svc.StartGeneration(f.ctx, first.WorksetID, "rename", workset.StartGenerationRequest{
+		IfMatchVersion: 1, IdempotencyKey: "busy-rename",
+	}); err != nil {
+		t.Fatal(err)
+	}
 
 	f.ensurePlaceholders()
 	_, err := f.svc.CreateCurrentWorkset(f.ctx, workset.CreateCurrentRequest{

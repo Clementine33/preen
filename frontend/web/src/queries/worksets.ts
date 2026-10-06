@@ -19,9 +19,8 @@ import { queryKeys } from './query-keys'
 // Workset server-state coordination. All cache writes and invalidations for
 // the workset domain live here — pages never touch the QueryClient directly.
 //
-// Every operation-scoped key carries (worksetId, operationType): a draft save
-// on conversion can never refresh, invalidate or reseed another operation's
-// state, and a workset rename touches only the metadata entries.
+// Task state carries (worksetId, operationType); every task shares the
+// library's current batch key. Replacing the batch drops all of its task state.
 
 const WORKSET_PAGE_SIZE = 50
 export function worksetListInfiniteQueryOptions(
@@ -84,9 +83,8 @@ export function operationDraftQueryOptions(
 }
 
 /**
- * The library's current record for one operation: zero or one. This is how the
- * workbench asks "does this library have a conversion record" without knowing
- * a record id first, and a null answer is an ordinary state, not an error.
+ * The library's shared current batch: zero or one, regardless of the task
+ * entry point. The workbench reads it without knowing a record id first, and a null answer is an ordinary state, not an error.
  */
 export function currentRecordQueryOptions(
   api: ApiClientContract,
@@ -106,7 +104,7 @@ export function currentRecordQueryOptions(
  * Create or replace the library's current record. The expected current id is
  * the record the caller saw: a concurrent replace is a conflict instead of an
  * overwrite, and an idempotency key makes a retried request answer with the
- * record it already created. Creation changes which record the pair owns, so
+ * record it already created. Creation changes which shared batch the library owns, so
  * the old record's caches are dropped once the new one lands.
  */
 export function createCurrentRecordMutationOptions(
@@ -402,24 +400,15 @@ export async function syncAfterExecutionTerminal(
   ])
 }
 
-// Rename changes members across the library's current records, while their
+// Rename changes the shared batch's members, while their
 // frozen plans stay unchanged and must have freshness re-read.
 async function syncRenamedLibrary(queryClient: QueryClient, libraryId: string, worksetId: string) {
-  const ids = new Set([worksetId])
-  for (const [, detail] of queryClient.getQueriesData<Workset>({ queryKey: queryKeys.worksets.detailsPrefix() })) {
-    if (detail?.library?.library_id === libraryId) ids.add(detail.workset_id)
-  }
-  for (const [, record] of queryClient.getQueriesData<{ workset: Workset | null }>({ queryKey: queryKeys.worksets.currentPrefix(libraryId) })) {
-    if (record?.workset) ids.add(record.workset.workset_id)
-  }
   await Promise.all([
     refreshOrRemoveQueries(queryClient, queryKeys.worksets.currentPrefix(libraryId)),
     refreshOrRemoveQueries(queryClient, queryKeys.works.all()),
-    ...[...ids].flatMap((id) => [
-      refreshOrRemoveQueries(queryClient, queryKeys.worksets.detail(id)),
-      refreshOrRemoveQueries(queryClient, queryKeys.worksets.operationPrefix(id)),
-      refreshOrRemoveQueries(queryClient, queryKeys.worksets.revisionsRecordPrefix(id)),
-    ]),
+    refreshOrRemoveQueries(queryClient, queryKeys.worksets.detail(worksetId)),
+    refreshOrRemoveQueries(queryClient, queryKeys.worksets.operationPrefix(worksetId)),
+    refreshOrRemoveQueries(queryClient, queryKeys.worksets.revisionsRecordPrefix(worksetId)),
   ])
 }
 

@@ -33,7 +33,7 @@ type recordCreateResponse struct {
 }
 
 // currentRecordResponse carries zero or one record: a library that has no
-// record for the operation answers with a null record and a 200, which is the
+// shared batch answers with a null record and a 200, which is the
 // ordinary "choose folders first" state, not an error.
 type currentRecordResponse struct {
 	Workset *worksetResponse `json:"workset"`
@@ -41,7 +41,7 @@ type currentRecordResponse struct {
 
 // getCurrentRecord handles GET /api/v1/libraries/{id}/operations/{type}/current.
 //
-// A library that has no record for the operation answers with a null record
+// A library that has no shared batch answers with a null record
 // and a 200 — "choose folders first" is an ordinary state. A library that does
 // not exist is a 404: the record of a deleted library is gone with it, and
 // answering "no record" would hide that.
@@ -69,7 +69,7 @@ func (s *Server) getCurrentRecord(w http.ResponseWriter, r *http.Request) {
 
 // putCurrentRecord handles PUT
 // /api/v1/libraries/{id}/operations/{type}/current: it creates the current
-// record of the (library, operation) pair, replacing the record the caller saw
+// shared batch of the library, replacing the record the caller saw
 // as current in the same transaction. An idempotency key makes a retried
 // request answer with the record it already created; a key reused for a
 // different request, a record that changed meanwhile, or a record with a live

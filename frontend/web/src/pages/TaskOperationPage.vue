@@ -296,8 +296,8 @@ watch(
     <template #main>
       <div v-if="!recordQuery.isPending.value && !record" class="grid flex-1 place-items-center px-6 text-center" data-testid="no-record">
         <div class="max-w-sm">
-          <h2 class="font-heading text-sm font-semibold">这个媒体库还没有{{ label }}记录</h2>
-          <p class="mt-1 text-xs text-[var(--text-muted)]">回到概览，勾选文件夹后点击“{{ label }}”。</p>
+          <h2 class="font-heading text-sm font-semibold">这个媒体库还没有工作集批次</h2>
+          <p class="mt-1 text-xs text-[var(--text-muted)]">回到概览，勾选文件夹后点击“设为工作集批次”，各 Task 共用这批文件夹。</p>
           <RouterLink :to="overviewRoute" class="mt-3 inline-block text-xs text-[var(--brand-ink)]">返回概览 →</RouterLink>
         </div>
       </div>

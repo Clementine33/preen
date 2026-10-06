@@ -44,7 +44,7 @@ type Store interface {
 	// GetCommonSettings is one operation of the lifecycle.
 	GetCommonSettings(operationType string) (*CommonSettings, error)
 	// GetCurrentWorkset is one operation of the lifecycle.
-	GetCurrentWorkset(libraryID, operationType string) (*Workset, error)
+	GetCurrentWorkset(libraryID string) (*Workset, error)
 	// GetExecution is one operation of the lifecycle.
 	GetExecution(executionID string) (*PlanExecution, error)
 	// GetExecutionByOperationKey is one operation of the lifecycle.

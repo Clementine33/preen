@@ -38,8 +38,8 @@ func newToken() string {
 	return fmt.Sprintf("%d-%s", time.Now().UnixNano(), hex.EncodeToString(rnd[:]))
 }
 
-// CreateCurrentWorkset creates the current processing record of one
-// (library, operation) pair, replacing the record the caller saw as current.
+// CreateCurrentWorkset creates the library's shared folder batch, replacing
+// the record the caller saw as current. Every registered task uses its members.
 //
 // The requested scope is validated against the scanned inventory — the same
 // listing the caller selected from — and every directory that does not become
@@ -54,8 +54,7 @@ func (s *serviceImpl) CreateCurrentWorkset(
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	task, err := s.requireTask(req.OperationType)
-	if err != nil {
+	if _, err := s.requireTask(req.OperationType); err != nil {
 		return nil, err
 	}
 	if len(req.FolderPaths) == 0 || len(req.FolderPaths) > MaxMembers {
@@ -77,19 +76,15 @@ func (s *serviceImpl) CreateCurrentWorkset(
 		return nil, NewError(ErrKindInternal, "INTERNAL", "failed to load library", err)
 	}
 
-	members, skipped, err := s.resolveSelectedMembers(lib, req.FolderPaths, task.RequiresAudio())
+	members, skipped, err := s.resolveSelectedMembers(lib, req.FolderPaths)
 	if err != nil {
 		return nil, err
 	}
 	if len(members) == 0 {
-		code := "NO_MEMBERS"
-		if task.RequiresAudio() {
-			code = "NO_AUDIO_MEMBERS"
-		}
 		return nil, NewError(
 			ErrKindInvalidArgument,
-			code,
-			"none of the selected folders can join this operation",
+			"NO_MEMBERS",
+			"none of the selected folders can join this workset",
 			nil,
 		).WithDetails(skipPaths(skipped))
 	}
@@ -163,7 +158,7 @@ func (s *serviceImpl) replayCreate(
 			nil,
 		)
 	}
-	current, err := s.repo.GetCurrentWorkset(lib.ID, req.OperationType)
+	current, err := s.repo.GetCurrentWorkset(lib.ID)
 	if err != nil {
 		return nil, false, NewError(ErrKindInternal, "INTERNAL", "failed to load the current record", err)
 	}
@@ -202,7 +197,6 @@ func (s *serviceImpl) persistCurrentWorkset(
 		ID:                  "ws-" + newToken(),
 		Title:               title,
 		LibraryID:           lib.ID,
-		OperationType:       req.OperationType,
 		RootPath:            lib.RootPath,
 		RootPathKey:         librarypath.RootPathKey(lib.RootPath),
 		Version:             1,
@@ -218,35 +212,24 @@ func (s *serviceImpl) persistCurrentWorkset(
 		m.MemberIndex = i
 		rows = append(rows, m)
 	}
-	// Only the requested operation is materialized: a record exists for the
-	// work someone asked for, and creation never initializes a task that was
-	// not requested (ADR 0001 §1). Its common settings are the deployment's,
-	// so a record created at any point starts where the deployment already is
-	// (ADR 0010 §1).
-	task, err := s.requireTask(req.OperationType)
-	if err != nil {
-		return nil, err
+	// Tasks share members but retain independent drafts, versions and plans.
+	ops := make([]Operation, 0, len(s.tasks))
+	drafts := make([]OperationDraft, 0, len(s.tasks))
+	for _, task := range s.tasks {
+		seedCommon, err := s.seedCommonSettings(task, lib.ID, task.Kind(), req.ExpectedCurrentID)
+		if err != nil {
+			return nil, err
+		}
+		raw, hash, schemaVersion := task.SeedDraft(seedCommon)
+		ops = append(ops, Operation{
+			WorksetID: ws.ID, OperationType: task.Kind(), Version: 1,
+			CreatedAt: now, UpdatedAt: now,
+		})
+		drafts = append(drafts, OperationDraft{
+			WorksetID: ws.ID, OperationType: task.Kind(), SchemaVersion: schemaVersion,
+			DraftJSON: string(raw), DraftHash: hash, UpdatedAt: now,
+		})
 	}
-	seedCommon, err := s.seedCommonSettings(task, lib.ID, req.OperationType, req.ExpectedCurrentID)
-	if err != nil {
-		return nil, err
-	}
-	raw, hash, schemaVersion := task.SeedDraft(seedCommon)
-	ops := []Operation{{
-		WorksetID:     ws.ID,
-		OperationType: task.Kind(),
-		Version:       1,
-		CreatedAt:     now,
-		UpdatedAt:     now,
-	}}
-	drafts := []OperationDraft{{
-		WorksetID:     ws.ID,
-		OperationType: task.Kind(),
-		SchemaVersion: schemaVersion,
-		DraftJSON:     string(raw),
-		DraftHash:     hash,
-		UpdatedAt:     now,
-	}}
 	if replaceErr := s.repo.ReplaceCurrentWorkset(ws, rows, ops, drafts, req.ExpectedCurrentID); replaceErr != nil {
 		switch {
 		case errors.Is(replaceErr, ErrWorksetIdemConflict):
@@ -281,12 +264,10 @@ func (s *serviceImpl) persistCurrentWorkset(
 // resolveSelectedMembers turns selected library-relative paths into ordered
 // members. Every path that cannot join is reported with its reason rather than
 // dropped in silence, and a path is only accepted when the scanned inventory
-// marks it as a work root of the library. Tasks may additionally
-// require scanned audio beneath it.
+// marks it as a work root of the library. Membership is independent of task kind.
 func (s *serviceImpl) resolveSelectedMembers(
 	lib *library.Library,
 	relPaths []string,
-	requiresAudio bool,
 ) ([]WorksetMember, []SkippedFolder, error) {
 	clean := make([]string, 0, len(relPaths))
 	skipped := make([]SkippedFolder, 0)
@@ -323,7 +304,7 @@ func (s *serviceImpl) resolveSelectedMembers(
 	}
 	out := make([]WorksetMember, 0, len(clean))
 	for _, rel := range clean {
-		count, known := counts[rel]
+		_, known := counts[rel]
 		if !known {
 			// Not a directory of the last scan: it never existed, was removed
 			// on disk, or is a file. Either way it cannot be a member.
@@ -332,10 +313,6 @@ func (s *serviceImpl) resolveSelectedMembers(
 		}
 		if !workRoots[rel] {
 			skipped = append(skipped, SkippedFolder{Path: rel, Reason: SkipNotWorkRoot})
-			continue
-		}
-		if requiresAudio && count == 0 {
-			skipped = append(skipped, SkippedFolder{Path: rel, Reason: SkipNoAudio})
 			continue
 		}
 		out = append(out, WorksetMember{
@@ -373,19 +350,17 @@ func createRequestHash(req CreateCurrentRequest) string {
 	sort.Strings(paths)
 	raw, err := json.Marshal(struct {
 		LibraryID         string   `json:"library_id"`
-		OperationType     string   `json:"operation_type"`
 		FolderPaths       []string `json:"folder_paths"`
 		ExpectedCurrentID string   `json:"expected_current_id"`
-	}{req.LibraryID, req.OperationType, paths, req.ExpectedCurrentID})
+	}{req.LibraryID, paths, req.ExpectedCurrentID})
 	if err != nil {
 		return ""
 	}
 	return CanonicalJSONHash(raw)
 }
 
-// GetCurrentWorkset returns the current record of one (library, operation)
-// pair, or nil when the pair has none. It is the read the workbench uses to
-// answer "does this library have a conversion record".
+// GetCurrentWorkset returns the library's shared batch, or nil when absent.
+// operationType validates the task entry point; it does not select a batch.
 func (s *serviceImpl) GetCurrentWorkset(
 	ctx context.Context,
 	libraryID, operationType string,
@@ -396,7 +371,7 @@ func (s *serviceImpl) GetCurrentWorkset(
 	if _, err := s.requireTask(operationType); err != nil {
 		return nil, err
 	}
-	w, err := s.repo.GetCurrentWorkset(libraryID, operationType)
+	w, err := s.repo.GetCurrentWorkset(libraryID)
 	if err != nil {
 		return nil, NewError(ErrKindInternal, "INTERNAL", "failed to load the current record", err)
 	}

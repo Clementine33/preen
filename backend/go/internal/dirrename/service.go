@@ -56,7 +56,6 @@ func New(
 }
 
 func (*Task) Kind() string                     { return "rename" }
-func (*Task) RequiresAudio() bool              { return false }
 func (*Task) RequiresExclusiveExecution() bool { return true }
 
 var _ workset.Task = (*Task)(nil)

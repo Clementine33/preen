@@ -177,7 +177,7 @@ test.describe('workset operation smoke', () => {
     // Back into the operation, then the same drill-down as before: the narrow
     // carrier is a full page, and the local back control returns to the fixed
     // parent of the page in view.
-    await page.getByTestId('current-record').click()
+    await page.getByTestId('nav-conversion').click()
     await expect(page.getByTestId('member-toolbar')).toBeVisible()
     await expect(page.getByTestId('workbench-back')).toHaveAttribute('href', /\/worksets\/[^/]+$/)
     await page.getByTestId('member-open').first().click()

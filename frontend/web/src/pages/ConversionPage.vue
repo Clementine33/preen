@@ -427,9 +427,9 @@ const parentLink = computed(() => {
         data-testid="no-record"
       >
         <div class="max-w-sm">
-          <h2 class="font-heading text-sm font-semibold">这个媒体库还没有转换记录</h2>
+          <h2 class="font-heading text-sm font-semibold">这个媒体库还没有工作集批次</h2>
           <p class="mt-1 text-xs leading-5 text-[var(--text-muted)]">
-            回到概览，勾选要转换的文件夹后点击“进入转换”。
+            回到概览，勾选文件夹后点击“设为工作集批次”，各 Task 共用这批文件夹。
           </p>
           <Button class="mt-3" size="sm" data-testid="goto-overview" @click="gotoOverview">
             返回概览

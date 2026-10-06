@@ -5,10 +5,9 @@ import (
 	"testing"
 
 	"github.com/onsei/organizer/backend/internal/adapters/filesystem"
-	"github.com/onsei/organizer/backend/internal/librarypath"
 )
 
-func TestRelocateDirectoryPreservesFactsCredentialsCopiesAndOtherWorksets(t *testing.T) {
+func TestRelocateDirectoryPreservesFactsCredentialsCopiesAndSharedMembers(t *testing.T) {
 	f := newRenameRun(t)
 	root := detailRoot(f.member)
 	source := relocateUnicodeSource(t, f)
@@ -30,18 +29,12 @@ func TestRelocateDirectoryPreservesFactsCredentialsCopiesAndOtherWorksets(t *tes
 	)
 	exec(`INSERT INTO entries(path,name) VALUES(?,?)`, source+"suffix/keep", "keep")
 	exec(`INSERT INTO generation_records VALUES(?,'opus','ffmpeg','9.0.1',128,'vbr',123,42,'sha','date')`, child)
-	exec(
-		`INSERT INTO worksets(id,library_id,operation_type,root_path,root_path_key) VALUES('other',?,'conversion',?,?)`,
-		f.libraryID,
-		root,
-		librarypath.RootPathKey(root),
-	)
-	exec(
-		`INSERT INTO workset_members(workset_id,member_id,member_index,rel_path,folder_path,folder_name) VALUES('other','stable',0,?,?,?)`,
-		f.member.RelPath,
-		source,
-		f.member.FolderName,
-	)
+	var originalMemberID string
+	if err := f.repo.DB().
+		QueryRow(`SELECT member_id FROM workset_members WHERE workset_id=?`, f.worksetID).
+		Scan(&originalMemberID); err != nil {
+		t.Fatal(err)
+	}
 	var copyID string
 	if err := f.repo.DB().
 		QueryRow(`SELECT id FROM work_copies WHERE library_id=? AND rel_path=?`, f.libraryID, f.member.RelPath).
@@ -83,14 +76,14 @@ func TestRelocateDirectoryPreservesFactsCredentialsCopiesAndOtherWorksets(t *tes
 		t.Fatal(err)
 	}
 	if err := f.repo.DB().
-		QueryRow(`SELECT folder_path,folder_name,member_id FROM workset_members WHERE workset_id='other'`).
+		QueryRow(`SELECT folder_path,folder_name,member_id FROM workset_members WHERE workset_id=?`, f.worksetID).
 		Scan(&memberPath, &memberName, &memberID); err != nil {
 		t.Fatal(err)
 	}
 	if rootName != filepath.Base(target) || credential != "sha" || rel != filepath.Base(target) ||
 		memberPath != target ||
 		memberName != filepath.Base(target) ||
-		memberID != "stable" {
+		memberID != originalMemberID {
 		t.Fatal("path identity was not preserved")
 	}
 	var unrelated int

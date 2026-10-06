@@ -63,14 +63,13 @@ export const queryKeys = {
     all: () => ['worksets'] as const,
     listPrefix: () => ['worksets', 'list'] as const,
     list: (libraryId: string | null) => ['worksets', 'list', libraryId ?? ''] as const,
-    // A library's current record for one operation: at most one, addressed by
-    // the pair rather than by a record id the UI would have to know first.
+    // All task pages share the library's one current folder batch.
     currentsPrefix: () => ['worksets', 'current'] as const,
     currentPrefix: (libraryId: string) => ['worksets', 'current', libraryId] as const,
     detailsPrefix: () => ['worksets', 'detail'] as const,
     revisionsRecordPrefix: (worksetId: string) => ['worksets', 'revisions', worksetId] as const,
-    current: (libraryId: string, operation: string) =>
-      ['worksets', 'current', libraryId, operation] as const,
+    current: (libraryId: string, _operation?: string) =>
+      ['worksets', 'current', libraryId] as const,
     detail: (worksetId: string) => ['worksets', 'detail', worksetId] as const,
     operationPrefix: (worksetId: string) => ['worksets', 'operation', worksetId] as const,
     operation: (worksetId: string, operation: string) =>

@@ -98,7 +98,7 @@ func waitForLatestRevision(
 			} `json:"operations"`
 		}
 		_ = doJSON(t, client, ctx, base, http.MethodGet, wsPath, token, nil, &wsDetail)
-		if len(wsDetail.Operations) == 1 && wsDetail.Operations[0].LatestGeneration != nil {
+		if len(wsDetail.Operations) == 3 && wsDetail.Operations[0].LatestGeneration != nil {
 			var genDetail struct {
 				Status     string `json:"status"`
 				RevisionID string `json:"revision_id"`

@@ -34,9 +34,6 @@ type Task interface {
 	// and the value stored on operations and revisions.
 	Kind() string
 
-	// RequiresAudio restricts membership to directories containing scanned audio.
-	RequiresAudio() bool
-
 	// SeedDraft returns the raw draft document a newly created operation
 	// starts from, its canonical content hash, and the document schema
 	// version. common is the deployment-wide common-settings payload stored

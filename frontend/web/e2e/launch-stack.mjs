@@ -33,19 +33,18 @@ const stateFile = process.env.ONSEI_E2E_STATE_FILE
   : path.join(path.dirname(fileURLToPath(import.meta.url)), '.stack-state.json')
 
 // --- Fixture tree -----------------------------------------------------------
-// Mirrors backend/go/tests/e2e/http_library_scan_plan_test.go: albumA holds
-// lossy+lossless stems (slim:mode1 yields delete operations), albumB is
-// audio-only so the folder index spans the root.
+// RJ-named Work Roots: albumA holds matching lossy/lossless stems,
+// albumB holds only lossy audio. Both appear in the scanned folder listing.
 function createFixtureTree() {
   const dataDir = mkdtempSync(path.join(os.tmpdir(), 'onsei-e2e-'))
   const rootPath = path.join(dataDir, 'music')
   const files = [
-    ['albumA', 'test1.mp3'],
-    ['albumA', 'test1.flac'],
-    ['albumA', 'test2.mp3'],
-    ['albumA', 'test2.flac'],
-    ['albumB', 'song1.mp3'],
-    ['albumB', 'song2.mp3'],
+    ['RJ000001 albumA', 'test1.mp3'],
+    ['RJ000001 albumA', 'test1.flac'],
+    ['RJ000001 albumA', 'test2.mp3'],
+    ['RJ000001 albumA', 'test2.flac'],
+    ['RJ000002 albumB', 'song1.mp3'],
+    ['RJ000002 albumB', 'song2.mp3'],
   ]
   for (const [folder, file] of files) {
     const dir = path.join(rootPath, folder)

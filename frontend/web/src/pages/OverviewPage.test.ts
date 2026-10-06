@@ -119,7 +119,7 @@ describe('workbench overview', () => {
     ui().toggleDir('albumA', dirs)
     await flushPromises()
     expect(wrapper.get('[data-testid="enter-rename"]').text()).toContain('重命名')
-    expect(wrapper.get('[data-testid="enter-metadata-refresh"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="enter-metadata-refresh"]').exists()).toBe(true)
   })
 
   it('creates the record from the selected library-relative paths', async () => {
@@ -176,7 +176,7 @@ describe('workbench overview', () => {
       createCurrentRecord,
     })
 
-    expect(wrapper.get('[data-testid="current-record"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="current-record"]').exists()).toBe(true)
     ui().toggleDir('albumA', dirs)
     await flushPromises()
 

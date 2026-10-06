@@ -103,6 +103,8 @@ jobs:
       - run: pnpm typecheck:web
       - run: pnpm test:web
       - run: pnpm build:web
+      - run: pnpm -C frontend/web exec playwright install chromium --with-deps
+      - run: task test:web:browser
 
   # Expensive checks start only after both fast suites pass. Main and manual
   # runs are full; pull requests get the path-filtered fast suites above.

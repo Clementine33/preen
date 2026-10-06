@@ -19,11 +19,12 @@ import path from 'node:path'
 
 const e2eEnabled = process.env.BROWSER_E2E === '1'
 
-const NAMES = ['专辑 A', '🎵 emoji', '100%_hits', 'space here']
+const NAMES = ['RJ000001 专辑 A', 'RJ000002 🎵 emoji', 'RJ000003 100%_hits', 'RJ000004 space here']
 
 function makeNamedTree(): string {
   const root = mkdtempSync(path.join(os.tmpdir(), 'onsei-names-'))
-  for (const name of NAMES) {
+  const fillers = Array.from({ length: 116 }, (_, i) => `RJ${String(i + 100).padStart(6, '0')} album-${i}`)
+  for (const name of [...NAMES, ...fillers]) {
     const dir = path.join(root, name)
     mkdirSync(dir, { recursive: true })
     writeFileSync(path.join(dir, '01.flac'), 'address fixture')
@@ -67,6 +68,22 @@ test.describe('workbench addresses', () => {
     expect(list.height).toBeGreaterThan(0.6)
     expect(list.width).toBeGreaterThan(0.7)
     expect(await page.getByTestId('workbench-detail-inline').count()).toBe(0)
+
+    // A return restores selection and scroll, using a row already at that
+    // offset so clicking it cannot move the list before the trip.
+    await page.locator('[data-testid="dir-list-spacer"] input[type="checkbox"]').first().check()
+    const scroller = page.getByTestId('dir-list-scroller')
+    const offset = await scroller.evaluate((el) => {
+      el.scrollTop = 600
+      return el.scrollTop
+    })
+    await page.locator('[data-testid="dir-list-spacer"] li').nth(12).click()
+    await expect(page.getByTestId('member-tree')).toBeVisible()
+    await page.getByTestId('overview-breadcrumb').getByRole('link').last().click()
+    await expect(page.getByText('已选择 1 个文件夹')).toBeVisible()
+    await expect.poll(() => scroller.evaluate((el) => Math.abs(el.scrollTop - 600))).toBeLessThan(5)
+    expect(offset).toBe(600)
+    await scroller.evaluate((el) => { el.scrollTop = 0 })
 
     // Opening a folder: the address carries the directory's identity.
     await page.getByTestId(`dir-link-${opened}`).click()

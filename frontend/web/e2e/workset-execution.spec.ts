@@ -1,25 +1,14 @@
 import { expect, test, type Page } from '@playwright/test'
 import { execFileSync } from 'node:child_process'
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 
 /**
- * End-to-end execution of the current revision against the real stack (Go
- * backend + Vite + real ffmpeg). Everything runs on generated temporary media:
- * a short tone as the lossless source beside a below-target 128k mp3, which
- * the frozen plan rebuilds at the default 320k.
- *
- * Covered here:
- *   - soft deletion: the disk matches the report (Delete/ recovery, rebuilt
- *     bitrate) and a reload restores the finished session from the server;
- *   - hard deletion: replaced and obsolete media is gone, no Delete/ at all;
- *   - a component failure (drifted source after planning) preserves every
- *     source and old output byte-for-byte;
- *   - a running session cancels cooperatively and reports its unrun range.
- *
- * Runs after the sibling specs (alphabetical) on the shared stack; each test
- * owns its library, media root and workset, so no state crosses tests.
+ * UI execution smoke against real media: start a revision, read its live
+ * result, reload the report and verify the spent revision cannot run again.
+ * Recovery placement, hard deletion, scope, codecs and cancel semantics live
+ * in the backend HTTP black-box tests.
  */
 
 const e2eEnabled = process.env.BROWSER_E2E === '1'
@@ -55,21 +44,6 @@ function encodeAlbum(root: string, name: string, opts: { m4a?: boolean } = {}): 
   return dir
 }
 
-/** Tags on the lossless source, so a conversion's metadata handling is visible. */
-function tagSource(file: string, title: string): void {
-  const tagged = `${file}.tagged`
-  // -f wav explicitly: the staging name keeps the album's own stem.
-  run('ffmpeg', ['-nostdin', '-v', 'error', '-y', '-i', file, '-metadata', `title=${title}`, '-metadata', 'artist=Onsei E2E', '-f', 'wav', '-c:a', 'pcm_s16le', tagged])
-  cpSync(tagged, file)
-  rmSync(tagged, { force: true })
-}
-
-/** One field of an ffprobe JSON probe, as a string. */
-function probe(file: string, entries: string): string {
-  const raw = run('ffprobe', ['-v', 'error', '-show_entries', entries, '-of', 'json', file])
-  return raw
-}
-
 function mp3Bitrate(file: string): number {
   // ffprobe takes no -nostdin here (unlike ffmpeg); the Go e2e probes the same way.
   const raw = run('ffprobe', ['-v', 'error', '-select_streams', 'a:0', '-show_entries', 'stream=bit_rate', '-of', 'json', file])
@@ -95,11 +69,33 @@ async function addLibraryAndScan(page: Page, root: string, name: string): Promis
   await expect(page.getByText('扫描完成')).toBeVisible({ timeout: 60_000 })
 }
 
+/** Wait for the draft write itself; applying temporarily disables the button too. */
+async function applyCommonSettings(page: Page): Promise<void> {
+  const [response] = await Promise.all([
+    page.waitForResponse((response) => response.request().method() === 'PUT' && response.url().endsWith('/conversion/draft')),
+    page.getByTestId('apply-common').click(),
+  ])
+  expect(response.ok()).toBe(true)
+  await expect(page.getByTestId('apply-common')).toBeDisabled()
+}
+
 /** Creates the library's conversion record over every scanned folder. */
 async function createWorksetForAllFolders(page: Page): Promise<void> {
   await page.getByRole('checkbox', { name: '选择全部文件夹' }).check()
   await page.getByTestId('enter-conversion').click()
   await expect(page).toHaveURL(/\/conversion$/)
+  // Common settings are deployment-wide; each case starts from the defaults.
+  await page.getByTestId('nav-conversion-settings').click()
+  await expect(page.getByTestId('common-settings-form')).toBeVisible()
+  for (const unit of ['mode', 'classifier_tags', 'matched', 'unmatched']) {
+    const restore = page.getByTestId(`common-${unit}-restore`)
+    if (await restore.isEnabled()) await restore.click()
+  }
+  await page.getByTestId('common-delete-mode-soft').check()
+  const apply = page.getByTestId('apply-common')
+  if (await apply.isEnabled()) await applyCommonSettings(page)
+  await expect(apply).toBeDisabled()
+  await page.getByRole('link', { name: '← 转换列表' }).click()
 }
 
 async function generatePlan(page: Page): Promise<void> {
@@ -116,25 +112,12 @@ async function startExecution(page: Page): Promise<void> {
   await expect(page.getByTestId('execution-panel')).toBeVisible({ timeout: 15_000 })
 }
 
-/** Switches the operation's obsolete-audio handling to hard deletion. */
-async function setHardDelete(page: Page): Promise<void> {
-  await page.getByTestId('nav-conversion-settings').click()
-  await expect(page.getByTestId('conversion-settings')).toBeVisible()
-  await page.getByTestId('common-delete-mode-hard').check()
-  await expect(page.getByTestId('common-hard-delete-warning')).toBeVisible()
-  await page.getByTestId('apply-common').click()
-  // Wait for the save before leaving the editor.
-  await expect(page.getByTestId('global-settings-saved')).toBeVisible()
-  await page.getByRole('link', { name: '← 转换列表' }).click()
-  await expect(page).toHaveURL(/\/conversion$/)
-}
-
 test.describe('workset execution', () => {
   test.skip(!e2eEnabled, 'execution e2e runs only with BROWSER_E2E=1')
 
-  test('soft deletion preserves recovery copies and a reload restores the finished session', async ({ page }) => {
+  test('execute the current plan and restore the finished report after reload', async ({ page }) => {
     const root = makeFixtureRoot('exec-soft')
-    const album = encodeAlbum(root, 'soft-album', { m4a: true })
+    const album = encodeAlbum(root, 'RJ000001 soft-album', { m4a: true })
 
     await addLibraryAndScan(page, root, 'E2E Exec Soft')
     await createWorksetForAllFolders(page)
@@ -150,18 +133,10 @@ test.describe('workset execution', () => {
     // lossless target was already satisfied, so it stayed untouched — and the
     // Delete/ destinations the run moved files to are not listed at all.
     await expect(page.getByTestId('execution-kept')).toContainText('00.wav')
-    await expect(page.getByTestId('execution-panel')).not.toContainText('Delete/soft-album')
+    await expect(page.getByTestId('execution-panel')).not.toContainText('Delete/RJ000001 soft-album')
 
-    // Disk truth: the mp3 was rebuilt at the frozen target quality, the wav
-    // source stays, and both the obsolete aac and the replaced mp3 are kept
-    // under the library-level Delete/, beside the album folder rather than
-    // nested inside it.
+    // One disk smoke: the UI-triggered session really rebuilt its output.
     expect(mp3Bitrate(path.join(album, '00.mp3'))).toBeGreaterThanOrEqual(319_000)
-    expect(existsSync(path.join(album, '00.wav'))).toBe(true)
-    expect(existsSync(path.join(album, '00.m4a'))).toBe(false)
-    expect(existsSync(path.join(root, 'Delete', 'soft-album', '00.m4a'))).toBe(true)
-    expect(existsSync(path.join(root, 'Delete', 'soft-album', '00.mp3'))).toBe(true)
-    expect(existsSync(path.join(album, 'Delete'))).toBe(false)
 
     // A reload restores the terminal session from the server (no live stream
     // survives it) on the same report page, and the revision can never run
@@ -175,157 +150,4 @@ test.describe('workset execution', () => {
     await expect(executeAgain).toHaveAttribute('title', /已执行/)
   })
 
-  test('hard deletion removes the replaced and obsolete media without recovery copies', async ({ page }) => {
-    const root = makeFixtureRoot('exec-hard')
-    const album = encodeAlbum(root, 'hard-album', { m4a: true })
-
-    await addLibraryAndScan(page, root, 'E2E Exec Hard')
-    await createWorksetForAllFolders(page)
-    // The obsolete-audio handling is a global setting; the plan freezes it.
-    await setHardDelete(page)
-    await generatePlan(page)
-    await startExecution(page)
-
-    await expect(page.getByTestId('execution-status')).toHaveText('已完成', { timeout: 90_000 })
-    expect(mp3Bitrate(path.join(album, '00.mp3'))).toBeGreaterThanOrEqual(319_000)
-    expect(existsSync(path.join(album, '00.wav'))).toBe(true)
-    expect(existsSync(path.join(album, '00.m4a'))).toBe(false)
-    expect(existsSync(path.join(album, 'Delete'))).toBe(false)
-    expect(existsSync(path.join(root, 'Delete'))).toBe(false)
-  })
-
-  test('a scoped run processes the selected folders and spends the plan', async ({ page }) => {
-    const root = makeFixtureRoot('exec-scope')
-    const chosen = encodeAlbum(root, 'scope-selected', { m4a: true })
-    const left = encodeAlbum(root, 'scope-untouched', { m4a: true })
-
-    await addLibraryAndScan(page, root, 'E2E Exec Scope')
-    await createWorksetForAllFolders(page)
-    await generatePlan(page)
-
-    // Selecting a folder in the list is what a partial run is built from: the
-    // toolbar's entry follows the same gate as 执行当前版本.
-    await page.getByRole('checkbox', { name: '选择 scope-selected' }).check()
-    await expect(page.getByTestId('execute-selected')).toBeEnabled()
-    await page.getByTestId('execute-selected').click()
-    await expect(page).toHaveURL(/\/conversion\/execution$/)
-
-    const panel = page.getByTestId('execution-panel')
-    await expect(page.getByTestId('execution-status')).toHaveText('已完成', { timeout: 90_000 })
-    // The session is the selected folder's work alone, and says so — the folders
-    // it left out are the next plan's work, not this session's pending items.
-    await expect(panel.getByTestId('execution-folder')).toHaveCount(1)
-    await expect(panel.getByTestId('execution-folder-name')).toContainText('scope-selected')
-    await expect(panel.getByTestId('execution-scope')).toContainText('本次只执行了选中的 1 个文件夹（记录共 2 个）')
-    await expect(panel.getByTestId('execution-scope')).toContainText('需重新生成计划后执行')
-
-    // Disk truth: the selected folder was rebuilt, the other one is exactly as
-    // it was — its obsolete media is still there and nothing was recovered for it.
-    expect(mp3Bitrate(path.join(chosen, '00.mp3'))).toBeGreaterThanOrEqual(319_000)
-    expect(existsSync(path.join(root, 'Delete', 'scope-selected', '00.m4a'))).toBe(true)
-    expect(mp3Bitrate(path.join(left, '00.mp3'))).toBeLessThan(319_000)
-    expect(existsSync(path.join(left, '00.m4a'))).toBe(true)
-    expect(existsSync(path.join(root, 'Delete', 'scope-untouched'))).toBe(false)
-
-    // One plan, one run: continuing means a new plan, and the page says so.
-    await page.getByTestId('workspace-breadcrumb').getByRole('link', { name: '转换' }).click()
-    await expect(page.getByTestId('start-execution')).toBeDisabled()
-    await expect(page.getByTestId('start-execution')).toHaveAttribute('title', /需重新生成/)
-  })
-
-  test('an encoded preset reaches the disk: Opus 160 with the source tags kept', async ({ page }) => {
-    const root = makeFixtureRoot('exec-preset')
-    const album = encodeAlbum(root, 'preset-album')
-    // The lossless source carries tags, so what a conversion does with them is
-    // observable on the output rather than assumed.
-    tagSource(path.join(album, '00.wav'), 'プリセット 曲')
-
-    await addLibraryAndScan(page, root, 'E2E Exec Preset')
-    await createWorksetForAllFolders(page)
-
-    // The settings offer the named pairs; the manual codec + bitrate stay the
-    // way to compose anything else.
-    await page.getByTestId('nav-conversion-settings').click()
-    await expect(page.getByTestId('conversion-settings')).toBeVisible()
-    for (const partition of ['matched', 'unmatched']) {
-      await page.getByTestId(`common-${partition}-preset-opus-160`).click()
-    }
-    await expect(page.getByTestId('common-matched-preset-opus-160')).toHaveAttribute('aria-pressed', 'true')
-    await page.getByTestId('apply-common').click()
-    await expect(page.getByTestId('global-settings-saved')).toBeVisible()
-    await page.getByRole('link', { name: '← 转换列表' }).click()
-    await expect(page).toHaveURL(/\/conversion$/)
-
-    await generatePlan(page)
-    await startExecution(page)
-    await expect(page.getByTestId('execution-status')).toHaveText('已完成', { timeout: 90_000 })
-
-    // Disk truth: the target is an Opus file at the preset bitrate, the source's
-    // tags came with it, and the mp3 it replaced is in the library's Delete/.
-    const opus = path.join(album, '00.opus')
-    expect(existsSync(opus)).toBe(true)
-    const streams = JSON.parse(probe(opus, 'stream=codec_name,bit_rate'))
-    expect(streams.streams[0].codec_name).toBe('opus')
-    const format = JSON.parse(probe(opus, 'format=bit_rate:format_tags:stream_tags'))
-    expect(Number(format.format.bit_rate)).toBeGreaterThanOrEqual(158_000)
-    const tags = { ...(format.format.tags ?? {}), ...(format.streams?.[0]?.tags ?? {}) }
-    expect(tags.title).toBe('プリセット 曲')
-    expect(tags.artist).toBe('Onsei E2E')
-    expect(existsSync(path.join(album, '00.mp3'))).toBe(false)
-    expect(existsSync(path.join(root, 'Delete', 'preset-album', '00.mp3'))).toBe(true)
-  })
-
-  test('a source drifting after planning fails the run and preserves every file', async ({ page }) => {
-    const root = makeFixtureRoot('exec-fail')
-    const album = encodeAlbum(root, 'drift-album')
-
-    await addLibraryAndScan(page, root, 'E2E Exec Drift')
-    await createWorksetForAllFolders(page)
-    await generatePlan(page)
-
-    // The wav changes on disk after the plan was frozen and before the run: the
-    // session rescans, refuses with INPUT_CHANGED before its first write and
-    // leaves everything.
-    writeFileSync(path.join(album, '00.wav'), 'drifted-bytes', 'utf8')
-    const mp3Before = statSync(path.join(album, '00.mp3')).size
-
-    await startExecution(page)
-    await expect(page.getByTestId('execution-status')).toHaveText('失败', { timeout: 90_000 })
-    await expect(page.getByTestId('execution-error')).toBeVisible()
-
-    expect(readFileSync(path.join(album, '00.wav'), 'utf8')).toBe('drifted-bytes')
-    expect(statSync(path.join(album, '00.mp3')).size).toBe(mp3Before)
-    expect(mp3Bitrate(path.join(album, '00.mp3'))).toBeLessThan(319_000)
-    expect(existsSync(path.join(album, 'Delete'))).toBe(false)
-    expect(existsSync(path.join(root, 'Delete'))).toBe(false)
-  })
-
-  test('canceling a running session stops it and reports the unrun range', async ({ page }) => {
-    const root = makeFixtureRoot('exec-cancel')
-    // Enough components that the run outlives the cancel click, so the stop is
-    // a running cooperative cancel rather than a queued shortcut.
-    const template = encodeAlbum(root, 'template')
-    for (let index = 1; index <= 20; index++) {
-      const dir = path.join(root, `cancel-${String(index).padStart(2, '0')}`)
-      mkdirSync(dir, { recursive: true })
-      cpSync(path.join(template, '00.wav'), path.join(dir, '00.wav'))
-      cpSync(path.join(template, '00.mp3'), path.join(dir, '00.mp3'))
-    }
-    rmSync(template, { recursive: true, force: true })
-
-    await addLibraryAndScan(page, root, 'E2E Exec Cancel')
-    await createWorksetForAllFolders(page)
-    await generatePlan(page)
-    await startExecution(page)
-
-    await page.getByTestId('execution-cancel').click()
-    await expect(page.getByTestId('execution-status')).toHaveText('已取消', { timeout: 90_000 })
-    await expect(page.getByTestId('execution-panel')).toContainText('已完成的组件结果保留')
-    // The operations that never ran stay visible instead of being hidden or
-    // counted as done. Per-file detail lives behind the card's own disclosure
-    // (the summary counts what is inside), so it is opened first.
-    const unrun = page.getByTestId('execution-component').filter({ hasText: '未执行' }).first()
-    await unrun.locator('summary').click()
-    await expect(unrun.getByTestId('execution-remaining')).toBeVisible()
-  })
 })

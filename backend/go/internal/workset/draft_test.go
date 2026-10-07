@@ -56,7 +56,7 @@ func TestDraftSaveAllowsIncompleteButGenerationRejects(t *testing.T) {
 	ws := f.createCurrent("不完整", ids...)
 
 	doc := draftDoc()
-	doc.ClassifierTags = []string{} // no classifier tag: saveable, not plannable
+	doc.NoEffectTags = []string{} // no classifier tag: saveable, not plannable
 	view := f.saveDraft(ws.WorksetID, doc, ws.Operations[0].Version)
 
 	_, err := f.svc.StartGeneration(

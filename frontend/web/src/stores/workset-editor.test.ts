@@ -6,7 +6,7 @@ import { useWorksetEditorStore } from './workset-editor'
 const base: OperationDraftDocument = {
   schema_version: 1,
   mode: 'available_sources',
-  classifier_tags: ['A'],
+  no_effect_tags: ['A'],
   matched: { lossless: { codec: 'wav' } },
   unmatched: { encoded: { codec: 'mp3', quality: { kind: 'bitrate', bitrate: 320 } } },
   members: [],
@@ -117,13 +117,13 @@ describe('editor session', () => {
   it('flags a conflict without dropping the content, and leaves the form usable', () => {
     const store = useWorksetEditorStore()
     openMember(store, 'm-1')
-    store.setUnit('classifier_tags', { intent: 'set', value: [] })
+    store.setUnit('no_effect_tags', { intent: 'set', value: [] })
     store.startApplying()
     store.markStale()
 
     expect(store.session?.error).toContain('放弃本地修改')
     expect(store.session?.applying).toBe(false)
-    expect(store.pendingDocument?.members).toEqual([{ member_id: 'm-1', overrides: { classifier_tags: [] } }])
+    expect(store.pendingDocument?.members).toEqual([{ member_id: 'm-1', overrides: { no_effect_tags: [] } }])
   })
 
   it('clears the session on explicit discard only', () => {
@@ -159,10 +159,10 @@ describe('server draft reconciliation', () => {
     const store = useWorksetEditorStore()
     openMember(store, 'm-1')
 
-    store.syncWithServer(scope, { version: 6, document: { ...base, classifier_tags: ['B'] } })
+    store.syncWithServer(scope, { version: 6, document: { ...base, no_effect_tags: ['B'] } })
 
     expect(store.session?.baseVersion).toBe(6)
-    expect(store.session?.baseDocument.classifier_tags).toEqual(['B'])
+    expect(store.session?.baseDocument.no_effect_tags).toEqual(['B'])
   })
 
   it('keeps pending edits against a moved document, for the save to report', () => {
@@ -170,10 +170,10 @@ describe('server draft reconciliation', () => {
     openMember(store, 'm-1')
     store.setUnit('matched', { intent: 'set', value: FLAC })
 
-    store.syncWithServer(scope, { version: 6, document: { ...base, classifier_tags: ['B'] } })
+    store.syncWithServer(scope, { version: 6, document: { ...base, no_effect_tags: ['B'] } })
 
     expect(store.session?.baseVersion).toBe(3)
-    expect(store.session?.baseDocument.classifier_tags).toEqual(['A'])
+    expect(store.session?.baseDocument.no_effect_tags).toEqual(['A'])
   })
 
   it('ignores another workset or operation', () => {

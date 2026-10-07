@@ -1,8 +1,10 @@
 package conversion
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
+	"io"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -72,7 +74,7 @@ func (c *Catalog) PutSlot(slotIndex int, name string, policy json.RawMessage) (*
 	if validateErr := reconcile.ValidatePolicy(parsed); validateErr != nil {
 		return nil, invalidPolicy(validateErr)
 	}
-	if _, resolveErr := reconcile.ResolveClassifier(parsed.ClassifierTags); resolveErr != nil {
+	if _, resolveErr := reconcile.ResolveClassifier(parsed.NoEffectTags); resolveErr != nil {
 		return nil, invalidPolicy(resolveErr)
 	}
 	if updateErr := c.slots.UpdatePolicySlot(slotIndex, trimmed, string(policy)); updateErr != nil {
@@ -113,8 +115,24 @@ func invalidPolicy(cause error) error {
 // parseInlinePolicy decodes a raw JSON policy into the reconcile shape.
 func parseInlinePolicy(raw json.RawMessage) (reconcile.Policy, error) {
 	var policy reconcile.Policy
-	if err := json.Unmarshal(raw, &policy); err != nil {
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&policy); err != nil {
 		return policy, errors.New("inline policy is not valid JSON")
+	}
+	if err := dec.Decode(new(any)); err != io.EOF {
+		return policy, errors.New("inline policy has trailing content")
+	}
+	// The persisted-read alias is intentionally not part of the write contract,
+	// including null and empty arrays. Slot writes store the request verbatim.
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &fields); err != nil {
+		return policy, err
+	}
+	for key := range fields {
+		if strings.EqualFold(key, "classifier_tags") {
+			return policy, errors.New("use no_effect_tags instead of classifier_tags")
+		}
 	}
 	return policy, nil
 }

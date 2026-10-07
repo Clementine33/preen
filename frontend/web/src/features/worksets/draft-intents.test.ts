@@ -16,12 +16,12 @@ const FLAC = { lossless: { codec: 'flac' } }
 const base: OperationDraftDocument = {
   schema_version: 1,
   mode: 'available_sources',
-  classifier_tags: ['A'],
+  no_effect_tags: ['A'],
   matched: WAV,
   unmatched: { encoded: { codec: 'mp3', quality: { kind: 'bitrate', bitrate: 320 } } },
   members: [
     { member_id: 'm-yi', overrides: { matched: FLAC } },
-    { member_id: 'm-bing', overrides: { classifier_tags: ['A'] } },
+    { member_id: 'm-bing', overrides: { no_effect_tags: ['A'] } },
   ],
 }
 
@@ -46,11 +46,11 @@ describe('readUnit', () => {
 
   it('keeps equal values with different provenance apart', () => {
     // 丙 explicitly repeats the common tag list: same value, member source.
-    expect(readUnit(base, { kind: 'member', memberId: 'm-bing' }, 'classifier_tags')).toMatchObject({
+    expect(readUnit(base, { kind: 'member', memberId: 'm-bing' }, 'no_effect_tags')).toMatchObject({
       source: 'member',
       value: ['A'],
     })
-    expect(readUnit(base, { kind: 'member', memberId: 'm-jia' }, 'classifier_tags')).toMatchObject({
+    expect(readUnit(base, { kind: 'member', memberId: 'm-jia' }, 'no_effect_tags')).toMatchObject({
       source: 'common',
       value: ['A'],
     })
@@ -66,7 +66,7 @@ describe('readUnit', () => {
   })
 
   it('reports the shared value but mixed provenance when only some members override', () => {
-    const batch = readUnit(base, { kind: 'batch', memberIds: ['m-bing', 'm-jia'] }, 'classifier_tags')
+    const batch = readUnit(base, { kind: 'batch', memberIds: ['m-bing', 'm-jia'] }, 'no_effect_tags')
     expect(batch.source).toBe('mixed')
     expect(batch.value).toEqual(['A'])
     expect(batch.overridden).toBe(1)
@@ -86,7 +86,7 @@ describe('applyIntent', () => {
     const record = next.members.find((m) => m.member_id === 'm-jia')
     expect(record?.overrides).toEqual({ matched: FLAC })
     expect(next.members.find((m) => m.member_id === 'm-yi')?.overrides).toEqual({ matched: FLAC })
-    expect(next.classifier_tags).toEqual(['A'])
+    expect(next.no_effect_tags).toEqual(['A'])
     expect(next.mode).toBe('available_sources')
   })
 
@@ -100,16 +100,16 @@ describe('applyIntent', () => {
     expect(next.members.find((m) => m.member_id === 'm-yi')?.overrides).toEqual({ matched: FLAC, unmatched: WAV })
     expect(next.members.find((m) => m.member_id === 'm-jia')?.overrides).toEqual({ unmatched: WAV })
     // Untouched units stay inherited for both.
-    expect(next.members.find((m) => m.member_id === 'm-jia')?.overrides?.classifier_tags).toBeUndefined()
+    expect(next.members.find((m) => m.member_id === 'm-jia')?.overrides?.no_effect_tags).toBeUndefined()
   })
 
   it('stores an explicit empty tag list instead of inheriting', () => {
-    const next = applyIntent(base, { kind: 'member', memberId: 'm-jia' }, intent({ classifier_tags: { intent: 'set', value: [] } }))
-    expect(next.members.find((m) => m.member_id === 'm-jia')?.overrides?.classifier_tags).toEqual([])
+    const next = applyIntent(base, { kind: 'member', memberId: 'm-jia' }, intent({ no_effect_tags: { intent: 'set', value: [] } }))
+    expect(next.members.find((m) => m.member_id === 'm-jia')?.overrides?.no_effect_tags).toEqual([])
   })
 
   it('restores inheritance by deleting the override', () => {
-    const next = applyIntent(base, { kind: 'member', memberId: 'm-bing' }, intent({ classifier_tags: { intent: 'inherit' } }))
+    const next = applyIntent(base, { kind: 'member', memberId: 'm-bing' }, intent({ no_effect_tags: { intent: 'inherit' } }))
     expect(next.members).toHaveLength(1)
     expect(next.members[0].member_id).toBe('m-yi')
   })
@@ -124,9 +124,9 @@ describe('applyIntent', () => {
   })
 
   it('writes common settings without touching member records', () => {
-    const next = applyIntent(base, { kind: 'common' }, intent({ classifier_tags: { intent: 'set', value: ['B'] } }))
-    expect(next.classifier_tags).toEqual(['B'])
-    expect(next.members.find((m) => m.member_id === 'm-bing')?.overrides?.classifier_tags).toEqual(['A'])
+    const next = applyIntent(base, { kind: 'common' }, intent({ no_effect_tags: { intent: 'set', value: ['B'] } }))
+    expect(next.no_effect_tags).toEqual(['B'])
+    expect(next.members.find((m) => m.member_id === 'm-bing')?.overrides?.no_effect_tags).toEqual(['A'])
   })
 
   it('does not mutate the base document', () => {

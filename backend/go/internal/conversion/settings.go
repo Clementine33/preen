@@ -27,9 +27,11 @@ type Settings interface {
 	// Plan reads the planning configuration (plan.bitrate.batch_update,
 	// tools.ffprobe_path).
 	Plan() PlanConfig
-	// PruneLiteralTags reads the classifier tag literals a draft seeds from and
-	// the tag library offers as its defaults (prune.literal_tags).
-	PruneLiteralTags() []string
+	// PruneNoEffectTags reads the classifier tag literals a draft seeds from and
+	// the tag library offers as its defaults (prune.no_effect_tags).
+	PruneNoEffectTags() []string
+	// PruneOtherTags seeds independent directory isolation rules.
+	PruneOtherTags() []string
 	// Tools reads the encoder tool paths (tools.ffmpeg_path, tools.ffprobe_path);
 	// an empty path means PATH.
 	Tools() execute.ToolsConfig

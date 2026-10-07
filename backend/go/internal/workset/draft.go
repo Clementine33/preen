@@ -35,7 +35,13 @@ func (s *serviceImpl) GetDraft(ctx context.Context, worksetID, operationType str
 			return nil, taskErr
 		}
 		common, projectErr := task.CommonSettings([]byte(doc.DraftJSON))
-		current = projectErr == nil && CanonicalJSONHash(common) == CanonicalJSONHash([]byte(global.Settings))
+		if projectErr == nil {
+			projected, _, applyErr := task.ApplyCommonSettings([]byte(doc.DraftJSON), json.RawMessage(global.Settings))
+			if applyErr == nil {
+				globalCommon, globalErr := task.CommonSettings(projected)
+				current = globalErr == nil && CanonicalJSONHash(common) == CanonicalJSONHash(globalCommon)
+			}
+		}
 	}
 	return &Draft{
 		WorksetID:             worksetID,

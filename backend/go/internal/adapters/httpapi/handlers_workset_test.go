@@ -164,12 +164,12 @@ func draftDocumentFixture() map[string]any {
 		"encoded":  map[string]any{"codec": "mp3", "quality": map[string]any{"kind": "bitrate", "bitrate": 320}},
 	}
 	return map[string]any{
-		"schema_version":  1,
-		"mode":            "available_sources",
-		"classifier_tags": []string{"SEなし"},
-		"matched":         profile,
-		"unmatched":       profile,
-		"members":         []any{},
+		"schema_version": 1,
+		"mode":           "available_sources",
+		"no_effect_tags": []string{"SEなし"},
+		"matched":        profile,
+		"unmatched":      profile,
+		"members":        []any{},
 	}
 }
 
@@ -288,10 +288,10 @@ func TestWorksetHTTPLifecycle(t *testing.T) {
 			Kind          string `json:"kind"`
 			SchemaVersion int    `json:"schema_version"`
 			Payload       struct {
-				SchemaVersion  int      `json:"schema_version"`
-				Mode           string   `json:"mode"`
-				ClassifierTags []string `json:"classifier_tags"`
-				Members        []any    `json:"members"`
+				SchemaVersion int      `json:"schema_version"`
+				Mode          string   `json:"mode"`
+				NoEffectTags  []string `json:"no_effect_tags"`
+				Members       []any    `json:"members"`
 			} `json:"payload"`
 		} `json:"task"`
 	}
@@ -302,7 +302,7 @@ func TestWorksetHTTPLifecycle(t *testing.T) {
 		draft.Task.Payload.SchemaVersion != 1 || draft.Task.Payload.Mode != "available_sources" {
 		t.Fatalf("draft: %+v", draft)
 	}
-	if len(draft.Task.Payload.ClassifierTags) != 1 || len(draft.Task.Payload.Members) != 0 {
+	if len(draft.Task.Payload.NoEffectTags) != 1 || len(draft.Task.Payload.Members) != 0 {
 		t.Fatalf("seeded draft must be sparse: %+v", draft.Task.Payload)
 	}
 	if draft.CommonSettingsCurrent {
@@ -518,10 +518,10 @@ func TestPolicySlotsListAndUpdate(t *testing.T) {
 
 	// PUT invalid regex policy is rejected.
 	badPolicy := map[string]any{
-		"schema_version":  1,
-		"classifier_tags": []string{},
-		"matched":         map[string]any{"lossless": map[string]any{"codec": "wav"}},
-		"unmatched":       map[string]any{"lossless": map[string]any{"codec": "wav"}},
+		"schema_version": 1,
+		"no_effect_tags": []string{},
+		"matched":        map[string]any{"lossless": map[string]any{"codec": "wav"}},
+		"unmatched":      map[string]any{"lossless": map[string]any{"codec": "wav"}},
 	}
 	w = req(
 		t,
@@ -537,9 +537,9 @@ func TestPolicySlotsListAndUpdate(t *testing.T) {
 
 	// PUT a valid slot then verify the round-trip.
 	goodPolicy := map[string]any{
-		"schema_version":  1,
-		"classifier_tags": []string{"SEなし", "se_nashi"},
-		"matched":         map[string]any{"lossless": map[string]any{"codec": "wav"}},
+		"schema_version": 1,
+		"no_effect_tags": []string{"SEなし", "se_nashi"},
+		"matched":        map[string]any{"lossless": map[string]any{"codec": "wav"}},
 		"unmatched": map[string]any{
 			"encoded": map[string]any{"codec": "mp3", "quality": map[string]any{"kind": "bitrate", "bitrate": 320}},
 		},
@@ -581,7 +581,7 @@ func TestClassifierTagsHTTPAPI(t *testing.T) {
 		t.Fatalf("list tags status = %d", w.Code)
 	}
 	var res struct {
-		DefaultTags []string `json:"default_tags"`
+		DefaultTags []string `json:"default_no_effect_tags"`
 		CustomTags  []struct {
 			ID        int64  `json:"id"`
 			Tag       string `json:"tag"`
@@ -641,5 +641,99 @@ func TestClassifierTagsHTTPAPI(t *testing.T) {
 	_ = json.Unmarshal(w.Body.Bytes(), &res)
 	if len(res.CustomTags) != 0 {
 		t.Fatalf("expected 0 custom tags after delete, got %d", len(res.CustomTags))
+	}
+}
+
+func TestConversionTagWriteBoundaries(t *testing.T) {
+	h, repo := newWorksetServer(t)
+	libID := seedLibrary(t, repo)
+	seedMember(t, repo, "albumA")
+	id := createRecord(t, h, libID, "tags-write")
+	path := "/api/v1/worksets/" + id + "/operations/conversion/draft"
+	detail := req(t, h, http.MethodGet, "/api/v1/worksets/"+id, testToken, nil)
+	var view struct {
+		Members []struct {
+			MemberID string `json:"member_id"`
+		}
+	}
+	if err := json.Unmarshal(detail.Body.Bytes(), &view); err != nil {
+		t.Fatal(err)
+	}
+	if len(view.Members) != 1 {
+		t.Fatalf("members: %s", detail.Body.String())
+	}
+	for _, tc := range []struct {
+		name     string
+		key      string
+		value    any
+		override bool
+	}{
+		{"old key empty", "classifier_tags", []string{}, false},
+		{"old key null", "classifier_tags", nil, false},
+		{"old key case variant", "CLASSIFIER_TAGS", []string{"old"}, false},
+		{"slash", "other_tags", []string{"wav/revert"}, false},
+		{"backslash", "other_tags", []string{`wav\revert`}, false},
+		{"excluded override slash", "other_tags", []string{"wav/revert"}, true},
+		{"excluded override backslash", "other_tags", []string{`wav\revert`}, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			doc := draftDocumentFixture()
+			if tc.override {
+				doc["members"] = []any{
+					map[string]any{
+						"member_id": view.Members[0].MemberID,
+						"excluded":  true,
+						"overrides": map[string]any{tc.key: tc.value},
+					},
+				}
+			} else {
+				doc[tc.key] = tc.value
+			}
+			w := reqWithIfMatch(t, h, http.MethodPut, path, testToken, doc, "1")
+			if w.Code != http.StatusBadRequest {
+				t.Fatalf("draft must reject malformed tags: %d %s", w.Code, w.Body.String())
+			}
+			if tc.override {
+				return
+			}
+			delete(doc, "members")
+			w = req(
+				t,
+				h,
+				http.MethodPut,
+				"/api/v1/policy-slots/1",
+				testToken,
+				map[string]any{"name": "test", "policy": doc},
+			)
+			if w.Code != http.StatusBadRequest {
+				t.Fatalf("slot must reject malformed tags: %d %s", w.Code, w.Body.String())
+			}
+			slot, err := repo.PolicySlot(1)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if slot.Name != "" {
+				t.Fatalf("rejected slot was stored: %+v", slot)
+			}
+		})
+	}
+	doc := draftDocumentFixture()
+	doc["no_effect_tags"] = []string{}
+	doc["other_tags"] = []string{}
+	saved := reqWithIfMatch(t, h, http.MethodPut, path, testToken, doc, "1")
+	if saved.Code != http.StatusOK {
+		t.Fatalf("empty no-effect draft must save: %d %s", saved.Code, saved.Body.String())
+	}
+	delete(doc, "members")
+	slot := req(
+		t,
+		h,
+		http.MethodPut,
+		"/api/v1/policy-slots/1",
+		testToken,
+		map[string]any{"name": "test", "policy": doc},
+	)
+	if slot.Code != http.StatusBadRequest {
+		t.Fatalf("empty no-effect slot must fail: %d %s", slot.Code, slot.Body.String())
 	}
 }

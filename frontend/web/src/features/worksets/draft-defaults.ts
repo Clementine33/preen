@@ -8,6 +8,7 @@ import type { DeleteMode, DesiredProfile, OverrideUnit } from '@/lib/api/types'
  */
 export function defaultDraftValues(
   defaultTags: string[],
+  defaultOtherTags: string[] = [],
 ): Record<OverrideUnit, unknown> & { delete_mode: DeleteMode } {
   const profile: DesiredProfile = {
     lossless: { codec: 'wav' },
@@ -15,7 +16,8 @@ export function defaultDraftValues(
   }
   return {
     mode: 'available_sources',
-    classifier_tags: [...defaultTags],
+    no_effect_tags: [...defaultTags],
+    other_tags: [...defaultOtherTags],
     matched: profile,
     unmatched: profile,
     delete_mode: 'soft',

@@ -15,10 +15,11 @@ import (
 // flag is a transport instruction excluded from the task document.
 // Unoverridden units are absent from member records; null never means "clear".
 type draftDocumentRequest struct {
+	OtherTags           []string                 `json:"other_tags"`
 	SchemaVersion       int                      `json:"schema_version"`
 	Mode                string                   `json:"mode"`
 	DeleteMode          string                   `json:"delete_mode,omitempty"`
-	ClassifierTags      []string                 `json:"classifier_tags"`
+	NoEffectTags        []string                 `json:"no_effect_tags"`
 	Matched             reconcile.DesiredProfile `json:"matched"`
 	Unmatched           reconcile.DesiredProfile `json:"unmatched"`
 	Members             []draftMemberRequest     `json:"members"`
@@ -32,10 +33,11 @@ type draftMemberRequest struct {
 }
 
 type draftOverridesRequest struct {
-	Mode           *string                   `json:"mode"`
-	ClassifierTags *[]string                 `json:"classifier_tags"`
-	Matched        *reconcile.DesiredProfile `json:"matched"`
-	Unmatched      *reconcile.DesiredProfile `json:"unmatched"`
+	OtherTags    *[]string                 `json:"other_tags"`
+	Mode         *string                   `json:"mode"`
+	NoEffectTags *[]string                 `json:"no_effect_tags"`
+	Matched      *reconcile.DesiredProfile `json:"matched"`
+	Unmatched    *reconcile.DesiredProfile `json:"unmatched"`
 }
 
 // taskDraftEnvelope is the opaque task envelope of a draft document: the

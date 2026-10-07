@@ -85,10 +85,10 @@ func balancedPolicy() reconcile.Policy {
 		},
 	}
 	return reconcile.Policy{
-		SchemaVersion:  1,
-		ClassifierTags: []string{"SEなし"},
-		Matched:        profile,
-		Unmatched:      profile,
+		SchemaVersion: 1,
+		NoEffectTags:  []string{"SEなし"},
+		Matched:       profile,
+		Unmatched:     profile,
 	}
 }
 
@@ -143,7 +143,7 @@ func TestPlanBalancedSatisfied(t *testing.T) {
 	if res.Roots[0].InventoryFingerprint == "" {
 		t.Fatal("inventory fingerprint must be part of the snapshot")
 	}
-	if res.ClassifierTags == "" {
+	if res.NoEffectTags == "" {
 		t.Fatal("classifier tag snapshot must be part of the snapshot")
 	}
 }

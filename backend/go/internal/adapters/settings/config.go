@@ -7,11 +7,13 @@ import (
 	"github.com/onsei/organizer/backend/internal/inventory"
 )
 
-// PruneConfig defines prune-related settings in config.json. LiteralTags is
+// PruneConfig defines prune-related settings in config.json. NoEffectTags is
 // the maintained initial classifier tag list (matched as case-insensitive
 // literal substrings); it seeds new workset drafts only.
 type PruneConfig struct {
-	LiteralTags []string `json:"literal_tags"`
+	NoEffectTags      []string `json:"no_effect_tags"`
+	OtherTags         []string `json:"other_tags"`
+	LegacyLiteralTags []string `json:"literal_tags,omitempty"`
 }
 
 func normalizeTags(tags []string) []string {

@@ -75,7 +75,7 @@ func TestDesignExampleInheritance(t *testing.T) {
 	// matched=FLAC; 丙 explicitly overrides the tags with the same common A.
 	doc := draftDoc()
 	doc.Mode = reconcile.ModeAvailableSources
-	doc.ClassifierTags = []string{"A"}
+	doc.NoEffectTags = []string{"A"}
 	doc.Matched = reconcile.DesiredProfile{Lossless: &reconcile.AudioOutputSpec{Codec: reconcile.CodecWav}}
 	doc.Unmatched = reconcile.DesiredProfile{
 		Encoded: &reconcile.AudioOutputSpec{
@@ -86,7 +86,7 @@ func TestDesignExampleInheritance(t *testing.T) {
 	flac := reconcile.DesiredProfile{Lossless: &reconcile.AudioOutputSpec{Codec: reconcile.CodecFlac}}
 	doc.Members = []conversion.DraftMember{
 		{MemberID: yi, Overrides: &conversion.OverrideSet{Matched: &flac}},
-		{MemberID: bing, Overrides: &conversion.OverrideSet{ClassifierTags: &[]string{"A"}}},
+		{MemberID: bing, Overrides: &conversion.OverrideSet{NoEffectTags: &[]string{"A"}}},
 	}
 	f.saveDraft(ws.WorksetID, doc, ws.Operations[0].Version)
 
@@ -139,20 +139,20 @@ func TestDesignExampleInheritance(t *testing.T) {
 	// override was explicit even though the values were equal before.
 	before := f.draft(ws.WorksetID)
 	changed := *mustDraft(t, before)
-	changed.ClassifierTags = []string{"B"}
+	changed.NoEffectTags = []string{"B"}
 	f.saveDraft(ws.WorksetID, &changed, f.operation(ws.WorksetID).Version)
 
 	eff = f.resolve(ws)
-	if got := eff["jia"].policy.ClassifierTags; len(got) != 1 || got[0] != "B" {
+	if got := eff["jia"].policy.NoEffectTags; len(got) != 1 || got[0] != "B" {
 		t.Fatalf("step 2: 甲 tags = %v, want [B]", got)
 	}
-	if got := eff["yi"].policy.ClassifierTags; len(got) != 1 || got[0] != "B" {
+	if got := eff["yi"].policy.NoEffectTags; len(got) != 1 || got[0] != "B" {
 		t.Fatalf("step 2: 乙 tags = %v, want [B]", got)
 	}
-	if got := eff["bing"].policy.ClassifierTags; len(got) != 1 || got[0] != "A" {
+	if got := eff["bing"].policy.NoEffectTags; len(got) != 1 || got[0] != "A" {
 		t.Fatalf("step 2: 丙 tags = %v, want [A]", got)
 	}
-	if eff["bing"].sources[conversion.UnitClassifierTags] != conversion.SourceMember {
+	if eff["bing"].sources[conversion.UnitNoEffectTags] != conversion.SourceMember {
 		t.Fatal("step 2: 丙 tag source must be member")
 	}
 
@@ -169,19 +169,19 @@ func TestDesignExampleInheritance(t *testing.T) {
 	f.saveDraft(ws.WorksetID, &restored, f.operation(ws.WorksetID).Version)
 
 	eff = f.resolve(ws)
-	if got := eff["bing"].policy.ClassifierTags; len(got) != 1 || got[0] != "B" {
+	if got := eff["bing"].policy.NoEffectTags; len(got) != 1 || got[0] != "B" {
 		t.Fatalf("step 3: 丙 tags = %v, want inherited [B]", got)
 	}
-	if eff["bing"].sources[conversion.UnitClassifierTags] != conversion.SourceCommon {
+	if eff["bing"].sources[conversion.UnitNoEffectTags] != conversion.SourceCommon {
 		t.Fatal("step 3: 丙 tag source must be common")
 	}
 
 	third := f.draft(ws.WorksetID)
 	again := *mustDraft(t, third)
-	again.ClassifierTags = []string{"C"}
+	again.NoEffectTags = []string{"C"}
 	f.saveDraft(ws.WorksetID, &again, f.operation(ws.WorksetID).Version)
 	eff = f.resolve(ws)
-	if got := eff["bing"].policy.ClassifierTags; len(got) != 1 || got[0] != "C" {
+	if got := eff["bing"].policy.NoEffectTags; len(got) != 1 || got[0] != "C" {
 		t.Fatalf("step 3: 丙 must follow the common tags to C, got %v", got)
 	}
 
@@ -240,7 +240,7 @@ func TestSparseOverridesSurviveRoundTrip(t *testing.T) {
 	doc := draftDoc()
 	tags := []string{"only-a"}
 	doc.Members = []conversion.DraftMember{
-		{MemberID: first, Overrides: &conversion.OverrideSet{ClassifierTags: &tags}},
+		{MemberID: first, Overrides: &conversion.OverrideSet{NoEffectTags: &tags}},
 		// A participating member with no override is not stored at all.
 		{MemberID: second},
 	}
@@ -251,7 +251,7 @@ func TestSparseOverridesSurviveRoundTrip(t *testing.T) {
 		t.Fatalf("sparse members = %+v", mustDraft(t, stored).Members)
 	}
 	ov := mustDraft(t, stored).Members[0].Overrides
-	if ov == nil || ov.ClassifierTags == nil || ov.Mode != nil || ov.Matched != nil || ov.Unmatched != nil {
+	if ov == nil || ov.NoEffectTags == nil || ov.Mode != nil || ov.Matched != nil || ov.Unmatched != nil {
 		t.Fatalf("unmodified units were materialized: %+v", ov)
 	}
 }
@@ -270,7 +270,7 @@ func TestExplicitEmptyTagsAreNotAbsence(t *testing.T) {
 	empty := []string{}
 	doc := draftDoc()
 	doc.Members = []conversion.DraftMember{
-		{MemberID: byPath["clear"], Overrides: &conversion.OverrideSet{ClassifierTags: &empty}},
+		{MemberID: byPath["clear"], Overrides: &conversion.OverrideSet{NoEffectTags: &empty}},
 	}
 	f.saveDraft(ws.WorksetID, doc, ws.Operations[0].Version)
 
@@ -278,7 +278,7 @@ func TestExplicitEmptyTagsAreNotAbsence(t *testing.T) {
 	if len(mustDraft(t, stored).Members) != 1 {
 		t.Fatalf("explicit empty tags must be stored, got %+v", mustDraft(t, stored).Members)
 	}
-	if got := mustDraft(t, stored).Members[0].Overrides.ClassifierTags; got == nil || len(*got) != 0 {
+	if got := mustDraft(t, stored).Members[0].Overrides.NoEffectTags; got == nil || len(*got) != 0 {
 		t.Fatalf("explicit empty tags not preserved: %+v", got)
 	}
 }
@@ -295,30 +295,30 @@ func TestEqualValueDifferentSource(t *testing.T) {
 	}
 	same := []string{"X"}
 	doc := draftDoc()
-	doc.ClassifierTags = same
+	doc.NoEffectTags = same
 	doc.Members = []conversion.DraftMember{
-		{MemberID: byPath["explicit"], Overrides: &conversion.OverrideSet{ClassifierTags: &same}},
+		{MemberID: byPath["explicit"], Overrides: &conversion.OverrideSet{NoEffectTags: &same}},
 	}
 	f.saveDraft(ws.WorksetID, doc, ws.Operations[0].Version)
 
 	eff := f.resolve(ws)
-	if eff["inherit"].sources[conversion.UnitClassifierTags] != conversion.SourceCommon {
+	if eff["inherit"].sources[conversion.UnitNoEffectTags] != conversion.SourceCommon {
 		t.Fatal("inheriting member must be sourced common")
 	}
-	if eff["explicit"].sources[conversion.UnitClassifierTags] != conversion.SourceMember {
+	if eff["explicit"].sources[conversion.UnitNoEffectTags] != conversion.SourceMember {
 		t.Fatal("equal explicit value must stay sourced member")
 	}
 
 	stored := f.draft(ws.WorksetID)
 	changed := *mustDraft(t, stored)
-	changed.ClassifierTags = []string{"Y"}
+	changed.NoEffectTags = []string{"Y"}
 	f.saveDraft(ws.WorksetID, &changed, f.operation(ws.WorksetID).Version)
 
 	eff = f.resolve(ws)
-	if got := eff["inherit"].policy.ClassifierTags; len(got) != 1 || got[0] != "Y" {
+	if got := eff["inherit"].policy.NoEffectTags; len(got) != 1 || got[0] != "Y" {
 		t.Fatalf("inheriting member did not follow: %v", got)
 	}
-	if got := eff["explicit"].policy.ClassifierTags; len(got) != 1 || got[0] != "X" {
+	if got := eff["explicit"].policy.NoEffectTags; len(got) != 1 || got[0] != "X" {
 		t.Fatalf("explicit member changed: %v", got)
 	}
 }
@@ -359,9 +359,9 @@ func TestHistoricalRevisionKeepsItsFrozenValues(t *testing.T) {
 	byPath := ws.Members[0].MemberID
 	tags := []string{"old"}
 	doc := draftDoc()
-	doc.ClassifierTags = []string{"common-old"}
+	doc.NoEffectTags = []string{"common-old"}
 	doc.Members = []conversion.DraftMember{
-		{MemberID: byPath, Overrides: &conversion.OverrideSet{ClassifierTags: &tags}},
+		{MemberID: byPath, Overrides: &conversion.OverrideSet{NoEffectTags: &tags}},
 	}
 	f.saveDraft(ws.WorksetID, doc, ws.Operations[0].Version)
 
@@ -372,15 +372,15 @@ func TestHistoricalRevisionKeepsItsFrozenValues(t *testing.T) {
 
 	stored := f.draft(ws.WorksetID)
 	changed := *mustDraft(t, stored)
-	changed.ClassifierTags = []string{"common-new"}
+	changed.NoEffectTags = []string{"common-new"}
 	changed.Members = nil
 	f.saveDraft(ws.WorksetID, &changed, f.operation(ws.WorksetID).Version)
 
 	frozen := f.resolvedFrom(ws, first.RevisionID)
-	if got := frozen["a"].policy.ClassifierTags; len(got) != 1 || got[0] != "old" {
+	if got := frozen["a"].policy.NoEffectTags; len(got) != 1 || got[0] != "old" {
 		t.Fatalf("frozen revision tags = %v, want [old]", got)
 	}
-	if frozen["a"].sources[conversion.UnitClassifierTags] != conversion.SourceMember {
+	if frozen["a"].sources[conversion.UnitNoEffectTags] != conversion.SourceMember {
 		t.Fatal("frozen revision must keep the override source")
 	}
 }

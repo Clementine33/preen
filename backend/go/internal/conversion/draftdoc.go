@@ -13,13 +13,14 @@ import (
 // DraftSchemaVersion is the operation draft document schema version.
 const DraftSchemaVersion = 1
 
-// Override unit names. They are the four things an exception can replace and
+// Override unit names. They are the five things an exception can replace and
 // the values carried in the response's inheritance sources.
 const (
-	UnitMode           = "mode"
-	UnitClassifierTags = "classifier_tags"
-	UnitMatched        = "matched"
-	UnitUnmatched      = "unmatched"
+	UnitMode         = "mode"
+	UnitNoEffectTags = "no_effect_tags"
+	UnitOtherTags    = "other_tags"
+	UnitMatched      = "matched"
+	UnitUnmatched    = "unmatched"
 )
 
 // Inheritance source values: where a member's effective unit value comes from.
@@ -28,7 +29,7 @@ const (
 	SourceMember = "member"
 )
 
-// DraftDoc is the persisted sparse operation draft (ADR 0006 §1). The four
+// DraftDoc is the persisted sparse operation draft (ADR 0006 §1). The five
 // common setting groups are the base; a member overrides only the units it
 // explicitly replaces. Absence means inheritance — never truthiness — so an
 // explicitly empty tag list is a real override while null is not.
@@ -36,13 +37,15 @@ const (
 // hard; empty means soft) — it is one global choice, frozen into every
 // revision and never overridable per member.
 type DraftDoc struct {
-	SchemaVersion  int                      `json:"schema_version"`
-	Mode           string                   `json:"mode,omitempty"`
-	DeleteMode     string                   `json:"delete_mode,omitempty"`
-	ClassifierTags []string                 `json:"classifier_tags"`
-	Matched        reconcile.DesiredProfile `json:"matched"`
-	Unmatched      reconcile.DesiredProfile `json:"unmatched"`
-	Members        []DraftMember            `json:"members,omitempty"`
+	OtherTags            []string                 `json:"other_tags"`
+	LegacyClassifierTags []string                 `json:"classifier_tags,omitempty"`
+	SchemaVersion        int                      `json:"schema_version"`
+	Mode                 string                   `json:"mode,omitempty"`
+	DeleteMode           string                   `json:"delete_mode,omitempty"`
+	NoEffectTags         []string                 `json:"no_effect_tags"`
+	Matched              reconcile.DesiredProfile `json:"matched"`
+	Unmatched            reconcile.DesiredProfile `json:"unmatched"`
+	Members              []DraftMember            `json:"members,omitempty"`
 }
 
 // DraftMember is one member's participation plus its sparse unit overrides.
@@ -58,10 +61,12 @@ type DraftMember struct {
 // value; a non-nil field — including a pointer to an empty tag slice — is an
 // explicit value that later common changes never touch.
 type OverrideSet struct {
-	Mode           *string                   `json:"mode,omitempty"`
-	ClassifierTags *[]string                 `json:"classifier_tags,omitempty"`
-	Matched        *reconcile.DesiredProfile `json:"matched,omitempty"`
-	Unmatched      *reconcile.DesiredProfile `json:"unmatched,omitempty"`
+	OtherTags            *[]string                 `json:"other_tags,omitempty"`
+	LegacyClassifierTags *[]string                 `json:"classifier_tags,omitempty"`
+	Mode                 *string                   `json:"mode,omitempty"`
+	NoEffectTags         *[]string                 `json:"no_effect_tags,omitempty"`
+	Matched              *reconcile.DesiredProfile `json:"matched,omitempty"`
+	Unmatched            *reconcile.DesiredProfile `json:"unmatched,omitempty"`
 }
 
 // HasUnit reports whether the override set explicitly sets a unit.
@@ -72,8 +77,10 @@ func (o *OverrideSet) HasUnit(unit string) bool {
 	switch unit {
 	case UnitMode:
 		return o.Mode != nil
-	case UnitClassifierTags:
-		return o.ClassifierTags != nil
+	case UnitNoEffectTags:
+		return o.NoEffectTags != nil
+	case UnitOtherTags:
+		return o.OtherTags != nil
 	case UnitMatched:
 		return o.Matched != nil
 	case UnitUnmatched:
@@ -84,8 +91,8 @@ func (o *OverrideSet) HasUnit(unit string) bool {
 
 // Units lists the explicitly set units in the canonical unit order.
 func (o *OverrideSet) Units() []string {
-	out := make([]string, 0, 4)
-	for _, unit := range []string{UnitMode, UnitClassifierTags, UnitMatched, UnitUnmatched} {
+	out := make([]string, 0, 5)
+	for _, unit := range []string{UnitMode, UnitNoEffectTags, UnitOtherTags, UnitMatched, UnitUnmatched} {
 		if o.HasUnit(unit) {
 			out = append(out, unit)
 		}
@@ -97,27 +104,30 @@ func (o *OverrideSet) Units() []string {
 func (o *OverrideSet) IsEmpty() bool { return len(o.Units()) == 0 }
 
 // CommonSettings is the projection of a draft document a deployment-wide save
-// stores and pushes to every operation of this kind (ADR 0010 §1): the five
+// stores and pushes to every operation of this kind (ADR 0010 §1): the six
 // common values, and no member record at all. It mirrors DraftDoc's own
 // encoding of them — mode and delete_mode are omitted when unset, and the tag
 // list is always an array, so an explicitly empty tag set survives the round
 // trip as the explicit value it is.
 type CommonSettings struct {
-	Mode           string                   `json:"mode,omitempty"`
-	DeleteMode     string                   `json:"delete_mode,omitempty"`
-	ClassifierTags []string                 `json:"classifier_tags"`
-	Matched        reconcile.DesiredProfile `json:"matched"`
-	Unmatched      reconcile.DesiredProfile `json:"unmatched"`
+	OtherTags            []string                 `json:"other_tags"`
+	LegacyClassifierTags []string                 `json:"classifier_tags,omitempty"`
+	Mode                 string                   `json:"mode,omitempty"`
+	DeleteMode           string                   `json:"delete_mode,omitempty"`
+	NoEffectTags         []string                 `json:"no_effect_tags"`
+	Matched              reconcile.DesiredProfile `json:"matched"`
+	Unmatched            reconcile.DesiredProfile `json:"unmatched"`
 }
 
 // ProjectCommonSettings extracts one draft document's common settings.
 func ProjectCommonSettings(doc *DraftDoc) CommonSettings {
 	return CommonSettings{
-		Mode:           doc.Mode,
-		DeleteMode:     doc.DeleteMode,
-		ClassifierTags: doc.ClassifierTags,
-		Matched:        doc.Matched,
-		Unmatched:      doc.Unmatched,
+		Mode:         doc.Mode,
+		DeleteMode:   doc.DeleteMode,
+		NoEffectTags: doc.NoEffectTags,
+		OtherTags:    append([]string{}, doc.OtherTags...),
+		Matched:      doc.Matched,
+		Unmatched:    doc.Unmatched,
 	}
 }
 
@@ -131,9 +141,10 @@ func ReplaceCommonSettings(doc *DraftDoc, common CommonSettings) *DraftDoc {
 	out.DeleteMode = common.DeleteMode
 	out.Matched = common.Matched
 	out.Unmatched = common.Unmatched
-	out.ClassifierTags = append([]string{}, common.ClassifierTags...)
-	if out.ClassifierTags == nil {
-		out.ClassifierTags = []string{}
+	out.NoEffectTags = append([]string{}, common.NoEffectTags...)
+	out.OtherTags = append([]string{}, common.OtherTags...)
+	if out.NoEffectTags == nil {
+		out.NoEffectTags = []string{}
 	}
 	return &out
 }
@@ -157,6 +168,7 @@ func ParseDraft(raw string) (*DraftDoc, error) {
 	if err := dec.Decode(&doc); err != nil {
 		return nil, err
 	}
+	doc.foldLegacyTags()
 	return &doc, nil
 }
 
@@ -173,9 +185,10 @@ func normalizeDraft(doc *DraftDoc, members []*workset.WorksetMember) *DraftDoc {
 		Matched:       doc.Matched,
 		Unmatched:     doc.Unmatched,
 	}
-	out.ClassifierTags = append([]string{}, doc.ClassifierTags...)
-	if out.ClassifierTags == nil {
-		out.ClassifierTags = []string{}
+	out.OtherTags = append([]string{}, doc.OtherTags...)
+	out.NoEffectTags = append([]string{}, doc.NoEffectTags...)
+	if out.NoEffectTags == nil {
+		out.NoEffectTags = []string{}
 	}
 	byID := map[string]DraftMember{}
 	for _, m := range doc.Members {
@@ -205,6 +218,9 @@ func validateDraftDoc(doc *DraftDoc, members []*workset.WorksetMember) error {
 			"unsupported operation draft schema version",
 			nil,
 		)
+	}
+	if err := reconcile.ValidateOtherTags(doc.OtherTags); err != nil {
+		return workset.NewError(workset.ErrKindInvalidArgument, "INVALID_DRAFT", err.Error(), err)
 	}
 	if err := validateMode(doc.Mode); err != nil {
 		return err
@@ -287,6 +303,11 @@ func validateDeleteMode(mode string) error {
 func validateOverrides(o *OverrideSet) error {
 	if o == nil {
 		return nil
+	}
+	if o.OtherTags != nil {
+		if err := reconcile.ValidateOtherTags(*o.OtherTags); err != nil {
+			return workset.NewError(workset.ErrKindInvalidArgument, "INVALID_DRAFT", err.Error(), err)
+		}
 	}
 	if o.Mode != nil {
 		if err := validateMode(*o.Mode); err != nil {

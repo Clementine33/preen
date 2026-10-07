@@ -107,6 +107,22 @@ function worksQuery(params: ListWorksParams): string {
   return qs ? `?${qs}` : ''
 }
 
+/** Stored conversion JSON may still use the old key; writes only use the new one.
+ * Overrides preserve absence, while common settings materialize empty arrays.
+ */
+function normalizeConversionTags<T extends { no_effect_tags?: string[]; other_tags?: string[] }>(value: T, override = false): T {
+  const out = { ...value } as T & { classifier_tags?: string[] }
+  if (!override || out.no_effect_tags != null || out.classifier_tags != null) {
+    out.no_effect_tags = out.no_effect_tags ?? out.classifier_tags ?? []
+  } else {
+    delete out.no_effect_tags
+  }
+  if (!override) out.other_tags = out.other_tags ?? []
+  else if (out.other_tags == null) delete out.other_tags
+  delete out.classifier_tags
+  return out
+}
+
 export class ApiClient implements ApiClientContract {
   private readonly baseUrl: string
   private readonly token: string | null
@@ -202,7 +218,7 @@ export class ApiClient implements ApiClientContract {
   // ==================== Policy slots ====================
 
   listPolicySlots(signal?: AbortSignal): Promise<PolicySlot[]> {
-    return this.request<{ slots: PolicySlot[] }>('/policy-slots', { signal }).then((r) => r.slots)
+    return this.request<{ slots: PolicySlot[] }>('/policy-slots', { signal }).then((r) => r.slots.map((slot) => ({ ...slot, policy: slot.policy ? normalizeConversionTags(slot.policy) : null })))
   }
 
   savePolicySlot(slot: number, input: SavePolicySlotInput): Promise<PolicySlot> {
@@ -409,9 +425,11 @@ export class ApiClient implements ApiClientContract {
       document:
         operation === 'conversion'
           ? {
-              ...payload,
-              classifier_tags: payload.classifier_tags ?? [],
-              members: payload.members ?? [],
+              ...normalizeConversionTags(payload),
+              members: (payload.members ?? []).map((member) => ({
+                ...member,
+                ...(member.overrides ? { overrides: normalizeConversionTags(member.overrides, true) } : {}),
+              })),
             }
           : payload,
       common_settings_current: wire.common_settings_current,
@@ -471,16 +489,20 @@ export class ApiClient implements ApiClientContract {
     )
   }
 
-  getRevision(
+  async getRevision(
     worksetId: string,
     operation: OperationType,
     planId: string,
     signal?: AbortSignal,
   ): Promise<RevisionDetailResponse> {
-    return this.request(
+    const wire = await this.request<RevisionDetailResponse>(
       `${this.operationPath(worksetId, operation)}/revisions/${encodeURIComponent(planId)}`,
       { signal },
     )
+    if (operation === 'conversion' && wire.task.payload.policy) {
+      return { ...wire, task: { ...wire.task, payload: { ...wire.task.payload, policy: normalizeConversionTags(wire.task.payload.policy) } } }
+    }
+    return wire
   }
 
   /**

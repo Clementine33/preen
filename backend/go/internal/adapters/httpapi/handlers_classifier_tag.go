@@ -17,8 +17,9 @@ type classifierCustomTagItem struct {
 }
 
 type classifierTagLibraryResponse struct {
-	DefaultTags []string                  `json:"default_tags"`
-	CustomTags  []classifierCustomTagItem `json:"custom_tags"`
+	DefaultOtherTags    []string                  `json:"default_other_tags"`
+	DefaultNoEffectTags []string                  `json:"default_no_effect_tags"`
+	CustomTags          []classifierCustomTagItem `json:"custom_tags"`
 }
 
 type classifierTagCreateRequest struct {
@@ -51,8 +52,9 @@ func (s *Server) listClassifierTags(w http.ResponseWriter, _ *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, classifierTagLibraryResponse{
-		DefaultTags: s.deps.Catalog.DefaultTags(),
-		CustomTags:  customItems,
+		DefaultNoEffectTags: s.deps.Catalog.DefaultNoEffectTags(),
+		DefaultOtherTags:    s.deps.Catalog.DefaultOtherTags(),
+		CustomTags:          customItems,
 	})
 }
 

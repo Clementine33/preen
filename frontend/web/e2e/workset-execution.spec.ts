@@ -87,7 +87,7 @@ async function createWorksetForAllFolders(page: Page): Promise<void> {
   // Common settings are deployment-wide; each case starts from the defaults.
   await page.getByTestId('nav-conversion-settings').click()
   await expect(page.getByTestId('common-settings-form')).toBeVisible()
-  for (const unit of ['mode', 'classifier_tags', 'matched', 'unmatched']) {
+  for (const unit of ['mode', 'no_effect_tags', 'matched', 'unmatched']) {
     const restore = page.getByTestId(`common-${unit}-restore`)
     if (await restore.isEnabled()) await restore.click()
   }

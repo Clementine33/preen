@@ -144,7 +144,7 @@ func TestOnlyTheCurrentPlanSurvivesTheNextGeneration(t *testing.T) {
 	firstPlan := f.operation(ws.WorksetID).CurrentRevision.PlanID
 
 	doc := draftDoc()
-	doc.ClassifierTags = []string{"第二个"}
+	doc.NoEffectTags = []string{"第二个"}
 	saved := f.saveDraft(ws.WorksetID, doc, f.operation(ws.WorksetID).Version)
 	if _, err := f.svc.GetRevision(
 		f.ctx,

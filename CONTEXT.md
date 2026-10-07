@@ -138,7 +138,7 @@ _Avoid_: Batch Draft, Workset-wide Workflow Draft.
 The current values inherited by members without an explicit override for the corresponding setting group.
 
 **Field Override**:
-An explicit member-specific replacement of conversion mode, classifier tags, matched targets or unmatched targets. Other groups keep inheriting; an explicit empty value or a value equal to the common value still counts as an override.
+An explicit member-specific replacement of conversion mode, no-effect tags, other-directory tags, matched targets or unmatched targets. Other groups keep inheriting; an explicit empty value or a value equal to the common value still counts as an override.
 
 **Effective Settings**:
 The settings resolved for a member from common values and its field overrides, together with each group's common or member source.
@@ -153,7 +153,7 @@ An explicit edit of selected setting groups for a fixed member list. Unedited gr
 One of three reusable, named policy templates, initially unconfigured. Applying a configured slot copies its policy; later template changes do not alter saved drafts or revisions.
 
 **Classifier Tag Library**:
-Reusable literal classification tags, comprising installation defaults and user-saved custom tags. Drafts carry their own chosen tag values.
+Reusable literal tags, comprising separate installation defaults for no-effect matching and other-directory isolation, plus shared user-saved custom strings. Drafts carry their own chosen tag values.
 
 ### Planning and review
 
@@ -216,11 +216,19 @@ A Library entry the user removed: its processing record, plan and execution resu
 ### Audio reconciliation
 
 **Plan Policy**:
-A declaration of literal classifier tags, desired audio outputs for each partition and the conversion mode used to reconcile them.
+A declaration of no-effect tags, other-directory tags, desired audio outputs for each partition and the conversion mode used to reconcile them.
 _Avoid_: Slim/prune mode, user-composed conversion and cleanup steps.
 
 **Filter Match / Classifier Partition**:
-Whether an audio file's Planning Root-relative path contains a classifier tag, ignoring case. The partitions are `matched` (UI “无音效”) and `unmatched` (UI “有音效”); these labels describe rule matching, not proof of audio effects.
+Whether an audio file's Planning Root-relative path contains a no-effect tag, ignoring case. The partitions are `matched` (UI “无音效”) and `unmatched` (UI “有音效”); these labels describe rule matching, not proof of audio effects.
+
+**Version Scope**:
+The main scope of one Planning Root, or the subtree of its outermost directory
+segment matching an other-directory tag. Each actual matched root is independent;
+files aggregate only inside their scope. No-effect classification still reads
+the full original work-relative path. An unknown directory stays in the main
+scope until a rule isolates it.
+_Avoid_: One combined “other” bucket; isolating no-effect format directories.
 
 **Desired Audio Profile**:
 The exact managed audio outputs wanted for one classifier partition: at most one lossless output and one encoded output. It is the partition's final shape — media of an output it does not declare is obsolete once the declared set is reached, and a profile that declares nothing means the partition holds no managed audio at all.
@@ -233,7 +241,7 @@ The codec and quality required for an encoded output, such as MP3 at 320 kbps, a
 The observed files and their properties, including paths, codec, size, modification time and bitrate. These facts describe available inputs rather than desired outputs.
 
 **Component**:
-A transitive association of audio files sharing a parent directory or track stem within one Planning Root and classifier partition. It is the safety boundary for blocking changes and, in strict mode, maintaining encoded-output consistency.
+A transitive association of audio files sharing a parent directory or track stem within one Planning Root, Version Scope and classifier partition. It is the safety boundary for blocking changes and, in strict mode, maintaining encoded-output consistency.
 
 **Variant Group**:
 The files representing the same logical track within a Component, grouped by stem.

@@ -52,7 +52,7 @@ describe('ApiClient', () => {
       version: 2,
       common_settings_current: true,
       task: { kind: 'conversion', schema_version: 1, payload: {
-        schema_version: 1, classifier_tags: [], matched: {}, unmatched: {},
+        schema_version: 1, no_effect_tags: [], matched: {}, unmatched: {},
       } },
       updated_at: '',
     }))
@@ -63,7 +63,7 @@ describe('ApiClient', () => {
 
   it('passes a non-conversion draft through without conversion defaults', async () => {
     // Rename and metadata drafts reject unknown fields, so a save of what was
-    // read must not carry conversion's classifier_tags back.
+    // read must not carry conversion's no_effect_tags back.
     const payload = { schema_version: 1, common: { template: '{rj}' }, members: [] }
     mockFetch(async () => okJson({
       workset_id: 'ws-1',
@@ -164,7 +164,7 @@ describe('ApiClient', () => {
       'conversion',
       {
         schema_version: 1,
-        classifier_tags: [],
+        no_effect_tags: [],
         matched: {},
         unmatched: {},
         members: [],
@@ -307,4 +307,24 @@ describe('work content routes', () => {
     expect(String(url)).not.toContain('secret')
     expect(new Headers(init?.headers).get('Authorization')).toBe('Bearer secret')
   })
+})
+
+it('normalizes legacy conversion tags at every stored JSON read without losing empty overrides', async () => {
+  const legacy = { schema_version: 1, classifier_tags: ['SEなし'], matched: {}, unmatched: {} }
+  mockFetch((input) => {
+    const url = String(input)
+    if (url.endsWith('/policy-slots')) return okJson({ slots: [{ slot: 1, name: 'old', policy: legacy }, { slot: 2, name: 'new', policy: { ...legacy, no_effect_tags: [] } }] })
+    if (url.endsWith('/draft')) return okJson({ operation_type: 'conversion', task: { kind: 'conversion', schema_version: 1, payload: { ...legacy, members: [{ member_id: 'one', overrides: { classifier_tags: [] } }, { member_id: 'two' }] } } })
+    return okJson({ task: { kind: 'conversion', payload: { policy: legacy } } })
+  })
+  const client = createClient()
+  const draft = await client.getOperationDraft('ws', 'conversion')
+  expect(draft.document.no_effect_tags).toEqual(['SEなし'])
+  expect(draft.document.members[0]?.overrides).toEqual({ no_effect_tags: [] })
+  expect(draft.document.members[1]?.overrides).toBeUndefined()
+  expect(draft.document).not.toHaveProperty('classifier_tags')
+  const slots = await client.listPolicySlots()
+  expect(slots[0]?.policy).toMatchObject({ no_effect_tags: ['SEなし'], other_tags: [] })
+  expect(slots[1]?.policy?.no_effect_tags).toEqual([])
+  expect((await client.getRevision('ws', 'conversion', 'p')).task.payload.policy).toMatchObject({ no_effect_tags: ['SEなし'], other_tags: [] })
 })

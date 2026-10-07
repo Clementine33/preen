@@ -9,7 +9,7 @@ import (
 )
 
 // MemberEffective is one member's resolved conversion config plus where each
-// of the four units came from. Source differences survive equal values: a
+// of the five units came from. Source differences survive equal values: a
 // member that explicitly repeats the common value is still "member".
 type MemberEffective struct {
 	MemberID   string
@@ -23,7 +23,7 @@ type MemberEffective struct {
 // interpreted as strict (the historical default); the policy schema version is
 // pinned here so callers never invent one.
 func CommonPolicy(doc *DraftDoc) reconcile.Policy {
-	tags := doc.ClassifierTags
+	tags := doc.NoEffectTags
 	if tags == nil {
 		tags = []string{}
 	}
@@ -32,11 +32,12 @@ func CommonPolicy(doc *DraftDoc) reconcile.Policy {
 		mode = reconcile.ModeStrict
 	}
 	return reconcile.Policy{
-		SchemaVersion:  1,
-		Mode:           mode,
-		ClassifierTags: tags,
-		Matched:        doc.Matched,
-		Unmatched:      doc.Unmatched,
+		SchemaVersion: 1,
+		Mode:          mode,
+		NoEffectTags:  tags,
+		OtherTags:     append([]string{}, doc.OtherTags...),
+		Matched:       doc.Matched,
+		Unmatched:     doc.Unmatched,
 	}
 }
 
@@ -61,10 +62,11 @@ func ResolveEffective(doc *DraftDoc, members []*workset.WorksetMember) ([]Member
 			FolderPath: m.FolderPath,
 			Policy:     common,
 			Sources: map[string]string{
-				UnitMode:           SourceCommon,
-				UnitClassifierTags: SourceCommon,
-				UnitMatched:        SourceCommon,
-				UnitUnmatched:      SourceCommon,
+				UnitMode:         SourceCommon,
+				UnitNoEffectTags: SourceCommon,
+				UnitOtherTags:    SourceCommon,
+				UnitMatched:      SourceCommon,
+				UnitUnmatched:    SourceCommon,
 			},
 		}
 		if ok {
@@ -88,9 +90,13 @@ func applyOverrides(eff *MemberEffective, o *OverrideSet) {
 		}
 		eff.Sources[UnitMode] = SourceMember
 	}
-	if o.ClassifierTags != nil {
-		eff.Policy.ClassifierTags = *o.ClassifierTags
-		eff.Sources[UnitClassifierTags] = SourceMember
+	if o.NoEffectTags != nil {
+		eff.Policy.NoEffectTags = *o.NoEffectTags
+		eff.Sources[UnitNoEffectTags] = SourceMember
+	}
+	if o.OtherTags != nil {
+		eff.Policy.OtherTags = *o.OtherTags
+		eff.Sources[UnitOtherTags] = SourceMember
 	}
 	if o.Matched != nil {
 		eff.Policy.Matched = *o.Matched

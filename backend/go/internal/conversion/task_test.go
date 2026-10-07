@@ -84,7 +84,7 @@ func TestConversionRecoversBesideNestedWorkRoot(t *testing.T) {
 // draftJSON builds a minimal structurally valid draft with the given
 // obsolete-audio handling (empty omits the field entirely).
 func draftJSON(deleteMode string) []byte {
-	base := `{"schema_version":1,"classifier_tags":[],"matched":{},"unmatched":{}}`
+	base := `{"schema_version":1,"no_effect_tags":[],"matched":{},"unmatched":{}}`
 	if deleteMode == "" {
 		return []byte(base)
 	}
@@ -162,17 +162,17 @@ func TestSeedDraftReadsTheTagLiterals(t *testing.T) {
 			raw, _, _ := conversion.New(nil, appconfig.NewReader(dir), ffmpeg.New, media.ProbeBitrate, filesystem.Recover, filesystem.IsResolvedWithinRoot, conversion.ExecutionIO{Moves: filesystem.ConversionMoves{}, Files: filesystem.ConversionHandles{}}).
 				SeedDraft(nil)
 			var doc struct {
-				ClassifierTags []string `json:"classifier_tags"`
+				NoEffectTags []string `json:"no_effect_tags"`
 			}
 			if err := json.Unmarshal(raw, &doc); err != nil {
 				t.Fatalf("seed draft is not readable: %v", err)
 			}
-			if len(doc.ClassifierTags) != len(tc.want) {
-				t.Fatalf("classifier tags = %v, want %v", doc.ClassifierTags, tc.want)
+			if len(doc.NoEffectTags) != len(tc.want) {
+				t.Fatalf("classifier tags = %v, want %v", doc.NoEffectTags, tc.want)
 			}
 			for i := range tc.want {
-				if doc.ClassifierTags[i] != tc.want[i] {
-					t.Fatalf("classifier tags = %v, want %v", doc.ClassifierTags, tc.want)
+				if doc.NoEffectTags[i] != tc.want[i] {
+					t.Fatalf("classifier tags = %v, want %v", doc.NoEffectTags, tc.want)
 				}
 			}
 		})
@@ -196,18 +196,18 @@ func TestCommonSettingsProjectionAndApply(t *testing.T) {
 	strict := reconcile.ModeStrict
 	tags := []string{"自定义"}
 	doc := &conversion.DraftDoc{
-		SchemaVersion:  conversion.DraftSchemaVersion,
-		Mode:           reconcile.ModeAvailableSources,
-		DeleteMode:     "soft",
-		ClassifierTags: []string{"SEなし"},
-		Matched:        reconcile.DesiredProfile{Lossless: &reconcile.AudioOutputSpec{Codec: reconcile.CodecWav}},
-		Unmatched:      reconcile.DesiredProfile{Lossless: &reconcile.AudioOutputSpec{Codec: reconcile.CodecWav}},
+		SchemaVersion: conversion.DraftSchemaVersion,
+		Mode:          reconcile.ModeAvailableSources,
+		DeleteMode:    "soft",
+		NoEffectTags:  []string{"SEなし"},
+		Matched:       reconcile.DesiredProfile{Lossless: &reconcile.AudioOutputSpec{Codec: reconcile.CodecWav}},
+		Unmatched:     reconcile.DesiredProfile{Lossless: &reconcile.AudioOutputSpec{Codec: reconcile.CodecWav}},
 		Members: []conversion.DraftMember{
 			{
 				MemberID: "m-1",
 				Overrides: &conversion.OverrideSet{
-					Mode:           &strict,
-					ClassifierTags: &tags,
+					Mode:         &strict,
+					NoEffectTags: &tags,
 				},
 			},
 			{MemberID: "m-2", Excluded: true},
@@ -226,7 +226,7 @@ func TestCommonSettingsProjectionAndApply(t *testing.T) {
 	if decodeErr := json.Unmarshal(projected, &fields); decodeErr != nil {
 		t.Fatalf("projection is not readable: %v", decodeErr)
 	}
-	want := []string{"mode", "delete_mode", "classifier_tags", "matched", "unmatched"}
+	want := []string{"mode", "delete_mode", "no_effect_tags", "other_tags", "matched", "unmatched"}
 	if len(fields) != len(want) {
 		t.Fatalf("projection fields = %v, want exactly %v", fields, want)
 	}
@@ -240,7 +240,7 @@ func TestCommonSettingsProjectionAndApply(t *testing.T) {
 	}
 
 	replacement := json.RawMessage(
-		`{"mode":"strict","delete_mode":"hard","classifier_tags":["反転"],` +
+		`{"mode":"strict","delete_mode":"hard","no_effect_tags":["反転"],` +
 			`"matched":{"lossless":{"codec":"flac"}},"unmatched":{"lossless":{"codec":"wav"}}}`,
 	)
 	updated, updatedHash, err := task.ApplyCommonSettings([]byte(raw), replacement)
@@ -255,7 +255,7 @@ func TestCommonSettingsProjectionAndApply(t *testing.T) {
 		t.Fatalf("ParseDraft: %v", err)
 	}
 	if rewritten.Mode != reconcile.ModeStrict || rewritten.DeleteMode != "hard" ||
-		len(rewritten.ClassifierTags) != 1 || rewritten.ClassifierTags[0] != "反転" {
+		len(rewritten.NoEffectTags) != 1 || rewritten.NoEffectTags[0] != "反転" {
 		t.Fatalf("common values were not replaced: %+v", rewritten)
 	}
 	if len(rewritten.Members) != 2 {
@@ -263,8 +263,8 @@ func TestCommonSettingsProjectionAndApply(t *testing.T) {
 	}
 	first := rewritten.Members[0]
 	if first.MemberID != "m-1" || first.Overrides == nil || first.Overrides.Mode == nil ||
-		*first.Overrides.Mode != reconcile.ModeStrict || first.Overrides.ClassifierTags == nil ||
-		(*first.Overrides.ClassifierTags)[0] != "自定义" {
+		*first.Overrides.Mode != reconcile.ModeStrict || first.Overrides.NoEffectTags == nil ||
+		(*first.Overrides.NoEffectTags)[0] != "自定义" {
 		t.Fatalf("member overrides were not preserved: %+v", first)
 	}
 	if !rewritten.Members[1].Excluded {
@@ -287,7 +287,7 @@ func TestCommonSettingsRefusesUnknownStoredDraftSchema(t *testing.T) {
 		filesystem.IsResolvedWithinRoot,
 		conversion.ExecutionIO{Moves: filesystem.ConversionMoves{}, Files: filesystem.ConversionHandles{}},
 	)
-	stored := []byte(`{"schema_version":2,"classifier_tags":[],"matched":{},"unmatched":{}}`)
+	stored := []byte(`{"schema_version":2,"no_effect_tags":[],"matched":{},"unmatched":{}}`)
 	if _, err := task.CommonSettings(stored); err == nil {
 		t.Fatal("CommonSettings accepted an unknown stored draft schema")
 	}
@@ -319,7 +319,7 @@ func TestSeedDraftUsesTheStoredCommonSettings(t *testing.T) {
 	)
 
 	stored := json.RawMessage(
-		`{"mode":"strict","delete_mode":"hard","classifier_tags":["反転"],` +
+		`{"mode":"strict","delete_mode":"hard","no_effect_tags":["反転"],` +
 			`"matched":{"lossless":{"codec":"flac"}},"unmatched":{}}`,
 	)
 	raw, _, _ := task.SeedDraft(stored)
@@ -328,7 +328,7 @@ func TestSeedDraftUsesTheStoredCommonSettings(t *testing.T) {
 		t.Fatalf("seed draft is not readable: %v", err)
 	}
 	if doc.Mode != reconcile.ModeStrict || doc.DeleteMode != "hard" ||
-		len(doc.ClassifierTags) != 1 || doc.ClassifierTags[0] != "反転" ||
+		len(doc.NoEffectTags) != 1 || doc.NoEffectTags[0] != "反転" ||
 		doc.Matched.Lossless == nil || doc.Matched.Lossless.Codec != reconcile.CodecFlac {
 		t.Fatalf("seed did not take the stored common settings: %+v", doc)
 	}
@@ -341,8 +341,8 @@ func TestSeedDraftUsesTheStoredCommonSettings(t *testing.T) {
 	if err != nil {
 		t.Fatalf("seed draft is not readable: %v", err)
 	}
-	if doc.Mode != reconcile.ModeAvailableSources || len(doc.ClassifierTags) != 1 ||
-		doc.ClassifierTags[0] != "SEなし" {
+	if doc.Mode != reconcile.ModeAvailableSources || len(doc.NoEffectTags) != 1 ||
+		doc.NoEffectTags[0] != "SEなし" {
 		t.Fatalf("seed without stored settings = %+v", doc)
 	}
 
@@ -351,7 +351,7 @@ func TestSeedDraftUsesTheStoredCommonSettings(t *testing.T) {
 	if err != nil {
 		t.Fatalf("seed draft is not readable: %v", err)
 	}
-	if doc.Mode != reconcile.ModeAvailableSources || len(doc.ClassifierTags) != 1 {
+	if doc.Mode != reconcile.ModeAvailableSources || len(doc.NoEffectTags) != 1 {
 		t.Fatalf("an unreadable stored payload must fall back to the seed: %+v", doc)
 	}
 }

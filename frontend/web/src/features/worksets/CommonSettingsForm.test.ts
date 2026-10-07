@@ -14,7 +14,7 @@ function draft(overrides: Partial<OperationDraftDocument> = {}): OperationDraftD
   return reactive({
     schema_version: 1,
     mode: 'strict',
-    classifier_tags: ['自定义'],
+    no_effect_tags: ['自定义'],
     matched: { encoded: { codec: 'mp3', quality: { kind: 'bitrate', bitrate: 192 } } },
     unmatched: { lostless: undefined, lossless: { codec: 'wav' } },
     members: [],
@@ -43,7 +43,7 @@ describe('CommonSettingsForm', () => {
     const wrapper = mountForm(draft())
     // The values are the persisted ones, editable in place.
     expect(wrapper.findComponent(UnitSelect).props('value')).toBe('strict')
-    expect(wrapper.get('[data-testid="common-classifier_tags"]').text()).toContain('自定义')
+    expect(wrapper.get('[data-testid="common-no_effect_tags"]').text()).toContain('自定义')
     expect(wrapper.find('[data-testid="common-matched-encoded"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="unit-mode-set"]').exists()).toBe(false)
   })
@@ -72,9 +72,9 @@ describe('CommonSettingsForm', () => {
 
     expect(useWorksetEditorStore().session?.intent.units.mode).toEqual({ intent: 'set', value: 'available_sources' })
 
-    await wrapper.get('[data-testid="common-classifier_tags-restore"]').trigger('click')
+    await wrapper.get('[data-testid="common-no_effect_tags-restore"]').trigger('click')
     await nextTick()
-    expect(useWorksetEditorStore().session?.intent.units.classifier_tags).toEqual({
+    expect(useWorksetEditorStore().session?.intent.units.no_effect_tags).toEqual({
       intent: 'set',
       value: DEFAULT_TAGS,
     })
@@ -139,4 +139,15 @@ describe('CommonSettingsForm', () => {
     await nextTick()
     expect(useWorksetEditorStore().session?.intent.deleteMode).toEqual({ intent: 'set', value: 'soft' })
   })
+  it('warns for empty no-effect tags while keeping the two rule defaults separate', async () => {
+    const wrapper = mountForm(draft({ no_effect_tags: [], other_tags: ['xxx'] }))
+    await wrapper.setProps({ tagLibrary: {
+      default_no_effect_tags: ['NoSE'], default_other_tags: ['反転'], custom_tags: [],
+    } })
+    expect(wrapper.text()).toContain('空列表可保存')
+    await wrapper.get('[data-testid="common-other_tags-restore"]').trigger('click')
+    expect(useWorksetEditorStore().pendingDocument?.other_tags).toEqual(['反転'])
+    expect(useWorksetEditorStore().pendingDocument?.no_effect_tags).toEqual([])
+  })
+
 })

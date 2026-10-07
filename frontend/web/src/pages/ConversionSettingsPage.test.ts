@@ -35,7 +35,7 @@ const operation: Operation = {
 const document: OperationDraftDocument = {
   schema_version: 1,
   mode: 'strict',
-  classifier_tags: ['A'],
+  no_effect_tags: ['A'], other_tags: [],
   matched: {},
   unmatched: {},
   members: [],
@@ -62,7 +62,7 @@ function pageApi(alreadySaved = false): ApiClientContract {
       globalSaved = true
       return { ...operation, version: 6 }
     }),
-    listClassifierTags: vi.fn().mockResolvedValue({ default_tags: ['SEなし'], custom_tags: [] }),
+    listClassifierTags: vi.fn().mockResolvedValue({ default_no_effect_tags: ['SEなし'], default_other_tags: [], custom_tags: [] }),
   } as never)
 }
 

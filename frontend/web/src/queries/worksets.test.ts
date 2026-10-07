@@ -53,7 +53,7 @@ function flush(): Promise<void> {
 
 const draftDocument = {
   schema_version: 1,
-  classifier_tags: ['A'],
+  no_effect_tags: ['A'],
   matched: {},
   unmatched: {},
   members: [],

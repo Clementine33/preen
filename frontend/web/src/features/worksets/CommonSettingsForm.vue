@@ -4,18 +4,19 @@ import { Button } from '@/components/ui/button'
 import { OVERRIDE_UNITS } from '@/features/worksets/draft-intents'
 import { defaultDraftValues } from '@/features/worksets/draft-defaults'
 import { useWorksetEditorStore } from '@/stores/workset-editor'
-import type { DeleteMode, OperationDraftDocument, OverrideUnit } from '@/lib/api/types'
+import type { DeleteMode, OperationDraftDocument, OverrideUnit, ClassifierTagLibraryResponse } from '@/lib/api/types'
 import UnitFields from './UnitFields.vue'
 
 /**
- * Common conversion settings: the four groups are edited directly, because a
+ * Common conversion settings: the five groups are edited directly, because a
  * common value has nothing to inherit from — the three-intent model belongs to
  * the member and batch entry points. 恢复默认 puts a group back to the value a
- * new operation is seeded with. 旧音频处理 is a fifth, whole-operation choice:
+ * new operation is seeded with. 旧音频处理 is a sixth, whole-operation choice:
  * it is never a member override and freezes into every revision the draft
  * produces.
  */
 const props = defineProps<{
+  tagLibrary?: ClassifierTagLibraryResponse
   draft: OperationDraftDocument
   /** Library-level default tags, used by 恢复默认. */
   defaultTags: string[]
@@ -25,12 +26,13 @@ const editor = useWorksetEditorStore()
 
 const UNIT_LABELS: Record<OverrideUnit, { label: string; hint: string }> = {
   mode: { label: '转换模式', hint: '严格模式要求最终格式完全符合设置；可用源模式在没有合格无损源时保留原轨。' },
-  classifier_tags: { label: '分类标签', hint: '按字面匹配判定“无音效”,不区分大小写；留空表示不做分类。' },
-  matched: { label: '无音效目标', hint: '匹配标签的文件夹要保留或生成的目标。' },
-  unmatched: { label: '有音效目标', hint: '未匹配标签的文件夹要保留或生成的目标。' },
+  no_effect_tags: { label: '无音效匹配', hint: '按完整相对路径做字面匹配，不区分大小写；空列表可保存，但生成计划需要至少一个标签。' },
+  other_tags: { label: '其他版本目录', hint: '命中的目录子树各自独立聚合；只匹配目录名称，不区分大小写，留空不隔离。' },
+  matched: { label: '无音效目标', hint: '命中无音效规则的音频要保留或生成的目标。' },
+  unmatched: { label: '有音效目标', hint: '未命中无音效规则的音频要保留或生成的目标。' },
 }
 
-const defaults = computed(() => defaultDraftValues(props.defaultTags))
+const defaults = computed(() => defaultDraftValues(props.defaultTags, props.tagLibrary?.default_other_tags ?? []))
 
 /** The values the form shows: pending edits win over the persisted draft. */
 function valueOf(unit: OverrideUnit): unknown {
@@ -39,8 +41,9 @@ function valueOf(unit: OverrideUnit): unknown {
   switch (unit) {
     case 'mode':
       return props.draft.mode ?? 'available_sources'
-    case 'classifier_tags':
-      return props.draft.classifier_tags ?? []
+    case 'no_effect_tags':
+    case 'other_tags':
+      return props.draft[unit] ?? []
     case 'matched':
       return props.draft.matched
     case 'unmatched':
@@ -116,6 +119,7 @@ const dirtyUnits = computed(() => OVERRIDE_UNITS.filter((unit) => editor.session
         :label="UNIT_LABELS[unit].label"
         scope="common"
         :value="valueOf(unit)"
+        :suggestions="[...(tagLibrary?.custom_tags.map((tag) => tag.tag) ?? []), ...(unit === 'other_tags' ? tagLibrary?.default_other_tags ?? [] : tagLibrary?.default_no_effect_tags ?? [])]"
         :disabled="editor.session?.applying ?? false"
         @change="setValue(unit, $event)"
       />

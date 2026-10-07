@@ -173,7 +173,9 @@ func lenientStem(g StemGroup, profile DesiredProfile, occupied map[string]struct
 	if needsOutput && len(sources) > 1 {
 		d.blockCode = ReasonSourceAmbiguous
 		d.blockMsg = fmt.Sprintf("stem %s has multiple equivalent lossless sources", g.Stem)
-		d.keep(g.Stem, ReasonSourceAmbiguous)
+		for _, source := range sources {
+			d.keep(source.PathPosix, ReasonSourceAmbiguous)
+		}
 		return d
 	}
 	var src *GroupedFile

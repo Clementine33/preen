@@ -54,7 +54,7 @@ func TestHTTPCommonSettingsSyncAcrossRecords(t *testing.T) {
 	// save: the second record's common fields move with it.
 	firstBody := draftPayload(t, client, ctx, base, token, first.worksetID)
 	firstBody["mode"] = "strict"
-	firstBody["classifier_tags"] = []string{"反転", "SEあり"}
+	firstBody["no_effect_tags"] = []string{"反転", "SEあり"}
 	firstBody["matched"] = map[string]any{"lossless": map[string]any{"codec": "flac"}}
 	if got := putDraft(t, client, ctx, base, token, first.worksetID, 1, firstBody); got != 2 {
 		t.Fatalf("global save version = %d, want 2", got)
@@ -64,9 +64,9 @@ func TestHTTPCommonSettingsSyncAcrossRecords(t *testing.T) {
 	if synced["mode"] != "strict" {
 		t.Fatalf("synced mode = %v", synced["mode"])
 	}
-	tags, _ := synced["classifier_tags"].([]any)
+	tags, _ := synced["no_effect_tags"].([]any)
 	if len(tags) != 2 || tags[0] != "反転" {
-		t.Fatalf("synced classifier tags = %v", synced["classifier_tags"])
+		t.Fatalf("synced classifier tags = %v", synced["no_effect_tags"])
 	}
 	matched, _ := synced["matched"].(map[string]any)
 	lossless, _ := matched["lossless"].(map[string]any)
@@ -95,9 +95,9 @@ func TestHTTPCommonSettingsSyncAcrossRecords(t *testing.T) {
 	if seeded["mode"] != "strict" {
 		t.Fatalf("a new record seeded mode = %v", seeded["mode"])
 	}
-	seededTags, _ := seeded["classifier_tags"].([]any)
+	seededTags, _ := seeded["no_effect_tags"].([]any)
 	if len(seededTags) != 2 || seededTags[0] != "反転" {
-		t.Fatalf("a new record seeded classifier tags = %v", seeded["classifier_tags"])
+		t.Fatalf("a new record seeded classifier tags = %v", seeded["no_effect_tags"])
 	}
 }
 

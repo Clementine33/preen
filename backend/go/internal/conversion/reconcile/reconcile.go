@@ -107,12 +107,13 @@ func sameStemPath(sourcePosix, targetExt string) string {
 	return path.Join(dir, stem+targetExt)
 }
 
-// Reconcile plans the audio step for one planning root: classify -> partition
-// -> components -> variant groups -> desired-state reconciliation. Both modes
+// Reconcile plans one root: isolate scopes -> classify -> partition ->
+// components -> variant groups -> desired-state reconciliation. Both modes
 // share this skeleton, its ordering and its summary; the policy mode selects
 // only the per-component decision table: reconcileComponent for "" / strict
 // (historical behavior), lenientComponent in mode.go for available_sources.
 func Reconcile(in ReconcileInput) (ReconcileResult, error) {
+	in.Policy.FoldLegacyTags()
 	if err := ValidatePolicy(in.Policy); err != nil {
 		return ReconcileResult{}, err
 	}
@@ -134,24 +135,28 @@ func Reconcile(in ReconcileInput) (ReconcileResult, error) {
 		occupied[e.PathPosix] = struct{}{}
 	}
 
-	partitioned := map[Partition][]AudioEntry{PartitionMatched: {}, PartitionUnmatched: {}}
-	for _, e := range audio {
-		if !strings.HasPrefix(e.PathPosix, root+"/") {
-			continue // outside the planning root; callers must not pass these
-		}
-		rel := strings.TrimPrefix(e.PathPosix, root+"/")
-		partition := in.Classifier.Classify(rel)
-		partitioned[partition] = append(partitioned[partition], e)
+	scopes, err := scopeEntries(root, audio, in.Policy.OtherTags)
+	if err != nil {
+		return ReconcileResult{}, err
 	}
-
 	planComponent := reconcileComponent
 	if in.Policy.Mode == ModeAvailableSources {
 		planComponent = lenientComponent
 	}
-	for _, part := range []Partition{PartitionMatched, PartitionUnmatched} {
-		profile := ProfileFor(in.Policy, part)
-		for _, comp := range BuildComponents(partitioned[part]) {
-			res.Components = append(res.Components, planComponent(root, part, profile, comp, occupied))
+	for scope, entries := range scopes {
+		partitioned := map[Partition][]AudioEntry{PartitionMatched: {}, PartitionUnmatched: {}}
+		for _, e := range entries {
+			rel := strings.TrimPrefix(e.PathPosix, root+"/")
+			partition := in.Classifier.Classify(rel)
+			partitioned[partition] = append(partitioned[partition], e)
+		}
+		for _, part := range []Partition{PartitionMatched, PartitionUnmatched} {
+			profile := ProfileFor(in.Policy, part)
+			for _, comp := range BuildComponents(partitioned[part]) {
+				out := planComponent(root, part, profile, comp, occupied)
+				out.Scope = scope
+				res.Components = append(res.Components, out)
+			}
 		}
 	}
 
@@ -209,8 +214,8 @@ type groupPlan struct {
 	stem  string
 	files []GroupedFile
 
-	source          string
-	sourceAmbiguous bool
+	source  string
+	sources []GroupedFile
 
 	losslessKeep      []GroupedFile
 	losslessEncodeSrc *GroupedFile
@@ -257,31 +262,9 @@ func reconcileComponent(
 		// Qualified source selection from the Observed Inventory only: the
 		// desired lossless codec if present, else WAV, then FLAC. A same-step
 		// projected output is never a source.
-		var candidates []GroupedFile
-		if profile.Lossless != nil {
-			for _, f := range losslessFiles {
-				if f.Codec == profile.Lossless.Codec {
-					candidates = append(candidates, f)
-				}
-			}
-		}
-		if len(candidates) == 0 {
-			for _, f := range losslessFiles {
-				if f.Codec == CodecWav {
-					candidates = append(candidates, f)
-				}
-			}
-		}
-		if len(candidates) == 0 {
-			for _, f := range losslessFiles {
-				if f.Codec == CodecFlac {
-					candidates = append(candidates, f)
-				}
-			}
-		}
-		if len(candidates) > 1 {
-			p.sourceAmbiguous = true
-		} else if len(candidates) == 1 {
+		candidates := qualifiedSources(losslessFiles, profile)
+		p.sources = candidates
+		if len(candidates) == 1 {
 			p.source = candidates[0].PathPosix
 		}
 
@@ -398,7 +381,7 @@ func reconcileComponent(
 			// source blocks the component.
 			for i := range plans {
 				p := &plans[i]
-				if p.sourceAmbiguous {
+				if len(p.sources) > 1 {
 					block(ReasonSourceAmbiguous, "stem %s has multiple equivalent lossless sources", p.stem)
 					break
 				}
@@ -472,6 +455,16 @@ func reconcileComponent(
 	rebuildAll := profile.Encoded != nil && encodedLaneDecision(out) == LaneRebuildAll
 	for _, p := range plans {
 		v := VariantDecision{Stem: p.stem}
+		if out.ReasonCode == ReasonSourceAmbiguous && len(p.sources) > 1 {
+			for _, f := range p.sources {
+				v.Decisions = append(
+					v.Decisions,
+					FileDecision{Path: f.PathPosix, Resolution: ResolutionKeep, ReasonCode: ReasonSourceAmbiguous},
+				)
+			}
+			out.Variants = append(out.Variants, v)
+			continue
+		}
 
 		for _, f := range p.losslessKeep {
 			v.Decisions = append(

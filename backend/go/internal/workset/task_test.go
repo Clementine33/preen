@@ -161,7 +161,7 @@ func (stubTask) ReviewRevision(in workset.RevisionFacts) (workset.PlanReview, er
 func TestTasksReuseTheSameBatch(t *testing.T) {
 	f := newFixture(t)
 	workset.RegisterTasksForTest(f.svc, []workset.Task{
-		stubTask{kind: workset.OperationTypeConversion, seed: `{"schema_version":1,"classifier_tags":[]}`},
+		stubTask{kind: workset.OperationTypeConversion, seed: `{"schema_version":1,"no_effect_tags":[]}`},
 		stubTask{kind: "rename", seed: `{"schema_version":1,"template":"{title}"}`},
 	})
 	f.standardLibrary("albumA")

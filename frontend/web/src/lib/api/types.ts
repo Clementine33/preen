@@ -146,7 +146,7 @@ export interface PolicyProfile {
 }
 
 /**
- * Wire shape of a resolved reconcile policy. classifier_tags are literal
+ * Wire shape of a resolved reconcile policy. no_effect_tags are literal
  * content tags matched case-insensitively as substrings of each Album
  * Root-relative path (a hit → matched / 无音效).
  */
@@ -156,7 +156,8 @@ export interface ResolvedPolicy {
   schema_version: number
   /** Conversion decision rule; missing = strict (server-side default). */
   mode?: ConversionMode
-  classifier_tags: string[]
+  other_tags?: string[]
+  no_effect_tags: string[]
   matched: PolicyProfile
   unmatched: PolicyProfile
 }
@@ -185,7 +186,8 @@ export interface ClassifierCustomTag {
 }
 
 export interface ClassifierTagLibraryResponse {
-  default_tags: string[]
+  default_no_effect_tags: string[]
+  default_other_tags: string[]
   custom_tags: ClassifierCustomTag[]
 }
 
@@ -572,8 +574,8 @@ export interface DesiredProfile {
   encoded?: AudioOutputSpec
 }
 
-/** The four override units. What an exception replaces, one group at a time. */
-export type OverrideUnit = 'mode' | 'classifier_tags' | 'matched' | 'unmatched'
+/** The five override units. What an exception replaces, one group at a time. */
+export type OverrideUnit = 'mode' | 'no_effect_tags' | 'other_tags' | 'matched' | 'unmatched'
 
 /**
  * A member's explicit values. A unit that is absent inherits the common value;
@@ -582,7 +584,8 @@ export type OverrideUnit = 'mode' | 'classifier_tags' | 'matched' | 'unmatched'
  */
 export interface OverrideSet {
   mode?: 'strict' | 'available_sources'
-  classifier_tags?: string[]
+  other_tags?: string[]
+  no_effect_tags?: string[]
   matched?: DesiredProfile
   unmatched?: DesiredProfile
 }
@@ -603,7 +606,8 @@ export interface OperationDraftDocument {
    * revision the draft produces.
    */
   delete_mode?: DeleteMode
-  classifier_tags: string[]
+  other_tags?: string[]
+  no_effect_tags: string[]
   matched: DesiredProfile
   unmatched: DesiredProfile
   members: DraftMember[]
@@ -878,6 +882,8 @@ export interface PlanOperation {
 }
 
 export interface ComponentOutcome {
+  /** Work-relative isolation root; absent/empty is the main scope. */
+  scope?: string
   component_id: string
   partition: 'matched' | 'unmatched'
   status: 'ok' | 'blocked'
@@ -997,7 +1003,8 @@ export interface RevisionMember {
   effective: {
     schema_version: number
     mode?: string
-    classifier_tags?: string[]
+    other_tags?: string[]
+  no_effect_tags?: string[]
     matched?: DesiredProfile
     unmatched?: DesiredProfile
   }

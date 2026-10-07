@@ -450,12 +450,12 @@ func TestHTTPWorksetGenerationLoop(t *testing.T) {
 	code = doJSONWithHeaders(t, client, ctx, base, http.MethodPut,
 		opPath+"/draft", token, map[string]string{"If-Match": "1"},
 		map[string]any{
-			"schema_version":  1,
-			"mode":            "available_sources",
-			"classifier_tags": []string{"SEなし"},
-			"matched":         map[string]any{"lossless": map[string]any{"codec": "wav"}},
-			"unmatched":       map[string]any{"lossless": map[string]any{"codec": "wav"}},
-			"members":         []any{},
+			"schema_version": 1,
+			"mode":           "available_sources",
+			"no_effect_tags": []string{"SEなし"},
+			"matched":        map[string]any{"lossless": map[string]any{"codec": "wav"}},
+			"unmatched":      map[string]any{"lossless": map[string]any{"codec": "wav"}},
+			"members":        []any{},
 		}, &draftResp)
 	if code != http.StatusNotFound {
 		t.Fatalf("a deleted record must reject writes: code=%d resp=%+v", code, draftResp)

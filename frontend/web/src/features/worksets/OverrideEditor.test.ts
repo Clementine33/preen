@@ -17,7 +17,7 @@ function draft(members: OperationDraftDocument['members'] = []): OperationDraftD
   return reactive({
     schema_version: 1,
     mode: 'available_sources',
-    classifier_tags: ['A'],
+    no_effect_tags: ['A'],
     matched: WAV_MP3,
     unmatched: WAV_MP3,
     members,
@@ -77,7 +77,7 @@ describe('OverrideEditor', () => {
     // The source word never stands in for the value itself.
     expect(statusText(wrapper, 'matched')).toBe('当前：FLAC（与全局不同）')
     expect(statusText(wrapper, 'mode')).toBe('当前：可用源')
-    expect(statusText(wrapper, 'classifier_tags')).toBe('当前：A')
+    expect(statusText(wrapper, 'no_effect_tags')).toBe('当前：A')
     expect(statusText(wrapper, 'unmatched')).toBe('当前：WAV + MP3 320')
   })
 
@@ -165,15 +165,15 @@ describe('OverrideEditor', () => {
     await nextTick()
     expect(useWorksetEditorStore().session?.intent.units.unmatched).toEqual({ intent: 'inherit' })
 
-    await wrapper.get('[data-testid="unit-classifier_tags-override"]').trigger('click')
-    await typeTags(wrapper, 'override-classifier_tags-input', 'X, Y,')
+    await wrapper.get('[data-testid="unit-no_effect_tags-override"]').trigger('click')
+    await typeTags(wrapper, 'override-no_effect_tags-input', 'X, Y,')
     await nextTick()
 
     const members = useWorksetEditorStore().pendingDocument?.members ?? []
     expect(members).toHaveLength(2)
     for (const record of members) {
       // The seeded tag stays a removable chip; the typed ones are appended.
-      expect(record.overrides?.classifier_tags).toEqual(['A', 'X', 'Y'])
+      expect(record.overrides?.no_effect_tags).toEqual(['A', 'X', 'Y'])
     }
     // The batch never touches the matched overrides it did not edit.
     expect(members.find((m) => m.member_id === 'm-1')?.overrides?.matched).toEqual(FLAC)
@@ -206,4 +206,26 @@ describe('OverrideEditor', () => {
     expect(wrapper.get('[data-testid="participation-include"]').attributes('aria-checked')).toBe('true')
     expect(useWorksetEditorStore().pendingDocument?.members).toEqual([{ member_id: 'm-1', overrides: { matched: FLAC } }])
   })
+  it('batch edits other tags without changing no-effect tags or exclusions', async () => {
+    const harness = draft([
+      { member_id: 'a', excluded: true, overrides: { other_tags: ['old'], no_effect_tags: [] } },
+      { member_id: 'b' },
+      { member_id: 'outside', overrides: { other_tags: ['keep'] } },
+    ])
+    harness.other_tags = ['revert']
+    const wrapper = mountEditor(harness, { kind: 'batch', memberIds: ['a', 'b'] })
+    await wrapper.get('[data-testid="unit-other_tags-override"]').trigger('click')
+    await typeTags(wrapper, 'override-other_tags-input', 'xxx,')
+    const pending = useWorksetEditorStore().pendingDocument!
+    expect(pending.members.find(m => m.member_id === 'a')).toEqual({
+      member_id: 'a', excluded: true, overrides: { other_tags: ['revert', 'xxx'], no_effect_tags: [] },
+    })
+    expect(pending.members.find(m => m.member_id === 'b')?.overrides?.other_tags).toEqual(['revert', 'xxx'])
+    expect(pending.members.find(m => m.member_id === 'outside')?.overrides?.other_tags).toEqual(['keep'])
+    await wrapper.get('[data-testid="unit-other_tags-default"]').trigger('click')
+    expect(useWorksetEditorStore().pendingDocument!.members.find(m => m.member_id === 'a')).toEqual({
+      member_id: 'a', excluded: true, overrides: { no_effect_tags: [] },
+    })
+  })
+
 })

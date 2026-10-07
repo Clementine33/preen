@@ -25,7 +25,7 @@ const draft = workspace.draft
 const api = useApiClient()
 // 恢复默认 restores the deployment's literal tags, so the form needs them.
 const { data: tagLibrary } = useQuery(classifierTagLibraryQueryOptions(api))
-const defaultTags = computed(() => tagLibrary.value?.default_tags ?? [])
+const defaultTags = computed(() => tagLibrary.value?.default_no_effect_tags ?? [])
 
 watch(
   [draft, worksetId],
@@ -56,12 +56,6 @@ const affected = computed(() => {
   let excluded = 0
   for (const member of members) {
     const record = document.members.find((m) => m.member_id === member.member_id)
-    const overridesMode =
-      record?.overrides?.mode !== undefined ||
-      record?.overrides?.classifier_tags !== undefined ||
-      record?.overrides?.matched !== undefined ||
-      record?.overrides?.unmatched !== undefined
-    void overridesMode
     inheriting++
     if (record?.excluded) excluded++
   }
@@ -105,7 +99,7 @@ const listRoute = computed(() => ({
     <p v-if="session?.error" class="mt-2 text-[11px] text-[var(--danger-ink)]" role="alert">{{ session.error }}</p>
 
     <div v-if="draft" class="mt-3">
-      <CommonSettingsForm :draft="draft.document" :default-tags="defaultTags" />
+      <CommonSettingsForm :draft="draft.document" :default-tags="defaultTags" :tag-library="tagLibrary" />
     </div>
     <p v-else class="text-xs text-[var(--text-muted)]">加载中…</p>
 

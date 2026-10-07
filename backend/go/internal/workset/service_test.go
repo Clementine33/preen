@@ -46,7 +46,7 @@ func TestCreateEstablishesConversionOperation(t *testing.T) {
 	if mustDraft(t, stored).Mode != "available_sources" {
 		t.Fatalf("seeded mode = %q", mustDraft(t, stored).Mode)
 	}
-	if len(mustDraft(t, stored).ClassifierTags) == 0 {
+	if len(mustDraft(t, stored).NoEffectTags) == 0 {
 		t.Fatal("seeded tags must come from config.json")
 	}
 	if len(mustDraft(t, stored).Members) != 0 {

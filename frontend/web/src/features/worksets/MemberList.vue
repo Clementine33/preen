@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import type { MemberFilter } from '@/app/route-params'
 import { Circle, CircleAlert, CircleCheck, Eye, FolderOpen, TriangleAlert } from '@lucide/vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -20,9 +21,10 @@ const props = defineProps<{
   draft: OperationDraftDocument
   selectedIds: Set<string>
   hiddenSelectedCount: number
-  filter: 'all' | 'change' | 'warn' | 'blocked' | 'excluded'
+  filter: MemberFilter
   search: string
   conclusionFor: (member: WorksetMember) => MemberConclusion
+  sourceConflictFor: (member: WorksetMember) => boolean
   /**
    * Drill-down tier: the row keeps only the name, a status icon and the view
    * action, so a narrow container is not spent on text that the member detail
@@ -37,15 +39,16 @@ const emit = defineEmits<{
   toggle: [memberId: string]
   toggleAll: [ids: string[]]
   open: [memberId: string]
-  'update:filter': [value: 'all' | 'change' | 'warn' | 'blocked' | 'excluded']
+  'update:filter': [value: MemberFilter]
   'update:search': [value: string]
 }>()
 
-const FILTERS: { value: 'all' | 'change' | 'warn' | 'blocked' | 'excluded'; label: string }[] = [
+const FILTERS: { value: MemberFilter; label: string }[] = [
   { value: 'all', label: '全部' },
   { value: 'change', label: '有变化' },
   { value: 'warn', label: '目标未满足' },
   { value: 'blocked', label: '阻塞' },
+  { value: 'source_conflict', label: '源竞争' },
   { value: 'excluded', label: '已排除' },
 ]
 
@@ -64,6 +67,8 @@ const visible = computed(() =>
       return false
     }
     switch (props.filter) {
+      case 'source_conflict':
+        return props.sourceConflictFor(member)
       case 'excluded':
         return excluded.value.has(member.member_id)
       case 'change':
@@ -90,7 +95,7 @@ const allVisibleSelected = computed(
 /**
  * Whether a member carries any setting of its own. Which units are overridden
  * is the detail view's job: in the list a single 默认／已修改 state says what
- * the user needs to know without four unreadable per-unit tags.
+ * the user needs to know without five unreadable per-unit tags.
  */
 function hasOverride(member: WorksetMember): boolean {
   return OVERRIDE_UNITS.some((unit) => {

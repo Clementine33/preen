@@ -55,14 +55,15 @@ export interface UnitValue {
   members: number
 }
 
-export const OVERRIDE_UNITS: OverrideUnit[] = ['mode', 'classifier_tags', 'matched', 'unmatched']
+export const OVERRIDE_UNITS: OverrideUnit[] = ['mode', 'no_effect_tags', 'other_tags', 'matched', 'unmatched']
 
 function commonValue(doc: OperationDraftDocument, unit: OverrideUnit): unknown {
   switch (unit) {
     case 'mode':
       return doc.mode ?? 'strict'
-    case 'classifier_tags':
-      return doc.classifier_tags ?? []
+    case 'no_effect_tags':
+    case 'other_tags':
+      return doc[unit] ?? []
     case 'matched':
       return doc.matched
     case 'unmatched':
@@ -75,8 +76,9 @@ function setCommon(doc: OperationDraftDocument, unit: OverrideUnit, value: unkno
     case 'mode':
       doc.mode = value as OperationDraftDocument['mode']
       return
-    case 'classifier_tags':
-      doc.classifier_tags = (value as string[]) ?? []
+    case 'no_effect_tags':
+    case 'other_tags':
+      doc[unit] = (value as string[]) ?? []
       return
     case 'matched':
       doc.matched = value as OperationDraftDocument['matched']
@@ -98,10 +100,11 @@ function overrideValue(record: DraftMember | undefined, unit: OverrideUnit): { p
       return overrides.mode === undefined
         ? { present: false, value: undefined }
         : { present: true, value: overrides.mode }
-    case 'classifier_tags':
-      return overrides.classifier_tags === undefined
+    case 'no_effect_tags':
+    case 'other_tags':
+      return overrides[unit] === undefined
         ? { present: false, value: undefined }
-        : { present: true, value: overrides.classifier_tags }
+        : { present: true, value: overrides[unit] }
     case 'matched':
       return overrides.matched === undefined
         ? { present: false, value: undefined }
@@ -139,7 +142,7 @@ export function sameDocument(a: OperationDraftDocument, b: OperationDraftDocumen
 
 /** The server omits empty mode/delete_mode: absent and the default are one fact. */
 function withDefaults(doc: OperationDraftDocument): OperationDraftDocument {
-  return { ...doc, mode: doc.mode ?? 'available_sources', delete_mode: doc.delete_mode ?? 'soft' }
+  return { ...doc, other_tags: doc.other_tags ?? [], mode: doc.mode ?? 'available_sources', delete_mode: doc.delete_mode ?? 'soft' }
 }
 
 /**
@@ -198,8 +201,9 @@ function setOverride(record: DraftMember, unit: OverrideUnit, value: unknown): v
     case 'mode':
       overrides.mode = value as OverrideSet['mode']
       break
-    case 'classifier_tags':
-      overrides.classifier_tags = value as string[]
+    case 'no_effect_tags':
+    case 'other_tags':
+      overrides[unit] = value as string[]
       break
     case 'matched':
       overrides.matched = value as OverrideSet['matched']
@@ -217,8 +221,9 @@ function clearOverride(record: DraftMember, unit: OverrideUnit): void {
     case 'mode':
       delete record.overrides.mode
       break
-    case 'classifier_tags':
-      delete record.overrides.classifier_tags
+    case 'no_effect_tags':
+    case 'other_tags':
+      delete record.overrides[unit]
       break
     case 'matched':
       delete record.overrides.matched
@@ -257,7 +262,8 @@ export function applyIntent(
 ): OperationDraftDocument {
   const doc: OperationDraftDocument = {
     ...base,
-    classifier_tags: [...(base.classifier_tags ?? [])],
+    no_effect_tags: [...(base.no_effect_tags ?? [])],
+    other_tags: [...(base.other_tags ?? [])],
     members: base.members.map((m) => ({
       member_id: m.member_id,
       excluded: m.excluded,

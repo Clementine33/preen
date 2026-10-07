@@ -2,6 +2,7 @@ package workset_test
 
 import (
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -11,13 +12,14 @@ import (
 )
 
 // elsewhere is a complete common configuration that differs from draftDoc()
-// in every one of its five values, so saving it is unambiguously a
+// in every one of its six values, so saving it is unambiguously a
 // common-settings change.
 func elsewhere(tags ...string) *conversion.DraftDoc {
 	doc := draftDoc()
 	doc.Mode = reconcile.ModeStrict
 	doc.DeleteMode = "hard"
-	doc.ClassifierTags = tags
+	doc.NoEffectTags = tags
+	doc.OtherTags = []string{"revert"}
 	doc.Matched = reconcile.DesiredProfile{
 		Lossless: &reconcile.AudioOutputSpec{Codec: reconcile.CodecFlac},
 		Encoded: &reconcile.AudioOutputSpec{
@@ -96,10 +98,11 @@ func TestCommonSettingsSaveReachesEveryRecord(t *testing.T) {
 	// common change must reach its common fields and nothing else.
 	strict := reconcile.ModeStrict
 	other := draftDoc()
+	emptyOther := []string{}
 	other.Members = []conversion.DraftMember{{
 		MemberID:  second.Members[0].MemberID,
 		Excluded:  true,
-		Overrides: &conversion.OverrideSet{Mode: &strict},
+		Overrides: &conversion.OverrideSet{Mode: &strict, OtherTags: &emptyOther},
 	}}
 	before := f.saveDraft(second.WorksetID, other, second.Operations[0].Version)
 
@@ -114,8 +117,8 @@ func TestCommonSettingsSaveReachesEveryRecord(t *testing.T) {
 		t.Fatalf("synced mode/delete_mode = %q/%q, want %q/%q",
 			synced.Mode, synced.DeleteMode, want.Mode, want.DeleteMode)
 	}
-	if len(synced.ClassifierTags) != 2 || synced.ClassifierTags[0] != "SEあり" {
-		t.Fatalf("synced tags = %v, want %v", synced.ClassifierTags, want.ClassifierTags)
+	if len(synced.NoEffectTags) != 2 || synced.NoEffectTags[0] != "SEあり" {
+		t.Fatalf("synced tags = %v, want %v", synced.NoEffectTags, want.NoEffectTags)
 	}
 	if synced.Matched.Lossless == nil || synced.Matched.Lossless.Codec != reconcile.CodecFlac {
 		t.Fatalf("synced matched = %+v, want the new common profile", synced.Matched)
@@ -130,7 +133,8 @@ func TestCommonSettingsSaveReachesEveryRecord(t *testing.T) {
 	}
 	// The override is still the only thing the member carries: a common
 	// rewrite never materializes a member record, it only moves the base.
-	if member.Overrides.Matched != nil || member.Overrides.ClassifierTags != nil {
+	if member.Overrides.Matched != nil || member.Overrides.NoEffectTags != nil || member.Overrides.OtherTags == nil ||
+		len(*member.Overrides.OtherTags) != 0 {
 		t.Fatalf("the common rewrite touched units the member never overrode: %+v", member.Overrides)
 	}
 	if after := f.operation(second.WorksetID); after.Version != before.Version+1 {
@@ -199,7 +203,7 @@ func TestMemberOnlySaveStaysInsideItsRecord(t *testing.T) {
 	doc := draftDoc()
 	doc.Members = []conversion.DraftMember{{
 		MemberID:  first.Members[0].MemberID,
-		Overrides: &conversion.OverrideSet{ClassifierTags: &tags},
+		Overrides: &conversion.OverrideSet{NoEffectTags: &tags},
 	}}
 	saved := f.saveDraft(first.WorksetID, doc, first.Operations[0].Version)
 
@@ -334,8 +338,8 @@ func TestCommonSettingsSeedNewRecordsAndSurviveRestart(t *testing.T) {
 	if seeded.Mode != reconcile.ModeStrict || seeded.DeleteMode != "hard" {
 		t.Fatalf("a new record seeded mode/delete_mode = %q/%q", seeded.Mode, seeded.DeleteMode)
 	}
-	if len(seeded.ClassifierTags) != 1 || seeded.ClassifierTags[0] != "反転" {
-		t.Fatalf("a new record seeded tags = %v", seeded.ClassifierTags)
+	if len(seeded.NoEffectTags) != 1 || seeded.NoEffectTags[0] != "反転" {
+		t.Fatalf("a new record seeded tags = %v", seeded.NoEffectTags)
 	}
 	if seeded.Matched.Encoded == nil || seeded.Matched.Encoded.Codec != reconcile.CodecAac {
 		t.Fatalf("a new record seeded matched = %+v", seeded.Matched)
@@ -343,8 +347,8 @@ func TestCommonSettingsSeedNewRecordsAndSurviveRestart(t *testing.T) {
 
 	f.reopen()
 	restarted := mustDraft(t, f.draft(f.createCurrent("重启", "albumB").WorksetID))
-	if restarted.Mode != reconcile.ModeStrict || len(restarted.ClassifierTags) != 1 ||
-		restarted.ClassifierTags[0] != "反転" {
+	if restarted.Mode != reconcile.ModeStrict || len(restarted.NoEffectTags) != 1 ||
+		restarted.NoEffectTags[0] != "反転" {
 		t.Fatalf("after a restart the stored settings seeded %+v", restarted)
 	}
 }
@@ -468,7 +472,7 @@ func TestCreatePrefersStoredGlobalSettingsOverStaleDraft(t *testing.T) {
 	fresh := f.createCurrentFor("lib-2", "重建", "albumC")
 	seeded := mustDraft(t, f.draft(fresh.WorksetID))
 	if seeded.Mode != reconcile.ModeStrict || seeded.DeleteMode != "hard" ||
-		len(seeded.ClassifierTags) != 1 || seeded.ClassifierTags[0] != "反転" {
+		len(seeded.NoEffectTags) != 1 || seeded.NoEffectTags[0] != "反転" {
 		t.Fatalf("the stored global value must win over a stale draft: %+v", seeded)
 	}
 }
@@ -545,5 +549,24 @@ func TestCommonSettingsSaveRefusesUnreadableSourceDraft(t *testing.T) {
 		workset.OperationTypeConversion,
 	); commonErr != nil || common != nil {
 		t.Fatalf("a refused save stored deployment-wide settings: %+v err=%v", common, commonErr)
+	}
+}
+
+func TestLegacyCommonSettingsReadDoesNotRewriteStoredDraft(t *testing.T) {
+	f := newFixture(t)
+	first, _ := f.twoLibraries(t)
+	f.saveDraft(first.WorksetID, elsewhere("NoSE"), first.Operations[0].Version)
+	before := f.draft(first.WorksetID)
+	legacy := strings.ReplaceAll(string(before.Document), "no_effect_tags", "classifier_tags")
+	f.exec("UPDATE workset_operation_drafts SET draft_json = ? WHERE workset_id = ?", legacy, first.WorksetID)
+	f.exec(
+		"UPDATE common_settings SET settings_json = replace(settings_json, 'no_effect_tags', 'classifier_tags') WHERE operation_type = 'conversion'",
+	)
+	after := f.draft(first.WorksetID)
+	if !after.CommonSettingsCurrent {
+		t.Fatal("equivalent old common settings report a mismatch")
+	}
+	if string(after.Document) != legacy || after.Version != before.Version || !after.UpdatedAt.Equal(before.UpdatedAt) {
+		t.Fatalf("read changed frozen storage: %+v -> %+v", before, after)
 	}
 }

@@ -60,14 +60,14 @@ type PlannedComponent struct {
 // facts, the per-root input facts and the per-component outcomes. It names no
 // storage types; the task maps it onto the seam's PlanSnapshot.
 type Snapshot struct {
-	RootPath       string // display scope (roots joined with " + ")
-	Policy         reconcile.Policy
-	PolicyJSON     string
-	PolicyHash     string
-	ClassifierTags string // normalized NUL-joined tag snapshot
-	Classifier     reconcile.Classifier
-	Summary        reconcile.StepSummary
-	Status         string // ok | partially_blocked | blocked
-	Roots          []RootFacts
-	Components     []PlannedComponent
+	RootPath     string // display scope (roots joined with " + ")
+	Policy       reconcile.Policy
+	PolicyJSON   string
+	PolicyHash   string
+	NoEffectTags string // normalized NUL-joined tag snapshot
+	Classifier   reconcile.Classifier
+	Summary      reconcile.StepSummary
+	Status       string // ok | partially_blocked | blocked
+	Roots        []RootFacts
+	Components   []PlannedComponent
 }

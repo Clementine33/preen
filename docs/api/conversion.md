@@ -4,7 +4,7 @@
 
 ## Operation draft document
 
-The draft is one sparse document. The four common setting groups are the base;
+The draft is one sparse document. The five common setting groups are the base;
 a member record overrides only the units it explicitly replaces. The
 operation-wide `delete_mode` (obsolete-audio handling: `soft` — the default —
 or `hard`) is a common-level field, never a member override, and freezes into
@@ -15,7 +15,8 @@ every revision the draft produces; the execution uses the frozen value.
   "schema_version": 1,
   "mode": "available_sources",
   "delete_mode": "soft",
-  "classifier_tags": ["SEなし"],
+  "no_effect_tags": ["SEなし"],
+  "other_tags": ["反転"],
   "matched":   {"lossless": {"codec": "wav"}, "encoded": {"codec": "mp3", "quality": {"kind": "bitrate", "bitrate": 320}}},
   "unmatched": {"lossless": {"codec": "wav"}, "encoded": {"codec": "mp3", "quality": {"kind": "bitrate", "bitrate": 320}}},
   "members": [
@@ -33,24 +34,25 @@ so nothing about it is stored or validated differently from a hand-made one.
 
 - **Absence means inheritance.** A unit missing from `overrides` follows the
   common value, whatever that value is now. Null is never the way to express
-  "clear": `"classifier_tags": []` is an explicit empty set, and removing the
+  "clear": `"no_effect_tags": []` is an explicit empty set, and removing the
   key restores inheritance. The two behave differently after later common
   changes.
 - **Sparse storage.** The server normalizes on save: a member record with
   neither an exclusion nor any override is dropped, records are stored in
-  member order, and a missing `classifier_tags` on the common level is stored
-  as `[]`. `GET` returns that canonical document, so a save/read round trip
+  member order, and missing `no_effect_tags` and `other_tags` on the common level are stored
+  as `[]`. `GET` returns the stored document, so a save/read round trip
   never materializes unmodified units.
 - **Structural vs business validation.** Save rejects unknown JSON fields,
   wrong types, unknown/duplicate `member_id`, unknown `mode` or `delete_mode`
-  values and unknown codec or quality literals. It accepts structurally valid
+  values, unknown codec or quality literals, and `/` or `\` in any
+  `other_tags` value (including excluded member overrides). It accepts structurally valid
   but incomplete settings (empty tags, undeclared outputs, missing quality).
   Generation requires every participating member's effective settings to pass
   the full reconcile policy validation (`INVALID_POLICY`).
 - **Exclusion** changes participation only: overrides and inheritance survive
   it, and restoring participation restores the previous relationships.
   Excluding every member saves but cannot generate (`NO_ACTIVE_MEMBERS`).
-- **Common settings are deployment-wide** (ADR 0010). The five common values
+- **Common settings are deployment-wide** (ADR 0010). The six common values
   are stored once per operation kind, not per record: saving them from any
   record's draft pushes them to every other editable record's draft in the same
   transaction, and a record created afterwards seeds them. The PUT draft body
@@ -66,6 +68,40 @@ so nothing about it is stored or validated differently from a hand-made one.
   — as does one whose stored draft cannot be read
   (`COMMON_SETTINGS_UNREADABLE`, which names the record to recreate) — instead
   of leaving some records updated.
+
+## Version matching and isolation
+
+`no_effect_tags` contains literal substrings matched case-insensitively against
+an audio file's full original Planning Root-relative path, including its filename.
+It selects the `matched` (无音效) or `unmatched` (有音效) target profile.
+
+`other_tags` contains literal substrings matched case-insensitively against each
+directory segment only. The outermost matching directory starts an independent
+scope containing its whole subtree; nested matches do not create another scope.
+Every actual matching directory is independent, even when the same tag matches
+several directories. An empty list disables isolation. Rules cannot contain path
+separators. Scope selection runs before no-effect classification; classification
+still uses the original full relative path within every scope. Remaining files
+share the main scope. Same-parent/same-stem component association then runs
+separately for each scope and classifier partition.
+
+Thus `WAV_NoSE` and `MP3_NoSE` can aggregate in the main matched partition, while
+`revert` and `wav/xxx` aggregate only within their respective subtrees. An unknown
+version stays in the main scope until its directory tag is registered. Resolving
+it uses the existing flow: filter 源竞争, add a common or batch `other_tags` rule,
+save, regenerate and inspect the scopes in member review.
+
+The five independent override units are `mode`, `no_effect_tags`, `other_tags`,
+`matched` and `unmatched`. Each tag list supports explicit `[]` to clear the unit.
+An empty no-effect list remains saveable; generation requires at least one tag.
+
+New HTTP draft and slot writes reject the old `classifier_tags` key, including
+`null` and `[]`. Stored schema-1 drafts, common settings and policies remain
+readable: the old key supplies `no_effect_tags` only when the new value is absent
+or null, so an explicit new `[]` wins. Stored draft and slot GET payloads and
+frozen policy payloads may retain the old spelling; the web API client normalizes
+them before editing or comparing drafts. No read rewrites a frozen payload or
+changes its hash. Effective member settings and their sources use the new keys.
 
 ## Frozen revisions
 
@@ -88,7 +124,12 @@ audio: every observed file in it is removed. `available_sources` differs in
 `strict`'s failure behavior: a stem whose declared shape cannot be reached is
 left exactly as it is and recorded as `UNMET_TARGET` (no generation, no
 cleanup), where strict blocks the whole Component with zero operations.
-Ambiguity and path conflicts block in both.
+Ambiguity and path conflicts block in both. Qualified source priority is the
+declared lossless codec, then WAV, then FLAC. Multiple candidates at the selected
+priority remain `SOURCE_AMBIGUOUS` when an output needs generating; their actual
+paths appear in file decisions. `ComponentOutcome.scope` is the matched directory's
+Planning Root-relative path; absent or `""` means the main scope. Component identity
+continues to hash its partition and observed files; scope adds no hash salt.
 An encoded output is accepted by two entries, in this order:
 
 1. **Its own measured rate**, compared per codec — a file that already measures

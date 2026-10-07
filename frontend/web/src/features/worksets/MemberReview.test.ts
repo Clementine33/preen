@@ -154,3 +154,19 @@ describe('MemberReview', () => {
     expect(withoutEdit.find('[data-testid="member-review-edit"]').exists()).toBe(false)
   })
 })
+
+it('shows the isolated scope and the actual competing directories', () => {
+  const conflicted = structuredClone(revision)
+  conflicted.task.payload.components = [{
+    component_id: 'comp-1', partition: 'unmatched', scope: 'wav/revert', status: 'blocked',
+    reason_code: 'SOURCE_AMBIGUOUS', operations: [], lanes: [], files: [], projected_inventory: [],
+    variant_decisions: [{ stem: '1', decisions: [
+      { path: '/music/albumA/wav/revert/a/1.wav', resolution: 'keep', reason_code: 'SOURCE_AMBIGUOUS' },
+      { path: '/music/albumA/wav/revert/b/1.wav', resolution: 'keep', reason_code: 'SOURCE_AMBIGUOUS' },
+    ] }],
+  }]
+  const wrapper = mount(MemberReview, { props: { member, revision: conflicted, editable: true } })
+  expect(wrapper.text()).toContain('其他版本 · wav/revert')
+  expect(wrapper.text()).toContain('wav/revert/a')
+  expect(wrapper.text()).toContain('wav/revert/b')
+})

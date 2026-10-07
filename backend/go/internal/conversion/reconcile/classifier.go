@@ -69,6 +69,10 @@ func (c Classifier) Classify(relPath string) Partition {
 // ValidatePolicy checks the structural shape of a resolved policy. Errors here
 // are request-validation errors (no Plan is created), not media conflicts.
 func ValidatePolicy(p Policy) error {
+	p.FoldLegacyTags()
+	if err := ValidateOtherTags(p.OtherTags); err != nil {
+		return err
+	}
 	const schema = 1
 	if p.SchemaVersion != schema {
 		return fmt.Errorf("unsupported policy schema version %d", p.SchemaVersion)
@@ -76,7 +80,7 @@ func ValidatePolicy(p Policy) error {
 	if p.Mode != "" && p.Mode != ModeStrict && p.Mode != ModeAvailableSources {
 		return fmt.Errorf("unsupported conversion mode %q", p.Mode)
 	}
-	if len(NormalizeTags(p.ClassifierTags)) == 0 {
+	if len(NormalizeTags(p.NoEffectTags)) == 0 {
 		return fmt.Errorf("policy requires at least one non-empty classifier tag")
 	}
 	for name, profile := range map[string]DesiredProfile{

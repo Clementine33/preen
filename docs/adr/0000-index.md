@@ -24,3 +24,4 @@
 | [0018](0018-work-local-recovery-directories.md) | 深层作品的同级回收目录与扫描排除 | Draft |
 | [0019](0019-conversion-execution-and-selected-generation.md) | 转换执行的只读校验、安全发布与选中范围生成 | Draft |
 | [0020](0020-shared-workset-batch.md) | 工作集共享一个文件夹批次，各 Task 独立保存计划 | Draft |
+| [0021](0021-no-effect-matching-and-other-subtree-isolation.md) | 无音效匹配与其他版本子树隔离 | Draft |

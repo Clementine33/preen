@@ -24,12 +24,12 @@ type ClassifierTagStore interface {
 	DeleteTag(id int64) error
 }
 
-// DefaultTags returns the maintained literal tags the configuration carries:
+// DefaultNoEffectTags returns the maintained literal tags the configuration carries:
 // the read-only half of the library. There is no compiled-in fallback, so an
 // unreadable configuration offers none — but never a nil list, because "no
 // defaults" and "the defaults could not be read" look the same to a browser.
-func (c *Catalog) DefaultTags() []string {
-	tags := c.settings.PruneLiteralTags()
+func (c *Catalog) DefaultNoEffectTags() []string {
+	tags := c.settings.PruneNoEffectTags()
 	if tags == nil {
 		return []string{}
 	}
@@ -62,4 +62,9 @@ func (c *Catalog) AddTag(tag string) (*ClassifierTag, error) {
 // remove is not in the library either way, and that is what the route answers.
 func (c *Catalog) DeleteTag(id int64) error {
 	return c.tags.DeleteTag(id)
+}
+
+// DefaultOtherTags returns the configured directory isolation defaults.
+func (c *Catalog) DefaultOtherTags() []string {
+	return append([]string{}, c.settings.PruneOtherTags()...)
 }

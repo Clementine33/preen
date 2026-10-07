@@ -23,6 +23,10 @@ import (
 //
 //nolint:gocognit,funlen // per-root outcome branches; split when more steps appear
 func Plan(ctx context.Context, inv Inventory, settings Settings, probe ProbeBitrate, in Input) (*Snapshot, error) {
+	in.Policy.FoldLegacyTags()
+	for i := range in.Roots {
+		in.Roots[i].Policy.FoldLegacyTags()
+	}
 	if len(in.Roots) == 0 {
 		return nil, workset.NewError(
 			workset.ErrKindInvalidArgument,
@@ -45,13 +49,13 @@ func Plan(ctx context.Context, inv Inventory, settings Settings, probe ProbeBitr
 	if err := reconcile.ValidatePolicy(in.Policy); err != nil {
 		return nil, workset.NewError(workset.ErrKindInvalidArgument, "INVALID_POLICY", err.Error(), err)
 	}
-	classifier, err := reconcile.ResolveClassifier(in.Policy.ClassifierTags)
+	classifier, err := reconcile.ResolveClassifier(in.Policy.NoEffectTags)
 	if err != nil {
 		return nil, workset.NewError(workset.ErrKindInvalidArgument, "INVALID_POLICY", err.Error(), err)
 	}
 	rootClassifiers := make([]reconcile.Classifier, len(in.Roots))
 	for i, r := range in.Roots {
-		rootClassifier, resolveErr := reconcile.ResolveClassifier(r.Policy.ClassifierTags)
+		rootClassifier, resolveErr := reconcile.ResolveClassifier(r.Policy.NoEffectTags)
 		if resolveErr != nil {
 			return nil, workset.NewError(
 				workset.ErrKindInvalidArgument,
@@ -196,7 +200,7 @@ func Plan(ctx context.Context, inv Inventory, settings Settings, probe ProbeBitr
 	snap.Policy = in.Policy
 	snap.PolicyJSON = string(policyJSON)
 	snap.PolicyHash = hex.EncodeToString(sum[:])
-	snap.ClassifierTags = classifierTagSnapshot(in.Policy.ClassifierTags)
+	snap.NoEffectTags = classifierTagSnapshot(in.Policy.NoEffectTags)
 	snap.Classifier = classifier
 	snap.Summary = aggregated
 	snap.Status = planStatus(aggregated)

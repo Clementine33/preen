@@ -27,6 +27,7 @@ export function revisionComponents(revision: RevisionDetailResponse): ComponentO
 export function readComponent(component: ComponentOutcome): ComponentOutcome {
   return {
     ...component,
+    scope: component.scope ?? '',
     lanes: component.lanes ?? [],
     variant_decisions: (component.variant_decisions ?? []).map(readVariant),
     operations: component.operations ?? [],
@@ -121,6 +122,7 @@ function posixBase(path: string): string {
 
 /** Why a kept file was kept, in the plan's own short words. */
 const KEEP_REASON_TEXT: Record<string, string> = {
+  SOURCE_AMBIGUOUS: '多个同优先级无损源，需区分版本',
   UNMET_TARGET: '目标未满足',
   KEEP_LOSSLESS_TARGET: '已满足无损目标',
   KEEP_ENCODED_SATISFIED: '已满足编码目标',
@@ -128,7 +130,6 @@ const KEEP_REASON_TEXT: Record<string, string> = {
   // for the target: kept as it is, since re-encoding a lossy file would not give
   // it the quality it never had.
   CONFORMANCE_UNCONFIRMED: '目标符合性未确认',
-  SOURCE_AMBIGUOUS: '源不唯一',
   // Legacy: what CONFORMANCE_UNCONFIRMED was called before generation records
   // existed. Kept so revisions planned by an older build still read in words.
   QUALITY_UNKNOWN: '质量未知',
@@ -320,7 +321,8 @@ export function unitValueText(unit: OverrideUnit, value: unknown): string {
       const mode = typeof value === 'string' ? value : ''
       return MODE_TEXT[mode] ?? (mode || '未设置')
     }
-    case 'classifier_tags': {
+    case 'no_effect_tags':
+    case 'other_tags': {
       const tags = (value as string[] | undefined) ?? []
       return tags.length > 0 ? tags.join(', ') : '（空）'
     }

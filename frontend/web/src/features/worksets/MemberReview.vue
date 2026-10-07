@@ -33,7 +33,8 @@ const frozen = computed<RevisionMember | null>(
 
 const UNIT_LABELS: Record<string, string> = {
   mode: '转换模式',
-  classifier_tags: '分类标签',
+  no_effect_tags: '无音效匹配',
+  other_tags: '其他版本目录',
   matched: '无音效目标',
   unmatched: '有音效目标',
 }
@@ -112,8 +113,8 @@ function componentFacts(component: ComponentOutcome): { label: string; tone: 'su
           <dt class="w-20 shrink-0 text-[var(--text-muted)]">{{ UNIT_LABELS[unit] }}</dt>
           <dd class="min-w-0 flex-1">
             <span v-if="unit === 'mode'">{{ frozen?.effective.mode ?? 'strict' }}</span>
-            <span v-else-if="unit === 'classifier_tags'" class="font-mono">
-              {{ (frozen?.effective.classifier_tags ?? []).join(', ') || '（空）' }}
+            <span v-else-if="unit === 'no_effect_tags' || unit === 'other_tags'" class="font-mono">
+              {{ (unit === 'other_tags' ? frozen?.effective.other_tags ?? [] : frozen?.effective.no_effect_tags ?? []).join(', ') || '（空）' }}
             </span>
             <span v-else class="font-mono">
               {{ profileText(unit === 'matched' ? frozen?.effective.matched : frozen?.effective.unmatched) }}
@@ -133,7 +134,7 @@ function componentFacts(component: ComponentOutcome): { label: string; tone: 'su
         <li v-for="component in components" :key="component.component_id" class="rounded-md border border-border p-2">
           <div class="flex flex-wrap items-center gap-1.5">
             <span class="text-[11px] text-[var(--text-muted)]">
-              {{ component.partition === 'matched' ? '无音效' : '有音效' }}
+              {{ component.scope ? `其他版本 · ${component.scope}` : '主版本' }} · {{ component.partition === 'matched' ? '无音效' : '有音效' }}
             </span>
             <Badge v-for="fact in componentFacts(component)" :key="fact.label" :tone="fact.tone">
               {{ fact.label }}

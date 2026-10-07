@@ -3,6 +3,7 @@ package settings_test
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"github.com/onsei/organizer/backend/internal/adapters/settings"
@@ -106,5 +107,28 @@ func TestEncodeWorkersDefaultsAndBounds(t *testing.T) {
 	}
 	if got := settings.NewReader(t.TempDir()).EncodeWorkers(); got != 0 {
 		t.Fatalf("missing configuration: %d", got)
+	}
+}
+
+func TestConversionTagConfigSupportsLegacyAndExplicitEmpty(t *testing.T) {
+	for _, tc := range []struct {
+		config                  string
+		wantNoEffect, wantOther []string
+	}{
+		{`{"prune":{"literal_tags":["SEなし"]}}`, []string{"SEなし"}, nil},
+		{`{"prune":{"literal_tags":["old"],"no_effect_tags":[],"other_tags":["反転"]}}`, nil, []string{"反転"}},
+		{`{"prune":{"literal_tags":["old"],"no_effect_tags":["NoSE"],"other_tags":[]}}`, []string{"NoSE"}, nil},
+	} {
+		t.Run(tc.config, func(t *testing.T) {
+			dir := t.TempDir()
+			if err := os.WriteFile(filepath.Join(dir, "config.json"), []byte(tc.config), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			reader := settings.NewReader(dir)
+			if !slices.Equal(reader.PruneNoEffectTags(), tc.wantNoEffect) ||
+				!slices.Equal(reader.PruneOtherTags(), tc.wantOther) {
+				t.Fatalf("tags = %v / %v", reader.PruneNoEffectTags(), reader.PruneOtherTags())
+			}
+		})
 	}
 }

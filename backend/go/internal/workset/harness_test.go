@@ -430,10 +430,10 @@ func profile() reconcile.DesiredProfile {
 // draftDoc is a complete, generatable common configuration.
 func draftDoc() *conversion.DraftDoc {
 	return &conversion.DraftDoc{
-		SchemaVersion:  conversion.DraftSchemaVersion,
-		Mode:           reconcile.ModeAvailableSources,
-		ClassifierTags: []string{"SEなし"},
-		Matched:        profile(),
-		Unmatched:      profile(),
+		SchemaVersion: conversion.DraftSchemaVersion,
+		Mode:          reconcile.ModeAvailableSources,
+		NoEffectTags:  []string{"SEなし"},
+		Matched:       profile(),
+		Unmatched:     profile(),
 	}
 }

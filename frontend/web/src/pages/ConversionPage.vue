@@ -109,6 +109,10 @@ function memberComponents(member: WorksetMember): ComponentOutcome[] {
   return revisionComponents(view).filter((component) => owned.has(component.component_id))
 }
 
+function sourceConflictFor(member: WorksetMember): boolean {
+  return memberComponents(member).some((component) => component.reason_code === 'SOURCE_AMBIGUOUS')
+}
+
 /** The visible conclusion of one member row. */
 function conclusionFor(member: WorksetMember): MemberConclusion {
   const view = revision.value
@@ -199,7 +203,7 @@ const executeError = ref<string | null>(null)
 const generateError = ref<string | null>(null)
 
 const GENERATE_CODES: Record<string, string> = {
-  INVALID_POLICY: '设置不完整，无法生成：检查分类标签（至少一个非空标签）与目标输出（编码目标必须填码率）',
+  INVALID_POLICY: '设置不完整，无法生成：检查无音效匹配（至少一个非空标签）、其他版本目录与目标输出（编码目标必须填码率）',
   NO_ACTIVE_MEMBERS: '所有文件夹都被排除，至少要恢复一个才能生成',
   SCAN_IN_PROGRESS: '媒体库正在扫描，等扫描结束后再生成',
   EXECUTION_IN_PROGRESS: '该操作已有执行在进行中，等它结束后再生成',
@@ -548,6 +552,7 @@ const parentLink = computed(() => {
             :filter="filter"
             :search="ui.search"
             :conclusion-for="conclusionFor"
+            :source-conflict-for="sourceConflictFor"
             :compact="tier === 'narrow'"
             @toggle="ui.toggleMember($event)"
             @toggle-all="ui.toggleAllVisible($event)"

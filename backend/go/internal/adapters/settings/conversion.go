@@ -40,16 +40,20 @@ func (r Reader) Plan() conversion.PlanConfig {
 	return out
 }
 
-// PruneLiteralTags reads the maintained initial literal tag list
-// (prune.literal_tags): what a new draft seeds from, and what the tag library
+// PruneNoEffectTags reads the maintained initial literal tag list
+// (prune.no_effect_tags): what a new draft seeds from, and what the tag library
 // offers as its defaults. A missing/unreadable file yields an empty set — there
 // is deliberately no compiled-in fallback.
-func (r Reader) PruneLiteralTags() []string {
+func (r Reader) PruneNoEffectTags() []string {
 	cfg := DefaultAppConfig()
 	if !r.decode(&cfg) {
 		return nil
 	}
-	return normalizeTags(cfg.Prune.LiteralTags)
+	tags := cfg.Prune.NoEffectTags
+	if tags == nil {
+		tags = cfg.Prune.LegacyLiteralTags
+	}
+	return normalizeTags(tags)
 }
 
 // Tools reads the encoder tool paths (tools.ffmpeg_path, tools.ffprobe_path).
@@ -99,4 +103,13 @@ func (r Reader) EncodeWorkers() int {
 		return 0
 	}
 	return cfg.Execute.MaxIOWorkers
+}
+
+// PruneOtherTags reads the maintained directory isolation defaults.
+func (r Reader) PruneOtherTags() []string {
+	cfg := DefaultAppConfig()
+	if !r.decode(&cfg) {
+		return nil
+	}
+	return normalizeTags(cfg.Prune.OtherTags)
 }

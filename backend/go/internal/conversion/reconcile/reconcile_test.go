@@ -67,8 +67,8 @@ func num2(i int) string {
 
 func wavMp3Profile() Policy {
 	return Policy{
-		SchemaVersion:  1,
-		ClassifierTags: []string{"SEなし"},
+		SchemaVersion: 1,
+		NoEffectTags:  []string{"SEなし"},
 		Matched: DesiredProfile{
 			Lossless: &AudioOutputSpec{Codec: CodecWav},
 			Encoded:  &AudioOutputSpec{Codec: CodecMp3, Quality: &Quality{Kind: QualityBitrate, Bitrate: 320}},

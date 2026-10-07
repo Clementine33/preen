@@ -67,7 +67,7 @@ func TestGenerationRecordClosesTheLoop(t *testing.T) {
 	}
 	policy := reconcile.Policy{
 		SchemaVersion: 1, Mode: reconcile.ModeAvailableSources,
-		ClassifierTags: []string{"SEなし"}, Matched: profile, Unmatched: profile,
+		NoEffectTags: []string{"SEなし"}, Matched: profile, Unmatched: profile,
 	}
 	res := runOneEncodedUnit(t, repo, dir, root, profile, reconcile.ComponentOutcome{
 		ComponentID: "cmp",

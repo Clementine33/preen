@@ -10,7 +10,7 @@ import type { RouteLocationNormalized, Router } from 'vue-router'
  * wall's whole view is shareable state there (ADR 0012 §4). One table
  * therefore answers what any address can mean.
  */
-export const MEMBER_FILTERS = ['all', 'change', 'warn', 'blocked', 'excluded'] as const
+export const MEMBER_FILTERS = ['all', 'change', 'warn', 'blocked', 'source_conflict', 'excluded'] as const
 
 /** The conclusion filter of the conversion list. */
 export type MemberFilter = (typeof MEMBER_FILTERS)[number]

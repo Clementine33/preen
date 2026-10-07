@@ -99,7 +99,7 @@ func TestDraftChangeMakesOperationNeedPlanning(t *testing.T) {
 	op := f.operation(ws.WorksetID)
 
 	doc := draftDoc()
-	doc.ClassifierTags = []string{"别的标签"}
+	doc.NoEffectTags = []string{"别的标签"}
 	saved := f.saveDraft(ws.WorksetID, doc, op.Version)
 	if saved.PlanningState != workset.PlanningNeedsPlanning {
 		t.Fatalf("planning state after draft change = %q", saved.PlanningState)
@@ -129,7 +129,7 @@ func TestGenerationFailureKeepsCurrentRevision(t *testing.T) {
 	// The draft changes first so this start creates a session instead of
 	// reusing the current revision.
 	doc := draftDoc()
-	doc.ClassifierTags = []string{"改标签"}
+	doc.NoEffectTags = []string{"改标签"}
 	saved := f.saveDraft(ws.WorksetID, doc, f.operation(ws.WorksetID).Version)
 	genID := f.startGeneration(ws.WorksetID, saved.Version)
 	if err := f.repo.MarkGenerationFailed(genID, "GENERATION_FAILED", "boom"); err != nil {

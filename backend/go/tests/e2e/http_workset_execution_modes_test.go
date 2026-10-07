@@ -36,7 +36,7 @@ func executionDraft(codec string, bitrate int, deleteMode string) map[string]any
 	}
 	return map[string]any{
 		"schema_version": 1, "mode": "available_sources", "delete_mode": deleteMode,
-		"classifier_tags": []string{"SEなし"}, "matched": profile, "unmatched": profile,
+		"no_effect_tags": []string{"SEなし"}, "matched": profile, "unmatched": profile,
 	}
 }
 

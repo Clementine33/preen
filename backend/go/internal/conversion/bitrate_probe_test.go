@@ -60,7 +60,7 @@ func TestPlanReadsAnOpusBitrateFromTheContainer(t *testing.T) {
 	}}
 	policy := reconcile.Policy{
 		SchemaVersion: 1, Mode: reconcile.ModeAvailableSources,
-		ClassifierTags: []string{"SEなし"}, Matched: profile, Unmatched: profile,
+		NoEffectTags: []string{"SEなし"}, Matched: profile, Unmatched: profile,
 	}
 	in := conversion.Input{Policy: policy, Roots: []conversion.RootInput{{Path: dir, Policy: policy}}}
 	res, err := conversion.Plan(t.Context(), repo, appconfig.NewReader(dir), media.ProbeBitrate, in)
@@ -122,7 +122,7 @@ func TestPlanProbesMissingBitrate(t *testing.T) {
 	}}
 	policy := reconcile.Policy{
 		SchemaVersion: 1, Mode: reconcile.ModeAvailableSources,
-		ClassifierTags: []string{"SEなし"}, Matched: profile, Unmatched: profile,
+		NoEffectTags: []string{"SEなし"}, Matched: profile, Unmatched: profile,
 	}
 	in := conversion.Input{Policy: policy, Roots: []conversion.RootInput{{Path: dir, Policy: policy}}}
 	for _, batch := range []bool{true, false} {

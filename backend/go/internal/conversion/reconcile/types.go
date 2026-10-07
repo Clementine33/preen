@@ -197,15 +197,17 @@ const (
 )
 
 // Policy maps each classifier partition to a complete DesiredProfile. The
-// user declares desired outputs and a set of literal content tags only;
-// conversion/cleanup mechanics are derived by the planner. Mode selects the
-// decision rule and applies to both partitions.
+// user declares desired outputs, full-path no-effect tags and directory tags
+// that isolate independent version scopes. Conversion/cleanup mechanics are
+// derived by the planner. Mode applies to both partitions within every scope.
 type Policy struct {
-	SchemaVersion  int            `json:"schema_version"`
-	Mode           string         `json:"mode,omitempty"`
-	ClassifierTags []string       `json:"classifier_tags,omitempty"`
-	Matched        DesiredProfile `json:"matched"`
-	Unmatched      DesiredProfile `json:"unmatched"`
+	LegacyClassifierTags []string       `json:"classifier_tags,omitempty"`
+	OtherTags            []string       `json:"other_tags"`
+	SchemaVersion        int            `json:"schema_version"`
+	Mode                 string         `json:"mode,omitempty"`
+	NoEffectTags         []string       `json:"no_effect_tags,omitempty"`
+	Matched              DesiredProfile `json:"matched"`
+	Unmatched            DesiredProfile `json:"unmatched"`
 }
 
 // ProfileFor resolves the desired profile of one partition. It is the single
@@ -321,6 +323,8 @@ type Operation struct {
 
 // ComponentOutcome is the full reviewable outcome for one Component.
 type ComponentOutcome struct {
+	// Scope is the work-relative isolation root; empty denotes the main scope.
+	Scope              string            `json:"scope,omitempty"`
 	ComponentID        string            `json:"component_id"`
 	Partition          Partition         `json:"partition"`
 	Status             string            `json:"status"`

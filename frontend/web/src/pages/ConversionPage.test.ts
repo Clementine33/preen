@@ -37,7 +37,7 @@ async function page(getRevision = vi.fn().mockResolvedValue(revision()), blocked
     saveOperationDraft: vi.fn().mockResolvedValue({ ...operation, version: 2 }),
     getCurrentRecord: vi.fn().mockResolvedValue({ workset }), getWorkset: vi.fn().mockResolvedValue(workset),
     getOperation: vi.fn().mockResolvedValue({ ...operation, current_revision: { ...operation.current_revision, counts: { ...counts, blocked } } }),
-    getOperationDraft: vi.fn().mockResolvedValue({ version: 1, document: { schema_version: 1, classifier_tags: [], matched: {}, unmatched: {}, members: [] } }), getRevision,
+    getOperationDraft: vi.fn().mockResolvedValue({ version: 1, document: { schema_version: 1, no_effect_tags: [], matched: {}, unmatched: {}, members: [] } }), getRevision,
   })
   const wrapper = mount(ConversionPage, { global: { plugins: [createPinia(), router, installTestQueryPlugin()], provide: { [apiClientKey as symbol]: api }, stubs: {
     WorkbenchShell: { template: '<div><slot name="main" tier="wide" /></div>' }, WorkbenchNav: true, MemberList: true,
@@ -79,9 +79,9 @@ describe('conversion editing status', () => {
       const editor = useWorksetEditorStore()
       editor.open({
         worksetId: 'ws', operation: 'conversion', target, baseVersion: 1,
-        baseDocument: { schema_version: 1, classifier_tags: [], matched: {}, unmatched: {}, members: [] },
+        baseDocument: { schema_version: 1, no_effect_tags: [], matched: {}, unmatched: {}, members: [] },
       })
-      editor.setUnit('classifier_tags', { intent: 'set', value: ['tag'] })
+      editor.setUnit('no_effect_tags', { intent: 'set', value: ['tag'] })
       await flushPromises()
       expect(wrapper.get('[data-testid="edit-session-bar"]').text()).toContain('有未应用修改')
       await wrapper.get('[data-testid="apply-session"]').trigger('click')

@@ -70,7 +70,8 @@ func (*Task) Kind() string { return workset.OperationTypeConversion }
 // SeedDraft builds the initial sparse draft of a new conversion operation: no
 // member records at all (everyone participates and inherits the common
 // settings), mode available_sources stored explicitly, tag literals copied
-// from config.json's prune.literal_tags, and wav + mp3@320 outputs so a new
+// from config.json's prune.no_effect_tags and prune.other_tags, and wav +
+// mp3@320 outputs so a new
 // workset is immediately usable.
 //
 // A deployment-wide common-settings payload, when one was saved, replaces
@@ -79,18 +80,20 @@ func (*Task) Kind() string { return workset.OperationTypeConversion }
 // leaves the seed values standing rather than refusing to create a record.
 func (t *Task) SeedDraft(common json.RawMessage) ([]byte, string, int) {
 	doc := &DraftDoc{
-		SchemaVersion:  DraftSchemaVersion,
-		Mode:           reconcile.ModeAvailableSources,
-		ClassifierTags: t.settings.PruneLiteralTags(),
-		Matched:        defaultProfile(),
-		Unmatched:      defaultProfile(),
+		SchemaVersion: DraftSchemaVersion,
+		Mode:          reconcile.ModeAvailableSources,
+		NoEffectTags:  t.settings.PruneNoEffectTags(),
+		OtherTags:     append([]string{}, t.settings.PruneOtherTags()...),
+		Matched:       defaultProfile(),
+		Unmatched:     defaultProfile(),
 	}
-	if doc.ClassifierTags == nil {
-		doc.ClassifierTags = []string{}
+	if doc.NoEffectTags == nil {
+		doc.NoEffectTags = []string{}
 	}
 	if len(common) > 0 {
 		var payload CommonSettings
 		if decodeErr := json.Unmarshal(common, &payload); decodeErr == nil {
+			payload.foldLegacyTags()
 			doc = ReplaceCommonSettings(doc, payload)
 		}
 	}
@@ -126,6 +129,7 @@ func (*Task) ApplyCommonSettings(
 			workset.ErrKindInternal, "INTERNAL", "common settings are unreadable", decodeErr,
 		)
 	}
+	payload.foldLegacyTags()
 	document, hash, err := MarshalDraft(ReplaceCommonSettings(doc, payload))
 	if err != nil {
 		return nil, "", workset.NewError(
@@ -246,7 +250,7 @@ func planSnapshotOf(snap *Snapshot, effective []MemberEffective) *workset.PlanSn
 		Payload:              json.RawMessage(snap.PolicyJSON),
 		PayloadHash:          snap.PolicyHash,
 		PayloadSchemaVersion: snap.Policy.SchemaVersion,
-		Tags:                 snap.ClassifierTags,
+		Tags:                 snap.NoEffectTags,
 		TagsHash:             snap.Classifier.Hash,
 		Summary:              json.RawMessage(mustJSON(snap.Summary)),
 		Status:               snap.Status,

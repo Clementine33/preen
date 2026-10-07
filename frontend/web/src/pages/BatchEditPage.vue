@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import { computed, watch } from 'vue'
+import { useQuery } from '@tanstack/vue-query'
+import { useApiClient } from '@/lib/api/client'
+import { classifierTagLibraryQueryOptions } from '@/queries/worksets'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -17,6 +20,7 @@ import { intentUnitCount } from '@/features/worksets/draft-intents'
 const route = useRoute()
 const router = useRouter()
 const editor = useWorksetEditorStore()
+const { data: tagLibrary } = useQuery(classifierTagLibraryQueryOptions(useApiClient()))
 const ui = useWorksetUiStore()
 const libraryId = computed(() => (route.params.libraryId as string) || '')
 const { worksetId, workspace, applySession } = useCurrentConversion(libraryId)
@@ -120,6 +124,7 @@ function cancel() {
 
     <div v-if="draft && session">
       <OverrideEditor
+          :tag-library="tagLibrary"
         :draft="draft.document"
         :target="{ kind: 'batch', memberIds: session.target.kind === 'batch' ? session.target.memberIds : [] }"
         :read-only="session.applying"

@@ -1,7 +1,8 @@
-import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
+import { enableAutoUnmount, flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { createPinia } from 'pinia'
+import { h } from 'vue'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createMemoryHistory, createRouter, type Router } from 'vue-router'
+import { createMemoryHistory, createRouter, RouterView, type Router } from 'vue-router'
 import { apiClientKey } from '@/lib/api/client'
 import type { ApiClientContract, Operation, OperationDraftDocument, RevisionDetailResponse, Workset } from '@/lib/api/types'
 import { apiStub } from '@/test/api-stub'
@@ -110,13 +111,14 @@ async function mountEditMember(seedPending: boolean): Promise<{ wrapper: VueWrap
   })
   await router.push('/worksets/lib-a/conversion/m-1/edit')
   await router.isReady()
-  const wrapper = mount(MemberEditPage, {
+  const wrapper = mount({ render: () => h(RouterView) }, {
     global: { plugins: [pinia, router, installTestQueryPlugin()], provide: { [apiClientKey as symbol]: pageApi() } },
   })
   await flushPromises()
   return { wrapper, router }
 }
 
+enableAutoUnmount(afterEach)
 afterEach(() => vi.restoreAllMocks())
 
 describe('MemberEditPage pending-edit conflict', () => {
@@ -145,5 +147,23 @@ describe('MemberEditPage pending-edit conflict', () => {
     expect(confirm).toHaveBeenCalledOnce()
     expect(useWorksetEditorStore().session?.target).toEqual({ kind: 'common' })
     expect(router.currentRoute.value.name).toBe('conversion')
+  })
+})
+
+describe('MemberEditPage route leave', () => {
+  it.each([false, true])('confirms unsaved edits and respects the answer %s', async (accept) => {
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(accept)
+    const { router } = await mountEditMember(false)
+    const editor = useWorksetEditorStore()
+    editor.setUnit('mode', { intent: 'set', value: 'available_sources' })
+    await flushPromises()
+    expect(editor.isDirty).toBe(true)
+
+    await router.push('/worksets/lib-a/conversion')
+    await flushPromises()
+
+    expect(confirm).toHaveBeenCalledOnce()
+    expect(router.currentRoute.value.path).toBe(accept ? '/worksets/lib-a/conversion' : '/worksets/lib-a/conversion/m-1/edit')
+    expect(editor.isDirty).toBe(true)
   })
 })

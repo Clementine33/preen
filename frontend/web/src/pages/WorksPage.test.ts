@@ -111,6 +111,14 @@ async function mountWorks(
   const api = apiStub({
     listLibraries: vi.fn().mockResolvedValue([library(LIB_A, 'Archive', '/music'), library(LIB_B, 'Brazil', '/brazil')]),
     listWorks,
+    getWork: vi.fn(async (rj: string) => ({
+      ...makeWorks(Number(rj.slice(2)), 1)[0]!,
+      source_url: null, cover_url: null, sample_cover_url: null,
+      series_id: null, series_name: null, voice_actors: [], source_tags: [],
+      note: '', language_editions: null,
+      relation: { role: null, language: null, original_rj: null, parent_rj: null },
+      copies: [], placeholder: false,
+    })),
     listWorkFacets,
     listTagFacets: vi.fn().mockResolvedValue({
       source_tags: [{ id: 's-asmr', name: 'ASMR', work_count: 4 }],
@@ -193,6 +201,7 @@ describe('works page', () => {
 
     // The address's work survived the first listing: it is what is inspected.
     expect(inspected(wrapper)).toBe(A2)
+    expect(wrapper.get('.insp-title').text()).toBe(`Title ${A2}`)
 
     press('j')
     await flushPromises()

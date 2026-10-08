@@ -62,7 +62,8 @@ const session = computed(() => editor.session)
 const dirty = computed(() => editor.isDirty)
 
 onBeforeRouteLeave(() => {
-  if (!dirty.value) return true
+  const current = session.value
+  if (!dirty.value || current?.worksetId !== worksetId.value || current.target.kind !== 'member' || current.target.memberId !== memberId.value) return true
   return window.confirm('有未应用的修改，确定放弃吗？')
 })
 

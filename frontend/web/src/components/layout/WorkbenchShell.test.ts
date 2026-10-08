@@ -1,4 +1,4 @@
-import { mount, type VueWrapper } from '@vue/test-utils'
+import { enableAutoUnmount, mount, type VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, nextTick } from 'vue'
 import { createRouter, createWebHistory, type Router } from 'vue-router'
@@ -51,27 +51,23 @@ const shell = defineComponent({
     }),
 })
 
-let container: HTMLElement | null = null
-
-function mountShell(width: number, attached = false): { wrapper: VueWrapper; elementWidth: ReturnType<typeof vi.spyOn> } {
+function mountShell(width: number): { wrapper: VueWrapper; elementWidth: ReturnType<typeof vi.spyOn> } {
   const elementWidth = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(width)
   const options = { global: { plugins: [router] } }
-  const wrapper = attached
-    ? mount(shell, { ...options, attachTo: (container = document.body.appendChild(document.createElement('div'))) })
-    : mount(shell, options)
+  const wrapper = mount(shell, { ...options, attachTo: document.body })
   return { wrapper, elementWidth }
 }
+
+enableAutoUnmount(afterEach)
 
 afterEach(() => {
   vi.restoreAllMocks()
   StubResizeObserver.instances = []
-  container?.remove()
-  container = null
 })
 
-async function mountAt(width: number, attached = false) {
+async function mountAt(width: number) {
   vi.stubGlobal('ResizeObserver', StubResizeObserver)
-  const mounted = mountShell(width, attached)
+  const mounted = mountShell(width)
   await nextTick()
   // The observer fires once after mount, mirroring a real layout settle.
   if (StubResizeObserver.instances.length > 0) {
@@ -159,6 +155,10 @@ describe('narrow workbench drawer', () => {
 
     expect(wrapper.find('[data-testid="workbench-nav-drawer"] [data-testid="nav-content"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="workbench-nav-scrim"]').exists()).toBe(true)
+    const drawer = wrapper.get('[data-testid="workbench-nav-drawer"]')
+    expect(document.getElementById(drawer.attributes('aria-labelledby') ?? '')?.textContent).toBeTruthy()
+    expect(document.getElementById(drawer.attributes('aria-describedby') ?? '')?.textContent).toContain('一次展示一层')
+    expect(wrapper.get('[data-testid="main-content"]').element.closest('[aria-hidden="true"]')).not.toBeNull()
     elementWidth.mockRestore()
   })
 
@@ -222,7 +222,7 @@ describe('narrow workbench drawer', () => {
   })
 
   it('returns focus to the toggle and closes on Esc', async () => {
-    const { wrapper, elementWidth } = await mountAt(420, true)
+    const { wrapper, elementWidth } = await mountAt(420)
     const toggle = wrapper.get('[data-testid="workbench-nav-toggle"]')
     await openDrawer(wrapper)
 

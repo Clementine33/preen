@@ -48,11 +48,11 @@ function openSession(): boolean {
 watch(
   [draft, memberIds],
   () => {
-    if (!worksetId.value || memberIds.value.length === 0) {
+    if (memberIds.value.length === 0) {
       void router.replace(listRoute.value)
       return
     }
-    if (!draft.value) return
+    if (!worksetId.value || !draft.value) return
     const current = editor.session
     if (current && current.worksetId === worksetId.value && current.target.kind === 'batch') return
     if (openSession()) return
@@ -78,7 +78,7 @@ const excludedTargets = computed(() => {
 })
 
 onBeforeRouteLeave(() => {
-  if (!dirty.value) return true
+  if (!dirty.value || session.value?.worksetId !== worksetId.value || session.value.target.kind !== 'batch') return true
   return window.confirm('有未应用的批量修改，确定放弃吗？')
 })
 

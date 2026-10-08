@@ -1,5 +1,5 @@
-import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { enableAutoUnmount, flushPromises, mount, type VueWrapper } from '@vue/test-utils'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 import { createPinia } from 'pinia'
 import { apiClientKey } from '@/lib/api/client'
@@ -85,11 +85,14 @@ async function mountOverview(overrides: Partial<Record<string, unknown>> = {}): 
   await router.push('/worksets/lib-1')
   await router.isReady()
   const wrapper = mount(OverviewPage, {
+    attachTo: document.body,
     global: { plugins: [createPinia(), router, installTestQueryPlugin()], provide: { [apiClientKey as symbol]: api } },
   })
   await flushPromises()
   return { wrapper, api, router }
 }
+
+enableAutoUnmount(afterEach)
 
 beforeEach(() => {
   localStorage.clear()

@@ -1,7 +1,8 @@
-import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
+import { enableAutoUnmount, flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { createPinia } from 'pinia'
+import { h } from 'vue'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createMemoryHistory, createRouter, type Router } from 'vue-router'
+import { createMemoryHistory, createRouter, RouterView, type Router } from 'vue-router'
 import { apiClientKey } from '@/lib/api/client'
 import type { ApiClientContract, Operation, OperationDraftDocument, Workset } from '@/lib/api/types'
 import { apiStub } from '@/test/api-stub'
@@ -81,7 +82,7 @@ async function mountSettings(alreadySaved = false): Promise<{ wrapper: VueWrappe
   await router.push('/worksets/lib-a/conversion/settings')
   await router.isReady()
   const api = pageApi(alreadySaved)
-  const wrapper = mount(ConversionSettingsPage, {
+  const wrapper = mount({ render: () => h(RouterView) }, {
     global: {
       plugins: [createPinia(), router, installTestQueryPlugin()],
       provide: { [apiClientKey as symbol]: api },
@@ -91,6 +92,7 @@ async function mountSettings(alreadySaved = false): Promise<{ wrapper: VueWrappe
   return { wrapper, router, api }
 }
 
+enableAutoUnmount(afterEach)
 afterEach(() => vi.restoreAllMocks())
 
 describe('ConversionSettingsPage', () => {
@@ -125,5 +127,24 @@ describe('ConversionSettingsPage', () => {
   it('reads the applied state again when the page opens', async () => {
     const { wrapper } = await mountSettings(true)
     expect(wrapper.get('[data-testid="apply-common"]').attributes('disabled')).toBeDefined()
+  })
+})
+
+
+describe('ConversionSettingsPage route leave', () => {
+  it.each([false, true])('confirms unsaved edits and respects the answer %s', async (accept) => {
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(accept)
+    const { router } = await mountSettings(false)
+    const editor = useWorksetEditorStore()
+    editor.setUnit('mode', { intent: 'set', value: 'available_sources' })
+    await flushPromises()
+    expect(editor.isDirty).toBe(true)
+
+    await router.push('/worksets/lib-a/conversion')
+    await flushPromises()
+
+    expect(confirm).toHaveBeenCalledOnce()
+    expect(router.currentRoute.value.path).toBe(accept ? '/worksets/lib-a/conversion' : '/worksets/lib-a/conversion/settings')
+    expect(editor.isDirty).toBe(true)
   })
 })

@@ -48,7 +48,7 @@ function onOpenChange(value: boolean) {
       <DialogOverlay
         class="fixed inset-0 z-50 bg-black/50 data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
       />
-      <DialogContent :class="contentClass">
+      <DialogContent :class="contentClass" v-bind="description ? {} : { 'aria-describedby': undefined }">
         <div class="flex items-start justify-between gap-3">
           <div class="min-w-0">
             <DialogTitle class="font-heading text-base font-semibold">{{ title }}</DialogTitle>

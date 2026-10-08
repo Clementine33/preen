@@ -1,5 +1,5 @@
-import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { enableAutoUnmount, flushPromises, mount, type VueWrapper } from '@vue/test-utils'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 import { installAddressHygiene } from '@/app/route-params'
 import { createPinia } from 'pinia'
@@ -112,6 +112,26 @@ async function mountFiles(
       },
     ]),
     getCurrentRecord: vi.fn().mockResolvedValue({ workset: record }),
+    getWorkset: vi.fn().mockResolvedValue(record),
+    getOperation: vi.fn().mockResolvedValue({
+      workset_id: 'ws-1', operation_type: 'conversion', version: 1,
+      planning_state: 'needs_planning', current_revision: null,
+      active_generation: null, latest_generation: null, active_execution: null, latest_execution: null,
+    }),
+    getOperationDraft: vi.fn().mockResolvedValue({
+      workset_id: 'ws-1', operation_type: 'conversion', version: 1, schema_version: 1, updated_at: '',
+      document: { schema_version: 1, no_effect_tags: [], matched: {}, unmatched: {}, members: [] },
+    }),
+    getRevision: vi.fn().mockResolvedValue({
+      plan_id: 'plan-1', revision_index: 1, created_at: '', root_path: '/music', snapshot_token: 'tok', status: 'ready',
+      summary: { operation_count: 0, error_count: 0, total_count: 0, actionable_count: 0, summary_reason: '' },
+      task: { kind: 'conversion', schema_version: 1, payload: {
+        policy: {}, policy_hash: '', classifier: {}, components: [],
+        summary: { component_count: 0, blocked_count: 0, operation_count: 0, error_count: 0, summary_reason: '' },
+      } },
+      counts: { members: 1, changed: 0, unmet_targets: 0, blocked: 0, unchanged: 0 },
+      members: [], roots: [], component_roots: [], execution: null,
+    }),
     getMemberTree: vi.fn().mockResolvedValue(memberTreeResponse),
     refreshMemberTree: vi.fn().mockResolvedValue({ ...memberTreeResponse, refreshed: true }),
     applyFileOperation: vi.fn(),
@@ -121,11 +141,14 @@ async function mountFiles(
   await router.push(path)
   await router.isReady()
   const wrapper = mount(MemberFiles, {
+    attachTo: document.body,
     global: { plugins: [createPinia(), router, installTestQueryPlugin()], provide: { [apiClientKey as symbol]: api } },
   })
   await flushPromises()
   return { wrapper, api, router }
 }
+
+enableAutoUnmount(afterEach)
 
 beforeEach(() => {
   localStorage.clear()
@@ -302,6 +325,7 @@ describe('shared member files', () => {
 
     expect(wrapper.get('[data-testid="view-plan"]').attributes('aria-selected')).toBe('true')
     expect(wrapper.find('[data-testid="plan-review-tree"]').exists()).toBe(true)
+    expect(wrapper.get('[data-testid="plan-empty"]').text()).toContain('不会有文件操作')
     // A frozen plan needs no directory read: the member is not refreshed for a
     // view nobody opened.
     expect(api.refreshMemberTree).not.toHaveBeenCalled()

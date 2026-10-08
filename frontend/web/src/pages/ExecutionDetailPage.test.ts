@@ -121,7 +121,11 @@ function pageApi(overrides: Partial<ApiClientContract> = {}): ApiClientContract 
     getCurrentRecord: vi.fn().mockResolvedValue({ workset }),
     getWorkset: vi.fn().mockResolvedValue(workset),
     getOperation: vi.fn().mockResolvedValue(operation(true)),
-    getOperationDraft: vi.fn().mockResolvedValue(undefined),
+    getOperationDraft: vi.fn().mockResolvedValue({
+      workset_id: 'ws-1', operation_type: 'conversion', version: 5,
+      schema_version: 1, updated_at: '',
+      document: { schema_version: 1, no_effect_tags: [], matched: {}, unmatched: {}, members: [] },
+    }),
     getRevision: vi.fn().mockResolvedValue(revision(null)),
     getExecution: vi.fn().mockResolvedValue(executionView),
     ...overrides,

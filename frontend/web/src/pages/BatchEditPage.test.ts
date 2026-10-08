@@ -1,7 +1,8 @@
-import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
+import { enableAutoUnmount, flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { createPinia } from 'pinia'
+import { h } from 'vue'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createMemoryHistory, createRouter, type Router } from 'vue-router'
+import { createMemoryHistory, createRouter, RouterView, type Router } from 'vue-router'
 import { apiClientKey } from '@/lib/api/client'
 import type { ApiClientContract, Operation, OperationDraftDocument, Workset } from '@/lib/api/types'
 import { apiStub } from '@/test/api-stub'
@@ -90,31 +91,53 @@ async function mountBatch(seedPending: boolean): Promise<{ wrapper: VueWrapper; 
   })
   await router.push('/worksets/lib-a/conversion/batch-edit')
   await router.isReady()
-  const wrapper = mount(BatchEditPage, {
-    global: { plugins: [pinia, router, installTestQueryPlugin()], provide: { [apiClientKey as symbol]: pageApi() } },
-  })
   const ui = useWorksetUiStore(pinia)
   ui.batchMemberIds = ['m-1', 'm-2']
+  const wrapper = mount({ render: () => h(RouterView) }, {
+    global: { plugins: [pinia, router, installTestQueryPlugin()], provide: { [apiClientKey as symbol]: pageApi() } },
+  })
   await flushPromises()
   return { wrapper, router }
 }
 
+enableAutoUnmount(afterEach)
 afterEach(() => vi.restoreAllMocks())
 
 describe('BatchEditPage pending-edit conflict', () => {
   it('drops the other edit and opens the batch when the user accepts', async () => {
     const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
-    await mountBatch(true)
+    const { router } = await mountBatch(true)
 
     expect(confirm).toHaveBeenCalledOnce()
     expect(useWorksetEditorStore().session?.target).toEqual({ kind: 'batch', memberIds: ['m-1', 'm-2'] })
+    expect(router.currentRoute.value.name).toBe('conversion-batch-edit')
   })
 
   it('keeps the other edit when the user declines', async () => {
     const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
-    await mountBatch(true)
+    const { router } = await mountBatch(true)
 
     expect(confirm).toHaveBeenCalledOnce()
     expect(useWorksetEditorStore().session?.target).toEqual({ kind: 'common' })
+    expect(router.currentRoute.value.name).toBe('conversion')
+  })
+})
+
+describe('BatchEditPage route leave', () => {
+  it.each([false, true])('confirms unsaved edits and respects the answer %s', async (accept) => {
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(accept)
+    const { router } = await mountBatch(false)
+    expect(router.currentRoute.value.name).toBe('conversion-batch-edit')
+    const editor = useWorksetEditorStore()
+    editor.setUnit('mode', { intent: 'set', value: 'available_sources' })
+    await flushPromises()
+    expect(editor.isDirty).toBe(true)
+
+    await router.push('/worksets/lib-a/conversion')
+    await flushPromises()
+
+    expect(confirm).toHaveBeenCalledOnce()
+    expect(router.currentRoute.value.path).toBe(accept ? '/worksets/lib-a/conversion' : '/worksets/lib-a/conversion/batch-edit')
+    expect(editor.isDirty).toBe(true)
   })
 })

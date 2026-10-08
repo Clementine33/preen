@@ -43,6 +43,7 @@ function onOpenChange(value: boolean) {
         class="fixed inset-0 z-50 bg-black/40 data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
       />
       <DialogContent
+        v-bind="description ? {} : { 'aria-describedby': undefined }"
         :class="
           cn(
             'fixed inset-y-0 right-0 z-50 flex w-[min(380px,100vw)] flex-col gap-3 overflow-y-auto border-l border-[var(--wire-strong)] bg-card p-4',

@@ -1,3 +1,17 @@
+import { afterEach, beforeEach, expect } from 'vitest'
+
+// Unexpected diagnostics must fail the test even when a library catches the error.
+const diagnostics: unknown[][] = []
+for (const level of ['warn', 'error'] as const) {
+  const original = console[level].bind(console)
+  console[level] = (...args: unknown[]) => {
+    diagnostics.push([level, ...args])
+    original(...args)
+  }
+}
+beforeEach(() => { diagnostics.length = 0 })
+afterEach(() => { expect(diagnostics, 'Unexpected console warnings/errors').toEqual([]) })
+
 // Minimal jsdom polyfills for the test environment.
 // Vitest's jsdom population does not expose localStorage (jsdom implements
 // it on its own realm and the global copy misses it), and Node's built-in

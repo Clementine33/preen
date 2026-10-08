@@ -391,7 +391,7 @@ func reconcileComponent(
 					// and it is the one the review can act on: without a lossless
 					// source there is nothing to regenerate it from, and re-encoding
 					// a lossy file would not restore what it lost.
-					if len(p.encodedTarget) > 0 {
+					if p.encodedNeedsRebuild && len(p.encodedTarget) > 0 {
 						block(
 							ReasonConformanceUnconfirmed,
 							"stem %s holds an unconfirmed %s target and no lossless source to regenerate it from",
@@ -402,7 +402,7 @@ func reconcileComponent(
 					}
 					block(
 						ReasonSourceMissing,
-						"stem %s cannot rebuild encoded target without a lossless source",
+						"stem %s cannot participate in the component-wide encoded rebuild without a lossless source",
 						p.stem,
 					)
 					break

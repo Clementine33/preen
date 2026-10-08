@@ -138,7 +138,7 @@ _Avoid_: Batch Draft, Workset-wide Workflow Draft.
 The current values inherited by members without an explicit override for the corresponding setting group.
 
 **Field Override**:
-An explicit member-specific replacement of conversion mode, no-effect tags, other-directory tags, matched targets or unmatched targets. Other groups keep inheriting; an explicit empty value or a value equal to the common value still counts as an override.
+An explicit member-specific replacement of conversion mode, no-effect tags, other-directory tags, matched targets, unmatched targets or isolated-version targets. Other groups keep inheriting; an explicit empty value or a value equal to the common value still counts as an override.
 
 **Effective Settings**:
 The settings resolved for a member from common values and its field overrides, together with each group's common or member source.

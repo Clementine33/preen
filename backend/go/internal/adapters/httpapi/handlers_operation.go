@@ -10,20 +10,21 @@ import (
 
 // ==================== DTOs ====================
 
-// draftDocumentRequest is the PUT .../operations/{type}/draft payload: the four
+// draftDocumentRequest is the PUT .../operations/{type}/draft payload: the six
 // common setting groups plus the sparse member records. The optional apply
 // flag is a transport instruction excluded from the task document.
 // Unoverridden units are absent from member records; null never means "clear".
 type draftDocumentRequest struct {
-	OtherTags           []string                 `json:"other_tags"`
-	SchemaVersion       int                      `json:"schema_version"`
-	Mode                string                   `json:"mode"`
-	DeleteMode          string                   `json:"delete_mode,omitempty"`
-	NoEffectTags        []string                 `json:"no_effect_tags"`
-	Matched             reconcile.DesiredProfile `json:"matched"`
-	Unmatched           reconcile.DesiredProfile `json:"unmatched"`
-	Members             []draftMemberRequest     `json:"members"`
-	ApplyCommonSettings bool                     `json:"apply_common_settings,omitempty"`
+	OtherTags           []string                  `json:"other_tags"`
+	SchemaVersion       int                       `json:"schema_version"`
+	Mode                string                    `json:"mode"`
+	DeleteMode          string                    `json:"delete_mode,omitempty"`
+	NoEffectTags        []string                  `json:"no_effect_tags"`
+	Matched             reconcile.DesiredProfile  `json:"matched"`
+	Unmatched           reconcile.DesiredProfile  `json:"unmatched"`
+	Other               *reconcile.DesiredProfile `json:"other,omitempty"`
+	Members             []draftMemberRequest      `json:"members"`
+	ApplyCommonSettings bool                      `json:"apply_common_settings,omitempty"`
 }
 
 type draftMemberRequest struct {
@@ -38,6 +39,7 @@ type draftOverridesRequest struct {
 	NoEffectTags *[]string                 `json:"no_effect_tags"`
 	Matched      *reconcile.DesiredProfile `json:"matched"`
 	Unmatched    *reconcile.DesiredProfile `json:"unmatched"`
+	Other        *reconcile.DesiredProfile `json:"other"`
 }
 
 // taskDraftEnvelope is the opaque task envelope of a draft document: the

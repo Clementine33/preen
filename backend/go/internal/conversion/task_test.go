@@ -151,7 +151,7 @@ func TestSeedDraftReadsTheTagLiterals(t *testing.T) {
 		config string
 		want   []string
 	}{
-		{"configured", `{"prune":{"literal_tags":["SEなし"," 反転 "]}}`, []string{"SEなし", "反転"}},
+		{"configured", `{"prune":{"no_effect_tags":["SEなし"," 反転 "]}}`, []string{"SEなし", "反転"}},
 		{"broken", `{not json`, []string{}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -303,7 +303,7 @@ func TestSeedDraftUsesTheStoredCommonSettings(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.WriteFile(
 		filepath.Join(dir, "config.json"),
-		[]byte(`{"prune":{"literal_tags":["SEなし"]}}`),
+		[]byte(`{"prune":{"no_effect_tags":["SEなし"]}}`),
 		0o644,
 	); err != nil {
 		t.Fatalf("write config: %v", err)

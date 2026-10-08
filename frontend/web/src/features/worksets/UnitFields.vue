@@ -13,7 +13,6 @@ import UnitSelect from './UnitSelect.vue'
  * same fields — only what they write differs (the common value vs an override).
  */
 const props = defineProps<{
-  suggestions?: string[]
   unit: OverrideUnit
   /** Human name of the group, used in accessible names. */
   label: string
@@ -187,7 +186,7 @@ function applyPreset(preset: (typeof PRESETS)[number]) {
         <input
           type="number"
           min="1"
-          class="h-7 w-20 rounded-md border border-[var(--control-border)] bg-background px-1.5 font-mono text-xs"
+          class="h-7 w-14 rounded-md border border-[var(--control-border)] bg-background px-1.5 font-mono text-xs"
           :value="bitrate"
           :disabled="disabled || encodedCodec === ''"
           :aria-label="`${label} 码率`"
@@ -233,9 +232,5 @@ function applyPreset(preset: (typeof PRESETS)[number]) {
     <p v-if="unit === 'other_tags' && tagList.some((tag) => /[/\\]/.test(tag))" role="alert" class="text-[11px] text-[var(--danger-ink)]">
       其他版本标签只能匹配目录名称，不能包含 / 或 \。
     </p>
-    <select v-if="(unit === 'no_effect_tags' || unit === 'other_tags') && suggestions?.length" :disabled="disabled" :aria-label="`${label} 从标签库添加`" class="h-7 rounded border border-border bg-background text-xs" @change="setTags([...tagList, ($event.target as HTMLSelectElement).value]); ($event.target as HTMLSelectElement).value = ''">
-      <option value="">从标签库添加</option>
-      <option v-for="tag in [...new Set(suggestions)].filter((tag) => !tagList.includes(tag) && (unit !== 'other_tags' || !/[/\\]/.test(tag)))" :key="tag" :value="tag">{{ tag }}</option>
-    </select>
   </div>
 </template>

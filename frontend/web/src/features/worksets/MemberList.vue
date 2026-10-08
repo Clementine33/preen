@@ -204,8 +204,12 @@ function conclusionTitle(member: WorksetMember): string {
               >
                 {{ member.folder_name }}
               </button>
-              <span class="block truncate font-mono text-[10px] text-[var(--text-muted)]" :title="member.folder_path">
-                {{ member.rel_path }}
+              <span
+                v-if="member.rel_path.lastIndexOf('/') > 0"
+                class="block truncate font-mono text-[10px] text-[var(--text-muted)]"
+                :title="member.folder_path"
+              >
+                {{ member.rel_path.slice(0, member.rel_path.lastIndexOf('/')) }}
               </span>
             </td>
             <td class="px-2 align-middle">

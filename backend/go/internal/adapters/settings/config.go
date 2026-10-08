@@ -11,9 +11,8 @@ import (
 // the maintained initial classifier tag list (matched as case-insensitive
 // literal substrings); it seeds new workset drafts only.
 type PruneConfig struct {
-	NoEffectTags      []string `json:"no_effect_tags"`
-	OtherTags         []string `json:"other_tags"`
-	LegacyLiteralTags []string `json:"literal_tags,omitempty"`
+	NoEffectTags []string `json:"no_effect_tags"`
+	OtherTags    []string `json:"other_tags"`
 }
 
 func normalizeTags(tags []string) []string {

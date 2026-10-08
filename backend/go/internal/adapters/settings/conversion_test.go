@@ -110,14 +110,14 @@ func TestEncodeWorkersDefaultsAndBounds(t *testing.T) {
 	}
 }
 
-func TestConversionTagConfigSupportsLegacyAndExplicitEmpty(t *testing.T) {
+func TestConversionTagConfigSupportsIndependentGroupsAndExplicitEmpty(t *testing.T) {
 	for _, tc := range []struct {
 		config                  string
 		wantNoEffect, wantOther []string
 	}{
-		{`{"prune":{"literal_tags":["SEなし"]}}`, []string{"SEなし"}, nil},
-		{`{"prune":{"literal_tags":["old"],"no_effect_tags":[],"other_tags":["反転"]}}`, nil, []string{"反転"}},
-		{`{"prune":{"literal_tags":["old"],"no_effect_tags":["NoSE"],"other_tags":[]}}`, []string{"NoSE"}, nil},
+		{`{"prune":{"no_effect_tags":["SEなし"]}}`, []string{"SEなし"}, nil},
+		{`{"prune":{"no_effect_tags":[],"other_tags":["反転"]}}`, nil, []string{"反転"}},
+		{`{"prune":{"no_effect_tags":["NoSE"],"other_tags":[]}}`, []string{"NoSE"}, nil},
 	} {
 		t.Run(tc.config, func(t *testing.T) {
 			dir := t.TempDir()

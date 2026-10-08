@@ -55,7 +55,7 @@ export interface UnitValue {
   members: number
 }
 
-export const OVERRIDE_UNITS: OverrideUnit[] = ['mode', 'no_effect_tags', 'other_tags', 'matched', 'unmatched']
+export const OVERRIDE_UNITS: OverrideUnit[] = ['mode', 'no_effect_tags', 'other_tags', 'matched', 'unmatched', 'other']
 
 function commonValue(doc: OperationDraftDocument, unit: OverrideUnit): unknown {
   switch (unit) {
@@ -66,6 +66,8 @@ function commonValue(doc: OperationDraftDocument, unit: OverrideUnit): unknown {
       return doc[unit] ?? []
     case 'matched':
       return doc.matched
+    case 'other':
+      return doc.other ?? doc.unmatched
     case 'unmatched':
       return doc.unmatched
   }
@@ -82,6 +84,9 @@ function setCommon(doc: OperationDraftDocument, unit: OverrideUnit, value: unkno
       return
     case 'matched':
       doc.matched = value as OperationDraftDocument['matched']
+      return
+    case 'other':
+      doc.other = value as OperationDraftDocument['other']
       return
     case 'unmatched':
       doc.unmatched = value as OperationDraftDocument['unmatched']
@@ -109,6 +114,10 @@ function overrideValue(record: DraftMember | undefined, unit: OverrideUnit): { p
       return overrides.matched === undefined
         ? { present: false, value: undefined }
         : { present: true, value: overrides.matched }
+    case 'other':
+      return overrides.other === undefined
+        ? { present: false, value: undefined }
+        : { present: true, value: overrides.other }
     case 'unmatched':
       return overrides.unmatched === undefined
         ? { present: false, value: undefined }
@@ -208,6 +217,9 @@ function setOverride(record: DraftMember, unit: OverrideUnit, value: unknown): v
     case 'matched':
       overrides.matched = value as OverrideSet['matched']
       break
+    case 'other':
+      overrides.other = value as OverrideSet['other']
+      break
     case 'unmatched':
       overrides.unmatched = value as OverrideSet['unmatched']
       break
@@ -227,6 +239,9 @@ function clearOverride(record: DraftMember, unit: OverrideUnit): void {
       break
     case 'matched':
       delete record.overrides.matched
+      break
+    case 'other':
+      delete record.overrides.other
       break
     case 'unmatched':
       delete record.overrides.unmatched

@@ -182,7 +182,7 @@ type AudioOutputSpec struct {
 // Lossless reports whether the output spec is a lossless class.
 func (s AudioOutputSpec) Lossless() bool { return IsLosslessCodec(s.Codec) }
 
-// DesiredProfile is the exact managed audio set for one partition.
+// DesiredProfile is the exact managed audio set for one version target.
 type DesiredProfile struct {
 	Lossless *AudioOutputSpec `json:"lossless,omitempty"`
 	Encoded  *AudioOutputSpec `json:"encoded,omitempty"`
@@ -201,19 +201,22 @@ const (
 // that isolate independent version scopes. Conversion/cleanup mechanics are
 // derived by the planner. Mode applies to both partitions within every scope.
 type Policy struct {
-	LegacyClassifierTags []string       `json:"classifier_tags,omitempty"`
-	OtherTags            []string       `json:"other_tags"`
-	SchemaVersion        int            `json:"schema_version"`
-	Mode                 string         `json:"mode,omitempty"`
-	NoEffectTags         []string       `json:"no_effect_tags,omitempty"`
-	Matched              DesiredProfile `json:"matched"`
-	Unmatched            DesiredProfile `json:"unmatched"`
+	LegacyClassifierTags []string        `json:"classifier_tags,omitempty"`
+	OtherTags            []string        `json:"other_tags"`
+	SchemaVersion        int             `json:"schema_version"`
+	Mode                 string          `json:"mode,omitempty"`
+	NoEffectTags         []string        `json:"no_effect_tags,omitempty"`
+	Matched              DesiredProfile  `json:"matched"`
+	Unmatched            DesiredProfile  `json:"unmatched"`
+	Other                *DesiredProfile `json:"other,omitempty"`
 }
 
-// ProfileFor resolves the desired profile of one partition. It is the single
-// source of the partition -> profile mapping: the planning skeleton, both
-// decision tables and the execution freeze side all call it.
-func ProfileFor(policy Policy, part Partition) DesiredProfile {
+// ProfileFor selects the isolated-scope target or the main partition target.
+// A missing other profile preserves the targets of older frozen revisions.
+func ProfileFor(policy Policy, part Partition, scope string) DesiredProfile {
+	if scope != "" && policy.Other != nil {
+		return *policy.Other
+	}
 	if part == PartitionUnmatched {
 		return policy.Unmatched
 	}

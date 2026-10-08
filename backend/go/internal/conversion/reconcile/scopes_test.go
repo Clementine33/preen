@@ -2,6 +2,7 @@ package reconcile_test
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/onsei/organizer/backend/internal/conversion/reconcile"
@@ -198,5 +199,57 @@ func TestPersistedLegacyPolicyStillReconciles(t *testing.T) {
 	)
 	if err != nil || out.Summary.BlockedCount != 0 || len(out.Components) != 1 {
 		t.Fatalf("legacy reconciliation: %+v, %v", out, err)
+	}
+}
+
+func TestOtherScopeUsesItsOwnTargetProfile(t *testing.T) {
+	mp3 := reconcile.DesiredProfile{Encoded: &reconcile.AudioOutputSpec{
+		Codec: reconcile.CodecMp3, Quality: &reconcile.Quality{Kind: reconcile.QualityBitrate, Bitrate: 320},
+	}}
+	opus := reconcile.DesiredProfile{Encoded: &reconcile.AudioOutputSpec{
+		Codec: reconcile.CodecOpus, Quality: &reconcile.Quality{Kind: reconcile.QualityBitrate, Bitrate: 160},
+	}}
+	classifier, err := reconcile.ResolveClassifier([]string{"NoSE"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, mode := range []string{reconcile.ModeStrict, reconcile.ModeAvailableSources} {
+		t.Run(mode, func(t *testing.T) {
+			out, planErr := reconcile.Reconcile(reconcile.ReconcileInput{
+				RootPath: "work", Classifier: classifier,
+				Policy: reconcile.Policy{
+					SchemaVersion: 1, Mode: mode, NoEffectTags: []string{"NoSE"}, OtherTags: []string{"revert"},
+					Matched: mp3, Unmatched: mp3, Other: &opus,
+				},
+				Entries: []reconcile.AudioEntry{
+					{PathPosix: "work/main/1.wav"}, {PathPosix: "work/NoSE/1.wav"},
+					{PathPosix: "work/revert/1.wav"}, {PathPosix: "work/revert/NoSE/1.wav"},
+				},
+			})
+			if planErr != nil {
+				t.Fatal(planErr)
+			}
+			if out.Summary.BlockedCount != 0 || len(out.Components) != 4 {
+				t.Fatalf("components = %+v", out)
+			}
+			for _, c := range out.Components {
+				want := ".mp3"
+				if c.Scope != "" {
+					want = ".opus"
+				}
+				encodes := 0
+				for _, op := range c.Operations {
+					if op.Kind == "encode" {
+						encodes++
+						if !strings.HasSuffix(op.TargetPath, want) {
+							t.Fatalf("scope %q target = %s, want %s", c.Scope, op.TargetPath, want)
+						}
+					}
+				}
+				if encodes != 1 {
+					t.Fatalf("scope %q encodes = %d", c.Scope, encodes)
+				}
+			}
+		})
 	}
 }

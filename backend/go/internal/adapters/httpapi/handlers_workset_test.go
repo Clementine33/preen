@@ -37,7 +37,7 @@ func newWorksetServer(t *testing.T) (http.Handler, *sqlite.Repository) {
 		t.Fatalf("repo: %v", err)
 	}
 	t.Cleanup(func() { _ = repo.Close() })
-	cfg := `{"prune":{"literal_tags":["SEなし"]}}`
+	cfg := `{"prune":{"no_effect_tags":["SEなし"]}}`
 	if err := os.WriteFile(filepath.Join(tmp, "config.json"), []byte(cfg), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
 	}

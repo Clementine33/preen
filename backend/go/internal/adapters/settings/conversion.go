@@ -49,11 +49,7 @@ func (r Reader) PruneNoEffectTags() []string {
 	if !r.decode(&cfg) {
 		return nil
 	}
-	tags := cfg.Prune.NoEffectTags
-	if tags == nil {
-		tags = cfg.Prune.LegacyLiteralTags
-	}
-	return normalizeTags(tags)
+	return normalizeTags(cfg.Prune.NoEffectTags)
 }
 
 // Tools reads the encoder tool paths (tools.ffmpeg_path, tools.ffprobe_path).

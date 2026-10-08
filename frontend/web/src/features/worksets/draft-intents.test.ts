@@ -177,3 +177,16 @@ describe('the obsolete-audio handling', () => {
     expect(member.members).toEqual(base.members.length ? member.members : [])
   })
 })
+
+
+it('sets and clears the other target in a batch without touching the main targets', () => {
+  const target = { kind: 'batch' as const, memberIds: ['m-yi', 'm-jia'] }
+  const configured = { ...base, other: WAV }
+  const changed = applyIntent(configured, target, intent({ other: { intent: 'set', value: {} } }))
+  expect(readUnit(changed, target, 'other')).toMatchObject({ source: 'member', value: {} })
+  expect(changed.matched).toEqual(base.matched)
+  expect(changed.unmatched).toEqual(base.unmatched)
+  const inherited = applyIntent(changed, target, intent({ other: { intent: 'inherit' } }))
+  expect(readUnit(inherited, target, 'other')).toMatchObject({ source: 'common', value: WAV })
+  expect(inherited.members).toEqual(base.members)
+})

@@ -11,7 +11,7 @@ import {
 } from '@/features/worksets/draft-intents'
 import { unitValueText } from '@/features/worksets/plan-readers'
 import { useWorksetEditorStore } from '@/stores/workset-editor'
-import type { OperationDraftDocument, OverrideUnit, ClassifierTagLibraryResponse } from '@/lib/api/types'
+import type { OperationDraftDocument, OverrideUnit } from '@/lib/api/types'
 import UnitFields from './UnitFields.vue'
 
 /**
@@ -24,7 +24,6 @@ import UnitFields from './UnitFields.vue'
  * with neither choice made — that display state is never saved as one value.
  */
 const props = defineProps<{
-  tagLibrary?: ClassifierTagLibraryResponse
   draft: OperationDraftDocument
   target: EditTarget
   readOnly: boolean
@@ -39,6 +38,7 @@ const UNIT_LABELS: Record<OverrideUnit, string> = {
   other_tags: '其他版本目录',
   matched: '无音效目标',
   unmatched: '有音效目标',
+  other: '其他版本目标',
 }
 
 type Choice = 'default' | 'override' | 'unset'
@@ -77,6 +77,8 @@ function commonFallback(unit: OverrideUnit): unknown {
       return [...(props.draft[unit] ?? [])]
     case 'matched':
       return props.draft.matched
+    case 'other':
+      return props.draft.other ?? props.draft.unmatched
     case 'unmatched':
       return props.draft.unmatched
   }
@@ -201,7 +203,6 @@ const effectivelyExcluded = computed(() => participationState.value === 'exclude
           :label="UNIT_LABELS[unit]"
           scope="override"
           :value="valueOf(unit)"
-        :suggestions="[...(tagLibrary?.custom_tags.map((tag) => tag.tag) ?? []), ...(unit === 'other_tags' ? tagLibrary?.default_other_tags ?? [] : tagLibrary?.default_no_effect_tags ?? [])]"
           :disabled="readOnly"
           @change="editor.setUnit(unit, { intent: 'set', value: $event })"
         />

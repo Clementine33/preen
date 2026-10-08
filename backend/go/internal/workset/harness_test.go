@@ -55,7 +55,7 @@ func newFixture(t *testing.T) *fixture {
 func newFixtureWithScan(t *testing.T, scan workset.FolderScan) *fixture {
 	t.Helper()
 	tmp := t.TempDir()
-	cfg := `{"prune":{"literal_tags":["SEなし"]}}`
+	cfg := `{"prune":{"no_effect_tags":["SEなし"]}}`
 	if err := os.WriteFile(filepath.Join(tmp, "config.json"), []byte(cfg), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
 	}

@@ -166,7 +166,9 @@ it('shows the isolated scope and the actual competing directories', () => {
     ] }],
   }]
   const wrapper = mount(MemberReview, { props: { member, revision: conflicted, editable: true } })
-  expect(wrapper.text()).toContain('其他版本 · wav/revert')
+  expect(wrapper.text()).toContain('其他版本')
+  expect(wrapper.text()).not.toContain('其他版本 ·')
+  expect(wrapper.text()).not.toContain('主版本 ·')
   expect(wrapper.text()).toContain('wav/revert/a')
   expect(wrapper.text()).toContain('wav/revert/b')
 })

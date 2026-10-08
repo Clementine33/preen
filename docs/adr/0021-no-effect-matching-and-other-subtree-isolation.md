@@ -12,11 +12,13 @@ Status: Draft — 2026-10-08
 
 ## 2 草稿、兼容与审阅
 
-延续 [ADR 0006 §1/§2](0006-sparse-inheritance-and-explicit-editing.md)：五个独立覆盖单位为 `mode`、`no_effect_tags`、`other_tags`、`matched`、`unmatched`；缺失继承，显式 `[]` 清空。空无音效列表可以保存，生成时完整校验；`other_tags` 含路径分隔符是结构错误，公共值与全部成员覆盖在保存时拒绝。
+延续 [ADR 0006 §1/§2](0006-sparse-inheritance-and-explicit-editing.md)：六个独立覆盖单位为 `mode`、`no_effect_tags`、`other_tags`、`matched`、`unmatched`、`other`；缺失继承，显式 `[]` 清空。空无音效列表可以保存，生成时完整校验；`other_tags` 含路径分隔符是结构错误，公共值与全部成员覆盖在保存时拒绝。
 
-schema 保持 1。旧 `classifier_tags` 在持久化读取时折入新键，新键显式空数组优先；HTTP 新写入拒绝旧键。原始草稿、槽与冻结策略由前端 API 客户端统一归一化，公共值比较通过 Task 的现有投影完成，读取不重写存储。默认标签响应使用 `default_no_effect_tags`、`default_other_tags`，自定义字符串仍共享一个库。配置旧 `literal_tags` 只作无音效种子别名，模板将 `反転` 放入其他目录规则；不自动重新归类用户已有规则。
+schema 保持 1。旧 `classifier_tags` 在持久化读取时折入新键，新键显式空数组优先；HTTP 新写入拒绝旧键。原始草稿、槽与冻结策略由前端 API 客户端统一归一化，公共值比较通过 Task 的现有投影完成，读取不重写存储。默认标签响应使用 `default_no_effect_tags`、`default_other_tags`，自定义字符串仍共享一个库。配置只读取 `no_effect_tags` 与 `other_tags`，模板将 `反転` 放入其他目录规则；不自动重新归类用户已有规则。
 
 沿用公共／成员／批量设置的保存、重新生成、审阅流程，增加源竞争筛选及 scope 展示。源竞争的决策保留真实候选路径；严格与可用源模式共用既有源优先级。ComponentID 的算法保持原样，不加 scope 盐。
+
+隔离 scope 的两种匹配分区共用独立的 `other` 目标，可在公共／成员／批量设置中覆盖，各目录仍独立聚合。三个目标的新草稿种子与恢复默认均为不保留无损、MP3 320；不重置已有设置。旧草稿与冻结版本缺少 `other` 时沿用原分区目标，执行冻结按 outcome 的 scope 选择同一目标。审阅主 scope 只标有音效或无音效，隔离 scope 只标其他版本；具体目录由文件行展示。
 
 ## 替代方案
 

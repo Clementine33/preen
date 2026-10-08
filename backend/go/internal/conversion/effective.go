@@ -9,7 +9,7 @@ import (
 )
 
 // MemberEffective is one member's resolved conversion config plus where each
-// of the five units came from. Source differences survive equal values: a
+// of the six units came from. Source differences survive equal values: a
 // member that explicitly repeats the common value is still "member".
 type MemberEffective struct {
 	MemberID   string
@@ -38,6 +38,7 @@ func CommonPolicy(doc *DraftDoc) reconcile.Policy {
 		OtherTags:     append([]string{}, doc.OtherTags...),
 		Matched:       doc.Matched,
 		Unmatched:     doc.Unmatched,
+		Other:         doc.Other,
 	}
 }
 
@@ -67,6 +68,7 @@ func ResolveEffective(doc *DraftDoc, members []*workset.WorksetMember) ([]Member
 				UnitOtherTags:    SourceCommon,
 				UnitMatched:      SourceCommon,
 				UnitUnmatched:    SourceCommon,
+				UnitOther:        SourceCommon,
 			},
 		}
 		if ok {
@@ -101,6 +103,10 @@ func applyOverrides(eff *MemberEffective, o *OverrideSet) {
 	if o.Matched != nil {
 		eff.Policy.Matched = *o.Matched
 		eff.Sources[UnitMatched] = SourceMember
+	}
+	if o.Other != nil {
+		eff.Policy.Other = o.Other
+		eff.Sources[UnitOther] = SourceMember
 	}
 	if o.Unmatched != nil {
 		eff.Policy.Unmatched = *o.Unmatched

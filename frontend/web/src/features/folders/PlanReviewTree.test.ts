@@ -219,7 +219,7 @@ describe('plan review tree', () => {
     // The same reader the conversion list's row uses, so the row that opened
     // this page and the page itself never disagree.
     const summary = wrapper.get('[data-testid="plan-summary"]').text()
-    expect(summary).toContain('仅无音效转换')
+    expect(summary).toContain('有变化')
     expect(summary).toContain('无音效：将转换')
 
     const tally = wrapper.get('[data-testid="plan-tally"]').text()

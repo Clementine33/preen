@@ -12,7 +12,6 @@ import OperationHeader from '@/features/worksets/OperationHeader.vue'
 import MemberList from '@/features/worksets/MemberList.vue'
 import {
   memberConclusion,
-  partitionFacts,
   revisionComponents,
   type MemberConclusion,
 } from '@/features/worksets/plan-readers'
@@ -109,14 +108,10 @@ function memberComponents(member: WorksetMember): ComponentOutcome[] {
   return revisionComponents(view).filter((component) => owned.has(component.component_id))
 }
 
-function sourceConflictFor(member: WorksetMember): boolean {
-  return memberComponents(member).some((component) => component.reason_code === 'SOURCE_AMBIGUOUS')
-}
-
 /** The visible conclusion of one member row. */
 function conclusionFor(member: WorksetMember): MemberConclusion {
   const view = revision.value
-  if (!view) return { tone: 'neutral', label: '待规划', detail: '尚未生成计划版本。' }
+  if (!view) return { tone: 'neutral', label: '待规划', detail: '尚未生成计划版本。', filter: null }
   const frozen = view.members.find((m) => m.member_id === member.member_id)
   const root = view.roots.find((r) => r.root_path === member.folder_path)
   const components = memberComponents(member)
@@ -124,7 +119,7 @@ function conclusionFor(member: WorksetMember): MemberConclusion {
     excluded: frozen?.excluded ?? false,
     hasRoot: Boolean(root),
     rootMissing: root?.root_status === 'missing',
-    facts: partitionFacts(components),
+    components,
   })
 }
 
@@ -552,7 +547,6 @@ const parentLink = computed(() => {
             :filter="filter"
             :search="ui.search"
             :conclusion-for="conclusionFor"
-            :source-conflict-for="sourceConflictFor"
             :compact="tier === 'narrow'"
             @toggle="ui.toggleMember($event)"
             @toggle-all="ui.toggleAllVisible($event)"

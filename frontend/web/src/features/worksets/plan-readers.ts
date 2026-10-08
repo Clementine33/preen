@@ -193,63 +193,47 @@ export function partitionFacts(components: ComponentOutcome[]): MemberFacts {
 
 export interface MemberConclusion {
   tone: 'neutral' | 'success' | 'warning' | 'danger'
-  /**
-   * The one label the row shows, phrased as what will happen to this folder:
-   * 仅无音效转换 / 仅有音效转换 / 全量转换, or why nothing will change.
-   */
+  /** The row's main status; conversion scope belongs in the detail. */
   label: string
+  /** The filter matching the main status shown in the badge. */
+  filter: 'change' | 'warn' | 'blocked' | 'source_conflict' | null
   /** Both partitions' own facts, so neither side's state hides behind a word. */
   detail: string
 }
 
-/**
- * One member's conclusion. The label names who changes; the tone carries the
- * risk, so a folder that converts while a target stays unmet says so in the
- * label and still reads as a warning.
- */
+/** One member's main status and matching filter from the frozen plan. */
 export function memberConclusion(input: {
   excluded: boolean
   hasRoot: boolean
   rootMissing: boolean
-  facts: MemberFacts
+  components: ComponentOutcome[]
 }): MemberConclusion {
   if (input.excluded) {
-    return { tone: 'neutral', label: '已排除', detail: '本操作已排除该文件夹。' }
+    return { tone: 'neutral', label: '已排除', detail: '本操作已排除该文件夹。', filter: null }
   }
   if (!input.hasRoot) {
-    return { tone: 'neutral', label: '未参与', detail: '该文件夹在此版本中没有规划输入。' }
+    return { tone: 'neutral', label: '未参与', detail: '该文件夹在此版本中没有规划输入。', filter: null }
   }
   if (input.rootMissing) {
-    return { tone: 'danger', label: '输入缺失', detail: '规划时未在扫描结果中找到该文件夹。' }
+    return { tone: 'danger', label: '输入缺失', detail: '规划时未在扫描结果中找到该文件夹。', filter: 'blocked' }
   }
-  const sides = Object.values(input.facts)
-  if (sides.some((side) => side.blocked)) {
-    return { tone: 'danger', label: '阻塞', detail: '存在需要先处理的冲突或歧义。' }
+  const components = input.components
+  const unmetCount = components.filter(componentHasUnmetTarget).length
+  const detail = detailText(partitionFacts(components))
+  if (components.some((component) => component.status === 'blocked' && component.reason_code !== 'SOURCE_AMBIGUOUS')) {
+    return { tone: 'danger', label: '阻塞', detail, filter: 'blocked' }
   }
-  const detail = detailText(input.facts)
-  const changing = changedSides(input.facts)
-  if (changing.length === 2) return { tone: toneFor(input.facts, 'success'), label: '全量转换', detail }
-  if (changing.length === 1) {
-    return { tone: toneFor(input.facts, 'success'), label: `仅${changing[0]}转换`, detail }
+  if (components.some((component) => component.reason_code === 'SOURCE_AMBIGUOUS')) {
+    return { tone: 'danger', label: '源竞争', detail: `存在多个同优先级无损源，无法唯一选源。${detail}`, filter: 'source_conflict' }
   }
-  if (sides.some((side) => side.unmet)) {
-    return { tone: 'warning', label: '目标未满足', detail }
+  if (unmetCount > 0) {
+    return { tone: 'warning', label: unmetCount < components.length ? '部分未满足' : '未满足', detail, filter: 'warn' }
   }
-  if (!sides.some((side) => side.applicable)) {
-    return { tone: 'neutral', label: '无适用', detail }
+  if (components.some((component) => componentOperationCount(component) > 0)) {
+    return { tone: 'success', label: '有变化', detail, filter: 'change' }
   }
-  return { tone: 'neutral', label: '无需转换', detail }
-}
-
-/** Warning wins over success: an unmet target is the row's risk to read. */
-function toneFor(facts: MemberFacts, base: MemberConclusion['tone']): MemberConclusion['tone'] {
-  return Object.values(facts).some((side) => side.unmet) ? 'warning' : base
-}
-
-function changedSides(facts: MemberFacts): string[] {
-  return (Object.keys(facts) as (keyof MemberFacts)[])
-    .filter((key) => facts[key].changes)
-    .map((key) => PARTITION_TEXT[key])
+  if (components.length === 0) return { tone: 'neutral', label: '无适用', detail, filter: null }
+  return { tone: 'neutral', label: '无需转换', detail, filter: null }
 }
 
 /** One line per partition: what it does, or why it does nothing. */

@@ -10,8 +10,6 @@ import {
   memberConclusion,
   partitionFacts,
   readComponent,
-  type MemberFacts,
-  type PartitionFacts,
 } from './plan-readers'
 
 /** A snapshot as an older backend wrote it: empty collections serialized as null. */
@@ -72,61 +70,59 @@ describe('plan snapshot readers', () => {
 
 describe('member conclusion', () => {
   const base = { excluded: false, hasRoot: true, rootMissing: false }
-  const side = (overrides: Partial<PartitionFacts> = {}): PartitionFacts => ({
-    applicable: true,
-    blocked: false,
-    unmet: false,
-    changes: false,
-    ...overrides,
+  const component = (overrides: Partial<ComponentOutcome> = {}) =>
+    readComponent({ component_id: 'cmp', partition: 'matched', status: 'ok', ...overrides } as ComponentOutcome)
+  const changing = component({ operations: [{ kind: 'encode' }] as ComponentOutcome['operations'] })
+  const unmet = component({
+    variant_decisions: [{ stem: 'track', decisions: [{ path: '/a.mp3', resolution: 'keep', reason_code: 'UNMET_TARGET' }] }],
   })
-  const facts = (matched: Partial<PartitionFacts> = {}, unmatched: Partial<PartitionFacts> = {}): MemberFacts => ({
-    matched: side(matched),
-    unmatched: side(unmatched),
-  })
+  const source = component({ status: 'blocked', reason_code: 'SOURCE_AMBIGUOUS' })
+  const blocked = component({ status: 'blocked', reason_code: 'SOURCE_MISSING' })
 
-  it('names the partition that will change, not the one that is satisfied', () => {
-    const matchedOnly = memberConclusion({ ...base, facts: facts({ changes: true }) })
-    expect(matchedOnly.label).toBe('仅无音效转换')
-    expect(matchedOnly.tone).toBe('success')
-    expect(matchedOnly.detail).toContain('无音效：将转换')
-    expect(matchedOnly.detail).toContain('有音效：无需改动')
-
-    const unmatchedOnly = memberConclusion({ ...base, facts: facts({}, { changes: true }) })
-    expect(unmatchedOnly.label).toBe('仅有音效转换')
-
-    const both = memberConclusion({ ...base, facts: facts({ changes: true }, { changes: true }) })
-    expect(both.label).toBe('全量转换')
+  it('uses a short change badge and keeps conversion scope in the detail', () => {
+    const result = memberConclusion({ ...base, components: [changing, component({ partition: 'unmatched' })] })
+    expect(result.label).toBe('有变化')
+    expect(result.tone).toBe('success')
+    expect(result.detail).toContain('无音效：将转换')
+    expect(result.detail).toContain('有音效：无需改动')
+    expect(result.filter).toBe('change')
   })
 
-  it('keeps the changed label but reads as a warning while a target stays unmet', () => {
-    const partial = memberConclusion({ ...base, facts: facts({ changes: true }, { unmet: true }) })
-
-    expect(partial.label).toBe('仅无音效转换')
-    expect(partial.tone).toBe('warning')
-    expect(partial.detail).toContain('有音效：目标未满足，现有文件按可用源保留')
+  it('distinguishes partial unmet components within the same partition', () => {
+    for (const other of [changing, component()]) {
+      const result = memberConclusion({ ...base, components: [unmet, other] })
+      expect(result.label).toBe('部分未满足')
+      expect(result.tone).toBe('warning')
+      expect(result.filter).toBe('warn')
+    }
+    expect(memberConclusion({ ...base, components: [unmet, changing] }).filter).toBe('warn')
   })
 
-  it('separates an unmet target from a folder with nothing to do', () => {
-    const unmet = memberConclusion({ ...base, facts: facts({ unmet: true }) })
-    expect(unmet.tone).toBe('warning')
-    expect(unmet.label).toBe('目标未满足')
-    expect(unmet.detail).toContain('无音效：目标未满足')
-
-    const nothing = memberConclusion({ ...base, facts: facts() })
-    expect(nothing.label).toBe('无需转换')
-    expect(nothing.tone).toBe('neutral')
-
-    // No component at all is 无适用, not 无变化: nothing was asked of it.
-    const noFiles = memberConclusion({ ...base, facts: facts({ applicable: false }, { applicable: false }) })
-    expect(noFiles.label).toBe('无适用')
-    expect(noFiles.detail).toContain('无音效：无适用文件')
+  it('reports unmet when every component contains an unmet target, even with operations', () => {
+    const result = memberConclusion({ ...base, components: [unmet, { ...unmet, operations: changing.operations }] })
+    expect(result.label).toBe('未满足')
+    expect(result.tone).toBe('warning')
+    expect(result.filter).toBe('warn')
   })
 
-  it('reports a blocked component above every other fact', () => {
-    const blocked = memberConclusion({ ...base, facts: facts({ blocked: true, changes: true }) })
+  it('uses source competition or other blockers as the primary filter above warnings', () => {
+    const competition = memberConclusion({ ...base, components: [source, unmet] })
+    expect(competition.label).toBe('源竞争')
+    expect(competition.tone).toBe('danger')
+    expect(competition.detail).toContain('无法唯一选源')
+    expect(competition.filter).toBe('source_conflict')
 
-    expect(blocked.tone).toBe('danger')
-    expect(blocked.label).toBe('阻塞')
+    const mixed = memberConclusion({ ...base, components: [source, blocked, unmet] })
+    expect(mixed.label).toBe('阻塞')
+    expect(mixed.filter).toBe('blocked')
+  })
+
+  it('preserves inactive and missing-input states', () => {
+    expect(memberConclusion({ ...base, components: [component()] }).label).toBe('无需转换')
+    expect(memberConclusion({ ...base, components: [] }).label).toBe('无适用')
+    expect(memberConclusion({ ...base, components: [source], excluded: true })).toMatchObject({ label: '已排除', filter: null })
+    expect(memberConclusion({ ...base, components: [], hasRoot: false })).toMatchObject({ label: '未参与', filter: null })
+    expect(memberConclusion({ ...base, components: [], rootMissing: true })).toMatchObject({ label: '输入缺失', filter: 'blocked' })
   })
 })
 

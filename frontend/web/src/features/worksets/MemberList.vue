@@ -24,7 +24,6 @@ const props = defineProps<{
   filter: MemberFilter
   search: string
   conclusionFor: (member: WorksetMember) => MemberConclusion
-  sourceConflictFor: (member: WorksetMember) => boolean
   /**
    * Drill-down tier: the row keeps only the name, a status icon and the view
    * action, so a narrow container is not spent on text that the member detail
@@ -46,7 +45,7 @@ const emit = defineEmits<{
 const FILTERS: { value: MemberFilter; label: string }[] = [
   { value: 'all', label: '全部' },
   { value: 'change', label: '有变化' },
-  { value: 'warn', label: '目标未满足' },
+  { value: 'warn', label: '未满足' },
   { value: 'blocked', label: '阻塞' },
   { value: 'source_conflict', label: '源竞争' },
   { value: 'excluded', label: '已排除' },
@@ -67,25 +66,18 @@ const visible = computed(() =>
       return false
     }
     switch (props.filter) {
-      case 'source_conflict':
-        return props.sourceConflictFor(member)
       case 'excluded':
         return excluded.value.has(member.member_id)
+      case 'source_conflict':
       case 'change':
       case 'warn':
       case 'blocked':
-        return props.conclusionFor(member).tone === tonalFilter(props.filter)
+        return props.conclusionFor(member).filter === props.filter
       default:
         return true
     }
   }),
 )
-
-function tonalFilter(filter: 'change' | 'warn' | 'blocked') {
-  if (filter === 'change') return 'success'
-  if (filter === 'warn') return 'warning'
-  return 'danger'
-}
 
 const visibleIds = computed(() => visible.value.map((m) => m.member_id))
 const allVisibleSelected = computed(

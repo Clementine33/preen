@@ -3,7 +3,7 @@ import { computed, ref } from 'vue'
 import { ChevronDown, ChevronRight, FileAudio, FilePlus2, FileText, Folder } from '@lucide/vue'
 import { Badge } from '@/components/ui/badge'
 import { useOperationContext } from '@/composables/use-operation-context'
-import { decisionGroups, keepReasonText, memberConclusion, partitionFacts, resolutionText, revisionComponents } from '@/features/worksets/plan-readers'
+import { decisionGroups, keepReasonText, memberConclusion, resolutionText, revisionComponents } from '@/features/worksets/plan-readers'
 import type { ComponentOutcome } from '@/lib/api/types'
 
 /**
@@ -53,7 +53,7 @@ const conclusion = computed(() =>
     excluded: frozenMember.value?.excluded ?? false,
     hasRoot: Boolean(root.value),
     rootMissing: root.value?.root_status === 'missing',
-    facts: partitionFacts(components.value),
+    components: components.value,
   }),
 )
 

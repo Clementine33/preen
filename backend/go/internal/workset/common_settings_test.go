@@ -97,7 +97,7 @@ func TestCommonSettingsSaveReachesEveryRecord(t *testing.T) {
 	// The other record carries a member override and an excluded member: the
 	// common change must reach its common fields and nothing else.
 	strict := reconcile.ModeStrict
-	other := draftDoc()
+	other := mustDraft(t, f.draft(second.WorksetID))
 	emptyOther := []string{}
 	other.Members = []conversion.DraftMember{{
 		MemberID:  second.Members[0].MemberID,
@@ -152,7 +152,7 @@ func TestCommonSettingsSaveLeavesGeneratedPlansAndNeedsReplanning(t *testing.T) 
 	first, second := f.twoLibraries(t)
 	f.insertAudioEntry("/music2/albumC/01.mp3", "/music2/albumC", 1024, 1000)
 
-	planned := f.saveDraft(second.WorksetID, draftDoc(), second.Operations[0].Version)
+	planned := f.saveDraft(second.WorksetID, mustDraft(t, f.draft(second.WorksetID)), second.Operations[0].Version)
 	gen := f.runGeneration(second.WorksetID, planned.Version)
 	if gen.Status != workset.GenStatusCompleted || gen.RevisionID == "" {
 		t.Fatalf("generation = %+v", gen)
@@ -200,7 +200,7 @@ func TestMemberOnlySaveStaysInsideItsRecord(t *testing.T) {
 	beforeDraft := f.draft(second.WorksetID)
 
 	tags := []string{"SEなし"}
-	doc := draftDoc()
+	doc := mustDraft(t, f.draft(first.WorksetID))
 	doc.Members = []conversion.DraftMember{{
 		MemberID:  first.Members[0].MemberID,
 		Overrides: &conversion.OverrideSet{NoEffectTags: &tags},

@@ -177,7 +177,7 @@ func startBackendBinary(t *testing.T, binPath, dataDir, token string) backendPro
 	// Seed the classifier tag config: no compiled-in defaults remain, so a
 	// fresh data dir gets its literal tags from config.json.
 	cfgPath := filepath.Join(dataDir, "config.json")
-	if err := os.WriteFile(cfgPath, []byte(`{"prune":{"literal_tags":["SEなし"]}}`), 0o644); err != nil {
+	if err := os.WriteFile(cfgPath, []byte(`{"prune":{"no_effect_tags":["SEなし"]}}`), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
 	stdinR, stdinW := io.Pipe()

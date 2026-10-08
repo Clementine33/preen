@@ -70,7 +70,7 @@ func newExecFixtureWithTask(
 		t.Fatalf("new repo: %v", err)
 	}
 	t.Cleanup(func() { _ = repo.Close() })
-	cfg := `{"prune":{"literal_tags":["SEなし"]}}`
+	cfg := `{"prune":{"no_effect_tags":["SEなし"]}}`
 	if cfgErr := os.WriteFile(filepath.Join(tmp, "config.json"), []byte(cfg), 0o644); cfgErr != nil {
 		t.Fatalf("write config: %v", cfgErr)
 	}

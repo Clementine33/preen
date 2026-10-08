@@ -160,6 +160,7 @@ export interface ResolvedPolicy {
   no_effect_tags: string[]
   matched: PolicyProfile
   unmatched: PolicyProfile
+  other?: PolicyProfile
 }
 
 /** One of the three fixed global policy slots. policy is null while unconfigured. */
@@ -574,8 +575,8 @@ export interface DesiredProfile {
   encoded?: AudioOutputSpec
 }
 
-/** The five override units. What an exception replaces, one group at a time. */
-export type OverrideUnit = 'mode' | 'no_effect_tags' | 'other_tags' | 'matched' | 'unmatched'
+/** The six override units. What an exception replaces, one group at a time. */
+export type OverrideUnit = 'mode' | 'no_effect_tags' | 'other_tags' | 'matched' | 'unmatched' | 'other'
 
 /**
  * A member's explicit values. A unit that is absent inherits the common value;
@@ -588,6 +589,7 @@ export interface OverrideSet {
   no_effect_tags?: string[]
   matched?: DesiredProfile
   unmatched?: DesiredProfile
+  other?: DesiredProfile
 }
 
 export interface DraftMember {
@@ -610,6 +612,7 @@ export interface OperationDraftDocument {
   no_effect_tags: string[]
   matched: DesiredProfile
   unmatched: DesiredProfile
+  other?: DesiredProfile
   members: DraftMember[]
 }
 
@@ -1004,9 +1007,10 @@ export interface RevisionMember {
     schema_version: number
     mode?: string
     other_tags?: string[]
-  no_effect_tags?: string[]
+    no_effect_tags?: string[]
     matched?: DesiredProfile
     unmatched?: DesiredProfile
+    other?: DesiredProfile
   }
   /** unit -> 'common' | 'member'. Equal values with different sources stay apart. */
   sources: Record<string, string>

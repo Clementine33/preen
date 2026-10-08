@@ -1,7 +1,6 @@
 package conversion
 
 import (
-	"encoding/json"
 	"sort"
 
 	"github.com/onsei/organizer/backend/internal/conversion/reconcile"
@@ -69,21 +68,9 @@ func collectRootEntries(inv Inventory, root string) ([]reconcile.AudioEntry, err
 	return entries, nil
 }
 
-// componentOperationCount counts the frozen executable operations of one
-// persisted outcome. An unreadable snapshot counts zero: the worker still runs
-// the component and fails closed on it.
-func componentOperationCount(outcomeJSON string) int {
-	var outcome reconcile.ComponentOutcome
-	if err := json.Unmarshal([]byte(outcomeJSON), &outcome); err != nil {
-		return 0
-	}
-	return len(outcome.Operations)
-}
-
-// defaultProfile is the balanced seed shape: wav lossless plus mp3@320.
+// defaultProfile seeds MP3@320 with no lossless output.
 func defaultProfile() reconcile.DesiredProfile {
 	return reconcile.DesiredProfile{
-		Lossless: &reconcile.AudioOutputSpec{Codec: reconcile.CodecWav},
 		Encoded: &reconcile.AudioOutputSpec{
 			Codec:   reconcile.CodecMp3,
 			Quality: &reconcile.Quality{Kind: reconcile.QualityBitrate, Bitrate: 320},

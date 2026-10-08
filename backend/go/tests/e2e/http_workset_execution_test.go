@@ -275,10 +275,9 @@ func TestHTTPWorksetExecutionLoop(t *testing.T) {
 			t.Fatalf("mkdir %s: %v", dir, err)
 		}
 	}
-	// albumA is satisfied by measurement (wav + a 320k mp3): its component has
-	// zero operations. albumB holds a below-target 128k mp3 beside its wav source
-	// and a quality-unverifiable aac variant: the component rebuilds the mp3
-	// from the wav and declares the aac obsolete.
+	// albumA already has a measured 320k mp3: only its wav is obsolete.
+	// albumB rebuilds its below-target 128k mp3 from wav, then removes the wav
+	// and its quality-unverifiable aac variant.
 	mustFFmpegEncode(t, "-f", "lavfi", "-i", "sine=frequency=440:duration=0.4", filepath.Join(albumA, "00.wav"))
 	mustFFmpegEncode(t, "-i", filepath.Join(albumA, "00.wav"), "-b:a", "320k", filepath.Join(albumA, "00.mp3"))
 	mustFFmpegEncode(t, "-f", "lavfi", "-i", "sine=frequency=660:duration=0.4", filepath.Join(albumB, "00.wav"))
@@ -298,7 +297,7 @@ func TestHTTPWorksetExecutionLoop(t *testing.T) {
 	if err != nil {
 		t.Fatalf("stat RJ000001 albumA mp3: %v", err)
 	}
-	// The default seeded draft (available_sources, wav + mp3@320) is the plan
+	// The default seeded draft (available_sources, mp3@320 only) is the plan
 	// under test: no draft edit happens here.
 	f := setupScannedWorkset(t, binPath, dataDir, rootPath, []string{"RJ000001 albumA", "RJ000002 albumB"}, nil)
 	version := f.opVersion
@@ -347,8 +346,8 @@ func TestHTTPWorksetExecutionLoop(t *testing.T) {
 	if done.TotalComponents != 2 || done.CompletedComponents != 2 {
 		t.Fatalf("components = %d/%d, want 2/2", done.CompletedComponents, done.TotalComponents)
 	}
-	if done.TotalOperations != 2 || done.CompletedOperations != 2 {
-		t.Fatalf("operations = %d/%d, want 2/2 (RJ000002 albumB encode + RJ000002 albumB remove)",
+	if done.TotalOperations != 4 || done.CompletedOperations != 4 {
+		t.Fatalf("operations = %d/%d, want 4/4 (one encode and three obsolete-file removals)",
 			done.CompletedOperations, done.TotalOperations)
 	}
 	var committed, removed, recovery []string
@@ -368,21 +367,20 @@ func TestHTTPWorksetExecutionLoop(t *testing.T) {
 	if len(committed) != 1 || filepath.Base(filepath.FromSlash(committed[0])) != "00.mp3" {
 		t.Fatalf("committed = %v, want the rebuilt RJ000002 albumB mp3", committed)
 	}
-	if len(removed) != 1 || filepath.Base(filepath.FromSlash(removed[0])) != "00.m4a" {
-		t.Fatalf("removed = %v, want the obsolete RJ000002 albumB aac", removed)
+	if len(removed) != 3 {
+		t.Fatalf("removed = %v, want both wav sources and the obsolete aac", removed)
 	}
 
-	// Disk facts: the satisfied album is untouched, the obsolete variant and
-	// the replaced mp3 are preserved under the library-level Delete/ (beside
-	// the album folder, not inside it), and the mp3 now holds the frozen target
-	// quality.
+	// The satisfied mp3 stays untouched; obsolete audio and the replaced mp3
+	// are preserved under library-level Delete/, and the rebuilt mp3 holds
+	// the frozen quality.
 	if kept, keptErr := os.Stat(filepath.Join(albumA, "00.mp3")); keptErr != nil || kept.Size() != satisfiedA.Size() {
-		t.Fatalf("RJ000001 albumA must stay untouched: %v", keptErr)
+		t.Fatalf("RJ000001 albumA mp3 must stay untouched: %v", keptErr)
 	}
 	if _, statErr := os.Stat(filepath.Join(albumB, "00.m4a")); statErr == nil {
 		t.Fatal("RJ000002 albumB/00.m4a must have left its place")
 	}
-	for _, preserved := range []string{"00.m4a", "00.mp3"} {
+	for _, preserved := range []string{"00.wav", "00.m4a", "00.mp3"} {
 		recovered, statErr := os.Stat(filepath.Join(rootPath, "Delete", "RJ000002 albumB", preserved))
 		if statErr != nil || recovered.Size() == 0 {
 			t.Fatalf("Delete/RJ000002 albumB/%s missing: %v", preserved, statErr)
@@ -391,8 +389,13 @@ func TestHTTPWorksetExecutionLoop(t *testing.T) {
 	if _, statErr := os.Stat(filepath.Join(albumB, "Delete")); statErr == nil {
 		t.Fatal("recovery must not be nested inside the member folder")
 	}
-	if _, statErr := os.Stat(filepath.Join(albumB, "00.wav")); statErr != nil {
-		t.Fatalf("the qualified wav source stays in place in relaxed mode: %v", statErr)
+	for _, album := range []string{"RJ000001 albumA", "RJ000002 albumB"} {
+		if _, statErr := os.Stat(filepath.Join(rootPath, album, "00.wav")); !os.IsNotExist(statErr) {
+			t.Fatalf("obsolete wav remains in %s: %v", album, statErr)
+		}
+		if _, statErr := os.Stat(filepath.Join(rootPath, "Delete", album, "00.wav")); statErr != nil {
+			t.Fatalf("preserved wav missing for %s: %v", album, statErr)
+		}
 	}
 	//nolint:gosec // fixed ffprobe binary with test-controlled arguments
 	probe := exec.CommandContext(t.Context(), "ffprobe", "-v", "error",
@@ -414,7 +417,7 @@ func TestHTTPWorksetExecutionLoop(t *testing.T) {
 	if err != nil || rate < 319000 {
 		t.Fatalf("rebuilt bitrate = %s, want >= 319000", probed.Streams[0].BitRate)
 	}
-	if len(recovery) < 2 {
+	if len(recovery) < 4 {
 		t.Fatalf("recovery must disclose every preserved file: %v", recovery)
 	}
 

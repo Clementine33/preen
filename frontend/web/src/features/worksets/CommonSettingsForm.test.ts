@@ -51,11 +51,15 @@ describe('CommonSettingsForm', () => {
   it('writes a common value when a field changes', async () => {
     const harness = draft()
     const wrapper = mountForm(harness)
+    expect(wrapper.get('[data-testid="common-group-mode"]').text()).toContain('严格模式要求')
+    expect(wrapper.get('[data-testid="common-group-mode"]').text()).not.toContain('可用源模式按音轨处理')
 
     wrapper.findAllComponents(UnitSelect)
       .find(select => select.vm.$attrs['data-testid'] === 'common-mode')!.vm.$emit('change', 'available_sources')
     await nextTick()
 
+    expect(wrapper.get('[data-testid="common-group-mode"]').text()).toContain('可用源模式按音轨处理')
+    expect(wrapper.get('[data-testid="common-group-mode"]').text()).not.toContain('严格模式要求')
     expect(useWorksetEditorStore().session?.intent.units.mode).toEqual({
       intent: 'set',
       value: 'available_sources',
@@ -84,7 +88,6 @@ describe('CommonSettingsForm', () => {
     expect(useWorksetEditorStore().session?.intent.units.matched).toEqual({
       intent: 'set',
       value: {
-        lossless: { codec: 'wav' },
         encoded: { codec: 'mp3', quality: { kind: 'bitrate', bitrate: 320 } },
       },
     })
@@ -144,7 +147,7 @@ describe('CommonSettingsForm', () => {
     await wrapper.setProps({ tagLibrary: {
       default_no_effect_tags: ['NoSE'], default_other_tags: ['反転'], custom_tags: [],
     } })
-    expect(wrapper.text()).toContain('空列表可保存')
+    expect(wrapper.text()).toContain('可以保存草稿')
     await wrapper.get('[data-testid="common-other_tags-restore"]').trigger('click')
     expect(useWorksetEditorStore().pendingDocument?.other_tags).toEqual(['反転'])
     expect(useWorksetEditorStore().pendingDocument?.no_effect_tags).toEqual([])

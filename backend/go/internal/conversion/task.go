@@ -70,15 +70,15 @@ func (*Task) Kind() string { return workset.OperationTypeConversion }
 // SeedDraft builds the initial sparse draft of a new conversion operation: no
 // member records at all (everyone participates and inherits the common
 // settings), mode available_sources stored explicitly, tag literals copied
-// from config.json's prune.no_effect_tags and prune.other_tags, and wav +
-// mp3@320 outputs so a new
-// workset is immediately usable.
+// from config.json's prune.no_effect_tags and prune.other_tags, and MP3@320
+// without lossless output for each version target.
 //
 // A deployment-wide common-settings payload, when one was saved, replaces
 // those common values: a record created after a global save starts where the
 // records already there are (ADR 0010 §1). A payload this task cannot read
 // leaves the seed values standing rather than refusing to create a record.
 func (t *Task) SeedDraft(common json.RawMessage) ([]byte, string, int) {
+	other := defaultProfile()
 	doc := &DraftDoc{
 		SchemaVersion: DraftSchemaVersion,
 		Mode:          reconcile.ModeAvailableSources,
@@ -86,6 +86,7 @@ func (t *Task) SeedDraft(common json.RawMessage) ([]byte, string, int) {
 		OtherTags:     append([]string{}, t.settings.PruneOtherTags()...),
 		Matched:       defaultProfile(),
 		Unmatched:     defaultProfile(),
+		Other:         &other,
 	}
 	if doc.NoEffectTags == nil {
 		doc.NoEffectTags = []string{}
@@ -96,6 +97,9 @@ func (t *Task) SeedDraft(common json.RawMessage) ([]byte, string, int) {
 			payload.foldLegacyTags()
 			doc = ReplaceCommonSettings(doc, payload)
 		}
+	}
+	if doc.Other == nil {
+		doc.Other = &other
 	}
 	raw, hash, err := MarshalDraft(doc)
 	if err != nil {
@@ -366,8 +370,14 @@ func (*Task) FreezeExecution(
 		if !ok {
 			return frozen, []string{workset.ExecBlockedInput}, nil
 		}
-		profile := reconcile.ProfileFor(policy, reconcile.Partition(c.Partition))
-		operations := componentOperationCount(c.OutcomeJSON)
+		var outcome reconcile.ComponentOutcome
+		if decodeErr := json.Unmarshal([]byte(c.OutcomeJSON), &outcome); decodeErr != nil {
+			return frozen, nil, workset.NewError(
+				workset.ErrKindInternal, "INTERNAL", "stored component outcome is invalid", decodeErr,
+			)
+		}
+		profile := reconcile.ProfileFor(policy, reconcile.Partition(c.Partition), outcome.Scope)
+		operations := len(outcome.Operations)
 		frozen.Units = append(frozen.Units, workset.ExecutionUnit{
 			Index:      c.ComponentIndex,
 			RootIndex:  c.RootIndex,

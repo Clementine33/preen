@@ -37,6 +37,7 @@ const UNIT_LABELS: Record<string, string> = {
   other_tags: '其他版本目录',
   matched: '无音效目标',
   unmatched: '有音效目标',
+  other: '其他版本目标',
 }
 
 const rootIndex = computed(
@@ -117,7 +118,7 @@ function componentFacts(component: ComponentOutcome): { label: string; tone: 'su
               {{ (unit === 'other_tags' ? frozen?.effective.other_tags ?? [] : frozen?.effective.no_effect_tags ?? []).join(', ') || '（空）' }}
             </span>
             <span v-else class="font-mono">
-              {{ profileText(unit === 'matched' ? frozen?.effective.matched : frozen?.effective.unmatched) }}
+              {{ profileText(unit === 'other' ? frozen?.effective.other : unit === 'matched' ? frozen?.effective.matched : frozen?.effective.unmatched) }}
             </span>
             <Badge v-if="isOverride(unit)" tone="brand" class="ml-1">独立设置</Badge>
           </dd>
@@ -134,7 +135,7 @@ function componentFacts(component: ComponentOutcome): { label: string; tone: 'su
         <li v-for="component in components" :key="component.component_id" class="rounded-md border border-border p-2">
           <div class="flex flex-wrap items-center gap-1.5">
             <span class="text-[11px] text-[var(--text-muted)]">
-              {{ component.scope ? `其他版本 · ${component.scope}` : '主版本' }} · {{ component.partition === 'matched' ? '无音效' : '有音效' }}
+              {{ component.scope ? '其他版本' : component.partition === 'matched' ? '无音效' : '有音效' }}
             </span>
             <Badge v-for="fact in componentFacts(component)" :key="fact.label" :tone="fact.tone">
               {{ fact.label }}

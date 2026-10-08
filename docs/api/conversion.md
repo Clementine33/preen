@@ -4,7 +4,7 @@
 
 ## Operation draft document
 
-The draft is one sparse document. The five common setting groups are the base;
+The draft is one sparse document. The six common setting groups are the base;
 a member record overrides only the units it explicitly replaces. The
 operation-wide `delete_mode` (obsolete-audio handling: `soft` — the default —
 or `hard`) is a common-level field, never a member override, and freezes into
@@ -17,8 +17,9 @@ every revision the draft produces; the execution uses the frozen value.
   "delete_mode": "soft",
   "no_effect_tags": ["SEなし"],
   "other_tags": ["反転"],
-  "matched":   {"lossless": {"codec": "wav"}, "encoded": {"codec": "mp3", "quality": {"kind": "bitrate", "bitrate": 320}}},
-  "unmatched": {"lossless": {"codec": "wav"}, "encoded": {"codec": "mp3", "quality": {"kind": "bitrate", "bitrate": 320}}},
+  "matched":   {"encoded": {"codec": "mp3", "quality": {"kind": "bitrate", "bitrate": 320}}},
+  "unmatched": {"encoded": {"codec": "mp3", "quality": {"kind": "bitrate", "bitrate": 320}}},
+  "other":     {"encoded": {"codec": "mp3", "quality": {"kind": "bitrate", "bitrate": 320}}},
   "members": [
     {"member_id": "m-…", "overrides": {"matched": {"lossless": {"codec": "flac"}}}},
     {"member_id": "m-…", "excluded": true}
@@ -52,7 +53,7 @@ so nothing about it is stored or validated differently from a hand-made one.
 - **Exclusion** changes participation only: overrides and inheritance survive
   it, and restoring participation restores the previous relationships.
   Excluding every member saves but cannot generate (`NO_ACTIVE_MEMBERS`).
-- **Common settings are deployment-wide** (ADR 0010). The six common values
+- **Common settings are deployment-wide** (ADR 0010). The seven common values
   are stored once per operation kind, not per record: saving them from any
   record's draft pushes them to every other editable record's draft in the same
   transaction, and a record created afterwards seeds them. The PUT draft body
@@ -73,7 +74,7 @@ so nothing about it is stored or validated differently from a hand-made one.
 
 `no_effect_tags` contains literal substrings matched case-insensitively against
 an audio file's full original Planning Root-relative path, including its filename.
-It selects the `matched` (无音效) or `unmatched` (有音效) target profile.
+In the main scope it selects the `matched` (无音效) or `unmatched` (有音效) target profile.
 
 `other_tags` contains literal substrings matched case-insensitively against each
 directory segment only. The outermost matching directory starts an independent
@@ -83,7 +84,12 @@ several directories. An empty list disables isolation. Rules cannot contain path
 separators. Scope selection runs before no-effect classification; classification
 still uses the original full relative path within every scope. Remaining files
 share the main scope. Same-parent/same-stem component association then runs
-separately for each scope and classifier partition.
+separately for each scope and classifier partition. Every isolated scope uses the
+independent `other` target profile for both partitions. The main targets do not
+affect it. New drafts seed all three profiles as MP3 320 with no lossless output;
+restoring defaults uses the same profiles. Stored profiles are not reset. Older
+drafts and frozen revisions without `other` retain their partition targets until
+an explicit other target is saved.
 
 Thus `WAV_NoSE` and `MP3_NoSE` can aggregate in the main matched partition, while
 `revert` and `wav/xxx` aggregate only within their respective subtrees. An unknown
@@ -91,8 +97,8 @@ version stays in the main scope until its directory tag is registered. Resolving
 it uses the existing flow: filter 源竞争, add a common or batch `other_tags` rule,
 save, regenerate and inspect the scopes in member review.
 
-The five independent override units are `mode`, `no_effect_tags`, `other_tags`,
-`matched` and `unmatched`. Each tag list supports explicit `[]` to clear the unit.
+The six independent override units are `mode`, `no_effect_tags`, `other_tags`,
+`matched`, `unmatched` and `other`. Each tag list supports explicit `[]` to clear the unit.
 An empty no-effect list remains saveable; generation requires at least one tag.
 
 New HTTP draft and slot writes reject the old `classifier_tags` key, including
@@ -109,7 +115,9 @@ changes its hash. Effective member settings and their sources use the new keys.
 per-member effective settings and per-unit sources (`common` | `member`), so a
 historical revision always reports the configuration it was planned with —
 equal values with different provenance stay distinguishable, and later common
-changes never rewrite history. `counts` reports independent facts
+changes never rewrite history. In member review, main components show only
+有音效 or 无音效; isolated components show only 其他版本, while the file rows
+continue to show their directories. `counts` reports independent facts
 (`members`, `changed`, `unmet_targets`, `blocked`, `unchanged`) that may
 overlap; no exclusive status label is derived from them.
 

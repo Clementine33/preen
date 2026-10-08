@@ -8,7 +8,7 @@ import type { DeleteMode, OperationDraftDocument, OverrideUnit, ClassifierTagLib
 import UnitFields from './UnitFields.vue'
 
 /**
- * Common conversion settings: the five groups are edited directly, because a
+ * Common conversion settings: the six groups are edited directly, because a
  * common value has nothing to inherit from — the three-intent model belongs to
  * the member and batch entry points. 恢复默认 puts a group back to the value a
  * new operation is seeded with. 旧音频处理 is a sixth, whole-operation choice:
@@ -25,14 +25,21 @@ const props = defineProps<{
 const editor = useWorksetEditorStore()
 
 const UNIT_LABELS: Record<OverrideUnit, { label: string; hint: string }> = {
-  mode: { label: '转换模式', hint: '严格模式要求最终格式完全符合设置；可用源模式在没有合格无损源时保留原轨。' },
-  no_effect_tags: { label: '无音效匹配', hint: '按完整相对路径做字面匹配，不区分大小写；空列表可保存，但生成计划需要至少一个标签。' },
-  other_tags: { label: '其他版本目录', hint: '命中的目录子树各自独立聚合；只匹配目录名称，不区分大小写，留空不隔离。' },
+  mode: { label: '转换模式', hint: '' },
+  no_effect_tags: { label: '无音效匹配', hint: '按完整相对路径做字面匹配，不区分大小写' },
+  other_tags: { label: '其他版本目录', hint: '只匹配目录名称，不区分大小写，留空不隔离。' },
   matched: { label: '无音效目标', hint: '命中无音效规则的音频要保留或生成的目标。' },
   unmatched: { label: '有音效目标', hint: '未命中无音效规则的音频要保留或生成的目标。' },
+  other: { label: '其他版本目标', hint: '各版本目录中的音频使用的编码组合目标。' },
 }
 
 const defaults = computed(() => defaultDraftValues(props.defaultTags, props.tagLibrary?.default_other_tags ?? []))
+
+const modeHint = computed(() =>
+  valueOf('mode') === 'strict'
+    ? '严格模式要求最终格式完全符合设置；需要转换但缺少合格无损源时阻塞整个组件。'
+    : '可用源模式按音轨处理；没有合格无损源时保留原轨，并标记目标未满足。',
+)
 
 /** The values the form shows: pending edits win over the persisted draft. */
 function valueOf(unit: OverrideUnit): unknown {
@@ -46,6 +53,8 @@ function valueOf(unit: OverrideUnit): unknown {
       return props.draft[unit] ?? []
     case 'matched':
       return props.draft.matched
+    case 'other':
+      return props.draft.other ?? props.draft.unmatched
     case 'unmatched':
       return props.draft.unmatched
   }
@@ -112,14 +121,13 @@ const dirtyUnits = computed(() => OVERRIDE_UNITS.filter((unit) => editor.session
         {{ UNIT_LABELS[unit].label }}
         <span v-if="!isDefault(unit)" class="font-normal text-[var(--brand-ink)]">已修改</span>
       </legend>
-      <p class="mb-2 text-[11px] text-[var(--text-muted)]">{{ UNIT_LABELS[unit].hint }}</p>
+      <p class="mb-2 text-[11px] text-[var(--text-muted)]">{{ unit === 'mode' ? modeHint : UNIT_LABELS[unit].hint }}</p>
 
       <UnitFields
         :unit="unit"
         :label="UNIT_LABELS[unit].label"
         scope="common"
         :value="valueOf(unit)"
-        :suggestions="[...(tagLibrary?.custom_tags.map((tag) => tag.tag) ?? []), ...(unit === 'other_tags' ? tagLibrary?.default_other_tags ?? [] : tagLibrary?.default_no_effect_tags ?? [])]"
         :disabled="editor.session?.applying ?? false"
         @change="setValue(unit, $event)"
       />
@@ -142,9 +150,6 @@ const dirtyUnits = computed(() => OVERRIDE_UNITS.filter((unit) => editor.session
         旧音频处理
         <span v-if="deleteModeDirty" class="font-normal text-[var(--brand-ink)]">已修改</span>
       </legend>
-      <p class="mb-2 text-[11px] text-[var(--text-muted)]">
-        执行时如何处置被替换和不再需要的旧音频；该设置随草稿冻结进每个计划版本。
-      </p>
       <div class="space-y-1.5">
         <label
           class="flex cursor-pointer items-start gap-2 rounded-md border border-border p-2 has-[:checked]:border-[var(--brand-border)] has-[:checked]:bg-[var(--brand-weak)]"

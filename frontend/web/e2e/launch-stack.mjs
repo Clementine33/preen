@@ -62,7 +62,7 @@ const dataDir = mkdtempSync(path.join(os.tmpdir(), 'onsei-e2e-data-'))
 // data dirs get their literal tags from config.json.
 writeFileSync(
   path.join(dataDir, 'config.json'),
-  JSON.stringify({ prune: { literal_tags: ['SEなし'] } }),
+  JSON.stringify({ prune: { no_effect_tags: ['SEなし'] } }),
 )
 const backend = spawn('go', ['run', './cmd/onsei-organizer-backend'], {
   cwd: backendDir,

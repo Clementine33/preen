@@ -20,10 +20,9 @@ slot reference, slot creation or slot deletion endpoint.
 Conversion policy and draft shapes are described in [Audio conversion](conversion.md#operation-draft-document).
 
 The default groups are separate; custom tags share one reusable string library.
-The old response key `default_tags` is removed. Configuration reads accept
-`prune.literal_tags` as a legacy no-effect seed only when `no_effect_tags` is
-absent or null; explicit `[]` wins. The shipped template places `反転` in
-`other_tags`; existing user tags are not reassigned automatically.
+The old response key `default_tags` is removed. Configuration uses
+`prune.no_effect_tags` and `prune.other_tags`. The shipped template places
+`反転` in `other_tags`; existing user tags are not reassigned automatically.
 
 Slot PUT strictly accepts the new policy keys, rejects unknown fields and the
 legacy `classifier_tags` key, and validates a complete policy before storing

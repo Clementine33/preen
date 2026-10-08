@@ -151,7 +151,7 @@ func Reconcile(in ReconcileInput) (ReconcileResult, error) {
 			partitioned[partition] = append(partitioned[partition], e)
 		}
 		for _, part := range []Partition{PartitionMatched, PartitionUnmatched} {
-			profile := ProfileFor(in.Policy, part)
+			profile := ProfileFor(in.Policy, part, scope)
 			for _, comp := range BuildComponents(partitioned[part]) {
 				out := planComponent(root, part, profile, comp, occupied)
 				out.Scope = scope

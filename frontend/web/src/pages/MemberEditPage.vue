@@ -1,8 +1,5 @@
 <script setup lang="ts">
 import { computed, watch } from 'vue'
-import { useQuery } from '@tanstack/vue-query'
-import { useApiClient } from '@/lib/api/client'
-import { classifierTagLibraryQueryOptions } from '@/queries/worksets'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import { Button } from '@/components/ui/button'
 import OverrideEditor from '@/features/worksets/OverrideEditor.vue'
@@ -20,7 +17,6 @@ import { useWorksetEditorStore } from '@/stores/workset-editor'
 const route = useRoute()
 const router = useRouter()
 const editor = useWorksetEditorStore()
-const { data: tagLibrary } = useQuery(classifierTagLibraryQueryOptions(useApiClient()))
 const libraryId = computed(() => (route.params.libraryId as string) || '')
 const { worksetId, workspace, applySession } = useCurrentConversion(libraryId)
 
@@ -104,7 +100,6 @@ function cancel() {
 
       <div class="mt-3">
         <OverrideEditor
-          :tag-library="tagLibrary"
           :draft="draft.document"
           :target="{ kind: 'member', memberId: member.member_id }"
           :read-only="session.applying"

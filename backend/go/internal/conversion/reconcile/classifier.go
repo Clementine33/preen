@@ -83,10 +83,11 @@ func ValidatePolicy(p Policy) error {
 	if len(NormalizeTags(p.NoEffectTags)) == 0 {
 		return fmt.Errorf("policy requires at least one non-empty classifier tag")
 	}
-	for name, profile := range map[string]DesiredProfile{
-		"matched":   p.Matched,
-		"unmatched": p.Unmatched,
-	} {
+	profiles := map[string]DesiredProfile{"matched": p.Matched, "unmatched": p.Unmatched}
+	if p.Other != nil {
+		profiles["other"] = *p.Other
+	}
+	for name, profile := range profiles {
 		// A profile that declares no output is a declaration, not an omission:
 		// the partition must hold no managed audio, so every observed file in it
 		// is obsolete once the plan runs.

@@ -31,7 +31,7 @@ const isWin = process.platform === 'win32'
 mkdirSync(dataDir, { recursive: true })
 
 // Seed the dev config from config.json.template when absent so the backend's
-// classifier seed (prune.literal_tags) is available to new workset drafts.
+// classifier seed (prune.no_effect_tags) is available to new workset drafts.
 // An existing .dev_data/config.json is never overwritten.
 const devConfig = path.join(dataDir, 'config.json')
 const configTemplate = path.join(repoRoot, 'config.json.template')

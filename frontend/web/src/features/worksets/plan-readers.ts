@@ -6,6 +6,7 @@ import type {
   OverrideUnit,
   RevisionDetailResponse,
   VariantDecision,
+  WorksetMember,
 } from '@/lib/api/types'
 
 /**
@@ -313,4 +314,49 @@ export function unitValueText(unit: OverrideUnit, value: unknown): string {
     default:
       return profileText(value as DesiredProfile | undefined)
   }
+}
+
+/**
+ * The conclusion of every member of a record, keyed by member id. The list asks
+ * for each member several times (rows, status filters) and a full-library
+ * record holds thousands of members and components, so the plan is indexed once
+ * here rather than scanned per member. A record without a plan has no entries.
+ */
+export function memberConclusions(
+  view: RevisionDetailResponse | null | undefined,
+  members: WorksetMember[],
+): Map<string, MemberConclusion> {
+  const out = new Map<string, MemberConclusion>()
+  if (!view) return out
+  const frozen = new Map(view.members.map((m) => [m.member_id, m]))
+  const rootByPath = new Map<string, (typeof view.roots)[number]>()
+  for (const root of view.roots) if (!rootByPath.has(root.root_path)) rootByPath.set(root.root_path, root)
+  const rootsOf = new Map<string, Set<number>>()
+  for (const ref of view.component_roots ?? []) {
+    const roots = rootsOf.get(ref.component_id) ?? new Set<number>()
+    roots.add(ref.root_index)
+    rootsOf.set(ref.component_id, roots)
+  }
+  // Components keep plan order inside each root.
+  const byRoot = new Map<number, ComponentOutcome[]>()
+  for (const component of revisionComponents(view)) {
+    for (const index of rootsOf.get(component.component_id) ?? []) {
+      const list = byRoot.get(index) ?? []
+      list.push(component)
+      byRoot.set(index, list)
+    }
+  }
+  for (const member of members) {
+    const root = rootByPath.get(member.folder_path)
+    out.set(
+      member.member_id,
+      memberConclusion({
+        excluded: frozen.get(member.member_id)?.excluded ?? false,
+        hasRoot: Boolean(root),
+        rootMissing: root?.root_status === 'missing',
+        components: root ? (byRoot.get(root.root_index) ?? []) : [],
+      }),
+    )
+  }
+  return out
 }

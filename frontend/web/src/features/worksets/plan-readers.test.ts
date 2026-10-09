@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { ComponentOutcome } from '@/lib/api/types'
+import type { ComponentOutcome, RevisionDetailResponse, WorksetMember } from '@/lib/api/types'
 import {
   decisionGroups,
   keepReasonText,
@@ -8,6 +8,7 @@ import {
   componentHasUnmetTarget,
   componentOperationCount,
   memberConclusion,
+  memberConclusions,
   partitionFacts,
   readComponent,
 } from './plan-readers'
@@ -268,5 +269,54 @@ describe('decision rows', () => {
     expect(resolutionText('encode')).toBe('生成')
     // An unknown resolution stays readable rather than disappearing.
     expect(resolutionText('rewrap')).toBe('rewrap')
+  })
+})
+
+describe('memberConclusions', () => {
+  const op = { kind: 'encode' }
+  function record(count: number) {
+    const members = Array.from({ length: count }, (_, i) => ({
+      member_id: `m-${i}`, folder_name: `f${i}`, folder_path: `/lib/f${i}`, rel_path: `f${i}`, dir_id: `m-${i}`,
+    })) as WorksetMember[]
+    // f0 has a change, f1 is blocked, f2 is excluded, f3 has no root, the rest are missing roots or unchanged.
+    const components = [
+      { component_id: 'c0', partition: 'matched', status: 'ok', operations: [op] },
+      { component_id: 'c1', partition: 'matched', status: 'blocked', reason_code: 'SOURCE_MISSING' },
+      { component_id: 'c4', partition: 'matched', status: 'ok', operations: [] },
+    ] as unknown as ComponentOutcome[]
+    const view = {
+      members: members.map((m, i) => ({ member_id: m.member_id, excluded: i === 2 })),
+      roots: members
+        .map((m, i) => ({ root_path: m.folder_path, root_index: i, root_status: i === 5 ? 'missing' : 'ok' }))
+        .filter((_, i) => i !== 3),
+      component_roots: [
+        { component_id: 'c0', root_index: 0 },
+        { component_id: 'c1', root_index: 1 },
+        { component_id: 'c4', root_index: 4 },
+        { component_id: 'c4', root_index: 4 },
+      ],
+      task: { payload: { components } },
+    } as unknown as RevisionDetailResponse
+    return { members, view }
+  }
+
+  it('gives each member the conclusion of its own root, excluded and rootless ones included', () => {
+    const { members, view } = record(6)
+    const out = memberConclusions(view, members)
+    expect(out.get('m-0')?.filter).toBe('change')
+    expect(out.get('m-1')?.filter).toBe('blocked')
+    expect(out.get('m-2')?.label).toBe('已排除')
+    expect(out.get('m-3')?.label).toBe('未参与')
+    expect(out.get('m-5')).toEqual(memberConclusion({ excluded: false, hasRoot: true, rootMissing: true, components: [] }))
+    // A component listed twice for one root counts once.
+    expect(out.get('m-4')).toEqual(
+      memberConclusion({ excluded: false, hasRoot: true, rootMissing: false, components: [readComponent(view.task!.payload!.components![2]!)] }),
+    )
+  })
+
+  it('has no entries without a plan, and covers every member of a large record', () => {
+    expect(memberConclusions(null, record(3).members).size).toBe(0)
+    const { members, view } = record(3000)
+    expect(memberConclusions(view, members).size).toBe(3000)
   })
 })

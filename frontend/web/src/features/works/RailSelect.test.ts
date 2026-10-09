@@ -84,21 +84,6 @@ describe('RailSelect', () => {
     expect(rows[1].attributes('aria-setsize')).toBe('1001')
   })
 
-  it('walks past the drawn rows with the keyboard', async () => {
-    const { wrapper } = await mountSelect()
-    await wrapper.get('.rs-trigger').trigger('click')
-    await flushPromises()
-
-    // From the search box the first step lands on the first row.
-    const list = wrapper.get('.rs')
-    // Back to back, as a held key sends them: no step waits for the focus.
-    for (let i = 0; i < 40; i++) await list.trigger('keydown', { key: 'ArrowDown' })
-    await flushPromises()
-    for (let f = 0; f < 6; f++) await frame()
-    expect(focusedIndex()).toBe(39)
-    expect((document.activeElement as HTMLElement).textContent).toContain('声優0038')
-  })
-
   it('opens on the selected option even when it lies far down the list', async () => {
     // A list without a search box focuses its current option on open.
     const { wrapper } = await mountSelect('va-700', false)

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Badge } from '@/components/ui/badge'
-import VirtualRows from '@/features/worksets/VirtualRows.vue'
+import RowList from '@/features/worksets/RowList.vue'
 import type { RenameComponent } from '@/lib/api/types'
 
 /**
@@ -33,11 +33,11 @@ function name(component: RenameComponent): string {
 </script>
 
 <template>
-  <VirtualRows :items="components" :item-key="(component) => component.member_id" testid="task-plan-table">
+  <RowList :items="components" :item-key="(component) => component.member_id" testid="task-plan-table">
     <template #default="{ item }">
       <Badge :tone="ACTIONS[item.action]?.tone ?? 'neutral'">{{ ACTIONS[item.action]?.label ?? item.action }}</Badge>
       <span class="truncate font-mono" :title="name(item)">{{ name(item) }}</span>
       <span class="text-[11px] text-[var(--text-secondary)]">{{ item.reason_code ? (REASONS[item.reason_code] ?? item.reason_code) : '' }}</span>
     </template>
-  </VirtualRows>
+  </RowList>
 </template>

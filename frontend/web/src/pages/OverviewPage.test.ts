@@ -38,8 +38,8 @@ const library: Library = {
 }
 
 const dirs: LibraryDir[] = [
-  { name: 'albumA', path: '/music/albumA', rel_path: 'albumA', dir_id: 'dir-albumA', audio_file_count: 3, file_count: 4 },
-  { name: 'docs', path: '/music/docs', rel_path: 'docs', dir_id: 'dir-docs', audio_file_count: 0, file_count: 1 },
+  { name: 'albumA', path: '/music/albumA', rel_path: 'albumA', dir_id: 'dir-albumA', audio_file_count: 3, file_count: 4, added_at: '2026-05-01T00:00:00Z', work_code: null },
+  { name: 'docs', path: '/music/docs', rel_path: 'docs', dir_id: 'dir-docs', audio_file_count: 0, file_count: 1, added_at: '2026-05-02T00:00:00Z', work_code: null },
 ]
 
 const record: Workset = {
@@ -140,6 +140,41 @@ describe('workbench overview', () => {
     expect(router.currentRoute.value.name).toBe('conversion')
   })
 
+  describe('search and order', () => {
+    const coded: LibraryDir[] = [
+      { name: 'RJ01000001 a', path: '/music/a', rel_path: 'a', dir_id: 'd-a', audio_file_count: 1, file_count: 1, added_at: '2026-05-03T00:00:00Z', work_code: 'RJ01000001' },
+      { name: 'RJ01000003 c', path: '/music/c', rel_path: 'c', dir_id: 'd-c', audio_file_count: 1, file_count: 1, added_at: '2026-05-01T00:00:00Z', work_code: 'RJ01000003' },
+      { name: 'plain', path: '/music/plain', rel_path: 'plain', dir_id: 'd-p', audio_file_count: 1, file_count: 1, added_at: '2026-05-02T00:00:00Z', work_code: null },
+    ]
+
+    async function createWith(sortTestId: string) {
+      const createCurrentRecord = vi.fn().mockResolvedValue({ workset: record, created: true, recorded: 3, skipped: [] })
+      const { wrapper } = await mountOverview({ listDirs: vi.fn().mockResolvedValue(coded), createCurrentRecord })
+      await wrapper.get(`[data-testid="${sortTestId}"]`).trigger('click')
+      // Click order is the reverse of every sort: it must not leak into the batch.
+      for (const rel of ['plain', 'a', 'c']) ui().toggleDir(rel, coded)
+      await flushPromises()
+      await wrapper.get('[data-testid="enter-conversion"]').trigger('click')
+      await flushPromises()
+      return (createCurrentRecord.mock.calls[0] as unknown as [string, string, { folder_paths: string[] }])[2].folder_paths
+    }
+
+    it('freezes the RJ-descending order, codeless folders last, into the batch', async () => {
+      expect(await createWith('sort-rjid')).toEqual(['c', 'a', 'plain'])
+    })
+
+    it('freezes the most-recently-added order into the batch', async () => {
+      expect(await createWith('sort-added')).toEqual(['a', 'plain', 'c'])
+    })
+
+    it('narrows the list by search and counts what is shown', async () => {
+      const { wrapper } = await mountOverview({ listDirs: vi.fn().mockResolvedValue(coded) })
+      await wrapper.get('[data-testid="dir-search"]').setValue('rj01000003')
+      expect(wrapper.get('[data-testid="dir-list"]').text()).toContain('共 1 个文件夹')
+      expect(wrapper.text()).toContain('文件夹（1 / 3）')
+    })
+  })
+
   it('keeps audio-less folders in the shared batch', async () => {
     const createCurrentRecord = vi.fn().mockResolvedValue({ workset: record, created: true, recorded: 1, skipped: [] })
     const { wrapper, router } = await mountOverview({ createCurrentRecord })
@@ -179,7 +214,7 @@ describe('workbench overview', () => {
       createCurrentRecord,
     })
 
-    expect(wrapper.find('[data-testid="current-record"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="current-record"]').exists()).toBe(false)
     ui().toggleDir('albumA', dirs)
     await flushPromises()
 

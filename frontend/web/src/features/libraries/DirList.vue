@@ -8,16 +8,13 @@ import type { LibraryDir } from '@/lib/api/types'
  * The overview's directory list (ADR 0001 §1).
  *
  * Every scanned work root in the library, empty ones and ones
- * without audio included: the audio count is shown as a status, never used to
- * hide a row, and a directory without audio says so. Rows are virtualized
- * because a library root can hold hundreds of folders.
+ * without audio included. Rows are virtualized because a library root can
+ * hold hundreds of folders.
  *
- * One template, two layouts: the desktop tier keeps the four-column grid
- * (checkbox, name, audio count, view) and the phone tier merges it into a
- * compact row — checkbox, name with the count under it, view action. The width
- * classes never force a minimum, so nothing is hidden behind a horizontal
- * overflow; the count that used to sit under a second line is the same element
- * with a `rail:` variant.
+ * Clicking a name selects the row; only the chevron button opens the folder's
+ * files. A nested folder shows its parent path under the name, as the member
+ * list does. The grid is checkbox, name, open at every tier and its width
+ * classes never force a minimum, so nothing hides behind a horizontal overflow.
  *
  * Fixed row height is load-bearing for the virtualizer's spacer math and is the
  * SAME in both tiers, so crossing a breakpoint never invalidates a measured
@@ -69,6 +66,11 @@ function checkboxValue(event: Event): boolean {
   return (event.target as HTMLInputElement).checked
 }
 
+function parentOf(relPath: string): string {
+  const slash = relPath.lastIndexOf('/')
+  return slash > 0 ? relPath.slice(0, slash) : ''
+}
+
 function dirAt(index: number): LibraryDir {
   return props.dirs[index]
 }
@@ -79,7 +81,7 @@ function dirAt(index: number): LibraryDir {
     <!-- Desktop keeps the column labels; the phone tier shows the count and the
          select-all control instead, because the rows are merged there. -->
     <div
-      class="grid h-9 shrink-0 grid-cols-[44px_minmax(0,1fr)_44px] items-center border-t border-border border-b-[var(--wire-strong)] border-b bg-muted/35 px-2 text-[11px] font-medium text-muted-foreground rail:grid-cols-[38px_minmax(220px,1fr)_110px_92px] rail:px-3"
+      class="grid h-9 shrink-0 grid-cols-[44px_minmax(0,1fr)_44px] items-center border-t border-border border-b-[var(--wire-strong)] border-b bg-muted/35 px-2 text-[11px] font-medium text-muted-foreground rail:grid-cols-[38px_minmax(0,1fr)_92px] rail:px-3"
     >
       <label class="flex h-full w-full cursor-pointer items-center justify-center rail:justify-start">
         <input
@@ -95,7 +97,6 @@ function dirAt(index: number): LibraryDir {
         <span class="hidden rail:inline">文件夹</span>
         <span class="rail:hidden" data-testid="dir-count">共 {{ dirs.length }} 个文件夹</span>
       </div>
-      <div class="hidden text-right rail:block">音频</div>
       <div class="hidden rail:block" />
     </div>
 
@@ -114,10 +115,11 @@ function dirAt(index: number): LibraryDir {
           v-for="virtualItem in virtualizer.getVirtualItems()"
           :key="dirAt(virtualItem.index).rel_path"
           :style="{ transform: `translateY(${virtualItem.start}px)` }"
-          class="absolute top-0 left-0 grid h-14 w-full grid-cols-[44px_minmax(0,1fr)_44px] items-center overflow-hidden border-b border-border px-2 transition-colors hover:bg-accent/45 rail:grid-cols-[38px_minmax(220px,1fr)_110px_92px] rail:px-3"
+          class="absolute top-0 left-0 grid h-14 w-full grid-cols-[44px_minmax(0,1fr)_44px] items-center overflow-hidden border-b border-border px-2 transition-colors hover:bg-accent/45 rail:grid-cols-[38px_minmax(0,1fr)_92px] rail:px-3"
         >
           <label class="flex h-full w-full cursor-pointer items-center justify-center rail:justify-start">
             <input
+              :id="`dir-select-${dirAt(virtualItem.index).dir_id}`"
               :data-testid="`dir-checkbox-${dirAt(virtualItem.index).rel_path}`"
               type="checkbox"
               :checked="selectedPaths.includes(dirAt(virtualItem.index).rel_path)"
@@ -126,11 +128,10 @@ function dirAt(index: number): LibraryDir {
               @change="emit('select', dirAt(virtualItem.index).rel_path, checkboxValue($event))"
             />
           </label>
-          <button
-            :data-testid="`dir-link-${dirAt(virtualItem.index).rel_path}`"
-            type="button"
-            class="flex min-w-0 items-center gap-2 text-left focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-            @click="emit('open', dirAt(virtualItem.index).dir_id)"
+          <label
+            :for="`dir-select-${dirAt(virtualItem.index).dir_id}`"
+            :data-testid="`dir-name-${dirAt(virtualItem.index).rel_path}`"
+            class="flex h-full min-w-0 cursor-pointer items-center gap-2"
           >
             <Folder class="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
             <span class="min-w-0 flex-1">
@@ -140,19 +141,15 @@ function dirAt(index: number): LibraryDir {
               >
                 {{ dirAt(virtualItem.index).name }}
               </span>
-              <span class="block truncate font-mono text-[11px] text-muted-foreground"
-                :title="dirAt(virtualItem.index).rel_path">
-                {{ dirAt(virtualItem.index).rel_path }}
-                <span class="rail:hidden"> · {{ dirAt(virtualItem.index).audio_file_count }} 个音频文件</span>
+              <span
+                v-if="parentOf(dirAt(virtualItem.index).rel_path)"
+                class="block truncate font-mono text-[11px] text-muted-foreground"
+                :title="parentOf(dirAt(virtualItem.index).rel_path)"
+              >
+                {{ parentOf(dirAt(virtualItem.index).rel_path) }}
               </span>
             </span>
-          </button>
-          <div class="hidden text-right font-mono text-xs text-muted-foreground rail:block">
-            <span v-if="dirAt(virtualItem.index).audio_file_count > 0">
-              {{ dirAt(virtualItem.index).audio_file_count }} 个音频文件
-            </span>
-            <span v-else class="text-[var(--warning-ink,var(--text-secondary))]">无音频</span>
-          </div>
+          </label>
           <!-- Always on screen, never hover-only; the phone tier keeps a
                44px target while the desktop tier stays compact. -->
           <button

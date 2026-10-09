@@ -290,6 +290,9 @@ func TestListLibraryDirs(t *testing.T) {
 	if d := got["albumA"]; d.AudioFileCount != 2 || d.FileCount != 2 || d.Name != "albumA" {
 		t.Errorf("albumA counts = audio %d file %d name %q", d.AudioFileCount, d.FileCount, d.Name)
 	}
+	if got["albumA"].AddedAt.IsZero() {
+		t.Error("a listed directory carries the time a scan first saw it")
+	}
 	if d := got["albumB"]; d.AudioFileCount != 0 || d.FileCount != 0 {
 		t.Errorf("a directory without audio is still listed, with zero counts: %+v", d)
 	}

@@ -27,7 +27,7 @@ const libADifferentRoot: Library = { ...libA, root_path: 'D:\\Audio\\Archive' }
 const newLibrary: Library = { ...libA, id: 'lib-new', name: 'New library' }
 
 const dirs: LibraryDir[] = [
-  { name: 'Alpha', path: '/music/Alpha', rel_path: 'Alpha', dir_id: 'dir-alpha', audio_file_count: 4, file_count: 6 },
+  { name: 'Alpha', path: '/music/Alpha', rel_path: 'Alpha', dir_id: 'dir-alpha', audio_file_count: 4, file_count: 6, added_at: '2026-05-01T00:00:00Z', work_code: null },
 ]
 
 const treeRoot: TreeNode = {

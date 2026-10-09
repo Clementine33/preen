@@ -323,7 +323,7 @@ func scanLibrary(row interface{ Scan(...any) error }) (*library.Library, error) 
 func (r *Repository) ListLibraryDirs(rootPath string) ([]*inventory.LibraryDir, error) {
 	rootPath = librarypath.CleanRootPath(rootPath)
 	rows, err := r.db.Query(`
-		SELECT d.path, d.name,
+		SELECT d.path, d.name, d.created_at,
 		       (SELECT COUNT(*) FROM entries f
 		         WHERE f.root_path = d.root_path AND f.is_dir = 0 AND `+subtreeFilePredicateSQL+` AND `+audioExtCond+`) AS audio_count,
 		       (SELECT COUNT(*) FROM entries f
@@ -345,8 +345,12 @@ func (r *Repository) ListLibraryDirs(rootPath string) ([]*inventory.LibraryDir, 
 	var out []*inventory.LibraryDir
 	for rows.Next() {
 		var d inventory.LibraryDir
-		if err := rows.Scan(&d.Path, &d.Name, &d.AudioFileCount, &d.FileCount); err != nil {
+		var addedAt sql.NullString
+		if err := rows.Scan(&d.Path, &d.Name, &addedAt, &d.AudioFileCount, &d.FileCount); err != nil {
 			return nil, err
+		}
+		if addedAt.Valid {
+			d.AddedAt = parseTimestamp(addedAt.String)
 		}
 		d.RelPath = strings.TrimPrefix(librarypath.NormalizeToPOSIX(d.Path), prefix)
 		if librarypath.IsRecoveryRelPath(rootPath, d.RelPath) {

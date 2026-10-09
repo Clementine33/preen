@@ -49,6 +49,10 @@ export interface LibraryDir {
   dir_id: string
   audio_file_count: number
   file_count: number
+  /** When a scan first saw the directory (RFC 3339). */
+  added_at: string
+  /** The single canonical work number its name carries, else null. */
+  work_code: string | null
 }
 
 export interface TreeNode {

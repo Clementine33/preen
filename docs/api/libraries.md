@@ -101,10 +101,15 @@ counts. Recovery directories at every depth are not members and are left out:
   "dirs": [
     { "name": "albumA", "path": "/home/me/music/albumA", "rel_path": "albumA",
       "dir_id": "4b7fa32eebf5b001bcf43b1976c1b163",
-      "audio_file_count": 4, "file_count": 7 }
+      "audio_file_count": 4, "file_count": 7,
+      "added_at": "2026-05-01T08:00:00Z", "work_code": null }
   ]
 }
 ```
+
+`added_at` is when a scan first saw the directory; rescans never move it.
+`work_code` is the canonical work number (`RJ` + eight digits) when the
+directory name carries exactly one, otherwise `null`.
 
 `rel_path` is the data identity: it is stable across rescans, where a
 scan-scoped folder id is not, and it is what a record's scope and file

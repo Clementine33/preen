@@ -3,7 +3,6 @@ import { computed, ref, watch, watchEffect } from 'vue'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import { AlertTriangle, Pencil, RefreshCw, ScanLine, Square } from '@lucide/vue'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import Modal from '@/components/ui/modal/Modal.vue'
 import WorkbenchShell from '@/components/layout/WorkbenchShell.vue'
@@ -24,6 +23,7 @@ import { useLibraryUiStore } from '@/stores/library-ui'
 import { useScanStore } from '@/stores/scan'
 import {
   CONVERSION,
+  type LibraryDir,
   type SkippedFolder,
   type SkippedReason,
 } from '@/lib/api/types'
@@ -105,6 +105,44 @@ const SKIP_TEXT: Record<SkippedReason, string> = {
   not_work_root: '不是扫描识别的作品根目录',
 }
 
+// ---- search & order ---------------------------------------------------
+
+type DirSort = 'rjid' | 'added'
+const SORTS: { value: DirSort; label: string }[] = [
+  { value: 'rjid', label: 'RJ号' },
+  { value: 'added', label: '最近添加' },
+]
+const search = ref('')
+const sort = ref<DirSort>('rjid')
+
+function byPath(a: LibraryDir, b: LibraryDir) {
+  return a.rel_path < b.rel_path ? -1 : a.rel_path > b.rel_path ? 1 : 0
+}
+/** Descending only. A folder with no work code sorts after every coded one. */
+function compareDirs(a: LibraryDir, b: LibraryDir): number {
+  if (sort.value === 'rjid') {
+    if (a.work_code !== b.work_code) {
+      if (a.work_code === null) return 1
+      if (b.work_code === null) return -1
+      return a.work_code < b.work_code ? 1 : -1
+    }
+  } else if (a.added_at !== b.added_at) {
+    return a.added_at < b.added_at ? 1 : -1
+  }
+  return byPath(a, b)
+}
+const sortedDirs = computed(() => [...dirs.value].sort(compareDirs))
+const shownDirs = computed(() => {
+  const query = search.value.trim().toLowerCase()
+  if (!query) return sortedDirs.value
+  return sortedDirs.value.filter(
+    (dir) => dir.name.toLowerCase().includes(query) || dir.rel_path.toLowerCase().includes(query),
+  )
+})
+const allShownSelected = computed(
+  () => shownDirs.value.length > 0 && shownDirs.value.every((dir) => ui.selectedDirPaths.includes(dir.rel_path)),
+)
+
 /** The selection as the caller sees it, so the confirmation names it. */
 const selectedDirs = computed(() => dirs.value.filter((dir) => ui.selectedDirPaths.includes(dir.rel_path)))
 /** A directory the conversion will skip: it is selectable, but holds no audio. */
@@ -133,7 +171,12 @@ async function submit() {
   try {
     const response = await createMutation.mutateAsync({
       request: {
-        folder_paths: [...ui.selectedDirPaths],
+        // The order on screen is the batch's order: every task lists its
+        // members as stored, so none of them sorts on its own. Taken from the
+        // unfiltered list so a search never drops a selected folder.
+        folder_paths: sortedDirs.value
+          .filter((dir) => ui.selectedDirPaths.includes(dir.rel_path))
+          .map((dir) => dir.rel_path),
         // The record the caller saw as current: a concurrent replace is a
         // conflict, not an overwrite.
         expected_current_id: record.value?.workset_id,
@@ -224,8 +267,11 @@ async function openMember(dirId: string) {
 }
 
 function onSelectAll(value: boolean) {
-  if (value) ui.selectAllDirs(dirs.value)
-  else ui.clearSelection()
+  if (!value) {
+    ui.clearSelection()
+    return
+  }
+  for (const dir of shownDirs.value) ui.setDirSelected(dir.rel_path, true, dirs.value)
 }
 
 /** The page in view, named as the navigation names it (ADR 0001 §1; ADR 0003 §1). */
@@ -329,26 +375,6 @@ const libraryRoot = computed(() => activeLibrary.value?.root_path ?? '')
             :error-message="scan.errorMessage"
           />
 
-          <!-- The record entry: the current conversion record of this
-               library, or the invitation to choose a scope. -->
-          <section class="mt-4">
-            <h2 class="text-xs font-semibold text-[var(--text-secondary)]">工作集批次</h2>
-            <div
-              v-if="record"
-              class="mt-1 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card px-3 py-2"
-              data-testid="current-record"
-            >
-              <span class="text-xs font-medium">{{ record.title }}</span>
-              <Badge tone="neutral">{{ record.members.length }} 个文件夹</Badge>
-              <RouterLink :to="{ name: 'conversion', params: { libraryId } }" class="ml-auto text-[11px] text-[var(--brand-ink)]">转换 →</RouterLink>
-              <RouterLink :to="{ name: 'rename', params: { libraryId } }" class="text-[11px] text-[var(--brand-ink)]">重命名 →</RouterLink>
-              <RouterLink :to="{ name: 'metadata-refresh', params: { libraryId } }" class="text-[11px] text-[var(--brand-ink)]">获取元数据 →</RouterLink>
-            </div>
-            <p v-else class="mt-1 rounded-lg border border-dashed border-border px-3 py-2 text-[11px] text-[var(--text-muted)]">
-              还没有工作集批次。在下面勾选文件夹，点击下方的任务入口，各 Task 共用这批文件夹。
-            </p>
-          </section>
-
           <p
             v-if="createError"
             class="mt-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-[11px] text-destructive"
@@ -363,21 +389,34 @@ const libraryRoot = computed(() => activeLibrary.value?.root_path ?? '')
             </li>
           </ul>
 
-          <!-- Members: every direct child directory, with its audio count as
-               status. Selecting one is what a conversion scope is built from. -->
+          <!-- Members: every direct child directory. Selecting some is what a
+               conversion scope is built from. -->
           <section class="mt-4 flex min-h-0 flex-1 flex-col">
-            <div class="flex items-center gap-2">
-              <h2 class="text-xs font-semibold text-[var(--text-secondary)]">文件夹（{{ dirs.length }}）</h2>
-              <label class="ml-auto flex items-center gap-1 text-[11px] text-[var(--text-secondary)]">
-                <input
-                  type="checkbox"
-                  :checked="dirs.length > 0 && ui.selectedDirPaths.length === dirs.length"
-                  :disabled="dirs.length === 0"
-                  data-testid="select-all"
-                  @change="onSelectAll(($event.target as HTMLInputElement).checked)"
-                />
-                全选
-              </label>
+            <div class="flex flex-wrap items-center gap-2">
+              <h2 class="text-xs font-semibold text-[var(--text-secondary)]">
+                文件夹（{{ search.trim() ? `${shownDirs.length} / ${dirs.length}` : dirs.length }}）
+              </h2>
+              <input
+                v-model="search"
+                type="search"
+                placeholder="搜索文件夹"
+                aria-label="搜索文件夹"
+                data-testid="dir-search"
+                class="h-7 min-w-0 flex-1 rounded-md border border-[var(--control-border)] bg-background px-2 text-xs focus-visible:ring-2 focus-visible:ring-[var(--brand)] focus-visible:outline-none @[641px]:max-w-xs"
+              />
+              <div class="flex items-center gap-1" role="group" aria-label="排序（降序）">
+                <Button
+                  v-for="item in SORTS"
+                  :key="item.value"
+                  size="xs"
+                  :variant="sort === item.value ? 'secondary' : 'ghost'"
+                  :aria-pressed="sort === item.value"
+                  :data-testid="`sort-${item.value}`"
+                  @click="sort = item.value"
+                >
+                  {{ item.label }}
+                </Button>
+              </div>
             </div>
 
             <p v-if="dirsPending" class="mt-1 text-[11px] text-[var(--text-muted)]">正在读取文件夹…</p>
@@ -399,9 +438,9 @@ const libraryRoot = computed(() => activeLibrary.value?.root_path ?? '')
               class="mt-1 flex min-h-80 flex-1 flex-col overflow-hidden rounded-lg border border-border bg-card"
             >
               <DirList
-                :dirs="dirs"
+                :dirs="shownDirs"
                 :selected-paths="ui.selectedDirPaths"
-                :all-selected="dirs.length > 0 && ui.selectedDirPaths.length === dirs.length"
+                :all-selected="allShownSelected"
                 @select="(relPath, selected) => ui.setDirSelected(relPath, selected, dirs)"
                 @select-all="onSelectAll"
                 @open="openMember"

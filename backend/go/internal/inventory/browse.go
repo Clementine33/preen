@@ -3,6 +3,7 @@ package inventory
 import (
 	"sort"
 	"strings"
+	"time"
 
 	"facette.io/natsort"
 
@@ -19,6 +20,8 @@ type LibraryDir struct {
 	RelPath        string
 	AudioFileCount int
 	FileCount      int
+	// AddedAt is when a scan first saw the directory; rescans never move it.
+	AddedAt time.Time
 }
 
 // TreeNode is one node of a member tree. Dir nodes carry children; file nodes

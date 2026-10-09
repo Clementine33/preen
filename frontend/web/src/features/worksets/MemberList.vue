@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { MemberFilter } from '@/app/route-params'
-import { Circle, CircleAlert, CircleCheck, Eye, FolderOpen, TriangleAlert } from '@lucide/vue'
+import { Eye, FolderOpen } from '@lucide/vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { OVERRIDE_UNITS, readUnit, type EditTarget } from '@/features/worksets/draft-intents'
@@ -24,12 +24,6 @@ const props = defineProps<{
   filter: MemberFilter
   search: string
   conclusionFor: (member: WorksetMember) => MemberConclusion
-  /**
-   * Drill-down tier: the row keeps only the name, a status icon and the view
-   * action, so a narrow container is not spent on text that the member detail
-   * repeats in full.
-   */
-  compact?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -95,175 +89,133 @@ function hasOverride(member: WorksetMember): boolean {
     return value.source === 'member'
   })
 }
-
-/** Shape carries the conclusion in compact rows; the tone carries the status. */
-const CONCLUSION_ICONS = {
-  success: CircleCheck,
-  warning: TriangleAlert,
-  danger: CircleAlert,
-  neutral: Circle,
-} as const
-
-const CONCLUSION_TONES: Record<MemberConclusion['tone'], string> = {
-  success: 'text-[var(--success-ink)]',
-  warning: 'text-[var(--warning-ink)]',
-  danger: 'text-[var(--danger-ink)]',
-  neutral: 'text-[var(--text-muted)]',
-}
-
-function conclusionTitle(member: WorksetMember): string {
-  const conclusion = props.conclusionFor(member)
-  return `${conclusion.label}：${conclusion.detail}`
-}
 </script>
 
 <template>
   <div class="flex min-h-0 flex-col">
-    <!-- The toolbar wraps instead of pushing the count out of the container. -->
-    <div
-      class="flex min-h-[var(--toolbar-h)] shrink-0 flex-wrap items-center gap-2 border-b border-border px-3 py-1"
-      data-testid="member-toolbar"
-    >
+    <!-- The toolbar wraps instead of pushing anything out of the container. -->
+    <div class="flex shrink-0 flex-col gap-2 border-b border-border px-3 py-2" data-testid="member-toolbar">
       <input
         :value="search"
         type="search"
         placeholder="搜索文件夹"
         aria-label="搜索文件夹"
-        class="h-7 w-full rounded-md border border-[var(--control-border)] bg-background px-2 text-xs focus-visible:ring-2 focus-visible:ring-[var(--brand)] focus-visible:outline-none @[641px]:w-40"
+        class="h-9 w-full rounded-md border border-[var(--control-border)] bg-background px-3 text-sm focus-visible:ring-2 focus-visible:ring-[var(--brand)] focus-visible:outline-none @[641px]:max-w-xs"
         @input="emit('update:search', ($event.target as HTMLInputElement).value)"
       />
-      <div class="flex items-center gap-1" role="group" aria-label="筛选">
+      <div class="flex flex-wrap items-center gap-1.5" role="group" aria-label="筛选">
         <Button
           v-for="item in FILTERS"
           :key="item.value"
           :variant="filter === item.value ? 'secondary' : 'ghost'"
-          size="xs"
+          size="sm"
+          class="h-9 px-3 text-sm"
           :aria-pressed="filter === item.value"
           @click="emit('update:filter', item.value)"
         >
           {{ item.label }}
         </Button>
       </div>
-      <span v-if="hiddenSelectedCount > 0" class="text-[11px] text-[var(--text-muted)]" data-testid="hidden-selection">
+      <span v-if="hiddenSelectedCount > 0" class="text-xs text-[var(--text-muted)]" data-testid="hidden-selection">
         另有 {{ hiddenSelectedCount }} 个已选文件夹被筛选隐藏
-      </span>
-      <span class="ml-auto font-mono text-[11px] text-[var(--text-muted)]">
-        {{ visible.length }} / {{ members.length }}
       </span>
     </div>
 
-    <div class="min-h-0 flex-1 overflow-auto">
-      <table class="w-full border-collapse text-xs">
-        <caption class="sr-only">工作集成员与转换结论</caption>
-        <thead class="sticky top-0 z-10 bg-card">
-          <tr class="h-8 border-b border-[var(--wire-strong)] text-left text-[11px] text-[var(--text-muted)]">
-            <th scope="col" class="w-9 px-2">
-              <input
-                type="checkbox"
-                aria-label="全选当前筛选结果"
-                :checked="allVisibleSelected"
-                @change="emit('toggleAll', visibleIds)"
-              />
-            </th>
-            <th scope="col" class="px-2 font-medium">文件夹</th>
-            <th scope="col" :class="compact ? 'w-10 px-2 font-medium' : 'px-2 font-medium'">结论</th>
-            <th v-if="!compact" scope="col" class="px-2 font-medium">独立设置</th>
-            <th scope="col" :class="compact ? 'w-12 px-2 font-medium' : 'w-20 px-2 font-medium'">操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr
-            v-for="member in visible"
-            :key="member.member_id"
-            class="border-b border-border/60"
-            :style="{ minHeight: 'var(--row-h)' }"
+    <div class="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+      <label
+        class="sticky top-0 z-10 flex min-h-11 cursor-pointer items-center gap-3 border-b border-[var(--wire-strong)] bg-card px-3 text-xs text-[var(--text-muted)]"
+      >
+        <input
+          type="checkbox"
+          class="size-5 shrink-0"
+          aria-label="全选当前筛选结果"
+          :checked="allVisibleSelected"
+          @change="emit('toggleAll', visibleIds)"
+        />
+        <span>全选当前筛选结果</span>
+        <span class="ml-auto font-mono">{{ visible.length }} / {{ members.length }}</span>
+      </label>
+
+      <ul role="list" aria-label="工作集成员与转换结论">
+        <li
+          v-for="member in visible"
+          :key="member.member_id"
+          class="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 border-b border-border/60 px-3 py-2.5 hover:bg-accent/40 @[641px]:grid-cols-[auto_minmax(0,1fr)_auto_auto]"
+          :class="{ 'bg-accent/30': selectedIds.has(member.member_id) }"
+          data-testid="member-row"
+        >
+          <label class="col-start-1 row-span-2 row-start-1 -m-2 grid size-11 cursor-pointer place-items-center @[641px]:row-span-1">
+            <input
+              type="checkbox"
+              class="size-5"
+              :checked="selectedIds.has(member.member_id)"
+              :aria-label="`选择 ${member.folder_name}`"
+              @change="emit('toggle', member.member_id)"
+            />
+          </label>
+
+          <div class="col-start-2 row-start-1 min-w-0">
+            <button
+              type="button"
+              class="block w-full text-left text-sm font-medium leading-5 hover:underline focus-visible:ring-2 focus-visible:ring-[var(--brand)] focus-visible:outline-none"
+              :title="member.folder_path"
+              data-testid="member-open"
+              @click="emit('open', member.member_id)"
+            >
+              <span class="line-clamp-3 [overflow-wrap:anywhere]">{{ member.folder_name }}</span>
+            </button>
+            <span
+              v-if="member.rel_path.lastIndexOf('/') > 0"
+              class="mt-0.5 block font-mono text-[11px] leading-4 text-[var(--text-muted)] [overflow-wrap:anywhere]"
+              :title="member.folder_path"
+            >
+              {{ member.rel_path.slice(0, member.rel_path.lastIndexOf('/')) }}
+            </span>
+          </div>
+
+          <div
+            class="col-start-2 row-start-2 flex flex-wrap items-center gap-1.5 @[641px]:col-start-3 @[641px]:row-start-1"
           >
-            <td class="px-2 align-middle">
-              <input
-                type="checkbox"
-                :checked="selectedIds.has(member.member_id)"
-                :aria-label="`选择 ${member.folder_name}`"
-                @change="emit('toggle', member.member_id)"
-              />
-            </td>
-            <td class="min-w-0 px-2 py-1 align-middle">
-              <button
-                type="button"
-                class="block max-w-full truncate text-left font-medium hover:underline focus-visible:ring-2 focus-visible:ring-[var(--brand)] focus-visible:outline-none"
-                :title="member.folder_path"
-                data-testid="member-open"
-                @click="emit('open', member.member_id)"
-              >
-                {{ member.folder_name }}
-              </button>
-              <span
-                v-if="member.rel_path.lastIndexOf('/') > 0"
-                class="block truncate font-mono text-[10px] text-[var(--text-muted)]"
-                :title="member.folder_path"
-              >
-                {{ member.rel_path.slice(0, member.rel_path.lastIndexOf('/')) }}
-              </span>
-            </td>
-            <td class="px-2 align-middle">
-              <span
-                v-if="compact"
-                class="inline-flex items-center"
-                :title="conclusionTitle(member)"
-                data-testid="member-conclusion-icon"
-              >
-                <component
-                  :is="CONCLUSION_ICONS[conclusionFor(member).tone]"
-                  class="size-4"
-                  :class="CONCLUSION_TONES[conclusionFor(member).tone]"
-                />
-                <span class="sr-only">{{ conclusionFor(member).label }}</span>
-              </span>
-              <span v-else class="flex items-center gap-1">
-                <Badge :tone="conclusionFor(member).tone" :title="conclusionFor(member).detail">
-                  {{ conclusionFor(member).label }}
-                </Badge>
-              </span>
-            </td>
-            <td v-if="!compact" class="px-2 align-middle">
-              <Badge :tone="hasOverride(member) ? 'brand' : 'neutral'" data-testid="member-override-state">
-                {{ hasOverride(member) ? '已修改' : '默认' }}
-              </Badge>
-            </td>
-            <td class="px-2 align-middle">
-              <div class="flex items-center gap-0.5">
-                <!-- The member's files: the shared file module, opened inside
-                     this workbench (ADR 0001 §1, §3). -->
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  :aria-label="`打开 ${member.folder_name} 的文件`"
-                  title="当前文件"
-                  data-testid="member-files"
-                  @click="emit('files', member.member_id)"
-                >
-                  <FolderOpen class="size-4" />
-                </Button>
-                <Button
-                  v-if="compact"
-                  variant="ghost"
-                  size="icon-sm"
-                  :aria-label="`查看 ${member.folder_name}`"
-                  data-testid="member-open-icon"
-                  @click="emit('open', member.member_id)"
-                >
-                  <Eye class="size-4" />
-                </Button>
-                <Button v-else variant="ghost" size="xs" @click="emit('open', member.member_id)">查看</Button>
-              </div>
-            </td>
-          </tr>
-          <tr v-if="visible.length === 0">
-            <td :colspan="compact ? 4 : 5" class="px-3 py-6 text-center text-[11px] text-[var(--text-muted)]">
-              没有符合当前筛选的文件夹。
-            </td>
-          </tr>
-        </tbody>
-      </table>
+            <Badge :tone="conclusionFor(member).tone" :title="conclusionFor(member).detail">
+              {{ conclusionFor(member).label }}
+            </Badge>
+            <!-- Only the exception is marked: a folder on the defaults carries no chip. -->
+            <Badge v-if="hasOverride(member)" tone="brand" data-testid="member-override-state">已修改</Badge>
+          </div>
+
+          <!-- The member's files: the shared file module, opened inside this
+               workbench (ADR 0001 §1, §3). -->
+          <div
+            class="col-start-3 row-span-2 row-start-1 flex items-center gap-1 @[641px]:col-start-4 @[641px]:row-span-1"
+          >
+            <Button
+              variant="ghost"
+              size="icon"
+              class="size-10"
+              :aria-label="`打开 ${member.folder_name} 的文件`"
+              title="当前文件"
+              data-testid="member-files"
+              @click="emit('files', member.member_id)"
+            >
+              <FolderOpen class="size-5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              class="size-10"
+              :aria-label="`查看 ${member.folder_name}`"
+              title="查看"
+              data-testid="member-open-icon"
+              @click="emit('open', member.member_id)"
+            >
+              <Eye class="size-5" />
+            </Button>
+          </div>
+        </li>
+        <li v-if="visible.length === 0" class="px-3 py-8 text-center text-xs text-[var(--text-muted)]">
+          没有符合当前筛选的文件夹。
+        </li>
+      </ul>
     </div>
   </div>
 </template>

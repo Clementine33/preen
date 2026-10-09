@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { usePopupMenu } from './use-popup-menu'
 
@@ -9,8 +9,8 @@ import { usePopupMenu } from './use-popup-menu'
 // that narrows the options by name.
 //
 // A history can hold about a thousand voice actors or circles, so the list is
-// virtualized: only the rows in view exist, closed or open, and the keyboard
-// moves by index rather than through the DOM.
+// virtualized: only the rows in view exist, closed or open. There is no
+// keyboard navigation of its own: a long list is narrowed with the search box.
 
 export interface RailOption {
   /** '' is the "no constraint" entry every select opens with. */
@@ -69,46 +69,7 @@ watch(open, (value) => {
   if (value && index > 0) virtualizer.value.scrollToIndex(index, { align: 'center' })
 })
 
-/**
- * Scroll one option into view, then focus it once its row exists: the
- * virtualizer settles a jump over the next frames, so the row may not be drawn
- * on the tick after the scroll.
- */
-function focusRow(index: number): void {
-  if (index < 0 || index >= shown.value.length) return
-  virtualizer.value.scrollToIndex(index)
-  let frames = 0
-  const attempt = () => {
-    const row = listEl.value?.querySelector<HTMLElement>(`[data-index="${index}"]`)
-    if (row) row.focus({ preventScroll: true })
-    else if (open.value && frames++ < 5) requestAnimationFrame(attempt)
-  }
-  void nextTick(attempt)
-}
-
-// The row the keyboard is on. It moves the moment a key arrives, not when the
-// focus lands a frame later: a held arrow key would otherwise re-read a row it
-// already left. A row focused any other way (pointer, Tab) resets it, and so
-// does the search box (-1: the next step lands on row 0).
-let cursor = -1
-function onListFocus(event: FocusEvent): void {
-  const index = (event.target as HTMLElement).dataset.index
-  cursor = index === undefined ? -1 : Number(index)
-}
-
-const menu = usePopupMenu({
-  root,
-  trigger,
-  open,
-  step: (delta) => {
-    cursor = Math.min(shown.value.length - 1, Math.max(0, cursor + delta))
-    focusRow(cursor)
-  },
-  focusCurrent: () => {
-    cursor = Math.max(0, shown.value.findIndex((option) => option.value === model.value))
-    focusRow(cursor)
-  },
-})
+const menu = usePopupMenu({ root, trigger, open })
 
 const current = computed(() => props.options.find((option) => option.value === model.value) ?? null)
 const active = computed(() => props.marksActive === true && model.value !== '')
@@ -122,8 +83,7 @@ const chevron = 'M0 2.5h10L5 8z'
 </script>
 
 <template>
-  <div ref="root" class="rs" :class="{ open, active }" @keydown="menu.onKeydown" @focusout="menu.onFocusOut"
-    @focusin="onListFocus">
+  <div ref="root" class="rs" :class="{ open, active }" @focusout="menu.onFocusOut">
     <button ref="trigger" class="rs-trigger" type="button" aria-haspopup="listbox" :aria-expanded="open"
       @click="menu.setOpen(!open)">
       <span class="lbl rs-lbl">{{ label }}</span>

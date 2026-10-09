@@ -8,7 +8,7 @@ import WorkbenchShell from '@/components/layout/WorkbenchShell.vue'
 import WorkbenchNav from '@/features/worksets/WorkbenchNav.vue'
 import TaskSettingsForm from '@/features/worksets/TaskSettingsForm.vue'
 import TaskPlanTable from '@/features/worksets/TaskPlanTable.vue'
-import VirtualRows from '@/features/worksets/VirtualRows.vue'
+import RowList from '@/features/worksets/RowList.vue'
 import { useApiClient } from '@/lib/api/client'
 import { useWorksetGeneration } from '@/composables/use-workset-generation'
 import { useWorksetExecution } from '@/composables/use-workset-execution'
@@ -369,21 +369,21 @@ watch(
               </Button>
             </div>
             <p v-if="executionView.error_message" class="mt-1 text-[11px] text-destructive">{{ executionView.error_message }}</p>
-            <VirtualRows v-if="isMetadata && failures.length" class="mt-2" :items="failures" :item-key="(failure) => failure.key" testid="execution-failures">
+            <RowList v-if="isMetadata && failures.length" class="mt-2" :items="failures" :item-key="(failure) => failure.key" testid="execution-failures">
               <template #default="{ item }">
                 <span class="font-mono">{{ item.rj }}</span>
                 <span class="truncate text-[var(--text-secondary)]" :title="item.message">{{ item.message }}</span>
                 <span class="text-[11px] text-destructive">{{ item.reason }}</span>
               </template>
-            </VirtualRows>
+            </RowList>
 
-            <VirtualRows v-if="!isMetadata && renameResults.length" class="mt-2" :items="renameResults" :item-key="(item) => item.key" testid="rename-results">
+            <RowList v-if="!isMetadata && renameResults.length" class="mt-2" :items="renameResults" :item-key="(item) => item.key" testid="rename-results">
               <template #default="{ item }">
                 <span class="truncate" :title="item.source">{{ item.source }}</span>
                 <span class="truncate" :title="item.target">{{ item.target }}</span>
                 <span class="text-[11px]" :title="item.message">{{ item.status }}<span v-if="item.message" class="block text-destructive">{{ item.message }}</span></span>
               </template>
-            </VirtualRows>
+            </RowList>
 
             <div v-if="isMetadata && coversQuery.data.value" class="mt-3 flex flex-wrap items-center gap-2 text-[11px]" data-testid="covers">
               <span class="font-semibold text-[var(--text-secondary)]">封面</span>

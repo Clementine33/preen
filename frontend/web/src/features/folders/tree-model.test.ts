@@ -51,6 +51,14 @@ describe('tree model', () => {
     expect(model.getVisibleNodes().map((node) => node.name)).not.toContain('a.flac')
   })
 
+  it('expands and folds every directory at once', () => {
+    const model = createTreeModel(rootFixture)
+    model.setAllExpanded(true)
+    expect(model.getVisibleNodes().map((node) => node.name)).toContain('c.flac')
+    model.setAllExpanded(false)
+    expect(model.getVisibleNodes().map((node) => node.name)).toEqual(['sub2', 'sub1', 'track1.flac', 'track2.flac'])
+  })
+
   it('selecting a directory selects the directory itself and covers what is below', () => {
     const model = createTreeModel(rootFixture)
 

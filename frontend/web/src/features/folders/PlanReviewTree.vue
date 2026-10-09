@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { ChevronDown, ChevronRight, FileAudio, FilePlus2, FileText, Folder } from '@lucide/vue'
+import { ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, FileAudio, FilePlus2, FileText, Folder } from '@lucide/vue'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { useOperationContext } from '@/composables/use-operation-context'
 import { decisionGroups, keepReasonText, memberConclusion, resolutionText, revisionComponents } from '@/features/worksets/plan-readers'
 import type { ComponentOutcome } from '@/lib/api/types'
@@ -204,6 +205,22 @@ function toggle(key: string) {
   collapsed.value = new Set(collapsed.value)
 }
 
+const dirKeys = computed(() => {
+  const keys: string[] = []
+  const walk = (node: DirRow): void => {
+    for (const child of node.children) {
+      keys.push(child.key)
+      walk(child)
+    }
+  }
+  walk(tree.value)
+  return keys
+})
+
+function setAllCollapsed(fold: boolean) {
+  collapsed.value = new Set(fold ? dirKeys.value : [])
+}
+
 /**
  * The tree as the list it is drawn as: depth first, a directory's own files
  * before its children, and a collapsed directory contributing nothing but its
@@ -245,10 +262,20 @@ const RESOLUTION_TONES: Record<string, 'neutral' | 'success' | 'danger' | 'warni
         <Badge :tone="conclusion.tone">{{ conclusion.label }}</Badge>
         <span class="text-[var(--text-secondary)]">{{ conclusion.detail }}</span>
       </p>
-      <p v-if="tally.rows > 0" class="text-[11px] text-[var(--text-muted)]" data-testid="plan-tally">
-        保留 {{ tally.counts.keep }} · 删除 {{ tally.counts.delete }} · 生成 {{ tally.counts.encode }}
-        <template v-if="tally.counts.pending">（其中 {{ tally.counts.pending }} 项待生成）</template>
-      </p>
+      <div v-if="tally.rows > 0" class="flex items-center gap-2">
+        <p class="text-[11px] text-[var(--text-muted)]" data-testid="plan-tally">
+          保留 {{ tally.counts.keep }} · 删除 {{ tally.counts.delete }} · 生成 {{ tally.counts.encode }}
+          <template v-if="tally.counts.pending">（其中 {{ tally.counts.pending }} 项待生成）</template>
+        </p>
+        <span v-if="dirKeys.length" class="ml-auto flex shrink-0 items-center gap-1">
+          <Button size="xs" variant="ghost" data-testid="plan-expand-all" @click="setAllCollapsed(false)">
+            <ChevronsUpDown class="size-3.5" />全部展开
+          </Button>
+          <Button size="xs" variant="ghost" data-testid="plan-collapse-all" @click="setAllCollapsed(true)">
+            <ChevronsDownUp class="size-3.5" />全部折叠
+          </Button>
+        </span>
+      </div>
     </div>
 
     <p
@@ -264,9 +291,6 @@ const RESOLUTION_TONES: Record<string, 'neutral' | 'success' | 'danger' | 'warni
       <p v-if="planMissing" class="text-xs text-[var(--text-muted)]">该操作还没有当前计划。先生成计划版本。</p>
       <p v-else-if="!revision" class="text-xs text-[var(--text-muted)]">正在读取计划…</p>
       <template v-else>
-        <p class="mb-2 text-[11px] text-[var(--text-muted)]">
-          按计划冻结数据展示：保留、删除、生成及预计新增的输出与原因。标记为“待生成”的文件尚未存在于磁盘。计划只列出它涉及的文件。
-        </p>
         <p v-if="tally.rows === 0" class="text-xs text-[var(--text-muted)]" data-testid="plan-empty">
           当前计划没有列出这个文件夹的文件，也不会有文件操作。
         </p>

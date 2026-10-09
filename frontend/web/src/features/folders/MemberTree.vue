@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { ChevronDown, ChevronRight, FileAudio, FileText, Folder, Music } from '@lucide/vue'
+import { ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, FileAudio, FileText, Folder, Music } from '@lucide/vue'
+import { Button } from '@/components/ui/button'
 import type { TreeNode } from '@/lib/api/types'
 import { createTreeModel, type TreeModel, type TreeModelNode } from './tree-model'
 
@@ -47,6 +48,7 @@ watch(
 )
 
 const rows = computed(() => model.value.getVisibleNodes())
+const hasDirs = computed(() => model.value.root.children.some((node) => node.type === 'dir'))
 
 function checked(node: TreeModelNode): boolean {
   return model.value.dirSelection(node.relPath) === 'checked'
@@ -92,6 +94,14 @@ function meta(node: TreeModelNode): string {
     >
       未能刷新：下面是上次扫描的内容，可能已过期。
     </p>
+    <div v-if="hasDirs" class="flex shrink-0 items-center justify-end gap-1 border-b border-border px-2 py-1">
+      <Button size="xs" variant="ghost" data-testid="expand-all" @click="model.setAllExpanded(true)">
+        <ChevronsUpDown class="size-3.5" />全部展开
+      </Button>
+      <Button size="xs" variant="ghost" data-testid="collapse-all" @click="model.setAllExpanded(false)">
+        <ChevronsDownUp class="size-3.5" />全部折叠
+      </Button>
+    </div>
     <div class="min-h-0 flex-1 overflow-auto">
       <div v-if="rows.length > 0" role="tree" aria-label="文件夹内容" class="pb-2">
         <div

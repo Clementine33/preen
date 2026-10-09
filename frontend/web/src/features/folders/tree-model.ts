@@ -46,6 +46,8 @@ export interface TreeModel {
   /** A selected ancestor already stands for this item. */
   isCovered(relPath: string): boolean
   toggleDir(relPath: string): void
+  /** Open every directory, or fold everything back to the member root. */
+  setAllExpanded(open: boolean): void
   /** Selecting an item drops its descendants: the item stands for them. */
   select(relPath: string, selected: boolean): void
   /** The selected member-relative paths, in tree order. */
@@ -157,6 +159,13 @@ export function createTreeModel(rootNode: TreeNode, carry?: TreeModelCarry): Tre
     else expanded.add(relPath)
   }
 
+  function setAllExpanded(open: boolean): void {
+    expanded.clear()
+    expanded.add(root.relPath)
+    if (!open) return
+    for (const node of byRel.values()) if (node.type === 'dir') expanded.add(node.relPath)
+  }
+
   return {
     root,
     expanded,
@@ -166,6 +175,7 @@ export function createTreeModel(rootNode: TreeNode, carry?: TreeModelCarry): Tre
     dirSelection,
     isCovered,
     toggleDir,
+    setAllExpanded,
     select,
     selectedPaths,
     findByRelPath: (relPath) => byRel.get(relPath) ?? null,

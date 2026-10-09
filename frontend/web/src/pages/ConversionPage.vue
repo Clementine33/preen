@@ -11,7 +11,7 @@ import { settingsEditBlockedReason } from '@/features/worksets/workbench-nav'
 import OperationHeader from '@/features/worksets/OperationHeader.vue'
 import MemberList from '@/features/worksets/MemberList.vue'
 import {
-  memberConclusion,
+  memberConclusions,
   revisionComponents,
   type MemberConclusion,
 } from '@/features/worksets/plan-readers'
@@ -94,33 +94,13 @@ watch(
   { immediate: true },
 )
 
-/** Components of one member in the current plan, normalized on read. */
-function memberComponents(member: WorksetMember): ComponentOutcome[] {
-  const view = revision.value
-  if (!view) return []
-  const root = view.roots.find((r) => r.root_path === member.folder_path)
-  if (!root) return []
-  const owned = new Set(
-    (view.component_roots ?? [])
-      .filter((ref) => ref.root_index === root.root_index)
-      .map((ref) => ref.component_id),
-  )
-  return revisionComponents(view).filter((component) => owned.has(component.component_id))
-}
+const PENDING: MemberConclusion = { tone: 'neutral', label: '待规划', detail: '尚未生成计划版本。', filter: null }
 
-/** The visible conclusion of one member row. */
+/** Every member's conclusion, read from the plan once per revision (one index, not one scan per member). */
+const conclusions = computed(() => memberConclusions(revision.value, members.value))
+
 function conclusionFor(member: WorksetMember): MemberConclusion {
-  const view = revision.value
-  if (!view) return { tone: 'neutral', label: '待规划', detail: '尚未生成计划版本。', filter: null }
-  const frozen = view.members.find((m) => m.member_id === member.member_id)
-  const root = view.roots.find((r) => r.root_path === member.folder_path)
-  const components = memberComponents(member)
-  return memberConclusion({
-    excluded: frozen?.excluded ?? false,
-    hasRoot: Boolean(root),
-    rootMissing: root?.root_status === 'missing',
-    components,
-  })
+  return conclusions.value.get(member.member_id) ?? PENDING
 }
 
 async function openMember(memberId: string) {

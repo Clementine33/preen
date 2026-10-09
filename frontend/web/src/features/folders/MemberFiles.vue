@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { useRoute, useRouter } from 'vue-router'
-import { AlertTriangle, FolderInput, RefreshCw, Trash2 } from '@lucide/vue'
+import { AlertTriangle, FolderInput, Pencil, RefreshCw, Trash2 } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 import Modal from '@/components/ui/modal/Modal.vue'
 import MemberTree from '@/features/folders/MemberTree.vue'
@@ -19,7 +19,7 @@ import {
   useLibraryList,
 } from '@/queries/libraries'
 import { currentRecordQueryOptions, operationQueryOptions } from '@/queries/worksets'
-import { CONVERSION, type FileOperation, type FileOperationResult, type TreeNode } from '@/lib/api/types'
+import { CONVERSION, MEMBER_ROOT_TARGET, type FileOperation, type FileOperationResult, type TreeNode } from '@/lib/api/types'
 
 /**
  * The shared current-files page (ADR 0001 §3).
@@ -133,7 +133,9 @@ function setMode(next: 'current' | 'plan') {
 
 // ---- refreshing -------------------------------------------------------
 
-const refreshMutation = useMutation(
+// Options are read through a getter: the root identity resolves after setup on
+// a cold load, and a mutation that captured '' would write to a dead cache key.
+const refreshMutation = useMutation(() =>
   refreshMemberTreeMutationOptions(api, queryClient, libraryId.value, rootIdentity.value ?? ''),
 )
 const refreshError = ref<string | null>(null)
@@ -170,14 +172,20 @@ watch(
 // ---- file operations --------------------------------------------------
 
 const selection = ref<string[]>([])
+// The selection belongs to the tree on screen: another member or the other
+// view mounts a fresh tree, so the page's copy starts over with it.
+watch(() => [dirId.value, mode.value], () => { selection.value = [] })
 const dialog = ref<'none' | 'rename' | 'move' | 'delete'>('none')
+/** What the open dialog acts on, fixed when it opened: a background re-read of
+ *  the tree must not change what the user is confirming. */
 const target = ref<string>('')
+const deleteItems = ref<string[]>([])
 const renameValue = ref('')
 const moveDir = ref('')
 const result = ref<FileOperationResult | null>(null)
 const opError = ref<string | null>(null)
 
-const fileOps = useMutation(
+const fileOps = useMutation(() =>
   fileOperationMutationOptions(api, queryClient, libraryId.value, rootIdentity.value ?? ''),
 )
 const busyApplying = computed(() => fileOps.isPending.value)
@@ -189,14 +197,21 @@ const modifyDisabledReason = computed(() => {
   return ''
 })
 
-/** The directories a move can target: the member's own subdirectories. */
+/**
+ * The directories a move can target: the member root and its subdirectories,
+ * minus where the item already is and, for a folder, itself and its subtree.
+ */
 const directories = computed(() => {
+  const source = target.value
+  const parent = source.includes('/') ? source.slice(0, source.lastIndexOf('/')) : ''
   const out: { relPath: string; label: string }[] = []
   if (!tree.value) return out
+  if (parent !== '') out.push({ relPath: MEMBER_ROOT_TARGET, label: '成员根目录' })
   const walk = (node: TreeNode) => {
     for (const child of node.children ?? []) {
       if (child.type !== 'dir') continue
-      out.push({ relPath: child.rel_path, label: child.rel_path })
+      const inSource = child.rel_path === source || child.rel_path.startsWith(`${source}/`)
+      if (!inSource && child.rel_path !== parent) out.push({ relPath: child.rel_path, label: child.rel_path })
       walk(child)
     }
   }
@@ -204,28 +219,29 @@ const directories = computed(() => {
   return out
 })
 
-function openRename(relPath: string) {
-  target.value = relPath
-  renameValue.value = relPath.split('/').pop() ?? relPath
+const single = computed(() => (selection.value.length === 1 ? selection.value[0] : null))
+
+function openRename() {
+  if (!single.value) return
+  target.value = single.value
+  renameValue.value = single.value.split('/').pop() ?? single.value
   opError.value = null
   dialog.value = 'rename'
 }
 
-function openMove(relPath: string) {
-  target.value = relPath
+function openMove() {
+  if (!single.value) return
+  target.value = single.value
   moveDir.value = ''
   opError.value = null
   dialog.value = 'move'
 }
 
-function openDelete(relPath?: string) {
-  target.value = relPath ?? ''
+function openDelete() {
+  deleteItems.value = [...selection.value]
   opError.value = null
   dialog.value = 'delete'
 }
-
-/** The batch delete's items: the selection, or the one row that asked. */
-const deleteItems = computed(() => (target.value ? [target.value] : selection.value))
 
 async function apply(operation: FileOperation, items: { source: string; name?: string; target_dir?: string }[]) {
   opError.value = null
@@ -236,7 +252,6 @@ async function apply(operation: FileOperation, items: { source: string; name?: s
       body: { member_path: memberPath.value ?? '', operation, items },
     })
     dialog.value = 'none'
-    selection.value = []
   } catch (error) {
     // The request never became a scope: nothing ran, and it says why.
     if (error instanceof ApiError) {
@@ -372,15 +387,12 @@ function submitDelete() {
 
     <MemberTree
       v-else-if="tree"
+      :key="dirId ?? ''"
       class="min-h-0 flex-1"
       :root="tree"
       :frozen="modifyDisabled"
-      :frozen-reason="modifyDisabledReason"
       :stale="Boolean(refreshError)"
       @selection-change="selection = $event"
-      @rename="openRename"
-      @move="openMove"
-      @remove="openDelete"
     />
 
 
@@ -396,27 +408,50 @@ function submitDelete() {
          and only while modification is allowed. -->
     <div
       v-if="mode === 'current' && tree"
-      class="flex min-h-12 shrink-0 flex-wrap items-center gap-2 border-t border-border substrate-panel px-3"
+      class="flex min-h-12 shrink-0 flex-wrap items-center gap-2 border-t border-border substrate-panel px-3 py-1.5"
       data-testid="file-toolbar"
     >
       <span class="text-[11px] text-[var(--text-muted)]">
-        {{ selection.length ? `${selection.length} 项已选择` : '在树中选择文件或文件夹' }}
+        {{ selection.length ? `${selection.length} 项已选择` : '勾选文件或文件夹后在此操作' }}
       </span>
       <span v-if="modifyDisabled" class="text-[11px] text-[var(--warning-ink,var(--text-secondary))]">
-        <FolderInput class="mr-1 inline size-3" />{{ modifyDisabledReason }}
+        {{ modifyDisabledReason }}
       </span>
-      <Button
-        v-if="selection.length"
-        size="xs"
-        variant="outline"
-        class="ml-auto"
-        :disabled="modifyDisabled"
-        data-testid="delete-selection"
-        @click="openDelete()"
-      >
-        <Trash2 class="size-3.5" />
-        移入回收目录（{{ selection.length }}）
-      </Button>
+      <span class="ml-auto flex flex-wrap items-center gap-1">
+        <Button
+          v-if="single"
+          size="sm"
+          variant="outline"
+          :disabled="modifyDisabled"
+          data-testid="rename-selection"
+          @click="openRename"
+        >
+          <Pencil class="size-3.5" />
+          重命名
+        </Button>
+        <Button
+          v-if="single"
+          size="sm"
+          variant="outline"
+          :disabled="modifyDisabled"
+          data-testid="move-selection"
+          @click="openMove"
+        >
+          <FolderInput class="size-3.5" />
+          移动
+        </Button>
+        <Button
+          v-if="selection.length"
+          size="sm"
+          variant="outline"
+          :disabled="modifyDisabled"
+          data-testid="delete-selection"
+          @click="openDelete"
+        >
+          <Trash2 class="size-3.5" />
+          移入回收目录（{{ selection.length }}）
+        </Button>
+      </span>
     </div>
 
     <div
@@ -474,7 +509,7 @@ function submitDelete() {
         </select>
       </label>
       <p v-if="directories.length === 0" class="text-[11px] text-[var(--text-muted)]">
-        该成员里还没有子目录，先创建目录（本版本不提供新建目录）。
+        没有可移动到的目录（本版本不提供新建目录）。
       </p>
       <div class="flex justify-end gap-2">
         <Button variant="ghost" size="sm" @click="dialog = 'none'">取消</Button>

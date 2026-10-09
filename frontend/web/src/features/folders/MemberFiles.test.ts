@@ -266,7 +266,8 @@ describe('shared member files', () => {
     })
     const { wrapper } = await mountFiles(`/worksets/lib-1/f/${DIR_ID}`, { applyFileOperation })
 
-    await wrapper.get('[data-testid="rename-01.flac"]').trigger('click')
+    await wrapper.get('[data-testid="file-checkbox-01.flac"]').setValue(true)
+    await wrapper.get('[data-testid="rename-selection"]').trigger('click')
     await flushPromises()
     // The dialog is portalled: it lives in the document, not in the page tree.
     const input = document.body.querySelector('[data-testid="rename-input"]') as HTMLInputElement
@@ -281,6 +282,79 @@ describe('shared member files', () => {
     // The backend is the authority on the name; the client sends what the user
     // typed and reports the refusal it gets back.
     expect(wrapper.get('[data-testid="file-op-result"]').text()).toContain('02.flac')
+  })
+
+  it('deletes a selected folder as one item and keeps what is open across a re-read', async () => {
+    const nested: TreeNode = {
+      ...memberTree,
+      children: [
+        {
+          name: 'disc1', path: '/music/albumA/disc1', rel_path: 'disc1', type: 'dir', format: '', bitrate: null,
+          children: [
+            { name: 'a.flac', path: '/music/albumA/disc1/a.flac', rel_path: 'disc1/a.flac', type: 'file', size: 1, bitrate: null, format: 'flac' },
+          ],
+        },
+        { name: 'b.flac', path: '/music/albumA/b.flac', rel_path: 'b.flac', type: 'file', size: 1, bitrate: null, format: 'flac' },
+      ],
+    }
+    const applyFileOperation = vi.fn().mockResolvedValue({
+      operation: 'soft_delete', member_path: 'albumA',
+      items: [{ source: 'disc1', status: 'ok', recovered_path: 'Delete/albumA/disc1' }],
+      succeeded: 1, failed: 0, untouched: 0, refresh: { ok: true },
+    })
+    const getMemberTree = vi.fn().mockResolvedValue({ ...memberTreeResponse, tree: nested })
+    const { wrapper } = await mountFiles(`/worksets/lib-1/f/${DIR_ID}`, { applyFileOperation, getMemberTree })
+
+    await wrapper.get('[aria-label="展开 disc1"]').trigger('click')
+    expect(wrapper.find('[data-testid="tree-row-disc1/a.flac"]').exists()).toBe(true)
+
+    // A re-read of the same member (here: after the operation) keeps it open.
+    await wrapper.get('[data-testid="dir-checkbox-disc1"]').setValue(true)
+    expect((wrapper.get('[data-testid="file-checkbox-disc1/a.flac"]').element as HTMLInputElement).disabled).toBe(true)
+    await wrapper.get('[data-testid="delete-selection"]').trigger('click')
+    await flushPromises()
+    ;(document.body.querySelector('[data-testid="delete-submit"]') as HTMLElement).click()
+    await flushPromises()
+
+    const call = applyFileOperation.mock.calls[0] as unknown as [string, { items: { source: string }[] }]
+    expect(call[1].items.map((item) => item.source)).toEqual(['disc1'])
+    expect(wrapper.find('[data-testid="tree-row-disc1/a.flac"]').exists()).toBe(true)
+  })
+
+  it('moves a nested item to the member root', async () => {
+    const nested: TreeNode = {
+      ...memberTree,
+      children: [
+        {
+          name: 'disc1', path: '/music/albumA/disc1', rel_path: 'disc1', type: 'dir', format: '', bitrate: null,
+          children: [
+            { name: 'a.flac', path: '/music/albumA/disc1/a.flac', rel_path: 'disc1/a.flac', type: 'file', size: 1, bitrate: null, format: 'flac' },
+          ],
+        },
+      ],
+    }
+    const applyFileOperation = vi.fn().mockResolvedValue({
+      operation: 'move', member_path: 'albumA',
+      items: [{ source: 'disc1/a.flac', status: 'ok', target: 'a.flac' }],
+      succeeded: 1, failed: 0, untouched: 0, refresh: { ok: true },
+    })
+    const getMemberTree = vi.fn().mockResolvedValue({ ...memberTreeResponse, tree: nested })
+    const { wrapper } = await mountFiles(`/worksets/lib-1/f/${DIR_ID}`, { applyFileOperation, getMemberTree })
+
+    await wrapper.get('[aria-label="展开 disc1"]').trigger('click')
+    await wrapper.get('[data-testid="file-checkbox-disc1/a.flac"]').setValue(true)
+    await wrapper.get('[data-testid="move-selection"]').trigger('click')
+    await flushPromises()
+    const select = document.body.querySelector('[data-testid="move-target"]') as HTMLSelectElement
+    select.value = '.'
+    select.dispatchEvent(new Event('change'))
+    await flushPromises()
+    ;(document.body.querySelector('[data-testid="move-submit"]') as HTMLElement).click()
+    await flushPromises()
+
+    const call = applyFileOperation.mock.calls[0] as unknown as [string, { operation: string; items: unknown[] }]
+    expect(call[1].operation).toBe('move')
+    expect(call[1].items).toEqual([{ source: 'disc1/a.flac', target_dir: '.' }])
   })
 
   it('addresses a member by identity, and keeps the view parameter to itself', async () => {

@@ -183,8 +183,10 @@ Body:
 | Operation | Items |
 | --- | --- |
 | `rename` | one item; `name` is a plain name, never a path (`INVALID_NAME`) |
-| `move` | one item; `target_dir` is an existing directory of the same member (`INVALID_TARGET_DIR`, `MOVE_INTO_SELF`) |
+| `move` | one item; `target_dir` is an existing directory of the same member, or `"."` for the member root (`INVALID_TARGET_DIR`, `MOVE_INTO_SELF`) |
 | `soft_delete` | one or more items, applied in order |
+
+A refused request (nothing ran) answers `400` with the refusing code itself (`MEMBER_MISSING`, `PATH_INVALID`, `SYMLINK`, `OPERATION_DENIED`, …), and `REQUEST_REFUSED` only for other errors. A rename that changes only letter case of the same file is allowed on case-insensitive filesystems (ADR 0022 §3).
 
 Every path is validated independently of the request: absolute paths,
 traversal, a path that leaves the member, a path through a symlink and a

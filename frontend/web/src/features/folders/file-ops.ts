@@ -33,7 +33,6 @@ const REQUEST_CODE_TEXT: Record<string, string> = {
   OPERATION_DENIED: '不支持的操作',
   MEMBER_MISSING: '该文件夹已不存在',
   MEMBER_PATH_INVALID: '该路径不是可管理的文件夹',
-  FOLDER_PATH_INVALID: '路径不合法',
   REQUEST_REFUSED: '请求被拒绝，未执行任何修改',
 }
 
@@ -58,7 +57,7 @@ export function refreshText(refresh: RefreshState): string {
 
 /** A request-level refusal (nothing ran) in the user's words. */
 export function requestRefusalText(code: string, message: string): string {
-  return `${REQUEST_CODE_TEXT[code] ?? message}（${code}）`
+  return `${REQUEST_CODE_TEXT[code] ?? ITEM_CODE_TEXT[code] ?? message}（${code}）`
 }
 
 /** True when the request changed something on disk, whatever the refresh said. */

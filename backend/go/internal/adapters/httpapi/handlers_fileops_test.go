@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -211,6 +212,21 @@ func TestFileOperationNeedsRealPaths(t *testing.T) {
 				t.Fatalf("status = %d, want %d (body=%s)", w.Code, tc.status, w.Body.String())
 			}
 		})
+	}
+}
+
+// TestFileOperationRefusalKeepsItsCode: a refused scope answers with the
+// stable code the UI maps to words, not a generic REQUEST_REFUSED.
+func TestFileOperationRefusalKeepsItsCode(t *testing.T) {
+	handler, _, _ := fileOpsServer(t)
+	libs, _ := listLibrariesViaAPI(t, handler)
+	body := map[string]any{
+		"member_path": "gone", "operation": "soft_delete",
+		"items": []map[string]any{{"source": "01.flac"}},
+	}
+	w := doRequest(t, handler, http.MethodPost, "/api/v1/libraries/"+libs[0]+"/file-operations", body, nil)
+	if w.Code != http.StatusBadRequest || !strings.Contains(w.Body.String(), `"MEMBER_MISSING"`) {
+		t.Fatalf("status = %d body = %s", w.Code, w.Body.String())
 	}
 }
 

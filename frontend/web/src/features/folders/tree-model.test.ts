@@ -36,52 +36,73 @@ describe('tree model', () => {
     ])
   })
 
-  it('assigns depth and flattens visible nodes depth-first with dirs collapsed by default', () => {
+  it('lists the rows below the member root, collapsed by default', () => {
     const model = createTreeModel(rootFixture)
     expect(model.root.depth).toBe(0)
-    // Root is expanded by default; nested dirs start collapsed.
-    expect(model.getVisibleNodes().map((node) => node.name)).toEqual([
-      'albumA',
-      'sub2',
-      'sub1',
-      'track1.flac',
-      'track2.flac',
-    ])
+    expect(model.getVisibleNodes().map((node) => node.name)).toEqual(['sub2', 'sub1', 'track1.flac', 'track2.flac'])
     expect(model.getVisibleNodes().find((node) => node.name === 'sub1')?.depth).toBe(1)
   })
 
   it('expands and collapses a directory via toggle', () => {
     const model = createTreeModel(rootFixture)
-    model.toggleDir('/music/albumA/sub1')
+    model.toggleDir('sub1')
     expect(model.getVisibleNodes().map((node) => node.name)).toContain('a.flac')
-    model.toggleDir('/music/albumA/sub1')
+    model.toggleDir('sub1')
     expect(model.getVisibleNodes().map((node) => node.name)).not.toContain('a.flac')
   })
 
-  it('selecting a directory selects all descendant files and dir state reflects it', () => {
+  it('selecting a directory selects the directory itself and covers what is below', () => {
     const model = createTreeModel(rootFixture)
 
-    model.selectDir('/music/albumA/sub1', true)
+    model.select('sub1', true)
 
-    expect(model.selectedFilePaths.has('sub1/a.flac')).toBe(true)
-    expect(model.selectedFilePaths.has('sub1/deep/c.flac')).toBe(true)
-    expect(model.selectedFilePaths.has('track1.flac')).toBe(false)
-    expect(model.dirSelection('/music/albumA/sub1')).toBe('checked')
-    expect(model.dirSelection('/music/albumA/sub1/deep')).toBe('checked')
-    expect(model.dirSelection('/music/albumA')).toBe('indeterminate')
+    expect([...model.selected]).toEqual(['sub1'])
+    expect(model.selectedPaths()).toEqual(['sub1'])
+    expect(model.dirSelection('sub1')).toBe('checked')
+    expect(model.dirSelection('sub1/deep')).toBe('checked')
+    expect(model.isCovered('sub1/a.flac')).toBe(true)
+    expect(model.isCovered('sub1')).toBe(false)
+    expect(model.dirSelection('')).toBe('indeterminate')
 
-    model.selectDir('/music/albumA/sub1', false)
-    expect(model.selectedFilePaths.has('sub1/a.flac')).toBe(false)
-    expect(model.selectedFilePaths.has('sub1/deep/c.flac')).toBe(false)
-    expect(model.dirSelection('/music/albumA/sub1')).toBe('unchecked')
+    model.select('sub1', false)
+    expect(model.selected.size).toBe(0)
+    expect(model.dirSelection('sub1')).toBe('unchecked')
   })
 
-  it('keeps dir state checked when every descendant file is selected individually', () => {
+  it('selecting a directory replaces marks already set below it, and covered items refuse a mark', () => {
     const model = createTreeModel(rootFixture)
-    model.selectFile('sub2/b.flac', true)
-    expect(model.dirSelection('/music/albumA/sub2')).toBe('checked')
-    model.selectFile('sub2/b.flac', false)
-    expect(model.dirSelection('/music/albumA/sub2')).toBe('unchecked')
+    model.select('sub1/a.flac', true)
+    expect(model.dirSelection('sub1')).toBe('indeterminate')
+    model.select('sub1', true)
+    expect(model.selectedPaths()).toEqual(['sub1'])
+    model.select('sub1/deep/c.flac', true)
+    expect(model.selectedPaths()).toEqual(['sub1'])
+  })
+
+  it('can select an empty directory, never the member root', () => {
+    const model = createTreeModel(dir('albumA', '/music/albumA', [dir('empty', '/music/albumA/empty')]))
+    model.select('empty', true)
+    model.select('', true)
+    expect(model.selectedPaths()).toEqual(['empty'])
+  })
+
+  it('keeps expansion and selection across a rebuild, dropping what no longer exists', () => {
+    const model = createTreeModel(rootFixture)
+    model.toggleDir('sub1')
+    model.toggleDir('sub2')
+    model.select('track1.flac', true)
+    model.select('sub2', true)
+
+    const next = createTreeModel(
+      dir('albumA', '/music/albumA', [
+        file('track1.flac', '/music/albumA/track1.flac'),
+        dir('sub1', '/music/albumA/sub1', [file('a.flac', '/music/albumA/sub1/a.flac')]),
+      ]),
+      model,
+    )
+    expect(next.isExpanded('sub1')).toBe(true)
+    expect(next.isExpanded('sub2')).toBe(false)
+    expect(next.selectedPaths()).toEqual(['track1.flac'])
   })
 
   it('uses server basenames as labels and never synthesizes names from paths', () => {
@@ -91,9 +112,5 @@ describe('tree model', () => {
       expect(node.name).not.toContain('/')
       expect(node.name).not.toContain('\\')
     }
-    // Payload paths are echoed verbatim from the server tree.
-    expect(model.selectedFilePaths).toBeInstanceOf(Set)
-    model.selectFile('track2.flac', true)
-    expect(model.selectedFilePaths.has('track2.flac')).toBe(true)
   })
 })

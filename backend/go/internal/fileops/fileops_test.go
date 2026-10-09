@@ -637,3 +637,54 @@ func TestSoftDeleteBesideNestedWorkRoot(t *testing.T) {
 		t.Fatal("nested deletion created a library-root recovery directory")
 	}
 }
+
+// TestMoveToTheMemberRoot covers the "." destination: the member root is a
+// legal target, an omitted destination still is not (ADR 0022 §1).
+func TestMoveToTheMemberRoot(t *testing.T) {
+	f := newFixture(t, false)
+	f.write("albumA/sub/01.mp3", "one")
+	f.write("albumA/02.mp3", "two")
+
+	result := f.apply(fileops.Request{
+		MemberPath: "albumA",
+		Operation:  fileops.OpMove,
+		Items:      []fileops.Item{{Source: "sub/01.mp3", TargetDir: "."}},
+	})
+	if item := oneItem(result); item.Status != fileops.StatusOK || item.Target != "01.mp3" {
+		t.Fatalf("move to root = %+v", item)
+	}
+	if !f.exists("albumA/01.mp3") || f.exists("albumA/sub/01.mp3") {
+		t.Fatal("the file did not reach the member root")
+	}
+
+	// Already in the root: refused, not silently accepted.
+	result = f.apply(fileops.Request{
+		MemberPath: "albumA",
+		Operation:  fileops.OpMove,
+		Items:      []fileops.Item{{Source: "02.mp3", TargetDir: "."}},
+	})
+	if item := oneItem(result); item.Status != fileops.StatusFailed || item.Code != fileops.CodeInvalidTarget {
+		t.Fatalf("root to root = %+v", item)
+	}
+}
+
+// TestCaseOnlyRename covers a rename that differs from its source only in
+// letter case: on a case-insensitive filesystem the destination "exists" as
+// the same file and must not be refused as a collision.
+func TestCaseOnlyRename(t *testing.T) {
+	f := newFixture(t, false)
+	f.write("albumA/Track.MP3", "one")
+
+	result := f.apply(fileops.Request{
+		MemberPath: "albumA",
+		Operation:  fileops.OpRename,
+		Items:      []fileops.Item{{Source: "Track.MP3", Name: "track.mp3"}},
+	})
+	if item := oneItem(result); item.Status != fileops.StatusOK || item.Target != "track.mp3" {
+		t.Fatalf("case-only rename = %+v", item)
+	}
+	entries, err := os.ReadDir(filepath.Join(f.root, "albumA"))
+	if err != nil || len(entries) != 1 || entries[0].Name() != "track.mp3" {
+		t.Fatalf("entries = %v, %v", entries, err)
+	}
+}

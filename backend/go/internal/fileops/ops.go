@@ -117,6 +117,14 @@ func (s *Service) renameItem(m *member, item Item) ItemResult {
 		return fromError(item.Source, err)
 	}
 	target := filepath.Join(filepath.Dir(source), filepath.FromSlash(name))
+	if caseOnlyChange(source, target) {
+		// The destination "exists" only as this very file on a case-insensitive
+		// filesystem; a plain rename cannot clobber anything else.
+		if err := os.Rename(source, target); err != nil {
+			return fromError(item.Source, err)
+		}
+		return ItemResult{Source: item.Source, Status: StatusOK, Target: memberRelative(m, target)}
+	}
 	if err := claimTarget(m, source, target); err != nil {
 		return fromError(item.Source, err)
 	}
@@ -124,6 +132,31 @@ func (s *Service) renameItem(m *member, item Item) ItemResult {
 		return fromError(item.Source, err)
 	}
 	return ItemResult{Source: item.Source, Status: StatusOK, Target: memberRelative(m, target)}
+}
+
+// caseOnlyChange reports a rename whose names differ only in letter case and
+// whose destination is the source file itself.
+func caseOnlyChange(source, target string) bool {
+	if source == target || !strings.EqualFold(filepath.Base(source), filepath.Base(target)) {
+		return false
+	}
+	a, errA := os.Lstat(source)
+	b, errB := os.Lstat(target)
+	if errA != nil || errB != nil || !os.SameFile(a, b) {
+		return false
+	}
+	// Two hard links to one inode are two real entries, not one file seen
+	// through case folding: only a listing without the target's exact name is.
+	entries, err := os.ReadDir(filepath.Dir(source))
+	if err != nil {
+		return false
+	}
+	for _, entry := range entries {
+		if entry.Name() == filepath.Base(target) {
+			return false
+		}
+	}
+	return true
 }
 
 // moveItem moves one item into an existing directory of the same member. The

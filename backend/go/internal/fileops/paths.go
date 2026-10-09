@@ -29,6 +29,11 @@ const (
 	CodeOperationDenied = "OPERATION_DENIED"
 )
 
+// MemberRootTarget is the move destination that names the member root. An
+// explicit token rather than "" so a request that omits the field is still
+// refused instead of silently moving an item to the root.
+const MemberRootTarget = "."
+
 // member is the resolved member directory one request works inside.
 type member struct {
 	root       string // absolute library root
@@ -131,8 +136,12 @@ func (m *member) resolve(rel string) (string, error) {
 
 // resolveTargetDir validates a member-relative directory used as a move
 // destination: it must already exist, be a real directory, and never be a
-// symlink.
+// symlink. MemberRootTarget names the member root itself, which is a legal
+// destination (ADR 0022 §1).
 func (m *member) resolveTargetDir(rel string) (string, error) {
+	if rel == MemberRootTarget {
+		return m.nativeAbs, nil
+	}
 	native, err := m.resolve(rel)
 	if err != nil {
 		var itemErr *PathError

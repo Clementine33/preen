@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
+import { useVirtualizer } from '@tanstack/vue-virtual'
 import type { MemberFilter } from '@/app/route-params'
 import { Eye, FolderOpen } from '@lucide/vue'
 import { Badge } from '@/components/ui/badge'
@@ -15,7 +16,14 @@ import type { OperationDraftDocument, WorksetMember } from '@/lib/api/types'
  * selection never drills in and viewing never selects. Filtering never
  * clears the selection, and a filter that hides selected rows reports how many
  * are hidden so "修改 N 个文件夹" never counts invisible names.
+ *
+ * Rows are virtualized because a record can hold thousands of folders. A row
+ * wraps its name and path, so its height is measured per row rather than fixed;
+ * ROW_ESTIMATE only seeds the scroll extent until a row has been drawn.
  */
+const ROW_ESTIMATE = 76
+const OVERSCAN = 8
+
 const props = defineProps<{
   members: WorksetMember[]
   draft: OperationDraftDocument
@@ -73,6 +81,30 @@ const visible = computed(() =>
   }),
 )
 
+const scrollEl = ref<HTMLElement | null>(null)
+const virtualizer = useVirtualizer(
+  computed(() => ({
+    count: visible.value.length,
+    getScrollElement: () => scrollEl.value,
+    estimateSize: () => ROW_ESTIMATE,
+    overscan: OVERSCAN,
+    getItemKey: (index: number) => visible.value[index]?.member_id ?? index,
+  })),
+)
+
+// One stable callback: an inline arrow is a new ref every render, which would
+// re-measure on each pass and feed the virtualizer's own updates back in.
+function measureRow(el: unknown): void {
+  virtualizer.value.measureElement(el as Element | null)
+}
+
+const rows = computed(() =>
+  virtualizer.value.getVirtualItems().flatMap((row) => {
+    const member = visible.value[row.index]
+    return member ? [{ row, member }] : []
+  }),
+)
+
 const visibleIds = computed(() => visible.value.map((m) => m.member_id))
 const allVisibleSelected = computed(
   () => visibleIds.value.length > 0 && visibleIds.value.every((id) => props.selectedIds.has(id)),
@@ -121,9 +153,8 @@ function hasOverride(member: WorksetMember): boolean {
       </span>
     </div>
 
-    <div class="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
       <label
-        class="sticky top-0 z-10 flex min-h-11 cursor-pointer items-center gap-3 border-b border-[var(--wire-strong)] bg-card px-3 text-xs text-[var(--text-muted)]"
+        class="flex min-h-11 shrink-0 cursor-pointer items-center gap-3 border-b border-[var(--wire-strong)] bg-card px-3 text-xs text-[var(--text-muted)]"
       >
         <input
           type="checkbox"
@@ -136,11 +167,20 @@ function hasOverride(member: WorksetMember): boolean {
         <span class="ml-auto font-mono">{{ visible.length }} / {{ members.length }}</span>
       </label>
 
-      <ul role="list" aria-label="工作集成员与转换结论">
+    <div ref="scrollEl" class="min-h-0 flex-1 overflow-y-auto overflow-x-hidden" data-testid="member-scroller">
+      <ul
+        role="list"
+        aria-label="工作集成员与转换结论"
+        class="relative m-0 w-full list-none p-0"
+        :style="{ height: `${virtualizer.getTotalSize()}px` }"
+      >
         <li
-          v-for="member in visible"
+          v-for="{ row, member } in rows"
           :key="member.member_id"
-          class="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 border-b border-border/60 px-3 py-2.5 hover:bg-accent/40 @[641px]:grid-cols-[auto_minmax(0,1fr)_auto_auto]"
+          :ref="measureRow"
+          :data-index="row.index"
+          :style="{ transform: `translateY(${row.start}px)` }"
+          class="absolute top-0 left-0 w-full grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 border-b border-border/60 px-3 py-2.5 hover:bg-accent/40 @[641px]:grid-cols-[auto_minmax(0,1fr)_auto_auto]"
           :class="{ 'bg-accent/30': selectedIds.has(member.member_id) }"
           data-testid="member-row"
         >
@@ -212,10 +252,10 @@ function hasOverride(member: WorksetMember): boolean {
             </Button>
           </div>
         </li>
-        <li v-if="visible.length === 0" class="px-3 py-8 text-center text-xs text-[var(--text-muted)]">
-          没有符合当前筛选的文件夹。
-        </li>
       </ul>
+      <p v-if="visible.length === 0" class="px-3 py-8 text-center text-xs text-[var(--text-muted)]">
+        没有符合当前筛选的文件夹。
+      </p>
     </div>
   </div>
 </template>

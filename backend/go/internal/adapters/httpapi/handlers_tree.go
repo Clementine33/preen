@@ -4,11 +4,13 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/onsei/organizer/backend/internal/admission"
 	"github.com/onsei/organizer/backend/internal/fileops"
 	"github.com/onsei/organizer/backend/internal/inventory"
 	"github.com/onsei/organizer/backend/internal/library"
+	"github.com/onsei/organizer/backend/internal/works"
 )
 
 // dirResponse is one scanned work root of a library root: the observed
@@ -20,6 +22,10 @@ type dirResponse struct {
 	DirID          string `json:"dir_id"`
 	AudioFileCount int    `json:"audio_file_count"`
 	FileCount      int    `json:"file_count"`
+	// AddedAt is when a scan first saw the directory.
+	AddedAt time.Time `json:"added_at"`
+	// WorkCode is the single work number the directory name carries, else null.
+	WorkCode *string `json:"work_code"`
 }
 
 // listLibraryDirs returns every scanned work root of the library root,
@@ -37,6 +43,11 @@ func (s *Server) listLibraryDirs(w http.ResponseWriter, r *http.Request) {
 	}
 	out := make([]dirResponse, 0, len(dirs))
 	for _, d := range dirs {
+		var code *string
+		if r := works.CodesInDirName(d.Name); r.Kind == works.DirCodeSingle {
+			c := string(r.Code)
+			code = &c
+		}
 		out = append(out, dirResponse{
 			Name:           d.Name,
 			Path:           d.Path,
@@ -44,6 +55,8 @@ func (s *Server) listLibraryDirs(w http.ResponseWriter, r *http.Request) {
 			DirID:          d.DirID,
 			AudioFileCount: d.AudioFileCount,
 			FileCount:      d.FileCount,
+			AddedAt:        d.AddedAt,
+			WorkCode:       code,
 		})
 	}
 	writeJSON(w, http.StatusOK, struct {

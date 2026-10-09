@@ -141,6 +141,7 @@ func TestListLibraryDirs(t *testing.T) {
 	seedFile(t, repo, root, "albumA/01.flac", 1234, ptr(int64(320)), "flac")
 	seedDir(t, repo, root, "docs")
 	seedFile(t, repo, root, "docs/readme.txt", 12, nil, "")
+	seedDir(t, repo, root, "RJ000001 coded")
 	seedDir(t, repo, root, "Delete")
 	seedDir(t, repo, root, "Delete/albumA")
 
@@ -154,8 +155,8 @@ func TestListLibraryDirs(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &out); err != nil {
 		t.Fatalf("decode dirs: %v (body=%s)", err, w.Body.String())
 	}
-	if len(out.Dirs) != 2 {
-		t.Fatalf("dirs = %+v, want albumA and docs (the recovery directory is not a member)", out.Dirs)
+	if len(out.Dirs) != 3 {
+		t.Fatalf("dirs = %+v, want albumA, docs and the coded one (the recovery directory is not a member)", out.Dirs)
 	}
 	byRel := map[string]dirResponse{}
 	for _, d := range out.Dirs {
@@ -170,6 +171,12 @@ func TestListLibraryDirs(t *testing.T) {
 	}
 	if album.AudioFileCount != 1 || album.FileCount != 1 {
 		t.Errorf("albumA counts = %d/%d, want 1/1", album.AudioFileCount, album.FileCount)
+	}
+	if album.WorkCode != nil || album.AddedAt.IsZero() {
+		t.Errorf("albumA carries no work code but has an added time: %+v", album)
+	}
+	if c := byRel["RJ000001 coded"].WorkCode; c == nil || *c != "RJ00000001" {
+		t.Errorf("work_code = %v, want RJ00000001", c)
 	}
 	docs := byRel["docs"]
 	if docs.AudioFileCount != 0 || docs.FileCount != 1 {

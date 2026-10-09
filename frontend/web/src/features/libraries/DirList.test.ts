@@ -49,6 +49,8 @@ function makeDirs(count: number): LibraryDir[] {
     dir_id: `dir-${i}`,
     audio_file_count: 3,
     file_count: 5,
+    added_at: '2026-05-01T00:00:00Z',
+    work_code: null,
   }))
 }
 
@@ -82,27 +84,24 @@ describe('DirList', () => {
 
     // scrollTop 2800 -> first rendered index 40 (rounded index 50 - overscan).
     expect(wrapper.find('[data-testid="dir-checkbox-f-40"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="dir-link-f-69"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="dir-name-f-69"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="dir-checkbox-f-0"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="dir-checkbox-f-70"]').exists()).toBe(false)
-    const row = rowOf(wrapper, 'dir-link-f-40')
+    const row = rowOf(wrapper, 'dir-name-f-40')
     expect(row?.getAttribute('style')).toContain('translateY(2240px)')
     expect(wrapper.find('[data-testid="dir-list-spacer"]').attributes('style')).toContain('height: 5600px')
   })
 
-  it('carries the same facts in both layouts, without a minimum width', async () => {
-    const { wrapper } = scaffold(makeDirs(2))
+  it('shows the name and only a nested folder\'s parent path, without the audio count', async () => {
+    const dirs = makeDirs(2)
+    dirs[1] = { ...dirs[1], rel_path: 'cat/f-1' }
+    const { wrapper } = scaffold(dirs)
     await settle()
 
-    // The compact (phone) layout keeps the count under the name, so the merged
-    // row still shows checkbox, name, audio count and view; the desktop
-    // layout shows the count in its own column. Both come from the one template
-    // and the root never forces a horizontal minimum.
-    const row = rowOf(wrapper, 'dir-link-f-0')
-    expect(row?.textContent).toContain('Folder 0')
-    expect(row?.textContent).toContain('3 个音频文件')
-    expect(wrapper.get('[data-testid="dir-link-f-0"]').text()).toContain('3 个音频文件')
-    expect(wrapper.get('[data-testid="dir-list"]').classes()).not.toContain('min-w-[680px]')
+    const flat = wrapper.get('[data-testid="dir-name-f-0"]')
+    expect(flat.text()).toBe('Folder 0')
+    expect(wrapper.get('[data-testid="dir-name-cat/f-1"]').text()).toBe('Folder 1cat')
+    expect(wrapper.text()).not.toContain('音频')
     expect(wrapper.get('[data-testid="dir-list"]').classes()).toContain('min-w-0')
   })
 
@@ -138,7 +137,7 @@ describe('DirList', () => {
     expect((wrapper.find('[data-testid="dir-checkbox-f-5"]').element as HTMLInputElement).checked).toBe(true)
   })
 
-  it('emits selectAll, select and open, and never selects from the row body', async () => {
+  it('emits selectAll, select and open, and opens only from the chevron', async () => {
     const { wrapper } = scaffold(makeDirs(3))
     await settle()
 
@@ -148,12 +147,14 @@ describe('DirList', () => {
     await wrapper.find('[data-testid="dir-checkbox-f-0"]').setValue(true)
     expect(wrapper.emitted('select')).toEqual([['f-0', true]])
 
-    // The row body navigates; it never toggles the checkbox.
-    await wrapper.find('[data-testid="dir-link-f-1"]').trigger('click')
-    // The row opens the directory's page: the identity it is addressed by, not
-    // the name it is displayed under.
+    // The name is a label for the checkbox: it never navigates.
+    await wrapper.find('[data-testid="dir-name-f-1"]').trigger('click')
+    expect(wrapper.emitted('open')).toBeUndefined()
+
+    // Only the button opens the directory's page: the identity it is addressed
+    // by, not the name it is displayed under.
+    await wrapper.find('[aria-label="打开 Folder 1"]').trigger('click')
     expect(wrapper.emitted('open')).toEqual([['dir-1']])
-    expect(wrapper.emitted('select')).toEqual([['f-0', true]])
 
     await wrapper.find('[aria-label="打开 Folder 2"]').trigger('click')
     expect(wrapper.emitted('open')).toEqual([['dir-1'], ['dir-2']])

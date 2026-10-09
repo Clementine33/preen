@@ -26,7 +26,7 @@ it('filters strictly by the displayed status, including folders with overlapping
       conclusionFor: (member) => memberConclusion({ excluded: false, hasRoot: true, rootMissing: false, components: plans[member.member_id]! }),
     },
   })
-  const rows = () => wrapper.findAll('tbody tr')
+  const rows = () => wrapper.findAll('[data-testid="member-row"]')
   expect(rows()[0]?.text()).toContain('源竞争')
   expect(rows()[2]?.text()).toContain('部分未满足')
   for (const [filter, expected] of [
@@ -40,5 +40,30 @@ it('filters strictly by the displayed status, including folders with overlapping
     expected.forEach((name, index) => expect(rows()[index]?.text()).toContain(name))
     if (filter === 'change') expect(rows().every((row) => row.text().includes('有变化'))).toBe(true)
   }
+  wrapper.unmount()
+})
+
+it('shows a long folder name in full and keeps its actions reachable', async () => {
+  const name = '【バイノーラル】'.repeat(15)
+  const member = { member_id: 'm', folder_name: name, folder_path: `/lib/${name}`, rel_path: name, dir_id: 'm' }
+  const wrapper = mount(MemberList, {
+    props: {
+      members: [member],
+      draft: { schema_version: 1, no_effect_tags: [], matched: {}, unmatched: {}, members: [] },
+      selectedIds: new Set<string>(), hiddenSelectedCount: 0, filter: 'all', search: '',
+      conclusionFor: () => memberConclusion({ excluded: false, hasRoot: true, rootMissing: false, components: [] }),
+    },
+  })
+  const open = wrapper.get('[data-testid="member-open"]')
+  expect(open.text()).toBe(name)
+  expect(open.classes()).not.toContain('truncate')
+  await open.trigger('click')
+  await wrapper.get('[data-testid="member-files"]').trigger('click')
+  await wrapper.get('input[aria-label="全选当前筛选结果"]').trigger('change')
+  await wrapper.get(`input[aria-label="选择 ${name}"]`).trigger('change')
+  expect(wrapper.emitted('open')).toEqual([['m']])
+  expect(wrapper.emitted('files')).toEqual([['m']])
+  expect(wrapper.emitted('toggleAll')).toEqual([[['m']]])
+  expect(wrapper.emitted('toggle')).toEqual([['m']])
   wrapper.unmount()
 })

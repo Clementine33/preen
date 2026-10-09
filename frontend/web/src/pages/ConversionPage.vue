@@ -547,7 +547,6 @@ const parentLink = computed(() => {
             :filter="filter"
             :search="ui.search"
             :conclusion-for="conclusionFor"
-            :compact="tier === 'narrow'"
             @toggle="ui.toggleMember($event)"
             @toggle-all="ui.toggleAllVisible($event)"
             @open="openMember($event)"

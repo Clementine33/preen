@@ -436,6 +436,9 @@ export type PlanningState = 'unplanned' | 'planned' | 'needs_planning' | 'planni
 export type GenerationStatus = 'queued' | 'running' | 'completed' | 'failed' | 'canceled' | 'interrupted'
 export type OperationType = 'conversion' | 'rename' | 'metadata_refresh'
 export const CONVERSION: OperationType = 'conversion'
+
+/** The move destination that names the member root itself (ADR 0022 §1). */
+export const MEMBER_ROOT_TARGET = '.'
 /** Plans and executes directory renames (ADR 0014 §2). */
 export const RENAME: OperationType = 'rename'
 export const METADATA_REFRESH: OperationType = 'metadata_refresh'

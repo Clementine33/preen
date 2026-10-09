@@ -34,19 +34,30 @@ export interface TreeModelNode {
 
 export interface TreeModel {
   root: TreeModelNode
-  expandedIds: Set<string>
-  selectedFilePaths: Set<string>
-  /** Depth-first flattened visible rows; re-read the return value after toggles. */
+  /** Expanded directories, by member-relative path ('' is the member root). */
+  expanded: Set<string>
+  /** Selected items, files and directories alike, by member-relative path. */
+  selected: Set<string>
+  /** Depth-first visible rows below the member root; re-read after toggles. */
   getVisibleNodes(): TreeModelNode[]
-  isExpanded(id: string): boolean
-  dirSelection(id: string): DirSelection
-  toggleDir(id: string): void
-  selectDir(id: string, selected: boolean): void
-  selectFile(relPath: string, selected: boolean): void
+  isExpanded(relPath: string): boolean
+  /** A directory's tri-state: its own mark, a covered one, or a mark below it. */
+  dirSelection(relPath: string): DirSelection
+  /** A selected ancestor already stands for this item. */
+  isCovered(relPath: string): boolean
+  toggleDir(relPath: string): void
+  /** Selecting an item drops its descendants: the item stands for them. */
+  select(relPath: string, selected: boolean): void
   /** The selected member-relative paths, in tree order. */
   selectedPaths(): string[]
   /** One node by its member-relative path, for the operation dialogs. */
   findByRelPath(relPath: string): TreeModelNode | null
+}
+
+/** What a rebuilt tree keeps from the one it replaces. */
+export interface TreeModelCarry {
+  expanded: Iterable<string>
+  selected: Iterable<string>
 }
 
 /** Dirs first, stable within each group (server order is preserved). */
@@ -72,22 +83,31 @@ function buildNode(node: TreeNode, depth: number): TreeModelNode {
   }
 }
 
-function collectDescendantFilePaths(node: TreeModelNode): string[] {
-  if (node.type === 'file') return [node.relPath]
-  return node.children.flatMap(collectDescendantFilePaths)
-}
-
-export function createTreeModel(rootNode: TreeNode): TreeModel {
+/**
+ * Both sets survive a rebuild, keyed by member-relative path: a refresh, a
+ * media-facts event or a finished operation re-reads the same member and must
+ * not collapse the folders the user opened. Entries that no longer exist drop.
+ */
+export function createTreeModel(rootNode: TreeNode, carry?: TreeModelCarry): TreeModel {
   const root = buildNode(rootNode, 0)
+  const byRel = new Map<string, TreeModelNode>()
+  const index = (node: TreeModelNode): void => {
+    byRel.set(node.relPath, node)
+    node.children.forEach(index)
+  }
+  index(root)
+
   // The root is expanded by default; nested directories start collapsed.
-  const expandedIds = reactive(new Set<string>([root.id]))
-  const selectedFilePaths = reactive(new Set<string>())
+  const expanded = reactive(new Set<string>([root.relPath]))
+  const selected = reactive(new Set<string>())
+  for (const rel of carry?.expanded ?? []) if (byRel.get(rel)?.type === 'dir') expanded.add(rel)
+  for (const rel of carry?.selected ?? []) if (rel !== root.relPath && byRel.has(rel)) selected.add(rel)
 
   const visibleNodes = computed(() => {
     const out: TreeModelNode[] = []
     const walk = (node: TreeModelNode): void => {
-      out.push(node)
-      if (node.type === 'dir' && expandedIds.has(node.id)) {
+      if (node !== root) out.push(node)
+      if (node.type === 'dir' && expanded.has(node.relPath)) {
         for (const child of node.children) walk(child)
       }
     }
@@ -95,93 +115,59 @@ export function createTreeModel(rootNode: TreeNode): TreeModel {
     return out
   })
 
-  function findDir(id: string): TreeModelNode | null {
-    if (root.id === id) return root
-    let found: TreeModelNode | null = null
-    const walk = (node: TreeModelNode): void => {
-      if (found) return
-      if (node.id === id) {
-        found = node
-        return
-      }
-      for (const child of node.children) walk(child)
+  function isCovered(relPath: string): boolean {
+    for (const rel of selected) {
+      if (rel !== relPath && relPath.startsWith(`${rel}/`)) return true
     }
-    walk(root)
-    return found
+    return false
   }
 
-  function dirSelection(id: string): DirSelection {
-    const node = findDir(id)
-    if (!node) return 'unchecked'
-    const paths = collectDescendantFilePaths(node)
-    if (paths.length === 0) return 'unchecked'
-    let checked = 0
-    for (const path of paths) {
-      if (selectedFilePaths.has(path)) checked += 1
+  function dirSelection(relPath: string): DirSelection {
+    if (selected.has(relPath) || isCovered(relPath)) return 'checked'
+    const below = relPath ? `${relPath}/` : ''
+    for (const rel of selected) {
+      if (rel.startsWith(below)) return 'indeterminate'
     }
-    if (checked === paths.length) return 'checked'
-    if (checked > 0) return 'indeterminate'
     return 'unchecked'
   }
 
-  function selectDir(id: string, selected: boolean): void {
-    const node = findDir(id)
-    if (!node) return
-    for (const path of collectDescendantFilePaths(node)) {
-      if (selected) selectedFilePaths.add(path)
-      else selectedFilePaths.delete(path)
+  function select(relPath: string, on: boolean): void {
+    if (!on) {
+      selected.delete(relPath)
+      return
     }
-  }
-
-  function selectFile(relPath: string, selected: boolean): void {
-    if (selected) selectedFilePaths.add(relPath)
-    else selectedFilePaths.delete(relPath)
-  }
-
-  function findByRelPath(relPath: string): TreeModelNode | null {
-    let found: TreeModelNode | null = null
-    const walk = (node: TreeModelNode): void => {
-      if (found) return
-      if (node.relPath === relPath) {
-        found = node
-        return
-      }
-      for (const child of node.children) walk(child)
-    }
-    walk(root)
-    return found
+    if (relPath === root.relPath || isCovered(relPath)) return
+    for (const rel of [...selected]) if (rel.startsWith(`${relPath}/`)) selected.delete(rel)
+    selected.add(relPath)
   }
 
   /** The selected paths in tree order, so a batch is applied top-down. */
   function selectedPaths(): string[] {
     const out: string[] = []
     const walk = (node: TreeModelNode): void => {
-      if (node.type === 'file') {
-        if (selectedFilePaths.has(node.relPath)) out.push(node.relPath)
-        return
-      }
-      for (const child of node.children) walk(child)
+      if (selected.has(node.relPath)) out.push(node.relPath)
+      node.children.forEach(walk)
     }
     walk(root)
     return out
   }
 
-  function toggleDir(id: string): void {
-    if (expandedIds.has(id)) expandedIds.delete(id)
-    else expandedIds.add(id)
+  function toggleDir(relPath: string): void {
+    if (expanded.has(relPath)) expanded.delete(relPath)
+    else expanded.add(relPath)
   }
 
   return {
     root,
-    expandedIds,
-    selectedFilePaths,
+    expanded,
+    selected,
     getVisibleNodes: () => visibleNodes.value,
-    isExpanded: (id) => expandedIds.has(id),
+    isExpanded: (relPath) => expanded.has(relPath),
     dirSelection,
+    isCovered,
     toggleDir,
-    selectDir,
-    selectFile,
+    select,
     selectedPaths,
-    findByRelPath,
+    findByRelPath: (relPath) => byRel.get(relPath) ?? null,
   }
 }

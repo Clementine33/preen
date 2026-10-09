@@ -68,8 +68,8 @@ func (s *Server) applyFileOperation(w http.ResponseWriter, r *http.Request) {
 		// unusable member, a malformed path, no items): the member never
 		// became a scope, so nothing ran and nothing was written.
 		var itemErr *fileops.PathError
-		if errors.As(err, &itemErr) && itemErr.Code == fileops.CodeOperationDenied {
-			writeError(w, http.StatusBadRequest, "OPERATION_DENIED", itemErr.Message)
+		if errors.As(err, &itemErr) {
+			writeError(w, http.StatusBadRequest, itemErr.Code, itemErr.Message)
 			return
 		}
 		writeError(w, http.StatusBadRequest, "REQUEST_REFUSED", err.Error())

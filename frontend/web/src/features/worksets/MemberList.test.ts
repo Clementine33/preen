@@ -1,8 +1,17 @@
-import { mount } from '@vue/test-utils'
-import { expect, it } from 'vitest'
+import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
+import { expect, it, vi } from 'vitest'
 import type { ComponentOutcome } from '@/lib/api/types'
 import { memberConclusion, readComponent } from './plan-readers'
 import MemberList from './MemberList.vue'
+
+/** jsdom has no layout: give the scroller a height so the virtualizer draws a window. */
+async function giveHeight(wrapper: VueWrapper): Promise<void> {
+  Object.defineProperties(wrapper.get('[data-testid="member-scroller"]').element, {
+    offsetHeight: { configurable: true, get: () => 600 },
+    offsetWidth: { configurable: true, get: () => 800 },
+  })
+  await flushPromises()
+}
 
 it('filters strictly by the displayed status, including folders with overlapping component facts', async () => {
   const plans: Record<string, ComponentOutcome[]> = {
@@ -26,6 +35,7 @@ it('filters strictly by the displayed status, including folders with overlapping
       conclusionFor: (member) => memberConclusion({ excluded: false, hasRoot: true, rootMissing: false, components: plans[member.member_id]! }),
     },
   })
+  await giveHeight(wrapper)
   const rows = () => wrapper.findAll('[data-testid="member-row"]')
   expect(rows()[0]?.text()).toContain('源竞争')
   expect(rows()[2]?.text()).toContain('部分未满足')
@@ -54,6 +64,7 @@ it('shows a long folder name in full and keeps its actions reachable', async () 
       conclusionFor: () => memberConclusion({ excluded: false, hasRoot: true, rootMissing: false, components: [] }),
     },
   })
+  await giveHeight(wrapper)
   const open = wrapper.get('[data-testid="member-open"]')
   expect(open.text()).toBe(name)
   expect(open.classes()).not.toContain('truncate')
@@ -65,5 +76,30 @@ it('shows a long folder name in full and keeps its actions reachable', async () 
   expect(wrapper.emitted('files')).toEqual([['m']])
   expect(wrapper.emitted('toggleAll')).toEqual([[['m']]])
   expect(wrapper.emitted('toggle')).toEqual([['m']])
+  wrapper.unmount()
+})
+
+it('draws only a window of a large member set', async () => {
+  // jsdom measures every element at 0px, which would put all rows in the window.
+  const heightOf = vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(76)
+  const members = Array.from({ length: 2000 }, (_, i) => ({
+    member_id: `m-${i}`, folder_name: `Folder ${i}`, folder_path: `/lib/${i}`, rel_path: `${i}`, dir_id: `m-${i}`,
+  }))
+  const wrapper = mount(MemberList, {
+    props: {
+      members,
+      draft: { schema_version: 1, no_effect_tags: [], matched: {}, unmatched: {}, members: [] },
+      selectedIds: new Set<string>(), hiddenSelectedCount: 0, filter: 'all', search: '',
+      conclusionFor: () => memberConclusion({ excluded: false, hasRoot: true, rootMissing: false, components: [] }),
+    },
+  })
+  await giveHeight(wrapper)
+  const drawn = wrapper.findAll('[data-testid="member-row"]').length
+  expect(drawn).toBeGreaterThan(0)
+  expect(drawn).toBeLessThan(30)
+  // Select-all still addresses every visible member, drawn or not.
+  await wrapper.get('input[aria-label="全选当前筛选结果"]').trigger('change')
+  expect((wrapper.emitted('toggleAll')![0]![0] as string[]).length).toBe(2000)
+  heightOf.mockRestore()
   wrapper.unmount()
 })

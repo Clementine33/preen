@@ -17,7 +17,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/onsei/organizer/backend/internal/adapters/coverhttp"
@@ -64,7 +63,6 @@ func Run(ctx context.Context, cfg Config) {
 	if err != nil {
 		log.Fatalf("open repository: %v", err)
 	}
-	defer repo.Close()
 
 	// Route std logger to stdout so host-side stdout drain also covers logs.
 	log.SetOutput(os.Stdout)
@@ -362,11 +360,9 @@ func runServer(ctx context.Context, repo *sqlite.Repository, cfg Config) {
 		log.Printf("rename startup repair failed: %v", err)
 	}
 	services.workset.DispatcherHandle().Start()
-	defer services.workset.DispatcherHandle().Stop()
 
-	// Idle-time maintenance shares the gate with everything that reads or writes
-	// the trees and the database, so a pass and a scan, planning session or
-	// execution never overlap. It runs for this process's lifetime only.
+	// Maintenance excludes scans, sessions and file management through their gate.
+	// Personal-data edits can still write concurrently. The loop ends with ctx.
 	maintenanceLoop := NewMaintenanceLoop(repo, services.gate.BeginMaintenance, Options{
 		ScanRetention:       scanRetention,
 		GenerationRetention: generationRetention,
@@ -389,58 +385,36 @@ func runServer(ctx context.Context, repo *sqlite.Repository, cfg Config) {
 		services.mediaFacts.Run(ctx)
 	}()
 
-	httpSrv := &http.Server{
-		Handler: httpapi.NewServer(httpapi.Dependencies{
+	handlers := newActiveHandlers(httpapi.NewServer(httpapi.Dependencies{
 
-			Library:        services.library,
-			Catalog:        services.catalog,
-			Token:          cfg.Token,
-			CORSOrigins:    ParseCORSOrigins(os.Getenv("ONSEI_CORS_ORIGINS")),
-			Version:        cfg.Version,
-			Inventory:      services.scan,
-			MediaFacts:     services.mediaFacts,
-			WorksChanged:   services.worksChanged,
-			LocalCovers:    repo,
-			WorksetService: services.workset,
-			FileOps:        services.fileOps,
-			Works:          services.works,
-			// A disposable cache (ADR 0015 §4): one computation per CPU, a
-			// bounded queue behind them, about 512 MiB on disk.
-			Thumbs: thumbnail.New(
-				media.ThumbEngine{}, filepath.Join(cfg.DataDir, "thumbs"), 512<<20,
-				runtime.NumCPU(), 4*runtime.NumCPU(),
-			),
-			Covers: services.covers,
-		}),
-	}
+		Library:        services.library,
+		Catalog:        services.catalog,
+		Token:          cfg.Token,
+		CORSOrigins:    ParseCORSOrigins(os.Getenv("ONSEI_CORS_ORIGINS")),
+		Version:        cfg.Version,
+		Inventory:      services.scan,
+		MediaFacts:     services.mediaFacts,
+		WorksChanged:   services.worksChanged,
+		LocalCovers:    repo,
+		WorksetService: services.workset,
+		FileOps:        services.fileOps,
+		Works:          services.works,
+		// A disposable cache (ADR 0015 §4): one computation per CPU, a
+		// bounded queue behind them, about 512 MiB on disk.
+		Thumbs: thumbnail.New(
+			media.ThumbEngine{}, filepath.Join(cfg.DataDir, "thumbs"), 512<<20,
+			runtime.NumCPU(), 4*runtime.NumCPU(),
+		),
+		Covers: services.covers,
+	}))
+	requestCtx, cancelRequests := context.WithCancel(context.Background())
+	defer cancelRequests()
+	httpSrv := &http.Server{Handler: handlers, BaseContext: func(net.Listener) context.Context { return requestCtx }}
+	httpSrv.RegisterOnShutdown(cancelRequests)
 	go func() {
 		if err := httpSrv.Serve(httpListener); err != nil && err != http.ErrServerClosed && ctx.Err() == nil {
 			log.Fatalf("http serve: %v", err)
 		}
-	}()
-
-	var gracefulStopOnce sync.Once
-	gracefulStop := func() {
-		gracefulStopOnce.Do(func() {
-			log.Printf("shutdown requested: draining the HTTP server")
-
-			forcedExit := time.AfterFunc(5*time.Second, func() {
-				log.Printf("forced shutdown timeout reached")
-				os.Exit(1)
-			})
-			defer forcedExit.Stop()
-
-			// Drained with a deadline; the outer forced-exit guard remains as
-			// the final process-level fallback.
-			shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 4*time.Second)
-			defer shutdownCancel()
-			DrainHTTPServer(shutdownCtx, httpSrv.Shutdown, httpSrv.Close)
-		})
-	}
-
-	go func() {
-		<-ctx.Done()
-		gracefulStop()
 	}()
 
 	// Print the ready handshake BEFORE blocking — the dev and e2e launchers
@@ -451,12 +425,9 @@ func runServer(ctx context.Context, repo *sqlite.Repository, cfg Config) {
 	// Block until killed
 	log.Printf("onsei-backend listening on http 127.0.0.1:%d (data=%s)", httpPort, cfg.DataDir)
 	<-ctx.Done()
-	gracefulStop()
-	// The passes may be mid-statement; let them return before the repository
-	// they read from is closed by main.
-	<-maintenanceDone
-	<-mediaFactsDone
-	<-coversDone
+	shutdownBackend(httpSrv, handlers, services.workset.DispatcherHandle(), map[string]<-chan struct{}{
+		"maintenance": maintenanceDone, "media facts": mediaFactsDone, "covers": coversDone,
+	}, repo.Close, os.Exit)
 }
 
 // interruptStaleSessions marks leftover queued/running sessions of a previous
@@ -492,17 +463,19 @@ func DrainHTTPServer(
 	httpShutdown func(context.Context) error,
 	httpClose func() error,
 ) {
-	var wg sync.WaitGroup
-	wg.Go(func() {
-		if err := httpShutdown(ctx); err != nil {
+	done := make(chan error, 1)
+	go func() { done <- httpShutdown(ctx) }()
+	select {
+	case err := <-done:
+		if err != nil {
 			log.Printf("http shutdown: %v", err)
 		}
-	})
-	go func() {
-		<-ctx.Done()
+		if ctx.Err() != nil {
+			_ = httpClose()
+		}
+	case <-ctx.Done():
 		_ = httpClose()
-	}()
-	wg.Wait()
+	}
 }
 
 func StartPprofServer(addr string, serveFn func(string, http.Handler) error) {

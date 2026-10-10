@@ -28,6 +28,7 @@ type Store interface {
 	ClearExpiredWorksetIdemKey(id string, cutoff time.Time) error
 	// CompleteGenerationCanceled is one operation of the lifecycle.
 	CompleteGenerationCanceled(generationID string) error
+	MarkGenerationInterrupted(generationID string) error
 	// CreateExecutionGuarded is one operation of the lifecycle.
 	CreateExecutionGuarded(e *PlanExecution, g ExecutionGuards) error
 	// CreateGeneration is one operation of the lifecycle.

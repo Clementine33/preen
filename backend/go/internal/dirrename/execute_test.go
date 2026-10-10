@@ -32,7 +32,7 @@ func plannedUnit(
 		t.Fatal(err)
 	}
 	d := detail(plan)
-	frozen, reasons, err := task.FreezeExecution(workset.RevisionFacts{Detail: d})
+	frozen, reasons, err := task.FreezeExecution(context.Background(), workset.RevisionFacts{Detail: d})
 	if err != nil || len(reasons) > 0 {
 		t.Fatalf("freeze: %v %v", reasons, err)
 	}
@@ -172,7 +172,7 @@ func TestRenameEmptyScopeAndNoopIgnorePendingCovers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	frozen, reasons, err := task.FreezeExecution(workset.RevisionFacts{Detail: detail(plan)})
+	frozen, reasons, err := task.FreezeExecution(context.Background(), workset.RevisionFacts{Detail: detail(plan)})
 	if err != nil || len(reasons) > 0 || frozen.TotalOperations != 0 || calls != 0 {
 		t.Fatalf("noop: %+v %v %v", frozen, reasons, err)
 	}
@@ -215,7 +215,10 @@ func TestRenameSelectedInputsIgnoreMissingUnselectedRootAndKeepGlobalBlocks(t *t
 	component.OutcomeJSON = string(raw)
 	d.Roots = append(d.Roots, other)
 	d.Components = append(d.Components, component)
-	health, err := task.EvaluateRevision(workset.RevisionFacts{Detail: d, InputRoots: []string{m.FolderPath}})
+	health, err := task.EvaluateRevision(
+		context.Background(),
+		workset.RevisionFacts{Detail: d, InputRoots: []string{m.FolderPath}},
+	)
 	if err != nil || health.InputMoved {
 		t.Fatalf("selected freshness: %+v %v", health, err)
 	}
@@ -225,12 +228,15 @@ func TestRenameSelectedInputsIgnoreMissingUnselectedRootAndKeepGlobalBlocks(t *t
 	); err != nil {
 		t.Fatal("worker read unselected root", err)
 	}
-	health, err = task.EvaluateRevision(workset.RevisionFacts{Detail: d})
+	health, err = task.EvaluateRevision(context.Background(), workset.RevisionFacts{Detail: d})
 	if err != nil || !health.InputMoved {
 		t.Fatalf("whole plan missed missing input: %+v %v", health, err)
 	}
 	d.Components[1].Status = "blocked"
-	health, err = task.EvaluateRevision(workset.RevisionFacts{Detail: d, InputRoots: []string{m.FolderPath}})
+	health, err = task.EvaluateRevision(
+		context.Background(),
+		workset.RevisionFacts{Detail: d, InputRoots: []string{m.FolderPath}},
+	)
 	if err != nil || health.UnitsBlocked {
 		t.Fatalf("a blocked folder is skipped, not a reason to refuse the run: %+v %v", health, err)
 	}

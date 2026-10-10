@@ -218,14 +218,6 @@ func NewPipeline(repo StagingStore, walkRoot WalkRoot, walkMember WalkMember, me
 	}
 }
 
-// ScanRoot performs a full scan of the given root path using
-// bounded work scanning + inline metadata + staging pipeline.
-//
-// Invariant: Root = bounded work scanning + inline metadata + pipeline.
-func (s *Pipeline) ScanRoot(rootPath string) (string, error) {
-	return s.ScanRootCtx(context.Background(), rootPath)
-}
-
 // ScanRootCtx performs a full scan of the given root path using
 // bounded work scanning + inline metadata + staging pipeline.
 // It is context-aware: on ctx cancellation the merge is skipped, the scan
@@ -430,14 +422,6 @@ func (s *Pipeline) ScanRootCtx(ctx context.Context, rootPath string, opts ...Sca
 	}
 
 	return sessionID, nil
-}
-
-// ScanFolder performs a scoped scan of a single folder using
-// single-enumerator directory discovery + inline metadata + staging pipeline.
-//
-// Invariant: Folder = single-enumerator directory discovery + inline metadata + pipeline.
-func (s *Pipeline) ScanFolder(folderPath, rootPath string) (string, error) {
-	return s.ScanFolderCtx(context.Background(), folderPath, rootPath)
 }
 
 // ScanFolderCtx performs a scoped scan of a single folder using

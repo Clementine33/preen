@@ -34,7 +34,7 @@ func TestRenameReadsEachSelectedParentOnce(t *testing.T) {
 		t.Fatalf("parent reads: %v %v", reads, err)
 	}
 	reads = nil
-	health, err := task.EvaluateRevision(workset.RevisionFacts{Detail: detail(plan)})
+	health, err := task.EvaluateRevision(context.Background(), workset.RevisionFacts{Detail: detail(plan)})
 	if err != nil || health.InputMoved || len(reads) != 1 || reads[0] != root {
 		t.Fatalf("freshness reads: %+v %v %v", health, reads, err)
 	}

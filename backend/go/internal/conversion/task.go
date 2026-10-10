@@ -289,7 +289,7 @@ func planSnapshotOf(snap *Snapshot, effective []MemberEffective) *workset.PlanSn
 // EvaluateRevision reports whether the live input facts still match the frozen
 // ones and whether any stored unit is blocked.
 func (t *Task) EvaluateRevision(
-	in workset.RevisionFacts,
+	ctx context.Context, in workset.RevisionFacts,
 ) (workset.RevisionHealth, error) {
 	if in.Detail == nil {
 		return workset.RevisionHealth{}, workset.NewError(
@@ -297,6 +297,9 @@ func (t *Task) EvaluateRevision(
 		)
 	}
 	out := workset.RevisionHealth{}
+	if err := ctx.Err(); err != nil {
+		return out, err
+	}
 	for _, c := range in.Detail.Components {
 		if c.Status == "blocked" {
 			out.UnitsBlocked = true
@@ -306,6 +309,9 @@ func (t *Task) EvaluateRevision(
 	for _, r := range in.Detail.Roots {
 		if in.InputRoots != nil && !slices.Contains(in.InputRoots, r.RootPath) {
 			continue
+		}
+		if err := ctx.Err(); err != nil {
+			return out, err
 		}
 		stale := rootIsStale(t.inventory, r)
 		if stale {
@@ -326,7 +332,7 @@ func (t *Task) EvaluateRevision(
 // options — the obsolete-audio handling the draft declared — are frozen here
 // too, so a run always uses what the plan was made with.
 func (*Task) FreezeExecution(
-	in workset.RevisionFacts,
+	ctx context.Context, in workset.RevisionFacts,
 ) (workset.FrozenExecution, []string, error) {
 	frozen := workset.FrozenExecution{}
 	if in.Detail == nil {

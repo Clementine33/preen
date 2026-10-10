@@ -19,10 +19,7 @@ func insertEntryAtRoot(t *testing.T, repo *Repository, path, parentPath, name st
 	if isDir {
 		isDirInt = 1
 	}
-	root := path
-	if idx := strings.LastIndex(path, "/"); idx >= 0 {
-		root = path[:idx]
-	}
+	root, _, _ := strings.CutLast(path, "/")
 	_, err := repo.DB().Exec(`
 		INSERT INTO entries (path, root_path, parent_path, name, is_dir, size, mtime, scan_id, content_rev)
 		VALUES (?, ?, ?, ?, ?, 0, 0, 'scan-1', 1)

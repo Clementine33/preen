@@ -1,7 +1,7 @@
 # Onsei Backend HTTP / SSE API
 
 The backend runs a single net/http listener (the Vue web client) over
-loopback. It binds `127.0.0.1` only and owns the one SQLite writer, the scan
+loopback. It binds `127.0.0.1` only and owns the SQLite repository, the scan
 service and the workset service.
 
 HTTP endpoints live under `/api/v1`. Machine-checked contract coverage lives

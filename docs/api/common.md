@@ -79,8 +79,20 @@ resolved path is still inside the member it was resolved against.
 
 ## Shutdown
 
-On `SIGINT`/`SIGTERM` (or stdin EOF), the backend drains the HTTP server
-(in-flight SSE scans included) under a single 5-second forced-exit guard.
+On `SIGINT`/`SIGTERM` (or stdin EOF), the backend seals request and worker
+admission and cancels active work. Requests arriving after the seal receive
+503 / `SHUTTING_DOWN`. HTTP request contexts are canceled, including SSE scans;
+connections have four seconds to drain, and closing them does not count as
+handler completion. Planning and execution sessions stopped by shutdown become
+`interrupted`; an explicit user cancel remains `canceled`.
+
+The backend joins admitted handlers, dispatcher workers, maintenance, media
+facts and cover workers before closing SQLite. File publication and its database
+finalization finish through their protected boundaries. One five-second
+forced-exit guard covers all joins and database Close. At its deadline the
+process logs outstanding work and exits with code 1 without closing a database
+still used by workers. Startup marks leftover sessions interrupted; a forced
+exit can still leave unfinished filesystem changes requiring inspection.
 
 ## Health endpoint
 

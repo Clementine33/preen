@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/onsei/organizer/backend/internal/adapters/filesystem"
 	"github.com/onsei/organizer/backend/internal/inventory"
@@ -87,12 +88,17 @@ func TestScanRootCtxCancellationCleansStagingAndSkipsTheMerge(t *testing.T) {
 	defer cancel()
 
 	cancelOnce := false
+	var canceledAt time.Time
 	_, err := svc.ScanRootCtx(ctx, tmp, inventory.WithProgress(func(inventory.Progress) {
 		if !cancelOnce {
 			cancelOnce = true
+			canceledAt = time.Now()
 			cancel()
 		}
 	}))
+	if canceledAt.IsZero() || time.Since(canceledAt) >= 4*time.Second {
+		t.Fatal("scan did not exit within four seconds of cancellation")
+	}
 	if err == nil {
 		t.Fatal("expected error when context is canceled")
 	}

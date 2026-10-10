@@ -73,8 +73,11 @@ func validateRevision(in workset.RevisionFacts) error {
 	}
 	return nil
 }
-func (t *Task) EvaluateRevision(in workset.RevisionFacts) (workset.RevisionHealth, error) {
+func (t *Task) EvaluateRevision(ctx context.Context, in workset.RevisionFacts) (workset.RevisionHealth, error) {
 	health := workset.RevisionHealth{StaleRoots: []int{}}
+	if err := ctx.Err(); err != nil {
+		return health, err
+	}
 	if err := validateRevision(in); err != nil {
 		return health, err
 	}
@@ -91,7 +94,6 @@ func (t *Task) EvaluateRevision(in workset.RevisionFacts) (workset.RevisionHealt
 			paths = append(paths, r.RootPath)
 		}
 	}
-	ctx := context.Background()
 	works, err := t.catalog.RenameWorks(ctx, in.Detail.Plan.RootPath, paths)
 	if err != nil {
 		return health, err

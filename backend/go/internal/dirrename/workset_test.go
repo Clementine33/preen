@@ -48,7 +48,11 @@ func TestWorksetAcceptsNoAudioRenameAndExecutesFrozenProposal(t *testing.T) {
 		t.Fatal(err)
 	}
 	svc.DispatcherHandle().Start()
-	t.Cleanup(svc.DispatcherHandle().Stop)
+	t.Cleanup(func() {
+		if stopErr := svc.DispatcherHandle().Stop(context.Background()); stopErr != nil {
+			t.Error(stopErr)
+		}
+	})
 	var finished *workset.GenerationView
 	deadline := time.Now().Add(10 * time.Second)
 	for time.Now().Before(deadline) {
@@ -179,7 +183,11 @@ func TestMissingSourceIsReportedOnceInReview(t *testing.T) {
 		t.Fatal(err)
 	}
 	svc.DispatcherHandle().Start()
-	t.Cleanup(svc.DispatcherHandle().Stop)
+	t.Cleanup(func() {
+		if stopErr := svc.DispatcherHandle().Stop(context.Background()); stopErr != nil {
+			t.Error(stopErr)
+		}
+	})
 	var finished *workset.GenerationView
 	deadline := time.Now().Add(10 * time.Second)
 	for time.Now().Before(deadline) {

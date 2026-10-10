@@ -28,7 +28,7 @@ func TestDirectoryRulesMatchAdmissionAndWorkerScope(t *testing.T) {
 		Roots: []workset.PlanRootRecord{{RootIndex: 0, RootPath: selected}, {RootIndex: 1, RootPath: other}},
 	}}
 	facts.InputRoots = []string{selected}
-	health, err := task.EvaluateRevision(facts)
+	health, err := task.EvaluateRevision(context.Background(), facts)
 	if err != nil || health.InputMoved {
 		t.Fatalf("selected admission: %+v %v", health, err)
 	}
@@ -49,12 +49,12 @@ func TestDirectoryRulesMatchAdmissionAndWorkerScope(t *testing.T) {
 	if err = os.WriteFile(filepath.Join(selected, "unreadable.wav"), []byte("changed media"), 0000); err != nil {
 		t.Fatal(err)
 	}
-	health, err = task.EvaluateRevision(facts)
+	health, err = task.EvaluateRevision(context.Background(), facts)
 	if err != nil || health.InputMoved {
 		t.Fatalf("replacement: %+v %v", health, err)
 	}
 	facts.InputRoots = nil
-	health, err = task.EvaluateRevision(facts)
+	health, err = task.EvaluateRevision(context.Background(), facts)
 	if err != nil || !health.InputMoved || len(health.StaleRoots) != 1 || health.StaleRoots[0] != 1 {
 		t.Fatalf("full admission: %+v %v", health, err)
 	}
@@ -72,7 +72,7 @@ func TestDirectoryRulesMatchAdmissionAndWorkerScope(t *testing.T) {
 		t.Fatal(err)
 	}
 	facts.InputRoots = []string{selected}
-	health, err = task.EvaluateRevision(facts)
+	health, err = task.EvaluateRevision(context.Background(), facts)
 	if err != nil || !health.InputMoved {
 		t.Fatalf("non-directory: %+v %v", health, err)
 	}

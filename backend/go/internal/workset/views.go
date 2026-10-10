@@ -25,13 +25,18 @@ func (s *serviceImpl) ListWorksets(ctx context.Context, q ListQuery) ([]*Workset
 	if limit > MaxPageLimit {
 		limit = MaxPageLimit
 	}
-	views, next, err := s.listPage(q, limit, q.Cursor)
+	views, next, err := s.listPage(ctx, q, limit, q.Cursor)
 	return views, next, err
 }
 
 // listPage fetches one keyset batch (limit = pageSize, starting at cursor)
 // and converts rows to views. An empty cursor starts at the list head.
-func (s *serviceImpl) listPage(q ListQuery, pageSize int, cursor string) ([]*WorksetView, string, error) {
+func (s *serviceImpl) listPage(
+	ctx context.Context,
+	q ListQuery,
+	pageSize int,
+	cursor string,
+) ([]*WorksetView, string, error) {
 	limit := pageSize
 	if limit <= 0 {
 		limit = DefaultPageLimit
@@ -52,7 +57,7 @@ func (s *serviceImpl) listPage(q ListQuery, pageSize int, cursor string) ([]*Wor
 	}
 	views := make([]*WorksetView, 0, len(rows))
 	for _, w := range rows {
-		v, err := s.view(w)
+		v, err := s.view(ctx, w)
 		if err != nil {
 			return nil, "", err
 		}
@@ -70,12 +75,12 @@ func (s *serviceImpl) GetWorkset(ctx context.Context, id string) (*WorksetView, 
 	if err != nil {
 		return nil, err
 	}
-	return s.view(w)
+	return s.view(ctx, w)
 }
 
 // view assembles the workset metadata view: identity, library, fixed members
 // and one entry per established operation.
-func (s *serviceImpl) view(w *Workset) (*WorksetView, error) {
+func (s *serviceImpl) view(ctx context.Context, w *Workset) (*WorksetView, error) {
 	out := &WorksetView{
 		WorksetID: w.ID,
 		Title:     w.Title,
@@ -106,7 +111,7 @@ func (s *serviceImpl) view(w *Workset) (*WorksetView, error) {
 		return nil, NewError(ErrKindInternal, "INTERNAL", "failed to load operations", err)
 	}
 	for _, op := range ops {
-		view, opErr := s.operationView(op)
+		view, opErr := s.operationView(ctx, op)
 		if opErr != nil {
 			return nil, opErr
 		}
@@ -119,11 +124,11 @@ func parseCursor(cursor string) (updatedAt, id string) {
 	if cursor == "" {
 		return "", ""
 	}
-	idx := strings.LastIndex(cursor, "_")
-	if idx < 0 {
+	updatedAt, id, found := strings.CutLast(cursor, "_")
+	if !found {
 		return "", ""
 	}
-	return cursor[:idx], cursor[idx+1:]
+	return updatedAt, id
 }
 
 func cursorEncode(updatedAt time.Time, id string) string {

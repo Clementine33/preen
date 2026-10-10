@@ -428,7 +428,11 @@ func (f *execFixture) mustStart(planID, key string) *workset.ExecutionView {
 func (f *execFixture) runDispatcher() {
 	f.t.Helper()
 	f.svc.DispatcherHandle().Start()
-	f.t.Cleanup(f.svc.DispatcherHandle().Stop)
+	f.t.Cleanup(func() {
+		if err := f.svc.DispatcherHandle().Stop(context.Background()); err != nil {
+			f.t.Error(err)
+		}
+	})
 }
 
 // waitTerminal polls the session until it reaches a terminal status.

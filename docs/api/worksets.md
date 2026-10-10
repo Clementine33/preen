@@ -89,4 +89,10 @@ All routes require auth and use the [standard error envelope](common.md#error-en
 
 Task payloads: [Audio conversion](conversion.md), [rename and metadata refresh](tasks.md). Frozen conversion revisions are described in [Frozen revisions](conversion.md#frozen-revisions).
 
+Shutdown interrupts active planning sessions with status `interrupted`, without
+setting a user cancellation flag or the `CANCELED` error code. Interrupted
+planning releases its idempotency key so a later request can generate again.
+A session claimed after worker admission closes is left for startup interruption.
+Already committed revisions and independently failed sessions retain their outcome.
+
 Member `rel_path` and creation `folder_paths` may contain nested library-relative paths, for example `分类/RJ000001 album`. Classification directories and internal directories of a work are not members. Audio count never filters the shared batch; conversion plans the observed audio within each participating member.

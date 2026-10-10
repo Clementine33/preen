@@ -89,7 +89,7 @@ func TestPlanSuggestsCleanNamesWithoutModifyingDirectories(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(filepath.Dir(member.FolderPath), outcome.TargetName)); !os.IsNotExist(err) {
 		t.Fatal("planning created the target")
 	}
-	_, reasons, freezeErr := task.FreezeExecution(workset.RevisionFacts{})
+	_, reasons, freezeErr := task.FreezeExecution(context.Background(), workset.RevisionFacts{})
 	if freezeErr == nil || len(reasons) != 0 {
 		t.Fatalf("execution: %v, %v", reasons, freezeErr)
 	}
@@ -209,14 +209,14 @@ func TestRevisionOnlyTracksUsedMetadataAndRelevantDirectories(t *testing.T) {
 	if mkdirErr := os.Mkdir(filepath.Join(snapshot.RootPath, "unrelated"), 0o755); mkdirErr != nil {
 		t.Fatal(mkdirErr)
 	}
-	health, err := task.EvaluateRevision(facts)
+	health, err := task.EvaluateRevision(context.Background(), facts)
 	if err != nil || health.InputMoved {
 		t.Fatalf("unused facts staled revision: %+v, %v", health, err)
 	}
 	if writeErr := os.WriteFile(filepath.Join(snapshot.RootPath, "[RJ00000001] title"), nil, 0o600); writeErr != nil {
 		t.Fatal(writeErr)
 	}
-	health, err = task.EvaluateRevision(facts)
+	health, err = task.EvaluateRevision(context.Background(), facts)
 	if err != nil || !health.InputMoved {
 		t.Fatalf("occupied target did not stale revision: %+v, %v", health, err)
 	}
@@ -232,7 +232,7 @@ func TestRevisionOnlyTracksUsedMetadataAndRelevantDirectories(t *testing.T) {
 	); importErr != nil {
 		t.Fatal(importErr)
 	}
-	health, err = task.EvaluateRevision(facts)
+	health, err = task.EvaluateRevision(context.Background(), facts)
 	if err != nil || !health.InputMoved {
 		t.Fatalf("used metadata change: %+v %v", health, err)
 	}
@@ -327,7 +327,7 @@ func TestTwoCopiesCannotPlanTheSameTarget(t *testing.T) {
 			t.Fatalf("duplicate target accepted: %+v", unit)
 		}
 	}
-	health, err := task.EvaluateRevision(workset.RevisionFacts{Detail: detail(snapshot)})
+	health, err := task.EvaluateRevision(context.Background(), workset.RevisionFacts{Detail: detail(snapshot)})
 	if err != nil || health.InputMoved || health.UnitsBlocked {
 		t.Fatalf("frozen batch collision: %+v %v", health, err)
 	}
@@ -390,7 +390,7 @@ func TestNestedCopiesUseTheirOwnParentForConflictsAndFreshness(t *testing.T) {
 	if err = os.Mkdir(filepath.Join(root, "two", outcome.TargetName), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	health, err := task.EvaluateRevision(workset.RevisionFacts{Detail: detail(snapshot)})
+	health, err := task.EvaluateRevision(context.Background(), workset.RevisionFacts{Detail: detail(snapshot)})
 	if err != nil || !health.InputMoved || len(health.StaleRoots) != 1 || health.StaleRoots[0] != 1 {
 		t.Fatalf("parent freshness = %+v, %v", health, err)
 	}
@@ -465,7 +465,7 @@ func TestExcludedMissingMemberIsOmittedAndSourceLossStalesPlan(t *testing.T) {
 	if removeErr := os.Remove(member.FolderPath); removeErr != nil {
 		t.Fatal(removeErr)
 	}
-	health, err := task.EvaluateRevision(workset.RevisionFacts{Detail: detail(snapshot)})
+	health, err := task.EvaluateRevision(context.Background(), workset.RevisionFacts{Detail: detail(snapshot)})
 	if err != nil || !health.InputMoved {
 		t.Fatalf("missing source: %+v, %v", health, err)
 	}

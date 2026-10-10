@@ -1,6 +1,7 @@
 package inventory_test
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -140,7 +141,7 @@ func TestScannerService_ScanRoot_CreatesSessionAndMerges(t *testing.T) {
 
 	svc := inventory.NewPipeline(mock, filesystem.WalkRootEntriesParallel, filesystem.WalkFolderEntries, nil)
 
-	sessionID, err := svc.ScanRoot(tmp)
+	sessionID, err := svc.ScanRootCtx(context.Background(), tmp)
 	if err != nil {
 		t.Fatalf("ScanRoot failed: %v", err)
 	}
@@ -192,7 +193,7 @@ func TestScannerService_ScanRoot_WithoutRepo(t *testing.T) {
 
 	svc := inventory.NewPipeline(nil, filesystem.WalkRootEntriesParallel, filesystem.WalkFolderEntries, nil)
 
-	sessionID, err := svc.ScanRoot(tmp)
+	sessionID, err := svc.ScanRootCtx(context.Background(), tmp)
 	if err != nil {
 		t.Fatalf("ScanRoot without repo failed: %v", err)
 	}
@@ -248,7 +249,7 @@ func TestScanRootStagingWriteFailureIsNotReportedAsCancellation(t *testing.T) {
 	mock := &failingBatchRepo{fakeStagingStore: &fakeStagingStore{}, batchErr: injected}
 	svc := inventory.NewPipeline(mock, filesystem.WalkRootEntriesParallel, filesystem.WalkFolderEntries, nil)
 
-	_, err := svc.ScanRoot(tmp)
+	_, err := svc.ScanRootCtx(context.Background(), tmp)
 	if err == nil {
 		t.Fatal("expected ScanRoot to fail")
 	}
@@ -289,7 +290,7 @@ func TestScanFolderStagingWriteFailureIsNotReportedAsCancellation(t *testing.T) 
 	mock := &failingBatchRepo{fakeStagingStore: &fakeStagingStore{}, batchErr: injected}
 	svc := inventory.NewPipeline(mock, filesystem.WalkRootEntriesParallel, filesystem.WalkFolderEntries, nil)
 
-	_, err := svc.ScanFolder(album, tmp)
+	_, err := svc.ScanFolderCtx(context.Background(), album, tmp)
 	if err == nil {
 		t.Fatal("expected ScanFolder to fail")
 	}
@@ -314,7 +315,7 @@ func TestScannerService_ScanRoot_UpdatesSessionOnFailure(t *testing.T) {
 
 	svc := inventory.NewPipeline(mock, filesystem.WalkRootEntriesParallel, filesystem.WalkFolderEntries, nil)
 
-	_, err := svc.ScanRoot(tmp)
+	_, err := svc.ScanRootCtx(context.Background(), tmp)
 	if err == nil {
 		t.Error("expected error when CreateScanSession fails")
 	}
@@ -332,7 +333,7 @@ func TestScannerService_ScanFolder_ScopedToSingleFolder(t *testing.T) {
 
 	svc := inventory.NewPipeline(mock, filesystem.WalkRootEntriesParallel, filesystem.WalkFolderEntries, nil)
 
-	sessionID, err := svc.ScanFolder(album, tmp)
+	sessionID, err := svc.ScanFolderCtx(context.Background(), album, tmp)
 	if err != nil {
 		t.Fatalf("ScanFolder failed: %v", err)
 	}
@@ -373,7 +374,7 @@ func TestScannerService_ScanFolder_DoesNotPassScannedPathsForStaleCleanup(t *tes
 
 	svc := inventory.NewPipeline(mock, filesystem.WalkRootEntriesParallel, filesystem.WalkFolderEntries, nil)
 
-	_, err := svc.ScanFolder(album, tmp)
+	_, err := svc.ScanFolderCtx(context.Background(), album, tmp)
 	if err != nil {
 		t.Fatalf("ScanFolder failed: %v", err)
 	}
@@ -398,7 +399,7 @@ func TestScanRoot_UsesRootPath(t *testing.T) {
 	mock := &fakeStagingStore{MergeOutcome: inventory.MergeOutcome{Merged: 1}}
 	svc := inventory.NewPipeline(mock, filesystem.WalkRootEntriesParallel, filesystem.WalkFolderEntries, nil)
 
-	_, err := svc.ScanRoot(tmp)
+	_, err := svc.ScanRootCtx(context.Background(), tmp)
 	if err != nil {
 		t.Fatalf("ScanRoot failed: %v", err)
 	}
@@ -432,7 +433,7 @@ func TestScanFolder_UsesFolderPath(t *testing.T) {
 	mock := &fakeStagingStore{MergeOutcome: inventory.MergeOutcome{Merged: 1}}
 	svc := inventory.NewPipeline(mock, filesystem.WalkRootEntriesParallel, filesystem.WalkFolderEntries, nil)
 
-	_, err := svc.ScanFolder(album, tmp)
+	_, err := svc.ScanFolderCtx(context.Background(), album, tmp)
 	if err != nil {
 		t.Fatalf("ScanFolder failed: %v", err)
 	}
@@ -468,7 +469,7 @@ func TestPipeline_WalkAndWriterConcurrent(t *testing.T) {
 	mock := &fakeStagingStore{MergeOutcome: inventory.MergeOutcome{Merged: 2}}
 	svc := inventory.NewPipeline(mock, filesystem.WalkRootEntriesParallel, filesystem.WalkFolderEntries, nil)
 
-	_, err := svc.ScanRoot(tmp)
+	_, err := svc.ScanRootCtx(context.Background(), tmp)
 	if err != nil {
 		t.Fatalf("ScanRoot failed: %v", err)
 	}
@@ -501,7 +502,7 @@ func TestPipeline_FailureNoMerge(t *testing.T) {
 
 	svc := inventory.NewPipeline(repo, filesystem.WalkRootEntriesParallel, filesystem.WalkFolderEntries, nil)
 
-	_, err := svc.ScanRoot(tmp)
+	_, err := svc.ScanRootCtx(context.Background(), tmp)
 	if err == nil {
 		t.Fatal("expected error from ScanRoot")
 	}
@@ -535,7 +536,7 @@ func TestPipeline_CleanupOnFailure(t *testing.T) {
 	}
 
 	svc := inventory.NewPipeline(repo, filesystem.WalkRootEntriesParallel, filesystem.WalkFolderEntries, nil)
-	_, err := svc.ScanRoot(tmp)
+	_, err := svc.ScanRootCtx(context.Background(), tmp)
 	if err == nil {
 		t.Fatal("expected error from ScanRoot")
 	}
@@ -557,7 +558,7 @@ func TestScanFolder_SingleEnumerator(t *testing.T) {
 	mock := &fakeStagingStore{MergeOutcome: inventory.MergeOutcome{Merged: 1}}
 	svc := inventory.NewPipeline(mock, filesystem.WalkRootEntriesParallel, filesystem.WalkFolderEntries, nil)
 
-	sessionID, err := svc.ScanFolder(album, tmp)
+	sessionID, err := svc.ScanFolderCtx(context.Background(), album, tmp)
 	if err != nil {
 		t.Fatalf("ScanFolder failed: %v", err)
 	}
@@ -597,7 +598,7 @@ func TestScanFolder_InlineMetadataAndPipeline(t *testing.T) {
 	mock := &fakeStagingStore{MergeOutcome: inventory.MergeOutcome{Merged: 2}}
 	svc := inventory.NewPipeline(mock, filesystem.WalkRootEntriesParallel, filesystem.WalkFolderEntries, nil)
 
-	_, err := svc.ScanFolder(album, tmp)
+	_, err := svc.ScanFolderCtx(context.Background(), album, tmp)
 	if err != nil {
 		t.Fatalf("ScanFolder failed: %v", err)
 	}

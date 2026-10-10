@@ -78,11 +78,11 @@ func (s *serviceImpl) GetOperation(ctx context.Context, worksetID, operationType
 	if err != nil {
 		return nil, err
 	}
-	return s.operationView(op)
+	return s.operationView(ctx, op)
 }
 
 // operationView builds the operation view from an already-loaded row.
-func (s *serviceImpl) operationView(op *Operation) (*OperationView, error) {
+func (s *serviceImpl) operationView(ctx context.Context, op *Operation) (*OperationView, error) {
 	out := &OperationView{
 		WorksetID:     op.WorksetID,
 		OperationType: op.OperationType,
@@ -98,7 +98,7 @@ func (s *serviceImpl) operationView(op *Operation) (*OperationView, error) {
 	}
 	out.PlanningState = s.planningState(w, op, active)
 	if op.CurrentRevisionID != "" {
-		summary, _, revErr := s.loadCurrentRevision(op)
+		summary, _, revErr := s.loadCurrentRevision(ctx, op)
 		if revErr != nil {
 			return nil, revErr
 		}

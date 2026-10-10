@@ -242,11 +242,11 @@ func (r *Repository) MarkGenerationFailed(generationID, code, message string) er
 	return err
 }
 
-// MarkGenerationInterrupted records the startup interruption of stale
-// queued/running sessions, releasing their idempotency keys for retry.
+// MarkGenerationInterrupted records a running session interrupted by shutdown,
+// releasing its idempotency key for retry.
 func (r *Repository) MarkGenerationInterrupted(generationID string) error {
 	_, err := r.db.Exec(`
-		UPDATE plan_generations SET status = 'interrupted', error_code = 'CANCELED', finished_at = ?, updated_at = ?
+		UPDATE plan_generations SET status = 'interrupted', error_code = '', finished_at = ?, updated_at = ?
 		WHERE generation_id = ? AND status = 'running'
 	`, time.Now().Format(timeFormat), time.Now().Format(timeFormat), generationID)
 	return err

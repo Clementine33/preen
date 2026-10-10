@@ -39,7 +39,7 @@ func TestMetadataWorkersAutomaticallyRefreshOnlyExecutedScope(t *testing.T) {
 		t.Fatal(err)
 	}
 	svc.DispatcherHandle().Start()
-	defer svc.DispatcherHandle().Stop()
+	defer stopDispatcher(t, svc)
 	plan := waitGeneration(t, svc, id, gen.Generation.GenerationID)
 	op, err := svc.GetOperation(t.Context(), id, refresh.Kind)
 	if err != nil {

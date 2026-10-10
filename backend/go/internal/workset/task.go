@@ -80,13 +80,13 @@ type Task interface {
 	// EvaluateRevision reports the business health of one frozen revision:
 	// whether its live input facts still match the frozen ones, and whether
 	// any stored unit is marked as unable to run.
-	EvaluateRevision(in RevisionFacts) (RevisionHealth, error)
+	EvaluateRevision(ctx context.Context, in RevisionFacts) (RevisionHealth, error)
 
 	// FreezeExecution validates that a revision can run and freezes its
 	// ordered execution units plus the task's opaque execution options.
 	// Business block reasons are returned as fail-forward values alongside a
 	// nil error.
-	FreezeExecution(in RevisionFacts) (FrozenExecution, []string, error)
+	FreezeExecution(ctx context.Context, in RevisionFacts) (FrozenExecution, []string, error)
 
 	// PrepareUnit prechecks one frozen unit and returns it ready to encode;
 	// nothing is written yet. A failure of the unit's own work is returned as a

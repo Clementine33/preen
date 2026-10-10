@@ -60,7 +60,11 @@ func (d *dispatcher) runExecutionLoop() {
 			}
 			continue
 		}
+		if !d.beginSession("execution", ex.ExecutionID) {
+			return
+		}
 		d.executeRun(ex)
+		d.endSession("execution", ex.ExecutionID)
 	}
 }
 
@@ -140,6 +144,13 @@ func (d *dispatcher) prepareExecution(ex *PlanExecution) (*executionRun, bool) {
 // order. The first failure stops admission, and every unit boundary persists
 // its facts. The business work of one unit belongs to the operation's task.
 func (d *dispatcher) executeRun(ex *PlanExecution) {
+	ctx, cancel := context.WithCancel(d.ctx)
+	defer cancel()
+	if ctx.Err() != nil {
+		status, code, message := cancellationOutcome(ctx)
+		d.finishExecution(ex, status, code, message)
+		return
+	}
 	run, ok := d.prepareExecution(ex)
 	if !ok {
 		return
@@ -164,15 +175,12 @@ func (d *dispatcher) executeRun(ex *PlanExecution) {
 		return
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	stopWatch := make(chan struct{})
-	go watchExecutionCancel(ctx, cancel, stopWatch, d.svc.repo, ex.ExecutionID)
-	defer close(stopWatch)
+	stopWatch := d.observeCancel(ctx, cancel, ex.ExecutionID)
+	defer stopWatch()
 
 	preparer, prepareErr := d.executionPreparer(ctx, ex, run, task)
 	if prepareErr != nil {
-		d.finishPreparationFailure(ex, prepareErr)
+		d.finishPreparationFailure(ctx, ex, prepareErr)
 		return
 	}
 
@@ -309,13 +317,16 @@ func (d *dispatcher) verifyInputs(
 	run *executionRun,
 ) (code, message string, verified bool) {
 	if scanErr := d.svc.refreshRoots(ctx, unitRoots(run.req.Units), run.rootPath, nil); scanErr != nil {
-		if ctx.Err() != nil {
+		if sessionCanceled(ctx, scanErr) {
 			return "CANCELED", "execution canceled", false
 		}
 		return "SCAN_FAILED", "failed to refresh the scanned inventory before executing", false
 	}
-	health, healthErr := d.svc.revisionHealth(ex.OperationType, run.plan)
+	health, healthErr := d.svc.revisionHealth(ctx, ex.OperationType, run.plan)
 	if healthErr != nil {
+		if sessionCanceled(ctx, healthErr) {
+			return "CANCELED", "execution canceled", false
+		}
 		return "REVISION_LOAD_FAILED", "failed to evaluate the revision's inputs", false
 	}
 	if health.InputMoved {
@@ -474,14 +485,23 @@ func (d *dispatcher) syncUnitInventory(worksetRoot string, res UnitResult, entry
 	entry.InventorySynced = true
 }
 
-func (d *dispatcher) finishPreparationFailure(ex *PlanExecution, err error) {
+func (d *dispatcher) finishPreparationFailure(ctx context.Context, ex *PlanExecution, err error) {
 	code, message := "REQUEST_LOAD_FAILED", err.Error()
 	if e, ok := AsError(err); ok {
 		code, message = e.Code, e.Message
 	}
 	status := ExecStatusFailed
-	if code == "CANCELED" {
-		status = ExecStatusCanceled
+	if sessionCanceled(ctx, err) {
+		status, code, message = cancellationOutcome(ctx)
 	}
 	d.finishExecution(ex, status, code, message)
+}
+
+func (d *dispatcher) observeCancel(ctx context.Context, cancel context.CancelFunc, executionID string) func() {
+	stop, done := make(chan struct{}), make(chan struct{})
+	go func() {
+		defer close(done)
+		watchExecutionCancel(ctx, cancel, stop, d.svc.repo, executionID)
+	}()
+	return func() { close(stop); <-done }
 }

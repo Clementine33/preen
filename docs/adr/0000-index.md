@@ -26,3 +26,4 @@
 | [0020](0020-shared-workset-batch.md) | 工作集共享一个文件夹批次，各 Task 独立保存计划 | Draft |
 | [0021](0021-no-effect-matching-and-other-subtree-isolation.md) | 无音效匹配与其他版本子树隔离 | Draft |
 | [0022](0022-member-files-selection-and-move-to-root.md) | 成员文件页：选择即目标、移动到成员根与拒绝码 | Draft |
+| [0023](0023-defer-single-writer.md) | 暂不引入全局单写入口 | Draft |

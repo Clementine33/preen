@@ -26,14 +26,20 @@ func validate(in workset.RevisionFacts) error {
 	}
 	return validateCommon(c)
 }
-func (t *Task) EvaluateRevision(in workset.RevisionFacts) (workset.RevisionHealth, error) {
+func (t *Task) EvaluateRevision(ctx context.Context, in workset.RevisionFacts) (workset.RevisionHealth, error) {
 	h := workset.RevisionHealth{StaleRoots: []int{}}
+	if err := ctx.Err(); err != nil {
+		return h, err
+	}
 	if err := validate(in); err != nil {
 		return h, err
 	}
 	for _, r := range in.Detail.Roots {
 		if in.InputRoots != nil && !slices.Contains(in.InputRoots, r.RootPath) {
 			continue
+		}
+		if err := ctx.Err(); err != nil {
+			return h, err
 		}
 		err := t.checkDirectory(r.RootPath)
 		if err != nil && !errors.Is(err, fs.ErrNotExist) {
@@ -54,7 +60,7 @@ func (t *Task) EvaluateRevision(in workset.RevisionFacts) (workset.RevisionHealt
 	h.InputMoved = len(h.StaleRoots) > 0
 	return h, nil
 }
-func (*Task) FreezeExecution(in workset.RevisionFacts) (workset.FrozenExecution, []string, error) {
+func (*Task) FreezeExecution(ctx context.Context, in workset.RevisionFacts) (workset.FrozenExecution, []string, error) {
 	out := workset.FrozenExecution{}
 	if err := validate(in); err != nil {
 		return out, nil, err

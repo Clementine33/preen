@@ -1,6 +1,7 @@
 package dirrename_test
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -194,19 +195,22 @@ func TestPendingCoverAdmissionUsesFrozenPathsAndSelectedScope(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, _, err = f.task.FreezeExecution(workset.RevisionFacts{Detail: d})
+	_, _, err = f.task.FreezeExecution(context.Background(), workset.RevisionFacts{Detail: d})
 	e, ok := workset.AsError(err)
 	if !ok || e.Code != "COVER_DELIVERY_PENDING" {
 		t.Fatalf("cover admission: %v", err)
 	}
-	if _, _, err = f.task.FreezeExecution(workset.RevisionFacts{Detail: d, InputRoots: []string{}}); err != nil {
+	if _, _, err = f.task.FreezeExecution(
+		context.Background(),
+		workset.RevisionFacts{Detail: d, InputRoots: []string{}},
+	); err != nil {
 		t.Fatal("empty scope checked covers", err)
 	}
 	if _, err = f.repo.DB().
 		Exec(`UPDATE cover_deliveries SET status='failed',error_code='INVENTORY_REFRESH_FAILED'`); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err = f.task.FreezeExecution(workset.RevisionFacts{Detail: d}); err != nil {
+	if _, _, err = f.task.FreezeExecution(context.Background(), workset.RevisionFacts{Detail: d}); err != nil {
 		t.Fatal("failed delivery blocked rename", err)
 	}
 }

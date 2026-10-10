@@ -2,53 +2,10 @@ package workset
 
 import (
 	"context"
-	"errors"
 	"log"
 	"strings"
-	"sync"
 	"time"
 )
-
-// dispatcher is a singleton global FIFO scheduler plus a fixed worker pool. It
-// is not one goroutine per generation: workers claim sessions one at a time
-// from the queue table in julianday(created_at), generation_id order.
-//
-// Execution sessions share the lifecycle but not the queue: one dedicated
-// worker claims executions from their own table, so executions are globally
-// serialized (first version) and a planning worker never consumes an execution
-// wake.
-type dispatcher struct {
-	svc     *serviceImpl
-	workers int
-
-	wakeC     chan struct{}
-	execWakeC chan struct{}
-	done      chan struct{}
-	stop      sync.Once
-}
-
-func newDispatcher(svc *serviceImpl, workers int) *dispatcher {
-	if workers <= 0 {
-		workers = 2
-	}
-	return &dispatcher{
-		svc:       svc,
-		workers:   workers,
-		wakeC:     make(chan struct{}, 1),
-		execWakeC: make(chan struct{}, 1),
-		done:      make(chan struct{}),
-	}
-}
-
-// Start launches the worker pool. It is called once at process startup after
-// InterruptStaleGenerations and InterruptStaleExecutions, so both queues are
-// always clean.
-func (d *dispatcher) Start() {
-	for range d.workers {
-		go d.run()
-	}
-	go d.runExecutionLoop()
-}
 
 // wake pokes the pool after a session is enqueued or a queued session is
 // canceled, so workers re-check the queue immediately.
@@ -66,13 +23,6 @@ func (d *dispatcher) wakeExecution() {
 	case d.execWakeC <- struct{}{}:
 	default:
 	}
-}
-
-// Stop shuts the pool down. In-flight generations and executions still running
-// when Stop is called are allowed to finish; the next process start marks
-// leftovers as interrupted.
-func (d *dispatcher) Stop() {
-	d.stop.Do(func() { close(d.done) })
 }
 
 func (d *dispatcher) run() {
@@ -101,7 +51,11 @@ func (d *dispatcher) run() {
 		// Claimed. Run to completion (or cooperative cancel). A canceled-queued
 		// session has already transitioned to canceled, so the claim above
 		// returns nil and the slot refills without running anything.
+		if !d.beginSession("generation", gen.GenerationID) {
+			return
+		}
 		d.execute(gen)
+		d.endSession("generation", gen.GenerationID)
 	}
 }
 
@@ -136,8 +90,12 @@ func (d *dispatcher) retryClaim(wake chan struct{}, err error) bool {
 // successful completion transaction touches the operation's current revision;
 // failure/cancel/interruption leave the operation exactly as it was.
 func (d *dispatcher) execute(gen *PlanGeneration) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(d.ctx)
 	defer cancel()
+	if ctx.Err() != nil {
+		d.finishGenerationCancellation(ctx, gen.GenerationID)
+		return
+	}
 
 	req, err := parseGenerationRequest(gen.RequestJSON)
 	if err != nil {
@@ -175,8 +133,8 @@ func (d *dispatcher) execute(gen *PlanGeneration) {
 		w.RootPath,
 		checkCancel,
 	); scanErr != nil {
-		if ctx.Err() != nil {
-			_ = d.svc.repo.CompleteGenerationCanceled(gen.GenerationID)
+		if sessionCanceled(ctx, scanErr) {
+			d.finishGenerationCancellation(ctx, gen.GenerationID)
 			return
 		}
 		d.fail(gen, "SCAN_FAILED", "failed to refresh the scanned inventory before planning")
@@ -192,8 +150,8 @@ func (d *dispatcher) execute(gen *PlanGeneration) {
 
 	snap, runErr := d.svc.runGeneration(ctx, gen.OperationType, req, members, progress)
 	if runErr != nil {
-		if ctx.Err() != nil || errors.Is(runErr, context.Canceled) {
-			_ = d.svc.repo.CompleteGenerationCanceled(gen.GenerationID)
+		if sessionCanceled(ctx, runErr) {
+			d.finishGenerationCancellation(ctx, gen.GenerationID)
 			return
 		}
 		code, message := "GENERATION_FAILED", "planning failed"
@@ -204,6 +162,10 @@ func (d *dispatcher) execute(gen *PlanGeneration) {
 		return
 	}
 
+	if ctx.Err() != nil {
+		d.finishGenerationCancellation(ctx, gen.GenerationID)
+		return
+	}
 	steps, roots, components := toRevisionRecords(snap)
 	now := time.Now()
 	if persistErr := d.svc.repo.PersistOperationRevision(
@@ -289,11 +251,17 @@ func toRevisionRecords(snap *PlanSnapshot) (
 
 // fail records a stable system failure on the session row.
 func (d *dispatcher) fail(gen *PlanGeneration, code, message string) {
-	_ = d.svc.repo.MarkGenerationFailed(gen.GenerationID, code, message)
+	if err := d.svc.repo.MarkGenerationFailed(gen.GenerationID, code, message); err != nil {
+		logGenerationTerminalFailure(gen.GenerationID, err)
+	}
 }
 
 // genIDNano produces a sortable plan id from a generation id (nanosecond
 // token), keeping plan snapshots collision-free.
 func genIDNano(id string) string {
 	return strings.TrimPrefix(id, "gen-")
+}
+
+func logGenerationTerminalFailure(id string, err error) {
+	log.Printf("generation %s: terminal write failed: %v", id, err)
 }

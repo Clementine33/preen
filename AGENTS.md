@@ -9,7 +9,7 @@
 - Package and module comments describe current responsibilities, public seams and important boundaries. Update them when those responsibilities change; keep declarations and implementation details in code.
 - ADRs record decisions, reasons and rejected alternatives. Consult them for the relevant decision's history; current coding rules belong in AGENTS.md. Keep ownership descriptions beside the code rather than in a separate package-placement inventory.
 - [CONTEXT.md](CONTEXT.md) defines domain language. When changing an HTTP/SSE contract, read its reference via [docs/api.md](docs/api.md) and the [common conventions](docs/api/common.md), and update the affected reference with the implementation.
-- `docs/` holds ADRs and the API reference; task-control specs live in issues rather than in the repository. Record statuses are indexed in [docs/adr/0000-index.md](docs/adr/0000-index.md).
+- `docs/` holds ADRs and the API reference. Local task-control specs and evidence live in `docs/issues/` until published as GitHub issues. Record statuses are indexed in [docs/adr/0000-index.md](docs/adr/0000-index.md).
 
 ## Versions: mise is the single source
 - node/go/pnpm/task are pinned in `mise.toml`; CI provisions from the same file via `jdx/mise-action`. Bump versions in `mise.toml` only — `package.json` intentionally has no `packageManager` (pnpm's self-download once corrupted the store).
@@ -21,7 +21,7 @@
 - PRs are reviewed by CodeRabbit (`.github/coderabbit.yaml`).
 
 ## Issues
-- Issues and specs live as GitHub issues, driven via the `gh` CLI.
+- Record unpublished issues and specs in `docs/issues/`; publish to GitHub via `gh` only when requested.
 - Five canonical triage labels: needs-triage, needs-info, ready-for-agent, ready-for-human, wontfix.
 
 ## ADR charter

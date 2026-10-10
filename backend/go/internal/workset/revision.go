@@ -14,12 +14,12 @@ import (
 //   - any root's live input facts moved: (true, "stale");
 //   - otherwise: (false, "valid").
 func (s *serviceImpl) validateRevision(
-	operationType string, orphaned bool, detail *PlanDetail,
+	ctx context.Context, operationType string, orphaned bool, detail *PlanDetail,
 ) (*bool, string) {
 	if orphaned {
 		return nil, ValidationUnavailable
 	}
-	health, err := s.revisionHealth(operationType, detail)
+	health, err := s.revisionHealth(ctx, operationType, detail)
 	if err != nil || len(health.StaleRoots) > 0 {
 		t := true
 		return &t, ValidationStale
@@ -31,7 +31,7 @@ func (s *serviceImpl) validateRevision(
 // loadCurrentRevision builds the compact immutable conclusion of an operation's
 // current revision and returns the already-loaded roots for coverage.
 func (s *serviceImpl) loadCurrentRevision(
-	op *Operation,
+	ctx context.Context, op *Operation,
 ) (*RevisionSummary, []PlanRootRecord, error) {
 	rev, err := s.repo.GetOperationRevision(op.WorksetID, op.OperationType, op.CurrentRevisionID)
 	if err != nil {
@@ -45,7 +45,7 @@ func (s *serviceImpl) loadCurrentRevision(
 	if err != nil {
 		return nil, nil, NewError(ErrKindInternal, "INTERNAL", "failed to load workset", err)
 	}
-	stale, validation := s.validateRevision(op.OperationType, w.LibraryID == "", detail)
+	stale, validation := s.validateRevision(ctx, op.OperationType, w.LibraryID == "", detail)
 	review, reviewErr := s.revisionReview(op.OperationType, detail)
 	if reviewErr != nil {
 		return nil, nil, reviewErr
@@ -159,7 +159,7 @@ func (s *serviceImpl) GetRevision(
 	}
 	staleRoots := map[int]bool{}
 	if w.LibraryID != "" {
-		if health, healthErr := s.revisionHealth(operationType, detail); healthErr == nil {
+		if health, healthErr := s.revisionHealth(ctx, operationType, detail); healthErr == nil {
 			for _, idx := range health.StaleRoots {
 				staleRoots[idx] = true
 			}

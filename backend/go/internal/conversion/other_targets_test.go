@@ -1,6 +1,7 @@
 package conversion_test
 
 import (
+	"context"
 	"encoding/json"
 	"reflect"
 	"testing"
@@ -52,7 +53,7 @@ func TestFreezeUsesTheOtherTargetOverrideFromTheRevision(t *testing.T) {
 		if resolveErr != nil || effective[0].Sources[conversion.UnitOther] != conversion.SourceMember {
 			t.Fatalf("other inheritance = %+v, %v", effective, resolveErr)
 		}
-		frozen, blocked, freezeErr := task.FreezeExecution(workset.RevisionFacts{
+		frozen, blocked, freezeErr := task.FreezeExecution(context.Background(), workset.RevisionFacts{
 			DraftSnapshot: []byte(raw), Members: members,
 			Detail: &workset.PlanDetail{
 				Roots: []workset.PlanRootRecord{{RootIndex: 0, RootPath: "work"}},

@@ -24,7 +24,10 @@ type Result struct {
 	Skipped string `json:"skipped,omitempty"`
 }
 
-func (t *Task) FreezeExecution(in workset.RevisionFacts) (workset.FrozenExecution, []string, error) {
+func (t *Task) FreezeExecution(
+	ctx context.Context,
+	in workset.RevisionFacts,
+) (workset.FrozenExecution, []string, error) {
 	frozen := workset.FrozenExecution{Units: []workset.ExecutionUnit{}}
 	if err := validateRevision(in); err != nil {
 		return frozen, nil, err
@@ -54,7 +57,7 @@ func (t *Task) FreezeExecution(in workset.RevisionFacts) (workset.FrozenExecutio
 			selected = append(selected, u)
 		}
 	}
-	if err := t.checkCovers(context.Background(), in.Detail.Plan.RootPath, selected); err != nil {
+	if err := t.checkCovers(ctx, in.Detail.Plan.RootPath, selected); err != nil {
 		return frozen, nil, err
 	}
 	return frozen, nil, nil
@@ -105,7 +108,7 @@ func (t *Task) NewExecutionSession(
 	for _, u := range in.Units {
 		paths = append(paths, u.RootPath)
 	}
-	health, err := t.EvaluateRevision(workset.RevisionFacts{Detail: in.Detail, InputRoots: paths})
+	health, err := t.EvaluateRevision(ctx, workset.RevisionFacts{Detail: in.Detail, InputRoots: paths})
 	if canceled := ctx.Err(); canceled != nil {
 		return nil, canceled
 	}
@@ -205,7 +208,7 @@ func (p *preparedRename) Commit(ctx context.Context) (workset.UnitResult, error)
 	}
 	if p.action == "noop" {
 		// A hand-renamed folder that already has its target name: only the
-		// records move to where it is.
+		// records move to where it is, even if cancellation arrives during reconciliation.
 		if p.recorded != p.result.SourcePath {
 			if err := p.task.io.Relocate(
 				context.WithoutCancel(ctx), p.root, p.recorded, p.result.SourcePath, "",

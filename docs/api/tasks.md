@@ -53,9 +53,13 @@ A folder that was renamed by hand is followed from the parent listing planning
 already reads: when the recorded name is gone and the same parent holds exactly
 one other directory with the same single work code that no other member
 records, the component carries it as `observed_name` and is planned from it
-(`noop` when it already has the target name). Execution first rewrites the
-stored paths to `observed_name` (rows only, no disk change), then renames as
-usual. None or several candidates leave the folder `SOURCE_MISSING`.
+(`noop` when it already has the target name). Execution renames from
+`observed_name`, then in the same transaction moves the records from the
+recorded path to the final name; a folder renamed by hand and then back to its
+recorded name moves nothing but still applies `rebind_to`. If that sync fails
+the disk is renamed back to `observed_name` and the records stay at the
+recorded path. A `noop` follow only moves the records to `observed_name`. None
+or several candidates leave the folder `SOURCE_MISSING`.
 
 Block reasons: `METADATA_MISSING`, `WORK_UNBOUND`, `SOURCE_MISSING`,
 `SOURCE_NOT_DIRECTORY`, `NAME_TOO_LONG`, `NAME_RESERVED`, `NAME_CODE_INVALID`, `WORK_CODE_AMBIGUOUS`,

@@ -45,6 +45,8 @@ func (r *Repository) HasPendingRenameCovers(ctx context.Context, root string, pa
 	if len(paths) == 0 {
 		return false, nil
 	}
+	selected := newSelectedPaths(paths)
+	rootKey := librarypath.RootPathKey(root)
 	rows, err := r.db.QueryContext(ctx, `SELECT target_json FROM cover_deliveries WHERE status='pending'`)
 	if err != nil {
 		return false, err
@@ -59,16 +61,42 @@ func (r *Repository) HasPendingRenameCovers(ctx context.Context, root string, pa
 		if err := json.Unmarshal([]byte(raw), &t); err != nil {
 			return false, err
 		}
-		if librarypath.RootPathKey(t.LibraryRoot) != librarypath.RootPathKey(root) {
+		if librarypath.RootPathKey(t.LibraryRoot) != rootKey {
 			continue
 		}
-		path := librarypath.RootPathKey(librarypath.JoinRel(root, t.RelPath))
-		for _, selected := range paths {
-			key := librarypath.RootPathKey(selected)
-			if path == key || strings.HasPrefix(path, strings.TrimSuffix(key, "/")+"/") {
-				return true, nil
-			}
+		if selected.covers(librarypath.RootPathKey(librarypath.JoinRel(root, t.RelPath))) {
+			return true, nil
 		}
 	}
 	return false, rows.Err()
+}
+
+// selectedPaths answers whether a path key is one of the selected paths or
+// lies below one. A key is cut at its own "/" characters, never with path.Dir,
+// so "//server/share", "C:/" and "/" keep their meaning.
+type selectedPaths struct{ full, trimmed map[string]struct{} }
+
+func newSelectedPaths(paths []string) selectedPaths {
+	s := selectedPaths{full: make(map[string]struct{}, len(paths)), trimmed: make(map[string]struct{}, len(paths))}
+	for _, selected := range paths {
+		key := librarypath.RootPathKey(selected)
+		s.full[key] = struct{}{}
+		s.trimmed[strings.TrimSuffix(key, "/")] = struct{}{}
+	}
+	return s
+}
+
+func (s selectedPaths) covers(key string) bool {
+	if _, ok := s.full[key]; ok {
+		return true
+	}
+	for i := len(key) - 1; i >= 0; i-- {
+		if key[i] != '/' {
+			continue
+		}
+		if _, ok := s.trimmed[key[:i]]; ok {
+			return true
+		}
+	}
+	return false
 }

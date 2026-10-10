@@ -255,7 +255,7 @@ var ErrWorksetOrphaned = errors.New("workset is orphaned")
 // whose guard predicates refused the insert without a re-readable cause.
 var ErrExecutionNotEligible = errors.New("execution is not eligible")
 
-// Operation is one independent Workset Operation (ADR 0001 §1) keyed by
+// Operation is one independent Workset Operation (ADR 0001) keyed by
 // (workset, type). Version is the operation concurrency counter advanced by
 // draft saves and revision publication; CurrentRevisionID is "" until the
 // first successful generation publishes.
@@ -280,7 +280,7 @@ type OperationDraft struct {
 
 // OperationRevision is the immutable revision association row. ExcludedScope
 // (NUL-joined member_ids) and DraftSnapshot (frozen sparse draft JSON) are part
-// of the immutable snapshot (ADR 0001 §2).
+// of the immutable snapshot (ADR 0001).
 type OperationRevision struct {
 	PlanID           string
 	WorksetID        string

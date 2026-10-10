@@ -27,7 +27,7 @@ type libraryRefResponse struct {
 // operation state, not member state. DirID is the member's directory identity:
 // the same value the overview listing carries for that directory, so the
 // conversion entry addresses the shared file cache exactly as the overview does
-// (ADR 0003 §2, §6). It is empty only while the library is unknown — the
+// (ADR 0003). It is empty only while the library is unknown — the
 // orphaned record whose library row vanished outside the delete path.
 type memberResponse struct {
 	MemberID   string `json:"member_id"`

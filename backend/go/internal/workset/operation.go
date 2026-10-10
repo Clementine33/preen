@@ -56,7 +56,7 @@ func (s *serviceImpl) loadOperation(worksetID, operationType string) (*Operation
 }
 
 // rejectOrphaned refuses writes on a workset whose library is gone. Orphaned
-// worksets stay reviewable and read-only (ADR 0001 §5).
+// worksets stay reviewable and read-only (ADR 0001).
 func (s *serviceImpl) rejectOrphaned(worksetID string) error {
 	w, err := s.loadWorkset(worksetID)
 	if err != nil {
@@ -146,7 +146,7 @@ func (s *serviceImpl) operationView(ctx context.Context, op *Operation) (*Operat
 
 // planningState derives the operation's planning state on read. It compares
 // the live canonical draft hash with the current revision's frozen hash; a
-// rename or another operation's change never affects it (ADR 0001 §2).
+// rename or another operation's change never affects it (ADR 0001).
 func (s *serviceImpl) planningState(
 	w *Workset,
 	op *Operation,

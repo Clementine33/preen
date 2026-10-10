@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import { usePlayerStore } from '@/stores/player'
 
-// The bottom baseline (ADR 0012 §4): the thick top line is the progress track,
+// The bottom baseline: the thick top line is the progress track,
 // and the second double-bar edge of the page. A real track fills the laser to
 // its position and shows its length and format; a silent play (from the wall,
 // with no file behind it) leaves the laser at its origin and both as

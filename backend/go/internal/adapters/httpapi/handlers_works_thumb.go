@@ -9,7 +9,7 @@ import (
 	"github.com/onsei/organizer/backend/internal/works"
 )
 
-// getWorkThumb serves one manifest image's thumbnail (ADR 0015 §3). The
+// getWorkThumb serves one manifest image's thumbnail (ADR 0013). The
 // source goes through the same copy binding, containment and inventory
 // whitelist as the file endpoint; the answer is immutable only at the image's
 // current version, so a stale address never pins the wrong bytes.

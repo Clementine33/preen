@@ -15,7 +15,7 @@ function ui() {
 }
 
 /**
- * The overview is where a library's conversion scope is chosen (ADR 0001 §1, §2).
+ * The overview is where a library's conversion scope is chosen (ADR 0001).
  * These tests drive the real page against a stubbed API: what they pin is the
  * behavior the record contract names — the create carries the selected library-relative
  * paths and the record it saw, a creation reports the folders it skipped, and
@@ -222,7 +222,7 @@ describe('workbench overview', () => {
     await flushPromises()
 
     // Nothing was sent until the confirmation is accepted, and the dialog
-    // says what replacing costs (ADR 0001 §2). The modal is portalled, so it is
+    // says what replacing costs (ADR 0001). The modal is portalled, so it is
     // the document that holds it.
     expect(createCurrentRecord).not.toHaveBeenCalled()
     expect(document.body.textContent).toContain('删除所有 Task 的成员设置、当前计划与执行结果')

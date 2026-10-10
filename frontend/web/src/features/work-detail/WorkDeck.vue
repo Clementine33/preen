@@ -122,7 +122,7 @@ watch(
 
 // ── Filmstrip: 4 thumbnail requests in flight, nearest first; a set switch
 //    aborts the batch so the server drops its queued renders; each thumbnail
-//    loads once per visit (ADR 0015 §6). ──
+//    loads once per visit (ADR 0013). ──
 const THUMB_HEIGHT = 40
 /** Copy, relative path and version identify a loaded thumbnail. */
 const thumbs = ref(new Map<string, string>())

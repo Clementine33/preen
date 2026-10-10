@@ -15,11 +15,11 @@ import (
 )
 
 // ThumbEngineVersion names the thumbnail engine's output. Bump it whenever the
-// rendering changes: it is part of every thumbnail address (ADR 0015 §3), so
+// rendering changes: it is part of every thumbnail address (ADR 0013), so
 // a bump retires every cached copy, the browsers' included.
 const ThumbEngineVersion = "go-bilinear-1"
 
-// ThumbEngine is the first thumbnail engine of ADR 0015 §5: the standard
+// ThumbEngine is the first thumbnail engine of ADR 0013: the standard
 // decoders plus x/image's webp, x/image/draw's bilinear scaling, JPEG output
 // for opaque sources and PNG for the rest. It runs in-process.
 type ThumbEngine struct{}

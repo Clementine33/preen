@@ -9,7 +9,7 @@ import (
 
 // EntriesMissingMediaFacts pages, in path order after the given path, through
 // the inventory's files whose image dimensions, audio duration or encoded
-// bitrate are still unknown (ADR 0015 §2). The bitrate formats are the
+// bitrate are still unknown (ADR 0013). The bitrate formats are the
 // containers the planner's gate compares against a target. It spans every root: the background pass resumes
 // whatever an earlier pass, or an earlier process, left unmeasured. The format
 // filter keeps it to the two kinds a prober can measure; the path key makes

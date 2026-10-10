@@ -13,7 +13,7 @@ import ThemeRadioGroup from '@/components/layout/ThemeRadioGroup.vue'
 import { GLOBAL_NAV, globalNavOwner } from '@/components/layout/global-nav'
 
 /**
- * The phone's global navigation (ADR 0012 §4): the brand mark at the head of
+ * The phone's global navigation: the brand mark at the head of
  * every page header opens the global entries and the theme group. It exists
  * only below the rail breakpoint, so the bottom edge of a phone belongs to the
  * page — the player and the file bay, or a selection's actions.

@@ -178,7 +178,7 @@ func orderClause(filter works.Filter) string {
 
 // nullableSortColumn is the column of an order whose value can be unknown.
 // The rating lives in the user-data table, which is why its order is sorted by
-// the planner rather than read from an index (ADR 0011 §7).
+// the planner rather than read from an index (ADR 0009).
 func nullableSortColumn(field works.SortField) (string, bool) {
 	switch field {
 	case works.SortByReleaseDate:

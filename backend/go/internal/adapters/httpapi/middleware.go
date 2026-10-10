@@ -15,7 +15,7 @@ func authMiddleware(token string) func(http.Handler) http.Handler {
 
 // mediaAuthMiddleware also accepts the token as the access_token query
 // parameter: an <img> or <audio> element cannot send a header, so the routes
-// those elements load from take it in the address (ADR 0016 §3).
+// those elements load from take it in the address (ADR 0013).
 func mediaAuthMiddleware(token string) func(http.Handler) http.Handler {
 	return tokenAuth(token, true)
 }

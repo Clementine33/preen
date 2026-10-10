@@ -99,7 +99,7 @@ type RecordScanState func(libraryID, status, message string, at time.Time) error
 // Service is the scanning entry the HTTP layer calls. Admission is a separate,
 // explicit step: it must happen before the response is committed, so a refusal
 // is still a JSON envelope rather than an error inside a stream that already
-// started (ADR 0002 §2).
+// started (ADR 0002).
 type Service interface {
 	// AdmitLibraryScan takes the admission slot for a full library scan. It
 	// answers the execution conflict first: a scan rewrites the inventory a
@@ -221,7 +221,7 @@ func (s *service) Scan(ctx context.Context, req Request, emit func(Event)) (Resu
 
 	var lastProgress Progress
 	// The request's library id must reach the merge: the binding reconciliation
-	// only runs for a full scan that names its library (ADR 0011 §2), and
+	// only runs for a full scan that names its library (ADR 0009), and
 	// dropping it here leaves the catalog with no works ever bound.
 	scanID, err := s.pipeline.ScanRootCtx(ctx, req.RootPath, WithLibrary(req.LibraryID), WithProgress(func(p Progress) {
 		lastProgress = p

@@ -23,7 +23,7 @@ import { useWorksetUiStore } from '@/stores/workset-ui'
 import type { WorksetMember } from '@/lib/api/types'
 
 /**
- * The conversion section of one library's workbench (ADR 0001 §1, §2; ADR 0003 §1).
+ * The conversion section of one library's workbench (ADR 0001; ADR 0003).
  *
  * The page addresses the library, never a record id: the library's current
  * conversion record is looked up, and its operation — draft, plan, sessions —
@@ -57,7 +57,7 @@ const revision = workspace.revision
 const members = computed<WorksetMember[]>(() => workset.value?.members ?? [])
 // Every jump below is a named route: no page assembles a path from ids and
 // names by hand. The list's filter is the one view parameter this subtree
-// carries along (ADR 0003 §5), and nothing else is forwarded.
+// carries along (ADR 0003), and nothing else is forwarded.
 const filter = computed<MemberFilter>(() => readMemberFilter(route.query.filter))
 const listQuery = computed(() => (filter.value === 'all' ? {} : { filter: filter.value }))
 const listRoute = computed(() => ({
@@ -398,7 +398,7 @@ const parentLink = computed(() => {
 
     <template #main="{ tier }">
       <!-- The record is gone or the library has none: the workbench says which
-           and offers the one action that makes sense (ADR 0001 §2). -->
+           and offers the one action that makes sense (ADR 0001). -->
       <div
         v-if="!recordQuery.isPending.value && !record"
         class="grid min-h-0 flex-1 place-items-center px-6 text-center"

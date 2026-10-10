@@ -17,7 +17,7 @@ import (
 	"github.com/onsei/organizer/backend/internal/librarypath"
 )
 
-// ==================== content manifest (ADR 0016 §2) ====================
+// ==================== content manifest (ADR 0013) ====================
 // One work's files as the detail page reads them: every bound copy's tree,
 // classified by kind and carrying the scan-time media facts. Built from the
 // stored inventory — never a live walk — and deliberately not shared with the
@@ -52,7 +52,7 @@ type ContentNode struct {
 	Width       *int
 	Height      *int
 	DurationSec *float64
-	// ThumbV is an image's thumbnail version (ADR 0015 §3): the token its
+	// ThumbV is an image's thumbnail version (ADR 0013): the token its
 	// immutable thumbnail address carries. Empty for every other kind.
 	ThumbV string
 }
@@ -130,7 +130,7 @@ type CopyRoot struct {
 // ContentEntries is the inventory read side of the manifest: the entries
 // stored under one member directory, and the single row the file endpoint
 // serves from. The entries table is the whitelist — a path with no row is
-// not served, whatever the disk holds (ADR 0016 §3).
+// not served, whatever the disk holds (ADR 0013).
 type ContentEntries interface {
 	ListEntriesUnderPath(path string) ([]inventory.Entry, error)
 	EntryByPath(path string) (inventory.Entry, bool, error)
@@ -142,7 +142,7 @@ type ContentEntries interface {
 type ResolveMember func(rootPath, memberRel string) (string, error)
 
 // ResolveMemberFile validates one member-relative item path under the same
-// containment checks an operation's target goes through (ADR 0002 §1). It is
+// containment checks an operation's target goes through (ADR 0002). It is
 // the seam the file endpoint resolves a manifest path through.
 type ResolveMemberFile func(rootPath, memberRel, rel string) (string, error)
 
@@ -156,7 +156,7 @@ type ContentFileLocation struct {
 	Mtime      int64
 	ContentRev int
 	// ThumbV is the current thumbnail version of an image, the value a
-	// request's v must equal for its answer to be immutable (ADR 0015 §3).
+	// request's v must equal for its answer to be immutable (ADR 0013).
 	ThumbV string
 }
 
@@ -295,9 +295,9 @@ func lastSegment(p string) string {
 	return p
 }
 
-// ContentFile locates one file of the manifest for byte serving (ADR 0016
-// §3). The copy must be bound to the named work, the path must resolve
-// inside its member the way an operation target does (ADR 0002 §1), and the
+// ContentFile locates one file of the manifest for byte serving (ADR 0013).
+// The copy must be bound to the named work, the path must resolve
+// inside its member the way an operation target does (ADR 0002), and the
 // stored inventory must hold the row — the three checks that make the
 // endpoint read-only on exactly the manifest.
 func (s *Service) ContentFile(id WorkCode, copyID, relPath string) (ContentFileLocation, *Error) {
@@ -362,7 +362,7 @@ func pathRefusal(err error) *Error {
 	return asInternal(err)
 }
 
-// Content answers one work's file manifest (ADR 0016 §2). The trees come from
+// Content answers one work's file manifest (ADR 0013). The trees come from
 // the stored inventory; a copy whose member root no longer resolves on disk
 // is answered online: false with no tree rather than a stale one.
 func (s *Service) Content(id WorkCode) (*Content, *Error) {

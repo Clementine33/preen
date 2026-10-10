@@ -3,8 +3,8 @@ import { defineStore } from 'pinia'
 /**
  * The bottom baseline's player. A work plays as a queue of its tracks: each
  * real file through an audio element loading the content route by address
- * (ADR 0016 §3, single-range 206 for seeking); the end of one starts the next.
- * A work with no audio file runs the silent state machine (ADR 0012 §4): a
+ * (ADR 0013, single-range 206 for seeking); the end of one starts the next.
+ * A work with no audio file runs the silent state machine: a
  * real elapsed clock, an unknown total, no fabricated waveform.
  *
  * Playback is fully decoupled from the wall's selection, and from the page:

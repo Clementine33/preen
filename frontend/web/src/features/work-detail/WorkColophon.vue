@@ -209,7 +209,7 @@ function relationText(relation: WorkRelation | null): string {
 .colo-row:last-child { border-bottom: none; }
 .colo-row dt { font-size: var(--fs-s); color: var(--fg-muted); letter-spacing: .3em; white-space: nowrap; }
 .colo-row dd { font-size: var(--fs-s); font-weight: 500; min-width: 0; position: relative; }
-/* The Japanese face for lang="ja" values (ADR 0012 §3 matrix untouched);
+/* The Japanese face for lang="ja" values ( matrix untouched);
    mono telemetry keeps its own face. */
 .colo dd :lang(ja):not(.mono) { font-family: var(--font-ja); }
 .mono { font-family: var(--font-mono); font-size: var(--fs-xs); letter-spacing: .06em; }

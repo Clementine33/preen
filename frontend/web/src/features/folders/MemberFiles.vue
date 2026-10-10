@@ -22,13 +22,13 @@ import { currentRecordQueryOptions, operationQueryOptions } from '@/queries/work
 import { CONVERSION, MEMBER_ROOT_TARGET, type FileOperation, type FileOperationResult, type TreeNode } from '@/lib/api/types'
 
 /**
- * The shared current-files page (ADR 0001 §3).
+ * The shared current-files page (ADR 0001).
  *
  * One page, two entries: the overview browses a member by the directory identity
  * in its address, and a conversion member resolves that same identity from its
  * stable member id. The module receives (library, member path, where to go back to) and owns
  * reading, refreshing, selecting and modifying the files inside that member —
- * it never reads a conversion draft or interprets a plan (ADR 0001 §3).
+ * it never reads a conversion draft or interprets a plan (ADR 0001).
  *
  * The plan review is a *view of this same page* on the conversion entry only:
  * it renders the frozen plan, is read-only, and switching back to 当前文件 is
@@ -44,7 +44,7 @@ const libraryId = computed(() => (route.params.libraryId as string) || '')
 // once: the conversion entry carries a stable member id and resolves its
 // directory identity from the record, the overview carries that identity in the
 // address itself. Neither address names a directory: the path it stands for
-// comes back with the tree (ADR 0003 §2, §6).
+// comes back with the tree (ADR 0003).
 const memberId = computed(() => (route.params.memberId as string) || null)
 const recordQuery = useQuery(() => currentRecordQueryOptions(api, libraryId.value, CONVERSION))
 const record = computed(() => recordQuery.data.value?.workset ?? null)
@@ -113,7 +113,7 @@ const hasPlan = computed(() => Boolean(operationQuery.data.value?.current_revisi
 
 // View mode: the conversion entry offers 当前文件 / 计划审阅, and a member the
 // plan covers opens on its plan — the proposal is the reason the page exists
-// (ADR 0001 §3); with no plan the current files are the only view there is. The
+// (ADR 0001); with no plan the current files are the only view there is. The
 // mode is one of the few parameters a page supports, so a return visit and the
 // browser's back button land where the user left off.
 const mode = computed<'current' | 'plan'>(() => {
@@ -346,7 +346,7 @@ function submitDelete() {
 
     <!-- A member link that no longer resolves against the current record: the
          record was replaced by another page, and the only honest thing to
-         offer is the way back to the conversion entry (ADR 0001 §1). -->
+         offer is the way back to the conversion entry (ADR 0001). -->
     <div
       v-if="recordChanged"
       class="grid min-h-0 flex-1 place-items-center px-4 text-center"

@@ -11,7 +11,7 @@ import { installTestQueryPlugin } from '@/test/query-client'
 import WorkInspector from './WorkInspector.vue'
 
 /**
- * The inspector's contracts (ADR 0012 §4): browsing faster than the detail
+ * The inspector's contracts: browsing faster than the detail
  * arrives dims the last body instead of blanking it, a reduced-motion
  * preference skips the cover wipe but still paints the cover, and on the
  * detail page there is no wall to open or to steer.

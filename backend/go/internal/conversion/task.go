@@ -75,7 +75,7 @@ func (*Task) Kind() string { return workset.OperationTypeConversion }
 //
 // A deployment-wide common-settings payload, when one was saved, replaces
 // those common values: a record created after a global save starts where the
-// records already there are (ADR 0010 §1). A payload this task cannot read
+// records already there are (ADR 0008). A payload this task cannot read
 // leaves the seed values standing rather than refusing to create a record.
 func (t *Task) SeedDraft(common json.RawMessage) ([]byte, string, int) {
 	other := defaultProfile()

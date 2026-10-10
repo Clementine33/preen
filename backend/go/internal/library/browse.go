@@ -42,7 +42,7 @@ type Member struct {
 	RelPath string
 	// AbsPath is the path the inventory queries by.
 	AbsPath string
-	// DirID is the navigation identity the request named (ADR 0003 §2).
+	// DirID is the navigation identity the request named (ADR 0003).
 	DirID string
 }
 
@@ -96,7 +96,7 @@ func (s *Service) Dirs(lib *Library) ([]Dir, error) {
 // an identity that names none of them, that is malformed, or that two
 // directories claim, is refused — and only the single match is then validated
 // on disk, so the workbench never invents a directory and a symlinked member is
-// not a member (ADR 0001 §3; ADR 0003 §4).
+// not a member (ADR 0001; ADR 0003).
 func (s *Service) Member(lib *Library, rawDirID string) (*Member, error) {
 	if rawDirID == "" {
 		return nil, &Error{ErrKindInvalidArgument, "DIR_ID_REQUIRED", "dir must be a directory id"}
@@ -111,7 +111,7 @@ func (s *Service) Member(lib *Library, rawDirID string) (*Member, error) {
 	rel, found, ambiguous := MatchDirID(children, lib.ID, lib.RootPath, rawDirID)
 	if ambiguous {
 		// Answering "not found" would hide a real state and answering with one
-		// of the matches would be a guess (ADR 0003 §4).
+		// of the matches would be a guess (ADR 0003).
 		return nil, &Error{
 			ErrKindConflict,
 			"DIRECTORY_AMBIGUOUS",
@@ -135,7 +135,7 @@ func (s *Service) Member(lib *Library, rawDirID string) (*Member, error) {
 
 // Tree reads and assembles the stored tree of one resolved member, so a caller
 // that only knows the identity learns what the inventory holds for the path it
-// names (ADR 0003 §4).
+// names (ADR 0003).
 func (s *Service) Tree(member *Member) (*inventory.TreeNode, error) {
 	entries, err := s.inventory.ListEntriesUnderPath(member.AbsPath)
 	if err != nil {

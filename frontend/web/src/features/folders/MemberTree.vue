@@ -10,8 +10,8 @@ import { createTreeModel, type TreeModel, type TreeModelNode } from './tree-mode
  * page and a conversion member's file page. It reads and selects the files and
  * folders of ONE member directory; it knows nothing about plans, drafts or
  * revisions — the plan's own review view is a separate component fed by the
- * frozen plan (ADR 0001 §3). Actions on the selection live in the page's
- * toolbar, not on the rows (ADR 0022 §4).
+ * frozen plan (ADR 0001). Actions on the selection live in the page's
+ * toolbar, not on the rows (ADR 0002).
  *
  * Selection is by member-relative path, which is also how every file
  * operation addresses its items; a selected folder stands for what is below

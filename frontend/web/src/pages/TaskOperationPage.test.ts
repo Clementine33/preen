@@ -9,7 +9,7 @@ import { installTestQueryPlugin } from '@/test/query-client'
 import TaskOperationPage from './TaskOperationPage.vue'
 
 /**
- * The rename and metadata refresh pages (ADR 0014): one component on two
+ * The rename and metadata refresh pages (ADR 0012): one component on two
  * routes, reading the record, settings and frozen plan of its operation.
  *
  * jsdom has no layout, so the plan list's virtualizer would render an empty

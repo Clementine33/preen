@@ -19,7 +19,7 @@ import type { CreateLibraryInput } from '@/lib/api/types'
 import GlobalMenu from '@/components/layout/GlobalMenu.vue'
 
 /**
- * 工作集 — the media-library selection (`/worksets`, ADR 0001 §1; ADR 0003 §1).
+ * 工作集 — the media-library selection (`/worksets`, ADR 0001; ADR 0003).
  *
  * The product entry keeps the name 工作集, and what it selects is a media
  * library: choosing one enters its workbench, where browsing, conversion and

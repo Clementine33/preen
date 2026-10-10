@@ -43,7 +43,7 @@ type Task interface {
 
 	// CommonSettings extracts the common-settings payload of one draft
 	// document: the part a global save stores and pushes to every other
-	// operation of the same kind (ADR 0010 §2). Member records are never part
+	// operation of the same kind (ADR 0008). Member records are never part
 	// of it.
 	CommonSettings(raw []byte) (json.RawMessage, error)
 
@@ -69,7 +69,7 @@ type Task interface {
 
 	// ValidateSessionInput checks that a frozen session input can produce a
 	// plan: the executable business validation behind the generation boundary
-	// (ADR 0006 §1). It runs synchronously at enqueue time.
+	// (ADR 0005). It runs synchronously at enqueue time.
 	ValidateSessionInput(rawDraft []byte, members []*WorksetMember) error
 
 	// PlanSession plans one generation session from its frozen input and

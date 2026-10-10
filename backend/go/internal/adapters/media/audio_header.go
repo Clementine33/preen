@@ -15,7 +15,7 @@ import (
 // Native header parsing for the formats a voice library is mostly made of:
 // WAV, MP3 and AAC in MP4 (m4a). Each reads a few KiB of header where ffprobe
 // reads up to megabytes to analyze the stream, which on a network share or a
-// mechanical disk is most of the probe's cost (ADR 0015 §2). The answers are
+// mechanical disk is most of the probe's cost (ADR 0013). The answers are
 // ffprobe's own, computed the way ffmpeg computes them; anything these parsers
 // do not recognize returns errNotNative and goes to ffprobe. They never guess.
 

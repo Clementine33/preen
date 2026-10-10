@@ -3,7 +3,7 @@ import { useRoute, useRouter, type LocationQuery } from 'vue-router'
 import { canonicalRj } from '@/app/route-params'
 import type { WorksSort } from '@/lib/api/types'
 
-// The wall's address (ADR 0012 §4): every fact that decides what the wall
+// The wall's address: every fact that decides what the wall
 // shows — library, filters, FIND, order, page, page size and the selected work
 // — lives in the `/works` query and is read from it, never copied at setup. A
 // change the page makes to its own address (a nav click, BACK, a link) flows
@@ -23,7 +23,7 @@ const SIZE_KEY = 'works.pageSize'
 export const DEFAULT_SORT: WorksSort = 'release_date'
 /**
  * The longest query the wall commits. A name without a source id is one id per
- * work (ADR 0011 §6), so a pick can carry hundreds of ids; 64 KiB is about
+ * work (ADR 0009), so a pick can carry hundreds of ids; 64 KiB is about
  * 1,700 of them and well inside the backend's 1 MiB header limit. Past it a
  * change is refused out loud rather than dropped into a wider listing.
  */

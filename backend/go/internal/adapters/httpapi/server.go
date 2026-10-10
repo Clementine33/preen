@@ -44,7 +44,7 @@ type Dependencies struct {
 	// Works is the catalog entry: the ordinary listing, one work's detail, the
 	// source metadata imports and the single user's data about a work.
 	Works *works.Service
-	// Thumbs renders and caches manifest image thumbnails (ADR 0015); a
+	// Thumbs renders and caches manifest image thumbnails (ADR 0013); a
 	// read-only path that takes no admission slot.
 	Thumbs *thumbnail.Service
 	Covers *coverdelivery.Service
@@ -95,17 +95,17 @@ func NewServer(deps Dependencies) http.Handler {
 	mux.Handle("GET /api/v1/works/{rj}/copies/{copyId}/cover", protect(http.HandlerFunc(s.getCopyCover)))
 	mux.Handle("GET /api/v1/works/{rj}", protect(http.HandlerFunc(s.getWork)))
 	// The file manifest of one work: every bound copy's tree as the detail
-	// page's deck, bay and leaf read it (ADR 0016 §2).
+	// page's deck, bay and leaf read it (ADR 0013).
 	mux.Handle("GET /api/v1/works/{rj}/content", protect(http.HandlerFunc(s.getWorkContent)))
 	// One manifest file's bytes: the copy, the member-relative path, and the
-	// HTTP semantics (range, revalidation, content typing) in ADR 0016 §3.
+	// HTTP semantics (range, revalidation, content typing) in ADR 0013.
 	// Elements load it by address, so it also takes the token as a query
 	// parameter.
 	mux.Handle(
 		"GET /api/v1/works/{rj}/content/{copy}/{path...}",
 		mediaAuthMiddleware(deps.Token)(http.HandlerFunc(s.getWorkContentFile)),
 	)
-	// One manifest image's thumbnail at a served height (ADR 0015 §3).
+	// One manifest image's thumbnail at a served height (ADR 0013).
 	mux.Handle(
 		"GET /api/v1/works/{rj}/thumbs/{copy}/{path...}",
 		protect(http.HandlerFunc(s.getWorkThumb)),

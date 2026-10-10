@@ -10,7 +10,7 @@ import MemberFiles from './MemberFiles.vue'
 import type { FileOperationResult, TreeNode, Workset } from '@/lib/api/types'
 
 /**
- * The shared current-files module (ADR 0001 §3; ADR 0002 §1).
+ * The shared current-files module (ADR 0001; ADR 0002).
  *
  * What these tests pin is the module's own contract: entering refreshes the
  * member and modification is refused until the refresh settles, a failed

@@ -486,7 +486,7 @@ func (r *Repository) ListEntriesUnderPath(pathPrefix string) ([]inventory.Entry,
 	return entries, nil
 }
 
-// EntryByPath reads one file's stored row (ADR 0016 §3): the whitelist the
+// EntryByPath reads one file's stored row (ADR 0013): the whitelist the
 // content endpoint serves from — a path with no inventory row is not served,
 // whatever the disk holds.
 func (r *Repository) EntryByPath(path string) (inventory.Entry, bool, error) {

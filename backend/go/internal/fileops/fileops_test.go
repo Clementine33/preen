@@ -639,7 +639,7 @@ func TestSoftDeleteBesideNestedWorkRoot(t *testing.T) {
 }
 
 // TestMoveToTheMemberRoot covers the "." destination: the member root is a
-// legal target, an omitted destination still is not (ADR 0022 §1).
+// legal target, an omitted destination still is not (ADR 0002).
 func TestMoveToTheMemberRoot(t *testing.T) {
 	f := newFixture(t, false)
 	f.write("albumA/sub/01.mp3", "one")

@@ -66,7 +66,7 @@ func (s *Server) listLibraryDirs(w http.ResponseWriter, r *http.Request) {
 
 // treeResponse is the stored tree of one member directory plus the identity it
 // was addressed by, so a caller that only knows the identity learns which path
-// it names (ADR 0003 §4).
+// it names (ADR 0003).
 type treeResponse struct {
 	Tree       *inventory.TreeNode `json:"tree"`
 	DirID      string              `json:"dir_id"`
@@ -96,7 +96,7 @@ func (s *Server) getMemberTree(w http.ResponseWriter, r *http.Request) {
 // refreshMemberTree re-scans one member directory and answers with the
 // refreshed tree. Refreshing is a scan, so it takes the scanning side of the
 // admission control: a running file operation refuses it instead of letting
-// two writers touch the same tree (ADR 0001 §3; ADR 0002 §2).
+// two writers touch the same tree (ADR 0001; ADR 0002).
 func (s *Server) refreshMemberTree(w http.ResponseWriter, r *http.Request) {
 	member, ok := s.memberByDir(w, r)
 	if !ok {

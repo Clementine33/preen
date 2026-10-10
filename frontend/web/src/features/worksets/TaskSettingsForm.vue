@@ -4,9 +4,8 @@ import { Button } from '@/components/ui/button'
 import type { MetadataDraftDocument, OperationType, RenameDraftDocument } from '@/lib/api/types'
 
 /**
- * The common settings of a rename or metadata refresh record (docs/api.md
- * §Rename task, §Metadata refresh task). Both are deployment-wide: saving a
- * changed value moves every record of the same kind (ADR 0010 §2).
+ * The common settings of a rename or metadata refresh record (docs/api/tasks.md).
+ * Both are deployment-wide: saving a changed value moves every record of the same kind (ADR 0008).
  */
 type Common = RenameDraftDocument['common'] | MetadataDraftDocument['common']
 

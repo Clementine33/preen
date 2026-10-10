@@ -4,7 +4,7 @@ import { useLibraryList } from '@/queries/libraries'
 import { useLibraryUiStore } from '@/stores/library-ui'
 import { usePopupMenu } from './use-popup-menu'
 
-// The media-library switcher (ADR 0012 §4): the trigger unfolds a specimen
+// The media-library switcher: the trigger unfolds a specimen
 // panel that cascades in row by row. Switching reuses the one library-selection
 // state the workbench already has; no OFFLINE tag and no per-library counts,
 // because the library DTO carries neither.

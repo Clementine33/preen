@@ -18,7 +18,7 @@ const (
 	// RefusalUnreadableDraft: a stored document the task cannot read, so its
 	// common fields cannot be rewritten. Refusing beats guessing: leaving that
 	// one record behind would be the partial sync this rule exists to prevent
-	// (ADR 0010 §2).
+	// (ADR 0008).
 	RefusalUnreadableDraft = "unreadable_draft"
 )
 
@@ -35,7 +35,7 @@ func (e *CommonSettingsRefusalError) Error() string {
 }
 
 // CommonSettings is the stored deployment-wide common settings of one
-// operation kind: the task's opaque common payload (ADR 0010 §1).
+// operation kind: the task's opaque common payload (ADR 0008).
 type CommonSettings struct {
 	OperationType string
 	Settings      string
@@ -43,7 +43,7 @@ type CommonSettings struct {
 }
 
 // CommonSettingsSync is one global common-settings save. The store applies the
-// whole payload as one transaction (ADR 0010 §2): the target operation's own
+// whole payload as one transaction (ADR 0008): the target operation's own
 // draft — the member edits the caller made included —, the stored payload, and
 // the common fields of every other editable operation of the kind, each with
 // its draft hash and operation version.
@@ -73,7 +73,7 @@ type CommonSettingsSync struct {
 //
 // A stored deployment-wide value wins. Without one, replacing a record keeps
 // that record's own settings; a different record's later member-only save is
-// not evidence that its common values should win (ADR 0010 §1).
+// not evidence that its common values should win (ADR 0008).
 func (s *serviceImpl) seedCommonSettings(
 	task Task,
 	libraryID, operationType, currentWorksetID string,
@@ -122,7 +122,7 @@ func (s *serviceImpl) seedCommonSettings(
 // The comparison is against the operation's own stored document, so the answer
 // is "did this save edit a common value": a save that only moves member
 // records keeps the stored common settings, and the deployment, exactly as
-// they were (ADR 0010 §2). An unreadable stored draft refuses the save.
+// they were (ADR 0008). An unreadable stored draft refuses the save.
 func (s *serviceImpl) commonSettingsOf(
 	task Task,
 	worksetID, operationType string,
@@ -155,7 +155,7 @@ func (s *serviceImpl) commonSettingsOf(
 // saveGlobalDraft writes a save whose common settings changed: the stored
 // deployment-wide payload, this operation's own draft and every other editable
 // operation's common fields move in one transaction, or none of them do
-// (ADR 0010 §2). Every generated plan is left alone — a plan is a frozen
+// (ADR 0008). Every generated plan is left alone — a plan is a frozen
 // snapshot, and the rewritten drafts are what makes them need regeneration.
 func (s *serviceImpl) saveGlobalDraft(
 	ctx context.Context,

@@ -5,7 +5,7 @@ import type { ContentFileRef } from '@/lib/api/types'
 import { useWorkDetailStore } from '@/stores/work-detail'
 
 // The fullscreen viewer (v3): a native <dialog> on a solid substrate — no
-// translucency (ADR 0012 removed it). FIT never upscales; 1:1 removes the
+// translucency ( removed it). FIT never upscales; 1:1 removes the
 // caps and pans by pointer drag. It shares the deck's set/idx, so stepping
 // here moves the plate too, and closing leaves it on the last viewed image.
 

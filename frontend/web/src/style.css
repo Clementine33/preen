@@ -1,5 +1,5 @@
 
-/* Font matrix (ADR 0012 §2): mono telemetry / CN-first UD gothic UI / mincho display */
+/* Font matrix: mono telemetry / CN-first UD gothic UI / mincho display */
 @import url('https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&family=Noto+Sans+JP:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&family=Noto+Serif+JP:wght@600;700&family=Noto+Serif+SC:wght@600;700&family=Shippori+Mincho:wght@500;600;700&display=swap');
 @import "tailwindcss";
 @import "tw-animate-css";
@@ -10,7 +10,7 @@
 
 /*
   The global shell breakpoint: application width > 640px shows the
-  desktop rail, <= 640px the mobile bottom bar. One definition for every
+  desktop rail, <= 640px the page header's GlobalMenu. One definition for every
   consumer (AppShell, list-page menus) so the boundary cannot drift; the
   workbench container tiers keep their own breakpoints in
   `composables/use-container-tier.ts`.
@@ -102,7 +102,7 @@
   --color-control-border: var(--control-border);
   --font-sans: var(--font-ui);
   /* Headings are UI, not display: mincho is reserved for work titles and the
-     work detail specimen, which name --font-mincho directly. ADR 0012 §2. */
+     work detail specimen, which name --font-mincho directly.  */
   --font-heading: var(--font-ui);
   /* Cannot self-reference var(--font-mono) inside @theme; the same stack is
      declared in theme-yorha.css as --font-mono. */
@@ -110,10 +110,10 @@
 }
 
 /*
-  Semantic layer (ADR 0012 §3): existing pages keep reading the shadcn and
+  Semantic layer: existing pages keep reading the shadcn and
   role tokens below; every palette token now resolves into the YoRHa base in
   theme-yorha.css, so the whole app reskins without touching page markup.
-  The phase-3 skin (ADR 0012 §4) lives in the shared components themselves.
+  The phase-3 skin lives in the shared components themselves.
 
   Kept literal on purpose, out of the YoRHa palette:
     --success/warning/danger/info-*   status roles, each with fill, readable
@@ -147,7 +147,7 @@
 */
 
 :root {
-  /* shadcn layer, resolved into the YoRHa base (ADR 0012 §3). These indirections
+  /* shadcn layer, resolved into the YoRHa base. These indirections
      flip with the theme by themselves: the raw vars change under .dark. */
   --background: var(--bg-canvas);
   --foreground: var(--fg-base);
@@ -272,8 +272,7 @@
     line-height: var(--lh-s);
     font-variant-numeric: tabular-nums;
   }
-  /* Native checks take the bone/carbon ink instead of the browser blue
-     (ADR 0012 §4). */
+  /* Native checks take the bone/carbon ink instead of the browser blue. */
   input[type='checkbox'], input[type='radio'] {
     accent-color: var(--invert-bg);
   }

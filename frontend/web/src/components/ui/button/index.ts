@@ -8,7 +8,7 @@ export const buttonVariants = cva(
   {
     variants: {
       variant: {
-        // YoRHa (ADR 0012 §4): primary floats a ghost frame and sinks into it on
+        // YoRHa: primary floats a ghost frame and sinks into it on
         // press; outline inverts on hover. No wipe or ■ marker at this density.
         default: 'bg-primary text-primary-foreground hover:shadow-[3px_3px_0_-1px_var(--background),3px_3px_0_0_var(--wire-strong)] active:not-aria-[haspopup]:translate-[3px] active:shadow-none',
         outline: 'border-input bg-transparent hover:border-primary hover:bg-primary hover:text-primary-foreground aria-expanded:border-primary aria-expanded:bg-primary aria-expanded:text-primary-foreground active:not-aria-[haspopup]:translate-y-px',

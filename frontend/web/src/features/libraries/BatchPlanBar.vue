@@ -13,7 +13,7 @@ import { X } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 
 /**
- * The overview's scope bar (ADR 0001 §1, §2). It belongs to a selection, so
+ * The overview's scope bar (ADR 0001). It belongs to a selection, so
  * the page mounts it only while something is selected — there is never
  * an empty strip above the bottom bar. It sits in the page's own column, so
  * the bottom bar and this bar never overlap.

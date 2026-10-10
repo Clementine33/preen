@@ -3,7 +3,7 @@ package app
 import "strings"
 
 // IsDevelopmentVersion checks pre-release identifiers, ignoring build metadata.
-// RCs use the same migration lifecycle as stable releases (ADR 0013 §2).
+// RCs use the same migration lifecycle as stable releases (ADR 0011).
 func IsDevelopmentVersion(version string) bool {
 	version, _, _ = strings.Cut(version, "+")
 	_, prerelease, _ := strings.Cut(version, "-")

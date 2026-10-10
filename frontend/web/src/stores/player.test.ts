@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { usePlayerStore } from './player'
 
 /**
- * The silent path's state machine (ADR 0012 §4): the clock only runs while
+ * The silent path's state machine: the clock only runs while
  * playing, and the now-playing work is the one thing Space can never touch.
  * What plays and what the wall has selected are two different states — that
  * decoupling is the store's whole contract with the page.

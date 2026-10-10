@@ -22,7 +22,7 @@ import { useWorkFacets, useWorksList, worksListQueryOptions } from '@/queries/wo
 import { useLibraryUiStore } from '@/stores/library-ui'
 import { usePlayerStore } from '@/stores/player'
 
-// The work wall page (ADR 0012 §4): an in-page header, a filter rail, the
+// The work wall page: an in-page header, a filter rail, the
 // bench of one numbered page of works with its pager and the inspector, and
 // the player baseline — four rows inside the AppShell's main.
 //
@@ -144,7 +144,7 @@ const { facets: voiceActorNames } = useWorkFacets('voice_actor', libraryOnly,
 const { facets: circleNames } = useWorkFacets('circle', libraryOnly, () => unnamed(wq.circle.value, circleFacets.value))
 const tagScope = scopeWithout('tag', 'tag_match')
 
-// An entity without a source id is kept per work (ADR 0011 §6), so one name
+// An entity without a source id is kept per work (ADR 0009), so one name
 // can arrive as several ids. The rail offers the name once and asks for all of
 // its ids: the listing matches any id of a comma-separated list. A pick the
 // other filters have narrowed away stays on offer at 0 — named from the

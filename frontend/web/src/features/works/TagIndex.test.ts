@@ -8,7 +8,7 @@ import { installTestQueryPlugin } from '@/test/query-client'
 import TagIndex, { type TagSelection } from './TagIndex.vue'
 
 /**
- * The tag index's contracts (ADR 0012 §4): source and user tags merge by name,
+ * The tag index's contracts: source and user tags merge by name,
  * each section is ordered by its own vocabulary's count, and the dialog only
  * stages — APPLY commits, any other way out discards. The dialog is portalled,
  * so it is read from the document rather than the wrapper.

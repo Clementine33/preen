@@ -42,7 +42,7 @@ A root change is rejected with `LIBRARY_HAS_WORKSETS` while the library still
 has a processing record: delete the library — its record goes with it — and
 re-create it at the new root.
 Both a root change and a deletion take the direct-file-management slot, so
-neither interleaves with file management (ADR 0002 §2).
+neither interleaves with file management (ADR 0002).
 
 `DELETE /api/v1/libraries/:id` removes the library **together with its
 processing record**: the record's members, operation, draft, current plan and
@@ -88,7 +88,7 @@ A scan is refused with `EXECUTION_IN_PROGRESS` (409) while any record of the
 library has a queued/running execution: an execution validates the inventory
 the scan would rewrite. It is also refused with `BUSY` (409) while direct file
 management holds the admission slot, and it takes the scanning side of that
-slot itself, so a file operation refuses a running scan in turn (ADR 0002 §2).
+slot itself, so a file operation refuses a running scan in turn (ADR 0002).
 
 ## Directories and member trees
 
@@ -170,7 +170,7 @@ caller keeps the tree it already shows and marks it unrefreshed.
 ## Direct file management
 
 `POST /api/v1/libraries/:id/file-operations` is the second, explicitly
-non-plan write path (ADR 0002 §1). It holds the direct-file-management slot
+non-plan write path (ADR 0002). It holds the direct-file-management slot
 for the whole request — including the inventory refresh that follows the
 writes — and is refused with `BUSY` (409) while any scan is running or any
 planning session or execution is queued or running.
@@ -191,7 +191,7 @@ Body:
 | `move` | one item; `target_dir` is an existing directory of the same member, or `"."` for the member root (`INVALID_TARGET_DIR`, `MOVE_INTO_SELF`) |
 | `soft_delete` | one or more items, applied in order |
 
-A refused request (nothing ran) answers `400` with the refusing code itself (`MEMBER_MISSING`, `PATH_INVALID`, `SYMLINK`, `OPERATION_DENIED`, …), and `REQUEST_REFUSED` only for other errors. A rename that changes only letter case of the same file is allowed on case-insensitive filesystems (ADR 0022 §3).
+A refused request (nothing ran) answers `400` with the refusing code itself (`MEMBER_MISSING`, `PATH_INVALID`, `SYMLINK`, `OPERATION_DENIED`, …), and `REQUEST_REFUSED` only for other errors. A rename that changes only letter case of the same file is allowed on case-insensitive filesystems (ADR 0002).
 
 Every path is validated independently of the request: absolute paths,
 traversal, a path that leaves the member, a path through a symlink and a

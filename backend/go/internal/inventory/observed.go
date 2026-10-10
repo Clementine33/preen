@@ -37,8 +37,7 @@ type BitrateUpdate struct {
 
 // MediaCandidate is one inventory entry whose media facts are still
 // unknown: an image without recorded dimensions, an audio file without a
-// recorded duration, or an encoded one without a recorded bitrate (ADR 0015
-// §2).
+// recorded duration, or an encoded one without a recorded bitrate (ADR 0013).
 type MediaCandidate struct {
 	Path   string
 	Format string

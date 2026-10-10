@@ -16,7 +16,7 @@ const NotFoundPage = () => import('@/pages/NotFoundPage.vue')
 const MemberFiles = () => import('@/features/folders/MemberFiles.vue')
 
 /**
- * Route table (ADR 0003 §1). Desktop and mobile use the same routes: the
+ * Route table (ADR 0003). Desktop and mobile use the same routes: the
  * layout adapts to the container, never by navigating.
  *
  * Every address carries identities only — a library id, a member id, or a
@@ -41,7 +41,7 @@ export const router = createRouter({
     { path: '/', redirect: '/worksets' },
     { path: '/worksets', name: 'worksets', component: WorksetsPage },
 
-    // The work catalog (ADR 0012 §4): the wall of works, and one work's detail
+    // The work catalog: the wall of works, and one work's detail
     // page — the mobile tap target and OPEN DETAIL. The wall keeps its selected
     // work in the `?rj=` identity, never a search term.
     { path: '/works', name: 'works', component: WorksPage },
@@ -117,7 +117,7 @@ export const router = createRouter({
       ],
     },
 
-    // Rename and metadata refresh: one page each, no carriers (ADR 0014). The
+    // Rename and metadata refresh: one page each, no carriers (ADR 0012). The
     // two share a component, so it reads its operation from the prop.
     {
       path: '/worksets/:libraryId/rename',

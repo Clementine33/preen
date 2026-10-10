@@ -14,7 +14,7 @@ import (
 )
 
 // WorkCopyRoots reads the copies of one work joined to their library roots
-// (ADR 0016 §2). The existence check is the work row itself: a placeholder
+// (ADR 0013). The existence check is the work row itself: a placeholder
 // work — reachable in the catalog, never on disk — is found with no copies.
 func (r *Repository) WorkCopyRoots(id works.WorkCode) ([]works.CopyRoot, bool, error) {
 	var one int

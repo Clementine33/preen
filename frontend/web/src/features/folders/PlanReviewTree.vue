@@ -8,7 +8,7 @@ import { decisionGroups, keepReasonText, memberConclusion, resolutionText, revis
 import type { ComponentOutcome } from '@/lib/api/types'
 
 /**
- * The plan's own view of one member (ADR 0001 §3).
+ * The plan's own view of one member (ADR 0001).
  *
  * It is built from the FROZEN plan — never from the latest scan — so what it
  * shows is what the plan will do, not what the disk happens to hold now. It is

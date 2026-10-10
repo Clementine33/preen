@@ -115,7 +115,7 @@ describe('workset mutation cache synchronization', () => {
     await flush()
 
     // The save's common settings reach every other record, so every task's
-    // cached state is refreshed with it (ADR 0010 §2): nothing cached is left
+    // cached state is refreshed with it (ADR 0008): nothing cached is left
     // holding the pre-save common settings.
     expect(client.getQueryData(otherDraftKey)).toBeUndefined()
     expect(client.getQueryData(otherOperationKey)).toBeUndefined()

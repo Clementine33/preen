@@ -1,5 +1,5 @@
 -- +goose Up
--- Release baseline. Freeze this file once distributed (ADR 0013 §2).
+-- Release baseline. Freeze this file once distributed (ADR 0011).
 -- P0 Schema V1: Main entries table with content revision tracking
 CREATE TABLE entries (
     path TEXT PRIMARY KEY,
@@ -12,7 +12,7 @@ CREATE TABLE entries (
     scan_id TEXT NOT NULL DEFAULT '',
     content_rev INTEGER NOT NULL DEFAULT 1,
     bitrate INTEGER,
-    -- Scan-time media facts (ADR 0015 §2, ADR 0016 §5): image pixel size and
+    -- Scan-time media facts (ADR 0013): image pixel size and
     -- audio duration in seconds, NULL while unmeasured.
     width INTEGER,
     height INTEGER,
@@ -81,7 +81,7 @@ CREATE TABLE scan_sessions (
     finished_at TEXT
 );
 
--- Development and release databases have separate lifecycles (ADR 0013 §1).
+-- Development and release databases have separate lifecycles (ADR 0011).
 CREATE TABLE schema_meta (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL DEFAULT ''
@@ -229,7 +229,7 @@ CREATE TABLE workset_members (
     UNIQUE (workset_id, rel_path)
 );
 
--- Independent workset.Workset Operations (ADR 0001 §1), keyed by (workset, type).
+-- Independent workset.Workset Operations (ADR 0001), keyed by (workset, type).
 -- version is the operation concurrency counter: draft saves and revision
 -- publication advance it, and If-Match on draft/generation
 -- writes is bound to it. current_revision_id is never mutated by a failed,
@@ -260,7 +260,7 @@ CREATE TABLE workset_operation_drafts (
         REFERENCES workset_operations(workset_id, operation_type) ON DELETE CASCADE
 );
 
--- Deployment-wide common settings, one row per operation kind (ADR 0010 §1):
+-- Deployment-wide common settings, one row per operation kind (ADR 0008):
 -- the payload a global save stores, and what a newly created operation seeds
 -- its common settings from. Absent means no global save happened yet, so the
 -- task's own seed values stand.
@@ -326,7 +326,7 @@ CREATE INDEX idx_plan_generations_queue
     ON plan_generations(status, created_at, generation_id);
 
 -- workset.Workset execution sessions: the durable record of one revision
--- being executed (ADR 0001 §2). status: queued|running|succeeded|failed|
+-- being executed (ADR 0001). status: queued|running|succeeded|failed|
 -- canceled|interrupted. A revision is executed at most once: the unique
 -- idempotency index holds the key for the session's whole life, and the
 -- plan_id index answers "has this revision already been executed".
@@ -557,7 +557,7 @@ CREATE INDEX idx_work_declared_children_child
     ON work_declared_children(child_work_id);
 
 -- The resolved relation of a work, computed from the two evidence tables by
--- the rules in ADR 0011. It is DERIVED data and never blocks a deletion: both
+-- the rules in ADR 0009. It is DERIVED data and never blocks a deletion: both
 -- foreign keys are ON DELETE SET NULL, so removing a work can only recompute
 -- or blank this row, never fail because of it. With the default NO ACTION a
 -- deletable work (no copies, no inbound evidence) would be refused by this

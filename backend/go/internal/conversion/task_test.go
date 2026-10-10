@@ -182,7 +182,7 @@ func TestSeedDraftReadsTheTagLiterals(t *testing.T) {
 // TestCommonSettingsProjectionAndApply covers the two halves of a
 // deployment-wide save: the projection carries the five common values and no
 // member record, and applying it moves the base without touching a single
-// member record (ADR 0010 §2).
+// member record (ADR 0008).
 func TestCommonSettingsProjectionAndApply(t *testing.T) {
 	task := conversion.New(
 		nil,

@@ -9,7 +9,7 @@ import (
 // TestMatchDirIDRefusesAnAmbiguousIdentity pins the rule the API cannot reach:
 // the inventory cannot hold two rows for one path, so an identity two
 // directories claim is refused where the match is decided, never answered with
-// the first of them (ADR 0003 §4).
+// the first of them (ADR 0003).
 func TestMatchDirIDRefusesAnAmbiguousIdentity(t *testing.T) {
 	identity := library.DirID("lib-1", "/music", "albumA")
 

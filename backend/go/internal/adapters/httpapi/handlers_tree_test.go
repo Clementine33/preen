@@ -300,7 +300,7 @@ func TestMemberTree(t *testing.T) {
 //
 // Traversal and absolute paths are no longer expressible here at all: the
 // address carries an opaque identity, and a value that is not one is a bad
-// request before any lookup happens (ADR 0003 §4).
+// request before any lookup happens (ADR 0003).
 func TestMemberTreeRefusals(t *testing.T) {
 	var repo *sqlite.Repository
 	engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) { repo = fixture })

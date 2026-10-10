@@ -7,7 +7,7 @@ set of 1–500 selected Work Roots, including roots without audio. Each library
 has at most one workset, enforced by a storage-level unique index.
 `conversion`, `rename` and `metadata_refresh` reuse the same members and each
 retain independent drafts, versions, planning sessions, current plans and
-execution results. Decision: [ADR 0020](../adr/0020-shared-workset-batch.md).
+execution results. Decision: [ADR 0004](../adr/0004-task-seam-and-opaque-payloads.md).
 
 **Status: implemented and machine-checked.** The Go handler, repository and
 e2e tests are the reference for the shapes below. There is no revision-history
@@ -16,9 +16,9 @@ plan retires the one it replaced — with its payload, roots, units and
 execution sessions — in the same transaction. The pre-operation workset routes
 (`/worksets/{id}/draft`, `/worksets/{id}/revisions`,
 `/worksets/{id}/planning-sessions/*`) and the old record-creation route
-(`POST /worksets` with `folder_ids`) were removed in the same delivery. An
-incompatible database is refused at startup, never migrated or cleared
-(ADR 0008 §3).
+(`POST /worksets` with `folder_ids`) were removed in the same delivery. A
+database from another schema generation is refused at startup, never cleared;
+only release databases upgrade, through migrations (ADR 0011).
 
 ## Creating the current record
 
@@ -76,7 +76,7 @@ All routes require auth and use the [standard error envelope](common.md#error-en
 | PATCH | `/api/v1/worksets/{id}` | Rename only. `If-Match` = workset metadata version (`VERSION_REQUIRED` without it, `VERSION_CONFLICT` when stale, `ORPHANED_WORKSET` when the library is gone). |
 | GET | `/api/v1/worksets/{id}/operations/{type}` | Operation view: `version`, `planning_state`, `current_revision`, `active_generation`, `latest_generation`, `active_execution`, `latest_execution`. Unknown workset, unsupported type and unestablished operation are all 404 (`UNKNOWN_OPERATION_TYPE` for a type this iteration does not implement). |
 | GET | `/api/v1/worksets/{id}/operations/{type}/draft` | The operation version plus the sparse draft wrapped in its task envelope: `task: {kind, schema_version, payload}`. The payload is task-owned (conversion: the sparse document). `common_settings_current` is true only when this draft's common settings match a stored deployment-wide value; it is false before the first global save. |
-| PUT | `/api/v1/worksets/{id}/operations/{type}/draft` | Full replacement of the sparse document, `If-Match` = operation version. Structural validation only: an incomplete draft saves. A save whose common settings differ from the ones this operation holds is deployment-wide: the stored common settings and every other editable record's common fields move in the same transaction, each with its draft hash and operation version, while member overrides, exclusions and generated plans stay exactly as they were (ADR 0010 §2). `GENERATION_IN_PROGRESS` while this operation's session is queued/running; `EXECUTION_IN_PROGRESS` while its execution session is; `COMMON_SETTINGS_BUSY` (409) when another record of the same kind holds one — the whole save is refused then, never a part of it; `ORPHANED_WORKSET` when read-only. |
+| PUT | `/api/v1/worksets/{id}/operations/{type}/draft` | Full replacement of the sparse document, `If-Match` = operation version. Structural validation only: an incomplete draft saves. A save whose common settings differ from the ones this operation holds is deployment-wide: the stored common settings and every other editable record's common fields move in the same transaction, each with its draft hash and operation version, while member overrides, exclusions and generated plans stay exactly as they were (ADR 0008). `GENERATION_IN_PROGRESS` while this operation's session is queued/running; `EXECUTION_IN_PROGRESS` while its execution session is; `COMMON_SETTINGS_BUSY` (409) when another record of the same kind holds one — the whole save is refused then, never a part of it; `ORPHANED_WORKSET` when read-only. |
 | POST | `/api/v1/worksets/{id}/operations/{type}/revisions` | Start generation. No request body; `If-Match` (operation version) and `Idempotency-Key` are both required. 202 `{"created":true,"generation":…}`; 200 with `revision` when the current revision has never executed and nothing semantic changed, or 202 with `generation` for a key replay. A new key after execution creates a fresh plan even with unchanged settings and folders. Conflicts: `GENERATION_IN_PROGRESS`, `EXECUTION_IN_PROGRESS`, `SCAN_IN_PROGRESS`, `NO_ACTIVE_MEMBERS`, `VERSION_CONFLICT`; `INVALID_POLICY` is 400. |
 | GET | `/api/v1/worksets/{id}/operations/{type}/planning-sessions/{genId}` | Session detail. Statuses `queued`, `running`, `completed`, `failed`, `canceled`, `interrupted`. A session of another workset or operation is 404. |
 | GET | `/api/v1/worksets/{id}/operations/{type}/planning-sessions/{genId}/events` | SSE progress (`session_snapshot`, `progress`, terminal event). |

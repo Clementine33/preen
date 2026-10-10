@@ -3,7 +3,7 @@ import { computed, ref, watch } from 'vue'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { usePopupMenu } from './use-popup-menu'
 
-// One select of the filter rail (ADR 0012 §4): a rail tab that unfolds the
+// One select of the filter rail: a rail tab that unfolds the
 // library switcher's specimen panel. A tab with a value set reads inverted, the
 // way a pressed tab does; long lists (voice actors, circles) carry a search box
 // that narrows the options by name.

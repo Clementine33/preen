@@ -209,7 +209,7 @@ export function deleteClassifierTagMutationOptions(api: ApiClientContract, query
  * business: the backend stores them deployment-wide and rewrites every other
  * record's draft in the same transaction, so the whole workset domain is
  * refreshed — every task reads the normalized document and the version it now
- * has, not only the record the edit came through (ADR 0010 §2). Whether this
+ * has, not only the record the edit came through (ADR 0008). Whether this
  * particular save was one is the backend's call (it compares against the
  * stored document), so the client does not re-derive that rule: a member-only
  * save costs a few refetches rather than a second copy of the rule.

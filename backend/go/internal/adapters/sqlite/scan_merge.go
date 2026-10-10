@@ -148,7 +148,7 @@ func mergeStagingEntries(tx *sql.Tx, scanID, libraryID, rootPath string) (invent
 	// Semantics:
 	// - new row => content_rev=1, dirty_flag=0
 	// - changed size/mtime/type => increment content_rev, dirty_flag=1, bitrate and
-	//   the media facts (width/height/duration, ADR 0015 §2) cleared
+	//   the media facts (width/height/duration, ADR 0013) cleared
 	// - unchanged size/mtime/type => preserve content_rev, bitrate and media facts
 	_, err := tx.Exec(mergeObservedEntriesSQL, scanID, now.Format(timeFormat), scanID)
 	if err != nil {

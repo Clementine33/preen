@@ -188,7 +188,7 @@ type DesiredProfile struct {
 	Encoded  *AudioOutputSpec `json:"encoded,omitempty"`
 }
 
-// Conversion modes (ADR 0005 §3). The zero value and the empty string are
+// Conversion modes (ADR 0005). The zero value and the empty string are
 // the strict behavior: old policies and old clients keep byte-identical
 // outcomes. "available_sources" is the relaxed mode for new batches.
 const (

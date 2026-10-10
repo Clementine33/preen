@@ -1,13 +1,13 @@
 import type { RouteLocationNormalized, Router } from 'vue-router'
 
 /**
- * The URL parameters each page supports (ADR 0003 §5).
+ * The URL parameters each page supports (ADR 0003).
  *
  * Addresses carry identities, never names: a page's own parameters are the few
  * closed vocabularies and id shapes below, and everything else — a retired
  * `folder`, a campaign tag someone pasted on — is removed at the route entry.
  * The work wall is the one page whose search text lives in its address: the
- * wall's whole view is shareable state there (ADR 0012 §4). One table
+ * wall's whole view is shareable state there. One table
  * therefore answers what any address can mean.
  */
 export const MEMBER_FILTERS = ['all', 'change', 'warn', 'blocked', 'source_conflict', 'excluded'] as const
@@ -28,7 +28,7 @@ const ALLOWED_VALUES: Record<string, readonly string[]> = {
 
 /**
  * A list of entity ids. Its shape is checked, never its length: a name without
- * a source id is one id per work (ADR 0011 §6), and dropping a long pick here
+ * a source id is one id per work (ADR 0009), and dropping a long pick here
  * would silently widen the wall. The wall itself refuses an overlong change.
  */
 const ID_LIST = /^[\w-]+(,[\w-]+)*$/
@@ -44,7 +44,7 @@ const OPEN_VALUE: Record<string, RegExp> = {
   // The wall's media library: a library id, so a reload keeps the library
   // instead of falling back to the first one.
   library: /^[\w-]{1,64}$/,
-  // The wall's filters (ADR 0012 §4): voice-actor and circle id lists, tag
+  // The wall's filters: voice-actor and circle id lists, tag
   // groups in the listing's own `s:`/`u:` spelling, FIND text, and a page
   // number of at least 1 (a malformed one falls back to the first page).
   voice: ID_LIST,

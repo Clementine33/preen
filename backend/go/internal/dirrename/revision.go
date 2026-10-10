@@ -82,7 +82,7 @@ func (t *Task) EvaluateRevision(in workset.RevisionFacts) (workset.RevisionHealt
 	if err := json.Unmarshal([]byte(in.Detail.Steps[0].PolicyJSON), &common); err != nil {
 		return health, err
 	}
-	if err := validateTemplate(common.Template); err != nil {
+	if err := validateCommon(common); err != nil {
 		return health, err
 	}
 	paths := make([]string, 0, len(in.Detail.Roots))
@@ -109,7 +109,31 @@ func (t *Task) EvaluateRevision(in workset.RevisionFacts) (workset.RevisionHealt
 			return health, err
 		}
 		outcomes[c.RootIndex] = o
-		health.UnitsBlocked = health.UnitsBlocked || c.Status == "blocked"
+	}
+	// A blocked folder is skipped by the run, never a reason to refuse it. A
+	// followed hand rename reads the work bound to the folder's new location
+	// when it already has one.
+	var lookups []string
+	for _, r := range in.Detail.Roots {
+		if o := outcomes[r.RootIndex]; o.ObservedName != "" && slices.Contains(paths, r.RootPath) {
+			lookups = append(lookups, filepath.ToSlash(filepath.Join(filepath.Dir(filepath.FromSlash(r.RootPath)), o.ObservedName)))
+		}
+	}
+	if len(lookups) > 0 {
+		found, err := t.catalog.RenameWorks(ctx, in.Detail.Plan.RootPath, lookups)
+		if err != nil {
+			return health, err
+		}
+		for _, r := range in.Detail.Roots {
+			o := outcomes[r.RootIndex]
+			if o.ObservedName == "" {
+				continue
+			}
+			observed := filepath.ToSlash(filepath.Join(filepath.Dir(filepath.FromSlash(r.RootPath)), o.ObservedName))
+			if w, ok := found[observed]; ok {
+				works[r.RootPath] = w
+			}
+		}
 	}
 	for _, r := range in.Detail.Roots {
 		if !slices.Contains(paths, r.RootPath) {
@@ -120,7 +144,7 @@ func (t *Task) EvaluateRevision(in workset.RevisionFacts) (workset.RevisionHealt
 		o := outcomes[r.RootIndex]
 		live := planName(common, &workset.WorksetMember{
 			MemberID: o.MemberID, FolderPath: r.RootPath,
-		}, works[r.RootPath], directory, parent)
+		}, works[r.RootPath], directory, parent, naming{Custom: o.CustomName, Observed: o.ObservedName})
 		// Batch collisions are frozen globally; a per-root read cannot recreate
 		// that reason. Comparing proposals also supports older mtime fingerprints.
 		if o.ReasonCode == "TARGET_COLLISION" && live.ReasonCode == "" {

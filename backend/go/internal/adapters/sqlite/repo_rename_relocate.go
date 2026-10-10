@@ -3,16 +3,26 @@ package sqlite
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"path/filepath"
 
 	"github.com/onsei/organizer/backend/internal/librarypath"
+	"github.com/onsei/organizer/backend/internal/works"
 )
 
 // RelocateDirectory rebases all mutable path identities in one transaction.
 // Repeating a completed relocation updates no rows. Target conflicts roll back
 // every change; frozen plans and requests remain historical.
 func (r *Repository) RelocateDirectory(ctx context.Context, root, source, target string) error {
+	return r.RelocateDirectoryAs(ctx, root, source, target, "")
+}
+
+// RelocateDirectoryAs is RelocateDirectory that also rebinds the moved copy to
+// the work named by code, in the same transaction. A rename whose new name
+// carries another work code must not leave the copy bound to the old one; an
+// empty code keeps the binding as it is.
+func (r *Repository) RelocateDirectoryAs(ctx context.Context, root, source, target, code string) error {
 	root = librarypath.CleanRootPath(root)
 	source, target = librarypath.CleanRootPath(source), librarypath.CleanRootPath(target)
 	if source == target || !librarypath.IsWithinRoot(root, source) || !librarypath.IsWithinRoot(root, target) ||
@@ -68,7 +78,30 @@ func (r *Repository) RelocateDirectory(ctx context.Context, root, source, target
 	); err != nil {
 		return err
 	}
+	if code != "" {
+		if err := rebindCopy(ctx, tx, librarypath.RootPathKey(root), filepath.ToSlash(targetRel), code); err != nil {
+			return err
+		}
+	}
 	return tx.Commit()
+}
+
+// rebindCopy points the copy at rel_path to the work with the given code, the
+// way a scan would bind the renamed directory: the copy keeps its identity and
+// the work is created as a placeholder when the library has never seen it.
+func rebindCopy(ctx context.Context, tx *sql.Tx, rootKey, relPath, code string) error {
+	var libraryID string
+	err := tx.QueryRowContext(ctx, `SELECT id FROM libraries WHERE root_path_key=?`, rootKey).Scan(&libraryID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("rebind copy: %w", err)
+	}
+	if err := bindDirectories(tx, libraryID, map[string]works.WorkCode{relPath: works.WorkCode(code)}); err != nil {
+		return fmt.Errorf("rebind copy: %w", err)
+	}
+	return nil
 }
 
 func relocateEntries(ctx context.Context, tx *sql.Tx, source, target string) error {

@@ -2,6 +2,7 @@ package dirrename
 
 import (
 	"context"
+	"strings"
 
 	"github.com/onsei/organizer/backend/internal/workset"
 )
@@ -15,6 +16,19 @@ type Catalog interface {
 type Work struct {
 	Code   string            `json:"code"`
 	Values map[string]string `json:"values"`
+	// VoiceActors stay a list: the separator that joins them is a setting.
+	VoiceActors []string `json:"voice_actors,omitempty"`
+}
+
+// field is the value a template placeholder takes for this work.
+func (w Work) field(key string, c Common) string {
+	switch key {
+	case "rj":
+		return w.Code
+	case "voice_actors":
+		return strings.Join(w.VoiceActors, c.actorSeparator())
+	}
+	return w.Values[key]
 }
 
 // Entry describes an immediate parent entry without following symlinks.
@@ -31,7 +45,7 @@ type Directory map[string]Entry
 type ExecutionIO struct {
 	ResolveDirectory func(root, relative string) (string, error)
 	Rename           func(source, target string) error
-	Relocate         func(context.Context, string, string, string) error
+	Relocate         func(ctx context.Context, root, source, target, rebind string) error
 	PendingCovers    func(context.Context, string, []string) (bool, error)
 }
 

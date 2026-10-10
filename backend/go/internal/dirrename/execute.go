@@ -20,6 +20,8 @@ type Result struct {
 	Renamed    bool   `json:"renamed"`
 	RolledBack bool   `json:"rolled_back,omitempty"`
 	Recovered  bool   `json:"recovered,omitempty"`
+	// Skipped is the reason a blocked folder was left alone; the run goes on.
+	Skipped string `json:"skipped,omitempty"`
 }
 
 func (t *Task) FreezeExecution(in workset.RevisionFacts) (workset.FrozenExecution, []string, error) {
@@ -35,9 +37,6 @@ func (t *Task) FreezeExecution(in workset.RevisionFacts) (workset.FrozenExecutio
 		var o Outcome
 		if err := json.Unmarshal([]byte(c.OutcomeJSON), &o); err != nil {
 			return frozen, nil, err
-		}
-		if o.Action == "blocked" {
-			return frozen, []string{workset.ExecBlockedComponents}, nil
 		}
 		operations := 0
 		if o.Action == "rename" {
@@ -139,26 +138,45 @@ func (t *Task) prepareRename(ctx context.Context, in workset.UnitRunInput) (*pre
 	if err := json.Unmarshal(in.Unit.Payload, &o); err != nil {
 		return nil, err
 	}
+	if o.Action == "blocked" {
+		return &preparedRename{
+			task: t, root: in.WorksetRoot, action: o.Action, recorded: in.Unit.RootPath,
+			result: Result{SourcePath: in.Unit.RootPath, Skipped: o.ReasonCode},
+		}, nil
+	}
 	if o.Action != "rename" && o.Action != "noop" {
 		return nil, fmt.Errorf("invalid frozen rename action %q", o.Action)
 	}
 	if filepath.Base(filepath.FromSlash(in.Unit.RootPath)) != o.SourceName ||
-		o.TargetName == "" || filepath.Base(o.TargetName) != o.TargetName || strings.ContainsAny(o.TargetName, `/\`) || reserved(o.TargetName) {
+		o.TargetName == "" || filepath.Base(o.TargetName) != o.TargetName || strings.ContainsAny(o.TargetName, `/\`) || reserved(o.TargetName) ||
+		(o.ObservedName != "" && (filepath.Base(o.ObservedName) != o.ObservedName || strings.ContainsAny(o.ObservedName, `/\`) || reserved(o.ObservedName))) {
 		return nil, fmt.Errorf("invalid frozen rename names")
 	}
-	target := filepath.ToSlash(filepath.Join(filepath.Dir(filepath.FromSlash(in.Unit.RootPath)), o.TargetName))
+	dir := filepath.Dir(filepath.FromSlash(in.Unit.RootPath))
+	source := in.Unit.RootPath
+	if o.ObservedName != "" {
+		source = filepath.ToSlash(filepath.Join(dir, o.ObservedName))
+	}
+	target := filepath.ToSlash(filepath.Join(dir, o.TargetName))
 	return &preparedRename{
-		task:   t,
-		root:   in.WorksetRoot,
-		action: o.Action,
-		result: Result{SourcePath: in.Unit.RootPath, TargetPath: target},
+		task:     t,
+		root:     in.WorksetRoot,
+		action:   o.Action,
+		recorded: in.Unit.RootPath,
+		rebind:   o.RebindTo,
+		result:   Result{SourcePath: source, TargetPath: target},
 	}, nil
 }
 
 type preparedRename struct {
 	task         *Task
 	root, action string
-	result       Result
+	// recorded is where the stored paths still point; it differs from the
+	// result's source only for a folder that was renamed by hand.
+	recorded string
+	// rebind is the work code the stored copy takes on with the new name.
+	rebind string
+	result Result
 }
 
 func (*preparedRename) EncodeTasks() int { return 0 }
@@ -170,6 +188,9 @@ func (p *preparedRename) Commit(ctx context.Context) (workset.UnitResult, error)
 	if err := ctx.Err(); err != nil {
 		return p.Discard(err), err
 	}
+	if p.action == "blocked" {
+		return p.observed(), nil
+	}
 	if p.task.io.ResolveDirectory == nil || p.task.io.Rename == nil || p.task.io.Relocate == nil {
 		return p.failure("COMPONENT_RENAME_FAILED", fmt.Errorf("rename execution is not configured")), nil
 	}
@@ -180,6 +201,14 @@ func (p *preparedRename) Commit(ctx context.Context) (workset.UnitResult, error)
 	source, err := p.task.io.ResolveDirectory(p.root, filepath.ToSlash(rel))
 	if err != nil {
 		return p.failure("INPUT_CHANGED", err), nil
+	}
+	if p.recorded != p.result.SourcePath {
+		// The folder was renamed by hand: bring the stored paths to where it
+		// is now. This only rewrites rows; the disk is already there.
+		if err := p.task.io.Relocate(context.WithoutCancel(ctx), p.root, p.recorded, p.result.SourcePath, ""); err != nil {
+			return p.failure("RENAME_STATE_SYNC_FAILED", err), nil
+		}
+		p.recorded = p.result.SourcePath
 	}
 	if p.action == "noop" {
 		return p.observed(), nil
@@ -208,6 +237,7 @@ func (p *preparedRename) Commit(ctx context.Context) (workset.UnitResult, error)
 		p.root,
 		p.result.SourcePath,
 		p.result.TargetPath,
+		p.rebind,
 	); err != nil {
 		rollback := p.task.io.Rename(filepath.FromSlash(p.result.TargetPath), source)
 		code := "RENAME_STATE_SYNC_FAILED"

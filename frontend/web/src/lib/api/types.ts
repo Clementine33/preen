@@ -629,10 +629,22 @@ export interface TaskDraftMember {
   excluded: boolean
 }
 
+/** A rename member record: an exclusion, a literal folder name, or both. */
+export interface RenameDraftMember extends TaskDraftMember {
+  name?: string
+}
+
 export interface RenameDraftDocument {
   schema_version: number
-  common: { template: string; strip_bracketed_title?: boolean; strip_tilde_title?: boolean; strip_book_title?: boolean }
-  members: TaskDraftMember[]
+  common: {
+    template: string
+    strip_bracketed_title?: boolean
+    strip_tilde_title?: boolean
+    strip_book_title?: boolean
+    /** Joins the actors of `{voice_actors}`; absent means "、". */
+    voice_actor_separator?: string
+  }
+  members: RenameDraftMember[]
 }
 
 export type MetadataMode = 'fill_missing' | 'refresh_dynamic' | 'refresh_all'
@@ -949,6 +961,12 @@ export interface RenameComponent {
   target_name: string
   action: 'rename' | 'noop' | 'blocked'
   reason_code?: string
+  /** The literal name the user gave this folder instead of the template. */
+  custom_name?: string
+  /** What a hand-renamed folder is called on disk now; the run moves the stored paths to it first. */
+  observed_name?: string
+  /** The work code a custom name carries when it differs from the bound work. */
+  rebind_to?: string
 }
 
 export interface CoverTarget {
@@ -1161,6 +1179,8 @@ export interface RenameTaskResult {
  source_path: string
  target_path: string
  renamed: boolean
+ /** The reason a blocked folder was left alone; the run went on. */
+ skipped?: string
  rolled_back?: boolean
  recovered?: boolean
 }

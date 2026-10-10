@@ -147,15 +147,68 @@ describe('task operation page', () => {
     expect(api.startExecution).toHaveBeenCalledWith('ws-1', 'rename', 'p-1', expect.objectContaining({ ifMatchVersion: 3 }))
   })
 
-  it('points a blocked rename plan to exclusion and regeneration', async () => {
+  it('offers an actor separator only when the template uses {voice_actors}', async () => {
+    const { wrapper, api } = await mountPage('/worksets/lib-1/rename')
+    expect(wrapper.find('[data-testid="rename-actor-separator"]').exists()).toBe(false)
+    await wrapper.get('[data-testid="rename-template"]').setValue('[{rj}] {voice_actors}')
+    await wrapper.get('[data-testid="rename-actor-separator"]').setValue(' & ')
+    await wrapper.get('[data-testid="task-settings"]').trigger('submit')
+    await flushPromises()
+    expect(vi.mocked(api.saveOperationDraft).mock.calls[0][2]).toMatchObject({
+      common: { template: '[{rj}] {voice_actors}', voice_actor_separator: ' & ' },
+    })
+  })
+
+  it('executes a rename plan that holds a blocked folder and lists only changes', async () => {
     const { wrapper } = await mountPage('/worksets/lib-1/rename', {
       getRevision: vi.fn(async () => ({
         plan_id: 'p-1', counts: { blocked: 1 },
-        task: { kind: 'rename', schema_version: 1, payload: { components: COMPONENTS.rename } },
+        task: { kind: 'rename', schema_version: 1, payload: { components: [
+          ...COMPONENTS.rename,
+          { member_id: 'm-2', source_name: 'b', work_code: 'RJ02', raw_name: '', target_name: '', action: 'blocked', reason_code: 'TARGET_EXISTS' },
+          { member_id: 'm-3', source_name: 'c', work_code: 'RJ03', raw_name: '', target_name: 'c', action: 'noop' },
+        ] } },
       })) as never,
     })
-    expect(wrapper.text()).toContain('排除阻塞项后重新生成')
-    expect(wrapper.find('[data-testid="execute"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('排除阻塞项后重新生成')
+    expect(wrapper.find('[data-testid="execute"]').exists()).toBe(true)
+    expect(wrapper.get('[data-testid="task-plan-table"]').findAll('li')).toHaveLength(2)
+    expect(wrapper.get('[data-testid="plan-summary"]').text()).toBe('重命名 1 · 跳过 1 · 1 个名称不变（未显示）')
+    expect(wrapper.get('[data-testid="task-plan-table"]').text()).toContain('目标名称已存在')
+  })
+
+  it('saves a folder name into the draft next to the other records', async () => {
+    const { wrapper, api } = await mountPage('/worksets/lib-1/rename')
+    await wrapper.get('[data-testid="manual-rename-search"]').setValue('a')
+    await wrapper.get('[data-testid="manual-rename-matches"] button').trigger('click')
+    const input = wrapper.get('[data-testid="manual-rename-input"]')
+    await input.setValue('[RJ01] mine')
+    await wrapper.get('[data-testid="manual-rename-form"]').trigger('submit')
+    await flushPromises()
+    expect(api.saveOperationDraft).toHaveBeenCalledWith(
+      'ws-1', 'rename',
+      expect.objectContaining({ members: [{ member_id: 'm-1', excluded: false, name: '[RJ01] mine' }] }),
+      3, undefined,
+    )
+  })
+
+  it('drops names a run already applied when the draft is saved again', async () => {
+    const { wrapper, api } = await mountPage('/worksets/lib-1/rename', {
+      getOperationDraft: vi.fn(async () => ({
+        workset_id: 'ws-1', operation_type: 'rename', version: 3, schema_version: 1,
+        document: { schema_version: 1, common: COMMON.rename, members: [{ member_id: 'm-1', excluded: false, name: 'a' }] },
+        common_settings_current: true, updated_at: '',
+      })) as never,
+    })
+    await wrapper.get('[data-testid="manual-rename-search"]').setValue('a')
+    await wrapper.get('[data-testid="manual-rename-matches"] button').trigger('click')
+    const input = wrapper.get('[data-testid="manual-rename-input"]')
+    await input.setValue('')
+    await wrapper.get('[data-testid="manual-rename-form"]').trigger('submit')
+    await flushPromises()
+    expect(api.saveOperationDraft).toHaveBeenCalledWith(
+      'ws-1', 'rename', expect.objectContaining({ members: [] }), 3, undefined,
+    )
   })
 
   it('shows recovered rename results while the session stays interrupted', async () => {

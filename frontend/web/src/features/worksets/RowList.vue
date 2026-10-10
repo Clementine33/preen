@@ -5,13 +5,18 @@
  * browser skip layout and paint of the rows out of view; `auto 32px` reserves
  * the row height until it has been drawn once, so the scrollbar stays put. The
  * rows are plain DOM, so find-in-page and assistive tech still reach all of
- * them. Keep the 32px and the row's `h-8` together.
+ * them. Keep the reserved height and the row's height class together: the
+ * default is one 32px line, a caller with taller rows passes both in `rowClass`.
  */
-defineProps<{
-  items: T[]
-  itemKey: (item: T) => string
-  testid: string
-}>()
+withDefaults(
+  defineProps<{
+    items: T[]
+    itemKey: (item: T) => string
+    testid: string
+    rowClass?: string
+  }>(),
+  { rowClass: 'h-8 [contain-intrinsic-size:auto_32px]' },
+)
 defineSlots<{ default(props: { item: T }): unknown }>()
 </script>
 
@@ -21,7 +26,8 @@ defineSlots<{ default(props: { item: T }): unknown }>()
       <li
         v-for="item in items"
         :key="itemKey(item)"
-        class="grid h-8 w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 border-b border-border [contain-intrinsic-size:auto_32px] [content-visibility:auto]"
+        class="grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 border-b border-border [content-visibility:auto]"
+        :class="rowClass"
       >
         <slot :item="item" />
       </li>

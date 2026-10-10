@@ -7,6 +7,7 @@ import (
 	"io"
 	"slices"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/onsei/organizer/backend/internal/workset"
 )
@@ -17,12 +18,41 @@ type Common struct {
 	StripBracketedTitle bool   `json:"strip_bracketed_title,omitempty"`
 	StripTildeTitle     bool   `json:"strip_tilde_title,omitempty"`
 	StripBookTitle      bool   `json:"strip_book_title,omitempty"`
+	// VoiceActorSeparator joins the voice actors of `{voice_actors}`; empty means
+	// the default "、". Other placeholders hold one value and need none.
+	VoiceActorSeparator string `json:"voice_actor_separator,omitempty"`
 }
 
-// Member records only an exclusion, never an override.
+const defaultActorSeparator = "、"
+
+func (c Common) actorSeparator() string {
+	if c.VoiceActorSeparator == "" {
+		return defaultActorSeparator
+	}
+	return c.VoiceActorSeparator
+}
+
+// validateCommon checks the template and the separator, which ends up inside a
+// directory name and so may not carry a character a name cannot hold.
+func validateCommon(c Common) error {
+	if err := validateTemplate(c.Template); err != nil {
+		return err
+	}
+	if utf8.RuneCountInString(c.VoiceActorSeparator) > 16 ||
+		strings.ContainsFunc(c.VoiceActorSeparator, func(r rune) bool {
+			return r < 32 || strings.ContainsRune(`<>:"/\|?*`, r)
+		}) {
+		return invalid("voice actor separator is too long or has a character a name cannot hold")
+	}
+	return nil
+}
+
+// Member records an exclusion or a literal name for one folder. A named folder
+// skips the template; the name still has to carry exactly one work code.
 type Member struct {
 	MemberID string `json:"member_id"`
 	Excluded bool   `json:"excluded"`
+	Name     string `json:"name,omitempty"`
 }
 
 // Draft is the versioned, sparse rename configuration.
@@ -36,7 +66,7 @@ func (*Task) SeedDraft(common json.RawMessage) ([]byte, string, int) {
 	d := Draft{SchemaVersion: 1, Common: Common{Template: "[{rj}] {title}"}, Members: []Member{}}
 	if len(common) > 0 {
 		var c Common
-		if json.Unmarshal(common, &c) == nil && validateTemplate(c.Template) == nil {
+		if json.Unmarshal(common, &c) == nil && validateCommon(c) == nil {
 			d.Common = c
 		}
 	}
@@ -86,7 +116,7 @@ func (*Task) ApplyCommonSettings(raw []byte, common json.RawMessage) ([]byte, st
 	if err = dec.Decode(&d.Common); err != nil {
 		return nil, "", invalid(err.Error())
 	}
-	if err = validateTemplate(d.Common.Template); err != nil {
+	if err = validateCommon(d.Common); err != nil {
 		return nil, "", err
 	}
 	b, err := json.Marshal(d)
@@ -97,7 +127,7 @@ func (*Task) ValidateDraft(raw []byte, members []*workset.WorksetMember) error {
 	if err != nil {
 		return err
 	}
-	if err = validateTemplate(d.Common.Template); err != nil {
+	if err = validateCommon(d.Common); err != nil {
 		return err
 	}
 	known := map[string]bool{}
@@ -109,6 +139,9 @@ func (*Task) ValidateDraft(raw []byte, members []*workset.WorksetMember) error {
 		if !known[m.MemberID] || seen[m.MemberID] {
 			return invalid("unknown or duplicate member")
 		}
+		if m.Name != strings.TrimSpace(m.Name) {
+			return invalid("member name has surrounding whitespace")
+		}
 		seen[m.MemberID] = true
 	}
 	return nil
@@ -118,7 +151,7 @@ func (t *Task) NormalizeDraft(raw []byte, members []*workset.WorksetMember) ([]b
 		return nil, "", 0, err
 	}
 	d, _ := decodeDraft(raw)
-	d.Members = slices.DeleteFunc(d.Members, func(m Member) bool { return !m.Excluded })
+	d.Members = slices.DeleteFunc(d.Members, func(m Member) bool { return !m.Excluded && m.Name == "" })
 	if d.Members == nil {
 		d.Members = []Member{}
 	}

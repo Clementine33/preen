@@ -182,7 +182,7 @@ func (*poolTask) SeedDraft(json.RawMessage) ([]byte, string, int) {
 }
 
 func (t *poolTask) FreezeExecution(
-	in workset.RevisionFacts,
+	ctx context.Context, in workset.RevisionFacts,
 ) (workset.FrozenExecution, []string, error) {
 	frozen := workset.FrozenExecution{Options: json.RawMessage(`{}`)}
 	if in.Detail == nil {

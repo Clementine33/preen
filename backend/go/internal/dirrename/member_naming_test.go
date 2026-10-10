@@ -1,6 +1,7 @@
 package dirrename_test
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -37,7 +38,7 @@ func planWith(t *testing.T, task *dirrename.Task, m *workset.WorksetMember, entr
 
 func runUnit(t *testing.T, task *dirrename.Task, m *workset.WorksetMember, d *workset.PlanDetail) dirrename.Result {
 	t.Helper()
-	frozen, reasons, err := task.FreezeExecution(workset.RevisionFacts{Detail: d})
+	frozen, reasons, err := task.FreezeExecution(context.Background(), workset.RevisionFacts{Detail: d})
 	if err != nil || len(reasons) > 0 {
 		t.Fatalf("freeze: %v %v", reasons, err)
 	}

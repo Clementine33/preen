@@ -395,7 +395,11 @@ func (f *fixture) runGeneration(worksetID string, ifMatch int) *workset.Generati
 	genID := f.startGeneration(worksetID, ifMatch)
 	f.startOnce.Do(func() {
 		f.svc.DispatcherHandle().Start()
-		f.t.Cleanup(f.svc.DispatcherHandle().Stop)
+		f.t.Cleanup(func() {
+			if err := f.svc.DispatcherHandle().Stop(context.Background()); err != nil {
+				f.t.Error(err)
+			}
+		})
 	})
 	deadline := time.Now().Add(20 * time.Second)
 	for time.Now().Before(deadline) {

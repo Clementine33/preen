@@ -53,7 +53,7 @@ func TestWorksetRefreshCommitsMetadataAndQueuesCoversWithoutWaitingForCDN(t *tes
 		t.Fatal(err)
 	}
 	svc.DispatcherHandle().Start()
-	defer svc.DispatcherHandle().Stop()
+	defer stopDispatcher(t, svc)
 	generation := waitGeneration(t, svc, id, gen.Generation.GenerationID)
 	if statics.Load() != 0 {
 		t.Fatal("plan performed upstream work")
@@ -315,7 +315,7 @@ func TestMetadataSSEIncludesResultsThatFinishOutOfOrder(t *testing.T) {
 		t.Fatal(err)
 	}
 	svc.DispatcherHandle().Start()
-	defer svc.DispatcherHandle().Stop()
+	defer stopDispatcher(t, svc)
 	plan := waitGeneration(t, svc, id, gen.Generation.GenerationID)
 	op, err := svc.GetOperation(t.Context(), id, refresh.Kind)
 	if err != nil {
@@ -404,7 +404,7 @@ func TestRefreshAllCanRunAgainWithoutChangingSettingsOrFolders(t *testing.T) {
 		t.Fatal(err)
 	}
 	svc.DispatcherHandle().Start()
-	defer svc.DispatcherHandle().Stop()
+	defer stopDispatcher(t, svc)
 	previousPlan := ""
 	for _, key := range []string{"first", "second"} {
 		gen, e := svc.StartGeneration(t.Context(), id, refresh.Kind, workset.StartGenerationRequest{
@@ -462,4 +462,13 @@ func coverStaging(t *testing.T, dir string) *filesystem.CoverStaging {
 		t.Fatal(err)
 	}
 	return stage
+}
+
+func stopDispatcher(t *testing.T, svc workset.Service) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
+	defer cancel()
+	if err := svc.DispatcherHandle().Stop(ctx); err != nil {
+		t.Error(err)
+	}
 }

@@ -95,8 +95,8 @@ func relativeToMember(memberPath, entryPath string) string {
 
 // basename returns the last path segment of a POSIX path.
 func basename(path string) string {
-	if idx := strings.LastIndex(path, "/"); idx >= 0 {
-		return path[idx+1:]
+	if _, name, found := strings.CutLast(path, "/"); found {
+		return name
 	}
 	return path
 }

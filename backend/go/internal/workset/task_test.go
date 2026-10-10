@@ -90,13 +90,13 @@ func (s stubTask) PlanSession(
 }
 
 func (s stubTask) EvaluateRevision(
-	_ workset.RevisionFacts,
+	ctx context.Context, _ workset.RevisionFacts,
 ) (workset.RevisionHealth, error) {
 	return workset.RevisionHealth{InputMoved: s.moved}, nil
 }
 
 func (stubTask) FreezeExecution(
-	in workset.RevisionFacts,
+	ctx context.Context, in workset.RevisionFacts,
 ) (workset.FrozenExecution, []string, error) {
 	frozen := workset.FrozenExecution{Options: json.RawMessage(`{}`)}
 	if in.Detail != nil {
@@ -247,7 +247,11 @@ func (f *fixture) runGenerationFor(worksetID, operationType, key string, ifMatch
 	}
 	f.startOnce.Do(func() {
 		f.svc.DispatcherHandle().Start()
-		f.t.Cleanup(f.svc.DispatcherHandle().Stop)
+		f.t.Cleanup(func() {
+			if err := f.svc.DispatcherHandle().Stop(context.Background()); err != nil {
+				f.t.Error(err)
+			}
+		})
 	})
 	deadline := time.Now().Add(20 * time.Second)
 	for time.Now().Before(deadline) {

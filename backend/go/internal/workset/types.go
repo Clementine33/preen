@@ -368,7 +368,7 @@ type RootValidation struct {
 // wiring (Start once at process startup, Stop at graceful shutdown).
 type Dispatcher interface {
 	Start()
-	Stop()
+	Stop(context.Context) error
 }
 
 // Service is the workset usecase contract. Every operation-scoped method takes

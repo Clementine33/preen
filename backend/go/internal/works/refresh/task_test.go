@@ -95,14 +95,14 @@ func TestMetadataPlanKeepsFrozenCopyTargetsAfterRebinding(t *testing.T) {
 			OutcomeJSON:    string(unit.Payload),
 		})
 	}
-	health, err := task.EvaluateRevision(facts)
+	health, err := task.EvaluateRevision(context.Background(), facts)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if health.InputMoved {
 		t.Fatal("rebinding invalidated frozen targets")
 	}
-	frozen, _, err := task.FreezeExecution(facts)
+	frozen, _, err := task.FreezeExecution(context.Background(), facts)
 	if err != nil {
 		t.Fatal(err)
 	}

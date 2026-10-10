@@ -1,6 +1,7 @@
 package dirrename_test
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"os"
@@ -67,7 +68,9 @@ func newRenameRun(t *testing.T) renameRun {
 			t.Fatal(err)
 		}
 		if view.Status == workset.GenStatusCompleted {
-			svc.DispatcherHandle().Stop()
+			if stopErr := svc.DispatcherHandle().Stop(context.Background()); stopErr != nil {
+				t.Error(stopErr)
+			}
 			return renameRun{repo, task, svc, gate, m, id, view.RevisionID, libs[0].ID}
 		}
 		if view.Status == workset.GenStatusFailed {
@@ -75,7 +78,9 @@ func newRenameRun(t *testing.T) renameRun {
 		}
 		time.Sleep(5 * time.Millisecond)
 	}
-	svc.DispatcherHandle().Stop()
+	if stopErr := svc.DispatcherHandle().Stop(context.Background()); stopErr != nil {
+		t.Error(stopErr)
+	}
 	t.Fatal("generation timed out")
 	return renameRun{}
 }

@@ -321,9 +321,11 @@ func TestStaticWorkersAreBoundedAndCancellationDoesNotImport(t *testing.T) {
 	source := &waitingSource{ready: make(chan struct{})}
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
+	canceledAt := make(chan time.Time, 1)
 	go func() {
 		select {
 		case <-source.ready:
+			canceledAt <- time.Now()
 			cancel()
 		case <-ctx.Done():
 		}
@@ -332,6 +334,9 @@ func TestStaticWorkersAreBoundedAndCancellationDoesNotImport(t *testing.T) {
 		Refresh(ctx, refresh.Request{WorkCodes: codes, Mode: refresh.RefreshAll})
 	if err == nil || source.calls.Load() != 8 {
 		t.Fatalf("static worker bound/cancellation: calls=%d, err=%v", source.calls.Load(), err)
+	}
+	if time.Since(<-canceledAt) >= 4*time.Second {
+		t.Fatal("refresh did not exit within four seconds of cancellation")
 	}
 	states, err := repo.MetadataStates(t.Context(), []works.WorkCode{"RJ00000001"})
 	if err != nil || len(states["RJ00000001"]) != 0 {

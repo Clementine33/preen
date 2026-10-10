@@ -211,7 +211,9 @@ func measureGenerationRound(
 		}
 	}
 	m.Total = time.Since(start)
-	svc.DispatcherHandle().Stop()
+	if stopErr := svc.DispatcherHandle().Stop(context.Background()); stopErr != nil {
+		t.Error(stopErr)
+	}
 	if err := repo.Close(); err != nil {
 		t.Fatal(err)
 	}

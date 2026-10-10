@@ -73,7 +73,7 @@ func TestTitleFiltersUseNearestSameKindTerminatorAndKeepSpaces(t *testing.T) {
 			if values["title"] != tc.title {
 				t.Fatal("changed catalog metadata")
 			}
-			health, err := task.EvaluateRevision(workset.RevisionFacts{Detail: detail(plan)})
+			health, err := task.EvaluateRevision(context.Background(), workset.RevisionFacts{Detail: detail(plan)})
 			if err != nil || health.InputMoved {
 				t.Fatalf("freshness does not reuse filters: %+v %v", health, err)
 			}

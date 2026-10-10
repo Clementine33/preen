@@ -289,8 +289,8 @@ func relativeTo(memberKey, entryKey string) string {
 }
 
 func lastSegment(p string) string {
-	if idx := strings.LastIndex(p, "/"); idx >= 0 {
-		return p[idx+1:]
+	if _, name, found := strings.CutLast(p, "/"); found {
+		return name
 	}
 	return p
 }

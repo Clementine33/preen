@@ -107,7 +107,7 @@ func (u *openUnit) committable() bool {
 
 // sessionStop is the first real failure of a session: the report entry and
 // frozen unit it belongs to, the tracker of that unit when one of its encode
-// tasks failed, and the error. A nil error is the user's cancellation.
+// tasks failed, and the error. A nil error is cooperative cancellation.
 type sessionStop struct {
 	reportIdx int
 	unit      ExecutionUnit
@@ -162,7 +162,7 @@ func newEncodePool(ctx context.Context, cancel context.CancelFunc, workers int) 
 func (p *encodePool) work(job encodeJob) {
 	err := job.unit.prepared.EncodeTask(p.ctx, job.index)
 	job.unit.taskReturned(err)
-	if err != nil && !isCanceled(err) {
+	if err != nil && !sessionCanceled(p.ctx, err) {
 		p.requestStop(sessionStop{
 			reportIdx: job.unit.reportIdx,
 			unit:      job.unit.frozen,
@@ -246,6 +246,9 @@ func (s *sessionRun) settleHead(
 			err:       NewError(ErrKindInternal, entry.ErrorCode, entry.ErrorMessage, nil),
 			reported:  true,
 		})
+	case commitErr != nil && sessionCanceled(s.ctx, commitErr):
+		s.stopSession(*canceledStop())
+		return true
 	case commitErr != nil:
 		// A session-level failure of the commit itself: the entry keeps its own
 		// result, so it is reported here.
@@ -262,7 +265,8 @@ func (s *sessionRun) settleHead(
 		return true
 	}
 	if entry.Status == ExecComponentCanceled {
-		s.stopAfterHead(ExecStatusCanceled, "CANCELED", "execution canceled")
+		status, code, message := cancellationOutcome(s.ctx)
+		s.stopAfterHead(status, code, message)
 		return true
 	}
 	return false
@@ -280,7 +284,7 @@ func (s *sessionRun) prepare(u ExecutionUnit, reportIdx int) *sessionStop {
 		Outcome:     s.run.outcomes[u.Index],
 	})
 	if err != nil {
-		if isCanceled(err) {
+		if sessionCanceled(s.ctx, err) {
 			return canceledStop()
 		}
 		stop := sessionStop{reportIdx: reportIdx, unit: u, err: err}
@@ -345,7 +349,7 @@ func (s *sessionRun) advance(units []ExecutionUnit) *sessionStop {
 }
 
 // stopNow is the stop pending at this instant, nil when the session may go on:
-// the first real failure, or the user's cancellation when none was recorded. A
+// the first real failure, or cooperative cancellation when none was recorded. A
 // real error wins even if a cancellation lands in the same window.
 func (s *sessionRun) stopNow() *sessionStop {
 	if recorded := s.pool.recordedStop(); recorded != nil {
@@ -357,7 +361,7 @@ func (s *sessionRun) stopNow() *sessionStop {
 	return nil
 }
 
-// canceledStop is the user's own stop.
+// canceledStop leaves classification to the session context.
 func canceledStop() *sessionStop { return &sessionStop{} }
 
 // stopSession ends a session that stopped before every unit committed. The
@@ -373,7 +377,8 @@ func (s *sessionRun) stopSession(observed sessionStop) {
 	}
 	if stop.err == nil {
 		s.discardOpen(nil)
-		s.d.finishExecution(s.ex, ExecStatusCanceled, "CANCELED", "execution canceled")
+		status, code, message := cancellationOutcome(s.ctx)
+		s.d.finishExecution(s.ex, status, code, message)
 		return
 	}
 	s.reportFailedUnit(stop)

@@ -127,6 +127,13 @@ stay visible, nothing is resumed, re-encoded or re-deleted, and the in-flight
 component's disk state must be treated as unverified (a temporary
 `<target>.tmp.<token>` output may remain).
 
+During orderly shutdown, unfinished execution sessions become `interrupted`
+with `INTERRUPTED`, preserving committed component results. Explicit user
+cancellation remains `canceled` / `CANCELED`; independent failures and completed
+terminal outcomes retain their meaning. Shutdown waits for protected publication
+and inventory finalization before closing SQLite, subject to the process-wide
+[five-second exit deadline](common.md#shutdown).
+
 **Detail payload** (also the SSE snapshot): `execution_id`, `workset_id`,
 `operation_type`, `plan_id`, `status`, `options` (the task-owned frozen
 session options — conversion: `{"delete_mode":"soft"|"hard"}`),

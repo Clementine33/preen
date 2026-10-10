@@ -3,7 +3,6 @@ package workset
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 )
 
@@ -44,14 +43,14 @@ func (d *dispatcher) executeBatch(ctx context.Context, ex *PlanExecution, run *e
 		},
 	)
 	status, code, message := ExecStatusSucceeded, "", ""
-	if ctx.Err() != nil || errors.Is(err, context.Canceled) {
-		status, code, message = ExecStatusCanceled, "CANCELED", "metadata execution canceled"
+	if sessionCanceled(ctx, err) || (err == nil && ctx.Err() != nil) {
+		status, code, message = cancellationOutcome(ctx)
 	} else if err != nil {
 		status = ExecStatusFailed
 		code, message = taskFailureOf(err)
 	}
 	for i := range report {
-		if report[i].Status == ExecComponentFailed && status == ExecStatusSucceeded {
+		if report[i].Status == ExecComponentFailed && status != ExecStatusFailed {
 			status, code, message = ExecStatusFailed, "METADATA_PARTIAL_FAILURE", "one or more works could not be refreshed"
 		}
 		if report[i].Status == ExecComponentPending && status != ExecStatusSucceeded {

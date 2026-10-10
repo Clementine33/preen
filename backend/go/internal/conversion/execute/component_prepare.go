@@ -151,6 +151,7 @@ func (p *PreparedComponent) Commit(ctx context.Context) (ComponentRunResult, err
 				)
 			}
 		}
+		// Publication and recovery finish together; cancellation stops the next output.
 		recovery, committed, err := commitOutput(context.WithoutCancel(ctx), p.tk, p.plan.absRoot, enc, p.soft)
 		result.Recovery = append(result.Recovery, recovery...)
 		if committed {
@@ -203,6 +204,7 @@ func (p *PreparedComponent) remove(ctx context.Context, result ComponentRunResul
 				),
 			)
 		}
+		// Moving an obsolete source into recovery must finish before cancellation returns.
 		recoveryPath, removed, err := removeObsolete(
 			context.WithoutCancel(ctx),
 			p.tk,

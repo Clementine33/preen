@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/onsei/organizer/backend/internal/librarypath"
+	"github.com/onsei/organizer/backend/internal/works"
 	"github.com/onsei/organizer/backend/internal/works/coverdelivery"
 	"github.com/onsei/organizer/backend/internal/workset"
 )
@@ -15,6 +16,40 @@ type Outcome struct {
 	Target     coverdelivery.Target `json:"target"`
 	Action     string               `json:"action"`
 	ReasonCode string               `json:"reason_code,omitempty"`
+}
+
+const reasonAlreadyComplete = "ALREADY_COMPLETE"
+
+// completeWorks reports the bound works fill_missing would fetch nothing for,
+// whatever tag language their stored data was fetched in.
+func (t *Task) completeWorks(
+	ctx context.Context,
+	mode Mode,
+	bindings map[string]coverdelivery.Target,
+) (map[string]bool, error) {
+	out := map[string]bool{}
+	if mode != FillMissing {
+		return out, nil
+	}
+	ids := []works.WorkCode{}
+	for _, b := range bindings {
+		if b.CopyID != "" && !out[b.WorkCode] {
+			out[b.WorkCode] = false
+			ids = append(ids, works.WorkCode(b.WorkCode))
+		}
+	}
+	states, err := t.catalog.MetadataStates(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+	for _, id := range ids {
+		missing := false
+		for _, need := range wanted(FillMissing, states[id]) {
+			missing = missing || need
+		}
+		out[string(id)] = !missing
+	}
+	return out, nil
 }
 
 func (t *Task) facts(folder string, target coverdelivery.Target) (coverdelivery.Target, string, error) {
@@ -54,6 +89,10 @@ func (t *Task) PlanSession(ctx context.Context, in workset.PlanSessionInput) (*w
 	if err != nil {
 		return nil, err
 	}
+	complete, err := t.completeWorks(ctx, d.Common.Mode, bindings)
+	if err != nil {
+		return nil, err
+	}
 	snap := &workset.PlanSnapshot{
 		StepType:             "refresh_metadata",
 		RootPath:             root,
@@ -79,8 +118,8 @@ func (t *Task) PlanSession(ctx context.Context, in workset.PlanSessionInput) (*w
 		}
 		index := len(snap.Roots)
 		target := bindings[m.FolderPath]
-		unit, r := t.planMember(m, target, index)
-		if target.CopyID != "" {
+		unit, r := t.planMember(m, target, index, complete[target.WorkCode], d.Common.DownloadCover)
+		if target.CopyID != "" && unit.ReasonCode != reasonAlreadyComplete {
 			codes[target.WorkCode] = true
 			summary.OperationCount++
 		}
@@ -109,6 +148,7 @@ func (t *Task) planMember(
 	m *workset.WorksetMember,
 	target coverdelivery.Target,
 	index int,
+	complete, downloadCover bool,
 ) (workset.PlannedUnit, workset.PlanRootFacts) {
 	target, hash, err := t.facts(m.FolderPath, target)
 	outcome := Outcome{MemberID: m.MemberID, Target: target, Action: "refresh"}
@@ -124,6 +164,14 @@ func (t *Task) planMember(
 	if target.CopyID == "" {
 		outcome.Action = "skip"
 		outcome.ReasonCode = "NO_WORK_BINDING"
+	}
+	if complete && target.CopyID != "" {
+		// Nothing to fetch, but a copy folder may still lack the cover.
+		outcome.Action = "skip"
+		if downloadCover {
+			outcome.Action = "cover"
+		}
+		outcome.ReasonCode = reasonAlreadyComplete
 	}
 	if err != nil {
 		status = "blocked"

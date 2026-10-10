@@ -101,7 +101,7 @@ func openMember(rootPath, memberRel string, withinRoot ResolvedWithinRoot) (*mem
 // resolve validates a member-relative path and returns its native form. Every
 // component from the member down to the item must exist and must not be a
 // symbolic link: the first version offers no operation on a link or through
-// one, so a link can never be used to reach outside the member (ADR 0002 §1; ADR 0001 §3).
+// one, so a link can never be used to reach outside the member (ADR 0002; ADR 0001).
 func (m *member) resolve(rel string) (string, error) {
 	clean, ok := librarypath.RelPath(rel)
 	if !ok {
@@ -137,7 +137,7 @@ func (m *member) resolve(rel string) (string, error) {
 // resolveTargetDir validates a member-relative directory used as a move
 // destination: it must already exist, be a real directory, and never be a
 // symlink. MemberRootTarget names the member root itself, which is a legal
-// destination (ADR 0022 §1).
+// destination (ADR 0002).
 func (m *member) resolveTargetDir(rel string) (string, error) {
 	if rel == MemberRootTarget {
 		return m.nativeAbs, nil
@@ -162,7 +162,7 @@ func (m *member) resolveTargetDir(rel string) (string, error) {
 
 // targetName validates the new name of a rename. A name is one path component:
 // a separator, a traversal segment or an empty string is refused, so a rename
-// can never move an item to another directory (ADR 0002 §1).
+// can never move an item to another directory (ADR 0002).
 func targetName(name string) (string, error) {
 	trimmed := strings.TrimSpace(name)
 	if trimmed == "" || trimmed != name {

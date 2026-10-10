@@ -23,7 +23,7 @@ import (
 	"github.com/onsei/organizer/backend/internal/works"
 )
 
-// getWorkContentFile serves one manifest file's bytes (ADR 0016 §3): the
+// getWorkContentFile serves one manifest file's bytes (ADR 0013): the
 // catalog has already answered the copy binding, the containment and the
 // inventory whitelist; what is left here is the HTTP shape — the content
 // type from the bytes, the charset a text body declares, and the range and
@@ -77,7 +77,7 @@ func (s *Server) getWorkContentFile(w http.ResponseWriter, r *http.Request) {
 	// ServeContent answers single-range 206 and sets Accept-Ranges. A
 	// multi-range request is answered with the whole file instead: HTTP
 	// allows ignoring a Range header, no caller of ours sends multi-range,
-	// and partial-content sets serve nothing the page needs (ADR 0016 §3).
+	// and partial-content sets serve nothing the page needs (ADR 0013).
 	if strings.Contains(r.Header.Get("Range"), ",") {
 		r.Header.Del("Range")
 	}
@@ -144,7 +144,7 @@ func readSample(file *os.File, n int) ([]byte, bool, error) {
 
 // sniffTextCharset names the character set a text body is in, by decoding a
 // sample with each candidate in order and keeping the first that reads
-// cleanly (ADR 0016 §3: the bytes are served exactly as stored — the header
+// cleanly (ADR 0013: the bytes are served exactly as stored — the header
 // tells the client how to decode, and a wrong guess is mojibake, which is
 // why the sniff happens here, once, instead of in every client).
 func sniffTextCharset(sample []byte, eof bool) string {

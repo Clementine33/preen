@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-// diskCache is the local LRU of ADR 0015 §4: one file per thumbnail, access
+// diskCache is the local LRU of ADR 0013: one file per thumbnail, access
 // time recorded as the file's mtime (atime is unreliable under relatime and
 // noatime), oldest evicted once the total passes the budget. Nothing else
 // knows about it, so deleting the directory at any time is safe.

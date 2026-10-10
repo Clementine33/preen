@@ -103,7 +103,7 @@ func (s *serviceImpl) prepareGeneration(
 		return nil, NewError(ErrKindInvalidArgument, "INVALID_FOLDER_COUNT", "workset has no album folders", nil)
 	}
 	// Executable validation runs synchronously so an incomplete draft is
-	// rejected here instead of failing the queued session (ADR 0006 §1).
+	// rejected here instead of failing the queued session (ADR 0005).
 	if execErr := task.ValidateSessionInput([]byte(draft.DraftJSON), members); execErr != nil {
 		return nil, execErr
 	}
@@ -153,7 +153,7 @@ func (s *serviceImpl) prepareGeneration(
 }
 
 // rejectActiveSession enforces one queued/running session per operation
-// (ADR 0001 §2). It runs after the replay checks so an idempotent retry
+// (ADR 0001). It runs after the replay checks so an idempotent retry
 // observes its own session instead of conflicting with it.
 func (s *serviceImpl) rejectActiveSession(op *Operation) (*StartGenerationResult, error) {
 	active, err := s.repo.GetActiveGenerationForOperation(op.WorksetID, op.OperationType)
@@ -173,7 +173,7 @@ func (s *serviceImpl) rejectActiveSession(op *Operation) (*StartGenerationResult
 
 // replayCurrentRevision answers a new enqueue with the existing current
 // unexecuted revision when nothing semantic changed: same operation, same draft,
-// same members, same live input facts (ADR 0001 §2). Execution spends a revision,
+// same members, same live input facts (ADR 0001). Execution spends a revision,
 // so another run needs a fresh plan even when its inputs are unchanged.
 func (s *serviceImpl) replayCurrentRevision(
 	ctx context.Context,

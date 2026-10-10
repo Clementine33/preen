@@ -9,7 +9,7 @@ import (
 )
 
 // Get answers one thumbnail: from the cache, or from a computation shared by
-// every concurrent request for the same address (ADR 0015 §3).
+// every concurrent request for the same address (ADR 0013).
 //
 // A request that goes away leaves: while its computation is still queued the
 // queued slot is withdrawn, and a computation already admitted runs to the

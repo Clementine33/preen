@@ -43,7 +43,7 @@ func New(ffprobePath string) *Prober {
 }
 
 // ImageDimensions reads only the image header (image.DecodeConfig), never the
-// pixels — the boundary ADR 0015 §2 draws for media facts.
+// pixels — the boundary ADR 0013 draws for media facts.
 func (p *Prober) ImageDimensions(pathPosix string) (int, int, error) {
 	f, err := os.Open(filepath.FromSlash(pathPosix))
 	if err != nil {

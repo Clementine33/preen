@@ -9,7 +9,7 @@ import type { RouteLocationRaw } from 'vue-router'
  * iterate this array, so their labels, order and targets cannot drift apart.
  * Entries carry only id/label/icon/to — no permissions, no business state, no
  * plugin registry. The media-library *list* is page content on /worksets,
- * never a global entry (ADR 0001 §1).
+ * never a global entry (ADR 0001).
  */
 export type GlobalNavId = 'works' | 'worksets'
 

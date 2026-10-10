@@ -6,7 +6,7 @@ The catalog is the logical layer above the inventory: works identified by their
 work number, the source metadata imported for them, the directories bound to
 them, and the single user's data about them. The directory name is the only
 authority on which work a directory holds, so there is no route that creates a
-work or rebinds a copy — scanning does that (ADR 0011 §2). Every work number in
+work or rebinds a copy — scanning does that (ADR 0009). Every work number in
 a path or body is accepted in either case and in its 6- or 8-digit spelling, and
 resolves to the canonical 8-digit form; `RJ123456` and `RJ00123456` are the same
 work, while `RJ1657200` (7 digits) is refused.
@@ -16,9 +16,9 @@ work, while `RJ1657200` (7 digits) is refused.
 | GET | `/api/v1/works` | 200 `{"works":[…],"total":N}`: one numbered page and how many works the whole filter lists. Filters and paging below. |
 | GET | `/api/v1/works/{rj}` | 200 the work in full: metadata, personal data, resolved relation, language editions and every copy. A work declared by a relation but never found on disk answers `"placeholder":true` and is absent from the listing. |
 | GET | `/api/v1/inventory/media-facts/events` | Bearer-authenticated SSE; `changed` with `{}` after a committed measurement batch, and once on connection. See below. |
-| GET | `/api/v1/works/{rj}/content` | 200 the work's file manifest (ADR 0016 §2): every bound copy's tree, below. |
-| GET | `/api/v1/works/{rj}/content/{copyId}/{path...}` | 200 one manifest file's bytes (ADR 0016 §3): `path` is the copy-root-relative manifest path. See below. |
-| GET | `/api/v1/works/{rj}/thumbs/{copyId}/{path...}?h=240&v=…` | 200 one manifest image's thumbnail (ADR 0015 §3). See below. |
+| GET | `/api/v1/works/{rj}/content` | 200 the work's file manifest (ADR 0013): every bound copy's tree, below. |
+| GET | `/api/v1/works/{rj}/content/{copyId}/{path...}` | 200 one manifest file's bytes (ADR 0013): `path` is the copy-root-relative manifest path. See below. |
+| GET | `/api/v1/works/{rj}/thumbs/{copyId}/{path...}?h=240&v=…` | 200 one manifest image's thumbnail (ADR 0013). See below. |
 | PUT | `/api/v1/works/{rj}/metadata` | Body: up to four independent data groups (below). 200 `{"applied":[…],"ignored":[…],"warnings":[…],"created_placeholders":[…]}`. |
 | PATCH | `/api/v1/works/{rj}/user-data` | Body `{"rating":8,"favorite":true,"note":"…"}`; only the fields present are applied, and `"rating":null` clears it. 200 the resulting state. |
 | PUT | `/api/v1/works/{rj}/user-tags` | Body `{"tag_ids":["…"]}`; replaces the work's tag set with exactly these. 200 `{"user_tags":[…]}`. Unknown ids are `USER_TAG_NOT_FOUND` (404). |
@@ -40,7 +40,7 @@ thing.
 ## Work content manifest
 
 `GET /api/v1/works/{rj}/content` answers the work's files from the **stored
-inventory** — never a live walk — as one tree per bound copy (ADR 0016 §2):
+inventory** — never a live walk — as one tree per bound copy (ADR 0013):
 
 ```json
 {
@@ -68,8 +68,7 @@ work answers an empty `copies` array, not 404. `kind` classifies each file
 (`aud`, `img`, `txt`, `lrc`, `bin`); directories carry `children` (empty
 included) and files carry no `children`, always carry `size`, and carry
 `format` only for audio, as the container name the track list aggregates by.
-`width`/`height`/`duration_sec`/`bitrate` are the inventory's facts (ADR 0015
-§2): `null` means unmeasured, not zero. Dimensions and durations are measured
+`width`/`height`/`duration_sec`/`bitrate` are the inventory's facts (ADR 0013): `null` means unmeasured, not zero. Dimensions and durations are measured
 in the background after a scan completes, so a freshly scanned work can answer
 `null` for a while. `thumb_v` is an image's opaque
 thumbnail version (`null` for every other kind), the `v` its thumbnail address
@@ -111,7 +110,7 @@ clear the highlight during gaps; clicking a line seeks only its matching track.
   WebVTT files use `text/vtt`; other text uses `text/plain`.
 
 `GET /api/v1/works/{rj}/thumbs/{copyId}/{path...}?h=…&v=…` serves one
-manifest image scaled to a height (ADR 0015 §3). The source goes through the
+manifest image scaled to a height (ADR 0013). The source goes through the
 same copy binding, containment and whitelist as the file route; a non-image
 path is `NOT_AN_IMAGE` (404). Read-only, no admission slot.
 
@@ -216,7 +215,7 @@ Work detail presents both `original_rj` and `parent_rj` when available; they are
 is available on DLsite's dynamic endpoint, `language_editions` only on its
 static one, so a crawler refreshing sales cheaply must not be forced to
 resubmit — or worse, silently blank — the group it did not fetch
-(ADR 0011 §4). `statistics` carries no `source`: sales are only ever reported
+(ADR 0009). `statistics` carries no `source`: sales are only ever reported
 by DLsite. `fetched_at` must be UTC with nine fractional digits; other shapes
 are `INVALID_TIMESTAMP` (400).
 

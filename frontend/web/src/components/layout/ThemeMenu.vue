@@ -6,7 +6,7 @@ import ThemeRadioGroup from '@/components/layout/ThemeRadioGroup.vue'
 import { THEME_OPTIONS, useTheme, type Theme } from '@/composables/use-theme'
 
 /**
- * The desktop theme entry (ADR 0012 §4), at the foot of the rail. Phones reach
+ * The desktop theme entry, at the foot of the rail. Phones reach
  * the same group through the GlobalMenu in each page header. The trigger reads
  * like a nav entry and names the mode in force; the menu is a radio group, so
  * the chosen mode is announced and marked, not just applied.

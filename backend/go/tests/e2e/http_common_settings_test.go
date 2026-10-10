@@ -15,7 +15,7 @@ import (
 // deployment-wide common-settings rule over HTTP: a draft save that changes the
 // common settings reaches another library's record with its member overrides
 // and exclusions intact, and a record created afterwards starts from the same
-// settings (ADR 0010).
+// settings (ADR 0008).
 func TestHTTPCommonSettingsSyncAcrossRecords(t *testing.T) {
 	binPath := buildBackendBinary(t)
 	dataDir := t.TempDir()

@@ -65,7 +65,7 @@ func (s *Server) getLibrary(w http.ResponseWriter, r *http.Request) {
 
 // patchLibrary edits one library. Only the fields the request carries change;
 // a root change is a path-rewriting action and an admission refusal is one of
-// its legitimate answers (ADR 0002 §2).
+// its legitimate answers (ADR 0002).
 func (s *Server) patchLibrary(w http.ResponseWriter, r *http.Request) {
 	var req libraryPatchRequest
 	if err := decodeJSON(w, r, &req); err != nil {
@@ -100,7 +100,7 @@ func (s *Server) patchLibrary(w http.ResponseWriter, r *http.Request) {
 // deleteLibrary removes a library entry together with its record; the media and
 // the recovery directory on disk stay. The admission slot is the library
 // service's to take, so a busy process answers BUSY before this id is even
-// looked up (ADR 0002 §2; ADR 0001 §5).
+// looked up (ADR 0002; ADR 0001).
 func (s *Server) deleteLibrary(w http.ResponseWriter, r *http.Request) {
 	err := s.deps.Library.Delete(r.PathValue("id"))
 	switch {

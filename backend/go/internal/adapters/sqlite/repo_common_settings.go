@@ -32,7 +32,7 @@ func (r *Repository) GetCommonSettings(operationType string) (*workset.CommonSet
 }
 
 // SyncCommonSettings applies one global common-settings save in a single
-// transaction (ADR 0010 §2): the caller's own draft under its version guard,
+// transaction (ADR 0008): the caller's own draft under its version guard,
 // the stored payload, and the common fields of every other editable operation
 // of the kind — each with its draft hash and operation version.
 //
@@ -40,7 +40,7 @@ func (r *Repository) GetCommonSettings(operationType string) (*workset.CommonSet
 // same transaction: a record created or a session queued between the caller's
 // read and this write is seen here, so the save either covers it or is refused
 // as a whole. A record whose library is gone is read-only and never synced
-// (ADR 0001 §5); every generated plan is left exactly as it was — revising a
+// (ADR 0001); every generated plan is left exactly as it was — revising a
 // plan is planning's job, and a rewritten draft is what sends it to
 // needs_planning.
 //

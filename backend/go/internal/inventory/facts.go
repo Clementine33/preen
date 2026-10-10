@@ -12,12 +12,12 @@ type Entry struct {
 	Mtime      int64
 	Bitrate    *int32
 	Format     string
-	// Media facts measured after the scan (ADR 0015 §2), NULL while unmeasured.
+	// Media facts measured after the scan (ADR 0013), NULL while unmeasured.
 	Width       *int
 	Height      *int
 	DurationSec *float64
 	// ContentRev is the inventory's revision of the path's bytes: the change
-	// counter the content ETag keys on (ADR 0016 §3).
+	// counter the content ETag keys on (ADR 0013).
 	ContentRev int
 }
 

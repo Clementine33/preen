@@ -91,7 +91,7 @@ func revisionSummaryReason(detail *PlanDetail) string {
 
 // revisionCounts derives the four independent plan facts from the frozen
 // snapshot. Changed, unmet, blocked and unchanged are separate facts that may
-// overlap; no exclusive status label is used to derive them (ADR 0001 §2).
+// overlap; no exclusive status label is used to derive them (ADR 0001).
 func revisionCounts(detail *PlanDetail, review PlanReview) RevisionCounts {
 	summary := planSummaryOf(detail)
 	withOperations := map[string]bool{}

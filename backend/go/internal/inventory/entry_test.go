@@ -280,7 +280,7 @@ func TestRefreshMemberValidatesItsPaths(t *testing.T) {
 // TestScanForwardsTheLibraryToTheBindingMerge pins the link the HTTP scan path
 // depends on: entry.Scan must pass the request's library id into the pipeline,
 // or the merge skips the binding reconciliation and a scan leaves no works
-// behind (ADR 0011 §2).
+// behind (ADR 0009).
 func TestScanForwardsTheLibraryToTheBindingMerge(t *testing.T) {
 	dir := t.TempDir()
 	workDir := filepath.Join(dir, "RJ01113012")

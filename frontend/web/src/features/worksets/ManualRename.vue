@@ -7,7 +7,7 @@ import type { RenameDraftMember, WorksetMember } from '@/lib/api/types'
  * Names one folder by hand. A batch is often the whole library, so nothing is
  * drawn until the user searches, and a search draws at most MAX_MATCHES rows.
  * The name goes into the rename draft like any other setting and takes the
- * plan → execute path with the rest (ADR 0014 §2).
+ * plan → execute path with the rest (ADR 0012).
  */
 const MAX_MATCHES = 20
 

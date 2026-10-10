@@ -4,7 +4,7 @@ import { Modal } from '@/components/ui/modal'
 import type { WorkFacet, WorksScope } from '@/lib/api/types'
 import { useTagFacets } from '@/queries/works'
 
-// The rail's tag index (ADR 0012 §4): a tab that opens a dialog, because a
+// The rail's tag index: a tab that opens a dialog, because a
 // multi-pick with an AND/OR switch does not fit a dropdown. Source tags and the
 // user's own merge by name into one entry, listed in 作品标签 and/or 我的标签
 // with that vocabulary's count. Picks and the mode are staged in the dialog
@@ -44,7 +44,7 @@ interface Staged {
 const props = defineProps<{ scope: WorksScope }>()
 const model = defineModel<TagSelection>({ required: true })
 
-// ADR 0011 §6 keeps same-named entities apart; the index offers the name once.
+// ADR 0009 keeps same-named entities apart; the index offers the name once.
 function byName(facets: { source_tags: WorkFacet[]; user_tags: WorkFacet[] }): Map<string, Entry> {
   const out = new Map<string, Entry>()
   const fold = (list: WorkFacet[], kind: 's' | 'u') => {

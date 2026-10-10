@@ -400,7 +400,7 @@ func (s *Pipeline) ScanRootCtx(ctx context.Context, rootPath string, opts ...Sca
 		}
 
 		// The merged entries' unknown media facts are measured in the
-		// background, after this scan releases the slot (ADR 0015 §2).
+		// background, after this scan releases the slot (ADR 0013).
 		s.notifyMerged()
 
 		// The classifications are only known once the bindings have been

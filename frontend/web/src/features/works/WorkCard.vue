@@ -3,7 +3,7 @@ import { computed } from 'vue'
 import type { WorkSummary } from '@/lib/api/types'
 import { useCoverSrc } from './use-cover-src'
 
-// One cell of the wall (ADR 0012 §4): a 4:3 cover — hatched when the catalog
+// One cell of the wall: a 4:3 cover — hatched when the catalog
 // has none — over a caption base that the selection wipes in from the left.
 // The playing work carries the terracotta NOW tag; the cover itself is never
 // tinted or darkened.

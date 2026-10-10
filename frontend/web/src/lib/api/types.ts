@@ -198,8 +198,8 @@ export interface ClassifierTagLibraryResponse {
 }
 
 // ==================== Work catalog ====================
-// docs/api.md §Work catalog. Unknown scalars are null, never zero-values
-// (ADR 0011 §7): an unknown adult flag is not false and an unrated work
+// docs/api/works.md#work-catalog. Unknown scalars are null, never zero-values
+// (ADR 0009): an unknown adult flag is not false and an unrated work
 // is not 0.
 
 export interface WorkUserTag {
@@ -404,12 +404,12 @@ export interface WorkContentFile {
   /** Audio container: 'MP3' | 'WAV' | … */
   format: string | null
   bitrate: number | null
-  /** Image pixels from the header (image.DecodeConfig, ADR 0015 §2); null until measured. */
+  /** Image pixels from the header (image.DecodeConfig, ADR 0013); null until measured. */
   width: number | null
   height: number | null
   /** Audio seconds; null until measured after the scan. */
   duration_sec: number | null
-  /** Image thumbnail version, the `v` of its immutable thumbnail address (ADR 0015 §3); null for other kinds. */
+  /** Image thumbnail version, the `v` of its immutable thumbnail address (ADR 0013); null for other kinds. */
   thumb_v: string | null
 }
 
@@ -433,7 +433,7 @@ export interface WorkContentCopy {
   /** The tree identity of the copy's root directory (ADR 0003), resolved server-side. */
   dir_id: string
   online: boolean
-  /** Present only while the member directory resolves on disk (ADR 0016 §2). */
+  /** Present only while the member directory resolves on disk (ADR 0013). */
   tree?: WorkContentDir
 }
 
@@ -450,9 +450,9 @@ export type GenerationStatus = 'queued' | 'running' | 'completed' | 'failed' | '
 export type OperationType = 'conversion' | 'rename' | 'metadata_refresh'
 export const CONVERSION: OperationType = 'conversion'
 
-/** The move destination that names the member root itself (ADR 0022 §1). */
+/** The move destination that names the member root itself (ADR 0002). */
 export const MEMBER_ROOT_TARGET = '.'
-/** Plans and executes directory renames (ADR 0014 §2). */
+/** Plans and executes directory renames (ADR 0012). */
 export const RENAME: OperationType = 'rename'
 export const METADATA_REFRESH: OperationType = 'metadata_refresh'
 

@@ -69,7 +69,7 @@ func Run(ctx context.Context, cfg Config) {
 
 	// Whether this database can give freed space back is worth one line at
 	// startup: the answer is fixed when the file is created, and reclamation
-	// cannot change it later (ADR 0008).
+	// cannot change it later (ADR 0001).
 	logAutoVacuumMode(ctx, repo)
 
 	runServer(ctx, repo, cfg)
@@ -105,7 +105,7 @@ func ParseCORSOrigins(raw string) []string {
 // retentionWindows are how long the idle-time maintenance pass keeps finished
 // session records: scans are disposable once their inventory has been merged,
 // while a planning session is the record of a generation key and has to outlive
-// the idempotency-key guarantee the workset service makes (ADR 0001, ADR 0008).
+// the idempotency-key guarantee the workset service makes (ADR 0001).
 const (
 	scanRetention       = 7 * 24 * time.Hour
 	generationRetention = 30 * 24 * time.Hour
@@ -145,7 +145,7 @@ type services struct {
 	// works is the logical work catalog the library's directories bind to.
 	works *works.Service
 	// mediaFacts measures the inventory's unknown media facts in the
-	// background, after scans (ADR 0015 §2).
+	// background, after scans (ADR 0013).
 	mediaFacts *inventory.MediaEnricher
 	// worksChanged tells the root stream's readers that committed catalog
 	// changes (metadata, inventory, bindings) may alter what they list.
@@ -159,7 +159,7 @@ type services struct {
 // buildServices wires the process. Direct file management and the managed task
 // paths share one admission control: a file operation is refused while a scan,
 // planning session or execution is running, and starting one of those is
-// refused while a file operation holds the slot (ADR 0002 §2).
+// refused while a file operation holds the slot (ADR 0002).
 //
 // Library scans, manual member refresh and inventory-based tasks share one
 // pipeline. Directory-only tasks bypass it; covers synchronize exact file deltas
@@ -399,7 +399,7 @@ func runServer(ctx context.Context, repo *sqlite.Repository, cfg Config) {
 		WorksetService: services.workset,
 		FileOps:        services.fileOps,
 		Works:          services.works,
-		// A disposable cache (ADR 0015 §4): one computation per CPU, a
+		// A disposable cache (ADR 0013): one computation per CPU, a
 		// bounded queue behind them, about 512 MiB on disk.
 		Thumbs: thumbnail.New(
 			media.ThumbEngine{}, filepath.Join(cfg.DataDir, "thumbs"), 512<<20,

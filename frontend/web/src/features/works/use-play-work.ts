@@ -7,7 +7,7 @@ import { usePlayerStore } from '@/stores/player'
 
 // Playing a work from the wall: its tracks queue in their first format, from
 // the copy the detail page would read. A work without an audio file is one
-// silent entry under its title (ADR 0012 §4).
+// silent entry under its title.
 
 interface PlayableWork {
   rj: string

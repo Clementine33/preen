@@ -11,7 +11,7 @@ import LibrarySwitcher from './LibrarySwitcher.vue'
 import type { Library } from '@/lib/api/types'
 
 /**
- * The library switcher's contracts (ADR 0012 §4): it reuses the one
+ * The library switcher's contracts: it reuses the one
  * library-selection state the workbench already has — switching dispatches
  * `setActiveLibrary` and nothing else — and while the menu is open it owns the
  * keyboard: J/K move inside the menu and never reach the wall underneath.

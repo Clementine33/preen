@@ -158,7 +158,7 @@ const SAVE_FAILURE_MESSAGES: Record<string, string> = {
   GENERATION_IN_PROGRESS: '正在生成计划版本：请等待生成结束或取消后再应用设置',
   EXECUTION_IN_PROGRESS: '正在执行：请等待执行结束或取消后再应用设置',
   // A global save is refused as a whole when another task is busy: the record
-  // being edited is idle, so the wait belongs to someone else (ADR 0010 §2).
+  // being edited is idle, so the wait belongs to someone else (ADR 0008).
   COMMON_SETTINGS_BUSY: '另一任务正在生成或执行：本次全局设置未保存，请稍后重试',
   // The same rule, for a record whose stored draft cannot be read: nothing was
   // saved, and one task has to be recreated before the settings can be.

@@ -1,7 +1,7 @@
 // Package admission owns the process-wide admission control: one slot that
 // keeps direct file management, the scanning, planning and execution paths,
 // and the idle-time maintenance pass from interleaving on the same trees
-// (ADR 0002 §2). Direct file management itself lives in package fileops.
+// (ADR 0002). Direct file management itself lives in package fileops.
 package admission
 
 import (
@@ -199,8 +199,8 @@ func (g *Gate) enqueue(fn func() error, exclusive bool) error {
 }
 
 // BeginBackground acquires the preemptible slot for low-priority disk reads
-// that must not overlap a scan's walk or anything the slot serializes (ADR
-// 0015 §2). It is refused while anything else is in flight, and never refuses
+// that must not overlap a scan's walk or anything the slot serializes (ADR 0013).
+// It is refused while anything else is in flight, and never refuses
 // in return: every other entry calls stop and waits for the holder's release
 // before proceeding. stop must make the holder release promptly; the wait is
 // what guarantees the holder's last write lands before, never during, the

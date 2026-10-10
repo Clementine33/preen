@@ -5,7 +5,7 @@ import type { WorkSummary } from '@/lib/api/types'
 import WorkWall from './WorkWall.vue'
 
 /**
- * The wall's own contracts (ADR 0012 §4): the JS column count is the single
+ * The wall's own contracts: the JS column count is the single
  * authority (it drives the grid style, the cursor and the keyboard steps),
  * exactly one cell is tabbable, the cursor is placed by row and column
  * arithmetic, and a ±1 move off either end of the page asks for the next page.

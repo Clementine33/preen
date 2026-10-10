@@ -224,7 +224,7 @@ function hasOverride(member: WorksetMember): boolean {
           </div>
 
           <!-- The member's files: the shared file module, opened inside this
-               workbench (ADR 0001 §1, §3). -->
+               workbench (ADR 0001). -->
           <div
             class="col-start-3 row-span-2 row-start-1 flex items-center gap-1 @[641px]:col-start-4 @[641px]:row-span-1"
           >

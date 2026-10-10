@@ -11,7 +11,7 @@ import type { RenameComponent, WorksetMember } from '@/lib/api/types'
  * are only counted; only renames, skipped (blocked) folders and followed hand
  * renames are drawn. Both lines carry the parent folder in grey: a rename only
  * changes the last segment, and the shared prefix shows it stays in place.
- * Review always shows the frozen payload (ADR 0014 §2).
+ * Review always shows the frozen payload (ADR 0012).
  */
 const props = defineProps<{ components: RenameComponent[]; members?: WorksetMember[] }>()
 

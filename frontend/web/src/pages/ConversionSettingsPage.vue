@@ -13,7 +13,7 @@ import { useWorksetEditorStore } from '@/stores/workset-editor'
  * Common conversion settings. Each unit shows how many members it reaches, so
  * a common change never silently affects folders the user is not looking at
  * Applying reaches further than this record: the common settings are stored
- * deployment-wide and pushed to every other task (ADR 0010 §2). Generation and
+ * deployment-wide and pushed to every other task (ADR 0008). Generation and
  * execution stay on the operation list page.
  */
 const route = useRoute()

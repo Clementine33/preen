@@ -145,7 +145,7 @@ func (s *Server) getWork(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, out)
 }
 
-// getWorkContent answers one work's file manifest (ADR 0016 §2). The response
+// getWorkContent answers one work's file manifest (ADR 0013). The response
 // is the works.Content itself: its types carry the manifest's JSON contract.
 func (s *Server) getWorkContent(w http.ResponseWriter, r *http.Request) {
 	service, ok := s.catalog(w)

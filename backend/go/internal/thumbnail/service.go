@@ -1,5 +1,5 @@
 // Package thumbnail serves image thumbnails as a disposable derived cache
-// (ADR 0015): requests for one address share a computation, computations are
+// (ADR 0013): requests for one address share a computation, computations are
 // bounded by an admission queue, and results land in an on-disk LRU that may
 // be deleted at any time. The scaling itself is the Engine port.
 package thumbnail
@@ -11,7 +11,7 @@ import (
 	"golang.org/x/sync/singleflight"
 )
 
-// MaxPixels is the decode guard (ADR 0015 §3): a source larger than this is
+// MaxPixels is the decode guard (ADR 0013): a source larger than this is
 // refused before its pixels are decoded, so a decompression bomb costs only a
 // header read.
 const MaxPixels = 100_000_000
@@ -33,7 +33,7 @@ type Image struct {
 }
 
 // Engine decodes one source file and scales it to the target height, never
-// upscaling (ADR 0015 §5). It returns ErrTooLarge or ErrUndecodable for the
+// upscaling (ADR 0013). It returns ErrTooLarge or ErrUndecodable for the
 // refusals the caller reports.
 type Engine interface {
 	Thumbnail(path string, height int) (Image, error)
@@ -46,7 +46,7 @@ type Source struct {
 	Version string
 }
 
-// Service is the request path of ADR 0015 §3 below the HTTP layer.
+// Service is the request path of ADR 0013 below the HTTP layer.
 type Service struct {
 	engine  Engine
 	cache   *diskCache

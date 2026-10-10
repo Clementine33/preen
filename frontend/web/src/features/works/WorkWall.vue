@@ -5,7 +5,7 @@ import type { WorkSummary } from '@/lib/api/types'
 import WorkCard from './WorkCard.vue'
 
 // The wall: one page of works as a plain grid, with roving focus and one
-// square cursor (ADR 0012 §4). The page owns paging; the wall only reports a
+// square cursor. The page owns paging; the wall only reports a
 // keyboard move off either end of the page. The column count is computed here
 // and also drives the grid's inline style, so the layout and the JS that moves
 // the cursor and the keyboard can never disagree. A selection change only
@@ -159,7 +159,7 @@ onMounted(() => {
 
 function onCellClick(work: WorkSummary) {
   // Mobile has no "inspect the selection": a tap routes straight to the detail
-  // page (ADR 0012 §4), so the wall never keeps a selected state there.
+  // page, so the wall never keeps a selected state there.
   if (isMobile.value) {
     emit('open', work.rj)
     return

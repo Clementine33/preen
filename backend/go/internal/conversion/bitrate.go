@@ -13,7 +13,7 @@ import (
 // ProbeBitrate measures one file's bitrate in bits per second, falling back to
 // the ffprobe at ffprobePath (empty: PATH) where the header cannot answer. It
 // is the media adapter's measurement - the same one the inventory's background
-// pass records (ADR 0015 §2) - so a rate is the same number whichever of the
+// pass records (ADR 0013) - so a rate is the same number whichever of the
 // two measured it.
 type ProbeBitrate func(ctx context.Context, ffprobePath, pathPosix string) (int64, error)
 

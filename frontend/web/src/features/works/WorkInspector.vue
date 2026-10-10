@@ -10,7 +10,7 @@ import { useWorkContent, useWorkDetail } from '@/queries/works'
 import { usePlayerStore } from '@/stores/player'
 
 // The inspector: the detail of the selected work, rendered to fit 1440x900
-// without scrolling (ADR 0012 §4). While cruising the wall the text follows
+// without scrolling. While cruising the wall the text follows
 // immediately, but the cover/SPEC/TRACKLIST dim to 30% and are swapped only
 // after a 70ms pause, so fast browsing merges updates instead of flickering.
 
@@ -305,7 +305,7 @@ const playIcon = 'M1 0l9 5-9 5z'
   margin: var(--sp-1) 0 var(--sp-4);
   font-family: var(--font-mincho);
   font-size: var(--fs-l); line-height: var(--lh-l); font-weight: 600;
-  /* Japanese never carries tracking (ADR 0012 §2). */
+  /* Japanese never carries tracking. */
   letter-spacing: 0; min-height: var(--lh-l);
 }
 
@@ -337,7 +337,7 @@ const playIcon = 'M1 0l9 5-9 5z'
 .trk .lbl { letter-spacing: .04em; }
 .trk .nm { font-size: var(--fs-s); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .trk .dur { text-align: right; font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--fg-muted); }
-/* The playing track: inverted with the bay's ■ marker (ADR 0012 --now). */
+/* The playing track: inverted with the bay's ■ marker ( --now). */
 .trk.now { background: var(--invert-bg); color: var(--invert-fg); font-weight: 700; }
 .trk.now .lbl, .trk.now .dur { color: var(--invert-fg); }
 .trk .no { position: relative; }

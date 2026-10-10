@@ -1,5 +1,5 @@
 /*
-  YoRHa design base (ADR 0012).
+  YoRHa design base.
 
   Every value below is copied verbatim from the reviewed prototype
   `work-wall-v5-2-yorha-refined.html` (open-design project dorganizer-plan-7686):
@@ -8,7 +8,7 @@
 
   Renames against the prototype: --accent (terracotta) is --now here because
   --accent keeps its shadcn meaning (hover surface); --mono/--sans are
-  --font-mono/--font-ui to match the font matrix (ADR 0012 §2). The app themes
+  --font-mono/--font-ui to match the font matrix. The app themes
   via the html.dark class, not data-theme (composables/use-theme.ts).
 
   Layers: raw tokens first, then the primitive classes every surface reuses.
@@ -30,7 +30,7 @@
   --ease-out: cubic-bezier(.2, .8, .2, 1);
   --ease-in: cubic-bezier(.4, 0, 1, 1);
 
-  /* Font matrix (ADR 0012 §2): mono telemetry, CN-first UD gothic UI, mincho
+  /* Font matrix: mono telemetry, CN-first UD gothic UI, mincho
      display. The Chinese face leads the UI stack on purpose: a family match is
      per family, not per weight, and BIZ UDPGothic carries the JIS glyphs — left
      first it would win every shared ideograph with the Japanese variant (直/骨/
@@ -44,7 +44,7 @@
   --font-mincho: 'Shippori Mincho', 'Noto Serif JP', 'Noto Serif SC', serif;
   /* The Japanese face for the work detail page's lang="ja" spans (v3's
      --sans-ja: the reading script's vertical setting above all). Scoped there
-     on purpose: the UI stack stays CN-first (ADR 0012 §3, unchanged). */
+     on purpose: the UI stack stays CN-first (, unchanged). */
   --font-ja: 'Noto Sans JP', 'BIZ UDPGothic', sans-serif;
 
   /* ── Light palette ── */

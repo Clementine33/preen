@@ -13,7 +13,7 @@ import (
 // TestOpenRefusesOlderDatabase is the compatibility contract: a database that
 // was not created by this schema generation is refused at open time. Nothing is
 // converted, nothing is cleared, and the refusal names a new data directory
-// instead of resetting someone's data (ADR 0013 §1).
+// instead of resetting someone's data (ADR 0011).
 func TestOpenRefusesOlderDatabase(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "older.db")
 	db, err := sql.Open("sqlite", dbPath)

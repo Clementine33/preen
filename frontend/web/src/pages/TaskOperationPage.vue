@@ -38,7 +38,7 @@ import type {
 
 /**
  * The rename and metadata refresh section of one library's workbench
- * (ADR 0014). Like the conversion page it addresses the library: the current
+ * (ADR 0012). Like the conversion page it addresses the library: the current
  * record of this operation is looked up, and its settings, plan and sessions
  * are what the page shows. Both execute their frozen task units; cover delivery
  * remains an independent metadata queue.

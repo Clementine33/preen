@@ -4,12 +4,12 @@ import { markRaw } from 'vue'
 /**
  * UI-only workbench state: selection, the search term and the batch name list.
  * The list's filter is not here: it is the one page parameter an address may
- * carry, so a filtered view can be linked (ADR 0003 §5). Never
+ * carry, so a filtered view can be linked (ADR 0003). Never
  * holds server data and never holds the edit session content — that lives in
  * the editor store so a carrier switch cannot lose it.
  *
  * There is no historical-revision selector: a record keeps one plan, the
- * current one (ADR 0001 §2).
+ * current one (ADR 0001).
  *
  * Route and edit intent are the source of truth for what is being edited; the
  * selected-member count is NEVER used to infer an edit target.

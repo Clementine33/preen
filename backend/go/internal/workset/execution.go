@@ -55,7 +55,7 @@ type StartExecutionResult struct {
 // ExecutionComponentView is one component's frozen work and observed outcome:
 // the wire shape of a `components[]` entry and of one `component` event. The
 // frozen half comes from the session's worklist, the observed half from the
-// component's own result row (ADR 0007 §5).
+// component's own result row (ADR 0006).
 type ExecutionComponentView struct {
 	TaskResult         json.RawMessage `json:"task_result,omitempty"`
 	ComponentIndex     int             `json:"component_index"`

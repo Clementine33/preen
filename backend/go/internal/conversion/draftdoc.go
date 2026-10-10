@@ -30,7 +30,7 @@ const (
 	SourceMember = "member"
 )
 
-// DraftDoc is the persisted sparse operation draft (ADR 0006 §1). The six
+// DraftDoc is the persisted sparse operation draft (ADR 0005). The six
 // common setting groups are the base; a member overrides only the units it
 // explicitly replaces. Absence means inheritance — never truthiness — so an
 // explicitly empty tag list is a real override while null is not.
@@ -109,7 +109,7 @@ func (o *OverrideSet) Units() []string {
 func (o *OverrideSet) IsEmpty() bool { return len(o.Units()) == 0 }
 
 // CommonSettings is the projection of a draft document a deployment-wide save
-// stores and pushes to every operation of this kind (ADR 0010 §1): the seven
+// stores and pushes to every operation of this kind (ADR 0008): the seven
 // common values, and no member record at all. It mirrors DraftDoc's own
 // encoding of them — mode and delete_mode are omitted when unset, and the tag
 // list is always an array, so an explicitly empty tag set survives the round
@@ -141,7 +141,7 @@ func ProjectCommonSettings(doc *DraftDoc) CommonSettings {
 // ReplaceCommonSettings returns the document with its common settings
 // replaced, preserving every member record — an override, an exclusion and
 // their absence alike — exactly as stored: member overrides are what a common
-// change must never touch (ADR 0006 §1, ADR 0010 §2).
+// change must never touch (ADR 0005, ADR 0008).
 func ReplaceCommonSettings(doc *DraftDoc, common CommonSettings) *DraftDoc {
 	out := *doc
 	out.Mode = common.Mode
@@ -217,7 +217,7 @@ func normalizeDraft(doc *DraftDoc, members []*workset.WorksetMember) *DraftDoc {
 // generation: JSON shape (strict decoding at the transport), unit literals and
 // member identity. Business completeness — non-empty tags, declared outputs,
 // positive bitrates — is deliberately not checked here: a structurally valid
-// but incomplete draft is a normal, saveable editing state (ADR 0006 §1) and
+// but incomplete draft is a normal, saveable editing state (ADR 0005) and
 // is rejected only when it must produce a plan.
 func validateDraftDoc(doc *DraftDoc, members []*workset.WorksetMember) error {
 	if doc.SchemaVersion != DraftSchemaVersion {

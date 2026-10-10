@@ -6,8 +6,8 @@ import (
 	"time"
 )
 
-// mediaFactsEvents tells readers to reload committed inventory facts (ADR
-// 0015 §2). It carries no file paths, history, or admission slot.
+// mediaFactsEvents tells readers to reload committed inventory facts (ADR 0013).
+// It carries no file paths, history, or admission slot.
 func (s *Server) mediaFactsEvents(w http.ResponseWriter, r *http.Request) {
 	if s.deps.MediaFacts == nil {
 		writeError(w, http.StatusServiceUnavailable, "UNAVAILABLE", "media facts are not configured")

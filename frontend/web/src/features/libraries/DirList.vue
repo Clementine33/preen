@@ -5,7 +5,7 @@ import { computed, ref } from 'vue'
 import type { LibraryDir } from '@/lib/api/types'
 
 /**
- * The overview's directory list (ADR 0001 §1).
+ * The overview's directory list (ADR 0001).
  *
  * Every scanned work root in the library, empty ones and ones
  * without audio included. Rows are virtualized because a library root can

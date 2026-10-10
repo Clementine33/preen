@@ -214,7 +214,7 @@ func (d *dispatcher) executeRun(ex *PlanExecution) {
 		// including at N = 1, where the window empties after every commit. Each
 		// boundary publishes the next head with the result it commits, so only
 		// the first unit needs a write of its own, before preparation or
-		// delivery can block (ADR 0007 decision 4).
+		// delivery can block (ADR 0006 decision 4).
 		if i == 0 {
 			d.persistPosition(ex.ExecutionID, req.Units[i])
 		}

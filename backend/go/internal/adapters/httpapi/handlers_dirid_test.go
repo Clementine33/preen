@@ -269,7 +269,7 @@ func TestADirectoryOutsideTheInventoryHasNoIdentity(t *testing.T) {
 // TestMemberIdentityMatchesTheOverviewListing covers the cache the two entries
 // share: the identity the overview lists and the identity the record hands out
 // for the same directory are one value, so both entries address one file cache
-// entry (ADR 0003 §6).
+// entry (ADR 0003).
 func TestMemberIdentityMatchesTheOverviewListing(t *testing.T) {
 	engine, repo := newWorksetServer(t)
 	root := t.TempDir()

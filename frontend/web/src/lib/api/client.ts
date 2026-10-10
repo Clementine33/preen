@@ -310,7 +310,7 @@ export class ApiClient implements ApiClientContract {
   /**
    * One manifest file's address for an element that loads it itself (<img>,
    * <audio>): such an element cannot send the bearer header, so the token
-   * rides in the address — the one route that accepts it (ADR 0016 §3).
+   * rides in the address — the one route that accepts it (ADR 0013).
    */
   workFileUrl(ref: ContentFileRef, version?: string): string {
     const params = new URLSearchParams()
@@ -322,7 +322,7 @@ export class ApiClient implements ApiClientContract {
 
   /**
    * A text file's body, decoded once by the charset the server sniffed and
-   * declared (ADR 0016 §3). Response.text() would always decode UTF-8, so the
+   * declared (ADR 0013). Response.text() would always decode UTF-8, so the
    * bytes go through a TextDecoder for the declared label.
    */
   async getWorkText(ref: ContentFileRef, signal?: AbortSignal): Promise<string> {
@@ -339,7 +339,7 @@ export class ApiClient implements ApiClientContract {
   }
 
   /**
-   * One image's thumbnail (ADR 0015 §3/§6): fetched with the bearer header so
+   * One image's thumbnail (ADR 0013): fetched with the bearer header so
    * the immutable address carries no token; a full render queue answers 503
    * and the request backs off by Retry-After until it is admitted or aborted.
    */

@@ -11,7 +11,7 @@ import { usePlayerStore } from '@/stores/player'
 import type { Library, WorkSummary } from '@/lib/api/types'
 
 /**
- * The page-level contracts of the wall (ADR 0012 §4): the address owns what
+ * The page-level contracts of the wall: the address owns what
  * the wall shows — library, filters, FIND, order, page, page size and the
  * inspected work — and the history entry owns where the wall was when a work
  * was opened. The keyboard dispatch is the prototype's: J/K and the arrows

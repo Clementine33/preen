@@ -10,7 +10,7 @@ import { useLibraryList } from '@/queries/libraries'
  * The application shell owns the whole application height and the global
  * navigation space: a 64px icon rail above 640px application width; at or
  * below it the shell is the page alone, and each page header carries the
- * GlobalMenu (ADR 0012 §4), so a phone's bottom edge belongs to the page. The
+ * GlobalMenu, so a phone's bottom edge belongs to the page. The
  * switch is pure CSS (the `rail` variant in style.css); no page re-measures the
  * window.
  */

@@ -146,7 +146,7 @@ func TestCommonSettingsSaveReachesEveryRecord(t *testing.T) {
 // global save does to plans: the plan a record already holds is a frozen
 // snapshot and stays exactly as it was, while the record's settings are now
 // ahead of it — so the operation reads as needing planning, and executing the
-// old plan is refused until a new one is generated (ADR 0010 §3).
+// old plan is refused until a new one is generated (ADR 0008).
 func TestCommonSettingsSaveLeavesGeneratedPlansAndNeedsReplanning(t *testing.T) {
 	f := newFixture(t)
 	first, second := f.twoLibraries(t)

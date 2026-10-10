@@ -1,12 +1,12 @@
 // Package library owns media libraries: the entries a user creates, the rules
 // a root change and a deletion must satisfy, and the derivation of directory
 // identity. The observed inventory a library browses belongs to package
-// inventory; this package owns the library row itself (ADR 0001 §1, §5;
-// ADR 0003 §2).
+// inventory; this package owns the library row itself (ADR 0001;
+// ADR 0003).
 //
 // Storage arrives as a consumer-defined port (Store) implemented by the SQLite
 // adapter; admission arrives as the process-wide gate, because a root change
-// and a deletion take the same slot as direct file management (ADR 0002 §2).
+// and a deletion take the same slot as direct file management (ADR 0002).
 package library
 
 import (

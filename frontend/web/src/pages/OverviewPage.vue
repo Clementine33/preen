@@ -29,7 +29,7 @@ import {
 } from '@/lib/api/types'
 
 /**
- * The workbench overview of one library (ADR 0001 §1, §2).
+ * The workbench overview of one library (ADR 0001).
  *
  * The library IS the workbench: entering it lists every direct child directory
  * the last scan saw — empty ones and ones without audio included — and that is
@@ -274,7 +274,7 @@ function onSelectAll(value: boolean) {
   for (const dir of shownDirs.value) ui.setDirSelected(dir.rel_path, true, dirs.value)
 }
 
-/** The page in view, named as the navigation names it (ADR 0001 §1; ADR 0003 §1). */
+/** The page in view, named as the navigation names it (ADR 0001; ADR 0003). */
 const pageTitle = computed(() => (filesOpen.value ? '文件' : '概览与成员'))
 const libraryRoot = computed(() => activeLibrary.value?.root_path ?? '')
 </script>

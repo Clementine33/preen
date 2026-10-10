@@ -53,7 +53,7 @@ so nothing about it is stored or validated differently from a hand-made one.
 - **Exclusion** changes participation only: overrides and inheritance survive
   it, and restoring participation restores the previous relationships.
   Excluding every member saves but cannot generate (`NO_ACTIVE_MEMBERS`).
-- **Common settings are deployment-wide** (ADR 0010). The seven common values
+- **Common settings are deployment-wide** (ADR 0008). The seven common values
   are stored once per operation kind, not per record: saving them from any
   record's draft pushes them to every other editable record's draft in the same
   transaction, and a record created afterwards seeds them. The PUT draft body

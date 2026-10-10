@@ -62,7 +62,7 @@ func (s *serviceImpl) GetDraft(ctx context.Context, worksetID, operationType str
 //
 // A save that changes the operation's common settings is a deployment-wide
 // save: the stored common settings and every other editable operation's common
-// fields move with it (ADR 0010 §2). A save that only touches member records
+// fields move with it (ADR 0008). A save that only touches member records
 // stays inside its own record.
 func (s *serviceImpl) SaveDraft(
 	ctx context.Context,
@@ -94,7 +94,7 @@ func (s *serviceImpl) SaveDraft(
 		return nil, validateErr
 	}
 	// Reject while a generation is queued/running: the session freezes the
-	// draft at enqueue time and must not race a replace (ADR 0001 §2).
+	// draft at enqueue time and must not race a replace (ADR 0001).
 	active, err := s.repo.GetActiveGenerationForOperation(worksetID, operationType)
 	if err != nil {
 		return nil, NewError(ErrKindInternal, "INTERNAL", "failed to check active generation", err)

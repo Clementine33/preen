@@ -6,12 +6,17 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/onsei/organizer/backend/internal/works"
 	"github.com/onsei/organizer/backend/internal/works/coverdelivery"
 	"github.com/onsei/organizer/backend/internal/works/refresh"
 	"github.com/onsei/organizer/backend/internal/workset"
 )
 
 type taskCatalog map[string]coverdelivery.Target
+
+func (taskCatalog) MetadataStates(_ context.Context, ids []works.WorkCode) (map[works.WorkCode]map[works.DataGroup]works.SourceState, error) {
+	return map[works.WorkCode]map[works.DataGroup]works.SourceState{}, nil
+}
 
 func (c taskCatalog) CoverTargets(_ context.Context, _ string, _ []string) (map[string]coverdelivery.Target, error) {
 	return c, nil
@@ -137,5 +142,48 @@ func TestMetadataDraftExclusionAndDynamicCoverPolicy(t *testing.T) {
 	)
 	if err != nil || len(plan.Units) != 1 || plan.Units[0].ReasonCode != "NO_WORK_BINDING" {
 		t.Fatalf("unbound: %+v %v", plan, err)
+	}
+}
+
+type completeCatalog struct{ taskCatalog }
+
+func (completeCatalog) MetadataStates(_ context.Context, ids []works.WorkCode) (map[works.WorkCode]map[works.DataGroup]works.SourceState, error) {
+	full := map[works.DataGroup]works.SourceState{}
+	for _, g := range []works.DataGroup{works.GroupCore, works.GroupStatistics, works.GroupRelations, works.GroupEditions} {
+		full[g] = works.SourceState{Source: "dlsite"}
+	}
+	return map[works.WorkCode]map[works.DataGroup]works.SourceState{"RJ00000001": full}, nil
+}
+
+func TestFillMissingPlansACompleteWorkAsCoverOnlyOrSkip(t *testing.T) {
+	root := t.TempDir()
+	done := filepath.ToSlash(filepath.Join(root, "RJ00000001 a"))
+	fresh := filepath.ToSlash(filepath.Join(root, "RJ00000002 b"))
+	catalog := completeCatalog{taskCatalog{
+		done:  {CopyID: "a", WorkCode: "RJ00000001"},
+		fresh: {CopyID: "b", WorkCode: "RJ00000002"},
+	}}
+	task := refresh.NewTask(catalog, func(string) error { return nil })
+	members := []*workset.WorksetMember{
+		{MemberID: "a", RelPath: "RJ00000001 a", FolderPath: done},
+		{MemberID: "b", RelPath: "RJ00000002 b", FolderPath: fresh},
+	}
+	for cover, want := range map[bool]string{true: "cover", false: "skip"} {
+		draft := `{"schema_version":1,"common":{"mode":"fill_missing","locale":"ja-jp","download_cover":` +
+			map[bool]string{true: "true", false: "false"}[cover] + `},"members":[]}`
+		plan, err := task.PlanSession(t.Context(),
+			workset.PlanSessionInput{LibraryRoot: root, RawDraft: []byte(draft), Members: members})
+		if err != nil {
+			t.Fatal(err)
+		}
+		var got [2]refresh.Outcome
+		for i, u := range plan.Units {
+			if err = json.Unmarshal(u.Payload, &got[i]); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if got[0].Action != want || got[0].ReasonCode != "ALREADY_COMPLETE" || got[1].Action != "refresh" {
+			t.Fatalf("cover=%v: %+v", cover, got)
+		}
 	}
 }

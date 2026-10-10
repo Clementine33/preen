@@ -174,6 +174,16 @@ const generationProgress = computed(() => {
   return { done: active.completed_roots, total: active.total_roots }
 })
 
+const LOCALE_LABELS: Record<string, string> = { 'ja-jp': '日本語', 'zh-cn': '简体中文', 'zh-tw': '繁體中文' }
+const metadataLocaleLabel = computed(() => {
+  const locale = (draftDocument.value as MetadataDraftDocument | null)?.common.locale
+  return locale ? (LOCALE_LABELS[locale] ?? locale) : '—'
+})
+const metadataPlanCounts = computed(() => {
+  const skip = (components.value as MetadataComponent[]).filter((c) => c.action !== 'refresh').length
+  return { run: components.value.length - skip, skip }
+})
+
 const planNote = computed(() => {
   const state = op.value?.planning_state
   if (state === 'orphaned') return '媒体库已删除：该记录只读'
@@ -242,6 +252,9 @@ const renameResults = computed(() =>
 )
 const renameSkipped = computed(
   () => (executionView.value?.components ?? []).filter((c) => (c.task_result as RenameTaskResult | undefined)?.skipped).length,
+)
+const metadataSkipped = computed(
+  () => (executionView.value?.components ?? []).filter((c) => ['skip', 'cover'].includes((c.task_result as { action?: string } | undefined)?.action ?? '')).length,
 )
 
 const executeError = ref<string | null>(null)
@@ -387,7 +400,7 @@ watch(
             <p v-if="executeError" class="mt-2 text-[11px] text-destructive" role="alert">{{ executeError }}</p>
             <p v-if="!planId && !generationProgress" class="mt-2 text-[11px] text-[var(--text-muted)]">尚未生成计划。</p>
             <p v-else-if="isMetadata" class="mt-2 text-[11px] text-[var(--text-secondary)]" data-testid="metadata-plan-count">
-              将刷新 {{ components.length }} 个文件夹
+              标签语言 {{ metadataLocaleLabel }} · 将刷新 {{ metadataPlanCounts.run }} 个 · 跳过 {{ metadataPlanCounts.skip }} 个
             </p>
             <TaskPlanTable v-else-if="components.length" class="mt-2" :components="components as RenameComponent[]" :members="record?.members" />
           </section>
@@ -398,6 +411,7 @@ watch(
               <Badge tone="neutral">{{ EXECUTION_STATES[executionView.status] ?? executionView.status }}</Badge>
               <span class="font-mono text-[11px]">{{ executionView.completed_components }}/{{ executionView.total_components }}</span>
               <Badge v-if="isMetadata && failures.length" tone="danger">失败 {{ failures.length }} 个作品</Badge>
+              <Badge v-if="isMetadata && metadataSkipped" tone="warning">跳过 {{ metadataSkipped }} 个</Badge>
               <Badge v-if="!isMetadata && renameSkipped" tone="warning">跳过 {{ renameSkipped }} 个</Badge>
               <Button
                 v-if="op?.active_execution"

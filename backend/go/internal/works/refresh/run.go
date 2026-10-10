@@ -28,12 +28,13 @@ func (e Executor) Run(ctx context.Context, in workset.BatchExecutionInput) error
 	byCode := map[string][]workset.ExecutionUnit{}
 	targets := map[string][]coverdelivery.Target{}
 	codes := []string{}
+	coverOnly := map[string][]coverdelivery.Target{}
 	for _, unit := range in.Units {
 		var o Outcome
 		if err := json.Unmarshal(unit.Payload, &o); err != nil {
 			return err
 		}
-		if o.Action == "skip" {
+		if o.Action == "skip" || o.Action == "cover" {
 			raw, _ := json.Marshal(o)
 			zero := 0
 			if err := in.Progress(
@@ -41,6 +42,9 @@ func (e Executor) Run(ctx context.Context, in workset.BatchExecutionInput) error
 				workset.UnitResult{TaskResult: raw, CompletedOperations: &zero, Stage: "skipped"},
 			); err != nil {
 				return err
+			}
+			if o.Action == "cover" && common.DownloadCover {
+				coverOnly[o.Target.WorkCode] = append(coverOnly[o.Target.WorkCode], o.Target)
 			}
 			continue
 		}
@@ -52,6 +56,17 @@ func (e Executor) Run(ctx context.Context, in workset.BatchExecutionInput) error
 		}
 		byCode[o.Target.WorkCode] = append(byCode[o.Target.WorkCode], unit)
 		targets[o.Target.WorkCode] = append(targets[o.Target.WorkCode], o.Target)
+	}
+	// Complete works need no fetch; their folders may still lack the cover.
+	for code, ts := range coverOnly {
+		if e.Covers == nil {
+			return fmt.Errorf("cover delivery is not wired")
+		}
+		if err := e.Covers.Enqueue(ctx, coverdelivery.Request{
+			ExecutionID: in.ExecutionID, WorkCode: code, Locale: common.Locale, Targets: ts,
+		}); err != nil {
+			return err
+		}
 	}
 	if len(codes) == 0 {
 		return nil

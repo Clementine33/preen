@@ -981,7 +981,7 @@ export interface CoverTarget {
 export interface MetadataComponent {
   member_id: string
   target: CoverTarget
-  action: 'refresh' | 'skip'
+  action: 'refresh' | 'skip' | 'cover'
   reason_code?: string
 }
 

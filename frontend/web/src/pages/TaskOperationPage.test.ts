@@ -232,7 +232,7 @@ describe('task operation page', () => {
   it('summarizes the metadata plan as a count', async () => {
     const { wrapper } = await mountPage('/worksets/lib-1/metadata')
 
-    expect(wrapper.get('[data-testid="metadata-plan-count"]').text()).toBe('将刷新 1 个文件夹')
+    expect(wrapper.get('[data-testid="metadata-plan-count"]').text()).toBe('标签语言 日本語 · 将刷新 1 个 · 跳过 0 个')
     expect(wrapper.find('[data-testid="task-plan-table"]').exists()).toBe(false)
   })
 

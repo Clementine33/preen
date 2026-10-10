@@ -118,10 +118,13 @@ Planning freezes selected directories, copy/work targets and settings without
 upstream requests or inventory scans. It checks each selected directory directly,
 without scanning its contents or the classification directories. Each participating
 member produces a frozen component with `member_id`, `target` (`copy_id`, `rj`,
-`library_root`, `rel_path`, `identity`), `action` (`refresh` or `skip`) and an
-optional `reason_code`. An unbound directory skips with `NO_WORK_BINDING`;
+`library_root`, `rel_path`, `identity`), `action` (`refresh`, `cover` or `skip`) and an
+optional `reason_code`. An unbound directory skips with `NO_WORK_BINDING`; in
+`fill_missing` mode a work whose four data groups are all stored (in any tag
+language) plans as `skip` with `ALREADY_COMPLETE`, or as `cover` when
+`download_cover` is on: no fetch, only cover delivery;
 a missing directory blocks with `SOURCE_MISSING`. Summary adds `work_count`
-(distinct RJ); `operation_count` counts bound participating copies. New plans
+(distinct RJ); `operation_count` counts bound participating copies that are fetched. New plans
 write `identity:""`; the same lightweight rule applies to existing plans and
 their legacy identity fields are ignored. Freshness checks only the directory's
 existence, real-directory type and frozen basename, using one Lstat. Binding,

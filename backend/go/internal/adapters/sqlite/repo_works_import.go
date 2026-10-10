@@ -67,6 +67,7 @@ func (r *Repository) ImportMetadata(in *works.ValidatedImport, now time.Time) (w
 	if err := tx.Commit(); err != nil {
 		return works.ImportOutcome{}, err
 	}
+	r.catalogChanged()
 	return outcome, nil
 }
 

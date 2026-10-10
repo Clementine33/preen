@@ -150,6 +150,15 @@ notification to cover changes while disconnected. A `: keep-alive` comment
 is sent every 15 seconds; disconnection unregisters the subscriber. There are
 no event IDs, replay history or persistent event fields.
 
+The same connection also carries `event: works_changed` with `{}`: one is sent
+on every connection, registered together with the subscription so no commit
+between a reader's list and its connection is lost, and one follows each commit
+that can change what the works pages show (metadata import, scan and inventory
+merges, observed inventory such as a published cover, directory relocation, and
+library removal or re-rooting). The root application refreshes work lists,
+details, facets and manifests on it, debounced by 1 second with a 5 second
+ceiling.
+
 The root application maintains one connection, reconnecting after 1, 2, 4
 seconds up to 30 seconds; 401 stops retries, and unmount cancels both the stream
 and pending wait. Notifications cancel any older in-flight reads, refresh
@@ -225,6 +234,14 @@ seen on disk is created as a relation placeholder, listed in
 `created_placeholders[]`.
 
 ## Listing filters, ordering and paging
+
+Each work in a list or detail response carries `local_cover`: `null`, or
+`{"copy_id", "rel_path", "version"}` naming a `cover.{webp,jpg,jpeg,png,gif}`
+the stored inventory holds in one of the work's copies (the first copy by
+library and `rel_path`, then by name). Its bytes are served by the content route;
+`version` is `<content_rev>-<mtime>-<size>`, so the address changes when the
+inventory observes new bytes. Clients show it ahead of `thumbnail_url` and fall
+back to `thumbnail_url` when the image fails to load.
 
 `GET /api/v1/works` accepts exactly these parameters; anything else is
 `INVALID_ARGUMENT` (400), so a typo cannot silently widen the answer.

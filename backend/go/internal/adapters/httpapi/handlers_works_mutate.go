@@ -140,7 +140,9 @@ func (s *Server) getWork(w http.ResponseWriter, r *http.Request) {
 		writeWorksError(w, refusal)
 		return
 	}
-	writeJSON(w, http.StatusOK, toWorkDetail(detail))
+	out := toWorkDetail(detail)
+	s.attachLocalCovers(r, &out.workSummaryResponse)
+	writeJSON(w, http.StatusOK, out)
 }
 
 // getWorkContent answers one work's file manifest (ADR 0016 §2). The response

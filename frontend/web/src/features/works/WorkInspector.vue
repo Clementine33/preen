@@ -5,6 +5,7 @@ import { REDUCED_MOTION_QUERY, useMediaQuery } from '@/composables/use-media-que
 import type { WorkDetail } from '@/lib/api/types'
 import { deriveTracks, fmtLong, fmtT, playableCopy } from '@/features/work-detail/derive'
 import { usePlayWork } from '@/features/works/use-play-work'
+import { useCoverSrc } from '@/features/works/use-cover-src'
 import { useWorkContent, useWorkDetail } from '@/queries/works'
 import { usePlayerStore } from '@/stores/player'
 
@@ -107,29 +108,53 @@ function scramble(text: string) {
 const coverBack = ref<HTMLElement | null>(null)
 const coverFront = ref<HTMLElement | null>(null)
 let shownCover: string | null = null
+const { src: coverSrc, failed: coverFailed, isLocal: coverIsLocal } = useCoverSrc(() => {
+  const detail = deferredWork.value
+  return detail ? { rj: detail.rj, local: detail.local_cover, remote: detail.cover_url ?? detail.thumbnail_url } : null
+})
+/** A CSS background never reports a load failure, so a local cover is proven loadable first. */
+function probe(url: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const image = new Image()
+    image.onload = () => resolve(true)
+    image.onerror = () => resolve(false)
+    image.src = url
+  })
+}
 // The plates are watched too: a body filled during setup is painted once
 // they mount.
 watch(
-  () => [deferredWork.value ? deferredWork.value.cover_url ?? deferredWork.value.thumbnail_url : null, coverFront.value] as const,
+  () => [coverSrc.value, coverFront.value] as const,
   ([url]) => {
-    if (url === shownCover || !coverBack.value || !coverFront.value) return
-    if (reducedMotion.value) {
-      // No wipe, but the cover still has to be painted.
-      shownCover = url
-      paintCover(coverFront.value, url)
+    if (url !== null && coverIsLocal(url) && url !== shownCover) {
+      void probe(url).then((ok) => {
+        if (url !== coverSrc.value) return
+        if (ok) showCover(url)
+        else coverFailed(url)
+      })
       return
     }
-    paintCover(coverBack.value, shownCover)
-    shownCover = url
-    paintCover(coverFront.value, url)
-    // Replay the wipe: clip to fully-open, force a reflow, then run.
-    coverFront.value.classList.remove('run')
-    coverFront.value.classList.add('enter')
-    void coverFront.value.offsetWidth
-    coverFront.value.classList.add('run')
-    coverFront.value.classList.remove('enter')
+    showCover(url)
   },
 )
+function showCover(url: string | null) {
+  if (url === shownCover || !coverBack.value || !coverFront.value) return
+  if (reducedMotion.value) {
+    // No wipe, but the cover still has to be painted.
+    shownCover = url
+    paintCover(coverFront.value, url)
+    return
+  }
+  paintCover(coverBack.value, shownCover)
+  shownCover = url
+  paintCover(coverFront.value, url)
+  // Replay the wipe: clip to fully-open, force a reflow, then run.
+  coverFront.value.classList.remove('run')
+  coverFront.value.classList.add('enter')
+  void coverFront.value.offsetWidth
+  coverFront.value.classList.add('run')
+  coverFront.value.classList.remove('enter')
+}
 function paintCover(el: HTMLElement, url: string | null) {
   el.classList.toggle('hatch', url === null)
   el.style.backgroundImage = url === null ? '' : `url("${url}")`

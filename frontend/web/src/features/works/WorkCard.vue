@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { WorkSummary } from '@/lib/api/types'
+import { useCoverSrc } from './use-cover-src'
 
 // One cell of the wall (ADR 0012 §4): a 4:3 cover — hatched when the catalog
 // has none — over a caption base that the selection wipes in from the left.
@@ -12,7 +13,11 @@ const props = defineProps<{
   playing: boolean
 }>()
 
-const cover = computed(() => props.work.thumbnail_url ?? null)
+const { src: cover, failed } = useCoverSrc(() => ({
+  rj: props.work.rj,
+  local: props.work.local_cover,
+  remote: props.work.thumbnail_url ?? null,
+}))
 
 /** `YYYY.MM` from the catalog's `YYYY-MM-DD`, or the empty-state dash. */
 const release = computed(() =>
@@ -26,7 +31,7 @@ const release = computed(() =>
     <!-- Lazy and fill-and-crop: an off-screen cover costs nothing until it nears
          the viewport, and every cover fills its 4:3 frame the same way. -->
     <div class="cover" :class="cover ? '' : 'hatch'">
-      <img v-if="cover" :src="cover" alt="" loading="lazy" decoding="async" />
+      <img v-if="cover" :src="cover" alt="" loading="lazy" decoding="async" @error="failed(cover)" />
     </div>
     <span v-if="playing" class="playing-tag">▶ NOW</span>
     <div class="cap">

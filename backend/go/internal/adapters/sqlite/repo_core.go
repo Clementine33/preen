@@ -46,6 +46,17 @@ type Repository struct {
 	// BitrateWriteMu serializes bitrate DB writes across concurrent Analyzer
 	// goroutines to avoid SQLITE_BUSY under concurrent folder-plan requests.
 	BitrateWriteMu sync.Mutex
+
+	// OnCatalogChanged is called after a commit that changes what the works
+	// pages list: metadata, inventory merges and observations, renames and
+	// library removal or re-rooting. It must be quick and never call back in.
+	OnCatalogChanged func()
+}
+
+func (r *Repository) catalogChanged() {
+	if r.OnCatalogChanged != nil {
+		r.OnCatalogChanged()
+	}
 }
 
 // connectionPragmas is appended to the database path to configure every

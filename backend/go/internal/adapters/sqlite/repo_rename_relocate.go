@@ -76,7 +76,11 @@ func (r *Repository) RelocateDirectoryAs(ctx context.Context, root, source, targ
 			return err
 		}
 	}
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	r.catalogChanged()
+	return nil
 }
 
 // subtree is the binary range holding everything below p: "/" is followed by

@@ -96,6 +96,30 @@ afterEach(() => {
 })
 
 describe('WorkInspector', () => {
+  it('paints a local cover once it is proven loadable, and the remote one when it is not', async () => {
+    const outcomes: Array<'load' | 'error'> = ['load', 'error']
+    class StubImage {
+      onload: (() => void) | null = null
+      onerror: (() => void) | null = null
+      set src(_: string) {
+        const outcome = outcomes.shift() ?? 'error'
+        queueMicrotask(() => (outcome === 'load' ? this.onload : this.onerror)?.())
+      }
+    }
+    vi.stubGlobal('Image', StubImage)
+    reducedMotion(true)
+    const local = { copy_id: 'c1', rel_path: 'cover.jpg', version: '1-2-3' }
+    const getWork = vi.fn(async (rj: string) => ({ ...detail(rj, 'va'), local_cover: local }))
+    const wrapper = await mountInspector(getWork, { rj: FIRST })
+    await settle()
+    expect(wrapper.get<HTMLElement>('.cover.front').element.style.backgroundImage).toContain('/files/')
+
+    const failing = await mountInspector(getWork, { rj: SECOND })
+    await settle()
+    expect(failing.get<HTMLElement>('.cover.front').element.style.backgroundImage).toContain(`${SECOND}.jpg`)
+    vi.unstubAllGlobals()
+  })
+
   it('keeps the last body, dimmed, while the next work is still loading', async () => {
     const getWork = vi.fn((rj: string) =>
       rj === FIRST ? Promise.resolve(detail(FIRST, '伊ヶ崎綾香')) : new Promise<WorkDetail>(() => {}),

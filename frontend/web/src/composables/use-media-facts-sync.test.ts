@@ -144,3 +144,46 @@ describe('media facts synchronization', () => {
     expect(closed).toBe(true)
   })
 })
+
+describe('works_changed', () => {
+  it('reloads work lists and details once per burst, within the ceiling', async () => {
+    vi.useFakeTimers()
+    const client = createTestQueryClient()
+    const list = queryKeys.works.list({ page: 1 } as never)
+    const detail = queryKeys.works.detail('RJ01000001')
+    const queryFn = vi.fn(async () => 'fresh')
+    const stops = [list, detail].map((queryKey) => {
+      const observer = new QueryObserver(client, { queryKey, queryFn })
+      return observer.subscribe(() => {})
+    })
+    await vi.advanceTimersByTimeAsync(0)
+    queryFn.mockClear()
+    const controller = new AbortController()
+    let emit!: () => void
+    const api = apiStub({
+      streamMediaFactsEvents: async function* (signal) {
+        yield { type: 'works_changed', data: {} }
+        for (;;) {
+          await new Promise<void>((resolve) => { emit = resolve })
+          if (signal.aborted) return
+          yield { type: 'works_changed', data: {} }
+        }
+      },
+    })
+    const run = syncMediaFacts(api, client, controller.signal)
+    await vi.advanceTimersByTimeAsync(500)
+    expect(queryFn).not.toHaveBeenCalled()
+    // Events keep arriving every 800 ms: the debounce never settles, the ceiling does.
+    for (let i = 0; i < 6; i += 1) {
+      emit()
+      await vi.advanceTimersByTimeAsync(800)
+    }
+    expect(queryFn).toHaveBeenCalledTimes(2)
+    controller.abort()
+    emit()
+    await vi.advanceTimersByTimeAsync(0)
+    await run
+    stops.forEach((stop) => stop())
+    client.clear()
+  })
+})

@@ -77,6 +77,36 @@ type workSummaryResponse struct {
 	HasNote      bool              `json:"has_note"`
 	CollectedAt  string            `json:"collected_at"`
 	CopyCount    int               `json:"copy_count"`
+	// LocalCover is the copy's cover already on disk; the bytes are served by
+	// the content route.
+	LocalCover *localCoverResponse `json:"local_cover"`
+}
+
+type localCoverResponse struct {
+	CopyID  string `json:"copy_id"`
+	RelPath string `json:"rel_path"`
+	Version string `json:"version"`
+}
+
+// attachLocalCovers adds the page's covers with one lookup. A failed lookup
+// leaves the covers off: the remote thumbnail still answers.
+func (s *Server) attachLocalCovers(r *http.Request, rows ...*workSummaryResponse) {
+	if s.deps.LocalCovers == nil || len(rows) == 0 {
+		return
+	}
+	ids := make([]works.WorkCode, len(rows))
+	for i, row := range rows {
+		ids[i] = works.WorkCode(row.RJ)
+	}
+	covers, err := s.deps.LocalCovers.LocalCovers(r.Context(), ids)
+	if err != nil {
+		return
+	}
+	for _, row := range rows {
+		if c, ok := covers[works.WorkCode(row.RJ)]; ok {
+			row.LocalCover = &localCoverResponse{CopyID: c.CopyID, RelPath: c.RelPath, Version: c.Version}
+		}
+	}
 }
 
 func toWorkSummary(summary works.WorkSummary) workSummaryResponse {
@@ -122,6 +152,11 @@ func (s *Server) listWorks(w http.ResponseWriter, r *http.Request) {
 	for _, summary := range page.Works {
 		out.Works = append(out.Works, toWorkSummary(summary))
 	}
+	rows := make([]*workSummaryResponse, len(out.Works))
+	for i := range out.Works {
+		rows[i] = &out.Works[i]
+	}
+	s.attachLocalCovers(r, rows...)
 	writeJSON(w, http.StatusOK, out)
 }
 

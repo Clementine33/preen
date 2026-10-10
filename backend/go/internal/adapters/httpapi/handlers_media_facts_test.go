@@ -11,6 +11,7 @@ import (
 
 	"github.com/onsei/organizer/backend/internal/adapters/httpapi"
 	"github.com/onsei/organizer/backend/internal/inventory"
+	"github.com/onsei/organizer/backend/internal/notify"
 )
 
 // flushedResponse snapshots on the writer goroutine; the test only reads
@@ -67,4 +68,33 @@ func TestMediaFactsStreamRequiresHeaderAuthentication(t *testing.T) {
 			t.Errorf("%s = %d, want 401", target, w.Code)
 		}
 	}
+}
+
+func TestMediaFactsStreamSendsWorksChangedOnConnectAndAfterACommit(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		hub := &notify.Hub{}
+		h := httpapi.NewServer(httpapi.Dependencies{
+			Token: "test", MediaFacts: inventory.NewMediaEnricher(nil, nil, nil), WorksChanged: hub,
+		})
+		ctx, cancel := context.WithCancel(context.Background())
+		r := httptest.NewRequest(http.MethodGet, "/api/v1/inventory/media-facts/events", nil).WithContext(ctx)
+		r.Header.Set("Authorization", "Bearer test")
+		w := &flushedResponse{ResponseRecorder: httptest.NewRecorder(), flushes: make(chan string, 4)}
+		done := make(chan struct{})
+		go func() {
+			defer close(done)
+			h.ServeHTTP(w, r)
+		}()
+		// Both primed sources answer on connect, in either order.
+		var got string
+		for !strings.Contains(got, "event: changed\n") || !strings.Contains(got, "event: works_changed\n") {
+			got = <-w.flushes
+		}
+		hub.Notify()
+		if got := <-w.flushes; strings.Count(got, "event: works_changed") != 2 {
+			t.Errorf("commit event missing: %q", got)
+		}
+		cancel()
+		<-done
+	})
 }

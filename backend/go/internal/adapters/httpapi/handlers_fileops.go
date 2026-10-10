@@ -67,8 +67,7 @@ func (s *Server) applyFileOperation(w http.ResponseWriter, r *http.Request) {
 		// A refusal of the whole request (an unsupported operation, an
 		// unusable member, a malformed path, no items): the member never
 		// became a scope, so nothing ran and nothing was written.
-		var itemErr *fileops.PathError
-		if errors.As(err, &itemErr) {
+		if itemErr, ok := errors.AsType[*fileops.PathError](err); ok {
 			writeError(w, http.StatusBadRequest, itemErr.Code, itemErr.Message)
 			return
 		}

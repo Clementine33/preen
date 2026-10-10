@@ -53,12 +53,6 @@ func (t *Task) PlanSession(ctx context.Context, in workset.PlanSessionInput) (*w
 			return nil, readErr
 		}
 	}
-	custom := map[string]string{}
-	for _, dm := range d.Members {
-		if dm.Name != "" {
-			custom[dm.MemberID] = dm.Name
-		}
-	}
 	observed, err := t.followHandRenames(ctx, root, in.Members, excluded, directories, works)
 	if err != nil {
 		return nil, err
@@ -72,20 +66,7 @@ func (t *Task) PlanSession(ctx context.Context, in workset.PlanSessionInput) (*w
 	snapshot.Payload, _ = json.Marshal(d.Common)
 	snapshot.PayloadHash = workset.CanonicalJSONHash(snapshot.Payload)
 	summary := workset.PlanSummary{SummaryReason: "ok"}
-	outcomes := map[string]Outcome{}
-	targets := map[string]int{}
-	for _, m := range in.Members {
-		if excluded[m.MemberID] {
-			continue
-		}
-		parent := filepath.ToSlash(filepath.Dir(filepath.FromSlash(m.FolderPath)))
-		o := planName(d.Common, m, works[m.FolderPath], directories[parent], parent,
-			naming{Custom: custom[m.MemberID], Observed: observed[m.MemberID]})
-		outcomes[m.MemberID] = o
-		if o.ReasonCode == "" {
-			targets[librarypath.RootPathKey(filepath.ToSlash(filepath.Join(parent, o.TargetName)))]++
-		}
-	}
+	outcomes, targets := planNames(d, in.Members, excluded, works, directories, observed)
 	for _, m := range in.Members {
 		if err := ctx.Err(); err != nil {
 			return nil, err
@@ -139,6 +120,37 @@ func (t *Task) PlanSession(ctx context.Context, in workset.PlanSessionInput) (*w
 	}
 	snapshot.Summary, _ = json.Marshal(summary)
 	return snapshot, nil
+}
+
+func planNames(
+	d Draft,
+	members []*workset.WorksetMember,
+	excluded map[string]bool,
+	works map[string]Work,
+	directories map[string]Directory,
+	observed map[string]string,
+) (map[string]Outcome, map[string]int) {
+	custom := map[string]string{}
+	for _, dm := range d.Members {
+		if dm.Name != "" {
+			custom[dm.MemberID] = dm.Name
+		}
+	}
+	outcomes := map[string]Outcome{}
+	targets := map[string]int{}
+	for _, m := range members {
+		if excluded[m.MemberID] {
+			continue
+		}
+		parent := filepath.ToSlash(filepath.Dir(filepath.FromSlash(m.FolderPath)))
+		o := planName(d.Common, m, works[m.FolderPath], directories[parent], parent,
+			naming{Custom: custom[m.MemberID], Observed: observed[m.MemberID]})
+		outcomes[m.MemberID] = o
+		if o.ReasonCode == "" {
+			targets[librarypath.RootPathKey(filepath.ToSlash(filepath.Join(parent, o.TargetName)))]++
+		}
+	}
+	return outcomes, targets
 }
 
 func fingerprint(common Common, o Outcome, work Work, entries Directory, root string) string {

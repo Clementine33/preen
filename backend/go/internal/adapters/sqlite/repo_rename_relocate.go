@@ -241,7 +241,11 @@ func relocateMembers(ctx context.Context, tx *sql.Tx, rootKey, source, target, s
 			if _, err := tx.ExecContext(
 				ctx,
 				`UPDATE workset_members SET rel_path=?, folder_path=?, folder_name=? WHERE workset_id=? AND member_index=?`,
-				targetRel+m.relPath[len(sourceRel):], folderPath, folderName, worksetID, m.index,
+				targetRel+m.relPath[len(sourceRel):],
+				folderPath,
+				folderName,
+				worksetID,
+				m.index,
 			); err != nil {
 				return fmt.Errorf("relocate members: %w", err)
 			}

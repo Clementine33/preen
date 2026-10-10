@@ -41,7 +41,10 @@ func runUnit(t *testing.T, task *dirrename.Task, m *workset.WorksetMember, d *wo
 	if err != nil || len(reasons) > 0 {
 		t.Fatalf("freeze: %v %v", reasons, err)
 	}
-	prepared, err := task.PrepareUnit(t.Context(), workset.UnitRunInput{WorksetRoot: detailRoot(m), Unit: frozen.Units[0]})
+	prepared, err := task.PrepareUnit(
+		t.Context(),
+		workset.UnitRunInput{WorksetRoot: detailRoot(m), Unit: frozen.Units[0]},
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -66,12 +69,16 @@ func TestCustomNameReplacesTheTemplateAndKeepsTheCode(t *testing.T) {
 	if o.Action != "blocked" || o.ReasonCode != "NAME_CODE_INVALID" {
 		t.Fatalf("codeless name: %+v", o)
 	}
-	raw := []byte(`{"schema_version":1,"common":{"template":"[{rj}] {title}"},"members":[{"member_id":"member-1","excluded":false,"name":"x"},{"member_id":"gone","excluded":false}]}`)
+	raw := []byte(
+		`{"schema_version":1,"common":{"template":"[{rj}] {title}"},"members":[{"member_id":"member-1","excluded":false,"name":"x"},{"member_id":"gone","excluded":false}]}`,
+	)
 	if _, _, _, err := task.NormalizeDraft(raw, []*workset.WorksetMember{m}); err == nil {
 		t.Fatal("unknown member accepted")
 	}
 	normalized, _, _, err := task.NormalizeDraft(
-		[]byte(`{"schema_version":1,"common":{"template":"[{rj}] {title}"},"members":[{"member_id":"member-1","excluded":false,"name":"x"}]}`),
+		[]byte(
+			`{"schema_version":1,"common":{"template":"[{rj}] {title}"},"members":[{"member_id":"member-1","excluded":false,"name":"x"}]}`,
+		),
 		[]*workset.WorksetMember{m},
 	)
 	if err != nil || !json.Valid(normalized) {
@@ -181,10 +188,16 @@ func TestVoiceActorSeparatorJoinsActorsAndIsValidated(t *testing.T) {
 		m.FolderPath: {Code: "RJ00000001", Values: map[string]string{"title": "t"}, VoiceActors: []string{"a", "b"}},
 	}}
 	task := dirrename.New(catalog, filesystem.ReadRenameDirectory)
-	for separator, want := range map[string]string{"": "[RJ00000001] a、b", " & ": "[RJ00000001] a & b"} {
+	for _, tc := range []struct {
+		separator string
+		want      string
+	}{
+		{"", "[RJ00000001] a、b"},
+		{" & ", "[RJ00000001] a & b"},
+	} {
 		raw, _ := json.Marshal(dirrename.Draft{
 			SchemaVersion: 1,
-			Common:        dirrename.Common{Template: "[{rj}] {voice_actors}", VoiceActorSeparator: separator},
+			Common:        dirrename.Common{Template: "[{rj}] {voice_actors}", VoiceActorSeparator: tc.separator},
 			Members:       []dirrename.Member{},
 		})
 		plan, err := task.PlanSession(
@@ -195,8 +208,8 @@ func TestVoiceActorSeparatorJoinsActorsAndIsValidated(t *testing.T) {
 			t.Fatal(err)
 		}
 		var o dirrename.Outcome
-		if err := json.Unmarshal(plan.Units[0].Payload, &o); err != nil || o.TargetName != want {
-			t.Fatalf("separator %q: %+v %v", separator, o, err)
+		if err := json.Unmarshal(plan.Units[0].Payload, &o); err != nil || o.TargetName != tc.want {
+			t.Fatalf("separator %q: %+v %v", tc.separator, o, err)
 		}
 	}
 	for _, bad := range []string{"/", `a\b`, "x\ty", "12345678901234567"} {
@@ -254,7 +267,8 @@ func TestStartupRepairMovesRecordsOfAFollowedFolderFromTheirRecordedPath(t *test
 	o.ObservedName, o.RebindTo = "RJ000001 by hand", "RJ00000002"
 	req.Units[0].Payload, _ = json.Marshal(o)
 	raw, _ := json.Marshal(req)
-	if _, err := f.repo.DB().Exec(`UPDATE plan_executions SET request_json=? WHERE execution_id=?`, string(raw), ex.ExecutionID); err != nil {
+	if _, err := f.repo.DB().
+		Exec(`UPDATE plan_executions SET request_json=? WHERE execution_id=?`, string(raw), ex.ExecutionID); err != nil {
 		t.Fatal(err)
 	}
 	// The disk got as far as the final name; the records never left the old path.

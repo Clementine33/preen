@@ -21,6 +21,14 @@ type Outcome struct {
 	TargetName string `json:"target_name"`
 	Action     string `json:"action"`
 	ReasonCode string `json:"reason_code,omitempty"`
+	// CustomName is the literal name the user gave this folder instead of the template.
+	CustomName string `json:"custom_name,omitempty"`
+	// ObservedName is what a hand-renamed folder is called on disk now; the
+	// execution first moves the stored paths to it, then renames it.
+	ObservedName string `json:"observed_name,omitempty"`
+	// RebindTo is the work code a custom name carries when it differs from the
+	// bound work: the copy follows the name.
+	RebindTo string `json:"rebind_to,omitempty"`
 }
 
 func (t *Task) PlanSession(ctx context.Context, in workset.PlanSessionInput) (*workset.PlanSnapshot, error) {
@@ -45,6 +53,16 @@ func (t *Task) PlanSession(ctx context.Context, in workset.PlanSessionInput) (*w
 			return nil, readErr
 		}
 	}
+	custom := map[string]string{}
+	for _, dm := range d.Members {
+		if dm.Name != "" {
+			custom[dm.MemberID] = dm.Name
+		}
+	}
+	observed, err := t.followHandRenames(ctx, root, in.Members, excluded, directories, works)
+	if err != nil {
+		return nil, err
+	}
 	snapshot := &workset.PlanSnapshot{
 		RootPath:             root,
 		PayloadSchemaVersion: 1,
@@ -61,7 +79,8 @@ func (t *Task) PlanSession(ctx context.Context, in workset.PlanSessionInput) (*w
 			continue
 		}
 		parent := filepath.ToSlash(filepath.Dir(filepath.FromSlash(m.FolderPath)))
-		o := planName(d.Common, m, works[m.FolderPath], directories[parent], parent)
+		o := planName(d.Common, m, works[m.FolderPath], directories[parent], parent,
+			naming{Custom: custom[m.MemberID], Observed: observed[m.MemberID]})
 		outcomes[m.MemberID] = o
 		if o.ReasonCode == "" {
 			targets[librarypath.RootPathKey(filepath.ToSlash(filepath.Join(parent, o.TargetName)))]++
@@ -102,7 +121,7 @@ func (t *Task) PlanSession(ctx context.Context, in workset.PlanSessionInput) (*w
 				Payload:    payload,
 			},
 		)
-		facts := freezeRoot(index, m, d.Common.Template, outcome, works[m.FolderPath], directories[parent], parent)
+		facts := freezeRoot(index, m, d.Common, outcome, works[m.FolderPath], directories[parent], parent)
 		snapshot.Roots = append(snapshot.Roots, facts)
 		if facts.Status == "missing" {
 			summary.ErrorCount++
@@ -122,15 +141,19 @@ func (t *Task) PlanSession(ctx context.Context, in workset.PlanSessionInput) (*w
 	return snapshot, nil
 }
 
-func fingerprint(template string, o Outcome, work Work, entries Directory, root string) string {
+func fingerprint(common Common, o Outcome, work Work, entries Directory, root string) string {
 	values := map[string]string{"rj": work.Code}
-	fields, _ := tokens(template)
+	fields, _ := tokens(common.Template)
 	for _, key := range fields {
 		if key != "rj" {
-			values[key] = work.Values[key]
+			values[key] = work.field(key, common)
 		}
 	}
-	source, exists := entries[o.SourceName]
+	disk := o.SourceName
+	if o.ObservedName != "" {
+		disk = o.ObservedName
+	}
+	source, exists := entries[disk]
 	source.Modified = 0 // Directory mtime describes child changes, not a rename input.
 	occupied := false
 	for name := range entries {
@@ -150,7 +173,9 @@ func fingerprint(template string, o Outcome, work Work, entries Directory, root 
 		Source   Entry
 		Exists   bool
 		Occupied bool
-	}{work.Code, values, source, exists, occupied})
+		Custom   string
+		Observed string
+	}{work.Code, values, source, exists, occupied, o.CustomName, o.ObservedName})
 	return workset.CanonicalJSONHash(b)
 }
 
@@ -186,7 +211,7 @@ func planningScope(
 func freezeRoot(
 	index int,
 	m *workset.WorksetMember,
-	template string,
+	common Common,
 	outcome Outcome,
 	work Work,
 	directory Directory,
@@ -196,7 +221,7 @@ func freezeRoot(
 		Index:                index,
 		Path:                 m.FolderPath,
 		Identity:             librarypath.RootPathKey(m.FolderPath),
-		InventoryFingerprint: fingerprint(template, outcome, work, directory, root),
+		InventoryFingerprint: fingerprint(common, outcome, work, directory, root),
 		Count:                1,
 		Status:               "ok",
 	}
@@ -221,4 +246,59 @@ func (t *Task) readParentDirectories(ctx context.Context, paths []string) (map[s
 		directories[parent], readErrors[parent] = t.readDirectory(ctx, parent)
 	}
 	return directories, readErrors
+}
+
+// followHandRenames finds, for each participating member whose recorded folder
+// is gone, the directory a hand rename left in the same parent. It reads no
+// disk beyond the parent listings planning already holds; the work metadata of
+// a followed folder falls back to the one still bound to the recorded path, so
+// it also works before any rescan. works is completed in place.
+func (t *Task) followHandRenames(
+	ctx context.Context,
+	root string,
+	members []*workset.WorksetMember,
+	excluded map[string]bool,
+	directories map[string]Directory,
+	works map[string]Work,
+) (map[string]string, error) {
+	taken := map[string]map[string]bool{}
+	for _, m := range members {
+		parent := filepath.ToSlash(filepath.Dir(filepath.FromSlash(m.FolderPath)))
+		if taken[parent] == nil {
+			taken[parent] = map[string]bool{}
+		}
+		taken[parent][filepath.Base(filepath.FromSlash(m.FolderPath))] = true
+	}
+	observed := map[string]string{}
+	var lookups []string
+	for _, m := range members {
+		if excluded[m.MemberID] {
+			continue
+		}
+		parent := filepath.ToSlash(filepath.Dir(filepath.FromSlash(m.FolderPath)))
+		name := followed(filepath.Base(filepath.FromSlash(m.FolderPath)), directories[parent], taken[parent])
+		if name == "" {
+			continue
+		}
+		observed[m.MemberID] = name
+		lookups = append(lookups, librarypath.JoinRel(parent, name))
+	}
+	if len(lookups) == 0 {
+		return observed, nil
+	}
+	found, err := t.catalog.RenameWorks(ctx, root, lookups)
+	if err != nil {
+		return nil, err
+	}
+	for _, m := range members {
+		name := observed[m.MemberID]
+		if name == "" {
+			continue
+		}
+		parent := filepath.ToSlash(filepath.Dir(filepath.FromSlash(m.FolderPath)))
+		if w, ok := found[librarypath.JoinRel(parent, name)]; ok {
+			works[m.FolderPath] = w
+		}
+	}
+	return observed, nil
 }

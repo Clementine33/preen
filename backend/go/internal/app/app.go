@@ -226,7 +226,7 @@ func buildServices(repo *sqlite.Repository, configDir, dataDir string, generatio
 	renameTask := dirrename.New(repo, filesystem.ReadRenameDirectory, dirrename.ExecutionIO{
 		ResolveDirectory: filesystem.ResolveMember,
 		Rename:           filesystem.RenameNoReplace,
-		Relocate:         repo.RelocateDirectory,
+		Relocate:         repo.RelocateDirectoryAs,
 		PendingCovers:    repo.HasPendingRenameCovers,
 	})
 	worksetSvc := workset.NewService(

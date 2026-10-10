@@ -49,7 +49,7 @@ func fixture(t *testing.T, title string) (*sqlite.Repository, *dirrename.Task, *
 		repo,
 		filesystem.ReadRenameDirectory,
 		dirrename.ExecutionIO{ResolveDirectory: filesystem.ResolveMember, Rename: filesystem.RenameNoReplace,
-			Relocate: repo.RelocateDirectory, PendingCovers: repo.HasPendingRenameCovers},
+			Relocate: repo.RelocateDirectoryAs, PendingCovers: repo.HasPendingRenameCovers},
 	), &workset.WorksetMember{
 		MemberID:   "member-1",
 		RelPath:    name,
@@ -328,7 +328,7 @@ func TestTwoCopiesCannotPlanTheSameTarget(t *testing.T) {
 		}
 	}
 	health, err := task.EvaluateRevision(workset.RevisionFacts{Detail: detail(snapshot)})
-	if err != nil || health.InputMoved || !health.UnitsBlocked {
+	if err != nil || health.InputMoved || health.UnitsBlocked {
 		t.Fatalf("frozen batch collision: %+v %v", health, err)
 	}
 }

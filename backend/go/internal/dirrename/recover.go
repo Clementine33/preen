@@ -74,7 +74,7 @@ func (t *Task) recoverUnit(
 	if err != nil {
 		return err
 	}
-	if p.action == "noop" {
+	if p.action != "rename" {
 		return nil
 	}
 	_, sourceErr := os.Lstat(filepath.FromSlash(p.result.SourcePath))
@@ -104,7 +104,7 @@ func (t *Task) recoverUnit(
 	if _, err = t.io.ResolveDirectory(ex.Root, filepath.ToSlash(rel)); err != nil {
 		return err
 	}
-	if err = t.io.Relocate(ctx, ex.Root, p.result.SourcePath, p.result.TargetPath); err != nil {
+	if err = t.io.Relocate(ctx, ex.Root, p.result.SourcePath, p.result.TargetPath, p.rebind); err != nil {
 		return err
 	}
 	p.result.Renamed, p.result.Recovered = true, true

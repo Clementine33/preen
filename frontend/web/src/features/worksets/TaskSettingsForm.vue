@@ -34,6 +34,7 @@ const template = ref('')
 const stripBracketedTitle = ref(false)
 const stripTildeTitle = ref(false)
 const stripBookTitle = ref(false)
+const actorSeparator = ref('')
 const mode = ref<MetadataDraftDocument['common']['mode']>('fill_missing')
 const locale = ref<MetadataDraftDocument['common']['locale']>('ja-jp')
 const downloadCover = ref(true)
@@ -48,6 +49,7 @@ watch(
       stripBracketedTitle.value = common.strip_bracketed_title ?? false
       stripTildeTitle.value = common.strip_tilde_title ?? false
       stripBookTitle.value = common.strip_book_title ?? false
+      actorSeparator.value = common.voice_actor_separator ?? ''
     } else {
       mode.value = common.mode
       locale.value = common.locale
@@ -69,6 +71,8 @@ function save() {
           strip_bracketed_title: stripBracketedTitle.value,
           strip_tilde_title: stripTildeTitle.value,
           strip_book_title: stripBookTitle.value,
+          // Empty is the default "、"; omitted so an untouched setting stays as it was.
+          ...(actorSeparator.value ? { voice_actor_separator: actorSeparator.value } : {}),
         }
       : { mode: mode.value, locale: locale.value, download_cover: !coverDisabled.value && downloadCover.value },
   )
@@ -89,6 +93,17 @@ function save() {
       <p class="text-[10px] text-[var(--text-muted)]">
         必须且只能包含一个 {rj}。可用占位符：<span class="font-mono">{{ PLACEHOLDERS.join(' ') }}</span>
       </p>
+      <label v-if="template.includes('{voice_actors}')" class="flex items-center gap-2 text-xs">
+        声优分隔符
+        <input
+          v-model="actorSeparator"
+          maxlength="16"
+          placeholder="、"
+          class="w-24 rounded-md border border-border bg-background px-2 py-1 font-mono"
+          :disabled="disabled"
+          data-testid="rename-actor-separator"
+        />
+      </label>
       <div class="flex flex-wrap gap-3 text-xs">
         <label class="flex items-center gap-1">
           <input v-model="stripBracketedTitle" type="checkbox" :disabled="disabled" data-testid="rename-strip-bracketed" />
@@ -96,7 +111,7 @@ function save() {
         </label>
         <label class="flex items-center gap-1">
           <input v-model="stripTildeTitle" type="checkbox" :disabled="disabled" data-testid="rename-strip-tilde" />
-          移除标题中的 ~…~、～…～
+          移除标题中的 ～…～
         </label>
         <label class="flex items-center gap-1">
           <input v-model="stripBookTitle" type="checkbox" :disabled="disabled" data-testid="rename-strip-book" />

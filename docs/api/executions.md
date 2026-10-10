@@ -17,7 +17,7 @@ the plan's own facts, re-read at execution time:
 | `PLAN_NOT_EXECUTABLE` + `NOT_CURRENT_REVISION` | the plan is not the operation's current revision |
 | `PLAN_NOT_EXECUTABLE` + `DRAFT_CHANGED` | the live draft no longer matches the revision's frozen draft hash |
 | `PLAN_NOT_EXECUTABLE` + `INPUT_CHANGED` | task-owned input freshness failed: conversion inventory changed, metadata's frozen directory is missing/renamed/non-directory, rename naming inputs changed, or revision members no longer resolve |
-| `PLAN_NOT_EXECUTABLE` + `BLOCKED_COMPONENTS` | the frozen snapshot has a blocked component |
+| `PLAN_NOT_EXECUTABLE` + `BLOCKED_COMPONENTS` | the frozen snapshot has a blocked component (a rename plan skips blocked components instead) |
 | `PLAN_NOT_EXECUTABLE` + `ALREADY_EXECUTED` | this revision already ran (any terminal status) |
 | `PLAN_NOT_EXECUTABLE` (no details) | a guard predicate refused the start under a concurrent change; re-read the operation |
 | `EXECUTION_IN_PROGRESS` | another session of this operation is queued/running |

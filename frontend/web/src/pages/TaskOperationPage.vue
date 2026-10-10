@@ -8,6 +8,7 @@ import WorkbenchShell from '@/components/layout/WorkbenchShell.vue'
 import WorkbenchNav from '@/features/worksets/WorkbenchNav.vue'
 import TaskSettingsForm from '@/features/worksets/TaskSettingsForm.vue'
 import TaskPlanTable from '@/features/worksets/TaskPlanTable.vue'
+import ManualRename from '@/features/worksets/ManualRename.vue'
 import RowList from '@/features/worksets/RowList.vue'
 import { useApiClient } from '@/lib/api/client'
 import { useWorksetGeneration } from '@/composables/use-workset-generation'
@@ -88,16 +89,15 @@ const saveMutation = useMutation(saveOperationDraftMutationOptions(api, queryCli
 const settingsError = ref<string | null>(null)
 const sessionActive = computed(() => Boolean(op.value?.active_generation || op.value?.active_execution))
 
-async function saveSettings(common: RenameDraftDocument['common'] | MetadataDraftDocument['common']) {
+async function persistDraft(next: RenameDraftDocument | MetadataDraftDocument) {
   const draft = draftQuery.data.value
-  const document = draftDocument.value
-  if (!worksetId.value || !draft || !document) return
+  if (!worksetId.value || !draft) return
   settingsError.value = null
   try {
     await saveMutation.mutateAsync({
       worksetId: worksetId.value,
       operation: operation.value,
-      document: { ...document, common } as RenameDraftDocument | MetadataDraftDocument,
+      document: next,
       ifMatchVersion: draft.version,
     })
   } catch (error) {
@@ -109,6 +109,29 @@ async function saveSettings(common: RenameDraftDocument['common'] | MetadataDraf
       settingsError.value = failure.message ?? '无法保存设置'
     }
   }
+}
+
+function saveSettings(common: RenameDraftDocument['common'] | MetadataDraftDocument['common']) {
+  const document = draftDocument.value
+  if (document) void persistDraft({ ...document, common } as RenameDraftDocument | MetadataDraftDocument)
+}
+
+// A folder's own name is one more record in the same draft; the member's
+// exclusion, if the draft holds one, is kept as it is.
+const renameRecords = computed(() => (draftDocument.value as RenameDraftDocument | null)?.members ?? [])
+function nameFolder(memberId: string, name: string) {
+  const document = draftDocument.value as RenameDraftDocument | null
+  if (!document) return
+  const existing = document.members.find((entry) => entry.member_id === memberId)
+  const kept = { member_id: memberId, excluded: existing?.excluded ?? false, ...(name ? { name } : {}) }
+  // Names a run has already applied (the folder now has that name) go with this save.
+  const folderNames = new Map(record.value?.members.map((member) => [member.member_id, member.folder_name]))
+  const rest = document.members
+    .filter((entry) => entry.member_id !== memberId)
+    .flatMap((entry) => (entry.name && folderNames.get(entry.member_id) === entry.name
+      ? entry.excluded ? [{ member_id: entry.member_id, excluded: true }] : []
+      : [entry]))
+  void persistDraft({ ...document, members: name || kept.excluded ? [...rest, kept] : rest })
 }
 
 // ---- planning -----------------------------------------------------------
@@ -155,7 +178,6 @@ const planNote = computed(() => {
   const state = op.value?.planning_state
   if (state === 'orphaned') return '媒体库已删除：该记录只读'
   if (state === 'needs_planning') return '设置已改变，需重新生成计划'
-  if (!isMetadata.value && revision.value?.counts?.blocked) return '排除阻塞项后重新生成'
   if (op.value?.current_revision?.validation_state === 'stale') return '输入已变化，需重新生成计划'
   return null
 })
@@ -199,20 +221,28 @@ const failures = computed(() =>
     })),
 )
 
-const renameResults = computed(() => (executionView.value?.components ?? []).map((component) => {
-  const facts = component.task_result as RenameTaskResult | undefined
-  const status = component.status === 'pending' ? '未执行' :
-    component.status === 'failed' ? (facts?.rolled_back ? '失败（已恢复原名称）' : facts?.renamed ? '失败（目录已改名）' : '失败') :
-    facts?.recovered ? '已改名（启动恢复）' : facts?.renamed ? '已改名' :
-    component.status === 'succeeded' ? '名称无需改变' : component.status
-  return {
-    key: component.component_id,
-    source: facts?.source_path ?? component.root_path,
-    target: facts?.target_path ?? '',
-    status,
-    message: component.error_message ?? '',
-  }
-}))
+// Only what needs a second look is listed: a plan of thousands of folders
+// mostly succeeds, and the header counts say how it went overall.
+const renameResults = computed(() =>
+  (executionView.value?.components ?? []).flatMap((component) => {
+    const facts = component.task_result as RenameTaskResult | undefined
+    const status =
+      component.status === 'failed'
+        ? facts?.rolled_back ? '失败（已恢复原名称）' : facts?.renamed ? '失败（目录已改名）' : '失败'
+        : facts?.recovered ? '已改名（启动恢复）' : ''
+    if (!status) return []
+    return [{
+      key: component.component_id,
+      source: facts?.source_path ?? component.root_path,
+      target: facts?.target_path ?? '',
+      status,
+      message: component.error_message ?? '',
+    }]
+  }),
+)
+const renameSkipped = computed(
+  () => (executionView.value?.components ?? []).filter((c) => (c.task_result as RenameTaskResult | undefined)?.skipped).length,
+)
 
 const executeError = ref<string | null>(null)
 const canExecute = computed(
@@ -321,6 +351,17 @@ watch(
             <p v-if="settingsError" class="mt-2 text-[11px] text-destructive" role="alert">{{ settingsError }}</p>
           </section>
 
+          <section v-if="!isMetadata" class="rounded-lg border border-border bg-card p-3">
+            <h2 class="mb-2 text-xs font-semibold text-[var(--text-secondary)]">单独命名</h2>
+            <ManualRename
+              :members="record?.members ?? []"
+              :records="renameRecords"
+              :disabled="sessionActive || op?.planning_state === 'orphaned'"
+              :saving="saveMutation.isPending.value"
+              @save="nameFolder"
+            />
+          </section>
+
           <section class="rounded-lg border border-border bg-card p-3">
             <div class="flex flex-wrap items-center gap-2">
               <h2 class="text-xs font-semibold text-[var(--text-secondary)]">计划</h2>
@@ -348,7 +389,7 @@ watch(
             <p v-else-if="isMetadata" class="mt-2 text-[11px] text-[var(--text-secondary)]" data-testid="metadata-plan-count">
               将刷新 {{ components.length }} 个文件夹
             </p>
-            <TaskPlanTable v-else-if="components.length" class="mt-2" :components="components as RenameComponent[]" />
+            <TaskPlanTable v-else-if="components.length" class="mt-2" :components="components as RenameComponent[]" :members="record?.members" />
           </section>
 
           <section v-if="executionView" class="rounded-lg border border-border bg-card p-3" data-testid="execution">
@@ -357,6 +398,7 @@ watch(
               <Badge tone="neutral">{{ EXECUTION_STATES[executionView.status] ?? executionView.status }}</Badge>
               <span class="font-mono text-[11px]">{{ executionView.completed_components }}/{{ executionView.total_components }}</span>
               <Badge v-if="isMetadata && failures.length" tone="danger">失败 {{ failures.length }} 个作品</Badge>
+              <Badge v-if="!isMetadata && renameSkipped" tone="warning">跳过 {{ renameSkipped }} 个</Badge>
               <Button
                 v-if="op?.active_execution"
                 class="ml-auto"

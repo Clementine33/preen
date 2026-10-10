@@ -9,15 +9,24 @@ Use the operation routes with `{type}=rename`. The draft payload is:
 ```json
 {
   "schema_version": 1,
-  "common": { "template": "[{rj}] {title}", "strip_bracketed_title": false, "strip_tilde_title": false, "strip_book_title": false },
-  "members": [{ "member_id": "…", "excluded": true }]
+  "common": { "template": "[{rj}] {title}", "strip_bracketed_title": false, "strip_tilde_title": false, "strip_book_title": false, "voice_actor_separator": "、" },
+  "members": [{ "member_id": "…", "excluded": true }, { "member_id": "…", "name": "[RJ01234567] my name" }]
 }
 ```
 
-Only exclusions are stored per member; naming overrides are rejected. Members
-without a record participate. Common template saves use the deployment-wide
-settings rules. Exactly one `{rj}` is required; the other allowed placeholders
+A member record holds an exclusion, a literal `name`, or both; a template per
+member is rejected. A `name` replaces the template for that folder (it is
+trimmed, sanitized and length/reserved checked like a template result, and the
+title filters do not apply). It must contain exactly one work code, otherwise
+the folder is blocked with `NAME_CODE_INVALID`. A code different from the bound
+work's re-binds the folder's copy to that work when it is executed
+(`rebind_to`). Members without a record participate. Common template saves use
+the deployment-wide settings rules. Exactly one `{rj}` is required; the other allowed placeholders
 are `{title}`, `{circle}`, `{voice_actors}`, `{language}`, `{release_date}`.
+`voice_actor_separator` (optional, omitted or empty means `、`) joins the actors
+of `{voice_actors}` (sorted, deduplicated); it is at most 16 characters with no
+control characters and none of `<>:"/\|?*`, else `INVALID_DRAFT`. No other
+placeholder has more than one value, so none has a separator.
 Unknown placeholders, unmatched braces, duplicate/unknown members and overrides
 are `INVALID_DRAFT` (400); unknown versions are `UNSUPPORTED_SCHEMA_VERSION`
 (400). Metadata text stays literal. Optional `strip_bracketed_title`, `strip_tilde_title` and `strip_book_title`
@@ -35,13 +44,21 @@ Each participating member produces one frozen component without modifying disk
 or bindings. `task.payload.policy` holds the template and filters;
 `task.payload.components[]` contains `member_id`, `source_name`, `work_code`,
 `raw_name`, `target_name`, `action` (`rename`, `noop`, `blocked`) and optional
-`reason_code`. The classifier has empty tags. Used metadata must be nonempty.
+`reason_code`, `custom_name`, `observed_name` and `rebind_to`. The classifier has empty tags. Used metadata must be nonempty.
 Illegal filename characters become `_`; outer whitespace and trailing dots/spaces
 are removed. The result must still identify exactly the bound Work. Names over
 255 UTF-8 bytes are blocked without truncation or automatic suffixes.
 
+A folder that was renamed by hand is followed from the parent listing planning
+already reads: when the recorded name is gone and the same parent holds exactly
+one other directory with the same single work code that no other member
+records, the component carries it as `observed_name` and is planned from it
+(`noop` when it already has the target name). Execution first rewrites the
+stored paths to `observed_name` (rows only, no disk change), then renames as
+usual. None or several candidates leave the folder `SOURCE_MISSING`.
+
 Block reasons: `METADATA_MISSING`, `WORK_UNBOUND`, `SOURCE_MISSING`,
-`SOURCE_NOT_DIRECTORY`, `NAME_TOO_LONG`, `NAME_RESERVED`, `WORK_CODE_AMBIGUOUS`,
+`SOURCE_NOT_DIRECTORY`, `NAME_TOO_LONG`, `NAME_RESERVED`, `NAME_CODE_INVALID`, `WORK_CODE_AMBIGUOUS`,
 `TARGET_EXISTS`, `TARGET_COLLISION` (multiple proposals), `CASE_ONLY_RENAME`
 (Windows roots). Planning uses the selected work paths directly and reads each
 distinct parent once, without scanning classification directories or work
@@ -53,8 +70,10 @@ their old mtime-based fingerprints. Review always shows frozen names.
 
 Execution uses the existing execution routes and per-component progress. Full
 runs check the whole execution scope; selected runs check only selected roots;
-empty runs access no directories. A blocked component anywhere still rejects
-execution: exclude it and regenerate. Pending cover deliveries under actual
+empty runs access no directories. A blocked component never rejects
+execution: it is skipped (the component result has `renamed:false` and
+`skipped:<reason_code>`) and the other components run. To leave a folder out on
+purpose, remove it from the batch. Pending cover deliveries under actual
 rename roots refuse admission with `COVER_DELIVERY_PENDING` (409); wait or cancel
 those deliveries first. Noops and terminal failed deliveries do not block.
 
@@ -66,7 +85,8 @@ refreshes performed by generations in other libraries. Other-library queued
 generation alone does not block. Execution performs no subtree scan or postcheck.
 
 Each successful rename relocates inventory paths, conversion credentials, copy
-bindings and all same-library workset member paths in one transaction. IDs and
+bindings and all same-library workset member paths in one transaction, and
+re-binds the copy when the component has `rebind_to`. IDs and
 media facts remain unchanged; frozen plans, requests and cover targets remain
 historical. Other affected plans become stale. Existing recovery folders keep
 their old names. Results and interrupted repair are described in

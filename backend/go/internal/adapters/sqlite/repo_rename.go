@@ -69,8 +69,8 @@ func (r *Repository) RenameWorks(
 				"circle":       circle,
 				"release_date": date,
 				"language":     language,
-				"voice_actors": strings.Join(actors, "、"),
 			},
+			VoiceActors: actors,
 		}
 	}
 	return out, rows.Err()

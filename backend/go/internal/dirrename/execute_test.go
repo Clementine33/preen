@@ -80,7 +80,7 @@ func TestRenameSyncFailureRestoresOnlyCurrentDirectoryAndReportsConflict(t *test
 				ResolveDirectory: filesystem.ResolveMember,
 				Rename:           filesystem.RenameNoReplace,
 				PendingCovers:    repo.HasPendingRenameCovers,
-				Relocate: func(context.Context, string, string, string) error {
+				Relocate: func(context.Context, string, string, string, string) error {
 					if conflict {
 						if err := os.Mkdir(m.FolderPath, 0o755); err != nil {
 							return err
@@ -161,7 +161,7 @@ func TestRenameEmptyScopeAndNoopIgnorePendingCovers(t *testing.T) {
 		dirrename.ExecutionIO{
 			ResolveDirectory: filesystem.ResolveMember,
 			Rename:           filesystem.RenameNoReplace,
-			Relocate:         repo.RelocateDirectory,
+			Relocate:         repo.RelocateDirectoryAs,
 			PendingCovers:    func(context.Context, string, []string) (bool, error) { calls++; return true, nil },
 		},
 	)
@@ -231,7 +231,7 @@ func TestRenameSelectedInputsIgnoreMissingUnselectedRootAndKeepGlobalBlocks(t *t
 	}
 	d.Components[1].Status = "blocked"
 	health, err = task.EvaluateRevision(workset.RevisionFacts{Detail: d, InputRoots: []string{m.FolderPath}})
-	if err != nil || !health.UnitsBlocked {
-		t.Fatalf("selected scope dropped global blocking: %+v %v", health, err)
+	if err != nil || health.UnitsBlocked {
+		t.Fatalf("a blocked folder is skipped, not a reason to refuse the run: %+v %v", health, err)
 	}
 }

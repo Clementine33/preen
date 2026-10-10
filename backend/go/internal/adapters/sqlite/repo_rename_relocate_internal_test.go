@@ -1,10 +1,11 @@
 package sqlite
 
 import (
-	"github.com/onsei/organizer/backend/internal/librarypath"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/onsei/organizer/backend/internal/librarypath"
 )
 
 // explain returns the plan text of a statement run with placeholder arguments.
@@ -40,16 +41,19 @@ func TestRelocationStatementsSearchByPathRange(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = repo.Close() })
-	for statement, want := range map[string]string{
-		relocateEntriesSQL:     "path>? AND path<?",
-		relocateCredentialsSQL: "path>? AND path<?",
-		selectCopiesSQL:        "library_id=? AND rel_path>? AND rel_path<?",
-		selectMembersSQL:       "workset_id=? AND rel_path>? AND rel_path<?",
+	for _, tc := range []struct {
+		statement string
+		want      string
+	}{
+		{relocateEntriesSQL, "path>? AND path<?"},
+		{relocateCredentialsSQL, "path>? AND path<?"},
+		{selectCopiesSQL, "library_id=? AND rel_path>? AND rel_path<?"},
+		{selectMembersSQL, "workset_id=? AND rel_path>? AND rel_path<?"},
 	} {
-		plan := explain(t, repo, statement)
-		if !strings.Contains(plan, want) || strings.Contains(plan, "SCAN entries") ||
+		plan := explain(t, repo, tc.statement)
+		if !strings.Contains(plan, tc.want) || strings.Contains(plan, "SCAN entries") ||
 			strings.Contains(plan, "SCAN generation_records") {
-			t.Errorf("%.40s…\nwant %q in plan:\n%s", statement, want, plan)
+			t.Errorf("%.40s…\nwant %q in plan:\n%s", tc.statement, tc.want, plan)
 		}
 	}
 }
@@ -102,12 +106,18 @@ func TestRelocateDirectoryMovesOnlyTheSubtree(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = repo.Close() })
 	for _, p := range []string{"/lib/a", "/lib/a/f", "/lib/ab", "/lib/ab/f", "/lib/a_", "/lib/a%"} {
-		if _, err := repo.db.Exec(`INSERT INTO entries(path,name,parent_path,root_path) VALUES(?,?,?,?)`, p, filepath.Base(p), filepath.Dir(p), "/lib"); err != nil {
-			t.Fatal(err)
+		if _, execErr := repo.db.Exec(
+			`INSERT INTO entries(path,name,parent_path,root_path) VALUES(?,?,?,?)`,
+			p,
+			filepath.Base(p),
+			filepath.Dir(p),
+			"/lib",
+		); execErr != nil {
+			t.Fatal(execErr)
 		}
 	}
-	if err := repo.RelocateDirectory(t.Context(), "/lib", "/lib/a", "/lib/c"); err != nil {
-		t.Fatal(err)
+	if relocateErr := repo.RelocateDirectory(t.Context(), "/lib", "/lib/a", "/lib/c"); relocateErr != nil {
+		t.Fatal(relocateErr)
 	}
 	rows, err := repo.db.Query(`SELECT path FROM entries ORDER BY path`)
 	if err != nil {

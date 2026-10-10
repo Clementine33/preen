@@ -116,7 +116,10 @@ func (t *Task) EvaluateRevision(in workset.RevisionFacts) (workset.RevisionHealt
 	var lookups []string
 	for _, r := range in.Detail.Roots {
 		if o := outcomes[r.RootIndex]; o.ObservedName != "" && slices.Contains(paths, r.RootPath) {
-			lookups = append(lookups, filepath.ToSlash(filepath.Join(filepath.Dir(filepath.FromSlash(r.RootPath)), o.ObservedName)))
+			lookups = append(
+				lookups,
+				filepath.ToSlash(filepath.Join(filepath.Dir(filepath.FromSlash(r.RootPath)), o.ObservedName)),
+			)
 		}
 	}
 	if len(lookups) > 0 {

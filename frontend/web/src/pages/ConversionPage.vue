@@ -12,7 +12,6 @@ import OperationHeader from '@/features/worksets/OperationHeader.vue'
 import MemberList from '@/features/worksets/MemberList.vue'
 import {
   memberConclusions,
-  revisionComponents,
   type MemberConclusion,
 } from '@/features/worksets/plan-readers'
 import { useApiClient } from '@/lib/api/client'
@@ -21,7 +20,7 @@ import { currentRecordQueryOptions } from '@/queries/worksets'
 import { useOperationContext } from '@/composables/use-operation-context'
 import { useWorksetEditorStore } from '@/stores/workset-editor'
 import { useWorksetUiStore } from '@/stores/workset-ui'
-import type { ComponentOutcome, WorksetMember } from '@/lib/api/types'
+import type { WorksetMember } from '@/lib/api/types'
 
 /**
  * The conversion section of one library's workbench (ADR 0001 §1, §2; ADR 0003 §1).

@@ -5,11 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"path/filepath"
 	"slices"
 	"strings"
 
-	"github.com/onsei/organizer/backend/internal/librarypath"
 	"github.com/onsei/organizer/backend/internal/workset"
 )
 
@@ -172,7 +172,8 @@ type preparedRename struct {
 	task         *Task
 	root, action string
 	// recorded is where the stored paths still point; it differs from the
-	// result's source only for a folder that was renamed by hand.
+	// result's source only for a folder that was renamed by hand, and equals the
+	// target when such a folder is renamed back.
 	recorded string
 	// rebind is the work code the stored copy takes on with the new name.
 	rebind string
@@ -202,32 +203,27 @@ func (p *preparedRename) Commit(ctx context.Context) (workset.UnitResult, error)
 	if err != nil {
 		return p.failure("INPUT_CHANGED", err), nil
 	}
-	if p.recorded != p.result.SourcePath {
-		// The folder was renamed by hand: bring the stored paths to where it
-		// is now. This only rewrites rows; the disk is already there.
-		if err := p.task.io.Relocate(context.WithoutCancel(ctx), p.root, p.recorded, p.result.SourcePath, ""); err != nil {
-			return p.failure("RENAME_STATE_SYNC_FAILED", err), nil
-		}
-		p.recorded = p.result.SourcePath
-	}
 	if p.action == "noop" {
-		return p.observed(), nil
-	}
-	parent := filepath.ToSlash(filepath.Dir(source))
-	entries, err := p.task.readDirectory(ctx, parent)
-	if err != nil {
-		return p.failure("COMPONENT_RENAME_FAILED", err), nil
-	}
-	targetKey := librarypath.RootPathKey(p.result.TargetPath)
-	for name := range entries {
-		if librarypath.RootPathKey(librarypath.JoinRel(parent, name)) == targetKey {
-			return p.failure("COMPONENT_RENAME_FAILED", fmt.Errorf("target already exists")), nil
+		// A hand-renamed folder that already has its target name: only the
+		// records move to where it is.
+		if p.recorded != p.result.SourcePath {
+			if err := p.task.io.Relocate(
+				context.WithoutCancel(ctx), p.root, p.recorded, p.result.SourcePath, "",
+			); err != nil {
+				return p.failure("RENAME_STATE_SYNC_FAILED", err), nil
+			}
 		}
+		return p.observed(), nil
 	}
 	if err := ctx.Err(); err != nil {
 		return p.Discard(err), err
 	}
+	// The no-replace rename is the guard against an occupied target; a listing
+	// of the whole parent per unit would make a flat library quadratic.
 	if err := p.task.io.Rename(source, filepath.FromSlash(p.result.TargetPath)); err != nil {
+		if errors.Is(err, fs.ErrExist) {
+			err = fmt.Errorf("target already exists: %w", err)
+		}
 		return p.failure("COMPONENT_RENAME_FAILED", err), nil
 	}
 	p.result.Renamed = true
@@ -235,7 +231,7 @@ func (p *preparedRename) Commit(ctx context.Context) (workset.UnitResult, error)
 	if err := p.task.io.Relocate(
 		context.WithoutCancel(ctx),
 		p.root,
-		p.result.SourcePath,
+		p.recorded,
 		p.result.TargetPath,
 		p.rebind,
 	); err != nil {

@@ -210,3 +210,70 @@ func TestVoiceActorSeparatorJoinsActorsAndIsValidated(t *testing.T) {
 		}
 	}
 }
+
+// The records say A, the user renamed A to B by hand, and the plan renames B
+// back to A: the relocation has the same source and target.
+func TestRenamedByHandAndBackNeedsNoRecordMove(t *testing.T) {
+	repo, task, m := fixture(t, "title")
+	root := detailRoot(m)
+	if err := os.Rename(m.FolderPath, filepath.Join(root, "RJ000001 by hand")); err != nil {
+		t.Fatal(err)
+	}
+	o, d := planWith(t, task, m, dirrename.Member{MemberID: m.MemberID, Name: "RJ000001 old"})
+	if o.ObservedName != "RJ000001 by hand" || o.Action != "rename" || o.TargetName != "RJ000001 old" {
+		t.Fatalf("plan: %+v", o)
+	}
+	facts := runUnit(t, task, m, d)
+	if !facts.Renamed || facts.TargetPath != m.FolderPath {
+		t.Fatalf("result: %+v", facts)
+	}
+	if _, err := os.Stat(m.FolderPath); err != nil {
+		t.Fatal(err)
+	}
+	works, err := repo.RenameWorks(t.Context(), root, []string{m.FolderPath})
+	if err != nil || works[m.FolderPath].Code != "RJ00000001" {
+		t.Fatalf("records moved or lost: %+v %v", works, err)
+	}
+}
+
+// A crash after the disk rename of a followed folder leaves the records at the
+// recorded path; repair has to move them from there, with the rebind.
+func TestStartupRepairMovesRecordsOfAFollowedFolderFromTheirRecordedPath(t *testing.T) {
+	f := newRenameRun(t)
+	ex := f.start(t)
+	var req struct {
+		Units []workset.ExecutionUnit `json:"units"`
+	}
+	if err := json.Unmarshal([]byte(ex.RequestJSON), &req); err != nil {
+		t.Fatal(err)
+	}
+	var o dirrename.Outcome
+	if err := json.Unmarshal(req.Units[0].Payload, &o); err != nil {
+		t.Fatal(err)
+	}
+	o.ObservedName, o.RebindTo = "RJ000001 by hand", "RJ00000002"
+	req.Units[0].Payload, _ = json.Marshal(o)
+	raw, _ := json.Marshal(req)
+	if _, err := f.repo.DB().Exec(`UPDATE plan_executions SET request_json=? WHERE execution_id=?`, string(raw), ex.ExecutionID); err != nil {
+		t.Fatal(err)
+	}
+	// The disk got as far as the final name; the records never left the old path.
+	target := filepath.Join(detailRoot(f.member), o.TargetName)
+	if err := filesystem.RenameNoReplace(f.member.FolderPath, target); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.repo.InterruptStaleExecutions(); err != nil {
+		t.Fatal(err)
+	}
+	if errs := f.task.RecoverInterrupted(t.Context(), f.repo); len(errs) > 0 {
+		t.Fatal(errs)
+	}
+	rows, err := f.repo.ListExecutionComponentResults(ex.ExecutionID, 0, 0)
+	if err != nil || len(rows) != 1 || rows[0].Status != workset.ExecComponentSucceeded {
+		t.Fatalf("repair result: %+v %v", rows, err)
+	}
+	works, err := f.repo.RenameWorks(t.Context(), detailRoot(f.member), []string{filepath.ToSlash(target)})
+	if err != nil || works[filepath.ToSlash(target)].Code != "RJ00000002" {
+		t.Fatalf("records did not follow the folder: %+v %v", works, err)
+	}
+}

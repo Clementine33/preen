@@ -5,7 +5,8 @@ export interface ApiConfig {
 
 /** A reload signal for committed media facts, including the initial connection. */
 export interface MediaFactsEvent {
-  type: 'changed'
+  /** `works_changed`: a commit may alter what the works pages show; also sent once per connection. */
+  type: 'changed' | 'works_changed'
   data: Record<string, never>
 }
 
@@ -207,6 +208,13 @@ export interface WorkUserTag {
 }
 
 /** One listing row: the listing projection, without note text or copies. */
+/** The cover file a work already has on disk; bytes come from the content route. */
+export interface LocalCover {
+  copy_id: string
+  rel_path: string
+  version: string
+}
+
 export interface WorkSummary {
   /** Canonical RJ + 8 digits; the API normalizes 6-digit input itself. */
   rj: string
@@ -227,6 +235,7 @@ export interface WorkSummary {
   has_note: boolean
   collected_at: string
   copy_count: number
+  local_cover?: LocalCover | null
 }
 
 /** A voice actor or a source tag, with the source that reported it. */

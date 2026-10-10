@@ -35,12 +35,7 @@ func (e Executor) Run(ctx context.Context, in workset.BatchExecutionInput) error
 			return err
 		}
 		if o.Action == "skip" || o.Action == "cover" {
-			raw, _ := json.Marshal(o)
-			zero := 0
-			if err := in.Progress(
-				unit.Index,
-				workset.UnitResult{TaskResult: raw, CompletedOperations: &zero, Stage: "skipped"},
-			); err != nil {
+			if err := reportSkipped(in, unit, o); err != nil {
 				return err
 			}
 			if o.Action == "cover" && common.DownloadCover {
@@ -96,27 +91,42 @@ func (e Executor) Run(ctx context.Context, in workset.BatchExecutionInput) error
 					},
 				)
 			}
-			raw, _ := json.Marshal(item)
-			for _, unit := range byCode[code] {
-				done := unit.Operations
-				res := workset.UnitResult{Stage: "metadata", TaskResult: raw, CompletedOperations: &done}
-				for _, issue := range item.Issues {
-					if issue.Code == "GROUP_UNAVAILABLE" || issue.Source == "" && issue.Code != "" {
-						res.ErrorCode = "METADATA_UNAVAILABLE"
-						res.ErrorMessage = issue.Message
-						done = 0
-					}
-				}
-				if queueErr != nil {
-					res.ErrorCode = "COVER_QUEUE_FAILED"
-					res.ErrorMessage = queueErr.Error()
-				}
-				if err := in.Progress(unit.Index, res); err != nil {
-					return err
-				}
+			if err := reportWork(in, byCode[code], item, queueErr); err != nil {
+				return err
 			}
 			return queueErr
 		},
 	)
 	return err
+}
+
+// reportSkipped records a unit the plan froze as not fetched.
+func reportSkipped(in workset.BatchExecutionInput, unit workset.ExecutionUnit, o Outcome) error {
+	raw, _ := json.Marshal(o)
+	zero := 0
+	return in.Progress(unit.Index, workset.UnitResult{TaskResult: raw, CompletedOperations: &zero, Stage: "skipped"})
+}
+
+// reportWork records one fetched work's result on each copy's unit.
+func reportWork(in workset.BatchExecutionInput, units []workset.ExecutionUnit, item WorkResult, queueErr error) error {
+	raw, _ := json.Marshal(item)
+	for _, unit := range units {
+		done := unit.Operations
+		res := workset.UnitResult{Stage: "metadata", TaskResult: raw, CompletedOperations: &done}
+		for _, issue := range item.Issues {
+			if issue.Code == "GROUP_UNAVAILABLE" || issue.Source == "" && issue.Code != "" {
+				res.ErrorCode = "METADATA_UNAVAILABLE"
+				res.ErrorMessage = issue.Message
+				done = 0
+			}
+		}
+		if queueErr != nil {
+			res.ErrorCode = "COVER_QUEUE_FAILED"
+			res.ErrorMessage = queueErr.Error()
+		}
+		if err := in.Progress(unit.Index, res); err != nil {
+			return err
+		}
+	}
+	return nil
 }

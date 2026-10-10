@@ -86,5 +86,6 @@ func (r *Repository) MergeSelectedStaging(
 	if err := tx.Commit(); err != nil {
 		return inventory.MergeOutcome{}, err
 	}
+	r.catalogChanged()
 	return inventory.MergeOutcome{Merged: count}, nil
 }

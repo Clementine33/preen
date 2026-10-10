@@ -10,6 +10,7 @@ import type {
 } from '@/lib/api/types'
 import { queryKeys } from './query-keys'
 import { refreshOrRemoveQueries } from './cache-sync'
+import { bumpCoverEpoch } from './cover-epoch'
 
 /** Inventory and bindings changed; personal tag vocabulary is unaffected. */
 export async function sweepWorkCaches(client: QueryClient): Promise<void> {
@@ -25,7 +26,11 @@ export async function sweepWorkCaches(client: QueryClient): Promise<void> {
 export function worksListQueryOptions(api: ApiClientContract, filters: ListWorksParams) {
   return {
     queryKey: queryKeys.works.list(filters),
-    queryFn: ({ signal }: { signal?: AbortSignal }) => api.listWorks(filters, signal),
+    queryFn: async ({ signal }: { signal?: AbortSignal }) => {
+      const page = await api.listWorks(filters, signal)
+      bumpCoverEpoch()
+      return page
+    },
   }
 }
 
@@ -60,7 +65,10 @@ export function workDetailQueryOptions(api: ApiClientContract, rj: string | null
     enabled: rj !== null,
     queryFn: ({ signal }: { signal?: AbortSignal }) => {
       if (rj === null) throw new Error('work detail query requires a work number')
-      return api.getWork(rj, signal)
+      return api.getWork(rj, signal).then((work) => {
+        bumpCoverEpoch()
+        return work
+      })
     },
   }
 }

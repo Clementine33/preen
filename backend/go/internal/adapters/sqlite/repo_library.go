@@ -179,6 +179,9 @@ func (r *Repository) UpdateLibrary(id, name, rootPath string) (*library.Library,
 	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
+	if rootChanged {
+		r.catalogChanged()
+	}
 	return r.GetLibrary(id)
 }
 
@@ -271,7 +274,11 @@ func (r *Repository) DeleteLibrary(id string) error {
 	if _, err := tx.Exec("DELETE FROM libraries WHERE id = ?", id); err != nil {
 		return err
 	}
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	r.catalogChanged()
+	return nil
 }
 
 // UpdateLibraryScanState records the outcome of a library scan.

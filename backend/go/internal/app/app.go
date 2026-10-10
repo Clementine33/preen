@@ -33,6 +33,7 @@ import (
 	"github.com/onsei/organizer/backend/internal/fileops"
 	"github.com/onsei/organizer/backend/internal/inventory"
 	"github.com/onsei/organizer/backend/internal/library"
+	"github.com/onsei/organizer/backend/internal/notify"
 	"github.com/onsei/organizer/backend/internal/works/coverdelivery"
 	"github.com/onsei/organizer/backend/internal/works/refresh"
 
@@ -148,6 +149,9 @@ type services struct {
 	// mediaFacts measures the inventory's unknown media facts in the
 	// background, after scans (ADR 0015 §2).
 	mediaFacts *inventory.MediaEnricher
+	// worksChanged tells the root stream's readers that committed catalog
+	// changes (metadata, inventory, bindings) may alter what they list.
+	worksChanged *notify.Hub
 	// Metadata execution belongs to worksets; cover delivery owns its background queue.
 	metadata *refresh.Service
 	covers   *coverdelivery.Service
@@ -163,6 +167,8 @@ type services struct {
 // pipeline. Directory-only tasks bypass it; covers synchronize exact file deltas
 // and metadata's completed cover queue triggers one selected batch reconciliation.
 func buildServices(repo *sqlite.Repository, configDir, dataDir string, generationConcurrency int) services {
+	worksChanged := &notify.Hub{}
+	repo.OnCatalogChanged = worksChanged.Notify
 	gate := admission.NewGate(repo.HasActiveSession)
 	// The background media pass holds the gate's preemptible slot, so it
 	// never reads alongside a scan's walk; every merge kicks it.
@@ -263,12 +269,13 @@ func buildServices(repo *sqlite.Repository, configDir, dataDir string, generatio
 			filesystem.RenameNoReplace,
 			filesystem.IsResolvedWithinRoot,
 		),
-		workset:    worksetSvc,
-		catalog:    conversion.NewCatalog(repo, repo, appconfig.NewReader(configDir)),
-		works:      worksSvc,
-		metadata:   metadataSvc,
-		covers:     coverSvc,
-		mediaFacts: mediaFacts,
+		workset:      worksetSvc,
+		catalog:      conversion.NewCatalog(repo, repo, appconfig.NewReader(configDir)),
+		works:        worksSvc,
+		metadata:     metadataSvc,
+		covers:       coverSvc,
+		mediaFacts:   mediaFacts,
+		worksChanged: worksChanged,
 	}
 }
 
@@ -392,6 +399,8 @@ func runServer(ctx context.Context, repo *sqlite.Repository, cfg Config) {
 			Version:        cfg.Version,
 			Inventory:      services.scan,
 			MediaFacts:     services.mediaFacts,
+			WorksChanged:   services.worksChanged,
+			LocalCovers:    repo,
 			WorksetService: services.workset,
 			FileOps:        services.fileOps,
 			Works:          services.works,

@@ -6,6 +6,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/onsei/organizer/backend/internal/notify"
 )
 
 const (
@@ -50,8 +52,7 @@ type MediaEnricher struct {
 	prober MediaProber
 	begin  BeginBackground
 	kick   chan struct{}
-	subMu  sync.Mutex
-	subs   map[chan struct{}]struct{}
+	hub    notify.Hub
 
 	// Workers overrides the probe width; zero means mediaProbeWorkers.
 	Workers int

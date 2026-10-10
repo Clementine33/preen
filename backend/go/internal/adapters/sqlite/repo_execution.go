@@ -631,7 +631,11 @@ func (r *Repository) SyncObservedInventory(
 			return err
 		}
 	}
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	r.catalogChanged()
+	return nil
 }
 
 // upsertObservedFile writes one observed file with the same lifecycle rules the

@@ -10,6 +10,7 @@ import (
 	"github.com/onsei/organizer/backend/internal/fileops"
 	"github.com/onsei/organizer/backend/internal/inventory"
 	"github.com/onsei/organizer/backend/internal/library"
+	"github.com/onsei/organizer/backend/internal/notify"
 	"github.com/onsei/organizer/backend/internal/thumbnail"
 	"github.com/onsei/organizer/backend/internal/works"
 	"github.com/onsei/organizer/backend/internal/works/coverdelivery"
@@ -24,13 +25,17 @@ type Dependencies struct {
 	// Library is the media-library business entry: creation, edits, root
 	// changes and deletions go through it, so a root change and a deletion
 	// take the admission slot without the HTTP layer knowing about it.
-	Library        *library.Service
-	Catalog        *conversion.Catalog
-	Token          string
-	CORSOrigins    []string
-	Version        string
-	Inventory      inventory.Service
-	MediaFacts     *inventory.MediaEnricher
+	Library     *library.Service
+	Catalog     *conversion.Catalog
+	Token       string
+	CORSOrigins []string
+	Version     string
+	Inventory   inventory.Service
+	MediaFacts  *inventory.MediaEnricher
+	// WorksChanged signals committed catalog changes on the same root stream
+	// as MediaFacts; LocalCovers adds each listed work's on-disk cover.
+	WorksChanged   *notify.Hub
+	LocalCovers    works.LocalCovers
 	WorksetService workset.Service
 	// FileOps applies direct file management inside a member. It and every
 	// other path that takes an admission slot own that decision themselves, so

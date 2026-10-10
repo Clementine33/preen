@@ -37,6 +37,7 @@ func (r *Repository) MergeStaging(sessionID, libraryID, rootPath string) (invent
 	if err := tx.Commit(); err != nil {
 		return inventory.MergeOutcome{}, err
 	}
+	r.catalogChanged()
 	return merged, nil
 }
 

@@ -40,8 +40,8 @@ function isPlaying(entry: WorkContentDir | WorkContentFile): boolean {
     entry.kind === 'aud' &&
     player.rj === store.rj &&
     store.tracks.some(
-      (track, t) =>
-        player.trackIndex === t &&
+      (track) =>
+        player.trackKey === track.key &&
         Object.values(track.files).some((f) => f?.rel_path === entry.rel_path),
     )
   )

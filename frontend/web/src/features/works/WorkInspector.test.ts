@@ -67,7 +67,7 @@ function reducedMotion(matches: boolean): void {
 
 async function mountInspector(
   getWork: ReturnType<typeof vi.fn>,
-  props: { rj: string; standalone?: boolean },
+  props: { rj: string; standalone?: boolean; onlyFormat?: string | null },
   getWorkContent?: ReturnType<typeof vi.fn>,
 ) {
   const router = createRouter({
@@ -191,6 +191,32 @@ describe('WorkInspector', () => {
     expect(player.trackIndex).toBe(1)
     expect(player.queue.map((item) => item.source?.src)).toEqual(['/files/01.mp3', '/files/02.mp3'])
     expect(wrapper.findAll('.trk').map((row) => row.classes('now'))).toEqual([false, true])
+  })
+  it('lists and plays only one codec when asked, and ignores a codec the work lacks', async () => {
+    const getWork = vi.fn((rj: string) => Promise.resolve(detail(rj, '沢城みゆき')))
+    const aud = (name: string, format: string) => ({
+      name, rel_path: name, kind: 'aud', size: 1, format, bitrate: null,
+      width: null, height: null, duration_sec: 10, thumb_v: null,
+    })
+    const getWorkContent = vi.fn(async (rj: string) => ({
+      rj,
+      copies: [{
+        copy_id: 'on', library_id: 'l', dir_id: 'd1', online: true,
+        tree: { name: '', rel_path: '', children: [aud('01.mp3', 'MP3'), aud('02.mp3', 'MP3'), aud('02.wav', 'WAV'), aud('03.wav', 'WAV')] },
+      }],
+    }))
+    const wrapper = await mountInspector(getWork, { rj: FIRST, onlyFormat: 'WAV' }, getWorkContent)
+    await settle()
+    expect(wrapper.findAll('.trk').map((row) => row.get('.nm').text())).toEqual(['02', '03'])
+
+    await wrapper.findAll('.trk')[0].trigger('click')
+    const player = usePlayerStore()
+    expect(player.queue.map((item) => item.source?.src)).toEqual(['/files/02.wav', '/files/03.wav'])
+    expect(wrapper.findAll('.trk').map((row) => row.classes('now'))).toEqual([true, false])
+
+    const other = await mountInspector(getWork, { rj: FIRST, onlyFormat: 'FLAC' }, getWorkContent)
+    await settle()
+    expect(other.findAll('.trk')).toHaveLength(3)
   })
   it('fills a remounted inspector from the cached work', async () => {
     const getWork = vi.fn((rj: string) => Promise.resolve(detail(rj, '沢城みゆき')))

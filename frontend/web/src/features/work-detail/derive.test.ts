@@ -15,6 +15,7 @@ import {
   parseLrc,
   parseLyrics,
   parseTxt,
+  playQueue,
   trackFormats,
 } from './derive'
 import type { WorkContentDir, WorkContentFile, WorkFileKind } from '@/lib/api/types'
@@ -160,8 +161,77 @@ describe('deriveTracks', () => {
     expect(tracks[0].lrcRel).toBe(expected === null ? null : `lyrics/${expected}`)
   })
 
+  const aud = (path: string) => {
+    const ext = path.slice(path.lastIndexOf('.') + 1)
+    return f(path, 'aud', { format: ext.toUpperCase() })
+  }
+  const layout = (...paths: string[]) => d('', paths.map(aud))
+
+  it.each([
+    ['plain format folders', ['wav /1.wav', 'wav /2.wav', 'mp3/1.mp3', 'mp3/2.mp3'], ['1', '2'], 2],
+    ['format-prefixed variant folders',
+      ['wav_se_on/1.wav', 'wav_se_off/1.wav', 'mp3_se_on/1.mp3', 'mp3_se_off/1.mp3'], ['se_off/1', 'se_on/1'], 2],
+    ['variant under format folder', ['wav/SE有/1.wav', 'wav/SE無/1.wav', 'mp3/SE有/1.mp3', 'mp3/SE無/1.mp3'], ['SE有/1', 'SE無/1'], 2],
+    ['format under variant folder', ['SE有/wav/1.wav', 'SE有/mp3/1.mp3'], ['SE有/1'], 2],
+    ['decorated format folders', ['WAV版/1.wav', 'mp3 (320kbps)/1.mp3'], ['1'], 2],
+  ])('keeps variants apart and merges formats: %s', (_name, paths, keys, formatCount) => {
+    const tracks = deriveTracks(layout(...paths))
+    expect(tracks.map((track) => track.key).sort()).toEqual(keys)
+    for (const track of tracks) expect(track.formats).toHaveLength(formatCount)
+  })
+
+  it('keeps both files when a format slot would be overwritten', () => {
+    const tracks = deriveTracks(layout('mp3_320/01.mp3', 'mp3_128/01.mp3'))
+    expect(tracks).toHaveLength(2)
+    expect(tracks.map((track) => track.files.MP3?.rel_path).sort()).toEqual(['mp3_128/01.mp3', 'mp3_320/01.mp3'])
+  })
+
+  it('pairs lyrics from the same variant first', () => {
+    const tree = d('', [
+      ...['SE有/wav/1.wav', 'SE無/wav/1.wav'].map(aud),
+      f('SE有/1.lrc', 'lrc'),
+      f('SE無/1.lrc', 'lrc'),
+    ])
+    expect(deriveTracks(tree).map((track) => track.lrcRel)).toEqual(['SE有/1.lrc', 'SE無/1.lrc'])
+  })
+
   it('keeps the duration of whichever format reported one', () => {
     expect(deriveTracks(tree)[0].duration).toBe(252)
+  })
+})
+
+describe('playQueue', () => {
+  const tracks = deriveTracks(d('', [
+    'wav_se_on/1.wav', 'wav_se_on/2.wav', 'wav_se_off/1.wav', 'wav_se_off/2.wav',
+    'mp3_se_on/1.mp3', 'mp3_se_off/1.mp3',
+  ].map((p) => f(p, 'aud', { format: p.slice(p.lastIndexOf('.') + 1).toUpperCase() }))))
+  const keys = (queue: { key?: string }[]) => queue.map((item) => item.key)
+
+  it('queues one codec of one variant only', () => {
+    const { queue, index, format } = playQueue(tracks, 0, 'WAV')
+    expect(format).toBe('WAV')
+    expect(keys(queue)).toEqual(['se_on/1', 'se_on/2'])
+    expect(index).toBe(0)
+    expect(keys(playQueue(tracks, 0, 'MP3').queue)).toEqual(['se_on/1'])
+  })
+
+  it('maps the start track to its place in the filtered queue', () => {
+    const second = tracks.findIndex((t) => t.key === 'se_off/2')
+    const { queue, index } = playQueue(tracks, second, 'WAV')
+    expect(keys(queue)).toEqual(['se_off/1', 'se_off/2'])
+    expect(index).toBe(1)
+  })
+
+  it('plays a track lacking the codec in its own first format', () => {
+    const second = tracks.findIndex((t) => t.key === 'se_on/2')
+    const { queue, index, format } = playQueue(tracks, second, 'MP3')
+    expect(format).toBe('WAV')
+    expect(keys(queue)).toEqual(['se_on/1', 'se_on/2'])
+    expect(index).toBe(1)
+  })
+
+  it('answers an empty queue for a missing start track', () => {
+    expect(playQueue(tracks, 99, 'WAV').queue).toEqual([])
   })
 })
 

@@ -18,6 +18,12 @@ const props = defineProps<{
   rj: string | null
   /** On the detail page: no wall to return to, so no OPEN DETAIL and no wall keys. */
   standalone?: boolean
+  /**
+   * Show (and play) only the tracks that exist in this codec, e.g. 'WAV'. Null,
+   * or a codec the work does not ship, leaves the merged list. The entry point
+   * is the settings page's, later.
+   */
+  onlyFormat?: string | null
 }>()
 
 const router = useRouter()
@@ -182,10 +188,20 @@ const tags = computed(() =>
 // cruising the wall fetches only the works it settles on. The list takes the
 // height the 1440x900 frame leaves and scrolls inside it. ──
 const { content, query: contentQuery } = useWorkContent(() => deferredWork.value?.rj ?? null)
-const tracks = computed(() => {
+const allTracks = computed(() => {
   const tree = playableCopy(content.value)?.tree
   return tree ? deriveTracks(tree) : []
 })
+const codec = computed(() =>
+  props.onlyFormat && allTracks.value.some((track) => track.files[props.onlyFormat!]) ? props.onlyFormat : null,
+)
+const tracks = computed(() =>
+  codec.value ? allTracks.value.filter((track) => track.files[codec.value!]) : allTracks.value,
+)
+// A variant header only helps when the work has more than one variant.
+const multiVariant = computed(() => new Set(tracks.value.map((track) => track.variant)).size > 1)
+const showHeader = (t: number): boolean =>
+  multiVariant.value && tracks.value[t].variant !== tracks.value[t - 1]?.variant
 const tracksSummary = computed(() => {
   if (tracks.value.length === 0) return '—'
   const total = tracks.value.reduce((sum, track) => sum + (track.duration ?? 0), 0)
@@ -193,16 +209,20 @@ const tracksSummary = computed(() => {
 })
 
 const { playFrom, playWork } = usePlayWork()
-const isPlaying = (t: number): boolean => player.rj === deferredWork.value?.rj && player.trackIndex === t
+const isPlaying = (t: number): boolean =>
+  player.rj === deferredWork.value?.rj && player.trackKey === tracks.value[t]?.key
 function playTrack(t: number) {
   const shown = deferredWork.value
-  if (shown) playFrom({ rj: shown.rj, title: shown.title ?? shown.rj }, content.value, t)
+  if (shown) {
+    const index = allTracks.value.indexOf(tracks.value[t])
+    playFrom({ rj: shown.rj, title: shown.title ?? shown.rj }, content.value, index, codec.value ?? '')
+  }
 }
 
 // PLAY needs the loaded work: it plays what the inspector shows from track 01.
 const canPlay = computed(() => workNow.value !== null)
 function playNowPlaying() {
-  if (workNow.value) void playWork({ rj: workNow.value.rj, title: workNow.value.title ?? workNow.value.rj })
+  if (workNow.value) void playWork({ rj: workNow.value.rj, title: workNow.value.title ?? workNow.value.rj }, codec.value ?? '')
 }
 function openDetail() {
   if (props.rj !== null) router.push({ name: 'work-detail', params: { rj: props.rj } })
@@ -242,12 +262,15 @@ const playIcon = 'M1 0l9 5-9 5z'
       <span class="lbl">{{ tracksSummary }}</span>
     </div>
     <div class="tracks" :class="{ dim }" lang="ja">
-      <button v-for="(track, t) in tracks" :key="track.stem" class="trk" :class="{ now: isPlaying(t) }"
-        type="button" :aria-current="isPlaying(t) || undefined" @click="playTrack(t)">
-        <span class="no lbl">{{ String(t + 1).padStart(2, '0') }}</span>
-        <span class="nm">{{ track.stem }}</span>
-        <span class="dur">{{ track.duration === null ? '—' : fmtT(track.duration) }}</span>
-      </button>
+      <template v-for="(track, t) in tracks" :key="track.key">
+        <div v-if="showHeader(t)" class="var lbl">{{ track.variant || '/' }}</div>
+        <button class="trk" :class="{ now: isPlaying(t) }"
+          type="button" :aria-current="isPlaying(t) || undefined" @click="playTrack(t)">
+          <span class="no lbl">{{ String(t + 1).padStart(2, '0') }}</span>
+          <span class="nm">{{ track.stem }}</span>
+          <span class="dur">{{ track.duration === null ? '—' : fmtT(track.duration) }}</span>
+        </button>
+      </template>
       <p v-if="tracks.length === 0 && !contentQuery.isPending.value" class="no-tracks lbl">NO TRACK DATA</p>
     </div>
 
@@ -332,6 +355,7 @@ const playIcon = 'M1 0l9 5-9 5z'
   width: 100%; height: 28px; padding: 0 var(--sp-2); border-bottom: 1px solid var(--wire-fine);
   text-align: left; color: var(--fg-base); font-family: inherit; cursor: pointer;
 }
+.var { padding: var(--sp-2) var(--sp-2) var(--sp-1); font-size: var(--fs-xs); color: var(--fg-meta); border-bottom: 1px solid var(--wire-fine); }
 .trk:hover { background: var(--bg-subtle); }
 .trk:focus-visible { outline: 1px solid var(--wire-strong); outline-offset: -1px; }
 .trk .lbl { letter-spacing: .04em; }

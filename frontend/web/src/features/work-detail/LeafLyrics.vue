@@ -17,7 +17,7 @@ const player = usePlayerStore()
 const lrcRel = computed(() => store.lrcFor(store.track))
 const lines = ref<LrcLine[]>([])
 const bodyEl = ref<HTMLElement | null>(null)
-const currentTrack = computed(() => player.rj === store.rj && player.trackIndex === store.track)
+const currentTrack = computed(() => player.rj === store.rj && player.trackKey === store.tracks[store.track]?.key)
 const status = ref('')
 
 watch(

@@ -153,9 +153,10 @@ describe('work-detail store', () => {
     store.startTrack(0)
     expect(playing()).toBe('/files/copy-a/本編/mp3/01_導入 ―縁側にて―.mp3')
     expect(player.format).toBe('MP3')
-    // The whole list queues in the browsed format, so next stays in MP3.
-    expect(player.queue).toHaveLength(store.tracks.length)
-    expect(player.queue[1].source?.format).toBe('MP3')
+    // Only the tracks that exist in MP3 queue, so next never leaves MP3.
+    expect(player.queue).toHaveLength(store.tracks.filter((track) => track.files.MP3).length)
+    expect(player.queue.every((item) => item.source?.format === 'MP3')).toBe(true)
+    expect(player.trackKey).toBe(store.tracks[0].key)
   })
 
   it('pairs lyrics by hand through the LRC chip and follows into LISTEN', async () => {

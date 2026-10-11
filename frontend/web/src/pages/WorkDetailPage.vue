@@ -42,8 +42,10 @@ watch([rj, content], ([id, now]) => {
 }, { immediate: true })
 
 // Prev/next and a track's end move the player on; the bay and the leaf follow.
-watch(() => player.trackIndex, (track) => {
-  if (player.rj === store.rj && track !== store.track) store.followTrack(track)
+watch(() => player.trackKey, (key) => {
+  if (key === null || player.rj !== store.rj) return
+  const track = store.tracks.findIndex((t) => t.key === key)
+  if (track >= 0 && track !== store.track) store.followTrack(track)
 })
 
 // Back to the wall this work was opened from: that history entry holds the

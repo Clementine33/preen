@@ -23,6 +23,8 @@ export interface PlaySource {
 
 /** One entry of the playing work's queue; without a source it plays silently. */
 export interface QueueItem {
+  /** The track's identity in the page's list; the queue may be a subset of it. */
+  key?: string
   title: string
   source?: PlaySource
 }
@@ -61,6 +63,7 @@ export const usePlayerStore = defineStore('player', {
     ...readVolume(),
   }),
   getters: {
+    trackKey: (state): string | null => (state.rj !== null ? (state.queue[state.trackIndex]?.key ?? null) : null),
     hasPrev: (state) => state.rj !== null && state.trackIndex > 0,
     hasNext: (state) => state.rj !== null && state.trackIndex < state.queue.length - 1,
   },

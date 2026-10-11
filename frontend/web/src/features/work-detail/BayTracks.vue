@@ -18,7 +18,7 @@ const fileFor = (t: number) => {
   return track?.files[store.fmt] ?? track?.files[track.formats[0]]
 }
 const maxDuration = computed(() => Math.max(...store.tracks.map((_, t) => fileFor(t)?.duration_sec ?? 0), 0))
-const isPlaying = (t: number): boolean => player.rj === store.rj && player.trackIndex === t
+const isPlaying = (t: number): boolean => player.rj === store.rj && player.trackKey === store.tracks[t]?.key
 const missing = (t: number): boolean => store.tracks[t]?.files[store.fmt] === undefined
 
 const barWidth = (t: number): string => {
@@ -28,6 +28,10 @@ const duration = (t: number): string => {
   const seconds = fileFor(t)?.duration_sec
   return seconds == null ? '—' : fmtT(seconds)
 }
+// A variant header only helps when the work has more than one variant.
+const multiVariant = computed(() => new Set(store.tracks.map((track) => track.variant)).size > 1)
+const showHeader = (t: number): boolean =>
+  multiVariant.value && store.tracks[t].variant !== store.tracks[t - 1]?.variant
 const hasLrc = (t: number): boolean => store.lrcFor(t) !== null
 const pairedRel = computed(() => store.lrcFor(store.track))
 </script>
@@ -43,18 +47,21 @@ const pairedRel = computed(() => store.lrcFor(store.track))
     </button>
   </div>
   <div v-else class="list" lang="ja">
-    <button v-for="(track, t) in store.tracks" :key="track.stem" class="trk" type="button"
-      :class="{ missing: missing(t), now: isPlaying(t) }" :aria-current="isPlaying(t) ? 'true' : undefined"
-      @click="store.startTrack(t)">
-      <span class="no lbl">{{ String(t + 1).padStart(2, '0') }}</span>
-      <span class="nm-wrap">
-        <span class="nm">{{ track.stem }}</span>
-        <span v-if="missing(t) && track.formats.length === 1" class="only">{{ track.formats[0] }} ONLY</span>
-        <span v-if="hasLrc(t)" class="has-lrc" title="有歌词">¶</span>
-        <span class="bar" :style="{ width: barWidth(t) }"></span>
-      </span>
-      <span class="dur">{{ duration(t) }}</span>
-    </button>
+    <template v-for="(track, t) in store.tracks" :key="track.key">
+      <div v-if="showHeader(t)" class="var lbl">{{ track.variant || '/' }}</div>
+      <button class="trk" type="button"
+        :class="{ missing: missing(t), now: isPlaying(t) }" :aria-current="isPlaying(t) ? 'true' : undefined"
+        @click="store.startTrack(t)">
+        <span class="no lbl">{{ String(t + 1).padStart(2, '0') }}</span>
+        <span class="nm-wrap">
+          <span class="nm">{{ track.stem }}</span>
+          <span v-if="missing(t) && track.formats.length === 1" class="only">{{ track.formats[0] }} ONLY</span>
+          <span v-if="hasLrc(t)" class="has-lrc" title="有歌词">¶</span>
+          <span class="bar" :style="{ width: barWidth(t) }"></span>
+        </span>
+        <span class="dur">{{ duration(t) }}</span>
+      </button>
+    </template>
   </div>
 </template>
 
@@ -64,6 +71,7 @@ const pairedRel = computed(() => store.lrcFor(store.track))
 /* The duration bar is the track's weight in the whole work; the right dock and
    the phone drop it (v3). */
 .trk { display: grid; grid-template-columns: 28px minmax(0, 1fr) 48px; align-items: center; gap: var(--sp-3); height: 28px; padding: 0 var(--sp-6) 0 var(--sp-5); border-bottom: 1px solid var(--wire-fine); cursor: pointer; width: 100%; text-align: left; background: none; color: var(--fg-base); border-left: none; border-right: none; border-top: none; font-family: inherit; }
+.var { padding: var(--sp-2) var(--sp-6) var(--sp-1) var(--sp-5); font-size: var(--fs-xs); color: var(--fg-meta); border-bottom: 1px solid var(--wire-fine); }
 .trk:hover { background: var(--bg-subtle); }
 .trk .lbl { letter-spacing: .04em; }
 .trk .nm-wrap { display: flex; align-items: center; gap: var(--sp-3); min-width: 0; }

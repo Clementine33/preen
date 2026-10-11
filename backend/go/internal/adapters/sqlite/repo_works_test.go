@@ -587,3 +587,53 @@ func TestAcceptedCoreRefreshesSourceTagNamesWithoutChangingIdentity(t *testing.T
 		t.Fatalf("tag identity drifted: %d, %v", count, err)
 	}
 }
+
+func TestWorkLanguageImportAndFilterStayIndependentOfRelations(t *testing.T) {
+	repo := newTestRepository(t)
+	id := seedWork(t, repo, "RJ00000001", true)
+	for i, language := range []*string{new("NM"), new("CHI_HANS"), nil} {
+		at := mustTime(t, testStamp).Add(time.Duration(i) * time.Second).Format(works.TimestampFormat)
+		req := works.ImportRequest{Core: &works.ImportCore{Source: "dlsite", FetchedAt: at, Language: language}}
+		if i == 0 {
+			req.Relations = &works.ImportRelations{Source: "dlsite", FetchedAt: at, Role: "original"}
+		}
+		validated, refusal := works.ValidateImport(id, req)
+		if refusal != nil {
+			t.Fatal(refusal)
+		}
+		importGroups(t, repo, id, validated)
+		detail, found, err := repo.GetWork(id)
+		if err != nil || !found {
+			t.Fatalf("detail: %v, %v", found, err)
+		}
+		if language == nil && detail.Language != nil ||
+			language != nil && (detail.Language == nil || *detail.Language != *language) {
+			t.Fatalf("language: got %v, want %v", detail.Language, language)
+		}
+		if detail.Relation.Language != nil {
+			t.Fatal("work language changed relation language")
+		}
+		for _, filter := range []string{"NM", "CHI_HANS"} {
+			page, err := repo.ListWorks(works.Filter{Languages: []string{filter}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			want := 0
+			if language != nil && filter == *language {
+				want = 1
+			}
+			if page.Total != want || len(page.Works) != want {
+				t.Fatalf("filter %s: %+v", filter, page)
+			}
+			if want == 1 && (page.Works[0].Language == nil || *page.Works[0].Language != filter) {
+				t.Fatal("list lost language")
+			}
+		}
+	}
+	_, refusal := works.ValidateImport(id, works.ImportRequest{
+		Core: &works.ImportCore{Source: "dlsite", FetchedAt: testStamp, Language: new("DOT")},
+	})
+	if refusal == nil {
+		t.Fatal("translation provenance accepted as language")
+	}
+}

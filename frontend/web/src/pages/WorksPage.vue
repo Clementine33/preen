@@ -70,6 +70,7 @@ const libraryScope = computed(() =>
 const voiceActor = computed({ get: () => wq.voice.value, set: (value) => void wq.setFilters({ voice: value }) })
 const circle = computed({ get: () => wq.circle.value, set: (value) => void wq.setFilters({ circle: value }) })
 const age = computed({ get: () => wq.age.value, set: (value) => void wq.setFilters({ age: value }) })
+const language = computed({ get: () => wq.language.value, set: (value) => void wq.setFilters({ language: value }) })
 const sort = computed<WorksSort>({ get: () => wq.sort.value, set: (value) => void wq.setSort(value) })
 const size = computed({ get: () => String(wq.size.value), set: (value) => void wq.setSize(Number(value)) })
 const tags = computed<TagSelection>({
@@ -90,6 +91,13 @@ const AGE_OPTIONS: RailOption[] = [
   { value: 'r15', label: 'R15' },
   { value: 'r18', label: 'R18' },
 ]
+const LANGUAGE_OPTIONS: RailOption[] = [
+  { value: '', label: 'ALL' },
+  { value: 'CHI_HANS', label: '简中' },
+  { value: 'CHI_HANT', label: '繁中' },
+  { value: 'JPN', label: '日语' },
+  { value: 'NM', label: '无语言限制' },
+]
 const AGE_PARAM: Record<string, ListWorksParams['age_category']> = { safe: 1, r15: 2, r18: 3 }
 
 // Every order runs newest / highest first; unknown dates and unrated works
@@ -106,6 +114,7 @@ const scope = computed<WorksScope>(() => ({
   ...(libraryScope.value ? { library: libraryScope.value } : {}),
   ...(wq.voice.value ? { voice_actor: wq.voice.value, voice_actor_match: 'any' as const } : {}),
   ...(wq.circle.value ? { circle: wq.circle.value } : {}),
+  ...(wq.language.value ? { language: wq.language.value } : {}),
   ...(wq.age.value ? { age_category: AGE_PARAM[wq.age.value] } : {}),
   ...(wq.tag.value ? { tag: wq.tag.value, tag_match: wq.mode.value } : {}),
   ...(wq.q.value ? { q: wq.q.value } : {}),
@@ -360,6 +369,7 @@ onBeforeUnmount(() => {
         <RailSelect v-model="voiceActor" label="VOICE" :options="voiceActorOptions" marks-active searchable />
         <RailSelect v-model="circle" label="CIRCLE" :options="circleOptions" marks-active searchable />
         <RailSelect v-model="age" label="AGE" :options="AGE_OPTIONS" marks-active />
+        <RailSelect v-model="language" label="LANGUAGE" :options="LANGUAGE_OPTIONS" marks-active />
         <TagIndex v-model="tags" :scope="tagScope" />
         <span v-if="wq.overflow.value" class="lbl notice" role="status">筛选条件过多，未应用</span>
       </div>

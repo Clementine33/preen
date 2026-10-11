@@ -116,7 +116,7 @@ func cleanURL(value *string) *string {
 
 // A malformed collection is not an empty collection: never clear stored credits on a decode failure.
 func validDLsiteCore(data record) bool {
-	for _, key := range []string{"product_name", "maker_name", "regist_date"} {
+	for _, key := range []string{"options", "product_name", "maker_name", "regist_date"} {
 		if raw, ok := data[key]; ok {
 			var text *string
 			if json.Unmarshal(raw, &text) != nil {
@@ -154,6 +154,9 @@ func dlsiteCore(data record, at string) *works.ImportCore {
 
 	core := &works.ImportCore{Source: "dlsite", FetchedAt: at, Title: scalar[string](data, "product_name"),
 		VoiceActors: []works.ImportVoiceActor{}, Tags: []works.ImportTag{}}
+	if options := scalar[string](data, "options"); options != nil {
+		core.Language = works.PreferredLanguage(strings.Split(*options, "#"))
+	}
 	if name := scalar[string](data, "maker_name"); name != nil && *name != "" {
 		core.Circle = &works.ImportCircle{SourceCircleID: scalar[string](data, "maker_id"), Name: *name}
 	}

@@ -6,6 +6,7 @@ import { apiClientKey } from '@/lib/api/client'
 import { apiStub } from '@/test/api-stub'
 import { installTestQueryPlugin } from '@/test/query-client'
 import WorksPage from './WorksPage.vue'
+import { installAddressHygiene } from '@/app/route-params'
 import { useLibraryUiStore } from '@/stores/library-ui'
 import { usePlayerStore } from '@/stores/player'
 import type { Library, WorkSummary } from '@/lib/api/types'
@@ -69,7 +70,7 @@ function library(id: string, name: string, root: string): Library {
 }
 
 function routerFor(): Router {
-  return createRouter({
+  const router = createRouter({
     history: createMemoryHistory(),
     routes: [
       { path: '/works', name: 'works', component: WorksPage },
@@ -77,6 +78,8 @@ function routerFor(): Router {
       { path: '/worksets', name: 'worksets', component: { template: '<div />' } },
     ],
   })
+  installAddressHygiene(router)
+  return router
 }
 
 interface Harness {
@@ -315,8 +318,14 @@ describe('works page', () => {
   })
 
   it('sends each rail filter straight to its listing parameter', async () => {
-    const { wrapper, listWorks } = await mountWorks('/works')
+    const { wrapper, listWorks, router } = await mountWorks('/works')
 
+    await pick(wrapper, 'LANGUAGE', '无语言限制')
+    expect(lastParams(listWorks)).toMatchObject({ language: 'NM' })
+    await pick(wrapper, 'LANGUAGE', '简中')
+    expect(lastParams(listWorks)).toMatchObject({ language: 'CHI_HANS' })
+    await pick(wrapper, 'LANGUAGE', 'ALL')
+    expect(router.currentRoute.value.query.language).toBeUndefined()
     await pick(wrapper, 'AGE', 'R18')
     expect(lastParams(listWorks)).toMatchObject({ age_category: 3 })
     await pick(wrapper, 'AGE', 'R15')

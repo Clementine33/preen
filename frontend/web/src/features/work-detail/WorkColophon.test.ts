@@ -144,3 +144,10 @@ it.each([[1, '全年龄'], [2, 'R15'], [3, 'R18'], [null, null]] as const)('show
   if (label) expect(wrapper.text()).toContain(label)
   else for (const age of ['全年龄', 'R15', 'R18']) expect(wrapper.text()).not.toContain(age)
 })
+
+it.each([['NM', '无语言限制'], ['CHI_HANS', '简中'], ['CHI_HANT', '繁中'], ['JPN', '日语'], ['ENG', 'ENG'], [null, null]])('shows declared work language %s', async (language, label) => {
+  const { wrapper } = await mountColophon({ getWork: vi.fn().mockResolvedValue(makeWorkDetail({ language })) })
+  const row = wrapper.findAll('.colo-row').find((row) => row.find('dt').text() === '语言')
+  if (label) expect(row?.text()).toContain(label)
+  else expect(row).toBeUndefined()
+})

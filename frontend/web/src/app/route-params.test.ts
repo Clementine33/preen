@@ -95,6 +95,15 @@ describe('the wall address', () => {
     }
   })
 
+  it.each(['CHI_HANS', 'CHI_HANT', 'JPN', 'NM'])('keeps language %s through navigation and reload', async (language) => {
+    const router = guardRouter()
+    await router.push(`/works?language=${language}`)
+    expect(router.currentRoute.value.query.language).toBe(language)
+    const reloaded = guardRouter()
+    await reloaded.push(router.currentRoute.value.fullPath)
+    expect(reloaded.currentRoute.value.query.language).toBe(language)
+  })
+
   it('keeps the whole view of the wall, a long id group included', () => {
     // 300 ids of one name: about 11,000 characters, never dropped for length.
     const ids = Array.from({ length: 300 }, (_, i) => `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`)
@@ -106,7 +115,7 @@ describe('the wall address', () => {
   })
 
   it('drops a wall value of the wrong shape', () => {
-    for (const [key, value] of [['page', '0'], ['page', '-1'], ['size', '50'], ['age', 'adult'], ['voice', 'a b']]) {
+    for (const [key, value] of [['page', '0'], ['page', '-1'], ['size', '50'], ['age', 'adult'], ['voice', 'a b'], ['language', 'invalid']]) {
       expect(cleanedQuery(routeOf(guardRouter(), `/works?${key}=${encodeURIComponent(value)}`)), key).toEqual({})
     }
   })

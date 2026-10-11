@@ -18,11 +18,12 @@ type ImportRequest struct {
 }
 
 // ImportCore is the basic description: what the work is called, who made it,
-// when it was released and how it looks.
+// its declared language, when it was released and how it looks.
 type ImportCore struct {
 	Source         string             `json:"source"`
 	FetchedAt      string             `json:"fetched_at"`
 	Title          *string            `json:"title"`
+	Language       *string            `json:"language"`
 	Circle         *ImportCircle      `json:"circle"`
 	NSFW           *bool              `json:"nsfw"`
 	AgeCategory    *int               `json:"age_category"`
@@ -104,6 +105,7 @@ type CoreGroup struct {
 	Source         Source
 	FetchedAt      time.Time
 	Title          *string
+	Language       *string
 	Circle         *EntityInput
 	NSFW           *bool
 	AgeCategory    *int
@@ -243,6 +245,9 @@ func validateCore(core ImportCore) (*CoreGroup, *Error) {
 	if err != nil {
 		return nil, err
 	}
+	if core.Language != nil && PreferredLanguage([]string{*core.Language}) == nil {
+		return nil, Invalid(CodeInvalidArgument, "language must be a supported language code")
+	}
 	if !validAgeCategory(core.AgeCategory) {
 		return nil, Invalid(CodeInvalidArgument, "age_category must be 1, 2 or 3")
 	}
@@ -263,6 +268,7 @@ func validateCore(core ImportCore) (*CoreGroup, *Error) {
 		Source:         source,
 		FetchedAt:      fetchedAt,
 		Title:          core.Title,
+		Language:       core.Language,
 		NSFW:           core.NSFW,
 		AgeCategory:    core.AgeCategory,
 		ReleaseDate:    core.ReleaseDate,

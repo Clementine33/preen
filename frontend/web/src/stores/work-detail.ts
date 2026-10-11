@@ -61,8 +61,7 @@ export const useWorkDetailStore = defineStore('work-detail', {
     track: 0,
     /** The format of the file actually playing. */
     playFmt: null as string | null,
-    /** The R18 viewer option, off by default; hatches every set but the cover's. */
-    veil: false,
+    /** This work's veil lifted by a click; the option itself is the library-ui store's. */
     unveiled: false,
     /** The file browser's directory, as name segments from the copy root. */
     cwd: [] as string[],
@@ -190,11 +189,6 @@ export const useWorkDetailStore = defineStore('work-detail', {
 
     showLrc() {
       this.lrcMode = true
-    },
-
-    toggleVeil() {
-      this.veil = !this.veil
-      this.unveiled = false
     },
 
     unveil() {

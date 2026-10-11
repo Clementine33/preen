@@ -10,6 +10,16 @@ import type { Library, LibraryDir } from '@/lib/api/types'
  * identity a record is created from — a folder id from an earlier scan would
  * have been renumbered by the next one.
  */
+const VEIL_KEY = 'onsei.r18-veil'
+
+function readVeil(): boolean {
+  try {
+    return localStorage.getItem(VEIL_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
 export const useLibraryUiStore = defineStore('library-ui', {
   state: () => ({
     activeLibraryId: null as string | null,
@@ -24,6 +34,8 @@ export const useLibraryUiStore = defineStore('library-ui', {
      * files and back: leaving the list must not lose the reader's place.
      */
     overviewScroll: 0,
+    /** The R18 viewer option, off by default; kept in localStorage, set on the wall, read by the wall and the detail page. */
+    veil: readVeil(),
   }),
   actions: {
     setActiveLibrary(id: string) {
@@ -83,6 +95,14 @@ export const useLibraryUiStore = defineStore('library-ui', {
     },
     clearSelection() {
       this.selectedDirPaths = []
+    },
+    toggleVeil() {
+      this.veil = !this.veil
+      try {
+        localStorage.setItem(VEIL_KEY, this.veil ? '1' : '0')
+      } catch {
+        // Private mode: the option still holds for this session.
+      }
     },
     setOverviewScroll(offset: number) {
       this.overviewScroll = offset

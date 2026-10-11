@@ -7,6 +7,7 @@ import { deriveTracks, fmtLong, fmtT, playableCopy } from '@/features/work-detai
 import { usePlayWork } from '@/features/works/use-play-work'
 import { useCoverSrc } from '@/features/works/use-cover-src'
 import { useWorkContent, useWorkDetail } from '@/queries/works'
+import { useLibraryUiStore } from '@/stores/library-ui'
 import { usePlayerStore } from '@/stores/player'
 
 // The inspector: the detail of the selected work, rendered to fit 1440x900
@@ -114,10 +115,15 @@ function scramble(text: string) {
 const coverBack = ref<HTMLElement | null>(null)
 const coverFront = ref<HTMLElement | null>(null)
 let shownCover: string | null = null
-const { src: coverSrc, failed: coverFailed, isLocal: coverIsLocal } = useCoverSrc(() => {
+const libraryUi = useLibraryUiStore()
+/** The work whose veiled cover was shown by a click; any other work is hatched again. */
+const shownRj = ref<string | null>(null)
+const veiled = computed(() => libraryUi.veil && deferredWork.value?.nsfw === true && shownRj.value !== deferredWork.value.rj)
+const { src: realCover, failed: coverFailed, isLocal: coverIsLocal } = useCoverSrc(() => {
   const detail = deferredWork.value
   return detail ? { rj: detail.rj, local: detail.local_cover, remote: detail.cover_url ?? detail.thumbnail_url } : null
 })
+const coverSrc = computed(() => (veiled.value ? null : realCover.value))
 /** A CSS background never reports a load failure, so a local cover is proven loadable first. */
 function probe(url: string): Promise<boolean> {
   return new Promise((resolve) => {
@@ -240,9 +246,10 @@ const playIcon = 'M1 0l9 5-9 5z'
     </div>
 
     <div class="plate">
-      <div class="plate-frame">
+      <div class="plate-frame" :class="{ veiled }">
         <div ref="coverBack" class="cover back"></div>
         <div ref="coverFront" class="cover front hatch"></div>
+        <button v-if="veiled" class="btn btn-s reveal" type="button" @click="shownRj = deferredWork?.rj ?? null">SHOW</button>
         <i class="tick tl"></i><i class="tick tr"></i><i class="tick bl"></i><i class="tick br"></i>
       </div>
     </div>
@@ -313,6 +320,8 @@ const playIcon = 'M1 0l9 5-9 5z'
   background-size: cover; background-position: center;
   box-shadow: inset 0 0 0 1px var(--wire-fine);
 }
+.veiled .cover::before { content: none; }
+.reveal { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 1; }
 .cover.front { clip-path: inset(0 0 0 0); }
 .cover.front.enter { clip-path: inset(0 100% 0 0); }
 .cover.front.run { transition: clip-path 240ms var(--ease-out); }

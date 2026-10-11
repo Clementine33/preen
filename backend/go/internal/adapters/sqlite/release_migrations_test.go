@@ -9,6 +9,7 @@ import (
 	"testing/fstest"
 
 	"github.com/onsei/organizer/backend/internal/adapters/sqlite"
+	"github.com/onsei/organizer/backend/internal/works"
 )
 
 func releaseFixture(t *testing.T, changes ...string) fstest.MapFS {
@@ -237,7 +238,7 @@ func TestFailedInitialMigrationCanBeRetried(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer repo.Close()
-	if version := migrationVersion(t, repo.DB()); version != 4 {
+	if version := migrationVersion(t, repo.DB()); version != 5 {
 		t.Fatalf("initial retry version = %d", version)
 	}
 }
@@ -310,5 +311,49 @@ func TestAgeMigrationPreservesDataAndDoesNotGuessNonAdultAges(t *testing.T) {
 		Scan(&title, &rating, &note); err != nil || title != "non-adult" || rating != 8 ||
 		note != "keep" {
 		t.Fatalf("data lost during upgrade: %s %d %s %v", title, rating, note, err)
+	}
+}
+
+func TestLanguageMigrationPreservesRelationsWithoutGuessingNM(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "cache.db")
+	old, err := sqlite.OpenReleaseWithMigrations(path, releaseFixture(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = old.DB().Exec(`
+		INSERT INTO works(id,title,collected_at,created_at,updated_at) VALUES
+		('RJ00000001','translated','now','now','now'),('RJ00000002','unknown','now','now','now');
+		INSERT INTO work_translations(work_id,role,language) VALUES ('RJ00000001','child','CHI_HANT');
+		INSERT INTO work_user_data(work_id,rating,note) VALUES ('RJ00000002',8,'keep');
+	`); err != nil {
+		t.Fatal(err)
+	}
+	if err = old.Close(); err != nil {
+		t.Fatal(err)
+	}
+	upgraded, err := sqlite.NewRepository(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer upgraded.Close()
+	for _, id := range []works.WorkCode{"RJ00000001", "RJ00000002"} {
+		detail, found, readErr := upgraded.GetWork(id)
+		if readErr != nil || !found {
+			t.Fatalf("read upgraded work: %v, %v", found, readErr)
+		}
+		if id == "RJ00000001" {
+			if detail.Language == nil || *detail.Language != "CHI_HANT" {
+				t.Fatal("lost legacy language")
+			}
+		} else if detail.Language != nil || detail.Note != "keep" || detail.Rating == nil || *detail.Rating != 8 {
+			t.Fatalf("guessed language or lost user data: %+v", detail)
+		}
+	}
+	if _, err = upgraded.DB().Exec("UPDATE works SET language='NM' WHERE id='RJ00000002'"); err != nil {
+		t.Fatal(err)
+	}
+	detail, _, err := upgraded.GetWork("RJ00000002")
+	if err != nil || detail.Language == nil || *detail.Language != "NM" {
+		t.Fatalf("NM read/write: %+v, %v", detail, err)
 	}
 }

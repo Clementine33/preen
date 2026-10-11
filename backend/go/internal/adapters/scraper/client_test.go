@@ -212,3 +212,58 @@ func TestStaticPreservesThreeAgeCategories(t *testing.T) {
 		}
 	}
 }
+
+func TestStaticSelectsDeclaredWorkLanguage(t *testing.T) {
+	for _, tc := range []struct {
+		options any
+		want    string
+	}{
+		{"MS2#REV#TRI#NM", "NM"},
+		{"SND#JPN#DLP#REV", "JPN"},
+		{"CHI_HANT#JPN#CHI_HANS#ENG", "CHI_HANS"},
+		{"JPN#CHI_HANT", "CHI_HANT"},
+		{"ENG#JPN", "JPN"},
+		{"ENG", "ENG"},
+		{"DOT#REV", ""},
+		{"NOT_NM#JPN_EXTRA", ""},
+		{nil, ""},
+		{42, ""},
+	} {
+		body, err := json.Marshal([]map[string]any{{"workno": "RJ000001", "product_name": "work", "options": tc.options,
+			"translation_info": map[string]any{"is_original": true, "lang": nil}}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		calls := 0
+		client := scraper.New(&http.Client{Transport: transportFunc(func(*http.Request) (*http.Response, error) {
+			calls++
+			return response(http.StatusOK, string(body)), nil
+		})})
+		snapshot, err := client.FetchStatic(t.Context(), "RJ00000001", "ja-jp")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if calls != 1 {
+			t.Fatalf("language needs extra requests: %d", calls)
+		}
+		if tc.options == 42 {
+			if snapshot.Core != nil {
+				t.Fatal("malformed options overwrites core")
+			}
+			continue
+		}
+		if snapshot.Core == nil {
+			t.Fatal("missing core")
+		}
+		got := ""
+		if snapshot.Core.Language != nil {
+			got = *snapshot.Core.Language
+		}
+		if got != tc.want {
+			t.Fatalf("options %v: got %q, want %q", tc.options, got, tc.want)
+		}
+		if snapshot.Relations == nil || snapshot.Relations.Language != nil {
+			t.Fatal("work language leaked into relations")
+		}
+	}
+}

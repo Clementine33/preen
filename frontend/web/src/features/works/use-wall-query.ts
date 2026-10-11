@@ -77,6 +77,7 @@ export function useWallQuery() {
   const voice = computed(() => text('voice'))
   const circle = computed(() => text('circle'))
   const age = computed(() => text('age'))
+  const language = computed(() => text('language'))
   const tag = computed(() => text('tag'))
   const mode = computed<'all' | 'any'>(() => (text('mode') === 'any' ? 'any' : 'all'))
   const sort = computed<WorksSort>(() => (text('sort') as WorksSort) || DEFAULT_SORT)
@@ -136,9 +137,9 @@ export function useWallQuery() {
   }, { immediate: true })
 
   return {
-    library, voice, circle, age, tag, mode, sort, q, page, size, rj, tooLong, overflow,
+    library, voice, circle, age, language, tag, mode, sort, q, page, size, rj, tooLong, overflow,
     /** Anything that changes what is listed starts again at the first page. */
-    setFilters: (changes: Partial<Record<'voice' | 'circle' | 'age' | 'tag' | 'mode' | 'q', string>>) =>
+    setFilters: (changes: Partial<Record<'voice' | 'circle' | 'age' | 'language' | 'tag' | 'mode' | 'q', string>>) =>
       commit({ ...changes, page: undefined }),
     setSort: (value: WorksSort) => commit({ sort: value === DEFAULT_SORT ? undefined : value, page: undefined }),
     setSize: (value: number) => {

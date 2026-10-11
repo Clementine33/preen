@@ -180,6 +180,7 @@ the set is empty. A submission with no group at all is refused.
     "source": "dlsite",
     "fetched_at": "2026-09-27T10:00:00.000000000Z",
     "title": "…",
+    "language": "NM",
     "circle": { "source_circle_id": "RG01038998", "name": "mete0r" },
     "nsfw": true,
     "age_category": 3,
@@ -287,3 +288,14 @@ DLsite 保存其原始分级，ASMR.one 仅提供布尔值时遵循同样规则�
 旧库升级保留所有作品和个人数据；非 R18 作品需全部刷新才能恢复准确年龄档位。
 
 Metadata refresh and copy cover delivery are described in [Rename and metadata refresh tasks](tasks.md#metadata-refresh-task-schema-version-1).
+
+作品 Core 的 `language` 声明当前 RJ 自身的语言，列表和详情顶层的 `language`
+及列表 `language` 筛选优先使用它；为空时兼容回落到已解析的翻译关系语言。
+`relations.language` 和 `editions.items[].language` 仍描述翻译关系与语言版，含义不变。
+DLsite 从现有 product.json 的 `options` 按 `#` 分隔精确提取语言码，多语言优先
+`CHI_HANS` → `CHI_HANT` → `JPN`，其后按 ENG、CHI、KO_KR、SPA、GER、FRE、IND、ITA、
+POR、SWE、THA、VIE、RUS、OTL 的顺序选择；仅有 `NM` 时表示“无语言限制”。
+`DOT` 是官方翻译标记，不作为语言；没有已识别的语言码保持 `null`，不能推断为 NM 或日语。
+Core 导入仅接受上述语言码或 `null`，遵循完整快照和来源优先级规则。
+界面语言筛选提供简中、繁中、日语、无语言限制及全部；详情显示当前语言。
+旧库升级不猜测语言，需刷新元数据补齐原作的 JPN 与 NM；开发库按开发库重建流程更新结构。

@@ -21,6 +21,7 @@ const ALLOWED_VALUES: Record<string, readonly string[]> = {
   filter: MEMBER_FILTERS,
   // The wall's age rating, tag match mode, order and page size.
   age: ['safe', 'r15', 'r18'],
+  language: ['CHI_HANS', 'CHI_HANT', 'JPN', 'NM'],
   mode: ['all', 'any'],
   sort: ['release_date', 'collected_at', 'rating'],
   size: ['36', '60', '120', '180'],
@@ -83,7 +84,7 @@ const CONVERSION_SUBTREE = [
 const ALLOWED_PARAMS: Record<string, readonly string[]> = {
   ...Object.fromEntries(CONVERSION_SUBTREE.map((name) => [name, ['filter']])),
   'conversion-member-files': ['filter', 'view'],
-  works: ['library', 'rj', 'voice', 'circle', 'age', 'tag', 'mode', 'sort', 'q', 'page', 'size'],
+  works: ['library', 'rj', 'voice', 'circle', 'age', 'language', 'tag', 'mode', 'sort', 'q', 'page', 'size'],
 }
 
 /** The filter an address asks for, or the unfiltered list. */

@@ -19,9 +19,9 @@ var _ works.Store = (*Repository)(nil)
 
 // listProjection is the ordinary listing's fixed column set. The count of
 // copies is a correlated subquery rather than a join, so a work with several
-// copies stays one row.
+// copies stays one row. Legacy rows fall back to their resolved relation language.
 var listProjection = `
-	SELECT w.id, w.title, w.thumbnail_url, c.name, t.language, w.nsfw, w.age_category, w.release_date,
+	SELECT w.id, w.title, w.thumbnail_url, c.name, COALESCE(w.language, t.language), w.nsfw, w.age_category, w.release_date,
 	       s.dl_count, u.rating, COALESCE(u.favorite, 0),
 	       CASE WHEN COALESCE(u.note, '') <> '' THEN 1 ELSE 0 END,
 	       w.collected_at,
@@ -220,7 +220,10 @@ func (b *listQueryBuilder) applyFilters(filter works.Filter) {
 	if len(filter.Languages) > 0 {
 		// A work that reported no language cannot match a language filter: the
 		// dimension asks about a value, and unknown is not one of the values.
-		b.add("t.language IN ("+placeholderList(len(filter.Languages))+")", textArgs(filter.Languages)...)
+		b.add(
+			"COALESCE(w.language, t.language) IN ("+placeholderList(len(filter.Languages))+")",
+			textArgs(filter.Languages)...,
+		)
 	}
 	if filter.AgeCategory != nil {
 		b.add("w.age_category = ?", *filter.AgeCategory)
@@ -431,7 +434,7 @@ func (r *Repository) GetWork(id works.WorkCode) (*works.WorkDetail, bool, error)
 	err := r.db.QueryRow(`
 		SELECT w.title, w.thumbnail_url, c.name, w.nsfw, w.age_category, w.release_date, w.source_url,
 		       w.cover_url, w.sample_cover_url, w.series_id, w.series_name,
-		       w.collected_at, s.dl_count, u.rating, u.favorite, u.note, t.language,
+		       w.collected_at, s.dl_count, u.rating, u.favorite, u.note, COALESCE(w.language, t.language),
 		       (SELECT COUNT(*) FROM work_copies wc WHERE wc.work_id = w.id)
 		FROM works w
 		LEFT JOIN circles c ON c.id = w.circle_id

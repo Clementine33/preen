@@ -428,7 +428,8 @@ CREATE TABLE works (
     collected_at TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
-    age_category INTEGER CHECK (age_category IS NULL OR age_category IN (1, 2, 3))
+    age_category INTEGER CHECK (age_category IS NULL OR age_category IN (1, 2, 3)),
+    language TEXT
 ) STRICT;
 CREATE INDEX idx_works_collected ON works(collected_at, id);
 CREATE INDEX idx_works_release ON works(release_date, id);

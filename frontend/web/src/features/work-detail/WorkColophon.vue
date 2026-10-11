@@ -36,6 +36,11 @@ const age = computed(() =>
   work.value?.age_category ? ({ 1: '全年龄', 2: 'R15', 3: 'R18' }[work.value.age_category]) : null,
 )
 
+const language = computed(() => {
+  const code = work.value?.language
+  return code ? ({ CHI_HANS: '简中', CHI_HANT: '繁中', JPN: '日语', NM: '无语言限制' } as Record<string, string>)[code] ?? code : null
+})
+
 function setRating(n: number): void {
   if (locked.value) return
   // Clicking the set value clears it (rating null is the unrated state).
@@ -123,6 +128,7 @@ function relationText(relation: WorkRelation | null): string {
           <template v-if="work?.dl_count !== null && work?.dl_count !== undefined"><span class="sep">·</span><span class="lbl">DL<b>{{ work.dl_count.toLocaleString() }}</b></span></template>
         </dd>
       </div>
+      <div v-if="language" class="colo-row"><dt>语言</dt><dd>{{ language }}</dd></div>
       <div v-if="age" class="colo-row"><dt>分级</dt>
         <dd><span class="mono">{{ age }}</span></dd>
       </div>

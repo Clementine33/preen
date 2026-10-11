@@ -5,6 +5,7 @@ import { isScrollShape } from '@/features/work-detail/derive'
 import WorkColophon from '@/features/work-detail/WorkColophon.vue'
 import { useMediaQuery, WALL_MOBILE_QUERY } from '@/composables/use-media-query'
 import { useWorkDetail } from '@/queries/works'
+import { useLibraryUiStore } from '@/stores/library-ui'
 import { useWorkDetailStore } from '@/stores/work-detail'
 import type { ContentFileRef, WorkContentFile } from '@/lib/api/types'
 
@@ -17,12 +18,13 @@ import type { ContentFileRef, WorkContentFile } from '@/lib/api/types'
 const store = useWorkDetailStore()
 const api = useApiClient()
 const { work } = useWorkDetail(() => store.rj)
+const libraryUi = useLibraryUiStore()
 const isMobile = useMediaQuery(WALL_MOBILE_QUERY)
 
 const set = computed(() => store.currentSet)
 const file = computed(() => store.currentFile)
-/** R18 veil: a viewer option, off by default; the cover set is never hatched (v3). */
-const veiled = computed(() => store.veil && !store.unveiled && work.value?.nsfw === true && !(set.value?.cover ?? false))
+/** R18 veil: a viewer option, off by default; it hatches the cover set too. */
+const veiled = computed(() => libraryUi.veil && !store.unveiled && work.value?.nsfw === true)
 
 function refOf(item: WorkContentFile | null): ContentFileRef | null {
   if (!item || !store.rj || !store.activeCopy) return null
@@ -318,7 +320,7 @@ const NEXT_ICON = 'M2 0l7 5-7 5z'
 
 /* The R18 veil: the empty-state hatch, heavier for the thumbs so the two read apart. */
 .face.front.veil { background: repeating-linear-gradient(-45deg, var(--wire-fine) 0 1px, transparent 1px 6px), var(--bg-panel); cursor: pointer; display: grid; place-items: center; }
-.face.front.veil::after { content: 'R18 · SHOW'; font-family: var(--font-mono); font-size: var(--fs-xs); letter-spacing: .14em; color: var(--fg-muted); background: var(--bg-panel); border: 1px solid var(--wire-mid); padding: 2px var(--sp-2); }
+.face.front.veil::after { content: 'SHOW'; font-family: var(--font-mono); font-size: var(--fs-xs); letter-spacing: .14em; color: var(--fg-muted); background: var(--bg-panel); border: 1px solid var(--wire-mid); padding: 2px var(--sp-2); }
 .face.front.veil:hover::after { color: var(--invert-fg); background: var(--invert-bg); border-color: var(--invert-bg); }
 
 /* The filmstrip: equal heights, widths follow the ratio; extremes are cropped with a hatch mark. */

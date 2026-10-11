@@ -1,4 +1,5 @@
 import { mount } from '@vue/test-utils'
+import { createPinia } from 'pinia'
 import { afterEach, describe, expect, it } from 'vitest'
 import { nextTick } from 'vue'
 import { apiClientKey } from '@/lib/api/client'
@@ -42,7 +43,7 @@ function mountCard(summary: WorkSummary) {
   })
   return mount(WorkCard, {
     props: { work: summary, selected: false, playing: false },
-    global: { provide: { [apiClientKey as symbol]: api } },
+    global: { plugins: [createPinia()], provide: { [apiClientKey as symbol]: api } },
   })
 }
 

@@ -125,11 +125,6 @@ onBeforeUnmount(() => {
         <span class="lbl">{{ rj ?? '—' }}</span>
         <span class="h-title" :lang="work?.relation?.language === 'CHI_HANS' ? 'zh-Hans' : work?.relation?.language === 'CHI_HANT' ? 'zh-Hant' : 'ja'">{{ work?.title ?? '' }}</span>
       </div>
-      <div class="header-meta">
-        <button v-if="work?.nsfw === true" class="btn btn-s" type="button" :aria-pressed="store.veil"
-          title="观看者选项：R18 作品的插画先以排线遮盖，点击后显示"
-          @click="store.toggleVeil()">R18<span class="veil-state">{{ store.veil ? ' VEIL ON' : ' VEIL OFF' }}</span></button>
-      </div>
     </header>
 
     <main class="main">
@@ -176,7 +171,7 @@ onBeforeUnmount(() => {
 @media (max-width: 768px) {
   .header { padding: 0 var(--sp-4); }
   .header::after { left: var(--sp-4); right: var(--sp-4); }
-  .h-title, .veil-state { display: none !important; }
+  .h-title { display: none !important; }
   [data-dock='bottom'] .main, [data-dock='right'] .main { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
   [data-dock='bottom'] .stage, [data-dock='bottom'] .stage.read,
   [data-dock='right'] .stage, [data-dock='right'] .stage.read {

@@ -103,6 +103,7 @@ const AGE_PARAM: Record<string, ListWorksParams['age_category']> = { safe: 1, r1
 // Every order runs newest / highest first; unknown dates and unrated works
 // trail in either direction.
 const SORT_OPTIONS: RailOption[] = [
+  { value: 'rj', label: '作品编号' },
   { value: 'release_date', label: '发售时间' },
   { value: 'collected_at', label: '添加时间' },
   { value: 'rating', label: '个人评分' },
@@ -360,6 +361,9 @@ onBeforeUnmount(() => {
         <LibrarySwitcher />
       </div>
       <div class="header-meta">
+        <button class="btn btn-s" type="button" :aria-pressed="libraryUi.veil"
+          title="观看者选项：R18 作品的封面与插画先以排线遮盖"
+          @click="libraryUi.toggleVeil()">R18<span class="veil-state">{{ libraryUi.veil ? ' VEIL ON' : ' VEIL OFF' }}</span></button>
         <span class="lbl count">WORKS<b>{{ total }}</b></span>
       </div>
     </header>
@@ -459,6 +463,6 @@ onBeforeUnmount(() => {
   .header, .rail { padding: 0 var(--sp-4); }
   .header::after, .rail::after { left: var(--sp-4); right: var(--sp-4); }
   .find { display: none; }
-  .header-meta .count { display: none; }
+  .header-meta .count, .veil-state { display: none; }
 }
 </style>

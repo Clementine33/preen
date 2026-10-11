@@ -7,6 +7,7 @@ import { apiClientKey } from '@/lib/api/client'
 import { apiStub } from '@/test/api-stub'
 import { installTestQueryPlugin } from '@/test/query-client'
 import { makeWorkDetail } from '@/test/work-fixture'
+import { useLibraryUiStore } from '@/stores/library-ui'
 import { useWorkDetailStore } from '@/stores/work-detail'
 
 /**
@@ -92,12 +93,11 @@ describe('WorkDeck', () => {
     expect(store.flipped).toBe(false)
   })
 
-  it('hatches non-cover sets behind the R18 veil and reveals for the visit', async () => {
+  it('hatches every set, cover included, behind the R18 veil and reveals for the visit', async () => {
     const { wrapper, store } = await mountDeck()
-    store.toggleVeil()
+    useLibraryUiStore().toggleVeil()
     await flushPromises()
-    // The cover set stays visible (v3 exempts it).
-    expect(wrapper.get('.face.front').classes()).not.toContain('veil')
+    expect(wrapper.get('.face.front').classes()).toContain('veil')
     store.showSet(1)
     await flushPromises()
     const front = wrapper.get('.face.front')
@@ -114,7 +114,7 @@ describe('WorkDeck', () => {
     setActivePinia(pinia)
     const store = useWorkDetailStore()
     store.bind(RJ, sampleWorkContent(RJ))
-    store.toggleVeil()
+    useLibraryUiStore().toggleVeil()
     store.showSet(1)
     const api = apiStub({ getWork: vi.fn().mockResolvedValue(makeWorkDetail({ nsfw: false })) } as never)
     const wrapper = mount(WorkDeck, {

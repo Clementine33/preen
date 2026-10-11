@@ -23,7 +23,7 @@ const ALLOWED_VALUES: Record<string, readonly string[]> = {
   age: ['safe', 'r15', 'r18'],
   language: ['CHI_HANS', 'CHI_HANT', 'JPN', 'NM'],
   mode: ['all', 'any'],
-  sort: ['release_date', 'collected_at', 'rating'],
+  sort: ['rj', 'release_date', 'collected_at', 'rating'],
   size: ['36', '60', '120', '180'],
 }
 

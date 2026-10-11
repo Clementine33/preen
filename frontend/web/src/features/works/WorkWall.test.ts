@@ -1,4 +1,5 @@
 import { flushPromises, mount } from '@vue/test-utils'
+import { createPinia } from 'pinia'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 import type { WorkSummary } from '@/lib/api/types'
@@ -60,6 +61,7 @@ async function scaffold(
   vi.stubGlobal('ResizeObserver', StubResizeObserver)
   const wrapper = mount(WorkWall, {
     ...(options.attach ? { attachTo: document.body.appendChild(document.createElement('div')) } : {}),
+    global: { plugins: [createPinia()] },
     props: {
       works: options.works ?? WORKS,
       selectedRj: options.selectedRj ?? null,

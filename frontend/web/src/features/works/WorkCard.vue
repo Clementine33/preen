@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { WorkSummary } from '@/lib/api/types'
+import { useLibraryUiStore } from '@/stores/library-ui'
 import { useCoverSrc } from './use-cover-src'
 
 // One cell of the wall: a 4:3 cover — hatched when the catalog
@@ -13,11 +14,17 @@ const props = defineProps<{
   playing: boolean
 }>()
 
-const { src: cover, failed } = useCoverSrc(() => ({
+const libraryUi = useLibraryUiStore()
+const { src: realCover, failed } = useCoverSrc(() => ({
   rj: props.work.rj,
   local: props.work.local_cover,
   remote: props.work.thumbnail_url ?? null,
 }))
+
+/** An R18 work's cover stays hatched while the veil is on. */
+const cover = computed(() => (veiled.value ? null : realCover.value))
+
+const veiled = computed(() => libraryUi.veil && props.work.nsfw === true)
 
 /** `YYYY.MM` from the catalog's `YYYY-MM-DD`, or the empty-state dash. */
 const release = computed(() =>
@@ -30,7 +37,7 @@ const release = computed(() =>
     :tabindex="selected ? 0 : -1" :data-rj="work.rj">
     <!-- Lazy and fill-and-crop: an off-screen cover costs nothing until it nears
          the viewport, and every cover fills its 4:3 frame the same way. -->
-    <div class="cover" :class="cover ? '' : 'hatch'">
+    <div class="cover" :class="[cover ? '' : 'hatch', { veiled }]">
       <img v-if="cover" :src="cover" alt="" loading="lazy" decoding="async" @error="failed(cover)" />
     </div>
     <span v-if="playing" class="playing-tag">▶ NOW</span>
@@ -63,6 +70,7 @@ const release = computed(() =>
   content: ''; position: absolute; inset: 0; pointer-events: none;
   box-shadow: inherit;
 }
+.cover.veiled::before { content: none; }
 .cell:hover .cover { box-shadow: inset 0 0 0 1px var(--wire-strong); }
 .cell:not(.active):hover .cap { background: var(--bg-subtle); }
 .cell:focus-visible { outline: none; }

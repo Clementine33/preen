@@ -46,13 +46,13 @@ describe('work-detail store', () => {
     const store = useWorkDetailStore()
     store.scriptSeen = true
     store.pairs[2] = '本編/lyrics/02_本編 ―雨音と耳かき―.lrc'
-    store.veil = true
+    store.unveiled = true
 
     store.bind(OTHER, sampleWorkContent(OTHER))
     expect(store.rj).toBe(OTHER)
     expect(store.scriptSeen).toBe(false)
     expect(store.pairs).toEqual({})
-    expect(store.veil).toBe(false)
+    expect(store.unveiled).toBe(false)
 
     store.scriptSeen = true
     store.bind(OTHER, sampleWorkContent(OTHER))
@@ -225,16 +225,5 @@ describe('work-detail store', () => {
     store.openBayTab('files')
     expect(store.bayOpen).toBe(true)
     expect(store.tab).toBe('files')
-  })
-
-  it('resets the veil visit when the veil toggles', async () => {
-    await bind()
-    const store = useWorkDetailStore()
-    store.veil = true
-    store.unveiled = true
-    store.toggleVeil()
-    expect(store.veil).toBe(false)
-    store.toggleVeil()
-    expect(store.unveiled).toBe(false)
   })
 })

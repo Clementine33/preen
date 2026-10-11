@@ -122,7 +122,8 @@ describe('WorkBay', () => {
     expect(rows.map((row) => row.get('.bar').attributes('style'))).toEqual(['width: 160px;', 'width: 19px;', 'width: 0px;'])
     expect(wrapper.get('.bay-sum').text()).toContain('00:30')
     await rows[1].trigger('click')
-    expect(usePlayerStore().trackIndex).toBe(1)
+    // Track 0 is WAV only, so the MP3 queue is [1, 2]; the key still names row 1.
+    expect(usePlayerStore().trackKey).toBe(store.tracks[1].key)
     expect(usePlayerStore().format).toBe('MP3')
     expect(store.lrcFor(1)).toBe('1.vtt')
     expect(store.leaf).toBe('lrc')

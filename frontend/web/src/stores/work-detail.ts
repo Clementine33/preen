@@ -5,7 +5,7 @@ import {
   imageSets,
   lrcFilesOf,
   trackFormats,
-  trackQueue,
+  playQueue,
   type ImageSet,
   type Track,
 } from '@/features/work-detail/derive'
@@ -223,7 +223,6 @@ export const useWorkDetailStore = defineStore('work-detail', {
     startTrack(track: number, fmt?: string) {
       const entry = this.tracks[track]
       if (!entry) return
-      this.playFmt = fmt ?? (entry.files[this.fmt] ? this.fmt : entry.formats[0]) ?? null
       this.followTrack(track)
       if (this.rj === null) return
       const rj = this.rj
@@ -232,7 +231,9 @@ export const useWorkDetailStore = defineStore('work-detail', {
       const src = copy && resolve
         ? (file: WorkContentFile) => resolve({ rj, copyId: copy.copy_id, relPath: file.rel_path })
         : undefined
-      usePlayerStore().play(rj, trackQueue(this.tracks, this.playFmt ?? '', src), track)
+      const { queue, index, format } = playQueue(this.tracks, track, fmt ?? this.fmt, src)
+      this.playFmt = format
+      usePlayerStore().play(rj, queue, index)
     },
 
     /** The page is on a track the player moved to (it ended, or prev/next). */

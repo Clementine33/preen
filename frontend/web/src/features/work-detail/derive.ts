@@ -87,8 +87,12 @@ export function isScrollShape(width: number | null, height: number | null): bool
 /* ── Tracks ── */
 
 export interface Track {
+  /** Unique identity: variant + stem, so same-named files in sibling variants stay apart. */
+  key: string
   /** The extension-stripped basename every format of this track shares. */
   stem: string
+  /** The folder path with format markers removed ("SE有"); '' when the tracks sit at the root. */
+  variant: string
   /** The file per format; tracks remain listed when the browsed format is missing. */
   files: Partial<Record<string, WorkContentFile>>
   /** Every format this track exists in, in first-seen order. */
@@ -99,11 +103,32 @@ export interface Track {
 }
 
 const stemOf = (name: string): string => name.replace(/\.[^.]+$/, '')
+const dirOf = (relPath: string): string => relPath.slice(0, Math.max(relPath.lastIndexOf('/'), 0))
 
 /**
- * The one track list: audio files aggregate by extension-stripped basename,
- * in files-first natural depth-first order. A later format fills the existing
- * track without moving its first-seen position.
+ * A folder path with the work's own format markers removed from every segment
+ * ("wav_se_on" and "mp3_se_on" both become "se_on"), so the same variant of
+ * different formats meets while sibling variants stay apart.
+ */
+// ponytail: keyword heuristic; add to the noise list when a real work misses.
+function variantOf(dir: string, formats: readonly string[]): string {
+  const marker = formats.length > 0
+    ? new RegExp(`(?<![a-z])(${formats.map((f) => f.replace(/[^\w]/g, '\\$&')).join('|')})(?![a-z])`, 'gi')
+    : null
+  const noise = /\d+(\.\d+)?\s*(kbps|khz|bit)|版|形式|(?<![a-z])(ver|version|format)(?![a-z])/gi
+  return dir
+    .split('/')
+    .map((segment) => (marker ? segment.replace(marker, '') : segment).replace(noise, '').replace(/^[\s_\-.()[\]【】]+|[\s_\-.()[\]【】]+$/g, ''))
+    .filter(Boolean)
+    .join('/')
+}
+
+/**
+ * The one track list: audio files aggregate by variant (folder path minus
+ * format markers) and extension-stripped basename, in files-first natural
+ * depth-first order. A later format fills the existing track without moving
+ * its first-seen position. A file whose format slot is already taken keeps its
+ * raw folder as variant, so nothing is overwritten.
  */
 export function deriveTracks(tree: WorkContentDir): Track[] {
   const audio: WorkContentFile[] = []
@@ -114,24 +139,36 @@ export function deriveTracks(tree: WorkContentDir): Track[] {
   }
   const priority = (name: string) => /\.vtt$/i.test(name) ? 0 : 1
   lrcs.sort((a, b) => priority(a.name) - priority(b.name))
-  const byStem = new Map<string, { files: Partial<Record<string, WorkContentFile>>; formats: string[] }>()
+  const formats = [...new Set(audio.flatMap((f) => (f.format ? [f.format] : [])))]
+  const keyOf = (variant: string, stem: string) => (variant ? `${variant}/${stem}` : stem)
+  type Entry = { stem: string; variant: string; files: Partial<Record<string, WorkContentFile>>; formats: string[] }
+  const byKey = new Map<string, Entry>()
   for (const f of audio) {
     const stem = stemOf(f.name)
-    const entry = byStem.get(stem) ?? { files: {}, formats: [] }
+    let variant = variantOf(dirOf(f.rel_path), formats)
+    if (f.format && byKey.get(keyOf(variant, stem))?.files[f.format]) variant = dirOf(f.rel_path)
+    const key = keyOf(variant, stem)
+    const entry = byKey.get(key) ?? { stem, variant, files: {}, formats: [] }
     if (f.format) {
       entry.files[f.format] = f
       if (!entry.formats.includes(f.format)) entry.formats.push(f.format)
     }
-    byStem.set(stem, entry)
+    byKey.set(key, entry)
   }
-  return [...byStem]
-    .map(([stem, entry]) => ({
-      stem,
+  const lrcVariants = new Map(lrcs.map((lrc) => [lrc, variantOf(dirOf(lrc.rel_path), formats)]))
+  return [...byKey].map(([key, entry]) => {
+    const sameStem = lrcs.filter((lrc) => stemOf(lrc.name) === entry.stem)
+    const lrc = sameStem.find((l) => lrcVariants.get(l) === entry.variant) ?? sameStem[0]
+    return {
+      key,
+      stem: entry.stem,
+      variant: entry.variant,
       files: entry.files,
       formats: entry.formats,
-      lrcRel: lrcs.find((lrc) => stemOf(lrc.name) === stem)?.rel_path ?? null,
+      lrcRel: lrc?.rel_path ?? null,
       duration: Object.values(entry.files).find((f) => f?.duration_sec != null)?.duration_sec ?? null,
-    }))
+    }
+  })
 }
 
 /** The copy a work plays and reads from: the first online one, else the first. */
@@ -141,18 +178,32 @@ export function playableCopy(content: WorkContent | null): WorkContentCopy | nul
 }
 
 /**
- * The player's queue over a track list: each track in `fmt`, or in its first
- * format when it lacks that one (v3's onlyIn). Without an address resolver
- * every entry plays silently.
+ * The player's queue for starting at `tracks[start]`: one codec, one variant.
+ * The codec is `fmt` when the start track has it, else the start track's first
+ * format; the queue holds the tracks of the start track's variant that exist in
+ * that codec, so continuous playback never changes codec or replays the same
+ * track from a sibling variant. `index` is the start track's place in it.
+ * Without an address resolver every entry plays silently.
  */
-export function trackQueue(tracks: Track[], fmt: string, src?: (file: WorkContentFile) => string): QueueItem[] {
-  return tracks.map((track) => {
-    const file = track.files[fmt] ?? track.files[track.formats[0]]
+export function playQueue(
+  tracks: readonly Track[],
+  start: number,
+  fmt: string,
+  src?: (file: WorkContentFile) => string,
+): { queue: QueueItem[]; index: number; format: string | null } {
+  const first = tracks[start]
+  if (!first) return { queue: [], index: 0, format: null }
+  const format = first.files[fmt] ? fmt : (first.formats[0] ?? null)
+  const members = tracks.filter((t) => t.variant === first.variant && (format === null || t.files[format]))
+  const queue = members.map((track) => {
+    const file = format === null ? undefined : track.files[format]
     return {
+      key: track.key,
       title: track.stem,
       source: file && src ? { src: src(file), durationSec: file.duration_sec, format: file.format } : undefined,
     }
   })
+  return { queue, index: Math.max(members.indexOf(first), 0), format }
 }
 
 /** Every timed-lyrics file in the same files-first natural depth-first order as audio. */

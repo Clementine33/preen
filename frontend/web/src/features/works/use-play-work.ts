@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/vue-query'
-import { deriveTracks, playableCopy, trackQueue } from '@/features/work-detail/derive'
+import { deriveTracks, playableCopy, playQueue } from '@/features/work-detail/derive'
 import { useApiClient } from '@/lib/api/client'
 import type { WorkContent } from '@/lib/api/types'
 import { queryKeys } from '@/queries/query-keys'
@@ -20,13 +20,14 @@ export function usePlayWork() {
   const player = usePlayerStore()
 
   /** Synchronous, for a click with the manifest in hand: play() stays user-initiated. */
-  function playFrom(work: PlayableWork, content: WorkContent | null, index = 0): void {
+  function playFrom(work: PlayableWork, content: WorkContent | null, index = 0, format = ''): void {
     const copy = playableCopy(content)
-    const queue = copy?.tree
-      ? trackQueue(deriveTracks(copy.tree), '', (file) =>
-          api.workFileUrl({ rj: work.rj, copyId: copy.copy_id, relPath: file.rel_path }))
-      : []
-    if (queue.length > 0) player.play(work.rj, queue, index)
+    const tracks = copy?.tree ? deriveTracks(copy.tree) : []
+    // A codec that the requested start track lacks starts at the first track that has it.
+    const at = format && !tracks[index]?.files[format] ? Math.max(tracks.findIndex((t) => t.files[format]), 0) : index
+    const { queue, index: start } = playQueue(tracks, at, format, (file) =>
+      api.workFileUrl({ rj: work.rj, copyId: copy!.copy_id, relPath: file.rel_path }))
+    if (queue.length > 0) player.play(work.rj, queue, start)
     else player.play(work.rj, [{ title: work.title }])
   }
 
@@ -34,13 +35,13 @@ export function usePlayWork() {
    * The work's first track, the manifest fetched if the inspector has not
    * already. The one await stays well inside the click's user activation.
    */
-  async function playWork(work: PlayableWork): Promise<void> {
+  async function playWork(work: PlayableWork, format = ''): Promise<void> {
     const content = await client.ensureQueryData({
       queryKey: queryKeys.works.content(work.rj),
       queryFn: ({ signal }) => api.getWorkContent(work.rj, signal),
     }).catch(() => undefined)
     // An unreadable manifest plays nothing: the silent clock would pretend audio exists.
-    if (content !== undefined) playFrom(work, content)
+    if (content !== undefined) playFrom(work, content, 0, format)
   }
 
   return { playFrom, playWork }

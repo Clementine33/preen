@@ -125,12 +125,15 @@ credential: the same auth and path checks apply to it as to any other route.
 member directory, and answers with the identity it resolved and the path that
 identity stands for, so a caller that only holds the identity learns both. The
 tree carries each node's `rel_path` (relative to the member root), which is what
-file management addresses:
+file management addresses. `rj` is the work number of the Copy bound to that
+directory, or `null` when the directory is unbound (the refresh route answers it
+the same way):
 
 ```json
 {
   "dir_id": "4b7fa32eebf5b001bcf43b1976c1b163",
   "member_path": "albumA",
+  "rj": null,
   "tree": {
     "name": "albumA", "path": "/home/me/music/albumA", "rel_path": "", "type": "dir",
     "children": [

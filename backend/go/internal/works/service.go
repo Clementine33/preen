@@ -165,3 +165,9 @@ func asInternal(err error) *Error {
 	}
 	return &Error{Kind: KindInternal, Code: "INTERNAL", Message: "the catalog could not complete the request"}
 }
+
+// WorkAt answers the work a library directory is bound to, if any. Binding is
+// maintained by scanning, so an unbound directory is an ordinary answer.
+func (s *Service) WorkAt(libraryID, relPath string) (WorkCode, bool, error) {
+	return s.store.WorkAt(libraryID, relPath)
+}

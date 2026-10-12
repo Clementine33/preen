@@ -48,6 +48,21 @@ func (r *Repository) WorkCopyRoots(id works.WorkCode) ([]works.CopyRoot, bool, e
 	return out, true, rows.Err()
 }
 
+// WorkAt reads the work bound to one library directory.
+func (r *Repository) WorkAt(libraryID, relPath string) (works.WorkCode, bool, error) {
+	var id string
+	err := r.db.QueryRow(
+		"SELECT work_id FROM work_copies WHERE library_id = ? AND rel_path = ?", libraryID, relPath,
+	).Scan(&id)
+	switch {
+	case errors.Is(err, sql.ErrNoRows):
+		return "", false, nil
+	case err != nil:
+		return "", false, err
+	}
+	return works.WorkCode(id), true, nil
+}
+
 // exampleDirLimit caps the sample of unclear directory names a scan reports.
 const exampleDirLimit = 20
 

@@ -72,7 +72,7 @@ const record: Workset = {
 }
 
 /** What the tree route answers: the tree, and the identity and path it resolved. */
-const memberTreeResponse = { tree: memberTree, dir_id: DIR_ID, member_path: 'albumA' }
+const memberTreeResponse = { tree: memberTree, dir_id: DIR_ID, member_path: 'albumA', rj: null }
 
 function routerFor(): Router {
   const router = createRouter({

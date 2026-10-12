@@ -71,7 +71,23 @@ type treeResponse struct {
 	Tree       *inventory.TreeNode `json:"tree"`
 	DirID      string              `json:"dir_id"`
 	MemberPath string              `json:"member_path"`
-	Refreshed  bool                `json:"refreshed,omitempty"`
+	// RJ is the work the member directory is bound to; null when unbound.
+	RJ        *string `json:"rj"`
+	Refreshed bool    `json:"refreshed,omitempty"`
+}
+
+// boundWork looks up the work a member is bound to. A failed lookup answers
+// unbound: the tree is the point of the response, the binding only decorates it.
+func (s *Server) boundWork(member *library.Member) *string {
+	if s.deps.Works == nil {
+		return nil
+	}
+	code, ok, err := s.deps.Works.WorkAt(member.Library.ID, member.RelPath)
+	if err != nil || !ok {
+		return nil
+	}
+	rj := string(code)
+	return &rj
 }
 
 // getMemberTree returns the stored tree of one member directory, addressed by
@@ -90,6 +106,7 @@ func (s *Server) getMemberTree(w http.ResponseWriter, r *http.Request) {
 		Tree:       tree,
 		DirID:      member.DirID,
 		MemberPath: member.RelPath,
+		RJ:         s.boundWork(member),
 	})
 }
 
@@ -133,6 +150,7 @@ func (s *Server) refreshMemberTree(w http.ResponseWriter, r *http.Request) {
 		Tree:       tree,
 		DirID:      member.DirID,
 		MemberPath: member.RelPath,
+		RJ:         s.boundWork(member),
 		Refreshed:  true,
 	})
 }

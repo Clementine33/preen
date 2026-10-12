@@ -6,6 +6,7 @@ import { AlertTriangle, FolderInput, Pencil, RefreshCw, Trash2 } from '@lucide/v
 import { Button } from '@/components/ui/button'
 import Modal from '@/components/ui/modal/Modal.vue'
 import MemberTree from '@/features/folders/MemberTree.vue'
+import MemberWorkCard from '@/features/folders/MemberWorkCard.vue'
 import PlanReviewTree from '@/features/folders/PlanReviewTree.vue'
 import { itemStatusText, refreshText, requestRefusalText } from '@/features/folders/file-ops'
 import { useApiClient } from '@/lib/api/client'
@@ -79,6 +80,8 @@ const treeQuery = useQuery(() =>
   memberTreeQueryOptions(api, libraryId.value, rootIdentity.value, dirId.value),
 )
 const tree = computed<TreeNode | null>(() => treeQuery.data.value?.tree ?? null)
+/** The work the directory is bound to; unbound directories have no card. */
+const workRj = computed(() => treeQuery.data.value?.rj ?? null)
 const treePending = computed(() => treeQuery.isPending.value)
 const treeError = computed(() => {
   const error = treeQuery.error.value
@@ -343,6 +346,8 @@ function submitDelete() {
       <AlertTriangle class="size-3.5 shrink-0" />
       <span>{{ treeErrorText }}</span>
     </p>
+
+    <MemberWorkCard v-if="workRj && !recordChanged" :rj="workRj" class="border-b border-border" />
 
     <!-- A member link that no longer resolves against the current record: the
          record was replaced by another page, and the only honest thing to

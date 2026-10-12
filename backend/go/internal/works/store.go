@@ -131,4 +131,7 @@ type Store interface {
 	// bool reports whether the work exists; a work with no copies is found
 	// with an empty list.
 	WorkCopyRoots(id WorkCode) ([]CopyRoot, bool, error)
+	// WorkAt reads the work a library directory is bound to by its copy. The
+	// bool reports whether the directory is bound at all.
+	WorkAt(libraryID, relPath string) (WorkCode, bool, error)
 }

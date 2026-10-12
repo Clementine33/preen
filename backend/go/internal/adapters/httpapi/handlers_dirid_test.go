@@ -14,6 +14,7 @@ import (
 	"github.com/onsei/organizer/backend/internal/adapters/sqlite"
 	"github.com/onsei/organizer/backend/internal/library"
 	"github.com/onsei/organizer/backend/internal/librarypath"
+	"github.com/onsei/organizer/backend/internal/works"
 )
 
 // serverOnDB builds a server over one database file. Opening the same file
@@ -316,5 +317,41 @@ func TestMemberIdentityMatchesTheOverviewListing(t *testing.T) {
 	if code, body := treeFor(t, engine, testToken, libID, member.DirID); code != http.StatusOK ||
 		body["member_path"] != "albumA" {
 		t.Fatalf("the identity the record handed out resolved to %v / %v", code, body)
+	}
+}
+
+// TestTreeAnswersTheWorkItsDirectoryIsBoundTo covers the binding the member
+// page decorates its tree with: a bound directory answers its work number, an
+// unbound one null.
+func TestTreeAnswersTheWorkItsDirectoryIsBoundTo(t *testing.T) {
+	engine, repo := serverOnDB(t, filepath.Join(t.TempDir(), "bound.db"))
+	t.Cleanup(func() { _ = repo.Close() })
+
+	libID, root := treeLibrary(t, engine, repo, "Music")
+	seedDir(t, repo, root, "RJ01000001 album")
+	seedDir(t, repo, root, "plain")
+	if _, err := repo.DB().Exec(
+		`INSERT INTO works(id, created_at, updated_at) VALUES('RJ01000001','now','now')`,
+	); err != nil {
+		t.Fatalf("insert work: %v", err)
+	}
+	if _, err := repo.DB().Exec(
+		`INSERT INTO work_copies(id, work_id, library_id, rel_path, created_at) VALUES('c1','RJ01000001',?,?, 'now')`,
+		libID, "RJ01000001 album",
+	); err != nil {
+		t.Fatalf("insert copy: %v", err)
+	}
+	handler := NewServer(Dependencies{
+		Library:     library.NewService(repo, nil, repo, filesystem.ResolveMember),
+		Works:       works.NewService(repo, nil, nil, nil, "test"),
+		CORSOrigins: []string{},
+		Version:     "dev",
+	})
+
+	if _, body := treeFor(t, handler, "", libID, dirIDFor(t, handler, libID, "RJ01000001 album")); body["rj"] != "RJ01000001" {
+		t.Fatalf("bound member rj = %v, want RJ01000001", body["rj"])
+	}
+	if _, body := treeFor(t, handler, "", libID, dirIDFor(t, handler, libID, "plain")); body["rj"] != nil {
+		t.Fatalf("unbound member rj = %v, want null", body["rj"])
 	}
 }

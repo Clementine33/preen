@@ -74,6 +74,8 @@ export interface MemberTreeResponse {
   /** The identity the route resolved, and the member path it names. */
   dir_id: string
   member_path: string
+  /** The work the directory is bound to; null when unbound. */
+  rj: string | null
   refreshed?: boolean
 }
 

@@ -37,6 +37,14 @@ exists only as a relation placeholder holds no personal data: writing it is
 are unique as exact text — case is not folded and source tags are a separate
 thing.
 
+The `favorite` flag is membership in the built-in
+[Favorites collection](collections.md#favorites), shared by user-data writes,
+work summaries, detail and the listing filter. Setting it appends the Work if
+absent without moving existing favorites; clearing it removes membership.
+Ratings and notes retain their existing behavior. Favorites and other collection
+memberships now block permanent Work deletion with `WORK_IN_USE`; `details[]`
+names each referencing collection. Removing a Copy or Library preserves membership.
+
 ## Work content manifest
 
 `GET /api/v1/works/{rj}/content` answers the work's files from the **stored

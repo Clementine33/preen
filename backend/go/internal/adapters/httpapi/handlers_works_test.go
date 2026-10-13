@@ -105,9 +105,13 @@ func TestWorksListFiltersAndPages(t *testing.T) {
 			}
 			if i == 0 {
 				if _, err := fixture.DB().Exec(
-					"INSERT INTO work_user_data (work_id, rating, favorite, note) VALUES (?, 9, 1, '')",
+					"INSERT INTO work_user_data (work_id, rating, note) VALUES (?, 9, '')",
 					spec.id,
 				); err != nil {
+					t.Fatal(err)
+				}
+				if _, err := fixture.DB().
+					Exec("INSERT INTO collection_works(collection_id,work_id,position) VALUES ('favorites',?,0)", spec.id); err != nil {
 					t.Fatal(err)
 				}
 			}

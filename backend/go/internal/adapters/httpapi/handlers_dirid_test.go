@@ -348,7 +348,13 @@ func TestTreeAnswersTheWorkItsDirectoryIsBoundTo(t *testing.T) {
 		Version:     "dev",
 	})
 
-	if _, body := treeFor(t, handler, "", libID, dirIDFor(t, handler, libID, "RJ01000001 album")); body["rj"] != "RJ01000001" {
+	if _, body := treeFor(
+		t,
+		handler,
+		"",
+		libID,
+		dirIDFor(t, handler, libID, "RJ01000001 album"),
+	); body["rj"] != "RJ01000001" {
 		t.Fatalf("bound member rj = %v, want RJ01000001", body["rj"])
 	}
 	if _, body := treeFor(t, handler, "", libID, dirIDFor(t, handler, libID, "plain")); body["rj"] != nil {

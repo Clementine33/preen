@@ -84,6 +84,14 @@ _Avoid_: Reading the derived relation as a source of truth about references.
 
 ### Collections and workbench
 
+**Work Collection**:
+A user-curated, ordered set of complete Works, independent of Libraries and physical Copies. A Work may belong to several collections; losing its Copies does not remove its membership.
+_Avoid_: A track playlist, a Workset, a Library, or the act of finding a Work on disk during a scan (`collected_at`).
+
+**Favorites**:
+The built-in Work Collection representing the user's favorite Works. Its membership is the favorite flag; it can be reordered but cannot be renamed or deleted.
+_Avoid_: A second favorite marker synchronized with collection membership.
+
 **Library**:
 A named media collection rooted at one directory, whose scanned inventory supplies the member directories and media facts. It owns the workbench: entering a library is entering its overview, its browsing, its conversion record and its file management. Its deletion removes its entry (and that entry's shared Workset) but never the media.
 

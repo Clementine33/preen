@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/onsei/organizer/backend/internal/collections"
 	"github.com/onsei/organizer/backend/internal/conversion"
 	"github.com/onsei/organizer/backend/internal/fileops"
 	"github.com/onsei/organizer/backend/internal/inventory"
@@ -43,7 +44,8 @@ type Dependencies struct {
 	FileOps *fileops.Service
 	// Works is the catalog entry: the ordinary listing, one work's detail, the
 	// source metadata imports and the single user's data about a work.
-	Works *works.Service
+	Works       *works.Service
+	Collections *collections.Service
 	// Thumbs renders and caches manifest image thumbnails (ADR 0013); a
 	// read-only path that takes no admission slot.
 	Thumbs *thumbnail.Service
@@ -91,6 +93,7 @@ func NewServer(deps Dependencies) http.Handler {
 	// metadata import, the single user's data and tags, and the protected
 	// permanent deletion. Copies are maintained by scanning, so there is no
 	// binding route here.
+	s.collectionRoutes(mux, protect)
 	mux.Handle("GET /api/v1/works", protect(http.HandlerFunc(s.listWorks)))
 	mux.Handle("GET /api/v1/works/{rj}/copies/{copyId}/cover", protect(http.HandlerFunc(s.getCopyCover)))
 	mux.Handle("GET /api/v1/works/{rj}", protect(http.HandlerFunc(s.getWork)))

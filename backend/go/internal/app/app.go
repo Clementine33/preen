@@ -28,6 +28,7 @@ import (
 	appconfig "github.com/onsei/organizer/backend/internal/adapters/settings"
 	"github.com/onsei/organizer/backend/internal/adapters/sqlite"
 	"github.com/onsei/organizer/backend/internal/admission"
+	"github.com/onsei/organizer/backend/internal/collections"
 	"github.com/onsei/organizer/backend/internal/conversion"
 	"github.com/onsei/organizer/backend/internal/fileops"
 	"github.com/onsei/organizer/backend/internal/inventory"
@@ -399,6 +400,7 @@ func runServer(ctx context.Context, repo *sqlite.Repository, cfg Config) {
 		WorksetService: services.workset,
 		FileOps:        services.fileOps,
 		Works:          services.works,
+		Collections:    collections.NewService(repo),
 		// A disposable cache (ADR 0013): one computation per CPU, a
 		// bounded queue behind them, about 512 MiB on disk.
 		Thumbs: thumbnail.New(

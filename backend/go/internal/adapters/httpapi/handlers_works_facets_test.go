@@ -34,8 +34,8 @@ func TestRatingOrderPutsUnratedWorksLast(t *testing.T) {
 			"INSERT INTO work_user_data (work_id, rating) VALUES ('RJ00000002', 3)",
 			"INSERT INTO work_user_data (work_id, rating) VALUES ('RJ00000004', 9)",
 			"INSERT INTO work_user_data (work_id, rating) VALUES ('RJ00000005', 9)",
-			// A favorite with no rating is a user-data row that is still unrated.
-			"INSERT INTO work_user_data (work_id, favorite) VALUES ('RJ00000003', 1)",
+			// A favorite without a rating remains unrated.
+			"INSERT INTO collection_works(collection_id,work_id,position) VALUES ('favorites','RJ00000003',0)",
 		)
 	})
 

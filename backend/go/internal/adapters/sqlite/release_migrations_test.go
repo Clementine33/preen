@@ -238,7 +238,7 @@ func TestFailedInitialMigrationCanBeRetried(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer repo.Close()
-	if version := migrationVersion(t, repo.DB()); version != 5 {
+	if version := migrationVersion(t, repo.DB()); version != 6 {
 		t.Fatalf("initial retry version = %d", version)
 	}
 }

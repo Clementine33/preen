@@ -1,6 +1,7 @@
 package sqlite
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"strings"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/onsei/organizer/backend/internal/collections"
 	"github.com/onsei/organizer/backend/internal/works"
 )
 
@@ -22,7 +24,7 @@ var _ works.Store = (*Repository)(nil)
 // copies stays one row. Legacy rows fall back to their resolved relation language.
 var listProjection = `
 	SELECT w.id, w.title, w.thumbnail_url, c.name, COALESCE(w.language, t.language), w.nsfw, w.age_category, w.release_date,
-	       s.dl_count, u.rating, COALESCE(u.favorite, 0),
+	       s.dl_count, u.rating, EXISTS (SELECT 1 FROM collection_works f WHERE f.collection_id = 'favorites' AND f.work_id = w.id),
 	       CASE WHEN COALESCE(u.note, '') <> '' THEN 1 ELSE 0 END,
 	       w.collected_at,
 	       (SELECT COUNT(*) FROM work_copies wc WHERE wc.work_id = w.id)` + listFrom
@@ -99,7 +101,14 @@ func (r *Repository) ListWorks(filter works.Filter) (works.Page, error) {
 	if err != nil {
 		return works.Page{}, err
 	}
+	page.Works, err = r.readWorkSummaries(rows)
+	return page, err
+}
+
+// readWorkSummaries shares the catalog projection with collection detail pages.
+func (r *Repository) readWorkSummaries(rows *sql.Rows) ([]works.WorkSummary, error) {
 	defer rows.Close()
+	summaries := []works.WorkSummary{}
 
 	for rows.Next() {
 		var (
@@ -123,7 +132,7 @@ func (r *Repository) ListWorks(filter works.Filter) (works.Page, error) {
 			&id, &title, &thumbnail, &circleName, &language, &nsfw, &ageCategory, &releaseDate,
 			&dlCount, &rating, &favorite, &hasNote, &collectedAt, &copyCount,
 		); scanErr != nil {
-			return works.Page{}, scanErr
+			return nil, scanErr
 		}
 		summary.ID = works.WorkCode(id)
 		summary.Title = nullString(title)
@@ -139,15 +148,15 @@ func (r *Repository) ListWorks(filter works.Filter) (works.Page, error) {
 		summary.HasNote = hasNote == 1
 		summary.CollectedAt = collectedAt.String
 		summary.CopyCount = copyCount
-		page.Works = append(page.Works, summary)
+		summaries = append(summaries, summary)
 	}
 	if err := rows.Err(); err != nil {
-		return works.Page{}, err
+		return nil, err
 	}
-	if err := r.attachUserTags(page.Works); err != nil {
-		return works.Page{}, err
+	if err := r.attachUserTags(summaries); err != nil {
+		return nil, err
 	}
-	return page, nil
+	return summaries, nil
 }
 
 // orderClause renders the ordering. The expression is chosen here from a
@@ -263,7 +272,10 @@ func (b *listQueryBuilder) applyFilters(filter works.Filter) {
 	}
 
 	if filter.Favorite != nil {
-		b.add("COALESCE(u.favorite, 0) = ?", boolToInt(*filter.Favorite))
+		b.add(
+			"EXISTS (SELECT 1 FROM collection_works f WHERE f.collection_id = 'favorites' AND f.work_id = w.id) = ?",
+			boolToInt(*filter.Favorite),
+		)
 	}
 	b.addCopyFilter(filter)
 }
@@ -434,7 +446,7 @@ func (r *Repository) GetWork(id works.WorkCode) (*works.WorkDetail, bool, error)
 	err := r.db.QueryRow(`
 		SELECT w.title, w.thumbnail_url, c.name, w.nsfw, w.age_category, w.release_date, w.source_url,
 		       w.cover_url, w.sample_cover_url, w.series_id, w.series_name,
-		       w.collected_at, s.dl_count, u.rating, u.favorite, u.note, COALESCE(w.language, t.language),
+		       w.collected_at, s.dl_count, u.rating, EXISTS (SELECT 1 FROM collection_works f WHERE f.collection_id = 'favorites' AND f.work_id = w.id), u.note, COALESCE(w.language, t.language),
 		       (SELECT COUNT(*) FROM work_copies wc WHERE wc.work_id = w.id)
 		FROM works w
 		LEFT JOIN circles c ON c.id = w.circle_id
@@ -675,10 +687,10 @@ func (r *Repository) PatchUserData(
 		)
 	}
 
-	if _, err := tx.Exec(
+	if _, insertErr := tx.Exec(
 		"INSERT OR IGNORE INTO work_user_data (work_id, updated_at) VALUES (?, '')", string(id),
-	); err != nil {
-		return works.UserData{}, err
+	); insertErr != nil {
+		return works.UserData{}, insertErr
 	}
 
 	sets := []string{"updated_at = ?"}
@@ -692,8 +704,14 @@ func (r *Repository) PatchUserData(
 		}
 	}
 	if patch.Favorite.Set {
-		sets = append(sets, "favorite = ?")
-		args = append(args, boolToInt(patch.Favorite.Value))
+		if patch.Favorite.Value {
+			_, err = appendCollectionWorks(context.Background(), tx, collections.FavoritesID, []works.WorkCode{id}, now)
+		} else {
+			err = removeCollectionWork(context.Background(), tx, collections.FavoritesID, id, now)
+		}
+		if err != nil {
+			return works.UserData{}, err
+		}
 	}
 	if patch.Note.Set {
 		sets = append(sets, "note = ?")
@@ -712,12 +730,17 @@ func (r *Repository) PatchUserData(
 		note     string
 	)
 	if err := tx.QueryRow(
-		"SELECT rating, favorite, note FROM work_user_data WHERE work_id = ?", string(id),
+		`SELECT rating, EXISTS (SELECT 1 FROM collection_works f
+		 WHERE f.collection_id = 'favorites' AND f.work_id = work_user_data.work_id), note
+		 FROM work_user_data WHERE work_id = ?`, string(id),
 	).Scan(&rating, &favorite, &note); err != nil {
 		return works.UserData{}, err
 	}
 	if err := tx.Commit(); err != nil {
 		return works.UserData{}, err
+	}
+	if patch.Favorite.Set {
+		r.catalogChanged()
 	}
 	return works.UserData{Rating: nullInt(rating), Favorite: favorite == 1, Note: note}, nil
 }
@@ -910,7 +933,7 @@ func (r *Repository) DeleteWork(id works.WorkCode) *works.Error {
 }
 
 // collectBlockers lists why a work may not be deleted: a copy on disk, or
-// another work's evidence pointing at it.
+// another work's evidence pointing at it, or a curated collection membership.
 func collectBlockers(tx *sql.Tx, id works.WorkCode) ([]string, error) {
 	blockers := []string{}
 
@@ -934,12 +957,16 @@ func collectBlockers(tx *sql.Tx, id works.WorkCode) ([]string, error) {
 	defer rows.Close()
 	for rows.Next() {
 		var other string
-		if err := rows.Scan(&other); err != nil {
-			return nil, err
+		if scanErr := rows.Scan(&other); scanErr != nil {
+			return nil, scanErr
 		}
 		blockers = append(blockers, "another work points at this one: "+other)
 	}
-	return blockers, rows.Err()
+	if rowsErr := rows.Err(); rowsErr != nil {
+		return nil, rowsErr
+	}
+	collectionRefs, err := collectionBlockers(tx, id)
+	return append(blockers, collectionRefs...), err
 }
 
 // ==================== shared row helpers ====================

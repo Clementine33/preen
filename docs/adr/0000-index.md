@@ -14,7 +14,7 @@
 | [0006](0006-execution-sessions-and-component-results.md) | 执行会话、编码池、只读校验与安全发布 | Draft |
 | [0007](0007-business-packages-and-dependency-direction.md) | 业务分包与依赖方向 | Draft |
 | [0008](0008-deployment-wide-common-settings.md) | 部署级公共设置 | Draft |
-| [0009](0009-work-catalog.md) | 作品目录身份、库存扫描与 SQLite 合并 | Draft |
+| [0009](0009-work-catalog.md) | 作品目录身份、库存扫描、作品合集与 SQLite 合并 | Draft |
 | [0010](0010-defer-single-writer.md) | 暂不引入全局单写入口 | Draft |
 | [0011](0011-development-schema-and-release-migrations.md) | 开发 schema 与发布迁移双轨 | Draft |
 | [0012](0012-metadata-refresh-and-directory-rename-planning.md) | 元数据刷新、目录重命名与修复、封面投递 | Draft |

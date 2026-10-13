@@ -59,6 +59,11 @@ The work catalog adds: `INVALID_PAGE` / `MATCH_MODE_REQUIRED` / `INVALID_TAG_NAM
 `WORK_IN_USE` / `USER_TAG_EXISTS` / `WORK_IS_PLACEHOLDER` (409). A refusal may
 carry `details[]` naming the references that hold a work in place.
 
+Work collections add `COLLECTION_NOT_FOUND` (404), `BUILTIN_COLLECTION` and
+`COLLECTION_MEMBER_CONFLICT` (409). Append reuses `WORK_NOT_FOUND` (404) and
+`WORK_IS_PLACEHOLDER` (409), with offending canonical work numbers in `details[]`.
+Collection references, including Favorites, also block permanent Work deletion.
+
 ## Paths: the one rule
 
 **The frontend echoes paths verbatim; the backend normalizes them, and only

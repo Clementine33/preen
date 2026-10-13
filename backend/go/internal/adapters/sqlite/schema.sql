@@ -598,11 +598,10 @@ CREATE TABLE work_copies (
 CREATE INDEX idx_work_copies_work ON work_copies(work_id);
 
 -- The single user's data about a work. No row is inserted up front: a missing
--- row reads as unrated, not favorited, empty note.
+-- row reads as unrated with an empty note. Favorites is collection membership.
 CREATE TABLE work_user_data (
     work_id TEXT PRIMARY KEY REFERENCES works(id) ON DELETE CASCADE,
     rating INTEGER CHECK (rating IS NULL OR (typeof(rating) = 'integer' AND rating BETWEEN 1 AND 10)),
-    favorite INTEGER NOT NULL DEFAULT 0 CHECK (favorite IN (0, 1)),
     note TEXT NOT NULL DEFAULT '',
     updated_at TEXT NOT NULL DEFAULT ''
 ) STRICT;
@@ -665,3 +664,20 @@ CREATE TABLE cover_files (
 ) STRICT;
 
 CREATE INDEX idx_entries_work_roots ON entries(root_path, path) WHERE is_work_root = 1;
+
+CREATE TABLE collections (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+) STRICT;
+CREATE TABLE collection_works (
+    collection_id TEXT NOT NULL REFERENCES collections(id) ON DELETE CASCADE,
+    work_id TEXT NOT NULL REFERENCES works(id),
+    position INTEGER NOT NULL,
+    PRIMARY KEY (collection_id, work_id)
+) STRICT;
+CREATE INDEX idx_collection_works_order ON collection_works(collection_id, position, work_id);
+CREATE INDEX idx_collection_works_work ON collection_works(work_id);
+INSERT INTO collections(id,name,created_at,updated_at)
+VALUES ('favorites','Favorites','1970-01-01T00:00:00.000000000Z','1970-01-01T00:00:00.000000000Z');

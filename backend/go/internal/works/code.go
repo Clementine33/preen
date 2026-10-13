@@ -3,6 +3,8 @@
 // and its translations, and the single user's data about a work. The physical
 // copies of a work inside a media library bind to it from here; the file facts
 // themselves stay with package inventory.
+// Ordered collections belong to package collections; this catalog exposes
+// Favorites membership as personal data and protects referenced works on deletion.
 //
 // Storage arrives as a consumer-defined port (Store) implemented by the SQLite
 // adapter.

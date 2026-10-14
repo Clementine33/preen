@@ -15,9 +15,10 @@ func (s *Server) collectionService(w http.ResponseWriter) (*collections.Service,
 	return s.deps.Collections, true
 }
 
-func collectionWindow(r *http.Request) (collections.Window, *works.Error) {
+// collectionWindow reads the paging keys; details also accept `direction`.
+func collectionWindow(r *http.Request, withDirection bool) (collections.Window, *works.Error) {
 	for key := range r.URL.Query() {
-		if key != "limit" && key != "page" {
+		if key != "limit" && key != "page" && (!withDirection || key != "direction") {
 			return collections.Window{}, works.Invalid(works.CodeInvalidArgument, "unknown query parameter: "+key)
 		}
 	}
@@ -26,7 +27,8 @@ func collectionWindow(r *http.Request) (collections.Window, *works.Error) {
 		return collections.Window{}, invalid
 	}
 	page, invalid := parsePage(r)
-	return collections.Window{Limit: limit, Page: page}, invalid
+	direction := works.Direction(r.URL.Query().Get("direction"))
+	return collections.Window{Limit: limit, Page: page, Direction: direction}, invalid
 }
 
 func (s *Server) listCollections(w http.ResponseWriter, r *http.Request) {
@@ -34,7 +36,7 @@ func (s *Server) listCollections(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	window, invalid := collectionWindow(r)
+	window, invalid := collectionWindow(r, false)
 	if invalid != nil {
 		writeWorksError(w, invalid)
 		return
@@ -72,7 +74,7 @@ func (s *Server) getCollection(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	window, invalid := collectionWindow(r)
+	window, invalid := collectionWindow(r, true)
 	if invalid != nil {
 		writeWorksError(w, invalid)
 		return

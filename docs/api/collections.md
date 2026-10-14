@@ -18,7 +18,7 @@ six/eight-digit, case-insensitive normalization and return canonical eight-digit
 | --- | --- | --- |
 | GET | `/api/v1/collections` | 200 `{"collections":[…],"total":N}`: one page. |
 | POST | `/api/v1/collections` | Body `{"name":"Sleep"}`; 201 the new empty collection. |
-| GET | `/api/v1/collections/{id}` | 200 collection fields plus `works:[…]` and `total`: one page of work summaries in saved order. |
+| GET | `/api/v1/collections/{id}` | 200 collection fields plus `works:[…]` and `total`: one page of work summaries in saved order, or reversed with `direction=desc`. |
 | PATCH | `/api/v1/collections/{id}` | Body `{"name":"Rest"}`; 200 the renamed collection. |
 | DELETE | `/api/v1/collections/{id}` | 204; deletes only the collection and its membership. |
 | POST | `/api/v1/collections/{id}/works` | Body `{"rjs":["RJ00000002","RJ00000001"]}`; 200 `{"added":[…],"skipped":[…],"work_count":N}`. |
@@ -56,13 +56,18 @@ Membership is the sole source of the catalog's `favorite` flag:
 
 ## Paging
 
-Both GET routes accept only `limit` and `page`, following the catalog conventions:
+Both GET routes accept `limit` and `page`, following the catalog conventions; the detail
+route also accepts `direction` (below). Both reject any other key:
 absent or empty values use `limit=50`, `page=1`; nonempty limits must be integers
 1–200 and pages integers of at least 1. Invalid values return 400 / `INVALID_PAGE`;
 unknown query keys return 400 / `INVALID_ARGUMENT`.
 
 Lists order Favorites first, then user collections by creation timestamp and ID.
-Details follow saved member order. Past-end pages contain an empty array and the
+Details follow saved member order. `direction=desc` on a detail reverses that order, so
+the first page holds the most recently appended members (the end of saved order, which
+a move also changes); `asc` or absent keeps saved order. Any other value is 400 /
+`INVALID_ARGUMENT`, and the collection list refuses `direction` as an unknown key.
+`limit` and `page` window the reversed order. Past-end pages contain an empty array and the
 current total. The total and window are read together, but separate requests share
 no snapshot: an edit can move items across page boundaries. Clients re-read after edits.
 

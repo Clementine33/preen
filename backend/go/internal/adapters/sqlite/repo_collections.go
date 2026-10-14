@@ -66,10 +66,15 @@ func (r *Repository) GetCollection(
 	if err != nil {
 		return collections.Detail{}, err
 	}
+	order := ""
+	if window.Direction == works.Descending {
+		order = " DESC"
+	}
 	rows, err := tx.QueryContext(ctx, listProjection+`
 	 AND w.id IN (SELECT work_id FROM collection_works WHERE collection_id = ?
-	 ORDER BY position, work_id LIMIT ? OFFSET ?)
-	 ORDER BY (SELECT position FROM collection_works m WHERE m.collection_id = ? AND m.work_id = w.id), w.id`,
+	 ORDER BY position`+order+`, work_id`+order+` LIMIT ? OFFSET ?)
+	 ORDER BY (SELECT position FROM collection_works m WHERE m.collection_id = ? AND m.work_id = w.id)`+order+
+		`, w.id`+order,
 		id, window.Limit, window.Offset(), id)
 	if err != nil {
 		return collections.Detail{}, err

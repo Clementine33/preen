@@ -101,3 +101,23 @@ func TestCollectionsRejectInvalidBatchesAtomically(t *testing.T) {
 	)
 	collectionRequest(t, server, http.MethodDelete, "/api/v1/collections/missing/works/RJ00000001", nil, 404)
 }
+
+func TestCollectionDetailDirectionReversesSavedOrder(t *testing.T) {
+	server, repo := collectionServer(t)
+	seedCollectionWorks(t, repo, "RJ00000001", "RJ00000002", "RJ00000003")
+	path := newCollectionPath(t, server, "Newest")
+	collectionRequest(t, server, http.MethodPost, path+"/works",
+		map[string]any{"rjs": []string{"RJ00000002", "RJ00000003", "RJ00000001"}}, 200)
+	assertCollectionWorks(t, server, path+"?direction=asc", "RJ00000002", "RJ00000003", "RJ00000001")
+	assertCollectionWorks(t, server, path+"?direction=desc", "RJ00000001", "RJ00000003", "RJ00000002")
+	// The window applies after the reversal: the newest two, then the rest.
+	assertCollectionWorks(t, server, path+"?direction=desc&limit=2", "RJ00000001", "RJ00000003")
+	assertCollectionWorks(t, server, path+"?direction=desc&limit=2&page=2", "RJ00000002")
+
+	result := collectionRequest(t, server, http.MethodGet, path+"?direction=sideways", nil, 400)
+	if result["code"] != "INVALID_ARGUMENT" {
+		t.Fatalf("bad direction = %v", result)
+	}
+	// The collection list has no member order to reverse.
+	collectionRequest(t, server, http.MethodGet, "/api/v1/collections?direction=desc", nil, 400)
+}

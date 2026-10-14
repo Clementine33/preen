@@ -40,12 +40,20 @@ type AppendResult struct {
 	WorkCount int              `json:"work_count"`
 }
 
-// Window uses the catalog's numbered paging conventions.
-type Window struct{ Limit, Page int }
+// Window uses the catalog's numbered paging conventions. Direction orders a
+// collection's members and applies to details only: empty reads as ascending
+// saved order, and descending puts the most recently appended members first.
+type Window struct {
+	Limit, Page int
+	Direction   works.Direction
+}
 
 func (w Window) Validate() *works.Error {
 	if w.Limit < 1 || w.Limit > works.MaxLimit || w.Page < 1 {
 		return works.Invalid(works.CodeInvalidPage, "invalid collection page")
+	}
+	if w.Direction != "" && !w.Direction.Valid() {
+		return works.Invalid(works.CodeInvalidArgument, "direction must be asc or desc")
 	}
 	return nil
 }

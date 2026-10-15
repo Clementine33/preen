@@ -1,5 +1,6 @@
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { createMemoryHistory, createRouter } from 'vue-router'
 import { createPinia } from 'pinia'
 import { apiClientKey } from '@/lib/api/client'
 import { apiStub } from '@/test/api-stub'
@@ -164,7 +165,7 @@ async function mountTree(
   } as never)
   const wrapper = mount(PlanReviewTree, {
     props: { worksetId: 'ws-1', memberPath: overrides.memberPath ?? 'albumA' },
-    global: { plugins: [createPinia(), installTestQueryPlugin()], provide: { [apiClientKey as symbol]: api } },
+    global: { plugins: [createPinia(), installTestQueryPlugin(), createRouter({ history: createMemoryHistory(), routes: [{ path: '/', component: { template: '<div />' } }] })], provide: { [apiClientKey as symbol]: api } },
   })
   await flushPromises()
   return wrapper
@@ -276,7 +277,7 @@ describe('plan review tree', () => {
     } as never)
     const wrapper = mount(PlanReviewTree, {
       props: { worksetId: 'ws-1', memberPath: 'albumA' },
-      global: { plugins: [createPinia(), installTestQueryPlugin()], provide: { [apiClientKey as symbol]: api } },
+      global: { plugins: [createPinia(), installTestQueryPlugin(), createRouter({ history: createMemoryHistory(), routes: [{ path: '/', component: { template: '<div />' } }] })], provide: { [apiClientKey as symbol]: api } },
     })
     await flushPromises()
 

@@ -75,6 +75,12 @@ export function useOperationContext(
   const draft = computed(() => draftQuery.data.value ?? null)
   const revision = computed(() => revisionQuery.data.value ?? null)
 
+  // Register only active sessions discovered on this visited operation;
+  // observation then continues independently of this context's mount.
+  watch(() => [worksetId.value, operationView.value?.active_generation?.generation_id] as const, ([id, generationId]) => {
+    if (id && generationId) generation.attach(id, operation, generationId)
+  }, { immediate: true })
+
   // The session worth showing: the one currently running for this operation,
   // or the one that ran the revision in view (a revision executes at most
   // once, so its ref is final).

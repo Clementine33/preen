@@ -6,10 +6,12 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strconv"
 	"testing"
 
 	"github.com/onsei/organizer/backend/internal/adapters/sqlite"
+	"github.com/onsei/organizer/backend/internal/library"
 	"github.com/onsei/organizer/backend/internal/works"
 )
 
@@ -295,4 +297,81 @@ func TestUnknownReleaseDatesAlwaysSortLast(t *testing.T) {
 		doRequest(t, engine, http.MethodGet,
 			"/api/v1/works?sort=release_date&released_from=2000-01-01&released_to=2030-01-01", nil, nil),
 		"RJ00000001", "RJ00000002", "RJ00000003")
+}
+
+// TestWorkDetailAnswersTheEditionTreeAndCopyDirIDs: the detail resolves the
+// edition lines around a translation (held flags, placeholders as works) and
+// gives each copy the navigation id of its folder.
+func TestWorkDetailAnswersTheEditionTreeAndCopyDirIDs(t *testing.T) {
+	engine, repo := serverOnDB(t, filepath.Join(t.TempDir(), "tree.db"))
+	t.Cleanup(func() { _ = repo.Close() })
+	libID, root := treeLibrary(t, engine, repo, "Music")
+	handler := NewServer(Dependencies{
+		Library:     library.NewService(repo, nil, repo, filesystem.ResolveMember),
+		Works:       works.NewService(repo, nil, nil, nil, "test"),
+		CORSOrigins: []string{},
+		Version:     "dev",
+	})
+	for _, id := range []string{"RJ01287230", "RJ01289610", "RJ01289611"} {
+		seedHTTPWork(t, repo, id, id)
+	}
+	for _, q := range []string{
+		`INSERT INTO work_copies(id, work_id, library_id, rel_path, created_at) VALUES('c1','RJ01289611','` + libID + `','tr dir','now')`,
+		`INSERT INTO work_copies(id, work_id, library_id, rel_path, created_at) VALUES('c2','RJ01287230','` + libID + `','orig dir','now')`,
+		`INSERT INTO work_language_editions(work_id, version_root_rj, language, label, display_order) VALUES
+			('RJ01289611','RJ01289610','CHI_HANS','简中',5),('RJ01289611','RJ01291590','CHI_HANT','繁中',7),
+			('RJ01289611','RJ01299999','ENG','English',1)`,
+		`INSERT INTO work_translations(work_id, role, language, original_work_id, parent_work_id) VALUES
+			('RJ01289611','child','CHI_HANS','RJ01287230','RJ01289610')`,
+	} {
+		if _, err := repo.DB().Exec(q); err != nil {
+			t.Fatalf("seed: %v", err)
+		}
+	}
+
+	w := doRequest(t, handler, http.MethodGet, "/api/v1/works/RJ01289611", nil, nil)
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d (body=%s)", w.Code, w.Body.String())
+	}
+	var detail struct {
+		EditionTree []struct {
+			Language string `json:"language"`
+			Held     bool   `json:"held"`
+			Root     struct {
+				RJ     string `json:"rj"`
+				Role   string `json:"role"`
+				IsWork bool   `json:"is_work"`
+				Held   bool   `json:"held"`
+			} `json:"root"`
+			Translations []struct {
+				RJ   string `json:"rj"`
+				Held bool   `json:"held"`
+			} `json:"translations"`
+		} `json:"edition_tree"`
+		Copies []struct {
+			DirID string `json:"dir_id"`
+		} `json:"copies"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &detail); err != nil {
+		t.Fatal(err)
+	}
+	tree := detail.EditionTree
+	if len(tree) != 3 || tree[0].Language != "JPN" || tree[1].Language != "CHI_HANS" || tree[2].Language != "CHI_HANT" {
+		t.Fatalf("tree = %+v, want JPN, CHI_HANS, CHI_HANT", tree)
+	}
+	if !tree[0].Root.Held || tree[0].Root.Role != "original" {
+		t.Errorf("original = %+v", tree[0].Root)
+	}
+	if tree[1].Root.RJ != "RJ01289610" || !tree[1].Root.IsWork || tree[1].Root.Held || !tree[1].Held {
+		t.Errorf("edition page = %+v held=%v", tree[1].Root, tree[1].Held)
+	}
+	if len(tree[1].Translations) != 1 || tree[1].Translations[0].RJ != "RJ01289611" || !tree[1].Translations[0].Held {
+		t.Errorf("translations = %+v", tree[1].Translations)
+	}
+	if tree[2].Root.IsWork || tree[2].Held || len(tree[2].Translations) != 0 {
+		t.Errorf("unfetched page = %+v", tree[2])
+	}
+	if want := library.DirID(libID, root, "tr dir"); len(detail.Copies) != 1 || detail.Copies[0].DirID != want {
+		t.Errorf("copies = %+v, want dir_id %s", detail.Copies, want)
+	}
 }

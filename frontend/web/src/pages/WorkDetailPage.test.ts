@@ -28,6 +28,8 @@ function routerFor(): Router {
     routes: [
       { path: '/works', name: 'works', component: { template: '<div />' } },
       { path: '/works/:rj', name: 'work-detail', component: WorkDetailPage },
+      { path: '/worksets/:libraryId', name: 'workbench-overview', component: { template: '<div />' } },
+      { path: '/worksets/:libraryId/f/:dirId', name: 'overview-files', component: { template: '<div />' } },
     ],
   })
 }
@@ -196,6 +198,7 @@ describe('work detail page', () => {
         { path: '/works', name: 'works', component: { template: '<div />' } },
         { path: '/collections/:id', name: 'collection-detail', component: { template: '<div />' } },
         { path: '/works/:rj', name: 'work-detail', component: WorkDetailPage },
+        { path: '/worksets/:libraryId/f/:dirId', name: 'overview-files', component: { template: '<div />' } },
       ],
     })
     const api = apiStub({ getWork: vi.fn().mockResolvedValue(makeWorkDetail()), getWorkContent: vi.fn(async (rj: string) => sampleWorkContent(rj)) } as never)

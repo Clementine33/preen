@@ -7,9 +7,10 @@ import { apiClientKey } from '@/lib/api/client'
 import { apiStub } from '@/test/api-stub'
 import { installTestQueryPlugin } from '@/test/query-client'
 import { makeWorkDetail } from '@/test/work-fixture'
+import { workDetailTestRouter } from '@/test/work-router'
 import { useWorkDetailStore } from '@/stores/work-detail'
 import { useToast } from '@/composables/use-toast'
-import type { WorkCollection } from '@/lib/api/types'
+import type { WorkCollection, WorkEditionSlot } from '@/lib/api/types'
 
 /**
  * The personal rows write straight through: a rating click
@@ -19,14 +20,15 @@ import type { WorkCollection } from '@/lib/api/types'
 
 const RJ = 'RJ01000001'
 
-async function mountColophon(overrides: Record<string, ReturnType<typeof vi.fn>> = {}) {
+async function mountColophon(overrides: Record<string, ReturnType<typeof vi.fn>> = {}, compact = false) {
   const pinia = createPinia()
   setActivePinia(pinia)
   const store = useWorkDetailStore()
   store.bind(RJ, sampleWorkContent(RJ))
   const api = apiStub({ getWork: vi.fn().mockResolvedValue(makeWorkDetail()), ...overrides } as never)
   const wrapper = mount(WorkColophon, {
-    global: { plugins: [pinia, installTestQueryPlugin()], provide: { [apiClientKey as symbol]: api } },
+    props: { compact },
+    global: { plugins: [pinia, await workDetailTestRouter(), installTestQueryPlugin()], provide: { [apiClientKey as symbol]: api } },
   })
   await flushPromises()
   return { wrapper, api }
@@ -37,12 +39,67 @@ beforeEach(() => {
 })
 
 describe('WorkColophon', () => {
-  it('shows the original and intermediate Chinese page rather than choosing one', async () => {
-    const { wrapper } = await mountColophon({ getWork: vi.fn().mockResolvedValue(makeWorkDetail({
-      rj: 'RJ01449056',
-      relation: { role: 'child', language: 'CHI_HANS', original_rj: 'RJ01407907', parent_rj: 'RJ01449055' },
+  const node = (rj: string, role: WorkEditionSlot['root']['role'], is_work = true, held = false) => ({ rj, role, is_work, held })
+  const TREE: WorkEditionSlot[] = [
+    { language: 'JPN', label: null, held: true, root: node('RJ01287230', 'original', true, true), translations: [] },
+    {
+      language: 'CHI_HANS', label: '简中', held: true, root: node('RJ01289610', 'edition_page'),
+      translations: [node('RJ01289611', 'translation', true, true), node('RJ01289700', 'translation')],
+    },
+    { language: 'CHI_HANT', label: '繁中', held: false, root: node('RJ01291590', 'edition_page', false), translations: [] },
+  ]
+  const onTranslation = (compact = false) => mountColophon({ getWork: vi.fn().mockResolvedValue(makeWorkDetail({
+    rj: 'RJ01289611',
+    edition_tree: TREE,
+    relation: { role: 'child', language: 'CHI_HANS', original_rj: 'RJ01287230', parent_rj: 'RJ01289610' },
+  })) }, compact)
+
+  it('renders the edition tree, linking only the other held works', async () => {
+    const { wrapper } = await onTranslation()
+    const lines = wrapper.findAll('.ed-line').map((line) => line.text())
+    expect(lines).toEqual([
+      '日语原作 RJ01287230HELD',
+      '简中页面 RJ01289610→翻译 RJ01289611HELD·翻译 RJ01289700',
+      '繁中页面 RJ01291590',
+    ])
+    const hrefs = wrapper.findAll('.ed a').map((a) => a.attributes('href'))
+    // Only other held works link: not the page, the placeholder or the work itself.
+    expect(hrefs).toEqual(['/works/RJ01287230'])
+    expect(wrapper.text()).not.toContain('关系')
+  })
+
+  it('marks the page slot and the translation itself current on a translation page', async () => {
+    const { wrapper } = await onTranslation()
+    const current = wrapper.findAll('.ed-line').map((line) => line.attributes('aria-current'))
+    expect(current).toEqual([undefined, 'true', undefined])
+    expect(wrapper.findAll('.ed .tag[aria-current="true"]').map((el) => el.text())).toEqual(['翻译 RJ01289611HELD'])
+  })
+
+  it('marks the original’s slot on the original and an edition page’s own slot', async () => {
+    const original = await mountColophon({ getWork: vi.fn().mockResolvedValue(makeWorkDetail({
+      rj: 'RJ01287230', edition_tree: TREE, relation: { role: 'original', language: null, original_rj: null, parent_rj: null },
     })) })
-    expect(wrapper.text()).toContain('原作 RJ01407907 → 简中页面 RJ01449055 → 翻译作品 RJ01449056')
+    expect(original.wrapper.findAll('.ed-line').map((l) => l.attributes('aria-current'))).toEqual(['true', undefined, undefined])
+    const page = await mountColophon({ getWork: vi.fn().mockResolvedValue(makeWorkDetail({
+      rj: 'RJ01289610', edition_tree: TREE, relation: { role: 'parent', language: 'CHI_HANS', original_rj: 'RJ01287230', parent_rj: null },
+    })) })
+    expect(page.wrapper.findAll('.ed-line').map((l) => l.attributes('aria-current'))).toEqual([undefined, 'true', undefined])
+  })
+
+  it('keeps only the roots and this work’s own translation in compact mode', async () => {
+    const { wrapper } = await onTranslation(true)
+    expect(wrapper.findAll('.ed-line').map((line) => line.text())).toEqual([
+      '日语原作 RJ01287230HELD',
+      '简中页面 RJ01289610→翻译 RJ01289611HELD',
+      '繁中页面 RJ01291590',
+    ])
+  })
+
+  it('marks a slot held only through a translation in compact mode', async () => {
+    const { wrapper } = await mountColophon({ getWork: vi.fn().mockResolvedValue(makeWorkDetail({
+      rj: 'RJ01287230', edition_tree: TREE, relation: { role: 'original', language: null, original_rj: null, parent_rj: null },
+    })) }, true)
+    expect(wrapper.findAll('.ed-line').map((line) => line.text())[1]).toBe('简中页面 RJ01289610HELD')
   })
 
   it('renders the catalog rows the detail query answers', async () => {
@@ -56,8 +113,8 @@ describe('WorkColophon', () => {
   it('shows each copy’s library name and retains its offline state', async () => {
     const { wrapper } = await mountColophon({
       getWork: vi.fn().mockResolvedValue(makeWorkDetail({ copies: [
-        { copy_id: 'copy-a', library_id: 'lib-a', rel_path: 'works/RJ01000001' },
-        { copy_id: 'copy-b', library_id: 'lib-b', rel_path: 'backup/RJ01000001' },
+        { copy_id: 'copy-a', library_id: 'lib-a', rel_path: 'works/RJ01000001', dir_id: 'd1' },
+        { copy_id: 'copy-b', library_id: 'lib-b', rel_path: 'backup/RJ01000001', dir_id: 'd2' },
       ] })),
       listLibraries: vi.fn().mockResolvedValue([
         { id: 'lib-b', name: '备份库' },
@@ -65,7 +122,16 @@ describe('WorkColophon', () => {
       ]),
     })
     expect(wrapper.get('.copy').text()).toBe('音声库备份库·OFFLINE')
-    expect(wrapper.findAll('.lib-state.off')).toHaveLength(1)
+  })
+
+  it('links a copy to its folder, or to the library overview when it is offline', async () => {
+    const { wrapper } = await mountColophon({
+      getWork: vi.fn().mockResolvedValue(makeWorkDetail({ copies: [
+        { copy_id: 'copy-a', library_id: 'lib-a', rel_path: 'works/RJ01000001', dir_id: 'd1' },
+        { copy_id: 'copy-b', library_id: 'lib-b', rel_path: 'backup/RJ01000001', dir_id: 'd2' },
+      ] })),
+    })
+    expect(wrapper.findAll('.copy a').map((a) => a.attributes('href'))).toEqual(['/worksets/lib-a/f/d1', '/worksets/lib-b'])
   })
 
   it('PATCHes a rating click and clears it by clicking the set value', async () => {
@@ -130,7 +196,7 @@ describe('WorkColophon', () => {
     store.bind(RJ, sampleWorkContent(RJ))
     const api = apiStub({ getWork: vi.fn().mockResolvedValue(makeWorkDetail({ placeholder: true })) } as never)
     const wrapper = mount(WorkColophon, {
-      global: { plugins: [pinia, installTestQueryPlugin()], provide: { [apiClientKey as symbol]: api } },
+      global: { plugins: [pinia, await workDetailTestRouter(), installTestQueryPlugin()], provide: { [apiClientKey as symbol]: api } },
     })
     await flushPromises()
     expect(wrapper.get('.fav').attributes('disabled')).toBeDefined()
@@ -147,12 +213,6 @@ it.each([[1, '全年龄'], [2, 'R15'], [3, 'R18'], [null, null]] as const)('show
   else for (const age of ['全年龄', 'R15', 'R18']) expect(wrapper.text()).not.toContain(age)
 })
 
-it.each([['NM', '无语言限制'], ['CHI_HANS', '简中'], ['CHI_HANT', '繁中'], ['JPN', '日语'], ['ENG', 'ENG'], [null, null]])('shows declared work language %s', async (language, label) => {
-  const { wrapper } = await mountColophon({ getWork: vi.fn().mockResolvedValue(makeWorkDetail({ language })) })
-  const row = wrapper.findAll('.colo-row').find((row) => row.find('dt').text() === '语言')
-  if (label) expect(row?.text()).toContain(label)
-  else expect(row).toBeUndefined()
-})
 
 describe('add to collection', () => {
   const toast = useToast()

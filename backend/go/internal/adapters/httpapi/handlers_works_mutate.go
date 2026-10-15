@@ -3,6 +3,7 @@ package httpapi
 import (
 	"net/http"
 
+	"github.com/onsei/organizer/backend/internal/library"
 	"github.com/onsei/organizer/backend/internal/works"
 )
 
@@ -69,6 +70,48 @@ type copyResponse struct {
 	CopyID    string `json:"copy_id"`
 	LibraryID string `json:"library_id"`
 	RelPath   string `json:"rel_path"`
+	// DirID is the directory's navigation id (library.DirID), the folder
+	// page's address; "" when the library is no longer known.
+	DirID string `json:"dir_id"`
+}
+
+// treeNodeResponse is one work number in the edition tree.
+type treeNodeResponse struct {
+	RJ     string `json:"rj"`
+	Role   string `json:"role"`
+	IsWork bool   `json:"is_work"`
+	Held   bool   `json:"held"`
+}
+
+// editionSlotResponse is one language line of the edition tree.
+type editionSlotResponse struct {
+	Language     string             `json:"language"`
+	Label        *string            `json:"label"`
+	Held         bool               `json:"held"`
+	Root         treeNodeResponse   `json:"root"`
+	Translations []treeNodeResponse `json:"translations"`
+}
+
+func toTreeNode(node works.TreeNode) treeNodeResponse {
+	return treeNodeResponse{RJ: string(node.RJ), Role: node.Role, IsWork: node.IsWork, Held: node.Held}
+}
+
+func toEditionTree(slots []works.EditionSlot) []editionSlotResponse {
+	if slots == nil {
+		return nil
+	}
+	out := make([]editionSlotResponse, 0, len(slots))
+	for _, slot := range slots {
+		translations := make([]treeNodeResponse, 0, len(slot.Translations))
+		for _, node := range slot.Translations {
+			translations = append(translations, toTreeNode(node))
+		}
+		out = append(out, editionSlotResponse{
+			Language: slot.Language, Label: slot.Label, Held: slot.Held,
+			Root: toTreeNode(slot.Root), Translations: translations,
+		})
+	}
+	return out
 }
 
 // workDetailResponse is everything the detail endpoint answers with.
@@ -85,14 +128,18 @@ type workDetailResponse struct {
 	Note           string                 `json:"note"`
 	Editions       []editionResponse      `json:"language_editions"`
 	Relation       relationResponse       `json:"relation"`
-	Copies         []copyResponse         `json:"copies"`
-	CollectionIDs  []string               `json:"collection_ids"`
+	// EditionTree is the resolved JPN / CHI_HANS / CHI_HANT lines, null when
+	// the work has no edition besides itself.
+	EditionTree   []editionSlotResponse `json:"edition_tree"`
+	Copies        []copyResponse        `json:"copies"`
+	CollectionIDs []string              `json:"collection_ids"`
 	// Placeholder marks a work a relation named but no scan has found: it is
 	// reachable here and absent from the ordinary listing.
 	Placeholder bool `json:"placeholder"`
 }
 
-func toWorkDetail(detail *works.WorkDetail) workDetailResponse {
+// toWorkDetail renders the detail; dirID names the folder of one copy.
+func toWorkDetail(detail *works.WorkDetail, dirID func(works.Copy) string) workDetailResponse {
 	out := workDetailResponse{
 		workSummaryResponse: toWorkSummary(detail.WorkSummary),
 		SourceURL:           detail.SourceURL,
@@ -104,6 +151,7 @@ func toWorkDetail(detail *works.WorkDetail) workDetailResponse {
 		SourceTags:          toSourceEntityResponses(detail.SourceTags),
 		Note:                detail.Note,
 		Relation:            toRelationResponse(detail.Relation),
+		EditionTree:         toEditionTree(detail.EditionTree),
 		Copies:              make([]copyResponse, 0, len(detail.Copies)),
 		CollectionIDs:       append([]string{}, detail.CollectionIDs...),
 		Placeholder:         detail.Placeholder,
@@ -122,6 +170,7 @@ func toWorkDetail(detail *works.WorkDetail) workDetailResponse {
 			CopyID:    copy.ID,
 			LibraryID: copy.LibraryID,
 			RelPath:   copy.RelPath,
+			DirID:     dirID(copy),
 		})
 	}
 	return out
@@ -142,7 +191,20 @@ func (s *Server) getWork(w http.ResponseWriter, r *http.Request) {
 		writeWorksError(w, refusal)
 		return
 	}
-	out := toWorkDetail(detail)
+	roots := map[string]string{}
+	out := toWorkDetail(detail, func(c works.Copy) string {
+		root, seen := roots[c.LibraryID]
+		if !seen {
+			if lib, err := s.deps.Library.Get(c.LibraryID); err == nil {
+				root = lib.RootPath
+			}
+			roots[c.LibraryID] = root
+		}
+		if root == "" {
+			return ""
+		}
+		return library.DirID(c.LibraryID, root, c.RelPath)
+	})
 	s.attachLocalCovers(r, &out.workSummaryResponse)
 	writeJSON(w, http.StatusOK, out)
 }

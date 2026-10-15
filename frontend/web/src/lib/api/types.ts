@@ -269,6 +269,29 @@ export interface WorkCopy {
   copy_id: string
   library_id: string
   rel_path: string
+  /** Navigation id of the copy's folder (the folder page's `dirId`). */
+  dir_id: string
+}
+
+/** One work number in the edition tree. */
+export interface WorkEditionNode {
+  rj: string
+  role: 'original' | 'edition_page' | 'translation'
+  /** A works row exists (relation placeholders included). */
+  is_work: boolean
+  /** At least one copy in any library right now, online or not. */
+  held: boolean
+}
+
+/** One language line of the edition tree: JPN, CHI_HANS or CHI_HANT. */
+export interface WorkEditionSlot {
+  language: string
+  label: string | null
+  /** The root or any translation under it is held. */
+  held: boolean
+  root: WorkEditionNode
+  /** Every known translation of the page, ordered by rj; empty for JPN. */
+  translations: WorkEditionNode[]
 }
 
 /** The full work: metadata, personal data, resolved relation and copies. */
@@ -283,6 +306,8 @@ export interface WorkDetail extends WorkSummary {
   note: string
   /** Null when the work declares no editions. */
   language_editions: WorkEdition[] | null
+  /** Resolved JPN / CHI_HANS / CHI_HANT lines; null when nothing but this work. */
+  edition_tree: WorkEditionSlot[] | null
   relation: WorkRelation
   copies: WorkCopy[]
   /** User collections holding the work, in list order; Favorites is `favorite`. */

@@ -7,6 +7,7 @@ import { apiClientKey } from '@/lib/api/client'
 import { apiStub } from '@/test/api-stub'
 import { installTestQueryPlugin } from '@/test/query-client'
 import { makeWorkDetail } from '@/test/work-fixture'
+import { workDetailTestRouter } from '@/test/work-router'
 import { useLibraryUiStore } from '@/stores/library-ui'
 import { useWorkDetailStore } from '@/stores/work-detail'
 
@@ -26,7 +27,7 @@ async function mountDeck() {
   store.bind(RJ, sampleWorkContent(RJ))
   const api = apiStub({ getWork: vi.fn().mockResolvedValue(makeWorkDetail({ nsfw: true })) } as never)
   const wrapper = mount(WorkDeck, {
-    global: { plugins: [pinia, installTestQueryPlugin()], provide: { [apiClientKey as symbol]: api } },
+    global: { plugins: [pinia, await workDetailTestRouter(), installTestQueryPlugin()], provide: { [apiClientKey as symbol]: api } },
   })
   await flushPromises()
   return { wrapper, store }
@@ -118,7 +119,7 @@ describe('WorkDeck', () => {
     store.showSet(1)
     const api = apiStub({ getWork: vi.fn().mockResolvedValue(makeWorkDetail({ nsfw: false })) } as never)
     const wrapper = mount(WorkDeck, {
-      global: { plugins: [pinia, installTestQueryPlugin()], provide: { [apiClientKey as symbol]: api } },
+      global: { plugins: [pinia, await workDetailTestRouter(), installTestQueryPlugin()], provide: { [apiClientKey as symbol]: api } },
     })
     await flushPromises()
     expect(wrapper.get('.face.front').classes()).not.toContain('veil')
@@ -144,7 +145,7 @@ describe('WorkDeck', () => {
     store.bind(RJ, content)
     const api = apiStub({ getWork: vi.fn().mockResolvedValue(makeWorkDetail()) } as never)
     const wrapper = mount(WorkDeck, {
-      global: { plugins: [pinia, installTestQueryPlugin()], provide: { [apiClientKey as symbol]: api } },
+      global: { plugins: [pinia, await workDetailTestRouter(), installTestQueryPlugin()], provide: { [apiClientKey as symbol]: api } },
     })
     await flushPromises()
     store.step(1)
@@ -166,7 +167,7 @@ describe('WorkDeck', () => {
       workFileUrl: vi.fn((ref, version) => `/content/${ref.copyId}/${ref.relPath}?v=${version}`),
     })
     const wrapper = mount(WorkDeck, {
-      global: { plugins: [pinia, installTestQueryPlugin()], provide: { [apiClientKey as symbol]: api } },
+      global: { plugins: [pinia, await workDetailTestRouter(), installTestQueryPlugin()], provide: { [apiClientKey as symbol]: api } },
     })
     await flushPromises()
     const oldThumb = wrapper.get('.thumb').attributes('style')
@@ -207,7 +208,7 @@ describe('WorkDeck', () => {
     thumbs.mockImplementationOnce(() => new Promise<Blob>((resolve) => { finish = resolve }))
     const api = apiStub({ getWork: vi.fn().mockResolvedValue(makeWorkDetail()), getWorkThumb: thumbs })
     const wrapper = mount(WorkDeck, { global: {
-      plugins: [pinia, installTestQueryPlugin()], provide: { [apiClientKey as symbol]: api },
+      plugins: [pinia, await workDetailTestRouter(), installTestQueryPlugin()], provide: { [apiClientKey as symbol]: api },
     } })
     await flushPromises()
     // Resolve just before the reactive watcher runs for a new copy: the

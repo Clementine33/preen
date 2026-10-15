@@ -14,7 +14,7 @@ work, while `RJ1657200` (7 digits) is refused.
 | Method | Path | Contract |
 | --- | --- | --- |
 | GET | `/api/v1/works` | 200 `{"works":[…],"total":N}`: one numbered page and how many works the whole filter lists. Filters and paging below. |
-| GET | `/api/v1/works/{rj}` | 200 the work in full: metadata, personal data, resolved relation, language editions and every copy. A work declared by a relation but never found on disk answers `"placeholder":true` and is absent from the listing. |
+| GET | `/api/v1/works/{rj}` | 200 the work in full: metadata, personal data, resolved relation, language editions and every copy. A work declared by a relation but never found on disk answers `"placeholder":true` and is absent from the listing. `collection_ids` names the user collections holding the work (below). |
 | GET | `/api/v1/inventory/media-facts/events` | Bearer-authenticated SSE; `changed` with `{}` after a committed measurement batch, and once on connection. See below. |
 | GET | `/api/v1/works/{rj}/content` | 200 the work's file manifest (ADR 0013): every bound copy's tree, below. |
 | GET | `/api/v1/works/{rj}/content/{copyId}/{path...}` | 200 one manifest file's bytes (ADR 0013): `path` is the copy-root-relative manifest path. See below. |
@@ -44,6 +44,11 @@ absent without moving existing favorites; clearing it removes membership.
 Ratings and notes retain their existing behavior. Favorites and other collection
 memberships now block permanent Work deletion with `WORK_IN_USE`; `details[]`
 names each referencing collection. Removing a Copy or Library preserves membership.
+
+The detail route (not summaries) also answers `collection_ids`: the IDs of the
+[user collections](collections.md) holding the Work, in the collection list's order
+(creation timestamp, then ID), `[]` when none. Favorites is excluded; `favorite`
+states it. A relation placeholder answers `[]`.
 
 ## Work content manifest
 

@@ -506,7 +506,34 @@ func (r *Repository) GetWork(id works.WorkCode) (*works.WorkDetail, bool, error)
 	if detail.Relation, err = r.loadRelation(id); err != nil {
 		return nil, false, err
 	}
+	if detail.CollectionIDs, err = r.loadUserCollectionIDs(id); err != nil {
+		return nil, false, err
+	}
 	return detail, true, nil
+}
+
+// loadUserCollectionIDs lists the user collections holding a work in the
+// collection list's order (creation timestamp, then ID).
+func (r *Repository) loadUserCollectionIDs(id works.WorkCode) ([]string, error) {
+	rows, err := r.db.Query(`
+		SELECT c.id FROM collections c
+		JOIN collection_works m ON m.collection_id = c.id
+		WHERE m.work_id = ? AND c.id <> 'favorites'
+		ORDER BY c.created_at, c.id
+	`, string(id))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	ids := []string{}
+	for rows.Next() {
+		var cid string
+		if err := rows.Scan(&cid); err != nil {
+			return nil, err
+		}
+		ids = append(ids, cid)
+	}
+	return ids, rows.Err()
 }
 
 // loadEntities reads one many-to-many side of a work in display order.

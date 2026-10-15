@@ -86,6 +86,7 @@ type workDetailResponse struct {
 	Editions       []editionResponse      `json:"language_editions"`
 	Relation       relationResponse       `json:"relation"`
 	Copies         []copyResponse         `json:"copies"`
+	CollectionIDs  []string               `json:"collection_ids"`
 	// Placeholder marks a work a relation named but no scan has found: it is
 	// reachable here and absent from the ordinary listing.
 	Placeholder bool `json:"placeholder"`
@@ -104,6 +105,7 @@ func toWorkDetail(detail *works.WorkDetail) workDetailResponse {
 		Note:                detail.Note,
 		Relation:            toRelationResponse(detail.Relation),
 		Copies:              make([]copyResponse, 0, len(detail.Copies)),
+		CollectionIDs:       append([]string{}, detail.CollectionIDs...),
 		Placeholder:         detail.Placeholder,
 	}
 	for _, edition := range detail.Editions {

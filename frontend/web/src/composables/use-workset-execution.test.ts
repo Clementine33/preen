@@ -5,7 +5,7 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { apiClientKey, ApiError } from '@/lib/api/client'
-import type { ExecutionEvent, ExecutionView, OperationType } from '@/lib/api/types'
+import type { CoverReport, ExecutionEvent, ExecutionView, OperationType } from '@/lib/api/types'
 import { apiStub } from '@/test/api-stub'
 import { installTestQueryPlugin } from '@/test/query-client'
 import { queryKeys } from '@/queries/query-keys'
@@ -32,6 +32,7 @@ async function harness(path = '/elsewhere', discovered?: ExecutionView) {
   let finish!: (events: ExecutionEvent[]) => void
   const stream = new Promise<ExecutionEvent[]>(resolve => { finish = resolve })
   const api = apiStub({
+    getExecutionCovers: vi.fn().mockResolvedValue(covers()),
     listLibraries: vi.fn().mockResolvedValue([{ id: 'lib-a', name: 'Archive' }]),
     getWorkset: vi.fn().mockResolvedValue({ workset_id: 'ws1', library: { library_id: 'lib-a', name: 'Archive' }, members: [] }),
     getOperationDraft: vi.fn().mockResolvedValue(null),
@@ -511,7 +512,7 @@ describe.each(['metadata_refresh', 'rename'] as const)('%s execution notices', o
     await flushPromises()
     expect(notice()).toContain('执行已中断')
   })
-  it('does not replay discovered terminal history or emit cover summaries', async () => {
+  it('does not replay discovered terminal history and suppresses empty cover summaries', async () => {
     const app = await harness('/elsewhere', session('succeeded', 'old', operation))
     await flushPromises()
     expect(notice()).toBe('')
@@ -522,7 +523,228 @@ describe.each(['metadata_refresh', 'rename'] as const)('%s execution notices', o
     dismiss()
     await flushPromises()
     expect(notice()).toBe('')
-    expect(app.api.getExecutionCovers).not.toHaveBeenCalled()
+    expect(app.api.getExecutionCovers).toHaveBeenCalledTimes(operation === 'metadata_refresh' ? 1 : 0)
   })
 
+})
+
+function covers(counts: Partial<CoverReport['counts']> = {}): CoverReport {
+  return { items: Object.values(counts).some(Boolean) ? [{ id: 'stable-delivery', execution_id: 'e1', refresh: false, status: 'succeeded', target: { copy_id: 'copy', rj: 'RJ01', library_root: '/library', rel_path: 'RJ01', identity: 'identity' } }] : [],
+    counts: { pending: 0, running: 0, succeeded: 0, skipped: 0, failed: 0, canceled: 0, ...counts },
+    downloads: { total: 1, queued: 0, running: 0, done: 1 } }
+}
+describe('metadata cover round notices', () => {
+  it('continues after leaving and reports cumulative cover results independently of metadata', async () => {
+    vi.useFakeTimers()
+    const app = await harness('/worksets/lib-a/metadata')
+    vi.mocked(app.api.getExecutionCovers).mockResolvedValueOnce(covers({ pending: 1 }))
+      .mockResolvedValue(covers({ succeeded: 3, skipped: 1, failed: 2, canceled: 1 }))
+    await app.start('metadata_refresh')
+    app.finish([{ type: 'succeeded', data: { execution_id: 'e1', plan_id: 'plan' } }])
+    await flushPromises()
+    expect(notice()).toBe('')
+    app.leave()
+    await app.router.push('/elsewhere')
+    await vi.advanceTimersByTimeAsync(2000)
+    await flushPromises()
+    expect(notice()).toContain('封面部分失败：成功 3，跳过 1，失败 2，停止 1')
+    dismiss()
+    await vi.advanceTimersByTimeAsync(60000)
+    expect(notice()).toBe('')
+  })
+})
+
+describe('cover retry and cancel orchestration', () => {
+  it('replaces retries while execution enqueues demands and requires a fresh terminal report even after cancel', async () => {
+    vi.useFakeTimers()
+    const app = await harness('/worksets/lib-a/metadata')
+    await app.start('metadata_refresh')
+    vi.mocked(app.api.changeExecutionCovers).mockResolvedValue(covers({ canceled: 1 }))
+    vi.mocked(app.api.getExecution).mockResolvedValue(session('running', 'e1', 'metadata_refresh'))
+    vi.mocked(app.api.getExecutionCovers).mockResolvedValue(covers())
+    const input = { worksetId: 'ws1', executionId: 'e1' }
+    await app.execution.coversMutation.mutateAsync({ ...input, action: 'retry' })
+    await app.execution.coversMutation.mutateAsync({ ...input, action: 'retry' })
+    await app.execution.coversMutation.mutateAsync({ ...input, action: 'cancel' })
+    await vi.advanceTimersByTimeAsync(4000)
+    await flushPromises()
+    expect(notice()).toBe('')
+    vi.mocked(app.api.getExecutionCovers).mockResolvedValueOnce(covers({ pending: 1 }))
+      .mockResolvedValue(covers({ succeeded: 4, failed: 1 }))
+    app.finish([{ type: 'succeeded', data: { execution_id: 'e1', plan_id: 'plan' } }])
+    await flushPromises()
+    expect(notice()).toBe('')
+    await vi.advanceTimersByTimeAsync(2000)
+    await flushPromises()
+    expect(notice()).toContain('封面部分失败：成功 4，跳过 0，失败 1，停止 0')
+    dismiss()
+    await vi.advanceTimersByTimeAsync(60000)
+    expect(notice()).toBe('')
+  })
+  it('silently updates covers after reload, cancel opens no round, and a no-op explicit retry can notify', async () => {
+    vi.useFakeTimers()
+    const app = await harness('/elsewhere', session('succeeded', 'e1', 'metadata_refresh'))
+    vi.mocked(app.api.getExecutionCovers).mockResolvedValueOnce(covers({ pending: 1 })).mockResolvedValue(covers({ canceled: 1, succeeded: 3 }))
+    app.execution.observeCovers('ws1', 'e1')
+    await flushPromises()
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(app.client.getQueryData(queryKeys.worksets.covers('ws1', 'e1'))).toMatchObject({ counts: { succeeded: 3, canceled: 1 } })
+    expect(notice()).toBe('')
+    vi.mocked(app.api.changeExecutionCovers).mockResolvedValue(covers({ canceled: 1, succeeded: 3 }))
+    await app.execution.coversMutation.mutateAsync({ worksetId: 'ws1', executionId: 'e1', action: 'cancel' })
+    expect(notice()).toBe('')
+    vi.mocked(app.api.getExecution).mockResolvedValue(session('succeeded', 'e1', 'metadata_refresh'))
+    await app.execution.coversMutation.mutateAsync({ worksetId: 'ws1', executionId: 'e1', action: 'retry' })
+    await flushPromises()
+    expect(notice()).toContain('封面已停止：成功 3，跳过 0，失败 0，停止 1')
+    expect(notice()).not.toContain('执行完成')
+  })
+})
+
+it('ends a retry round as unknown when its execution lookup loses access', async () => {
+  vi.useFakeTimers()
+  const app = await harness('/elsewhere', session('succeeded', 'e1', 'metadata_refresh'))
+  vi.mocked(app.api.changeExecutionCovers).mockResolvedValue(covers({ succeeded: 1 }))
+  vi.mocked(app.api.getExecutionCovers).mockResolvedValue(covers({ succeeded: 1 }))
+  vi.mocked(app.api.getExecution).mockRejectedValue(new ApiError(403, 'DENIED', 'Denied'))
+  await app.execution.coversMutation.mutateAsync({ worksetId: 'ws1', executionId: 'e1', action: 'retry' })
+  await flushPromises()
+  expect(notice()).toContain('封面结果尚未确认，记录不存在或无权访问')
+  dismiss()
+  await vi.advanceTimersByTimeAsync(60000)
+  expect(notice()).toBe('')
+  // A consumed unknown lookup is never terminal proof for another retry.
+  await app.execution.coversMutation.mutateAsync({ worksetId: 'ws1', executionId: 'e1', action: 'retry' })
+  await flushPromises()
+  expect(notice()).toContain('封面结果尚未确认，记录不存在或无权访问')
+})
+
+describe('cover report outcomes', () => {
+  it.each([
+    [{ succeeded: 2, skipped: 1 }, '完成'],
+    [{ failed: 2 }, '失败'],
+    [{ failed: 2, canceled: 1 }, '失败'],
+    [{ failed: 1, skipped: 1 }, '部分失败'],
+    [{ canceled: 1, succeeded: 2 }, '已停止'],
+  ] as const)('classifies cumulative counts %j independently of shared downloads', async (counts, label) => {
+    const app = await harness('/worksets/lib-a/metadata')
+    vi.mocked(app.api.getExecutionCovers).mockResolvedValue(covers(counts))
+    await app.start('metadata_refresh')
+    await app.router.push('/elsewhere')
+    app.finish([{ type: 'succeeded', data: { execution_id: 'e1', plan_id: 'plan' } }])
+    await flushPromises()
+    expect(notice()).toContain('执行完成')
+    dismiss()
+    await flushPromises()
+    expect(notice()).toContain('封面' + label)
+    document.body.querySelector<HTMLButtonElement>('[data-testid="task-toast-action"]')!.click()
+    await flushPromises()
+    expect(app.router.currentRoute.value.name).toBe('metadata-refresh')
+  })
+  it.each([{ succeeded: 1 }, { canceled: 1 }])('consumes suppressed cover results on the metadata route (%j)', async counts => {
+    const app = await harness('/worksets/lib-a/metadata')
+    vi.mocked(app.api.getExecutionCovers).mockResolvedValue(covers(counts))
+    await app.start('metadata_refresh')
+    app.finish([{ type: 'succeeded', data: { execution_id: 'e1', plan_id: 'plan' } }])
+    await flushPromises()
+    expect(notice()).toBe('')
+    await app.router.push('/elsewhere')
+    app.execution.attach('ws1', 'metadata_refresh', 'e1')
+    app.execution.observeCovers('ws1', 'e1')
+    await flushPromises()
+    expect(notice()).toBe('')
+  })
+  it('keeps a rejected retry error at the mutation/page boundary and creates no cover round', async () => {
+    const app = await harness('/elsewhere', session('succeeded', 'e1', 'metadata_refresh'))
+    vi.mocked(app.api.changeExecutionCovers).mockRejectedValue(new ApiError(409, 'STALE', 'Stale cover'))
+    await expect(app.execution.coversMutation.mutateAsync({ worksetId: 'ws1', executionId: 'e1', action: 'retry' })).rejects.toMatchObject({ message: 'Stale cover' })
+    expect(app.execution.coversMutation.error.value?.message).toBe('Stale cover')
+    expect(notice()).toBe('')
+    expect(app.api.getExecutionCovers).not.toHaveBeenCalled()
+  })
+  it('warns once per cover outage, retries with backoff, and waits for a settled report after connectivity returns', async () => {
+    vi.useFakeTimers()
+    const app = await harness('/worksets/lib-a/metadata')
+    vi.mocked(app.api.getExecutionCovers).mockRejectedValue(new ApiError(503, 'OFFLINE', 'Offline'))
+    await app.start('metadata_refresh')
+    app.finish([{ type: 'succeeded', data: { execution_id: 'e1', plan_id: 'plan' } }])
+    await flushPromises()
+    expect(notice()).toContain('连接中断，封面结果尚未确认')
+    dismiss()
+    for (const delay of [2000, 4000, 8000, 16000, 30000]) {
+      const reads = vi.mocked(app.api.getExecutionCovers).mock.calls.length
+      await vi.advanceTimersByTimeAsync(delay - 1)
+      expect(app.api.getExecutionCovers).toHaveBeenCalledTimes(reads)
+      await vi.advanceTimersByTimeAsync(1)
+      expect(app.api.getExecutionCovers).toHaveBeenCalledTimes(reads + 1)
+      expect(notice()).toBe('')
+    }
+    vi.mocked(app.api.getExecutionCovers).mockResolvedValueOnce(covers({ pending: 1 })).mockResolvedValue(covers({ failed: 1 }))
+    await vi.advanceTimersByTimeAsync(30000)
+    expect(notice()).toBe('')
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(notice()).toContain('封面失败')
+  })
+  it.each([401, 403, 404])('stops report lookup on %s and retains an unknown result', async status => {
+    vi.useFakeTimers()
+    const app = await harness('/worksets/lib-a/metadata')
+    vi.mocked(app.api.getExecutionCovers).mockRejectedValue(new ApiError(status, 'DENIED', 'Denied'))
+    await app.start('metadata_refresh')
+    app.finish([{ type: 'succeeded', data: { execution_id: 'e1', plan_id: 'plan' } }])
+    await flushPromises()
+    expect(notice()).toContain('封面结果尚未确认，记录不存在或无权访问')
+    dismiss()
+    await vi.advanceTimersByTimeAsync(60000)
+    expect(app.api.getExecutionCovers).toHaveBeenCalledTimes(1)
+    expect(notice()).toBe('')
+  })
+})
+
+it('does not report connection loss when terminal cache synchronization cancels a pre-terminal cover read', async () => {
+  const app = await harness('/worksets/lib-a/metadata')
+  await app.start('metadata_refresh')
+  vi.mocked(app.api.changeExecutionCovers).mockResolvedValue(covers({ pending: 1 }))
+  vi.mocked(app.api.getExecution).mockResolvedValue(session('running', 'e1', 'metadata_refresh'))
+  vi.mocked(app.api.getExecutionCovers).mockImplementationOnce(() => new Promise(() => {})).mockResolvedValue(covers({ succeeded: 1 }))
+  await app.execution.coversMutation.mutateAsync({ worksetId: 'ws1', executionId: 'e1', action: 'retry' })
+  app.finish([{ type: 'succeeded', data: { execution_id: 'e1', plan_id: 'plan' } }])
+  await flushPromises()
+  expect(notice()).toBe('')
+})
+
+it('keeps executions independent and allows a later retry to summarize the same stable deliveries again', async () => {
+  vi.useFakeTimers()
+  const app = await harness('/worksets/lib-a/metadata')
+  vi.mocked(app.api.getExecutionCovers).mockImplementation(async (_ws, id) => covers(id === 'e1' ? { pending: 1 } : { failed: 2 }))
+  await app.start('metadata_refresh')
+  app.finish([{ type: 'succeeded', data: { execution_id: 'e1', plan_id: 'plan' } }])
+  await flushPromises()
+  vi.mocked(app.api.startExecution).mockResolvedValue({ created: true, execution: session('succeeded', 'e2', 'metadata_refresh') })
+  await app.start('metadata_refresh')
+  expect(notice()).toContain('封面失败：成功 0，跳过 0，失败 2，停止 0')
+  dismiss()
+  vi.mocked(app.api.getExecutionCovers).mockImplementation(async (_ws, id) => covers(id === 'e1' ? { succeeded: 3, failed: 1 } : { failed: 2 }))
+  await vi.advanceTimersByTimeAsync(2000)
+  expect(notice()).toContain('封面部分失败：成功 3，跳过 0，失败 1，停止 0')
+  dismiss()
+  vi.mocked(app.api.changeExecutionCovers).mockResolvedValue(covers({ succeeded: 3, failed: 1 }))
+  await app.execution.coversMutation.mutateAsync({ worksetId: 'ws1', executionId: 'e1', action: 'retry' })
+  await flushPromises()
+  expect(notice()).toContain('封面部分失败：成功 3，跳过 0，失败 1，停止 0')
+  dismiss()
+  await vi.advanceTimersByTimeAsync(60000)
+  expect(notice()).toBe('')
+})
+
+it.each(['failed', 'canceled', 'interrupted'] as const)('observes persisted covers after metadata %s without changing its result', async status => {
+  const app = await harness('/worksets/lib-a/metadata')
+  vi.mocked(app.api.getExecutionCovers).mockResolvedValue(covers({ failed: 1 }))
+  vi.mocked(app.api.startExecution).mockResolvedValue({ created: true, execution: session(status, 'e1', 'metadata_refresh') })
+  await app.start('metadata_refresh')
+  if (status !== 'canceled') {
+    expect(notice()).toContain(status === 'failed' ? '执行失败' : '执行已中断')
+    dismiss()
+    await flushPromises()
+  }
+  expect(notice()).toContain('封面失败')
 })

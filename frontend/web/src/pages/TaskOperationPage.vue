@@ -14,7 +14,6 @@ import { useApiClient } from '@/lib/api/client'
 import { useWorksetGeneration } from '@/composables/use-workset-generation'
 import { useWorksetExecution } from '@/composables/use-workset-execution'
 import {
-  changeExecutionCoversMutationOptions,
   currentRecordQueryOptions,
   executionCoversQueryOptions,
   executionQueryOptions,
@@ -287,7 +286,10 @@ async function execute() {
 const coversQuery = useQuery(() =>
   executionCoversQueryOptions(api, worksetId.value, isMetadata.value ? executionId.value : null),
 )
-const coversMutation = useMutation(changeExecutionCoversMutationOptions(api, queryClient))
+const coversMutation = execution.coversMutation
+watch(() => [worksetId.value, isMetadata.value ? executionId.value : null] as const, ([id, executionId]) => {
+  if (id && executionId) execution.observeCovers(id, executionId)
+}, { immediate: true })
 function changeCovers(action: 'retry' | 'cancel') {
   if (worksetId.value && executionId.value) {
     coversMutation.mutate({ worksetId: worksetId.value, executionId: executionId.value, action })
@@ -466,6 +468,7 @@ watch(
               >
                 停止
               </Button>
+              <span v-if="coversMutation.error.value" role="alert" class="text-destructive">{{ coversMutation.error.value.message }}</span>
             </div>
           </section>
         </div>

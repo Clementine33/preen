@@ -1,6 +1,6 @@
 import { getCurrentInstance } from 'vue'
 import { useRouter } from 'vue-router'
-import type { QueryClient } from '@tanstack/vue-query'
+import { isCancelledError, type QueryClient } from '@tanstack/vue-query'
 import type { OperationType, Workset, Library, CurrentRecordResponse } from '@/lib/api/types'
 import { ApiError, useApiClient } from '@/lib/api/client'
 import { queryKeys } from '@/queries/query-keys'
@@ -13,7 +13,7 @@ const registries = new WeakMap<QueryClient, Map<string, Map<string, SessionIdent
 const labels = { conversion: '转换', rename: '重命名', metadata_refresh: '获取元数据' }
 const routes = { conversion: 'conversion', rename: 'rename', metadata_refresh: 'metadata-refresh' }
 
-export function useWorksetObservation<T extends SessionIdentity>(queryClient: QueryClient, phase: 'planning' | 'execution', stop: () => void) {
+export function useWorksetObservation<T extends SessionIdentity>(queryClient: QueryClient, phase: 'planning' | 'execution' | 'covers', stop: () => void) {
   const api = useApiClient()
   const router = useRouter()
   const toast = useTaskToast()
@@ -65,6 +65,8 @@ export function sessionPoller<T extends SessionPollingState, R>(
   read: (entry: T) => Promise<R>,
   observe: (entry: T, result: R) => void,
   unavailable: (entry: T) => void,
+  disconnected?: (entry: T) => void,
+  recovered?: (entry: T) => void,
 ) {
   return async function poll(entry: T) {
     if (entry.consumed || entry.reading) return
@@ -75,14 +77,16 @@ export function sessionPoller<T extends SessionPollingState, R>(
     try {
       const result = await read(entry)
       if (entry.consumed) return
+      recovered?.(entry)
       entry.retryDelay = 2000
       observe(entry, result)
     } catch (error) {
-      if (entry.consumed) return
+      if (entry.consumed || isCancelledError(error)) return
       if (error instanceof ApiError && [401, 403, 404].includes(error.status)) {
         unavailable(entry)
         return
       }
+      disconnected?.(entry)
       delay = entry.retryDelay
       entry.retryDelay = Math.min(delay * 2, 30000)
     } finally {

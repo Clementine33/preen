@@ -3,6 +3,7 @@ import { useApiClient } from '@/lib/api/client'
 import type { ExecutionStatus, ExecutionView, OperationType } from '@/lib/api/types'
 import {
   executionQueryOptions,
+  changeExecutionCoversMutationOptions,
   syncExecutionSnapshot,
   cancelExecutionMutationOptions,
   startExecutionMutationOptions,
@@ -14,7 +15,9 @@ import { useWorksetExecutionStore } from '@/stores/workset-execution'
 import { queryKeys } from '@/queries/query-keys'
 import { sessionPoller, useWorksetObservation, type SessionIdentity } from './use-workset-observation'
 
-type Observation = SessionIdentity & { executionId: string; consumed: boolean; intentional: boolean; reading: boolean; retryDelay: number; confirmed?: ExecutionStatus; timer?: ReturnType<typeof setTimeout> }
+import { useWorksetCovers } from './use-workset-covers'
+
+type Observation = SessionIdentity & { executionId: string; eligible: boolean; consumed: boolean; intentional: boolean; reading: boolean; retryDelay: number; confirmed?: ExecutionStatus; terminal?: ExecutionStatus; stopped?: boolean; timer?: ReturnType<typeof setTimeout> }
 
 // Single entry point for execution-session orchestration: pages call
 // start/cancel/attach and never assemble cache invalidation themselves. The
@@ -27,6 +30,19 @@ export function useWorksetExecution() {
   const store = useWorksetExecutionStore()
 
   const { observations, identity, notify } = useWorksetObservation<Observation>(queryClient, 'execution', stop)
+
+  const covers = useWorksetCovers(api, queryClient)
+  const coverOptions = changeExecutionCoversMutationOptions(api, queryClient)
+  const coversMutation = useMutation({ ...coverOptions, onMutate: input => identity(input.worksetId), onSuccess: (report, input, captured) => {
+    coverOptions.onSuccess(report, input)
+    if (input.action === 'retry') {
+      covers.retry(input.worksetId, input.executionId, captured ?? identity(input.worksetId))
+      const entry = register(input.worksetId, 'metadata_refresh', input.executionId, captured, undefined, false)
+      if (entry.terminal) covers.terminal(entry, false)
+      else if (entry.consumed) covers.unavailable(entry.worksetId, entry.executionId)
+      else void poll(entry)
+    }
+  } })
 
   const startOptions = startExecutionMutationOptions(api, queryClient)
   const startMutation = useMutation({ ...startOptions,
@@ -97,10 +113,13 @@ export function useWorksetExecution() {
   function finalize(entry: Observation, status: ExecutionStatus, completedOperations = 0) {
     if (entry.consumed || status === 'queued' || status === 'running') return
     entry.consumed = true
+    entry.terminal = status
     cleanup(entry)
-    notify(entry, status === 'succeeded' ? '执行完成' : status === 'canceled' ? '执行已停止'
+    if (entry.eligible) notify(entry, status === 'succeeded' ? '执行完成' : status === 'canceled' ? '执行已停止'
       : status === 'interrupted' ? '执行已中断，请查看已提交结果，剩余工作未恢复' : completedOperations > 0 ? `执行部分失败，已完成 ${completedOperations} 项操作` : '执行失败', status === 'succeeded' || status === 'canceled')
-    void syncAfterExecutionTerminal(queryClient, entry.worksetId, entry.operation)
+    void syncAfterExecutionTerminal(queryClient, entry.worksetId, entry.operation).then(() => {
+      if (!entry.stopped && entry.operation === 'metadata_refresh') covers.terminal(entry, entry.eligible)
+    })
   }
   const poll = sessionPoller(
     (entry: Observation) => queryClient.fetchQuery(executionQueryOptions(api, entry.worksetId, entry.operation, entry.executionId)),
@@ -113,14 +132,18 @@ export function useWorksetExecution() {
     entry => {
       entry.consumed = true
       cleanup(entry)
-      notify(entry, entry.confirmed === 'failed' ? '执行失败，完整结果不可用，记录不存在或无权访问' : '执行结果尚未确认，记录不存在或无权访问')
+      if (entry.operation === 'metadata_refresh') covers.unavailable(entry.worksetId, entry.executionId)
+      if (entry.eligible) notify(entry, entry.confirmed === 'failed' ? '执行失败，完整结果不可用，记录不存在或无权访问' : '执行结果尚未确认，记录不存在或无权访问')
     },
   )
-  function register(worksetId: string, operation: OperationType, executionId: string, captured = identity(worksetId), initial?: ExecutionView) {
+  function register(worksetId: string, operation: OperationType, executionId: string, captured = identity(worksetId), initial?: ExecutionView, eligible = true) {
     const key = JSON.stringify([worksetId, operation, 'execution', executionId])
     const existing = observations.get(key)
-    if (existing) return existing
-    const entry: Observation = { worksetId, operation, executionId, ...captured, consumed: false, intentional: false, reading: false, retryDelay: 2000 }
+    if (existing) {
+      if (eligible && !existing.consumed) existing.eligible = true
+      return existing
+    }
+    const entry: Observation = { worksetId, operation, executionId, ...captured, eligible, consumed: false, intentional: false, reading: false, retryDelay: 2000 }
     observations.set(key, entry)
     if (initial) { syncExecutionSnapshot(queryClient, initial); finalize(entry, initial.status, initial.completed_operations) }
     if (!entry.consumed) void store.attach(worksetId, operation, executionId, api, event => {
@@ -143,8 +166,9 @@ export function useWorksetExecution() {
     return entry
   }
   function stop() {
-    for (const entry of observations.values()) { entry.consumed = true; cleanup(entry) }
+    for (const entry of observations.values()) { entry.stopped = true; entry.consumed = true; cleanup(entry) }
+    covers.stop()
     store.reset()
   }
-  return { start, attach, cancel, stop, store, startMutation, cancelMutation }
+  return { start, attach, cancel, stop, store, startMutation, cancelMutation, coversMutation, observeCovers: covers.observe }
 }

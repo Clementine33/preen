@@ -95,3 +95,20 @@ export function useCollectionMemberWrites() {
     move: (id: string, rj: string, beforeRj: string | null) => write(id, [rj], () => api.moveCollectionMember(id, rj, beforeRj)),
   }
 }
+
+/** Rename and delete refresh the `['collections']` prefix; a deleted collection's queries are dropped instead, so nothing refetches into a 404. */
+export function useCollectionManage() {
+  const api = useApiClient()
+  const client = useQueryClient()
+  return {
+    rename: async (id: string, name: string) => {
+      try { await api.renameCollection(id, name) } finally { void refreshOrRemoveQueries(client, queryKeys.collections.all()) }
+    },
+    remove: async (id: string) => {
+      await api.deleteCollection(id)
+      client.removeQueries({ queryKey: [...queryKeys.collections.all(), 'pages', id] })
+      client.removeQueries({ queryKey: [...queryKeys.collections.all(), 'detail', id] })
+      void refreshOrRemoveQueries(client, queryKeys.collections.all())
+    },
+  }
+}

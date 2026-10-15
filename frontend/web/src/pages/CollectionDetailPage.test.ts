@@ -391,4 +391,67 @@ describe('CollectionDetailPage', () => {
       expect(toast.current.value?.text).toBe('boom')
     })
   })
+
+  describe('rename and delete', () => {
+    const toast = useToast()
+    beforeEach(() => { toast.current.value = null })
+    const openItem = async (item: string) => {
+      document.body.querySelector('[data-testid="collection-menu"]')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }))
+      await flushPromises()
+      document.body.querySelector<HTMLElement>(`[data-testid="${item}"]`)!.click()
+      await flushPromises()
+    }
+    const input = () => document.body.querySelector<HTMLInputElement>('[data-testid="collection-rename-input"]')!
+    const type = async (v: string) => { input().value = v; input().dispatchEvent(new Event('input', { bubbles: true })); await flushPromises() }
+    const submit = async () => { input().form!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); await flushPromises() }
+
+    it('offers the header menu on a user collection, empty or not, never on Favorites', async () => {
+      const full = await mountPage(setup(3).api)
+      expect(full.wrapper.find('[data-testid="collection-menu"]').exists()).toBe(true)
+      const empty = await mountPage(setup(0).api)
+      expect(empty.wrapper.find('[data-testid="collection-menu"]').exists()).toBe(true)
+      const fav = await mountPage(setup(3).api, '/collections/favorites')
+      expect(fav.wrapper.find('[data-testid="collection-menu"]').exists()).toBe(false)
+    })
+
+    it('refuses a blank name, then renames with the trimmed one and retitles in place', async () => {
+      let current = 'Sleep'
+      const getCollection = vi.fn(async () => ({ id: 'c1', name: current, work_count: 0, created_at: '', updated_at: '', total: 0, works: [] }) as CollectionDetail)
+      const renameCollection = vi.fn(async (_id: string, n: string) => { current = n; return {} as never })
+      const { wrapper } = await mountPage(apiStub({ getCollection, renameCollection }))
+      await openItem('collection-rename')
+      expect(input().value).toBe('Sleep')
+      await type('   ')
+      await submit()
+      expect(renameCollection).not.toHaveBeenCalled()
+      await type('  Calm  ')
+      await submit()
+      expect(renameCollection).toHaveBeenCalledWith('c1', 'Calm')
+      expect(wrapper.get('h1').text()).toBe('Calm')
+      expect(toast.current.value).toBeNull()
+      expect(document.body.querySelector('[data-testid="collection-rename-input"]')).toBeNull()
+    })
+
+    it('toasts the error when a rename fails', async () => {
+      const renameCollection = vi.fn().mockRejectedValue(new Error('boom'))
+      await mountPage(apiStub({ ...setup(3).api, renameCollection }))
+      await openItem('collection-rename')
+      await type('Calm')
+      await submit()
+      expect(toast.current.value?.text).toBe('boom')
+    })
+
+    it('deletes, goes back to the entry and toasts', async () => {
+      const deleteCollection = vi.fn().mockResolvedValue(undefined)
+      const { wrapper, router } = await mountPage(apiStub({ ...setup(3).api, deleteCollection }))
+      await openItem('collection-delete')
+      expect(document.body.textContent).toContain('删除合集「Sleep」？其中 3 部作品与文件不受影响。')
+      document.body.querySelector<HTMLElement>('[data-testid="collection-delete-confirm"]')!.click()
+      await flushPromises()
+      expect(deleteCollection).toHaveBeenCalledWith('c1')
+      expect(router.currentRoute.value.name).toBe('collections')
+      expect(toast.current.value?.text).toBe('已删除 Sleep')
+      expect(wrapper.exists()).toBe(true)
+    })
+  })
 })

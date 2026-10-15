@@ -34,8 +34,8 @@ describe('AppShell global navigation', () => {
     await at('/worksets')
     const links = mountShell().get('[data-testid="global-rail"]').findAll('a')
 
-    expect(links.map((link) => link.text())).toEqual(['作品库', '工作集'])
-    expect(links.map((link) => link.attributes('href'))).toEqual(['/works', '/worksets'])
+    expect(links.map((link) => link.text())).toEqual(['作品库', '合集', '工作集'])
+    expect(links.map((link) => link.attributes('href'))).toEqual(['/works', '/collections', '/worksets'])
   })
 
   it('shows the rail in CSS from the shared 641px breakpoint and leaves the phone to the page', async () => {
@@ -65,32 +65,32 @@ describe('AppShell global navigation', () => {
 
     expect(wrapper.text()).not.toContain('媒体库条目')
     const railNav = wrapper.get('[data-testid="global-rail"] nav')
-    expect(railNav.findAll('a')).toHaveLength(2)
+    expect(railNav.findAll('a')).toHaveLength(3)
     expect(railNav.find('button').exists()).toBe(false)
   })
 
   it('marks the matching entry current and only that one, per route', async () => {
     await at('/worksets')
     let links = mountShell().get('[data-testid="global-rail"]').findAll('a')
-    expect(links.map((link) => link.attributes('aria-current'))).toEqual([undefined, 'page'])
+    expect(links.map((link) => link.attributes('aria-current'))).toEqual([undefined, undefined, 'page'])
 
     await at('/works')
     links = mountShell().get('[data-testid="global-rail"]').findAll('a')
-    expect(links.map((link) => link.attributes('aria-current'))).toEqual(['page', undefined])
+    expect(links.map((link) => link.attributes('aria-current'))).toEqual(['page', undefined, undefined])
   })
 
   it('keeps 工作集 current inside a library workbench', async () => {
     await at('/worksets/lib-a')
     const links = mountShell().get('[data-testid="global-rail"]').findAll('a')
 
-    expect(links.map((link) => link.attributes('aria-current'))).toEqual([undefined, 'page'])
+    expect(links.map((link) => link.attributes('aria-current'))).toEqual([undefined, undefined, 'page'])
   })
 
   it('keeps 工作集 current on a workbench child route', async () => {
     await at('/worksets/lib-a/conversion/settings')
     const links = mountShell().get('[data-testid="global-rail"]').findAll('a')
 
-    expect(links.map((link) => link.attributes('aria-current'))).toEqual([undefined, 'page'])
+    expect(links.map((link) => link.attributes('aria-current'))).toEqual([undefined, undefined, 'page'])
   })
 
   it('carries the desktop theme entry on the rail', async () => {

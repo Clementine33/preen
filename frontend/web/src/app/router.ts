@@ -3,6 +3,7 @@ import { installAddressHygiene } from './route-params'
 
 const WorksetsPage = () => import('@/pages/WorksetsPage.vue')
 const WorksPage = () => import('@/pages/WorksPage.vue')
+const CollectionsPage = () => import('@/pages/CollectionsPage.vue')
 const WorkDetailPage = () => import('@/pages/WorkDetailPage.vue')
 const OverviewPage = () => import('@/pages/OverviewPage.vue')
 const ConversionPage = () => import('@/pages/ConversionPage.vue')
@@ -46,6 +47,9 @@ export const router = createRouter({
     // work in the `?rj=` identity, never a search term.
     { path: '/works', name: 'works', component: WorksPage },
     { path: '/works/:rj', name: 'work-detail', component: WorkDetailPage },
+
+    // The collections entry: pick a collection, see a random cover and its newest titles.
+    { path: '/collections', name: 'collections', component: CollectionsPage },
 
     // The workbench of one library. The overview and a member's file page are
     // the same page in two views, so returning from a member keeps the list's

@@ -315,6 +315,13 @@ export interface CollectionDetail extends WorkCollection {
   total: number
 }
 
+/** The answer of an append: what joined, what was already a member, the new size. */
+export interface CollectionAppendResult {
+  added: string[]
+  skipped: string[]
+  work_count: number
+}
+
 export interface CollectionWindow {
   limit?: number
   page?: number
@@ -1144,6 +1151,12 @@ export interface ApiClientContract {
   getWork(rj: string, signal?: AbortSignal): Promise<WorkDetail>
   listCollections(window?: CollectionWindow, signal?: AbortSignal): Promise<CollectionListResponse>
   getCollection(id: string, window?: CollectionWindow, signal?: AbortSignal): Promise<CollectionDetail>
+  createCollection(name: string): Promise<WorkCollection>
+  renameCollection(id: string, name: string): Promise<WorkCollection>
+  deleteCollection(id: string): Promise<void>
+  appendToCollection(id: string, rjs: string[]): Promise<CollectionAppendResult>
+  removeFromCollection(id: string, rj: string): Promise<void>
+  moveCollectionMember(id: string, rj: string, beforeRj: string | null): Promise<void>
   getWorkContent(rj: string, signal?: AbortSignal): Promise<WorkContent>
   workFileUrl(ref: ContentFileRef, version?: string): string
   getWorkText(ref: ContentFileRef, signal?: AbortSignal): Promise<string>

@@ -8,6 +8,7 @@ import { useApiClient } from '@/lib/api/client'
 import type { WorkSummary } from '@/lib/api/types'
 import { queryKeys } from '@/queries/query-keys'
 import { usePlayerStore } from '@/stores/player'
+import { landingIndex, moveIntent } from './move-intent'
 import CollectionRow from './CollectionRow.vue'
 
 // A collection's members as one continuously scrolling ordered list. The page
@@ -15,7 +16,12 @@ import CollectionRow from './CollectionRow.vue'
 // owns the cursor and the one unfolded row: a click selects and unfolds (a
 // second click folds it again), double-click, Enter or the fold's OPEN opens
 // the work, the play button plays it, Space pauses, Esc folds. The next chunk
-// is requested as the end of the list scrolls into view.
+// is requested as the end of the list scrolls into view. In edit mode members
+// are arranged instead: rows neither unfold, open nor play; the handle drags a
+// row to a gap, the row menu moves it (custom order only), the menu or Delete
+// removes it, and Esc leaves the mode. The page does the writing and the
+// cursor follows the row. Moves are shown by an insertion line, not by rows
+// sliding.
 const props = defineProps<{
   works: WorkSummary[]
   total: number
@@ -23,8 +29,9 @@ const props = defineProps<{
   custom: boolean
   direction: 'asc' | 'desc'
   hasMore: boolean
+  editing: boolean
 }>()
-const emit = defineEmits<{ more: [] }>()
+const emit = defineEmits<{ more: []; move: [rj: string, gap: number]; remove: [rj: string]; done: [] }>()
 
 const router = useRouter()
 const api = useApiClient()
@@ -40,6 +47,7 @@ const sentinel = ref<HTMLElement | null>(null)
 const position = (i: number) => (props.custom && props.direction === 'desc' ? props.total - i : i + 1)
 
 function open(work: WorkSummary) {
+  if (props.editing) return
   void router.push({ name: 'work-detail', params: { rj: work.rj } })
 }
 function play(work: WorkSummary) {
@@ -62,6 +70,7 @@ function fold() {
   unfolded.value = null
 }
 function unfoldLater(rj: string, delay: number) {
+  if (props.editing) return
   const ticket = foldTicket
   foldTimer = setTimeout(async () => {
     await client.ensureQueryData({
@@ -105,6 +114,69 @@ watch(() => props.works[0]?.rj, (rj) => {
   if (rj && sel.value === 0 && unfolded.value === null) unfoldLater(rj, 0)
 }, { immediate: true })
 
+// ── Editing: gaps are 0..n, gap g lying above row g. ──
+const dragging = ref<string | null>(null)
+const gap = ref<number | null>(null)
+
+function moveTo(from: number, to: number) {
+  const rj = props.works[from]?.rj
+  if (!rj || !moveIntent(props.works.map((w) => w.rj), from, to, props.direction, !props.hasMore)) return
+  sel.value = landingIndex(from, to)
+  emit('move', rj, to)
+}
+function menuMove(i: number, to: 'top' | 'up' | 'down' | 'bottom') {
+  moveTo(i, { top: 0, up: i - 1, down: i + 2, bottom: props.works.length }[to])
+}
+function removeAt(i: number) {
+  const rj = props.works[i]?.rj
+  if (!rj) return
+  const next = props.works[i + 1] ?? props.works[i - 1]
+  fold()
+  sel.value = Math.max(0, Math.min(i, props.works.length - 2))
+  if (next) unfoldLater(next.rj, FOLD_DELAY)
+  emit('remove', rj)
+}
+
+function dragStart(e: DragEvent, rj: string) {
+  dragging.value = rj
+  if (!e.dataTransfer) return
+  e.dataTransfer.effectAllowed = 'move'
+  e.dataTransfer.setData('text/plain', rj)
+  const row = (e.target as HTMLElement | null)?.closest('.row')
+  if (row) e.dataTransfer.setDragImage?.(row, 16, 28)
+}
+/** The gap under the pointer: the upper half of a row is above it, the lower half below. */
+function gapAt(e: DragEvent): number | null {
+  const row = (e.target as HTMLElement | null)?.closest<HTMLElement>('.row')
+  const i = props.works.findIndex((w) => w.rj === row?.dataset.rj)
+  if (!row || i < 0) return null
+  const box = row.getBoundingClientRect()
+  return i + (e.clientY > box.top + box.height / 2 ? 1 : 0)
+}
+function dragOver(e: DragEvent) {
+  if (dragging.value === null) return
+  e.preventDefault()
+  gap.value = gapAt(e)
+}
+function drop(e: DragEvent) {
+  if (dragging.value === null) return
+  e.preventDefault()
+  const to = gapAt(e) ?? gap.value
+  const from = props.works.findIndex((w) => w.rj === dragging.value)
+  dragEnd()
+  if (to !== null && from >= 0) moveTo(from, to)
+}
+function dragEnd() { dragging.value = null; gap.value = null }
+/** The insertion line sits above the row at the gap, or below the last row. */
+const dropMark = (i: number) => (gap.value === i ? 'above' : gap.value === i + 1 && i === props.works.length - 1 ? 'below' : null)
+
+// Entering edit mode folds the open row; leaving it unfolds the selected one again.
+watch(() => props.editing, (on) => {
+  fold()
+  const rj = props.works[sel.value]?.rj
+  if (!on && rj) unfoldLater(rj, 0)
+})
+
 /** A text field or an open menu keeps every key it receives. */
 function ownsKeys(target: EventTarget | null): boolean {
   return target instanceof HTMLElement && target.closest('[data-own-keys], input, textarea, select, [contenteditable]') !== null
@@ -118,7 +190,8 @@ function onKeydown(e: KeyboardEvent) {
   const keys: Record<string, () => void> = {
     ArrowUp: () => move(sel.value - 1), ArrowDown: () => move(sel.value + 1),
     Home: () => move(0), End: () => move(props.works.length - 1),
-    Escape: fold,
+    Escape: () => (props.editing ? emit('done') : fold()),
+    ...(props.editing ? { Delete: () => removeAt(sel.value) } : {}),
   }
   if (!activates(e.target)) {
     keys.Enter = () => props.works[sel.value] && open(props.works[sel.value]!)
@@ -154,10 +227,12 @@ const active = computed(() => props.works[sel.value]?.rj)
 
 <template>
   <div ref="scroller" class="list" role="listbox" aria-label="合集作品" tabindex="-1"
-    :aria-activedescendant="active ? `cw-${active}` : undefined">
+    :aria-activedescendant="active ? `cw-${active}` : undefined" @dragover="dragOver" @drop="drop">
     <CollectionRow v-for="(w, i) in works" :key="w.rj" :work="w" :position="position(i)" :selected="i === sel"
       :expanded="unfolded === w.rj" :playing="player.rj === w.rj"
-      @select="click(i)" @open="open(w)" @play="play(w)" @unfolded="reveal(w.rj)" />
+      :editing="editing" :movable="editing && custom" :first="i === 0" :last="i === works.length - 1 && !hasMore" :drop="dropMark(i)"
+      @select="click(i)" @open="open(w)" @play="play(w)" @unfolded="reveal(w.rj)"
+      @dragstart="dragStart($event, w.rj)" @dragend="dragEnd" @move="menuMove(i, $event)" @remove="removeAt(i)" />
     <div ref="sentinel" class="sentinel" aria-hidden="true" />
   </div>
 </template>

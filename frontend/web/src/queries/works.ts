@@ -175,6 +175,7 @@ function mergeIntoWorkCache(rj: () => string | null) {
 /** The work's personal data, written through and merged into the cached detail. */
 export function useUpdateWorkUserData(rj: MaybeRefOrGetter<string | null>) {
   const api = useApiClient()
+  const client = useQueryClient()
   const merge = mergeIntoWorkCache(() => toValue(rj))
   return useMutation({
     mutationFn: (input: Parameters<ApiClientContract['updateWorkUserData']>[1]) => {
@@ -182,7 +183,11 @@ export function useUpdateWorkUserData(rj: MaybeRefOrGetter<string | null>) {
       if (value === null) throw new Error('a personal-data write requires a work number')
       return api.updateWorkUserData(value, input)
     },
-    onSuccess: merge,
+    onSuccess: (data, input) => {
+      merge(data)
+      // Favorite is membership of the Favorites collection: its entry and detail follow.
+      if ('favorite' in input) void refreshOrRemoveQueries(client, queryKeys.collections.all())
+    },
   })
 }
 

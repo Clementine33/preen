@@ -2,9 +2,11 @@ import type { InjectionKey } from 'vue'
 import { inject } from 'vue'
 import { parseSSEStream, type SSEEvent } from './sse'
 import type {
+  CollectionAppendResult,
   CollectionDetail,
   CollectionListResponse,
   CollectionWindow,
+  WorkCollection,
   TagFacets,
   ApiClientContract,
   AnyDraftDocument,
@@ -320,6 +322,31 @@ export class ApiClient implements ApiClientContract {
 
   getCollection(id: string, window: CollectionWindow = {}, signal?: AbortSignal): Promise<CollectionDetail> {
     return this.request(`/collections/${encodeURIComponent(id)}${windowQuery(window)}`, { signal })
+  }
+
+  createCollection(name: string): Promise<WorkCollection> {
+    return this.request('/collections', { method: 'POST', body: { name } })
+  }
+
+  renameCollection(id: string, name: string): Promise<WorkCollection> {
+    return this.request(`/collections/${encodeURIComponent(id)}`, { method: 'PATCH', body: { name } })
+  }
+
+  deleteCollection(id: string): Promise<void> {
+    return this.request(`/collections/${encodeURIComponent(id)}`, { method: 'DELETE' })
+  }
+
+  appendToCollection(id: string, rjs: string[]): Promise<CollectionAppendResult> {
+    return this.request(`/collections/${encodeURIComponent(id)}/works`, { method: 'POST', body: { rjs } })
+  }
+
+  removeFromCollection(id: string, rj: string): Promise<void> {
+    return this.request(`/collections/${encodeURIComponent(id)}/works/${encodeURIComponent(rj)}`, { method: 'DELETE' })
+  }
+
+  /** Moves a member before `beforeRj`, or to the end when null. */
+  moveCollectionMember(id: string, rj: string, beforeRj: string | null): Promise<void> {
+    return this.request(`/collections/${encodeURIComponent(id)}/works/${encodeURIComponent(rj)}`, { method: 'PATCH', body: { before_rj: beforeRj } })
   }
 
   /** The work's file manifest (docs/api.md "Work content manifest"). */

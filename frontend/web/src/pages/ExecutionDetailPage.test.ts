@@ -128,6 +128,10 @@ function pageApi(overrides: Partial<ApiClientContract> = {}): ApiClientContract 
     }),
     getRevision: vi.fn().mockResolvedValue(revision(null)),
     getExecution: vi.fn().mockResolvedValue(executionView),
+    // An active detail page now observes its session for the SPA lifetime.
+    streamExecutionEvents: vi.fn((_ws, _op, _id, signal) => ({ async *[Symbol.asyncIterator]() {
+      await new Promise<void>(resolve => signal?.addEventListener('abort', () => resolve(), { once: true }))
+    } })),
     ...overrides,
   })
 }

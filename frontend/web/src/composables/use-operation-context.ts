@@ -81,6 +81,10 @@ export function useOperationContext(
     if (id && generationId) generation.attach(id, operation, generationId)
   }, { immediate: true })
 
+  watch(() => [worksetId.value, operationView.value?.active_execution?.execution_id] as const, ([id, executionId]) => {
+    if (id && executionId && operation === CONVERSION) execution.attach(id, operation, executionId)
+  }, { immediate: true })
+
   // The session worth showing: the one currently running for this operation,
   // or the one that ran the revision in view (a revision executes at most
   // once, so its ref is final).
@@ -111,7 +115,8 @@ export function useOperationContext(
   const executionView = computed(() => {
     const store = execution.store
     const detail = executionQuery.data.value
-    const base = store.status === 'streaming' && store.view ? store.view : (detail ?? store.view)
+    const streamed = store.worksetId === worksetId.value && store.operation === operation && store.executionId === executionRef.value?.id ? store.view : null
+    const base = store.status === 'streaming' && streamed ? streamed : (detail ?? streamed)
     if (!base) return base
     const known = new Set(base.components.map((component) => component.component_index))
     const missing = extraComponents.value.filter(

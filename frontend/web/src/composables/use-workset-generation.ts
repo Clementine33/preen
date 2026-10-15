@@ -1,13 +1,10 @@
-import { getCurrentInstance } from 'vue'
-import { useRouter } from 'vue-router'
-import { useMutation, useQueryClient, type QueryClient } from '@tanstack/vue-query'
-import { ApiError, useApiClient } from '@/lib/api/client'
-import type { GenerationStatus, GenerationView, OperationType, Workset, Library, CurrentRecordResponse } from '@/lib/api/types'
+import { useMutation, useQueryClient } from '@tanstack/vue-query'
+import { useApiClient } from '@/lib/api/client'
+import type { GenerationStatus, GenerationView, OperationType } from '@/lib/api/types'
 import { startGenerationMutationOptions, cancelGenerationMutationOptions, syncAfterGenerationTerminal, generationQueryOptions, syncGenerationSnapshot, syncGenerationEvent } from '@/queries/worksets'
 import { queryKeys } from '@/queries/query-keys'
-import { libraryListQueryOptions } from '@/queries/libraries'
 import { useWorksetGenerationStore } from '@/stores/workset-generation'
-import { useTaskToast } from './use-task-toast'
+import { sessionPoller, useWorksetObservation } from './use-workset-observation'
 
 type Observation = {
   worksetId: string
@@ -21,57 +18,16 @@ type Observation = {
   retryDelay: number
   timer?: ReturnType<typeof setTimeout>
 }
-// Shared by every page in this SPA; consumed identities outlive their streams.
-const registries = new WeakMap<QueryClient, Map<string, Observation>>()
-const labels = { conversion: '转换', rename: '重命名', metadata_refresh: '获取元数据' }
-const routes = { conversion: 'conversion', rename: 'rename', metadata_refresh: 'metadata-refresh' }
-
 // Planning orchestration owns session observation, cache synchronization and
 // notices across page mounts. The singleton Pinia store still owns SSE state.
 export function useWorksetGeneration() {
   const api = useApiClient()
   const queryClient = useQueryClient()
   const store = useWorksetGenerationStore()
-  const router = useRouter()
-  const toast = useTaskToast()
-  let registry = registries.get(queryClient)
-  if (!registry) {
-    registry = new Map()
-    registries.set(queryClient, registry)
-    getCurrentInstance()?.appContext.app.onUnmount(() => stop())
-  }
-  const observations = registry
+  const { observations, identity, notify } = useWorksetObservation<Observation>(queryClient, 'planning', stop)
   const startMutation = useMutation(startGenerationMutationOptions(api, queryClient))
   const cancelMutation = useMutation(cancelGenerationMutationOptions(api))
 
-  function identity(worksetId: string) {
-    const workset = queryClient.getQueryData<Workset>(queryKeys.worksets.detail(worksetId))
-      ?? queryClient.getQueriesData<CurrentRecordResponse>({ queryKey: queryKeys.worksets.currentsPrefix() })
-        .map(([, record]) => record?.workset).find(record => record?.workset_id === worksetId)
-    const known = [...observations.values()].find(entry => entry.worksetId === worksetId)
-    const libraryId = workset?.library?.library_id ?? known?.libraryId ?? String(router.currentRoute.value.params.libraryId ?? '')
-    const library = queryClient.getQueryData<Library[]>(queryKeys.libraries.list())?.find(item => item.id === libraryId)
-    return { libraryId, libraryName: workset?.library?.name ?? library?.name ?? known?.libraryName ?? libraryId }
-  }
-  function notify(entry: Observation, text: string, suppress = false) {
-    const route = router.currentRoute.value
-    if (suppress && route.params.libraryId === entry.libraryId && route.matched.some(record => record.name === routes[entry.operation])) return
-    toast.show({ text: `${entry.libraryName} · ${labels[entry.operation]} · ${text}`,
-      action: { label: '查看结果', run: () => { void viewResults() } } })
-    async function viewResults() {
-      try {
-        const libraries = await queryClient.fetchQuery({ ...libraryListQueryOptions(api), staleTime: 0 })
-        if (libraries.some(library => library.id === entry.libraryId)) {
-          await router.push({ name: routes[entry.operation], params: { libraryId: entry.libraryId } })
-        } else {
-          await router.push({ name: 'worksets' })
-          toast.show({ text: `${entry.libraryName} · 媒体库已移除，结果不可用` })
-        }
-      } catch {
-        notify(entry, '无法确认媒体库是否可用，请重试')
-      }
-    }
-  }
   function finalize(entry: Observation, status: GenerationStatus) {
     if (entry.consumed || status === 'queued' || status === 'running') return
     entry.consumed = true
@@ -86,33 +42,15 @@ export function useWorksetGeneration() {
     entry.timer = undefined
     void queryClient.cancelQueries({ queryKey: queryKeys.worksets.generation(entry.worksetId, entry.operation, entry.generationId), exact: true })
   }
-  async function poll(entry: Observation) {
-    if (entry.consumed || entry.reading) return
-    clearTimeout(entry.timer)
-    entry.timer = undefined
-    entry.reading = true
-    let delay = 2000
-    try {
-      const session = await queryClient.fetchQuery(generationQueryOptions(api, entry.worksetId, entry.operation, entry.generationId))
-      if (entry.consumed) return
-      syncGenerationSnapshot(queryClient, session)
-      entry.retryDelay = 2000
-      finalize(entry, session.status)
-    } catch (error) {
-      if (entry.consumed) return
-      if (error instanceof ApiError && [401, 403, 404].includes(error.status)) {
-        entry.consumed = true
-        cleanup(entry)
-        notify(entry, '计划生成结果尚未确认，记录不存在或无权访问')
-        return
-      }
-      delay = entry.retryDelay
-      entry.retryDelay = Math.min(delay * 2, 30000)
-    } finally {
-      entry.reading = false
-      if (!entry.consumed) entry.timer = setTimeout(() => { void poll(entry) }, delay)
-    }
-  }
+  const poll = sessionPoller(
+    (entry: Observation) => queryClient.fetchQuery(generationQueryOptions(api, entry.worksetId, entry.operation, entry.generationId)),
+    (entry, session) => { syncGenerationSnapshot(queryClient, session); finalize(entry, session.status) },
+    entry => {
+      entry.consumed = true
+      cleanup(entry)
+      notify(entry, '计划生成结果尚未确认，记录不存在或无权访问')
+    },
+  )
   function register(worksetId: string, operation: OperationType, generationId: string, captured = identity(worksetId), initial?: GenerationView) {
     const key = JSON.stringify([worksetId, operation, 'planning', generationId])
     const existing = observations.get(key)

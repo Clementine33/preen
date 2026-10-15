@@ -1,7 +1,9 @@
 import { useQueryClient, type QueryClient, useMutation } from '@tanstack/vue-query'
 import { useApiClient } from '@/lib/api/client'
-import type { OperationType } from '@/lib/api/types'
+import type { ExecutionStatus, ExecutionView, OperationType } from '@/lib/api/types'
 import {
+  executionQueryOptions,
+  syncExecutionSnapshot,
   cancelExecutionMutationOptions,
   startExecutionMutationOptions,
   sweepAfterExecution,
@@ -9,6 +11,10 @@ import {
   syncAfterExecutionTerminal,
 } from '@/queries/worksets'
 import { useWorksetExecutionStore } from '@/stores/workset-execution'
+import { queryKeys } from '@/queries/query-keys'
+import { sessionPoller, useWorksetObservation, type SessionIdentity } from './use-workset-observation'
+
+type Observation = SessionIdentity & { executionId: string; consumed: boolean; intentional: boolean; reading: boolean; retryDelay: number; confirmed?: ExecutionStatus; timer?: ReturnType<typeof setTimeout> }
 
 // Single entry point for execution-session orchestration: pages call
 // start/cancel/attach and never assemble cache invalidation themselves. The
@@ -31,7 +37,7 @@ async function syncOnTerminal(
     // Transport failure after events: the backend may have written files.
     await sweepAfterExecution(queryClient)
   }
-  // Transport failure before any event: nothing was committed.
+  // Other tasks retain their existing transport behavior until their observer is registered.
 }
 
 export function useWorksetExecution() {
@@ -39,8 +45,20 @@ export function useWorksetExecution() {
   const queryClient = useQueryClient()
   const store = useWorksetExecutionStore()
 
-  const startMutation = useMutation(startExecutionMutationOptions(api, queryClient))
-  const cancelMutation = useMutation(cancelExecutionMutationOptions(api, queryClient))
+  const { observations, identity, notify } = useWorksetObservation<Observation>(queryClient, 'execution', stop)
+
+  const startOptions = startExecutionMutationOptions(api, queryClient)
+  const startMutation = useMutation({ ...startOptions,
+    onSuccess: (result, input) => {
+      const key = JSON.stringify([input.worksetId, input.operation, 'execution', result.execution.execution_id])
+      if (!observations.get(key)?.consumed) startOptions.onSuccess(result, input)
+    },
+  })
+  const cancelMutation = useMutation({ ...cancelExecutionMutationOptions(api, queryClient),
+    onSuccess: (view, input) => {
+      if (input.operation !== 'conversion') syncExecutionSnapshot(queryClient, view)
+    },
+  })
 
   type StartInput = {
     worksetId: string
@@ -57,8 +75,11 @@ export function useWorksetExecution() {
   // refused start re-reads the server state before surfacing the error.
   async function start(input: StartInput) {
     try {
+      const captured = identity(input.worksetId)
       const result = await startMutation.mutateAsync(input)
-      if (result.created) {
+      if (input.operation === 'conversion') {
+        register(input.worksetId, input.operation, result.execution.execution_id, captured, result.execution)
+      } else if (result.created) {
         attach(input.worksetId, input.operation, result.execution.execution_id)
       }
       return result
@@ -70,9 +91,10 @@ export function useWorksetExecution() {
 
   // Attaches the SSE stream for an already-running session — after a page
   // reload, or when the workspace mounts while the backend session is active.
-  // A refused attach (another session is streaming in the singleton store)
-  // resolves without synchronizing: there is no terminal to react to.
+  // Conversion overflow sessions use exact-session polling while the original
+  // singleton stream continues; other tasks retain their existing lifecycle.
   function attach(worksetId: string, operation: OperationType, executionId: string): void {
+    if (operation === 'conversion') { register(worksetId, operation, executionId); return }
     void store.attach(worksetId, operation, executionId, api).then((attached) => {
       if (!attached) return
       // The attach promise settles when the stream ends. Guard against a
@@ -88,6 +110,20 @@ export function useWorksetExecution() {
   // outcome when the stream is already gone.
   async function cancel(worksetId: string, operation: OperationType, executionId: string): Promise<void> {
     store.requestCancel(worksetId, executionId)
+    if (operation === 'conversion') {
+      const entry = register(worksetId, operation, executionId)
+      entry.intentional = true
+      try {
+        const result = await cancelMutation.mutateAsync({ worksetId, operation, executionId })
+        if (!entry.consumed) {
+          syncExecutionSnapshot(queryClient, result)
+          finalize(entry, result.status, result.completed_operations)
+        }
+      } finally {
+        if (!entry.consumed) void poll(entry)
+      }
+      return
+    }
     try {
       await cancelMutation.mutateAsync({ worksetId, operation, executionId })
     } finally {
@@ -95,5 +131,62 @@ export function useWorksetExecution() {
     }
   }
 
-  return { start, attach, cancel, store, startMutation, cancelMutation }
+  function cleanup(entry: Observation) {
+    clearTimeout(entry.timer)
+    entry.timer = undefined
+    void queryClient.cancelQueries({ queryKey: queryKeys.worksets.execution(entry.worksetId, entry.operation, entry.executionId), exact: true })
+  }
+  function finalize(entry: Observation, status: ExecutionStatus, completedOperations = 0) {
+    if (entry.consumed || status === 'queued' || status === 'running') return
+    entry.consumed = true
+    cleanup(entry)
+    notify(entry, status === 'succeeded' ? '执行完成' : status === 'canceled' ? '执行已停止'
+      : status === 'interrupted' ? '执行已中断，请查看已提交结果，剩余工作未恢复' : completedOperations > 0 ? `执行部分失败，已完成 ${completedOperations} 项操作` : '执行失败', status === 'succeeded' || status === 'canceled')
+    void syncAfterExecutionTerminal(queryClient, entry.worksetId, entry.operation)
+  }
+  const poll = sessionPoller(
+    (entry: Observation) => queryClient.fetchQuery(executionQueryOptions(api, entry.worksetId, entry.operation, entry.executionId)),
+    (entry, session) => {
+      const active = session.status === 'queued' || session.status === 'running'
+      // Retain confirmed failure until a terminal detail supplies final counters.
+      syncExecutionSnapshot(queryClient, entry.confirmed === 'failed' && active ? { ...session, status: 'failed' } : session)
+      if (!active) finalize(entry, entry.confirmed ?? session.status, session.completed_operations)
+    },
+    entry => {
+      entry.consumed = true
+      cleanup(entry)
+      notify(entry, entry.confirmed === 'failed' ? '执行失败，完整结果不可用，记录不存在或无权访问' : '执行结果尚未确认，记录不存在或无权访问')
+    },
+  )
+  function register(worksetId: string, operation: OperationType, executionId: string, captured = identity(worksetId), initial?: ExecutionView) {
+    const key = JSON.stringify([worksetId, operation, 'execution', executionId])
+    const existing = observations.get(key)
+    if (existing) return existing
+    const entry: Observation = { worksetId, operation, executionId, ...captured, consumed: false, intentional: false, reading: false, retryDelay: 2000 }
+    observations.set(key, entry)
+    if (initial) { syncExecutionSnapshot(queryClient, initial); finalize(entry, initial.status, initial.completed_operations) }
+    if (!entry.consumed) void store.attach(worksetId, operation, executionId, api, event => {
+      if (entry.consumed) return
+      if (store.view) syncExecutionSnapshot(queryClient, store.view)
+      if (event.type === 'execution_snapshot') { finalize(entry, event.data.status, event.data.completed_operations) }
+      else if (['succeeded', 'failed', 'canceled', 'interrupted'].includes(event.type)) {
+        entry.confirmed = event.type as ExecutionStatus
+        if (event.type === 'failed') void poll(entry)
+        else finalize(entry, event.type as ExecutionStatus)
+      }
+    }).then(async attached => {
+      if (entry.consumed || entry.confirmed) return
+      if (attached && !entry.intentional) {
+        notify(entry, '连接中断，执行结果尚未确认')
+        await sweepAfterExecution(queryClient)
+      }
+      void poll(entry)
+    })
+    return entry
+  }
+  function stop() {
+    for (const entry of observations.values()) { entry.consumed = true; cleanup(entry) }
+    store.reset()
+  }
+  return { start, attach, cancel, stop, store, startMutation, cancelMutation }
 }

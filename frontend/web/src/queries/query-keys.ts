@@ -1,7 +1,7 @@
 // Central query-key factories. Pages and composables must never construct
 // keys ad hoc: cache isolation, prefix invalidation, and stale-response
 // protection all depend on these exact tuple shapes.
-import type { ListWorksParams, WorkFacetKind, WorksScope } from '@/lib/api/types'
+import type { CollectionWindow, ListWorksParams, WorkFacetKind, WorksScope } from '@/lib/api/types'
 
 export const queryKeys = {
   libraries: {
@@ -32,6 +32,13 @@ export const queryKeys = {
   },
   classifierTags: {
     list: () => ['classifier-tags', 'list'] as const,
+  },
+  // A collection's detail is keyed by its window: the titles (first 20, newest
+  // first) and each random-cover page are separate entries.
+  collections: {
+    all: () => ['collections'] as const,
+    list: () => ['collections', 'list'] as const,
+    detail: (id: string, window: CollectionWindow) => ['collections', 'detail', id, window] as const,
   },
   works: {
     all: () => ['works'] as const,

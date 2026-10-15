@@ -2,6 +2,9 @@ import type { InjectionKey } from 'vue'
 import { inject } from 'vue'
 import { parseSSEStream, type SSEEvent } from './sse'
 import type {
+  CollectionDetail,
+  CollectionListResponse,
+  CollectionWindow,
   TagFacets,
   ApiClientContract,
   AnyDraftDocument,
@@ -103,6 +106,13 @@ function worksQuery(params: ListWorksParams): string {
     const value = params[key]
     if (value !== undefined) query.set(key, String(value))
   }
+  const qs = query.toString()
+  return qs ? `?${qs}` : ''
+}
+
+function windowQuery(window: CollectionWindow): string {
+  const query = new URLSearchParams()
+  for (const [key, value] of Object.entries(window)) if (value !== undefined) query.set(key, String(value))
   const qs = query.toString()
   return qs ? `?${qs}` : ''
 }
@@ -300,6 +310,16 @@ export class ApiClient implements ApiClientContract {
     // The backend normalizes both 6- and 8-digit spellings to the canonical
     // 8-digit form; the path only ever carries the work number.
     return this.request(`/works/${encodeURIComponent(rj)}`, { signal })
+  }
+
+  // Collections (docs/api/collections.md): the list route refuses `direction`,
+  // so only the detail window carries it.
+  listCollections(window: Omit<CollectionWindow, 'direction'> = {}, signal?: AbortSignal): Promise<CollectionListResponse> {
+    return this.request(`/collections${windowQuery(window)}`, { signal })
+  }
+
+  getCollection(id: string, window: CollectionWindow = {}, signal?: AbortSignal): Promise<CollectionDetail> {
+    return this.request(`/collections/${encodeURIComponent(id)}${windowQuery(window)}`, { signal })
   }
 
   /** The work's file manifest (docs/api.md "Work content manifest"). */

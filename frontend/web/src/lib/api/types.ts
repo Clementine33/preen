@@ -295,6 +295,33 @@ export interface WorkListResponse {
   total: number
 }
 
+/** One work collection (docs/api/collections.md); Favorites is `id: 'favorites'`. */
+export interface WorkCollection {
+  id: string
+  name: string
+  work_count: number
+  created_at: string
+  updated_at: string
+}
+
+export interface CollectionListResponse {
+  collections: WorkCollection[]
+  total: number
+}
+
+/** A collection's detail window: the summaries of one page of its members. */
+export interface CollectionDetail extends WorkCollection {
+  works: WorkSummary[]
+  total: number
+}
+
+export interface CollectionWindow {
+  limit?: number
+  page?: number
+  /** `desc` lists the most recently appended members first. */
+  direction?: 'asc' | 'desc'
+}
+
 /** `rating` puts unrated works last in either direction, as release_date does unknown dates. */
 export type WorksSort = 'rj' | 'release_date' | 'collected_at' | 'rating'
 
@@ -1113,6 +1140,8 @@ export interface ApiClientContract {
   getWorkset(id: string, signal?: AbortSignal): Promise<Workset>
   listWorks(params?: ListWorksParams, signal?: AbortSignal): Promise<WorkListResponse>
   getWork(rj: string, signal?: AbortSignal): Promise<WorkDetail>
+  listCollections(window?: CollectionWindow, signal?: AbortSignal): Promise<CollectionListResponse>
+  getCollection(id: string, window?: CollectionWindow, signal?: AbortSignal): Promise<CollectionDetail>
   getWorkContent(rj: string, signal?: AbortSignal): Promise<WorkContent>
   workFileUrl(ref: ContentFileRef, version?: string): string
   getWorkText(ref: ContentFileRef, signal?: AbortSignal): Promise<string>

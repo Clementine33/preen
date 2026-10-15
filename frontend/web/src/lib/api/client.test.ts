@@ -35,6 +35,22 @@ describe('ApiClient', () => {
     expect(query.get('age_category')).toBe(age === undefined ? null : String(age))
   })
 
+  it('sends the collection window, and only the detail route takes a direction', async () => {
+    const fetchMock = mockFetch(async () => okJson({ collections: [], works: [] }))
+
+    await createClient().listCollections({ limit: 200 })
+    await createClient().getCollection('favorites', { limit: 20, direction: 'desc' })
+    await createClient().getCollection('a/b')
+
+    const urls = fetchMock.mock.calls.map((call) => new URL(String(call[0])))
+    expect(urls[0]!.pathname.endsWith('/collections')).toBe(true)
+    expect(urls[0]!.search).toBe('?limit=200')
+    expect(urls[1]!.pathname.endsWith('/collections/favorites')).toBe(true)
+    expect(urls[1]!.searchParams.get('direction')).toBe('desc')
+    expect(urls[2]!.pathname.endsWith('/collections/a%2Fb')).toBe(true)
+    expect(urls[2]!.search).toBe('')
+  })
+
   it('sends the combined tag filter and its mode in the works request', async () => {
     const fetchMock = mockFetch(async () => okJson({ works: [] }))
 

@@ -29,7 +29,8 @@ export function useWorksetGeneration() {
   const cancelMutation = useMutation(cancelGenerationMutationOptions(api))
 
   function finalize(entry: Observation, status: GenerationStatus) {
-    if (entry.consumed || status === 'queued' || status === 'running') return
+    // Only a known terminal status ends observation; anything else keeps watching.
+    if (entry.consumed || !['completed', 'failed', 'canceled', 'interrupted'].includes(status)) return
     entry.consumed = true
     cleanup(entry)
     const text = status === 'completed' ? '计划生成完成' : status === 'failed' ? '计划生成失败'

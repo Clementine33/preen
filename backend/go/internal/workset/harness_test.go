@@ -384,6 +384,10 @@ func (f *fixture) startGeneration(worksetID string, ifMatch int) string {
 	if res.Generation == nil {
 		f.t.Fatalf("no session in fresh start result: %+v", res)
 	}
+	// The accepted session is answered as stored, never with an empty status.
+	if res.Created && res.Generation.Status != workset.GenStatusQueued {
+		f.t.Fatalf("fresh session status = %q, want queued", res.Generation.Status)
+	}
 	return res.Generation.GenerationID
 }
 

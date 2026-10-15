@@ -110,7 +110,8 @@ export function useWorksetExecution() {
     void queryClient.cancelQueries({ queryKey: queryKeys.worksets.execution(entry.worksetId, entry.operation, entry.executionId), exact: true })
   }
   function finalize(entry: Observation, status: ExecutionStatus, completedOperations = 0) {
-    if (entry.consumed || status === 'queued' || status === 'running') return
+    // Only a known terminal status ends observation; anything else keeps watching.
+    if (entry.consumed || !['succeeded', 'failed', 'canceled', 'interrupted'].includes(status)) return
     entry.consumed = true
     entry.terminal = status
     cleanup(entry)

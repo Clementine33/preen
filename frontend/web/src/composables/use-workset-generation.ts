@@ -35,7 +35,7 @@ export function useWorksetGeneration() {
     cleanup(entry)
     const text = status === 'completed' ? '计划生成完成' : status === 'failed' ? '计划生成失败'
       : status === 'canceled' ? '计划生成已停止' : '计划生成已中断，未发布新计划，原有计划仍保留'
-    notify(entry, text, status === 'completed' || status === 'canceled')
+    notify(entry, text, status === 'completed' ? 'success' : status === 'failed' ? 'failed' : status === 'canceled' ? 'stopped' : 'interrupted')
     void syncAfterGenerationTerminal(queryClient, entry.worksetId, entry.operation)
   }
   function cleanup(entry: Observation) {

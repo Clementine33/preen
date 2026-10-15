@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test'
 
 for (const mobile of [false, true]) {
   test(mobile ? 'mobile task notices preserve undo and wrap below safe area' : 'desktop task notices preserve undo at upper right', async ({ page }) => {
+    test.setTimeout(60_000)
     await page.setViewportSize(mobile ? { width: 320, height: 640 } : { width: 1440, height: 900 })
     await page.emulateMedia({ reducedMotion: 'reduce' })
     await page.route('**/__task-toast', route => route.fulfill({ contentType: 'text/html', body: `
@@ -40,16 +41,20 @@ for (const mobile of [false, true]) {
     await expect(page.locator('#undo-result')).toHaveText('restored')
     await expect(task).toContainText('扫描完成')
     await task.hover()
-    await page.waitForTimeout(4200)
+    await page.waitForTimeout(8500)
     await expect(task).toContainText('扫描完成')
     await page.getByTestId('task-toast-action').focus()
     await page.mouse.move(0, 500)
-    await page.waitForTimeout(4200)
+    await page.waitForTimeout(8500)
     await expect(task).toContainText('扫描完成')
     await page.keyboard.press('Escape')
     await expect(task).toContainText('规划失败')
+    // Failures stay until dismissed.
     await page.locator('#enqueue').focus()
-    await expect(task).toBeHidden({ timeout: 6000 })
+    await page.waitForTimeout(9000)
+    await expect(task).toContainText('规划失败')
+    await page.getByRole('button', { name: '关闭通知' }).click()
+    await expect(task).toBeHidden()
     const motion = await page.evaluate(() => matchMedia('(prefers-reduced-motion: reduce)').matches)
     expect(motion).toBe(true)
   })

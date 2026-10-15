@@ -98,8 +98,9 @@ export function useLibraryScan() {
         : unknown ? '连接中断，扫描结果尚未确认'
           : status === 'completed' ? '扫描完成'
             : status === 'cancelled' ? '扫描已停止' : '扫描失败'
+      const tone = localCancel || unknown ? 'unknown' : status === 'completed' ? 'success' : status === 'cancelled' ? 'stopped' : 'failed'
       toast.show({
-        text: `${libraryName} · ${result}`,
+        title: `${libraryName} · 扫描`, text: result, tone,
         action: { label: '查看结果', run: () => { void viewResults() } },
       })
     }
@@ -111,10 +112,10 @@ export function useLibraryScan() {
           await router.push({ name: 'workbench-overview', params: { libraryId } })
         } else {
           await router.push({ name: 'worksets' })
-          toast.show({ text: `${libraryName} · 媒体库已移除，结果不可用` })
+          toast.show({ title: libraryName, text: '媒体库已移除，结果不可用', tone: 'unknown' })
         }
       } catch {
-        toast.show({ text: `${libraryName} · 无法确认媒体库是否可用，请重试`, action: { label: '查看结果', run: () => { void viewResults() } } })
+        toast.show({ title: libraryName, text: '无法确认媒体库是否可用，请重试', tone: 'unknown', action: { label: '查看结果', run: () => { void viewResults() } } })
       }
     }
   }

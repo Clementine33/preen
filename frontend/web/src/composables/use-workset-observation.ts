@@ -6,11 +6,13 @@ import { ApiError, useApiClient } from '@/lib/api/client'
 import { queryKeys } from '@/queries/query-keys'
 import { libraryListQueryOptions } from '@/queries/libraries'
 import { useTaskToast } from './use-task-toast'
+import type { TaskTone } from '@/stores/task-toast'
 
 export type SessionIdentity = { worksetId: string; operation: OperationType; libraryId: string; libraryName: string }
 // Registry identities survive page mounts and remain consumed for this SPA.
 const registries = new WeakMap<QueryClient, Map<string, Map<string, SessionIdentity>>>()
 const labels = { conversion: '转换', rename: '重命名', metadata_refresh: '获取元数据' }
+const phases_ = { planning: '规划', execution: '执行', covers: '封面' }
 const routes = { conversion: 'conversion', rename: 'rename', metadata_refresh: 'metadata-refresh' }
 
 export function useWorksetObservation<T extends SessionIdentity>(queryClient: QueryClient, phase: 'planning' | 'execution' | 'covers', stop: () => void) {
@@ -35,10 +37,12 @@ export function useWorksetObservation<T extends SessionIdentity>(queryClient: Qu
     const library = queryClient.getQueryData<Library[]>(queryKeys.libraries.list())?.find(item => item.id === libraryId)
     return { libraryId, libraryName: workset?.library?.name ?? library?.name ?? known?.libraryName ?? libraryId }
   }
-  function notify(entry: SessionIdentity, text: string, suppress = false) {
+  // Success and stopped are suppressed on the corresponding page; everything else always shows.
+  function notify(entry: SessionIdentity, text: string, tone: TaskTone = 'unknown') {
     const route = router.currentRoute.value
-    if (suppress && route.params.libraryId === entry.libraryId && route.matched.some(record => record.name === routes[entry.operation])) return
-    toast.show({ text: `${entry.libraryName} · ${labels[entry.operation]} · ${text}`,
+    const corresponding = route.params.libraryId === entry.libraryId && route.matched.some(record => record.name === routes[entry.operation])
+    if (corresponding && (tone === 'success' || tone === 'stopped')) return
+    toast.show({ title: `${entry.libraryName} · ${labels[entry.operation]} · ${phases_[phase]}`, text, tone,
       action: { label: '查看结果', run: () => { void viewResults() } } })
     async function viewResults() {
       try {
@@ -47,7 +51,7 @@ export function useWorksetObservation<T extends SessionIdentity>(queryClient: Qu
           await router.push({ name: phase === 'execution' && entry.operation === 'conversion' ? 'conversion-execution' : routes[entry.operation], params: { libraryId: entry.libraryId } })
         } else {
           await router.push({ name: 'worksets' })
-          toast.show({ text: `${entry.libraryName} · 媒体库已移除，结果不可用` })
+          toast.show({ title: entry.libraryName, text: '媒体库已移除，结果不可用', tone: 'unknown' })
         }
       } catch {
         notify(entry, '无法确认媒体库是否可用，请重试')

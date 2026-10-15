@@ -69,7 +69,8 @@ describe('scan result notifications', () => {
     app.finish([completed, completed])
     await pending
     await flushPromises()
-    expect(notice()).toContain('Archive · 扫描完成')
+    expect(notice()).toContain('Archive · 扫描')
+    expect(notice()).toContain('扫描完成')
     document.body.querySelector<HTMLButtonElement>('[data-testid="task-toast-action"]')!.click()
     await flushPromises()
     expect(app.router.currentRoute.value.name).toBe('workbench-overview')
@@ -91,7 +92,8 @@ describe('scan result notifications', () => {
     app.finish([{ type: 'error', data: { stage: 'scan', message: 'Permission denied' } }])
     await pending
     await flushPromises()
-    expect(notice()).toContain('Archive · 扫描失败')
+    expect(notice()).toContain('Archive · 扫描')
+    expect(notice()).toContain('扫描失败')
   })
   it.each([
     ['/worksets/lib-a', false], ['/worksets/lib-a/f/dir-a', false], ['/elsewhere', true],
@@ -159,11 +161,13 @@ describe('scan result notifications', () => {
     app.finish([completed])
     await second
     await flushPromises()
-    expect(notice()).toContain('Archive · 扫描完成')
+    expect(notice()).toContain('Archive · 扫描')
+    expect(notice()).toContain('扫描完成')
     const tasks = useTaskToast()
     tasks.dismiss(tasks.current.value!.id)
     await flushPromises()
-    expect(notice()).toContain('lib-b · 扫描完成')
+    expect(notice()).toContain('lib-b · 扫描')
+    expect(notice()).toContain('扫描完成')
     tasks.dismiss(tasks.current.value!.id)
     expect(tasks.current.value).toBeNull()
   })

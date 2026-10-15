@@ -116,7 +116,8 @@ export function useWorksetExecution() {
     entry.terminal = status
     cleanup(entry)
     if (entry.eligible) notify(entry, status === 'succeeded' ? '执行完成' : status === 'canceled' ? '执行已停止'
-      : status === 'interrupted' ? '执行已中断，请查看已提交结果，剩余工作未恢复' : completedOperations > 0 ? `执行部分失败，已完成 ${completedOperations} 项操作` : '执行失败', status === 'succeeded' || status === 'canceled')
+      : status === 'interrupted' ? '执行已中断，请查看已提交结果，剩余工作未恢复' : completedOperations > 0 ? `执行部分失败，已完成 ${completedOperations} 项操作` : '执行失败',
+      status === 'succeeded' ? 'success' : status === 'canceled' ? 'stopped' : status === 'interrupted' ? 'interrupted' : completedOperations > 0 ? 'partial' : 'failed')
     void syncAfterExecutionTerminal(queryClient, entry.worksetId, entry.operation).then(() => {
       if (!entry.stopped && entry.operation === 'metadata_refresh') covers.terminal(entry, entry.eligible)
     })
@@ -133,7 +134,7 @@ export function useWorksetExecution() {
       entry.consumed = true
       cleanup(entry)
       if (entry.operation === 'metadata_refresh') covers.unavailable(entry.worksetId, entry.executionId)
-      if (entry.eligible) notify(entry, entry.confirmed === 'failed' ? '执行失败，完整结果不可用，记录不存在或无权访问' : '执行结果尚未确认，记录不存在或无权访问')
+      if (entry.eligible) notify(entry, entry.confirmed === 'failed' ? '执行失败，完整结果不可用，记录不存在或无权访问' : '执行结果尚未确认，记录不存在或无权访问', entry.confirmed === 'failed' ? 'failed' : 'unknown')
     },
   )
   function register(worksetId: string, operation: OperationType, executionId: string, captured = identity(worksetId), initial?: ExecutionView, eligible = true) {

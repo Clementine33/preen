@@ -15,8 +15,6 @@
 test/
 !frontend/web/src/test/
 
-# Test config
-
 # IDE
 .vscode/
 .idea/
@@ -34,6 +32,10 @@ frontend/web/dist/
 
 # dev runtime data (dev-web.mjs backend data dir)
 .dev_data/
+
+# Intermediate artifacts
+docs/issues/*-spec.md
+frontend/web/prototypes/
 
 # Playwright e2e runtime state (launch-stack.mjs → spec handoff)
 frontend/web/e2e/.stack-state.json

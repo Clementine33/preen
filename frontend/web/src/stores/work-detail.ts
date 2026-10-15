@@ -16,7 +16,7 @@ import { usePlayerStore } from './player'
  * The detail page's session state: the v3 prototype's `S`,
  * reactive and shared across the deck, leaf, bay and viewer. One work is one
  * session — binding a different rj resets everything personal to the visit
- * (scriptSeen, pairings, veil). Playback itself lives in the player store:
+ * (scriptSeen, pairings, veil); the bay's layout (dock, drawer, tab) carries over. Playback itself lives in the player store:
  * this store picks the file (`playFmt`, the format fallback) and hands the
  * player its address, which outlives the page.
  *
@@ -115,11 +115,11 @@ export const useWorkDetailStore = defineStore('work-detail', {
   actions: {
     /**
      * Hydrate the manifest of the bound work. A different rj is a new session:
-     * everything resets. A refetch of the same rj keeps the session and only
+     * everything but the bay's layout resets. A refetch of the same rj keeps the session and only
      * clamps the selections against the fresh data.
      */
     bind(rj: string, content: WorkContent, resolveFileUrl?: FileUrl) {
-      if (this.rj !== rj) this.$reset()
+      if (this.rj !== rj) this.newVisit()
       // Without a resolver (a test binding the sample) tracks play silently.
       fileUrl = resolveFileUrl ?? null
       this.rj = rj
@@ -134,6 +134,13 @@ export const useWorkDetailStore = defineStore('work-detail', {
         this.flipped = false
       }
       if (this.leaf === 'lrc' && !this.lrcFor(this.track)) this.leaf = 'colophon'
+    },
+
+    /** A different work: the visit resets, the bay stays where the user left it. */
+    newVisit() {
+      const { dock, bayOpen, tab } = this
+      this.$reset()
+      this.$patch({ dock, bayOpen, tab })
     },
 
     flip() {

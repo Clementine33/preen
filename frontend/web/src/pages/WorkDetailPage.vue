@@ -37,7 +37,7 @@ const { content } = useWorkContent(rj)
 // A different work is a new session, dropped the moment the route changes;
 // the manifest of the new work rehydrates when it lands.
 watch([rj, content], ([id, now]) => {
-  if (store.rj !== id) store.$reset()
+  if (store.rj !== id) store.newVisit()
   if (now !== null && id !== null && now.rj === id) store.bind(id, now, (ref) => api.workFileUrl(ref))
 }, { immediate: true })
 

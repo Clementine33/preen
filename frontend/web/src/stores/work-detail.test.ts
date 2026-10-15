@@ -47,12 +47,16 @@ describe('work-detail store', () => {
     store.scriptSeen = true
     store.pairs[2] = '本編/lyrics/02_本編 ―雨音と耳かき―.lrc'
     store.unveiled = true
+    store.setDock('right')
+    store.openBayTab('files')
 
     store.bind(OTHER, sampleWorkContent(OTHER))
     expect(store.rj).toBe(OTHER)
     expect(store.scriptSeen).toBe(false)
     expect(store.pairs).toEqual({})
     expect(store.unveiled).toBe(false)
+    expect(store.dock).toBe('right')
+    expect(store.tab).toBe('files')
 
     store.scriptSeen = true
     store.bind(OTHER, sampleWorkContent(OTHER))

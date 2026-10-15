@@ -17,7 +17,8 @@ import { cn } from '@/lib/utils'
  * Modal dialog on Reka's Dialog primitive: modal semantics, focus trap, Esc to
  * close the topmost layer, and focus restoration to the trigger on close come
  * from the primitive itself. `title` is required so every dialog carries an
- * accessible name.
+ * accessible name. The content owns its keys, so a page-level key handler
+ * stays out of the dialog.
  */
 const props = defineProps<{
   open: boolean
@@ -48,7 +49,7 @@ function onOpenChange(value: boolean) {
       <DialogOverlay
         class="fixed inset-0 z-50 bg-black/50 data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
       />
-      <DialogContent :class="contentClass" v-bind="description ? {} : { 'aria-describedby': undefined }">
+      <DialogContent :class="contentClass" data-own-keys v-bind="description ? {} : { 'aria-describedby': undefined }">
         <div class="flex items-start justify-between gap-3">
           <div class="min-w-0">
             <DialogTitle class="font-heading text-base font-semibold">{{ title }}</DialogTitle>

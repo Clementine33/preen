@@ -82,7 +82,7 @@ export function useOperationContext(
   }, { immediate: true })
 
   watch(() => [worksetId.value, operationView.value?.active_execution?.execution_id] as const, ([id, executionId]) => {
-    if (id && executionId && operation === CONVERSION) execution.attach(id, operation, executionId)
+    if (id && executionId) execution.attach(id, operation, executionId)
   }, { immediate: true })
 
   // The session worth showing: the one currently running for this operation,

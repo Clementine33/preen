@@ -211,8 +211,8 @@ const executionQuery = useQuery(() =>
 // Like generation, the execution store may be streaming another operation.
 const executionView = computed(() => {
   const store = execution.store
-  if (store.view && store.operation === operation.value && store.executionId === executionId.value) return store.view
-  return executionQuery.data.value ?? null
+  const streamed = store.worksetId === worksetId.value && store.operation === operation.value && store.executionId === executionId.value ? store.view : null
+  return store.status === 'streaming' && streamed ? streamed : (executionQuery.data.value ?? streamed)
 })
 // Every member is a bound work, so the outcome worth listing is the works whose
 // fetch failed; non-fatal source issues of a refreshed work are not shown.

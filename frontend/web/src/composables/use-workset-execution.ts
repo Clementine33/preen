@@ -1,4 +1,4 @@
-import { useQueryClient, type QueryClient, useMutation } from '@tanstack/vue-query'
+import { useQueryClient, useMutation } from '@tanstack/vue-query'
 import { useApiClient } from '@/lib/api/client'
 import type { ExecutionStatus, ExecutionView, OperationType } from '@/lib/api/types'
 import {
@@ -21,25 +21,6 @@ type Observation = SessionIdentity & { executionId: string; consumed: boolean; i
 // SSE lifecycle lives in the workset-execution Pinia store (the same
 // exception as the scan store); this composable owns Vue Query coordination.
 
-async function syncOnTerminal(
-  queryClient: QueryClient,
-  worksetId: string,
-  operation: OperationType,
-  terminal: string | null,
-  streamStarted: boolean,
-): Promise<void> {
-  if (terminal === 'event') {
-    // Confirmed terminal: refresh everything the outcome can have changed.
-    await syncAfterExecutionTerminal(queryClient, worksetId, operation)
-    return
-  }
-  if (streamStarted) {
-    // Transport failure after events: the backend may have written files.
-    await sweepAfterExecution(queryClient)
-  }
-  // Other tasks retain their existing transport behavior until their observer is registered.
-}
-
 export function useWorksetExecution() {
   const api = useApiClient()
   const queryClient = useQueryClient()
@@ -54,11 +35,7 @@ export function useWorksetExecution() {
       if (!observations.get(key)?.consumed) startOptions.onSuccess(result, input)
     },
   })
-  const cancelMutation = useMutation({ ...cancelExecutionMutationOptions(api, queryClient),
-    onSuccess: (view, input) => {
-      if (input.operation !== 'conversion') syncExecutionSnapshot(queryClient, view)
-    },
-  })
+  const cancelMutation = useMutation({ ...cancelExecutionMutationOptions(api, queryClient), onSuccess: () => {} })
 
   type StartInput = {
     worksetId: string
@@ -77,11 +54,7 @@ export function useWorksetExecution() {
     try {
       const captured = identity(input.worksetId)
       const result = await startMutation.mutateAsync(input)
-      if (input.operation === 'conversion') {
-        register(input.worksetId, input.operation, result.execution.execution_id, captured, result.execution)
-      } else if (result.created) {
-        attach(input.worksetId, input.operation, result.execution.execution_id)
-      }
+      register(input.worksetId, input.operation, result.execution.execution_id, captured, result.execution)
       return result
     } catch (error) {
       await syncAfterExecutionRefusal(queryClient, input.worksetId, input.operation)
@@ -91,17 +64,10 @@ export function useWorksetExecution() {
 
   // Attaches the SSE stream for an already-running session — after a page
   // reload, or when the workspace mounts while the backend session is active.
-  // Conversion overflow sessions use exact-session polling while the original
-  // singleton stream continues; other tasks retain their existing lifecycle.
+  // Overflow sessions use exact-session polling while the original singleton
+  // stream continues undisturbed.
   function attach(worksetId: string, operation: OperationType, executionId: string): void {
-    if (operation === 'conversion') { register(worksetId, operation, executionId); return }
-    void store.attach(worksetId, operation, executionId, api).then((attached) => {
-      if (!attached) return
-      // The attach promise settles when the stream ends. Guard against a
-      // superseded session before synchronizing against its outcome.
-      if (store.executionId !== executionId) return
-      return syncOnTerminal(queryClient, worksetId, operation, store.terminal, store.receivedEvent)
-    })
+    register(worksetId, operation, executionId)
   }
 
   // Explicit user cancel. The stream stays attached: a running session stops
@@ -110,24 +76,16 @@ export function useWorksetExecution() {
   // outcome when the stream is already gone.
   async function cancel(worksetId: string, operation: OperationType, executionId: string): Promise<void> {
     store.requestCancel(worksetId, executionId)
-    if (operation === 'conversion') {
-      const entry = register(worksetId, operation, executionId)
-      entry.intentional = true
-      try {
-        const result = await cancelMutation.mutateAsync({ worksetId, operation, executionId })
-        if (!entry.consumed) {
-          syncExecutionSnapshot(queryClient, result)
-          finalize(entry, result.status, result.completed_operations)
-        }
-      } finally {
-        if (!entry.consumed) void poll(entry)
-      }
-      return
-    }
+    const entry = register(worksetId, operation, executionId)
+    entry.intentional = true
     try {
-      await cancelMutation.mutateAsync({ worksetId, operation, executionId })
+      const result = await cancelMutation.mutateAsync({ worksetId, operation, executionId })
+      if (!entry.consumed) {
+        syncExecutionSnapshot(queryClient, result)
+        finalize(entry, result.status, result.completed_operations)
+      }
     } finally {
-      await syncAfterExecutionTerminal(queryClient, worksetId, operation)
+      if (!entry.consumed) void poll(entry)
     }
   }
 

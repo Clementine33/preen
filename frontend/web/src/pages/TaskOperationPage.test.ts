@@ -1,12 +1,16 @@
-import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
+import { enableAutoUnmount, flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { createPinia } from 'pinia'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 import { apiClientKey } from '@/lib/api/client'
-import type { ApiClientContract, Operation, OperationType, Workset } from '@/lib/api/types'
+import type { ApiClientContract, ExecutionView, Operation, OperationType, Workset } from '@/lib/api/types'
 import { apiStub } from '@/test/api-stub'
 import { installTestQueryPlugin } from '@/test/query-client'
 import TaskOperationPage from './TaskOperationPage.vue'
+import TaskToastHost from '@/components/layout/TaskToastHost.vue'
+import { useTaskToast } from '@/composables/use-task-toast'
+
+enableAutoUnmount(afterEach)
 
 /**
  * The rename and metadata refresh pages (ADR 0012): one component on two
@@ -19,7 +23,12 @@ beforeEach(() => {
   vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(560)
   vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(800)
 })
-afterEach(() => vi.restoreAllMocks())
+afterEach(() => {
+  vi.restoreAllMocks()
+  vi.useRealTimers()
+  const toast = useTaskToast()
+  while (toast.current.value) toast.dismiss(toast.current.value.id)
+})
 
 const workset: Workset = {
   workset_id: 'ws-1',
@@ -111,7 +120,7 @@ async function mountPage(
   })
   await router.push(path)
   await router.isReady()
-  const wrapper = mount({ template: '<RouterView />' }, {
+  const wrapper = mount({ components: { TaskToastHost }, template: '<RouterView /><TaskToastHost />' }, {
     global: { plugins: [createPinia(), router, installTestQueryPlugin()], provide: { [apiClientKey as symbol]: api } },
   })
   await flushPromises()
@@ -119,6 +128,59 @@ async function mountPage(
 }
 
 describe('task operation page', () => {
+  it.each(['rename', 'metadata_refresh'] as const)('shows authoritative %s details after its stream ends', async operation => {
+    const view: ExecutionView = { execution_id: 'e-1', workset_id: 'ws-1', operation_type: operation, plan_id: 'p-1', status: 'running',
+      total_components: 2, completed_components: 0, total_operations: 2, completed_operations: 0,
+      current_root: '', current_component_id: '', current_phase: '', components: [], error_code: '', error_message: '', started_at: '', finished_at: '', created_at: '' }
+    const { wrapper } = await mountPage('/worksets/lib-1/' + (operation === 'rename' ? 'rename' : 'metadata'), {
+      getOperation: vi.fn().mockResolvedValue({ ...operationOf(operation), active_execution: view }),
+      getExecution: vi.fn().mockResolvedValue({ ...view, status: 'failed', completed_components: 2, completed_operations: 1 }),
+      streamExecutionEvents: vi.fn(() => ({ async *[Symbol.asyncIterator]() {
+        yield { type: 'execution_snapshot' as const, data: view }
+        yield { type: 'failed' as const, data: { execution_id: 'e-1', error_code: 'FAILED', error_message: 'Failed' } }
+      } })),
+      getExecutionCovers: vi.fn().mockResolvedValue({ items: [], counts: { pending: 0, running: 0, succeeded: 0, skipped: 0, failed: 0, canceled: 0 }, downloads: {} }),
+    })
+    expect(wrapper.get('[data-testid="execution"]').text()).toContain('2/2')
+    wrapper.unmount()
+  })
+
+  it('keeps Task identity and polled progress when the same page instance switches from rename to metadata', async () => {
+    vi.useFakeTimers()
+    const view = (operation: OperationType, id: string, done = 0): ExecutionView => ({ execution_id: id, workset_id: 'ws-1', operation_type: operation, plan_id: 'p-1', status: 'running',
+      total_components: 3, completed_components: done, total_operations: 3, completed_operations: done,
+      current_root: '', current_component_id: '', current_phase: '', components: [], error_code: '', error_message: '', started_at: '', finished_at: '', created_at: '' })
+    let finishRename!: () => void
+    const renameStream = new Promise<void>(resolve => { finishRename = resolve })
+    const { wrapper, api, router } = await mountPage('/worksets/lib-1/rename', {
+      getOperation: vi.fn(async (_ws, operation) => ({ ...operationOf(operation), active_execution: view(operation, operation) })),
+      getExecution: vi.fn(async (_ws, operation, id) => view(operation, id, 2)),
+      streamExecutionEvents: vi.fn((_ws, operation, id) => ({ async *[Symbol.asyncIterator]() {
+        yield { type: 'execution_snapshot' as const, data: view(operation, id) }
+        await renameStream
+        yield { type: 'succeeded' as const, data: { execution_id: id, plan_id: 'p-1' } }
+      } })),
+      getExecutionCovers: vi.fn().mockResolvedValue({ items: [], counts: { pending: 1, running: 0, succeeded: 0, skipped: 0, failed: 0, canceled: 0 }, downloads: {} }),
+    })
+    const original = wrapper.get('[data-testid="task-page-rename"]').element
+    await router.push('/worksets/lib-1/metadata')
+    await flushPromises()
+    expect(wrapper.get('[data-testid="task-page-metadata_refresh"]').element).toBe(original)
+    expect(wrapper.get('[data-testid="execution"]').text()).toContain('2/3')
+    expect(api.getExecution).toHaveBeenCalledWith('ws-1', 'metadata_refresh', 'metadata_refresh', expect.any(AbortSignal))
+    finishRename()
+    await flushPromises()
+    expect(wrapper.get('[data-testid="task-toast"]').text()).toContain('Lib · 重命名 · 执行完成')
+    const toast = useTaskToast()
+    toast.dismiss(toast.current.value!.id)
+    vi.mocked(api.getExecution).mockResolvedValue({ ...view('metadata_refresh', 'metadata_refresh', 3), status: 'succeeded' })
+    await vi.advanceTimersByTimeAsync(2000)
+    await flushPromises()
+    expect(wrapper.find('[data-testid="task-toast"]').exists()).toBe(false)
+    expect(wrapper.get('[data-testid="execution"]').text()).toContain('3/3')
+    wrapper.unmount()
+  })
+
   it('reviews frozen rename proposals and offers execution', async () => {
     const { wrapper, api } = await mountPage('/worksets/lib-1/rename')
 

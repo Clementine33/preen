@@ -36,11 +36,11 @@ async function harness(path = '/elsewhere', discovered?: ExecutionView) {
     getWorkset: vi.fn().mockResolvedValue({ workset_id: 'ws1', library: { library_id: 'lib-a', name: 'Archive' }, members: [] }),
     getOperationDraft: vi.fn().mockResolvedValue(null),
     getOperation: vi.fn().mockResolvedValue({ workset_id: 'ws1', operation_type: 'conversion', version: 1, planning_state: 'planning', current_revision: null, active_generation: null, latest_generation: null, active_execution: discovered?.status === 'running' ? discovered : null, latest_execution: discovered ?? null }),
-    startExecution: vi.fn().mockResolvedValue({ created: true, execution: session() }),
+    startExecution: vi.fn(async (_ws, operation) => ({ created: true, execution: session('running', 'e1', operation) })),
     getExecution: vi.fn().mockResolvedValue(session()),
     cancelExecution: vi.fn().mockResolvedValue(session('canceled')),
-    streamExecutionEvents: vi.fn((_ws, _op, _id, signal) => ({ async *[Symbol.asyncIterator]() {
-      yield { type: 'execution_snapshot', data: session() } satisfies ExecutionEvent
+    streamExecutionEvents: vi.fn((_ws, operation, id, signal) => ({ async *[Symbol.asyncIterator]() {
+      yield { type: 'execution_snapshot', data: session('running', id, operation) } satisfies ExecutionEvent
       yield* await Promise.race([stream, new Promise<never>((_, reject) => {
         signal?.addEventListener('abort', () => reject(new DOMException('Abort', 'AbortError')), { once: true })
       })])
@@ -65,7 +65,7 @@ async function harness(path = '/elsewhere', discovered?: ExecutionView) {
   const pinia = createPinia()
   const options = { global: { plugins: [pinia, router, plugin], provide: { [apiClientKey as symbol]: api } } }
   const visible = ref(true)
-  const Page = defineComponent({ setup() { execution = discovered ? useOperationContext(ref('ws1')).execution : useWorksetExecution(); return () => h('div') } })
+  const Page = defineComponent({ setup() { execution = discovered ? useOperationContext(ref('ws1'), discovered.operation_type).execution : useWorksetExecution(); return () => h('div') } })
   const page = mount(defineComponent({ setup() { return () => visible.value ? h(Page) : null } }), options)
   const host = mount(TaskToastHost, { ...options, attachTo: document.body })
   stops.push(() => { execution.stop(); client.clear() })
@@ -371,6 +371,158 @@ describe('app-lifetime conversion execution observation', () => {
     await flushPromises()
     expect(app.execution.store.executionId).toBe('e1')
     expect(context.executionView.value).toMatchObject({ execution_id: 'e2', completed_operations: 2 })
+  })
+
+})
+
+
+describe.each(['metadata_refresh', 'rename'] as const)('%s execution notices', operation => {
+  it.each([0, 2])('classifies failed units by reported completed operations (%s)', async completed => {
+    const app = await harness('/worksets/lib-a/' + (operation === 'rename' ? 'rename' : 'metadata'))
+    stops.push(new QueryObserver(app.client, { queryKey: queryKeys.worksets.execution('ws1', operation, 'e1'), enabled: false }).subscribe(() => {}))
+    vi.mocked(app.api.getExecution).mockResolvedValue({ ...session('failed', 'e1', operation, completed),
+      error_code: operation === 'metadata_refresh' ? 'METADATA_PARTIAL_FAILURE' : 'RENAME_FAILED',
+      components: [{ component_index: 0, component_id: 'unit', root_path: 'RJ01', partition: 'matched', status: 'failed',
+        operations: 3, completed_operations: completed, committed: ['core'], removed: [], remaining: [], recovery: [], inventory_synced: true,
+        task_result: operation === 'metadata_refresh' ? { rj: 'RJ01', imported_groups: ['core'], issues: [{ code: 'SOURCE_FAILED' }] }
+          : { source_path: 'old', target_path: 'new', renamed: true, rolled_back: false } }],
+    })
+    await app.start(operation)
+    app.finish([{ type: 'failed', data: { execution_id: 'e1', error_code: 'PARTIAL_FAILURE', error_message: 'Failed' } }])
+    await flushPromises()
+    expect(notice()).toContain(completed ? '执行部分失败，已完成 2 项操作' : '执行失败')
+    expect(notice()).not.toContain('没有更改')
+    expect(app.client.getQueryData(queryKeys.worksets.execution('ws1', operation, 'e1'))).toMatchObject({ status: 'failed', components: [expect.objectContaining({ committed: ['core'] })] })
+  })
+  it.each(['succeeded', 'canceled', 'interrupted'] as const)('keeps %s precedence over completed operations and issues', async status => {
+    const app = await harness(status === 'interrupted' ? '/worksets/lib-a/' + (operation === 'rename' ? 'rename' : 'metadata') : '/elsewhere')
+    vi.mocked(app.api.startExecution).mockResolvedValue({ created: true, execution: { ...session(status, 'e1', operation, 2), error_code: 'METADATA_PARTIAL_FAILURE' } })
+    await app.start(operation)
+    expect(notice()).toContain({ succeeded: '执行完成', canceled: '执行已停止', interrupted: '执行已中断' }[status])
+    expect(notice()).not.toContain('执行部分失败')
+  })
+  it.each(['succeeded', 'failed'] as const)('does not count frozen skips or noops as completed operations in %s', async status => {
+    const app = await harness()
+    const view = { ...session(status, 'e1', operation), components: [
+      { component_index: 0, component_id: 'skip', root_path: 'RJ01', partition: 'matched' as const, status: 'succeeded' as const,
+        operations: 0, completed_operations: 0, committed: [], removed: [], remaining: [], recovery: [], inventory_synced: true,
+        task_result: operation === 'metadata_refresh' ? { action: 'skip', issues: [{ code: 'SOURCE_WARNING' }] } : { skipped: 'TARGET_EXISTS', renamed: false } },
+      { component_index: 1, component_id: 'noop', root_path: 'RJ02', partition: 'matched' as const, status: 'succeeded' as const,
+        operations: 0, completed_operations: 0, committed: [], removed: [], remaining: [], recovery: [], inventory_synced: true,
+        task_result: operation === 'metadata_refresh' ? { action: 'refresh', issues: [{ code: 'BACKUP_FAILED', message: 'Usable fallback' }] } : { renamed: false } },
+    ] }
+    vi.mocked(app.api.startExecution).mockResolvedValue({ created: true, execution: view })
+    await app.start(operation)
+    expect(notice()).toContain(status === 'succeeded' ? '执行完成' : '执行失败')
+    expect(notice()).not.toContain('执行部分失败')
+  })
+  it('suppresses matching route results once and navigates other-Task notices to captured current results', async () => {
+    const route = operation === 'rename' ? 'rename' : 'metadata'
+    const other = operation === 'rename' ? 'metadata' : 'rename'
+    const app = await harness('/worksets/lib-a/' + route)
+    for (const status of ['succeeded', 'canceled'] as const) {
+      vi.mocked(app.api.startExecution).mockResolvedValue({ created: true, execution: session(status, status, operation) })
+      await app.start(operation)
+      expect(notice()).toBe('')
+    }
+    await app.router.push('/worksets/lib-a/' + other)
+    app.execution.attach('ws1', operation, 'succeeded')
+    app.execution.attach('ws1', operation, 'canceled')
+    await flushPromises()
+    expect(notice()).toBe('')
+    vi.mocked(app.api.startExecution).mockResolvedValue({ created: true, execution: session('succeeded', 'away', operation) })
+    await app.start(operation)
+    expect(notice()).toContain('Archive · ' + (operation === 'rename' ? '重命名' : '获取元数据'))
+    document.body.querySelector<HTMLButtonElement>('[data-testid="task-toast-action"]')!.click()
+    await flushPromises()
+    expect(app.router.currentRoute.value.name).toBe(operation === 'rename' ? 'rename' : 'metadata-refresh')
+  })
+  it('shows success for a different Library even on the same Task route', async () => {
+    const app = await harness('/worksets/lib-b/' + (operation === 'rename' ? 'rename' : 'metadata'))
+    vi.mocked(app.api.startExecution).mockResolvedValue({ created: true, execution: session('succeeded', 'e1', operation) })
+    await app.start(operation)
+    expect(notice()).toContain('执行完成')
+  })
+  it('recovers the exact session through a restart and consumes repeated registration', async () => {
+    vi.useFakeTimers()
+    const app = await harness()
+    vi.mocked(app.api.getExecution).mockRejectedValueOnce(new ApiError(503, 'OFFLINE', 'Restart'))
+      .mockResolvedValueOnce(session('running', 'e1', operation)).mockResolvedValueOnce(session('interrupted', 'e1', operation, 2))
+    await app.start(operation)
+    app.leave()
+    app.finish([])
+    await flushPromises()
+    expect(notice()).toContain('连接中断，执行结果尚未确认')
+    dismiss()
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(notice()).toBe('')
+    await vi.advanceTimersByTimeAsync(2000)
+    await flushPromises()
+    expect(notice()).toContain('执行已中断，请查看已提交结果')
+    expect(app.api.getExecution).toHaveBeenLastCalledWith('ws1', operation, 'e1', expect.any(AbortSignal))
+    app.execution.attach('ws1', operation, 'e1')
+    dismiss()
+    await vi.advanceTimersByTimeAsync(60000)
+    expect(notice()).toBe('')
+  })
+  it('waits for cooperative cancellation and deduplicates the later SSE terminal', async () => {
+    vi.useFakeTimers()
+    const app = await harness()
+    await app.start(operation)
+    vi.mocked(app.api.cancelExecution).mockResolvedValue(session('running', 'e1', operation, 2))
+    vi.mocked(app.api.getExecution).mockResolvedValueOnce(session('running', 'e1', operation, 2)).mockResolvedValueOnce(session('canceled', 'e1', operation, 2))
+    await app.execution.cancel('ws1', operation, 'e1')
+    expect(notice()).toBe('')
+    app.finish([])
+    await flushPromises()
+    expect(notice()).toContain('执行已停止')
+    expect(notice()).not.toContain('连接中断')
+    dismiss()
+    await vi.advanceTimersByTimeAsync(60000)
+    expect(notice()).toBe('')
+  })
+  it('observes a second accepted Task session through its own progress query while conversion streams', async () => {
+    vi.useFakeTimers()
+    const app = await harness()
+    await app.start()
+    const view = session('running', 'e2', operation, 1)
+    vi.mocked(app.api.startExecution).mockResolvedValue({ created: true, execution: view })
+    vi.mocked(app.api.getExecution).mockResolvedValueOnce(view).mockResolvedValueOnce(session('succeeded', 'e2', operation, 5))
+    const progress: unknown[] = []
+    stops.push(new QueryObserver(app.client, { queryKey: queryKeys.worksets.execution('ws1', operation, 'e2'), enabled: false }).subscribe(result => progress.push(result.data)))
+    await app.start(operation)
+    expect(progress).toContainEqual(expect.objectContaining({ execution_id: 'e2', completed_operations: 1 }))
+    expect(app.execution.store.executionId).toBe('e1')
+    await vi.advanceTimersByTimeAsync(2000)
+    await flushPromises()
+    expect(notice()).toContain('执行完成')
+    dismiss()
+    app.finish([{ type: 'interrupted', data: { execution_id: 'e1' } }])
+    await flushPromises()
+    expect(notice()).toContain('转换 · 执行已中断')
+  })
+  it('registers a discovered active session but suppresses terminal history on reload', async () => {
+    const app = await harness('/worksets/lib-a/' + (operation === 'rename' ? 'rename' : 'metadata'), session('running', 'e1', operation))
+    await flushPromises()
+    expect(app.execution.store.executionId).toBe('e1')
+    app.leave()
+    await app.router.push('/elsewhere')
+    app.finish([{ type: 'interrupted', data: { execution_id: 'e1' } }])
+    await flushPromises()
+    expect(notice()).toContain('执行已中断')
+  })
+  it('does not replay discovered terminal history or emit cover summaries', async () => {
+    const app = await harness('/elsewhere', session('succeeded', 'old', operation))
+    await flushPromises()
+    expect(notice()).toBe('')
+    expect(app.execution.store.status).toBe('idle')
+    vi.mocked(app.api.startExecution).mockResolvedValue({ created: true, execution: session('succeeded', 'e1', operation) })
+    await app.start(operation)
+    expect(notice()).toContain('执行完成')
+    dismiss()
+    await flushPromises()
+    expect(notice()).toBe('')
+    expect(app.api.getExecutionCovers).not.toHaveBeenCalled()
   })
 
 })

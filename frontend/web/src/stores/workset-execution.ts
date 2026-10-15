@@ -96,6 +96,7 @@ export const useWorksetExecutionStore = defineStore('workset-execution', {
       operation: OperationType,
       executionId: string,
       client: ApiClientContract,
+      observe?: (event: ExecutionEvent) => void,
     ): Promise<boolean> {
       if (this.status === 'streaming') return false
       const controller = markRaw(new AbortController())
@@ -116,6 +117,7 @@ export const useWorksetExecutionStore = defineStore('workset-execution', {
           // stale events overwrite the current state.
           if (this.controller !== controller) return true
           this.applyEvent(event as ExecutionEvent)
+          observe?.(event as ExecutionEvent)
           if (this.controller !== controller) return true
           if (this.status !== 'streaming') break // terminal event applied
         }

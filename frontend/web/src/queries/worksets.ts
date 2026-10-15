@@ -307,8 +307,18 @@ export function executionQueryOptions(
     queryKey: queryKeys.worksets.execution(worksetId ?? '', operation, executionId ?? ''),
     enabled: Boolean(worksetId && executionId),
     staleTime: 0,
+    retry: false,
     queryFn: ({ signal }: { signal?: AbortSignal }) =>
       api.getExecution(worksetId as string, operation, executionId as string, signal),
+  })
+}
+
+// Exact-session progress is shared by polling and the visited operation cache.
+export function syncExecutionSnapshot(queryClient: QueryClient, session: ExecutionView) {
+  queryClient.setQueryData(queryKeys.worksets.execution(session.workset_id, session.operation_type, session.execution_id), session)
+  queryClient.setQueryData<Operation>(queryKeys.worksets.operation(session.workset_id, session.operation_type), previous => {
+    if (!previous || previous.active_execution?.execution_id !== session.execution_id) return previous
+    return { ...previous, active_execution: session.status === 'queued' || session.status === 'running' ? session : null, latest_execution: session }
   })
 }
 

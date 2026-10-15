@@ -6,6 +6,9 @@ import type {
   CreateRecordInput,
   CreateRecordResponse,
   ExecutionView,
+  GenerationView,
+  GenerationEvent,
+  Operation,
   ListWorksetsParams,
   OperationType,
   ResolvedPolicy,
@@ -251,6 +254,35 @@ export function startGenerationMutationOptions(api: ApiClientContract, queryClie
   }
 }
 
+// Exact-session detail is shared by recovery and any mounted task view.
+export function generationQueryOptions(api: ApiClientContract, worksetId: string, operation: OperationType, generationId: string) {
+  return queryOptions({
+    queryKey: queryKeys.worksets.generation(worksetId, operation, generationId),
+    staleTime: 0,
+    retry: false,
+    queryFn: ({ signal }) => api.getGeneration(worksetId, operation, generationId, signal),
+  })
+}
+
+export function syncGenerationSnapshot(queryClient: QueryClient, session: GenerationView) {
+  queryClient.setQueryData(queryKeys.worksets.generation(session.workset_id, session.operation_type, session.generation_id), session)
+  queryClient.setQueryData<Operation>(queryKeys.worksets.operation(session.workset_id, session.operation_type), previous => {
+    if (!previous || previous.active_generation?.generation_id !== session.generation_id) return previous
+    return { ...previous, active_generation: session.status === 'queued' || session.status === 'running' ? session : null, latest_generation: session }
+  })
+}
+
+export function syncGenerationEvent(queryClient: QueryClient, worksetId: string, operation: OperationType, generationId: string, event: GenerationEvent) {
+  if (event.type === 'session_snapshot') {
+    syncGenerationSnapshot(queryClient, event.data)
+  } else if (event.type !== 'error') {
+    const previous = queryClient.getQueryData<GenerationView>(queryKeys.worksets.generation(worksetId, operation, generationId))
+    if (previous) syncGenerationSnapshot(queryClient, {
+      ...previous, ...event.data, status: event.type === 'progress' ? previous.status : event.type,
+    })
+  }
+}
+
 export function cancelGenerationMutationOptions(api: ApiClientContract) {
   return {
     mutationFn: (input: { worksetId: string; operation: OperationType; generationId: string }) =>
@@ -437,8 +469,7 @@ export async function sweepAfterExecution(queryClient: QueryClient): Promise<voi
   ])
 }
 
-// Generation terminal (completed/failed/canceled/interrupted, or a transport
-// end after events): refresh everything the outcome can have changed.
+// Confirmed planning terminal: refresh everything the outcome can have changed.
 export async function syncAfterGenerationTerminal(
   queryClient: QueryClient,
   worksetId: string,

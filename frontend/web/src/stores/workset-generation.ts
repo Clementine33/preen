@@ -15,7 +15,7 @@ export type GenerationRunStatus =
 // How the terminal was reached. `event` means the backend confirmed the
 // outcome over SSE (a revision may have been created); `transport` means the
 // stream ended or aborted without a terminal event — the backend state is
-// unknown and caches must be conservatively swept.
+// unknown and orchestration must recover the original session.
 export type GenerationTerminal = 'event' | 'transport'
 
 // Transient streaming state of the planning session the user is watching.
@@ -37,9 +37,8 @@ export const useWorksetGenerationStore = defineStore('workset-generation', {
     revisionId: null as string | null,
     errorCode: null as string | null,
     errorMessage: null as string | null,
-    // True once any SSE event was applied. A transport terminal without any
-    // event means the stream never really started, so nothing committed and
-    // caches must not be swept as if it had.
+    // True once any SSE event was applied; absence of events does not prove
+    // that an accepted backend session never ran.
     receivedEvent: false,
     controller: null as AbortController | null,
   }),
@@ -57,6 +56,7 @@ export const useWorksetGenerationStore = defineStore('workset-generation', {
       operation: OperationType,
       generationId: string,
       client: ApiClientContract,
+      onEvent?: (event: GenerationEvent) => void,
     ): Promise<boolean> {
       if (this.status === 'streaming') return false
       const controller = markRaw(new AbortController())
@@ -77,6 +77,7 @@ export const useWorksetGenerationStore = defineStore('workset-generation', {
           // stale events overwrite the current state.
           if (this.controller !== controller) return true
           this.applyEvent(event as GenerationEvent)
+          onEvent?.(event)
           if (this.controller !== controller) return true
           if (this.status !== 'streaming') break // terminal event applied
         }
@@ -112,6 +113,10 @@ export const useWorksetGenerationStore = defineStore('workset-generation', {
       switch (event.type) {
         case 'session_snapshot': {
           this.statusText = String(data.status ?? '')
+          if (event.data.status !== 'queued' && event.data.status !== 'running') {
+            this.status = event.data.status
+            this.terminal = 'event'
+          }
           this.totalRoots = Number(data.total_roots ?? this.totalRoots)
           this.completedRoots = Number(data.completed_roots ?? this.completedRoots)
           this.currentRoot = String(data.current_root ?? this.currentRoot)

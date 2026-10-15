@@ -89,6 +89,8 @@ export const queryKeys = {
       ['worksets', 'revisions', worksetId, operation] as const,
     revision: (worksetId: string, operation: string, planId: string) =>
       ['worksets', 'revisions', worksetId, operation, planId] as const,
+    generation: (worksetId: string, operation: string, generationId: string) =>
+      ['worksets', 'planning-sessions', worksetId, operation, generationId] as const,
     executionsPrefix: (worksetId: string, operation: string) =>
       ['worksets', 'executions', worksetId, operation] as const,
     execution: (worksetId: string, operation: string, executionId: string) =>

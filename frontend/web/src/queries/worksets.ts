@@ -380,7 +380,7 @@ export function cancelExecutionMutationOptions(api: ApiClientContract, queryClie
 }
 
 // A metadata execution's cover deliveries finish after the execution itself,
-// so the report polls while any delivery is still pending or running.
+// so app-lifetime orchestration owns polling; mounted pages share this cache.
 export function executionCoversQueryOptions(
   api: ApiClientContract,
   worksetId: string | null | undefined,
@@ -392,10 +392,7 @@ export function executionCoversQueryOptions(
     staleTime: 0,
     queryFn: ({ signal }: { signal?: AbortSignal }) =>
       api.getExecutionCovers(worksetId as string, executionId as string, signal),
-    refetchInterval: (query: { state: { data?: CoverReport } }) => {
-      const counts = query.state.data?.counts
-      return counts && counts.pending + counts.running > 0 ? 2000 : false
-    },
+    retry: false,
   })
 }
 

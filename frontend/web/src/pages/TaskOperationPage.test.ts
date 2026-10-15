@@ -358,3 +358,20 @@ describe('task operation page', () => {
     expect(wrapper.find('[data-testid="metadata-mode"]').exists()).toBe(true)
   })
 })
+
+it('keeps failed cover retries visible inline without a fictional task result', async () => {
+  const view: ExecutionView = { execution_id: 'e-1', workset_id: 'ws-1', operation_type: 'metadata_refresh', plan_id: 'p-1', status: 'succeeded',
+    total_components: 1, completed_components: 1, total_operations: 1, completed_operations: 1,
+    current_root: '', current_component_id: '', current_phase: '', components: [], error_code: '', error_message: '', started_at: '', finished_at: '', created_at: '' }
+  const { wrapper } = await mountPage('/worksets/lib-1/metadata', {
+    getRevision: vi.fn().mockResolvedValue({ plan_id: 'p-1', task: { kind: 'metadata_refresh', schema_version: 1, payload: { components: [] } }, execution: view }),
+    getExecution: vi.fn().mockResolvedValue(view),
+    getExecutionCovers: vi.fn().mockResolvedValue({ items: [], counts: { pending: 0, running: 0, succeeded: 0, skipped: 0, failed: 1, canceled: 0 }, downloads: {} }),
+    changeExecutionCovers: vi.fn().mockRejectedValue(new Error('封面重试不可用')),
+  })
+  const retry = wrapper.get('[data-testid="covers"]').findAll('button').find(button => button.text() === '重试')!
+  await retry.trigger('click')
+  await flushPromises()
+  expect(wrapper.get('[data-testid="covers"] [role="alert"]').text()).toBe('封面重试不可用')
+  expect(wrapper.find('[data-testid="task-toast"]').exists()).toBe(false)
+})

@@ -36,7 +36,6 @@ const chevron = 'M0 2.5h10L5 8z'
     <button ref="trigger" class="lib-trigger" type="button" aria-haspopup="listbox"
       :aria-expanded="open" @click="menu.setOpen(!open)">
       <span class="lbl lib-lbl">LIBRARY</span>
-      <span class="lib-state" :class="{ ok: activeLibrary !== null }"></span>
       <span class="lib-name">{{ libraryUi.allLibraries ? 'ALL' : (activeLibrary?.name ?? '—') }}</span>
       <span class="lib-chev"><svg viewBox="0 0 10 10" aria-hidden="true"><path :d="chevron" /></svg></span>
     </button>
@@ -98,8 +97,6 @@ const chevron = 'M0 2.5h10L5 8z'
   font-size: var(--fs-s); font-weight: 700; max-width: 200px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.lib-state { width: 6px; height: 6px; background: var(--fg-meta); flex-shrink: 0; }
-.lib-state.ok { background: var(--invert-bg); }
 .lib-chev {
   width: 16px; height: 16px; display: grid; place-items: center;
   border-left: 1px solid var(--wire-fine); padding-left: var(--sp-2); box-sizing: content-box;

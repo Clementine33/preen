@@ -32,7 +32,6 @@ function pin(): void {
 <template>
   <aside class="bay substrate-panel" :class="{ open: store.bayOpen }" aria-label="File bay">
     <div class="bay-tabs">
-      <span class="bay-grip" aria-hidden="true"></span>
       <button class="tab" type="button" :aria-pressed="store.tab === 'tracks' && (store.bayOpen || store.dock === 'right')"
         @click="store.openBayTab('tracks')"><span class="lbl">TRACKS</span><span class="lbl">{{ trackCount }}</span></button>
       <button class="tab" type="button" :aria-pressed="store.tab === 'files' && (store.bayOpen || store.dock === 'right')"
@@ -64,8 +63,6 @@ function pin(): void {
 
 .bay-tabs { height: 32px; display: flex; align-items: center; gap: var(--sp-1); padding: 0 var(--sp-6) 0 var(--sp-4); flex-shrink: 0; }
 [data-dock='right'] .bay-tabs { padding: 0 var(--sp-4); border-bottom: 1px solid var(--wire-fine); }
-.bay-grip { width: 24px; height: 4px; border-top: 1px solid var(--wire-mid); border-bottom: 1px solid var(--wire-mid); margin-right: var(--sp-3); flex-shrink: 0; }
-[data-dock='right'] .bay-grip { display: none; }
 
 .tab { position: relative; isolation: isolate; height: 24px; padding: 0 var(--sp-3); white-space: nowrap; color: var(--fg-muted); display: inline-flex; align-items: center; gap: var(--sp-2); background: none; border: none; cursor: pointer; }
 .tab::before { content: ''; position: absolute; inset: 0; z-index: -1; background: var(--bg-subtle); clip-path: inset(0 100% 0 0); transition: clip-path var(--dur-out) var(--ease-in); }

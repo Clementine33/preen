@@ -73,6 +73,21 @@ edition page; only translations with Copies in the current Library are in-librar
 lookup candidates.
 _Avoid_: Treating the edition page as an alias that replaces a translation's identity.
 
+**Language Edition**:
+One language of a work's chain, rooted at its edition page. The Japanese
+original is an edition in its own right although the source's edition list
+omits it. A Chinese edition page itself is never on disk; the edition is present
+through the translations under it. On a translation, its current edition is the
+one its resolved parent roots. A work's chain shows the Japanese, simplified
+Chinese and traditional Chinese editions; a language-free (NM) work has none.
+_Avoid_: Calling an edition a "version", or treating the edition page as the thing that is collected.
+
+**Held**:
+A Work that has at least one Copy in any Library right now, online or not. An
+edition is held when its root or any translation under it is held. A collected
+Work that has lost every Copy is not held; a Relation Placeholder never is.
+_Avoid_: Using "collected" (first found by a scan, kept forever) to mean held.
+
 **Relation Evidence / Resolved Relation**:
 *Evidence* is what sources said — a work's own relation report, and the child
 edges other works declared. *Resolved* is what this build derives from the

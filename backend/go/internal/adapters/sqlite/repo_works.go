@@ -506,6 +506,9 @@ func (r *Repository) GetWork(id works.WorkCode) (*works.WorkDetail, bool, error)
 	if detail.Relation, err = r.loadRelation(id); err != nil {
 		return nil, false, err
 	}
+	if detail.EditionTree, err = r.loadEditionTree(detail); err != nil {
+		return nil, false, err
+	}
 	if detail.CollectionIDs, err = r.loadUserCollectionIDs(id); err != nil {
 		return nil, false, err
 	}

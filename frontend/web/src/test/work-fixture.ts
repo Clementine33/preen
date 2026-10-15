@@ -45,8 +45,9 @@ export function makeWorkDetail(overrides: Partial<WorkDetail> = {}): WorkDetail 
     language_editions: [
       { version_root_rj: 'RJ01000001', language: 'ja', label: '日本語', edition_id: 'e-1', display_order: 0 },
     ],
+    edition_tree: null,
     relation: { role: null, language: null, original_rj: null, parent_rj: null },
-    copies: [{ copy_id: 'copy-a', library_id: 'lib-a', rel_path: 'works/RJ01000001' }],
+    copies: [{ copy_id: 'copy-a', library_id: 'lib-a', rel_path: 'works/RJ01000001', dir_id: 'dir-a' }],
     collection_ids: [],
     placeholder: false,
     ...overrides,

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { RouterLink } from 'vue-router'
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { useToast } from '@/composables/use-toast'
 import { newCollectionName, useCollectionManage, useCollectionMemberWrites, useCollections } from '@/queries/collections'
@@ -7,7 +8,7 @@ import { dottedDate } from '@/features/work-detail/derive'
 import { useWorkDetail, useCreateUserTag, useReplaceWorkUserTags, useUpdateWorkUserData, useUserTags } from '@/queries/works'
 import { useLibraryList } from '@/queries/libraries'
 import { useWorkDetailStore } from '@/stores/work-detail'
-import type { WorkEdition, WorkRelation, WorkUserTag } from '@/lib/api/types'
+import type { WorkEditionNode, WorkEditionSlot, WorkUserTag } from '@/lib/api/types'
 
 // The colophon (奥付, v3): the work as a printed edition — ruled rows of what
 // the catalog knows, then the personal rows, written straight through (rating,
@@ -39,11 +40,6 @@ const voice = computed(() =>
 const age = computed(() =>
   work.value?.age_category ? ({ 1: '全年龄', 2: 'R15', 3: 'R18' }[work.value.age_category]) : null,
 )
-
-const language = computed(() => {
-  const code = work.value?.language
-  return code ? ({ CHI_HANS: '简中', CHI_HANT: '繁中', JPN: '日语', NM: '无语言限制' } as Record<string, string>)[code] ?? code : null
-})
 
 function setRating(n: number): void {
   if (locked.value) return
@@ -126,24 +122,29 @@ function copyOnline(copyId: string): boolean | null {
   return store.content?.copies.find((copy) => copy.copy_id === copyId)?.online ?? null
 }
 
-function editionLabel(edition: WorkEdition): string {
-  return `${edition.label} · ${edition.version_root_rj}`
-}
+const SLOT_NAMES: Record<string, string> = { JPN: '日语', CHI_HANS: '简中', CHI_HANT: '繁中' }
+const ROLE_NAMES: Record<WorkEditionNode['role'], string> = { original: '原作', edition_page: '页面', translation: '翻译' }
 
-function relationText(relation: WorkRelation | null): string {
-  if (!relation || relation.role === null) return '—'
-  const nodes: string[] = []
-  const ids = new Set<string>()
-  function add(id: string | null | undefined, label: string): void {
-    if (!id || ids.has(id)) return
-    ids.add(id)
-    nodes.push(`${label} ${id}`)
-  }
-  add(relation.original_rj, '原作')
-  const page = relation.language === 'CHI_HANS' ? '简中页面' : relation.language === 'CHI_HANT' ? '繁中页面' : '父页面'
-  add(relation.parent_rj, page)
-  add(work.value?.rj, relation.role === 'original' ? '原作' : relation.role === 'parent' ? page : '翻译作品')
-  return nodes.join(' → ')
+/**
+ * The 版本 row's lines. A slot is current on its own page or on the page of
+ * the translation being read; the compact back keeps only each slot's root
+ * plus this work's own translation node.
+ */
+const editionLines = computed(() => {
+  const self = work.value?.rj
+  const parent = work.value?.relation?.parent_rj
+  return (work.value?.edition_tree ?? []).map((slot: WorkEditionSlot) => ({
+    slot,
+    current: slot.root.rj === self || slot.root.rj === parent,
+    nodes: [slot.root, ...(props.compact ? slot.translations.filter((node) => node.rj === self) : slot.translations)],
+  }))
+})
+
+/** A copy's library link: its folder, or the library overview when offline. */
+function copyTo(copy: { copy_id: string; library_id: string; dir_id: string }) {
+  return copyOnline(copy.copy_id) === false || copy.dir_id === ''
+    ? { name: 'workbench-overview', params: { libraryId: copy.library_id } }
+    : { name: 'overview-files', params: { libraryId: copy.library_id, dirId: copy.dir_id } }
 }
 </script>
 
@@ -164,28 +165,36 @@ function relationText(relation: WorkRelation | null): string {
           <template v-if="work?.dl_count !== null && work?.dl_count !== undefined"><span class="sep">·</span><span class="lbl">DL<b>{{ work.dl_count.toLocaleString() }}</b></span></template>
         </dd>
       </div>
-      <div v-if="language" class="colo-row"><dt>语言</dt><dd>{{ language }}</dd></div>
       <div v-if="age" class="colo-row"><dt>分级</dt>
         <dd><span class="mono">{{ age }}</span></dd>
       </div>
       <div v-if="work?.series_name" class="colo-row"><dt>系列</dt><dd><span lang="ja">{{ work.series_name }}</span></dd></div>
-      <div v-if="work?.language_editions?.length" class="colo-row"><dt>版本</dt>
+      <div v-if="editionLines.length" class="colo-row"><dt>版本</dt>
         <dd><span class="ed">
-          <span v-for="edition in work.language_editions" :key="edition.edition_id" class="tag"
-            :aria-current="edition.version_root_rj === work?.rj ? 'true' : undefined">
-            {{ editionLabel(edition) }}
+          <span v-for="line in editionLines" :key="line.slot.language" class="ed-line"
+            :aria-current="line.current ? 'true' : undefined">
+            <span class="lbl">{{ SLOT_NAMES[line.slot.language] ?? line.slot.language }}</span>
+            <template v-for="(node, index) in line.nodes" :key="node.rj">
+              <span v-if="index > 0" class="sep">{{ index === 1 ? '→' : '·' }}</span>
+              <span class="tag" :aria-current="node.rj === work?.rj ? 'true' : undefined">
+                {{ ROLE_NAMES[node.role] }}
+                <RouterLink v-if="node.held && node.rj !== work?.rj" class="mono" :to="{ name: 'work-detail', params: { rj: node.rj } }">{{ node.rj }}</RouterLink>
+                <span v-else class="mono">{{ node.rj }}</span>
+                <span v-if="node.held" class="lbl">HELD</span>
+              </span>
+            </template>
+            <!-- The compact back drops the translations, so a slot held only through one says so itself. -->
+            <span v-if="props.compact && line.slot.held && !line.nodes.some((node) => node.held)" class="lbl">HELD</span>
           </span>
         </span></dd>
       </div>
-      <div class="colo-row"><dt>关系</dt><dd>{{ relationText(work?.relation ?? null) }}</dd></div>
       <div v-if="work?.source_tags.length" class="colo-row"><dt>标签</dt>
         <dd><span class="tags"><span v-for="tag in work.source_tags" :key="tag.id" class="tag">{{ tag.name }}</span></span></dd>
       </div>
       <div v-if="work?.copies.length" class="colo-row"><dt>副本</dt>
         <dd><span class="copy">
           <template v-for="copy in work.copies" :key="copy.copy_id">
-            <span class="lib-state" :class="{ off: copyOnline(copy.copy_id) === false }"></span>
-            <span>{{ librariesData.find(library => library.id === copy.library_id)?.name ?? '—' }}<template v-if="copyOnline(copy.copy_id) === false"><span class="sep">·</span><span class="lbl">OFFLINE</span></template></span>
+            <span><RouterLink :to="copyTo(copy)">{{ librariesData.find(library => library.id === copy.library_id)?.name ?? '—' }}</RouterLink><template v-if="copyOnline(copy.copy_id) === false"><span class="sep">·</span><span class="lbl">OFFLINE</span></template></span>
           </template>
         </span></dd>
       </div>
@@ -255,6 +264,7 @@ function relationText(relation: WorkRelation | null): string {
 .colo.compact { padding: var(--sp-4); gap: var(--sp-3); }
 .colo.compact .colo-title { font-size: var(--fs-m); line-height: var(--lh-m); }
 .colo-head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--sp-3); }
+.colo-head .strip-name::before { display: none; }
 .strip-name .jp { font-family: var(--font-ui); letter-spacing: 0; }
 .colo-title { font-family: var(--font-mincho); font-size: var(--fs-l); line-height: var(--lh-l); font-weight: 700; letter-spacing: 0; }
 .colo-box { border-top: 2px solid var(--wire-strong); border-bottom: 1px solid var(--wire-strong); }
@@ -273,11 +283,13 @@ function relationText(relation: WorkRelation | null): string {
 .tag.mine, .tag.add { border-color: var(--wire-mid); }
 .tag.mine:hover { border-color: var(--wire-strong); }
 .tag.add { border-style: dashed; color: var(--fg-meta); font-family: var(--font-mono); }
-.ed { display: flex; flex-wrap: wrap; gap: 4px; }
+.ed { display: flex; flex-direction: column; gap: 4px; }
+.ed-line { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.ed-line[aria-current='true'] > .lbl { color: var(--fg-base); font-weight: 700; }
+.tag .lbl { margin-left: 4px; }
+.tag a { color: inherit; text-decoration: underline; text-decoration-color: var(--wire-mid); text-underline-offset: 3px; margin-left: 4px; }
 .copy { display: grid; grid-template-columns: auto 1fr; gap: 2px var(--sp-2); }
 .copy > span:nth-child(even) { min-width: 0; overflow-wrap: anywhere; }
-.lib-state { width: 6px; height: 6px; background: var(--invert-bg); align-self: center; }
-.lib-state.off { background: repeating-linear-gradient(-45deg, var(--fg-meta) 0 1px, transparent 1px 3px); box-shadow: inset 0 0 0 1px var(--fg-meta); }
 .rating { display: inline-flex; gap: 3px; vertical-align: middle; }
 .rating i { width: 10px; height: 10px; border: 1px solid var(--wire-mid); }
 .rating i.on { background: var(--invert-bg); border-color: var(--invert-bg); }

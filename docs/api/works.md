@@ -50,6 +50,40 @@ The detail route (not summaries) also answers `collection_ids`: the IDs of the
 (creation timestamp, then ID), `[]` when none. Favorites is excluded; `favorite`
 states it. A relation placeholder answers `[]`.
 
+Each entry of the detail's `copies` carries `dir_id`, the navigation id of the
+copy's folder (the `{dirId}` of the library's folder page; `""` if the library is
+unknown).
+
+The detail also answers `edition_tree`: the work's Language Editions resolved
+into up to three slots in the order JPN, CHI_HANS, CHI_HANT, or `null` when the
+tree holds no node besides the work itself (language-free works, works with no
+Chinese edition and no known original). Other languages of `language_editions`
+are not shown here. It is built from the union of the work's `language_editions`,
+its resolved `relation`, and the known children of each edition page (declared
+by the page, or whose resolved parent is the page), so a translation appears
+under an edition page nobody has fetched.
+
+```json
+"edition_tree": [
+  { "language": "JPN", "label": null, "held": true,
+    "root": { "rj": "RJ01287230", "role": "original", "is_work": true, "held": true },
+    "translations": [] },
+  { "language": "CHI_HANS", "label": "簡体中文", "held": true,
+    "root": { "rj": "RJ01289610", "role": "edition_page", "is_work": true, "held": false },
+    "translations": [
+      { "rj": "RJ01289611", "role": "translation", "is_work": true, "held": true },
+      { "rj": "RJ01289700", "role": "translation", "is_work": true, "held": false } ] },
+  { "language": "CHI_HANT", "label": "繁体中文", "held": false,
+    "root": { "rj": "RJ01291590", "role": "edition_page", "is_work": false, "held": false },
+    "translations": [] }
+]
+```
+
+`is_work` means a works row exists (relation placeholders included); `held` means
+at least one Copy in any Library right now, online or not. A slot is held when its
+root or any translation under it is held. `translations` lists every known
+translation of the page ordered by `rj`; the JPN slot has none.
+
 ## Work content manifest
 
 `GET /api/v1/works/{rj}/content` answers the work's files from the **stored

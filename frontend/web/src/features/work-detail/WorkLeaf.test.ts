@@ -7,6 +7,7 @@ import { apiClientKey } from '@/lib/api/client'
 import { apiStub } from '@/test/api-stub'
 import { installTestQueryPlugin } from '@/test/query-client'
 import { findFile, makeWorkDetail } from '@/test/work-fixture'
+import { workDetailTestRouter } from '@/test/work-router'
 import { useWorkDetailStore } from '@/stores/work-detail'
 
 /**
@@ -24,7 +25,7 @@ async function mountLeaf(overrides: Record<string, unknown> = {}) {
   store.bind(RJ, sampleWorkContent(RJ))
   const api = apiStub({ getWork: vi.fn().mockResolvedValue(makeWorkDetail()), ...overrides } as never)
   const wrapper = mount(WorkLeaf, {
-    global: { plugins: [pinia, installTestQueryPlugin()], provide: { [apiClientKey as symbol]: api } },
+    global: { plugins: [pinia, await workDetailTestRouter(), installTestQueryPlugin()], provide: { [apiClientKey as symbol]: api } },
   })
   await flushPromises()
   return { wrapper, store }

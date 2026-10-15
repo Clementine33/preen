@@ -118,7 +118,7 @@ async function mountWorks(
       ...makeWorks(Number(rj.slice(2)), 1)[0]!,
       source_url: null, cover_url: null, sample_cover_url: null,
       series_id: null, series_name: null, voice_actors: [], source_tags: [],
-      note: '', language_editions: null,
+      note: '', language_editions: null, edition_tree: null,
       relation: { role: null, language: null, original_rj: null, parent_rj: null },
       copies: [], placeholder: false,
     })),

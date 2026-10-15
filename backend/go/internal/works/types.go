@@ -176,7 +176,10 @@ type WorkDetail struct {
 	Note           string
 	Editions       []LanguageEdition
 	Relation       ResolvedRelation
-	Copies         []Copy
+	// EditionTree is the resolved edition lines (BuildEditionTree); nil when
+	// the work has no edition besides itself.
+	EditionTree []EditionSlot
+	Copies      []Copy
 	// CollectionIDs are the user collections holding the work, in list order;
 	// Favorites is stated by Favorite instead.
 	CollectionIDs []string

@@ -42,7 +42,7 @@ function detail(rj: string, voice: string): WorkDetail {
     voice_actors: [{ id: `va-${rj}`, source: 'dlsite', source_id: '1', name: voice }],
     source_tags: [],
     note: '',
-    language_editions: null,
+    language_editions: null, edition_tree: null,
     relation: { role: null, language: null, original_rj: null, parent_rj: null },
     copies: [],
     collection_ids: [],

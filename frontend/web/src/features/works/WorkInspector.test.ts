@@ -45,6 +45,7 @@ function detail(rj: string, voice: string): WorkDetail {
     language_editions: null,
     relation: { role: null, language: null, original_rj: null, parent_rj: null },
     copies: [],
+    collection_ids: [],
     placeholder: false,
   }
 }

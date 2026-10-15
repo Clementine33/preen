@@ -177,6 +177,9 @@ type WorkDetail struct {
 	Editions       []LanguageEdition
 	Relation       ResolvedRelation
 	Copies         []Copy
+	// CollectionIDs are the user collections holding the work, in list order;
+	// Favorites is stated by Favorite instead.
+	CollectionIDs []string
 	// Placeholder is true for a work declared by an import but never found on
 	// disk. Such a work is reachable here but never in the ordinary listing.
 	Placeholder bool

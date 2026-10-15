@@ -285,6 +285,8 @@ export interface WorkDetail extends WorkSummary {
   language_editions: WorkEdition[] | null
   relation: WorkRelation
   copies: WorkCopy[]
+  /** User collections holding the work, in list order; Favorites is `favorite`. */
+  collection_ids: string[]
   /** Declared by a relation but never found on disk; absent from the listing. */
   placeholder: boolean
 }

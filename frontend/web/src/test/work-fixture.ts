@@ -47,6 +47,7 @@ export function makeWorkDetail(overrides: Partial<WorkDetail> = {}): WorkDetail 
     ],
     relation: { role: null, language: null, original_rj: null, parent_rj: null },
     copies: [{ copy_id: 'copy-a', library_id: 'lib-a', rel_path: 'works/RJ01000001' }],
+    collection_ids: [],
     placeholder: false,
     ...overrides,
   }

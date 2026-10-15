@@ -6,7 +6,7 @@ for (const mobile of [false, true]) {
     await page.emulateMedia({ reducedMotion: 'reduce' })
     await page.route('**/__task-toast', route => route.fulfill({ contentType: 'text/html', body: `
       <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"></head>
-      <body><div id="app"></div><script type="module" src="/e2e/task-toast-harness.ts"></script></body></html>` }))
+      <body><div id="app"></div><script type="module" src="/e2e/task-toast-harness.js"></script></body></html>` }))
     await page.goto('/__task-toast')
     await expect(page.locator('#enqueue')).toBeVisible()
     await page.locator('#enqueue').click()

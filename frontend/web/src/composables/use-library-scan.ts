@@ -1,10 +1,14 @@
+import { useRouter } from 'vue-router'
+import { useTaskToast } from './use-task-toast'
+import { libraryListQueryOptions } from '@/queries/libraries'
+import type { Library } from '@/lib/api/types'
 import { useQueryClient, type QueryClient } from '@tanstack/vue-query'
 import { useApiClient } from '@/lib/api/client'
 import { refreshOrRemoveQueries } from '@/queries/cache-sync'
 import { queryKeys } from '@/queries/query-keys'
 import { sweepWorksetCaches } from '@/queries/worksets'
 import { sweepWorkCaches } from '@/queries/works'
-import { useScanStore, type ScanStatus, type ScanTerminal } from '@/stores/scan'
+import { useScanStore, type ScanStatus, type ScanTerminal, type ScanOutcome } from '@/stores/scan'
 
 async function refreshLibraries(queryClient: QueryClient): Promise<void> {
   await queryClient.invalidateQueries({ queryKey: queryKeys.libraries.list() })
@@ -64,23 +68,55 @@ export async function syncAfterScan(
 
 // Single entry point for scan orchestration: pages call start/cancel and
 // never assemble invalidation themselves. The scan SSE lifecycle stays in the
-// scan Pinia store; this module owns cache coordination.
+// scan Pinia store; this module owns cache coordination and result notices.
+// The awaited request survives page unmount; ownership is read from the live router.
 export function useLibraryScan() {
   const api = useApiClient()
   const queryClient = useQueryClient()
   const scan = useScanStore()
 
+  const router = useRouter()
+  const toast = useTaskToast()
+
   async function start(libraryId: string): Promise<void> {
-    await scan.start(libraryId, api)
-    // scan.start refuses to run while another scan is active and leaves
-    // status 'scanning'. In that case this call did not begin a scan, so
-    // synchronizing against the other scan's in-flight state would be wrong.
-    if (scan.status === 'scanning') return
-    // The store may have been reset or repurposed while this stream was in
-    // flight (e.g. switchLibrary cleared a terminal, a newer scan started).
-    // Only synchronize when this call's library still owns the store state.
-    if (scan.libraryId !== libraryId) return
-    await syncAfterScan(queryClient, libraryId, scan.status, scan.terminal, scan.receivedEvent)
+    const libraryName = queryClient.getQueryData<Library[]>(queryKeys.libraries.list())
+      ?.find((library) => library.id === libraryId)?.name ?? libraryId
+    const outcome = await scan.start(libraryId, api, notify)
+    // Refused or superseded requests have no result of their own.
+    if (!outcome) return
+    await syncAfterScan(queryClient, libraryId, outcome.status, outcome.terminal, outcome.receivedEvent)
+
+    function notify({ status, terminal, admissionError }: ScanOutcome) {
+      const route = router.currentRoute.value
+      const corresponding = route.params.libraryId === libraryId
+        && route.matched.some((record) => record.name === 'workbench-overview' || record.name === 'overview-files')
+      const localCancel = terminal === 'transport' && status === 'cancelled'
+      const unknown = terminal === 'transport' && !localCancel
+      const suppressed = corresponding && (status === 'completed' || status === 'cancelled')
+      if (admissionError || suppressed) return
+      const result = localCancel ? '扫描停止已请求，结果尚未确认'
+        : unknown ? '连接中断，扫描结果尚未确认'
+          : status === 'completed' ? '扫描完成'
+            : status === 'cancelled' ? '扫描已停止' : '扫描失败'
+      toast.show({
+        text: `${libraryName} · ${result}`,
+        action: { label: '查看结果', run: () => { void viewResults() } },
+      })
+    }
+
+    async function viewResults() {
+      try {
+        const libraries = await queryClient.fetchQuery({ ...libraryListQueryOptions(api), staleTime: 0 })
+        if (libraries.some((library) => library.id === libraryId)) {
+          await router.push({ name: 'workbench-overview', params: { libraryId } })
+        } else {
+          await router.push({ name: 'worksets' })
+          toast.show({ text: `${libraryName} · 媒体库已移除，结果不可用` })
+        }
+      } catch {
+        toast.show({ text: `${libraryName} · 无法确认媒体库是否可用，请重试`, action: { label: '查看结果', run: () => { void viewResults() } } })
+      }
+    }
   }
 
   function cancel(): void {

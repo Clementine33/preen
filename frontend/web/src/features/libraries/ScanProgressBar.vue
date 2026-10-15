@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import type { ScanStatus } from '@/stores/scan'
+import type { ScanStatus, ScanTerminal } from '@/stores/scan'
 
 defineProps<{
   status: ScanStatus
+  terminal?: ScanTerminal | null
   filesScanned: number
   dirsScanned: number
   errorCode?: string | null
@@ -22,8 +23,8 @@ defineProps<{
       <span class="font-medium">
         <template v-if="status === 'scanning'">正在扫描</template>
         <template v-else-if="status === 'completed'">扫描完成</template>
-        <template v-else-if="status === 'cancelled'">已取消</template>
-        <template v-else>扫描失败</template>
+        <template v-else-if="status === 'cancelled'">{{ terminal === 'transport' ? '扫描停止已请求，结果尚未确认' : '已停止' }}</template>
+        <template v-else>{{ terminal === 'transport' ? '扫描结果尚未确认' : '扫描失败' }}</template>
       </span>
       <span v-if="status === 'scanning' || status === 'completed'" class="font-mono text-muted-foreground">
         {{ filesScanned }} 个文件 · {{ dirsScanned }} 个目录

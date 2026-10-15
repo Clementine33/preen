@@ -11,6 +11,13 @@ export type ScanStatus = 'idle' | 'scanning' | 'completed' | 'cancelled' | 'erro
 // conservatively refreshed by the scan orchestration).
 export type ScanTerminal = 'event' | 'transport'
 
+export interface ScanOutcome {
+  status: ScanStatus
+  terminal: ScanTerminal | null
+  receivedEvent: boolean
+  admissionError: boolean
+}
+
 export const useScanStore = defineStore('scan', {
   state: () => ({
     status: 'idle' as ScanStatus,
@@ -30,7 +37,7 @@ export const useScanStore = defineStore('scan', {
     controller: null as AbortController | null,
   }),
   actions: {
-    async start(libraryId: string, client: ApiClientContract) {
+    async start(libraryId: string, client: ApiClientContract, onOutcome?: (outcome: ScanOutcome) => void): Promise<ScanOutcome | undefined> {
       if (this.status === 'scanning') return
       const controller = markRaw(new AbortController())
       this.controller = controller
@@ -46,26 +53,41 @@ export const useScanStore = defineStore('scan', {
       this.terminal = null
       this.receivedEvent = false
 
+      let admissionError = false
+      let settledOutcome: ScanOutcome | undefined
+      const settle = (): ScanOutcome => {
+        if (settledOutcome) return settledOutcome
+        settledOutcome = { status: this.status, terminal: this.terminal, receivedEvent: this.receivedEvent, admissionError }
+        onOutcome?.(settledOutcome)
+        return settledOutcome
+      }
       try {
         for await (const event of client.scanLibrary(libraryId, controller.signal)) {
           // A reset() or a newer scan superseded this request — never let
           // its events overwrite the current scan state.
           if (this.controller !== controller) return
           this.applyEvent(event)
+          if (this.terminal === 'event') return settle()
         }
         if (this.controller !== controller) return
-        if (this.status === 'scanning') {
+        if (this.status === 'scanning' && controller.signal.aborted) {
+          this.status = 'cancelled'
+          this.terminal = 'transport'
+          this.message = '扫描停止已请求，结果尚未确认'
+        } else if (this.status === 'scanning') {
           this.status = 'error'
           this.terminal = 'transport'
           this.errorCode = 'STREAM_ENDED'
           this.errorMessage = '扫描连接提前结束，请重试。'
         }
       } catch (error) {
+        if (settledOutcome) return settledOutcome
         if (this.controller !== controller) return
         this.terminal = 'transport'
+        admissionError = !this.receivedEvent && error instanceof ApiError
         if (controller.signal.aborted || (error instanceof DOMException && error.name === 'AbortError')) {
           this.status = 'cancelled'
-          this.message = '扫描已取消'
+          this.message = '扫描停止已请求，结果尚未确认'
         } else {
           this.status = 'error'
           this.errorCode = error instanceof ApiError ? error.code : 'STREAM_ERROR'
@@ -74,6 +96,7 @@ export const useScanStore = defineStore('scan', {
       } finally {
         if (this.controller === controller) this.controller = null
       }
+      return settle()
     },
     applyEvent(event: ScanEvent) {
       this.receivedEvent = true

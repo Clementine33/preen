@@ -1,8 +1,8 @@
 import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { createPinia } from 'pinia'
 import { nextTick } from 'vue'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { createMemoryHistory, createRouter } from 'vue-router'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { createMemoryHistory, createRouter, createWebHistory } from 'vue-router'
 import { apiClientKey } from '@/lib/api/client'
 import type { CollectionDetail, WorkCollection, WorkSummary } from '@/lib/api/types'
 import { apiStub } from '@/test/api-stub'
@@ -11,7 +11,7 @@ import { useLibraryUiStore } from '@/stores/library-ui'
 import { usePlayerStore } from '@/stores/player'
 import CollectionsPage from './CollectionsPage.vue'
 
-enableAutoUnmount((hook) => hook())
+enableAutoUnmount(afterEach)
 
 // The page reads its data from the collection list and two windows of the
 // detail route; these tests pin which windows it asks for and what it shows.
@@ -157,5 +157,50 @@ describe('CollectionsPage', () => {
     press('r')
     await flushPromises()
     expect(getCollection.mock.calls.filter(([, w]) => w?.limit === 1).length).toBe(before + 1)
+  })
+
+  describe('opening a collection', () => {
+    async function mountWeb(api: ReturnType<typeof apiStub>, state: object | null = null) {
+      window.history.replaceState(state, '', '/collections')
+      const stub = { template: '<i />' }
+      const router = createRouter({ history: createWebHistory(), routes: [
+        { path: '/collections', name: 'collections', component: stub },
+        { path: '/collections/:id', name: 'collection-detail', component: stub },
+      ] })
+      await router.push('/collections')
+      const wrapper = mount(CollectionsPage, {
+        attachTo: document.body.appendChild(document.createElement('div')),
+        global: { plugins: [createPinia(), router, installTestQueryPlugin()], provide: { [apiClientKey as symbol]: api } },
+      })
+      await flushPromises()
+      return { wrapper, router }
+    }
+
+    it('opens the selected collection on Enter and on a second click, but not on the first', async () => {
+      const { wrapper, router } = await mountWeb(setup().api)
+      await wrapper.findAll('[data-testid="collection-row"]')[1]!.trigger('click')
+      expect(router.currentRoute.value.path).toBe('/collections') // the first click only selects
+      press('Enter')
+      await flushPromises()
+      expect(router.currentRoute.value.fullPath).toBe('/collections/c2')
+    })
+
+    it('records the id on its own entry, and restores it only on return there', async () => {
+      const { wrapper } = await mountWeb(setup().api)
+      await wrapper.findAll('[data-testid="collection-row"]')[1]!.trigger('click')
+      press('Enter')
+      await flushPromises()
+      wrapper.unmount()
+      window.history.back()
+      await new Promise((r) => setTimeout(r, 50))
+      expect(window.history.state.collectionReturn).toBe('c2')
+      const saved = { ...window.history.state }
+
+      const back = await mountWeb(setup().api, saved)
+      expect(back.wrapper.findAll('[data-testid="collection-row"]')[1]!.attributes('aria-selected')).toBe('true')
+      expect(back.router.currentRoute.value.fullPath).toBe('/collections') // the address stays query-free
+      const fresh = await mountWeb(setup().api)
+      expect(fresh.wrapper.findAll('[data-testid="collection-row"]')[0]!.attributes('aria-selected')).toBe('true')
+    })
   })
 })

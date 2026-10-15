@@ -48,12 +48,12 @@ watch(() => player.trackKey, (key) => {
   if (track >= 0 && track !== store.track) store.followTrack(track)
 })
 
-// Back to the wall this work was opened from: that history entry holds the
-// wall's whole address and where it was scrolled, so stepping back restores
-// both. Arriving any other way, the wall opens on this work's number alone.
+// Back to the wall (or collection) this work was opened from: that history
+// entry holds its whole address and where it was scrolled, so stepping back
+// restores both. Arriving any other way, the wall opens on this work's number alone.
 function backToWall(): void {
   const back = router.options.history.state.back
-  if (typeof back === 'string' && back.split('?')[0] === '/works') {
+  if (typeof back === 'string' && /^\/(works|collections\/[^/]+)$/.test(back.split('?')[0]!)) {
     router.back()
     return
   }
@@ -120,7 +120,7 @@ onBeforeUnmount(() => {
       <div class="header-left">
         <GlobalMenu />
         <button class="btn btn-s" type="button" @click="backToWall">
-          <svg viewBox="0 0 10 10" aria-hidden="true" style="transform: scaleX(-1)"><path d="M0 4.5h7.2L4.6 1.9l.7-.7L9.1 5 5.3 8.8l-.7-.7 2.6-2.6H0z" /></svg>WALL
+          <svg viewBox="0 0 10 10" aria-hidden="true" style="transform: scaleX(-1)"><path d="M0 4.5h7.2L4.6 1.9l.7-.7L9.1 5 5.3 8.8l-.7-.7 2.6-2.6H0z" /></svg>BACK
         </button>
         <span class="lbl">{{ rj ?? '—' }}</span>
         <span class="h-title" :lang="work?.relation?.language === 'CHI_HANS' ? 'zh-Hans' : work?.relation?.language === 'CHI_HANT' ? 'zh-Hant' : 'ja'">{{ work?.title ?? '' }}</span>

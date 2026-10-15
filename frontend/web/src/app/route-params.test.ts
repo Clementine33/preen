@@ -19,6 +19,7 @@ function guardRouter(): Router {
     routes: [
       { path: '/worksets', name: 'worksets', component: { template: '<div />' } },
       { path: '/works', name: 'works', component: { template: '<div />' } },
+      { path: '/collections/:id', name: 'collection-detail', component: { template: '<div />' } },
       { path: '/worksets/:libraryId', name: 'workbench-overview', component: { template: '<div />' } },
       {
         path: '/worksets/:libraryId/f/:dirId',
@@ -48,6 +49,12 @@ function routeOf(router: Router, fullPath: string) {
 }
 
 describe('cleaned query', () => {
+  it('keeps a collection view sort and nothing else', () => {
+    const router = guardRouter()
+    expect(cleanedQuery(routeOf(router, '/collections/c1?sort=collected_at&direction=desc'))).toBeNull()
+    expect(cleanedQuery(routeOf(router, '/collections/c1?sort=bogus&direction=asc&q=x'))).toEqual({ direction: 'asc' })
+  })
+
   it('keeps a page parameter that carries an allowed value', () => {
     expect(cleanedQuery(routeOf(guardRouter(), `/worksets/lib-1/conversion?filter=warn`))).toBeNull()
     expect(cleanedQuery(routeOf(guardRouter(), `/worksets/lib-1/f/${DIR_ID}?nope=1`))).toEqual({})

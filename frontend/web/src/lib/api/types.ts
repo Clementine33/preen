@@ -320,6 +320,8 @@ export interface CollectionWindow {
   page?: number
   /** `desc` lists the most recently appended members first. */
   direction?: 'asc' | 'desc'
+  /** A view sort of the detail route; absent keeps the saved order. */
+  sort?: WorksSort
 }
 
 /** `rating` puts unrated works last in either direction, as release_date does unknown dates. */

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useQueryClient } from '@tanstack/vue-query'
+import { useRouter } from 'vue-router'
 import GlobalMenu from '@/components/layout/GlobalMenu.vue'
 import { REDUCED_MOTION_QUERY, useMediaQuery } from '@/composables/use-media-query'
 import CollectionScreen from '@/features/collections/CollectionScreen.vue'
@@ -20,9 +21,13 @@ import { usePlayerStore } from '@/stores/player'
 // (`direction=desc`) and one random member for the cover (`limit=1`, a random
 // page). Saved order has no added-at, so "newest" is the end of that order.
 // The selection is view-local: this page is the entry, not a filtered list.
+// Enter (or a second click, or a tap on a phone) opens the collection; the
+// selected id is kept on this history entry, so Back restores it and any other
+// arrival selects the first.
 
 const api = useApiClient()
 const queryClient = useQueryClient()
+const router = useRouter()
 const libraryUi = useLibraryUiStore()
 const player = usePlayerStore()
 const { collections } = useCollections()
@@ -182,10 +187,27 @@ function select(i: number) {
   clearTimeout(switchTimer)
   switchTimer = setTimeout(() => { shown.value = sel.value }, reduced() ? 0 : 140)
 }
+const RETURN_KEY = 'collectionReturn'
 function pressSelected() {
   pressed.value = sel.value
   setTimeout(() => (pressed.value = -1), 120)
+  const col = collections.value[sel.value]
+  if (!col) return
+  router.options.history.replace(router.currentRoute.value.fullPath, { [RETURN_KEY]: col.id })
+  void router.push({ name: 'collection-detail', params: { id: col.id } })
 }
+
+// Back from a collection: the list may arrive after mount, so wait for it once.
+let returnId = router.options.history.state[RETURN_KEY] as string | null | undefined
+watch(collections, (list) => {
+  if (!returnId || !list.length) return
+  const i = list.findIndex((c) => c.id === returnId)
+  returnId = null
+  router.options.history.replace(router.currentRoute.value.fullPath, { [RETURN_KEY]: null })
+  if (i < 0) return
+  sel.value = shown.value = i
+  void nextTick(() => { const row = rowEls.value[i]; if (row) reveal(row); syncChrome() })
+}, { immediate: true })
 
 // A switch (or the list arriving after mount) draws a new cover.
 watch(() => current.value?.id, () => void drawCover())
@@ -255,8 +277,9 @@ onBeforeUnmount(() => {
 })
 
 function onRow(i: number) {
-  if (i === sel.value) pressSelected()
-  else select(i)
+  const selected = i === sel.value
+  if (!selected) select(i)
+  if (selected || narrow.value) pressSelected()
 }
 </script>
 

@@ -313,8 +313,8 @@ export class ApiClient implements ApiClientContract {
   }
 
   // Collections (docs/api/collections.md): the list route refuses `direction`,
-  // so only the detail window carries it.
-  listCollections(window: Omit<CollectionWindow, 'direction'> = {}, signal?: AbortSignal): Promise<CollectionListResponse> {
+  // so only the detail window carries it (and `sort`).
+  listCollections(window: Omit<CollectionWindow, 'direction' | 'sort'> = {}, signal?: AbortSignal): Promise<CollectionListResponse> {
     return this.request(`/collections${windowQuery(window)}`, { signal })
   }
 

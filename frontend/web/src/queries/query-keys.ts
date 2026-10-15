@@ -39,6 +39,8 @@ export const queryKeys = {
     all: () => ['collections'] as const,
     list: () => ['collections', 'list'] as const,
     detail: (id: string, window: CollectionWindow) => ['collections', 'detail', id, window] as const,
+    // The detail page's chunked list: one entry per collection and view sort.
+    pages: (id: string, sort: string, direction: string) => ['collections', 'pages', id, sort, direction] as const,
   },
   works: {
     all: () => ['works'] as const,

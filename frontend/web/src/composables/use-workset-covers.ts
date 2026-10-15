@@ -24,8 +24,9 @@ export function useWorksetCovers(api: ApiClientContract, client: QueryClient) {
       if (c.pending + c.running || (entry.eligible && !entry.terminal)) return
       entry.consumed = true
       if (!entry.eligible || !report.items.length) return
-      const label = c.failed ? (c.succeeded + c.skipped ? '部分失败' : '失败') : c.canceled ? '已停止' : '完成'
-      notify(entry, `封面${label}：成功 ${c.succeeded}，跳过 ${c.skipped}，失败 ${c.failed}，停止 ${c.canceled}`, !c.failed)
+      const tone = c.failed ? (c.succeeded + c.skipped ? 'partial' : 'failed') : c.canceled ? 'stopped' : 'success'
+      const label = { partial: '部分失败', failed: '失败', stopped: '已停止', success: '完成' }[tone]
+      notify(entry, `封面${label}：成功 ${c.succeeded}，跳过 ${c.skipped}，失败 ${c.failed}，停止 ${c.canceled}`, tone)
     },
     entry => { entry.consumed = true; if (entry.eligible) notify(entry, '封面结果尚未确认，记录不存在或无权访问') },
     entry => { if (entry.eligible && !entry.outage) notify(entry, '连接中断，封面结果尚未确认'); entry.outage = true },

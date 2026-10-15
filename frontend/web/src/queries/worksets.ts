@@ -471,7 +471,10 @@ export async function syncAfterExecutionRefusal(
 // have moved.
 export async function sweepAfterExecution(queryClient: QueryClient): Promise<void> {
   await Promise.all([
-    refreshOrRemoveQueries(queryClient, queryKeys.worksets.all()),
+    // Exact session reads belong to recovery; the sweep must not cancel them.
+    refreshOrRemoveQueries(queryClient, queryKeys.worksets.all(), {
+      predicate: query => query.queryKey[1] !== 'executions' || query.queryKey.length !== 5,
+    }),
     refreshOrRemoveQueries(queryClient, queryKeys.libraries.all()),
   ])
 }

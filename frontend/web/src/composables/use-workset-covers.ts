@@ -4,10 +4,11 @@ import { executionCoversQueryOptions } from '@/queries/worksets'
 import { queryKeys } from '@/queries/query-keys'
 import { sessionPoller, useWorksetObservation, type SessionIdentity } from './use-workset-observation'
 
-type Round = SessionIdentity & { executionId: string; sequence: number; eligible: boolean; terminal: boolean; initial: boolean; consumed: boolean; reading: boolean; retryDelay: number; outage: boolean; timer?: ReturnType<typeof setTimeout> }
+type Round = SessionIdentity & { executionId: string; eligible: boolean; terminal: boolean; initial: boolean; consumed: boolean; reading: boolean; retryDelay: number; outage: boolean; timer?: ReturnType<typeof setTimeout> }
 
 // One app-lifetime report observer per execution; rounds are client memory,
 // independent of the API's stable delivery IDs and cumulative counters.
+// Each fresh entry is the round token; cleanup makes replaced reads inert.
 export function useWorksetCovers(api: ApiClientContract, client: QueryClient) {
   const { observations, identity, notify } = useWorksetObservation<Round>(client, 'covers', stop)
   const key = (worksetId: string, executionId: string) => JSON.stringify([worksetId, executionId])
@@ -33,7 +34,7 @@ export function useWorksetCovers(api: ApiClientContract, client: QueryClient) {
   function open(worksetId: string, executionId: string, eligible: boolean, captured = identity(worksetId)) {
     const previous = observations.get(key(worksetId, executionId))
     if (previous) cleanup(previous)
-    const entry: Round = { ...captured, worksetId, executionId, operation: 'metadata_refresh', sequence: (previous?.sequence ?? 0) + 1,
+    const entry: Round = { ...captured, worksetId, executionId, operation: 'metadata_refresh',
       eligible, terminal: previous?.terminal ?? false, initial: previous?.initial ?? false, consumed: false, reading: false, retryDelay: 2000, outage: false }
     observations.set(key(worksetId, executionId), entry)
     return entry

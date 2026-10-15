@@ -111,6 +111,68 @@ describe('app-lifetime conversion execution observation', () => {
     await vi.advanceTimersByTimeAsync(60000)
     expect(notice()).toBe('')
   })
+  it('recovers the original session while an unrelated mounted cache refresh is stalled', async () => {
+    const app = await harness()
+    let release!: () => void
+    const stalled = new Promise<void>(resolve => { release = resolve })
+    const unsubscribe = new QueryObserver(app.client, {
+      queryKey: queryKeys.libraries.list(),
+      queryFn: async () => { await stalled; return [{ id: 'lib-a', name: 'Archive' }] },
+      staleTime: Infinity,
+    }).subscribe(() => {})
+    stops.push(unsubscribe)
+    vi.mocked(app.api.getExecution).mockResolvedValue(session('interrupted'))
+    await app.start()
+    app.finish([])
+    await flushPromises()
+    expect(app.api.getExecution).toHaveBeenCalledWith('ws1', 'conversion', 'e1', expect.any(AbortSignal))
+    dismiss()
+    await flushPromises()
+    expect(notice()).toContain('执行已中断')
+    release()
+    await flushPromises()
+  })
+  it('keeps a pending recovery read alive when the workset sweep finishes', async () => {
+    const app = await harness()
+    let release!: () => void
+    let recover!: (view: ExecutionView) => void
+    const stalled = new Promise<void>(resolve => { release = resolve })
+    stops.push(new QueryObserver(app.client, {
+      queryKey: queryKeys.worksets.detail('ws1'),
+      queryFn: async () => { await stalled; return { library: { library_id: 'lib-a', name: 'Archive' } } },
+      staleTime: Infinity,
+    }).subscribe(() => {}))
+    vi.mocked(app.api.getExecution).mockImplementation(() => new Promise(resolve => { recover = resolve }))
+    await app.start()
+    app.finish([])
+    await flushPromises()
+    release()
+    await flushPromises()
+    recover(session('interrupted'))
+    dismiss()
+    await flushPromises()
+    expect(notice()).toContain('执行已中断')
+  })
+  it.each(['running', 'failed'] as const)('reports a real disconnect after a %s cancel request', async outcome => {
+    vi.useFakeTimers()
+    const app = await harness()
+    await app.start()
+    if (outcome === 'running') vi.mocked(app.api.cancelExecution).mockResolvedValue(session())
+    else vi.mocked(app.api.cancelExecution).mockRejectedValue(new ApiError(503, 'OFFLINE', 'Offline'))
+    const cancel = app.execution.cancel('ws1', 'conversion', 'e1')
+    if (outcome === 'failed') await expect(cancel).rejects.toMatchObject({ status: 503 })
+    else await cancel
+    await flushPromises()
+    expect(notice()).toBe('')
+    app.finish([])
+    await flushPromises()
+    expect(notice()).toContain('连接中断，执行结果尚未确认')
+    dismiss()
+    vi.mocked(app.api.getExecution).mockResolvedValue(session('interrupted'))
+    await vi.advanceTimersByTimeAsync(2000)
+    await flushPromises()
+    expect(notice()).toContain('执行已中断')
+  })
   it('waits after a cooperative cancel request and consumes an authoritative cancel once', async () => {
     vi.useFakeTimers()
     const app = await harness()
@@ -272,7 +334,7 @@ describe('app-lifetime conversion execution observation', () => {
     await flushPromises()
     expect(notice()).toBe('')
   })
-  it('treats intentional cancel transport termination as unconfirmed until the exact-session GET', async () => {
+  it('consumes a confirmed cancellation before a later stream close', async () => {
     const app = await harness()
     await app.start()
     vi.mocked(app.api.cancelExecution).mockResolvedValue(session())
@@ -466,7 +528,7 @@ describe.each(['metadata_refresh', 'rename'] as const)('%s execution notices', o
     await vi.advanceTimersByTimeAsync(60000)
     expect(notice()).toBe('')
   })
-  it('waits for cooperative cancellation and deduplicates the later SSE terminal', async () => {
+  it('warns on transport loss during cooperative cancellation and consumes the recovered terminal', async () => {
     vi.useFakeTimers()
     const app = await harness()
     await app.start(operation)
@@ -476,8 +538,10 @@ describe.each(['metadata_refresh', 'rename'] as const)('%s execution notices', o
     expect(notice()).toBe('')
     app.finish([])
     await flushPromises()
+    expect(notice()).toContain('连接中断，执行结果尚未确认')
+    dismiss()
+    await flushPromises()
     expect(notice()).toContain('执行已停止')
-    expect(notice()).not.toContain('连接中断')
     dismiss()
     await vi.advanceTimersByTimeAsync(60000)
     expect(notice()).toBe('')

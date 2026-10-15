@@ -4,29 +4,11 @@ for (const mobile of [false, true]) {
   test(mobile ? 'mobile task notices preserve undo and wrap below safe area' : 'desktop task notices preserve undo at upper right', async ({ page }) => {
     await page.setViewportSize(mobile ? { width: 320, height: 640 } : { width: 1440, height: 900 })
     await page.emulateMedia({ reducedMotion: 'reduce' })
-    await page.route('**/__task-toast', (route) => route.fulfill({ contentType: 'text/html', body: `
+    await page.route('**/__task-toast', route => route.fulfill({ contentType: 'text/html', body: `
       <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"></head>
-      <body><div id="app"></div><script type="module">
-        import { createApp, h } from '/node_modules/.vite/deps/vue.js';
-        import TaskToastHost from '/src/components/layout/TaskToastHost.vue';
-        import ToastHost from '/src/components/layout/ToastHost.vue';
-        import { useTaskToast } from '/src/composables/use-task-toast.ts';
-        import { useToast } from '/src/composables/use-toast.ts';
-        import '/src/style.css';
-        const tasks = useTaskToast();
-        const edit = useToast();
-        createApp({ setup: () => () => [
-          h('button', { id: 'enqueue', onclick: () => {
-            edit.show({ text: '已从合集移除', action: { label: '撤销', run: () => {
-              document.querySelector('#undo-result').textContent = 'restored';
-            } } });
-            tasks.show({ text: 'Archive · 扫描完成：很长的媒体库名称和结果说明需要完整换行以便查看已完成的扫描结果。'.repeat(3), action: { label: '查看结果', run: () => {} } });
-            tasks.show({ text: '规划失败', action: { label: '查看结果', run: () => {} } });
-          } }, 'Enqueue'),
-          h('span', { id: 'undo-result' }), h(ToastHost), h(TaskToastHost),
-        ] }).mount('#app');
-      </script></body></html>` }))
+      <body><div id="app"></div><script type="module" src="/e2e/task-toast-harness.ts"></script></body></html>` }))
     await page.goto('/__task-toast')
+    await expect(page.locator('#enqueue')).toBeVisible()
     await page.locator('#enqueue').click()
     const task = page.getByTestId('task-toast')
     await expect(task).toBeVisible()

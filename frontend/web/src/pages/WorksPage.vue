@@ -105,7 +105,7 @@ const AGE_PARAM: Record<string, ListWorksParams['age_category']> = { safe: 1, r1
 const SORT_OPTIONS: RailOption[] = [
   { value: 'rj', label: '作品编号' },
   { value: 'release_date', label: '发售时间' },
-  { value: 'collected_at', label: '添加时间' },
+  { value: 'collected_at', label: '入库时间' },
   { value: 'rating', label: '个人评分' },
 ]
 const SIZE_OPTIONS: RailOption[] = PAGE_SIZES.map((value) => ({ value: String(value), label: String(value) }))

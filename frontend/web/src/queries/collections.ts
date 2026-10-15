@@ -1,7 +1,8 @@
-import { keepPreviousData, useInfiniteQuery, useQuery } from '@tanstack/vue-query'
+import { keepPreviousData, useInfiniteQuery, useQuery, useQueryClient, type QueryClient } from '@tanstack/vue-query'
 import { computed, toValue, type MaybeRefOrGetter } from 'vue'
 import { useApiClient } from '@/lib/api/client'
 import type { ApiClientContract, CollectionWindow, WorksSort } from '@/lib/api/types'
+import { refreshOrRemoveQueries } from './cache-sync'
 import { queryKeys } from './query-keys'
 
 /** Every collection, Favorites first; one page holds up to the API's 200. */
@@ -67,4 +68,30 @@ export function useCollectionPages(id: MaybeRefOrGetter<string>, sort: MaybeRefO
   const first = computed(() => query.data.value?.pages[0] ?? null)
   const works = computed(() => query.data.value?.pages.flatMap((p) => p.works) ?? [])
   return { query, name: computed(() => first.value?.name ?? ''), total: computed(() => first.value?.total ?? 0), works }
+}
+
+/**
+ * Every collection write refreshes the whole `['collections']` prefix (entry
+ * counts, titles, detail chunks); a write to Favorites also refreshes the work
+ * listings and each touched work's detail, since `favorite` follows membership.
+ */
+function refreshAfterWrite(client: QueryClient, id: string, rjs: string[]): void {
+  void refreshOrRemoveQueries(client, queryKeys.collections.all())
+  if (id !== 'favorites') return
+  void refreshOrRemoveQueries(client, queryKeys.works.listPrefix())
+  for (const rj of rjs) void refreshOrRemoveQueries(client, queryKeys.works.detail(rj))
+}
+
+/** Member writes. Each refreshes the caches whether it succeeded or not, so a failure reloads the truth. */
+export function useCollectionMemberWrites() {
+  const api = useApiClient()
+  const client = useQueryClient()
+  async function write<T>(id: string, rjs: string[], run: () => Promise<T>): Promise<T> {
+    try { return await run() } finally { refreshAfterWrite(client, id, rjs) }
+  }
+  return {
+    append: (id: string, rjs: string[]) => write(id, rjs, () => api.appendToCollection(id, rjs)),
+    remove: (id: string, rj: string) => write(id, [rj], () => api.removeFromCollection(id, rj)),
+    move: (id: string, rj: string, beforeRj: string | null) => write(id, [rj], () => api.moveCollectionMember(id, rj, beforeRj)),
+  }
 }

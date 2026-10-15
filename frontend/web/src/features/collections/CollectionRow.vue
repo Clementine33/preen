@@ -1,14 +1,16 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { WorkSummary } from '@/lib/api/types'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { useCoverSrc } from '@/features/works/use-cover-src'
 import WorkTracklist from '@/features/works/WorkTracklist.vue'
 import { useLibraryUiStore } from '@/stores/library-ui'
 
-// One row of a collection's ordered list. Desktop: a reserved drag-handle slot
-// (member moving comes later), the position, a small cover, title, circle, work
-// number, release date and the play button. A phone keeps cover, a two-line title,
-// the circle beneath it and the play button; the CSS hides the rest. An
+// One row of a collection's ordered list. Desktop: the drag handle (edit mode,
+// custom order), the position, a small cover, title, circle, work number,
+// release date, and the play button — or, in edit mode, the `⋯` menu (moves in
+// custom order, remove). A phone keeps cover, a two-line title, the circle
+// beneath it and the one button; the CSS hides the rest. An
 // expanded row unfolds below into the work's tracklist and an OPEN link, the
 // one way into the work on a phone; it opens and folds with a height reveal.
 const props = defineProps<{
@@ -18,8 +20,21 @@ const props = defineProps<{
   selected: boolean
   expanded: boolean
   playing: boolean
+  /** Edit mode: the row menu replaces the play button. */
+  editing: boolean
+  /** Edit mode in custom order: the row can be dragged and moved. */
+  movable: boolean
+  /** The top row (cannot move up), and the very last member (cannot move down). */
+  first: boolean
+  last: boolean
+  /** The insertion line of a drag over the list: above or below this row. */
+  drop: 'above' | 'below' | null
 }>()
-defineEmits<{ select: []; open: []; play: []; unfolded: [] }>()
+defineEmits<{
+  select: []; open: []; play: []; unfolded: []
+  dragstart: [e: DragEvent]; dragend: []
+  move: [to: 'top' | 'up' | 'down' | 'bottom']; remove: []
+}>()
 
 const libraryUi = useLibraryUiStore()
 const { src, failed } = useCoverSrc(() => ({ rj: props.work.rj, local: props.work.local_cover, remote: props.work.thumbnail_url ?? null }))
@@ -29,9 +44,11 @@ const cover = computed(() => (libraryUi.veil && props.work.nsfw === true ? null 
 
 <template>
   <div class="item">
-    <div :id="`cw-${work.rj}`" class="row" :class="{ sel: selected }" role="option" :aria-selected="selected"
+    <div :id="`cw-${work.rj}`" class="row" :class="[{ sel: selected }, drop && `drop-${drop}`]" role="option" :aria-selected="selected"
       :data-rj="work.rj" data-testid="collection-work" @click="$emit('select')" @dblclick="$emit('open')">
-      <span class="handle" aria-hidden="true" />
+      <span v-if="movable" class="handle" draggable="true" aria-hidden="true" data-testid="collection-handle"
+        @click.stop @dragstart="$emit('dragstart', $event)" @dragend="$emit('dragend')" />
+      <span v-else class="no-handle" />
       <span class="lbl pos">{{ position }}</span>
       <span class="cover" :class="{ hatch: !cover }">
         <img v-if="cover" :src="cover" alt="" loading="lazy" decoding="async" @error="failed(cover)" />
@@ -45,8 +62,23 @@ const cover = computed(() => (libraryUi.veil && props.work.nsfw === true ? null 
       <span class="lbl date">{{ work.release_date ?? '—' }}</span>
       <span class="end">
         <span v-if="playing" class="playing-tag" data-testid="collection-playing">▶ NOW</span>
-        <button class="play" type="button" aria-label="播放" title="播放" data-testid="collection-play"
+        <button v-if="!editing" class="play" type="button" aria-label="播放" title="播放" data-testid="collection-play"
           @click.stop="$emit('play')" @dblclick.stop>▶</button>
+        <DropdownMenu v-if="editing">
+          <DropdownMenuTrigger as-child>
+            <button class="more" type="button" aria-label="更多" title="更多" data-testid="collection-more" @click.stop @dblclick.stop>⋯</button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" class="w-40" data-own-keys>
+            <template v-if="movable">
+              <DropdownMenuItem :disabled="first" data-testid="collection-move-top" @select="$emit('move', 'top')">移到顶部</DropdownMenuItem>
+              <DropdownMenuItem :disabled="first" data-testid="collection-move-up" @select="$emit('move', 'up')">上移</DropdownMenuItem>
+              <DropdownMenuItem :disabled="last" data-testid="collection-move-down" @select="$emit('move', 'down')">下移</DropdownMenuItem>
+              <DropdownMenuItem :disabled="last" data-testid="collection-move-bottom" @select="$emit('move', 'bottom')">移到底部</DropdownMenuItem>
+              <DropdownMenuSeparator />
+            </template>
+            <DropdownMenuItem variant="destructive" data-testid="collection-remove" @select="$emit('remove')">从合集移除</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </span>
     </div>
     <Transition name="fold" @after-enter="$emit('unfolded')">
@@ -67,6 +99,7 @@ const cover = computed(() => (libraryUi.veil && props.work.nsfw === true ? null 
 <style scoped>
 .row {
   display: grid; align-items: center; column-gap: var(--sp-3); height: 56px; padding: 0 var(--sp-3); cursor: pointer;
+  position: relative;
   grid-template-columns: 16px 44px 56px minmax(0, 1fr) minmax(0, 200px) 100px 90px 88px;
   box-shadow: inset 0 -1px 0 var(--wire-fine);
 }
@@ -85,12 +118,20 @@ const cover = computed(() => (libraryUi.veil && props.work.nsfw === true ? null 
   height: 16px; padding: 0 6px; display: inline-flex; align-items: center;
   background: var(--now); color: var(--now-fg); font-family: var(--font-mono); font-size: var(--fs-xs); font-weight: 700; letter-spacing: .12em;
 }
-.play {
+.handle { align-self: stretch; cursor: grab; opacity: .7; display: grid; place-items: center; }
+.handle::before { content: '⋮⋮'; font-size: var(--fs-xs); letter-spacing: -2px; }
+/* The insertion line of a drag; it overlays the row edge, nothing shifts. */
+.drop-above::after, .drop-below::after { content: ''; position: absolute; left: 0; right: 0; height: 2px; background: var(--now); z-index: 1; pointer-events: none; }
+.drop-above::after { top: -1px; }
+.drop-below::after { bottom: -1px; }
+.play, .more {
   width: 28px; height: 28px; border: 1px solid var(--wire-control); background: transparent; color: inherit;
-  font-size: var(--fs-xs); cursor: pointer; opacity: 0;
+  font-size: var(--fs-xs); cursor: pointer;
 }
+.play { opacity: 0; }
 .row:hover .play, .row.sel .play, .play:focus-visible { opacity: 1; }
-.play:hover { border-color: var(--wire-strong); }
+.play:hover, .more:hover { border-color: var(--wire-strong); }
+.row.sel .play, .row.sel .more { border-color: currentColor; }
 /* The fold sits under the title column; a long tracklist scrolls inside it.
    It opens and folds by sizing its one grid track from / to 0fr, so the reveal
    follows the content's real height; the clip keeps the padding from showing at 0.
@@ -113,7 +154,7 @@ const cover = computed(() => (libraryUi.veil && props.work.nsfw === true ? null 
 
 @media (max-width: 900px) {
   .row { grid-template-columns: 56px minmax(0, 1fr) 28px; height: 64px; }
-  .handle, .pos, .col, .rj, .date, .playing-tag { display: none; }
+  .handle, .no-handle, .pos, .col, .rj, .date, .playing-tag { display: none; }
   .title { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; }
   .sub { display: block; }
   .play { opacity: 1; }

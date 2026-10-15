@@ -7,6 +7,8 @@ import type { CollectionDetail, WorkSummary } from '@/lib/api/types'
 import { apiStub } from '@/test/api-stub'
 import { installTestQueryPlugin } from '@/test/query-client'
 import { sampleWorkContent } from '@/test/work-content-fixture'
+import { ApiError } from '@/lib/api/client'
+import { useToast } from '@/composables/use-toast'
 import RailSelect from '@/features/works/RailSelect.vue'
 import CollectionDetailPage from './CollectionDetailPage.vue'
 
@@ -226,5 +228,167 @@ describe('CollectionDetailPage', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+
+  describe('editing', () => {
+    const toast = useToast()
+    beforeEach(() => { toast.current.value = null })
+
+    // jsdom has no DataTransfer: a bare event with the few members the handlers read.
+    function drag(el: Element, type: string, clientY = 0) {
+      const e = Object.assign(new Event(type, { bubbles: true, cancelable: true }), { clientY, dataTransfer: { setData() {}, setDragImage() {}, effectAllowed: '' } })
+      el.dispatchEvent(e)
+    }
+    const dropOn = (wrapper: ReturnType<typeof mount>, from: number, to: number, below = false) => {
+      drag(rows(wrapper)[from]!.get('.handle').element, 'dragstart')
+      drag(rows(wrapper)[to]!.element, 'dragover', below ? 10 : 0)
+      drag(rows(wrapper)[to]!.element, 'drop', below ? 10 : 0)
+    }
+    // A server that keeps the saved order, so the re-read after a write agrees with it.
+    const edited = (n = 4) => {
+      let saved = ALL.slice(0, n)
+      const getCollection = vi.fn(async (_id: string, w: { direction?: string; sort?: string } = {}) => {
+        const view = w.sort ? [...saved].sort((a, b) => a.rj.localeCompare(b.rj)) : [...saved]
+        if (w.direction === 'desc') view.reverse()
+        return { id: 'c1', name: 'Sleep', work_count: saved.length, created_at: '', updated_at: '', total: saved.length, works: view } as CollectionDetail
+      })
+      const moveCollectionMember = vi.fn(async (_id: string, rj: string, before: string | null) => {
+        const w = saved.find((x) => x.rj === rj)!
+        saved = saved.filter((x) => x !== w)
+        saved.splice(before === null ? saved.length : saved.findIndex((x) => x.rj === before), 0, w)
+      })
+      const removeFromCollection = vi.fn(async (_id: string, rj: string) => { saved = saved.filter((x) => x.rj !== rj) })
+      const appendToCollection = vi.fn(async (_id: string, rjs: string[]) => {
+        saved = [...saved, ...rjs.map((rj) => ALL.find((x) => x.rj === rj)!)]
+        return { added: rjs, skipped: [], work_count: saved.length }
+      })
+      return { getCollection, moveCollectionMember, removeFromCollection, appendToCollection, api: apiStub({ getCollection, moveCollectionMember, removeFromCollection, appendToCollection }) }
+    }
+    const mountEditing = async (api: ReturnType<typeof apiStub>, path?: string) => {
+      const mounted = await mountPage(api, path)
+      await mounted.wrapper.get('[data-testid="collection-edit"]').trigger('click')
+      return mounted
+    }
+    const openMenu = async (wrapper: ReturnType<typeof mount>, row: number) => {
+      rows(wrapper)[row]!.get('[data-testid="collection-more"]').element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }))
+      await flushPromises()
+    }
+    const menu = async (wrapper: ReturnType<typeof mount>, row: number, item: string) => {
+      await openMenu(wrapper, row)
+      document.body.querySelector<HTMLElement>(`[data-testid="${item}"]`)!.click()
+      await flushPromises()
+    }
+
+    it('edits only in edit mode: EDIT swaps play for the row menu and handles, Esc leaves it', async () => {
+      const { api, removeFromCollection } = edited()
+      const { wrapper } = await mountPage(api)
+      expect(wrapper.findAll('[data-testid="collection-handle"]')).toHaveLength(0)
+      expect(wrapper.findAll('[data-testid="collection-more"]')).toHaveLength(0)
+      press('Delete')
+      await flushPromises()
+      expect(removeFromCollection).not.toHaveBeenCalled()
+      await wrapper.get('[data-testid="collection-edit"]').trigger('click')
+      expect(wrapper.get('[data-testid="collection-edit"]').text()).toBe('DONE')
+      expect(wrapper.findAll('[data-testid="collection-handle"]')).toHaveLength(4)
+      expect(wrapper.findAll('[data-testid="collection-more"]')).toHaveLength(4)
+      expect(wrapper.findAll('[data-testid="collection-play"]')).toHaveLength(0)
+      expect(wrapper.find('[data-testid="collection-fold"]').exists()).toBe(false)
+      await rows(wrapper)[1]!.trigger('dblclick')
+      await flushPromises()
+      expect(wrapper.vm.$route.name).toBe('collection-detail')
+      press('Escape')
+      await flushPromises()
+      expect(wrapper.get('[data-testid="collection-edit"]').text()).toBe('EDIT')
+      expect(wrapper.findAll('[data-testid="collection-play"]')).toHaveLength(4)
+    })
+
+    it('drops a row before the row under the gap in ascending order, the bottom meaning the end', async () => {
+      const { api, moveCollectionMember } = edited()
+      const { wrapper } = await mountEditing(api)
+      dropOn(wrapper, 3, 1)
+      await flushPromises()
+      expect(moveCollectionMember).toHaveBeenLastCalledWith('c1', 'RJ00000004', 'RJ00000002')
+      expect(rows(wrapper).map((r) => r.attributes('data-rj'))).toEqual(['RJ00000001', 'RJ00000004', 'RJ00000002', 'RJ00000003'])
+      expect(rows(wrapper)[1]!.attributes('aria-selected')).toBe('true')
+      dropOn(wrapper, 0, 3, true)
+      await flushPromises()
+      expect(moveCollectionMember).toHaveBeenLastCalledWith('c1', 'RJ00000001', null)
+    })
+
+    it('in descending order a gap below row A is before A, and the very top is the end', async () => {
+      const { api, moveCollectionMember } = edited()
+      const { wrapper } = await mountEditing(api, '/collections/c1?direction=desc')
+      dropOn(wrapper, 3, 1) // screen is 4,3,2,1: the gap above row 1 is below row 0 (RJ4)
+      await flushPromises()
+      expect(moveCollectionMember).toHaveBeenLastCalledWith('c1', 'RJ00000001', 'RJ00000004')
+      dropOn(wrapper, 3, 0)
+      await flushPromises()
+      expect(moveCollectionMember).toHaveBeenLastCalledWith('c1', expect.any(String), null)
+    })
+
+    it('has no handles or move items under a view sort, but still removes', async () => {
+      const { api, removeFromCollection } = edited()
+      const { wrapper } = await mountEditing(api, '/collections/c1?sort=rj')
+      expect(wrapper.findAll('[data-testid="collection-handle"]')).toHaveLength(0)
+      await openMenu(wrapper, 0)
+      expect(document.body.querySelector('[data-testid="collection-move-top"]')).toBeNull()
+      document.body.querySelector<HTMLElement>('[data-testid="collection-remove"]')!.click()
+      await flushPromises()
+      expect(removeFromCollection).toHaveBeenCalledWith('c1', 'RJ00000004') // a view sort lists newest keys first
+      expect(toast.current.value?.text).toBe('已从 Sleep 移除（撤销将放回末尾）')
+    })
+
+    it('moves from the row menu', async () => {
+      const { api, moveCollectionMember } = edited()
+      const { wrapper } = await mountEditing(api)
+      await menu(wrapper, 2, 'collection-move-top')
+      expect(moveCollectionMember).toHaveBeenLastCalledWith('c1', 'RJ00000003', 'RJ00000001')
+      await menu(wrapper, 0, 'collection-move-down') // the row that is now first
+      expect(moveCollectionMember).toHaveBeenLastCalledWith('c1', 'RJ00000003', 'RJ00000002')
+    })
+
+    it('removes the selected row with Delete, selects the next, and undo appends then moves it back', async () => {
+      const { api, removeFromCollection, appendToCollection, moveCollectionMember } = edited()
+      const { wrapper } = await mountEditing(api)
+      press('ArrowDown')
+      await flushPromises()
+      press('Delete')
+      await flushPromises()
+      expect(removeFromCollection).toHaveBeenCalledWith('c1', 'RJ00000002')
+      expect(rows(wrapper).map((r) => r.attributes('data-rj'))).toEqual(['RJ00000001', 'RJ00000003', 'RJ00000004'])
+      expect(rows(wrapper)[1]!.attributes('aria-selected')).toBe('true')
+      expect(wrapper.get('h1 + .lbl b').text()).toBe('3')
+      expect(toast.current.value).toMatchObject({ text: '已从 Sleep 移除', action: { label: '撤销' } })
+      toast.current.value!.action!.run()
+      await flushPromises()
+      expect(appendToCollection).toHaveBeenCalledWith('c1', ['RJ00000002'])
+      expect(moveCollectionMember).toHaveBeenCalledWith('c1', 'RJ00000002', 'RJ00000003')
+    })
+
+    it('undo under a view sort only appends', async () => {
+      const { api, appendToCollection, moveCollectionMember } = edited()
+      const { wrapper } = await mountEditing(api, '/collections/c1?sort=rj')
+      await menu(wrapper, 1, 'collection-remove')
+      toast.current.value!.action!.run()
+      await flushPromises()
+      expect(appendToCollection).toHaveBeenCalledWith('c1', ['RJ00000003'])
+      expect(moveCollectionMember).not.toHaveBeenCalled()
+    })
+
+    it('reloads and says so when a move meets a conflict, and toasts other failures plainly', async () => {
+      const { api, getCollection, moveCollectionMember } = edited()
+      const { wrapper } = await mountEditing(api)
+      moveCollectionMember.mockRejectedValueOnce(new ApiError(409, 'COLLECTION_MEMBER_CONFLICT', 'gone'))
+      getCollection.mockClear()
+      dropOn(wrapper, 3, 0)
+      await flushPromises()
+      expect(toast.current.value?.text).toBe('合集已在别处变动，已刷新')
+      expect(getCollection).toHaveBeenCalled()
+      expect(rows(wrapper).map((r) => r.attributes('data-rj'))[0]).toBe('RJ00000001')
+      moveCollectionMember.mockRejectedValueOnce(new ApiError(500, 'INTERNAL', 'boom'))
+      dropOn(wrapper, 3, 0)
+      await flushPromises()
+      expect(toast.current.value?.text).toBe('boom')
+    })
   })
 })

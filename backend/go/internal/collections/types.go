@@ -43,9 +43,12 @@ type AppendResult struct {
 // Window uses the catalog's numbered paging conventions. Direction orders a
 // collection's members and applies to details only: empty reads as ascending
 // saved order, and descending puts the most recently appended members first.
+// Sort, also details only, is a view sort by one of the work listing's fields;
+// empty keeps the saved order, and Direction then applies to the sort key.
 type Window struct {
 	Limit, Page int
 	Direction   works.Direction
+	Sort        works.SortField
 }
 
 func (w Window) Validate() *works.Error {
@@ -54,6 +57,9 @@ func (w Window) Validate() *works.Error {
 	}
 	if w.Direction != "" && !w.Direction.Valid() {
 		return works.Invalid(works.CodeInvalidArgument, "direction must be asc or desc")
+	}
+	if w.Sort != "" && !w.Sort.Valid() {
+		return works.Invalid(works.CodeInvalidArgument, "unknown sort field")
 	}
 	return nil
 }

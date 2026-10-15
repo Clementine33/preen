@@ -163,25 +163,25 @@ func (r *Repository) readWorkSummaries(rows *sql.Rows) ([]works.WorkSummary, err
 // closed set, never built from the request, and the trailing work number keeps
 // the order total when two rows share a sort value.
 func orderClause(filter works.Filter) string {
+	return sortKeys(filter.Sort, filter.Direction) + ", w.id ASC"
+}
+
+// sortKeys renders the sort field's order-by keys, without a tie-break. The
+// collection detail shares it and breaks ties by saved position instead.
+func sortKeys(field works.SortField, dir works.Direction) string {
 	direction := "ASC"
-	if filter.Direction == works.Descending {
+	if dir == works.Descending {
 		direction = "DESC"
 	}
-	if column, ok := nullableSortColumn(filter.Sort); ok {
+	if column, ok := nullableSortColumn(field); ok {
 		// Unknown values are always last, in either direction, which is why the
 		// null flag leads the ordering and never flips with it.
-		return "(" + column + " IS NULL) ASC, " + column + " " + direction + ", w.id ASC"
+		return "(" + column + " IS NULL) ASC, " + column + " " + direction
 	}
-	switch filter.Sort {
-	case works.SortByReleaseDate, works.SortByRating:
-		// Handled above as nullable orders.
-	case works.SortByCollectedAt:
-		return "w.collected_at " + direction + ", w.id ASC"
-	case works.SortByWorkID:
-		return "w.id " + direction
+	if field == works.SortByCollectedAt {
+		return "w.collected_at " + direction
 	}
-	// Unreachable: Validate refuses any other field, so nothing else reaches
-	// the ordering.
+	// The work number, and the fallback: Validate refuses any other field.
 	return "w.id " + direction
 }
 

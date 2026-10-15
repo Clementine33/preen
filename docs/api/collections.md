@@ -18,7 +18,7 @@ six/eight-digit, case-insensitive normalization and return canonical eight-digit
 | --- | --- | --- |
 | GET | `/api/v1/collections` | 200 `{"collections":[…],"total":N}`: one page. |
 | POST | `/api/v1/collections` | Body `{"name":"Sleep"}`; 201 the new empty collection. |
-| GET | `/api/v1/collections/{id}` | 200 collection fields plus `works:[…]` and `total`: one page of work summaries in saved order, or reversed with `direction=desc`. |
+| GET | `/api/v1/collections/{id}` | 200 collection fields plus `works:[…]` and `total`: one page of work summaries in saved order, reversed with `direction=desc`, or view-sorted with `sort`. |
 | PATCH | `/api/v1/collections/{id}` | Body `{"name":"Rest"}`; 200 the renamed collection. |
 | DELETE | `/api/v1/collections/{id}` | 204; deletes only the collection and its membership. |
 | POST | `/api/v1/collections/{id}/works` | Body `{"rjs":["RJ00000002","RJ00000001"]}`; 200 `{"added":[…],"skipped":[…],"work_count":N}`. |
@@ -57,7 +57,7 @@ Membership is the sole source of the catalog's `favorite` flag:
 ## Paging
 
 Both GET routes accept `limit` and `page`, following the catalog conventions; the detail
-route also accepts `direction` (below). Both reject any other key:
+route also accepts `direction` and `sort` (below). Both reject any other key:
 absent or empty values use `limit=50`, `page=1`; nonempty limits must be integers
 1–200 and pages integers of at least 1. Invalid values return 400 / `INVALID_PAGE`;
 unknown query keys return 400 / `INVALID_ARGUMENT`.
@@ -70,6 +70,15 @@ a move also changes); `asc` or absent keeps saved order. Any other value is 400 
 `limit` and `page` window the reversed order. Past-end pages contain an empty array and the
 current total. The total and window are read together, but separate requests share
 no snapshot: an edit can move items across page boundaries. Clients re-read after edits.
+
+A detail also accepts `sort`, one of the work listing's fields `rj`, `release_date`,
+`collected_at` or `rating`; any other nonempty value is 400 / `INVALID_ARGUMENT`, and
+the collection list refuses `sort` as an unknown key. A view sort orders the page
+without touching saved order. `direction` then applies to the sort key (absent is
+`asc`), and works with an unknown release date or no rating trail in either direction,
+as in the [work listing](works.md#listing-filters-ordering-and-paging). Ties break by
+saved position ascending, so pages are stable. Absent or empty `sort` is the saved
+order above. `limit`, `page` and `total` behave as before.
 
 ## Atomic append and incremental move
 

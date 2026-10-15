@@ -379,7 +379,7 @@ onBeforeUnmount(() => {
       </div>
       <div class="rail-right">
         <RailSelect v-model="sort" label="SORT" :options="SORT_OPTIONS" />
-        <RailSelect v-model="size" label="SIZE" :options="SIZE_OPTIONS" />
+        <RailSelect v-model="size" class="size" label="SIZE" :options="SIZE_OPTIONS" />
         <label class="find">
           <span class="lbl">FIND</span>
           <input v-model="findText" type="text" placeholder="RJ / TITLE" @keydown.enter="submitFind" />
@@ -459,10 +459,17 @@ onBeforeUnmount(() => {
 .header-left { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
 
 @media (max-width: 768px) {
+  /* A phone's rail cannot hold every tab on one line: the tabs flow and wrap. */
+  .works { grid-template-rows: 48px auto minmax(0, 1fr) auto; }
+  .rail { flex-wrap: wrap; justify-content: flex-start; gap: var(--sp-2) var(--sp-1); padding-block: var(--sp-2); }
+  .filters, .rail-right { display: contents; }
   .bench { grid-template-columns: 1fr; }
   .header, .rail { padding: 0 var(--sp-4); }
   .header::after, .rail::after { left: var(--sp-4); right: var(--sp-4); }
-  .find { display: none; }
+  /* A phone keeps the default page size and gives FIND the rest of the line. */
+  .size { display: none; }
+  .find { flex: 1 1 140px; min-width: 0; padding-left: var(--sp-2); }
+  .find input { flex: 1; min-width: 0; width: auto; }
   .header-meta .count, .veil-state { display: none; }
 }
 </style>

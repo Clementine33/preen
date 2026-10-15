@@ -24,6 +24,7 @@ const ALLOWED_VALUES: Record<string, readonly string[]> = {
   language: ['CHI_HANS', 'CHI_HANT', 'JPN', 'NM'],
   mode: ['all', 'any'],
   sort: ['rj', 'release_date', 'collected_at', 'rating'],
+  direction: ['asc', 'desc'],
   size: ['36', '60', '120', '180'],
 }
 
@@ -84,6 +85,7 @@ const CONVERSION_SUBTREE = [
 const ALLOWED_PARAMS: Record<string, readonly string[]> = {
   ...Object.fromEntries(CONVERSION_SUBTREE.map((name) => [name, ['filter']])),
   'conversion-member-files': ['filter', 'view'],
+  'collection-detail': ['sort', 'direction'],
   works: ['library', 'rj', 'voice', 'circle', 'age', 'language', 'tag', 'mode', 'sort', 'q', 'page', 'size'],
 }
 

@@ -37,6 +37,7 @@ const NAV_OWNER_BY_ROUTE_NAME = {
   works: 'works',
   'work-detail': 'works',
   collections: 'collections',
+  'collection-detail': 'collections',
   worksets: 'worksets',
   'workbench-overview': 'worksets',
   'overview-files': 'worksets',

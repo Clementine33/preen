@@ -1,6 +1,6 @@
 import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createMemoryHistory, createRouter, type Router } from 'vue-router'
+import { createMemoryHistory, createRouter, createWebHistory, type Router } from 'vue-router'
 import { createPinia } from 'pinia'
 import WorkDetailPage from './WorkDetailPage.vue'
 import { apiClientKey } from '@/lib/api/client'
@@ -187,4 +187,31 @@ describe('work detail page', () => {
     client.clear()
   })
 
+  it('BACK returns to the collection the work was opened from, else opens the wall on this work', async () => {
+    window.history.replaceState(null, '', '/')
+    const router = createRouter({
+      history: createWebHistory(),
+      routes: [
+        { path: '/', component: { template: '<div />' } },
+        { path: '/works', name: 'works', component: { template: '<div />' } },
+        { path: '/collections/:id', name: 'collection-detail', component: { template: '<div />' } },
+        { path: '/works/:rj', name: 'work-detail', component: WorkDetailPage },
+      ],
+    })
+    const api = apiStub({ getWork: vi.fn().mockResolvedValue(makeWorkDetail()), getWorkContent: vi.fn(async (rj: string) => sampleWorkContent(rj)) } as never)
+    await router.push('/collections/c1?sort=rj')
+    await router.push(`/works/${RJ}`)
+    const wrapper = mount(WorkDetailPage, { global: { plugins: [createPinia(), router, installTestQueryPlugin()], provide: { [apiClientKey as symbol]: api } } })
+    await flushPromises()
+    const back = wrapper.findAll('.header-left button').find((b) => b.text() === 'BACK')!
+    expect(back.text()).toBe('BACK')
+    await back.trigger('click')
+    await vi.waitFor(() => expect(router.currentRoute.value.fullPath).toBe('/collections/c1?sort=rj'))
+
+    await router.push('/')
+    await router.push(`/works/${RJ}`)
+    await back.trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value.fullPath).toBe(`/works?rj=${RJ}`)
+  })
 })

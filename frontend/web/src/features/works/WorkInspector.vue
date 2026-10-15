@@ -3,12 +3,11 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { REDUCED_MOTION_QUERY, useMediaQuery } from '@/composables/use-media-query'
 import type { WorkDetail } from '@/lib/api/types'
-import { deriveTracks, fmtLong, fmtT, playableCopy } from '@/features/work-detail/derive'
 import { usePlayWork } from '@/features/works/use-play-work'
 import { useCoverSrc } from '@/features/works/use-cover-src'
-import { useWorkContent, useWorkDetail } from '@/queries/works'
+import WorkTracklist from '@/features/works/WorkTracklist.vue'
+import { useWorkDetail } from '@/queries/works'
 import { useLibraryUiStore } from '@/stores/library-ui'
-import { usePlayerStore } from '@/stores/player'
 
 // The inspector: the detail of the selected work, rendered to fit 1440x900
 // without scrolling. While cruising the wall the text follows
@@ -28,7 +27,6 @@ const props = defineProps<{
 }>()
 
 const router = useRouter()
-const player = usePlayerStore()
 const { work } = useWorkDetail(() => props.rj)
 
 /** The detail of the work actually being displayed, or null while loading. */
@@ -189,46 +187,12 @@ const tags = computed(() =>
     : '—',
 )
 
-// ── Tracklist: the detail page's track list (deriveTracks over the first
-// online copy); a row plays the work from that track. The manifest follows the deferred work, so
-// cruising the wall fetches only the works it settles on. The list takes the
-// height the 1440x900 frame leaves and scrolls inside it. ──
-const { content, query: contentQuery } = useWorkContent(() => deferredWork.value?.rj ?? null)
-const allTracks = computed(() => {
-  const tree = playableCopy(content.value)?.tree
-  return tree ? deriveTracks(tree) : []
-})
-const codec = computed(() =>
-  props.onlyFormat && allTracks.value.some((track) => track.files[props.onlyFormat!]) ? props.onlyFormat : null,
-)
-const tracks = computed(() =>
-  codec.value ? allTracks.value.filter((track) => track.files[codec.value!]) : allTracks.value,
-)
-// A variant header only helps when the work has more than one variant.
-const multiVariant = computed(() => new Set(tracks.value.map((track) => track.variant)).size > 1)
-const showHeader = (t: number): boolean =>
-  multiVariant.value && tracks.value[t].variant !== tracks.value[t - 1]?.variant
-const tracksSummary = computed(() => {
-  if (tracks.value.length === 0) return '—'
-  const total = tracks.value.reduce((sum, track) => sum + (track.duration ?? 0), 0)
-  return total > 0 ? `${tracks.value.length} · ${fmtLong(total)}` : String(tracks.value.length)
-})
-
-const { playFrom, playWork } = usePlayWork()
-const isPlaying = (t: number): boolean =>
-  player.rj === deferredWork.value?.rj && player.trackKey === tracks.value[t]?.key
-function playTrack(t: number) {
-  const shown = deferredWork.value
-  if (shown) {
-    const index = allTracks.value.indexOf(tracks.value[t])
-    playFrom({ rj: shown.rj, title: shown.title ?? shown.rj }, content.value, index, codec.value ?? '')
-  }
-}
+const { playWork } = usePlayWork()
 
 // PLAY needs the loaded work: it plays what the inspector shows from track 01.
 const canPlay = computed(() => workNow.value !== null)
 function playNowPlaying() {
-  if (workNow.value) void playWork({ rj: workNow.value.rj, title: workNow.value.title ?? workNow.value.rj }, codec.value ?? '')
+  if (workNow.value) void playWork({ rj: workNow.value.rj, title: workNow.value.title ?? workNow.value.rj }, props.onlyFormat ?? '')
 }
 function openDetail() {
   if (props.rj !== null) router.push({ name: 'work-detail', params: { rj: props.rj } })
@@ -264,22 +228,8 @@ const playIcon = 'M1 0l9 5-9 5z'
       <div class="spec-row"><dt class="lbl">TAG</dt><dd class="clamp" :title="tags">{{ tags }}</dd></div>
     </dl>
 
-    <div class="strip">
-      <span class="strip-name lbl">TRACKLIST</span>
-      <span class="lbl">{{ tracksSummary }}</span>
-    </div>
-    <div class="tracks" :class="{ dim }" lang="ja">
-      <template v-for="(track, t) in tracks" :key="track.key">
-        <div v-if="showHeader(t)" class="var lbl">{{ track.variant || '/' }}</div>
-        <button class="trk" :class="{ now: isPlaying(t) }"
-          type="button" :aria-current="isPlaying(t) || undefined" @click="playTrack(t)">
-          <span class="no lbl">{{ String(t + 1).padStart(2, '0') }}</span>
-          <span class="nm">{{ track.stem }}</span>
-          <span class="dur">{{ track.duration === null ? '—' : fmtT(track.duration) }}</span>
-        </button>
-      </template>
-      <p v-if="tracks.length === 0 && !contentQuery.isPending.value" class="no-tracks lbl">NO TRACK DATA</p>
-    </div>
+    <WorkTracklist class="tl" :rj="deferredWork?.rj ?? null" :title="deferredWork?.title ?? deferredWork?.rj ?? ''"
+      :only-format="onlyFormat" :dim="dim" />
 
     <div class="insp-foot">
       <div class="insp-foot-inner">
@@ -351,35 +301,13 @@ const playIcon = 'M1 0l9 5-9 5z'
 .spec-row dd { font-size: var(--fs-s); line-height: var(--lh-s); font-weight: 500; overflow-wrap: anywhere; }
 /* A tag list is open-ended: two lines, the rest on hover. */
 .spec-row dd.clamp { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
-.spec, .tracks { transition: opacity 80ms linear; }
+.spec { transition: opacity 80ms linear; }
 .dim { opacity: .3; }
 
 .insp > * { flex-shrink: 0; }
-.tracks {
-  margin-top: var(--sp-2); font-family: var(--font-ja);
-  flex: 1 1 0; min-height: 84px; overflow-y: auto;
-}
-.trk {
-  display: grid; grid-template-columns: 24px minmax(0, 1fr) 44px; align-items: center; gap: var(--sp-3);
-  width: 100%; height: 28px; padding: 0 var(--sp-2); border-bottom: 1px solid var(--wire-fine);
-  text-align: left; color: var(--fg-base); font-family: inherit; cursor: pointer;
-}
-.var { padding: var(--sp-2) var(--sp-2) var(--sp-1); font-size: var(--fs-xs); color: var(--fg-meta); border-bottom: 1px solid var(--wire-fine); }
-.trk:hover { background: var(--bg-subtle); }
-.trk:focus-visible { outline: 1px solid var(--wire-strong); outline-offset: -1px; }
-.trk .lbl { letter-spacing: .04em; }
-.trk .nm { font-size: var(--fs-s); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.trk .dur { text-align: right; font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--fg-muted); }
-/* The playing track: inverted with the bay's ■ marker ( --now). */
-.trk.now { background: var(--invert-bg); color: var(--invert-fg); font-weight: 700; }
-.trk.now .lbl, .trk.now .dur { color: var(--invert-fg); }
-.trk .no { position: relative; }
-.trk.now .no::after { content: ''; position: absolute; left: 16px; top: 3px; width: 6px; height: 6px; background: var(--now); }
-.no-tracks {
-  display: flex; align-items: center; height: 28px;
-  padding: 0 var(--sp-2); border-bottom: 1px solid var(--wire-fine);
-  letter-spacing: .04em; text-transform: none;
-}
+/* The tracklist takes the height the 1440x900 frame leaves and scrolls inside it. */
+.tl { flex: 1 1 0; min-height: 0; }
+.tl :deep(.tracks) { flex: 1 1 0; min-height: 84px; }
 
 .insp-foot { margin-top: auto; padding-top: var(--sp-4); }
 .insp-foot-inner {

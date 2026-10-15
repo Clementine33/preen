@@ -1,4 +1,4 @@
-import { type QueryClient } from '@tanstack/vue-query'
+import { type QueryClient, type QueryFilters } from '@tanstack/vue-query'
 
 // Synchronizes a family of queries under one key prefix after a mutation or
 // scan terminal event:
@@ -10,14 +10,15 @@ import { type QueryClient } from '@tanstack/vue-query'
 export async function refreshOrRemoveQueries(
   queryClient: QueryClient,
   prefix: readonly unknown[],
+  filters: Omit<QueryFilters, 'queryKey'> = {},
 ): Promise<void> {
   // An initial read may predate the commit; invalidation alone can keep that
   // request running when no data is cached yet. Cancel it before refetching.
-  await queryClient.cancelQueries({ queryKey: prefix })
-  await queryClient.invalidateQueries({ queryKey: prefix })
+  await queryClient.cancelQueries({ ...filters, queryKey: prefix })
+  await queryClient.invalidateQueries({ ...filters, queryKey: prefix })
   const inactive = queryClient
     .getQueryCache()
-    .findAll({ queryKey: prefix })
+    .findAll({ ...filters, queryKey: prefix })
     .filter((query) => query.getObserversCount() === 0)
   for (const query of inactive) {
     queryClient.removeQueries({ queryKey: query.queryKey })

@@ -17,7 +17,7 @@ import { sessionPoller, useWorksetObservation, type SessionIdentity } from './us
 
 import { useWorksetCovers } from './use-workset-covers'
 
-type Observation = SessionIdentity & { executionId: string; eligible: boolean; consumed: boolean; intentional: boolean; reading: boolean; retryDelay: number; confirmed?: ExecutionStatus; terminal?: ExecutionStatus; stopped?: boolean; timer?: ReturnType<typeof setTimeout> }
+type Observation = SessionIdentity & { executionId: string; eligible: boolean; consumed: boolean; reading: boolean; retryDelay: number; confirmed?: ExecutionStatus; terminal?: ExecutionStatus; stopped?: boolean; timer?: ReturnType<typeof setTimeout> }
 
 // Single entry point for execution-session orchestration: pages call
 // start/cancel/attach and never assemble cache invalidation themselves. The
@@ -93,7 +93,6 @@ export function useWorksetExecution() {
   async function cancel(worksetId: string, operation: OperationType, executionId: string): Promise<void> {
     store.requestCancel(worksetId, executionId)
     const entry = register(worksetId, operation, executionId)
-    entry.intentional = true
     try {
       const result = await cancelMutation.mutateAsync({ worksetId, operation, executionId })
       if (!entry.consumed) {
@@ -143,7 +142,7 @@ export function useWorksetExecution() {
       if (eligible && !existing.consumed) existing.eligible = true
       return existing
     }
-    const entry: Observation = { worksetId, operation, executionId, ...captured, eligible, consumed: false, intentional: false, reading: false, retryDelay: 2000 }
+    const entry: Observation = { worksetId, operation, executionId, ...captured, eligible, consumed: false, reading: false, retryDelay: 2000 }
     observations.set(key, entry)
     if (initial) { syncExecutionSnapshot(queryClient, initial); finalize(entry, initial.status, initial.completed_operations) }
     if (!entry.consumed) void store.attach(worksetId, operation, executionId, api, event => {
@@ -155,11 +154,11 @@ export function useWorksetExecution() {
         if (event.type === 'failed') void poll(entry)
         else finalize(entry, event.type as ExecutionStatus)
       }
-    }).then(async attached => {
+    }).then(attached => {
       if (entry.consumed || entry.confirmed) return
-      if (attached && !entry.intentional) {
+      if (attached) {
         notify(entry, '连接中断，执行结果尚未确认')
-        await sweepAfterExecution(queryClient)
+        void sweepAfterExecution(queryClient)
       }
       void poll(entry)
     })

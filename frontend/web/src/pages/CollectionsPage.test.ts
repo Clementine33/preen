@@ -203,4 +203,26 @@ describe('CollectionsPage', () => {
       expect(fresh.wrapper.findAll('[data-testid="collection-row"]')[0]!.attributes('aria-selected')).toBe('true')
     })
   })
+
+  describe('creating', () => {
+    it('+ NEW creates 新合集 #N, counting user collections only, and opens it', async () => {
+      const stub = { template: '<i />' }
+      const router = createRouter({ history: createMemoryHistory(), routes: [
+        { path: '/', component: stub },
+        { path: '/collections/:id', name: 'collection-detail', component: stub },
+      ] })
+      await router.push('/')
+      const createCollection = vi.fn().mockResolvedValue(collection('c9', '新合集 #2', 0))
+      const api = apiStub({ ...setup().api, createCollection })
+      const wrapper = mount(CollectionsPage, {
+        attachTo: document.body.appendChild(document.createElement('div')),
+        global: { plugins: [createPinia(), router, installTestQueryPlugin()], provide: { [apiClientKey as symbol]: api } },
+      })
+      await flushPromises()
+      await wrapper.get('[data-testid="collections-new"]').trigger('click')
+      await flushPromises()
+      expect(createCollection).toHaveBeenCalledWith('新合集 #2') // Favorites + Sleep: one user collection
+      expect(router.currentRoute.value.fullPath).toBe('/collections/c9')
+    })
+  })
 })

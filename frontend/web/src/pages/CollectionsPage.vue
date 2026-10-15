@@ -2,13 +2,14 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useQueryClient } from '@tanstack/vue-query'
 import { useRouter } from 'vue-router'
+import { useToast } from '@/composables/use-toast'
 import GlobalMenu from '@/components/layout/GlobalMenu.vue'
 import { REDUCED_MOTION_QUERY, useMediaQuery } from '@/composables/use-media-query'
 import CollectionScreen from '@/features/collections/CollectionScreen.vue'
 import { fmtT } from '@/features/work-detail/derive'
 import { useApiClient } from '@/lib/api/client'
 import type { WorkSummary } from '@/lib/api/types'
-import { collectionDetailQueryOptions, useCollectionTitles, useCollections } from '@/queries/collections'
+import { collectionDetailQueryOptions, newCollectionName, useCollectionManage, useCollectionTitles, useCollections } from '@/queries/collections'
 import { useLibraryUiStore } from '@/stores/library-ui'
 import { usePlayerStore } from '@/stores/player'
 
@@ -31,6 +32,16 @@ const router = useRouter()
 const libraryUi = useLibraryUiStore()
 const player = usePlayerStore()
 const { collections } = useCollections()
+const manage = useCollectionManage()
+const toast = useToast()
+
+// + NEW: an empty collection with a default name, opened at once (its page renames and fills it).
+async function createNew() {
+  try {
+    const made = await manage.create(newCollectionName(collections.value))
+    await router.push({ name: 'collection-detail', params: { id: made.id } })
+  } catch (e) { toast.show({ text: e instanceof Error ? e.message : String(e) }) }
+}
 
 const TITLE_LINE = 22 // a title's line height; a one-line title is the shortest item
 const TITLE_GAP = 10
@@ -293,6 +304,7 @@ function onRow(i: number) {
           选择一个合集，随机展示它的封面与最新作品
         </p>
       </div>
+      <button class="btn btn-s" type="button" data-testid="collections-new" @click="createNew">+ NEW</button>
     </header>
 
     <main ref="stage" class="stage" :style="coverH ? { '--cover-h': coverH + 'px' } : undefined">

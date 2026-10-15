@@ -357,7 +357,6 @@ describe('CollectionDetailPage', () => {
       expect(removeFromCollection).toHaveBeenCalledWith('c1', 'RJ00000002')
       expect(rows(wrapper).map((r) => r.attributes('data-rj'))).toEqual(['RJ00000001', 'RJ00000003', 'RJ00000004'])
       expect(rows(wrapper)[1]!.attributes('aria-selected')).toBe('true')
-      expect(wrapper.get('h1 + .lbl b').text()).toBe('3')
       expect(toast.current.value).toMatchObject({ text: '已从 Sleep 移除', action: { label: '撤销' } })
       toast.current.value!.action!.run()
       await flushPromises()

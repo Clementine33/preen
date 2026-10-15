@@ -228,7 +228,7 @@ const playIcon = 'M1 0l9 5-9 5z'
       <div class="spec-row"><dt class="lbl">TAG</dt><dd class="clamp" :title="tags">{{ tags }}</dd></div>
     </dl>
 
-    <WorkTracklist class="tl" :rj="deferredWork?.rj ?? null" :title="deferredWork?.title ?? deferredWork?.rj ?? ''"
+    <WorkTracklist class="tracklist-slot" :rj="deferredWork?.rj ?? null" :title="deferredWork?.title ?? deferredWork?.rj ?? ''"
       :only-format="onlyFormat" :dim="dim" />
 
     <div class="insp-foot">
@@ -305,9 +305,11 @@ const playIcon = 'M1 0l9 5-9 5z'
 .dim { opacity: .3; }
 
 .insp > * { flex-shrink: 0; }
-/* The tracklist takes the height the 1440x900 frame leaves and scrolls inside it. */
-.tl { flex: 1 1 0; min-height: 0; }
-.tl :deep(.tracks) { flex: 1 1 0; min-height: 84px; }
+/* The tracklist takes the height the 1440x900 frame leaves and scrolls inside it;
+   its wrapper dissolves so a short panel scrolls instead of the list spilling. */
+.tracklist-slot { display: contents; }
+.tracklist-slot :deep(.strip) { flex-shrink: 0; }
+.tracklist-slot :deep(.tracks) { flex: 1 1 0; min-height: 84px; }
 
 .insp-foot { margin-top: auto; padding-top: var(--sp-4); }
 .insp-foot-inner {

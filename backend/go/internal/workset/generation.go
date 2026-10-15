@@ -290,6 +290,7 @@ func (s *serviceImpl) persistGeneration(
 		GenerationID:         "gen-" + newToken(),
 		WorksetID:            op.WorksetID,
 		OperationType:        op.OperationType,
+		Status:               GenStatusQueued,
 		IdempotencyKey:       key,
 		RequestHash:          requestHash,
 		ExpectedDraftVersion: op.Version,

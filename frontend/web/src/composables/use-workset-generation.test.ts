@@ -90,6 +90,16 @@ describe('app-lifetime planning observation', () => {
     expect(app.router.currentRoute.value.name).toBe('conversion')
     expect(app.router.currentRoute.value.params.libraryId).toBe('lib-a')
   })
+  it('keeps observing an accepted session whose start answer carries no known status', async () => {
+    const app = await harness()
+    vi.mocked(app.api.startGeneration).mockResolvedValue({ created: true, generation: session('' as GenerationView['status']) })
+    await app.start()
+    expect(notice()).toBe('')
+    expect(app.api.streamGenerationEvents).toHaveBeenCalledWith('ws1', 'conversion', 'g1', expect.any(AbortSignal))
+    app.finish([{ type: 'completed', data: { generation_id: 'g1', revision_id: 'plan' } }])
+    await flushPromises()
+    expect(notice()).toContain('计划生成完成')
+  })
   it('warns once on loss and follows the exact session through restart interruption', async () => {
     vi.useFakeTimers()
     const app = await harness()

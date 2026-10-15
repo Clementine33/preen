@@ -369,6 +369,7 @@ const libraryRoot = computed(() => activeLibrary.value?.root_path ?? '')
             v-if="scan.libraryId === libraryId"
             class="mt-2"
             :status="scan.status"
+            :terminal="scan.terminal"
             :files-scanned="scan.filesScanned"
             :dirs-scanned="scan.dirsScanned"
             :error-code="scan.errorCode"

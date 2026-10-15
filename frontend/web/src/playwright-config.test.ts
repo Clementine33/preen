@@ -25,7 +25,7 @@ describe('Playwright stack configuration', () => {
       command: 'node e2e/launch-stack.mjs',
       url: 'http://127.0.0.1:5173',
     })
-    expect(config.testIgnore).toBe('**/unit-fields.spec.ts')
+    expect(config.testIgnore).toEqual(['**/unit-fields.spec.ts', '**/task-toast.spec.ts'])
   })
 
   it('runs menu components with Vite only', async () => {
@@ -34,7 +34,7 @@ describe('Playwright stack configuration', () => {
 
     const { default: config } = await import('../playwright.components.config')
 
-    expect(config.testMatch).toBe('unit-fields.spec.ts')
+    expect(config.testMatch).toEqual(['unit-fields.spec.ts', 'task-toast.spec.ts'])
     expect(config.webServer).toMatchObject({
       command: 'pnpm exec vite --port 5174 --strictPort --host 127.0.0.1',
       url: 'http://127.0.0.1:5174',

@@ -72,13 +72,12 @@ export function useCollectionPages(id: MaybeRefOrGetter<string>, sort: MaybeRefO
 
 /**
  * Every collection write refreshes the whole `['collections']` prefix (entry
- * counts, titles, detail chunks); a write to Favorites also refreshes the work
- * listings and each touched work's detail, since `favorite` follows membership.
+ * counts, titles, detail chunks) and each touched work's detail (`favorite` and
+ * `collection_ids` follow membership); a write to Favorites also refreshes the work listings.
  */
 function refreshAfterWrite(client: QueryClient, id: string, rjs: string[]): void {
   void refreshOrRemoveQueries(client, queryKeys.collections.all())
-  if (id !== 'favorites') return
-  void refreshOrRemoveQueries(client, queryKeys.works.listPrefix())
+  if (id === 'favorites') void refreshOrRemoveQueries(client, queryKeys.works.listPrefix())
   for (const rj of rjs) void refreshOrRemoveQueries(client, queryKeys.works.detail(rj))
 }
 
@@ -96,11 +95,19 @@ export function useCollectionMemberWrites() {
   }
 }
 
-/** Rename and delete refresh the `['collections']` prefix; a deleted collection's queries are dropped instead, so nothing refetches into a 404. */
+/** The default name of the next collection: 新合集 #N, N counting the user collections (not Favorites) plus one. */
+export function newCollectionName(collections: { id: string }[]): string {
+  return `新合集 #${collections.filter((c) => c.id !== 'favorites').length + 1}`
+}
+
+/** Create, rename and delete refresh the `['collections']` prefix; a deleted collection's queries are dropped instead, so nothing refetches into a 404. */
 export function useCollectionManage() {
   const api = useApiClient()
   const client = useQueryClient()
   return {
+    create: async (name: string) => {
+      try { return await api.createCollection(name) } finally { void refreshOrRemoveQueries(client, queryKeys.collections.all()) }
+    },
     rename: async (id: string, name: string) => {
       try { await api.renameCollection(id, name) } finally { void refreshOrRemoveQueries(client, queryKeys.collections.all()) }
     },

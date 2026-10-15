@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { useToast } from '@/composables/use-toast'
+import { newCollectionName, useCollectionManage, useCollectionMemberWrites, useCollections } from '@/queries/collections'
 import { dottedDate } from '@/features/work-detail/derive'
 import { useWorkDetail, useCreateUserTag, useReplaceWorkUserTags, useUpdateWorkUserData, useUserTags } from '@/queries/works'
 import { useLibraryList } from '@/queries/libraries'
@@ -7,7 +10,8 @@ import { useWorkDetailStore } from '@/stores/work-detail'
 import type { WorkEdition, WorkRelation, WorkUserTag } from '@/lib/api/types'
 
 // The colophon (奥付, v3): the work as a printed edition — ruled rows of what
-// the catalog knows, then the personal rows, written straight through. The
+// the catalog knows, then the personal rows, written straight through (rating,
+// ♥ FAV, my tags, the `+ 合集` add-to menu). The
 // plate's reverse renders the same component compacted (`compact`).
 
 const props = defineProps<{
@@ -50,6 +54,38 @@ function setRating(n: number): void {
 function toggleFavorite(): void {
   if (locked.value) return
   userData.mutate({ favorite: !favorite.value })
+}
+
+// ── Add to collection: tick follows `collection_ids`; a click joins or leaves, no undo here. ──
+const toast = useToast()
+const { collections } = useCollections()
+const memberWrites = useCollectionMemberWrites()
+const manage = useCollectionManage()
+const userCollections = computed(() => collections.value.filter((c) => c.id !== 'favorites'))
+const held = computed(() => work.value?.collection_ids ?? [])
+
+async function toggleCollection(id: string, name: string): Promise<void> {
+  const rj = store.rj
+  if (locked.value || rj === null) return
+  try {
+    if (held.value.includes(id)) {
+      await memberWrites.remove(id, rj)
+      toast.show({ text: `已从 ${name} 移除` })
+    } else {
+      await memberWrites.append(id, [rj])
+      toast.show({ text: `已添加到 ${name}` })
+    }
+  } catch (e) { toast.show({ text: e instanceof Error ? e.message : String(e) }) }
+}
+
+async function addToNewCollection(): Promise<void> {
+  const rj = store.rj
+  if (locked.value || rj === null) return
+  try {
+    const made = await manage.create(newCollectionName(collections.value))
+    await memberWrites.append(made.id, [rj])
+    toast.show({ text: `已新建 ${made.name} 并添加` })
+  } catch (e) { toast.show({ text: e instanceof Error ? e.message : String(e) }) }
 }
 
 function saveNote(event: Event): void {
@@ -170,6 +206,17 @@ function relationText(relation: WorkRelation | null): string {
           </span>
           <span class="lbl"><b>{{ rating ?? '—' }}</b>/10</span>
           <button class="fav" type="button" :aria-pressed="favorite" :disabled="locked" @click="toggleFavorite">♥ FAV</button>
+          <DropdownMenu>
+            <DropdownMenuTrigger as-child>
+              <button class="fav" type="button" :disabled="locked" data-testid="work-collections">+ 合集</button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" class="w-52" data-own-keys>
+              <DropdownMenuCheckboxItem v-for="c in userCollections" :key="c.id" :model-value="held.includes(c.id)"
+                data-testid="work-collection-item" :data-id="c.id" @select.prevent="toggleCollection(c.id, c.name)">{{ c.name }}</DropdownMenuCheckboxItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem data-testid="work-collection-new" @select="addToNewCollection">新建合集</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </dd>
       </div>
       <div class="colo-row"><dt>我的</dt>

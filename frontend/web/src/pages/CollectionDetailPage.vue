@@ -88,22 +88,21 @@ function backToEntry(): void {
           <svg viewBox="0 0 10 10" aria-hidden="true" style="transform: scaleX(-1)"><path d="M0 4.5h7.2L4.6 1.9l.7-.7L9.1 5 5.3 8.8l-.7-.7 2.6-2.6H0z" /></svg><span class="word">BACK</span>
         </button>
         <h1 class="h-title">{{ name }}</h1>
-        <span v-if="query.data.value" class="lbl">WORKS <b>{{ total }}</b></span>
+        <DropdownMenu v-if="id !== 'favorites'">
+          <DropdownMenuTrigger as-child>
+            <button class="btn btn-s more" type="button" aria-label="合集操作" title="合集操作" data-testid="collection-menu">⋯</button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" class="w-36" data-own-keys>
+            <DropdownMenuItem data-testid="collection-rename" @select="openRename">重命名</DropdownMenuItem>
+            <DropdownMenuItem variant="destructive" data-testid="collection-delete" @select="dialog = 'delete'">删除合集</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
       <div class="header-meta">
         <RailSelect v-model="sortModel" label="SORT" :options="SORT_OPTIONS" />
         <button class="btn btn-s" type="button" :title="direction === 'asc' ? '升序' : '降序'" data-testid="collection-direction"
           @click="show(sort, direction === 'asc' ? 'desc' : 'asc')">{{ direction === 'asc' ? '↑' : '↓' }}<span class="word">{{ direction === 'asc' ? ' ASC' : ' DESC' }}</span></button>
         <span class="actions" data-testid="collection-actions">
-          <DropdownMenu v-if="id !== 'favorites'">
-            <DropdownMenuTrigger as-child>
-              <button class="btn btn-s more" type="button" aria-label="合集操作" title="合集操作" data-testid="collection-menu">⋯</button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" class="w-36" data-own-keys>
-              <DropdownMenuItem data-testid="collection-rename" @select="openRename">重命名</DropdownMenuItem>
-              <DropdownMenuItem variant="destructive" data-testid="collection-delete" @select="dialog = 'delete'">删除合集</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
           <button v-if="total > 0" class="btn btn-s" :class="{ on: editing }" type="button" :aria-pressed="editing"
             data-testid="collection-edit" @click="editing = !editing">{{ editing ? 'DONE' : 'EDIT' }}</button>
         </span>
@@ -157,7 +156,6 @@ function backToEntry(): void {
 @media (max-width: 900px) {
   .header { padding: 0 var(--sp-4); }
   .header::after { left: var(--sp-4); right: var(--sp-4); }
-  .header .lbl { display: none; }
   .header-meta { gap: var(--sp-1); }
   .header-meta :deep(.rs-lbl) { display: none; }
   /* A phone keeps the title readable: BACK and the direction keep only their arrows. */

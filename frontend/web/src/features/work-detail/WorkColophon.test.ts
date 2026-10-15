@@ -8,6 +8,8 @@ import { apiStub } from '@/test/api-stub'
 import { installTestQueryPlugin } from '@/test/query-client'
 import { makeWorkDetail } from '@/test/work-fixture'
 import { useWorkDetailStore } from '@/stores/work-detail'
+import { useToast } from '@/composables/use-toast'
+import type { WorkCollection } from '@/lib/api/types'
 
 /**
  * The personal rows write straight through: a rating click
@@ -150,4 +152,62 @@ it.each([['NM', '无语言限制'], ['CHI_HANS', '简中'], ['CHI_HANT', '繁中
   const row = wrapper.findAll('.colo-row').find((row) => row.find('dt').text() === '语言')
   if (label) expect(row?.text()).toContain(label)
   else expect(row).toBeUndefined()
+})
+
+describe('add to collection', () => {
+  const toast = useToast()
+  beforeEach(() => { toast.current.value = null })
+  const col = (id: string, name: string): WorkCollection => ({ id, name, work_count: 0, created_at: '', updated_at: '' })
+  const COLS = [col('favorites', 'Favorites'), col('c1', 'Sleep'), col('c2', 'Rain')]
+
+  async function openMenu(overrides: Record<string, ReturnType<typeof vi.fn>> = {}, held: string[] = ['c1']) {
+    const mounted = await mountColophon({
+      getWork: vi.fn().mockResolvedValue(makeWorkDetail({ collection_ids: held })),
+      listCollections: vi.fn().mockResolvedValue({ collections: COLS, total: COLS.length }),
+      ...overrides,
+    })
+    mounted.wrapper.get('[data-testid="work-collections"]').element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }))
+    await flushPromises()
+    const items = () => Array.from(document.body.querySelectorAll<HTMLElement>('[data-testid="work-collection-item"]'))
+    const click = async (el: Element | null) => { (el as HTMLElement).click(); await flushPromises() }
+    return { ...mounted, items, click }
+  }
+
+  it('lists the user collections without Favorites, ticking those in collection_ids', async () => {
+    const { wrapper, items } = await openMenu()
+    expect(items().map((el) => [el.dataset.id, el.textContent?.trim(), el.getAttribute('aria-checked')])).toEqual([['c1', 'Sleep', 'true'], ['c2', 'Rain', 'false']])
+    wrapper.unmount()
+  })
+
+  it('appends on an unticked click and removes on a ticked one, each with a toast', async () => {
+    const append = vi.fn().mockResolvedValue({})
+    const remove = vi.fn().mockResolvedValue(undefined)
+    const { wrapper, items, click } = await openMenu({ appendToCollection: append, removeFromCollection: remove })
+    await click(items()[1]!)
+    expect(append).toHaveBeenCalledWith('c2', [RJ])
+    expect(toast.current.value?.text).toBe('已添加到 Rain')
+    await click(items()[0]!)
+    expect(remove).toHaveBeenCalledWith('c1', RJ)
+    expect(toast.current.value?.text).toBe('已从 Sleep 移除')
+    wrapper.unmount()
+  })
+
+  it('creates 新合集 #N with this work in it and says so', async () => {
+    const create = vi.fn().mockResolvedValue(col('c3', '新合集 #3'))
+    const append = vi.fn().mockResolvedValue({})
+    const { wrapper, click } = await openMenu({ createCollection: create, appendToCollection: append })
+    await click(document.body.querySelector('[data-testid="work-collection-new"]'))
+    expect(create).toHaveBeenCalledWith('新合集 #3')
+    expect(append).toHaveBeenCalledWith('c3', [RJ])
+    expect(toast.current.value?.text).toBe('已新建 新合集 #3 并添加')
+    expect(document.body.querySelector('[data-testid="work-collection-new"]')).toBeNull() // the menu closed
+    wrapper.unmount()
+  })
+
+  it('toasts the error when a write fails', async () => {
+    const { wrapper, items, click } = await openMenu({ appendToCollection: vi.fn().mockRejectedValue(new Error('boom')) })
+    await click(items()[1]!)
+    expect(toast.current.value?.text).toBe('boom')
+    wrapper.unmount()
+  })
 })

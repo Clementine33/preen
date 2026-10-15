@@ -66,6 +66,9 @@ func (r *Repository) GetCollection(
 	if err != nil {
 		return collections.Detail{}, err
 	}
+	if window.Sort != "" {
+		return r.sortedCollection(ctx, tx, c, id, window)
+	}
 	order := ""
 	if window.Direction == works.Descending {
 		order = " DESC"
@@ -76,6 +79,24 @@ func (r *Repository) GetCollection(
 	 ORDER BY (SELECT position FROM collection_works m WHERE m.collection_id = ? AND m.work_id = w.id)`+order+
 		`, w.id`+order,
 		id, window.Limit, window.Offset(), id)
+	if err != nil {
+		return collections.Detail{}, err
+	}
+	summaries, err := r.readWorkSummaries(rows)
+	return collections.Detail{Collection: c, Works: summaries, Total: c.WorkCount}, err
+}
+
+// sortedCollection pages a collection under a view sort. Members are filtered
+// to the collection and ordered by the work listing's keys; saved position
+// breaks ties so consecutive pages stay stable.
+func (r *Repository) sortedCollection(
+	ctx context.Context, tx *sql.Tx, c collections.Collection, id string, window collections.Window,
+) (collections.Detail, error) {
+	rows, err := tx.QueryContext(ctx, listProjection+`
+	 AND w.id IN (SELECT work_id FROM collection_works WHERE collection_id = ?)
+	 ORDER BY `+sortKeys(window.Sort, window.Direction)+`,
+	 (SELECT position FROM collection_works m WHERE m.collection_id = ? AND m.work_id = w.id)
+	 LIMIT ? OFFSET ?`, id, id, window.Limit, window.Offset())
 	if err != nil {
 		return collections.Detail{}, err
 	}

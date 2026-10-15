@@ -85,7 +85,7 @@ _Avoid_: Reading the derived relation as a source of truth about references.
 ### Collections and workbench
 
 **Work Collection**:
-A user-curated, ordered set of complete Works, independent of Libraries and physical Copies. A Work may belong to several collections; losing its Copies does not remove its membership.
+A user-curated, ordered set of complete Works, independent of Libraries and physical Copies. A Work may belong to several collections; losing its Copies does not remove its membership. Its **saved order** is the user's arrangement and changes only by moving a member; viewing it sorted by another key never rewrites it.
 _Avoid_: A track playlist, a Workset, a Library, or the act of finding a Work on disk during a scan (`collected_at`).
 
 **Favorites**:

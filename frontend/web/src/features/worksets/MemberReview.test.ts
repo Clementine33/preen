@@ -84,7 +84,7 @@ const revision: RevisionDetailResponse = {
       member_name: 'albumA',
       folder_path: '/music/albumA',
       excluded: false,
-      effective: { schema_version: 1 },
+      effective: { schema_version: 1, mode: 'available_sources' },
       sources: {},
     },
   ],
@@ -109,6 +109,7 @@ describe('MemberReview', () => {
     const wrapper = mount(MemberReview, { props: { member, revision, editable: false } })
 
     const rows = wrapper.findAll('[data-testid="component-decision"]').map((row) => row.text())
+    expect(wrapper.text()).toContain('可用源')
     expect(rows).toHaveLength(4)
     expect(rows[0]).toContain('生成')
     expect(rows[0]).toContain('00.mp3')

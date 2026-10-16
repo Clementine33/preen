@@ -6,6 +6,7 @@ import {
   componentOperationCount,
   decisionGroups,
   keepReasonText,
+  modeText,
   profileText,
   resolutionText,
   revisionComponents,
@@ -113,7 +114,7 @@ function componentFacts(component: ComponentOutcome): { label: string; tone: 'su
         <div v-for="unit in Object.keys(UNIT_LABELS)" :key="unit" class="flex items-start gap-2">
           <dt class="w-20 shrink-0 text-[var(--text-muted)]">{{ UNIT_LABELS[unit] }}</dt>
           <dd class="min-w-0 flex-1">
-            <span v-if="unit === 'mode'">{{ frozen?.effective.mode ?? 'strict' }}</span>
+            <span v-if="unit === 'mode'">{{ modeText(frozen?.effective.mode ?? 'strict') }}</span>
             <span v-else-if="unit === 'no_effect_tags' || unit === 'other_tags'" class="font-mono">
               {{ (unit === 'other_tags' ? frozen?.effective.other_tags ?? [] : frozen?.effective.no_effect_tags ?? []).join(', ') || '（空）' }}
             </span>

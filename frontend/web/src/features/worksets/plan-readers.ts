@@ -295,6 +295,9 @@ export function profileText(profile: DesiredProfile | undefined): string {
 
 const MODE_TEXT: Record<string, string> = { strict: '严格', available_sources: '可用源' }
 
+/** The label of a conversion mode, the raw value when unknown. */
+export const modeText = (mode: string): string => MODE_TEXT[mode] ?? mode
+
 /**
  * One unit's value as the editors show it — the same rendering for a stored
  * value, a common value and a pending one, so "独立值" never has to stand in

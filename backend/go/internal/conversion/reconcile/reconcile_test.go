@@ -784,3 +784,10 @@ func TestReconcile_AacWithItsCredentialSatisfiesTarget(t *testing.T) {
 func encodedTarget(codec Codec, bitrate int) *AudioOutputSpec {
 	return &AudioOutputSpec{Codec: codec, Quality: &Quality{Kind: QualityBitrate, Bitrate: bitrate}}
 }
+
+func TestAppleDoubleSidecarIsNotAudio(t *testing.T) {
+	entries := AudioEntries([]AudioEntry{rjEntry("mp3/00.mp3", 100, 320000), rjEntry("mp3/._00.mp3", 187, 0)})
+	if len(entries) != 1 || entries[0].PathPosix != rjRoot+"/mp3/00.mp3" {
+		t.Errorf("audio entries = %+v, want only the track", entries)
+	}
+}

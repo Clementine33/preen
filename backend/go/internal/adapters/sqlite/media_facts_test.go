@@ -84,6 +84,8 @@ func TestEntriesMissingMediaFactsAndWriteBack(t *testing.T) {
 	stageFactsRow(t, repo, "/music", "/music/cover.png", "image/png", 10, now, "scan-1")
 	stageFactsRow(t, repo, "/music", "/music/track.mp3", "audio/mpeg", 20, now, "scan-1")
 	stageFactsRow(t, repo, "/music", "/music/readme.txt", "text/plain", 30, now, "scan-1")
+	// No header decoder reads an icon: its dimensions stay unknown, unvisited.
+	stageFactsRow(t, repo, "/music", "/music/folder.ico", "image/vnd.microsoft.icon", 35, now, "scan-1")
 	if mergeErr := repo.MergeStagingSimple("scan-1", "/music"); mergeErr != nil {
 		t.Fatal(mergeErr)
 	}

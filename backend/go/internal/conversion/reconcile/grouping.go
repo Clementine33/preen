@@ -18,14 +18,18 @@ var codecByExt = map[string]Codec{
 
 // parseFile derives grouping facts from a stored entry. The second return
 // value reports whether the entry is a recognized audio file (sidecars and
-// unknown extensions are not audio candidates).
+// unknown extensions are not audio candidates). A macOS AppleDouble sidecar
+// ("._name.mp3") borrows its file's extension but holds no audio.
 func parseFile(e AudioEntry) (GroupedFile, bool) {
+	base := path.Base(e.PathPosix)
+	if strings.HasPrefix(base, "._") {
+		return GroupedFile{}, false
+	}
 	ext := strings.ToLower(path.Ext(e.PathPosix))
 	codec, ok := codecByExt[ext]
 	if !ok {
 		return GroupedFile{}, false
 	}
-	base := path.Base(e.PathPosix)
 	stem := base
 	if len(base) > len(ext) && strings.EqualFold(base[len(base)-len(ext):], ext) {
 		stem = base[:len(base)-len(ext)]

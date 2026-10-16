@@ -144,6 +144,22 @@ func (r *Repository) SaveOperationDraft(
 	return tx.Commit()
 }
 
+// writeOperationDraftTx replaces one operation's draft and advances its
+// version in one step, under the If-Match guard the caller echoed.
+func writeOperationDraftTx(tx *sql.Tx, d workset.OperationDraft, expectedVersion int) error {
+	result, err := tx.Exec(`
+		UPDATE workset_operations SET version = version + 1, updated_at = ?
+		WHERE workset_id = ? AND operation_type = ? AND version = ?
+	`, d.UpdatedAt.Format(timeFormat), d.WorksetID, d.OperationType, expectedVersion)
+	if err != nil {
+		return err
+	}
+	if affected, _ := result.RowsAffected(); affected == 0 {
+		return operationVersionGuardResult(tx, d.WorksetID, d.OperationType)
+	}
+	return upsertOperationDraft(tx, d)
+}
+
 func upsertOperationDraft(tx *sql.Tx, d workset.OperationDraft) error {
 	if _, err := tx.Exec(`
 		INSERT INTO workset_operation_drafts (workset_id, operation_type, schema_version, draft_json, draft_hash, updated_at)

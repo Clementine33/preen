@@ -512,11 +512,18 @@ func TestStartExecutionGates(t *testing.T) {
 		f.seedRevision("plan-dc")
 		doc := mustDraft(t, f.draft())
 		doc.Mode = reconcile.ModeStrict
-		if _, err := f.svc.SaveDraft(
-			f.t.Context(), f.worksetID, workset.OperationTypeConversion,
-			workset.SaveDraftRequest{Document: draftJSON(t, doc), IfMatchVersion: f.operation().Version},
+		payload, marshalErr := json.Marshal(conversion.ProjectCommonSettings(doc))
+		if marshalErr != nil {
+			t.Fatal(marshalErr)
+		}
+		current, getErr := f.svc.GetTaskSettings(f.t.Context(), workset.OperationTypeConversion)
+		if getErr != nil {
+			t.Fatal(getErr)
+		}
+		if _, err := f.svc.SaveTaskSettings(
+			f.t.Context(), workset.OperationTypeConversion, payload, current.ETag,
 		); err != nil {
-			t.Fatalf("SaveDraft: %v", err)
+			t.Fatalf("SaveTaskSettings: %v", err)
 		}
 		_, err := f.startExecution("plan-dc", "k-dc")
 		code, details := errorDetail(t, err)

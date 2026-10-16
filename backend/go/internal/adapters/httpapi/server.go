@@ -132,6 +132,7 @@ func NewServer(deps Dependencies) http.Handler {
 	mux.Handle("GET /api/v1/worksets", protect(http.HandlerFunc(s.listWorksets)))
 	mux.Handle("GET /api/v1/worksets/{id}", protect(http.HandlerFunc(s.getWorkset)))
 	mux.Handle("PATCH /api/v1/worksets/{id}", protect(http.HandlerFunc(s.patchWorkset)))
+	s.taskSettingsRoutes(mux, protect)
 	// Workset operations: every mutable planning resource is addressed through
 	// its (workset, operation type) ownership. There is no workset-level draft,
 	// planning session or revision route, and no revision-history route: a
@@ -174,12 +175,16 @@ func NewServer(deps Dependencies) http.Handler {
 		"POST /api/v1/worksets/{id}/operations/{type}/planning-sessions/{genId}/cancel",
 		protect(http.HandlerFunc(s.cancelGeneration)),
 	)
+	s.executionCoverRoutes(mux, protect)
+	return recoveryMiddleware(corsMiddleware(deps.CORSOrigins)(routingCompatibilityMiddleware(mux)))
+}
 
+// executionCoverRoutes registers the cover delivery of one execution.
+func (s *Server) executionCoverRoutes(mux *http.ServeMux, protect func(http.Handler) http.Handler) {
 	base := "/api/v1/worksets/{id}/operations/{type}/executions/{executionId}/covers"
 	mux.Handle("GET "+base, protect(http.HandlerFunc(s.getExecutionCovers)))
 	mux.Handle("POST "+base+"/retry", protect(http.HandlerFunc(s.retryExecutionCovers)))
 	mux.Handle("POST "+base+"/cancel", protect(http.HandlerFunc(s.cancelExecutionCovers)))
-	return recoveryMiddleware(corsMiddleware(deps.CORSOrigins)(routingCompatibilityMiddleware(mux)))
 }
 
 func routingCompatibilityMiddleware(mux *http.ServeMux) http.Handler {

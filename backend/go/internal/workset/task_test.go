@@ -29,7 +29,7 @@ func (s stubTask) SeedDraft(common json.RawMessage) ([]byte, string, int) {
 }
 
 // The stub document holds no member records, so its whole body is the common
-// settings: a stub save is always a deployment-wide one.
+// settings: a stub is only ever changed through the settings seam.
 func (s stubTask) CommonSettings(raw []byte) (json.RawMessage, error) {
 	return json.RawMessage(raw), nil
 }
@@ -294,12 +294,14 @@ func (f *fixture) awaitExecution(worksetID, operationType, executionID string) *
 // saveRenameDraft writes one draft document of the second task's own shape.
 func (f *fixture) saveRenameDraft(worksetID string) {
 	f.t.Helper()
-	op := f.operationFor(worksetID, "rename")
-	if _, err := f.svc.SaveDraft(f.ctx, worksetID, "rename", workset.SaveDraftRequest{
-		Document:       json.RawMessage(`{"schema_version":1,"template":"{title} - {artist}"}`),
-		IfMatchVersion: op.Version,
-	}); err != nil {
-		f.t.Fatalf("SaveDraft(rename): %v", err)
+	current, err := f.svc.GetTaskSettings(f.ctx, "rename")
+	if err != nil {
+		f.t.Fatalf("GetTaskSettings(rename): %v", err)
+	}
+	if _, err = f.svc.SaveTaskSettings(
+		f.ctx, "rename", json.RawMessage(`{"schema_version":1,"template":"{title} - {artist}"}`), current.ETag,
+	); err != nil {
+		f.t.Fatalf("SaveTaskSettings(rename): %v", err)
 	}
 }
 

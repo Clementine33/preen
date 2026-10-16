@@ -351,6 +351,10 @@ func (f *fixture) saveDraft(
 	if err != nil {
 		f.t.Fatalf("marshal draft: %v", err)
 	}
+	// Common settings are written through the Task settings seam only; a test
+	// document that carries different ones publishes them first. That bumps the
+	// record's version, which the caller's If-Match is advanced by.
+	ifMatch += f.publishCommonOf(worksetID, doc)
 	view, err := f.svc.SaveDraft(
 		f.ctx,
 		worksetID,
@@ -364,6 +368,29 @@ func (f *fixture) saveDraft(
 		f.t.Fatalf("SaveDraft: %v", err)
 	}
 	return view
+}
+
+// publishCommonOf publishes doc's common section as the Task settings when the
+// record's draft holds different ones, and returns how far the record's
+// operation version moved.
+func (f *fixture) publishCommonOf(worksetID string, doc *conversion.DraftDoc) int {
+	f.t.Helper()
+	want, err := json.Marshal(conversion.ProjectCommonSettings(doc))
+	if err != nil {
+		f.t.Fatalf("marshal settings: %v", err)
+	}
+	have := f.draft(worksetID)
+	task := &conversion.Task{}
+	got, err := task.CommonSettings(have.Document)
+	if err != nil {
+		f.t.Fatalf("project settings: %v", err)
+	}
+	if workset.CanonicalJSONHash(got) == workset.CanonicalJSONHash(want) {
+		return 0
+	}
+	before := f.operation(worksetID).Version
+	f.saveSettings(doc)
+	return f.operation(worksetID).Version - before
 }
 
 // startGeneration enqueues a session and returns its id.

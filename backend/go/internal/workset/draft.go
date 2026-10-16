@@ -24,33 +24,13 @@ func (s *serviceImpl) GetDraft(ctx context.Context, worksetID, operationType str
 	if doc == nil {
 		return nil, NewError(ErrKindNotFound, "DRAFT_NOT_FOUND", "operation has no draft", nil)
 	}
-	global, err := s.repo.GetCommonSettings(operationType)
-	if err != nil {
-		return nil, NewError(ErrKindInternal, "INTERNAL", "failed to load the common settings", err)
-	}
-	current := false
-	if global != nil {
-		task, taskErr := s.requireTask(operationType)
-		if taskErr != nil {
-			return nil, taskErr
-		}
-		common, projectErr := task.CommonSettings([]byte(doc.DraftJSON))
-		if projectErr == nil {
-			projected, _, applyErr := task.ApplyCommonSettings([]byte(doc.DraftJSON), json.RawMessage(global.Settings))
-			if applyErr == nil {
-				globalCommon, globalErr := task.CommonSettings(projected)
-				current = globalErr == nil && CanonicalJSONHash(common) == CanonicalJSONHash(globalCommon)
-			}
-		}
-	}
 	return &Draft{
-		WorksetID:             worksetID,
-		OperationType:         operationType,
-		Version:               op.Version,
-		SchemaVersion:         doc.SchemaVersion,
-		Document:              json.RawMessage(doc.DraftJSON),
-		CommonSettingsCurrent: current,
-		UpdatedAt:             doc.UpdatedAt,
+		WorksetID:     worksetID,
+		OperationType: operationType,
+		Version:       op.Version,
+		SchemaVersion: doc.SchemaVersion,
+		Document:      json.RawMessage(doc.DraftJSON),
+		UpdatedAt:     doc.UpdatedAt,
 	}, nil
 }
 
@@ -60,10 +40,8 @@ func (s *serviceImpl) GetDraft(ctx context.Context, worksetID, operationType str
 // into member overrides. Structurally valid but business-incomplete drafts are
 // accepted (an editing state); generation is where completeness is required.
 //
-// A save that changes the operation's common settings is a deployment-wide
-// save: the stored common settings and every other editable operation's common
-// fields move with it (ADR 0008). A save that only touches member records
-// stays inside its own record.
+// The common section is not written here: one that differs from the Task
+// settings is refused with COMMON_SETTINGS_MISMATCH (ADR 0008).
 func (s *serviceImpl) SaveDraft(
 	ctx context.Context,
 	worksetID, operationType string,
@@ -126,15 +104,8 @@ func (s *serviceImpl) SaveDraft(
 	if normErr != nil {
 		return nil, normErr
 	}
-	settings, commonChanged, settingsErr := s.commonSettingsOf(task, worksetID, operationType, canonical)
-	if settingsErr != nil {
-		return nil, settingsErr
-	}
-	if commonChanged || req.ApplyCommonSettings {
-		return s.saveGlobalDraft(
-			ctx, task, worksetID, operationType,
-			schemaVersion, canonical, hash, settings, req.IfMatchVersion,
-		)
+	if divergeErr := s.rejectDivergentCommon(task, worksetID, canonical); divergeErr != nil {
+		return nil, divergeErr
 	}
 	if err := s.repo.SaveOperationDraft(
 		worksetID,

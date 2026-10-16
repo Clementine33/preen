@@ -11,20 +11,17 @@ import (
 // ==================== DTOs ====================
 
 // draftDocumentRequest is the PUT .../operations/{type}/draft payload: the six
-// common setting groups plus the sparse member records. The optional apply
-// flag is a transport instruction excluded from the task document.
-// Unoverridden units are absent from member records; null never means "clear".
+// common setting groups plus the sparse member records. Unoverridden units are absent from member records; null never means "clear".
 type draftDocumentRequest struct {
-	OtherTags           []string                  `json:"other_tags"`
-	SchemaVersion       int                       `json:"schema_version"`
-	Mode                string                    `json:"mode"`
-	DeleteMode          string                    `json:"delete_mode,omitempty"`
-	NoEffectTags        []string                  `json:"no_effect_tags"`
-	Matched             reconcile.DesiredProfile  `json:"matched"`
-	Unmatched           reconcile.DesiredProfile  `json:"unmatched"`
-	Other               *reconcile.DesiredProfile `json:"other,omitempty"`
-	Members             []draftMemberRequest      `json:"members"`
-	ApplyCommonSettings bool                      `json:"apply_common_settings,omitempty"`
+	OtherTags     []string                  `json:"other_tags"`
+	SchemaVersion int                       `json:"schema_version"`
+	Mode          string                    `json:"mode"`
+	DeleteMode    string                    `json:"delete_mode,omitempty"`
+	NoEffectTags  []string                  `json:"no_effect_tags"`
+	Matched       reconcile.DesiredProfile  `json:"matched"`
+	Unmatched     reconcile.DesiredProfile  `json:"unmatched"`
+	Other         *reconcile.DesiredProfile `json:"other,omitempty"`
+	Members       []draftMemberRequest      `json:"members"`
 }
 
 type draftMemberRequest struct {
@@ -54,12 +51,11 @@ type taskDraftEnvelope struct {
 // — the If-Match authority for the next save; there is no separate draft
 // counter.
 type draftResponse struct {
-	WorksetID             string            `json:"workset_id"`
-	OperationType         string            `json:"operation_type"`
-	Version               int               `json:"version"`
-	Task                  taskDraftEnvelope `json:"task"`
-	CommonSettingsCurrent bool              `json:"common_settings_current"`
-	UpdatedAt             string            `json:"updated_at"`
+	WorksetID     string            `json:"workset_id"`
+	OperationType string            `json:"operation_type"`
+	Version       int               `json:"version"`
+	Task          taskDraftEnvelope `json:"task"`
+	UpdatedAt     string            `json:"updated_at"`
 }
 
 // revisionMemberResponse is one member of a frozen revision: its effective
@@ -84,14 +80,12 @@ func toDraftResponse(d *workset.Draft) draftResponse {
 			SchemaVersion: d.SchemaVersion,
 			Payload:       d.Document,
 		},
-		CommonSettingsCurrent: d.CommonSettingsCurrent,
-		UpdatedAt:             d.UpdatedAt.UTC().Format(timeFormatJSON),
+		UpdatedAt: d.UpdatedAt.UTC().Format(timeFormatJSON),
 	}
 }
 
 // toDraftPayload encodes the HTTP draft body into the task's opaque payload.
 func toDraftPayload(req draftDocumentRequest) json.RawMessage {
-	req.ApplyCommonSettings = false // transport instruction, never a draft field
 	raw, err := json.Marshal(req)
 	if err != nil {
 		return json.RawMessage("{}")
@@ -99,38 +93,24 @@ func toDraftPayload(req draftDocumentRequest) json.RawMessage {
 	return raw
 }
 
-// decodeDraftBody splits a draft PUT body into the task payload and the
-// apply_common_settings transport flag. Conversion keeps its typed shape;
-// every other task owns its payload (ADR 0004), so the body passes through
-// and that task's own strict decode validates it.
-func decodeDraftBody(w http.ResponseWriter, r *http.Request) (json.RawMessage, bool, bool) {
+// decodeDraftBody encodes a draft PUT body into the task payload. Conversion
+// keeps its typed shape; every other task owns its payload (ADR 0004), so the
+// body passes through and that task's own strict decode validates it.
+func decodeDraftBody(w http.ResponseWriter, r *http.Request) (json.RawMessage, bool) {
 	if r.PathValue("type") == workset.OperationTypeConversion {
 		var req draftDocumentRequest
 		if err := decodeJSON(w, r, &req); err != nil {
 			writeDecodeError(w, err, "invalid draft payload")
-			return nil, false, false
+			return nil, false
 		}
-		return toDraftPayload(req), req.ApplyCommonSettings, true
+		return toDraftPayload(req), true
 	}
-	var body map[string]json.RawMessage
+	var body json.RawMessage
 	if err := decodeJSON(w, r, &body); err != nil {
 		writeDecodeError(w, err, "invalid draft payload")
-		return nil, false, false
+		return nil, false
 	}
-	var apply bool
-	if raw, present := body["apply_common_settings"]; present {
-		if err := json.Unmarshal(raw, &apply); err != nil {
-			writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", "apply_common_settings must be a boolean")
-			return nil, false, false
-		}
-		delete(body, "apply_common_settings")
-	}
-	raw, err := json.Marshal(body)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", "invalid draft payload")
-		return nil, false, false
-	}
-	return raw, apply, true
+	return body, true
 }
 
 // ==================== Handlers ====================
@@ -173,7 +153,7 @@ func (s *Server) putOperationDraft(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "INTERNAL", "workset service not configured")
 		return
 	}
-	document, apply, ok := decodeDraftBody(w, r)
+	document, ok := decodeDraftBody(w, r)
 	if !ok {
 		return
 	}
@@ -188,9 +168,8 @@ func (s *Server) putOperationDraft(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	view, err := svc.SaveDraft(r.Context(), r.PathValue("id"), r.PathValue("type"), workset.SaveDraftRequest{
-		Document:            document,
-		IfMatchVersion:      version,
-		ApplyCommonSettings: apply,
+		Document:       document,
+		IfMatchVersion: version,
 	})
 	if err != nil {
 		writeWorksetError(w, err)

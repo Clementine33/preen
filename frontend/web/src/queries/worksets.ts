@@ -13,6 +13,8 @@ import type {
   OperationType,
   ResolvedPolicy,
   StartExecutionResponse,
+  TaskSettings,
+  TaskSettingsMap,
   Workset,
   WorksetListResponse,
 } from '@/lib/api/types'
@@ -82,6 +84,16 @@ export function operationDraftQueryOptions(
     staleTime: Infinity,
     queryFn: ({ signal }: { signal?: AbortSignal }) =>
       api.getOperationDraft(worksetId as string, operation, signal),
+  })
+}
+
+// A Task kind's deployment-wide common settings with their ETag. They exist
+// without any record, so nothing here waits on one.
+export function taskSettingsQueryOptions<T extends OperationType>(api: ApiClientContract, operation: T) {
+  return queryOptions({
+    queryKey: queryKeys.taskSettings.detail(operation),
+    staleTime: Infinity,
+    queryFn: ({ signal }: { signal?: AbortSignal }) => api.getTaskSettings(operation, signal),
   })
 }
 
@@ -206,16 +218,8 @@ export function deleteClassifierTagMutationOptions(api: ApiClientContract, query
 // ==================== Mutations ====================
 
 /**
- * Save the full sparse draft document.
- *
- * A save that changes the operation's common settings is not one task's
- * business: the backend stores them deployment-wide and rewrites every other
- * record's draft in the same transaction, so the whole workset domain is
- * refreshed — every task reads the normalized document and the version it now
- * has, not only the record the edit came through (ADR 0008). Whether this
- * particular save was one is the backend's call (it compares against the
- * stored document), so the client does not re-derive that rule: a member-only
- * save costs a few refetches rather than a second copy of the rule.
+ * Save the full sparse draft document. The common section is not written here
+ * (the backend refuses a differing one): member records only.
  */
 export function saveOperationDraftMutationOptions(api: ApiClientContract, queryClient: QueryClient) {
   return {
@@ -224,10 +228,31 @@ export function saveOperationDraftMutationOptions(api: ApiClientContract, queryC
       operation: OperationType
       document: AnyDraftDocument
       ifMatchVersion: number
-      applyCommonSettings?: boolean
-    }) =>
-      api.saveOperationDraft(input.worksetId, input.operation, input.document, input.ifMatchVersion, input.applyCommonSettings),
+    }) => api.saveOperationDraft(input.worksetId, input.operation, input.document, input.ifMatchVersion),
     onSuccess: () => refreshOrRemoveQueries(queryClient, queryKeys.worksets.all()),
+  }
+}
+
+/**
+ * Save a Task kind's common settings, the only write path of them. The backend
+ * stores them deployment-wide and rewrites every editable record's draft of
+ * the kind in the same transaction, so the whole workset domain is refreshed:
+ * each record reads the normalized document and the version it now has
+ * (ADR 0008). The saved settings replace the cached ones directly, carrying
+ * the new ETag.
+ */
+export function saveTaskSettingsMutationOptions<T extends OperationType>(
+  api: ApiClientContract,
+  queryClient: QueryClient,
+  operation: T,
+) {
+  return {
+    mutationFn: (input: { settings: TaskSettingsMap[T]; etag: string }) =>
+      api.saveTaskSettings(operation, input.settings, input.etag),
+    onSuccess: (saved: TaskSettings<T>) => {
+      queryClient.setQueryData(queryKeys.taskSettings.detail(operation), saved)
+      return refreshOrRemoveQueries(queryClient, queryKeys.worksets.all())
+    },
   }
 }
 

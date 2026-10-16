@@ -1,11 +1,11 @@
 import { mount, type VueWrapper } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
 import UnitFields from './UnitFields.vue'
-import UnitSelect from './UnitSelect.vue'
+import SettingsSegmented from '@/features/settings/SettingsSegmented.vue'
 
-/** Emits one change on the UnitSelect carrying the given testid. */
+/** Emits one change on the SettingsSegmented carrying the given testid. */
 function pickCodec(wrapper: VueWrapper, testId: string, value: string) {
-  const select = wrapper.findAllComponents(UnitSelect).find((c) => c.vm.$attrs['data-testid'] === testId)
+  const select = wrapper.findAllComponents(SettingsSegmented).find((c) => c.vm.$attrs['data-testid'] === testId)
   if (!select) throw new Error(`no unit select ${testId}`)
   select.vm.$emit('change', value)
 }

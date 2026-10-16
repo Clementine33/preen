@@ -5,7 +5,7 @@ import { nextTick, reactive } from 'vue'
 import type { OperationDraftDocument } from '@/lib/api/types'
 import { useWorksetEditorStore } from '@/stores/workset-editor'
 import OverrideEditor from './OverrideEditor.vue'
-import UnitSelect from './UnitSelect.vue'
+import SettingsSegmented from '@/features/settings/SettingsSegmented.vue'
 
 const WAV_MP3 = {
   lossless: { codec: 'wav' },
@@ -129,7 +129,7 @@ describe('OverrideEditor', () => {
   it('edits an override profile on a reactive draft without losing the other lane', async () => {
     const wrapper = mountEditor(draft(), { kind: 'member', memberId: 'm-1' })
     await wrapper.get('[data-testid="unit-matched-override"]').trigger('click')
-    wrapper.findAllComponents(UnitSelect)
+    wrapper.findAllComponents(SettingsSegmented)
       .find(select => select.vm.$attrs['data-testid'] === 'override-matched-lossless')!.vm.$emit('change', 'flac')
     await nextTick()
 

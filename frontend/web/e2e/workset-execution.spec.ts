@@ -72,11 +72,11 @@ async function addLibraryAndScan(page: Page, root: string, name: string): Promis
 /** Wait for the draft write itself; applying temporarily disables the button too. */
 async function applyCommonSettings(page: Page): Promise<void> {
   const [response] = await Promise.all([
-    page.waitForResponse((response) => response.request().method() === 'PUT' && response.url().endsWith('/conversion/draft')),
-    page.getByTestId('apply-common').click(),
+    page.waitForResponse((response) => response.request().method() === 'PUT' && response.url().endsWith('/tasks/conversion/settings')),
+    page.getByTestId('settings-apply').click(),
   ])
   expect(response.ok()).toBe(true)
-  await expect(page.getByTestId('apply-common')).toBeDisabled()
+  await expect(page.getByTestId('settings-apply-bar')).toBeHidden()
 }
 
 /** Creates the library's conversion record over every scanned folder. */
@@ -87,18 +87,14 @@ async function createWorksetForAllFolders(page: Page): Promise<void> {
   // Common settings are deployment-wide; each case starts from the defaults.
   await page.getByTestId('nav-conversion-settings').click()
   await expect(page.getByTestId('common-settings-form')).toBeVisible()
-  for (const unit of ['mode', 'no_effect_tags', 'other_tags', 'matched', 'unmatched', 'other']) {
-    const restore = page.getByTestId(`common-${unit}-restore`)
-    if (await restore.isEnabled()) await restore.click()
-  }
+  const restore = page.getByTestId('settings-restore-defaults')
+  if (await restore.isEnabled()) await restore.click()
   // This report scenario explicitly retains WAV to exercise the kept-file row.
-  await page.getByTestId('common-unmatched-lossless').click()
-  await page.getByRole('option', { name: 'WAV', exact: true }).click()
-  await page.getByTestId('common-delete-mode-soft').check()
-  const apply = page.getByTestId('apply-common')
-  if (await apply.isEnabled()) await applyCommonSettings(page)
-  await expect(apply).toBeDisabled()
-  await page.getByRole('link', { name: '← 转换列表' }).click()
+  await page.getByTestId('common-unmatched-lossless').getByRole('button', { name: 'WAV', exact: true }).click()
+  await page.getByTestId('common-settings-form').getByText('软删除', { exact: true }).click()
+  if (await page.getByTestId('settings-apply').isVisible()) await applyCommonSettings(page)
+  await expect(page.getByTestId('settings-apply-bar')).toBeHidden()
+  await page.getByTestId('nav-conversion').click()
 }
 
 async function generatePlan(page: Page): Promise<void> {

@@ -29,24 +29,6 @@ describe('editor session', () => {
     setActivePinia(createPinia())
   })
 
-  it('re-picking the stored common values in another key order or the default delete mode is not dirty', () => {
-    const store = useWorksetEditorStore()
-    store.open({
-      worksetId: 'ws-1',
-      operation: 'conversion',
-      target: { kind: 'common' },
-      baseVersion: 3,
-      baseDocument: base,
-    })
-    store.setDeleteMode('soft')
-    store.setUnit('mode', { intent: 'set', value: 'available_sources' })
-    store.setUnit('unmatched', {
-      intent: 'set',
-      value: { encoded: { quality: { bitrate: 320, kind: 'bitrate' }, codec: 'mp3' } },
-    })
-    expect(store.isDirty).toBe(false)
-  })
-
   it('builds the pending document from base plus intents', () => {
     const store = useWorksetEditorStore()
     openMember(store, 'm-1')
@@ -57,23 +39,16 @@ describe('editor session', () => {
     expect(store.isDirty).toBe(true)
   })
 
-  it('does not count an intent that lands on the persisted value as an edit', () => {
+  it('does not count clearing an override that was never set as an edit', () => {
     const store = useWorksetEditorStore()
-    store.open({
-      worksetId: 'ws-1',
-      operation: 'conversion',
-      target: { kind: 'common' },
-      baseVersion: 3,
-      baseDocument: base,
-    })
+    openMember(store, 'm-1')
 
-    // Re-picking the value that is already saved records an intent, but it
+    // Inheriting a unit the member never overrode records an intent, but it
     // changes nothing — it must not read as dirty or block a switch.
-    store.setUnit('mode', { intent: 'set', value: base.mode })
-    store.setUnit('matched', { intent: 'set', value: base.matched })
+    store.setUnit('mode', { intent: 'inherit' })
 
     expect(store.isDirty).toBe(false)
-    expect(openMember(store, 'm-1')).toBe(true)
+    expect(openMember(store, 'm-2')).toBe(true)
   })
 
   it('does not mutate the persisted base document', () => {
@@ -212,24 +187,14 @@ describe('refused save', () => {
     expect(store.session?.error).not.toContain('放弃本地修改')
   })
 
-  it('names the cause when another task is what blocks a global save', () => {
+  it('answers a refused common section by pointing at the settings', () => {
     const store = useWorksetEditorStore()
     openMember(store, 'm-1')
     store.startApplying()
-    store.failSave({ code: 'COMMON_SETTINGS_BUSY', message: 'record ws-2 has a queued or running generation' })
+    store.failSave({ code: 'COMMON_SETTINGS_MISMATCH', message: 'the draft common settings differ' })
 
     expect(store.session?.applying).toBe(false)
-    expect(store.session?.error).toContain('另一任务')
-  })
-
-  it('answers an unreadable task record with what to do about it', () => {
-    const store = useWorksetEditorStore()
-    openMember(store, 'm-1')
-    store.startApplying()
-    store.failSave({ code: 'COMMON_SETTINGS_UNREADABLE', message: 'record ws-2 holds a draft that cannot be read' })
-
-    expect(store.session?.applying).toBe(false)
-    expect(store.session?.error).toContain('重建该任务')
+    expect(store.session?.error).toContain('全局设置已在别处改动')
   })
 
   it('falls back to the server message and never loses the edits', () => {

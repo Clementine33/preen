@@ -1,14 +1,19 @@
 import { expect, test, type Page } from '@playwright/test'
 import { readStackState } from './helpers/stack-state.ts'
 
-/**
- * Picks one option of a UnitSelect. Those fields are reka-ui comboboxes
- * (custom widgets with a portalled listbox), not native <select> elements, so
- * the trigger is opened and the option clicked.
- */
+/** Picks one value of a segmented setting: its buttons carry their labels. */
 async function pickUnitOption(page: Page, testId: string, option: string) {
-  await page.getByTestId(testId).click()
-  await page.getByRole('option', { name: option, exact: true }).click()
+  await page.getByTestId(testId).getByRole('button', { name: option, exact: true }).click()
+}
+
+/** Applies the common settings through the Task settings endpoint. */
+async function applySettings(page: Page) {
+  const [response] = await Promise.all([
+    page.waitForResponse((r) => r.request().method() === 'PUT' && r.url().endsWith('/tasks/conversion/settings')),
+    page.getByTestId('settings-apply').click(),
+  ])
+  expect(response.ok()).toBe(true)
+  await expect(page.getByTestId('settings-apply-bar')).toBeHidden()
 }
 
 /**
@@ -20,7 +25,7 @@ async function pickUnitOption(page: Page, testId: string, option: string) {
  *   1. create a library pointing at a generated fixture tree,
  *   2. run the scan to completion (SSE),
  *   3. select a folder batch and enter its conversion task,
- *   4. edit the common settings in place (direct fields, 恢复默认) and apply,
+ *   4. edit the common settings in place and apply,
  *   5. generate a plan revision and read the five summary facts,
  *   6. generate again on a changed draft and confirm the new revision
  *      supersedes the old one,
@@ -121,12 +126,12 @@ test.describe('workset operation smoke', () => {
     await expect(page.getByTestId('nav-conversion')).not.toHaveAttribute('aria-current', 'page')
     // The seeded tag and MP3 320 preset are already defaults. Choose a
     // different preset so applying the draft is a real edit.
-    await page.getByTestId('common-group-matched').getByRole('button', { name: 'Opus 160' }).click()
-    await page.getByTestId('apply-common').click()
+    await page.getByTestId('field-common-group-matched').getByRole('button', { name: 'Opus 160' }).click()
+    await applySettings(page)
     await expect(page.getByTestId('conversion-settings')).toBeVisible()
 
     // 5. Generate the first plan revision.
-    await page.getByRole('link', { name: '← 转换列表' }).click()
+    await page.getByTestId('nav-conversion').click()
     await page.getByTestId('start-generation').click()
     await expect(page.getByTestId('operation-counts')).toBeVisible({ timeout: 30_000 })
     await expect(page.getByTestId('operation-counts')).toContainText('成员')
@@ -227,8 +232,8 @@ test.describe('workset operation smoke', () => {
     await page.getByTestId('nav-group-conversion').click()
     await page.getByTestId('nav-conversion-settings').click()
     await pickUnitOption(page, 'common-mode', '严格')
-    await page.getByTestId('apply-common').click()
-    await page.getByRole('link', { name: '← 转换列表' }).click()
+    await applySettings(page)
+    await page.getByTestId('nav-conversion').click()
     await page.getByTestId('start-generation').click()
     await expect(page.getByTestId('operation-counts')).toBeVisible({ timeout: 30_000 })
 

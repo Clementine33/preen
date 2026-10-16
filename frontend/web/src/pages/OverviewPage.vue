@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button'
 import Modal from '@/components/ui/modal/Modal.vue'
 import WorkbenchShell from '@/components/layout/WorkbenchShell.vue'
 import WorkbenchNav from '@/features/worksets/WorkbenchNav.vue'
-import { settingsEditBlockedReason } from '@/features/worksets/workbench-nav'
 import ScanProgressBar from '@/features/libraries/ScanProgressBar.vue'
 import DirList from '@/features/libraries/DirList.vue'
 import LibraryManager from '@/features/libraries/LibraryManager.vue'
@@ -91,12 +90,6 @@ const dirsError = computed(() => {
 // One folder batch is shared by every task page.
 const recordQuery = useQuery(() => currentRecordQueryOptions(api, libraryId.value, CONVERSION))
 const record = computed(() => recordQuery.data.value?.workset ?? null)
-const conversionOperation = computed(
-  () => record.value?.operations.find((operation) => operation.operation_type === CONVERSION) ?? null,
-)
-// The sidebar disables 转换全局设置 for the same reasons the conversion page
-// does: this page shares the navigation, so it shares its one source of truth.
-const settingsBlockedReason = computed(() => settingsEditBlockedReason(conversionOperation.value))
 
 // ---- scope → record ---------------------------------------------------
 
@@ -322,7 +315,7 @@ const libraryRoot = computed(() => activeLibrary.value?.root_path ?? '')
     </template>
 
     <template #nav>
-      <WorkbenchNav :library-id="libraryId" :settings-blocked-reason="settingsBlockedReason" />
+      <WorkbenchNav :library-id="libraryId" />
     </template>
 
     <template #main>

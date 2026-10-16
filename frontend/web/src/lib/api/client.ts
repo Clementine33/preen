@@ -55,6 +55,8 @@ import type {
   WorkUserTag,
   Workset,
   WorksetListResponse,
+  TaskSettings,
+  TaskSettingsMap,
 } from './types'
 
 interface ErrorEnvelope {
@@ -479,7 +481,6 @@ export class ApiClient implements ApiClientContract {
               })),
             }
           : payload,
-      common_settings_current: wire.common_settings_current,
       updated_at: wire.updated_at,
     }
   }
@@ -490,13 +491,37 @@ export class ApiClient implements ApiClientContract {
     operation: OperationType,
     document: AnyDraftDocument,
     ifMatchVersion: number,
-    applyCommonSettings = false,
   ): Promise<Operation> {
     return this.request(`${this.operationPath(worksetId, operation)}/draft`, {
       method: 'PUT',
-      body: applyCommonSettings ? { ...document, apply_common_settings: true } : document,
+      body: document,
       headers: { 'If-Match': String(ifMatchVersion) },
     })
+  }
+
+  /** A Task kind's deployment-wide settings; works without any record. */
+  async getTaskSettings<T extends OperationType>(operation: T, signal?: AbortSignal): Promise<TaskSettings<T>> {
+    return this.settingsResult<T>(await this.exchange(`/tasks/${operation}/settings`, { signal }))
+  }
+
+  /** The only write path of a Task kind's common settings; If-Match is the ETag read. */
+  async saveTaskSettings<T extends OperationType>(
+    operation: T,
+    settings: TaskSettingsMap[T],
+    etag: string,
+  ): Promise<TaskSettings<T>> {
+    return this.settingsResult<T>(
+      await this.exchange(`/tasks/${operation}/settings`, {
+        method: 'PUT',
+        body: { settings },
+        headers: { 'If-Match': etag },
+      }),
+    )
+  }
+
+  private settingsResult<T extends OperationType>(response: { body: unknown; headers: Headers }): TaskSettings<T> {
+    const body = response.body as { settings: TaskSettingsMap[T] }
+    return { settings: body.settings, etag: response.headers.get('ETag') ?? '' }
   }
 
   startGeneration(
@@ -687,6 +712,14 @@ export class ApiClient implements ApiClientContract {
     path: string,
     options: { method?: string; body?: unknown; signal?: AbortSignal; timeoutMs?: number; headers?: Record<string, string> } = {},
   ): Promise<T> {
+    return (await this.exchange<T>(path, options)).body
+  }
+
+  /** request() for the few reads that need a response header too (an ETag). */
+  private async exchange<T>(
+    path: string,
+    options: { method?: string; body?: unknown; signal?: AbortSignal; timeoutMs?: number; headers?: Record<string, string> } = {},
+  ): Promise<{ body: T; headers: Headers }> {
     const controller = new AbortController()
     let removeAbort: (() => void) | null = null
     if (options.signal) {
@@ -716,7 +749,7 @@ export class ApiClient implements ApiClientContract {
     path: string,
     options: { method?: string; body?: unknown; headers?: Record<string, string> },
     signal: AbortSignal,
-  ): Promise<T> {
+  ): Promise<{ body: T; headers: Headers }> {
     const response = await fetch(this.url(path), {
       method: options.method ?? 'GET',
       headers: { ...this.headers(options.body !== undefined), ...options.headers },
@@ -724,8 +757,8 @@ export class ApiClient implements ApiClientContract {
       signal,
     })
     if (!response.ok) throw await this.toApiError(response)
-    if (response.status === 204) return undefined as T
-    return (await response.json()) as T
+    if (response.status === 204) return { body: undefined as T, headers: response.headers }
+    return { body: (await response.json()) as T, headers: response.headers }
   }
 
   private async toApiError(response: Response): Promise<ApiError> {

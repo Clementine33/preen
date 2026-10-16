@@ -8,12 +8,14 @@ import type { RenameComponent, WorksetMember } from '@/lib/api/types'
  * The frozen proposals of a rename plan, as a static two-line table: the old
  * name above, the new name below, so the eye zigzags old → new down the list.
  * A whole-library plan is mostly folders whose name does not change, so those
- * are only counted; only renames, skipped (blocked) folders and followed hand
- * renames are drawn. Both lines carry the parent folder in grey: a rename only
+ * are never drawn; the page's tabs choose among renames, skipped (blocked)
+ * folders and followed hand renames, and own the counts. Both lines carry the parent folder in grey: a rename only
  * changes the last segment, and the shared prefix shows it stays in place.
  * Review always shows the frozen payload (ADR 0012).
  */
-const props = defineProps<{ components: RenameComponent[]; members?: WorksetMember[] }>()
+const props = withDefaults(defineProps<{ components: RenameComponent[]; members?: WorksetMember[]; tab?: PlanTab }>(), {
+  tab: 'rename',
+})
 
 const REASONS: Record<string, string> = {
   METADATA_MISSING: '缺少模板所需的元数据',
@@ -30,20 +32,15 @@ const REASONS: Record<string, string> = {
 }
 const ACTIONS: Record<string, { label: string; tone: 'success' | 'neutral' | 'warning' }> = {
   rename: { label: '重命名', tone: 'success' },
-  noop: { label: '跟随', tone: 'neutral' },
+  noop: { label: '已手动改名', tone: 'neutral' },
   blocked: { label: '跳过', tone: 'warning' },
 }
 
-const shown = computed(() => props.components.filter((c) => c.action !== 'noop' || c.observed_name))
-const counts = computed(() => {
-  let rename = 0
-  let skipped = 0
-  for (const c of props.components) {
-    if (c.action === 'rename') rename++
-    else if (c.action === 'blocked') skipped++
-  }
-  return { rename, skipped, unchanged: props.components.length - shown.value.length }
-})
+/** The tab each proposal is listed under; names that stay as they are belong to none. */
+export type PlanTab = 'rename' | 'blocked' | 'noop'
+const shown = computed(() =>
+  props.components.filter((c) => c.action === props.tab && (c.action !== 'noop' || c.observed_name)),
+)
 
 // The parent folder tells apart two folders that share a name; one lookup per
 // member, built once, rather than a scan per row.
@@ -65,10 +62,9 @@ function secondLine(component: RenameComponent): string {
 
 <template>
   <div>
-    <p class="text-[11px] text-[var(--text-secondary)]" data-testid="plan-summary">
-      重命名 {{ counts.rename }} · 跳过 {{ counts.skipped }} · {{ counts.unchanged }} 个名称不变（未显示）
-    </p>
+    <p v-if="!shown.length" class="px-2 py-3 text-xs text-[var(--text-secondary)]" data-testid="plan-empty">没有这一类的文件夹。</p>
     <RowList
+      v-else
       :items="shown"
       :item-key="(component) => component.member_id"
       testid="task-plan-table"

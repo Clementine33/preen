@@ -57,7 +57,6 @@ function choiceOf(unit: OverrideUnit): Choice {
 }
 
 function chooseDefault(unit: OverrideUnit) {
-  if (props.target.kind === 'common') return
   editor.setUnit(unit, { intent: 'inherit' })
 }
 
@@ -139,8 +138,6 @@ const participationState = computed<'participate' | 'exclude' | 'mixed'>(() =>
 )
 const targetLabel = computed(() => {
   switch (props.target.kind) {
-    case 'common':
-      return '全局设置'
     case 'member':
       return '此文件夹'
     default:
@@ -152,18 +149,13 @@ const effectivelyExcluded = computed(() => participationState.value === 'exclude
 
 <template>
   <div class="space-y-3" data-testid="override-editor">
-    <p class="text-[11px] text-[var(--text-muted)]">
+    <p class="text-[11px] text-[var(--text-secondary)]">
       每项设置只有两种选择：默认（跟随全局设置）或覆盖（为此范围写入独立值）。未改动的项保持现状。
     </p>
 
-    <fieldset
-      v-for="unit in OVERRIDE_UNITS"
-      :key="unit"
-      class="rounded-lg border border-border p-3"
-      :data-testid="`unit-${unit}`"
-    >
-      <legend class="px-1 text-xs font-medium">{{ UNIT_LABELS[unit] }}</legend>
-      <div class="mb-2 flex flex-wrap items-center gap-2 text-[11px] text-[var(--text-muted)]">
+    <section v-for="unit in OVERRIDE_UNITS" :key="unit" :data-testid="`unit-${unit}`">
+      <h3 class="border-b border-[var(--wire-mid)] pb-1 text-[11px] font-semibold text-[var(--text-secondary)]">{{ UNIT_LABELS[unit] }}</h3>
+      <div class="my-2 flex flex-wrap items-center gap-2 text-[11px] text-[var(--text-secondary)]">
         <Badge
           :tone="storedSource(unit) === 'mixed' ? 'warning' : storedSource(unit) === 'member' ? 'brand' : 'neutral'"
         >
@@ -207,11 +199,11 @@ const effectivelyExcluded = computed(() => participationState.value === 'exclude
           @change="editor.setUnit(unit, { intent: 'set', value: $event })"
         />
       </div>
-    </fieldset>
+    </section>
 
-    <fieldset v-if="participationEditable" class="rounded-lg border border-border p-3">
-      <legend class="px-1 text-xs font-medium">本操作参与状态</legend>
-      <p class="mb-2 text-[11px] text-[var(--text-muted)]">
+    <section v-if="participationEditable">
+      <h3 class="border-b border-[var(--wire-mid)] pb-1 text-[11px] font-semibold text-[var(--text-secondary)]">本操作参与状态</h3>
+      <p class="my-2 text-[11px] text-[var(--text-secondary)]">
         排除只改变本操作的参与状态，不会删除独立值；恢复参与后继续使用原有设置。
       </p>
       <div class="flex flex-wrap gap-2" role="radiogroup" aria-label="本操作参与状态">
@@ -241,6 +233,6 @@ const effectivelyExcluded = computed(() => participationState.value === 'exclude
       <p v-if="effectivelyExcluded" class="mt-2 text-[11px] text-[var(--warning-ink)]">
         应用后这些文件夹将不参与本操作的计划生成。
       </p>
-    </fieldset>
+    </section>
   </div>
 </template>

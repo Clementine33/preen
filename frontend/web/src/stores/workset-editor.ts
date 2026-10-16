@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import type { DeleteMode, OperationDraftDocument, OperationType, OverrideUnit } from '@/lib/api/types'
+import type { OperationDraftDocument, OperationType, OverrideUnit } from '@/lib/api/types'
 import {
   applyIntent,
   EMPTY_INTENT,
@@ -89,11 +89,6 @@ export const useWorksetEditorStore = defineStore('workset-editor', {
         units: { ...this.session.intent.units, [unit]: next },
       }
     },
-    /** The obsolete-audio handling: a whole-operation choice, common only. */
-    setDeleteMode(value: DeleteMode) {
-      if (!this.session) return
-      this.session.intent = { ...this.session.intent, deleteMode: { intent: 'set', value } }
-    },
     setParticipation(participation: EditIntent['participation']) {
       if (!this.session) return
       this.session.intent = { ...this.session.intent, participation }
@@ -157,12 +152,9 @@ export const useWorksetEditorStore = defineStore('workset-editor', {
 const SAVE_FAILURE_MESSAGES: Record<string, string> = {
   GENERATION_IN_PROGRESS: '正在生成计划版本：请等待生成结束或取消后再应用设置',
   EXECUTION_IN_PROGRESS: '正在执行：请等待执行结束或取消后再应用设置',
-  // A global save is refused as a whole when another task is busy: the record
-  // being edited is idle, so the wait belongs to someone else (ADR 0008).
-  COMMON_SETTINGS_BUSY: '另一任务正在生成或执行：本次全局设置未保存，请稍后重试',
-  // The same rule, for a record whose stored draft cannot be read: nothing was
-  // saved, and one task has to be recreated before the settings can be.
-  COMMON_SETTINGS_UNREADABLE: '有一项任务的草稿无法读取：本次全局设置未保存，请重建该任务后重试',
+  // The draft PUT never writes common settings: a differing common section is
+  // refused, and the settings page is where it is changed (ADR 0008).
+  COMMON_SETTINGS_MISMATCH: '全局设置已在别处改动：请放弃本地修改后重新进入以加载最新设置',
 }
 
 function saveFailureMessage(error: { code?: string; message?: string }): string {

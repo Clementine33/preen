@@ -30,7 +30,6 @@ const router: Router = createRouter({
 })
 
 interface NavProps {
-  settingsBlockedReason?: string | null
 }
 
 // Every mount gets its own Pinia (so the fold state starts fresh) and the same
@@ -41,7 +40,6 @@ async function mountNav(path: string, props: NavProps = {}): Promise<VueWrapper>
   return mount(WorkbenchNav, {
     props: {
       libraryId: 'lib-1',
-      settingsBlockedReason: null,
       ...props,
     },
     global: { plugins: [createPinia(), router] },
@@ -113,17 +111,6 @@ describe('workbench navigation', () => {
     await wrapper.get('[data-testid="nav-group-conversion"]').trigger('click')
     await wrapper.vm.$nextTick()
     expect(wrapper.get('[data-testid="nav-group-conversion"]').attributes('aria-expanded')).toBe('false')
-  })
-
-  it('disables the settings entry with its reason while edits are blocked', async () => {
-    const wrapper = await mountNav('/worksets/lib-1/conversion', {
-      settingsBlockedReason: '媒体库已删除：该工作集只读',
-    })
-    const entry = wrapper.get('[data-testid="nav-conversion-settings"]')
-
-    expect(entry.element.tagName).toBe('SPAN')
-    expect(entry.attributes('aria-disabled')).toBe('true')
-    expect(entry.attributes('title')).toBe('媒体库已删除：该工作集只读')
   })
 
   it('asks for a 44px target whenever the pointer is coarse, at any width', async () => {

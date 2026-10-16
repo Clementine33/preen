@@ -7,7 +7,6 @@ import type { ApiClientContract, ExecutionView, Operation, OperationType, Workse
 import { apiStub } from '@/test/api-stub'
 import { installTestQueryPlugin } from '@/test/query-client'
 import TaskOperationPage from './TaskOperationPage.vue'
-import UnitSelect from '@/features/worksets/UnitSelect.vue'
 import TaskToastHost from '@/components/layout/TaskToastHost.vue'
 import { useTaskToast } from '@/composables/use-task-toast'
 
@@ -89,7 +88,6 @@ function pageApi(overrides: Partial<ApiClientContract> = {}): ApiClientContract 
       version: 3,
       schema_version: 1,
       document: { schema_version: 1, common: COMMON[type as 'rename'], members: [] },
-      common_settings_current: true,
       updated_at: '',
     })) as never,
     getRevision: vi.fn(async (_id: string, type: OperationType) => ({
@@ -97,6 +95,8 @@ function pageApi(overrides: Partial<ApiClientContract> = {}): ApiClientContract 
       task: { kind: type, schema_version: 1, payload: { components: COMPONENTS[type as 'rename'] } },
       execution: null,
     })) as never,
+    getTaskSettings: vi.fn(async (type: OperationType) => ({ settings: COMMON[type as 'rename'], etag: '"e1"' })) as never,
+    saveTaskSettings: vi.fn(async (_type: OperationType, settings: unknown) => ({ settings, etag: '"e2"' })) as never,
     saveOperationDraft: vi.fn(async () => operationOf('metadata_refresh')),
     startExecution: vi.fn().mockReturnValue(new Promise(() => {})),
     ...overrides,
@@ -142,7 +142,7 @@ describe('task operation page', () => {
       } })),
       getExecutionCovers: vi.fn().mockResolvedValue({ items: [], counts: { pending: 0, running: 0, succeeded: 0, skipped: 0, failed: 0, canceled: 0 }, downloads: {} }),
     })
-    expect(wrapper.get('[data-testid="execution"]').text()).toContain('2/2')
+    expect(wrapper.get('[data-testid="results-pane"]').text()).toContain('2/2')
     wrapper.unmount()
   })
 
@@ -167,7 +167,7 @@ describe('task operation page', () => {
     await router.push('/worksets/lib-1/metadata')
     await flushPromises()
     expect(wrapper.get('[data-testid="task-page-metadata_refresh"]').element).toBe(original)
-    expect(wrapper.get('[data-testid="execution"]').text()).toContain('2/3')
+    expect(wrapper.get('[data-testid="results-pane"]').text()).toContain('2/3')
     expect(api.getExecution).toHaveBeenCalledWith('ws-1', 'metadata_refresh', 'metadata_refresh', expect.any(AbortSignal))
     finishRename()
     await flushPromises()
@@ -179,7 +179,7 @@ describe('task operation page', () => {
     await vi.advanceTimersByTimeAsync(2000)
     await flushPromises()
     expect(wrapper.find('[data-testid="task-toast"]').exists()).toBe(false)
-    expect(wrapper.get('[data-testid="execution"]').text()).toContain('3/3')
+    expect(wrapper.get('[data-testid="results-pane"]').text()).toContain('3/3')
     wrapper.unmount()
   })
 
@@ -187,6 +187,8 @@ describe('task operation page', () => {
     const { wrapper, api } = await mountPage('/worksets/lib-1/rename')
 
     expect(api.getCurrentRecord).toHaveBeenCalledWith('lib-1', 'rename', expect.anything())
+    // A plan opens on the skipped folders; this one has none, so it opens on the renames.
+    expect(wrapper.get('[data-testid="tab-rename"]').attributes('aria-selected')).toBe('true')
     expect(wrapper.get('[data-testid="task-plan-table"]').text()).toContain('[RJ01] Title')
     expect((wrapper.get('[data-testid="rename-template"]').element as HTMLInputElement).value).toBe('[{rj}] {title}')
     expect(wrapper.find('[data-testid="execute"]').exists()).toBe(true)
@@ -201,11 +203,13 @@ describe('task operation page', () => {
     await wrapper.get('[data-testid="rename-strip-tilde"]').setValue(true)
     await wrapper.get('[data-testid="rename-strip-book"]').setValue(true)
     expect(wrapper.get('[data-testid="task-settings"]').text()).not.toContain('〜')
-    await wrapper.get('[data-testid="task-settings"]').trigger('submit')
+    await wrapper.get('[data-testid="settings-apply"]').trigger('click')
     await flushPromises()
-    expect(vi.mocked(api.saveOperationDraft).mock.calls[0][2]).toMatchObject({
-      common: { strip_bracketed_title: true, strip_tilde_title: true, strip_book_title: true },
-    })
+    expect(vi.mocked(api.saveTaskSettings).mock.calls[0]).toMatchObject([
+      'rename',
+      { strip_bracketed_title: true, strip_tilde_title: true, strip_book_title: true },
+      '"e1"',
+    ])
     await wrapper.get('[data-testid="execute"]').trigger('click')
     await flushPromises()
     expect(api.startExecution).toHaveBeenCalledWith('ws-1', 'rename', 'p-1', expect.objectContaining({ ifMatchVersion: 3 }))
@@ -216,10 +220,10 @@ describe('task operation page', () => {
     expect(wrapper.find('[data-testid="rename-actor-separator"]').exists()).toBe(false)
     await wrapper.get('[data-testid="rename-template"]').setValue('[{rj}] {voice_actors}')
     await wrapper.get('[data-testid="rename-actor-separator"]').setValue(' & ')
-    await wrapper.get('[data-testid="task-settings"]').trigger('submit')
+    await wrapper.get('[data-testid="settings-apply"]').trigger('click')
     await flushPromises()
-    expect(vi.mocked(api.saveOperationDraft).mock.calls[0][2]).toMatchObject({
-      common: { template: '[{rj}] {voice_actors}', voice_actor_separator: ' & ' },
+    expect(vi.mocked(api.saveTaskSettings).mock.calls[0][1]).toMatchObject({
+      template: '[{rj}] {voice_actors}', voice_actor_separator: ' & ',
     })
   })
 
@@ -236,9 +240,11 @@ describe('task operation page', () => {
     })
     expect(wrapper.text()).not.toContain('排除阻塞项后重新生成')
     expect(wrapper.find('[data-testid="execute"]').exists()).toBe(true)
-    expect(wrapper.get('[data-testid="task-plan-table"]').findAll('li')).toHaveLength(2)
-    expect(wrapper.get('[data-testid="plan-summary"]').text()).toBe('重命名 1 · 跳过 1 · 1 个名称不变（未显示）')
+    expect(wrapper.get('[data-testid="tab-blocked"]').attributes('aria-selected')).toBe('true')
+    expect(wrapper.get('[data-testid="task-plan-table"]').findAll('li')).toHaveLength(1)
     expect(wrapper.get('[data-testid="task-plan-table"]').text()).toContain('目标名称已存在')
+    expect(wrapper.get('[data-testid="result-tabs"]').text()).toBe('重命名 1跳过 1已手动改名 0')
+    expect(wrapper.get('[data-testid="plan-unchanged"]').text()).toBe('1 个名称不变（未显示）')
   })
 
   it('saves a folder name into the draft next to the other records', async () => {
@@ -252,7 +258,7 @@ describe('task operation page', () => {
     expect(api.saveOperationDraft).toHaveBeenCalledWith(
       'ws-1', 'rename',
       expect.objectContaining({ members: [{ member_id: 'm-1', excluded: false, name: '[RJ01] mine' }] }),
-      3, undefined,
+      3,
     )
   })
 
@@ -261,7 +267,7 @@ describe('task operation page', () => {
       getOperationDraft: vi.fn(async () => ({
         workset_id: 'ws-1', operation_type: 'rename', version: 3, schema_version: 1,
         document: { schema_version: 1, common: COMMON.rename, members: [{ member_id: 'm-1', excluded: false, name: 'a' }] },
-        common_settings_current: true, updated_at: '',
+        updated_at: '',
       })) as never,
     })
     await wrapper.get('[data-testid="manual-rename-search"]').setValue('a')
@@ -271,7 +277,7 @@ describe('task operation page', () => {
     await wrapper.get('[data-testid="manual-rename-form"]').trigger('submit')
     await flushPromises()
     expect(api.saveOperationDraft).toHaveBeenCalledWith(
-      'ws-1', 'rename', expect.objectContaining({ members: [] }), 3, undefined,
+      'ws-1', 'rename', expect.objectContaining({ members: [] }), 3,
     )
   })
 
@@ -287,7 +293,10 @@ describe('task operation page', () => {
           task_result: { source_path: '/music/a', target_path: '/music/title', renamed: true, recovered: true } }],
       })) as never,
     })
-    expect(wrapper.get('[data-testid="execution"]').text()).toContain('已中断')
+    expect(wrapper.get('[data-testid="results-pane"]').text()).toContain('已中断')
+    // Results open on the failures; a recovered rename counts as a success.
+    expect(wrapper.find('[data-testid="rename-results"]').exists()).toBe(false)
+    await wrapper.get('[data-testid="tab-succeeded"]').trigger('click')
     expect(wrapper.get('[data-testid="rename-results"]').text()).toContain('已改名（启动恢复）')
     expect(wrapper.get('[data-testid="rename-results"]').text()).toContain('/music/title')
     expect(wrapper.find('[data-testid="execute"]').exists()).toBe(false)
@@ -330,21 +339,24 @@ describe('task operation page', () => {
     expect(rows).toHaveLength(1)
     expect(rows[0].text()).toContain('RJ02')
     expect(rows[0].text()).toContain('元数据获取失败')
-    expect(wrapper.get('[data-testid="execution"]').text()).toContain('失败 1 个作品')
+    expect(wrapper.get('[data-testid="result-tabs"]').text()).toBe('失败 1成功 1')
+    await wrapper.get('[data-testid="tab-succeeded"]').trigger('click')
+    expect(wrapper.get('[data-testid="execution-failures"]').text()).toContain('RJ01')
   })
 
   it('saves metadata settings and executes the current plan', async () => {
     const { wrapper, api } = await mountPage('/worksets/lib-1/metadata')
 
-    wrapper.findComponent(UnitSelect).vm.$emit('change', 'refresh_dynamic')
+    await wrapper.get('[data-testid="metadata-mode-refresh_dynamic"]').setValue(true)
     await flushPromises()
-    await wrapper.get('[data-testid="task-settings"]').trigger('submit')
+    // A dynamic refresh never downloads covers, and the form says why beside the box.
+    expect((wrapper.get('[data-testid="metadata-cover"]').element as HTMLInputElement).disabled).toBe(true)
+    expect(wrapper.get('[data-testid="metadata-cover-reason"]').text()).toBe('刷新动态数据只更新销量与评分，不下载封面')
+    await wrapper.get('[data-testid="settings-apply"]').trigger('click')
     await flushPromises()
-    const [, type, document, version] = vi.mocked(api.saveOperationDraft).mock.calls[0]
+    const [type, settings] = vi.mocked(api.saveTaskSettings).mock.calls[0]
     expect(type).toBe('metadata_refresh')
-    expect(version).toBe(3)
-    // A dynamic refresh never downloads covers.
-    expect(document).toMatchObject({ common: { mode: 'refresh_dynamic', download_cover: false }, members: [] })
+    expect(settings).toMatchObject({ mode: 'refresh_dynamic' })
 
     await wrapper.get('[data-testid="execute"]').trigger('click')
     await flushPromises()
@@ -377,4 +389,57 @@ it('keeps failed cover retries visible inline without a fictional task result', 
   await flushPromises()
   expect(wrapper.get('[data-testid="covers"] [role="alert"]').text()).toBe('封面重试不可用')
   expect(wrapper.find('[data-testid="task-toast"]').exists()).toBe(false)
+})
+
+describe('task settings column', () => {
+  it('keeps the apply bar for unsaved edits only and discards them', async () => {
+    const { wrapper, api } = await mountPage('/worksets/lib-1/rename')
+    expect(wrapper.find('[data-testid="settings-apply-bar"]').exists()).toBe(false)
+    await wrapper.get('[data-testid="rename-template"]').setValue('{rj}')
+    expect(wrapper.get('[data-testid="settings-apply"]').text()).toBe('应用')
+    expect(wrapper.find('[data-testid="rename-template-modified"]').exists()).toBe(true)
+    await wrapper.get('[data-testid="settings-discard"]').trigger('click')
+    expect(wrapper.find('[data-testid="settings-apply-bar"]').exists()).toBe(false)
+    expect((wrapper.get('[data-testid="rename-template"]').element as HTMLInputElement).value).toBe('[{rj}] {title}')
+    expect(api.saveTaskSettings).not.toHaveBeenCalled()
+  })
+
+  it('folds into a one-line summary in a narrow container and opens in place', async () => {
+    const { wrapper } = await mountPage('/worksets/lib-1/rename')
+    const summary = wrapper.get('[data-testid="settings-summary"]')
+    expect(summary.text()).toContain('[{rj}] {title}')
+    expect(wrapper.get('[data-testid="settings-body"]').attributes('style')).toContain('display: none')
+    await wrapper.get('[data-testid="rename-strip-bracketed"]').setValue(true)
+    expect(summary.text()).toBe('[{rj}] {title} · 移除【】▾')
+    await summary.trigger('click')
+    expect(summary.attributes('aria-expanded')).toBe('true')
+    expect(wrapper.get('[data-testid="settings-body"]').attributes('style') ?? '').not.toContain('display: none')
+  })
+
+  it('summarizes metadata settings', async () => {
+    const { wrapper } = await mountPage('/worksets/lib-1/metadata')
+    expect(wrapper.get('[data-testid="settings-summary"]').text()).toBe('只补缺失 · 日本語 · 封面▾')
+  })
+
+  it('works without a record: settings stay, the right pane is the empty state', async () => {
+    const { wrapper, api } = await mountPage('/worksets/lib-1/rename', {
+      getCurrentRecord: vi.fn().mockResolvedValue({ workset: null }),
+    })
+    expect(wrapper.find('[data-testid="no-record"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="manual-rename-search"]').exists()).toBe(false)
+    await wrapper.get('[data-testid="rename-template"]').setValue('{rj}')
+    await wrapper.get('[data-testid="settings-apply"]').trigger('click')
+    await flushPromises()
+    expect(api.saveTaskSettings).toHaveBeenCalledWith('rename', expect.objectContaining({ template: '{rj}' }), '"e1"')
+  })
+
+  it('asks before leaving with unapplied edits', async () => {
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
+    const { wrapper, router } = await mountPage('/worksets/lib-1/rename')
+    await wrapper.get('[data-testid="rename-template"]').setValue('{rj}')
+    await router.push('/worksets/lib-1')
+    await flushPromises()
+    expect(confirm).toHaveBeenCalled()
+    expect(router.currentRoute.value.path).toBe('/worksets/lib-1/rename')
+  })
 })

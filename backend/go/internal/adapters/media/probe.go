@@ -21,9 +21,14 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	_ "golang.org/x/image/webp" // header registration for image.DecodeConfig
 )
+
+// probeTimeout bounds one file's probe: a header read is a few KiB and ffprobe
+// a little more, so only a stalled share or a hung tool runs into it.
+const probeTimeout = 20 * time.Second
 
 // Prober is one ffprobe configuration. An empty path uses the executable on
 // PATH, the same default the encoder adapter takes.
@@ -32,6 +37,9 @@ type Prober struct {
 	// PathSource reads live tool settings only when a native header cannot
 	// answer. Nil uses the path captured by New.
 	PathSource func() string
+	// Timeout bounds each file's probe, header read and ffprobe together; zero
+	// means probeTimeout. A probe past it fails, so the fact stays unknown.
+	Timeout time.Duration
 }
 
 // New builds the prober over one ffprobe path.
@@ -42,9 +50,52 @@ func New(ffprobePath string) *Prober {
 	return &Prober{ffprobePath: ffprobePath}
 }
 
+// deadline gives one file's probe its timeout.
+func (p *Prober) deadline(ctx context.Context, pathPosix string) (context.Context, context.CancelFunc) {
+	d := p.Timeout
+	if d <= 0 {
+		d = probeTimeout
+	}
+	return context.WithTimeoutCause(ctx, d, fmt.Errorf("probe timed out after %s: %s", d, pathPosix))
+}
+
+// bounded returns a blocking file read's result, or gives up when ctx ends. A
+// read stuck on a stalled share cannot be interrupted, so an abandoned one
+// finishes in the background and its result is dropped.
+// ponytail: a share that never answers keeps one goroutine and descriptor per
+// abandoned file until it does; the pass retries those files only once per kick.
+func bounded[T any](ctx context.Context, read func() (T, error)) (T, error) {
+	type result struct {
+		v   T
+		err error
+	}
+	done := make(chan result, 1)
+	go func() {
+		v, err := read()
+		done <- result{v, err}
+	}()
+	select {
+	case r := <-done:
+		return r.v, r.err
+	case <-ctx.Done():
+		var zero T
+		return zero, context.Cause(ctx)
+	}
+}
+
 // ImageDimensions reads only the image header (image.DecodeConfig), never the
 // pixels — the boundary ADR 0013 draws for media facts.
-func (p *Prober) ImageDimensions(pathPosix string) (int, int, error) {
+func (p *Prober) ImageDimensions(ctx context.Context, pathPosix string) (int, int, error) {
+	ctx, cancel := p.deadline(ctx, pathPosix)
+	defer cancel()
+	size, err := bounded(ctx, func() ([2]int, error) {
+		w, h, err := imageDimensions(pathPosix)
+		return [2]int{w, h}, err
+	})
+	return size[0], size[1], err
+}
+
+func imageDimensions(pathPosix string) (int, int, error) {
 	f, err := os.Open(filepath.FromSlash(pathPosix))
 	if err != nil {
 		return 0, 0, err
@@ -64,10 +115,24 @@ func (p *Prober) ImageDimensions(pathPosix string) (int, int, error) {
 // header answers both for WAV, MP3 and m4a (audio_header.go); a file it cannot
 // answer in full - another format, an unrecognized header, an encoded file
 // whose bitrate the header cannot give exactly - takes one ffprobe call for
-// both. A zero is unknown; an error means neither could be measured.
+// both. A zero is unknown; an error means neither could be measured. One
+// timeout covers both steps.
 func (p *Prober) AudioFacts(ctx context.Context, pathPosix string) (float64, int64, error) {
-	if sec, bitrate, err := nativeAudio(pathPosix); err == nil && (bitrate > 0 || !carriesBitrate(pathPosix)) {
-		return sec, bitrate, nil
+	ctx, cancel := p.deadline(ctx, pathPosix)
+	defer cancel()
+	type facts struct {
+		sec     float64
+		bitrate int64
+	}
+	native, err := bounded(ctx, func() (facts, error) {
+		sec, bitrate, err := nativeAudio(pathPosix)
+		return facts{sec, bitrate}, err
+	})
+	if err == nil && (native.bitrate > 0 || !carriesBitrate(pathPosix)) {
+		return native.sec, native.bitrate, nil
+	}
+	if ctx.Err() != nil {
+		return 0, 0, context.Cause(ctx)
 	}
 	return p.ffprobeAudio(ctx, pathPosix)
 }
@@ -107,9 +172,16 @@ func (p *Prober) ffprobeAudio(ctx context.Context, pathPosix string) (float64, i
 			probe = "ffprobe"
 		}
 	}
-	data, err := exec.CommandContext(ctx, probe, "-v", "error", "-select_streams", "a:0",
+	cmd := exec.CommandContext(ctx, probe, "-v", "error", "-select_streams", "a:0",
 		"-show_entries", "stream=duration,bit_rate:format=duration,bit_rate", "-of", "json",
-		"-i", filepath.FromSlash(pathPosix)).Output()
+		"-i", filepath.FromSlash(pathPosix))
+	// A killed ffprobe whose output pipe something else still holds must not
+	// keep Output waiting.
+	cmd.WaitDelay = time.Second
+	data, err := cmd.Output()
+	if ctx.Err() != nil {
+		return 0, 0, context.Cause(ctx)
+	}
 	if err != nil {
 		return 0, 0, err
 	}

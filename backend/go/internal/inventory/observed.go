@@ -60,7 +60,7 @@ type MediaFactsUpdate struct {
 // facts, which the next pass tries again (enrich.go).
 type MediaProber interface {
 	// ImageDimensions reads only the image header, never the pixels.
-	ImageDimensions(pathPosix string) (width, height int, err error)
+	ImageDimensions(ctx context.Context, pathPosix string) (width, height int, err error)
 	// AudioFacts measures the duration and the bitrate (bits per second),
 	// from the header where it can; a zero is unknown.
 	AudioFacts(ctx context.Context, pathPosix string) (sec float64, bitrate int64, err error)

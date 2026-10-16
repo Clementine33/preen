@@ -200,7 +200,7 @@ func (e *MediaEnricher) probe(ctx context.Context, c MediaCandidate) (MediaFacts
 	var err error
 	switch {
 	case strings.HasPrefix(c.Format, "image/"):
-		u.Width, u.Height, err = e.prober.ImageDimensions(c.Path)
+		u.Width, u.Height, err = e.prober.ImageDimensions(ctx, c.Path)
 	case strings.HasPrefix(c.Format, "audio/"):
 		u.DurationSec, u.Bitrate, err = e.prober.AudioFacts(ctx, c.Path)
 	default:

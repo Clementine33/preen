@@ -155,8 +155,8 @@ func (p *slowProber) answer(ctx context.Context, path string) error {
 	return nil
 }
 
-func (p *slowProber) ImageDimensions(path string) (int, int, error) {
-	if err := p.answer(context.Background(), path); err != nil {
+func (p *slowProber) ImageDimensions(ctx context.Context, path string) (int, int, error) {
+	if err := p.answer(ctx, path); err != nil {
 		return 0, 0, err
 	}
 	return 1200, 900, nil

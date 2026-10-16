@@ -6,8 +6,8 @@ function createClient(config: Partial<ApiConfig> = {}): ApiClient {
   return new ApiClient({ baseUrl: config.baseUrl ?? 'http://example.test/api/v1', token: config.token ?? null })
 }
 
-function okJson(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
+function okJson(body: unknown, headers: Record<string, string> = {}, status = 200): Response {
+  return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', ...headers } })
 }
 
 // Typed fetch mock factory so mock.calls elements keep their RequestInit type.
@@ -61,20 +61,23 @@ describe('ApiClient', () => {
     expect(query.get('tag_match')).toBe('any')
   })
 
-  it('passes the persisted global-settings status through the draft envelope', async () => {
-    mockFetch(async () => okJson({
-      workset_id: 'ws-1',
-      operation_type: 'conversion',
-      version: 2,
-      common_settings_current: true,
-      task: { kind: 'conversion', schema_version: 1, payload: {
-        schema_version: 1, no_effect_tags: [], matched: {}, unmatched: {},
-      } },
-      updated_at: '',
-    }))
+  it('reads and writes a Task kind\'s settings with their ETag', async () => {
+    const fetchMock = mockFetch(async (input, init) => {
+      expect(String(input)).toContain('/tasks/rename/settings')
+      if (init?.method === 'PUT') {
+        expect(new Headers(init.headers).get('If-Match')).toBe('"abc"')
+        expect(JSON.parse(String(init.body))).toEqual({ settings: { template: '{rj}' } })
+        return okJson({ operation_type: 'rename', settings: { template: '{rj}' } }, { ETag: '"def"' })
+      }
+      return okJson({ operation_type: 'rename', settings: { template: '[{rj}] {title}' } }, { ETag: '"abc"' })
+    })
 
-    const draft = await createClient().getOperationDraft('ws-1', 'conversion')
-    expect(draft.common_settings_current).toBe(true)
+    const client = createClient()
+    const read = await client.getTaskSettings('rename')
+    expect(read).toEqual({ settings: { template: '[{rj}] {title}' }, etag: '"abc"' })
+    const saved = await client.saveTaskSettings('rename', { template: '{rj}' }, read.etag)
+    expect(saved).toEqual({ settings: { template: '{rj}' }, etag: '"def"' })
+    expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 
   it('passes a non-conversion draft through without conversion defaults', async () => {
@@ -85,7 +88,6 @@ describe('ApiClient', () => {
       workset_id: 'ws-1',
       operation_type: 'rename',
       version: 2,
-      common_settings_current: true,
       task: { kind: 'rename', schema_version: 1, payload },
       updated_at: '',
     }))
@@ -158,7 +160,7 @@ describe('ApiClient', () => {
       const headers = new Headers(init?.headers)
       if (path.endsWith('/draft')) {
         expect(headers.get('If-Match')).toBe('3')
-        expect(JSON.parse(String(init?.body)).apply_common_settings).toBe(true)
+        expect(JSON.parse(String(init?.body)).apply_common_settings).toBeUndefined()
         return okJson({ workset_id: 'ws-1', version: 4, planning_state: 'planned', members: [] })
       }
       if (path.endsWith('/revisions')) {
@@ -186,7 +188,6 @@ describe('ApiClient', () => {
         members: [],
       },
       3,
-      true,
     )
     await client.startGeneration('ws-1', 'conversion', 3, 'key-1')
     await client.createCurrentRecord('lib-1', 'conversion', { folder_paths: ['albumA'] }, 'create-key')

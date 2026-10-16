@@ -30,6 +30,10 @@ export const queryKeys = {
   policySlots: {
     list: () => ['policy-slots', 'list'] as const,
   },
+  // Each Task kind's deployment-wide common settings; no record involved.
+  taskSettings: {
+    detail: (operation: string) => ['task-settings', operation] as const,
+  },
   classifierTags: {
     list: () => ['classifier-tags', 'list'] as const,
   },

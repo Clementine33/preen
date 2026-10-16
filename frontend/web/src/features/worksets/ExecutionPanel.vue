@@ -160,13 +160,13 @@ const scope = computed(() => {
 
 <template>
   <section aria-label="执行结果" class="px-3 py-2" data-testid="execution-panel">
-    <div class="flex flex-wrap items-center gap-2 rounded-lg bg-muted/30 px-3 py-2.5">
+    <div class="flex flex-wrap items-center gap-2 border-b border-[var(--wire-strong)] px-1 py-2.5">
       <Badge :tone="status.tone" size="md" data-testid="execution-status">{{ status.label }}</Badge>
       <span class="font-mono text-[11px]" data-testid="execution-progress">
         组件 {{ view.completed_components }}/{{ view.total_components }} · 操作 {{ view.completed_operations }}/{{ view.total_operations }}
       </span>
       <Badge tone="neutral">{{ view.options?.delete_mode === 'hard' ? '硬删除' : '软删除' }}</Badge>
-      <span v-if="running && view.current_root" class="font-mono text-[10px] text-[var(--text-muted)]" :title="view.current_root">
+      <span v-if="running && view.current_root" class="font-mono text-[10px] text-[var(--text-secondary)]" :title="view.current_root">
         {{ shortPath(view.current_root) }}
         <template v-if="view.current_component_id"> · {{ view.current_component_id }}</template>
       </span>
@@ -184,7 +184,7 @@ const scope = computed(() => {
 
     <p
       v-if="scope"
-      class="mt-2 rounded-lg bg-[var(--warning-weak,var(--muted))] px-3 py-2 text-[11px]"
+      class="mt-2 border border-[var(--wire-mid)] bg-[var(--warning-weak,var(--muted))] px-3 py-2 text-[11px]"
       data-testid="execution-scope"
       role="status"
     >
@@ -195,14 +195,14 @@ const scope = computed(() => {
       <li
         v-for="card in cards"
         :key="card.rootPath"
-        class="overflow-hidden rounded-xl border border-border bg-card"
+        class="overflow-hidden border border-[var(--wire-mid)]"
         :class="card.running ? 'border-[var(--brand-border)]' : ''"
         data-testid="execution-folder"
         :data-folder-status="card.status"
       >
         <!-- The folder is the card's headline: what the user selected, and what
              a result is judged by. -->
-        <div class="border-b border-border/60 bg-muted/30 px-3 py-3">
+        <div class="border-b border-[var(--wire-strong)] bg-[var(--bg-subtle)] px-3 py-3">
           <div class="flex items-start gap-2.5">
             <Folder class="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
             <span
@@ -246,7 +246,7 @@ const scope = computed(() => {
 
             <details
               v-if="component.committed.length || component.removed.length || component.remaining.length || keptFiles(component).length"
-              class="group mt-2 rounded-md bg-muted/20 text-[11px]"
+              class="group mt-2 border border-[var(--wire-fine)] text-[11px]"
             >
               <summary class="flex cursor-pointer list-none flex-wrap items-center gap-x-2 gap-y-1 rounded-md px-2 py-1.5 text-muted-foreground hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
                 <ChevronRight class="size-3 shrink-0 transition-transform group-open:rotate-90" aria-hidden="true" />
@@ -296,7 +296,7 @@ const scope = computed(() => {
       <Button variant="outline" size="sm" :disabled="props.loadingMore" data-testid="execution-load-more" @click="emit('loadMore')">
         {{ props.loadingMore ? '加载中…' : '加载更多组件' }}
       </Button>
-      <span class="text-[11px] text-[var(--text-muted)]">
+      <span class="text-[11px] text-[var(--text-secondary)]">
         已显示 {{ props.view.components.length }} / {{ props.view.total_components }} 个组件
       </span>
     </div>

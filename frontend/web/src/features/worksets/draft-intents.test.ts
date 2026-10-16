@@ -123,12 +123,6 @@ describe('applyIntent', () => {
     expect(readParticipation(next, { kind: 'member', memberId: 'm-yi' })).toBe('exclude')
   })
 
-  it('writes common settings without touching member records', () => {
-    const next = applyIntent(base, { kind: 'common' }, intent({ no_effect_tags: { intent: 'set', value: ['B'] } }))
-    expect(next.no_effect_tags).toEqual(['B'])
-    expect(next.members.find((m) => m.member_id === 'm-bing')?.overrides?.no_effect_tags).toEqual(['A'])
-  })
-
   it('does not mutate the base document', () => {
     const copy = structuredClone(base)
     applyIntent(base, { kind: 'member', memberId: 'm-jia' }, intent({ matched: { intent: 'set', value: FLAC } }))
@@ -140,7 +134,7 @@ describe('applyIntent', () => {
       ...base,
       members: [...base.members, { member_id: 'm-jia' }],
     }
-    const next = applyIntent(withEmpty, { kind: 'common' }, EMPTY_INTENT)
+    const next = applyIntent(withEmpty, { kind: 'member', memberId: 'm-yi' }, EMPTY_INTENT)
     expect(next.members.map((m) => m.member_id)).toEqual(['m-yi', 'm-bing'])
   })
 })
@@ -156,25 +150,6 @@ describe('intent accounting', () => {
   it('counts the edited units for the submit label', () => {
     expect(intentUnitCount(intent({ matched: { intent: 'set', value: FLAC }, mode: { intent: 'inherit' } }))).toBe(2)
     expect(intentUnitCount(EMPTY_INTENT)).toBe(0)
-  })
-
-  it('counts the obsolete-audio handling as one setting', () => {
-    const withMode = { ...EMPTY_INTENT, units: {}, deleteMode: { intent: 'set' as const, value: 'hard' as const } }
-    expect(intentIsEmpty(withMode)).toBe(false)
-    expect(intentUnitCount(withMode)).toBe(1)
-  })
-})
-
-describe('the obsolete-audio handling', () => {
-  it('is written by the common target and never becomes a member override', () => {
-    const set = { ...EMPTY_INTENT, units: {}, deleteMode: { intent: 'set' as const, value: 'hard' as const } }
-
-    const common = applyIntent(base, { kind: 'common' }, set)
-    expect(common.delete_mode).toBe('hard')
-
-    const member = applyIntent(base, { kind: 'member', memberId: 'm-yi' }, set)
-    expect(member.delete_mode).toBeUndefined()
-    expect(member.members).toEqual(base.members.length ? member.members : [])
   })
 })
 

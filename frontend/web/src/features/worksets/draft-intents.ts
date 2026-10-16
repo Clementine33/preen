@@ -1,5 +1,4 @@
 import type {
-  DeleteMode,
   DraftMember,
   OperationDraftDocument,
   OverrideSet,
@@ -16,7 +15,6 @@ import type {
  */
 
 export type EditTarget =
-  | { kind: 'common' }
   | { kind: 'batch'; memberIds: string[] }
   | { kind: 'member'; memberId: string }
 
@@ -27,11 +25,6 @@ export type ParticipationIntent = 'keep' | 'participate' | 'exclude'
 
 export interface EditIntent {
   units: Partial<Record<OverrideUnit, UnitIntent<unknown>>>
-  /**
-   * The obsolete-audio handling. It is a whole-operation choice, so it exists
-   * only on the common target and is never a member override.
-   */
-  deleteMode?: UnitIntent<DeleteMode>
   participation: ParticipationIntent
 }
 
@@ -70,26 +63,6 @@ function commonValue(doc: OperationDraftDocument, unit: OverrideUnit): unknown {
       return doc.other ?? doc.unmatched
     case 'unmatched':
       return doc.unmatched
-  }
-}
-
-function setCommon(doc: OperationDraftDocument, unit: OverrideUnit, value: unknown): void {
-  switch (unit) {
-    case 'mode':
-      doc.mode = value as OperationDraftDocument['mode']
-      return
-    case 'no_effect_tags':
-    case 'other_tags':
-      doc[unit] = (value as string[]) ?? []
-      return
-    case 'matched':
-      doc.matched = value as OperationDraftDocument['matched']
-      return
-    case 'other':
-      doc.other = value as OperationDraftDocument['other']
-      return
-    case 'unmatched':
-      doc.unmatched = value as OperationDraftDocument['unmatched']
   }
 }
 
@@ -160,9 +133,6 @@ function withDefaults(doc: OperationDraftDocument): OperationDraftDocument {
  * never something that can be saved.
  */
 export function readUnit(doc: OperationDraftDocument, target: EditTarget, unit: OverrideUnit): UnitValue {
-  if (target.kind === 'common') {
-    return { value: commonValue(doc, unit), source: 'common', overridden: 0, members: 0 }
-  }
   const memberIds = target.kind === 'member' ? [target.memberId] : target.memberIds
   const common = commonValue(doc, unit)
   let overridden = 0
@@ -193,7 +163,6 @@ export function readParticipation(
   doc: OperationDraftDocument,
   target: EditTarget,
 ): 'participate' | 'exclude' | 'mixed' {
-  if (target.kind === 'common') return 'participate'
   const memberIds = target.kind === 'member' ? [target.memberId] : target.memberIds
   let excluded = 0
   for (const memberId of memberIds) {
@@ -286,17 +255,6 @@ export function applyIntent(
     })),
   }
 
-  if (target.kind === 'common') {
-    for (const unit of OVERRIDE_UNITS) {
-      const unitIntent = intent.units[unit]
-      // Common settings have no inheritance to restore: only `set` writes.
-      if (unitIntent?.intent === 'set') setCommon(doc, unit, unitIntent.value)
-    }
-    if (intent.deleteMode?.intent === 'set') doc.delete_mode = intent.deleteMode.value
-    pruneMembers(doc)
-    return doc
-  }
-
   const memberIds = target.kind === 'member' ? [target.memberId] : target.memberIds
   for (const memberId of memberIds) {
     if (intent.participation !== 'keep') {
@@ -322,7 +280,6 @@ export function applyIntent(
 /** True when the intent would write anything at all. */
 export function intentIsEmpty(intent: EditIntent): boolean {
   if (intent.participation !== 'keep') return false
-  if (intent.deleteMode && intent.deleteMode.intent !== 'keep') return false
   return OVERRIDE_UNITS.every((unit) => {
     const unitIntent = intent.units[unit]
     return !unitIntent || unitIntent.intent === 'keep'
@@ -331,12 +288,8 @@ export function intentIsEmpty(intent: EditIntent): boolean {
 
 /** How many units an intent sets or restores — the K in "N folders, K settings". */
 export function intentUnitCount(intent: EditIntent): number {
-  const deleteModeSet = intent.deleteMode && intent.deleteMode.intent !== 'keep' ? 1 : 0
-  return (
-    deleteModeSet +
-    OVERRIDE_UNITS.filter((unit) => {
-      const unitIntent = intent.units[unit]
-      return unitIntent && unitIntent.intent !== 'keep'
-    }).length
-  )
+  return OVERRIDE_UNITS.filter((unit) => {
+    const unitIntent = intent.units[unit]
+    return unitIntent && unitIntent.intent !== 'keep'
+  }).length
 }

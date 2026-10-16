@@ -5,7 +5,7 @@ import {
 } from 'reka-ui'
 import { cloneProfile } from '@/features/worksets/plan-readers'
 import type { DesiredProfile, OverrideUnit } from '@/lib/api/types'
-import UnitSelect from './UnitSelect.vue'
+import SettingsSegmented from '@/features/settings/SettingsSegmented.vue'
 
 /**
  * The editable value of one setting group. Shared by the common settings form
@@ -54,6 +54,8 @@ const PRESETS = [
   { value: 'aac-256', codec: 'aac', bitrate: 256, label: 'AAC 256' },
   { value: 'mp3-320', codec: 'mp3', bitrate: 320, label: 'MP3 320' },
 ]
+
+const ROW_LABEL = 'flex h-[30px] items-center text-[11px] text-[var(--text-secondary)]'
 
 const profile = computed<DesiredProfile>(() => cloneProfile(props.value))
 const tagList = computed<string[]>(() => (props.value as string[] | undefined) ?? [])
@@ -115,14 +117,13 @@ function applyPreset(preset: (typeof PRESETS)[number]) {
 
 <template>
   <div class="space-y-2">
-    <UnitSelect
+    <SettingsSegmented
       v-if="unit === 'mode'"
-      class="h-8 rounded-md border border-[var(--control-border)] bg-background px-2 text-xs"
+      :label="`${label} 转换模式`"
+      :options="MODES"
       :value="(value as string) ?? 'strict'"
       :disabled="disabled"
-      :aria-label="`${label} 转换模式`"
       :data-testid="`${scope}-${unit}`"
-      :options="MODES"
       @change="setMode($event)"
     />
 
@@ -132,83 +133,70 @@ function applyPreset(preset: (typeof PRESETS)[number]) {
       :disabled="disabled"
       :delimiter="TAG_DELIMITER"
       :add-on-paste="true"
-      class="flex min-h-8 w-full flex-wrap items-center gap-1 rounded-md border border-[var(--control-border)] bg-background px-1.5 py-1 focus-within:outline-2 focus-within:outline-ring"
+      class="tags w-full"
       :data-testid="`${scope}-${unit}`"
       @update:model-value="setTags"
     >
-      <TagsInputItem
-        v-for="(tag, index) in tagList"
-        :key="`${index}-${tag}`"
-        :value="tag"
-        class="inline-flex items-center gap-0.5 rounded bg-muted px-1.5 py-0.5 font-mono text-xs"
-      >
+      <TagsInputItem v-for="(tag, index) in tagList" :key="`${index}-${tag}`" :value="tag" class="tag" lang="ja">
         <TagsInputItemText />
-        <TagsInputItemDelete
-          class="rounded px-0.5 text-[var(--text-muted)] hover:text-foreground focus-visible:outline-none"
-          :aria-label="`删除标签 ${tag}`"
-        >×</TagsInputItemDelete>
+        <TagsInputItemDelete :aria-label="`删除标签 ${tag}`">×</TagsInputItemDelete>
       </TagsInputItem>
       <TagsInputInput
-        class="min-w-[8ch] flex-1 bg-transparent font-mono text-xs outline-none placeholder:text-[var(--text-muted)]"
+        class="h-5 min-w-[8ch] flex-1 bg-transparent px-1 text-xs outline-none placeholder:text-[var(--text-muted)]"
         :aria-label="`${label} 分类标签`"
         :data-testid="`${scope}-${unit}-input`"
         placeholder="输入后按回车或逗号"
       />
     </TagsInputRoot>
 
-    <div v-else class="flex flex-wrap items-center gap-3">
-      <label class="flex items-center gap-1 text-[11px]">
-        无损
-        <UnitSelect
-          class="h-7 rounded-md border border-[var(--control-border)] bg-background px-1.5 text-xs"
-          :value="losslessCodec"
-          :disabled="disabled"
-          :aria-label="`${label} 无损目标`"
-          :data-testid="`${scope}-${unit}-lossless`"
-          :options="LOSSLESS_CODECS"
-          @change="setCodec('lossless', $event)"
-        />
-      </label>
-      <label class="flex items-center gap-1 text-[11px]">
-        编码
-        <UnitSelect
-          class="h-7 rounded-md border border-[var(--control-border)] bg-background px-1.5 text-xs"
-          :value="encodedCodec"
-          :disabled="disabled"
-          :aria-label="`${label} 编码目标`"
-          :data-testid="`${scope}-${unit}-encoded`"
-          :options="ENCODED_CODECS"
-          @change="setCodec('encoded', $event)"
-        />
-      </label>
-      <label class="flex items-center gap-1 text-[11px]">
-        码率
-        <input
-          type="number"
-          min="1"
-          class="h-7 w-14 rounded-md border border-[var(--control-border)] bg-background px-1.5 font-mono text-xs"
-          :value="bitrate"
-          :disabled="disabled || encodedCodec === ''"
-          :aria-label="`${label} 码率`"
-          :data-testid="`${scope}-${unit}-bitrate`"
-          @change="setBitrate(Number(($event.target as HTMLInputElement).value))"
-        />
-        kbps
-      </label>
+    <!-- One row per control, each label boxed to the 30px control height so
+         label and control share a centre line. -->
+    <div v-else class="grid grid-cols-[2.5rem_minmax(0,1fr)] items-start gap-x-2 gap-y-1.5">
+      <span :class="ROW_LABEL">无损</span>
+      <SettingsSegmented
+        mono
+        :label="`${label} 无损目标`"
+        :options="LOSSLESS_CODECS"
+        :value="losslessCodec"
+        :disabled="disabled"
+        :data-testid="`${scope}-${unit}-lossless`"
+        @change="setCodec('lossless', $event)"
+      />
+      <span :class="ROW_LABEL">编码</span>
+      <SettingsSegmented
+        mono
+        :label="`${label} 编码目标`"
+        :options="ENCODED_CODECS"
+        :value="encodedCodec"
+        :disabled="disabled"
+        :data-testid="`${scope}-${unit}-encoded`"
+        @change="setCodec('encoded', $event)"
+      />
+      <template v-if="encodedCodec !== ''">
+        <span :class="ROW_LABEL">码率</span>
+        <label class="flex h-[30px] items-center gap-1 text-[11px] text-[var(--text-secondary)]">
+          <input
+            type="number"
+            min="1"
+            class="field-input w-16 font-mono"
+            :value="bitrate"
+            :disabled="disabled"
+            :aria-label="`${label} 码率`"
+            :data-testid="`${scope}-${unit}-bitrate`"
+            @change="setBitrate(Number(($event.target as HTMLInputElement).value))"
+          />
+          kbps
+        </label>
+      </template>
       <!-- Shortcuts for the three pairs this app is run with; the manual codec
            and bitrate above stay the way to compose anything else. -->
-      <span class="flex items-center gap-1" :data-testid="`${scope}-${unit}-presets`">
-        <span class="text-[11px] text-[var(--text-muted)]">预设</span>
+      <span :class="ROW_LABEL">预设</span>
+      <span class="flex min-h-[30px] flex-wrap items-center gap-1" :data-testid="`${scope}-${unit}-presets`">
         <button
           v-for="preset in PRESETS"
           :key="preset.value"
           type="button"
-          class="rounded-md border px-1.5 py-1 font-mono text-[11px] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-          :class="
-            matchedPreset === preset.value
-              ? 'border-[var(--brand-border)] bg-[var(--brand-weak)] font-medium'
-              : 'border-[var(--control-border)] hover:bg-muted'
-          "
+          class="chip"
           :disabled="disabled"
           :aria-pressed="matchedPreset === preset.value"
           :title="`${preset.codec.toUpperCase()} ${preset.bitrate} kbps`"

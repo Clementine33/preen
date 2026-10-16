@@ -84,12 +84,12 @@ function pageApi(): ApiClientContract {
   } as never)
 }
 
-function seedPendingCommonEdit(pinia: ReturnType<typeof createPinia>): void {
+function seedPendingOtherEdit(pinia: ReturnType<typeof createPinia>): void {
   const editor = useWorksetEditorStore(pinia)
   editor.open({
     worksetId: 'ws-1',
     operation: 'conversion',
-    target: { kind: 'common' },
+    target: { kind: 'member', memberId: 'm-other' },
     baseVersion: 5,
     baseDocument: document,
   })
@@ -98,7 +98,7 @@ function seedPendingCommonEdit(pinia: ReturnType<typeof createPinia>): void {
 
 async function mountEditMember(seedPending: boolean): Promise<{ wrapper: VueWrapper; router: Router }> {
   const pinia = createPinia()
-  if (seedPending) seedPendingCommonEdit(pinia)
+  if (seedPending) seedPendingOtherEdit(pinia)
   const router = createRouter({
     history: createMemoryHistory(),
     routes: [
@@ -145,7 +145,7 @@ describe('MemberEditPage pending-edit conflict', () => {
     const { router } = await mountEditMember(true)
 
     expect(confirm).toHaveBeenCalledOnce()
-    expect(useWorksetEditorStore().session?.target).toEqual({ kind: 'common' })
+    expect(useWorksetEditorStore().session?.target).toEqual({ kind: 'member', memberId: 'm-other' })
     expect(router.currentRoute.value.name).toBe('conversion')
   })
 })

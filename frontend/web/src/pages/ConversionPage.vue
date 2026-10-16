@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button'
 import { Sheet } from '@/components/ui/modal'
 import WorkbenchShell from '@/components/layout/WorkbenchShell.vue'
 import WorkbenchNav from '@/features/worksets/WorkbenchNav.vue'
-import { settingsEditBlockedReason } from '@/features/worksets/workbench-nav'
 import OperationHeader from '@/features/worksets/OperationHeader.vue'
 import MemberList from '@/features/worksets/MemberList.vue'
 import {
@@ -84,6 +83,8 @@ const detailOpen = computed(() => route.meta.carrier === true)
  *  desktop breadcrumb all say the same thing, and the folder's name is in the
  *  page itself (the frozen review names it) rather than in three places. */
 const carrierTitle = computed(() => (route.meta.title as string | undefined) ?? '详情')
+/** The settings belong to the deployment: they open without a record too. */
+const settingsOpen = computed(() => route.name === 'conversion-settings')
 /** A member's file page takes the main area, not a carrier. */
 const filesOpen = computed(() => route.name === 'conversion-member-files')
 
@@ -129,8 +130,7 @@ function continueEditing() {
   const target = editor.session?.target
   if (!target) return
   const params = { libraryId: libraryId.value }
-  if (target.kind === 'common') void router.push({ name: 'conversion-settings', params, query: listQuery.value })
-  else if (target.kind === 'batch') void router.push({ name: 'conversion-batch-edit', params, query: listQuery.value })
+  if (target.kind === 'batch') void router.push({ name: 'conversion-batch-edit', params, query: listQuery.value })
   else {
     void router.push({
       name: 'conversion-member-edit',
@@ -321,13 +321,6 @@ watch(
   { immediate: true },
 )
 
-/**
- * Why 转换全局设置 cannot be edited right now — generating, orphaned or a
- * frozen plan being reviewed. The navigation entry is disabled with the reason
- * instead of opening a form whose save the server would refuse.
- */
-const settingsBlockedReason = computed(() => settingsEditBlockedReason(operation.value))
-
 /** The page in view, for the narrow header context. */
 const currentPage = computed(() => {
   if (filesOpen.value) return '文件'
@@ -393,14 +386,14 @@ const parentLink = computed(() => {
     </template>
 
     <template #nav>
-      <WorkbenchNav :library-id="libraryId" :settings-blocked-reason="settingsBlockedReason" />
+      <WorkbenchNav :library-id="libraryId" />
     </template>
 
     <template #main="{ tier }">
       <!-- The record is gone or the library has none: the workbench says which
            and offers the one action that makes sense (ADR 0001). -->
       <div
-        v-if="!recordQuery.isPending.value && !record"
+        v-if="!recordQuery.isPending.value && !record && !(tier === 'narrow' && settingsOpen)"
         class="grid min-h-0 flex-1 place-items-center px-6 text-center"
         data-testid="no-record"
       >
@@ -494,7 +487,7 @@ const parentLink = computed(() => {
             data-testid="edit-session-bar"
           >
             <span class="text-[11px]">
-              正在编辑：{{ editor.session.target.kind === 'common' ? '全局设置' : `${sessionMemberCount} 个文件夹` }}
+              正在编辑：{{ sessionMemberCount }} 个文件夹
             </span>
             <Badge :tone="editor.isDirty ? 'warning' : 'neutral'">{{ editor.isDirty ? '有未应用修改' : '无修改' }}</Badge>
             <Button
@@ -540,7 +533,7 @@ const parentLink = computed(() => {
       <!-- Narrow: a carrier takes the main area, one layer at a time. It is
            rendered outside the list container (which is hidden in this state)
            so the drill-down is actually reachable. -->
-      <div v-if="tier === 'narrow' && detailOpen && record && !filesOpen" class="min-h-0 flex-1 overflow-y-auto">
+      <div v-if="tier === 'narrow' && detailOpen && (record || settingsOpen) && !filesOpen" class="min-h-0 flex-1 overflow-y-auto">
         <RouterView />
       </div>
 

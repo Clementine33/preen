@@ -71,11 +71,11 @@ const validationWarning = computed(() => {
 </script>
 
 <template>
-  <header class="border-b border-border bg-card px-3 py-2" data-testid="operation-header">
+  <header class="edge-bottom bg-background px-3 py-2" data-testid="operation-header">
     <div class="flex flex-wrap items-center gap-2">
       <div class="min-w-0">
         <h1 class="truncate font-heading text-sm font-semibold">{{ title }}</h1>
-        <p v-if="libraryName" class="truncate font-mono text-[10px] text-[var(--text-muted)]">{{ libraryName }}</p>
+        <p v-if="libraryName && libraryName !== title" class="truncate font-mono text-[10px] text-[var(--text-secondary)]">{{ libraryName }}</p>
       </div>
       <Badge :tone="state.tone" size="md">{{ state.label }}</Badge>
       <Badge v-if="operation" tone="neutral">操作版本 v{{ operation.version }}</Badge>
@@ -127,10 +127,10 @@ const validationWarning = computed(() => {
     <div v-if="cells.length" class="mt-2 flex flex-wrap gap-4" data-testid="operation-counts">
       <div v-for="cell in cells" :key="cell.label" class="min-w-14">
         <div class="font-mono text-sm">{{ cell.value }}</div>
-        <div class="text-[10px] text-[var(--text-muted)]">{{ cell.label }}</div>
+        <div class="text-[10px] text-[var(--text-secondary)]">{{ cell.label }}</div>
       </div>
     </div>
-    <p v-else class="mt-2 text-[11px] text-[var(--text-muted)]">尚无计划版本：当前操作待规划。</p>
+    <p v-else class="mt-2 text-[11px] text-[var(--text-secondary)]">尚无计划版本：当前操作待规划。</p>
 
     <p v-if="validationWarning" class="mt-1 text-[11px] text-[var(--warning-ink)]" data-testid="validation-warning">
       {{ validationWarning }}

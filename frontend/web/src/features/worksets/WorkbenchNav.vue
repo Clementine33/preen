@@ -18,8 +18,6 @@ import { workbenchNav, workbenchNavPosition, type WorkbenchNavId } from './workb
  */
 const props = defineProps<{
   libraryId: string
-  /** Why 转换全局设置 is unavailable (generating / orphaned). */
-  settingsBlockedReason: string | null
 }>()
 
 const route = useRoute()
@@ -98,11 +96,10 @@ function isCollapsed(id: WorkbenchNavId): boolean {
         v-if="(item.children?.length ?? 0) > 0"
         :id="`nav-children-${item.id}`"
         v-show="!isCollapsed(item.id)"
-        class="ml-4 border-l border-[var(--wire-fine)]"
+        class="ml-4 border-l border-[var(--wire-mid)]"
       >
         <li v-for="child in item.children" :key="child.id">
           <RouterLink
-            v-if="!settingsBlockedReason || child.id !== 'conversion-settings'"
             :to="child.to"
             :aria-current="position?.current === child.id ? 'page' : undefined"
             :class="rowClass(position?.current === child.id, false, true)"
@@ -110,17 +107,6 @@ function isCollapsed(id: WorkbenchNavId): boolean {
           >
             {{ child.label }}
           </RouterLink>
-          <!-- a frozen or orphaned operation disables the edit
-               entry instead of letting the form fail on save. -->
-          <span
-            v-else
-            class="flex h-8 cursor-not-allowed items-center gap-2 rounded-md px-2 text-xs text-[var(--text-muted)] opacity-70 pointer-coarse:min-h-11"
-            aria-disabled="true"
-            :title="settingsBlockedReason"
-            :data-testid="`nav-${child.id}`"
-          >
-            {{ child.label }}
-          </span>
         </li>
       </ul>
     </li>

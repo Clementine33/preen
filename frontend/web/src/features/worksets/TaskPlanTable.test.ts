@@ -24,4 +24,20 @@ describe('TaskPlanTable', () => {
     const wrapper = mount(TaskPlanTable, { props: { components: [component], members: [top] } })
     expect(wrapper.findAll('span.truncate')[1].text()).toBe('↘ [RJ01] new')
   })
+
+  it('lists only the proposals of the chosen tab', () => {
+    const blocked: RenameComponent = { ...component, member_id: 'm-2', action: 'blocked', reason_code: 'TARGET_EXISTS' }
+    const quiet: RenameComponent = { ...component, member_id: 'm-3', action: 'noop' }
+    const followed: RenameComponent = { ...component, member_id: 'm-4', action: 'noop', observed_name: 'x' }
+    const all = [component, blocked, quiet, followed]
+    const ids = (tab: 'rename' | 'blocked' | 'noop') =>
+      mount(TaskPlanTable, { props: { components: all, tab } }).findAll('li').length
+    expect([ids('rename'), ids('blocked'), ids('noop')]).toEqual([1, 1, 1])
+  })
+
+  it('says so when the tab is empty', () => {
+    const wrapper = mount(TaskPlanTable, { props: { components: [component], tab: 'blocked' } })
+    expect(wrapper.find('li').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="plan-empty"]').exists()).toBe(true)
+  })
 })

@@ -739,6 +739,28 @@ export interface MetadataDraftDocument {
   members: TaskDraftMember[]
 }
 
+/**
+ * The deployment-wide common settings of each Task kind (docs/api/tasks.md#task-settings):
+ * the same object a record's draft carries as its common section.
+ */
+export type ConversionSettings = Pick<
+  OperationDraftDocument,
+  'mode' | 'delete_mode' | 'other_tags' | 'no_effect_tags' | 'matched' | 'unmatched' | 'other'
+>
+export type RenameSettings = RenameDraftDocument['common']
+export type MetadataSettings = MetadataDraftDocument['common']
+export interface TaskSettingsMap {
+  conversion: ConversionSettings
+  rename: RenameSettings
+  metadata_refresh: MetadataSettings
+}
+
+/** One Task kind's settings with the ETag the next save must echo as If-Match. */
+export interface TaskSettings<T extends OperationType = OperationType> {
+  settings: TaskSettingsMap[T]
+  etag: string
+}
+
 /** Any operation's draft document; the payload belongs to its task (ADR 0004). */
 export type AnyDraftDocument = OperationDraftDocument | RenameDraftDocument | MetadataDraftDocument
 
@@ -749,7 +771,6 @@ export interface DraftEnvelopeResponse {
   /** The OPERATION version: echo it back as If-Match on the next save. */
   version: number
   task: TaskEnvelope<OperationDraftDocument>
-  common_settings_current: boolean
   updated_at: string
 }
 
@@ -761,7 +782,6 @@ export interface DraftResponse<D = OperationDraftDocument> {
   version: number
   schema_version: number
   document: D
-  common_settings_current: boolean
   updated_at: string
 }
 
@@ -1210,8 +1230,13 @@ export interface ApiClientContract {
     operation: OperationType,
     document: AnyDraftDocument,
     ifMatchVersion: number,
-    applyCommonSettings?: boolean,
   ): Promise<Operation>
+  getTaskSettings<T extends OperationType>(operation: T, signal?: AbortSignal): Promise<TaskSettings<T>>
+  saveTaskSettings<T extends OperationType>(
+    operation: T,
+    settings: TaskSettingsMap[T],
+    etag: string,
+  ): Promise<TaskSettings<T>>
   startGeneration(
     worksetId: string,
     operation: OperationType,

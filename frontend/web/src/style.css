@@ -128,7 +128,9 @@
 
     light                                          ratio
       success ink     #146C36 on #E7F5EC             5.78
-      warning ink     #B45309 on #FBF0E3             4.47
+      warning ink     #9A4507 on #FBF0E3             5.78
+                      on #f6f5f0 5.96 · #ecebe4 5.44 · #e2e0d8 4.92
+                      (--warning stays #B45309: non-text fill, >= 3:1)
       danger ink      #B91C1C on #FBEBEB             5.60
       info ink         #0369A1 on #E8F3F9             5.26
 
@@ -198,7 +200,7 @@
   --success-weak: #E7F5EC;
   --success-border: #A7D8BA;
   --warning: #B45309;
-  --warning-ink: #B45309;
+  --warning-ink: #9A4507;
   --warning-weak: #FBF0E3;
   --warning-border: #E4C193;
   --danger: #B91C1C;

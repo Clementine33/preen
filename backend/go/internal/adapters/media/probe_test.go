@@ -24,7 +24,7 @@ func TestImageDimensionsReadsHeader(t *testing.T) {
 	}
 	f.Close()
 
-	width, height, err := media.New("").ImageDimensions(path)
+	width, height, err := media.New("").ImageDimensions(context.Background(), path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -39,7 +39,7 @@ func TestImageDimensionsRejectsNonImage(t *testing.T) {
 	if err := os.WriteFile(filepath.FromSlash(path), []byte("not an image"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := media.New("").ImageDimensions(path); err == nil {
+	if _, _, err := media.New("").ImageDimensions(context.Background(), path); err == nil {
 		t.Fatal("expected an error for a non-image file")
 	}
 }

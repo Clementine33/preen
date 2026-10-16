@@ -198,3 +198,52 @@ func TestEncodedAudioWaitsForItsBitrateAndKeepsKnownFacts(t *testing.T) {
 		t.Errorf("nothing should remain, got %q", candidatePaths(candidates))
 	}
 }
+
+func TestMediaFactsCountsSplitAtTheCursorPerLibrary(t *testing.T) {
+	repo, err := NewRepository(t.TempDir() + "/test.db")
+	if err != nil {
+		t.Fatalf("create repo: %v", err)
+	}
+	defer repo.Close()
+	music, err := repo.CreateLibrary("music", "/music")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// "/music_old" shares a prefix with "/music" and must not count towards it.
+	old, err := repo.CreateLibrary("old", "/music_old")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, createErr := repo.CreateLibrary("empty", "/empty"); createErr != nil {
+		t.Fatal(createErr)
+	}
+	for _, f := range []struct{ root, path string }{
+		{"/music", "/music/a.png"}, {"/music", "/music/b.png"}, {"/music", "/music/c.png"},
+		{"/music_old", "/music_old/a.png"},
+	} {
+		stageFactsRow(t, repo, f.root, f.path, "image/png", 1, 1, f.root)
+	}
+	for _, root := range []string{"/music", "/music_old"} {
+		if mergeErr := repo.MergeStagingSimple(root, root); mergeErr != nil {
+			t.Fatal(mergeErr)
+		}
+	}
+
+	adapter := NewScanStaging(repo)
+	got, err := adapter.MediaFactsCounts("/music/a.png")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]inventory.LibraryMediaCounts{
+		music.ID: {LibraryID: music.ID, Pending: 2, Unmeasurable: 1},
+		old.ID:   {LibraryID: old.ID, Pending: 1},
+	}
+	if len(got) != len(want) {
+		t.Fatalf("counts = %+v, want %+v (libraries with nothing missing are omitted)", got, want)
+	}
+	for _, c := range got {
+		if c != want[c.LibraryID] {
+			t.Errorf("library %s counts = %+v, want %+v", c.LibraryID, c, want[c.LibraryID])
+		}
+	}
+}

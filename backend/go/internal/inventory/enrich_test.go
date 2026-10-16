@@ -60,6 +60,24 @@ func (s *factsStore) UpdateEntryMediaFacts(updates []inventory.MediaFactsUpdate)
 	return nil
 }
 
+// MediaFactsCounts files every path under one library.
+func (s *factsStore) MediaFactsCounts(after string) ([]inventory.LibraryMediaCounts, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	c := inventory.LibraryMediaCounts{LibraryID: "lib"}
+	for path := range s.missing {
+		if path > after {
+			c.Pending++
+		} else {
+			c.Unmeasurable++
+		}
+	}
+	if c.Pending+c.Unmeasurable == 0 {
+		return nil, nil
+	}
+	return []inventory.LibraryMediaCounts{c}, nil
+}
+
 func TestMediaFactsNotifyOnlyCommittedBatchesAndCoalesce(t *testing.T) {
 	for _, fail := range []bool{false, true} {
 		t.Run(fmt.Sprintf("write failure %v", fail), func(t *testing.T) {
@@ -234,6 +252,80 @@ func TestMediaEnricherYieldsToAScanAndResumes(t *testing.T) {
 		time.Sleep(time.Minute)
 		if missing, _ := store.counts(); missing != 0 {
 			t.Errorf("after the scan the pass must resume and finish; %d left", missing)
+		}
+	})
+}
+
+func TestMediaFactsStatusFollowsPreemptionAndResume(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		gate := admission.NewGate(nil)
+		e := inventory.NewMediaEnricher(newFactsStore(200), &slowProber{}, gate.BeginBackground)
+		e.Workers = 4
+		runEnricher(t, e)
+		signals, release := e.SubscribeStatus()
+		defer release()
+		<-signals // connect-time signal
+		if st := e.Status(); st.State != inventory.MediaFactsIdle || len(st.Libraries) != 0 {
+			t.Fatalf("status before any pass = %+v", st)
+		}
+
+		e.Kick()
+		time.Sleep(25 * time.Millisecond)
+		if st := e.Status(); st.State != inventory.MediaFactsRunning {
+			t.Fatalf("status during the pass = %+v, want running", st)
+		}
+		releaseScan, err := gate.BeginScan()
+		if err != nil {
+			t.Fatal(err)
+		}
+		synctest.Wait()
+		if st := e.Status(); st.State != inventory.MediaFactsPaused {
+			t.Fatalf("status after preemption = %+v, want paused", st)
+		}
+		time.Sleep(10 * time.Second) // retries are refused while the scan runs
+		if st := e.Status(); st.State != inventory.MediaFactsPaused {
+			t.Fatalf("status while refused = %+v, want paused", st)
+		}
+
+		releaseScan()
+		for e.Status().State == inventory.MediaFactsPaused {
+			time.Sleep(100 * time.Millisecond)
+		}
+		if st := e.Status(); st.State != inventory.MediaFactsRunning {
+			t.Fatalf("status after resume = %+v, want running", st)
+		}
+		time.Sleep(time.Minute)
+		if st := e.Status(); st.State != inventory.MediaFactsIdle || len(st.Libraries) != 0 {
+			t.Errorf("status after the pass = %+v, want idle with nothing left", st)
+		}
+	})
+}
+
+func TestMediaFactsStatusSplitsAtTheCursorAndThrottlesBatches(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		store := newFactsStore(400) // seven batches, a bit over 300ms each
+		prober := &slowProber{
+			fail: map[string]bool{"/lib/rj1/0007": true, "/lib/rj1/0100": true, "/lib/rj1/0300": true},
+		}
+		e := inventory.NewMediaEnricher(store, prober, nil)
+		e.Workers = 2
+		runEnricher(t, e)
+
+		e.Kick()
+		time.Sleep(400 * time.Millisecond) // first batch committed, under a second since the count
+		if st := e.Status(); st.State != inventory.MediaFactsRunning || st.Libraries[0].Pending != 400 {
+			t.Errorf("status inside the throttle window = %+v, want the start counts", st)
+		}
+		time.Sleep(time.Second) // the fourth batch (cursor 0255) ends past the window
+		want := inventory.LibraryMediaCounts{LibraryID: "lib", Pending: 144, Unmeasurable: 2}
+		if st := e.Status(); st.State != inventory.MediaFactsRunning || len(st.Libraries) != 1 ||
+			st.Libraries[0] != want {
+			t.Errorf("status after a committed batch = %+v, want %+v", st, want)
+		}
+		time.Sleep(time.Minute)
+		want = inventory.LibraryMediaCounts{LibraryID: "lib", Unmeasurable: 3}
+		if st := e.Status(); st.State != inventory.MediaFactsIdle || len(st.Libraries) != 1 || st.Libraries[0] != want {
+			t.Errorf("status when idle = %+v, want every remaining file unmeasurable: %+v", st, want)
 		}
 	})
 }

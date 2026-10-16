@@ -41,8 +41,13 @@ func TestMediaFactsStreamConnectsHeartbeatsAndCancels(t *testing.T) {
 			defer close(done)
 			h.ServeHTTP(w, r)
 		}()
-		if got := <-w.flushes; got != "event: changed\ndata: {}\n\n" {
-			t.Errorf("initial notification = %q", got)
+		// Both primed sources answer on connect, in either order.
+		var got string
+		for !strings.Contains(got, "event: changed\n") || !strings.Contains(got, "event: status\n") {
+			got = <-w.flushes
+		}
+		if !strings.Contains(got, "event: status\ndata: {\"state\":\"idle\",\"libraries\":[]}\n\n") {
+			t.Errorf("initial status = %q", got)
 		}
 		started := time.Now()
 		if got := <-w.flushes; !strings.Contains(got, ": keep-alive\n\n") {
@@ -79,15 +84,15 @@ func TestMediaFactsStreamSendsWorksChangedOnConnectAndAfterACommit(t *testing.T)
 		ctx, cancel := context.WithCancel(context.Background())
 		r := httptest.NewRequest(http.MethodGet, "/api/v1/inventory/media-facts/events", nil).WithContext(ctx)
 		r.Header.Set("Authorization", "Bearer test")
-		w := &flushedResponse{ResponseRecorder: httptest.NewRecorder(), flushes: make(chan string, 4)}
+		w := &flushedResponse{ResponseRecorder: httptest.NewRecorder(), flushes: make(chan string, 8)}
 		done := make(chan struct{})
 		go func() {
 			defer close(done)
 			h.ServeHTTP(w, r)
 		}()
-		// Both primed sources answer on connect, in either order.
+		// All primed sources answer on connect, in any order.
 		var got string
-		for !strings.Contains(got, "event: changed\n") || !strings.Contains(got, "event: works_changed\n") {
+		for !strings.Contains(got, "event: changed\n") || !strings.Contains(got, "event: works_changed\n") || !strings.Contains(got, "event: status\n") {
 			got = <-w.flushes
 		}
 		hub.Notify()

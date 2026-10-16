@@ -7,7 +7,8 @@ import { apiStub } from '@/test/api-stub'
 import { installTestQueryPlugin } from '@/test/query-client'
 import OverviewPage from './OverviewPage.vue'
 import { useLibraryUiStore } from '@/stores/library-ui'
-import type { Library, LibraryDir, Workset } from '@/lib/api/types'
+import { useMediaFactsStore } from '@/stores/media-facts'
+import type { Library, LibraryDir, MediaFactsStatus, Workset } from '@/lib/api/types'
 
 /** The page's selection store, as a row click would drive it. */
 function ui() {
@@ -250,5 +251,32 @@ describe('workbench overview', () => {
 
     expect(wrapper.get('[data-testid="create-error"]').text()).toContain('none of the selected folders')
     expect(wrapper.get('[data-testid="skipped-report"]').text()).toContain('docs')
+  })
+})
+
+describe('media facts status line', () => {
+  async function lineFor(status: MediaFactsStatus | null): Promise<string | null> {
+    const { wrapper } = await mountOverview()
+    useMediaFactsStore().status = status
+    await flushPromises()
+    const line = wrapper.find('[data-testid="media-facts-status"]')
+    return line.exists() ? line.text() : null
+  }
+  const counts = (pending: number, unmeasurable: number) => [{ library_id: 'lib-1', pending, unmeasurable }]
+
+  it('shows what is left while measuring, and that it will resume when paused', async () => {
+    expect(await lineFor({ state: 'running', libraries: counts(12345, 2) })).toBe('媒体事实 · 测量中 · 剩 12,345')
+    expect(await lineFor({ state: 'paused', libraries: counts(7, 0) })).toBe('媒体事实 · 已暂停，将自动继续 · 剩 7')
+  })
+
+  it('reports files that cannot be measured once nothing is pending', async () => {
+    expect(await lineFor({ state: 'idle', libraries: counts(0, 1500) })).toBe('媒体事实 · 1,500 个文件无法测量')
+    expect(await lineFor({ state: 'running', libraries: counts(0, 3) })).toBe('媒体事实 · 3 个文件无法测量')
+  })
+
+  it('stays hidden without a status, or when this library has nothing unknown', async () => {
+    expect(await lineFor(null)).toBeNull()
+    expect(await lineFor({ state: 'running', libraries: [] })).toBeNull()
+    expect(await lineFor({ state: 'running', libraries: [{ library_id: 'other', pending: 5, unmeasurable: 5 }] })).toBeNull()
   })
 })

@@ -20,6 +20,7 @@ import { dirsQueryOptions, useLibraryList } from '@/queries/libraries'
 import { updateLibraryMutationOptions, deleteLibraryMutationOptions } from '@/queries/libraries'
 import { createCurrentRecordMutationOptions, currentRecordQueryOptions } from '@/queries/worksets'
 import { useLibraryUiStore } from '@/stores/library-ui'
+import { useMediaFactsStore } from '@/stores/media-facts'
 import { useScanStore } from '@/stores/scan'
 import {
   CONVERSION,
@@ -42,9 +43,22 @@ const api = useApiClient()
 const queryClient = useQueryClient()
 const ui = useLibraryUiStore()
 const scan = useScanStore()
+const mediaFacts = useMediaFactsStore()
 const libraryScan = useLibraryScan()
 
 const libraryId = computed(() => (route.params.libraryId as string) || '')
+
+// One quiet line for this library's Media Facts Pass; absent while nothing is unknown.
+const mediaFactsLine = computed(() => {
+  const status = mediaFacts.status
+  const counts = status?.libraries.find((item) => item.library_id === libraryId.value)
+  if (!status || !counts) return ''
+  if (counts.pending > 0 && status.state !== 'idle') {
+    const left = counts.pending.toLocaleString()
+    return status.state === 'paused' ? `媒体事实 · 已暂停，将自动继续 · 剩 ${left}` : `媒体事实 · 测量中 · 剩 ${left}`
+  }
+  return counts.unmeasurable > 0 ? `媒体事实 · ${counts.unmeasurable.toLocaleString()} 个文件无法测量` : ''
+})
 const filesOpen = computed(() => route.name === 'overview-files')
 
 const { query: librariesQuery, librariesData, activeLibrary } = useLibraryList()
@@ -375,6 +389,14 @@ const libraryRoot = computed(() => activeLibrary.value?.root_path ?? '')
             :error-code="scan.errorCode"
             :error-message="scan.errorMessage"
           />
+
+          <p
+            v-if="mediaFactsLine"
+            class="mt-1 text-[11px] text-[var(--text-muted)]"
+            data-testid="media-facts-status"
+          >
+            {{ mediaFactsLine }}
+          </p>
 
           <p
             v-if="createError"

@@ -32,6 +32,9 @@ type MediaFactsStore interface {
 	// unknown.
 	EntriesMissingMediaFacts(after string, limit int) ([]MediaCandidate, error)
 	UpdateEntryMediaFacts(updates []MediaFactsUpdate) error
+	// MediaFactsCounts counts, per library, the files still missing facts,
+	// split into those after the cursor and those up to it.
+	MediaFactsCounts(after string) ([]LibraryMediaCounts, error)
 }
 
 // BeginBackground takes the preemptible admission slot: stop is called when
@@ -54,6 +57,13 @@ type MediaEnricher struct {
 	kick   chan struct{}
 	hub    notify.Hub
 
+	// status is the pass's published state (see publish); statusHub signals its
+	// changes, separately from hub so measured facts and progress stay distinct.
+	statusHub notify.Hub
+	statusMu  sync.Mutex
+	status    MediaFactsStatus
+	countedAt time.Time
+
 	// Workers overrides the probe width; zero means mediaProbeWorkers.
 	Workers int
 }
@@ -61,7 +71,10 @@ type MediaEnricher struct {
 // NewMediaEnricher creates the enricher. A nil begin runs every pass without
 // admission, the state tests run in.
 func NewMediaEnricher(store MediaFactsStore, prober MediaProber, begin BeginBackground) *MediaEnricher {
-	return &MediaEnricher{store: store, prober: prober, begin: begin, kick: make(chan struct{}, 1)}
+	return &MediaEnricher{
+		store: store, prober: prober, begin: begin, kick: make(chan struct{}, 1),
+		status: MediaFactsStatus{State: MediaFactsIdle, Libraries: []LibraryMediaCounts{}},
+	}
 }
 
 // Kick asks for a pass. It never blocks: a kick that arrives while a pass is
@@ -90,9 +103,22 @@ func (e *MediaEnricher) Run(ctx context.Context) {
 func (e *MediaEnricher) pass(ctx context.Context) {
 	after := ""
 	for {
-		if e.admitted(ctx, &after) || !sleep(ctx, mediaRetryDelay) {
+		if e.admitted(ctx, &after) {
+			e.settle(ctx, MediaFactsIdle, pastEveryPath)
 			return
 		}
+		e.settle(ctx, MediaFactsPaused, after)
+		if !sleep(ctx, mediaRetryDelay) {
+			return
+		}
+	}
+}
+
+// settle publishes a state change unless the process is shutting down, when the
+// store may already be closing.
+func (e *MediaEnricher) settle(ctx context.Context, state MediaFactsState, after string) {
+	if ctx.Err() == nil {
+		e.publish(state, after, false)
 	}
 }
 
@@ -110,6 +136,7 @@ func (e *MediaEnricher) admitted(ctx context.Context, after *string) bool {
 		}
 	}
 	defer release()
+	e.settle(ctx, MediaFactsRunning, *after)
 
 	for passCtx.Err() == nil {
 		batch, err := e.store.EntriesMissingMediaFacts(*after, mediaBatchSize)
@@ -131,6 +158,7 @@ func (e *MediaEnricher) admitted(ctx context.Context, after *string) bool {
 		// Only a whole batch moves the cursor; a stopped one is asked again,
 		// and its measured files no longer qualify.
 		*after = batch[len(batch)-1].Path
+		e.publish(MediaFactsRunning, *after, true)
 	}
 	return ctx.Err() != nil
 }

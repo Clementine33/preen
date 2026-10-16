@@ -1,8 +1,10 @@
 import { QueryObserver } from '@tanstack/vue-query'
 import { flushPromises, mount } from '@vue/test-utils'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { createPinia, setActivePinia } from 'pinia'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError, apiClientKey } from '@/lib/api/client'
 import type { ApiClientContract } from '@/lib/api/types'
+import { useMediaFactsStore } from '@/stores/media-facts'
 import { queryKeys } from '@/queries/query-keys'
 import { apiStub } from '@/test/api-stub'
 import { createTestQueryClient, installTestQueryPlugin } from '@/test/query-client'
@@ -15,6 +17,7 @@ function untilAbort(signal: AbortSignal): Promise<void> {
   })
 }
 
+beforeEach(() => setActivePinia(createPinia()))
 afterEach(() => vi.useRealTimers())
 
 describe('media facts synchronization', () => {
@@ -184,6 +187,32 @@ describe('works_changed', () => {
     await vi.advanceTimersByTimeAsync(0)
     await run
     stops.forEach((stop) => stop())
+    client.clear()
+  })
+})
+
+describe('status', () => {
+  it('keeps the latest pass status and forgets it when the connection drops', async () => {
+    const client = createTestQueryClient()
+    const store = useMediaFactsStore()
+    const controller = new AbortController()
+    let drop!: () => void
+    const api = apiStub({
+      streamMediaFactsEvents: async function* () {
+        yield { type: 'status', data: { state: 'running', libraries: [{ library_id: 'lib', pending: 3, unmeasurable: 0 }] } }
+        yield { type: 'status', data: { state: 'idle', libraries: [{ library_id: 'lib', pending: 0, unmeasurable: 1 }] } }
+        await new Promise<void>((resolve) => { drop = resolve })
+        throw new Error('connection lost')
+      },
+    })
+    const run = syncMediaFacts(api, client, controller.signal)
+    await flushPromises()
+    expect(store.status).toEqual({ state: 'idle', libraries: [{ library_id: 'lib', pending: 0, unmeasurable: 1 }] })
+    drop()
+    await flushPromises()
+    expect(store.status).toBeNull()
+    controller.abort()
+    await run
     client.clear()
   })
 })

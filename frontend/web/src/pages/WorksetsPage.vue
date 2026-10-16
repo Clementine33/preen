@@ -164,7 +164,7 @@ async function retryPage() {
         <li v-for="library in libraries" :key="library.id" class="flex items-center gap-2">
           <RouterLink
             :to="{ name: 'workbench-overview', params: { libraryId: library.id } }"
-            class="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 hover:border-[var(--wire-strong)] focus-visible:ring-2 focus-visible:ring-[var(--brand)] focus-visible:outline-none"
+            class="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 hover:border-[var(--wire-strong)] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
             :data-testid="`library-${library.id}`"
           >
             <LibraryBig class="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />

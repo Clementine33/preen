@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { Button } from '@/components/ui/button'
+import UnitSelect from './UnitSelect.vue'
 import type { MetadataDraftDocument, OperationType, RenameDraftDocument } from '@/lib/api/types'
 
 /**
@@ -22,12 +23,12 @@ const MODES = [
   { value: 'fill_missing', label: '只补缺失' },
   { value: 'refresh_dynamic', label: '刷新动态数据（销量、评分等）' },
   { value: 'refresh_all', label: '全部刷新' },
-] as const
+]
 const LOCALES = [
   { value: 'ja-jp', label: '日本語' },
   { value: 'zh-cn', label: '简体中文' },
   { value: 'zh-tw', label: '繁體中文' },
-] as const
+]
 
 const template = ref('')
 const stripBracketedTitle = ref(false)
@@ -122,15 +123,11 @@ function save() {
       <div class="flex flex-wrap items-center gap-3 text-xs">
         <label class="flex items-center gap-1">
           模式
-          <select v-model="mode" class="rounded-md border border-border bg-background px-1 py-0.5" :disabled="disabled" data-testid="metadata-mode">
-            <option v-for="item in MODES" :key="item.value" :value="item.value">{{ item.label }}</option>
-          </select>
+          <UnitSelect class="h-7 rounded-md border border-[var(--control-border)] bg-background px-1.5 text-xs" :value="mode" :disabled="disabled" aria-label="模式" data-testid="metadata-mode" :options="MODES" @change="mode = $event as typeof mode" />
         </label>
         <label class="flex items-center gap-1">
           标签语言
-          <select v-model="locale" class="rounded-md border border-border bg-background px-1 py-0.5" :disabled="disabled" data-testid="metadata-locale">
-            <option v-for="item in LOCALES" :key="item.value" :value="item.value">{{ item.label }}</option>
-          </select>
+          <UnitSelect class="h-7 rounded-md border border-[var(--control-border)] bg-background px-1.5 text-xs" :value="locale" :disabled="disabled" aria-label="标签语言" data-testid="metadata-locale" :options="LOCALES" @change="locale = $event as typeof locale" />
         </label>
         <label class="flex items-center gap-1" :title="coverDisabled ? '刷新动态数据不下载封面' : undefined">
           <input v-model="downloadCover" type="checkbox" :disabled="disabled || coverDisabled" data-testid="metadata-cover" />

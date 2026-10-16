@@ -132,7 +132,7 @@ function hasOverride(member: WorksetMember): boolean {
         type="search"
         placeholder="搜索文件夹"
         aria-label="搜索文件夹"
-        class="h-9 w-full rounded-md border border-[var(--control-border)] bg-background px-3 text-sm focus-visible:ring-2 focus-visible:ring-[var(--brand)] focus-visible:outline-none @[641px]:max-w-xs"
+        class="h-9 w-full rounded-md border border-[var(--control-border)] bg-background px-3 text-sm focus-visible:border-[var(--wire-strong)] focus-visible:outline-none @[641px]:max-w-xs"
         @input="emit('update:search', ($event.target as HTMLInputElement).value)"
       />
       <div class="flex flex-wrap items-center gap-1.5" role="group" aria-label="筛选">
@@ -197,7 +197,7 @@ function hasOverride(member: WorksetMember): boolean {
           <div class="col-start-2 row-start-1 min-w-0">
             <button
               type="button"
-              class="block w-full text-left text-sm font-medium leading-5 hover:underline focus-visible:ring-2 focus-visible:ring-[var(--brand)] focus-visible:outline-none"
+              class="block w-full text-left text-sm font-medium leading-5 hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
               :title="member.folder_path"
               data-testid="member-open"
               @click="emit('open', member.member_id)"

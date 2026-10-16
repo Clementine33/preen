@@ -425,7 +425,7 @@ const libraryRoot = computed(() => activeLibrary.value?.root_path ?? '')
                 placeholder="搜索文件夹"
                 aria-label="搜索文件夹"
                 data-testid="dir-search"
-                class="h-7 min-w-0 flex-1 rounded-md border border-[var(--control-border)] bg-background px-2 text-xs focus-visible:ring-2 focus-visible:ring-[var(--brand)] focus-visible:outline-none @[641px]:max-w-xs"
+                class="h-7 min-w-0 flex-1 rounded-md border border-[var(--control-border)] bg-background px-2 text-xs focus-visible:border-[var(--wire-strong)] focus-visible:outline-none @[641px]:max-w-xs"
               />
               <div class="flex items-center gap-1" role="group" aria-label="排序（降序）">
                 <Button

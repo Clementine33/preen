@@ -156,8 +156,12 @@ type StagingEntry struct {
 	Format     string
 }
 
+// detectFormatFromPath names an entry's media type from its extension. A macOS
+// AppleDouble sidecar ("._name.mp3") borrows its file's extension but holds
+// only metadata, so it gets no media type: it stays a plain file, never a
+// media facts candidate.
 func detectFormatFromPath(path string, isDir bool) string {
-	if isDir {
+	if isDir || strings.HasPrefix(filepath.Base(path), "._") {
 		return ""
 	}
 	ext := strings.ToLower(filepath.Ext(path))

@@ -9,8 +9,10 @@ import (
 
 // missingMediaFacts is the candidate predicate shared by the pass and its
 // counts, so what the status reports is exactly what the pass still visits.
+// Images are the formats the prober has a header decoder for (media/probe.go);
+// any other image keeps unknown dimensions without being retried.
 const missingMediaFacts = `is_dir = 0 AND format IS NOT NULL
-	AND ((format LIKE 'image/%' AND (width IS NULL OR height IS NULL))
+	AND ((format IN ('image/jpeg', 'image/png', 'image/gif', 'image/webp') AND (width IS NULL OR height IS NULL))
 		OR (format LIKE 'audio/%' AND duration_sec IS NULL)
 		OR (format IN ('audio/mpeg', 'audio/mp4', 'audio/aac', 'audio/opus') AND bitrate IS NULL))`
 

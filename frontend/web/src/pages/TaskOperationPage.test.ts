@@ -7,6 +7,7 @@ import type { ApiClientContract, ExecutionView, Operation, OperationType, Workse
 import { apiStub } from '@/test/api-stub'
 import { installTestQueryPlugin } from '@/test/query-client'
 import TaskOperationPage from './TaskOperationPage.vue'
+import UnitSelect from '@/features/worksets/UnitSelect.vue'
 import TaskToastHost from '@/components/layout/TaskToastHost.vue'
 import { useTaskToast } from '@/composables/use-task-toast'
 
@@ -335,7 +336,8 @@ describe('task operation page', () => {
   it('saves metadata settings and executes the current plan', async () => {
     const { wrapper, api } = await mountPage('/worksets/lib-1/metadata')
 
-    await wrapper.get('[data-testid="metadata-mode"]').setValue('refresh_dynamic')
+    wrapper.findComponent(UnitSelect).vm.$emit('change', 'refresh_dynamic')
+    await flushPromises()
     await wrapper.get('[data-testid="task-settings"]').trigger('submit')
     await flushPromises()
     const [, type, document, version] = vi.mocked(api.saveOperationDraft).mock.calls[0]

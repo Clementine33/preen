@@ -60,7 +60,7 @@ function onOpenChange(value: boolean) {
             </DialogDescription>
           </div>
           <DialogClose
-            class="inline-flex size-7 shrink-0 items-center justify-center rounded-md text-[var(--text-muted)] hover:bg-muted focus-visible:ring-2 focus-visible:ring-[var(--brand)] focus-visible:outline-none"
+            class="inline-flex size-7 shrink-0 items-center justify-center rounded-md text-[var(--text-muted)] hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
             aria-label="关闭"
           >
             <X class="size-4" />

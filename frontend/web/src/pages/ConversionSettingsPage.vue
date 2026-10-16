@@ -87,7 +87,7 @@ const listRoute = computed(() => ({
 <template>
   <div class="mx-auto max-w-2xl p-3" data-testid="conversion-settings">
     <div class="mb-2 flex items-center gap-2">
-      <RouterLink :to="listRoute" class="text-xs text-[var(--brand-ink)] hover:underline">← 转换列表</RouterLink>
+      <RouterLink :to="listRoute" class="text-xs text-[var(--brand-ink)]hover:bg-muted">← 转换列表</RouterLink>
       <h2 class="font-heading text-sm font-semibold">转换全局设置</h2>
     </div>
 

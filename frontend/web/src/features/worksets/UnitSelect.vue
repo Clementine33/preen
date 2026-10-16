@@ -35,7 +35,7 @@ const NONE = '__none'
         align="start"
         :side-offset="4"
         :collision-padding="8"
-        class="z-50 max-h-[var(--reka-select-content-available-height)] min-w-[var(--reka-select-trigger-width)] max-w-[calc(100vw-16px)] overflow-y-auto rounded-md border border-[var(--control-border)] bg-popover p-1 text-xs text-popover-foreground shadow-md"
+        class="z-50 max-h-[var(--reka-select-content-available-height)] min-w-[var(--reka-select-trigger-width)] max-w-[calc(100vw-16px)] overflow-y-auto rounded-none border border-[var(--wire-strong)] bg-popover p-1 text-xs text-popover-foreground shadow-[4px_4px_0_-1px_var(--background),4px_4px_0_0_var(--wire-mid)]"
       >
         <SelectViewport>
           <SelectItem

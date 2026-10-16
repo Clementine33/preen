@@ -128,7 +128,7 @@ function onDrawerClick(event: MouseEvent) {
             v-if="contextBackTo"
             :to="contextBackTo"
             :aria-label="`返回${contextBackLabel}`"
-            class="flex size-11 shrink-0 items-center justify-center text-[var(--text-secondary)] hover:bg-muted focus-visible:ring-2 focus-visible:ring-[var(--brand)] focus-visible:outline-none"
+            class="flex size-11 shrink-0 items-center justify-center text-[var(--text-secondary)] hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
             data-testid="workbench-back"
           >
             <ChevronLeft class="size-4" />
@@ -143,7 +143,7 @@ function onDrawerClick(event: MouseEvent) {
         <slot v-else name="header">
           <RouterLink
             to="/worksets"
-            class="inline-flex items-center gap-1 px-1.5 py-1 text-xs font-medium text-[var(--text-secondary)] hover:bg-muted focus-visible:ring-2 focus-visible:ring-[var(--brand)] focus-visible:outline-none"
+            class="inline-flex items-center gap-1 px-1.5 py-1 text-xs font-medium text-[var(--text-secondary)] hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
           >
             <ChevronLeft class="size-3.5" />
             工作集

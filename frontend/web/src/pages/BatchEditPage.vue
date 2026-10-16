@@ -102,7 +102,7 @@ function cancel() {
 <template>
   <div class="mx-auto max-w-2xl p-3" data-testid="batch-edit-page">
     <div class="mb-2 flex items-center gap-2">
-      <RouterLink :to="listRoute" class="text-xs text-[var(--brand-ink)] hover:underline">← 转换列表</RouterLink>
+      <RouterLink :to="listRoute" class="text-xs text-[var(--brand-ink)]hover:bg-muted">← 转换列表</RouterLink>
       <h2 class="font-heading text-sm font-semibold">批量修改 {{ members.length }} 个文件夹</h2>
     </div>
 

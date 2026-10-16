@@ -7,6 +7,13 @@ import (
 	"github.com/onsei/organizer/backend/internal/inventory"
 )
 
+// missingMediaFacts is the candidate predicate shared by the pass and its
+// counts, so what the status reports is exactly what the pass still visits.
+const missingMediaFacts = `is_dir = 0 AND format IS NOT NULL
+	AND ((format LIKE 'image/%' AND (width IS NULL OR height IS NULL))
+		OR (format LIKE 'audio/%' AND duration_sec IS NULL)
+		OR (format IN ('audio/mpeg', 'audio/mp4', 'audio/aac', 'audio/opus') AND bitrate IS NULL))`
+
 // EntriesMissingMediaFacts pages, in path order after the given path, through
 // the inventory's files whose image dimensions, audio duration or encoded
 // bitrate are still unknown (ADR 0013). The bitrate formats are the
@@ -17,10 +24,7 @@ import (
 func (a *ScanStaging) EntriesMissingMediaFacts(after string, limit int) ([]inventory.MediaCandidate, error) {
 	rows, err := a.repo.DB().Query(`
 		SELECT path, format FROM entries
-		WHERE path > ? AND is_dir = 0 AND format IS NOT NULL
-			AND ((format LIKE 'image/%' AND (width IS NULL OR height IS NULL))
-				OR (format LIKE 'audio/%' AND duration_sec IS NULL)
-				OR (format IN ('audio/mpeg', 'audio/mp4', 'audio/aac', 'audio/opus') AND bitrate IS NULL))
+		WHERE path > ? AND `+missingMediaFacts+`
 		ORDER BY path
 		LIMIT ?
 	`, after, limit)
@@ -38,6 +42,35 @@ func (a *ScanStaging) EntriesMissingMediaFacts(after string, limit int) ([]inven
 		candidates = append(candidates, c)
 	}
 	return candidates, rows.Err()
+}
+
+// MediaFactsCounts counts, per library, the files still missing media facts,
+// split at the pass cursor: those after it are pending, those up to it were
+// visited and stay unknown. Entries belong to a library by the root they were
+// scanned under, so no path pattern is involved. Libraries with nothing
+// missing are absent.
+func (a *ScanStaging) MediaFactsCounts(after string) ([]inventory.LibraryMediaCounts, error) {
+	rows, err := a.repo.DB().Query(`
+		SELECT l.id, COALESCE(SUM(e.path > ?1), 0), COALESCE(SUM(e.path <= ?1), 0)
+		FROM entries e JOIN libraries l ON l.root_path = e.root_path
+		WHERE `+missingMediaFacts+`
+		GROUP BY l.id
+		ORDER BY l.id
+	`, after)
+	if err != nil {
+		return nil, fmt.Errorf("count media-fact candidates: %w", err)
+	}
+	defer rows.Close()
+
+	var counts []inventory.LibraryMediaCounts
+	for rows.Next() {
+		var c inventory.LibraryMediaCounts
+		if err := rows.Scan(&c.LibraryID, &c.Pending, &c.Unmeasurable); err != nil {
+			return nil, fmt.Errorf("scan media-fact counts: %w", err)
+		}
+		counts = append(counts, c)
+	}
+	return counts, rows.Err()
 }
 
 // UpdateEntryMediaFacts writes measured media facts back onto the entries

@@ -196,6 +196,30 @@ notification to cover changes while disconnected. A `: keep-alive` comment
 is sent every 15 seconds; disconnection unregisters the subscriber. There are
 no event IDs, replay history or persistent event fields.
 
+The same connection also carries `event: status`, the state of the Media Facts
+Pass and what it has left, per library:
+
+```text
+event: status
+data: {"state":"running","libraries":[{"library_id":"…","pending":120,"unmeasurable":3}]}
+
+```
+
+`state` is `running` while a pass holds the admission slot and measures,
+`paused` while a kicked pass is refused or preempted and waits to retry (it
+resumes by itself), and `idle` when no pass is in progress. Each library counts
+its files whose media facts are still unknown, split at the pass cursor:
+`pending` files come after it and will still be visited, `unmeasurable` files
+were visited in this pass and stay unknown. When idle, every remaining file is
+`unmeasurable`. A library with both counts 0 is omitted, so `libraries` may be
+empty.
+
+One status is sent on every connection. A change of state is sent immediately;
+within a state, one follows a committed batch with fresh counts, at most once
+per second. Like `changed`, it coalesces: a slow subscriber keeps only the
+latest status. The counts are computed on those occasions, not per file, so
+they can trail the measured facts by up to a second.
+
 The same connection also carries `event: works_changed` with `{}`: one is sent
 on every connection, registered together with the subscription so no commit
 between a reader's list and its connection is lost, and one follows each commit

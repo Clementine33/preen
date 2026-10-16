@@ -3,12 +3,21 @@ export interface ApiConfig {
   token: string | null
 }
 
-/** A reload signal for committed media facts, including the initial connection. */
-export interface MediaFactsEvent {
-  /** `works_changed`: a commit may alter what the works pages show; also sent once per connection. */
-  type: 'changed' | 'works_changed'
-  data: Record<string, never>
+/** What the Media Facts Pass is doing, with the files still unknown per library. */
+export interface MediaFactsStatus {
+  state: 'running' | 'paused' | 'idle'
+  /** Libraries with nothing unknown are omitted. */
+  libraries: { library_id: string; pending: number; unmeasurable: number }[]
 }
+
+/** A reload signal for committed media facts, including the initial connection, or the pass's status. */
+export type MediaFactsEvent =
+  | {
+      /** `works_changed`: a commit may alter what the works pages show; also sent once per connection. */
+      type: 'changed' | 'works_changed'
+      data: Record<string, never>
+    }
+  | { type: 'status'; data: MediaFactsStatus }
 
 export interface HealthResponse {
   ok: boolean

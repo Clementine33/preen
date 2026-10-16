@@ -2,6 +2,41 @@
 
 [API reference](../api.md) · [Common conventions](common.md)
 
+## Task settings
+
+The common settings of a Task kind are deployment-wide (ADR 0008): one set per
+kind, independent of any record, and this endpoint is the only way to read or
+write it. `{type}` is `conversion`, `rename` or `metadata_refresh`; any other
+value is 404 `UNKNOWN_OPERATION_TYPE`.
+
+| Method | Path | Behavior |
+| --- | --- | --- |
+| GET | `/api/v1/tasks/{type}/settings` | `{"operation_type","settings"}` with an `ETag` header. `settings` is the stored set, or the Task's seed value while none was saved; it works in a library with no record. |
+| PUT | `/api/v1/tasks/{type}/settings` | Body `{"settings":{…}}`, `If-Match` = the `ETag` last read (`VERSION_REQUIRED` 400 without it, `VERSION_CONFLICT` 409 when the set changed meanwhile). 200 with the new set and `ETag`. |
+
+`settings` is the task's common section, the same object its draft carries:
+conversion `{other_tags, mode, delete_mode, no_effect_tags, matched, unmatched,
+other}`; rename `{template, strip_bracketed_title, strip_tilde_title,
+strip_book_title, voice_actor_separator}`; metadata refresh `{mode, locale,
+download_cover}`. The `ETag` is the canonical-JSON hash of that object (a quoted
+string), so equal settings have equal tags. An unreadable or invalid payload is
+400 (`INVALID_SETTINGS`, or the task's own `INVALID_DRAFT`).
+
+A save is all-or-nothing and runs in one transaction: it stores the set and
+rewrites the common section of every editable record of the kind, each with its
+draft hash and operation version, while member overrides, exclusions and
+generated plans stay as they were (a rewritten record reads `needs_planning`).
+Orphaned records never take part. `COMMON_SETTINGS_BUSY` (409) names a record
+whose planning session or execution is queued/running; `COMMON_SETTINGS_UNREADABLE`
+(409) names one whose stored draft cannot be read. Either refuses the whole
+save. A record created afterwards starts from the stored set.
+
+The draft PUT (`PUT /api/v1/worksets/{id}/operations/{type}/draft`) never
+changes these settings: a common section that differs from the stored set is
+refused with 409 `COMMON_SETTINGS_MISMATCH`. While no set was ever saved, the
+reference is the record's own stored common section, so member-only edits keep
+working.
+
 ## Rename task (schema version 1)
 
 Use the operation routes with `{type}=rename`. The draft payload is:
@@ -20,8 +55,8 @@ trimmed, sanitized and length/reserved checked like a template result, and the
 title filters do not apply). It must contain exactly one work code, otherwise
 the folder is blocked with `NAME_CODE_INVALID`. A code different from the bound
 work's re-binds the folder's copy to that work when it is executed
-(`rebind_to`). Members without a record participate. Common template saves use
-the deployment-wide settings rules. Exactly one `{rj}` is required; the other allowed placeholders
+(`rebind_to`). Members without a record participate. The template and filters are
+the deployment-wide [Task settings](#task-settings). Exactly one `{rj}` is required; the other allowed placeholders
 are `{title}`, `{circle}`, `{voice_actors}`, `{language}`, `{release_date}`.
 `voice_actor_separator` (optional, omitted or empty means `、`) joins the actors
 of `{voice_actors}` (sorted, deduplicated); it is at most 16 characters with no
@@ -112,7 +147,7 @@ required. The draft payload defaults to:
 Modes: `fill_missing`, `refresh_dynamic`, `refresh_all`; locales: `ja-jp`,
 `zh-cn`, `zh-tw`. Only `member_id` / `excluded` are stored per member; unknown
 fields and duplicate/unknown members are rejected. Dynamic refresh normalizes
-`download_cover` to false. Common saves follow the deployment-wide rules.
+`download_cover` to false. The common section is written through the deployment-wide [Task settings](#task-settings).
 
 Planning freezes selected directories, copy/work targets and settings without
 upstream requests or inventory scans. It checks each selected directory directly,

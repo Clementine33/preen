@@ -374,6 +374,28 @@ func TestMetadataSSEIncludesResultsThatFinishOutOfOrder(t *testing.T) {
 	}
 }
 
+// publishCommon saves common as the Task settings, the only write path of
+// them, and returns the record's draft as it stands afterwards.
+func publishCommon(t *testing.T, svc workset.Service, worksetID string, common refresh.Common) *workset.Draft {
+	t.Helper()
+	payload, err := json.Marshal(common)
+	if err != nil {
+		t.Fatal(err)
+	}
+	current, err := svc.GetTaskSettings(t.Context(), refresh.Kind)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = svc.SaveTaskSettings(t.Context(), refresh.Kind, payload, current.ETag); err != nil {
+		t.Fatal(err)
+	}
+	draft, err := svc.GetDraft(t.Context(), worksetID, refresh.Kind)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return draft
+}
+
 func TestRefreshAllCanRunAgainWithoutChangingSettingsOrFolders(t *testing.T) {
 	svc, _, _, _, names, libID, statics := worksetFixture(t)
 	record, err := svc.CreateCurrentWorkset(t.Context(), workset.CreateCurrentRequest{
@@ -397,8 +419,9 @@ func TestRefreshAllCanRunAgainWithoutChangingSettingsOrFolders(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	synced := publishCommon(t, svc, id, document.Common)
 	op, err := svc.SaveDraft(t.Context(), id, refresh.Kind, workset.SaveDraftRequest{
-		Document: raw, IfMatchVersion: draft.Version,
+		Document: raw, IfMatchVersion: synced.Version,
 	})
 	if err != nil {
 		t.Fatal(err)

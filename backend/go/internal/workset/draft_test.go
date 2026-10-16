@@ -16,7 +16,7 @@ func TestDraftSaveAdvancesOperationVersion(t *testing.T) {
 	ids := f.standardLibrary("albumA")
 	ws := f.createCurrent("版本", ids...)
 
-	saved := f.saveDraft(ws.WorksetID, draftDoc(), ws.Operations[0].Version)
+	saved := f.saveDraft(ws.WorksetID, mustDraft(t, f.draft(ws.WorksetID)), ws.Operations[0].Version)
 	if saved.Version != ws.Operations[0].Version+1 {
 		t.Fatalf("operation version = %d, want %d", saved.Version, ws.Operations[0].Version+1)
 	}
@@ -28,7 +28,7 @@ func TestDraftSaveAdvancesOperationVersion(t *testing.T) {
 		ws.WorksetID,
 		workset.OperationTypeConversion,
 		workset.SaveDraftRequest{
-			Document: draftJSON(t, draftDoc()), IfMatchVersion: ws.Operations[0].Version,
+			Document: draftJSON(t, mustDraft(t, f.draft(ws.WorksetID))), IfMatchVersion: ws.Operations[0].Version,
 		},
 	); err == nil {
 		t.Fatal("stale If-Match must be refused")
@@ -168,32 +168,16 @@ func TestDraftRejectsUnknownCodecAndMode(t *testing.T) {
 		Codec:   reconcile.CodecOpus,
 		Quality: &reconcile.Quality{Kind: reconcile.QualityBitrate, Bitrate: 160},
 	}
-	opusDoc, err := f.svc.SaveDraft(
-		f.ctx,
-		ws.WorksetID,
-		workset.OperationTypeConversion,
-		workset.SaveDraftRequest{
-			Document: draftJSON(t, opusTarget), IfMatchVersion: version,
-		},
-	)
-	if err != nil {
-		t.Fatalf("an Opus encoded target must save: %v", err)
-	}
-	version = opusDoc.Version
+	// Output profiles are common settings: they are saved through the Task
+	// settings seam, which applies the same structural validation.
+	f.saveSettings(opusTarget)
+	version = f.operation(ws.WorksetID).Version
 
 	// An undeclared output is incomplete, not malformed: it saves.
 	undeclared := draftDoc()
 	undeclared.Matched.Lossless = nil
-	if _, err := f.svc.SaveDraft(
-		f.ctx,
-		ws.WorksetID,
-		workset.OperationTypeConversion,
-		workset.SaveDraftRequest{
-			Document: draftJSON(t, undeclared), IfMatchVersion: version,
-		},
-	); err != nil {
-		t.Fatalf("an incomplete output profile must be saveable: %v", err)
-	}
+	f.saveSettings(undeclared)
+	_ = version
 }
 
 // TestDraftEditRejectedWhileGenerating covers the generating and read-only guards:

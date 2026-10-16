@@ -31,23 +31,24 @@ func (r *Repository) GetCommonSettings(operationType string) (*workset.CommonSet
 	return &c, nil
 }
 
-// SyncCommonSettings applies one global common-settings save in a single
-// transaction (ADR 0008): the caller's own draft under its version guard,
-// the stored payload, and the common fields of every other editable operation
-// of the kind — each with its draft hash and operation version.
+// SyncCommonSettings applies one deployment-wide common-settings save in a
+// single transaction (ADR 0008): the stored payload, and the common fields of
+// every editable operation of the kind — each with its draft hash and
+// operation version.
 //
-// The candidate set and each candidate's session state are read inside that
-// same transaction: a record created or a session queued between the caller's
-// read and this write is seen here, so the save either covers it or is refused
-// as a whole. A record whose library is gone is read-only and never synced
-// (ADR 0001); every generated plan is left exactly as it was — revising a
-// plan is planning's job, and a rewritten draft is what sends it to
-// needs_planning.
+// The current payload (stored, or the task's seed when none was saved) is read
+// inside that same transaction and must hash to ExpectedHash. The candidate
+// set and each candidate's session state are read there too: a record created
+// or a session queued between the caller's read and this write is seen here,
+// so the save either covers it or is refused as a whole. A record whose
+// library is gone is read-only and never synced (ADR 0001); every generated
+// plan is left exactly as it was — revising a plan is planning's job, and a
+// rewritten draft is what sends it to needs_planning.
 //
-// Errors: workset.ErrVersionConflict or workset.ErrOperationNotFound for the
-// target's own guard, and *workset.CommonSettingsRefusalError when any
-// candidate holds a queued or running session or a document the task cannot
-// read. Either way the transaction rolls back: no record is left updated.
+// Errors: workset.ErrVersionConflict when the payload moved, and
+// *workset.CommonSettingsRefusalError when any candidate holds a queued or
+// running session or a document the task cannot read. Either way the
+// transaction rolls back: no record is left updated.
 func (r *Repository) SyncCommonSettings(p workset.CommonSettingsSync) error {
 	tx, err := r.db.Begin()
 	if err != nil {
@@ -55,15 +56,18 @@ func (r *Repository) SyncCommonSettings(p workset.CommonSettingsSync) error {
 	}
 	defer tx.Rollback()
 
-	if guardErr := writeOperationDraftTx(tx, workset.OperationDraft{
-		WorksetID:     p.TargetWorksetID,
-		OperationType: p.OperationType,
-		SchemaVersion: p.SchemaVersion,
-		DraftJSON:     p.Document,
-		DraftHash:     p.DraftHash,
-		UpdatedAt:     p.Now,
-	}, p.TargetVersion); guardErr != nil {
-		return guardErr
+	current := p.SeedSettings
+	var stored string
+	switch scanErr := tx.QueryRow(
+		`SELECT settings_json FROM common_settings WHERE operation_type = ?`, p.OperationType,
+	).Scan(&stored); {
+	case scanErr == nil:
+		current = stored
+	case !errors.Is(scanErr, sql.ErrNoRows):
+		return scanErr
+	}
+	if workset.CanonicalJSONHash([]byte(current)) != p.ExpectedHash {
+		return workset.ErrVersionConflict
 	}
 
 	targets, err := commonSettingsTargetsTx(tx, p.OperationType)
@@ -77,9 +81,6 @@ func (r *Repository) SyncCommonSettings(p workset.CommonSettingsSync) error {
 		}
 		if reason != "" {
 			return refusalOf(target, reason)
-		}
-		if target.worksetID == p.TargetWorksetID {
-			continue
 		}
 		document, hash, rewriteErr := p.Rewrite(target.document)
 		if rewriteErr != nil {
@@ -111,22 +112,6 @@ func (r *Repository) SyncCommonSettings(p workset.CommonSettingsSync) error {
 		return fmt.Errorf("upsert common settings: %w", err)
 	}
 	return tx.Commit()
-}
-
-// writeOperationDraftTx replaces one operation's draft and advances its
-// version in one step, under the If-Match guard the caller echoed.
-func writeOperationDraftTx(tx *sql.Tx, d workset.OperationDraft, expectedVersion int) error {
-	result, err := tx.Exec(`
-		UPDATE workset_operations SET version = version + 1, updated_at = ?
-		WHERE workset_id = ? AND operation_type = ? AND version = ?
-	`, d.UpdatedAt.Format(timeFormat), d.WorksetID, d.OperationType, expectedVersion)
-	if err != nil {
-		return err
-	}
-	if affected, _ := result.RowsAffected(); affected == 0 {
-		return operationVersionGuardResult(tx, d.WorksetID, d.OperationType)
-	}
-	return upsertOperationDraft(tx, d)
 }
 
 // rewriteOperationDraftTx replaces one operation's draft with a rewrite of the

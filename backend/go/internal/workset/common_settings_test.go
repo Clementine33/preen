@@ -1,6 +1,7 @@
 package workset_test
 
 import (
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -62,33 +63,75 @@ func (f *fixture) reopen() {
 	f.open()
 }
 
-func TestDraftReportsPublishedCommonSettings(t *testing.T) {
+// saveSettings publishes a conversion document's common section through the
+// Task settings seam, echoing the ETag it just read.
+func (f *fixture) saveSettings(doc *conversion.DraftDoc) *workset.TaskSettings {
+	f.t.Helper()
+	current, err := f.svc.GetTaskSettings(f.ctx, workset.OperationTypeConversion)
+	if err != nil {
+		f.t.Fatalf("GetTaskSettings: %v", err)
+	}
+	saved, err := f.trySaveSettings(doc, current.ETag)
+	if err != nil {
+		f.t.Fatalf("SaveTaskSettings: %v", err)
+	}
+	return saved
+}
+
+func (f *fixture) trySaveSettings(doc *conversion.DraftDoc, etag string) (*workset.TaskSettings, error) {
+	f.t.Helper()
+	payload, err := json.Marshal(conversion.ProjectCommonSettings(doc))
+	if err != nil {
+		f.t.Fatalf("marshal settings: %v", err)
+	}
+	return f.svc.SaveTaskSettings(f.ctx, workset.OperationTypeConversion, payload, etag)
+}
+
+// TestTaskSettingsReadSeedThenStored covers the endpoint's read side: with
+// nothing saved it serves the Task's seed value, and a save changes the value
+// and the ETag. It needs no record.
+func TestTaskSettingsReadSeedThenStored(t *testing.T) {
 	f := newFixture(t)
-	first, second := f.twoLibraries(t)
-	for _, id := range []string{first.WorksetID, second.WorksetID} {
-		if f.draft(id).CommonSettingsCurrent {
-			t.Fatalf("record %s reports unpublished settings as current", id)
-		}
+	seed, err := f.svc.GetTaskSettings(f.ctx, workset.OperationTypeConversion)
+	if err != nil || seed.ETag == "" {
+		t.Fatalf("seed settings = %+v err=%v", seed, err)
+	}
+	if common, getErr := f.repo.GetCommonSettings(workset.OperationTypeConversion); getErr != nil || common != nil {
+		t.Fatalf("reading stored settings: %+v err=%v", common, getErr)
 	}
 
-	f.saveDraft(first.WorksetID, elsewhere("反転"), first.Operations[0].Version)
-	for _, id := range []string{first.WorksetID, second.WorksetID} {
-		if !f.draft(id).CommonSettingsCurrent {
-			t.Fatalf("record %s did not observe the published settings", id)
-		}
+	saved := f.saveSettings(elsewhere("反転"))
+	if saved.ETag == seed.ETag {
+		t.Fatal("a changed value kept its ETag")
 	}
-	f.exec(
-		"UPDATE workset_operation_drafts SET draft_json = ? WHERE workset_id = ?",
-		string(draftJSON(t, draftDoc())), second.WorksetID,
+	got, err := f.svc.GetTaskSettings(f.ctx, workset.OperationTypeConversion)
+	if err != nil || got.ETag != saved.ETag || string(got.Settings) != string(saved.Settings) {
+		t.Fatalf("stored settings = %+v err=%v, want %+v", got, err, saved)
+	}
+	if !strings.Contains(string(got.Settings), `"strict"`) {
+		t.Fatalf("stored settings = %s", got.Settings)
+	}
+}
+
+// TestInvalidTaskSettingsAreRefused covers the write side's validation: a
+// payload the task cannot read changes nothing.
+func TestInvalidTaskSettingsAreRefused(t *testing.T) {
+	f := newFixture(t)
+	seed, _ := f.svc.GetTaskSettings(f.ctx, workset.OperationTypeConversion)
+	_, err := f.svc.SaveTaskSettings(
+		f.ctx, workset.OperationTypeConversion, json.RawMessage(`{"mode":`), seed.ETag,
 	)
-	if f.draft(second.WorksetID).CommonSettingsCurrent {
-		t.Fatal("a draft with different common settings reports itself as current")
+	if werr, ok := workset.AsError(err); !ok || werr.Kind != workset.ErrKindInvalidArgument {
+		t.Fatalf("want an invalid-argument refusal, got %v", err)
+	}
+	if common, getErr := f.repo.GetCommonSettings(workset.OperationTypeConversion); getErr != nil || common != nil {
+		t.Fatalf("a refused save stored settings: %+v err=%v", common, getErr)
 	}
 }
 
 // TestCommonSettingsSaveReachesEveryRecord covers the deployment-wide rule: a
-// save that changes the common settings stores them once and rewrites every
-// other editable record's common fields with them — its member overrides and
+// settings save stores them once and rewrites every editable record's common
+// fields with them — its member overrides and
 // exclusions untouched, its operation version advanced.
 func TestCommonSettingsSaveReachesEveryRecord(t *testing.T) {
 	f := newFixture(t)
@@ -106,9 +149,9 @@ func TestCommonSettingsSaveReachesEveryRecord(t *testing.T) {
 	}}
 	before := f.saveDraft(second.WorksetID, other, second.Operations[0].Version)
 
-	saved := f.saveDraft(first.WorksetID, elsewhere("SEあり", "反転"), first.Operations[0].Version)
-	if saved.Version != first.Operations[0].Version+1 {
-		t.Fatalf("own operation version = %d, want %d", saved.Version, first.Operations[0].Version+1)
+	f.saveSettings(elsewhere("SEあり", "反転"))
+	if got := f.operation(first.WorksetID).Version; got != first.Operations[0].Version+1 {
+		t.Fatalf("first record version = %d, want %d", got, first.Operations[0].Version+1)
 	}
 
 	synced := mustDraft(t, f.draft(second.WorksetID))
@@ -149,7 +192,7 @@ func TestCommonSettingsSaveReachesEveryRecord(t *testing.T) {
 // old plan is refused until a new one is generated (ADR 0008).
 func TestCommonSettingsSaveLeavesGeneratedPlansAndNeedsReplanning(t *testing.T) {
 	f := newFixture(t)
-	first, second := f.twoLibraries(t)
+	_, second := f.twoLibraries(t)
 	f.insertAudioEntry("/music2/albumC/01.mp3", "/music2/albumC", 1024, 1000)
 
 	planned := f.saveDraft(second.WorksetID, mustDraft(t, f.draft(second.WorksetID)), second.Operations[0].Version)
@@ -159,7 +202,7 @@ func TestCommonSettingsSaveLeavesGeneratedPlansAndNeedsReplanning(t *testing.T) 
 	}
 	planID := f.operation(second.WorksetID).CurrentRevision.PlanID
 
-	f.saveDraft(first.WorksetID, elsewhere("SEなし"), first.Operations[0].Version)
+	f.saveSettings(elsewhere("SEなし"))
 
 	op := f.operation(second.WorksetID)
 	if op.PlanningState != workset.PlanningNeedsPlanning {
@@ -222,58 +265,33 @@ func TestMemberOnlySaveStaysInsideItsRecord(t *testing.T) {
 	}
 }
 
-// TestCommonSettingsSaveRefusedWhileAnotherRecordIsBusy covers the all-or
-// nothing rule: one record busy with a planning session or an execution
-// refuses the whole global save, and nothing is written.
-func TestCommonSettingsSaveRefusedWhileAnotherRecordIsBusy(t *testing.T) {
-	for _, tc := range []struct {
-		name   string
-		busy   string
-		code   string
-		reason string
-	}{
-		{"generating elsewhere", "other", "COMMON_SETTINGS_BUSY", workset.RefusalGenerating},
-		{"executing elsewhere", "other", "COMMON_SETTINGS_BUSY", workset.RefusalExecuting},
-		{"generating here", "self", "GENERATION_IN_PROGRESS", workset.RefusalGenerating},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
+// TestCommonSettingsSaveRefusedWhileARecordIsBusy covers the all-or-nothing
+// rule: one record busy with a planning session or an execution refuses the
+// whole save, and nothing is written.
+func TestCommonSettingsSaveRefusedWhileARecordIsBusy(t *testing.T) {
+	for _, reason := range []string{workset.RefusalGenerating, workset.RefusalExecuting} {
+		t.Run(reason, func(t *testing.T) {
 			f := newFixture(t)
 			first, second := f.twoLibraries(t)
-			mine, busy := first, second
-			if tc.busy == "self" {
-				busy = first
-			}
-			f.occupy(busy.WorksetID, tc.reason)
+			f.occupy(second.WorksetID, reason)
+			firstBefore := f.operation(first.WorksetID)
+			busyBefore := f.operation(second.WorksetID)
+			current, _ := f.svc.GetTaskSettings(f.ctx, workset.OperationTypeConversion)
 
-			mineBefore := f.operation(mine.WorksetID)
-			busyBefore := f.operation(busy.WorksetID)
-			_, err := f.svc.SaveDraft(
-				f.ctx,
-				mine.WorksetID,
-				workset.OperationTypeConversion,
-				workset.SaveDraftRequest{
-					Document:       draftJSON(t, elsewhere("SEなし")),
-					IfMatchVersion: mineBefore.Version,
-				},
-			)
-			if err == nil {
-				t.Fatal("a global save with a busy record must be refused")
+			_, err := f.trySaveSettings(elsewhere("SEなし"), current.ETag)
+			if werr, ok := workset.AsError(err); !ok || werr.Code != "COMMON_SETTINGS_BUSY" {
+				t.Fatalf("want COMMON_SETTINGS_BUSY, got %v", err)
 			}
-			werr, ok := workset.AsError(err)
-			if !ok || werr.Code != tc.code {
-				t.Fatalf("want %s, got %v", tc.code, err)
+			if got := f.operation(first.WorksetID).Version; got != firstBefore.Version {
+				t.Fatalf("the refused save advanced a record: %d -> %d", firstBefore.Version, got)
 			}
-			if got := f.operation(mine.WorksetID).Version; got != mineBefore.Version {
-				t.Fatalf("the refused save advanced its own record: %d -> %d", mineBefore.Version, got)
-			}
-			if got := f.operation(busy.WorksetID).Version; got != busyBefore.Version {
+			if got := f.operation(second.WorksetID).Version; got != busyBefore.Version {
 				t.Fatalf("the refused save advanced the busy record: %d -> %d", busyBefore.Version, got)
 			}
-			if common, commonErr := f.repo.GetCommonSettings(
+			if common, getErr := f.repo.GetCommonSettings(
 				workset.OperationTypeConversion,
-			); commonErr != nil ||
-				common != nil {
-				t.Fatalf("a refused save stored deployment-wide settings: %+v err=%v", common, commonErr)
+			); getErr != nil || common != nil {
+				t.Fatalf("a refused save stored settings: %+v err=%v", common, getErr)
 			}
 		})
 	}
@@ -297,25 +315,15 @@ func (f *fixture) occupy(worksetID, reason string) {
 	}
 }
 
-// TestCommonSettingsSaveVersionConflictChangesNothing covers the target's own
-// guard: a stale If-Match refuses the whole save before anything moves.
 func TestCommonSettingsSaveVersionConflictChangesNothing(t *testing.T) {
 	f := newFixture(t)
-	first, second := f.twoLibraries(t)
-	stale := first.Operations[0].Version
-	f.saveDraft(first.WorksetID, draftDoc(), stale)
+	_, second := f.twoLibraries(t)
+	stale, _ := f.svc.GetTaskSettings(f.ctx, workset.OperationTypeConversion)
+	f.saveSettings(draftDoc())
+	f.saveSettings(elsewhere("SEなし"))
 
 	before := f.operation(second.WorksetID)
-	_, err := f.svc.SaveDraft(
-		f.ctx, first.WorksetID, workset.OperationTypeConversion,
-		workset.SaveDraftRequest{
-			Document:       draftJSON(t, elsewhere("反転")),
-			IfMatchVersion: stale,
-		},
-	)
-	if err == nil {
-		t.Fatal("a stale If-Match must be refused")
-	}
+	_, err := f.trySaveSettings(elsewhere("反転"), stale.ETag)
 	if werr, ok := workset.AsError(err); !ok || werr.Code != "VERSION_CONFLICT" {
 		t.Fatalf("want VERSION_CONFLICT, got %v", err)
 	}
@@ -330,9 +338,9 @@ func TestCommonSettingsSaveVersionConflictChangesNothing(t *testing.T) {
 // after the process is restarted on the same data directory.
 func TestCommonSettingsSeedNewRecordsAndSurviveRestart(t *testing.T) {
 	f := newFixture(t)
-	first, _ := f.twoLibraries(t)
+	f.twoLibraries(t)
 
-	f.saveDraft(first.WorksetID, elsewhere("反転"), first.Operations[0].Version)
+	f.saveSettings(elsewhere("反転"))
 
 	seeded := mustDraft(t, f.draft(f.createCurrent("新建", "albumA").WorksetID))
 	if seeded.Mode != reconcile.ModeStrict || seeded.DeleteMode != "hard" {
@@ -357,14 +365,14 @@ func TestCommonSettingsSeedNewRecordsAndSurviveRestart(t *testing.T) {
 // whose library is gone never takes part in a global save.
 func TestCommonSettingsSkipOrphanedRecords(t *testing.T) {
 	f := newFixture(t)
-	first, second := f.twoLibraries(t)
+	_, second := f.twoLibraries(t)
 	// The delete path removes a record rather than orphaning it; this is the
 	// state a record left behind by a vanished library row is in.
 	f.exec("UPDATE worksets SET library_id = NULL WHERE id = ?", second.WorksetID)
 
 	before := f.operation(second.WorksetID)
 	beforeDraft := f.draft(second.WorksetID)
-	f.saveDraft(first.WorksetID, elsewhere("SEなし"), first.Operations[0].Version)
+	f.saveSettings(elsewhere("SEなし"))
 
 	after := f.operation(second.WorksetID)
 	if after.Version != before.Version || after.PlanningState != workset.PlanningOrphaned {
@@ -400,29 +408,14 @@ func TestCreateDoesNotGuessGlobalSettingsFromAnotherRecord(t *testing.T) {
 	}
 }
 
-func TestApplyUnchangedLegacySettingsPublishesGlobalValue(t *testing.T) {
+// Settings equal to the seed still become the stored value: it is the user's
+// choice, not whatever the seed is next time.
+func TestSavingTheSeedValuePublishesIt(t *testing.T) {
 	f := newFixture(t)
-	first, second := f.twoLibraries(t)
-	old := draftJSON(t, elsewhere("反転"))
-	f.exec("UPDATE workset_operation_drafts SET draft_json = ? WHERE workset_id = ?", string(old), first.WorksetID)
-	_, err := f.svc.SaveDraft(f.ctx, first.WorksetID, workset.OperationTypeConversion, workset.SaveDraftRequest{
-		Document: old, IfMatchVersion: first.Operations[0].Version, ApplyCommonSettings: true,
-	})
-	if err != nil {
-		t.Fatalf("apply unchanged legacy settings: %v", err)
-	}
+	f.twoLibraries(t)
+	f.saveSettings(draftDoc())
 	if common, err := f.repo.GetCommonSettings(workset.OperationTypeConversion); err != nil || common == nil {
 		t.Fatalf("common settings were not stored: %+v err=%v", common, err)
-	}
-	synced := mustDraft(t, f.draft(second.WorksetID))
-	if synced.Unmatched.Encoded == nil || synced.Unmatched.Encoded.Quality == nil ||
-		synced.Unmatched.Encoded.Quality.Bitrate != 192 {
-		t.Fatalf("other record was not synced: %+v", synced.Unmatched)
-	}
-	replaced := mustDraft(t, f.draft(f.createCurrent("换目录", "albumB").WorksetID))
-	if replaced.Unmatched.Encoded == nil || replaced.Unmatched.Encoded.Quality == nil ||
-		replaced.Unmatched.Encoded.Quality.Bitrate != 192 {
-		t.Fatalf("replacement did not seed from the global value: %+v", replaced.Unmatched)
 	}
 }
 
@@ -459,8 +452,8 @@ func TestReplaceKeepsCurrentRecordSettingsWithoutGlobalRow(t *testing.T) {
 // a record whose draft says something else never wins.
 func TestCreatePrefersStoredGlobalSettingsOverStaleDraft(t *testing.T) {
 	f := newFixture(t)
-	first, second := f.twoLibraries(t)
-	f.saveDraft(first.WorksetID, elsewhere("反転"), first.Operations[0].Version)
+	_, second := f.twoLibraries(t)
+	f.saveSettings(elsewhere("反転"))
 
 	// A record still holding the seed settings, saved after the deployment-wide
 	// value was established (an older build, a hand-edited row).
@@ -505,68 +498,78 @@ func TestCommonSettingsSaveRefusedOnAnUnreadableDraft(t *testing.T) {
 
 	before := f.operation(first.WorksetID)
 	mineBefore := f.draft(first.WorksetID)
-	_, err := f.svc.SaveDraft(
-		f.ctx, first.WorksetID, workset.OperationTypeConversion,
-		workset.SaveDraftRequest{
-			Document:       draftJSON(t, elsewhere("SEなし")),
-			IfMatchVersion: before.Version,
-		},
-	)
-	if err == nil {
-		t.Fatal("an unreadable stored draft must refuse the whole save")
-	}
+	current, _ := f.svc.GetTaskSettings(f.ctx, workset.OperationTypeConversion)
+	_, err := f.trySaveSettings(elsewhere("SEなし"), current.ETag)
 	if werr, ok := workset.AsError(err); !ok || werr.Code != "COMMON_SETTINGS_UNREADABLE" {
 		t.Fatalf("want COMMON_SETTINGS_UNREADABLE, got %v", err)
 	}
 	if got := f.operation(first.WorksetID).Version; got != before.Version {
-		t.Fatalf("the refused save advanced its own record: %d -> %d", before.Version, got)
+		t.Fatalf("the refused save advanced a record: %d -> %d", before.Version, got)
 	}
 	if got := f.draft(first.WorksetID); string(got.Document) != string(mineBefore.Document) {
-		t.Fatalf("the refused save rewrote its own draft: %s", got.Document)
+		t.Fatalf("the refused save rewrote a draft: %s", got.Document)
 	}
 	if common, commonErr := f.repo.GetCommonSettings(workset.OperationTypeConversion); commonErr != nil ||
 		common != nil {
-		t.Fatalf("a refused save stored deployment-wide settings: %+v err=%v", common, commonErr)
+		t.Fatalf("a refused save stored settings: %+v err=%v", common, commonErr)
 	}
 }
 
-func TestCommonSettingsSaveRefusesUnreadableSourceDraft(t *testing.T) {
+// TestDraftSaveRefusesADifferingCommonSection covers the draft PUT's side of
+// the rule: it neither applies nor ignores a common section that differs from
+// the Task settings, and member-only saves go through.
+func TestDraftSaveRefusesADifferingCommonSection(t *testing.T) {
 	f := newFixture(t)
 	first, _ := f.twoLibraries(t)
-	const unreadable = `{"schema_version":1,"unknown_field":true}`
-	f.exec("UPDATE workset_operation_drafts SET draft_json = ? WHERE workset_id = ?", unreadable, first.WorksetID)
-
-	_, err := f.svc.SaveDraft(f.ctx, first.WorksetID, workset.OperationTypeConversion, workset.SaveDraftRequest{
-		Document: draftJSON(t, elsewhere("SEなし")), IfMatchVersion: first.Operations[0].Version,
-	})
-	if werr, ok := workset.AsError(err); !ok || werr.Code != "COMMON_SETTINGS_UNREADABLE" {
-		t.Fatalf("want COMMON_SETTINGS_UNREADABLE, got %v", err)
+	version := first.Operations[0].Version
+	differs := func() error {
+		_, err := f.svc.SaveDraft(f.ctx, first.WorksetID, workset.OperationTypeConversion,
+			workset.SaveDraftRequest{Document: draftJSON(t, elsewhere("反転")), IfMatchVersion: version})
+		return err
 	}
-	if got := f.draft(first.WorksetID); string(got.Document) != unreadable {
-		t.Fatalf("unreadable source draft was overwritten: %s", got.Document)
+	// Nothing stored: the record's own draft is the reference.
+	if werr, ok := workset.AsError(differs()); !ok || werr.Code != "COMMON_SETTINGS_MISMATCH" {
+		t.Fatalf("want COMMON_SETTINGS_MISMATCH without stored settings, got %v", werr)
 	}
-	if common, commonErr := f.repo.GetCommonSettings(
-		workset.OperationTypeConversion,
-	); commonErr != nil || common != nil {
-		t.Fatalf("a refused save stored deployment-wide settings: %+v err=%v", common, commonErr)
+	f.saveSettings(elsewhere("SEなし"))
+	version = f.operation(first.WorksetID).Version
+	if werr, ok := workset.AsError(differs()); !ok || werr.Code != "COMMON_SETTINGS_MISMATCH" {
+		t.Fatalf("want COMMON_SETTINGS_MISMATCH against stored settings, got %v", werr)
 	}
+	if common, _ := f.repo.GetCommonSettings(workset.OperationTypeConversion); common == nil ||
+		!strings.Contains(common.Settings, "SEなし") {
+		t.Fatalf("a refused draft save touched the stored settings: %+v", common)
+	}
+	if got := f.operation(first.WorksetID).Version; got != version {
+		t.Fatalf("the refused save advanced the record: %d -> %d", version, got)
+	}
+	// A member-only save of the synced common section is accepted.
+	doc := mustDraft(t, f.draft(first.WorksetID))
+	doc.Members = []conversion.DraftMember{{MemberID: first.Members[0].MemberID, Excluded: true}}
+	f.saveDraft(first.WorksetID, doc, version)
 }
 
+// Settings stored under an older field spelling read as the same settings: the
+// endpoint serves them under today's names and a draft save is not a mismatch,
+// while no stored draft is rewritten by either read.
 func TestLegacyCommonSettingsReadDoesNotRewriteStoredDraft(t *testing.T) {
 	f := newFixture(t)
 	first, _ := f.twoLibraries(t)
-	f.saveDraft(first.WorksetID, elsewhere("NoSE"), first.Operations[0].Version)
+	f.saveSettings(elsewhere("NoSE"))
 	before := f.draft(first.WorksetID)
 	legacy := strings.ReplaceAll(string(before.Document), "no_effect_tags", "classifier_tags")
 	f.exec("UPDATE workset_operation_drafts SET draft_json = ? WHERE workset_id = ?", legacy, first.WorksetID)
 	f.exec(
 		"UPDATE common_settings SET settings_json = replace(settings_json, 'no_effect_tags', 'classifier_tags') WHERE operation_type = 'conversion'",
 	)
-	after := f.draft(first.WorksetID)
-	if !after.CommonSettingsCurrent {
-		t.Fatal("equivalent old common settings report a mismatch")
+	read, err := f.svc.GetTaskSettings(f.ctx, workset.OperationTypeConversion)
+	if err != nil || !strings.Contains(string(read.Settings), "no_effect_tags") {
+		t.Fatalf("legacy settings read = %+v err=%v", read, err)
 	}
+	after := f.draft(first.WorksetID)
 	if string(after.Document) != legacy || after.Version != before.Version || !after.UpdatedAt.Equal(before.UpdatedAt) {
 		t.Fatalf("read changed frozen storage: %+v -> %+v", before, after)
 	}
+	doc := mustDraft(t, after)
+	f.saveDraft(first.WorksetID, doc, after.Version)
 }

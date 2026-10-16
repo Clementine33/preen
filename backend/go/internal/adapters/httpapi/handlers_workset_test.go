@@ -173,6 +173,18 @@ func draftDocumentFixture() map[string]any {
 	}
 }
 
+// commonOf is a draft fixture's common section: everything but its schema
+// version and member records.
+func commonOf(doc map[string]any) map[string]any {
+	out := map[string]any{}
+	for key, value := range doc {
+		if key != "schema_version" && key != "members" {
+			out[key] = value
+		}
+	}
+	return out
+}
+
 //nolint:cyclop,gocognit,gocyclo,funlen // one HTTP lifecycle walk covering every operation route
 func TestWorksetHTTPLifecycle(t *testing.T) {
 	h, repo := newWorksetServer(t)
@@ -282,9 +294,8 @@ func TestWorksetHTTPLifecycle(t *testing.T) {
 		t.Fatalf("draft status = %d body=%s", w.Code, w.Body.String())
 	}
 	var draft struct {
-		Version               int  `json:"version"`
-		CommonSettingsCurrent bool `json:"common_settings_current"`
-		Task                  struct {
+		Version int `json:"version"`
+		Task    struct {
 			Kind          string `json:"kind"`
 			SchemaVersion int    `json:"schema_version"`
 			Payload       struct {
@@ -305,18 +316,78 @@ func TestWorksetHTTPLifecycle(t *testing.T) {
 	if len(draft.Task.Payload.NoEffectTags) != 1 || len(draft.Task.Payload.Members) != 0 {
 		t.Fatalf("seeded draft must be sparse: %+v", draft.Task.Payload)
 	}
-	if draft.CommonSettingsCurrent {
-		t.Fatal("draft reports a global value before the first application")
+
+	// The common settings are written through the Task settings endpoint only.
+	saveBody := draftDocumentFixture()
+	if got := reqWithIfMatch(
+		t,
+		h,
+		http.MethodPut,
+		opPath+"/draft",
+		testToken,
+		saveBody,
+		"1",
+	); got.Code != http.StatusConflict ||
+		!strings.Contains(got.Body.String(), "COMMON_SETTINGS_MISMATCH") {
+		t.Fatalf("draft with different common settings = %d %s", got.Code, got.Body.String())
+	}
+	withFlag := draftDocumentFixture()
+	withFlag["apply_common_settings"] = true
+	if got := reqWithIfMatch(
+		t,
+		h,
+		http.MethodPut,
+		opPath+"/draft",
+		testToken,
+		withFlag,
+		"1",
+	); got.Code != http.StatusBadRequest {
+		t.Fatalf("the retired apply flag must be rejected, got %d", got.Code)
+	}
+	settingsPath := "/api/v1/tasks/conversion/settings"
+	seed := req(t, h, http.MethodGet, settingsPath, testToken, nil)
+	etag := seed.Header().Get("ETag")
+	if seed.Code != http.StatusOK || etag == "" {
+		t.Fatalf("settings read = %d etag=%q body=%s", seed.Code, etag, seed.Body.String())
+	}
+	settingsBody := map[string]any{"settings": commonOf(saveBody)}
+	if got := req(t, h, http.MethodPut, settingsPath, testToken, settingsBody); got.Code != http.StatusBadRequest {
+		t.Fatalf("settings save without If-Match = %d, want 400", got.Code)
+	}
+	if got := reqWithIfMatch(
+		t,
+		h,
+		http.MethodPut,
+		settingsPath,
+		testToken,
+		settingsBody,
+		`"nope"`,
+	); got.Code != http.StatusConflict {
+		t.Fatalf("settings save with a stale ETag = %d, want 409", got.Code)
+	}
+	if got := reqWithIfMatch(
+		t,
+		h,
+		http.MethodPut,
+		"/api/v1/tasks/nope/settings",
+		testToken,
+		settingsBody,
+		etag,
+	); got.Code != http.StatusNotFound &&
+		got.Code != http.StatusBadRequest {
+		t.Fatalf("unknown task = %d, want 4xx", got.Code)
+	}
+	put := reqWithIfMatch(t, h, http.MethodPut, settingsPath, testToken, settingsBody, etag)
+	if put.Code != http.StatusOK || put.Header().Get("ETag") == "" || put.Header().Get("ETag") == etag {
+		t.Fatalf("settings save = %d etag=%q body=%s", put.Code, put.Header().Get("ETag"), put.Body.String())
 	}
 
 	// PUT draft requires If-Match on the operation version.
-	saveBody := draftDocumentFixture()
-	saveBody["apply_common_settings"] = true
 	noMatch := req(t, h, http.MethodPut, opPath+"/draft", testToken, saveBody)
 	if noMatch.Code != http.StatusBadRequest {
 		t.Fatalf("draft save without If-Match = %d, want 400", noMatch.Code)
 	}
-	saved := reqWithIfMatch(t, h, http.MethodPut, opPath+"/draft", testToken, saveBody, "1")
+	saved := reqWithIfMatch(t, h, http.MethodPut, opPath+"/draft", testToken, saveBody, "2")
 	if saved.Code != http.StatusOK {
 		t.Fatalf("put draft status = %d, body=%s", saved.Code, saved.Body.String())
 	}
@@ -326,24 +397,20 @@ func TestWorksetHTTPLifecycle(t *testing.T) {
 	if err := json.Unmarshal(saved.Body.Bytes(), &savedOp); err != nil {
 		t.Fatalf("decode saved operation: %v", err)
 	}
-	if savedOp.Version != 2 {
-		t.Fatalf("operation version after save = %d, want 2", savedOp.Version)
+	if savedOp.Version != 3 {
+		t.Fatalf("operation version after save = %d, want 3", savedOp.Version)
 	}
 	if common, err := repo.GetCommonSettings("conversion"); err != nil || common == nil {
-		t.Fatalf("applying unchanged settings did not publish a global value: %+v err=%v", common, err)
-	}
-	if got := req(t, h, http.MethodGet, opPath+"/draft", testToken, nil); got.Code != http.StatusOK ||
-		json.Unmarshal(got.Body.Bytes(), &draft) != nil || !draft.CommonSettingsCurrent {
-		t.Fatalf("saved draft did not report current global settings: %d %s", got.Code, got.Body.String())
+		t.Fatalf("the settings save did not store a value: %+v err=%v", common, err)
 	}
 	// A stale If-Match on the operation version conflicts.
-	stale := reqWithIfMatch(t, h, http.MethodPut, opPath+"/draft", testToken, saveBody, "1")
+	stale := reqWithIfMatch(t, h, http.MethodPut, opPath+"/draft", testToken, saveBody, "2")
 	if stale.Code != http.StatusConflict {
 		t.Fatalf("stale draft save = %d, want 409", stale.Code)
 	}
 
 	// POST revisions requires both Idempotency-Key and If-Match.
-	noKey := reqWithIfMatch(t, h, http.MethodPost, opPath+"/revisions", testToken, nil, "2")
+	noKey := reqWithIfMatch(t, h, http.MethodPost, opPath+"/revisions", testToken, nil, "3")
 	if noKey.Code != http.StatusBadRequest {
 		t.Fatalf("revisions without key status = %d, want 400", noKey.Code)
 	}
@@ -359,7 +426,7 @@ func TestWorksetHTTPLifecycle(t *testing.T) {
 		testToken,
 		nil,
 		"gen-http-1",
-		"2",
+		"3",
 	)
 	if started.Code != http.StatusAccepted {
 		t.Fatalf("start generation status = %d, body=%s", started.Code, started.Body.String())
@@ -408,7 +475,7 @@ func TestWorksetHTTPLifecycle(t *testing.T) {
 	if renamed.Code != http.StatusOK {
 		t.Fatalf("rename status = %d body=%s", renamed.Code, renamed.Body.String())
 	}
-	afterRename := reqWithIfMatch(t, h, http.MethodPut, opPath+"/draft", testToken, saveBody, "2")
+	afterRename := reqWithIfMatch(t, h, http.MethodPut, opPath+"/draft", testToken, saveBody, "3")
 	if afterRename.Code != http.StatusOK {
 		t.Fatalf(
 			"rename must not invalidate the operation version: %d body=%s",
@@ -720,7 +787,9 @@ func TestConversionTagWriteBoundaries(t *testing.T) {
 	doc := draftDocumentFixture()
 	doc["no_effect_tags"] = []string{}
 	doc["other_tags"] = []string{}
-	saved := reqWithIfMatch(t, h, http.MethodPut, path, testToken, doc, "1")
+	seed := req(t, h, http.MethodGet, "/api/v1/tasks/conversion/settings", testToken, nil)
+	saved := reqWithIfMatch(t, h, http.MethodPut, "/api/v1/tasks/conversion/settings", testToken,
+		map[string]any{"settings": commonOf(doc)}, seed.Header().Get("ETag"))
 	if saved.Code != http.StatusOK {
 		t.Fatalf("empty no-effect draft must save: %d %s", saved.Code, saved.Body.String())
 	}

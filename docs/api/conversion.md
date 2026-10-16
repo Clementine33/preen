@@ -54,21 +54,18 @@ so nothing about it is stored or validated differently from a hand-made one.
   it, and restoring participation restores the previous relationships.
   Excluding every member saves but cannot generate (`NO_ACTIVE_MEMBERS`).
 - **Common settings are deployment-wide** (ADR 0008). The seven common values
-  are stored once per operation kind, not per record: saving them from any
-  record's draft pushes them to every other editable record's draft in the same
-  transaction, and a record created afterwards seeds them. The PUT draft body
-  may include `"apply_common_settings":true` to publish the current record's
-  common values even when they did not change; this lets an older record
-  establish the global value explicitly. Without a stored global value, a
-  replacement keeps the replaced record's own common values, while a new
-  record in another library starts from the built-in seed. A save that changes
-  only member records stays inside its own record; a generated plan is never
-  rewritten. A record whose common fields moved reports `needs_planning` and must be re-generated before
-  it can run. Orphaned (read-only) records never take part, and a record whose
-  session is queued/running refuses the whole save with `COMMON_SETTINGS_BUSY`
-  — as does one whose stored draft cannot be read
-  (`COMMON_SETTINGS_UNREADABLE`, which names the record to recreate) — instead
-  of leaving some records updated.
+  are stored once per operation kind, not per record, and are written only
+  through [`PUT /api/v1/tasks/conversion/settings`](tasks.md#task-settings),
+  which also rewrites every editable record's draft in the same transaction. A
+  record created afterwards seeds them; without a stored value a replacement
+  keeps the replaced record's own common values, while a new record in another
+  library starts from the built-in seed. The draft PUT refuses a common section
+  that differs from them (`COMMON_SETTINGS_MISMATCH`), so a save through it only
+  moves member records and stays inside its own record. A generated plan is
+  never rewritten; a record whose common fields moved reports `needs_planning`
+  and must be re-generated before it can run. The settings save refuses as a
+  whole (`COMMON_SETTINGS_BUSY`, `COMMON_SETTINGS_UNREADABLE`) rather than leave
+  some records updated.
 
 ## Version matching and isolation
 

@@ -237,8 +237,13 @@ func TestDraftPutPassesTheRenamePayloadToTheTask(t *testing.T) {
 		return response
 	}
 
-	// The transport flag never reaches the task's strict decode.
-	saved := put(1, `{"schema_version":1,"common":{"template":"{rj}"},"members":[],"apply_common_settings":true}`)
+	// The draft PUT keeps the document shape; its common section must equal the
+	// Task settings (here: the record's own, as none were saved).
+	seeded, err := svc.GetDraft(t.Context(), id, "rename")
+	if err != nil {
+		t.Fatal(err)
+	}
+	saved := put(seeded.Version, string(seeded.Document))
 	if saved.Code != http.StatusOK {
 		t.Fatalf("save: %d, %s", saved.Code, saved.Body.String())
 	}
@@ -246,8 +251,14 @@ func TestDraftPutPassesTheRenamePayloadToTheTask(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(draft.Document), `"template":"{rj}"`) {
+	if string(draft.Document) != string(seeded.Document) {
 		t.Fatalf("stored draft: %s", draft.Document)
+	}
+
+	// Another template is the settings endpoint's to write.
+	changed := put(draft.Version, `{"schema_version":1,"common":{"template":"{rj} x"},"members":[]}`)
+	if changed.Code != http.StatusConflict || !strings.Contains(changed.Body.String(), "COMMON_SETTINGS_MISMATCH") {
+		t.Fatalf("changed common section: %d, %s", changed.Code, changed.Body.String())
 	}
 
 	// Validation stays the task's: an unknown field is its INVALID_DRAFT.

@@ -12,8 +12,8 @@ import (
 )
 
 // TestHTTPCommonSettingsSyncAcrossRecords boots the real backend and covers the
-// deployment-wide common-settings rule over HTTP: a draft save that changes the
-// common settings reaches another library's record with its member overrides
+// deployment-wide common-settings rule over HTTP: a save through the Task
+// settings endpoint reaches every library's record with its member overrides
 // and exclusions intact, and a record created afterwards starts from the same
 // settings (ADR 0008).
 func TestHTTPCommonSettingsSyncAcrossRecords(t *testing.T) {
@@ -50,14 +50,24 @@ func TestHTTPCommonSettingsSyncAcrossRecords(t *testing.T) {
 		t.Fatalf("member-only save version = %d, want 2", saved)
 	}
 
-	// Changing the common settings from the first record is a deployment-wide
-	// save: the second record's common fields move with it.
+	// The draft PUT refuses a differing common section; the settings endpoint
+	// is the write path, and it moves every record's common fields.
 	firstBody := draftPayload(t, client, ctx, base, token, first.worksetID)
 	firstBody["mode"] = "strict"
 	firstBody["no_effect_tags"] = []string{"反転", "SEあり"}
 	firstBody["matched"] = map[string]any{"lossless": map[string]any{"codec": "flac"}}
-	if got := putDraft(t, client, ctx, base, token, first.worksetID, 1, firstBody); got != 2 {
-		t.Fatalf("global save version = %d, want 2", got)
+	if code := putDraftStatus(t, client, ctx, base, token, first.worksetID, 1, firstBody); code != http.StatusConflict {
+		t.Fatalf("draft save with a differing common section = %d, want 409", code)
+	}
+	putTaskSettings(t, client, ctx, base, token, "conversion", map[string]any{
+		"mode":           firstBody["mode"],
+		"no_effect_tags": firstBody["no_effect_tags"],
+		"matched":        firstBody["matched"],
+		"unmatched":      firstBody["unmatched"],
+		"other_tags":     firstBody["other_tags"],
+	})
+	if got := operationVersion(t, client, ctx, base, token, first.worksetID); got != 2 {
+		t.Fatalf("settings save version = %d, want 2", got)
 	}
 
 	synced := draftPayload(t, client, ctx, base, token, second.worksetID)
@@ -188,6 +198,56 @@ func draftPayload(
 		t.Fatalf("draft payload of %s is empty", worksetID)
 	}
 	return draft.Task.Payload
+}
+
+// putDraftStatus sends one draft PUT and returns only its status.
+func putDraftStatus(
+	t *testing.T,
+	client *http.Client,
+	ctx context.Context,
+	base, token, worksetID string,
+	ifMatch int,
+	body map[string]any,
+) int {
+	t.Helper()
+	return doJSONWithHeaders(
+		t, client, ctx, base, http.MethodPut,
+		"/api/v1/worksets/"+worksetID+"/operations/conversion/draft", token,
+		map[string]string{"If-Match": strconv.Itoa(ifMatch)}, body, nil,
+	)
+}
+
+// putTaskSettings reads the Task's settings ETag and saves the given settings
+// under it.
+func putTaskSettings(
+	t *testing.T,
+	client *http.Client,
+	ctx context.Context,
+	base, token, task string,
+	settings map[string]any,
+) {
+	t.Helper()
+	path := base + "/api/v1/tasks/" + task + "/settings"
+	get, err := http.NewRequestWithContext(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		t.Fatalf("request: %v", err)
+	}
+	get.Header.Set("Authorization", "Bearer "+token)
+	got, err := client.Do(get)
+	if err != nil {
+		t.Fatalf("get settings: %v", err)
+	}
+	got.Body.Close()
+	etag := got.Header.Get("ETag")
+	if got.StatusCode != http.StatusOK || etag == "" {
+		t.Fatalf("get settings: %d etag=%q", got.StatusCode, etag)
+	}
+	if code := doJSONWithHeaders(
+		t, client, ctx, base, http.MethodPut, "/api/v1/tasks/"+task+"/settings", token,
+		map[string]string{"If-Match": etag}, map[string]any{"settings": settings}, nil,
+	); code != http.StatusOK {
+		t.Fatalf("save settings: %d", code)
+	}
 }
 
 // putDraft saves one draft document under the given If-Match and returns the

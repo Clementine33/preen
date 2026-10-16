@@ -223,6 +223,16 @@ func setupScannedWorkset(
 	}
 	wsPath, opPath := createScannedWorkset(t, client, ctx, base, token, lib.ID, folders.Folders, albums)
 
+	if draft != nil {
+		// Common settings are written through the Task settings endpoint.
+		common := map[string]any{}
+		for key, value := range draft {
+			if key != "schema_version" && key != "members" {
+				common[key] = value
+			}
+		}
+		putTaskSettings(t, client, ctx, base, token, "conversion", common)
+	}
 	var draftResp struct{ Version int }
 	if code := doJSON(
 		t,

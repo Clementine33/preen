@@ -7,7 +7,7 @@ import type { Operation } from '@/lib/api/types'
  * The inline sidebar of the mid/wide tiers and the narrow drawer both render
  * this one list, exactly as the global rail and bottom bar share
  * `global-nav` — two renderers, never two hard-coded entry lists.
- * Entries carry only id/label/icon/to/children, and every location is built
+ * Entries carry only id/label/to/children, and every location is built
  * from a *named* route plus `libraryId`, so a path rename cannot quietly
  * break navigation.
  */
@@ -16,7 +16,6 @@ export type WorkbenchNavId = 'overview' | 'conversion' | 'conversion-settings' |
 export interface WorkbenchNavItem {
   id: WorkbenchNavId
   label: string
-  icon: string
   to: RouteLocationRaw
   children?: WorkbenchNavItem[]
 }
@@ -28,19 +27,16 @@ export function workbenchNav(libraryId: string): WorkbenchNavItem[] {
     {
       id: 'overview',
       label: '概览与成员',
-      icon: '◱',
       to: { name: 'workbench-overview', params: { libraryId } },
     },
     {
       id: 'conversion',
       label: '转换',
-      icon: '◈',
       to: { name: 'conversion', params: { libraryId } },
       children: [
         {
           id: 'conversion-settings',
           label: '转换全局设置',
-          icon: '⚙',
           to: { name: 'conversion-settings', params: { libraryId } },
         },
       ],
@@ -48,13 +44,11 @@ export function workbenchNav(libraryId: string): WorkbenchNavItem[] {
     {
       id: 'rename',
       label: '重命名',
-      icon: '✎',
       to: { name: 'rename', params: { libraryId } },
     },
     {
       id: 'metadata-refresh',
       label: '获取元数据',
-      icon: '⇣',
       to: { name: 'metadata-refresh', params: { libraryId } },
     },
   ]

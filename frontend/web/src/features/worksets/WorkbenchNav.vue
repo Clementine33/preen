@@ -41,8 +41,8 @@ watch(
 
 function rowClass(current: boolean, parent: boolean, child = false): string {
   return [
-    'flex items-center gap-2 px-2 text-xs focus-visible:ring-2 focus-visible:ring-[var(--brand)] focus-visible:outline-none',
-    child ? 'ml-4' : 'min-w-0 flex-1',
+    'flex items-center gap-2 px-2 text-xs focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
+    child ? 'pl-4' : 'min-w-0 flex-1',
     // Touch devices get the 44px minimum at any width — the tablet tiers are
     // touch too, so this is a pointer query, not a width one.
     'h-8 pointer-coarse:min-h-11',
@@ -65,7 +65,6 @@ function isCollapsed(id: WorkbenchNavId): boolean {
           :class="rowClass(position?.current === item.id, position?.parent === item.id)"
           :data-testid="`nav-${item.id}`"
         >
-          <span aria-hidden="true">{{ item.icon }}</span>
           <span class="min-w-0 flex-1 truncate">{{ item.label }}</span>
           <!-- An unapplied edit is never hidden behind the section switch. -->
           <span
@@ -84,7 +83,7 @@ function isCollapsed(id: WorkbenchNavId): boolean {
           :aria-controls="`nav-children-${item.id}`"
           :aria-label="`${isCollapsed(item.id) ? '展开' : '收起'}${item.label}`"
           :class="[
-            'flex shrink-0 items-center justify-center text-[var(--text-muted)] hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-[var(--brand)] focus-visible:outline-none',
+            'flex shrink-0 items-center justify-center text-[var(--text-muted)] hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
             'h-8 w-7 pointer-coarse:min-h-11 pointer-coarse:min-w-11',
           ]"
           :data-testid="`nav-group-${item.id}`"
@@ -99,6 +98,7 @@ function isCollapsed(id: WorkbenchNavId): boolean {
         v-if="(item.children?.length ?? 0) > 0"
         :id="`nav-children-${item.id}`"
         v-show="!isCollapsed(item.id)"
+        class="ml-4 border-l border-[var(--wire-fine)]"
       >
         <li v-for="child in item.children" :key="child.id">
           <RouterLink
@@ -108,14 +108,13 @@ function isCollapsed(id: WorkbenchNavId): boolean {
             :class="rowClass(position?.current === child.id, false, true)"
             :data-testid="`nav-${child.id}`"
           >
-            <span aria-hidden="true">{{ child.icon }}</span>
             {{ child.label }}
           </RouterLink>
           <!-- a frozen or orphaned operation disables the edit
                entry instead of letting the form fail on save. -->
           <span
             v-else
-            class="ml-4 flex h-8 cursor-not-allowed items-center gap-2 rounded-md px-2 text-xs text-[var(--text-muted)] opacity-70 pointer-coarse:min-h-11"
+            class="flex h-8 cursor-not-allowed items-center gap-2 rounded-md px-2 text-xs text-[var(--text-muted)] opacity-70 pointer-coarse:min-h-11"
             aria-disabled="true"
             :title="settingsBlockedReason"
             :data-testid="`nav-${child.id}`"

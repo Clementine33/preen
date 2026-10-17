@@ -33,7 +33,11 @@ export interface Library {
   last_scan_at: string | null
   last_scan_status: string
   last_scan_error: string
+  /** Where the media lives; it sets the library's concurrency (docs/api/libraries.md). */
+  storage_class: StorageClass
 }
+
+export type StorageClass = 'hdd' | 'ssd'
 
 export interface CreateLibraryInput {
   name: string
@@ -43,6 +47,7 @@ export interface CreateLibraryInput {
 export interface UpdateLibraryInput {
   name?: string
   root_path?: string
+  storage_class?: StorageClass
 }
 
 /**
@@ -1223,6 +1228,8 @@ export interface ApiClientContract {
   replaceWorkUserTags(rj: string, tagIds: string[]): Promise<WorkUserTag[]>
   listUserTags(signal?: AbortSignal): Promise<WorkUserTag[]>
   createUserTag(name: string): Promise<WorkUserTag>
+  renameUserTag(id: string, name: string): Promise<WorkUserTag>
+  deleteUserTag(id: string): Promise<void>
   getOperation(worksetId: string, operation: OperationType, signal?: AbortSignal): Promise<Operation>
   getOperationDraft(worksetId: string, operation: OperationType, signal?: AbortSignal): Promise<DraftResponse>
   saveOperationDraft(

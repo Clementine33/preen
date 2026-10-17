@@ -449,6 +449,16 @@ export class ApiClient implements ApiClientContract {
     return this.request('/user-tags', { method: 'POST', body: { name } })
   }
 
+  // A name another tag holds answers USER_TAG_EXISTS; tags are never merged.
+  renameUserTag(id: string, name: string): Promise<WorkUserTag> {
+    return this.request(`/user-tags/${encodeURIComponent(id)}`, { method: 'PATCH', body: { name } })
+  }
+
+  // The tag's relations go with it; no work is touched.
+  deleteUserTag(id: string): Promise<void> {
+    return this.request(`/user-tags/${encodeURIComponent(id)}`, { method: 'DELETE' })
+  }
+
   getOperation(worksetId: string, operation: OperationType, signal?: AbortSignal): Promise<Operation> {
     return this.request(this.operationPath(worksetId, operation), { signal })
   }

@@ -14,6 +14,7 @@ const library: Library = {
   last_scan_at: null,
   last_scan_status: '',
   last_scan_error: '',
+  storage_class: 'hdd',
 }
 
 const dirs: LibraryDir[] = [

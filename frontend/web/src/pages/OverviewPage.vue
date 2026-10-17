@@ -26,6 +26,7 @@ import {
   type LibraryDir,
   type SkippedFolder,
   type SkippedReason,
+  type UpdateLibraryInput,
 } from '@/lib/api/types'
 
 /**
@@ -213,7 +214,7 @@ async function submit() {
 const updateLibraryMutation = useMutation(updateLibraryMutationOptions(api, queryClient))
 const deleteLibraryMutation = useMutation(deleteLibraryMutationOptions(api, queryClient))
 
-async function saveLibrary(input: { name: string; root_path: string }) {
+async function saveLibrary(input: UpdateLibraryInput) {
   if (!activeLibrary.value) return
   savingLibrary.value = true
   try {

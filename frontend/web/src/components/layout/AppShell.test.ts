@@ -32,7 +32,7 @@ beforeEach(() => {
 describe('AppShell global navigation', () => {
   it('renders the entries on the rail, in order and with their targets', async () => {
     await at('/worksets')
-    const links = mountShell().get('[data-testid="global-rail"]').findAll('a')
+    const links = mountShell().get('[data-testid="global-rail"] nav').findAll('a')
 
     expect(links.map((link) => link.text())).toEqual(['作品库', '合集', '工作集'])
     expect(links.map((link) => link.attributes('href'))).toEqual(['/works', '/collections', '/worksets'])
@@ -69,37 +69,34 @@ describe('AppShell global navigation', () => {
     expect(railNav.find('button').exists()).toBe(false)
   })
 
+  it('sets 设置 apart at the rail foot and marks it current on its page', async () => {
+    await at('/settings')
+    const settings = mountShell().get('[data-testid="global-settings"]')
+    expect(settings.attributes('href')).toBe('/settings')
+    expect(settings.attributes('aria-current')).toBe('page')
+  })
+
   it('marks the matching entry current and only that one, per route', async () => {
     await at('/worksets')
-    let links = mountShell().get('[data-testid="global-rail"]').findAll('a')
+    let links = mountShell().get('[data-testid="global-rail"] nav').findAll('a')
     expect(links.map((link) => link.attributes('aria-current'))).toEqual([undefined, undefined, 'page'])
 
     await at('/works')
-    links = mountShell().get('[data-testid="global-rail"]').findAll('a')
+    links = mountShell().get('[data-testid="global-rail"] nav').findAll('a')
     expect(links.map((link) => link.attributes('aria-current'))).toEqual(['page', undefined, undefined])
   })
 
   it('keeps 工作集 current inside a library workbench', async () => {
     await at('/worksets/lib-a')
-    const links = mountShell().get('[data-testid="global-rail"]').findAll('a')
+    const links = mountShell().get('[data-testid="global-rail"] nav').findAll('a')
 
     expect(links.map((link) => link.attributes('aria-current'))).toEqual([undefined, undefined, 'page'])
   })
 
   it('keeps 工作集 current on a workbench child route', async () => {
     await at('/worksets/lib-a/conversion/settings')
-    const links = mountShell().get('[data-testid="global-rail"]').findAll('a')
+    const links = mountShell().get('[data-testid="global-rail"] nav').findAll('a')
 
     expect(links.map((link) => link.attributes('aria-current'))).toEqual([undefined, undefined, 'page'])
-  })
-
-  it('carries the desktop theme entry on the rail', async () => {
-    await at('/worksets')
-    const wrapper = mountShell()
-
-    // The entry names the mode in force (the default is dark).
-    const entry = wrapper.get('[data-testid="global-rail"] [data-testid="theme-menu"]')
-    expect(entry.attributes('aria-label')).toBe('切换主题（当前：深色）')
-    expect(entry.text()).toBe('DARK')
   })
 })

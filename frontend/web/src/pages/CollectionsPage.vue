@@ -4,7 +4,8 @@ import { useQueryClient } from '@tanstack/vue-query'
 import { useRouter } from 'vue-router'
 import { useToast } from '@/composables/use-toast'
 import GlobalMenu from '@/components/layout/GlobalMenu.vue'
-import { REDUCED_MOTION_QUERY, useMediaQuery } from '@/composables/use-media-query'
+import { useMediaQuery } from '@/composables/use-media-query'
+import { useReducedMotion } from '@/composables/use-motion'
 import CollectionScreen from '@/features/collections/CollectionScreen.vue'
 import { fmtT } from '@/features/work-detail/derive'
 import { useApiClient } from '@/lib/api/client'
@@ -150,7 +151,7 @@ const rapid = () => burst > 2 && performance.now() - lastSwitch < BURST_GAP
 
 function startTyping() {
   clearInterval(typeTimer)
-  if (rapid() || (typeof matchMedia === 'function' && reduced())) return void (tick.value = Infinity)
+  if (rapid() || reduced()) return void (tick.value = Infinity)
   tick.value = 0
   typeTimer = setInterval(() => {
     tick.value++
@@ -186,7 +187,8 @@ function reveal(row: HTMLElement) {
   else if (bottom > list.scrollTop + list.clientHeight) list.scrollTop = bottom - list.clientHeight
 }
 
-const reduced = () => matchMedia(REDUCED_MOTION_QUERY).matches
+const reducedMotion = useReducedMotion()
+const reduced = () => reducedMotion.value
 let switchTimer: ReturnType<typeof setTimeout> | undefined
 function select(i: number) {
   if (!collections.value.length) return

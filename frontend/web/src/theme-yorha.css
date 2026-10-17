@@ -255,7 +255,9 @@
 .tag button { width: 16px; height: 16px; display: grid; place-items: center; color: var(--fg-muted); }
 .tag button:hover { background: var(--invert-bg); color: var(--invert-fg); }
 
-/* Reduced motion: everything switches instantly, everywhere. */
+/* Reduced motion: everything switches instantly, everywhere. The system
+   preference and the app's own choice (`.reduce-motion`, use-motion.ts) agree. */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation: none !important; }
 }
+.reduce-motion *, .reduce-motion *::before, .reduce-motion *::after { transition: none !important; animation: none !important; }

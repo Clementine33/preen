@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { REDUCED_MOTION_QUERY, useMediaQuery } from '@/composables/use-media-query'
+import { useReducedMotion } from '@/composables/use-motion'
 import type { WorkDetail } from '@/lib/api/types'
 import { usePlayWork } from '@/features/works/use-play-work'
 import { useCoverSrc } from '@/features/works/use-cover-src'
@@ -38,7 +38,7 @@ const workNow = computed(() => (work.value && props.rj !== null && work.value.rj
 const deferredWork = ref<WorkDetail | null>(workNow.value)
 const dim = ref(false)
 let detailTimer: number | null = null
-const reducedMotion = useMediaQuery(REDUCED_MOTION_QUERY)
+const reducedMotion = useReducedMotion()
 
 // Post-flush so the scramble runs after Vue has patched the title's text node:
 // the animation writes textContent frame by frame, and a pre-flush watcher

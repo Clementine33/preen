@@ -2,7 +2,7 @@
 import { ref, watch } from 'vue'
 import { FolderOpen, X } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
-import type { CreateLibraryInput, Library } from '@/lib/api/types'
+import type { CreateLibraryInput, Library, StorageClass } from '@/lib/api/types'
 import { useDesktopAdapter } from '@/lib/desktop/desktop-adapter'
 
 const props = defineProps<{
@@ -12,13 +12,14 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{
   close: []
-  save: [value: CreateLibraryInput]
+  save: [value: CreateLibraryInput & { storage_class: StorageClass }]
   remove: [id: string]
 }>()
 
 const adapter = useDesktopAdapter()
 const name = ref('')
 const rootPath = ref('')
+const ssd = ref(false)
 
 watch(
   () => [props.open, props.library] as const,
@@ -26,6 +27,7 @@ watch(
     if (!props.open) return
     name.value = props.library?.name ?? ''
     rootPath.value = props.library?.root_path ?? ''
+    ssd.value = props.library?.storage_class === 'ssd'
   },
   { immediate: true },
 )
@@ -37,7 +39,7 @@ async function pickFolder() {
 
 function submit() {
   if (!name.value || !rootPath.value) return
-  emit('save', { name: name.value, root_path: rootPath.value })
+  emit('save', { name: name.value, root_path: rootPath.value, storage_class: ssd.value ? 'ssd' : 'hdd' })
 }
 </script>
 
@@ -97,6 +99,16 @@ function submit() {
       <p class="mt-1.5 text-[11px] text-muted-foreground">
         浏览器无法打开系统目录选择器时，请直接粘贴路径。路径会原样发送给后端。
       </p>
+
+      <label class="mt-4 flex min-h-11 cursor-pointer items-start gap-3 rail:min-h-0">
+        <input v-model="ssd" type="checkbox" class="mt-0.5 size-4 shrink-0" data-testid="library-ssd" />
+        <span>
+          <span class="block text-xs font-medium">媒体在 SSD 上</span>
+          <span class="mt-0.5 block text-[11px] text-muted-foreground">
+            决定读取媒体信息和转换时的并行宽度。
+          </span>
+        </span>
+      </label>
 
       <div class="mt-6 flex flex-wrap items-center gap-2 border-t border-border pt-4">
         <Button

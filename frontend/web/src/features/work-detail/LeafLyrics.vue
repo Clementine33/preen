@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { useReducedMotion } from '@/composables/use-motion'
 import { useApiClient } from '@/lib/api/client'
 import { fmtT, parseLyrics, type LrcLine } from '@/features/work-detail/derive'
 import { useWorkDetailStore } from '@/stores/work-detail'
@@ -13,6 +14,7 @@ import { usePlayerStore } from '@/stores/player'
 const store = useWorkDetailStore()
 const api = useApiClient()
 const player = usePlayerStore()
+const reducedMotion = useReducedMotion()
 
 const lrcRel = computed(() => store.lrcFor(store.track))
 const lines = ref<LrcLine[]>([])
@@ -57,7 +59,7 @@ function sync(jump: boolean): void {
   const body = bodyEl.value
   const now = body?.querySelector<HTMLElement>('.lrc-line.now')
   if (!body || !now) return
-  body.scrollTo({ top: now.offsetTop - body.clientHeight * 0.38, behavior: jump ? 'auto' : 'smooth' })
+  body.scrollTo({ top: now.offsetTop - body.clientHeight * 0.38, behavior: jump || reducedMotion.value ? 'auto' : 'smooth' })
 }
 watch([lines, nowIndex], (_, previous) => sync(previous[0] !== lines.value), { flush: 'post' })
 

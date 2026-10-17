@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onBeforeUnmount, ref, watch } from 'vue'
-import { REDUCED_MOTION_QUERY, useMediaQuery } from '@/composables/use-media-query'
+import { useReducedMotion } from '@/composables/use-motion'
 
 // The picture box of the collections page: a cover rebuilt by an interlaced
 // raster scan, done in CSS (clip-path plus a line mask). The old frame powers
@@ -10,7 +10,7 @@ import { REDUCED_MOTION_QUERY, useMediaQuery } from '@/composables/use-media-que
 const props = defineProps<{ url: string | null }>()
 defineEmits<{ redraw: [] }>()
 
-const reduce = useMediaQuery(REDUCED_MOTION_QUERY)
+const reduce = useReducedMotion()
 const SETTLE_MS = 400 // second pass delay (120) + pass (260) + a frame
 
 const cur = ref<string | null>(null)

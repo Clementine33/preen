@@ -1,4 +1,4 @@
-import { Layers, ListMusic, SquareLibrary } from '@lucide/vue'
+import { Layers, ListMusic, Settings2, SquareLibrary } from '@lucide/vue'
 import type { Component } from 'vue'
 import type { RouteLocationRaw } from 'vue-router'
 
@@ -9,9 +9,10 @@ import type { RouteLocationRaw } from 'vue-router'
  * iterate this array, so their labels, order and targets cannot drift apart.
  * Entries carry only id/label/icon/to — no permissions, no business state, no
  * plugin registry. The media-library *list* is page content on /worksets,
- * never a global entry (ADR 0001).
+ * never a global entry (ADR 0001). 设置 is a global entry too, but apart from
+ * the content entries: the rail sets it at its foot, the phone menu last.
  */
-export type GlobalNavId = 'works' | 'collections' | 'worksets'
+export type GlobalNavId = 'works' | 'collections' | 'worksets' | 'settings'
 
 export interface GlobalNavItem {
   id: GlobalNavId
@@ -25,6 +26,8 @@ export const GLOBAL_NAV: readonly GlobalNavItem[] = [
   { id: 'collections', label: '合集', icon: Layers, to: '/collections' },
   { id: 'worksets', label: '工作集', icon: ListMusic, to: '/worksets' },
 ]
+
+export const SETTINGS_NAV: GlobalNavItem = { id: 'settings', label: '设置', icon: Settings2, to: '/settings' }
 
 /**
  * Route name → owning global entry. The current item is derived from the
@@ -50,6 +53,7 @@ const NAV_OWNER_BY_ROUTE_NAME = {
   'conversion-execution': 'worksets',
   rename: 'worksets',
   'metadata-refresh': 'worksets',
+  settings: 'settings',
   // An address that names no page of the workbench is still reached inside the
   // workbench: the entry that offers the way back is 工作集.
   'not-found': 'worksets',

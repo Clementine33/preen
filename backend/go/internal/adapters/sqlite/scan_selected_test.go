@@ -191,3 +191,56 @@ func TestSelectedMergeAcceptsMoreThanSQLiteExpressionDepthScopes(t *testing.T) {
 		t.Fatal(mergeErr)
 	}
 }
+
+func TestSelectedMergeValidatesAllRangesBeforeWriting(t *testing.T) {
+	for _, scenario := range []struct {
+		name, path, root string
+	}{
+		{name: "multiple literal ranges"},
+		{name: "nearby prefix", path: "/library/a%_日2/outside.mp3", root: "/library"},
+		{name: "wrong root", path: "/library/a%_日/wrong.mp3", root: "/other"},
+		{name: "scope marker", path: "/library/a%_日", root: "/library"},
+	} {
+		t.Run(scenario.name, func(t *testing.T) {
+			repo, err := sqlite.NewDevelopmentRepository(filepath.Join(t.TempDir(), "cache.db"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer repo.Close()
+			store := sqlite.NewScanStaging(repo)
+			if sessionErr := store.CreateScanSession(&inventory.ScanSession{
+				SessionID: "ranges", RootPath: "/library", Kind: "selected", Status: "running", StartedAt: time.Now(),
+			}); sessionErr != nil {
+				t.Fatal(sessionErr)
+			}
+			entries := []inventory.StagingEntry{
+				{SessionID: "ranges", RootPath: "/library", Path: "/library/a%_日/first.mp3"},
+				{SessionID: "ranges", RootPath: "/library", Path: "/library/b/second.mp3"},
+			}
+			if scenario.path != "" {
+				entries = append(
+					entries,
+					inventory.StagingEntry{SessionID: "ranges", RootPath: scenario.root, Path: scenario.path},
+				)
+			}
+			if stagingErr := store.WriteStagingBatch("ranges", entries); stagingErr != nil {
+				t.Fatal(stagingErr)
+			}
+			_, err = repo.MergeSelectedStaging(t.Context(), "ranges", "/library",
+				[]string{"/library/a%_日", "/library/a%_日/nested", "/library/a%_日", "/library/b"})
+			want := 2
+			if scenario.path != "" {
+				want = 0
+				if err == nil {
+					t.Fatal("invalid staging was accepted")
+				}
+			} else if err != nil {
+				t.Fatal(err)
+			}
+			var count int
+			if err := repo.DB().QueryRow("SELECT COUNT(*) FROM entries").Scan(&count); err != nil || count != want {
+				t.Fatalf("inventory rows = %d, want %d: %v", count, want, err)
+			}
+		})
+	}
+}

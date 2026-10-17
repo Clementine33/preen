@@ -1,4 +1,9 @@
 {
+  "server": {
+    "allow_lan": false,
+    "port": 0,
+    "token": ""
+  },
   "prune": {
     "no_effect_tags": [
       "nose",

@@ -1,8 +1,9 @@
 # Onsei Backend HTTP / SSE API
 
-The backend runs a single net/http listener (the Vue web client) over
-loopback. It binds `127.0.0.1` only and owns the SQLite repository, the scan
-service and the workset service.
+The backend runs a single net/http API listener and owns the SQLite repository,
+the scan service and the workset service. It defaults to loopback;
+[server configuration](api/common.md#server-configuration) enables a fixed port
+and authenticated LAN access.
 
 HTTP endpoints live under `/api/v1`. Machine-checked contract coverage lives
 in the Go tests (`backend/go/tests/e2e/*_test.go` and the

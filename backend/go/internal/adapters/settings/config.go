@@ -53,8 +53,9 @@ type PlanBitrateConfig struct {
 
 // AppConfig represents the full application configuration from config.json.
 type AppConfig struct {
-	Prune PruneConfig `json:"prune"`
-	Plan  PlanConfig  `json:"plan"`
+	Server ServerConfig `json:"server"`
+	Prune  PruneConfig  `json:"prune"`
+	Plan   PlanConfig   `json:"plan"`
 }
 
 func DefaultAppConfig() AppConfig {

@@ -170,8 +170,7 @@ linters:
     rules:
       - source: 'TODO'
         linters: [ godot ]
-      # The assembly root keeps a few point exclusions: G112 (slowloris) is
-      # acceptable on a loopback-only dev server; exitAfterDefer is intentional
+      # The assembly root keeps a few point exclusions: exitAfterDefer is intentional
       # (process exit); errcheck/unused cover the checked port assertion and the
       # Windows-conditional wsacancelled const.
       - path: 'internal/app/.*'
@@ -181,4 +180,3 @@ linters:
       # Individual tests opt out via //nolint:paralleltest when they are safe.
       - path: '_test\.go'
         linters: [ paralleltest ]
-      

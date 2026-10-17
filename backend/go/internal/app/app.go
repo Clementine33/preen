@@ -51,6 +51,10 @@ const defaultCORSOrigins = "http://localhost:5173,http://127.0.0.1:5173"
 // serves until ctx is done, and returns once everything it started has stopped.
 // Startup failures are fatal (log.Fatalf) so CI and dev surface them.
 func Run(ctx context.Context, cfg Config) {
+	server, err := appconfig.NewReader(cfg.ConfigDir).Server(cfg.Token)
+	if err != nil {
+		log.Fatalf("server configuration: %v", err)
+	}
 	dbPath := filepath.Join(cfg.DataDir, "cache.db")
 	if ensureErr := sqlite.EnsureDBPath(dbPath); ensureErr != nil {
 		log.Fatalf("ensure db path: %v", ensureErr)
@@ -73,11 +77,11 @@ func Run(ctx context.Context, cfg Config) {
 	// cannot change it later (ADR 0001).
 	logAutoVacuumMode(ctx, repo)
 
-	runServer(ctx, repo, cfg)
+	runServer(ctx, repo, cfg, server)
 }
 
 // Config is what the process is started with: where its data and configuration
-// live, the token its API authenticates with, and the build's version.
+// live, a nonempty host-provided token override, and the build's version.
 type Config struct {
 	DataDir   string
 	ConfigDir string
@@ -321,10 +325,10 @@ func startCoverWorkers(ctx context.Context, service *coverdelivery.Service) <-ch
 
 // runServer starts the HTTP listener and blocks until the process is killed.
 // Startup failures are fatal (log.Fatalf) so CI/dev surfaces them.
-func runServer(ctx context.Context, repo *sqlite.Repository, cfg Config) {
+func runServer(ctx context.Context, repo *sqlite.Repository, cfg Config, server appconfig.ServerConfig) {
 	StartPprofServer("127.0.0.1:6060", http.ListenAndServe)
 
-	httpListener, err := net.Listen("tcp", "127.0.0.1:0")
+	httpListener, err := net.Listen("tcp", server.ListenAddress())
 	if err != nil {
 		log.Fatalf("http listen: %v", err)
 	}
@@ -370,7 +374,7 @@ func runServer(ctx context.Context, repo *sqlite.Repository, cfg Config) {
 
 		Library:        services.library,
 		Catalog:        services.catalog,
-		Token:          cfg.Token,
+		Token:          server.Token,
 		CORSOrigins:    ParseCORSOrigins(os.Getenv("ONSEI_CORS_ORIGINS")),
 		Version:        cfg.Version,
 		Inventory:      services.scan,
@@ -391,7 +395,11 @@ func runServer(ctx context.Context, repo *sqlite.Repository, cfg Config) {
 	}))
 	requestCtx, cancelRequests := context.WithCancel(context.Background())
 	defer cancelRequests()
-	httpSrv := &http.Server{Handler: handlers, BaseContext: func(net.Listener) context.Context { return requestCtx }}
+	httpSrv := &http.Server{
+		Handler:           handlers,
+		ReadHeaderTimeout: 5 * time.Second,
+		BaseContext:       func(net.Listener) context.Context { return requestCtx },
+	}
 	httpSrv.RegisterOnShutdown(cancelRequests)
 	go func() {
 		if err := httpSrv.Serve(httpListener); err != nil && err != http.ErrServerClosed && ctx.Err() == nil {
@@ -402,10 +410,10 @@ func runServer(ctx context.Context, repo *sqlite.Repository, cfg Config) {
 	// Print the ready handshake BEFORE blocking — the dev and e2e launchers
 	// read this line to learn the HTTP port
 	//nolint:forbidigo // stdout handshake is a wire protocol for the host
-	fmt.Println(BuildHandshakeLine(cfg.Token, cfg.Version, httpPort))
+	fmt.Println(BuildHandshakeLine(server.Token, cfg.Version, httpPort))
 
 	// Block until killed
-	log.Printf("onsei-backend listening on http 127.0.0.1:%d (data=%s)", httpPort, cfg.DataDir)
+	log.Printf("onsei-backend listening on http %s (data=%s)", httpListener.Addr(), cfg.DataDir)
 	<-ctx.Done()
 	shutdownBackend(httpSrv, handlers, services.workset.DispatcherHandle(), map[string]<-chan struct{}{
 		"maintenance": maintenanceDone, "media facts": mediaFactsDone, "covers": coversDone,

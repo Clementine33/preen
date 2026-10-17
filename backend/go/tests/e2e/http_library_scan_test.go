@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -161,6 +162,52 @@ func buildBackendBinary(t *testing.T) string {
 	return bin
 }
 
+func TestHTTPServerConfiguration(t *testing.T) {
+	binPath := buildBackendBinary(t)
+	for _, override := range []string{"", "environment-key"} {
+		t.Run("override="+override, func(t *testing.T) {
+			listener, err := net.Listen("tcp", "127.0.0.1:0")
+			if err != nil {
+				t.Fatal(err)
+			}
+			address, ok := listener.Addr().(*net.TCPAddr)
+			if err := listener.Close(); err != nil {
+				t.Fatal(err)
+			}
+			if !ok {
+				t.Fatal("unexpected TCP listener address")
+			}
+			port := address.Port
+			dataDir := t.TempDir()
+			config := fmt.Sprintf(`{"server":{"allow_lan":true,"port":%d,"token":"file-key"}}`, port)
+			mustWriteFile(t, filepath.Join(dataDir, "config.json"), config)
+			proc := startBackendBinary(t, binPath, dataDir, override)
+			if proc.httpPort != port {
+				t.Fatalf("listener port = %d, want configured %d", proc.httpPort, port)
+			}
+			token := "file-key"
+			if override != "" {
+				token = override
+			}
+			if proc.token != token {
+				t.Fatal("startup handshake did not report the effective key")
+			}
+			base := fmt.Sprintf("http://127.0.0.1:%d", port)
+			client := &http.Client{Timeout: 5 * time.Second}
+			for _, key := range []string{"", "wrong-key", token} {
+				want := http.StatusUnauthorized
+				if key == token {
+					want = http.StatusOK
+				}
+				code := doJSON(t, client, t.Context(), base, http.MethodGet, "/api/v1/libraries", key, nil, nil)
+				if code != want {
+					t.Fatalf("authentication status = %d, want %d", code, want)
+				}
+			}
+		})
+	}
+}
+
 // backendProc holds the running backend subprocess and its parsed ports.
 type backendProc struct {
 	cmd *exec.Cmd
@@ -177,8 +224,12 @@ func startBackendBinary(t *testing.T, binPath, dataDir, token string) backendPro
 	// Seed the classifier tag config: no compiled-in defaults remain, so a
 	// fresh data dir gets its literal tags from config.json.
 	cfgPath := filepath.Join(dataDir, "config.json")
-	if err := os.WriteFile(cfgPath, []byte(`{"prune":{"no_effect_tags":["SEなし"]}}`), 0o644); err != nil {
-		t.Fatalf("write config: %v", err)
+	if _, err := os.Stat(cfgPath); os.IsNotExist(err) {
+		if writeErr := os.WriteFile(cfgPath, []byte(`{"prune":{"no_effect_tags":["SEなし"]}}`), 0o644); writeErr != nil {
+			t.Fatalf("write config: %v", writeErr)
+		}
+	} else if err != nil {
+		t.Fatalf("stat config: %v", err)
 	}
 	stdinR, stdinW := io.Pipe()
 	cmd := exec.Command(binPath)
@@ -199,6 +250,7 @@ func startBackendBinary(t *testing.T, binPath, dataDir, token string) backendPro
 	type handshakeResult struct {
 		line     string
 		httpPort int
+		token    string
 		err      error
 	}
 	handshake := make(chan handshakeResult, 1)
@@ -217,7 +269,7 @@ func startBackendBinary(t *testing.T, binPath, dataDir, token string) backendPro
 				handshake <- handshakeResult{line: line, err: fmt.Errorf("parse handshake fields: n=%d err=%w", n, err)}
 				return
 			}
-			handshake <- handshakeResult{line: line, httpPort: httpPort}
+			handshake <- handshakeResult{line: line, httpPort: httpPort, token: tok}
 			// Keep draining stdout until EOF so the backend never blocks on a
 			// full pipe; the handshake result is already delivered.
 			for scanner.Scan() {
@@ -244,7 +296,7 @@ func startBackendBinary(t *testing.T, binPath, dataDir, token string) backendPro
 		t.Fatalf("backend handshake %q: missing port", hs.line)
 	}
 
-	proc := backendProc{cmd: cmd, httpPort: hs.httpPort, token: token}
+	proc := backendProc{cmd: cmd, httpPort: hs.httpPort, token: hs.token}
 	t.Cleanup(func() {
 		_ = stdinW.Close()
 		_ = cmd.Process.Signal(os.Interrupt)

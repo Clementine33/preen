@@ -8,9 +8,9 @@ import (
 	"github.com/onsei/organizer/backend/internal/conversion"
 )
 
-// Reader implements conversion.Settings over config.json in one directory.
-// Reads use live task preferences with defaults on failures; worker limits and
-// media tool paths are not file configuration.
+// Reader exposes config.json in one directory. Server validates startup access
+// settings; conversion.Settings reads live task preferences with defaults on
+// read failures. Worker limits and media tool paths are not file configuration.
 type Reader struct{ configDir string }
 
 // NewReader roots a reader at one config directory.

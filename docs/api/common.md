@@ -11,11 +11,47 @@ ONSEI_BACKEND_READY token=%s version=%s http_port=%d
 ```
 
 - `http_port` — HTTP port
-- `token` — the configured `ONSEI_TOKEN` (empty when auth is disabled)
+- `token` — the effective bearer token (empty when local developer auth is disabled)
 - `version` — build version stamp (`dev` by default)
 
 The Vue dev script and the Playwright launchers scan stdout for the
 `ONSEI_BACKEND_READY` line and read the HTTP port from it.
+
+## Server configuration
+
+The backend reads `server` from `config.json` beside its database once at
+startup. These settings currently have no frontend controls:
+
+```json
+{
+  "server": {
+    "allow_lan": false,
+    "port": 0,
+    "token": ""
+  }
+}
+```
+
+- `allow_lan`: false binds `127.0.0.1`; true binds `0.0.0.0` (all local IPv4
+  interfaces, with reachability determined by deployment and firewall rules).
+- `port`: an integer from 0 to 65535. Zero requests a system-assigned port and
+  is allowed only for local access. A configured port that cannot be bound
+  fails startup; the backend never silently chooses another port.
+- `token`: the single shared bearer key for all protected API callers. A
+  nonempty `ONSEI_TOKEN` overrides the file key; an empty or absent environment
+  value leaves the file key in effect. Keys must be visible ASCII without
+  spaces, so they fit both HTTP headers and the startup handshake.
+
+LAN access requires a fixed nonzero port and a nonempty effective key. For
+example, set `allow_lan` to true, `port` to 8765 and `token` to a generated
+random secret. Clients then use `http://<server-ip>:8765/api/v1` with that key.
+There is no automatic key generation or rotation in this config-only stage.
+The listener exposes the existing API; serving the application webpage on
+the same port is a separate, not-yet-implemented packaging step.
+
+A missing configuration file preserves local developer defaults. An unreadable
+or malformed file, invalid port, invalid key, or incomplete LAN configuration
+fails startup before opening the database. Changes require a backend restart.
 
 ## Auth
 
@@ -25,8 +61,9 @@ Protected routes require:
 Authorization: Bearer <token>
 ```
 
-The token comes from the `ONSEI_TOKEN` env var. An empty token disables auth
-entirely (local-developer mode). Missing or invalid tokens return
+The effective token comes from the server configuration and optional environment
+override above. An empty token disables auth only in local-developer mode;
+LAN mode refuses to start without a key. Missing or invalid tokens return
 `401` with `{"code":"UNAUTHORIZED","message":"..."}`.
 
 ## CORS

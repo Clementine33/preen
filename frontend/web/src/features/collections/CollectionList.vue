@@ -2,7 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useQueryClient } from '@tanstack/vue-query'
-import { REDUCED_MOTION_QUERY, useMediaQuery } from '@/composables/use-media-query'
+import { useReducedMotion } from '@/composables/use-motion'
 import { usePlayWork } from '@/features/works/use-play-work'
 import { useApiClient } from '@/lib/api/client'
 import type { WorkSummary } from '@/lib/api/types'
@@ -38,7 +38,7 @@ const api = useApiClient()
 const client = useQueryClient()
 const player = usePlayerStore()
 const { playWork } = usePlayWork()
-const reducedMotion = useMediaQuery(REDUCED_MOTION_QUERY)
+const reducedMotion = useReducedMotion()
 
 const sel = ref(0)
 const scroller = ref<HTMLElement | null>(null)

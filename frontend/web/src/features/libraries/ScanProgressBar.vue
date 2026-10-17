@@ -50,4 +50,5 @@ defineProps<{
 @media (prefers-reduced-motion: reduce) {
   .scan-progress { animation: none; width: 100%; opacity: 0.65; }
 }
+:global(.reduce-motion) .scan-progress { animation: none; width: 100%; opacity: 0.65; }
 </style>

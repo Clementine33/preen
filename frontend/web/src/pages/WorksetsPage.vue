@@ -15,7 +15,7 @@ import {
   useLibraryList,
 } from '@/queries/libraries'
 import { useLibraryUiStore } from '@/stores/library-ui'
-import type { CreateLibraryInput } from '@/lib/api/types'
+import type { CreateLibraryInput, StorageClass } from '@/lib/api/types'
 import GlobalMenu from '@/components/layout/GlobalMenu.vue'
 
 /**
@@ -66,14 +66,18 @@ function openEdit(libraryId: string) {
   managerOpen.value = true
 }
 
-async function saveLibrary(input: CreateLibraryInput) {
+async function saveLibrary({ storage_class, ...input }: CreateLibraryInput & { storage_class: StorageClass }) {
   saving.value = true
   try {
     if (editing.value && editingLibrary.value) {
-      await updateMutation.mutateAsync({ id: editingLibrary.value.id, input })
+      await updateMutation.mutateAsync({ id: editingLibrary.value.id, input: { ...input, storage_class } })
     } else {
       const created = await createMutation.mutateAsync(input)
       ui.setActiveLibrary(created.id)
+      // Create takes no storage class; a new library starts on HDD. Once it
+      // exists, a failed follow-up reopens it as an edit rather than a re-create.
+      editing.value = true
+      if (storage_class !== 'hdd') await updateMutation.mutateAsync({ id: created.id, input: { storage_class } })
     }
     managerOpen.value = false
   } catch {

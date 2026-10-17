@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useMediaQuery } from '@/composables/use-media-query'
+import { useReducedMotion } from '@/composables/use-motion'
 
 // The wall's pager: a centred row of page numbers on an even pitch, separated
 // by faint dots. The current page is set in Mincho and flanked ❖ 3 ❖, the two
@@ -58,7 +59,8 @@ function place(): void {
   if (dot) markY.value = dot.offsetTop + dot.offsetHeight / 2
 }
 
-const reduced = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches
+const reducedMotion = useReducedMotion()
+const reduced = () => reducedMotion.value
 const centre = (el: HTMLElement) => el.offsetLeft + el.offsetWidth / 2
 
 /** The pair hops from the number at fromX to the current one, then settles. */

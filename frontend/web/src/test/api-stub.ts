@@ -52,6 +52,8 @@ export function apiStub(overrides: Partial<ApiClientContract> = {}): ApiClientCo
     replaceWorkUserTags: vi.fn().mockResolvedValue([]),
     listUserTags: vi.fn().mockResolvedValue([]),
     createUserTag: vi.fn(),
+    renameUserTag: vi.fn(),
+    deleteUserTag: vi.fn().mockResolvedValue(undefined),
     getOperation: vi.fn(),
     getOperationDraft: vi.fn(),
     saveOperationDraft: vi.fn(),

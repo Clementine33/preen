@@ -225,3 +225,42 @@ export function useCreateUserTag() {
     },
   })
 }
+
+/**
+ * Renaming or deleting a tag changes what every work that carries it shows:
+ * the vocabulary, the cached details, the wall's tag index and any listing
+ * filtered by it all read the same relation.
+ */
+function refreshTagReaders(client: QueryClient): void {
+  for (const prefix of [queryKeys.works.detailPrefix(), queryKeys.works.listPrefix(), queryKeys.works.tagFacetsPrefix()]) {
+    void refreshOrRemoveQueries(client, prefix)
+  }
+}
+
+/** Renames a tag; a name another tag holds answers USER_TAG_EXISTS and nothing changes. */
+export function useRenameUserTag() {
+  const api = useApiClient()
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, name }: { id: string; name: string }) => api.renameUserTag(id, name),
+    onSuccess: (tag) => {
+      client.setQueryData<WorkUserTag[]>(queryKeys.works.userTags(), (tags) =>
+        tags?.map((entry) => (entry.id === tag.id ? tag : entry)),
+      )
+      refreshTagReaders(client)
+    },
+  })
+}
+
+/** Deletes a tag with its relations; the works themselves stay. */
+export function useDeleteUserTag() {
+  const api = useApiClient()
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.deleteUserTag(id),
+    onSuccess: (_result, id) => {
+      client.setQueryData<WorkUserTag[]>(queryKeys.works.userTags(), (tags) => tags?.filter((entry) => entry.id !== id))
+      refreshTagReaders(client)
+    },
+  })
+}

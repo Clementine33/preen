@@ -27,6 +27,7 @@ function library(id: string, name: string, root: string): Library {
     last_scan_at: null,
     last_scan_status: 'completed',
     last_scan_error: '',
+    storage_class: 'hdd',
   }
 }
 

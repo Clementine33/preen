@@ -5,7 +5,7 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Onsei Organizer</title>
-    <!-- Apply theme before first paint to avoid a flash of the wrong theme -->
+    <!-- Apply theme and motion before first paint to avoid a flash of the wrong theme or a first animation -->
     <script>
       ;(function () {
         try {
@@ -18,6 +18,10 @@
         } catch (e) {
           document.documentElement.classList.add('dark')
         }
+        // Motion: the stored "reduce" choice applies before any animation plays.
+        try {
+          if (localStorage.getItem('onsei-motion') === 'reduce') document.documentElement.classList.add('reduce-motion')
+        } catch (e) {}
       })()
     </script>
   </head>

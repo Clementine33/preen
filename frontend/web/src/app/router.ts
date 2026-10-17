@@ -14,6 +14,7 @@ const MemberEditPage = () => import('@/pages/MemberEditPage.vue')
 const BatchEditPage = () => import('@/pages/BatchEditPage.vue')
 const ExecutionDetailPage = () => import('@/pages/ExecutionDetailPage.vue')
 const TaskOperationPage = () => import('@/pages/TaskOperationPage.vue')
+const SettingsPage = () => import('@/pages/SettingsPage.vue')
 const NotFoundPage = () => import('@/pages/NotFoundPage.vue')
 const MemberFiles = () => import('@/features/folders/MemberFiles.vue')
 
@@ -138,6 +139,10 @@ export const router = createRouter({
       component: TaskOperationPage,
       props: { operation: 'metadata_refresh' },
     },
+
+    // Application settings by category: appearance and user tags. Task
+    // settings stay beside their tasks and are not repeated here.
+    { path: '/settings/:section(appearance|tags)?', name: 'settings', component: SettingsPage },
 
     // An address that names no page of this workbench. The retired long routes
     // land here: they are not redirected to a guessed target.

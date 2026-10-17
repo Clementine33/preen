@@ -1,4 +1,4 @@
-import { ref, watch, type Ref } from 'vue'
+import { effectScope, ref, watch, type Ref } from 'vue'
 
 export type Theme = 'light' | 'dark' | 'system'
 
@@ -35,8 +35,8 @@ function apply(value: Theme): void {
   document.documentElement.classList.toggle('dark', dark)
 }
 
-// One theme state for the whole application: every consumer (the rail's
-// entry, the system-preference listener) reads the same ref, so none can hold
+// One theme state for the whole application: every consumer (the settings
+// page, the system-preference listener) reads the same ref, so none can hold
 // a stale value and react to a system-preference change with a preference the
 // user already replaced. Created on first use, never per component instance.
 let theme: Ref<Theme> | null = null
@@ -51,7 +51,9 @@ let onSystemChange: (() => void) | null = null
 export function useTheme() {
   if (!theme) {
     theme = ref(readStored())
-    watch(theme, (value) => {
+    // A detached scope: the first caller is a component, and its unmount must
+    // not stop the watcher every later caller relies on.
+    effectScope(true).run(() => watch(theme!, (value) => {
       // Persist first best-effort, then always apply so a write failure cannot
       // leave the visual theme stuck on the previous value.
       try {
@@ -60,7 +62,7 @@ export function useTheme() {
         /* storage unavailable; theme still applies below */
       }
       apply(value)
-    })
+    }))
     apply(theme.value)
 
     if (typeof window.matchMedia === 'function') {

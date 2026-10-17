@@ -287,4 +287,8 @@
       --motion-med: 1ms;
     }
   }
+  :root.reduce-motion {
+    --motion-fast: 1ms;
+    --motion-med: 1ms;
+  }
 }

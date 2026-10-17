@@ -14,20 +14,21 @@ var errShutdown = errors.New("dispatcher shutdown")
 // session and child goroutine they start. Database queue order is independent of
 // process shutdown: a claim returning after stop is recovered at next startup.
 type dispatcher struct {
-	svc       *serviceImpl
-	workers   int
-	wakeC     chan struct{}
-	execWakeC chan struct{}
-	done      chan struct{}
-	joined    chan struct{}
-	ctx       context.Context
-	cancel    context.CancelCauseFunc
-	wg        sync.WaitGroup
-	mu        sync.Mutex
-	started   bool
-	stopped   bool
-	loops     int
-	active    map[string]struct{}
+	svc        *serviceImpl
+	workers    int
+	wakeC      chan struct{}
+	lightWakeC chan struct{}
+	execWakeC  chan struct{}
+	done       chan struct{}
+	joined     chan struct{}
+	ctx        context.Context
+	cancel     context.CancelCauseFunc
+	wg         sync.WaitGroup
+	mu         sync.Mutex
+	started    bool
+	stopped    bool
+	loops      int
+	active     map[string]struct{}
 }
 
 func newDispatcher(svc *serviceImpl, workers int) *dispatcher {
@@ -37,7 +38,8 @@ func newDispatcher(svc *serviceImpl, workers int) *dispatcher {
 	ctx, cancel := context.WithCancelCause(context.Background())
 	return &dispatcher{
 		svc: svc, workers: workers, wakeC: make(chan struct{}, 1), execWakeC: make(chan struct{}, 1),
-		done: make(chan struct{}), joined: make(chan struct{}), ctx: ctx, cancel: cancel,
+		lightWakeC: make(chan struct{}, 1),
+		done:       make(chan struct{}), joined: make(chan struct{}), ctx: ctx, cancel: cancel,
 		active: make(map[string]struct{}),
 	}
 }
@@ -50,10 +52,17 @@ func (d *dispatcher) Start() {
 		return
 	}
 	d.started = true
-	d.loops = d.workers + 1
+	d.loops = d.workers + 2
 	for range d.workers {
-		d.wg.Go(func() { defer d.loopExited(); d.run() })
+		d.wg.Go(func() { defer d.loopExited(); d.run(nil, d.wakeC) })
 	}
+	lightKinds := make([]string, 0)
+	for _, task := range d.svc.tasks {
+		if _, ok := task.(LightPlanner); ok {
+			lightKinds = append(lightKinds, task.Kind())
+		}
+	}
+	d.wg.Go(func() { defer d.loopExited(); d.run(lightKinds, d.lightWakeC) })
 	d.wg.Go(func() { defer d.loopExited(); d.runExecutionLoop() })
 	go func() { d.wg.Wait(); close(d.joined) }()
 }

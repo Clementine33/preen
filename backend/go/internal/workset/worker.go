@@ -10,9 +10,11 @@ import (
 // wake pokes the pool after a session is enqueued or a queued session is
 // canceled, so workers re-check the queue immediately.
 func (d *dispatcher) wake() {
-	select {
-	case d.wakeC <- struct{}{}:
-	default:
+	for _, wake := range []chan struct{}{d.wakeC, d.lightWakeC} {
+		select {
+		case wake <- struct{}{}:
+		default:
+		}
 	}
 }
 
@@ -25,17 +27,17 @@ func (d *dispatcher) wakeExecution() {
 	}
 }
 
-func (d *dispatcher) run() {
+func (d *dispatcher) run(kinds []string, wake chan struct{}) {
 	for {
 		select {
 		case <-d.done:
 			return
-		case <-d.wakeC:
+		case <-wake:
 		default:
 		}
-		gen, err := d.svc.repo.NextQueuedGeneration()
+		gen, err := d.svc.repo.NextQueuedGeneration(kinds)
 		if err != nil {
-			if !d.retryClaim(d.wakeC, err) {
+			if !d.retryClaim(wake, err) {
 				return
 			}
 			continue
@@ -44,7 +46,7 @@ func (d *dispatcher) run() {
 			select {
 			case <-d.done:
 				return
-			case <-d.wakeC: // re-check the queue
+			case <-wake: // re-check the queue
 			}
 			continue
 		}

@@ -71,6 +71,9 @@ type PlanBitrateConfig struct {
 
 // WorksetConfig defines workset-generation settings in config.json.
 type WorksetConfig struct {
+	// With one conversion active, a second general worker lets metadata start
+	// beside rename on the light worker: single-library runs halve metadata
+	// latency at a ~60 ms rename cost, with no throughput difference.
 	GenerationConcurrency int `json:"generation_concurrency"`
 }
 

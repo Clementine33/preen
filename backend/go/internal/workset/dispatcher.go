@@ -33,6 +33,7 @@ type dispatcher struct {
 
 func newDispatcher(svc *serviceImpl, workers int) *dispatcher {
 	if workers <= 0 {
+		// Match the deployment default (see settings.WorksetConfig).
 		workers = 2
 	}
 	ctx, cancel := context.WithCancelCause(context.Background())

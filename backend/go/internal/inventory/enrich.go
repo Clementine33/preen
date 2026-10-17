@@ -11,10 +11,7 @@ import (
 )
 
 const (
-	// mediaProbeWorkers is the default probe width. Each probe reads a few KiB,
-	// so on a network share or a mechanical disk concurrency hides round trips
-	// and lets the disk reorder its queue; past eight the gain is small while
-	// every probe waits longer, and a shared disk keeps room for its other users.
+	// mediaProbeWorkers is the fallback for candidates without a library limit.
 	mediaProbeWorkers = 8
 	// mediaBatchSize bounds how much a preempted pass can lose: facts are
 	// written back after every batch, and once more when the pass is stopped.
@@ -64,7 +61,7 @@ type MediaEnricher struct {
 	status    MediaFactsStatus
 	countedAt time.Time
 
-	// Workers overrides the probe width; zero means mediaProbeWorkers.
+	// Workers overrides the probe width; zero uses the candidate library limits.
 	Workers int
 }
 
@@ -163,12 +160,18 @@ func (e *MediaEnricher) admitted(ctx context.Context, after *string) bool {
 	return ctx.Err() != nil
 }
 
-// measure probes one batch with the configured width and returns what it
-// could measure.
+// measure freezes the most conservative candidate limit for the whole batch.
 func (e *MediaEnricher) measure(ctx context.Context, batch []MediaCandidate) []MediaFactsUpdate {
 	workers := e.Workers
 	if workers <= 0 {
-		workers = mediaProbeWorkers
+		workers = len(batch)
+		for _, candidate := range batch {
+			width := candidate.ProbeWorkers
+			if width <= 0 {
+				width = mediaProbeWorkers
+			}
+			workers = min(workers, width)
+		}
 	}
 	var updates []MediaFactsUpdate
 	var mu sync.Mutex

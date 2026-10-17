@@ -9,6 +9,7 @@ import (
 	"testing/fstest"
 
 	"github.com/onsei/organizer/backend/internal/adapters/sqlite"
+	"github.com/onsei/organizer/backend/internal/library"
 	"github.com/onsei/organizer/backend/internal/works"
 )
 
@@ -238,7 +239,7 @@ func TestFailedInitialMigrationCanBeRetried(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer repo.Close()
-	if version := migrationVersion(t, repo.DB()); version != 6 {
+	if version := migrationVersion(t, repo.DB()); version != 7 {
 		t.Fatalf("initial retry version = %d", version)
 	}
 }
@@ -356,4 +357,65 @@ func TestLanguageMigrationPreservesRelationsWithoutGuessingNM(t *testing.T) {
 	if err != nil || detail.Language == nil || *detail.Language != "NM" {
 		t.Fatalf("NM read/write: %+v, %v", detail, err)
 	}
+}
+
+func TestLibraryStorageClassUpgradePreservesExistingLibrary(t *testing.T) {
+	for _, from := range []string{"00001_initial.sql", "00006_work_collections.sql"} {
+		t.Run(from, func(t *testing.T) {
+			files := releaseMigrationsThrough(t, from)
+			path := filepath.Join(t.TempDir(), "release.db")
+			old, err := sqlite.OpenReleaseWithMigrations(path, files)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err = old.DB().
+				Exec(`INSERT INTO libraries(id,name,root_path,root_path_key) VALUES('existing','Music','/music','/music')`); err != nil {
+				t.Fatal(err)
+			}
+			if err = old.Close(); err != nil {
+				t.Fatal(err)
+			}
+			upgraded, err := sqlite.NewRepository(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer upgraded.Close()
+			lib, err := upgraded.GetLibrary("existing")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if lib.Name != "Music" || lib.RootPath != "/music" || lib.StorageClass != library.StorageHDD {
+				t.Fatalf("upgraded library=%+v", lib)
+			}
+			class := library.StorageSSD
+			lib, err = library.NewService(upgraded, nil, upgraded, nil).Patch(lib.ID, nil, nil, &class)
+			if err != nil || lib.StorageClass != library.StorageSSD {
+				t.Fatalf("upgraded storage edit=%+v, %v", lib, err)
+			}
+			fresh, err := upgraded.CreateLibrary("New", "/new")
+			if err != nil || fresh.StorageClass != library.StorageHDD {
+				t.Fatalf("fresh storage=%+v, %v", fresh, err)
+			}
+		})
+	}
+}
+
+func releaseMigrationsThrough(t *testing.T, last string) fstest.MapFS {
+	t.Helper()
+	files := fstest.MapFS{}
+	names, err := os.ReadDir("migrations")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range names {
+		if name.Name() > last {
+			continue
+		}
+		data, readErr := os.ReadFile(filepath.Join("migrations", name.Name()))
+		if readErr != nil {
+			t.Fatal(readErr)
+		}
+		files[name.Name()] = &fstest.MapFile{Data: data}
+	}
+	return files
 }

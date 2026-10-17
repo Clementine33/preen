@@ -179,6 +179,12 @@ path is `NOT_AN_IMAGE` (404). Read-only, no admission slot.
 
 ## Background media facts notifications
 
+Each batch snapshots the storage class of its candidate libraries. Its probe
+width is the most conservative candidate limit: HDD `min(8, C)`, SSD `min(16, C)`,
+with `C = max(1, floor(logical CPU count × 2/3))`. Unowned inventory uses HDD.
+Storage-class edits affect the next batch, and never resize one already probing.
+Scanning and planning retain their existing scheduling.
+
 `GET /api/v1/inventory/media-facts/events` is a bearer-authenticated SSE
 connection; query-token authentication is not accepted. It responds with
 `Content-Type: text/event-stream` and `Cache-Control: no-cache`.

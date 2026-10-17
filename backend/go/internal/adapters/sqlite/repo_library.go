@@ -63,7 +63,7 @@ func (r *Repository) CreateLibrary(name, rootPath string) (*library.Library, err
 // ListLibraries returns all libraries ordered by created_at (newest first).
 func (r *Repository) ListLibraries() ([]*library.Library, error) {
 	rows, err := r.db.Query(`
-		SELECT id, name, root_path, created_at, updated_at, last_scan_at, last_scan_status, last_scan_error
+		SELECT id, name, root_path, created_at, updated_at, last_scan_at, last_scan_status, last_scan_error, storage_class
 		FROM libraries ORDER BY created_at DESC
 	`)
 	if err != nil {
@@ -88,7 +88,7 @@ func (r *Repository) ListLibraries() ([]*library.Library, error) {
 // GetLibrary retrieves a library by id.
 func (r *Repository) GetLibrary(id string) (*library.Library, error) {
 	row := r.db.QueryRow(`
-		SELECT id, name, root_path, created_at, updated_at, last_scan_at, last_scan_status, last_scan_error
+		SELECT id, name, root_path, created_at, updated_at, last_scan_at, last_scan_status, last_scan_error, storage_class
 		FROM libraries WHERE id = ?
 	`, id)
 	lib, err := scanLibrary(row)
@@ -116,10 +116,12 @@ func (r *Repository) GetLibrary(id string) (*library.Library, error) {
 // attached and the next scan starts from nothing. A root-path change is
 // rejected with ErrLibraryHasWorksets while a processing record still belongs
 // to the library (a record keeps its root until it is replaced); name
-// edits stay allowed.
-func (r *Repository) UpdateLibrary(id, name, rootPath string) (*library.Library, error) {
-	candidateRoot := librarypath.CleanRootPath(rootPath)
-	rootPathKey := librarypath.RootPathKey(candidateRoot)
+// edits stay allowed. Omitted fields retain their value inside this transaction.
+func (r *Repository) UpdateLibrary(
+	id string,
+	name, rootPath *string,
+	storageClass *library.StorageClass,
+) (*library.Library, error) {
 	tx, err := r.db.Begin()
 	if err != nil {
 		return nil, err
@@ -134,6 +136,11 @@ func (r *Repository) UpdateLibrary(id, name, rootPath string) (*library.Library,
 		return nil, err
 	}
 
+	candidateRoot := currentRoot
+	if rootPath != nil {
+		candidateRoot = librarypath.CleanRootPath(*rootPath)
+	}
+	rootPathKey := librarypath.RootPathKey(candidateRoot)
 	now := time.Now().Format(timeFormat)
 	// A root change is judged on the canonical identity key, so a spelling-only
 	// edit (e.g. `/music/.` for `/music`) must not invalidate folders or scan
@@ -148,16 +155,16 @@ func (r *Repository) UpdateLibrary(id, name, rootPath string) (*library.Library,
 			return nil, library.ErrLibraryHasWorksets
 		}
 	}
-	query := `UPDATE libraries SET name = ?, root_path = ?, root_path_key = ?, updated_at = ? WHERE id = ?`
+	query := `UPDATE libraries SET name = COALESCE(?, name), root_path = ?, root_path_key = ?, updated_at = ?, storage_class = COALESCE(?, storage_class) WHERE id = ?`
 	if rootChanged {
 		query = `
 			UPDATE libraries
-			SET name = ?, root_path = ?, root_path_key = ?, updated_at = ?,
-			    last_scan_at = NULL, last_scan_status = '', last_scan_error = ''
+			SET name = COALESCE(?, name), root_path = ?, root_path_key = ?, updated_at = ?,
+			    last_scan_at = NULL, last_scan_status = '', last_scan_error = '', storage_class = COALESCE(?, storage_class)
 			WHERE id = ?
 		`
 	}
-	if _, err := tx.Exec(query, name, candidateRoot, rootPathKey, now, id); err != nil {
+	if _, err := tx.Exec(query, name, candidateRoot, rootPathKey, now, storageClass, id); err != nil {
 		if isUniqueConstraintError(err) {
 			return nil, library.ErrLibraryExists
 		}
@@ -304,6 +311,7 @@ func scanLibrary(row interface{ Scan(...any) error }) (*library.Library, error) 
 		&lastScanAt,
 		&l.LastScanStatus,
 		&l.LastScanError,
+		&l.StorageClass,
 	); err != nil {
 		return nil, err
 	}

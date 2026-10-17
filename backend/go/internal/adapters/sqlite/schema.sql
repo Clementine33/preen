@@ -180,7 +180,8 @@ CREATE TABLE libraries (
     updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
     last_scan_at TEXT,
     last_scan_status TEXT NOT NULL DEFAULT '',
-    last_scan_error TEXT NOT NULL DEFAULT ''
+    last_scan_error TEXT NOT NULL DEFAULT '',
+    storage_class TEXT NOT NULL DEFAULT 'hdd' CHECK (storage_class IN ('hdd', 'ssd'))
 );
 
 CREATE UNIQUE INDEX idx_libraries_root_path ON libraries(root_path);

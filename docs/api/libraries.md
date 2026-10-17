@@ -26,6 +26,7 @@
   "id": "uuid",
   "name": "Music",
   "root_path": "/home/me/music",
+  "storage_class": "hdd",
   "created_at": "2026-08-22T00:00:00Z",
   "updated_at": "2026-08-22T00:00:00Z",
   "last_scan_at": null,
@@ -35,7 +36,19 @@
 ```
 
 `POST /api/v1/libraries` body: `{"name":"...","root_path":"/abs/path"}`.
-`PATCH` applies only the fields present (`name`, `root_path`). Changing
+New libraries default to `storage_class: "hdd"`. `PATCH` applies only the fields
+present (`name`, `root_path`, `storage_class`). `storage_class` accepts exactly
+`"hdd"` or `"ssd"`; any other value, including empty strings and `null`, returns
+400 `INVALID_STORAGE_CLASS`. An omitted value preserves the current setting,
+including when edits to different fields overlap. Renaming a library
+preserves its storage class; deleting it deletes that setting with the library.
+Storage-class edits need no idle admission slot: started execution sessions and
+media-facts batches keep their captured concurrency, and later work reads the
+new value. Queued execution sessions capture it when the worker starts processing
+them, before session preparation. Neither worker counts nor a second SSD library
+list are file configuration.
+
+Changing
 `root_path` clears the scanned inventory of the old root and the prior scan
 state; the library must be scanned again before anything is planned from it.
 A root change is rejected with `LIBRARY_HAS_WORKSETS` while the library still

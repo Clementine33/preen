@@ -71,11 +71,12 @@ func (d *dispatcher) runExecutionLoop() {
 // executionRun is the resolved state of one claimed session before any
 // component runs.
 type executionRun struct {
-	req      *executionRequest
-	report   []ExecutionComponentView
-	rootPath string
-	outcomes map[int]json.RawMessage
-	plan     *PlanDetail
+	req          *executionRequest
+	report       []ExecutionComponentView
+	rootPath     string
+	encodeWindow int
+	outcomes     map[int]json.RawMessage
+	plan         *PlanDetail
 }
 
 // prepareExecution loads the frozen units, the component results already
@@ -121,6 +122,12 @@ func (d *dispatcher) prepareExecution(ex *PlanExecution) (*executionRun, bool) {
 		d.finishExecution(ex, ExecStatusFailed, "WORKSET_LOAD_FAILED", "failed to load workset")
 		return nil, false
 	}
+	lib, err := d.svc.repo.GetLibrary(w.LibraryID)
+	if err != nil {
+		d.finishExecution(ex, ExecStatusFailed, "LIBRARY_LOAD_FAILED", "failed to load library storage class")
+		return nil, false
+	}
+	width := d.svc.encodeWindow(lib.StorageClass)
 	plan, err := d.svc.repo.GetPlanDetail(ex.PlanID)
 	if err != nil {
 		d.finishExecution(
@@ -135,7 +142,14 @@ func (d *dispatcher) prepareExecution(ex *PlanExecution) (*executionRun, bool) {
 	for _, c := range plan.Components {
 		outcomes[c.ComponentIndex] = json.RawMessage(c.OutcomeJSON)
 	}
-	return &executionRun{req: req, report: report, rootPath: w.RootPath, outcomes: outcomes, plan: plan}, true
+	return &executionRun{
+		req:          req,
+		report:       report,
+		rootPath:     w.RootPath,
+		outcomes:     outcomes,
+		plan:         plan,
+		encodeWindow: width,
+	}, true
 }
 
 // executeRun runs one claimed session: the frozen units are prepared into a
@@ -195,7 +209,7 @@ func (d *dispatcher) executeRun(ex *PlanExecution) {
 		task:   preparer,
 		ctx:    ctx,
 		report: report,
-		window: d.svc.encodeWindow(),
+		window: run.encodeWindow,
 	}
 	// An empty execution keeps its existing completion rules: no worker pool
 	// starts and no frozen unit is indexed.

@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 
@@ -73,9 +74,24 @@ func (s *Server) patchLibrary(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	updated, err := s.deps.Library.Patch(r.PathValue("id"), req.Name, req.RootPath)
+	var storageClass *library.StorageClass
+	if req.StorageClass != nil {
+		var value library.StorageClass
+		if err := json.Unmarshal(
+			req.StorageClass,
+			&value,
+		); err != nil ||
+			(value != library.StorageHDD && value != library.StorageSSD) {
+			writeError(w, http.StatusBadRequest, "INVALID_STORAGE_CLASS", library.ErrInvalidStorageClass.Error())
+			return
+		}
+		storageClass = &value
+	}
+	updated, err := s.deps.Library.Patch(r.PathValue("id"), req.Name, req.RootPath, storageClass)
 	if err != nil {
 		switch {
+		case errors.Is(err, library.ErrInvalidStorageClass):
+			writeError(w, http.StatusBadRequest, "INVALID_STORAGE_CLASS", err.Error())
 		case admission.IsBusy(err):
 			writeBusyError(w, err)
 		case errors.Is(err, library.ErrLibraryExists):

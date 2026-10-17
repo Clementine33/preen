@@ -155,7 +155,7 @@ func TestListAndUpdateAndDeleteLibrary(t *testing.T) {
 	}
 
 	// Update name and root path.
-	updated, err := repo.UpdateLibrary(lib2.ID, "Second Renamed", `/cinema`)
+	updated, err := repo.UpdateLibrary(lib2.ID, new("Second Renamed"), new(`/cinema`), nil)
 	if err != nil {
 		t.Fatalf("UpdateLibrary failed: %v", err)
 	}
@@ -164,12 +164,28 @@ func TestListAndUpdateAndDeleteLibrary(t *testing.T) {
 	}
 
 	// Updating to a duplicate root path must fail with ErrLibraryExists.
-	if _, err := repo.UpdateLibrary(lib3.ID, "Third", "/cinema"); !errors.Is(err, library.ErrLibraryExists) {
+	if _, err := repo.UpdateLibrary(
+		lib3.ID,
+		new("Third"),
+		new("/cinema"),
+		nil,
+	); !errors.Is(
+		err,
+		library.ErrLibraryExists,
+	) {
 		t.Errorf("expected library.ErrLibraryExists on update to duplicate root path, got %v", err)
 	}
 
 	// Updating an unknown library must fail with ErrLibraryNotFound.
-	if _, err := repo.UpdateLibrary("no-such-id", "Nope", "/x"); !errors.Is(err, library.ErrLibraryNotFound) {
+	if _, err := repo.UpdateLibrary(
+		"no-such-id",
+		new("Nope"),
+		new("/x"),
+		nil,
+	); !errors.Is(
+		err,
+		library.ErrLibraryNotFound,
+	) {
 		t.Errorf("expected library.ErrLibraryNotFound on update of unknown id, got %v", err)
 	}
 
@@ -228,7 +244,7 @@ func TestUpdateLibraryRootClearsDerivedState(t *testing.T) {
 		t.Fatalf("UpdateLibraryScanState failed: %v", stateErr)
 	}
 
-	updated, err := repo.UpdateLibrary(lib.ID, "Music", "/new-music")
+	updated, err := repo.UpdateLibrary(lib.ID, new("Music"), new("/new-music"), nil)
 	if err != nil {
 		t.Fatalf("UpdateLibrary failed: %v", err)
 	}
@@ -409,7 +425,7 @@ func TestUpdateLibraryEquivalentRootKeepsDerivedState(t *testing.T) {
 
 	// A spelling-only root edit must not invalidate folders or scan state,
 	// and the stored root is the cleaned canonical form.
-	updated, err := repo.UpdateLibrary(lib.ID, "Music", "/music/.")
+	updated, err := repo.UpdateLibrary(lib.ID, new("Music"), new("/music/."), nil)
 	if err != nil {
 		t.Fatalf("UpdateLibrary failed: %v", err)
 	}

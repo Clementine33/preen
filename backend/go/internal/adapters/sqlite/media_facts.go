@@ -2,9 +2,12 @@ package sqlite
 
 import (
 	"fmt"
+	"runtime"
 	"time"
 
 	"github.com/onsei/organizer/backend/internal/inventory"
+	"github.com/onsei/organizer/backend/internal/library"
+	"github.com/onsei/organizer/backend/internal/librarypath"
 )
 
 // missingMediaFacts is the candidate predicate shared by the pass and its
@@ -24,8 +27,17 @@ const missingMediaFacts = `is_dir = 0 AND format IS NOT NULL
 // filter keeps it to the two kinds a prober can measure; the path key makes
 // the cursor an index walk.
 func (a *ScanStaging) EntriesMissingMediaFacts(after string, limit int) ([]inventory.MediaCandidate, error) {
+	libraries, err := a.repo.ListLibraries()
+	if err != nil {
+		return nil, fmt.Errorf("load media storage classes: %w", err)
+	}
+	// A spelling-only root edit keeps inventory paths, so match canonical identities.
+	classes := make(map[string]library.StorageClass, len(libraries))
+	for _, lib := range libraries {
+		classes[librarypath.RootPathKey(lib.RootPath)] = lib.StorageClass
+	}
 	rows, err := a.repo.DB().Query(`
-		SELECT path, format FROM entries
+		SELECT path, format, root_path FROM entries
 		WHERE path > ? AND `+missingMediaFacts+`
 		ORDER BY path
 		LIMIT ?
@@ -38,9 +50,11 @@ func (a *ScanStaging) EntriesMissingMediaFacts(after string, limit int) ([]inven
 	var candidates []inventory.MediaCandidate
 	for rows.Next() {
 		var c inventory.MediaCandidate
-		if err := rows.Scan(&c.Path, &c.Format); err != nil {
+		var root string
+		if err := rows.Scan(&c.Path, &c.Format, &root); err != nil {
 			return nil, fmt.Errorf("scan media-fact candidate: %w", err)
 		}
+		c.ProbeWorkers = classes[librarypath.RootPathKey(root)].MediaWorkers(runtime.NumCPU())
 		candidates = append(candidates, c)
 	}
 	return candidates, rows.Err()

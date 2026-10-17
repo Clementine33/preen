@@ -234,7 +234,7 @@ func TestRootChangeUnbindsTheLibrary(t *testing.T) {
 	}
 	assertBindings(t, repo, library.ID, []binding{{relPath: "RJ00000001 album", workID: "RJ00000001"}})
 
-	if _, err := repo.UpdateLibrary(library.ID, "music", "/elsewhere"); err != nil {
+	if _, err := repo.UpdateLibrary(library.ID, new("music"), new("/elsewhere"), nil); err != nil {
 		t.Fatal(err)
 	}
 	assertBindings(t, repo, library.ID, nil)

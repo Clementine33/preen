@@ -7,19 +7,16 @@ import (
 	"log"
 	"runtime"
 	"sync"
+
+	"github.com/onsei/organizer/backend/internal/library"
 )
 
-// defaultEncodeWorkers caps the automatic encode concurrency.
-const defaultEncodeWorkers = 4
-
-// encodeWindow is how many encode tasks — and with them, open components — one
-// session runs at once: the configured value, or min(4, CPU count) when the
-// caller left it automatic.
-func (s *serviceImpl) encodeWindow() int {
+// encodeWindow freezes one library's automatic width for an execution session.
+func (s *serviceImpl) encodeWindow(storage library.StorageClass) int {
 	if s.encodeConcurrency > 0 {
 		return s.encodeConcurrency
 	}
-	return min(defaultEncodeWorkers, runtime.NumCPU())
+	return storage.EncodeWorkers(runtime.NumCPU())
 }
 
 // encodeJob is one encode task of one open unit, as delivered to the pool.

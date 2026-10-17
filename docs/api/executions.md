@@ -211,9 +211,14 @@ timestamp updates alone do not fail conversion. Silent storage failure and
 external mutations that preserve identity and size are accepted risks.
 SHA-256 records observed bytes; it is not an independent expected output checksum.
 
-The pool and component window currently use the built-in automatic
-`min(4, CPU count)` width; `config.json` no longer overrides worker limits.
-Workers include validation. A ready head
+The pool and component window use the library's `storage_class`: HDD is
+`min(4, C)` and SSD is `C`, where `C = max(1, floor(logical CPU count × 2/3))`.
+These are backend policy constants, not user worker-count settings.
+The worker captures the width when it starts processing the queued session,
+before preflight or input scanning; later storage edits do not resize that
+session. A queued session therefore uses the library setting at processing
+start. `config.json` does not override worker limits. Workers include validation.
+A ready head
 component commits and persists even if later task delivery is backpressured;
 FIFO delivery and serial preparation/publication remain unchanged.
 

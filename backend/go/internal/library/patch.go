@@ -10,16 +10,19 @@ import "github.com/onsei/organizer/backend/internal/librarypath"
 // nor with a scan (ADR 0002; ADR 0001). A name-only edit touches no path
 // and needs no admission. The row is read before the slot is taken, and a busy
 // slot refuses the request instead of queueing it.
-func (s *Service) Patch(id string, name, rootPath *string) (*Library, error) {
+func (s *Service) Patch(id string, name, rootPath *string, storageClass *StorageClass) (*Library, error) {
 	lib, err := s.store.GetLibrary(id)
 	if err != nil {
 		return nil, err
 	}
 
-	newName, newRoot := lib.Name, lib.RootPath
-	if name != nil {
-		newName = *name
+	if storageClass != nil {
+		if *storageClass != StorageHDD && *storageClass != StorageSSD {
+			return nil, ErrInvalidStorageClass
+		}
 	}
+
+	newRoot := lib.RootPath
 	if rootPath != nil {
 		newRoot = *rootPath
 	}
@@ -32,5 +35,5 @@ func (s *Service) Patch(id string, name, rootPath *string) (*Library, error) {
 		defer release()
 	}
 
-	return s.store.UpdateLibrary(id, newName, newRoot)
+	return s.store.UpdateLibrary(id, name, rootPath, storageClass)
 }

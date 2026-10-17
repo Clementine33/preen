@@ -41,6 +41,8 @@ type BitrateUpdate struct {
 type MediaCandidate struct {
 	Path   string
 	Format string
+	// ProbeWorkers is the owning library's width captured with this batch.
+	ProbeWorkers int
 }
 
 // MediaFactsUpdate is the measured media facts to write back onto an entry. A

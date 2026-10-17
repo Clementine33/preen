@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"encoding/json"
 	"net/http"
 	"time"
 
@@ -33,14 +34,15 @@ type healthResponse struct {
 
 // libraryResponse mirrors the repo Library type with snake_case JSON.
 type libraryResponse struct {
-	ID             string     `json:"id"`
-	Name           string     `json:"name"`
-	RootPath       string     `json:"root_path"`
-	CreatedAt      time.Time  `json:"created_at"`
-	UpdatedAt      time.Time  `json:"updated_at"`
-	LastScanAt     *time.Time `json:"last_scan_at"`
-	LastScanStatus string     `json:"last_scan_status"`
-	LastScanError  string     `json:"last_scan_error"`
+	ID             string               `json:"id"`
+	Name           string               `json:"name"`
+	RootPath       string               `json:"root_path"`
+	StorageClass   library.StorageClass `json:"storage_class"`
+	CreatedAt      time.Time            `json:"created_at"`
+	UpdatedAt      time.Time            `json:"updated_at"`
+	LastScanAt     *time.Time           `json:"last_scan_at"`
+	LastScanStatus string               `json:"last_scan_status"`
+	LastScanError  string               `json:"last_scan_error"`
 }
 
 func toLibraryResponse(l *library.Library) libraryResponse {
@@ -48,6 +50,7 @@ func toLibraryResponse(l *library.Library) libraryResponse {
 		ID:             l.ID,
 		Name:           l.Name,
 		RootPath:       l.RootPath,
+		StorageClass:   l.StorageClass,
 		CreatedAt:      l.CreatedAt,
 		UpdatedAt:      l.UpdatedAt,
 		LastScanAt:     l.LastScanAt,
@@ -65,6 +68,7 @@ type libraryCreateRequest struct {
 // libraryPatchRequest is the PATCH /api/v1/libraries/:id payload. Pointer
 // fields distinguish absent fields from explicit empty values.
 type libraryPatchRequest struct {
-	Name     *string `json:"name"`
-	RootPath *string `json:"root_path"`
+	Name         *string         `json:"name"`
+	RootPath     *string         `json:"root_path"`
+	StorageClass json.RawMessage `json:"storage_class"`
 }

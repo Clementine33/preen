@@ -16,7 +16,7 @@ type serviceImpl struct {
 	scanFolder FolderScan
 	// encodeConcurrency bounds how many encode tasks one execution session runs
 	// at once, and with them how many components it keeps open. Zero means the
-	// automatic value (min(4, CPU count)).
+	// library storage class and CPU budget.
 	encodeConcurrency int
 }
 

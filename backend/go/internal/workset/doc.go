@@ -1,6 +1,8 @@
 // Package workset owns one shared folder batch per library and its ordered members, operation
 // drafts and revisions, the current plan, and planning/execution sessions. It
 // coordinates identity, ownership, versions, idempotency and worker scheduling.
+// Tasks may declare light planning for one extra worker without partitioning
+// the general FIFO queue or exposing their business payloads to the scheduler.
 // The dispatcher owns worker/session lifetimes: Stop interrupts active sessions
 // and joins their child work before the application closes storage.
 //

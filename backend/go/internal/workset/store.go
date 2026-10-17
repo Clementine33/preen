@@ -96,8 +96,8 @@ type Store interface {
 	MarkGenerationFailed(generationID, code, message string) error
 	// NextQueuedExecution is one operation of the lifecycle.
 	NextQueuedExecution() (*PlanExecution, error)
-	// NextQueuedGeneration is one operation of the lifecycle.
-	NextQueuedGeneration() (*PlanGeneration, error)
+	// NextQueuedGeneration claims FIFO among kinds; nil allows all, empty allows none.
+	NextQueuedGeneration(kinds []string) (*PlanGeneration, error)
 	// PersistOperationRevision is one operation of the lifecycle.
 	PersistOperationRevision(genID, worksetID, operationType string, now time.Time, p OperationRevisionPersist) error
 	// RenameWorkset is one operation of the lifecycle.

@@ -16,7 +16,10 @@ type delayedClaimStore struct {
 	release chan struct{}
 }
 
-func (s *delayedClaimStore) NextQueuedGeneration() (*PlanGeneration, error) {
+func (s *delayedClaimStore) NextQueuedGeneration(kinds []string) (*PlanGeneration, error) {
+	if kinds != nil {
+		return nil, nil
+	}
 	close(s.entered)
 	<-s.release
 	return &PlanGeneration{GenerationID: "late", Status: GenStatusRunning}, nil

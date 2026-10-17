@@ -2,6 +2,7 @@ package sqlite
 
 import (
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -143,11 +144,25 @@ func (r *Repository) LatestGenerationForOperation(worksetID, operationType strin
 	return g, nil
 }
 
-// NextQueuedGeneration claims the oldest queued generation globally (FIFO by
-// created_at, generation_id). Claiming is a conditional update: when the row
+// NextQueuedGeneration claims the oldest queued generation among kinds (nil
+// allows all, empty allows none), preserving FIFO by
+// created_at, generation_id. Claiming is a conditional update: when the row
 // was canceled between select and update, zero rows are affected and the
 // dispatcher skips it (canceled-queued sessions never run).
-func (r *Repository) NextQueuedGeneration() (*workset.PlanGeneration, error) {
+func (r *Repository) NextQueuedGeneration(kinds []string) (*workset.PlanGeneration, error) {
+	filter := ""
+	var args []any
+	if kinds != nil {
+		if len(kinds) == 0 {
+			return nil, nil
+		}
+		encoded, err := json.Marshal(kinds)
+		if err != nil {
+			return nil, err
+		}
+		filter = " AND operation_type IN (SELECT value FROM json_each(?))"
+		args = append(args, string(encoded))
+	}
 	tx, err := r.db.Begin()
 	if err != nil {
 		return nil, err
@@ -155,10 +170,10 @@ func (r *Repository) NextQueuedGeneration() (*workset.PlanGeneration, error) {
 	defer tx.Rollback()
 
 	rows, err := tx.Query(`
-		SELECT ` + generationColumns + ` FROM plan_generations
-		WHERE status = 'queued'
+		SELECT `+generationColumns+` FROM plan_generations
+		WHERE status = 'queued'`+filter+`
 		ORDER BY julianday(created_at) ASC, generation_id ASC LIMIT 1
-	`)
+	`, args...)
 	if err != nil {
 		return nil, err
 	}

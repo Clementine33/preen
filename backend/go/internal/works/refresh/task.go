@@ -26,4 +26,7 @@ func NewTask(c TaskCatalog, checkDirectory func(string) error) *Task {
 }
 func (*Task) Kind() string { return Kind }
 
+// LightPlanning declares directory-only generation without inventory scans or probes.
+func (*Task) LightPlanning() {}
+
 var _ workset.Task = (*Task)(nil)

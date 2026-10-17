@@ -30,7 +30,8 @@ type EnqueueGuard func(fn func() error) error
 // operation and its seed draft, and every operation-scoped call resolves its
 // task from this list. scanFolder supplies the default disk → inventory refresh;
 // task-specific generation and execution capabilities may replace that flow.
-// generationConcurrency bounds the planning workers; encodeConcurrency bounds
+// generationConcurrency bounds general planning workers; declared light tasks
+// also share one extra worker. encodeConcurrency bounds
 // one execution session's shared encode pool (0 = automatic). enqueueGuard is
 // the file-management admission seam for session starts.
 func NewService(

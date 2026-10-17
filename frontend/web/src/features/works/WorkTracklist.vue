@@ -1,25 +1,21 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { deriveTracks, fmtLong, fmtT, playableCopy } from '@/features/work-detail/derive'
+import { deriveTracks, fmtLong, fmtT, pickFormat, playableCopy, trackFormats } from '@/features/work-detail/derive'
 import { usePlayWork } from '@/features/works/use-play-work'
+import { usePreferences } from '@/queries/preferences'
 import { useWorkContent } from '@/queries/works'
 import { usePlayerStore } from '@/stores/player'
 
 // One work's tracklist, wherever a work is shown without its detail page (the
 // wall's inspector, a collection's expanded row): the detail page's track list
 // (deriveTracks over the first online copy) under a TRACKLIST strip; a row
-// plays the work from that track. The codec filter lives here so every
-// tracklist narrows the same way.
+// plays the work from that track. The Format Preference narrows the list here so
+// every tracklist narrows the same way; a work shipping none of the preferred
+// formats keeps the merged list.
 
 const props = defineProps<{
   rj: string | null
   title: string
-  /**
-   * Show (and play) only the tracks that exist in this codec, e.g. 'WAV'. Null,
-   * or a codec the work does not ship, leaves the merged list. The entry point
-   * is the settings page's, later.
-   */
-  onlyFormat?: string | null
   /** Dimmed while the owner is about to swap in another work. */
   dim?: boolean
 }>()
@@ -30,9 +26,8 @@ const allTracks = computed(() => {
   const tree = playableCopy(content.value)?.tree
   return tree ? deriveTracks(tree) : []
 })
-const codec = computed(() =>
-  props.onlyFormat && allTracks.value.some((track) => track.files[props.onlyFormat!]) ? props.onlyFormat : null,
-)
+const { trackFormats: preference } = usePreferences()
+const codec = computed(() => pickFormat(trackFormats(allTracks.value), preference.value))
 const tracks = computed(() =>
   codec.value ? allTracks.value.filter((track) => track.files[codec.value!]) : allTracks.value,
 )
@@ -59,7 +54,9 @@ function playTrack(t: number) {
   <div class="tracklist">
     <div class="strip">
       <span class="strip-name lbl">TRACKLIST</span>
-      <span class="lbl">{{ tracksSummary }}</span>
+      <span class="lbl">
+        <span v-if="codec" class="fmt" data-testid="tracklist-format">{{ codec }}</span>{{ tracksSummary }}
+      </span>
     </div>
     <div class="tracks" :class="{ dim }" lang="ja">
       <template v-for="(track, t) in tracks" :key="track.key">
@@ -80,6 +77,7 @@ function playTrack(t: number) {
 .tracklist { display: flex; flex-direction: column; min-height: 0; }
 .tracks { margin-top: var(--sp-2); font-family: var(--font-ja); overflow-y: auto; transition: opacity 80ms linear; }
 .dim { opacity: .3; }
+.fmt { margin-right: var(--sp-2); font-family: var(--font-mono); }
 .trk {
   display: grid; grid-template-columns: 24px minmax(0, 1fr) 44px; align-items: center; gap: var(--sp-3);
   width: 100%; height: 28px; padding: 0 var(--sp-2); border-bottom: 1px solid var(--wire-fine);

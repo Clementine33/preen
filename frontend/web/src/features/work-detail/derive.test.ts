@@ -16,6 +16,7 @@ import {
   parseLyrics,
   parseTxt,
   playQueue,
+  pickFormat,
   trackFormats,
 } from './derive'
 import type { WorkContentDir, WorkContentFile, WorkFileKind } from '@/lib/api/types'
@@ -342,5 +343,13 @@ describe('telemetry formatting', () => {
   it('labels an audio file by its duration and format', () => {
     expect(audioInfo(f('a.mp3', 'aud', { format: 'MP3', bitrate: 320, duration_sec: 252 }))).toBe('04:12 · MP3 320K')
     expect(audioInfo(f('a.wav', 'aud', { format: 'WAV', duration_sec: 480 }))).toBe('08:00 · WAV')
+  })
+})
+
+describe('pickFormat', () => {
+  it('takes the first preferred format the work ships, else null', () => {
+    expect(pickFormat(['MP3', 'WAV'], ['FLAC', 'WAV', 'MP3'])).toBe('WAV')
+    expect(pickFormat(['MP3', 'WAV'], ['FLAC'])).toBeNull()
+    expect(pickFormat(['MP3', 'WAV'], [])).toBeNull()
   })
 })

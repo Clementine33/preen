@@ -97,6 +97,14 @@ recomputed whenever evidence changes, and being derived it never blocks a
 deletion.
 _Avoid_: Reading the derived relation as a source of truth about references.
 
+**Format Preference**:
+The user's ordered list of audio formats. A Work's effective format is the
+first listed format it ships; its track lists then show and play only that
+format. A Work that ships none of them keeps every format. The list belongs to
+the deployment's single user, not to one browser, and an empty list prefers
+nothing.
+_Avoid_: Calling it a filter (the wall filters works, not formats) or a default format.
+
 ### Collections and workbench
 
 **Work Collection**:

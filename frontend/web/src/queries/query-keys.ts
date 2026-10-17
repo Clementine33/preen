@@ -34,6 +34,9 @@ export const queryKeys = {
   taskSettings: {
     detail: (operation: string) => ['task-settings', operation] as const,
   },
+  preferences: {
+    detail: () => ['preferences'] as const,
+  },
   classifierTags: {
     list: () => ['classifier-tags', 'list'] as const,
   },

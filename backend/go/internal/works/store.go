@@ -122,6 +122,11 @@ type Store interface {
 	// DeleteUserTag removes a tag and its relations.
 	DeleteUserTag(id string) error
 
+	// TrackFormats reads the stored Format Preference; nil when never saved.
+	TrackFormats() ([]string, error)
+	// SaveTrackFormats replaces the stored Format Preference.
+	SaveTrackFormats(formats []string, now time.Time) error
+
 	// DeleteWork permanently removes a work. It returns a WORK_IN_USE refusal
 	// when a copy or another work's evidence still points at it.
 	DeleteWork(id WorkCode) *Error

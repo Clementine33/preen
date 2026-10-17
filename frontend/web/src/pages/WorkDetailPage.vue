@@ -9,6 +9,7 @@ import WorkBay from '@/features/work-detail/WorkBay.vue'
 import WorkDeck from '@/features/work-detail/WorkDeck.vue'
 import WorkLeaf from '@/features/work-detail/WorkLeaf.vue'
 import WorkViewer from '@/features/work-detail/WorkViewer.vue'
+import { usePreferences } from '@/queries/preferences'
 import { useWorkContent, useWorkDetail } from '@/queries/works'
 import { usePlayerStore } from '@/stores/player'
 import { useWorkDetailStore } from '@/stores/work-detail'
@@ -36,9 +37,13 @@ const { content } = useWorkContent(rj)
 
 // A different work is a new session, dropped the moment the route changes;
 // the manifest of the new work rehydrates when it lands.
-watch([rj, content], ([id, now]) => {
+// Binding waits for the Format Preference to settle, so it can pick the opening chip.
+const { query: preferencesQuery, trackFormats: preference } = usePreferences()
+watch([rj, content, () => preferencesQuery.isPending.value], ([id, now, pending]) => {
   if (store.rj !== id) store.newVisit()
-  if (now !== null && id !== null && now.rj === id) store.bind(id, now, (ref) => api.workFileUrl(ref))
+  if (!pending && now !== null && id !== null && now.rj === id) {
+    store.bind(id, now, (ref) => api.workFileUrl(ref), preference.value)
+  }
 }, { immediate: true })
 
 // Prev/next and a track's end move the player on; the bay and the leaf follow.

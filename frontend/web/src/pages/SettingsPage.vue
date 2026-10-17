@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import GlobalMenu from '@/components/layout/GlobalMenu.vue'
+import FormatPreferenceSettings from '@/features/settings/FormatPreferenceSettings.vue'
 import SettingsField from '@/features/settings/SettingsField.vue'
 import SettingsSegmented from '@/features/settings/SettingsSegmented.vue'
 import UserTagSettings from '@/features/settings/UserTagSettings.vue'
@@ -10,9 +11,9 @@ import { THEME_OPTIONS, useTheme, type Theme } from '@/composables/use-theme'
 
 /**
  * 设置 (`/settings/:section?`): what has no other home, one category per
- * address — this browser's appearance (theme, motion) and the user-tag
- * vocabulary. Each saves where its data lives: tags on the backend, appearance
- * in this browser. Task settings stay beside their tasks, a library's storage
+ * address — appearance (theme and motion stay in this browser; the Format
+ * Preference syncs through the server) and the user-tag vocabulary. Each saves
+ * where its data lives. Task settings stay beside their tasks, a library's storage
  * class in its edit dialog.
  */
 const SECTIONS = [
@@ -61,9 +62,6 @@ const { preference, systemReduces } = useMotion()
           <h2 id="settings-section-title" class="mt-3 font-heading text-base font-semibold">{{ section.label }}</h2>
 
           <template v-if="section.id === 'appearance'">
-            <p class="mt-1 mb-1 max-w-[38em] text-[length:var(--fs-m)] leading-relaxed text-[var(--text-secondary)]">
-              只影响这个浏览器，选择后立即生效。
-            </p>
             <SettingsField id="theme" label="主题">
               <SettingsSegmented
                 label="主题"
@@ -82,12 +80,12 @@ const { preference, systemReduces } = useMotion()
                 @change="preference = $event as MotionPreference"
               />
             </SettingsField>
+            <SettingsField id="format-preference" label="格式偏好" hint="只作用于 TRACKLIST；跨设备同步">
+              <FormatPreferenceSettings />
+            </SettingsField>
           </template>
 
           <template v-else>
-            <p class="mt-1 mb-3 max-w-[38em] text-[length:var(--fs-m)] leading-relaxed text-[var(--text-secondary)]">
-              你给作品加的个人分类，与作品自带的来源标签分开。作品详情页和作品墙的筛选使用同一份标签。
-            </p>
             <UserTagSettings />
           </template>
         </section>

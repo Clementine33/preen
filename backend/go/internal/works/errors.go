@@ -15,15 +15,16 @@ const (
 
 // Stable codes the catalog answers with.
 const (
-	CodeInvalidArgument   = "INVALID_ARGUMENT"
-	CodeWorkNotFound      = "WORK_NOT_FOUND"
-	CodeWorkInUse         = "WORK_IN_USE"
-	CodeInvalidPage       = "INVALID_PAGE"
-	CodeMatchModeRequired = "MATCH_MODE_REQUIRED"
-	CodeInvalidTagName    = "INVALID_TAG_NAME"
-	CodeUserTagExists     = "USER_TAG_EXISTS"
-	CodeUserTagNotFound   = "USER_TAG_NOT_FOUND"
-	CodeTimestampFormat   = "INVALID_TIMESTAMP"
+	CodeInvalidArgument    = "INVALID_ARGUMENT"
+	CodeWorkNotFound       = "WORK_NOT_FOUND"
+	CodeWorkInUse          = "WORK_IN_USE"
+	CodeInvalidPage        = "INVALID_PAGE"
+	CodeMatchModeRequired  = "MATCH_MODE_REQUIRED"
+	CodeInvalidTagName     = "INVALID_TAG_NAME"
+	CodeUserTagExists      = "USER_TAG_EXISTS"
+	CodeUserTagNotFound    = "USER_TAG_NOT_FOUND"
+	CodeTimestampFormat    = "INVALID_TIMESTAMP"
+	CodeInvalidPreferences = "INVALID_PREFERENCES"
 )
 
 // Error is one refusal, carrying the stable code a caller branches on.

@@ -18,12 +18,6 @@ const props = defineProps<{
   rj: string | null
   /** On the detail page: no wall to return to, so no OPEN DETAIL and no wall keys. */
   standalone?: boolean
-  /**
-   * Show (and play) only the tracks that exist in this codec, e.g. 'WAV'. Null,
-   * or a codec the work does not ship, leaves the merged list. The entry point
-   * is the settings page's, later.
-   */
-  onlyFormat?: string | null
 }>()
 
 const router = useRouter()
@@ -192,7 +186,7 @@ const { playWork } = usePlayWork()
 // PLAY needs the loaded work: it plays what the inspector shows from track 01.
 const canPlay = computed(() => workNow.value !== null)
 function playNowPlaying() {
-  if (workNow.value) void playWork({ rj: workNow.value.rj, title: workNow.value.title ?? workNow.value.rj }, props.onlyFormat ?? '')
+  if (workNow.value) void playWork({ rj: workNow.value.rj, title: workNow.value.title ?? workNow.value.rj })
 }
 function openDetail() {
   if (props.rj !== null) router.push({ name: 'work-detail', params: { rj: props.rj } })
@@ -228,8 +222,7 @@ const playIcon = 'M1 0l9 5-9 5z'
       <div class="spec-row"><dt class="lbl">TAG</dt><dd class="clamp" :title="tags">{{ tags }}</dd></div>
     </dl>
 
-    <WorkTracklist class="tracklist-slot" :rj="deferredWork?.rj ?? null" :title="deferredWork?.title ?? deferredWork?.rj ?? ''"
-      :only-format="onlyFormat" :dim="dim" />
+    <WorkTracklist class="tracklist-slot" :rj="deferredWork?.rj ?? null" :title="deferredWork?.title ?? deferredWork?.rj ?? ''" :dim="dim" />
 
     <div class="insp-foot">
       <div class="insp-foot-inner">

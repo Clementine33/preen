@@ -1,12 +1,13 @@
 import { useQueryClient } from '@tanstack/vue-query'
-import { deriveTracks, playableCopy, playQueue } from '@/features/work-detail/derive'
+import { deriveTracks, pickFormat, playableCopy, playQueue, trackFormats } from '@/features/work-detail/derive'
 import { useApiClient } from '@/lib/api/client'
 import type { WorkContent } from '@/lib/api/types'
+import { usePreferences } from '@/queries/preferences'
 import { queryKeys } from '@/queries/query-keys'
 import { usePlayerStore } from '@/stores/player'
 
-// Playing a work from the wall: its tracks queue in their first format, from
-// the copy the detail page would read. A work without an audio file is one
+// Playing a work from the wall: its tracks queue in their effective format (the
+// Format Preference, else every format merged), from the copy the detail page would read. A work without an audio file is one
 // silent entry under its title.
 
 interface PlayableWork {
@@ -18,11 +19,14 @@ export function usePlayWork() {
   const api = useApiClient()
   const client = useQueryClient()
   const player = usePlayerStore()
+  const { trackFormats: preference } = usePreferences()
 
   /** Synchronous, for a click with the manifest in hand: play() stays user-initiated. */
   function playFrom(work: PlayableWork, content: WorkContent | null, index = 0, format = ''): void {
     const copy = playableCopy(content)
     const tracks = copy?.tree ? deriveTracks(copy.tree) : []
+    // No explicit format: the preference decides, so no caller repeats it.
+    format ||= pickFormat(trackFormats(tracks), preference.value) ?? ''
     // A codec that the requested start track lacks starts at the first track that has it.
     const at = format && !tracks[index]?.files[format] ? Math.max(tracks.findIndex((t) => t.files[format]), 0) : index
     const { queue, index: start } = playQueue(tracks, at, format, (file) =>

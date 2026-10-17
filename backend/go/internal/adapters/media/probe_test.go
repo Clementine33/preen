@@ -76,7 +76,7 @@ func TestAudioFactsRejectsNonAudio(t *testing.T) {
 	}
 }
 
-func TestAudioFactsReadsLiveToolPathOnlyForFallback(t *testing.T) {
+func TestAudioFactsUsesInjectedToolOnlyForFallback(t *testing.T) {
 	ffprobe, err := exec.LookPath("ffprobe")
 	if err != nil {
 		t.Skip("ffprobe unavailable")
@@ -94,17 +94,15 @@ func TestAudioFactsReadsLiveToolPathOnlyForFallback(t *testing.T) {
 		}
 	}
 	p := media.New(filepath.Join(dir, "missing-at-startup"))
-	p.PathSource = func() string { t.Error("native WAV read tool settings"); return "" }
 	if sec, _, err := p.AudioFacts(context.Background(), wav); err != nil || sec != 2 {
 		t.Fatalf("native probe = %v, %v", sec, err)
 	}
-	path := ffprobe
-	p.PathSource = func() string { return path }
+	p = media.New(ffprobe)
 	if sec, _, err := p.AudioFacts(context.Background(), flac); err != nil || sec != 2 {
 		t.Fatalf("configured fallback = %v, %v", sec, err)
 	}
-	path = filepath.Join(dir, "changed-to-missing")
+	p = media.New(filepath.Join(dir, "missing-tool"))
 	if _, _, err := p.AudioFacts(context.Background(), flac); err == nil {
-		t.Error("fallback retained the old tool path after settings changed")
+		t.Error("fallback succeeded with a missing injected tool")
 	}
 }

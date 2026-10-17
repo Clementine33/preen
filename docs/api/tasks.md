@@ -181,7 +181,7 @@ After the batch has stopped enqueueing covers and its execution is terminal,
 an independent background refresh waits for this execution's cover demands to
 be terminal (`succeeded`, `skipped`, `failed`, or `canceled`). It then reconciles
 only the actual executed folder scope, including frozen skips, using bounded
-parallel folder walks (`scan.workers`, at most 32), one staging writer and one
+parallel folder walks (the built-in default of 32), one staging writer and one
 selected-range merge. Unselected inventory and bindings are preserved. No covers
 or disabled cover downloading does not prevent this refresh; empty executions
 do not schedule it. It waits for file-operation admission, not unrelated shared

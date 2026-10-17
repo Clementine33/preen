@@ -25,9 +25,15 @@ type Encoder struct {
 	probePath string
 }
 
-// New builds the encoder over one tools configuration. It is the
-// execute.EncoderFactory a process is wired with.
-func New(cfg execute.ToolsConfig) execute.Encoder {
+// ToolsConfig supplies executable paths from process assembly, never config.json.
+// Empty paths use PATH.
+type ToolsConfig struct {
+	FFmpegPath  string
+	FFprobePath string
+}
+
+// New builds the encoder over one pair of tool paths.
+func New(cfg ToolsConfig) execute.Encoder {
 	return Encoder{path: cfg.FFmpegPath, probePath: cfg.FFprobePath}
 }
 

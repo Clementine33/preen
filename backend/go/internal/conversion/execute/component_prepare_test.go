@@ -43,7 +43,7 @@ func TestPreparedComponent_CommitKeepsFrozenOrderWhenEncodesFinishReversed(t *te
 	second := filepath.Join(root, "b.mp3")
 	spec := mp3Spec()
 
-	encoder := ffmpeg.New(execute.ToolsConfig{})
+	encoder := ffmpeg.New(ffmpeg.ToolsConfig{})
 	secondDone := make(chan struct{})
 	kit := execute.ComponentRunTestKit{Encode: func(
 		ctx context.Context, src, dst string, outSpec reconcile.AudioOutputSpec,

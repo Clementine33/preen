@@ -7,7 +7,6 @@ package app
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"net"
@@ -30,6 +29,7 @@ import (
 	"github.com/onsei/organizer/backend/internal/admission"
 	"github.com/onsei/organizer/backend/internal/collections"
 	"github.com/onsei/organizer/backend/internal/conversion"
+	"github.com/onsei/organizer/backend/internal/conversion/execute"
 	"github.com/onsei/organizer/backend/internal/fileops"
 	"github.com/onsei/organizer/backend/internal/inventory"
 	"github.com/onsei/organizer/backend/internal/library"
@@ -77,9 +77,7 @@ func Run(ctx context.Context, cfg Config) {
 }
 
 // Config is what the process is started with: where its data and configuration
-// live, the token its API authenticates with, and the build's version. The
-// encoder lives in the configuration, not here: tools.ffmpeg_path and
-// tools.ffprobe_path name the binaries, and an empty path means PATH.
+// live, the token its API authenticates with, and the build's version.
 type Config struct {
 	DataDir   string
 	ConfigDir string
@@ -165,27 +163,18 @@ type services struct {
 // Library scans, manual member refresh and inventory-based tasks share one
 // pipeline. Directory-only tasks bypass it; covers synchronize exact file deltas
 // and metadata's completed cover queue triggers one selected batch reconciliation.
-func buildServices(repo *sqlite.Repository, configDir, dataDir string, generationConcurrency int) services {
+func buildServices(repo *sqlite.Repository, configDir, dataDir string) services {
 	worksChanged := &notify.Hub{}
 	repo.OnCatalogChanged = worksChanged.Notify
 	gate := admission.NewGate(repo.HasActiveSession)
 	// The background media pass holds the gate's preemptible slot, so it
 	// never reads alongside a scan's walk; every merge kicks it.
 	prober := media.New("")
-	prober.PathSource = func() string { return appconfig.NewReader(configDir).Tools().FFprobePath }
 	mediaFacts := inventory.NewMediaEnricher(sqlite.NewScanStaging(repo), prober, gate.BeginBackground)
 	librarySvc := library.NewService(repo, gate, repo, filesystem.ResolveMember)
 	scanPipeline := inventory.NewPipeline(
 		sqlite.NewScanStaging(repo),
-		func(ctx context.Context, rootPath, basePath string, _ int, emit func(inventory.DirEntry) error) error {
-			return filesystem.WalkRootEntriesParallel(
-				ctx,
-				rootPath,
-				basePath,
-				appconfig.NewReader(configDir).ScanWorkers(),
-				emit,
-			)
-		},
+		filesystem.WalkRootEntriesParallel,
 		filesystem.WalkFolderEntries,
 		mediaFacts.Kick,
 	)
@@ -195,8 +184,6 @@ func buildServices(repo *sqlite.Repository, configDir, dataDir string, generatio
 		gate,
 		librarySvc.RecordScanState,
 	)
-	// Encode concurrency and its component window are fixed at process startup.
-	//
 	// Task registration: every kind a workset operation can carry. Creation
 	// materializes only the requested operation and its seed draft.
 	//
@@ -221,7 +208,7 @@ func buildServices(repo *sqlite.Repository, configDir, dataDir string, generatio
 			Staging:         coverStage,
 			Acquire:         gate.BeginManual,
 			SyncInventory:   coverInventorySync(repo),
-			RefreshSelected: metadataInventoryRefresh(configDir, scanPipeline),
+			RefreshSelected: metadataInventoryRefresh(scanPipeline),
 		},
 	)
 	if err != nil {
@@ -236,17 +223,17 @@ func buildServices(repo *sqlite.Repository, configDir, dataDir string, generatio
 	})
 	worksetSvc := workset.NewService(
 		repo,
-		generationConcurrency,
-		appconfig.NewReader(configDir).EncodeWorkers(),
+		0,
+		0,
 		[]workset.Task{
 			conversion.New(
 				repo,
 				appconfig.NewReader(configDir),
-				ffmpeg.New,
+				func() execute.Encoder { return ffmpeg.New(ffmpeg.ToolsConfig{}) },
 				media.ProbeBitrate,
 				filesystem.Recover,
 				filesystem.IsResolvedWithinRoot,
-				conversionIO(configDir, scanPipeline),
+				conversionIO(scanPipeline),
 			),
 			renameTask,
 			refresh.NewTask(repo, filesystem.CheckWorkDirectory),
@@ -345,14 +332,7 @@ func runServer(ctx context.Context, repo *sqlite.Repository, cfg Config) {
 
 	// The HTTP API is the only client surface. The workset service owns the
 	// async planning dispatcher.
-	generationConcurrency := appconfig.DefaultAppConfig().Workset.GenerationConcurrency
-	if cfg, err := os.ReadFile(filepath.Join(cfg.ConfigDir, "config.json")); err == nil {
-		var appCfg appconfig.AppConfig
-		if json.Unmarshal(cfg, &appCfg) == nil && appCfg.Workset.GenerationConcurrency > 0 {
-			generationConcurrency = appCfg.Workset.GenerationConcurrency
-		}
-	}
-	services := buildServices(repo, cfg.ConfigDir, cfg.DataDir, generationConcurrency)
+	services := buildServices(repo, cfg.ConfigDir, cfg.DataDir)
 
 	// Startup recovery: any session left queued/running by a previous process
 	// is marked interrupted before the dispatcher starts from an empty queue.
@@ -488,14 +468,14 @@ func StartPprofServer(addr string, serveFn func(string, http.Handler) error) {
 	}()
 }
 
-func conversionIO(configDir string, scanPipeline *inventory.Pipeline) conversion.ExecutionIO {
+func conversionIO(scanPipeline *inventory.Pipeline) conversion.ExecutionIO {
 	return conversion.ExecutionIO{
 		Walk: func(ctx context.Context, roots []string, base string, emit func(string, inventory.DirEntry) error) error {
 			return filesystem.WalkSelectedEntriesParallel(
 				ctx,
 				roots,
 				base,
-				appconfig.NewReader(configDir).ScanWorkers(),
+				inventory.DefaultScanWorkers,
 				emit,
 			)
 		},
@@ -515,7 +495,7 @@ func conversionIO(configDir string, scanPipeline *inventory.Pipeline) conversion
 				ctx,
 				folders,
 				root,
-				appconfig.NewReader(configDir).ScanWorkers(),
+				inventory.DefaultScanWorkers,
 				inventory.WithProgress(func(inventory.Progress) { checkCancel() }),
 			)
 			return err

@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/onsei/organizer/backend/internal/conversion/execute"
 	"github.com/onsei/organizer/backend/internal/inventory"
 
 	"github.com/onsei/organizer/backend/internal/adapters/filesystem"
@@ -79,7 +80,7 @@ func newExecFixtureWithTask(
 			conversion.New(
 				repo,
 				appconfig.NewReader(tmp),
-				ffmpeg.New,
+				func() execute.Encoder { return ffmpeg.New(ffmpeg.ToolsConfig{}) },
 				media.ProbeBitrate,
 				filesystem.Recover,
 				filesystem.IsResolvedWithinRoot,

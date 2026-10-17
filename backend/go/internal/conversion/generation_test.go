@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/onsei/organizer/backend/internal/adapters/filesystem"
+	"github.com/onsei/organizer/backend/internal/conversion/execute"
 
 	"github.com/onsei/organizer/backend/internal/adapters/media"
 
@@ -134,7 +135,7 @@ func runOneEncodedUnit(
 		Partition: string(outcome.Partition), Operations: len(outcome.Operations),
 		Payload: jsonBytes(t, profile),
 	}
-	prepared, err := conversion.New(repo, appconfig.NewReader(configDir), ffmpeg.New, media.ProbeBitrate, filesystem.Recover, filesystem.IsResolvedWithinRoot, conversion.ExecutionIO{Moves: filesystem.ConversionMoves{}, Files: filesystem.ConversionHandles{}}).
+	prepared, err := conversion.New(repo, appconfig.NewReader(configDir), func() execute.Encoder { return ffmpeg.New(ffmpeg.ToolsConfig{}) }, media.ProbeBitrate, filesystem.Recover, filesystem.IsResolvedWithinRoot, conversion.ExecutionIO{Moves: filesystem.ConversionMoves{}, Files: filesystem.ConversionHandles{}}).
 		PrepareUnit(t.Context(), workset.UnitRunInput{
 			WorksetRoot: filepath.ToSlash(root),
 			Options:     json.RawMessage(`{"delete_mode":"soft"}`),

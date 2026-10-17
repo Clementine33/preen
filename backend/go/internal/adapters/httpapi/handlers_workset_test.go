@@ -13,6 +13,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/onsei/organizer/backend/internal/conversion/execute"
 	"github.com/onsei/organizer/backend/internal/inventory"
 
 	"github.com/onsei/organizer/backend/internal/adapters/filesystem"
@@ -45,7 +46,7 @@ func newWorksetServer(t *testing.T) (http.Handler, *sqlite.Repository) {
 		conversion.New(
 			repo,
 			appconfig.NewReader(tmp),
-			ffmpeg.New,
+			func() execute.Encoder { return ffmpeg.New(ffmpeg.ToolsConfig{}) },
 			media.ProbeBitrate,
 			filesystem.Recover,
 			filesystem.IsResolvedWithinRoot,

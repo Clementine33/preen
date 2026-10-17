@@ -17,14 +17,13 @@ import (
 // can never change how probed rates are persisted.
 func TestPlanReadsKeysOverTheirDefaults(t *testing.T) {
 	for _, tc := range []struct {
-		name        string
-		config      string // empty writes no file at all
-		wantBatch   bool
-		wantFFprobe string
+		name      string
+		config    string // empty writes no file at all
+		wantBatch bool
 	}{
 		{name: "no file at all", config: "", wantBatch: true},
 		{name: "empty object", config: `{}`, wantBatch: true},
-		{name: "only a probe path", config: `{"tools":{"ffprobe_path":"/opt/ffprobe"}}`, wantBatch: true, wantFFprobe: "/opt/ffprobe"},
+		{name: "retired probe path", config: `{"tools":{"ffprobe_path":"/opt/ffprobe"}}`, wantBatch: true},
 		{name: "explicit false", config: `{"plan":{"bitrate":{"batch_update":false}}}`, wantBatch: false},
 		{name: "explicit true", config: `{"plan":{"bitrate":{"batch_update":true}}}`, wantBatch: true},
 		{name: "unparsable", config: `{not json`, wantBatch: true},
@@ -40,73 +39,36 @@ func TestPlanReadsKeysOverTheirDefaults(t *testing.T) {
 			if got.BatchUpdate != tc.wantBatch {
 				t.Fatalf("BatchUpdate = %v, want %v", got.BatchUpdate, tc.wantBatch)
 			}
-			if got.FFprobePath != tc.wantFFprobe {
-				t.Fatalf("FFprobePath = %q, want %q", got.FFprobePath, tc.wantFFprobe)
-			}
 		})
 	}
 }
 
-// TestToolsFallsBackToPath covers the read the execution path prepares with:
-// only what the file names is used, and nothing named means PATH.
-func TestToolsFallsBackToPath(t *testing.T) {
+func TestRetiredToolsDoNotAffectTagSettings(t *testing.T) {
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "config.json"),
-		[]byte(`{"tools":{"ffmpeg_path":"/opt/ffmpeg"}}`), 0o644); err != nil {
-		t.Fatalf("write config: %v", err)
+	config := `{"tools":{"ffmpeg_path":false,"ffprobe_path":42},"prune":{"no_effect_tags":["NoSE"]}}`
+	if err := os.WriteFile(filepath.Join(dir, "config.json"), []byte(config), 0o600); err != nil {
+		t.Fatal(err)
 	}
-	tools := settings.NewReader(dir).Tools()
-	if tools.FFmpegPath != "/opt/ffmpeg" || tools.FFprobePath != "" {
-		t.Fatalf("tools = %+v, want the configured encoder and an empty probe", tools)
-	}
-	if empty := (settings.NewReader("").Tools()); empty.FFmpegPath != "" || empty.FFprobePath != "" {
-		t.Fatalf("tools without a configuration = %+v, want the zero value", empty)
+	if tags := settings.NewReader(dir).PruneNoEffectTags(); !slices.Equal(tags, []string{"NoSE"}) {
+		t.Fatalf("retired tool keys interfered with tags: %v", tags)
 	}
 }
 
-func TestScanWorkersDefaultsAndBounds(t *testing.T) {
-	for _, tc := range []struct {
-		config string
-		want   int
-	}{
-		{`{}`, 32}, {`{"scan":{"workers":1}}`, 1}, {`{"scan":{"workers":16}}`, 16},
-		{`{"scan":{"workers":32}}`, 32}, {`{"scan":{"workers":33}}`, 32},
-		{`{"scan":{"workers":0}}`, 32}, {`invalid`, 32},
-	} {
-		t.Run(tc.config, func(t *testing.T) {
-			dir := t.TempDir()
-			if err := os.WriteFile(filepath.Join(dir, "config.json"), []byte(tc.config), 0o644); err != nil {
-				t.Fatal(err)
-			}
-			if got := settings.NewReader(dir).ScanWorkers(); got != tc.want {
-				t.Fatalf("workers = %d, want %d", got, tc.want)
-			}
-		})
+func TestRetiredConcurrencyAndToolKeysDoNotAffectRemainingSettings(t *testing.T) {
+	dir := t.TempDir()
+	config := `{
+		"scan": {"workers": "retired"},
+		"execute": {"max_io_workers": "retired", "precheck": {"concurrent_stat": "retired"}},
+		"workset": {"generation_concurrency": "retired"},
+		"tools": {"ffmpeg_path": "retired", "ffprobe_path": "retired"},
+		"plan": {"bitrate": {"batch_update": false}}
+	}`
+	if err := os.WriteFile(filepath.Join(dir, "config.json"), []byte(config), 0o644); err != nil {
+		t.Fatal(err)
 	}
-}
-
-func TestEncodeWorkersDefaultsAndBounds(t *testing.T) {
-	for _, tc := range []struct {
-		config string
-		want   int
-	}{
-		{`{}`, 0}, {`{"execute":{"max_io_workers":1}}`, 1}, {`{"execute":{"max_io_workers":4}}`, 4},
-		{`{"execute":{"max_io_workers":6}}`, 6}, {`{"execute":{"max_io_workers":32}}`, 32},
-		{`{"execute":{"max_io_workers":33}}`, 0}, {`{"execute":{"max_io_workers":0}}`, 0},
-		{`{"execute":{"max_io_workers":-1}}`, 0}, {`{"execute":{"max_io_workers":"four"}}`, 0}, {`invalid`, 0},
-	} {
-		t.Run(tc.config, func(t *testing.T) {
-			dir := t.TempDir()
-			if err := os.WriteFile(filepath.Join(dir, "config.json"), []byte(tc.config), 0o644); err != nil {
-				t.Fatal(err)
-			}
-			if got := settings.NewReader(dir).EncodeWorkers(); got != tc.want {
-				t.Fatalf("workers=%d want %d", got, tc.want)
-			}
-		})
-	}
-	if got := settings.NewReader(t.TempDir()).EncodeWorkers(); got != 0 {
-		t.Fatalf("missing configuration: %d", got)
+	reader := settings.NewReader(dir)
+	if plan := reader.Plan(); plan.BatchUpdate {
+		t.Fatalf("retired keys interfered with planning configuration: %+v", plan)
 	}
 }
 

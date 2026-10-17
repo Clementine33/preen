@@ -33,8 +33,8 @@ type Task struct {
 }
 
 // New creates conversion's planning and execution task. Generation reads the
-// injected inventory and tool settings. NewExecutionSession fixes the encoder
-// configuration once and verifies actual execution roots with ExecutionIO;
+// injected inventory, settings and media tools. NewExecutionSession fixes the
+// encoder once and verifies actual execution roots with ExecutionIO;
 // units use that session's strict moves and root-confined file handles.
 // probe supplies missing bitrate facts, and withinRoot checks resolved paths.
 // Selected inventory refreshes share one scan slot across generation sessions.
@@ -59,12 +59,12 @@ func New(
 	return task
 }
 
-// encoder builds the media tool for the tool paths the configuration names now.
+// encoder reuses the session encoder or obtains one from the injected factory.
 func (t *Task) encoder() execute.Encoder {
 	if t.sessionFixed {
 		return t.sessionEncoder
 	}
-	return t.buildEncoder(t.settings.Tools())
+	return t.buildEncoder()
 }
 
 func (*Task) Kind() string { return workset.OperationTypeConversion }

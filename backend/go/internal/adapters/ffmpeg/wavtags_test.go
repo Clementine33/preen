@@ -150,7 +150,7 @@ func uint32be(size int) []byte {
 
 func tagEncoder(t *testing.T) execute.Encoder {
 	t.Helper()
-	encoder := ffmpeg.New(execute.ToolsConfig{})
+	encoder := ffmpeg.New(ffmpeg.ToolsConfig{})
 	if err := encoder.Check(); err != nil {
 		t.Fatal(err)
 	}

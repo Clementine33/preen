@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/onsei/organizer/backend/internal/adapters/filesystem"
+	"github.com/onsei/organizer/backend/internal/conversion/execute"
 
 	"github.com/onsei/organizer/backend/internal/adapters/media"
 
@@ -47,7 +48,7 @@ func TestConversionRecoversBesideNestedWorkRoot(t *testing.T) {
 	task := conversion.New(
 		nil,
 		appconfig.NewReader(t.TempDir()),
-		ffmpeg.New,
+		func() execute.Encoder { return ffmpeg.New(ffmpeg.ToolsConfig{}) },
 		media.ProbeBitrate,
 		filesystem.Recover,
 		filesystem.IsResolvedWithinRoot,
@@ -98,7 +99,7 @@ func TestDraftDeleteModeValidation(t *testing.T) {
 	task := conversion.New(
 		nil,
 		appconfig.NewReader(t.TempDir()),
-		ffmpeg.New,
+		func() execute.Encoder { return ffmpeg.New(ffmpeg.ToolsConfig{}) },
 		media.ProbeBitrate,
 		filesystem.Recover,
 		filesystem.IsResolvedWithinRoot,
@@ -122,7 +123,7 @@ func TestNormalizeDraftKeepsDeleteMode(t *testing.T) {
 	task := conversion.New(
 		nil,
 		appconfig.NewReader(t.TempDir()),
-		ffmpeg.New,
+		func() execute.Encoder { return ffmpeg.New(ffmpeg.ToolsConfig{}) },
 		media.ProbeBitrate,
 		filesystem.Recover,
 		filesystem.IsResolvedWithinRoot,
@@ -159,7 +160,7 @@ func TestSeedDraftReadsTheTagLiterals(t *testing.T) {
 			if err := os.WriteFile(filepath.Join(dir, "config.json"), []byte(tc.config), 0o644); err != nil {
 				t.Fatalf("write config: %v", err)
 			}
-			raw, _, _ := conversion.New(nil, appconfig.NewReader(dir), ffmpeg.New, media.ProbeBitrate, filesystem.Recover, filesystem.IsResolvedWithinRoot, conversion.ExecutionIO{Moves: filesystem.ConversionMoves{}, Files: filesystem.ConversionHandles{}}).
+			raw, _, _ := conversion.New(nil, appconfig.NewReader(dir), func() execute.Encoder { return ffmpeg.New(ffmpeg.ToolsConfig{}) }, media.ProbeBitrate, filesystem.Recover, filesystem.IsResolvedWithinRoot, conversion.ExecutionIO{Moves: filesystem.ConversionMoves{}, Files: filesystem.ConversionHandles{}}).
 				SeedDraft(nil)
 			var doc struct {
 				NoEffectTags []string `json:"no_effect_tags"`
@@ -187,7 +188,7 @@ func TestCommonSettingsProjectionAndApply(t *testing.T) {
 	task := conversion.New(
 		nil,
 		appconfig.NewReader(t.TempDir()),
-		ffmpeg.New,
+		func() execute.Encoder { return ffmpeg.New(ffmpeg.ToolsConfig{}) },
 		media.ProbeBitrate,
 		filesystem.Recover,
 		filesystem.IsResolvedWithinRoot,
@@ -281,7 +282,7 @@ func TestCommonSettingsRefusesUnknownStoredDraftSchema(t *testing.T) {
 	task := conversion.New(
 		nil,
 		appconfig.NewReader(t.TempDir()),
-		ffmpeg.New,
+		func() execute.Encoder { return ffmpeg.New(ffmpeg.ToolsConfig{}) },
 		media.ProbeBitrate,
 		filesystem.Recover,
 		filesystem.IsResolvedWithinRoot,
@@ -311,7 +312,7 @@ func TestSeedDraftUsesTheStoredCommonSettings(t *testing.T) {
 	task := conversion.New(
 		nil,
 		appconfig.NewReader(dir),
-		ffmpeg.New,
+		func() execute.Encoder { return ffmpeg.New(ffmpeg.ToolsConfig{}) },
 		media.ProbeBitrate,
 		filesystem.Recover,
 		filesystem.IsResolvedWithinRoot,

@@ -34,9 +34,6 @@ const probeTimeout = 20 * time.Second
 // PATH, the same default the encoder adapter takes.
 type Prober struct {
 	ffprobePath string
-	// PathSource reads live tool settings only when a native header cannot
-	// answer. Nil uses the path captured by New.
-	PathSource func() string
 	// Timeout bounds each file's probe, header read and ffprobe together; zero
 	// means probeTimeout. A probe past it fails, so the fact stays unknown.
 	Timeout time.Duration
@@ -137,10 +134,14 @@ func (p *Prober) AudioFacts(ctx context.Context, pathPosix string) (float64, int
 	return p.ffprobeAudio(ctx, pathPosix)
 }
 
-// ProbeBitrate measures one file's bitrate the same way, for the planner's
-// gate, with the ffprobe the planning configuration names (empty: PATH).
-func ProbeBitrate(ctx context.Context, ffprobePath, pathPosix string) (int64, error) {
-	_, bitrate, err := New(ffprobePath).AudioFacts(ctx, pathPosix)
+// ProbeBitrate measures one file's bitrate using the default PATH tool.
+func ProbeBitrate(ctx context.Context, pathPosix string) (int64, error) {
+	return New("").ProbeBitrate(ctx, pathPosix)
+}
+
+// ProbeBitrate measures bitrate with this prober's native readers and fallback.
+func (p *Prober) ProbeBitrate(ctx context.Context, pathPosix string) (int64, error) {
+	_, bitrate, err := p.AudioFacts(ctx, pathPosix)
 	if err == nil && bitrate <= 0 {
 		err = fmt.Errorf("no bitrate reported: %s", pathPosix)
 	}
@@ -165,14 +166,8 @@ func carriesBitrate(pathPosix string) bool {
 //     container's average - for the CBR the executor writes it sits a little
 //     above the target, which the satisfaction comparison can use.
 func (p *Prober) ffprobeAudio(ctx context.Context, pathPosix string) (float64, int64, error) {
-	probe := p.ffprobePath
-	if p.PathSource != nil {
-		probe = p.PathSource()
-		if probe == "" {
-			probe = "ffprobe"
-		}
-	}
-	cmd := exec.CommandContext(ctx, probe, "-v", "error", "-select_streams", "a:0",
+	// #nosec G204 -- executable path comes from trusted process assembly, never a request.
+	cmd := exec.CommandContext(ctx, p.ffprobePath, "-v", "error", "-select_streams", "a:0",
 		"-show_entries", "stream=duration,bit_rate:format=duration,bit_rate", "-of", "json",
 		"-i", filepath.FromSlash(pathPosix))
 	// A killed ffprobe whose output pipe something else still holds must not

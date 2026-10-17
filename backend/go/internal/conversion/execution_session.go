@@ -45,10 +45,6 @@ func (t *Task) NewExecutionSession(
 			requirementsErr,
 		)
 	}
-	var config execute.ToolsConfig
-	if len(specs) > 0 {
-		config = t.settings.Tools() // Capture before walking; later edits belong to the next session.
-	}
 	roots := []string{}
 	seen := map[string]bool{}
 	for _, unit := range in.Units {
@@ -62,7 +58,7 @@ func (t *Task) NewExecutionSession(
 			return nil, err
 		}
 	}
-	return t.configureExecution(ctx, moves, specs, config)
+	return t.configureExecution(ctx, moves, specs)
 }
 
 func (t *Task) verifyExecutionInputs(ctx context.Context, in workset.ExecutionSessionInput, roots []string) error {

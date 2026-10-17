@@ -24,7 +24,7 @@ func outputFixture(
 	spec reconcile.AudioOutputSpec,
 ) (execute.Encoder, execute.AudioStream, []byte) {
 	t.Helper()
-	encoder := ffmpeg.New(execute.ToolsConfig{})
+	encoder := ffmpeg.New(ffmpeg.ToolsConfig{})
 	input, err := os.Open(src)
 	if err != nil {
 		t.Fatal(err)

@@ -17,7 +17,7 @@ import (
 
 func audioFixture(t *testing.T) (execute.Encoder, string) {
 	t.Helper()
-	encoder := ffmpeg.New(execute.ToolsConfig{})
+	encoder := ffmpeg.New(ffmpeg.ToolsConfig{})
 	if err := encoder.Check(); err != nil {
 		t.Fatal(err)
 	}
@@ -271,7 +271,7 @@ func TestFFmpegRefusesInvalidAndCanceledConversion(t *testing.T) {
 	if err := encodePaths(encoder, t.Context(), src, src, spec); err == nil {
 		t.Fatal("source overwrite accepted")
 	}
-	if err := ffmpeg.New(execute.ToolsConfig{FFmpegPath: filepath.Join(t.TempDir(), "missing")}).Check(); err == nil {
+	if err := ffmpeg.New(ffmpeg.ToolsConfig{FFmpegPath: filepath.Join(t.TempDir(), "missing")}).Check(); err == nil {
 		t.Fatal("missing tool accepted")
 	}
 }

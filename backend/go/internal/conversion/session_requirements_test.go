@@ -131,7 +131,7 @@ func requirementsTask(t *testing.T, moves *sessionMoves, build execute.EncoderFa
 func TestSessionFixesToolsOnceAndPureDeleteDoesNotBuildThem(t *testing.T) {
 	moves, tools := &sessionMoves{}, &sessionTools{}
 	builds := 0
-	task := requirementsTask(t, moves, func(execute.ToolsConfig) execute.Encoder { builds++; return tools })
+	task := requirementsTask(t, moves, func() execute.Encoder { builds++; return tools })
 	in := sessionInput(t, true)
 	preparer, err := task.NewExecutionSession(t.Context(), in)
 	if err != nil {
@@ -166,7 +166,7 @@ func TestFilesystemProbeFailurePrecedesToolConstruction(t *testing.T) {
 		code    string
 	}{{execute.ErrMoveUnsupported, "FILESYSTEM_OPERATION_UNSUPPORTED"}, {os.ErrPermission, "FILESYSTEM_PRECHECK_FAILED"}, {errors.New("IO failure"), "FILESYSTEM_PRECHECK_FAILED"}} {
 		moves := &sessionMoves{failure: scenario.failure}
-		task := requirementsTask(t, moves, func(execute.ToolsConfig) execute.Encoder {
+		task := requirementsTask(t, moves, func() execute.Encoder {
 			t.Fatal("tools built before successful filesystem probe")
 			return nil
 		})
@@ -178,7 +178,7 @@ func TestFilesystemProbeFailurePrecedesToolConstruction(t *testing.T) {
 	}
 }
 
-func TestSessionCapturesConfigurationBeforeInputWalk(t *testing.T) {
+func TestSessionIgnoresRetiredToolConfiguration(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.json")
 	writeConfig := func(value string) {
@@ -187,16 +187,15 @@ func TestSessionCapturesConfigurationBeforeInputWalk(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	writeConfig("first-tool")
-	var configs []execute.ToolsConfig
-	task := conversion.New(nil, appconfig.NewReader(dir), func(config execute.ToolsConfig) execute.Encoder {
-		configs = append(configs, config)
-		return &sessionTools{}
+	writeConfig("missing-tool")
+	tools := &sessionTools{}
+	task := conversion.New(nil, appconfig.NewReader(dir), func() execute.Encoder {
+		return tools
 	}, nil, nil, filesystem.IsResolvedWithinRoot, conversion.ExecutionIO{
 		Moves: &sessionMoves{},
 		Files: filesystem.ConversionHandles{},
 		Walk: func(ctx context.Context, roots []string, base string, emit func(string, inventory.DirEntry) error) error {
-			writeConfig("next-tool")
+			writeConfig("another-missing-tool")
 			return filesystem.WalkSelectedEntriesParallel(ctx, roots, base, 32, emit)
 		},
 	})
@@ -206,7 +205,7 @@ func TestSessionCapturesConfigurationBeforeInputWalk(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if len(configs) != 2 || configs[0].FFmpegPath != "first-tool" || configs[1].FFmpegPath != "next-tool" {
-		t.Fatalf("configuration was not frozen at session entry: %+v", configs)
+	if tools.checks != 2 || tools.fdChecks != 2 {
+		t.Fatalf("sessions did not use injected tools: %+v", tools)
 	}
 }

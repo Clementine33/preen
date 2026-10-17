@@ -42,8 +42,8 @@ func TestConversionValidationFailureKeepsDiagnostic(t *testing.T) {
 			SourcePath: filepath.ToSlash(source),
 			TargetPath: filepath.ToSlash(target),
 		}}}
-	task := conversion.New(nil, appconfig.NewReader(root), func(cfg execute.ToolsConfig) execute.Encoder {
-		return diagnosticEncoder{ffmpeg.New(cfg)}
+	task := conversion.New(nil, appconfig.NewReader(root), func() execute.Encoder {
+		return diagnosticEncoder{ffmpeg.New(ffmpeg.ToolsConfig{})}
 	}, nil, nil, filesystem.IsResolvedWithinRoot,
 		conversion.ExecutionIO{Moves: filesystem.ConversionMoves{}, Files: filesystem.ConversionHandles{}})
 	prepared, err := task.PrepareUnit(t.Context(), workset.UnitRunInput{

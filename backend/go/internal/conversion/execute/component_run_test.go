@@ -112,7 +112,7 @@ func runRequest(
 		Component:  component,
 		Specs:      specs,
 		DeleteMode: mode,
-		Encoder:    ffmpeg.New(execute.ToolsConfig{}),
+		Encoder:    ffmpeg.New(ffmpeg.ToolsConfig{}),
 		Recover:    filesystem.Recover,
 		Moves:      filesystem.ConversionMoves{},
 		Files:      filesystem.ConversionHandles{},
@@ -413,7 +413,7 @@ func TestComponentRun_DeleteOnlyNeedsNoEncodeTools(t *testing.T) {
 	writeBytes(t, obsolete, []byte("obsolete"))
 	component := componentFixture([]reconcile.FileTuple{freezeFile(t, obsolete)}, removeOp("cmp-1", obsolete))
 	request := runRequest(root, component, reconcile.DesiredProfile{}, execute.DeleteModeSoft)
-	request.Encoder = ffmpeg.New(execute.ToolsConfig{
+	request.Encoder = ffmpeg.New(ffmpeg.ToolsConfig{
 		FFmpegPath:  filepath.Join(root, "missing-ffmpeg"),
 		FFprobePath: filepath.Join(root, "missing-ffprobe"),
 	})
@@ -429,7 +429,7 @@ func TestComponentRun_DeleteOnlyNeedsNoEncodeTools(t *testing.T) {
 func TestComponentRun_ZeroOperationsSucceeds(t *testing.T) {
 	root := t.TempDir()
 	request := runRequest(root, componentFixture(nil), reconcile.DesiredProfile{}, execute.DeleteModeSoft)
-	request.Encoder = ffmpeg.New(execute.ToolsConfig{
+	request.Encoder = ffmpeg.New(ffmpeg.ToolsConfig{
 		FFmpegPath:  filepath.Join(root, "missing-ffmpeg"),
 		FFprobePath: filepath.Join(root, "missing-ffprobe"),
 	})

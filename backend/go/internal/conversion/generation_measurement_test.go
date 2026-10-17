@@ -16,6 +16,7 @@ import (
 	appconfig "github.com/onsei/organizer/backend/internal/adapters/settings"
 	"github.com/onsei/organizer/backend/internal/adapters/sqlite"
 	"github.com/onsei/organizer/backend/internal/conversion"
+	"github.com/onsei/organizer/backend/internal/conversion/execute"
 	"github.com/onsei/organizer/backend/internal/inventory"
 	"github.com/onsei/organizer/backend/internal/workset"
 )
@@ -154,7 +155,7 @@ func measureGenerationRound(
 	task := conversion.New(
 		repo,
 		appconfig.NewReader(dir),
-		ffmpeg.New,
+		func() execute.Encoder { return ffmpeg.New(ffmpeg.ToolsConfig{}) },
 		media.ProbeBitrate,
 		filesystem.Recover,
 		filesystem.IsResolvedWithinRoot,

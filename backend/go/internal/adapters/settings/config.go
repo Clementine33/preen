@@ -3,8 +3,6 @@ package settings
 import (
 	"sort"
 	"strings"
-
-	"github.com/onsei/organizer/backend/internal/inventory"
 )
 
 // PruneConfig defines prune-related settings in config.json. NoEffectTags is
@@ -35,22 +33,6 @@ func normalizeTags(tags []string) []string {
 	return out
 }
 
-// ToolsConfig defines encoder tool settings in config.json.
-type ToolsConfig struct {
-	FFmpegPath  string `json:"ffmpeg_path"`
-	FFprobePath string `json:"ffprobe_path"`
-}
-
-// ExecuteConfig defines execution-related settings in config.json.
-type ExecuteConfig struct {
-	MaxIOWorkers int                   `json:"max_io_workers"`
-	Precheck     ExecutePrecheckConfig `json:"precheck"`
-}
-
-type ExecutePrecheckConfig struct {
-	ConcurrentStat bool `json:"concurrent_stat"`
-}
-
 type PlanConfig struct {
 	Slim        PlanSlimConfig        `json:"slim"`
 	RootResolve PlanRootResolveConfig `json:"root_resolve"`
@@ -69,37 +51,14 @@ type PlanBitrateConfig struct {
 	BatchUpdate bool `json:"batch_update"`
 }
 
-// WorksetConfig defines workset-generation settings in config.json.
-type WorksetConfig struct {
-	// With one conversion active, a second general worker lets metadata start
-	// beside rename on the light worker: single-library runs halve metadata
-	// latency at a ~60 ms rename cost, with no throughput difference.
-	GenerationConcurrency int `json:"generation_concurrency"`
-}
-
-type ScanConfig struct {
-	Workers int `json:"workers"`
-}
-
 // AppConfig represents the full application configuration from config.json.
 type AppConfig struct {
-	Scan    ScanConfig    `json:"scan"`
-	Prune   PruneConfig   `json:"prune"`
-	Tools   ToolsConfig   `json:"tools"`
-	Execute ExecuteConfig `json:"execute"`
-	Plan    PlanConfig    `json:"plan"`
-	Workset WorksetConfig `json:"workset"`
+	Prune PruneConfig `json:"prune"`
+	Plan  PlanConfig  `json:"plan"`
 }
 
 func DefaultAppConfig() AppConfig {
 	return AppConfig{
-		Scan: ScanConfig{Workers: inventory.DefaultScanWorkers},
-		Execute: ExecuteConfig{
-			MaxIOWorkers: 0,
-			Precheck: ExecutePrecheckConfig{
-				ConcurrentStat: false,
-			},
-		},
 		Plan: PlanConfig{
 			Slim: PlanSlimConfig{
 				RequireScope: true,
@@ -110,9 +69,6 @@ func DefaultAppConfig() AppConfig {
 			Bitrate: PlanBitrateConfig{
 				BatchUpdate: true,
 			},
-		},
-		Workset: WorksetConfig{
-			GenerationConcurrency: 2,
 		},
 	}
 }

@@ -37,6 +37,7 @@ type Task struct {
 // configuration once and verifies actual execution roots with ExecutionIO;
 // units use that session's strict moves and root-confined file handles.
 // probe supplies missing bitrate facts, and withinRoot checks resolved paths.
+// Selected inventory refreshes share one scan slot across generation sessions.
 // The recovery callback parameter is retained for constructor compatibility;
 // execution uses the strict Moves capability from ExecutionIO.
 func New(
@@ -53,6 +54,7 @@ func New(
 	if len(io) > 0 {
 		task.executionWalk, task.moves, task.selectedScan = io[0].Walk, io[0].Moves, io[0].Scan
 		task.files = io[0].Files
+		task.selectedScan = serializeSelectedScan(task.selectedScan)
 	}
 	return task
 }

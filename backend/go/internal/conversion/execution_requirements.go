@@ -75,7 +75,6 @@ func (t *Task) configureExecution(
 	ctx context.Context,
 	moves []execute.MoveRequirement,
 	specs []reconcile.AudioOutputSpec,
-	config execute.ToolsConfig,
 ) (*Task, error) {
 	session := *t
 	session.sessionFixed = true
@@ -104,10 +103,10 @@ func (t *Task) configureExecution(
 	}
 	if len(specs) == 0 {
 		session.sessionEncoder = nil
-		session.buildEncoder = func(execute.ToolsConfig) execute.Encoder { return nil }
+		session.buildEncoder = func() execute.Encoder { return nil }
 		return &session, nil
 	}
-	encoder := t.buildEncoder(config)
+	encoder := t.buildEncoder()
 	if encoder == nil {
 		return nil, workset.NewError(
 			workset.ErrKindInternal,

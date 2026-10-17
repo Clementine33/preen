@@ -9,12 +9,6 @@ import (
 	"github.com/onsei/organizer/backend/internal/conversion/reconcile"
 )
 
-// ToolsConfig represents the tools configuration for conversion.
-type ToolsConfig struct {
-	FFmpegPath  string
-	FFprobePath string
-}
-
 // DeleteMode selects how obsolete files leave their place. Soft deletion keeps
 // removed files beside their work root; it is never downgraded to a hard
 // delete when recovery is unavailable.

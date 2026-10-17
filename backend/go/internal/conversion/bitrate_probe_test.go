@@ -48,13 +48,6 @@ func TestPlanReadsAnOpusBitrateFromTheContainer(t *testing.T) {
 	if insertErr != nil {
 		t.Fatal(insertErr)
 	}
-	cfg, err := json.Marshal(map[string]any{"tools": map[string]string{"ffprobe_path": probe}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if writeErr := os.WriteFile(filepath.Join(dir, "config.json"), cfg, 0o600); writeErr != nil {
-		t.Fatal(writeErr)
-	}
 	profile := reconcile.DesiredProfile{Encoded: &reconcile.AudioOutputSpec{
 		Codec: reconcile.CodecOpus, Quality: &reconcile.Quality{Kind: reconcile.QualityBitrate, Bitrate: 160},
 	}}
@@ -63,7 +56,7 @@ func TestPlanReadsAnOpusBitrateFromTheContainer(t *testing.T) {
 		NoEffectTags: []string{"SEなし"}, Matched: profile, Unmatched: profile,
 	}
 	in := conversion.Input{Policy: policy, Roots: []conversion.RootInput{{Path: dir, Policy: policy}}}
-	res, err := conversion.Plan(t.Context(), repo, appconfig.NewReader(dir), media.ProbeBitrate, in)
+	res, err := conversion.Plan(t.Context(), repo, appconfig.NewReader(dir), media.New(probe).ProbeBitrate, in)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -127,8 +120,7 @@ func TestPlanProbesMissingBitrate(t *testing.T) {
 	in := conversion.Input{Policy: policy, Roots: []conversion.RootInput{{Path: dir, Policy: policy}}}
 	for _, batch := range []bool{true, false} {
 		cfg, marshalErr := json.Marshal(map[string]any{
-			"tools": map[string]string{"ffprobe_path": probe},
-			"plan":  map[string]any{"bitrate": map[string]bool{"batch_update": batch}},
+			"plan": map[string]any{"bitrate": map[string]bool{"batch_update": batch}},
 		})
 		if marshalErr != nil {
 			t.Fatal(marshalErr)
@@ -139,7 +131,7 @@ func TestPlanProbesMissingBitrate(t *testing.T) {
 		if _, resetErr := repo.DB().Exec("UPDATE entries SET bitrate = 0"); resetErr != nil {
 			t.Fatal(resetErr)
 		}
-		res, runErr := conversion.Plan(t.Context(), repo, appconfig.NewReader(dir), media.ProbeBitrate, in)
+		res, runErr := conversion.Plan(t.Context(), repo, appconfig.NewReader(dir), media.New(probe).ProbeBitrate, in)
 		if runErr != nil {
 			t.Fatal(runErr)
 		}
@@ -159,7 +151,7 @@ func TestPlanProbesMissingBitrate(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-	_, err = conversion.Plan(ctx, repo, appconfig.NewReader(dir), media.ProbeBitrate, in)
+	_, err = conversion.Plan(ctx, repo, appconfig.NewReader(dir), media.New(probe).ProbeBitrate, in)
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("canceled Plan: %v", err)
 	}

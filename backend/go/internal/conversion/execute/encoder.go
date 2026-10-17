@@ -52,6 +52,6 @@ type Encoder interface {
 	TargetFacts(spec reconcile.AudioOutputSpec) (encoder, mode string, err error)
 }
 
-// EncoderFactory builds one configured encoder. Conversion captures it once
-// per execution session; later settings changes affect subsequent sessions.
-type EncoderFactory func(ToolsConfig) Encoder
+// EncoderFactory supplies an encoder whose tool paths belong to the adapter.
+// Conversion captures one encoder per execution session.
+type EncoderFactory func() Encoder

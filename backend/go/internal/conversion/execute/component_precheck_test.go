@@ -445,7 +445,7 @@ func TestComponentRun_PrecheckRejections(t *testing.T) {
 					mp3Profile,
 					execute.DeleteModeSoft,
 				)
-				request.Encoder = ffmpeg.New(execute.ToolsConfig{
+				request.Encoder = ffmpeg.New(ffmpeg.ToolsConfig{
 					FFmpegPath:  filepath.Join(root, "missing-ffmpeg"),
 					FFprobePath: filepath.Join(root, "missing-ffprobe"),
 				})

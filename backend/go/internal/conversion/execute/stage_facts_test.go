@@ -16,7 +16,7 @@ func TestStagedOutputMtimeIsObservedOnly(t *testing.T) {
 	root, source := newAudioRoot(t)
 	target := filepath.Join(root, "output.mp3")
 	spec := mp3Spec()
-	encoder := ffmpeg.New(execute.ToolsConfig{})
+	encoder := ffmpeg.New(ffmpeg.ToolsConfig{})
 	var stage string
 	kit := execute.ComponentRunTestKit{Validate: func(
 		ctx context.Context, file *os.File, spec reconcile.AudioOutputSpec, input execute.AudioStream,
@@ -56,7 +56,7 @@ func TestComponentRejectsOutputSizeChangeDuringValidation(t *testing.T) {
 	root, source := newAudioRoot(t)
 	target := filepath.Join(root, "output.mp3")
 	spec := mp3Spec()
-	encoder := ffmpeg.New(execute.ToolsConfig{})
+	encoder := ffmpeg.New(ffmpeg.ToolsConfig{})
 	kit := execute.ComponentRunTestKit{Validate: func(
 		ctx context.Context, file *os.File, spec reconcile.AudioOutputSpec, input execute.AudioStream,
 	) (execute.ValidatedOutput, error) {

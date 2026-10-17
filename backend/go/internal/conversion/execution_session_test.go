@@ -14,6 +14,7 @@ import (
 	"github.com/onsei/organizer/backend/internal/adapters/filesystem"
 	appconfig "github.com/onsei/organizer/backend/internal/adapters/settings"
 	"github.com/onsei/organizer/backend/internal/conversion"
+	"github.com/onsei/organizer/backend/internal/conversion/execute"
 	"github.com/onsei/organizer/backend/internal/conversion/reconcile"
 	"github.com/onsei/organizer/backend/internal/inventory"
 	"github.com/onsei/organizer/backend/internal/workset"
@@ -40,7 +41,7 @@ func TestExecutionMemoryFingerprintUsesWholeSecondsAndSelectedRoots(t *testing.T
 	task := conversion.New(
 		nil,
 		appconfig.NewReader(t.TempDir()),
-		ffmpeg.New,
+		func() execute.Encoder { return ffmpeg.New(ffmpeg.ToolsConfig{}) },
 		nil,
 		filesystem.Recover,
 		filesystem.IsResolvedWithinRoot,

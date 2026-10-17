@@ -5,14 +5,12 @@ import (
 	"path/filepath"
 
 	"github.com/onsei/organizer/backend/internal/adapters/filesystem"
-	appconfig "github.com/onsei/organizer/backend/internal/adapters/settings"
 	"github.com/onsei/organizer/backend/internal/inventory"
 )
 
 // Metadata's final reconciliation shares bounded folder walks, one staging
 // writer and one selected-range merge. It runs under coverdelivery's admission.
 func metadataInventoryRefresh(
-	configDir string,
 	pipeline *inventory.Pipeline,
 ) func(context.Context, string, []string) error {
 	return func(ctx context.Context, root string, folders []string) error {
@@ -25,7 +23,7 @@ func metadataInventoryRefresh(
 				return err
 			}
 		}
-		_, err := pipeline.ScanFoldersCtx(ctx, folders, root, appconfig.NewReader(configDir).ScanWorkers())
+		_, err := pipeline.ScanFoldersCtx(ctx, folders, root, inventory.DefaultScanWorkers)
 		return err
 	}
 }

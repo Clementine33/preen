@@ -18,7 +18,7 @@ import (
 
 func audioFixture(t *testing.T) (execute.Encoder, string) {
 	t.Helper()
-	encoder := ffmpeg.New(execute.ToolsConfig{})
+	encoder := ffmpeg.New(ffmpeg.ToolsConfig{})
 	if err := encoder.Check(); err != nil {
 		t.Fatal(err)
 	}

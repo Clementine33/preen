@@ -11,11 +11,11 @@ import (
 )
 
 // ProbeBitrate measures one file's bitrate in bits per second, falling back to
-// the ffprobe at ffprobePath (empty: PATH) where the header cannot answer. It
+// ffprobe where the header cannot answer. The injected adapter owns tool paths. It
 // is the media adapter's measurement - the same one the inventory's background
 // pass records (ADR 0013) - so a rate is the same number whichever of the
 // two measured it.
-type ProbeBitrate func(ctx context.Context, ffprobePath, pathPosix string) (int64, error)
+type ProbeBitrate func(ctx context.Context, pathPosix string) (int64, error)
 
 // bitrateAnalyzer measures the MP3/AAC bitrates of a planning root that the
 // background pass has not recorded yet, and persists them on the scanned
@@ -23,13 +23,12 @@ type ProbeBitrate func(ctx context.Context, ffprobePath, pathPosix string) (int6
 // encoded-lane gate — a file measuring its target is skipped however it was
 // made — so a plan never waits on, or runs without, the background pass.
 type bitrateAnalyzer struct {
-	inventory   Inventory
-	probe       ProbeBitrate
-	ffprobePath string
+	inventory Inventory
+	probe     ProbeBitrate
 }
 
-func newBitrateAnalyzer(inv Inventory, probe ProbeBitrate, ffprobePath string) *bitrateAnalyzer {
-	return &bitrateAnalyzer{inventory: inv, probe: probe, ffprobePath: ffprobePath}
+func newBitrateAnalyzer(inv Inventory, probe ProbeBitrate) *bitrateAnalyzer {
+	return &bitrateAnalyzer{inventory: inv, probe: probe}
 }
 
 // enrichMissing probes the entries whose bitrate is unknown and persists the
@@ -52,7 +51,7 @@ func (a *bitrateAnalyzer) enrichMissing(ctx context.Context, entries []reconcile
 				if ctx.Err() != nil {
 					return
 				}
-				bitrate, err := a.probe(ctx, a.ffprobePath, entries[i].PathPosix)
+				bitrate, err := a.probe(ctx, entries[i].PathPosix)
 				if err != nil || bitrate <= 0 {
 					continue
 				}

@@ -257,7 +257,7 @@ func enrichBitrate(
 	entries []reconcile.AudioEntry,
 	cfg PlanConfig,
 ) ([]reconcile.AudioEntry, error) {
-	analyzer := newBitrateAnalyzer(inv, probe, cfg.FFprobePath)
+	analyzer := newBitrateAnalyzer(inv, probe)
 	if err := analyzer.enrichMissing(ctx, entries, cfg.BatchUpdate); err != nil {
 		return nil, err
 	}

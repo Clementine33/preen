@@ -20,6 +20,7 @@ import (
 	appconfig "github.com/onsei/organizer/backend/internal/adapters/settings"
 	"github.com/onsei/organizer/backend/internal/adapters/sqlite"
 	"github.com/onsei/organizer/backend/internal/conversion"
+	"github.com/onsei/organizer/backend/internal/conversion/execute"
 	"github.com/onsei/organizer/backend/internal/dirrename"
 	"github.com/onsei/organizer/backend/internal/inventory"
 	"github.com/onsei/organizer/backend/internal/works/refresh"
@@ -249,9 +250,9 @@ func measuredGenerationService(
 			inventory.WithProgress(func(inventory.Progress) { check() }))
 		return err
 	}}
-	probe := func(ctx context.Context, tool, path string) (int64, error) {
+	probe := func(ctx context.Context, path string) (int64, error) {
 		defer m.start("probe")()
-		bitrate, err := media.ProbeBitrate(ctx, tool, path)
+		bitrate, err := media.ProbeBitrate(ctx, path)
 		if err != nil || bitrate <= 0 {
 			m.mu.Lock()
 			m.ProbeErrors++
@@ -260,8 +261,11 @@ func measuredGenerationService(
 		return bitrate, err
 	}
 	store := concurrencyStore{Repository: repo, m: m}
-	task := conversion.New(store, appconfig.NewReader(configDir), ffmpeg.New,
-		probe, filesystem.Recover, filesystem.IsResolvedWithinRoot, io)
+	task := conversion.New(
+		store, appconfig.NewReader(configDir),
+		func() execute.Encoder { return ffmpeg.New(ffmpeg.ToolsConfig{}) },
+		probe, filesystem.Recover, filesystem.IsResolvedWithinRoot, io,
+	)
 	var tasks []workset.Task
 	for i := range measurementInt(t, "CONCURRENCY_MEASURE_COPIES", 1) {
 		tasks = append(tasks, concurrencyTask{Task: task, m: m, kind: measurementKind(i)})

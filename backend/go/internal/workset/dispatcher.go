@@ -33,7 +33,8 @@ type dispatcher struct {
 
 func newDispatcher(svc *serviceImpl, workers int) *dispatcher {
 	if workers <= 0 {
-		// Match the deployment default (see settings.WorksetConfig).
+		// Two general workers let metadata start beside rename on the light
+		// worker while conversion occupies the first (ADR 0004).
 		workers = 2
 	}
 	ctx, cancel := context.WithCancelCause(context.Background())

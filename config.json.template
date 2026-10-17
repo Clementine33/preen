@@ -19,12 +19,5 @@
       "反転",
       "反转"
     ]
-  },
-  "tools": {
-    "ffmpeg_path": "ffmpeg",
-    "ffprobe_path": "ffprobe"
-  },
-  "execute": {
-    "max_io_workers": 6
   }
 }

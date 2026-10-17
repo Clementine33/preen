@@ -262,7 +262,7 @@ func TestComponentRun_CancelStopsAtSafeBoundary(t *testing.T) {
 	}
 
 	ctx, cancel := context.WithCancel(t.Context())
-	encoder := ffmpeg.New(execute.ToolsConfig{})
+	encoder := ffmpeg.New(ffmpeg.ToolsConfig{})
 	kit := execute.ComponentRunTestKit{
 		Encode: func(encCtx context.Context, src, dst string, outSpec reconcile.AudioOutputSpec) error {
 			err := encodePaths(encoder, encCtx, src, dst, outSpec)

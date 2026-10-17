@@ -211,9 +211,9 @@ timestamp updates alone do not fail conversion. Silent storage failure and
 external mutations that preserve identity and size are accepted risks.
 SHA-256 records observed bytes; it is not an independent expected output checksum.
 
-The pool and component window read `execute.max_io_workers` once at startup.
-Values 1–32 are explicit; missing, malformed, nonpositive or out-of-range values
-mean automatic `min(4, CPU count)`. Workers include validation. A ready head
+The pool and component window currently use the built-in automatic
+`min(4, CPU count)` width; `config.json` no longer overrides worker limits.
+Workers include validation. A ready head
 component commits and persists even if later task delivery is backpressured;
 FIFO delivery and serial preparation/publication remain unchanged.
 

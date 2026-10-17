@@ -61,11 +61,11 @@ func TestCatalogChangedFiresOnceAfterEachCommitThatChangesTheListing(t *testing.
 	}
 	expect(3, "rolled-back relocation")
 
-	if _, err = repo.UpdateLibrary(lib.ID, "renamed", "/music"); err != nil {
+	if _, err = repo.UpdateLibrary(lib.ID, new("renamed"), new("/music"), nil); err != nil {
 		t.Fatal(err)
 	}
 	expect(3, "name-only update")
-	if _, err = repo.UpdateLibrary(lib.ID, "renamed", "/elsewhere"); err != nil {
+	if _, err = repo.UpdateLibrary(lib.ID, new("renamed"), new("/elsewhere"), nil); err != nil {
 		t.Fatal(err)
 	}
 	expect(4, "root change")

@@ -266,8 +266,8 @@ func (f *execFixture) seedUnpromotedRevision(planID string) {
 	if _, err := f.repo.DB().Exec(`
 		INSERT INTO workset_operation_revisions
 			(plan_id, workset_id, operation_type, revision_index, draft_hash, member_hash, operation_version, excluded_scope, draft_snapshot, created_at)
-		VALUES (?, ?, 'conversion', 1, ?, 'members', 0, '', ?, ?)
-	`, planID, f.worksetID, f.draftHash, f.draftJSON, now); err != nil {
+		VALUES (?, ?, 'conversion', (SELECT COALESCE(MAX(revision_index),0)+1 FROM workset_operation_revisions WHERE workset_id = ? AND operation_type = 'conversion'), ?, 'members', 0, '', ?, ?)
+	`, planID, f.worksetID, f.worksetID, f.draftHash, f.draftJSON, now); err != nil {
 		f.t.Fatalf("insert revision: %v", err)
 	}
 }
@@ -350,8 +350,8 @@ func (f *execFixture) seedRevision(planID string, comps ...seedComponent) {
 	if _, err := f.repo.DB().Exec(`
 		INSERT INTO workset_operation_revisions
 			(plan_id, workset_id, operation_type, revision_index, draft_hash, member_hash, operation_version, excluded_scope, draft_snapshot, created_at)
-		VALUES (?, ?, 'conversion', 1, ?, 'members', 0, '', ?, ?)
-	`, planID, f.worksetID, f.draftHash, f.draftJSON, now); err != nil {
+		VALUES (?, ?, 'conversion', (SELECT COALESCE(MAX(revision_index),0)+1 FROM workset_operation_revisions WHERE workset_id = ? AND operation_type = 'conversion'), ?, 'members', 0, '', ?, ?)
+	`, planID, f.worksetID, f.worksetID, f.draftHash, f.draftJSON, now); err != nil {
 		f.t.Fatalf("insert revision: %v", err)
 	}
 	if _, err := f.repo.DB().Exec(`

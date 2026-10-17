@@ -19,6 +19,7 @@
 | [0011](0011-development-schema-and-release-migrations.md) | 开发 schema 与发布迁移双轨 | Draft |
 | [0012](0012-metadata-refresh-and-directory-rename-planning.md) | 元数据刷新、目录重命名与修复、封面投递 | Draft |
 | [0013](0013-derived-media-thumbnails-content-and-facts.md) | 派生媒体：缩略图、文件内容分发与后台媒体事实 | Draft |
+| [0014](0014-storage-class-and-concurrency-limits.md) | 存储档与并发上限 | Draft |
 
 ## 历史编号映射表
 

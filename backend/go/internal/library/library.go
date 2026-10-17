@@ -20,6 +20,7 @@ type Library struct {
 	ID             string
 	Name           string
 	RootPath       string
+	StorageClass   StorageClass
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 	LastScanAt     *time.Time

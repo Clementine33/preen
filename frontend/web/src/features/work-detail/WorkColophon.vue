@@ -233,7 +233,7 @@ function copyTo(copy: { copy_id: string; library_id: string; dir_id: string }) {
           <span class="tags">
             <button v-for="tag in mine" :key="tag.id" class="tag mine" type="button" :disabled="locked"
               :title="locked ? undefined : '移除这个标签'" @click="removeTag(tag.id)">{{ tag.name }}</button>
-            <button class="tag add" type="button" :disabled="locked" :aria-expanded="adding"
+            <button class="tag add" :class="{ quiet: mine.length > 0 && !adding }" type="button" :disabled="locked" :aria-expanded="adding"
               @click="adding = !adding">+ TAG</button>
           </span>
           <span v-if="adding" class="menu" role="menu">
@@ -277,11 +277,15 @@ function copyTo(copy: { copy_id: string; library_id: string; dir_id: string }) {
 .colo dd :lang(ja):not(.mono) { font-family: var(--font-ja); }
 .mono { font-family: var(--font-mono); font-size: var(--fs-xs); letter-spacing: .06em; }
 .colo-row dd a { color: inherit; text-decoration: underline; text-decoration-color: var(--wire-mid); text-underline-offset: 3px; font-family: var(--font-mono); font-size: var(--fs-xs); word-break: break-all; }
-.tags { display: flex; flex-wrap: wrap; gap: 4px; }
-.tag { height: 18px; padding: 0 6px; display: inline-flex; align-items: center; border: 1px solid var(--wire-fine); font-size: var(--fs-xs); }
+/* Overrides the global `.tags` input-field box (theme-yorha.css). */
+.tags { display: flex; flex-wrap: wrap; gap: 4px; min-height: 0; padding: 0; background: none; border: none; }
+.tags:focus-within { box-shadow: none; }
+.tag { height: 18px; padding: 0 6px; display: inline-flex; align-items: center; border: 1px solid transparent; font-size: var(--fs-xs); }
+.tag.add.quiet { opacity: 0; }
+.colo-row:hover .tag.add.quiet, .tag.add.quiet:focus-visible { opacity: 1; }
 .tag[aria-current='true'] { background: var(--invert-bg); color: var(--invert-fg); border-color: var(--invert-bg); font-weight: 700; }
-.tag.mine, .tag.add { border-color: var(--wire-mid); }
-.tag.mine:hover { border-color: var(--wire-strong); }
+.tag.add { border-color: var(--wire-mid); }
+.tag.mine:hover { text-decoration: line-through; }
 .tag.add { border-style: dashed; color: var(--fg-meta); font-family: var(--font-mono); }
 .ed { display: flex; flex-direction: column; gap: 4px; }
 .ed-line { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }

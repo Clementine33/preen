@@ -1,6 +1,7 @@
 package sqlite
 
 import (
+	"context"
 	"database/sql"
 	"embed"
 	"errors"
@@ -49,6 +50,11 @@ func prepareSchema(db *sql.DB, dbPath string, development bool, migrations fs.FS
 	if err != nil {
 		return err
 	}
+	if len(tables) == 0 {
+		if err := initializeEmptyFile(db); err != nil {
+			return err
+		}
+	}
 	if len(tables) == 0 && development {
 		return initSchema(db)
 	}
@@ -77,6 +83,21 @@ func prepareSchema(db *sql.DB, dbPath string, development bool, migrations fs.FS
 		return nil
 	}
 	return migrateRelease(db, dbPath, migrations)
+}
+
+func initializeEmptyFile(db *sql.DB) error {
+	ctx := context.Background()
+	conn, err := db.Conn(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = conn.Close() }()
+	if _, err = conn.ExecContext(ctx, "PRAGMA auto_vacuum = INCREMENTAL"); err != nil {
+		return err
+	}
+	// Persist the empty file's mode before migrations can use other connections.
+	_, err = conn.ExecContext(ctx, "VACUUM")
+	return err
 }
 
 func checkDatabaseMode(db *sql.DB, dbPath, expected string) error {

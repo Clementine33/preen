@@ -73,13 +73,9 @@ func (r *Repository) catalogChanged() {
 // own the write lock before it reads. Read-only transactions are unaffected:
 // the driver leaves them deferred.
 //
-// auto_vacuum(2) is incremental auto-vacuum, which only takes effect before the
-// first table exists: the connection that creates the file writes the mode into
-// the header, and every connection after that reads it back from there. On a
-// database that already has tables the setting is a silent no-op, which is why
-// reclamation asks AutoVacuumMode what the file was created with instead of
-// trying to enable it later.
-const connectionPragmas = "?_pragma=foreign_keys(1)&_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_pragma=auto_vacuum(2)&_txlock=immediate"
+// File-wide auto_vacuum is initialized before the first table instead: setting
+// it on every new connection would make even readers wait for the writer lock.
+const connectionPragmas = "?_pragma=foreign_keys(1)&_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_txlock=immediate"
 
 func (r *Repository) Close() error {
 	return r.db.Close()

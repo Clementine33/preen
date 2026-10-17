@@ -26,13 +26,8 @@ const (
 // with, which is the mode that decides whether free pages can be returned to
 // the filesystem at all (AutoVacuumIncremental is the only one that can).
 //
-// Both statements run on one reserved connection, and a schema row is read
-// before the pragma. Until a connection has locked the database it answers
-// PRAGMA auto_vacuum from the value its DSN set in memory - every connection
-// carries connectionPragmas, and on a file that has tables that setting never
-// reaches the header - so asking any pooled connection would report incremental
-// vacuum on a database that has none. Reading a schema row loads the file, and
-// pinning the pragma to that same connection keeps the answer the file's.
+// Load the file's schema on the reserved connection before reading its mode;
+// the answer must describe the file rather than unloaded connection state.
 func (r *Repository) AutoVacuumMode(ctx context.Context) (int, error) {
 	conn, err := r.db.Conn(ctx)
 	if err != nil {

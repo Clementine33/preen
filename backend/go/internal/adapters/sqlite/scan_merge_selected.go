@@ -51,11 +51,13 @@ func (r *Repository) MergeSelectedStaging(
 		return inventory.MergeOutcome{}, err
 	}
 	var outside int
+	// Build covered paths once from indexed ranges instead of testing every row against every scope.
 	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM entries_staging s
-		WHERE s.session_id = ? AND (s.root_path <> ? OR NOT EXISTS (
-			SELECT 1 FROM json_each(?) scope
-			WHERE s.path >= scope.value || '/' AND s.path < scope.value || '0'
-		))`, id, root, string(encodedScopes)).Scan(&outside); err != nil {
+		WHERE s.session_id = ? AND (s.root_path <> ? OR s.path NOT IN (
+			SELECT covered.path FROM json_each(?) scope CROSS JOIN entries_staging covered
+			WHERE covered.session_id = ?
+			AND covered.path >= scope.value || '/' AND covered.path < scope.value || '0'
+		))`, id, root, string(encodedScopes), id).Scan(&outside); err != nil {
 		return inventory.MergeOutcome{}, err
 	}
 	if outside != 0 {
@@ -64,10 +66,12 @@ func (r *Repository) MergeSelectedStaging(
 	if _, err := tx.ExecContext(ctx, mergeObservedEntriesSQL, id, time.Now().Format(timeFormat), id); err != nil {
 		return inventory.MergeOutcome{}, err
 	}
+	// Point lookups avoid rebuilding the whole staging path set for each scope.
 	for _, scope := range scopes {
 		if _, err := tx.ExecContext(ctx, `DELETE FROM entries INDEXED BY sqlite_autoindex_entries_1
 			WHERE root_path = ? AND path >= ? AND path < ?
-			AND path NOT IN (SELECT path FROM entries_staging WHERE session_id = ?)`, root,
+			AND NOT EXISTS (SELECT 1 FROM entries_staging s
+			WHERE s.session_id = ? AND s.path = entries.path)`, root,
 			strings.TrimRight(scope, "/")+"/", strings.TrimRight(scope, "/")+"0", id); err != nil {
 			return inventory.MergeOutcome{}, err
 		}

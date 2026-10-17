@@ -63,6 +63,32 @@ describe('settings: user tags', () => {
   })
 })
 
+describe('settings: format preference', () => {
+  it('saves each edit at once, keeps the order, and rolls back with a toast on failure', async () => {
+    const putPreferences = vi.fn(async (input: { track_formats: string[] }) => input)
+    const wrapper = await mountPage(apiStub({
+      getPreferences: vi.fn().mockResolvedValue({ track_formats: ['WAV', 'FLAC'] }),
+      putPreferences,
+    }))
+    const rows = () => wrapper.findAll('li[data-testid^="format-"]')
+    expect(rows().map((row) => row.get('span.font-mono').text())).toEqual(['WAV', 'FLAC'])
+
+    await wrapper.get('[aria-label="FLAC 上移"]').trigger('click')
+    await flushPromises()
+    expect(putPreferences).toHaveBeenLastCalledWith({ track_formats: ['FLAC', 'WAV'] })
+
+    await wrapper.get('[data-testid="format-add-MP3"]').trigger('click')
+    await flushPromises()
+    expect(putPreferences).toHaveBeenLastCalledWith({ track_formats: ['FLAC', 'WAV', 'MP3'] })
+    expect(wrapper.find('[data-testid="format-add-MP3"]').exists()).toBe(false)
+
+    putPreferences.mockRejectedValueOnce(new ApiError(500, 'INTERNAL', 'boom'))
+    await wrapper.get('[aria-label="移除 WAV"]').trigger('click')
+    await flushPromises()
+    expect(rows().map((row) => row.get('span.font-mono').text())).toEqual(['FLAC', 'WAV', 'MP3'])
+  })
+})
+
 describe('settings: categories', () => {
   it('opens on appearance and switches category from the sidebar', async () => {
     const wrapper = await mountPage(apiStub({ listUserTags: vi.fn().mockResolvedValue([]) }))

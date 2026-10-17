@@ -41,6 +41,15 @@ describe('work-detail store', () => {
     expect(store.tracks).toHaveLength(8)
   })
 
+  it('opens on the preferred format, ignoring preferences the work does not ship', () => {
+    const store = useWorkDetailStore()
+    store.bind(RJ, sampleWorkContent(RJ), undefined, ['FLAC', 'WAV', 'MP3'])
+    expect(store.fmt).toBe('WAV')
+    expect(store.formats).toEqual(['MP3', 'WAV'])
+    store.bind(OTHER, sampleWorkContent(OTHER), undefined, ['FLAC'])
+    expect(store.fmt).toBe('MP3')
+  })
+
   it('resets the session when another work binds, and keeps it on a refetch', async () => {
     await bind()
     const store = useWorkDetailStore()

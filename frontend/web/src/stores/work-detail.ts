@@ -4,6 +4,7 @@ import {
   dirAt,
   imageSets,
   lrcFilesOf,
+  pickFormat,
   trackFormats,
   playQueue,
   type ImageSet,
@@ -116,15 +117,17 @@ export const useWorkDetailStore = defineStore('work-detail', {
     /**
      * Hydrate the manifest of the bound work. A different rj is a new session:
      * everything but the bay's layout resets. A refetch of the same rj keeps the session and only
-     * clamps the selections against the fresh data.
+     * clamps the selections against the fresh data. The Format Preference only
+     * picks the opening format chip.
      */
-    bind(rj: string, content: WorkContent, resolveFileUrl?: FileUrl) {
+    bind(rj: string, content: WorkContent, resolveFileUrl?: FileUrl, formatPreference: readonly string[] = []) {
       if (this.rj !== rj) this.newVisit()
       // Without a resolver (a test binding the sample) tracks play silently.
       fileUrl = resolveFileUrl ?? null
       this.rj = rj
       this.content = content
-      if (!this.formats.includes(this.fmt)) this.fmt = this.formats[0] ?? ''
+      // Only the initial chip follows the Format Preference; every chip stays switchable.
+      if (!this.formats.includes(this.fmt)) this.fmt = pickFormat(this.formats, formatPreference) ?? this.formats[0] ?? ''
       if (this.set >= this.sets.length) {
         this.set = 0
         this.idx = 0

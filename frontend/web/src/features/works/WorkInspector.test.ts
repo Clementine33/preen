@@ -68,8 +68,9 @@ function reducedMotion(matches: boolean): void {
 
 async function mountInspector(
   getWork: ReturnType<typeof vi.fn>,
-  props: { rj: string; standalone?: boolean; onlyFormat?: string | null },
+  props: { rj: string; standalone?: boolean },
   getWorkContent?: ReturnType<typeof vi.fn>,
+  formatPreference: string[] = [],
 ) {
   const router = createRouter({
     history: createMemoryHistory(),
@@ -79,7 +80,11 @@ async function mountInspector(
     props,
     global: {
       plugins: [createPinia(), router, installTestQueryPlugin()],
-      provide: { [apiClientKey as symbol]: apiStub({ getWork, ...(getWorkContent ? { getWorkContent } : {}) } as never) },
+      provide: { [apiClientKey as symbol]: apiStub({
+        getWork,
+        getPreferences: vi.fn().mockResolvedValue({ track_formats: formatPreference }),
+        ...(getWorkContent ? { getWorkContent } : {}),
+      } as never) },
     },
   })
   await flushPromises()
@@ -193,7 +198,7 @@ describe('WorkInspector', () => {
     expect(player.queue.map((item) => item.source?.src)).toEqual(['/files/01.mp3', '/files/02.mp3'])
     expect(wrapper.findAll('.trk').map((row) => row.classes('now'))).toEqual([false, true])
   })
-  it('lists and plays only one codec when asked, and ignores a codec the work lacks', async () => {
+  it('lists and plays the preferred format, and keeps every format when the work ships none of them', async () => {
     const getWork = vi.fn((rj: string) => Promise.resolve(detail(rj, '沢城みゆき')))
     const aud = (name: string, format: string) => ({
       name, rel_path: name, kind: 'aud', size: 1, format, bitrate: null,
@@ -206,8 +211,9 @@ describe('WorkInspector', () => {
         tree: { name: '', rel_path: '', children: [aud('01.mp3', 'MP3'), aud('02.mp3', 'MP3'), aud('02.wav', 'WAV'), aud('03.wav', 'WAV')] },
       }],
     }))
-    const wrapper = await mountInspector(getWork, { rj: FIRST, onlyFormat: 'WAV' }, getWorkContent)
+    const wrapper = await mountInspector(getWork, { rj: FIRST }, getWorkContent, ['FLAC', 'WAV'])
     await settle()
+    expect(wrapper.get('[data-testid="tracklist-format"]').text()).toBe('WAV')
     expect(wrapper.findAll('.trk').map((row) => row.get('.nm').text())).toEqual(['02', '03'])
 
     await wrapper.findAll('.trk')[0].trigger('click')
@@ -215,9 +221,10 @@ describe('WorkInspector', () => {
     expect(player.queue.map((item) => item.source?.src)).toEqual(['/files/02.wav', '/files/03.wav'])
     expect(wrapper.findAll('.trk').map((row) => row.classes('now'))).toEqual([true, false])
 
-    const other = await mountInspector(getWork, { rj: FIRST, onlyFormat: 'FLAC' }, getWorkContent)
+    const other = await mountInspector(getWork, { rj: FIRST }, getWorkContent, ['FLAC'])
     await settle()
     expect(other.findAll('.trk')).toHaveLength(3)
+    expect(other.find('[data-testid="tracklist-format"]').exists()).toBe(false)
   })
   it('fills a remounted inspector from the cached work', async () => {
     const getWork = vi.fn((rj: string) => Promise.resolve(detail(rj, '沢城みゆき')))

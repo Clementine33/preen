@@ -498,3 +498,43 @@ func TestAgeCategoriesPersistAndFilterIndependently(t *testing.T) {
 		t.Fatalf("invalid filter accepted: %s", w.Body.String())
 	}
 }
+
+// TestPreferencesRoundTrip: the Format Preference reads empty before any save,
+// is normalized on write, survives a read, and refuses unknown keys and blanks.
+func TestPreferencesRoundTrip(t *testing.T) {
+	engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) { wireWorks(d, fixture) })
+	read := func() string {
+		return doRequest(t, engine, http.MethodGet, "/api/v1/preferences", nil, nil).Body.String()
+	}
+
+	if got := read(); got != `{"track_formats":[]}` {
+		t.Fatalf("initial = %s", got)
+	}
+	w := doRequest(t, engine, http.MethodPut, "/api/v1/preferences",
+		map[string]any{"track_formats": []string{" wav", "FLAC", "Wav", "mp3"}}, nil)
+	if w.Code != http.StatusOK || w.Body.String() != `{"track_formats":["WAV","FLAC","MP3"]}` {
+		t.Fatalf("put = %d %s", w.Code, w.Body.String())
+	}
+	if got := read(); got != `{"track_formats":["WAV","FLAC","MP3"]}` {
+		t.Fatalf("read back = %s", got)
+	}
+	for name, body := range map[string]any{
+		"unknown key": map[string]any{"track_formats": []string{"WAV"}, "x": 1},
+		"blank":       map[string]any{"track_formats": []string{"WAV", "  "}},
+		"missing":     map[string]any{},
+	} {
+		if w := doRequest(
+			t,
+			engine,
+			http.MethodPut,
+			"/api/v1/preferences",
+			body,
+			nil,
+		); w.Code != http.StatusBadRequest {
+			t.Errorf("%s: status = %d, want 400", name, w.Code)
+		}
+	}
+	if got := read(); got != `{"track_formats":["WAV","FLAC","MP3"]}` {
+		t.Fatalf("rejected writes changed state: %s", got)
+	}
+}

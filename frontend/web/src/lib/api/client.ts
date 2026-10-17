@@ -52,6 +52,7 @@ import type {
   WorksScope,
   WorkListResponse,
   WorkUserData,
+  UserPreferences,
   WorkUserTag,
   Workset,
   WorksetListResponse,
@@ -436,6 +437,15 @@ export class ApiClient implements ApiClientContract {
       body: { tag_ids: tagIds },
     })
     return body.user_tags
+  }
+
+  // Last write wins; the answer is the normalized list (docs/api/preferences.md).
+  getPreferences(signal?: AbortSignal): Promise<UserPreferences> {
+    return this.request('/preferences', { signal })
+  }
+
+  putPreferences(input: UserPreferences): Promise<UserPreferences> {
+    return this.request('/preferences', { method: 'PUT', body: input })
   }
 
   // Creating by name is idempotent: an existing name answers with the existing

@@ -219,6 +219,14 @@ export function trackFormats(tracks: readonly Track[]): string[] {
   return seen.sort((a, b) => priority(a) - priority(b))
 }
 
+/**
+ * The effective format of a work: the first preferred format it ships, or null
+ * (no preference, or none of them shipped) meaning every format stays merged.
+ */
+export function pickFormat(formats: readonly string[], preference: readonly string[]): string | null {
+  return preference.find((format) => formats.includes(format)) ?? null
+}
+
 /* ── Raw text parsing ── */
 
 export interface LrcLine {

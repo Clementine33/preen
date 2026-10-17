@@ -218,6 +218,12 @@ export interface ClassifierTagLibraryResponse {
 // (ADR 0009): an unknown adult flag is not false and an unrated work
 // is not 0.
 
+/** Server-synced display choices (docs/api/preferences.md). */
+export interface UserPreferences {
+  /** The ordered Format Preference, uppercase extensions; empty means none. */
+  track_formats: string[]
+}
+
 export interface WorkUserTag {
   id: string
   name: string
@@ -1226,6 +1232,8 @@ export interface ApiClientContract {
   listTagFacets(scope?: WorksScope, signal?: AbortSignal): Promise<TagFacets>
   updateWorkUserData(rj: string, input: PatchWorkUserDataParams): Promise<WorkUserData>
   replaceWorkUserTags(rj: string, tagIds: string[]): Promise<WorkUserTag[]>
+  getPreferences(signal?: AbortSignal): Promise<UserPreferences>
+  putPreferences(input: UserPreferences): Promise<UserPreferences>
   listUserTags(signal?: AbortSignal): Promise<WorkUserTag[]>
   createUserTag(name: string): Promise<WorkUserTag>
   renameUserTag(id: string, name: string): Promise<WorkUserTag>

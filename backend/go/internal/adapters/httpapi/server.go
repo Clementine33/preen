@@ -126,6 +126,8 @@ func NewServer(deps Dependencies) http.Handler {
 	mux.Handle("POST /api/v1/user-tags", protect(http.HandlerFunc(s.createUserTag)))
 	mux.Handle("PATCH /api/v1/user-tags/{id}", protect(http.HandlerFunc(s.patchUserTag)))
 	mux.Handle("DELETE /api/v1/user-tags/{id}", protect(http.HandlerFunc(s.deleteUserTag)))
+	mux.Handle("GET /api/v1/preferences", protect(http.HandlerFunc(s.getPreferences)))
+	mux.Handle("PUT /api/v1/preferences", protect(http.HandlerFunc(s.putPreferences)))
 	mux.Handle("GET /api/v1/classifier-tags", protect(http.HandlerFunc(s.listClassifierTags)))
 	mux.Handle("POST /api/v1/classifier-tags", protect(http.HandlerFunc(s.addClassifierTag)))
 	mux.Handle("DELETE /api/v1/classifier-tags/{id}", protect(http.HandlerFunc(s.deleteClassifierTag)))

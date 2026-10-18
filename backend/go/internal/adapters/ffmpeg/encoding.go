@@ -67,7 +67,8 @@ func encodedTarget(codec reconcile.Codec, quality *reconcile.Quality) (encodedAu
 	return encodedArgs(codec, strconv.Itoa(quality.Bitrate)+"k")
 }
 
-// audioEncodingArgs preserves PCM precision, sample rate and channel count.
+// audioEncodingArgs preserves sample rate and channel count; float-to-FLAC
+// quantizes to 24-bit integers, while other lossless targets preserve PCM precision.
 // Unsupported lossless representations fail before ffmpeg creates output.
 func audioEncodingArgs(input execute.AudioStream, spec reconcile.AudioOutputSpec) (encodedAudio, error) {
 	bits, _ := strconv.Atoi(input.RawBits)
@@ -98,14 +99,18 @@ func audioEncodingArgs(input execute.AudioStream, spec reconcile.AudioOutputSpec
 		}
 		return encodedAudio{Codec: codec, Args: []string{"-c:a", codec, "-f", "wav"}}, nil
 	case reconcile.CodecFlac:
-		if floating || bits > 24 {
+		if !floating && bits > 24 {
 			return encodedAudio{}, fmt.Errorf("FLAC target cannot preserve source precision")
 		}
 		format := "s16"
-		if bits > 16 {
+		if floating || bits > 16 {
 			format = "s32"
 		}
-		return encodedAudio{Codec: "flac", Args: []string{"-c:a", "flac", "-sample_fmt", format, "-f", "flac"}}, nil
+		args := []string{"-c:a", "flac", "-sample_fmt", format}
+		if floating {
+			args = append(args, "-bits_per_raw_sample", "24")
+		}
+		return encodedAudio{Codec: "flac", Args: append(args, "-f", "flac")}, nil
 	case reconcile.CodecMp3, reconcile.CodecAac, reconcile.CodecOpus:
 		return encodedTarget(spec.Codec, spec.Quality)
 	default:

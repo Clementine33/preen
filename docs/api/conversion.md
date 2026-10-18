@@ -135,6 +135,24 @@ priority remain `SOURCE_AMBIGUOUS` when an output needs generating; their actual
 paths appear in file decisions. `ComponentOutcome.scope` is the matched directory's
 Planning Root-relative path; absent or `""` means the main scope. Component identity
 continues to hash its partition and observed files; scope adds no hash salt.
+
+### FLAC sample representation
+
+Floating-point WAV sources (32-bit or 64-bit) are converted by FFmpeg to 24-bit
+integer FLAC, preserving sample rate and channel count. This quantizes the source
+samples: no dithering, normalization or peak pre-scan is applied, and samples
+outside the integer full-scale range are hard-clipped. The lossless target class
+names the codec family, not a guarantee of sample-exact preservation of floating
+point sources. Integer sources above 24 bits remain unsupported for FLAC targets.
+
+After successful validation and publication, obsolete source WAV files follow the
+frozen soft/hard handling setting like other source files: soft moves them to the
+recovery directory, while hard permanently removes the original floating-point
+data. Output validation checks the stream properties and full decode; it does not
+check for quantization loss or clipping.
+
+### Encoded output acceptance
+
 An encoded output is accepted by two entries, in this order:
 
 1. **Its own measured rate**, compared per codec — a file that already measures

@@ -255,7 +255,8 @@ test.describe('workset operation smoke', () => {
     // Renaming one file: the request carries the member-relative path, and the
     // result reports both what happened and whether the inventory refreshed
     //.
-    await page.getByTestId('rename-test1.mp3').click()
+    await page.getByTestId('file-checkbox-test1.mp3').check()
+    await page.getByTestId('rename-selection').click()
     const renameInput = page.getByTestId('rename-input')
     await renameInput.fill('renamed.mp3')
     await page.getByTestId('rename-submit').click()

@@ -100,4 +100,4 @@ tasks:
       GOOS: windows
       GOARCH: amd64
     cmds:
-      - go build {{if .VERSION}}-ldflags "-X main.version={{.VERSION}}" {{end}}-o bin/onsei-organizer-backend.exe ./cmd/onsei-organizer-backend
+      - go build {{if .VERSION}}-ldflags "-X main.version={{.VERSION}}" {{end}}-o bin/preen.exe ./cmd/preen

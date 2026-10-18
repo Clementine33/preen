@@ -4,7 +4,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/onsei/organizer/backend/internal/inventory"
+	"github.com/Clementine33/preen/backend/internal/inventory"
 )
 
 func TestSelectedScopesCollapseAncestorsAcrossSortedNeighbors(t *testing.T) {

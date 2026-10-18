@@ -3,7 +3,7 @@ package sqlite
 import (
 	"context"
 
-	"github.com/onsei/organizer/backend/internal/dirrename"
+	"github.com/Clementine33/preen/backend/internal/dirrename"
 )
 
 // InterruptedRenames retains frozen requests for repair without resuming them.

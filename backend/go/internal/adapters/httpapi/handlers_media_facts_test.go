@@ -9,9 +9,9 @@ import (
 	"testing/synctest"
 	"time"
 
-	"github.com/onsei/organizer/backend/internal/adapters/httpapi"
-	"github.com/onsei/organizer/backend/internal/inventory"
-	"github.com/onsei/organizer/backend/internal/notify"
+	"github.com/Clementine33/preen/backend/internal/adapters/httpapi"
+	"github.com/Clementine33/preen/backend/internal/inventory"
+	"github.com/Clementine33/preen/backend/internal/notify"
 )
 
 // flushedResponse snapshots on the writer goroutine; the test only reads

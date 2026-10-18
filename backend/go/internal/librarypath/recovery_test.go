@@ -3,7 +3,7 @@ package librarypath_test
 import (
 	"testing"
 
-	"github.com/onsei/organizer/backend/internal/librarypath"
+	"github.com/Clementine33/preen/backend/internal/librarypath"
 )
 
 func TestIsRecoveryRelPath(t *testing.T) {

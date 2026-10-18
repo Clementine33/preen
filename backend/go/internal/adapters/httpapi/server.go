@@ -6,16 +6,16 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/onsei/organizer/backend/internal/collections"
-	"github.com/onsei/organizer/backend/internal/conversion"
-	"github.com/onsei/organizer/backend/internal/fileops"
-	"github.com/onsei/organizer/backend/internal/inventory"
-	"github.com/onsei/organizer/backend/internal/library"
-	"github.com/onsei/organizer/backend/internal/notify"
-	"github.com/onsei/organizer/backend/internal/thumbnail"
-	"github.com/onsei/organizer/backend/internal/works"
-	"github.com/onsei/organizer/backend/internal/works/coverdelivery"
-	"github.com/onsei/organizer/backend/internal/workset"
+	"github.com/Clementine33/preen/backend/internal/collections"
+	"github.com/Clementine33/preen/backend/internal/conversion"
+	"github.com/Clementine33/preen/backend/internal/fileops"
+	"github.com/Clementine33/preen/backend/internal/inventory"
+	"github.com/Clementine33/preen/backend/internal/library"
+	"github.com/Clementine33/preen/backend/internal/notify"
+	"github.com/Clementine33/preen/backend/internal/thumbnail"
+	"github.com/Clementine33/preen/backend/internal/works"
+	"github.com/Clementine33/preen/backend/internal/works/coverdelivery"
+	"github.com/Clementine33/preen/backend/internal/workset"
 )
 
 // Dependencies carries the wiring for the HTTP API. Inventory is used by the

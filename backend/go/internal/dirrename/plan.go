@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/onsei/organizer/backend/internal/librarypath"
-	"github.com/onsei/organizer/backend/internal/workset"
+	"github.com/Clementine33/preen/backend/internal/librarypath"
+	"github.com/Clementine33/preen/backend/internal/workset"
 )
 
 // Outcome freezes the original and cleaned names and the member's block reason.

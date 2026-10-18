@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/onsei/organizer/backend/internal/adapters/media"
+	"github.com/Clementine33/preen/backend/internal/adapters/media"
 )
 
 // stalledFile is a FIFO with no writer: opening it for reading blocks, the way

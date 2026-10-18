@@ -6,7 +6,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/onsei/organizer/backend/internal/adapters/settings"
+	"github.com/Clementine33/preen/backend/internal/adapters/settings"
 )
 
 // TestPlanReadsKeysOverTheirDefaults pins what an omitted key means. The

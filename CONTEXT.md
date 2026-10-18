@@ -1,6 +1,6 @@
-# Onsei Media Organization
+# Preen
 
-Onsei organizes audio collections by comparing observed media with desired audio outputs. A media library IS the workbench: its folders are browsed, organized and converted there, and one shared Workset holds the current folder batch for every Task.
+Preen organizes audio collections by comparing observed media with desired audio outputs. A media library IS the workbench: its folders are browsed, organized and converted there, and one shared Workset holds the current folder batch for every Task.
 
 ## Language
 

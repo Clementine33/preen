@@ -6,11 +6,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/onsei/organizer/backend/internal/admission"
-	"github.com/onsei/organizer/backend/internal/fileops"
-	"github.com/onsei/organizer/backend/internal/inventory"
-	"github.com/onsei/organizer/backend/internal/library"
-	"github.com/onsei/organizer/backend/internal/works"
+	"github.com/Clementine33/preen/backend/internal/admission"
+	"github.com/Clementine33/preen/backend/internal/fileops"
+	"github.com/Clementine33/preen/backend/internal/inventory"
+	"github.com/Clementine33/preen/backend/internal/library"
+	"github.com/Clementine33/preen/backend/internal/works"
 )
 
 // dirResponse is one scanned work root of a library root: the observed

@@ -13,10 +13,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/onsei/organizer/backend/internal/adapters/sqlite"
-	"github.com/onsei/organizer/backend/internal/admission"
-	"github.com/onsei/organizer/backend/internal/inventory"
-	"github.com/onsei/organizer/backend/internal/workset"
+	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
+	"github.com/Clementine33/preen/backend/internal/admission"
+	"github.com/Clementine33/preen/backend/internal/inventory"
+	"github.com/Clementine33/preen/backend/internal/workset"
 )
 
 // These tests drive the real loop against a real database. They wait for the

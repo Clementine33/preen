@@ -20,7 +20,7 @@ import (
 	"golang.org/x/text/encoding/unicode"
 	"golang.org/x/text/transform"
 
-	"github.com/onsei/organizer/backend/internal/works"
+	"github.com/Clementine33/preen/backend/internal/works"
 )
 
 // getWorkContentFile serves one manifest file's bytes (ADR 0013): the

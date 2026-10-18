@@ -1,20 +1,20 @@
 #!/usr/bin/env node
 /**
  * e2e/launch-stack.mjs — boot the real stack for the Playwright e2e smoke:
- * Go backend (fresh temp ONSEI_DATA_DIR + generated fixture tree) + Vite dev
+ * Go backend (fresh temp PREEN_DATA_DIR + generated fixture tree) + Vite dev
  * server wired to the backend's handshake http_port.
  *
  * Reuses the exact backend-launch discipline from scripts/dev-web.mjs:
  *   - the backend's stdin is a pipe WE hold (never inherit), because the
  *     backend watches stdin and shuts down on EOF, which would kill it
  *     instantly in any non-interactive environment (CI, pipes, background);
- *   - the additive ONSEI_BACKEND_READY handshake is parsed for http_port and
+ *   - the additive PREEN_BACKEND_READY handshake is parsed for http_port and
  *     Vite is launched with VITE_API_BASE=http://127.0.0.1:<http_port>/api/v1;
  *   - teardown closes the held pipe first (graceful EOF shutdown), then
  *     falls back to killing the process group.
  *
  * Writes a tiny state file (default e2e/.stack-state.json, override with
- * ONSEI_E2E_STATE_FILE) that the Playwright spec reads to learn the fixture
+ * PREEN_E2E_STATE_FILE) that the Playwright spec reads to learn the fixture
  * root and http port.
  */
 import { spawn } from 'node:child_process'
@@ -28,8 +28,8 @@ const repoRoot = path.resolve(webDir, '..', '..')
 const backendDir = path.join(repoRoot, 'backend', 'go')
 
 const isWin = process.platform === 'win32'
-const stateFile = process.env.ONSEI_E2E_STATE_FILE
-  ? path.resolve(process.env.ONSEI_E2E_STATE_FILE)
+const stateFile = process.env.PREEN_E2E_STATE_FILE
+  ? path.resolve(process.env.PREEN_E2E_STATE_FILE)
   : path.join(path.dirname(fileURLToPath(import.meta.url)), '.stack-state.json')
 
 // --- Fixture tree -----------------------------------------------------------
@@ -64,9 +64,9 @@ writeFileSync(
   path.join(dataDir, 'config.json'),
   JSON.stringify({ prune: { no_effect_tags: ['SEなし'] } }),
 )
-const backend = spawn('go', ['run', './cmd/onsei-organizer-backend'], {
+const backend = spawn('go', ['run', './cmd/preen'], {
   cwd: backendDir,
-  env: { ...process.env, ONSEI_DATA_DIR: dataDir },
+  env: { ...process.env, PREEN_DATA_DIR: dataDir },
   // Held stdin pipe: never inherit (see header comment).
   stdio: ['pipe', 'pipe', 'inherit'],
   // Own process group on POSIX so killing -pid takes the compiled binary
@@ -101,8 +101,8 @@ function launchVite(httpPort) {
 }
 
 function handleLine(line) {
-  // ONSEI_BACKEND_READY token=tok-1 version=v1 http_port=54321
-  const match = /^ONSEI_BACKEND_READY token=\S* version=\S+ http_port=(\d+)$/.exec(line.trim())
+  // PREEN_BACKEND_READY token=tok-1 version=v1 http_port=54321
+  const match = /^PREEN_BACKEND_READY token=\S* version=\S+ http_port=(\d+)$/.exec(line.trim())
   if (!match) return
   const httpPort = Number(match[1])
   writeFileSync(stateFile, JSON.stringify({ fixtureRoot, httpPort }, null, 2))

@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/onsei/organizer/backend/internal/workset"
+	"github.com/Clementine33/preen/backend/internal/workset"
 )
 
 // stubTask is a minimal second task (rename-shaped) for the registry and seam

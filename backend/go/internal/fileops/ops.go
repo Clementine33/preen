@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/onsei/organizer/backend/internal/librarypath"
+	"github.com/Clementine33/preen/backend/internal/librarypath"
 )
 
 // Operation names accepted by Apply. They are the first version's whole

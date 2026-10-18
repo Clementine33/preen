@@ -1,6 +1,6 @@
 package refresh
 
-import "github.com/onsei/organizer/backend/internal/works"
+import "github.com/Clementine33/preen/backend/internal/works"
 
 // Mode selects independently refreshable data groups.
 type Mode string

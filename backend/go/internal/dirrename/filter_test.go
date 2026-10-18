@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/onsei/organizer/backend/internal/dirrename"
-	"github.com/onsei/organizer/backend/internal/workset"
+	"github.com/Clementine33/preen/backend/internal/dirrename"
+	"github.com/Clementine33/preen/backend/internal/workset"
 )
 
 func TestTitleFiltersUseNearestSameKindTerminatorAndKeepSpaces(t *testing.T) {

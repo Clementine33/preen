@@ -4,7 +4,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/onsei/organizer/backend/internal/adapters/sqlite"
+	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
 )
 
 func TestClassifierTagLibraryCRUD(t *testing.T) {

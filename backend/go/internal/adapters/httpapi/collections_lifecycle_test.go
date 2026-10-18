@@ -8,12 +8,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/onsei/organizer/backend/internal/adapters/filesystem"
-	"github.com/onsei/organizer/backend/internal/adapters/httpapi"
-	"github.com/onsei/organizer/backend/internal/adapters/sqlite"
-	"github.com/onsei/organizer/backend/internal/collections"
-	"github.com/onsei/organizer/backend/internal/inventory"
-	"github.com/onsei/organizer/backend/internal/library"
+	"github.com/Clementine33/preen/backend/internal/adapters/filesystem"
+	"github.com/Clementine33/preen/backend/internal/adapters/httpapi"
+	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
+	"github.com/Clementine33/preen/backend/internal/collections"
+	"github.com/Clementine33/preen/backend/internal/inventory"
+	"github.com/Clementine33/preen/backend/internal/library"
 )
 
 func TestCollectionsPersistAcrossRepositoryReopen(t *testing.T) {

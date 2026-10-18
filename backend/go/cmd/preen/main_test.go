@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/onsei/organizer/backend/internal/app"
+	"github.com/Clementine33/preen/backend/internal/app"
 )
 
 func TestVersion_DefaultNonEmptyAndEmittedInHandshake(t *testing.T) {

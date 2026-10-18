@@ -31,13 +31,13 @@
 - Unreleased SQL migrations may be edited, merged, deleted or renumbered; retain only the final changes needed between releases.
 - Once distributed, including an external RC, migration filenames, numbers and contents are immutable. Append a migration for subsequent changes; release startup uses goose only, so schema repairs belong in migrations.
 - Before release, add SQL from the previous release to the final schema in `internal/adapters/sqlite/migrations/`, starting with `-- +goose Up`; add a migration only when the schema changes. Verify fresh initialization, successive and cross-version upgrades, data preservation, and matching structure and read/write behavior between development schema and release migrations; run backend tests and lint.
-- The default development version lives in `cmd/onsei-organizer-backend/main.go`. For a release build, use `task -d backend/go build RAW_TAG=v0.2.0` from the repository root (or set `RAW_TAG` in the environment).
+- The default development version lives in `cmd/preen/main.go`. For a release build, use `task -d backend/go build RAW_TAG=v0.2.0` from the repository root (or set `RAW_TAG` in the environment).
 
 ### Rebuild and restore
-- Rebuild a development database: stop the backend, then run `task db:rebuild:dev` from the repository root. It always targets `.dev_data/cache.db`, ignores `ONSEI_DATA_DIR`, backs up to `.dev_data/backups/` and replaces the database; configuration and media files stay in place. It can rebuild an old development database and refuses a goose-managed release database.
+- Rebuild a development database: stop the backend, then run `task db:rebuild:dev` from the repository root. It always targets `.dev_data/cache.db`, ignores `PREEN_DATA_DIR`, backs up to `.dev_data/backups/` and replaces the database; configuration and media files stay in place. It can rebuild an old development database and refuses a goose-managed release database.
 - Restore a backup: stop every process using the database; move the current `cache.db` and any `cache.db-wal` / `cache.db-shm` into another directory; copy the chosen backup to `cache.db`; start the corresponding old program. Leave no WAL/SHM from the failed database beside the restored file.
 
 ## Runtime and checks
-- Listener and shared-key startup configuration follow [docs/api/common.md](../../docs/api/common.md#server-configuration). Keep the `ONSEI_BACKEND_READY token=… version=… http_port=…` handshake compatible with the web development launcher's `VITE_API_BASE` wiring.
+- Listener and shared-key startup configuration follow [docs/api/common.md](../../docs/api/common.md#server-configuration). Keep the `PREEN_BACKEND_READY token=… version=… http_port=…` handshake compatible with the web development launcher's `VITE_API_BASE` wiring.
 - From the repository root: `task test:go`, `task lint:go`, `task lint:go:fix`; Go lint configuration is `.golangci.yml` in this directory and is gated by CI.
 - From this directory: `task test`, `task lint`, `task test:e2e`; focused tests: `go test ./<pkg> -run <Test>`.

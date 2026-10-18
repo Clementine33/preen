@@ -1,6 +1,6 @@
 package refresh
 
-import "github.com/onsei/organizer/backend/internal/workset"
+import "github.com/Clementine33/preen/backend/internal/workset"
 
 // The worker's admission gate delays this follow-up until execution is terminal;
 // coverdelivery then waits for only this execution's delivery demands.

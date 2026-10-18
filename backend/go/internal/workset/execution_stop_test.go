@@ -4,7 +4,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/onsei/organizer/backend/internal/workset"
+	"github.com/Clementine33/preen/backend/internal/workset"
 )
 
 // TestExecutionPoolFailureStopsAndDiscardsTheOpenUnits covers the fail-fast

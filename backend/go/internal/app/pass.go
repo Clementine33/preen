@@ -5,7 +5,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/onsei/organizer/backend/internal/adapters/sqlite"
+	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
 )
 
 // pass runs one maintenance pass and reports whether it ran to completion.
@@ -103,7 +103,7 @@ func (l *Loop) reclaimPages(ctx context.Context, s *slot) (int, bool) {
 	if mode != sqlite.AutoVacuumIncremental {
 		log.Printf(
 			"maintenance: not reclaiming: the database was created with auto_vacuum=%d, and only an "+
-				"incremental one can return free pages; point ONSEI_DATA_DIR at a new directory to get that",
+				"incremental one can return free pages; point PREEN_DATA_DIR at a new directory to get that",
 			mode,
 		)
 		return 0, true

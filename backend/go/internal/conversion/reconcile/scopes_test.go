@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/onsei/organizer/backend/internal/conversion/reconcile"
+	"github.com/Clementine33/preen/backend/internal/conversion/reconcile"
 )
 
 func TestOtherSubtreesAggregateIndependently(t *testing.T) {

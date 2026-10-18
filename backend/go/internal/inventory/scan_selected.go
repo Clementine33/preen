@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/onsei/organizer/backend/internal/librarypath"
+	"github.com/Clementine33/preen/backend/internal/librarypath"
 
 	"github.com/google/uuid"
 	"golang.org/x/sync/errgroup"

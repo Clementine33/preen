@@ -13,8 +13,8 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/onsei/organizer/backend/internal/conversion/execute"
-	"github.com/onsei/organizer/backend/internal/conversion/reconcile"
+	"github.com/Clementine33/preen/backend/internal/conversion/execute"
+	"github.com/Clementine33/preen/backend/internal/conversion/reconcile"
 )
 
 // Encoder is one configured pair of tools: it encodes the frozen target

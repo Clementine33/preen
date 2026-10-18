@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/onsei/organizer/backend/internal/librarypath"
-	"github.com/onsei/organizer/backend/internal/works"
+	"github.com/Clementine33/preen/backend/internal/librarypath"
+	"github.com/Clementine33/preen/backend/internal/works"
 )
 
 // RelocateDirectory rebases all mutable path identities in one transaction.

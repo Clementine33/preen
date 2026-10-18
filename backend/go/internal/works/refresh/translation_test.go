@@ -8,9 +8,9 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/onsei/organizer/backend/internal/adapters/scraper"
-	"github.com/onsei/organizer/backend/internal/works"
-	"github.com/onsei/organizer/backend/internal/works/refresh"
+	"github.com/Clementine33/preen/backend/internal/adapters/scraper"
+	"github.com/Clementine33/preen/backend/internal/works"
+	"github.com/Clementine33/preen/backend/internal/works/refresh"
 )
 
 //nolint:gocognit // One end-to-end assertion covers title, circle, locale and persisted ancestry together.

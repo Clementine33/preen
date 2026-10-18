@@ -18,8 +18,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/onsei/organizer/backend/internal/adapters/sqlite"
-	"github.com/onsei/organizer/backend/internal/admission"
+	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
+	"github.com/Clementine33/preen/backend/internal/admission"
 )
 
 // Defaults for the Options fields a caller leaves zero.

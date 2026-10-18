@@ -8,9 +8,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/onsei/organizer/backend/internal/adapters/ffmpeg"
-	"github.com/onsei/organizer/backend/internal/conversion/execute"
-	"github.com/onsei/organizer/backend/internal/conversion/reconcile"
+	"github.com/Clementine33/preen/backend/internal/adapters/ffmpeg"
+	"github.com/Clementine33/preen/backend/internal/conversion/execute"
+	"github.com/Clementine33/preen/backend/internal/conversion/reconcile"
 )
 
 // Test fixtures own path creation; the encoder only sees handles.

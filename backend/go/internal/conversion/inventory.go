@@ -1,6 +1,6 @@
 package conversion
 
-import "github.com/onsei/organizer/backend/internal/inventory"
+import "github.com/Clementine33/preen/backend/internal/inventory"
 
 // Inventory is the slice of the scanned inventory a planning pass reads and
 // writes: the observed audio entries beneath one root, whether a root itself

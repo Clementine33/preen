@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/onsei/organizer/backend/internal/adapters/filesystem"
-	"github.com/onsei/organizer/backend/internal/inventory"
+	"github.com/Clementine33/preen/backend/internal/adapters/filesystem"
+	"github.com/Clementine33/preen/backend/internal/inventory"
 )
 
 // TestScanRootCtxEmitsProgressAndCounts verifies ScanRootCtx reports

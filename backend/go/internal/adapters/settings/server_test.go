@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/onsei/organizer/backend/internal/adapters/settings"
+	"github.com/Clementine33/preen/backend/internal/adapters/settings"
 )
 
 func TestServerSettings(t *testing.T) {

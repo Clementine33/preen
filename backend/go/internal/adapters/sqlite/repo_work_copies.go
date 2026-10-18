@@ -9,8 +9,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/onsei/organizer/backend/internal/librarypath"
-	"github.com/onsei/organizer/backend/internal/works"
+	"github.com/Clementine33/preen/backend/internal/librarypath"
+	"github.com/Clementine33/preen/backend/internal/works"
 )
 
 // WorkCopyRoots reads the copies of one work joined to their library roots

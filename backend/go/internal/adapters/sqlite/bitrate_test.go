@@ -9,7 +9,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/onsei/organizer/backend/internal/inventory"
+	"github.com/Clementine33/preen/backend/internal/inventory"
 )
 
 func TestChunkBitrateUpdates_ChunksAt100(t *testing.T) {

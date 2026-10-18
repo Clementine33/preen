@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/onsei/organizer/backend/internal/adapters/sqlite"
+	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
 )
 
 // seedScanTree writes a small real music tree on disk and returns its root.

@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/onsei/organizer/backend/internal/workset"
+	"github.com/Clementine33/preen/backend/internal/workset"
 )
 
 // taskSettingsResponse is the deployment-wide common settings of one Task kind.

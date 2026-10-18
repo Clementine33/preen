@@ -3,7 +3,7 @@ package app_test
 import (
 	"testing"
 
-	"github.com/onsei/organizer/backend/internal/app"
+	"github.com/Clementine33/preen/backend/internal/app"
 )
 
 func TestDatabaseModeFollowsDevelopmentPrerelease(t *testing.T) {

@@ -11,12 +11,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/onsei/organizer/backend/internal/adapters/filesystem"
+	"github.com/Clementine33/preen/backend/internal/adapters/filesystem"
 
-	"github.com/onsei/organizer/backend/internal/adapters/sqlite"
-	"github.com/onsei/organizer/backend/internal/admission"
-	"github.com/onsei/organizer/backend/internal/fileops"
-	inventory "github.com/onsei/organizer/backend/internal/inventory"
+	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
+	"github.com/Clementine33/preen/backend/internal/admission"
+	"github.com/Clementine33/preen/backend/internal/fileops"
+	inventory "github.com/Clementine33/preen/backend/internal/inventory"
 )
 
 // blockingScan is a scan double that holds the scanning slot until released,

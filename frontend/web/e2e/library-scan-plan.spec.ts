@@ -18,7 +18,7 @@ async function applySettings(page: Page) {
 
 /**
  * End-to-end smoke of the workset operation workflow against a real stack (Go
- * backend with a fresh ONSEI_DATA_DIR + Vite dev server), launched by
+ * backend with a fresh PREEN_DATA_DIR + Vite dev server), launched by
  * `e2e/launch-stack.mjs` (see playwright.config.ts webServer).
  *
  * The browser flow exercised here:

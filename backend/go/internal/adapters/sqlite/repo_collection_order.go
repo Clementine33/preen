@@ -6,8 +6,8 @@ import (
 	"errors"
 	"time"
 
-	"github.com/onsei/organizer/backend/internal/collections"
-	"github.com/onsei/organizer/backend/internal/works"
+	"github.com/Clementine33/preen/backend/internal/collections"
+	"github.com/Clementine33/preen/backend/internal/works"
 )
 
 func (r *Repository) RemoveCollectionWork(ctx context.Context, id string, work works.WorkCode, now time.Time) error {

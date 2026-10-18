@@ -10,8 +10,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/onsei/organizer/backend/internal/adapters/filesystem"
-	"github.com/onsei/organizer/backend/internal/inventory"
+	"github.com/Clementine33/preen/backend/internal/adapters/filesystem"
+	"github.com/Clementine33/preen/backend/internal/inventory"
 )
 
 func TestWorkWalkSkipsRecoveryDirectoriesAtEveryDepth(t *testing.T) {

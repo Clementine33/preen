@@ -7,11 +7,11 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/onsei/organizer/backend/internal/adapters/filesystem"
-	"github.com/onsei/organizer/backend/internal/adapters/sqlite"
-	"github.com/onsei/organizer/backend/internal/admission"
-	"github.com/onsei/organizer/backend/internal/inventory"
-	"github.com/onsei/organizer/backend/internal/works/coverdelivery"
+	"github.com/Clementine33/preen/backend/internal/adapters/filesystem"
+	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
+	"github.com/Clementine33/preen/backend/internal/admission"
+	"github.com/Clementine33/preen/backend/internal/inventory"
+	"github.com/Clementine33/preen/backend/internal/works/coverdelivery"
 )
 
 func TestCoverInventoryRetryOnlyChangesPublishedAndRemovedCoverRows(t *testing.T) {

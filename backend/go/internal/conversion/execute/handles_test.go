@@ -5,8 +5,8 @@ import (
 	"errors"
 	"os"
 
-	"github.com/onsei/organizer/backend/internal/conversion/execute"
-	"github.com/onsei/organizer/backend/internal/conversion/reconcile"
+	"github.com/Clementine33/preen/backend/internal/conversion/execute"
+	"github.com/Clementine33/preen/backend/internal/conversion/reconcile"
 )
 
 func encodePaths(encoder execute.Encoder, ctx context.Context, src, dst string, spec reconcile.AudioOutputSpec) error {

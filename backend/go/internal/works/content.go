@@ -11,10 +11,10 @@ import (
 
 	"facette.io/natsort"
 
-	"github.com/onsei/organizer/backend/internal/fileops"
-	"github.com/onsei/organizer/backend/internal/inventory"
-	"github.com/onsei/organizer/backend/internal/library"
-	"github.com/onsei/organizer/backend/internal/librarypath"
+	"github.com/Clementine33/preen/backend/internal/fileops"
+	"github.com/Clementine33/preen/backend/internal/inventory"
+	"github.com/Clementine33/preen/backend/internal/library"
+	"github.com/Clementine33/preen/backend/internal/librarypath"
 )
 
 // ==================== content manifest (ADR 0013) ====================

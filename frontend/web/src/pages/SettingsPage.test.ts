@@ -107,7 +107,7 @@ describe('settings: appearance', () => {
     const wrapper = await mountPage(apiStub())
     await wrapper.get('[data-testid="theme-preference"] [data-value="light"]').trigger('click')
     await flushPromises()
-    expect(localStorage.getItem('onsei-theme')).toBe('light')
+    expect(localStorage.getItem('preen-theme')).toBe('light')
     expect(document.documentElement.classList.contains('dark')).toBe(false)
   })
 
@@ -115,7 +115,7 @@ describe('settings: appearance', () => {
     const wrapper = await mountPage(apiStub())
     await wrapper.get('[data-testid="motion-preference"] [data-value="reduce"]').trigger('click')
     await flushPromises()
-    expect(localStorage.getItem('onsei-motion')).toBe('reduce')
+    expect(localStorage.getItem('preen-motion')).toBe('reduce')
     expect(document.documentElement.classList.contains('reduce-motion')).toBe(true)
     useMotion().preference.value = 'system'
     await flushPromises()

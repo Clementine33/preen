@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/onsei/organizer/backend/internal/conversion"
-	"github.com/onsei/organizer/backend/internal/conversion/reconcile"
-	"github.com/onsei/organizer/backend/internal/workset"
+	"github.com/Clementine33/preen/backend/internal/conversion"
+	"github.com/Clementine33/preen/backend/internal/conversion/reconcile"
+	"github.com/Clementine33/preen/backend/internal/workset"
 )
 
 // resolvedMember is one member's authoritative resolution, keyed by relative

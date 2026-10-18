@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/onsei/organizer/backend/internal/dirrename"
+	"github.com/Clementine33/preen/backend/internal/dirrename"
 )
 
 // ReadRenameDirectory lists immediate entries without traversing symlinks.

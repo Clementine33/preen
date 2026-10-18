@@ -8,7 +8,7 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	"github.com/onsei/organizer/backend/internal/adapters/filesystem"
+	"github.com/Clementine33/preen/backend/internal/adapters/filesystem"
 )
 
 func TestNormalCoverPublicationDoesNotReopenPublishedImage(t *testing.T) {

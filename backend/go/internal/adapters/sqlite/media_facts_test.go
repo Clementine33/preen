@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/onsei/organizer/backend/internal/inventory"
+	"github.com/Clementine33/preen/backend/internal/inventory"
 )
 
 // stageFactsRow seeds one staging row. A merge clears its session's staging

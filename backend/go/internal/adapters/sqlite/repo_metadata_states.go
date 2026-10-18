@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/onsei/organizer/backend/internal/works"
+	"github.com/Clementine33/preen/backend/internal/works"
 )
 
 // MetadataStates reads group presence in one catalog snapshot, without adding crawler state.

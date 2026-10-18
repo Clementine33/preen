@@ -3,7 +3,7 @@ package library_test
 import (
 	"testing"
 
-	"github.com/onsei/organizer/backend/internal/library"
+	"github.com/Clementine33/preen/backend/internal/library"
 )
 
 func TestStorageClassReservesCPUForOtherWork(t *testing.T) {

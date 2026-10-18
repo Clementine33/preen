@@ -11,8 +11,8 @@ import (
 	"testing/synctest"
 	"time"
 
-	"github.com/onsei/organizer/backend/internal/adapters/coverhttp"
-	"github.com/onsei/organizer/backend/internal/works/coverdelivery"
+	"github.com/Clementine33/preen/backend/internal/adapters/coverhttp"
+	"github.com/Clementine33/preen/backend/internal/works/coverdelivery"
 )
 
 type transport func(*http.Request) (*http.Response, error)

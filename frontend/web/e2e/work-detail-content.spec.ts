@@ -8,7 +8,7 @@ import path from 'node:path'
 // observation of the browser's native audio are added; no API/audio mocks.
 test('work content updates from background measurement without restarting audio', async ({ page, request }) => {
   test.skip(process.env.BROWSER_E2E !== '1', 'requires the real backend stack')
-  const state = JSON.parse(readFileSync(process.env.ONSEI_E2E_STATE_FILE ?? path.resolve('e2e/.stack-state.json'), 'utf8'))
+  const state = JSON.parse(readFileSync(process.env.PREEN_E2E_STATE_FILE ?? path.resolve('e2e/.stack-state.json'), 'utf8'))
   const api = `http://127.0.0.1:${state.httpPort}/api/v1`
   const root = mkdtempSync(path.join(os.tmpdir(), 'onsei-detail-'))
   const rj = 'RJ01000999'

@@ -17,7 +17,7 @@ import (
 	"golang.org/x/text/encoding/simplifiedchinese"
 	"golang.org/x/text/transform"
 
-	"github.com/onsei/organizer/backend/internal/adapters/sqlite"
+	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
 )
 
 // fileFixture is one work bound to a real member directory whose files are

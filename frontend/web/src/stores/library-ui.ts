@@ -10,7 +10,7 @@ import type { Library, LibraryDir } from '@/lib/api/types'
  * identity a record is created from — a folder id from an earlier scan would
  * have been renumbered by the next one.
  */
-const VEIL_KEY = 'onsei.r18-veil'
+const VEIL_KEY = 'preen.r18-veil'
 
 function readVeil(): boolean {
   try {

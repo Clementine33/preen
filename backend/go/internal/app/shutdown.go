@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/onsei/organizer/backend/internal/workset"
+	"github.com/Clementine33/preen/backend/internal/workset"
 )
 
 const shutdownLimit = 5 * time.Second

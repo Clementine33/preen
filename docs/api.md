@@ -1,4 +1,4 @@
-# Onsei Backend HTTP / SSE API
+# Preen Backend HTTP / SSE API
 
 The backend runs a single net/http API listener and owns the SQLite repository,
 the scan service and the workset service. It defaults to loopback;

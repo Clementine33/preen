@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/onsei/organizer/backend/internal/conversion"
+	"github.com/Clementine33/preen/backend/internal/conversion"
 )
 
 // Reader exposes config.json in one directory. Server validates startup access

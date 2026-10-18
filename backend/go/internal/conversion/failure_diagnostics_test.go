@@ -8,13 +8,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/onsei/organizer/backend/internal/adapters/ffmpeg"
-	"github.com/onsei/organizer/backend/internal/adapters/filesystem"
-	appconfig "github.com/onsei/organizer/backend/internal/adapters/settings"
-	"github.com/onsei/organizer/backend/internal/conversion"
-	"github.com/onsei/organizer/backend/internal/conversion/execute"
-	"github.com/onsei/organizer/backend/internal/conversion/reconcile"
-	"github.com/onsei/organizer/backend/internal/workset"
+	"github.com/Clementine33/preen/backend/internal/adapters/ffmpeg"
+	"github.com/Clementine33/preen/backend/internal/adapters/filesystem"
+	appconfig "github.com/Clementine33/preen/backend/internal/adapters/settings"
+	"github.com/Clementine33/preen/backend/internal/conversion"
+	"github.com/Clementine33/preen/backend/internal/conversion/execute"
+	"github.com/Clementine33/preen/backend/internal/conversion/reconcile"
+	"github.com/Clementine33/preen/backend/internal/workset"
 )
 
 type diagnosticEncoder struct{ execute.Encoder }

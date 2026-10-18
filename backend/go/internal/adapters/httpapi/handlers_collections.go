@@ -3,8 +3,8 @@ package httpapi
 import (
 	"net/http"
 
-	"github.com/onsei/organizer/backend/internal/collections"
-	"github.com/onsei/organizer/backend/internal/works"
+	"github.com/Clementine33/preen/backend/internal/collections"
+	"github.com/Clementine33/preen/backend/internal/works"
 )
 
 func (s *Server) collectionService(w http.ResponseWriter) (*collections.Service, bool) {

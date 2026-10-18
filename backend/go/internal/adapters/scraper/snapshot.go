@@ -1,6 +1,6 @@
 package scraper
 
-import "github.com/onsei/organizer/backend/internal/works"
+import "github.com/Clementine33/preen/backend/internal/works"
 
 // Incomplete groups stay absent, so another source can supply them independently.
 func validSnapshot(id works.WorkCode, data works.ImportRequest) works.ImportRequest {

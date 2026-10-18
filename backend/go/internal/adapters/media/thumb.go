@@ -11,7 +11,7 @@ import (
 
 	"golang.org/x/image/draw"
 
-	"github.com/onsei/organizer/backend/internal/thumbnail"
+	"github.com/Clementine33/preen/backend/internal/thumbnail"
 )
 
 // ThumbEngineVersion names the thumbnail engine's output. Bump it whenever the

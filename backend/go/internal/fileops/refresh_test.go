@@ -4,11 +4,11 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/onsei/organizer/backend/internal/adapters/filesystem"
-	"github.com/onsei/organizer/backend/internal/adapters/sqlite"
-	"github.com/onsei/organizer/backend/internal/admission"
-	"github.com/onsei/organizer/backend/internal/fileops"
-	"github.com/onsei/organizer/backend/internal/inventory"
+	"github.com/Clementine33/preen/backend/internal/adapters/filesystem"
+	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
+	"github.com/Clementine33/preen/backend/internal/admission"
+	"github.com/Clementine33/preen/backend/internal/fileops"
+	"github.com/Clementine33/preen/backend/internal/inventory"
 )
 
 // TestTheInternalRefreshIsNotRefusedByTheSlotItHolds pins the rule that makes

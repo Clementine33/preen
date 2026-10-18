@@ -6,10 +6,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/onsei/organizer/backend/internal/adapters/media"
-	"github.com/onsei/organizer/backend/internal/adapters/sqlite"
-	"github.com/onsei/organizer/backend/internal/thumbnail"
-	"github.com/onsei/organizer/backend/internal/works"
+	"github.com/Clementine33/preen/backend/internal/adapters/media"
+	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
+	"github.com/Clementine33/preen/backend/internal/thumbnail"
+	"github.com/Clementine33/preen/backend/internal/works"
 )
 
 func thumbURL(query string, segments ...string) string {

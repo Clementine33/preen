@@ -7,7 +7,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/onsei/organizer/backend/internal/admission"
+	"github.com/Clementine33/preen/backend/internal/admission"
 )
 
 // Request is one scan of a library root (or of a member directory inside it).

@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/onsei/organizer/backend/internal/conversion/execute"
-	"github.com/onsei/organizer/backend/internal/conversion/reconcile"
-	"github.com/onsei/organizer/backend/internal/inventory"
-	"github.com/onsei/organizer/backend/internal/workset"
+	"github.com/Clementine33/preen/backend/internal/conversion/execute"
+	"github.com/Clementine33/preen/backend/internal/conversion/reconcile"
+	"github.com/Clementine33/preen/backend/internal/inventory"
+	"github.com/Clementine33/preen/backend/internal/workset"
 )
 
 // PrepareUnit prechecks one frozen unit through the Component pipeline and

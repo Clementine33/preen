@@ -10,7 +10,7 @@ import (
 	"testing"
 )
 
-const module = "github.com/onsei/organizer/backend/internal"
+const module = "github.com/Clementine33/preen/backend/internal"
 
 // goPackage describes production edges only: tests may use real adapters.
 type goPackage struct {

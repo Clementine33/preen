@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/onsei/organizer/backend/internal/conversion/reconcile"
-	"github.com/onsei/organizer/backend/internal/workset"
+	"github.com/Clementine33/preen/backend/internal/conversion/reconcile"
+	"github.com/Clementine33/preen/backend/internal/workset"
 )
 
 // TestGenerationRefreshesInputsBeforePlanning pins the session-time scan: the

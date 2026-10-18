@@ -6,7 +6,7 @@ import (
 	"io/fs"
 	"os"
 
-	"github.com/onsei/organizer/backend/internal/conversion/reconcile"
+	"github.com/Clementine33/preen/backend/internal/conversion/reconcile"
 )
 
 // DeleteMode selects how obsolete files leave their place. Soft deletion keeps

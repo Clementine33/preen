@@ -3,7 +3,7 @@ package app
 import (
 	"path/filepath"
 
-	"github.com/onsei/organizer/backend/internal/adapters/sqlite"
+	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
 )
 
 // RebuildDevelopmentDatabase rebuilds only .dev_data, resolving the repository

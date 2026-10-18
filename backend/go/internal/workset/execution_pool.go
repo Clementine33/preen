@@ -8,7 +8,7 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/onsei/organizer/backend/internal/library"
+	"github.com/Clementine33/preen/backend/internal/library"
 )
 
 // encodeWindow freezes one library's automatic width for an execution session.

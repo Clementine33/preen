@@ -13,9 +13,9 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/onsei/organizer/backend/internal/adapters/media"
+	"github.com/Clementine33/preen/backend/internal/adapters/media"
 
-	"github.com/onsei/organizer/backend/internal/conversion/reconcile"
+	"github.com/Clementine33/preen/backend/internal/conversion/reconcile"
 )
 
 var mp3Fixture = sync.OnceValues(func() ([]byte, error) {

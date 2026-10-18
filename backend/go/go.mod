@@ -1,4 +1,4 @@
-module github.com/onsei/organizer/backend
+module github.com/Clementine33/preen/backend
 
 go 1.27.2
 

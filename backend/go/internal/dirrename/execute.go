@@ -10,7 +10,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/onsei/organizer/backend/internal/workset"
+	"github.com/Clementine33/preen/backend/internal/workset"
 )
 
 // Result states the observed location independently of database sync success.

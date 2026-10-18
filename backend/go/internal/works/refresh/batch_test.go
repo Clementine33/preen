@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/onsei/organizer/backend/internal/works"
-	"github.com/onsei/organizer/backend/internal/works/refresh"
+	"github.com/Clementine33/preen/backend/internal/works"
+	"github.com/Clementine33/preen/backend/internal/works/refresh"
 )
 
 // batchCatalog keeps catalog I/O outside the scheduling seam under test.

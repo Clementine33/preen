@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/onsei/organizer/backend/internal/workset"
+	"github.com/Clementine33/preen/backend/internal/workset"
 )
 
 // TestCreateEstablishesConversionOperation covers creating the current

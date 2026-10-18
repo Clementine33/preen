@@ -8,9 +8,9 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"github.com/onsei/organizer/backend/internal/adapters/sqlite"
-	"github.com/onsei/organizer/backend/internal/library"
-	"github.com/onsei/organizer/backend/internal/works"
+	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
+	"github.com/Clementine33/preen/backend/internal/library"
+	"github.com/Clementine33/preen/backend/internal/works"
 )
 
 func releaseFixture(t *testing.T, changes ...string) fstest.MapFS {

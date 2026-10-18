@@ -5,7 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 
-	"github.com/onsei/organizer/backend/internal/librarypath"
+	"github.com/Clementine33/preen/backend/internal/librarypath"
 )
 
 // dirIDVersion is the fixed version marker of the directory identity. It is

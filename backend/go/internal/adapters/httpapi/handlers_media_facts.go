@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/onsei/organizer/backend/internal/inventory"
+	"github.com/Clementine33/preen/backend/internal/inventory"
 )
 
 // mediaFactsStatus is the wire form of the `status` event.

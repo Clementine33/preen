@@ -12,7 +12,7 @@ import { REDUCED_MOTION_QUERY, useMediaQuery } from './use-media-query'
  */
 export type MotionPreference = 'system' | 'reduce'
 
-export const MOTION_STORAGE_KEY = 'onsei-motion'
+export const MOTION_STORAGE_KEY = 'preen-motion'
 export const REDUCE_MOTION_CLASS = 'reduce-motion'
 
 export const MOTION_OPTIONS: readonly { value: MotionPreference; label: string }[] = [

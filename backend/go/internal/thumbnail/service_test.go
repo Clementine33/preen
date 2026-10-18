@@ -9,7 +9,7 @@ import (
 	"testing"
 	"testing/synctest"
 
-	"github.com/onsei/organizer/backend/internal/thumbnail"
+	"github.com/Clementine33/preen/backend/internal/thumbnail"
 )
 
 // gatedEngine renders only once its gate opens, counting renders: how many

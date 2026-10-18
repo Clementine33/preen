@@ -5,8 +5,8 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/onsei/organizer/backend/internal/fileops"
-	"github.com/onsei/organizer/backend/internal/librarypath"
+	"github.com/Clementine33/preen/backend/internal/fileops"
+	"github.com/Clementine33/preen/backend/internal/librarypath"
 )
 
 // IsResolvedWithinRoot reports whether candidate resolves to root or one of its

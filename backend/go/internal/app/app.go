@@ -18,32 +18,32 @@ import (
 	"strings"
 	"time"
 
-	"github.com/onsei/organizer/backend/internal/adapters/coverhttp"
-	"github.com/onsei/organizer/backend/internal/adapters/ffmpeg"
-	"github.com/onsei/organizer/backend/internal/adapters/filesystem"
-	"github.com/onsei/organizer/backend/internal/adapters/httpapi"
-	"github.com/onsei/organizer/backend/internal/adapters/media"
-	"github.com/onsei/organizer/backend/internal/adapters/scraper"
-	appconfig "github.com/onsei/organizer/backend/internal/adapters/settings"
-	"github.com/onsei/organizer/backend/internal/adapters/sqlite"
-	"github.com/onsei/organizer/backend/internal/admission"
-	"github.com/onsei/organizer/backend/internal/collections"
-	"github.com/onsei/organizer/backend/internal/conversion"
-	"github.com/onsei/organizer/backend/internal/conversion/execute"
-	"github.com/onsei/organizer/backend/internal/fileops"
-	"github.com/onsei/organizer/backend/internal/inventory"
-	"github.com/onsei/organizer/backend/internal/library"
-	"github.com/onsei/organizer/backend/internal/notify"
-	"github.com/onsei/organizer/backend/internal/works/coverdelivery"
-	"github.com/onsei/organizer/backend/internal/works/refresh"
+	"github.com/Clementine33/preen/backend/internal/adapters/coverhttp"
+	"github.com/Clementine33/preen/backend/internal/adapters/ffmpeg"
+	"github.com/Clementine33/preen/backend/internal/adapters/filesystem"
+	"github.com/Clementine33/preen/backend/internal/adapters/httpapi"
+	"github.com/Clementine33/preen/backend/internal/adapters/media"
+	"github.com/Clementine33/preen/backend/internal/adapters/scraper"
+	appconfig "github.com/Clementine33/preen/backend/internal/adapters/settings"
+	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
+	"github.com/Clementine33/preen/backend/internal/admission"
+	"github.com/Clementine33/preen/backend/internal/collections"
+	"github.com/Clementine33/preen/backend/internal/conversion"
+	"github.com/Clementine33/preen/backend/internal/conversion/execute"
+	"github.com/Clementine33/preen/backend/internal/fileops"
+	"github.com/Clementine33/preen/backend/internal/inventory"
+	"github.com/Clementine33/preen/backend/internal/library"
+	"github.com/Clementine33/preen/backend/internal/notify"
+	"github.com/Clementine33/preen/backend/internal/works/coverdelivery"
+	"github.com/Clementine33/preen/backend/internal/works/refresh"
 
-	"github.com/onsei/organizer/backend/internal/dirrename"
-	"github.com/onsei/organizer/backend/internal/thumbnail"
-	"github.com/onsei/organizer/backend/internal/works"
-	"github.com/onsei/organizer/backend/internal/workset"
+	"github.com/Clementine33/preen/backend/internal/dirrename"
+	"github.com/Clementine33/preen/backend/internal/thumbnail"
+	"github.com/Clementine33/preen/backend/internal/works"
+	"github.com/Clementine33/preen/backend/internal/workset"
 )
 
-// defaultCORSOrigins is the fallback ONSEI_CORS_ORIGINS allowlist: the local
+// defaultCORSOrigins is the fallback PREEN_CORS_ORIGINS allowlist: the local
 // Vite dev servers from the Vue prototype.
 const defaultCORSOrigins = "http://localhost:5173,http://127.0.0.1:5173"
 
@@ -117,7 +117,7 @@ const (
 // logAutoVacuumMode says once whether this database can return freed pages to
 // the filesystem at all. A file created before incremental auto-vacuum existed
 // keeps them: the mode is fixed when the file is created, and reclamation
-// cannot turn it on, so the operator has to point ONSEI_DATA_DIR somewhere new.
+// cannot turn it on, so the operator has to point PREEN_DATA_DIR somewhere new.
 func logAutoVacuumMode(ctx context.Context, repo *sqlite.Repository) {
 	mode, err := repo.AutoVacuumMode(ctx)
 	if err != nil {
@@ -127,7 +127,7 @@ func logAutoVacuumMode(ctx context.Context, repo *sqlite.Repository) {
 	if mode != sqlite.AutoVacuumIncremental {
 		log.Printf(
 			"auto_vacuum=%d: reclaimed pages cannot be returned to the filesystem; "+
-				"point ONSEI_DATA_DIR at a new directory for a database that can",
+				"point PREEN_DATA_DIR at a new directory for a database that can",
 			mode,
 		)
 	}
@@ -375,7 +375,7 @@ func runServer(ctx context.Context, repo *sqlite.Repository, cfg Config, server 
 		Library:        services.library,
 		Catalog:        services.catalog,
 		Token:          server.Token,
-		CORSOrigins:    ParseCORSOrigins(os.Getenv("ONSEI_CORS_ORIGINS")),
+		CORSOrigins:    ParseCORSOrigins(os.Getenv("PREEN_CORS_ORIGINS")),
 		Version:        cfg.Version,
 		Inventory:      services.scan,
 		MediaFacts:     services.mediaFacts,
@@ -413,7 +413,7 @@ func runServer(ctx context.Context, repo *sqlite.Repository, cfg Config, server 
 	fmt.Println(BuildHandshakeLine(server.Token, cfg.Version, httpPort))
 
 	// Block until killed
-	log.Printf("onsei-backend listening on http %s (data=%s)", httpListener.Addr(), cfg.DataDir)
+	log.Printf("preen listening on http %s (data=%s)", httpListener.Addr(), cfg.DataDir)
 	<-ctx.Done()
 	shutdownBackend(httpSrv, handlers, services.workset.DispatcherHandle(), map[string]<-chan struct{}{
 		"maintenance": maintenanceDone, "media facts": mediaFactsDone, "covers": coversDone,

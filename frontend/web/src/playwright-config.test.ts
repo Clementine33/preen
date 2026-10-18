@@ -29,7 +29,7 @@ describe('Playwright stack configuration', () => {
   })
 
   it('runs menu components with Vite only', async () => {
-    vi.stubEnv('ONSEI_SELECT_TEST_URL', '')
+    vi.stubEnv('PREEN_SELECT_TEST_URL', '')
     vi.resetModules()
 
     const { default: config } = await import('../playwright.components.config')

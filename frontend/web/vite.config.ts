@@ -13,8 +13,8 @@ export default defineConfig(({ command }) => ({
       ? {
           // Vite only exposes VITE_* by default; opt this one local bearer
           // token in explicitly so WebDesktopAdapter can read the backend's
-          // ONSEI_TOKEN during development. Build output never embeds it.
-          'import.meta.env.ONSEI_TOKEN': JSON.stringify(process.env.ONSEI_TOKEN ?? ''),
+          // PREEN_TOKEN during development. Build output never embeds it.
+          'import.meta.env.PREEN_TOKEN': JSON.stringify(process.env.PREEN_TOKEN ?? ''),
         }
       : {},
   resolve: {

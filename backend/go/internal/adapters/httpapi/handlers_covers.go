@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/onsei/organizer/backend/internal/works/coverdelivery"
-	"github.com/onsei/organizer/backend/internal/workset"
+	"github.com/Clementine33/preen/backend/internal/works/coverdelivery"
+	"github.com/Clementine33/preen/backend/internal/workset"
 )
 
 func (s *Server) coverService(w http.ResponseWriter) bool {

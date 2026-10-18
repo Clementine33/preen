@@ -9,7 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/onsei/organizer/backend/internal/works/coverdelivery"
+	"github.com/Clementine33/preen/backend/internal/works/coverdelivery"
 )
 
 // CoverStaging owns download-file naming, bounded reads, atomic replacement and

@@ -8,7 +8,7 @@ import (
 	"testing/synctest"
 	"time"
 
-	"github.com/onsei/organizer/backend/internal/conversion"
+	"github.com/Clementine33/preen/backend/internal/conversion"
 )
 
 func TestGenerationRefreshWaitsForOtherSessionsAndObservesCancellation(t *testing.T) {

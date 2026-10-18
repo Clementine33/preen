@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/onsei/organizer/backend/internal/app"
+	"github.com/Clementine33/preen/backend/internal/app"
 )
 
 func TestStartPprofServer_UsesConfiguredAddress(t *testing.T) {

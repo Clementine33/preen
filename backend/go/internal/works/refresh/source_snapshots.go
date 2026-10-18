@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/onsei/organizer/backend/internal/works"
+	"github.com/Clementine33/preen/backend/internal/works"
 )
 
 // refreshRun shares source responses and upstream imports within one refresh.

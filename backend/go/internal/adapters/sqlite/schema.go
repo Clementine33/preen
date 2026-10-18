@@ -73,7 +73,7 @@ func prepareSchema(db *sql.DB, dbPath string, development bool, migrations fs.FS
 		}
 		if !development && !hasGoose {
 			return fmt.Errorf(
-				"%w: %s has no migration history; use a new ONSEI_DATA_DIR",
+				"%w: %s has no migration history; use a new PREEN_DATA_DIR",
 				ErrIncompatibleDatabase,
 				dbPath,
 			)
@@ -104,7 +104,7 @@ func checkDatabaseMode(db *sql.DB, dbPath, expected string) error {
 	var mode string
 	if err := db.QueryRow("SELECT value FROM schema_meta WHERE key = 'database_mode'").Scan(&mode); err != nil {
 		return fmt.Errorf(
-			"%w: %s has no database mode (legacy database); use a new ONSEI_DATA_DIR or rebuild .dev_data: %w",
+			"%w: %s has no database mode (legacy database); use a new PREEN_DATA_DIR or rebuild .dev_data: %w",
 			ErrIncompatibleDatabase,
 			dbPath,
 			err,

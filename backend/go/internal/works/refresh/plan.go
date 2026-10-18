@@ -5,10 +5,10 @@ import (
 	"encoding/json"
 	"strings"
 
-	"github.com/onsei/organizer/backend/internal/librarypath"
-	"github.com/onsei/organizer/backend/internal/works"
-	"github.com/onsei/organizer/backend/internal/works/coverdelivery"
-	"github.com/onsei/organizer/backend/internal/workset"
+	"github.com/Clementine33/preen/backend/internal/librarypath"
+	"github.com/Clementine33/preen/backend/internal/works"
+	"github.com/Clementine33/preen/backend/internal/works/coverdelivery"
+	"github.com/Clementine33/preen/backend/internal/workset"
 )
 
 type Outcome struct {

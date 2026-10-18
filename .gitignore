@@ -23,10 +23,12 @@ test/
 .worktrees/
 .claude/
 .pi/
-.superpowers/
+.agents/
 .codegraph/
+skills-lock.json
 
 # node
+.pnpm-store/
 node_modules/
 frontend/web/dist/
 
@@ -36,6 +38,7 @@ frontend/web/dist/
 # Intermediate artifacts
 docs/issues/*-spec.md
 frontend/web/prototypes/
+output/
 
 # Playwright e2e runtime state (launch-stack.mjs → spec handoff)
 frontend/web/e2e/.stack-state.json

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/onsei/organizer/backend/internal/admission"
+	"github.com/Clementine33/preen/backend/internal/admission"
 )
 
 type selectedRefresh struct {

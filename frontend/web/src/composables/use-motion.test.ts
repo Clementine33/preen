@@ -22,7 +22,7 @@ afterEach(() => vi.restoreAllMocks())
 
 describe('useMotion', () => {
   it('falls back to following the system on a missing or invalid stored value', async () => {
-    localStorage.setItem('onsei-motion', 'full')
+    localStorage.setItem('preen-motion', 'full')
     const { useMotion } = await load()
     expect(useMotion().preference.value).toBe('system')
     expect(useMotion().reduced.value).toBe(false)

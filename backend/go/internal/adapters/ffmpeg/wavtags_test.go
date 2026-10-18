@@ -10,9 +10,9 @@ import (
 	"golang.org/x/text/encoding/japanese"
 	"golang.org/x/text/transform"
 
-	"github.com/onsei/organizer/backend/internal/adapters/ffmpeg"
-	"github.com/onsei/organizer/backend/internal/conversion/execute"
-	"github.com/onsei/organizer/backend/internal/conversion/reconcile"
+	"github.com/Clementine33/preen/backend/internal/adapters/ffmpeg"
+	"github.com/Clementine33/preen/backend/internal/conversion/execute"
+	"github.com/Clementine33/preen/backend/internal/conversion/reconcile"
 )
 
 // riffInfo is one sub-chunk of a legacy RIFF INFO tag list, its value the raw

@@ -8,11 +8,11 @@ import (
 	"path/filepath"
 	"slices"
 
-	"github.com/onsei/organizer/backend/internal/fileops"
+	"github.com/Clementine33/preen/backend/internal/fileops"
 
 	"golang.org/x/sync/errgroup"
 
-	"github.com/onsei/organizer/backend/internal/inventory"
+	"github.com/Clementine33/preen/backend/internal/inventory"
 )
 
 // WalkSelectedEntriesParallel bounds concurrency between selected folders;

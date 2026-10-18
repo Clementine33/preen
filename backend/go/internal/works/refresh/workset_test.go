@@ -11,18 +11,18 @@ import (
 	"testing"
 	"time"
 
-	"github.com/onsei/organizer/backend/internal/adapters/coverhttp"
-	"github.com/onsei/organizer/backend/internal/adapters/filesystem"
-	"github.com/onsei/organizer/backend/internal/adapters/httpapi"
-	"github.com/onsei/organizer/backend/internal/adapters/scraper"
-	"github.com/onsei/organizer/backend/internal/adapters/sqlite"
-	"github.com/onsei/organizer/backend/internal/admission"
-	"github.com/onsei/organizer/backend/internal/inventory"
-	"github.com/onsei/organizer/backend/internal/works/coverdelivery"
-	"github.com/onsei/organizer/backend/internal/works/refresh"
+	"github.com/Clementine33/preen/backend/internal/adapters/coverhttp"
+	"github.com/Clementine33/preen/backend/internal/adapters/filesystem"
+	"github.com/Clementine33/preen/backend/internal/adapters/httpapi"
+	"github.com/Clementine33/preen/backend/internal/adapters/scraper"
+	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
+	"github.com/Clementine33/preen/backend/internal/admission"
+	"github.com/Clementine33/preen/backend/internal/inventory"
+	"github.com/Clementine33/preen/backend/internal/works/coverdelivery"
+	"github.com/Clementine33/preen/backend/internal/works/refresh"
 
-	"github.com/onsei/organizer/backend/internal/works"
-	"github.com/onsei/organizer/backend/internal/workset"
+	"github.com/Clementine33/preen/backend/internal/works"
+	"github.com/Clementine33/preen/backend/internal/workset"
 )
 
 type worksetTransport struct{ server *httptest.Server }

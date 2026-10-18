@@ -13,8 +13,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/onsei/organizer/backend/internal/adapters/media"
-	"github.com/onsei/organizer/backend/internal/thumbnail"
+	"github.com/Clementine33/preen/backend/internal/adapters/media"
+	"github.com/Clementine33/preen/backend/internal/thumbnail"
 )
 
 func writeImage(t *testing.T, name string, encode func(*bytes.Buffer) error) string {

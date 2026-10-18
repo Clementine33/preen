@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/onsei/organizer/backend/internal/inventory"
+	"github.com/Clementine33/preen/backend/internal/inventory"
 )
 
 func TestRepository_ScanSessionMethods(t *testing.T) {

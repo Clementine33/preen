@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { AudioLines } from '@lucide/vue'
 import { computed } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { GLOBAL_NAV, SETTINGS_NAV, globalNavOwner, type GlobalNavId } from '@/components/layout/global-nav'
@@ -44,8 +43,9 @@ function isCurrent(id: GlobalNavId): boolean {
       data-testid="global-rail"
     >
       <div class="grid h-14 shrink-0 place-items-center" data-testid="app-brand">
-        <AudioLines class="size-5 text-foreground" aria-hidden="true" />
-        <span class="sr-only">Onsei Organizer</span>
+        <img src="/preen-mark.svg" class="size-8 dark:hidden" alt="" aria-hidden="true" />
+        <img src="/favicon.svg" class="hidden size-8 dark:block" alt="" aria-hidden="true" />
+        <span class="sr-only">Preen</span>
       </div>
       <nav aria-label="全局导航" class="flex flex-col gap-1 p-1">
         <RouterLink

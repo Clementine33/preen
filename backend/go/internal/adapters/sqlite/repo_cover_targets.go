@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"errors"
 
-	"github.com/onsei/organizer/backend/internal/librarypath"
-	"github.com/onsei/organizer/backend/internal/works/coverdelivery"
+	"github.com/Clementine33/preen/backend/internal/librarypath"
+	"github.com/Clementine33/preen/backend/internal/works/coverdelivery"
 )
 
 func (r *Repository) CoverTargets(

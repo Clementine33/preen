@@ -8,7 +8,7 @@ import (
 	"testing/synctest"
 	"time"
 
-	"github.com/onsei/organizer/backend/internal/admission"
+	"github.com/Clementine33/preen/backend/internal/admission"
 )
 
 // TestGateSerializesMaintenanceWithEverythingElse pins the exclusion the

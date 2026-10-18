@@ -121,7 +121,7 @@ describe('CollectionsPage', () => {
   })
 
   it('hatches the cover of an R18 work while the veil is on', async () => {
-    localStorage.setItem('onsei.r18-veil', '1')
+    localStorage.setItem('preen.r18-veil', '1')
     const { api } = setup([work(3, { nsfw: true })])
     const wrapper = await mountPage(api)
     expect(useLibraryUiStore().veil).toBe(true)

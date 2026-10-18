@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/onsei/organizer/backend/internal/works"
+	"github.com/Clementine33/preen/backend/internal/works"
 )
 
 func (s *Service) List(ctx context.Context, window Window) (Page, *works.Error) {

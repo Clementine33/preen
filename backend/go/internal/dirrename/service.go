@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/onsei/organizer/backend/internal/workset"
+	"github.com/Clementine33/preen/backend/internal/workset"
 )
 
 // Catalog reads the binding and metadata of library directories in one snapshot.

@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/onsei/organizer/backend/internal/admission"
-	"github.com/onsei/organizer/backend/internal/inventory"
-	"github.com/onsei/organizer/backend/internal/librarypath"
+	"github.com/Clementine33/preen/backend/internal/admission"
+	"github.com/Clementine33/preen/backend/internal/inventory"
+	"github.com/Clementine33/preen/backend/internal/librarypath"
 )
 
 // scanRequest is the POST /api/v1/libraries/:id/scans payload. root_path is

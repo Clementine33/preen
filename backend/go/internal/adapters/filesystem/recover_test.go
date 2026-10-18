@@ -12,7 +12,7 @@ import (
 	"testing"
 	"testing/synctest"
 
-	"github.com/onsei/organizer/backend/internal/adapters/filesystem"
+	"github.com/Clementine33/preen/backend/internal/adapters/filesystem"
 )
 
 func recoveryFixture(t *testing.T) (string, string, string) {

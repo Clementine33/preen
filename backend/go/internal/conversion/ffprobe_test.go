@@ -8,9 +8,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/onsei/organizer/backend/internal/adapters/media"
+	"github.com/Clementine33/preen/backend/internal/adapters/media"
 
-	"github.com/onsei/organizer/backend/internal/conversion/reconcile"
+	"github.com/Clementine33/preen/backend/internal/conversion/reconcile"
 )
 
 func TestEnrichBitrateProbesAACContainers(t *testing.T) {

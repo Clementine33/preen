@@ -7,7 +7,7 @@
 On startup the backend prints exactly one line to stdout:
 
 ```
-ONSEI_BACKEND_READY token=%s version=%s http_port=%d
+PREEN_BACKEND_READY token=%s version=%s http_port=%d
 ```
 
 - `http_port` — HTTP port
@@ -15,7 +15,7 @@ ONSEI_BACKEND_READY token=%s version=%s http_port=%d
 - `version` — build version stamp (`dev` by default)
 
 The Vue dev script and the Playwright launchers scan stdout for the
-`ONSEI_BACKEND_READY` line and read the HTTP port from it.
+`PREEN_BACKEND_READY` line and read the HTTP port from it.
 
 ## Server configuration
 
@@ -38,7 +38,7 @@ startup. These settings currently have no frontend controls:
   is allowed only for local access. A configured port that cannot be bound
   fails startup; the backend never silently chooses another port.
 - `token`: the single shared bearer key for all protected API callers. A
-  nonempty `ONSEI_TOKEN` overrides the file key; an empty or absent environment
+  nonempty `PREEN_TOKEN` overrides the file key; an empty or absent environment
   value leaves the file key in effect. Keys must be visible ASCII without
   spaces, so they fit both HTTP headers and the startup handshake.
 
@@ -68,7 +68,7 @@ LAN mode refuses to start without a key. Missing or invalid tokens return
 
 ## CORS
 
-`ONSEI_CORS_ORIGINS` is a comma-separated allowlist of browser origins. The
+`PREEN_CORS_ORIGINS` is a comma-separated allowlist of browser origins. The
 default is `http://localhost:5173,http://127.0.0.1:5173` (Vite dev servers).
 Origins outside the allowlist receive no CORS headers and are blocked by the
 browser. Preflight (`OPTIONS`) is answered by the CORS middleware before the

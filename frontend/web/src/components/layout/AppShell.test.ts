@@ -55,7 +55,7 @@ describe('AppShell global navigation', () => {
     const wrapper = mountShell()
 
     const brand = wrapper.get('[data-testid="app-brand"]')
-    expect(brand.text()).toContain('Onsei Organizer')
+    expect(brand.text()).toContain('Preen')
     expect(brand.find('a').exists()).toBe(false)
   })
 

@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/onsei/organizer/backend/internal/conversion"
-	"github.com/onsei/organizer/backend/internal/workset"
+	"github.com/Clementine33/preen/backend/internal/conversion"
+	"github.com/Clementine33/preen/backend/internal/workset"
 )
 
 // ==================== Policy slots ====================

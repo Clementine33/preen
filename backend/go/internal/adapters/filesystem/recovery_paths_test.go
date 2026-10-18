@@ -6,7 +6,7 @@ import (
 	"testing"
 	"unicode/utf8"
 
-	"github.com/onsei/organizer/backend/internal/adapters/filesystem"
+	"github.com/Clementine33/preen/backend/internal/adapters/filesystem"
 )
 
 func TestTruncatePathComponentsToBytes_UTF8Boundary(t *testing.T) {

@@ -11,8 +11,8 @@ import (
 	"testing/synctest"
 	"time"
 
-	"github.com/onsei/organizer/backend/internal/adapters/scraper"
-	"github.com/onsei/organizer/backend/internal/works"
+	"github.com/Clementine33/preen/backend/internal/adapters/scraper"
+	"github.com/Clementine33/preen/backend/internal/works"
 )
 
 type transportFunc func(*http.Request) (*http.Response, error)

@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/onsei/organizer/backend/internal/inventory"
-	"github.com/onsei/organizer/backend/internal/works"
+	"github.com/Clementine33/preen/backend/internal/inventory"
+	"github.com/Clementine33/preen/backend/internal/works"
 )
 
 func stageFile(t *testing.T, repo *Repository, session, root, parent, name string, size int64) {

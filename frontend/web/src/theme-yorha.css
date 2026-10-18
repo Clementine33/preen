@@ -63,8 +63,8 @@
      decorative 2.4:1; a control edge needs >= 3:1 (WCAG 1.4.11): at least
      3.23:1 here, on --bg-subtle (full record in style.css). */
   --wire-control: rgba(20, 21, 24, .5);
-  /* Terracotta belongs to "now playing" alone (the NOW tag, the playing-track
-     marker, the status dot, the light-mode laser) — never to anything else. */
+  /* Terracotta marks "now playing" (the NOW tag, the playing-track
+     marker, the status dot, the light-mode laser). */
   --now: #c84424;
   --now-fg: #ffffff;
   /* Light: unplayed track fades to pale carbon; terracotta beam with a soft glow */

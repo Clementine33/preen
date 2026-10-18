@@ -3,7 +3,7 @@ package conversion //nolint:testpackage // shares the unexported analyzer tests 
 import (
 	"sync"
 
-	"github.com/onsei/organizer/backend/internal/inventory"
+	"github.com/Clementine33/preen/backend/internal/inventory"
 )
 
 // recordingInventory stands in for the inventory port in the planner's own

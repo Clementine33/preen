@@ -4,7 +4,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/onsei/organizer/backend/internal/workset"
+	"github.com/Clementine33/preen/backend/internal/workset"
 )
 
 // ClassifierTag is one user-added classifier tag in the global library. Tag is

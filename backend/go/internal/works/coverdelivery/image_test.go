@@ -8,7 +8,7 @@ import (
 	"image/jpeg"
 	"testing"
 
-	"github.com/onsei/organizer/backend/internal/works/coverdelivery"
+	"github.com/Clementine33/preen/backend/internal/works/coverdelivery"
 )
 
 func TestInspectUsesActualImageFormat(t *testing.T) {

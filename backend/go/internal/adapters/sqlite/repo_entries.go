@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/onsei/organizer/backend/internal/inventory"
+	"github.com/Clementine33/preen/backend/internal/inventory"
 )
 
 // ObservedAudioEntries reads the observed audio files at or beneath one root,

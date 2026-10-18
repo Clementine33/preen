@@ -1,6 +1,6 @@
 package library
 
-import "github.com/onsei/organizer/backend/internal/librarypath"
+import "github.com/Clementine33/preen/backend/internal/librarypath"
 
 // Patch applies a partial edit: only the fields the caller sent change, the
 // rest keep the value the current row holds.

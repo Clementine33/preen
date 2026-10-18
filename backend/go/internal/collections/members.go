@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/onsei/organizer/backend/internal/works"
+	"github.com/Clementine33/preen/backend/internal/works"
 )
 
 func (s *Service) Append(ctx context.Context, id string, raw []string) (AppendResult, *works.Error) {

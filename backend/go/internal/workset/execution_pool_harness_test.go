@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/onsei/organizer/backend/internal/conversion"
-	"github.com/onsei/organizer/backend/internal/conversion/reconcile"
-	"github.com/onsei/organizer/backend/internal/workset"
+	"github.com/Clementine33/preen/backend/internal/conversion"
+	"github.com/Clementine33/preen/backend/internal/conversion/reconcile"
+	"github.com/Clementine33/preen/backend/internal/workset"
 )
 
 // poolPlan is one frozen unit's script in the pool tests. Every unit declares

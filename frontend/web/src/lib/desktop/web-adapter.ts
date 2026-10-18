@@ -6,10 +6,10 @@ export class WebDesktopAdapter implements DesktopAdapter {
   async resolveApi(): Promise<{ baseUrl: string; token: string | null }> {
     return {
       baseUrl: import.meta.env.VITE_API_BASE || '/api/v1',
-      // Only the developer server inlines ONSEI_TOKEN (see vite.config.ts);
+      // Only the developer server inlines PREEN_TOKEN (see vite.config.ts);
       // never fall back to a VITE_* variable, which would ship the credential
       // in browser-exposed config and build output.
-      token: import.meta.env.ONSEI_TOKEN || null,
+      token: import.meta.env.PREEN_TOKEN || null,
     }
   }
 

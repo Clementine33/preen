@@ -5,7 +5,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/onsei/organizer/backend/internal/librarypath"
+	"github.com/Clementine33/preen/backend/internal/librarypath"
 )
 
 // SelectedScopes validates and collapses explicit subtrees. An empty set never

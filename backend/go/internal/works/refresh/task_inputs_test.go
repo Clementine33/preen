@@ -8,9 +8,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/onsei/organizer/backend/internal/adapters/filesystem"
-	"github.com/onsei/organizer/backend/internal/works/refresh"
-	"github.com/onsei/organizer/backend/internal/workset"
+	"github.com/Clementine33/preen/backend/internal/adapters/filesystem"
+	"github.com/Clementine33/preen/backend/internal/works/refresh"
+	"github.com/Clementine33/preen/backend/internal/workset"
 )
 
 func TestDirectoryRulesMatchAdmissionAndWorkerScope(t *testing.T) {

@@ -12,7 +12,7 @@ formatters:
   settings:
     goimports:
       local-prefixes:
-        - github.com/onsei/organizer/backend
+        - github.com/Clementine33/preen/backend
     golines:
       max-len: 120
 
@@ -94,7 +94,7 @@ linters:
       check-type-assertions: true
       exclude-functions:
         - (*database/sql.Tx).Rollback
-        - (*github.com/onsei/organizer/backend/internal/adapters/sqlite.Repository).UpdateScanSessionStatus
+        - (*github.com/Clementine33/preen/backend/internal/adapters/sqlite.Repository).UpdateScanSessionStatus
 
     exhaustive:
       check: [ switch, map ]

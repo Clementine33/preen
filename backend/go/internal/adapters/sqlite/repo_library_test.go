@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/onsei/organizer/backend/internal/inventory"
-	"github.com/onsei/organizer/backend/internal/library"
+	"github.com/Clementine33/preen/backend/internal/inventory"
+	"github.com/Clementine33/preen/backend/internal/library"
 )
 
 // insertEntryAtRoot inserts an entry belonging to another library root, so a

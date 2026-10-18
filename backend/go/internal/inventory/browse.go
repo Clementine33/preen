@@ -7,7 +7,7 @@ import (
 
 	"facette.io/natsort"
 
-	"github.com/onsei/organizer/backend/internal/librarypath"
+	"github.com/Clementine33/preen/backend/internal/librarypath"
 )
 
 // LibraryDir is one scanned work root of a library root as the workbench

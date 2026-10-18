@@ -3,11 +3,11 @@
  * dev-web.mjs — run the Go backend and the Vue/Vite web app together.
  *
  * Workflow:
- *   1. Spawn `go run ./cmd/onsei-organizer-backend` (backend/go module)
- *      with ONSEI_DATA_DIR=<repo>/.dev_data so dev data never touches the
+ *   1. Spawn `go run ./cmd/preen` (backend/go module)
+ *      with PREEN_DATA_DIR=<repo>/.dev_data so dev data never touches the
  *      real library location.
  *   2. Read the backend's stdout handshake:
- *        ONSEI_BACKEND_READY token=<token> version=<v> http_port=<http>
+ *        PREEN_BACKEND_READY token=<token> version=<v> http_port=<http>
  *      and launch Vite with VITE_API_BASE=http://127.0.0.1:<http>/api/v1.
  *   3. On exit (SIGINT/SIGTERM, Vite exit, backend exit) tear down the
  *      backend first, cross-platform, using plain Node child processes —
@@ -40,9 +40,9 @@ if (!existsSync(devConfig) && existsSync(configTemplate)) {
   console.log(`[dev-web] seeded ${devConfig} from config.json.template`)
 }
 
-const backend = spawn('go', ['run', './cmd/onsei-organizer-backend'], {
+const backend = spawn('go', ['run', './cmd/preen'], {
   cwd: backendDir,
-  env: { ...process.env, ONSEI_DATA_DIR: dataDir },
+  env: { ...process.env, PREEN_DATA_DIR: dataDir },
   // We hold the backend's stdin open ourselves: the backend watches stdin
   // and shuts down on EOF (watchStdinEOF), so inheriting *our* stdin would
   // kill it instantly in any non-interactive environment (CI, IDE
@@ -84,9 +84,9 @@ function launchVite(apiBase) {
 }
 
 function handleLine(line) {
-  // ONSEI_BACKEND_READY token=tok-1 version=v1 http_port=54321
+  // PREEN_BACKEND_READY token=tok-1 version=v1 http_port=54321
   // (token may be empty in dev runs)
-  const match = /^ONSEI_BACKEND_READY token=\S* version=\S+ http_port=(\d+)$/.exec(
+  const match = /^PREEN_BACKEND_READY token=\S* version=\S+ http_port=(\d+)$/.exec(
     line.trim(),
   )
   if (!match) return

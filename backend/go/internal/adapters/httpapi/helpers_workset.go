@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/onsei/organizer/backend/internal/workset"
+	"github.com/Clementine33/preen/backend/internal/workset"
 )
 
 // timeFormatJSON is the RFC3339 format used for all JSON timestamps.

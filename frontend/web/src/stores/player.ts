@@ -30,7 +30,7 @@ export interface QueueItem {
 }
 
 /** The listener's volume, a per-browser convenience: unreadable storage means full volume. */
-const VOLUME_KEY = 'onsei.player.volume'
+const VOLUME_KEY = 'preen.player.volume'
 function readVolume(): { volume: number; muted: boolean } {
   try {
     const saved = JSON.parse(localStorage.getItem(VOLUME_KEY) ?? 'null') as { volume?: unknown; muted?: unknown } | null

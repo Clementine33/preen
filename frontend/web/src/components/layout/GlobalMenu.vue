@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { AudioLines } from '@lucide/vue'
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
@@ -39,7 +38,7 @@ function go(value: unknown): void {
         class="rail:hidden grid size-11 shrink-0 place-items-center text-foreground hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none aria-expanded:bg-primary aria-expanded:text-primary-foreground"
         data-testid="global-menu"
       >
-        <AudioLines class="size-5" aria-hidden="true" />
+        <img src="/favicon.svg" class="size-8" alt="" aria-hidden="true" />
       </button>
     </DropdownMenuTrigger>
     <DropdownMenuContent side="bottom" align="start" :side-offset="4" class="w-48 p-0">

@@ -7,7 +7,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/onsei/organizer/backend/internal/works"
+	"github.com/Clementine33/preen/backend/internal/works"
 )
 
 // FetchMain extracts only a main-cover URL, independent of complete Core validation.

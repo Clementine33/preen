@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/onsei/organizer/backend/internal/conversion/reconcile"
+	"github.com/Clementine33/preen/backend/internal/conversion/reconcile"
 )
 
 // TestComponentOutcomeJSONNeverNullsCollections pins the review wire contract:

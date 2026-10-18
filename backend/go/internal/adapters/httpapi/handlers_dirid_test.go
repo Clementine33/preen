@@ -1,7 +1,7 @@
 package httpapi //nolint:testpackage // white-box tests exercise unexported internals
 
 import (
-	"github.com/onsei/organizer/backend/internal/adapters/filesystem"
+	"github.com/Clementine33/preen/backend/internal/adapters/filesystem"
 
 	"encoding/json"
 	"fmt"
@@ -11,10 +11,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/onsei/organizer/backend/internal/adapters/sqlite"
-	"github.com/onsei/organizer/backend/internal/library"
-	"github.com/onsei/organizer/backend/internal/librarypath"
-	"github.com/onsei/organizer/backend/internal/works"
+	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
+	"github.com/Clementine33/preen/backend/internal/library"
+	"github.com/Clementine33/preen/backend/internal/librarypath"
+	"github.com/Clementine33/preen/backend/internal/works"
 )
 
 // serverOnDB builds a server over one database file. Opening the same file

@@ -10,9 +10,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/onsei/organizer/backend/internal/adapters/ffmpeg"
-	"github.com/onsei/organizer/backend/internal/conversion/execute"
-	"github.com/onsei/organizer/backend/internal/conversion/reconcile"
+	"github.com/Clementine33/preen/backend/internal/adapters/ffmpeg"
+	"github.com/Clementine33/preen/backend/internal/conversion/execute"
+	"github.com/Clementine33/preen/backend/internal/conversion/reconcile"
 )
 
 func audioFixture(t *testing.T) (execute.Encoder, string) {

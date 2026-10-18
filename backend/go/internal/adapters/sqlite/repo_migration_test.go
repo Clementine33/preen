@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/onsei/organizer/backend/internal/adapters/sqlite"
+	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
 )
 
 // TestOpenRefusesOlderDatabase is the compatibility contract: a database that
@@ -44,7 +44,7 @@ func TestOpenRefusesOlderDatabase(t *testing.T) {
 	if !errors.Is(err, sqlite.ErrIncompatibleDatabase) {
 		t.Fatalf("expected sqlite.ErrIncompatibleDatabase, got %v", err)
 	}
-	if !strings.Contains(err.Error(), "ONSEI_DATA_DIR") {
+	if !strings.Contains(err.Error(), "PREEN_DATA_DIR") {
 		t.Errorf("refusal must name the way out, got: %v", err)
 	}
 

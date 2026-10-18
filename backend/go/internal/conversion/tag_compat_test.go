@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	appconfig "github.com/onsei/organizer/backend/internal/adapters/settings"
-	"github.com/onsei/organizer/backend/internal/conversion"
-	"github.com/onsei/organizer/backend/internal/workset"
+	appconfig "github.com/Clementine33/preen/backend/internal/adapters/settings"
+	"github.com/Clementine33/preen/backend/internal/conversion"
+	"github.com/Clementine33/preen/backend/internal/workset"
 )
 
 func TestLegacyDraftTagsSurviveCommonAndRevisionReads(t *testing.T) {

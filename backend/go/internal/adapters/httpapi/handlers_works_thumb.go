@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/onsei/organizer/backend/internal/thumbnail"
-	"github.com/onsei/organizer/backend/internal/works"
+	"github.com/Clementine33/preen/backend/internal/thumbnail"
+	"github.com/Clementine33/preen/backend/internal/works"
 )
 
 // getWorkThumb serves one manifest image's thumbnail (ADR 0013). The

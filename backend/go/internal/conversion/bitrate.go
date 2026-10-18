@@ -6,8 +6,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/onsei/organizer/backend/internal/conversion/reconcile"
-	"github.com/onsei/organizer/backend/internal/inventory"
+	"github.com/Clementine33/preen/backend/internal/conversion/reconcile"
+	"github.com/Clementine33/preen/backend/internal/inventory"
 )
 
 // ProbeBitrate measures one file's bitrate in bits per second, falling back to

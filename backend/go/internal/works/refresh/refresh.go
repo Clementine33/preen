@@ -6,7 +6,7 @@ import (
 	"slices"
 	"sync"
 
-	"github.com/onsei/organizer/backend/internal/works"
+	"github.com/Clementine33/preen/backend/internal/works"
 )
 
 // Refresh validates its whole request before sending anything to an upstream.

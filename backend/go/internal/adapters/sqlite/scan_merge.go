@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/onsei/organizer/backend/internal/inventory"
-	"github.com/onsei/organizer/backend/internal/librarypath"
+	"github.com/Clementine33/preen/backend/internal/inventory"
+	"github.com/Clementine33/preen/backend/internal/librarypath"
 )
 
 // MergeStaging merges one scan session's staged entries into the inventory and

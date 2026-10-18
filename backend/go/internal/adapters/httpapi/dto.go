@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/onsei/organizer/backend/internal/library"
+	"github.com/Clementine33/preen/backend/internal/library"
 )
 
 // errorResponse is the standard API error envelope: {"code":"...","message":"..."}.

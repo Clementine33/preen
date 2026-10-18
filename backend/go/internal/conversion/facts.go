@@ -3,8 +3,8 @@ package conversion
 import (
 	"sort"
 
-	"github.com/onsei/organizer/backend/internal/conversion/reconcile"
-	"github.com/onsei/organizer/backend/internal/workset"
+	"github.com/Clementine33/preen/backend/internal/conversion/reconcile"
+	"github.com/Clementine33/preen/backend/internal/workset"
 )
 
 // rootIsStale compares one persisted root fingerprint against the current

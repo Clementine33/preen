@@ -3,7 +3,7 @@ package library
 import (
 	"errors"
 
-	"github.com/onsei/organizer/backend/internal/inventory"
+	"github.com/Clementine33/preen/backend/internal/inventory"
 )
 
 // InventoryReader is the inventory read side the library browses through: the

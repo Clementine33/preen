@@ -11,7 +11,7 @@ const PAGE = 60
 
 test('the works wall pages through a large library and keeps the rendered range bounded', async ({ page, request }) => {
   test.skip(process.env.BROWSER_E2E !== '1', 'requires the real backend stack')
-  const state = JSON.parse(readFileSync(process.env.ONSEI_E2E_STATE_FILE ?? path.resolve('e2e/.stack-state.json'), 'utf8'))
+  const state = JSON.parse(readFileSync(process.env.PREEN_E2E_STATE_FILE ?? path.resolve('e2e/.stack-state.json'), 'utf8'))
   const api = `http://127.0.0.1:${state.httpPort}/api/v1`
   const root = mkdtempSync(path.join(os.tmpdir(), 'onsei-wall-'))
   for (let i = 0; i < TOTAL; i++) mkdirSync(path.join(root, `RJ0${String(1_100_000 + i)}`))

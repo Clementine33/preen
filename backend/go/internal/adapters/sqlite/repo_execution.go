@@ -7,9 +7,9 @@ import (
 	"path"
 	"time"
 
-	"github.com/onsei/organizer/backend/internal/inventory"
-	"github.com/onsei/organizer/backend/internal/library"
-	"github.com/onsei/organizer/backend/internal/workset"
+	"github.com/Clementine33/preen/backend/internal/inventory"
+	"github.com/Clementine33/preen/backend/internal/library"
+	"github.com/Clementine33/preen/backend/internal/workset"
 )
 
 // ErrExecutionInProgress is returned when an operation that must wait for an

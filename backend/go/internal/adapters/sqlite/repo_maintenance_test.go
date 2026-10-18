@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/onsei/organizer/backend/internal/inventory"
+	"github.com/Clementine33/preen/backend/internal/inventory"
 )
 
 // growThenDeleteScanSessions fills the file with scan rows and then deletes them

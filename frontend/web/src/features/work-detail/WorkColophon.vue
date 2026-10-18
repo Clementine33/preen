@@ -253,7 +253,7 @@ function copyTo(copy: { copy_id: string; library_id: string; dir_id: string }) {
     </dl>
 
     <div class="colo-foot">
-      <span class="lbl">ONSEI ARCHIVE</span>
+      <span class="lbl">PREEN ARCHIVE</span>
       <span class="lbl">{{ props.compact ? 'FLIP BACK ◢' : '' }}</span>
     </div>
   </div>

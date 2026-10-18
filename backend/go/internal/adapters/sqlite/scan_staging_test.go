@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/onsei/organizer/backend/internal/inventory"
+	"github.com/Clementine33/preen/backend/internal/inventory"
 )
 
 // SQLiteAdapterTestSuite provides integration tests for ScanStaging

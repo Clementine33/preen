@@ -7,7 +7,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/onsei/organizer/backend/internal/notify"
+	"github.com/Clementine33/preen/backend/internal/notify"
 )
 
 const (

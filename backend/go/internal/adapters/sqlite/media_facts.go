@@ -5,9 +5,9 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/onsei/organizer/backend/internal/inventory"
-	"github.com/onsei/organizer/backend/internal/library"
-	"github.com/onsei/organizer/backend/internal/librarypath"
+	"github.com/Clementine33/preen/backend/internal/inventory"
+	"github.com/Clementine33/preen/backend/internal/library"
+	"github.com/Clementine33/preen/backend/internal/librarypath"
 )
 
 // missingMediaFacts is the candidate predicate shared by the pass and its

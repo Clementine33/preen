@@ -3,7 +3,7 @@ package works_test
 import (
 	"testing"
 
-	"github.com/onsei/organizer/backend/internal/works"
+	"github.com/Clementine33/preen/backend/internal/works"
 )
 
 func code(s string) works.WorkCode {

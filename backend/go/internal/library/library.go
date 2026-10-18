@@ -12,7 +12,7 @@ package library
 import (
 	"time"
 
-	"github.com/onsei/organizer/backend/internal/admission"
+	"github.com/Clementine33/preen/backend/internal/admission"
 )
 
 // Library represents a user-facing music library.

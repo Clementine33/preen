@@ -5,8 +5,8 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/onsei/organizer/backend/internal/adapters/sqlite"
-	"github.com/onsei/organizer/backend/internal/library"
+	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
+	"github.com/Clementine33/preen/backend/internal/library"
 )
 
 func TestMediaCandidateBatchCapturesOwningLibraryLimit(t *testing.T) {

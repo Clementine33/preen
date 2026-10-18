@@ -7,9 +7,9 @@ import (
 	"testing"
 	"testing/synctest"
 
-	appconfig "github.com/onsei/organizer/backend/internal/adapters/settings"
-	"github.com/onsei/organizer/backend/internal/conversion"
-	"github.com/onsei/organizer/backend/internal/inventory"
+	appconfig "github.com/Clementine33/preen/backend/internal/adapters/settings"
+	"github.com/Clementine33/preen/backend/internal/conversion"
+	"github.com/Clementine33/preen/backend/internal/inventory"
 )
 
 type heldInventory struct {

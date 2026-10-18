@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/onsei/organizer/backend/internal/admission"
+	"github.com/Clementine33/preen/backend/internal/admission"
 )
 
 func TestCheckedScanAndExclusiveEnqueueAreAtomicInBothOrders(t *testing.T) {

@@ -3,9 +3,9 @@ package conversion
 import (
 	"fmt"
 
-	"github.com/onsei/organizer/backend/internal/workset"
+	"github.com/Clementine33/preen/backend/internal/workset"
 
-	"github.com/onsei/organizer/backend/internal/conversion/reconcile"
+	"github.com/Clementine33/preen/backend/internal/conversion/reconcile"
 )
 
 // MemberEffective is one member's resolved conversion config plus where each

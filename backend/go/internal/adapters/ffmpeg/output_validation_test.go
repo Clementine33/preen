@@ -13,9 +13,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/onsei/organizer/backend/internal/adapters/ffmpeg"
-	"github.com/onsei/organizer/backend/internal/conversion/execute"
-	"github.com/onsei/organizer/backend/internal/conversion/reconcile"
+	"github.com/Clementine33/preen/backend/internal/adapters/ffmpeg"
+	"github.com/Clementine33/preen/backend/internal/conversion/execute"
+	"github.com/Clementine33/preen/backend/internal/conversion/reconcile"
 )
 
 func outputFixture(
@@ -116,7 +116,7 @@ func TestValidationCommandRejectsSuccessfulStderrAndPrioritizesCancellation(t *t
 	}
 	command := func(ctx context.Context) *exec.Cmd {
 		cmd := exec.CommandContext(ctx, executable, "-test.run=^TestValidationStderrProcess$")
-		cmd.Env = append(os.Environ(), "ONSEI_VALIDATION_STDERR=1")
+		cmd.Env = append(os.Environ(), "PREEN_VALIDATION_STDERR=1")
 		return cmd
 	}
 	if err := ffmpeg.ValidationCommandForTest(
@@ -134,7 +134,7 @@ func TestValidationCommandRejectsSuccessfulStderrAndPrioritizesCancellation(t *t
 }
 
 func TestValidationStderrProcess(t *testing.T) {
-	if os.Getenv("ONSEI_VALIDATION_STDERR") != "1" {
+	if os.Getenv("PREEN_VALIDATION_STDERR") != "1" {
 		return
 	}
 	fmt.Fprintln(os.Stderr, "decoder diagnostic")

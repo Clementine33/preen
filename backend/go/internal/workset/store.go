@@ -3,8 +3,8 @@ package workset
 import (
 	"time"
 
-	"github.com/onsei/organizer/backend/internal/inventory"
-	"github.com/onsei/organizer/backend/internal/library"
+	"github.com/Clementine33/preen/backend/internal/inventory"
+	"github.com/Clementine33/preen/backend/internal/library"
 )
 
 // Store is the storage the workset lifecycle needs: the operations its use

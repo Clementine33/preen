@@ -8,8 +8,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/onsei/organizer/backend/internal/dirrename"
-	"github.com/onsei/organizer/backend/internal/librarypath"
+	"github.com/Clementine33/preen/backend/internal/dirrename"
+	"github.com/Clementine33/preen/backend/internal/librarypath"
 )
 
 // RenameWorks reads catalog bindings and naming fields in a single query snapshot.

@@ -10,7 +10,7 @@ import { defineConfig, devices } from '@playwright/test'
  *   BROWSER_E2E=1 pnpm exec playwright test
  *
  * The stack is started by `node e2e/launch-stack.mjs`, which spawns the real
- * backend binary via `go run`, parses the additive ONSEI_BACKEND_READY
+ * backend binary via `go run`, parses the additive PREEN_BACKEND_READY
  * http_port handshake, and launches Vite pointed at it (see the launcher's
  * header for the held-stdin rationale). Playwright waits for the Vite
  * dev-server URL; the backend port is dynamic and never needs to be known

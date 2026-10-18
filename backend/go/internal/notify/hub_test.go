@@ -3,7 +3,7 @@ package notify_test
 import (
 	"testing"
 
-	"github.com/onsei/organizer/backend/internal/notify"
+	"github.com/Clementine33/preen/backend/internal/notify"
 )
 
 func TestBurstCoalescesToOnePendingSignal(t *testing.T) {

@@ -19,7 +19,7 @@ import (
 )
 
 // TestHTTPLibraryScanLoop boots the real backend binary as a subprocess
-// (ONSEI_DATA_DIR=<temp>), parses the ONSEI_BACKEND_READY handshake for both
+// (PREEN_DATA_DIR=<temp>), parses the PREEN_BACKEND_READY handshake for both
 // the gRPC and HTTP ports, then drives the HTTP/SSE library workflow end to
 // end: health -> create library -> SSE scan -> list the library's folders.
 //
@@ -150,11 +150,11 @@ func buildBackendBinary(t *testing.T) string {
 	if err != nil {
 		t.Fatalf("resolve backend/go dir: %v", err)
 	}
-	bin := filepath.Join(t.TempDir(), "onsei-organizer-backend")
+	bin := filepath.Join(t.TempDir(), "preen")
 	if runtime.GOOS == "windows" {
 		bin += ".exe"
 	}
-	cmd := exec.Command("go", "build", "-o", bin, "./cmd/onsei-organizer-backend")
+	cmd := exec.Command("go", "build", "-o", bin, "./cmd/preen")
 	cmd.Dir = backendGoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("go build backend failed: %v\n%s", err, out)
@@ -216,7 +216,7 @@ type backendProc struct {
 	token    string
 }
 
-// startBackendBinary launches the backend with ONSEI_DATA_DIR set and a
+// startBackendBinary launches the backend with PREEN_DATA_DIR set and a
 // never-closed stdin pipe (the backend cancels on stdin EOF, so the pipe keeps
 // it alive for the whole test), then parses the ready handshake.
 func startBackendBinary(t *testing.T, binPath, dataDir, token string) backendProc {
@@ -234,8 +234,8 @@ func startBackendBinary(t *testing.T, binPath, dataDir, token string) backendPro
 	stdinR, stdinW := io.Pipe()
 	cmd := exec.Command(binPath)
 	cmd.Env = append(os.Environ(),
-		"ONSEI_DATA_DIR="+dataDir,
-		"ONSEI_TOKEN="+token,
+		"PREEN_DATA_DIR="+dataDir,
+		"PREEN_TOKEN="+token,
 	)
 	cmd.Stdin = stdinR
 	cmd.Stderr = os.Stderr
@@ -258,12 +258,12 @@ func startBackendBinary(t *testing.T, binPath, dataDir, token string) backendPro
 		scanner := bufio.NewScanner(stdout)
 		for scanner.Scan() {
 			line := scanner.Text()
-			if !strings.HasPrefix(line, "ONSEI_BACKEND_READY") {
+			if !strings.HasPrefix(line, "PREEN_BACKEND_READY") {
 				continue
 			}
 			var httpPort int
 			var tok, ver string
-			n, err := fmt.Sscanf(line, "ONSEI_BACKEND_READY token=%s version=%s http_port=%d",
+			n, err := fmt.Sscanf(line, "PREEN_BACKEND_READY token=%s version=%s http_port=%d",
 				&tok, &ver, &httpPort)
 			if err != nil || n != 3 {
 				handshake <- handshakeResult{line: line, err: fmt.Errorf("parse handshake fields: n=%d err=%w", n, err)}

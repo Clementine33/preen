@@ -1,7 +1,7 @@
 package sqlite
 
 import (
-	"github.com/onsei/organizer/backend/internal/works"
+	"github.com/Clementine33/preen/backend/internal/works"
 )
 
 // loadEditionTree gathers the facts works.BuildEditionTree resolves: the known

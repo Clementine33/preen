@@ -5,8 +5,8 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/onsei/organizer/backend/internal/admission"
-	"github.com/onsei/organizer/backend/internal/library"
+	"github.com/Clementine33/preen/backend/internal/admission"
+	"github.com/Clementine33/preen/backend/internal/library"
 )
 
 // library loads the library of the request path.

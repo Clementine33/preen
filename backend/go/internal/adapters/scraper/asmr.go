@@ -3,7 +3,7 @@ package scraper
 import (
 	"encoding/json"
 
-	"github.com/onsei/organizer/backend/internal/works"
+	"github.com/Clementine33/preen/backend/internal/works"
 )
 
 func asmrSnapshot(data record, at string) works.ImportRequest {

@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/onsei/organizer/backend/internal/workset"
+	"github.com/Clementine33/preen/backend/internal/workset"
 )
 
 // generationViewResponse is the session detail payload.

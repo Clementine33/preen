@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/onsei/organizer/backend/internal/adapters/media"
+	"github.com/Clementine33/preen/backend/internal/adapters/media"
 )
 
 // noFFprobe points the fallback at nothing: a duration answered here was read

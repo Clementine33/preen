@@ -12,7 +12,7 @@ import (
 	"io/fs"
 	"time"
 
-	"github.com/onsei/organizer/backend/internal/inventory"
+	"github.com/Clementine33/preen/backend/internal/inventory"
 )
 
 // mustMkdirAll and mustWriteFile fail the test on filesystem errors. Test

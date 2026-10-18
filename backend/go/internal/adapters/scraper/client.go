@@ -14,8 +14,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/onsei/organizer/backend/internal/works"
-	"github.com/onsei/organizer/backend/internal/works/refresh"
+	"github.com/Clementine33/preen/backend/internal/works"
+	"github.com/Clementine33/preen/backend/internal/works/refresh"
 )
 
 // Client retrieves metadata from the two fixed source hosts.

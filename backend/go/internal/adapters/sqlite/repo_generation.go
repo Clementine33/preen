@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/onsei/organizer/backend/internal/workset"
+	"github.com/Clementine33/preen/backend/internal/workset"
 )
 
 func scanGeneration(scanner interface{ Scan(...any) error }) (*workset.PlanGeneration, error) {

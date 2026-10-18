@@ -4,8 +4,8 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/onsei/organizer/backend/internal/admission"
-	"github.com/onsei/organizer/backend/internal/fileops"
+	"github.com/Clementine33/preen/backend/internal/admission"
+	"github.com/Clementine33/preen/backend/internal/fileops"
 )
 
 // fileOperationRequest is the POST /api/v1/libraries/{id}/file-operations

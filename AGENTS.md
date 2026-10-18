@@ -2,7 +2,7 @@
 
 ## Scope
 - When changing backend code, apply [backend/go/AGENTS.md](backend/go/AGENTS.md); when changing web code, apply [frontend/web/AGENTS.md](frontend/web/AGENTS.md). Cross-stack changes apply both.
-- `scripts/dev-web.mjs` starts the backend and Vite together; `ONSEI_DATA_DIR` defaults to `<repo>/.dev_data`.
+- `scripts/dev-web.mjs` starts the backend and Vite together; `PREEN_DATA_DIR` defaults to `<repo>/.dev_data`.
 
 ## Documentation responsibilities
 - AGENTS.md files own current working rules and responsibility-placement decisions. Keep shared rules here and stack-specific rules in the corresponding scoped file.

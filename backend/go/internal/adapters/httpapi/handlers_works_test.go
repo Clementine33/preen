@@ -1,7 +1,7 @@
 package httpapi //nolint:testpackage // white-box tests drive the routes through the real router
 
 import (
-	"github.com/onsei/organizer/backend/internal/adapters/filesystem"
+	"github.com/Clementine33/preen/backend/internal/adapters/filesystem"
 
 	"encoding/json"
 	"net/http"
@@ -10,9 +10,9 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/onsei/organizer/backend/internal/adapters/sqlite"
-	"github.com/onsei/organizer/backend/internal/library"
-	"github.com/onsei/organizer/backend/internal/works"
+	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
+	"github.com/Clementine33/preen/backend/internal/library"
+	"github.com/Clementine33/preen/backend/internal/works"
 )
 
 // wireWorks installs the catalog entry over the test repository. The

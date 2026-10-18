@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test'
 
 // Real browser layout and input checks need Vite, without a backend process.
-const selectTestURL = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env?.ONSEI_SELECT_TEST_URL
+const selectTestURL = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env?.PREEN_SELECT_TEST_URL
 const baseURL = selectTestURL || 'http://127.0.0.1:5174'
 
 export default defineConfig({

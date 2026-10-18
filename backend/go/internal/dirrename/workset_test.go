@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/onsei/organizer/backend/internal/adapters/httpapi"
-	"github.com/onsei/organizer/backend/internal/workset"
+	"github.com/Clementine33/preen/backend/internal/adapters/httpapi"
+	"github.com/Clementine33/preen/backend/internal/workset"
 )
 
 func TestWorksetAcceptsNoAudioRenameAndExecutesFrozenProposal(t *testing.T) {

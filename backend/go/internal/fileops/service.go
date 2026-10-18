@@ -9,8 +9,8 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/onsei/organizer/backend/internal/admission"
-	"github.com/onsei/organizer/backend/internal/librarypath"
+	"github.com/Clementine33/preen/backend/internal/admission"
+	"github.com/Clementine33/preen/backend/internal/librarypath"
 )
 
 // MemberScan refreshes one directory subtree in the stored inventory. It is

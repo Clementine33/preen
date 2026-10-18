@@ -93,7 +93,7 @@ func TestMediaAuthTakesTheTokenFromTheAddress(t *testing.T) {
 	}
 }
 
-func TestCORSExposesRetryAfterOnlyToAllowedOrigins(t *testing.T) {
+func TestCORSExposesResponseHeadersOnlyToAllowedOrigins(t *testing.T) {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Retry-After", "3")
 		w.WriteHeader(http.StatusServiceUnavailable)
@@ -106,7 +106,7 @@ func TestCORSExposesRetryAfterOnlyToAllowedOrigins(t *testing.T) {
 		h.ServeHTTP(w, r)
 		want := ""
 		if origin == "http://localhost:5173" {
-			want = "Retry-After"
+			want = "ETag, Retry-After"
 		}
 		if got := w.Header().Get("Access-Control-Expose-Headers"); got != want {
 			t.Errorf("origin %s: exposed %q, want %q", origin, got, want)

@@ -73,7 +73,9 @@ default is `http://localhost:5173,http://127.0.0.1:5173` (Vite dev servers).
 Origins outside the allowlist receive no CORS headers and are blocked by the
 browser. Preflight (`OPTIONS`) is answered by the CORS middleware before the
 auth middleware runs, because browsers do not send the `Authorization` header
-on preflight.
+on preflight. Allowed origins can read the `ETag` and `Retry-After` response
+headers (`Access-Control-Expose-Headers`); an `ETag` is what a later
+`If-Match` echoes.
 
 ## Error envelope
 

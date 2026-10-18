@@ -46,14 +46,13 @@ test('select one batch and reuse its members and independent plans across tasks'
     }
 
     await page.goto(overview)
-    await expect(page.getByTestId('current-record')).toContainText('2 个文件夹')
-    await page.getByTestId('current-record').getByRole('link', { name: '重命名 →', exact: true }).click()
+    await page.getByTestId('nav-rename').click()
     await expect(page.getByTestId('task-page-rename')).toContainText('2 个文件夹')
     await page.goto(overview)
-    await page.getByTestId('current-record').getByRole('link', { name: '获取元数据 →', exact: true }).click()
+    await page.getByTestId('nav-metadata-refresh').click()
     await expect(page.getByTestId('task-page-metadata_refresh')).toContainText('2 个文件夹')
     await page.getByTestId('generate').click()
-    await expect(page.getByTestId('metadata-plan-count')).toContainText('2 个文件夹')
+    await expect(page.getByTestId('metadata-plan-count')).toContainText('将刷新 2 个')
     const metadata = (await readRecord('metadata_refresh')).operations.find((op: { operation_type: string }) => op.operation_type === 'metadata_refresh')
 
     await page.goto(overview)

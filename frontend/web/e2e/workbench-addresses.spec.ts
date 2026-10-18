@@ -52,7 +52,9 @@ test.describe('workbench addresses', () => {
     await expect(page).toHaveURL(/\/worksets\/[^/]+$/)
     await page.getByTestId('scan-button').click()
     await expect(page.getByText('扫描完成')).toBeVisible({ timeout: 60_000 })
-    await expect(page.getByTestId('dir-list')).toContainText(opened)
+    // The list sorts by work code descending, so the fixture's low codes sit
+    // past the virtualized window; its count says the scan listed them all.
+    await expect(page.getByTestId('dir-list')).toContainText('共 120 个文件夹')
 
     // The list is the page: it takes the height the workbench leaves instead of
     // a fixed box, and it uses the width the shell has — the overview reserves
@@ -77,7 +79,7 @@ test.describe('workbench addresses', () => {
       el.scrollTop = 600
       return el.scrollTop
     })
-    await page.locator('[data-testid="dir-list-spacer"] li').nth(12).click()
+    await page.locator('[data-testid="dir-list-spacer"] li').nth(12).getByRole('button', { name: /^打开 / }).click()
     await expect(page.getByTestId('member-tree')).toBeVisible()
     await page.getByTestId('overview-breadcrumb').getByRole('link').last().click()
     await expect(page.getByText('已选择 1 个文件夹')).toBeVisible()
@@ -85,12 +87,15 @@ test.describe('workbench addresses', () => {
     expect(offset).toBe(600)
     await scroller.evaluate((el) => { el.scrollTop = 0 })
 
-    // Opening a folder: the address carries the directory's identity.
-    await page.getByTestId(`dir-link-${opened}`).click()
+    // Opening a folder: the address carries the directory's identity. The
+    // overview's search is local, so it never reaches the address.
+    await page.getByTestId('dir-search').fill(opened)
+    await page.getByRole('button', { name: `打开 ${opened}`, exact: true }).click()
     await expect(page.getByTestId('member-tree')).toBeVisible({ timeout: 30_000 })
-    const tree = await share('member-tree')
-    expect(tree.height).toBeGreaterThan(0.7)
-    expect(tree.width).toBeGreaterThan(0.7)
+    // The file module, toolbar included, takes the page the list had.
+    const files = await share('member-files')
+    expect(files.height).toBeGreaterThan(0.9)
+    expect(files.width).toBeGreaterThan(0.7)
     const address = new URL(page.url())
     expect(address.pathname).toMatch(/\/f\/[0-9a-f]{32}$/)
     expect(address.search).toBe('')
@@ -115,6 +120,7 @@ test.describe('workbench addresses', () => {
     // while the list's own filter does — and nothing else rides along.
     await page.goBack()
     await expect(page.getByTestId('dir-list')).toBeVisible()
+    await page.getByTestId('dir-search').fill('RJ00000')
     for (const name of NAMES) await page.getByRole('checkbox', { name: `选择 ${name}` }).first().check()
     await page.getByTestId('enter-conversion').click()
     await expect(page.getByTestId('member-toolbar')).toBeVisible()

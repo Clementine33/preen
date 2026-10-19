@@ -12,7 +12,7 @@ func TestVersion_DefaultNonEmptyAndEmittedInHandshake(t *testing.T) {
 		t.Fatal("expected default version to be non-empty")
 	}
 
-	handshake := app.BuildHandshakeLine("token-1", version, 54321)
+	handshake := app.BuildHandshakeLine(version, 54321)
 	if !strings.Contains(handshake, "version="+version) {
 		t.Fatalf("expected handshake to include version %q, got %q", version, handshake)
 	}

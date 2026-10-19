@@ -9,6 +9,7 @@ import { installTestQueryPlugin } from '@/test/query-client'
 import SettingsPage from './SettingsPage.vue'
 
 enableAutoUnmount(afterEach)
+afterEach(() => vi.unstubAllGlobals())
 
 async function mountPage(api: ReturnType<typeof apiStub>, path = '/settings') {
   const router = createRouter({
@@ -23,6 +24,33 @@ async function mountPage(api: ReturnType<typeof apiStub>, path = '/settings') {
   await flushPromises()
   return wrapper
 }
+
+describe('settings: logout', () => {
+  it('clears the session before replacing the document', async () => {
+    let resolveLogout!: () => void
+    const deleteSession = vi.fn(() => new Promise<void>((resolve) => { resolveLogout = resolve }))
+    const replace = vi.fn()
+    vi.stubGlobal('location', { replace })
+    const wrapper = await mountPage(apiStub({ deleteSession }))
+    await wrapper.get('[data-testid="logout"]').trigger('click')
+    expect(replace).not.toHaveBeenCalled()
+    expect(wrapper.get('[data-testid="logout"]').attributes('disabled')).toBeDefined()
+    resolveLogout()
+    await flushPromises()
+    expect(replace).toHaveBeenCalledExactlyOnceWith('/login')
+  })
+
+  it('keeps the page open and allows retry when logout fails', async () => {
+    const replace = vi.fn()
+    vi.stubGlobal('location', { replace })
+    const wrapper = await mountPage(apiStub({ deleteSession: vi.fn().mockRejectedValue(new Error('offline')) }))
+    await wrapper.get('[data-testid="logout"]').trigger('click')
+    await flushPromises()
+    expect(replace).not.toHaveBeenCalled()
+    expect(wrapper.get('[role="alert"]').text()).toContain('退出失败')
+    expect(wrapper.get('[data-testid="logout"]').attributes('disabled')).toBeUndefined()
+  })
+})
 
 describe('settings: user tags', () => {
   const tags = [{ id: 't1', name: '睡眠用' }, { id: 't2', name: '雨音' }]

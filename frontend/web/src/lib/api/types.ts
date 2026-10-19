@@ -1,4 +1,5 @@
 export interface ApiConfig {
+  onUnauthorized?: () => void
   baseUrl: string
   token: string | null
 }
@@ -1181,6 +1182,8 @@ export interface RevisionDetailResponse<P = ConversionPlanPayload> {
 }
 
 export interface ApiClientContract {
+  createSession(token: string): Promise<void>
+  deleteSession(): Promise<void>
   getHealth(signal?: AbortSignal): Promise<HealthResponse>
   listLibraries(signal?: AbortSignal): Promise<Library[]>
   getLibrary(id: string, signal?: AbortSignal): Promise<Library>

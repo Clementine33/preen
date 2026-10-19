@@ -2,9 +2,12 @@ package app_test
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
+	"github.com/Clementine33/preen/backend/internal/adapters/httpapi"
 	"github.com/Clementine33/preen/backend/internal/app"
 )
 
@@ -15,9 +18,9 @@ func TestParseCORSOrigins(t *testing.T) {
 		want []string
 	}{
 		{
-			name: "empty falls back to defaults",
+			name: "empty disables cross-origin access",
 			raw:  "",
-			want: []string{"http://localhost:5173", "http://127.0.0.1:5173"},
+			want: []string{},
 		},
 		{
 			name: "custom comma-separated with whitespace",
@@ -76,5 +79,23 @@ func TestDrainHTTPServerUnblocksOnDeadline(t *testing.T) {
 	case <-httpClosed:
 	default:
 		t.Error("http force-close never ran at the deadline")
+	}
+}
+
+func TestDefaultCORSAllowsNoBrowserOrigin(t *testing.T) {
+	handler := httpapi.NewServer(httpapi.Dependencies{CORSOrigins: app.ParseCORSOrigins("")})
+	for _, origin := range []string{"http://localhost:5173", "http://127.0.0.1:5175", "http://untrusted.example"} {
+		request := httptest.NewRequest(http.MethodGet, "/api/v1/health", nil)
+		request.Header.Set("Origin", origin)
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		if response.Code != http.StatusOK {
+			t.Fatalf("status = %d, want 200", response.Code)
+		}
+		for _, header := range []string{"Access-Control-Allow-Origin", "Access-Control-Allow-Credentials", "Access-Control-Expose-Headers"} {
+			if value := response.Header().Get(header); value != "" {
+				t.Errorf("origin %s: %s = %q, want empty", origin, header, value)
+			}
+		}
 	}
 }

@@ -6,17 +6,20 @@ import VueDevTools from 'vite-plugin-vue-devtools'
 
 
 // https://vite.dev/config/
-export default defineConfig(({ command }) => ({
-  plugins: [vue(), tailwindcss(),VueDevTools(),],
-  define:
-    command === 'serve'
+export default defineConfig(() => ({
+  plugins: [vue(), tailwindcss(), VueDevTools()],
+  server: {
+    proxy: process.env.PREEN_BACKEND_URL
       ? {
-          // Vite only exposes VITE_* by default; opt this one local bearer
-          // token in explicitly so WebDesktopAdapter can read the backend's
-          // PREEN_TOKEN during development. Build output never embeds it.
-          'import.meta.env.PREEN_TOKEN': JSON.stringify(process.env.PREEN_TOKEN ?? ''),
+          '/api': {
+            target: process.env.PREEN_BACKEND_URL,
+            headers: process.env.PREEN_TOKEN
+              ? { Authorization: `Bearer ${process.env.PREEN_TOKEN}` }
+              : undefined,
+          },
         }
-      : {},
+      : undefined,
+  },
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),

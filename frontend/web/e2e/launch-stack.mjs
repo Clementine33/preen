@@ -9,7 +9,7 @@
  *     backend watches stdin and shuts down on EOF, which would kill it
  *     instantly in any non-interactive environment (CI, pipes, background);
  *   - the additive PREEN_BACKEND_READY handshake is parsed for http_port and
- *     Vite is launched with VITE_API_BASE=http://127.0.0.1:<http_port>/api/v1;
+ *     Vite is launched with PREEN_BACKEND_URL=http://127.0.0.1:<http_port> for its /api proxy;
  *   - teardown closes the held pipe first (graceful EOF shutdown), then
  *     falls back to killing the process group.
  *
@@ -64,7 +64,7 @@ writeFileSync(
   path.join(dataDir, 'config.json'),
   JSON.stringify({ prune: { no_effect_tags: ['SEなし'] } }),
 )
-const backend = spawn('go', ['run', './cmd/preen'], {
+const backend = spawn('go', ['run', './cmd/preen', '--watch-stdin'], {
   cwd: backendDir,
   env: { ...process.env, PREEN_DATA_DIR: dataDir },
   // Held stdin pipe: never inherit (see header comment).
@@ -85,9 +85,9 @@ function launchVite(httpPort) {
   // in practice, leaving vite bound to ::1 only, which the IPv4 readiness
   // probe can never reach). A direct node spawn needs no shell and no shim.
   const viteBin = path.join(webDir, 'node_modules', 'vite', 'bin', 'vite.js')
-  vite = spawn(process.execPath, [viteBin, '--port', '5173', '--strictPort', '--host', '127.0.0.1'], {
+  vite = spawn(process.execPath, [viteBin, '--port', process.env.PREEN_E2E_WEB_PORT, '--strictPort', '--host', '127.0.0.1'], {
     cwd: webDir,
-    env: { ...process.env, VITE_API_BASE: `http://127.0.0.1:${httpPort}/api/v1` },
+    env: { ...process.env, PREEN_BACKEND_URL: `http://127.0.0.1:${httpPort}` },
     stdio: 'inherit',
   })
   vite.on('exit', (code) => {
@@ -101,8 +101,8 @@ function launchVite(httpPort) {
 }
 
 function handleLine(line) {
-  // PREEN_BACKEND_READY token=tok-1 version=v1 http_port=54321
-  const match = /^PREEN_BACKEND_READY token=\S* version=\S+ http_port=(\d+)$/.exec(line.trim())
+  // PREEN_BACKEND_READY version=v1 http_port=54321
+  const match = /^PREEN_BACKEND_READY version=\S+ http_port=(\d+)$/.exec(line.trim())
   if (!match) return
   const httpPort = Number(match[1])
   writeFileSync(stateFile, JSON.stringify({ fixtureRoot, httpPort }, null, 2))
@@ -170,18 +170,21 @@ function teardown(exitCode = 0) {
       /* pipe may already be closed */
     }
 
-    if (isWin) {
-      const kill = spawn('taskkill', ['/pid', String(backend.pid), '/t', '/f'])
-      kill.on('error', finish)
-      kill.on('exit', finish)
-    } else {
-      try {
-        process.kill(-backend.pid, 'SIGTERM')
-      } catch {
-        backend.kill('SIGTERM')
+    // EOF is the graceful stop on every platform, including Windows.
+    const timeout = setTimeout(() => {
+      if (isWin) {
+        const kill = spawn('taskkill', ['/pid', String(backend.pid), '/t', '/f'])
+        kill.on('error', finish)
+        kill.on('exit', finish)
+      } else {
+        try {
+          process.kill(-backend.pid, 'SIGKILL')
+        } catch {
+          backend.kill('SIGKILL')
+        }
       }
-      setTimeout(finish, 250)
-    }
+    }, 6000)
+    backend.once('exit', () => { clearTimeout(timeout); finish() })
   }
 
   if (vite && vite.exitCode === null) {

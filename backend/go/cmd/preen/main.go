@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"log"
 	"os"
 	"os/signal"
@@ -19,6 +20,24 @@ import (
 var version = "0.2.0-dev"
 
 func main() {
+	watchStdin := flag.Bool("watch-stdin", false, "shut down gracefully when stdin reaches EOF")
+	allowLAN := flag.Bool("allow-lan", false, "override server.allow_lan")
+	port := flag.Int("port", 0, "override server.port")
+	webDir := flag.String("web-dir", "", "serve the built web application from this directory")
+	flag.Parse()
+	if flag.NArg() != 0 {
+		log.Fatal("unexpected positional arguments")
+	}
+	var allowLANOverride *bool
+	var portOverride *int
+	flag.Visit(func(f *flag.Flag) {
+		switch f.Name {
+		case "allow-lan":
+			allowLANOverride = allowLAN
+		case "port":
+			portOverride = port
+		}
+	})
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -34,7 +53,9 @@ func main() {
 		}
 	}()
 
-	app.StartParentDeathWatchers(ctx, cancel, os.Stdin, os.Getppid(), nil)
+	if *watchStdin {
+		go app.WatchStdinEOF(ctx, os.Stdin, cancel)
+	}
 
 	// Resolve the data directory relative to the executable, so the binary works
 	// wherever it is unpacked; PREEN_DATA_DIR overrides it.
@@ -57,5 +78,8 @@ func main() {
 		ConfigDir: dataDir,
 		Token:     os.Getenv("PREEN_TOKEN"),
 		Version:   version,
+		AllowLAN:  allowLANOverride,
+		Port:      portOverride,
+		WebDir:    *webDir,
 	})
 }

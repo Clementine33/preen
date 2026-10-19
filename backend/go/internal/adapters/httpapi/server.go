@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"net/http"
+	"os"
 	"path"
 	"sort"
 	"strings"
@@ -31,8 +32,10 @@ type Dependencies struct {
 	Token       string
 	CORSOrigins []string
 	Version     string
-	Inventory   inventory.Service
-	MediaFacts  *inventory.MediaEnricher
+	// WebRoot optionally serves the built application, confined to this directory.
+	WebRoot    *os.Root
+	Inventory  inventory.Service
+	MediaFacts *inventory.MediaEnricher
 	// WorksChanged signals committed catalog changes on the same root stream
 	// as MediaFacts; LocalCovers adds each listed work's on-disk cover.
 	WorksChanged   *notify.Hub
@@ -60,7 +63,7 @@ type Server struct{ deps Dependencies }
 func NewServer(deps Dependencies) http.Handler {
 	s := &Server{deps: deps}
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /api/v1/health", s.handleHealth)
+	s.publicRoutes(mux)
 	protect := authMiddleware(deps.Token)
 	mux.Handle("GET /api/v1/inventory/media-facts/events", protect(http.HandlerFunc(s.mediaFactsEvents)))
 	mux.Handle("POST /api/v1/libraries", protect(http.HandlerFunc(s.createLibrary)))
@@ -178,7 +181,9 @@ func NewServer(deps Dependencies) http.Handler {
 		protect(http.HandlerFunc(s.cancelGeneration)),
 	)
 	s.executionCoverRoutes(mux, protect)
-	return recoveryMiddleware(corsMiddleware(deps.CORSOrigins)(routingCompatibilityMiddleware(mux)))
+	return recoveryMiddleware(
+		corsMiddleware(deps.CORSOrigins)(webMiddleware(deps.WebRoot, routingCompatibilityMiddleware(mux))),
+	)
 }
 
 // executionCoverRoutes registers the cover delivery of one execution.
@@ -193,26 +198,43 @@ func routingCompatibilityMiddleware(mux *http.ServeMux) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		escapedPath := r.URL.EscapedPath()
 		if path.Clean(r.URL.Path) != r.URL.Path || strings.Contains(strings.ToLower(escapedPath), "%2f") {
-			http.NotFound(w, r)
+			writeRoutingError(w, r, http.StatusNotFound)
 			return
 		}
-		if r.Method == http.MethodHead {
+		_, pattern := mux.Handler(r)
+		if pattern == "" || r.Method == http.MethodHead {
 			methods := allowedMethods(mux, r)
 			if len(methods) == 0 {
-				http.NotFound(w, r)
+				writeRoutingError(w, r, http.StatusNotFound)
 				return
 			}
 			w.Header().Set("Allow", strings.Join(methods, ", "))
-			http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
+			writeRoutingError(w, r, http.StatusMethodNotAllowed)
 			return
 		}
 		mux.ServeHTTP(w, r)
 	})
 }
 
+func writeRoutingError(w http.ResponseWriter, r *http.Request, status int) {
+	if r.URL.Path == "/api" || strings.HasPrefix(r.URL.Path, "/api/") {
+		if status == http.StatusNotFound {
+			writeError(w, status, "NOT_FOUND", "route not found")
+		} else {
+			writeError(w, status, "METHOD_NOT_ALLOWED", "method not allowed")
+		}
+		return
+	}
+	if status == http.StatusNotFound {
+		http.NotFound(w, r)
+		return
+	}
+	http.Error(w, http.StatusText(status), status)
+}
+
 func allowedMethods(mux *http.ServeMux, r *http.Request) []string {
 	methods := make([]string, 0, 4)
-	for _, method := range []string{http.MethodDelete, http.MethodGet, http.MethodPatch, http.MethodPost} {
+	for _, method := range []string{http.MethodDelete, http.MethodGet, http.MethodPatch, http.MethodPost, http.MethodPut} {
 		probe := r.Clone(r.Context())
 		probe.Method = method
 		_, pattern := mux.Handler(probe)

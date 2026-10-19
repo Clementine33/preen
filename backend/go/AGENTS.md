@@ -38,6 +38,6 @@
 - Restore a backup: stop every process using the database; move the current `cache.db` and any `cache.db-wal` / `cache.db-shm` into another directory; copy the chosen backup to `cache.db`; start the corresponding old program. Leave no WAL/SHM from the failed database beside the restored file.
 
 ## Runtime and checks
-- Listener and shared-key startup configuration follow [docs/api/common.md](../../docs/api/common.md#server-configuration). Keep the `PREEN_BACKEND_READY token=… version=… http_port=…` handshake compatible with the web development launcher's `VITE_API_BASE` wiring.
+- Listener and shared-key startup configuration follow [docs/api/common.md](../../docs/api/common.md#server-configuration). Keep the `PREEN_BACKEND_READY version=… http_port=…` handshake unconditional and free of credentials; launchers parse only this readiness line. Processes run standalone by default; hosted launchers pass `--watch-stdin` for graceful EOF shutdown.
 - From the repository root: `task test:go`, `task lint:go`, `task lint:go:fix`; Go lint configuration is `.golangci.yml` in this directory and is gated by CI.
 - From this directory: `task test`, `task lint`, `task test:e2e`; focused tests: `go test ./<pkg> -run <Test>`.

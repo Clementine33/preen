@@ -27,9 +27,10 @@ func (s ServerConfig) ListenAddress() string {
 }
 
 // Server loads and validates startup settings. A nonempty host-provided token
-// overrides the file key; an unreadable or invalid file fails startup rather
+// overrides the file key; non-nil listener overrides replace their file fields
+// before validation. An unreadable or invalid file fails startup rather
 // than silently replacing the requested access policy with defaults.
-func (r Reader) Server(tokenOverride string) (ServerConfig, error) {
+func (r Reader) Server(tokenOverride string, allowLAN *bool, port *int) (ServerConfig, error) {
 	cfg := DefaultAppConfig()
 	if r.configDir != "" {
 		data, err := os.ReadFile(filepath.Join(r.configDir, "config.json"))
@@ -43,6 +44,12 @@ func (r Reader) Server(tokenOverride string) (ServerConfig, error) {
 		}
 	}
 	server := cfg.Server
+	if allowLAN != nil {
+		server.AllowLAN = *allowLAN
+	}
+	if port != nil {
+		server.Port = *port
+	}
 	if tokenOverride != "" {
 		server.Token = tokenOverride
 	}

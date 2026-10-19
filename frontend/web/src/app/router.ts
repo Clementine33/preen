@@ -42,6 +42,7 @@ export const router = createRouter({
     // The product entry keeps the name 工作集 and selects a media library:
     // everything below happens inside one library's workbench.
     { path: '/', redirect: '/worksets' },
+    { path: '/login', name: 'login', component: () => import('@/pages/LoginPage.vue') },
     { path: '/worksets', name: 'worksets', component: WorksetsPage },
 
     // The work catalog: the wall of works, and one work's detail

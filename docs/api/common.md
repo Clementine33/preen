@@ -4,14 +4,14 @@
 
 ## Startup handshake
 
-On startup the backend prints exactly one line to stdout:
+On startup the backend unconditionally prints one readiness line to stdout
+(alongside ordinary logs). It contains no credentials:
 
 ```
-PREEN_BACKEND_READY token=%s version=%s http_port=%d
+PREEN_BACKEND_READY version=%s http_port=%d
 ```
 
 - `http_port` — HTTP port
-- `token` — the effective bearer token (empty when local developer auth is disabled)
 - `version` — build version stamp (`dev` by default)
 
 The Vue dev script and the Playwright launchers scan stdout for the
@@ -40,14 +40,33 @@ startup. These settings currently have no frontend controls:
 - `token`: the single shared bearer key for all protected API callers. A
   nonempty `PREEN_TOKEN` overrides the file key; an empty or absent environment
   value leaves the file key in effect. Keys must be visible ASCII without
-  spaces, so they fit both HTTP headers and the startup handshake.
+  spaces, so they fit HTTP headers.
 
 LAN access requires a fixed nonzero port and a nonempty effective key. For
 example, set `allow_lan` to true, `port` to 8765 and `token` to a generated
 random secret. Clients then use `http://<server-ip>:8765/api/v1` with that key.
-There is no automatic key generation or rotation in this config-only stage.
-The listener exposes the existing API; serving the application webpage on
-the same port is a separate, not-yet-implemented packaging step.
+There is no automatic key generation or rotation.
+
+Startup flags override only their corresponding fields when explicitly passed:
+`--allow-lan` (or `--allow-lan=false`) overrides `server.allow_lan`, and
+`--port=<n>` overrides `server.port`, including an explicit zero. The same
+validation applies to the effective settings; `PREEN_TOKEN` still overrides
+the file key. For example:
+
+```sh
+preen --allow-lan --port=8765 --web-dir=/app/web
+```
+
+`--web-dir=<directory>` serves a built application on the API's port. It requires
+a directory containing `index.html`; without the flag only the API is served.
+Non-API GET requests serve an existing file or fall back to `index.html` for
+history routes. Static files require no authentication. `index.html` and other
+unversioned files use `Cache-Control: no-cache`; files with a content hash in
+their name use `public, max-age=31536000, immutable`. Traversal paths, including
+encoded traversal and symlinks leaving the web root, are refused.
+Paths under `/api/` never fall back to HTML: unknown paths return a JSON
+404 / `NOT_FOUND`, and unsupported methods return a JSON 405 /
+`METHOD_NOT_ALLOWED` with an `Allow` header.
 
 A missing configuration file preserves local developer defaults. An unreadable
 or malformed file, invalid port, invalid key, or incomplete LAN configuration
@@ -55,21 +74,67 @@ fails startup before opening the database. Changes require a backend restart.
 
 ## Auth
 
-Protected routes require:
+Protected routes accept credentials in this order; a present invalid higher-priority
+credential is refused rather than falling back:
 
-```
-Authorization: Bearer <token>
-```
+1. `Authorization: Bearer <token>` (desktop and script callers).
+2. `preen_token` HttpOnly cookie (same-origin browser callers).
+3. `access_token` query parameter, only on Work file-content routes used by
+   `<img>` and `<audio>`; other routes never accept query credentials.
 
-The effective token comes from the server configuration and optional environment
-override above. An empty token disables auth only in local-developer mode;
-LAN mode refuses to start without a key. Missing or invalid tokens return
-`401` with `{"code":"UNAUTHORIZED","message":"..."}`.
+The cookie contains the shared key encoded with unpadded base64url; malformed
+encoding is invalid. The decoded key is compared in constant time. The effective
+key comes from the server configuration and optional environment override above.
+An empty key disables auth only in local-developer mode; LAN mode refuses to
+start without a key. Missing or invalid credentials return `401` with
+`{"code":"UNAUTHORIZED","message":"..."}`. Keys and cookie values are never logged.
+
+Cookie-authenticated requests other than GET and HEAD require the same origin:
+when `Sec-Fetch-Site` is present its value must be `same-origin`. Otherwise,
+when `Origin` is present, its parsed host (including the port) must exactly
+match the request `Host`. Requests with neither header are treated as
+non-browser requests and allowed. Failed checks return `403 FORBIDDEN`.
+Bearer authentication and GET/HEAD reads (including media and event streams)
+are exempt. `Sec-Fetch-Site` takes precedence over `Origin`.
+
+## Session
+
+| Method | Path | Auth | Status | Request |
+| --- | --- | --- | --- | --- |
+| POST | `/api/v1/session` | no | 204 | `{"token":"<shared key>"}` |
+| DELETE | `/api/v1/session` | no | 204 | none |
+
+A successful login sets `preen_token=<base64url(key)>; HttpOnly; SameSite=Strict;
+Path=/api/v1; Max-Age=34560000` (400 days). `Secure` is added when the request
+has TLS or `X-Forwarded-Proto: https`. The response has no body. Invalid keys
+return `401 UNAUTHORIZED` without setting a cookie; malformed JSON uses the
+usual `400 INVALID_ARGUMENT` envelope (oversized bodies return 413).
+There is no server-side session state or session-probe endpoint: restarting
+preserves login, and changing the shared key invalidates all old cookies.
+Login rate limiting is outside the trusted-LAN deployment scope.
+
+DELETE expires `preen_token` with an empty value and `Max-Age=0` at the same
+`/api/v1` path, preserving HttpOnly, SameSite and conditional Secure attributes.
+It succeeds even when credentials are missing or invalid. It clears this
+browser's cookie; it does not rotate the shared key or invalidate other clients.
+The settings page waits for logout to succeed, then replaces the entire document
+with `/login`, ending playback and event streams and discarding cached data.
+Pages restored from the browser's back/forward cache reload before reusing data.
+
+Browser API and event-stream `401` responses replace the whole document with
+`/login?redirect=<current address>` once. A successful login replaces the
+document with the validated same-origin return address, or `/` if invalid or
+resolving to login. This restarts event subscriptions, media and query caches.
+Desktop callers continue to use Bearer and file query credentials.
 
 ## CORS
 
 `PREEN_CORS_ORIGINS` is a comma-separated allowlist of browser origins. The
-default is `http://localhost:5173,http://127.0.0.1:5173` (Vite dev servers).
+default allowlist is empty: no cross-origin browser receives CORS permission
+headers unless explicitly configured. Development browsers use same-origin
+`/api/v1`; Vite proxies `/api` to the launcher-provided `PREEN_BACKEND_URL`
+and adds the Bearer header from its server-side `PREEN_TOKEN` when set.
+Neither value enters frontend build output.
 Origins outside the allowlist receive no CORS headers and are blocked by the
 browser. Preflight (`OPTIONS`) is answered by the CORS middleware before the
 auth middleware runs, because browsers do not send the `Authorization` header
@@ -123,7 +188,11 @@ resolved path is still inside the member it was resolved against.
 
 ## Shutdown
 
-On `SIGINT`/`SIGTERM` (or stdin EOF), the backend seals request and worker
+The process runs as a standalone service by default; closing stdin has no
+effect. Hosted launchers pass `--watch-stdin` to request graceful shutdown on
+stdin EOF. Parent PID polling is not used, and no debug listener is started.
+
+On `SIGINT`/`SIGTERM` (or stdin EOF with `--watch-stdin`), the backend seals request and worker
 admission and cancels active work. Requests arriving after the seal receive
 503 / `SHUTTING_DOWN`. HTTP request contexts are canceled, including SSE scans;
 connections have four seconds to drain, and closing them does not count as

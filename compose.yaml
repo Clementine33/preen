@@ -1,0 +1,21 @@
+services:
+  preen:
+    image: ghcr.io/clementine33/preen:0.2.0
+    platform: linux/amd64
+    user: "1000:1000"
+    ports:
+      - "127.0.0.1:8765:8765" # Replace with your NAS LAN address for LAN access.
+    environment:
+      PREEN_TOKEN: ${PREEN_TOKEN:?Set PREEN_TOKEN in .env}
+    volumes:
+      - ./data:/data
+      - /srv/media/audio:/media/audio
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=512m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    stop_grace_period: 30s
+    restart: unless-stopped

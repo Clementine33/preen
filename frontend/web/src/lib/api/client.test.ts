@@ -6,6 +6,12 @@ function createClient(config: Partial<ApiConfig> = {}): ApiClient {
   return new ApiClient({ baseUrl: config.baseUrl ?? 'http://example.test/api/v1', token: config.token ?? null })
 }
 
+it('logs out through the public session endpoint', async () => {
+  const fetch = mockFetch(() => new Response(null, { status: 204 }))
+  await createClient().deleteSession()
+  expect(fetch).toHaveBeenCalledWith('http://example.test/api/v1/session', expect.objectContaining({ method: 'DELETE', body: undefined }))
+})
+
 function okJson(body: unknown, headers: Record<string, string> = {}, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', ...headers } })
 }
@@ -26,6 +32,23 @@ afterEach(() => {
 })
 
 describe('ApiClient', () => {
+  it('keeps desktop unauthorized responses on the desktop path', async () => {
+    mockFetch(async () => new Response('{}', { status: 401 }))
+    const onUnauthorized = vi.fn()
+    const client = new ApiClient({ baseUrl: '/api/v1', token: 'desktop-key', onUnauthorized })
+    await expect(client.listLibraries()).rejects.toMatchObject({ status: 401 })
+    expect(onUnauthorized).not.toHaveBeenCalled()
+  })
+
+  it('posts a login key only in JSON, and preserves desktop bearer headers', async () => {
+    const fetchMock = mockFetch(async () => new Response(null, { status: 204 }))
+    await createClient({ token: 'desktop-key' }).createSession('shared;"\\secret')
+    const [, init] = fetchMock.mock.calls[0]!
+    expect(new Headers(init?.headers).get('Authorization')).toBe('Bearer desktop-key')
+    expect(new Headers(init?.headers).get('Content-Type')).toBe('application/json')
+    expect(JSON.parse(String(init?.body))).toEqual({ token: 'shared;"\\secret' })
+  })
+
   it.each([1, 2, 3, undefined] as const)('sends the selected age category %s in the works request', async (age) => {
     const fetchMock = mockFetch(async () => okJson({ works: [] }))
 

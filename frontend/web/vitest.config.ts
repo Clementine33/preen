@@ -3,8 +3,7 @@ import type { UserConfig } from 'vite'
 import viteConfig from './vite.config.ts'
 
 // vite.config.ts uses the command callback form; vitest needs the resolved
-// object, so resolve it as 'serve' (dev-time defines stay applied; tests do
-// not read PREEN_TOKEN).
+// object, so resolve it as 'serve'.
 const resolvedViteConfig: UserConfig =
   typeof viteConfig === 'function' ? viteConfig({ command: 'serve', mode: 'test' }) : viteConfig
 

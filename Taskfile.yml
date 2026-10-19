@@ -35,7 +35,7 @@ tasks:
       - govulncheck ./...
 
   dev:web:
-    desc: Run Go backend + Vite web app together (VITE_API_BASE wired from backend handshake)
+    desc: Run Go backend + Vite web app together (same-origin API proxy wired from backend handshake)
     cmds:
       - node scripts/dev-web.mjs
 
@@ -101,3 +101,17 @@ tasks:
       GOARCH: amd64
     cmds:
       - go build {{if .VERSION}}-ldflags "-X main.version={{.VERSION}}" {{end}}-o bin/preen.exe ./cmd/preen
+
+  build:docker:
+    desc: Build the linux/amd64 release image (RAW_TAG=vX.Y.Z)
+    requires:
+      vars: [RAW_TAG]
+    cmds:
+      - docker build --platform linux/amd64 --build-arg VERSION={{.VERSION}} -t ghcr.io/clementine33/preen:{{.VERSION}} .
+
+  test:docker:
+    desc: Smoke-test a locally built image (RAW_TAG=vX.Y.Z)
+    requires:
+      vars: [RAW_TAG]
+    cmds:
+      - node scripts/docker-smoke.mjs ghcr.io/clementine33/preen:{{.VERSION}}

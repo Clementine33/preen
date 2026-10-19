@@ -134,7 +134,6 @@ linters:
         - G306
         - G404
         - G202
-        - G108 # pprof intentionally exposed on dev entry
         - G703 # path traversal in desktop local tool
         - G706 # log taint
 

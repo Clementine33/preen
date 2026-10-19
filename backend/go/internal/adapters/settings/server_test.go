@@ -37,7 +37,7 @@ func TestServerSettings(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			got, err := settings.NewReader(dir).Server(tc.override)
+			got, err := settings.NewReader(dir).Server(tc.override, nil, nil)
 			if tc.invalid {
 				if err == nil {
 					t.Fatal("invalid server settings accepted")
@@ -60,7 +60,7 @@ func TestServerRejectsUnreadableConfiguration(t *testing.T) {
 	if err := os.Mkdir(filepath.Join(dir, "config.json"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := settings.NewReader(dir).Server(""); err == nil {
+	if _, err := settings.NewReader(dir).Server("", nil, nil); err == nil {
 		t.Fatal("configuration read failure silently ignored")
 	}
 }

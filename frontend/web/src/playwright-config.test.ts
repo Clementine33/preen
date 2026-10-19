@@ -23,8 +23,10 @@ describe('Playwright stack configuration', () => {
 
     expect(config.webServer).toMatchObject({
       command: 'node e2e/launch-stack.mjs',
-      url: 'http://127.0.0.1:5173',
+      url: 'http://127.0.0.1:5175',
+      env: { PREEN_E2E_WEB_PORT: '5175' },
     })
+    expect(config.use?.baseURL).toBe('http://127.0.0.1:5175')
     expect(config.testIgnore).toEqual(['**/unit-fields.spec.ts', '**/task-toast.spec.ts'])
   })
 

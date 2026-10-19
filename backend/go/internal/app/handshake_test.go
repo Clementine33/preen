@@ -8,8 +8,8 @@ import (
 
 func TestBuildHandshakeLine(t *testing.T) {
 	t.Parallel()
-	got := app.BuildHandshakeLine("tok-1", "v1", 54321)
-	want := "PREEN_BACKEND_READY token=tok-1 version=v1 http_port=54321"
+	got := app.BuildHandshakeLine("v1", 54321)
+	want := "PREEN_BACKEND_READY version=v1 http_port=54321"
 	if got != want {
 		t.Fatalf("got %q want %q", got, want)
 	}

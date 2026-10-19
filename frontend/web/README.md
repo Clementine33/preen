@@ -12,7 +12,13 @@ Vue Test Utils.
 - `pnpm -C frontend/web dev` — Vite dev server alone
 - `pnpm dev:web` (repo root) — `node scripts/dev-web.mjs`: starts the Go
   backend, parses `PREEN_BACKEND_READY` for `http_port`, and launches Vite
-  with `VITE_API_BASE=http://127.0.0.1:<http_port>/api/v1`
+  with `PREEN_BACKEND_URL=http://127.0.0.1:<http_port>` for the `/api` proxy.
+  Vite chooses another port if its default is occupied. Set `PREEN_TOKEN` in
+  the launcher environment when the backend requires a key; the proxy adds
+  the Bearer header to API, media and event-stream requests. The browser
+  always uses `/api/v1` with no token or backend address in its code.
+- `task e2e:web` — full-stack browser tests on dedicated port 5175; component
+  browser tests use 5174, so both can run alongside the developer server
 - `pnpm -C frontend/web typecheck` — `vue-tsc -b`
 - `pnpm -C frontend/web test` — Vitest
 - `pnpm -C frontend/web build` — typecheck + production build

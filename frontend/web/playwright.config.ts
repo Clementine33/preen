@@ -11,12 +11,15 @@ import { defineConfig, devices } from '@playwright/test'
  *
  * The stack is started by `node e2e/launch-stack.mjs`, which spawns the real
  * backend binary via `go run`, parses the additive PREEN_BACKEND_READY
- * http_port handshake, and launches Vite pointed at it (see the launcher's
+ * http_port handshake, and launches Vite with a same-origin API proxy (see the launcher's
  * header for the held-stdin rationale). Playwright waits for the Vite
  * dev-server URL; the backend port is dynamic and never needs to be known
  * up front.
  */
 const e2eEnabled = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env?.BROWSER_E2E === '1'
+
+const webPort = '5175'
+const webURL = `http://127.0.0.1:${webPort}`
 
 export default defineConfig({
   testDir: './e2e',
@@ -28,7 +31,7 @@ export default defineConfig({
   expect: { timeout: 15_000 },
   reporter: [['list']],
   use: {
-    baseURL: 'http://127.0.0.1:5173',
+    baseURL: webURL,
     trace: 'retain-on-failure',
   },
   projects: [
@@ -40,7 +43,8 @@ export default defineConfig({
   webServer: e2eEnabled
     ? {
         command: 'node e2e/launch-stack.mjs',
-        url: 'http://127.0.0.1:5173',
+        env: { PREEN_E2E_WEB_PORT: webPort },
+        url: webURL,
         reuseExistingServer: false,
         timeout: 180_000,
         // The launcher must be killed by SIGTERM so it can run its graceful

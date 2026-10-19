@@ -19,8 +19,8 @@ import (
 )
 
 // TestHTTPLibraryScanLoop boots the real backend binary as a subprocess
-// (PREEN_DATA_DIR=<temp>), parses the PREEN_BACKEND_READY handshake for both
-// the gRPC and HTTP ports, then drives the HTTP/SSE library workflow end to
+// (PREEN_DATA_DIR=<temp>), parses the PREEN_BACKEND_READY handshake for
+// the HTTP port, then drives the HTTP/SSE library workflow end to
 // end: health -> create library -> SSE scan -> list the library's folders.
 //
 //nolint:funlen // one HTTP lifecycle walk: boot, create, scan, then assert the listing
@@ -189,9 +189,6 @@ func TestHTTPServerConfiguration(t *testing.T) {
 			if override != "" {
 				token = override
 			}
-			if proc.token != token {
-				t.Fatal("startup handshake did not report the effective key")
-			}
 			base := fmt.Sprintf("http://127.0.0.1:%d", port)
 			client := &http.Client{Timeout: 5 * time.Second}
 			for _, key := range []string{"", "wrong-key", token} {
@@ -213,31 +210,23 @@ type backendProc struct {
 	cmd *exec.Cmd
 
 	httpPort int
-	token    string
+	stdin    io.WriteCloser
+	done     <-chan error
 }
 
 // startBackendBinary launches the backend with PREEN_DATA_DIR set and a
-// never-closed stdin pipe (the backend cancels on stdin EOF, so the pipe keeps
-// it alive for the whole test), then parses the ready handshake.
-func startBackendBinary(t *testing.T, binPath, dataDir, token string) backendProc {
+// held stdin pipe, then parses the ready handshake.
+func startBackendBinary(t *testing.T, binPath, dataDir, token string, args ...string) backendProc {
 	t.Helper()
-	// Seed the classifier tag config: no compiled-in defaults remain, so a
-	// fresh data dir gets its literal tags from config.json.
-	cfgPath := filepath.Join(dataDir, "config.json")
-	if _, err := os.Stat(cfgPath); os.IsNotExist(err) {
-		if writeErr := os.WriteFile(cfgPath, []byte(`{"prune":{"no_effect_tags":["SEなし"]}}`), 0o644); writeErr != nil {
-			t.Fatalf("write config: %v", writeErr)
-		}
-	} else if err != nil {
-		t.Fatalf("stat config: %v", err)
-	}
-	stdinR, stdinW := io.Pipe()
-	cmd := exec.Command(binPath)
+	cmd := exec.Command(binPath, args...)
 	cmd.Env = append(os.Environ(),
 		"PREEN_DATA_DIR="+dataDir,
 		"PREEN_TOKEN="+token,
 	)
-	cmd.Stdin = stdinR
+	stdinW, err := cmd.StdinPipe()
+	if err != nil {
+		t.Fatal(err)
+	}
 	cmd.Stderr = os.Stderr
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -250,7 +239,6 @@ func startBackendBinary(t *testing.T, binPath, dataDir, token string) backendPro
 	type handshakeResult struct {
 		line     string
 		httpPort int
-		token    string
 		err      error
 	}
 	handshake := make(chan handshakeResult, 1)
@@ -262,14 +250,18 @@ func startBackendBinary(t *testing.T, binPath, dataDir, token string) backendPro
 				continue
 			}
 			var httpPort int
-			var tok, ver string
-			n, err := fmt.Sscanf(line, "PREEN_BACKEND_READY token=%s version=%s http_port=%d",
-				&tok, &ver, &httpPort)
-			if err != nil || n != 3 {
+			if token != "" && strings.Contains(line, token) {
+				handshake <- handshakeResult{err: fmt.Errorf("handshake exposes credential")}
+				return
+			}
+			var ver string
+			n, err := fmt.Sscanf(line, "PREEN_BACKEND_READY version=%s http_port=%d",
+				&ver, &httpPort)
+			if err != nil || n != 2 {
 				handshake <- handshakeResult{line: line, err: fmt.Errorf("parse handshake fields: n=%d err=%w", n, err)}
 				return
 			}
-			handshake <- handshakeResult{line: line, httpPort: httpPort, token: tok}
+			handshake <- handshakeResult{line: line, httpPort: httpPort}
 			// Keep draining stdout until EOF so the backend never blocks on a
 			// full pipe; the handshake result is already delivered.
 			for scanner.Scan() {
@@ -296,12 +288,12 @@ func startBackendBinary(t *testing.T, binPath, dataDir, token string) backendPro
 		t.Fatalf("backend handshake %q: missing port", hs.line)
 	}
 
-	proc := backendProc{cmd: cmd, httpPort: hs.httpPort, token: hs.token}
+	done := make(chan error, 1)
+	go func() { done <- cmd.Wait(); close(done) }()
+	proc := backendProc{cmd: cmd, httpPort: hs.httpPort, stdin: stdinW, done: done}
 	t.Cleanup(func() {
 		_ = stdinW.Close()
 		_ = cmd.Process.Signal(os.Interrupt)
-		done := make(chan struct{})
-		go func() { _ = cmd.Wait(); close(done) }()
 		select {
 		case <-done:
 		case <-time.After(5 * time.Second):

@@ -141,10 +141,20 @@ function normalizeConversionTags<T extends { no_effect_tags?: string[]; other_ta
 export class ApiClient implements ApiClientContract {
   private readonly baseUrl: string
   private readonly token: string | null
+  private readonly onUnauthorized?: () => void
 
   constructor(config: ApiConfig) {
     this.baseUrl = config.baseUrl.replace(/\/+$/, '')
     this.token = config.token
+    this.onUnauthorized = config.onUnauthorized
+  }
+
+  createSession(token: string): Promise<void> {
+    return this.request('/session', { method: 'POST', body: { token } })
+  }
+
+  deleteSession(): Promise<void> {
+    return this.request('/session', { method: 'DELETE' })
   }
 
   getHealth(signal?: AbortSignal): Promise<HealthResponse> {
@@ -772,7 +782,7 @@ export class ApiClient implements ApiClientContract {
   ): Promise<{ body: T; headers: Headers }> {
     const response = await fetch(this.url(path), {
       method: options.method ?? 'GET',
-      headers: { ...this.headers(options.body !== undefined), ...options.headers },
+      headers: { ...Object.fromEntries(this.headers(options.body !== undefined)), ...options.headers },
       body: options.body === undefined ? undefined : JSON.stringify(options.body),
       signal,
     })
@@ -782,6 +792,7 @@ export class ApiClient implements ApiClientContract {
   }
 
   private async toApiError(response: Response): Promise<ApiError> {
+    if (response.status === 401 && this.token === null) this.onUnauthorized?.()
     let envelope: ErrorEnvelope = {}
     try {
       envelope = (await response.json()) as ErrorEnvelope

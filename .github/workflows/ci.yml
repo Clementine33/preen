@@ -3,6 +3,7 @@ name: CI
 on:
   push:
     branches: [main]
+    tags: ['v*']
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -29,7 +30,7 @@ jobs:
       web: ${{ steps.paths.outcome != 'success' || steps.paths.outputs.web == 'true' }}
     steps:
       - id: duplicate
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && github.ref_type == 'branch'
         continue-on-error: true
         uses: fkirc/skip-duplicate-actions@v5
       - id: paths
@@ -43,7 +44,6 @@ jobs:
               - 'mise.toml'
               - 'Taskfile.yml'
               - '.github/workflows/ci.yml'
-              - 'config.json.template'
             web:
               - 'frontend/web/**'
               - 'scripts/**'
@@ -146,6 +146,9 @@ jobs:
           cache: true
           cache_key_prefix: mise-windows
       - run: task build:go:windows-x64
+      - name: Check first-start configuration delivery on Windows
+        working-directory: backend/go
+        run: go test ./internal/adapters/settings -count=1
       - name: Check conversion handles and strict moves on Windows
         working-directory: backend/go
         run: go test ./internal/adapters/filesystem -run "TestConversion(SourceHandleKeepsPlatformIdentity|Probe)" -count=1
@@ -227,4 +230,102 @@ jobs:
             for check in "$GO" "$WEB" "$RACE" "$WINDOWS" "$E2E" "$VULN"; do
               test "$check" = success
             done
+          fi
+
+
+  image:
+    needs: result
+    if: github.event_name == 'push' && github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      stable: ${{ steps.version.outputs.stable }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: jdx/mise-action@v4
+        with:
+          minimum_release_age: 7d
+          cache: true
+          cache_key_prefix: mise-container
+      - name: Validate release tag
+        id: version
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict'
+          import { appendFileSync } from 'node:fs'
+          const tag = process.env.RELEASE_TAG
+          const match = /^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/.exec(tag)
+          assert(match, 'Expected vMAJOR.MINOR.PATCH with optional SemVer prerelease')
+          assert(!match[4]?.split('.').some(id => /^[0-9]+$/.test(id) && id.length > 1 && id.startsWith('0')), 'Numeric prerelease identifiers must not have leading zeros')
+          const version = tag.slice(1)
+          assert(version.length <= 128 && !version.endsWith('-dev'), 'Invalid release image version')
+          appendFileSync(process.env.GITHUB_OUTPUT, `version=${version}\nstable=${!match[4]}\n`)
+          NODE
+      - name: Build release image without registry credentials
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          docker build --platform linux/amd64 --build-arg "VERSION=$VERSION" \
+            --label "org.opencontainers.image.source=https://github.com/${GITHUB_REPOSITORY}" \
+            --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+            --label "org.opencontainers.image.version=$VERSION" \
+            -t preen:release .
+      - name: Smoke test the image that will be published
+        run: node scripts/docker-smoke.mjs preen:release
+      - name: Export tested image
+        run: docker save -o /tmp/preen-image.tar preen:release
+      - uses: actions/upload-artifact@v7
+        with:
+          name: preen-image
+          path: /tmp/preen-image.tar
+          compression-level: 0
+          retention-days: 1
+
+  publish:
+    needs: image
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    # Serialize all versions: the existence check and latest update share a lock.
+    concurrency:
+      group: ghcr-preen-publish
+      cancel-in-progress: false
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: preen-image
+          path: /tmp
+      - run: docker load -i /tmp/preen-image.tar
+      - name: Refuse existing versions and publish tested image
+        env:
+          VERSION: ${{ needs.image.outputs.version }}
+          STABLE: ${{ needs.image.outputs.stable }}
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          image=ghcr.io/clementine33/preen
+          auth=$(curl --fail-with-body --silent --show-error \
+            --user "$GHCR_USER:$GHCR_TOKEN" \
+            'https://ghcr.io/token?service=ghcr.io&scope=repository:clementine33/preen:pull,push')
+          token=$(jq -er '.token | select(type == "string" and length > 0)' <<< "$auth")
+          echo "::add-mask::$token"
+          status=$(curl --silent --show-error --output /tmp/manifest-response --write-out '%{http_code}' \
+            --header "Authorization: Bearer $token" \
+            --header 'Accept: application/vnd.oci.image.index.v1+json, application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.docker.distribution.manifest.v2+json' \
+            "https://ghcr.io/v2/clementine33/preen/manifests/$VERSION")
+          case "$status" in
+            404) ;;
+            200) echo "Version $VERSION already exists; refusing to overwrite" >&2; exit 1 ;;
+            *) echo "Cannot verify version availability (HTTP $status); refusing to publish" >&2; exit 1 ;;
+          esac
+          trap 'docker logout ghcr.io' EXIT
+          printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GHCR_USER" --password-stdin
+          docker tag preen:release "$image:$VERSION"
+          docker push "$image:$VERSION"
+          if [ "$STABLE" = true ]; then
+            docker tag preen:release "$image:latest"
+            docker push "$image:latest"
           fi

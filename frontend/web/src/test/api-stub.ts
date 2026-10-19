@@ -7,6 +7,8 @@ import type { ApiClientContract } from '@/lib/api/types'
 // method only needs to be added here instead of in every test file.
 export function apiStub(overrides: Partial<ApiClientContract> = {}): ApiClientContract {
   const base = {
+    createSession: vi.fn().mockResolvedValue(undefined),
+    deleteSession: vi.fn().mockResolvedValue(undefined),
     getHealth: vi.fn().mockResolvedValue({ ok: true, version: 'test' }),
     listLibraries: vi.fn().mockResolvedValue([]),
     getLibrary: vi.fn(),

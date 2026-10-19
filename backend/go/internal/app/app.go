@@ -11,7 +11,6 @@ import (
 	"log"
 	"net"
 	"net/http"
-	_ "net/http/pprof"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -43,17 +42,33 @@ import (
 	"github.com/Clementine33/preen/backend/internal/workset"
 )
 
-// defaultCORSOrigins is the fallback PREEN_CORS_ORIGINS allowlist: the local
-// Vite dev servers from the Vue prototype.
-const defaultCORSOrigins = "http://localhost:5173,http://127.0.0.1:5173"
-
 // Run starts the process: it opens the repository, assembles the services,
 // serves until ctx is done, and returns once everything it started has stopped.
 // Startup failures are fatal (log.Fatalf) so CI and dev surface them.
 func Run(ctx context.Context, cfg Config) {
-	server, err := appconfig.NewReader(cfg.ConfigDir).Server(cfg.Token)
+	if err := appconfig.SeedDefaults(cfg.ConfigDir); err != nil {
+		log.Fatalf("initial configuration: %v", err)
+	}
+	server, err := appconfig.NewReader(cfg.ConfigDir).Server(cfg.Token, cfg.AllowLAN, cfg.Port)
 	if err != nil {
 		log.Fatalf("server configuration: %v", err)
+	}
+	var webRoot *os.Root
+	if cfg.WebDir != "" {
+		webRoot, err = os.OpenRoot(cfg.WebDir)
+		if err != nil {
+			log.Fatalf("web directory: %v", err)
+		}
+		defer webRoot.Close()
+		index, openErr := webRoot.Open("index.html")
+		if openErr != nil {
+			log.Fatalf("web directory index.html: %v", openErr)
+		}
+		info, statErr := index.Stat()
+		_ = index.Close()
+		if statErr != nil || !info.Mode().IsRegular() {
+			log.Fatal("web directory must contain a readable index.html file")
+		}
 	}
 	dbPath := filepath.Join(cfg.DataDir, "cache.db")
 	if ensureErr := sqlite.EnsureDBPath(dbPath); ensureErr != nil {
@@ -77,24 +92,24 @@ func Run(ctx context.Context, cfg Config) {
 	// cannot change it later (ADR 0001).
 	logAutoVacuumMode(ctx, repo)
 
-	runServer(ctx, repo, cfg, server)
+	runServer(ctx, repo, cfg, server, webRoot)
 }
 
 // Config is what the process is started with: where its data and configuration
-// live, a nonempty host-provided token override, and the build's version.
+// live, the build's version, and optional listener, token and web overrides.
 type Config struct {
 	DataDir   string
 	ConfigDir string
 	Token     string
 	Version   string
+	AllowLAN  *bool
+	Port      *int
+	WebDir    string
 }
 
 // ParseCORSOrigins splits a comma-separated allowlist into a slice, trimming
-// whitespace and dropping empty segments. An empty input yields the defaults.
+// whitespace and dropping empty segments. An empty input disables cross-origin access.
 func ParseCORSOrigins(raw string) []string {
-	if strings.TrimSpace(raw) == "" {
-		raw = defaultCORSOrigins
-	}
 	parts := strings.Split(raw, ",")
 	out := make([]string, 0, len(parts))
 	for _, p := range parts {
@@ -325,9 +340,13 @@ func startCoverWorkers(ctx context.Context, service *coverdelivery.Service) <-ch
 
 // runServer starts the HTTP listener and blocks until the process is killed.
 // Startup failures are fatal (log.Fatalf) so CI/dev surfaces them.
-func runServer(ctx context.Context, repo *sqlite.Repository, cfg Config, server appconfig.ServerConfig) {
-	StartPprofServer("127.0.0.1:6060", http.ListenAndServe)
-
+func runServer(
+	ctx context.Context,
+	repo *sqlite.Repository,
+	cfg Config,
+	server appconfig.ServerConfig,
+	webRoot *os.Root,
+) {
 	httpListener, err := net.Listen("tcp", server.ListenAddress())
 	if err != nil {
 		log.Fatalf("http listen: %v", err)
@@ -377,6 +396,7 @@ func runServer(ctx context.Context, repo *sqlite.Repository, cfg Config, server 
 		Token:          server.Token,
 		CORSOrigins:    ParseCORSOrigins(os.Getenv("PREEN_CORS_ORIGINS")),
 		Version:        cfg.Version,
+		WebRoot:        webRoot,
 		Inventory:      services.scan,
 		MediaFacts:     services.mediaFacts,
 		WorksChanged:   services.worksChanged,
@@ -410,7 +430,7 @@ func runServer(ctx context.Context, repo *sqlite.Repository, cfg Config, server 
 	// Print the ready handshake BEFORE blocking — the dev and e2e launchers
 	// read this line to learn the HTTP port
 	//nolint:forbidigo // stdout handshake is a wire protocol for the host
-	fmt.Println(BuildHandshakeLine(server.Token, cfg.Version, httpPort))
+	fmt.Println(BuildHandshakeLine(cfg.Version, httpPort))
 
 	// Block until killed
 	log.Printf("preen listening on http %s (data=%s)", httpListener.Addr(), cfg.DataDir)
@@ -466,14 +486,6 @@ func DrainHTTPServer(
 	case <-ctx.Done():
 		_ = httpClose()
 	}
-}
-
-func StartPprofServer(addr string, serveFn func(string, http.Handler) error) {
-	go func() {
-		if err := serveFn(addr, nil); err != nil {
-			log.Printf("pprof server exited: %v", err)
-		}
-	}()
 }
 
 func conversionIO(scanPipeline *inventory.Pipeline) conversion.ExecutionIO {

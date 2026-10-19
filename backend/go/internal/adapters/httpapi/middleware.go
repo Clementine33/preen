@@ -2,12 +2,14 @@ package httpapi
 
 import (
 	"crypto/subtle"
+	"encoding/base64"
 	"log"
 	"net/http"
+	"net/url"
 	"strings"
 )
 
-// authMiddleware enforces a static bearer token on protected routes. An empty
+// authMiddleware accepts a Bearer header or browser cookie. An empty
 // configured token disables auth entirely (local-developer mode).
 func authMiddleware(token string) func(http.Handler) http.Handler {
 	return tokenAuth(token, false)
@@ -29,16 +31,41 @@ func tokenAuth(token string, fromQuery bool) func(http.Handler) http.Handler {
 			}
 			const prefix = "Bearer "
 			got, ok := strings.CutPrefix(r.Header.Get("Authorization"), prefix)
-			if len(r.Header.Values("Authorization")) == 0 && fromQuery {
-				got, ok = r.URL.Query().Get("access_token"), true
+			fromCookie := false
+			if len(r.Header.Values("Authorization")) == 0 {
+				if cookie, err := r.Cookie("preen_token"); err == nil {
+					decoded, decodeErr := base64.RawURLEncoding.DecodeString(cookie.Value)
+					got, ok = string(decoded), decodeErr == nil
+					fromCookie = true
+				} else if fromQuery {
+					got, ok = r.URL.Query().Get("access_token"), true
+				}
 			}
 			if !ok || subtle.ConstantTimeCompare([]byte(got), []byte(token)) != 1 {
 				writeError(w, http.StatusUnauthorized, "UNAUTHORIZED", "missing or invalid bearer token")
 				return
 			}
+			if fromCookie && r.Method != http.MethodGet && r.Method != http.MethodHead && !sameOriginWrite(r) {
+				writeError(w, http.StatusForbidden, "FORBIDDEN", "cookie write requests require the same origin")
+				return
+			}
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+func sameOriginWrite(r *http.Request) bool {
+	if sites := r.Header.Values("Sec-Fetch-Site"); len(sites) != 0 {
+		return len(sites) == 1 && sites[0] == "same-origin"
+	}
+	if origins := r.Header.Values("Origin"); len(origins) != 0 {
+		if len(origins) != 1 {
+			return false
+		}
+		origin, err := url.Parse(origins[0])
+		return err == nil && (origin.Scheme == "http" || origin.Scheme == "https") && origin.Host == r.Host
+	}
+	return true
 }
 
 // corsMiddleware echoes the configured allowlisted origins. Origins outside

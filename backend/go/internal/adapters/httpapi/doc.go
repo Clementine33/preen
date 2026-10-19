@@ -1,4 +1,5 @@
-// Package httpapi exposes business entries through the loopback HTTP API. It
+// Package httpapi exposes business entries through the HTTP API and optionally
+// serves the built application from a confined filesystem root. It
 // owns routing, authentication, request decoding, wire projections, error/status
 // mapping, SSE framing and HTTP semantics for served media bytes.
 //

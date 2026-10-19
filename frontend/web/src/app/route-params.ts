@@ -40,6 +40,7 @@ const ID_LIST = /^[\w-]+(,[\w-]+)*$/
  * carries its own shape instead of an enumerated list.
  */
 const OPEN_VALUE: Record<string, RegExp> = {
+  redirect: /[\s\S]/,
   // The selected work of the wall: a work number in either spelling the API
   // accepts (6 or 8 digits, any case); 7 digits is no work number (docs/api.md).
   rj: /^RJ(\d{6}|\d{8})$/i,
@@ -83,6 +84,7 @@ const CONVERSION_SUBTREE = [
 ]
 
 const ALLOWED_PARAMS: Record<string, readonly string[]> = {
+  login: ['redirect'],
   ...Object.fromEntries(CONVERSION_SUBTREE.map((name) => [name, ['filter']])),
   'conversion-member-files': ['filter', 'view'],
   'collection-detail': ['sort', 'direction'],

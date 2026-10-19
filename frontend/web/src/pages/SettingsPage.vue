@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import GlobalMenu from '@/components/layout/GlobalMenu.vue'
+import { Button } from '@/components/ui/button'
+import { useApiClient } from '@/lib/api/client'
 import FormatPreferenceSettings from '@/features/settings/FormatPreferenceSettings.vue'
 import SettingsField from '@/features/settings/SettingsField.vue'
 import SettingsSegmented from '@/features/settings/SettingsSegmented.vue'
@@ -26,6 +28,23 @@ const section = computed(() => SECTIONS.find((item) => item.id === route.params.
 
 const { theme } = useTheme()
 const { preference, systemReduces } = useMotion()
+const api = useApiClient()
+const loggingOut = ref(false)
+const logoutError = ref('')
+
+async function logout(): Promise<void> {
+  if (loggingOut.value) return
+  loggingOut.value = true
+  logoutError.value = ''
+  try {
+    await api.deleteSession()
+    location.replace('/login')
+  } catch {
+    logoutError.value = '退出失败，请重试。'
+  } finally {
+    loggingOut.value = false
+  }
+}
 </script>
 
 <template>
@@ -33,7 +52,11 @@ const { preference, systemReduces } = useMotion()
     <header class="flex min-h-14 shrink-0 items-center gap-3 edge-bottom px-4 py-1.5 rail:px-5">
       <GlobalMenu />
       <h1 class="font-heading text-sm font-semibold">设置</h1>
+      <Button variant="outline" class="ml-auto" :disabled="loggingOut" data-testid="logout" @click="logout">
+        {{ loggingOut ? '退出中…' : '退出登录' }}
+      </Button>
     </header>
+    <p v-if="logoutError" role="alert" class="px-4 py-2 text-sm text-destructive">{{ logoutError }}</p>
 
     <div class="flex min-h-0 flex-1 flex-col rail:flex-row">
       <nav

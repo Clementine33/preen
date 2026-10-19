@@ -7,17 +7,16 @@
  *      with PREEN_DATA_DIR=<repo>/.dev_data so dev data never touches the
  *      real library location.
  *   2. Read the backend's stdout handshake:
- *        PREEN_BACKEND_READY token=<token> version=<v> http_port=<http>
- *      and launch Vite with VITE_API_BASE=http://127.0.0.1:<http>/api/v1.
+ *        PREEN_BACKEND_READY version=<v> http_port=<http>
+ *      and launch Vite with PREEN_BACKEND_URL=http://127.0.0.1:<http> for its /api proxy.
  *   3. On exit (SIGINT/SIGTERM, Vite exit, backend exit) tear down the
  *      backend first, cross-platform, using plain Node child processes —
  *      no shell scripting.
  *
- * The backend itself watches its parent and shuts down when we die, which
- * acts as a second safety net on top of the explicit kill below.
+ * The backend watches our held stdin pipe and shuts down when it closes.
  */
 import { spawn } from 'node:child_process'
-import { copyFileSync, existsSync, mkdirSync } from 'node:fs'
+import { mkdirSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -30,17 +29,7 @@ const isWin = process.platform === 'win32'
 
 mkdirSync(dataDir, { recursive: true })
 
-// Seed the dev config from config.json.template when absent so the backend's
-// classifier seed (prune.no_effect_tags) is available to new workset drafts.
-// An existing .dev_data/config.json is never overwritten.
-const devConfig = path.join(dataDir, 'config.json')
-const configTemplate = path.join(repoRoot, 'config.json.template')
-if (!existsSync(devConfig) && existsSync(configTemplate)) {
-  copyFileSync(configTemplate, devConfig)
-  console.log(`[dev-web] seeded ${devConfig} from config.json.template`)
-}
-
-const backend = spawn('go', ['run', './cmd/preen'], {
+const backend = spawn('go', ['run', './cmd/preen', '--watch-stdin'], {
   cwd: backendDir,
   env: { ...process.env, PREEN_DATA_DIR: dataDir },
   // We hold the backend's stdin open ourselves: the backend watches stdin
@@ -59,18 +48,17 @@ const backend = spawn('go', ['run', './cmd/preen'], {
 let lineBuffer = ''
 let vite = null
 let teardownStarted = false
-let teardownExitCode = 0
 
-function launchVite(apiBase) {
+function launchVite(backendURL) {
   // Launch vite directly via its bin entry (node node_modules/vite/bin/vite.js)
   // instead of a pnpm shim: Windows pnpm installs may expose only pnpm.exe
   // (scoop shim, no pnpm.cmd), and even with a .cmd shim cmd.exe has
   // unreliable argument pass-through (the e2e launcher observed dropped
   // flags). A direct node spawn needs no shell and no shim.
   const viteBin = path.join(webDir, 'node_modules', 'vite', 'bin', 'vite.js')
-  vite = spawn(process.execPath, [viteBin, '--host', '127.0.0.1', '--port', '5173', '--strictPort'], {
+  vite = spawn(process.execPath, [viteBin, '--host', '127.0.0.1'], {
     cwd: webDir,
-    env: { ...process.env, VITE_API_BASE: apiBase },
+    env: { ...process.env, PREEN_BACKEND_URL: backendURL },
     stdio: 'inherit',
   })
   vite.on('exit', (code) => {
@@ -84,16 +72,15 @@ function launchVite(apiBase) {
 }
 
 function handleLine(line) {
-  // PREEN_BACKEND_READY token=tok-1 version=v1 http_port=54321
-  // (token may be empty in dev runs)
-  const match = /^PREEN_BACKEND_READY token=\S* version=\S+ http_port=(\d+)$/.exec(
+  // PREEN_BACKEND_READY version=v1 http_port=54321
+  const match = /^PREEN_BACKEND_READY version=\S+ http_port=(\d+)$/.exec(
     line.trim(),
   )
   if (!match) return
-  const apiBase = `http://127.0.0.1:${match[1]}/api/v1`
+  const backendURL = `http://127.0.0.1:${match[1]}`
   console.log(`[dev-web] backend ready (http_port=${match[1]})`)
-  console.log(`[dev-web] VITE_API_BASE=${apiBase}`)
-  launchVite(apiBase)
+  console.log(`[dev-web] PREEN_BACKEND_URL=${backendURL}`)
+  launchVite(backendURL)
 }
 
 backend.stdout.on('data', (chunk) => {
@@ -107,13 +94,12 @@ backend.stdout.on('data', (chunk) => {
 
 backend.on('exit', (code) => {
   if (teardownStarted) {
-    // The backend exiting during teardown is expected; keep the exit code
-    // we chose (e.g. 130/143 for SIGINT/SIGTERM) instead of the backend's.
-    process.exit(teardownExitCode)
+    // Teardown owns the chosen exit code and waits for backend shutdown.
+    return
   } else {
     console.error(`[dev-web] backend exited unexpectedly (code ${code})`)
     // Route through teardown so Windows process-tree cleanup (taskkill /T)
-    // still runs and Vite is not left holding port 5173.
+    // still runs and Vite is not left holding its port.
     teardown(code ?? 1)
   }
 })
@@ -126,7 +112,6 @@ backend.on('error', (err) => {
 function teardown(exitCode = 0) {
   if (teardownStarted) return
   teardownStarted = true
-  teardownExitCode = exitCode
 
   // Stop Vite first (it is the foreground piece; the backend is the
   // long-lived daemon that must not outlive us). Vite is now a plain node
@@ -146,27 +131,27 @@ function teardown(exitCode = 0) {
     /* pipe may already be closed */
   }
 
-  if (isWin) {
-    // taskkill /T takes the whole tree (go run + compiled backend exe).
-    const kill = spawn('taskkill', ['/pid', String(backend.pid), '/t', '/f'])
-    kill.on('error', finish)
-    kill.on('exit', finish)
-  } else {
-    try {
-      process.kill(-backend.pid, 'SIGTERM')
-    } catch {
-      backend.kill('SIGTERM')
+  // EOF is the graceful stop on every platform, including Windows.
+  const timeout = setTimeout(() => {
+    if (isWin) {
+      const kill = spawn('taskkill', ['/pid', String(backend.pid), '/t', '/f'])
+      kill.on('error', finish)
+      kill.on('exit', finish)
+    } else {
+      try {
+        process.kill(-backend.pid, 'SIGKILL')
+      } catch {
+        backend.kill('SIGKILL')
+      }
     }
-    // Give the backend a moment to shut down (it also self-terminates when
-    // its parent watcher sees us exit).
-    setTimeout(finish, 250)
-  }
+  }, 6000)
+  backend.once('exit', () => { clearTimeout(timeout); finish() })
 }
 
 process.on('SIGINT', () => teardown(130))
 process.on('SIGTERM', () => teardown(143))
 // A closing pty sends SIGHUP; the default action would kill us without
-// running teardown, orphaning Vite on port 5173.
+// running teardown, orphaning Vite on its port.
 process.on('SIGHUP', () => teardown(129))
 
 console.log(`[dev-web] starting backend (data dir: ${dataDir})`)

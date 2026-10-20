@@ -387,13 +387,6 @@ function onRow(i: number) {
 /* Left: the list */
 .listwrap { display: grid; grid-template-columns: 28px minmax(0, 1fr); min-height: 0; }
 .listwrap .panel, .deck .panel { height: 100%; }
-/* The list floats: a hatched ghost of the panel offset 6px, no outline. Hatched, not solid, so it never
-   reads as a matching bar to the gutter's double barline and boxes the panel in. 34px = gutter + offset. */
-.listwrap { position: relative; isolation: isolate; }
-.listwrap::after {
-  content: ''; position: absolute; z-index: -1; left: 34px; top: 4px; right: -4px; bottom: -4px;
-  background: repeating-linear-gradient(135deg, var(--wire-fine) 0 1px, transparent 1px 5px);
-}
 .gutter { position: relative; }
 .gutter::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 8px; background: var(--wire-fine); }
 .gutter::after { content: ''; position: absolute; left: 12px; top: 0; bottom: 0; width: 3px; background: var(--wire-mid); opacity: .6; }
@@ -431,7 +424,7 @@ function onRow(i: number) {
   font-size: var(--fs-l); font-weight: 500; white-space: nowrap; overflow: hidden;
 }
 .deck-strip::before { content: ''; flex: none; width: 14px; height: 14px; background: var(--invert-bg); }
-.deck-strip span { overflow: hidden; text-overflow: ellipsis; animation: wipe 200ms var(--ease-out) both; }
+.deck-strip span { overflow: hidden; line-height: 28px; text-overflow: ellipsis; animation: wipe 200ms var(--ease-out) both; }
 @keyframes wipe { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
 .deck .panel { flex: 1; height: auto; }
 .deck-body { position: absolute; inset: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--sp-5); padding: 22px 24px; }

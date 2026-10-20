@@ -154,7 +154,13 @@ describe('deriveTracks', () => {
     [['a.lrc'], 'a.lrc'],
     [['other.vtt', 'a.lrc'], 'a.lrc'],
     [['other.vtt'], null],
-  ] as const)('prefers same-stem VTT with LRC fallback for %j', (names, expected) => {
+    [['a.mp3.vtt'], 'a.mp3.vtt'],
+    [['a.mp3.lrc'], 'a.mp3.lrc'],
+    [['a.lrc', 'a.mp3.VTT'], 'a.mp3.VTT'],
+    [['a.VTT', 'a.mp3.lrc'], 'a.VTT'],
+    [['a.vtt', 'a.mp3.vtt', 'a.lrc'], 'a.mp3.vtt'],
+    [['a.wav.vtt', 'a.mp3.vtt.bak'], null],
+  ] as const)('prefers VTT with LRC fallback for matching lyric names %j', (names, expected) => {
     const tracks = deriveTracks(d('', [
       f('a.mp3', 'aud', { format: 'MP3' }),
       ...names.map((name) => f(`lyrics/${name}`, 'lrc')),
@@ -167,6 +173,16 @@ describe('deriveTracks', () => {
     return f(path, 'aud', { format: ext.toUpperCase() })
   }
   const layout = (...paths: string[]) => d('', paths.map(aud))
+
+  it.each(['vtt', 'lrc'])('pairs full audio filenames from any format of a track (%s)', (extension) => {
+    const tree = d('', [
+      ...['mp3/預約電話.mp3', 'wav/預約電話.wav'].map(aud),
+      f(`預約電話.wav.${extension}`, 'lrc'),
+    ])
+    const tracks = deriveTracks(tree)
+    expect(tracks).toHaveLength(1)
+    expect(tracks[0].lrcRel).toBe(`預約電話.wav.${extension}`)
+  })
 
   it.each([
     ['plain format folders', ['wav /1.wav', 'wav /2.wav', 'mp3/1.mp3', 'mp3/2.mp3'], ['1', '2'], 2],
@@ -194,6 +210,15 @@ describe('deriveTracks', () => {
       f('SE無/1.lrc', 'lrc'),
     ])
     expect(deriveTracks(tree).map((track) => track.lrcRel)).toEqual(['SE有/1.lrc', 'SE無/1.lrc'])
+  })
+
+  it('prefers same-variant LRC over other-variant VTT across both naming styles', () => {
+    const tree = d('', [
+      ...['SE有/mp3/1.mp3', 'SE無/mp3/1.mp3'].map(aud),
+      f('SE有/1.mp3.lrc', 'lrc'),
+      f('SE無/1.vtt', 'lrc'),
+    ])
+    expect(deriveTracks(tree).map((track) => track.lrcRel)).toEqual(['SE有/1.mp3.lrc', 'SE無/1.vtt'])
   })
 
   it('keeps the duration of whichever format reported one', () => {

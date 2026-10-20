@@ -135,8 +135,12 @@ It is served by the same content route (Range, `access_token`) and carries
 sniffed `video/*` type, else `video/mp4`.
 
 The `lrc` kind includes timed lyrics with `.lrc` or `.vtt` extensions
-(case-insensitive). The detail page pairs these by audio basename, preferring
-`.vtt` and falling back to `.lrc`. A manual pairing takes precedence. It reads
+(case-insensitive). The detail page pairs these when the lyric filename without
+its final extension equals the audio stem or a full filename of any audio format
+present on the track (for example, `預約電話.mp3.vtt` matches `預約電話.mp3`).
+Both naming styles have equal priority. Matching filenames are case-sensitive;
+the same variant directory (after format-marker normalization) takes precedence,
+then `.vtt` is preferred over `.lrc` within each group. A manual pairing takes precedence. It reads
 their bytes through the content route and follows the playing track's audio position. WebVTT cue end times
 clear the highlight during gaps; clicking a line seeks only its matching track.
 

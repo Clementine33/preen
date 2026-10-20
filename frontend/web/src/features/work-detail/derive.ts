@@ -98,7 +98,7 @@ export interface Track {
   files: Partial<Record<string, WorkContentFile>>
   /** Every format this track exists in, in first-seen order. */
   formats: string[]
-  /** The same-basename timed lyrics (LRC or WebVTT), the automatic pairing. */
+  /** Timed lyrics matching the track stem or a full audio filename, the automatic pairing. */
   lrcRel: string | null
   duration: number | null
 }
@@ -158,8 +158,9 @@ export function deriveTracks(tree: WorkContentDir): Track[] {
   }
   const lrcVariants = new Map(lrcs.map((lrc) => [lrc, variantOf(dirOf(lrc.rel_path), formats)]))
   return [...byKey].map(([key, entry]) => {
-    const sameStem = lrcs.filter((lrc) => stemOf(lrc.name) === entry.stem)
-    const lrc = sameStem.find((l) => lrcVariants.get(l) === entry.variant) ?? sameStem[0]
+    const names = new Set([entry.stem, ...Object.values(entry.files).flatMap((file) => (file ? [file.name] : []))])
+    const matches = lrcs.filter((lrc) => names.has(stemOf(lrc.name)))
+    const lrc = matches.find((l) => lrcVariants.get(l) === entry.variant) ?? matches[0]
     return {
       key,
       stem: entry.stem,

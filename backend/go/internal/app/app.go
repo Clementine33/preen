@@ -209,10 +209,11 @@ func buildServices(repo *sqlite.Repository, configDir, dataDir string) services 
 	// Generation refreshes inventory; conversion execution checks disk facts
 	// without writing inventory. Rename also reads current
 	// catalog metadata and immediate directory occupancy.
+	upstreamProxy := newUpstreamProxy(repo)
 	worksSvc := works.NewService(
-		repo, repo, filesystem.ResolveMember, filesystem.ResolveMemberFile, media.ThumbEngineVersion,
+		upstreamProxy, repo, filesystem.ResolveMember, filesystem.ResolveMemberFile, media.ThumbEngineVersion,
 	)
-	scraperClient := scraper.New(nil)
+	scraperClient := scraper.NewProxied(upstreamProxy.Resolve)
 	metadataSvc := refresh.NewService(worksSvc, repo, scraperClient, scraperClient)
 	coverStage, err := filesystem.NewCoverStaging(filepath.Join(dataDir, "cover-staging"))
 	if err != nil {
@@ -221,7 +222,7 @@ func buildServices(repo *sqlite.Repository, configDir, dataDir string) services 
 	coverSvc, err := coverdelivery.New(
 		coverdelivery.Dependencies{
 			Store:           repo,
-			Downloader:      coverhttp.New(nil),
+			Downloader:      coverhttp.NewProxied(upstreamProxy.Resolve),
 			Source:          scraperClient,
 			Files:           filesystem.CoverFiles{},
 			Staging:         coverStage,

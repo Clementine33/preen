@@ -14,7 +14,7 @@ afterEach(() => vi.unstubAllGlobals())
 async function mountPage(api: ReturnType<typeof apiStub>, path = '/settings') {
   const router = createRouter({
     history: createMemoryHistory(),
-    routes: [{ path: '/settings/:section(appearance|tags)?', name: 'settings', component: SettingsPage }],
+    routes: [{ path: '/settings/:section(appearance|network|tags)?', name: 'settings', component: SettingsPage }],
   })
   await router.push(path)
   const wrapper = mount(SettingsPage, {
@@ -114,6 +114,31 @@ describe('settings: format preference', () => {
     await wrapper.get('[aria-label="移除 WAV"]').trigger('click')
     await flushPromises()
     expect(rows().map((row) => row.get('span.font-mono').text())).toEqual(['FLAC', 'WAV', 'MP3'])
+  })
+})
+
+describe('settings: upstream proxy', () => {
+  it('loads the stored URL, saves it, and keeps a refused value beside the field', async () => {
+    const putUpstreamProxy = vi.fn(async (input: { url: string }) => ({ url: input.url.trim() }))
+    const wrapper = await mountPage(apiStub({
+      getUpstreamProxy: vi.fn().mockResolvedValue({ url: 'socks5://127.0.0.1:7890' }),
+      putUpstreamProxy,
+    }), '/settings/network')
+    const input = wrapper.get<HTMLInputElement>('[data-testid="upstream-proxy-url"]')
+    expect(input.element.value).toBe('socks5://127.0.0.1:7890')
+
+    await input.setValue(' http://proxy:8080 ')
+    await wrapper.get('[data-testid="upstream-proxy"]').trigger('submit')
+    await flushPromises()
+    expect(putUpstreamProxy).toHaveBeenLastCalledWith({ url: ' http://proxy:8080 ' })
+    expect(input.element.value).toBe('http://proxy:8080')
+
+    putUpstreamProxy.mockRejectedValueOnce(new ApiError(400, 'INVALID_UPSTREAM_PROXY', 'scheme must be http'))
+    await input.setValue('ftp://x')
+    await wrapper.get('[data-testid="upstream-proxy"]').trigger('submit')
+    await flushPromises()
+    expect(wrapper.get('[data-testid="upstream-proxy-error"]').text()).toContain('scheme must be http')
+    expect(input.element.value).toBe('ftp://x')
   })
 })
 

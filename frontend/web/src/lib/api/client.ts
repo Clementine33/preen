@@ -52,6 +52,7 @@ import type {
   WorksScope,
   WorkListResponse,
   WorkUserData,
+  UpstreamProxy,
   UserPreferences,
   WorkUserTag,
   Workset,
@@ -456,6 +457,15 @@ export class ApiClient implements ApiClientContract {
 
   putPreferences(input: UserPreferences): Promise<UserPreferences> {
     return this.request('/preferences', { method: 'PUT', body: input })
+  }
+
+  // Last write wins; the answer is the trimmed URL (docs/api/upstream-proxy.md).
+  getUpstreamProxy(signal?: AbortSignal): Promise<UpstreamProxy> {
+    return this.request('/upstream-proxy', { signal })
+  }
+
+  putUpstreamProxy(input: UpstreamProxy): Promise<UpstreamProxy> {
+    return this.request('/upstream-proxy', { method: 'PUT', body: input })
   }
 
   // Creating by name is idempotent: an existing name answers with the existing

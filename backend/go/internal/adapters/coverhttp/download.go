@@ -1,4 +1,10 @@
 // Package coverhttp downloads only validated public cover CDN resources.
+//
+// The host allowlist and redirect checks always apply. Direct connections also
+// refuse non-public addresses (dialPublic). Through the Upstream Proxy that
+// dial check is skipped, since the administrator-chosen proxy may sit on
+// loopback or the LAN and resolves the CDN host itself; the proxy comes only
+// from the user setting, never from HTTP(S)_PROXY in the environment.
 package coverhttp
 
 import (
@@ -40,6 +46,45 @@ func New(client *http.Client) *Client {
 	}
 	return &Client{http: &c}
 }
+
+// NewProxied sends requests through the proxy that proxy reports for each
+// request, direct when it reports nil. An error fails the request, never a
+// direct fallback. The host allowlist and redirect checks apply either way;
+// the public-address dial check applies only to direct connections, because
+// the proxy address is chosen by the administrator and may be on loopback or
+// the LAN, and the proxy, not this process, then resolves the CDN host.
+func NewProxied(proxy func() (*url.URL, error)) *Client {
+	direct := (&http.Transport{ForceAttemptHTTP2: true}).Clone()
+	direct.DialContext = dialPublic
+	proxied := (&http.Transport{ForceAttemptHTTP2: true}).Clone()
+	proxied.Proxy = func(r *http.Request) (*url.URL, error) {
+		u, _ := r.Context().Value(proxyKey{}).(*url.URL)
+		return u, nil
+	}
+	return New(&http.Client{Transport: routed{proxy: proxy, direct: direct, proxied: proxied}})
+}
+
+type proxyKey struct{}
+
+// routed resolves the proxy once per request and hands that answer to the
+// transport, so a setting changed mid-request cannot pair a proxy with the
+// direct-dial check or the reverse.
+type routed struct {
+	proxy           func() (*url.URL, error)
+	direct, proxied *http.Transport
+}
+
+func (t routed) RoundTrip(r *http.Request) (*http.Response, error) {
+	u, err := t.proxy()
+	if err != nil {
+		return nil, err
+	}
+	if u == nil {
+		return t.direct.RoundTrip(r)
+	}
+	return t.proxied.RoundTrip(r.WithContext(context.WithValue(r.Context(), proxyKey{}, u)))
+}
+
 func allowed(u *url.URL) error {
 	if u.Scheme != "https" || u.Hostname() != "img.dlsite.jp" || u.User != nil ||
 		(u.Port() != "" && u.Port() != "443") {

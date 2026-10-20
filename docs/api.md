@@ -24,6 +24,6 @@ All endpoint documents use the shared authentication, error and path conventions
 | [Audio conversion](api/conversion.md) | Sparse conversion drafts, common settings, frozen revisions and conformance rules |
 | [Reusable policy slots and classifier tags](api/policies.md) | Policy slots and classifier tag vocabulary |
 | [User preferences](api/preferences.md) | Server-synced Format Preference |
-| [Upstream Proxy](api/upstream-proxy.md) | Deployment-wide outbound proxy for metadata sources and cover downloads |
+| [Outbound Proxy](api/outbound-proxy.md) | Deployment-wide outbound proxy for metadata sources and cover downloads |
 | [Work catalog](api/works.md) | Works, personal data, tags, content manifests, thumbnails, media facts, metadata imports and listing filters |
 | [Work collections](api/collections.md) | Ordered collections, built-in Favorites, incremental membership edits and deletion protection |

@@ -25,7 +25,7 @@ const (
 	CodeUserTagNotFound      = "USER_TAG_NOT_FOUND"
 	CodeTimestampFormat      = "INVALID_TIMESTAMP"
 	CodeInvalidPreferences   = "INVALID_PREFERENCES"
-	CodeInvalidUpstreamProxy = "INVALID_UPSTREAM_PROXY"
+	CodeInvalidOutboundProxy = "INVALID_OUTBOUND_PROXY"
 )
 
 // Error is one refusal, carrying the stable code a caller branches on.

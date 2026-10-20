@@ -27,7 +27,7 @@ type Client struct {
 
 // New accepts a transport for local tests. With nil it connects directly: the
 // production path never reads HTTP_PROXY, HTTPS_PROXY or NO_PROXY, because the
-// Upstream Proxy is a user setting (see NewProxied).
+// Outbound Proxy is a user setting (see NewProxied).
 func New(client *http.Client) *Client {
 	if client == nil {
 		client = &http.Client{Transport: directTransport()}

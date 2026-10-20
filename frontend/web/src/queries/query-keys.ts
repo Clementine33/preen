@@ -37,8 +37,8 @@ export const queryKeys = {
   preferences: {
     detail: () => ['preferences'] as const,
   },
-  upstreamProxy: {
-    detail: () => ['upstream-proxy'] as const,
+  outboundProxy: {
+    detail: () => ['outbound-proxy'] as const,
   },
   classifierTags: {
     list: () => ['classifier-tags', 'list'] as const,

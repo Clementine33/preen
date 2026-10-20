@@ -225,8 +225,8 @@ export interface UserPreferences {
   track_formats: string[]
 }
 
-/** The Upstream Proxy; empty means a direct connection (docs/api/upstream-proxy.md). */
-export interface UpstreamProxy {
+/** The Outbound Proxy; empty means a direct connection (docs/api/outbound-proxy.md). */
+export interface OutboundProxy {
   url: string
 }
 
@@ -1242,8 +1242,8 @@ export interface ApiClientContract {
   replaceWorkUserTags(rj: string, tagIds: string[]): Promise<WorkUserTag[]>
   getPreferences(signal?: AbortSignal): Promise<UserPreferences>
   putPreferences(input: UserPreferences): Promise<UserPreferences>
-  getUpstreamProxy(signal?: AbortSignal): Promise<UpstreamProxy>
-  putUpstreamProxy(input: UpstreamProxy): Promise<UpstreamProxy>
+  getOutboundProxy(signal?: AbortSignal): Promise<OutboundProxy>
+  putOutboundProxy(input: OutboundProxy): Promise<OutboundProxy>
   listUserTags(signal?: AbortSignal): Promise<WorkUserTag[]>
   createUserTag(name: string): Promise<WorkUserTag>
   renameUserTag(id: string, name: string): Promise<WorkUserTag>

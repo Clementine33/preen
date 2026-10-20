@@ -5,31 +5,31 @@ import (
 	"time"
 )
 
-// upstreamProxyKey is the common_settings row holding the Upstream Proxy URL.
+// outboundProxyKey is the common_settings row holding the Outbound Proxy URL.
 // Like preferences it is not a Task kind.
-const upstreamProxyKey = "upstream_proxy"
+const outboundProxyKey = "outbound_proxy"
 
-type storedUpstreamProxy struct {
+type storedOutboundProxy struct {
 	URL string `json:"url"`
 }
 
-// UpstreamProxy returns the stored Upstream Proxy URL, "" when never saved. A
+// OutboundProxy returns the stored Outbound Proxy URL, "" when never saved. A
 // row that cannot be decoded is an error: callers must not treat it as direct.
-func (r *Repository) UpstreamProxy() (string, error) {
-	row, err := r.GetCommonSettings(upstreamProxyKey)
+func (r *Repository) OutboundProxy() (string, error) {
+	row, err := r.GetCommonSettings(outboundProxyKey)
 	if err != nil || row == nil {
 		return "", err
 	}
-	var stored storedUpstreamProxy
+	var stored storedOutboundProxy
 	if err := json.Unmarshal([]byte(row.Settings), &stored); err != nil {
 		return "", err
 	}
 	return stored.URL, nil
 }
 
-// SaveUpstreamProxy upserts the Upstream Proxy URL; the last write wins.
-func (r *Repository) SaveUpstreamProxy(url string, now time.Time) error {
-	payload, err := json.Marshal(storedUpstreamProxy{URL: url})
+// SaveOutboundProxy upserts the Outbound Proxy URL; the last write wins.
+func (r *Repository) SaveOutboundProxy(url string, now time.Time) error {
+	payload, err := json.Marshal(storedOutboundProxy{URL: url})
 	if err != nil {
 		return err
 	}
@@ -39,6 +39,6 @@ func (r *Repository) SaveUpstreamProxy(url string, now time.Time) error {
 		ON CONFLICT(operation_type) DO UPDATE SET
 			settings_json = excluded.settings_json,
 			updated_at = excluded.updated_at
-	`, upstreamProxyKey, string(payload), now.Format(timeFormat))
+	`, outboundProxyKey, string(payload), now.Format(timeFormat))
 	return err
 }

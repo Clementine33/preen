@@ -1,7 +1,7 @@
 // Package coverhttp downloads only validated public cover CDN resources.
 //
 // The host allowlist and redirect checks always apply. Direct connections also
-// refuse non-public addresses (dialPublic). Through the Upstream Proxy that
+// refuse non-public addresses (dialPublic). Through the Outbound Proxy that
 // dial check is skipped, since the administrator-chosen proxy may sit on
 // loopback or the LAN and resolves the CDN host itself; the proxy comes only
 // from the user setting, never from HTTP(S)_PROXY in the environment.

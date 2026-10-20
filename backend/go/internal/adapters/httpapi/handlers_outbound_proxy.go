@@ -6,17 +6,17 @@ import "net/http"
 func (s *Server) settingsRoutes(mux *http.ServeMux, protect func(http.Handler) http.Handler) {
 	mux.Handle("GET /api/v1/preferences", protect(http.HandlerFunc(s.getPreferences)))
 	mux.Handle("PUT /api/v1/preferences", protect(http.HandlerFunc(s.putPreferences)))
-	mux.Handle("GET /api/v1/upstream-proxy", protect(http.HandlerFunc(s.getUpstreamProxy)))
-	mux.Handle("PUT /api/v1/upstream-proxy", protect(http.HandlerFunc(s.putUpstreamProxy)))
+	mux.Handle("GET /api/v1/outbound-proxy", protect(http.HandlerFunc(s.getOutboundProxy)))
+	mux.Handle("PUT /api/v1/outbound-proxy", protect(http.HandlerFunc(s.putOutboundProxy)))
 }
 
-// getUpstreamProxy handles GET /api/v1/upstream-proxy.
-func (s *Server) getUpstreamProxy(w http.ResponseWriter, _ *http.Request) {
+// getOutboundProxy handles GET /api/v1/outbound-proxy.
+func (s *Server) getOutboundProxy(w http.ResponseWriter, _ *http.Request) {
 	service, ok := s.catalog(w)
 	if !ok {
 		return
 	}
-	proxy, refusal := service.UpstreamProxy()
+	proxy, refusal := service.OutboundProxy()
 	if refusal != nil {
 		writeWorksError(w, refusal)
 		return
@@ -24,8 +24,8 @@ func (s *Server) getUpstreamProxy(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, proxy)
 }
 
-// putUpstreamProxy handles PUT /api/v1/upstream-proxy: last write wins.
-func (s *Server) putUpstreamProxy(w http.ResponseWriter, r *http.Request) {
+// putOutboundProxy handles PUT /api/v1/outbound-proxy: last write wins.
+func (s *Server) putOutboundProxy(w http.ResponseWriter, r *http.Request) {
 	service, ok := s.catalog(w)
 	if !ok {
 		return
@@ -34,10 +34,10 @@ func (s *Server) putUpstreamProxy(w http.ResponseWriter, r *http.Request) {
 		URL *string `json:"url"`
 	}
 	if decodeErr := decodeJSON(w, r, &req); decodeErr != nil {
-		writeDecodeError(w, decodeErr, "invalid upstream proxy payload")
+		writeDecodeError(w, decodeErr, "invalid outbound proxy payload")
 		return
 	}
-	proxy, refusal := service.SaveUpstreamProxy(req.URL)
+	proxy, refusal := service.SaveOutboundProxy(req.URL)
 	if refusal != nil {
 		writeWorksError(w, refusal)
 		return

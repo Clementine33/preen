@@ -74,6 +74,49 @@ async function terminal(read, success) {
   }
   assert.fail('operation did not finish')
 }
+function checkMediaFormats(name) {
+  const fixture = (args) => {
+    const result = spawnSync('ffmpeg', ['-nostdin', '-v', 'error', ...args], { encoding: 'utf8', timeout: 30_000 })
+    assert.equal(result.status, 0, `host FFmpeg fixture generation failed: ${result.error || result.stderr}`)
+  }
+  const wav = join(scratch, 'source.wav'), cover = join(scratch, 'cover.png'), jpeg = join(scratch, 'cover.jpg')
+  fixture(['-f', 'lavfi', '-i', 'sine=frequency=440:duration=1', '-ac', '2', wav])
+  for (const path of [cover, jpeg]) fixture(['-f', 'lavfi', '-i', 'color=red:s=32x32', '-frames:v', '1', path])
+  const targets = [
+    { ext: 'wav', encoder: 'pcm_s16le', muxer: 'wav', codec: 'pcm_s16le' },
+    { ext: 'flac', encoder: 'flac', muxer: 'flac', codec: 'flac' },
+    { ext: 'mp3', encoder: 'libmp3lame', muxer: 'mp3', codec: 'mp3' },
+    { ext: 'm4a', encoder: 'aac', muxer: 'ipod', codec: 'aac' },
+    { ext: 'opus', encoder: 'libopus', muxer: 'opus', codec: 'opus' },
+  ]
+  command(['exec', name, 'mkdir', '-p', '/tmp/formats'])
+  for (const source of [...targets, { ext: 'aac', encoder: 'aac', muxer: 'adts', codec: 'aac' }]) {
+    const path = join(scratch, `source.${source.ext}`)
+    const picture = source.ext === 'mp3' ? jpeg : source.ext === 'm4a' ? cover : null
+    if (source.ext !== 'wav') fixture(['-i', wav, ...(picture ? ['-i', picture, '-map', '0:a:0', '-map', '1:v:0', '-c:v', 'copy', '-disposition:v', 'attached_pic'] : []),
+      '-c:a', source.encoder, '-f', source.muxer, path])
+    const input = `/tmp/formats/source.${source.ext}`
+    command(['cp', path, `${name}:${input}`])
+    const probed = JSON.parse(command(['exec', name, 'sh', '-ec', 'ffprobe -v error -show_streams -of json -fd 0 -i fd: < "$1"', 'sh', input]))
+    assert.equal(probed.streams.find(stream => stream.codec_type === 'audio')?.codec_name, source.codec, `probe ${source.ext}`)
+    if (picture) assert(probed.streams.some(stream => stream.disposition?.attached_pic === 1), `${source.ext} cover stream`)
+    for (const target of targets) {
+      const output = `/tmp/formats/output.${target.ext}`
+      const bitrate = ['mp3', 'm4a', 'opus'].includes(target.ext) ? '-b:a 192k' : ''
+      const result = JSON.parse(command(['exec', name, 'sh', '-ec', `
+        ffmpeg -nostdin -v error -xerror -fd 0 -i fd: -map 0:a:0 -map_metadata 0 -vn \
+          -c:a ${target.encoder} ${bitrate} -f ${target.muxer} -fd 1 fd: < "$1" > "$2"
+        ffmpeg -nostdin -v error -xerror -fd 0 -i fd: -map 0:a:0 -f null - < "$2"
+        ffprobe -v error -show_streams -of json -fd 0 -i fd: < "$2"
+      `, 'sh', input, output]))
+      assert.equal(result.streams.length, 1, `${source.ext} → ${target.ext}: audio only`)
+      assert.equal(result.streams[0].codec_name, target.codec, `${source.ext} → ${target.ext}`)
+      assert.equal(result.streams[0].channels, 2)
+      assert(Number(result.streams[0].duration) > 0)
+    }
+  }
+  return { wav, cover }
+}
 try {
   const data = volume('data'), media = volume('media')
   init(data, media)
@@ -94,17 +137,16 @@ try {
   for (const tool of ['ffmpeg', 'ffprobe']) assert(command(['exec', name, tool, '-version']).startsWith(`${tool} version ${lockedFFmpeg}`))
   command(['exec', name, 'sh', '-ec', `
     test "$(id -u)" = 1000
+    test -z "$(find /opt/ffmpeg -name '*.so*' -print)"
     ! touch /app/read-only-check
     ! command -v go
     ! command -v node
     mkdir -p '/media/audio/RJ000001 smoke/sub'
-    ffmpeg -v error -f lavfi -i sine=frequency=440:duration=1 '/media/audio/RJ000001 smoke/00.wav'
-    ffmpeg -v error -f lavfi -i color=red:s=32x32 -frames:v 1 '/media/audio/RJ000001 smoke/cover.png'
     printf move-me > '/media/audio/RJ000001 smoke/note.txt'
-    ffprobe -v error -show_streams -fd 0 -i fd: <'/media/audio/RJ000001 smoke/00.wav' >/tmp/probe.json
-    ffmpeg -nostdin -v error -fd 0 -i fd: -f mp3 -fd 1 fd: <'/media/audio/RJ000001 smoke/00.wav' >/tmp/fd.mp3
-    test -s /tmp/probe.json && test -s /tmp/fd.mp3
   `])
+  const fixtures = checkMediaFormats(name)
+  command(['cp', fixtures.wav, `${name}:/media/audio/RJ000001 smoke/00.wav`])
+  command(['cp', fixtures.cover, `${name}:/media/audio/RJ000001 smoke/cover.png`])
   const lib = await api(base, '/libraries', { name: 'Container smoke', root_path: '/media/audio' }, 'POST')
   const scan = await api(base, `/libraries/${lib.id}/scans`, {}, 'POST')
   assert.match(scan, /event: completed/)
@@ -172,7 +214,7 @@ try {
       assert(!logs.includes(token))
     }
   }
-  console.log('Container smoke passed: login, read-only UID1000, fd media tools, scan, thumbnail, conversion, move, recovery, persistence, missing key, release migration/backup failures, SIGTERM.')
+  console.log('Container smoke passed: login, read-only UID1000, pinned media tools, six audio inputs × five fd outputs (including covers), scan, thumbnail, conversion, move, recovery, persistence, missing key, release migration/backup failures, SIGTERM.')
 } finally {
   for (const name of containers.reverse()) command(['rm', '-f', name])
   for (const name of volumes.reverse()) command(['volume', 'rm', name])

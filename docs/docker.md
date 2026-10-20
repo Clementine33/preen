@@ -40,9 +40,11 @@ task build:docker RAW_TAG=v0.2.0
 task test:docker RAW_TAG=v0.2.0
 ```
 
-`build:docker` builds only `linux/amd64` and requires an injected release version. `.dockerignore` uses an allowlist to exclude credentials, runtime data, Git metadata, dependencies and build output. The build stages install tools from `mise.toml`; no build tools enter the runtime image.
+`build:docker` builds only `linux/amd64` and requires an injected release version. `.dockerignore` uses an allowlist to exclude credentials, runtime data, Git metadata, dependencies and build output. Node, pnpm and Go come from `mise.toml`. FFmpeg is built from the matching upstream release source after verifying its signature against the pinned FFmpeg release signing key. LAME and zlib are linked statically; Opus is linked against the Alpine `opus` package, which the runtime installs. The Alpine runtime otherwise receives only the two media executables, backend and web assets. The media build stage is cached independently of application changes; no build tools enter the runtime image.
 
-The smoke test uses Node's built-in SQLite and a Docker-compatible CLI. It creates uniquely named disposable containers and volumes, then removes only those resources. It checks login, read-only/non-root operation, real `fd:` media input/output, scan, thumbnails, conversion, file move, sibling recycling, persistence, missing-key rejection, graceful SIGTERM, and upgrade backup/failure behavior. To use Podman: `CONTAINER_ENGINE=podman node scripts/docker-smoke.mjs <local-image>`.
+The media build enables WAV, FLAC, MP3, AAC, M4A and Ogg/Opus inputs, the backend's five output formats, PCM precision variants, and PNG/JPEG cover streams. Keep the Dockerfile's codec/filter/container whitelist and the smoke test aligned when adding backend formats; a source build may take several minutes on a cold cache.
+
+The smoke test uses Node's built-in SQLite, the host FFmpeg installed by mise to generate independent fixtures, and a Docker-compatible CLI. It creates uniquely named disposable containers and volumes, then removes only those resources. It probes all six input formats (including embedded MP3/M4A covers) and converts each into all five outputs over real `fd:` handles, then decodes and probes the results. It also checks login, read-only/non-root operation, scan, thumbnails, application conversion, file move, sibling recycling, persistence, missing-key rejection, graceful SIGTERM, and upgrade backup/failure behavior. To use Podman: `CONTAINER_ENGINE=podman node scripts/docker-smoke.mjs <local-image>`.
 
 
 ## Publish a release (maintainers)

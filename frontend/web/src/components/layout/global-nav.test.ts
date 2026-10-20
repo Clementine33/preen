@@ -16,12 +16,17 @@ describe('global navigation ownership', () => {
   // The mapping is explicit on purpose: asserting it against the real
   // route table means a renamed or added route fails here instead of silently
   // losing its highlight.
-  it('assigns every application route to a global entry', () => {
-    const named = router.getRoutes().filter((record) => typeof record.name === 'string')
+  it('assigns every route inside the application shell to a global entry', () => {
+    const named = router.getRoutes().filter((record) => typeof record.name === 'string' && record.name !== 'login')
     expect(named.length).toBeGreaterThan(0)
     for (const record of named) {
       expect(globalNavOwner(record.name), String(record.name)).not.toBeNull()
     }
+  })
+
+  it('leaves the login page outside global navigation', () => {
+    expect(router.resolve('/login').name).toBe('login')
+    expect(globalNavOwner('login')).toBeNull()
   })
 
   it('keeps the work catalog routes under 作品库', () => {

@@ -291,6 +291,7 @@ jobs:
     # Serialize all versions: the existence check and latest update share a lock.
     concurrency:
       group: ghcr-preen-publish
+      queue: max
       cancel-in-progress: false
     steps:
       - uses: actions/download-artifact@v8

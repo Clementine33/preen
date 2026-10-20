@@ -29,11 +29,12 @@ export function dirAt(tree: WorkContentDir, cwd: readonly string[]): WorkContent
 }
 
 /** Recursive per-kind counts of a directory (lrc counts as txt). */
-export function dirCounts(dir: WorkContentDir): { aud: number; img: number; txt: number } {
-  const counts = { aud: 0, img: 0, txt: 0 }
+export function dirCounts(dir: WorkContentDir): { aud: number; img: number; txt: number; vid: number } {
+  const counts = { aud: 0, img: 0, txt: 0, vid: 0 }
   for (const child of walkFiles(dir)) {
     if (child.kind === 'aud') counts.aud++
     else if (child.kind === 'img') counts.img++
+    else if (child.kind === 'vid') counts.vid++
     else if (child.kind === 'txt' || child.kind === 'lrc') counts.txt++
   }
   return counts
@@ -330,7 +331,7 @@ export function dottedDate(value: string | null): string {
 
 /** The file-kind glyph of the browser rows (v3). */
 export function kindGlyph(kind: WorkFileKind | 'dir'): string {
-  return { dir: '▸', aud: '♪', img: '▢', txt: '¶', lrc: '¶', bin: '◇' }[kind]
+  return { dir: '▸', aud: '♪', img: '▢', txt: '¶', lrc: '¶', vid: '▶', bin: '◇' }[kind]
 }
 
 /** The file-row INFO of one audio file: its duration and its format label. */

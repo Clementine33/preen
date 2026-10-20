@@ -195,6 +195,28 @@ func TestWorkTimedLyricsAreListedAndServed(t *testing.T) {
 	}
 }
 
+func TestWorkVideoIsServedWithRange(t *testing.T) {
+	// An mp4 ftyp box: the sniffer names it video/mp4 whatever the inventory recorded.
+	data := append([]byte{0, 0, 0, 0x18}, []byte("ftypmp42\x00\x00\x00\x00mp42isom")...)
+	engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) {
+		wireWorks(d, fixture)
+		files := seedWorkFiles(t, fixture)
+		if err := os.WriteFile(filepath.Join(files.member, "clip.mp4"), data, 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := fixture.DB().Exec(`
+			INSERT INTO entries (path, root_path, parent_path, name, is_dir, size, mtime)
+			VALUES (?, ?, ?, ?, 0, ?, ?)
+		`, files.member+"/clip.mp4", filepath.ToSlash(files.root), files.member, "clip.mp4", len(data), time.Now().Unix()); err != nil {
+			t.Fatal(err)
+		}
+	})
+	w := doRequest(t, engine, http.MethodGet, fileURL("c-1", "clip.mp4"), nil, map[string]string{"Range": "bytes=0-3"})
+	if w.Code != http.StatusPartialContent || !strings.HasPrefix(w.Header().Get("Content-Type"), "video/") {
+		t.Fatalf("video response = %d %q", w.Code, w.Header().Get("Content-Type"))
+	}
+}
+
 func TestWorkFileRangeAndRevalidation(t *testing.T) {
 	engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) {
 		wireWorks(d, fixture)

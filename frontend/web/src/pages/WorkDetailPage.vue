@@ -8,6 +8,7 @@ import PlayerBar from '@/features/works/PlayerBar.vue'
 import WorkBay from '@/features/work-detail/WorkBay.vue'
 import WorkDeck from '@/features/work-detail/WorkDeck.vue'
 import WorkLeaf from '@/features/work-detail/WorkLeaf.vue'
+import WorkVideo from '@/features/work-detail/WorkVideo.vue'
 import WorkViewer from '@/features/work-detail/WorkViewer.vue'
 import { usePreferences } from '@/queries/preferences'
 import { useWorkContent, useWorkDetail } from '@/queries/works'
@@ -142,6 +143,7 @@ onBeforeUnmount(() => {
 
     <PlayerBar />
     <WorkViewer />
+    <WorkVideo />
   </section>
 </template>
 

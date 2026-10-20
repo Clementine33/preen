@@ -67,6 +67,8 @@ export const useWorkDetailStore = defineStore('work-detail', {
     /** The file browser's directory, as name segments from the copy root. */
     cwd: [] as string[],
     sel: null as string | null,
+    /** The video the modal is playing; null when it is closed. */
+    video: null as WorkContentFile | null,
   }),
 
   getters: {
@@ -213,6 +215,10 @@ export const useWorkDetailStore = defineStore('work-detail', {
       this.viewerOpen = false
     },
 
+    closeVideo() {
+      this.video = null
+    },
+
     /** Pair one track with timed lyrics by hand; the leaf follows into LISTEN. */
     pairLrc(track: number, rel: string) {
       this.pairs[track] = rel
@@ -254,7 +260,9 @@ export const useWorkDetailStore = defineStore('work-detail', {
 
     /**
      * A file row: images locate their set, lyrics and texts open in READ,
-     * audio starts its track; a non-audio pick closes the bottom drawer.
+     * audio starts its track, a video opens the modal (pausing the player). A
+     * pick whose result shows on the stage closes the bottom drawer; audio and
+     * video show nothing there, so the drawer stays.
      */
     selectFile(f: WorkContentFile) {
       this.sel = f.rel_path
@@ -265,11 +273,16 @@ export const useWorkDetailStore = defineStore('work-detail', {
         this.activeTxt = f.rel_path
         this.scriptSeen = true
         this.leaf = 'script'
+      } else if (f.kind === 'vid') {
+        // The page's sound is one at a time; closing the video does not resume it.
+        const player = usePlayerStore()
+        if (player.rj !== null && !player.paused) player.togglePause()
+        this.video = f
       } else if (f.kind === 'aud') {
         const track = this.tracks.findIndex((entry) => Object.values(entry.files).some((a) => a?.rel_path === f.rel_path))
         if (track >= 0) this.startTrack(track, f.format ?? undefined)
       }
-      if (this.dock === 'bottom' && f.kind !== 'aud') this.bayOpen = false
+      if (this.dock === 'bottom' && f.kind !== 'aud' && f.kind !== 'vid') this.bayOpen = false
     },
   },
 })

@@ -34,7 +34,8 @@ export const SETTINGS_NAV: GlobalNavItem = { id: 'settings', label: '设置', ic
  * router's own route name, never from a stored `activeNavId` that could drift
  * from the URL. An explicit mapping — not a URL-prefix guess — keeps every
  * workbench child route under 工作集 without pretending to be a second route
- * table: the test asserts it covers exactly the application router's names.
+ * table: the test covers every named route inside the application shell.
+ * Login lives outside that shell and has no global entry.
  */
 const NAV_OWNER_BY_ROUTE_NAME = {
   works: 'works',

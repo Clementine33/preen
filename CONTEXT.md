@@ -240,9 +240,9 @@ _Avoid_: Treating scaled variants of the same artwork as separate cover requirem
 An execution's request to deliver a Main Cover to one selected Copy. It can be stopped or retried independently; demands sharing the same Work and source version share a transfer while each Copy keeps its own publication result. Pending delivery resumes after interruption; a stopped demand requires an explicit retry.
 _Avoid_: Extending a metadata Execution Session until its covers finish.
 
-**Upstream Proxy**:
+**Outbound Proxy**:
 The single deployment-wide outbound proxy through which the server reaches metadata sources and the cover CDN. It is edited by the user and takes effect for the next upstream request; without one, the server connects directly.
-_Avoid_: Proxy alone; the development `/api` proxy and the HTTPS reverse proxy in front of a deployment are different things.
+_Avoid_: Upstream Proxy (upstream names the metadata sources themselves, not the direction this server connects); Proxy alone; the development `/api` proxy and the HTTPS reverse proxy in front of a deployment are different things.
 
 **Obsolete Audio Handling**:
 The whole-operation choice of what happens to replaced and obsolete audio at execution: soft (moved to `Delete/<work name>/` in the Work Root's parent directory, preserving the work's internal paths and recoverable) or hard (removed). It is a draft setting, never a per-member override; the plan freezes it and the run uses the frozen value.

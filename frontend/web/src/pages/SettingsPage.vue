@@ -5,7 +5,7 @@ import GlobalMenu from '@/components/layout/GlobalMenu.vue'
 import { Button } from '@/components/ui/button'
 import { useApiClient } from '@/lib/api/client'
 import FormatPreferenceSettings from '@/features/settings/FormatPreferenceSettings.vue'
-import UpstreamProxySettings from '@/features/settings/UpstreamProxySettings.vue'
+import OutboundProxySettings from '@/features/settings/OutboundProxySettings.vue'
 import SettingsField from '@/features/settings/SettingsField.vue'
 import SettingsSegmented from '@/features/settings/SettingsSegmented.vue'
 import UserTagSettings from '@/features/settings/UserTagSettings.vue'
@@ -15,7 +15,7 @@ import { THEME_OPTIONS, useTheme, type Theme } from '@/composables/use-theme'
 /**
  * 设置 (`/settings/:section?`): what has no other home, one category per
  * address — appearance (theme and motion stay in this browser; the Format
- * Preference syncs through the server), network (the Upstream Proxy) and the
+ * Preference syncs through the server), network (the Outbound Proxy) and the
  * user-tag vocabulary. Each saves
  * where its data lives. Task settings stay beside their tasks, a library's storage
  * class in its edit dialog.
@@ -112,8 +112,8 @@ async function logout(): Promise<void> {
           </template>
 
           <template v-else-if="section.id === 'network'">
-            <SettingsField id="upstream-proxy" label="上游代理">
-              <UpstreamProxySettings />
+            <SettingsField id="outbound-proxy" label="代理服务器">
+              <OutboundProxySettings />
             </SettingsField>
           </template>
 

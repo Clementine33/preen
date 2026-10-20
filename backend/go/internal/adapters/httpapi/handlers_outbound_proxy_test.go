@@ -9,15 +9,15 @@ import (
 	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
 )
 
-// TestUpstreamProxyRoundTrip: direct before any save, trimmed on write, one
+// TestOutboundProxyRoundTrip: direct before any save, trimmed on write, one
 // stored value read back, and every refusal leaves it untouched.
-func TestUpstreamProxyRoundTrip(t *testing.T) {
+func TestOutboundProxyRoundTrip(t *testing.T) {
 	engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) { wireWorks(d, fixture) })
 	read := func() string {
-		return doRequest(t, engine, http.MethodGet, "/api/v1/upstream-proxy", nil, nil).Body.String()
+		return doRequest(t, engine, http.MethodGet, "/api/v1/outbound-proxy", nil, nil).Body.String()
 	}
 	put := func(body any) *httptest.ResponseRecorder {
-		return doRequest(t, engine, http.MethodPut, "/api/v1/upstream-proxy", body, nil)
+		return doRequest(t, engine, http.MethodPut, "/api/v1/outbound-proxy", body, nil)
 	}
 
 	if got := read(); got != `{"url":""}` {
@@ -48,7 +48,7 @@ func TestUpstreamProxyRoundTrip(t *testing.T) {
 	}
 	for name, body := range invalid {
 		if w := put(body); w.Code != http.StatusBadRequest ||
-			!strings.Contains(w.Body.String(), "INVALID_UPSTREAM_PROXY") {
+			!strings.Contains(w.Body.String(), "INVALID_OUTBOUND_PROXY") {
 			t.Errorf("%s: %d %s", name, w.Code, w.Body.String())
 		}
 	}

@@ -117,27 +117,27 @@ describe('settings: format preference', () => {
   })
 })
 
-describe('settings: upstream proxy', () => {
+describe('settings: outbound proxy', () => {
   it('loads the stored URL, saves it, and keeps a refused value beside the field', async () => {
-    const putUpstreamProxy = vi.fn(async (input: { url: string }) => ({ url: input.url.trim() }))
+    const putOutboundProxy = vi.fn(async (input: { url: string }) => ({ url: input.url.trim() }))
     const wrapper = await mountPage(apiStub({
-      getUpstreamProxy: vi.fn().mockResolvedValue({ url: 'socks5://127.0.0.1:7890' }),
-      putUpstreamProxy,
+      getOutboundProxy: vi.fn().mockResolvedValue({ url: 'socks5://127.0.0.1:7890' }),
+      putOutboundProxy,
     }), '/settings/network')
-    const input = wrapper.get<HTMLInputElement>('[data-testid="upstream-proxy-url"]')
+    const input = wrapper.get<HTMLInputElement>('[data-testid="outbound-proxy-url"]')
     expect(input.element.value).toBe('socks5://127.0.0.1:7890')
 
     await input.setValue(' http://proxy:8080 ')
-    await wrapper.get('[data-testid="upstream-proxy"]').trigger('submit')
+    await wrapper.get('[data-testid="outbound-proxy"]').trigger('submit')
     await flushPromises()
-    expect(putUpstreamProxy).toHaveBeenLastCalledWith({ url: ' http://proxy:8080 ' })
+    expect(putOutboundProxy).toHaveBeenLastCalledWith({ url: ' http://proxy:8080 ' })
     expect(input.element.value).toBe('http://proxy:8080')
 
-    putUpstreamProxy.mockRejectedValueOnce(new ApiError(400, 'INVALID_UPSTREAM_PROXY', 'scheme must be http'))
+    putOutboundProxy.mockRejectedValueOnce(new ApiError(400, 'INVALID_OUTBOUND_PROXY', 'scheme must be http'))
     await input.setValue('ftp://x')
-    await wrapper.get('[data-testid="upstream-proxy"]').trigger('submit')
+    await wrapper.get('[data-testid="outbound-proxy"]').trigger('submit')
     await flushPromises()
-    expect(wrapper.get('[data-testid="upstream-proxy-error"]').text()).toContain('scheme must be http')
+    expect(wrapper.get('[data-testid="outbound-proxy-error"]').text()).toContain('scheme must be http')
     expect(input.element.value).toBe('ftp://x')
   })
 })

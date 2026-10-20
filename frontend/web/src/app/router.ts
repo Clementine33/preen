@@ -39,9 +39,9 @@ const MemberFiles = () => import('@/features/folders/MemberFiles.vue')
 export const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
-    // The product entry keeps the name 工作集 and selects a media library:
-    // everything below happens inside one library's workbench.
-    { path: '/', redirect: '/worksets' },
+    // The product opens on the work catalog; 工作集 selects a media library,
+    // and the workbench lives inside one library.
+    { path: '/', redirect: '/works' },
     { path: '/login', name: 'login', component: () => import('@/pages/LoginPage.vue') },
     { path: '/worksets', name: 'worksets', component: WorksetsPage },
 

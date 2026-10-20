@@ -25,10 +25,12 @@ type Client struct {
 	asmr   *sourceGate
 }
 
-// New accepts a transport for local tests; production uses the standard HTTP client.
+// New accepts a transport for local tests. With nil it connects directly: the
+// production path never reads HTTP_PROXY, HTTPS_PROXY or NO_PROXY, because the
+// Upstream Proxy is a user setting (see NewProxied).
 func New(client *http.Client) *Client {
 	if client == nil {
-		client = &http.Client{}
+		client = &http.Client{Transport: directTransport()}
 	}
 	copyClient := *client
 	if copyClient.Timeout == 0 {
@@ -48,6 +50,22 @@ func New(client *http.Client) *Client {
 		return nil
 	}
 	return &Client{http: &copyClient, dlsite: newSourceGate(8, time.Second/10), asmr: newSourceGate(2, time.Second/3)}
+}
+
+// NewProxied connects through the proxy that proxy reports for each request;
+// a nil URL means direct. An error fails the request: an unreadable setting
+// must never fall back to a direct connection.
+func NewProxied(proxy func() (*url.URL, error)) *Client {
+	tr := directTransport()
+	tr.Proxy = func(*http.Request) (*url.URL, error) { return proxy() }
+	return New(&http.Client{Transport: tr})
+}
+
+func directTransport() *http.Transport {
+	base, _ := http.DefaultTransport.(*http.Transport)
+	tr := base.Clone()
+	tr.Proxy = nil
+	return tr
 }
 
 // requestCode is the upstream spelling, independent of the canonical catalog key.

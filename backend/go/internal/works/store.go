@@ -127,6 +127,12 @@ type Store interface {
 	// SaveTrackFormats replaces the stored Format Preference.
 	SaveTrackFormats(formats []string, now time.Time) error
 
+	// UpstreamProxy reads the stored Upstream Proxy URL; "" when never saved
+	// or direct.
+	UpstreamProxy() (string, error)
+	// SaveUpstreamProxy replaces the stored Upstream Proxy URL.
+	SaveUpstreamProxy(url string, now time.Time) error
+
 	// DeleteWork permanently removes a work. It returns a WORK_IN_USE refusal
 	// when a copy or another work's evidence still points at it.
 	DeleteWork(id WorkCode) *Error

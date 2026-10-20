@@ -18,6 +18,8 @@ The root filesystem is read-only. `/data`, the explicit media mounts, and the bo
 
 HTTP exposes credentials and media to anyone able to observe network traffic. Use your existing HTTPS reverse proxy on shared or untrusted networks; this deployment does not support direct public exposure. Changing `.env` requires `docker compose up -d --force-recreate`; `restart` alone does not re-inject its values. Changing the access key invalidates existing browser sessions.
 
+The outbound proxy for metadata and cover downloads is set in the Settings page (Network); the container's `HTTP_PROXY` / `HTTPS_PROXY` variables no longer apply.
+
 ## Upgrade
 
 1. Stop the current instance with `docker compose down`.

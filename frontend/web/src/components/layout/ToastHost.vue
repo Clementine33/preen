@@ -30,4 +30,10 @@ const { current, dismiss } = useToast()
   font-family: var(--font-mono); font-size: var(--fs-s); letter-spacing: .04em;
 }
 .app-toast .btn { color: inherit; border-color: currentColor; flex-shrink: 0; }
+.app-toast { transition: opacity var(--dur-in) var(--ease-out), transform var(--dur-in) var(--ease-out); }
+@starting-style {
+  .app-toast[data-state="open"] { opacity: 0; transform: translateY(6px); }
+}
+.app-toast[data-swipe="move"] { transform: translateY(var(--reka-toast-swipe-move-y)); transition: none; }
+.app-toast[data-swipe="cancel"] { transform: none; transition: transform 200ms var(--ease-out); }
 </style>

@@ -60,6 +60,8 @@ const duration = (tone: TaskTone) => STICKY.has(tone) ? Infinity : 8000
   .task-toast-viewport { left: auto; width: 440px; max-width: calc(100vw - 2 * var(--sp-4)); }
 }
 .task-toast { transition: opacity 160ms var(--ease-out), transform 160ms var(--ease-out); }
+.task-toast[data-swipe="move"] { transform: translateX(var(--reka-toast-swipe-move-x)); transition: none; }
+.task-toast[data-swipe="cancel"] { transform: none; transition: transform 200ms var(--ease-out); }
 @starting-style {
   .task-toast[data-state="open"] { opacity: 0; transform: translateY(-6px); }
 }

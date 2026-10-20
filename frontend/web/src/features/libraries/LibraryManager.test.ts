@@ -1,5 +1,5 @@
-import { mount } from '@vue/test-utils'
-import { describe, expect, it } from 'vitest'
+import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
+import { afterEach, describe, expect, it } from 'vitest'
 import type { Library } from '@/lib/api/types'
 import { desktopAdapterKey } from '@/lib/desktop/desktop-adapter'
 import LibraryManager from './LibraryManager.vue'
@@ -13,19 +13,36 @@ const global = {
   provide: { [desktopAdapterKey as symbol]: { platform: 'browser', resolveApi: async () => ({ baseUrl: '', token: null }), pickFolder: async () => null } },
 }
 
+afterEach(() => document.body.replaceChildren())
+enableAutoUnmount(afterEach)
+
+const attach = async (props: { open: boolean; library?: Library }) => {
+  const wrapper = mount(LibraryManager, { props, global, attachTo: document.body })
+  await flushPromises()
+  return wrapper
+}
+const ssdInput = () => document.querySelector<HTMLInputElement>('[data-testid="library-ssd"]')!
+
 describe('LibraryManager storage class', () => {
   it('starts from the library and saves the toggled class with the rest', async () => {
-    const wrapper = mount(LibraryManager, { props: { open: true, library }, global })
-    const ssd = wrapper.get('[data-testid="library-ssd"]')
-    expect((ssd.element as HTMLInputElement).checked).toBe(true)
+    const wrapper = await attach({ open: true, library })
+    expect(ssdInput().checked).toBe(true)
 
-    await ssd.setValue(false)
-    await wrapper.get('form').trigger('submit')
+    ssdInput().click()
+    document.querySelector('form')!.dispatchEvent(new Event('submit', { cancelable: true }))
+    await flushPromises()
     expect(wrapper.emitted('save')).toEqual([[{ name: '库', root_path: '/m/a', storage_class: 'hdd' }]])
   })
 
-  it('defaults a new library to HDD', () => {
-    const wrapper = mount(LibraryManager, { props: { open: true }, global })
-    expect((wrapper.get('[data-testid="library-ssd"]').element as HTMLInputElement).checked).toBe(false)
+  it('defaults a new library to HDD', async () => {
+    await attach({ open: true })
+    expect(ssdInput().checked).toBe(false)
+  })
+
+  it('emits close on Escape', async () => {
+    const wrapper = await attach({ open: true })
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    await flushPromises()
+    expect(wrapper.emitted('close')).toBeTruthy()
   })
 })

@@ -54,7 +54,7 @@ const chevron = 'M0 2.5h10L5 8z'
           </span>
         </button>
         <button v-for="(library, i) in librariesData" :key="library.id" class="lib-item" type="button" role="option"
-          :aria-selected="!libraryUi.allLibraries && library.id === libraryUi.activeLibraryId" :style="{ '--d': `${40 + i * 30}ms` }"
+          :aria-selected="!libraryUi.allLibraries && library.id === libraryUi.activeLibraryId" :style="{ '--d': `${40 + Math.min(i, 5) * 30}ms` }"
           @click="selectLibrary(library.id)">
           <span class="lib-mark"></span>
           <span class="lib-text">
@@ -84,13 +84,18 @@ const chevron = 'M0 2.5h10L5 8z'
 }
 .lib-trigger::before {
   content: ''; position: absolute; inset: 0; z-index: -1; background: var(--bg-subtle);
-  clip-path: inset(0 100% 0 0); transition: clip-path var(--dur-out) var(--ease-in);
+  clip-path: inset(0 100% 0 0); transition: clip-path var(--dur-out) var(--ease-out);
 }
 .lib-trigger:hover, .lib-trigger:focus-visible {
   border-color: var(--wire-mid); outline: none;
 }
-.lib-trigger:hover::before, .lib-trigger:focus-visible::before, .lib.open .lib-trigger::before {
+.lib-trigger:focus-visible::before, .lib.open .lib-trigger::before {
   clip-path: inset(0 0 0 0); transition: clip-path var(--dur-in) var(--ease-out);
+}
+@media (hover: hover) and (pointer: fine) {
+  .lib-trigger:hover::before {
+    clip-path: inset(0 0 0 0); transition: clip-path var(--dur-in) var(--ease-out);
+  }
 }
 .lib.open .lib-trigger { border-color: var(--wire-strong); }
 .lib-name {
@@ -113,7 +118,7 @@ const chevron = 'M0 2.5h10L5 8z'
   border: 1px solid var(--wire-strong);
   box-shadow: 4px 4px 0 -1px var(--bg-canvas), 4px 4px 0 0 var(--wire-mid);
   visibility: hidden; clip-path: inset(0 0 100% 0);
-  transition: clip-path 100ms var(--ease-in), visibility 0s linear 100ms;
+  transition: clip-path 100ms var(--ease-out), visibility 0s linear 100ms;
 }
 .lib-menu::before {
   content: ''; position: absolute; left: 16px; top: -11px; width: 1px; height: 10px;
@@ -141,14 +146,22 @@ const chevron = 'M0 2.5h10L5 8z'
 }
 .lib-item::before {
   content: ''; position: absolute; inset: 0; z-index: -1; background: var(--bg-subtle);
-  clip-path: inset(0 100% 0 0); transition: clip-path var(--dur-out) var(--ease-in);
+  clip-path: inset(0 100% 0 0); transition: clip-path var(--dur-out) var(--ease-out);
 }
-.lib-item:hover::before, .lib-item:focus-visible::before {
+.lib-item:focus-visible::before {
   clip-path: inset(0 0 0 0); transition: clip-path var(--dur-in) var(--ease-out);
+}
+@media (hover: hover) and (pointer: fine) {
+  .lib-item:hover::before {
+    clip-path: inset(0 0 0 0); transition: clip-path var(--dur-in) var(--ease-out);
+  }
 }
 .lib-item:focus-visible { outline: none; }
 .lib-mark { width: 6px; height: 6px; justify-self: center; background: transparent; }
-.lib-item:hover .lib-mark, .lib-item:focus-visible .lib-mark { background: var(--wire-mid); }
+.lib-item:focus-visible .lib-mark { background: var(--wire-mid); }
+@media (hover: hover) and (pointer: fine) {
+  .lib-item:hover .lib-mark { background: var(--wire-mid); }
+}
 .lib-text { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .lib-text .nm { font-size: var(--fs-s); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lib-text .lbl {

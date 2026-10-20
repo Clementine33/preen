@@ -47,7 +47,7 @@ function onOpenChange(value: boolean) {
         :class="
           cn(
             'fixed inset-y-0 right-0 z-50 flex w-[min(380px,100vw)] flex-col gap-3 overflow-y-auto border-l border-[var(--wire-strong)] bg-card p-4',
-            'pb-[max(1rem,env(safe-area-inset-bottom))] data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right',
+            'pb-[max(1rem,env(safe-area-inset-bottom))] data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right duration-(--motion-med) ease-(--motion-ease)',
             props.class,
           )
         "

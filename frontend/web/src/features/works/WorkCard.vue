@@ -95,7 +95,7 @@ const release = computed(() =>
   content: ''; position: absolute; inset: 0; z-index: -1;
   background: var(--invert-bg);
   clip-path: inset(0 100% 0 0);
-  transition: clip-path var(--dur-out) var(--ease-in);
+  transition: clip-path var(--dur-out) var(--ease-out);
 }
 .cap::after {
   content: ''; position: absolute; inset: 0; z-index: -2;
@@ -128,4 +128,10 @@ const release = computed(() =>
   .cell.active .cap-title, .cell.active .cap-meta .lbl { color: inherit; font-weight: 500; }
   .cell.active .cap-meta .lbl { color: var(--fg-meta); }
 }
+/* A burst on the wall (DESIGN.md §7): the caption inverts at once. The wall's class
+   is outside this component, so it stays unscoped; only the last compound is scoped. */
+.wall-rapid .cell .cap::before,
+.wall-rapid .cell .cap::after,
+.wall-rapid .cell .cap-title,
+.wall-rapid .cell .cap-meta .lbl { transition: none; }
 </style>

@@ -28,7 +28,6 @@
 
   --dur-in: 160ms; --dur-out: 90ms; --dur-cursor: 160ms; --dur-ghost-delay: 70ms;
   --ease-out: cubic-bezier(.2, .8, .2, 1);
-  --ease-in: cubic-bezier(.4, 0, 1, 1);
 
   /* Font matrix: mono telemetry, CN-first UD gothic UI, mincho
      display. The Chinese face leads the UI stack on purpose: a family match is
@@ -177,19 +176,28 @@
   content: ''; position: absolute; inset: -1px; z-index: -1;
   background: var(--invert-bg);
   clip-path: inset(0 100% 0 0);
-  transition: clip-path var(--dur-out) var(--ease-in);
+  transition: clip-path var(--dur-out) var(--ease-out);
 }
 .btn::after {
   content: ''; position: absolute; left: -14px; top: 50%; width: 6px; height: 6px; margin-top: -3px;
   background: var(--invert-bg); opacity: 0; transform: translateX(-4px);
-  transition: opacity var(--dur-out) linear, transform var(--dur-out) var(--ease-in);
+  transition: opacity var(--dur-out) linear, transform var(--dur-out) var(--ease-out);
 }
-.btn:hover, .btn:focus-visible {
+.btn:focus-visible {
   color: var(--invert-fg); border-color: var(--invert-bg);
   transition: color 0s linear 50ms, border-color 0s, transform 80ms var(--ease-out), box-shadow 80ms var(--ease-out);
 }
-.btn:hover::before, .btn:focus-visible::before { clip-path: inset(0 0 0 0); transition: clip-path var(--dur-in) var(--ease-out); }
-.btn:hover::after, .btn:focus-visible::after { opacity: 1; transform: none; transition: opacity var(--dur-in) linear, transform var(--dur-in) var(--ease-out); }
+.btn:focus-visible::before { clip-path: inset(0 0 0 0); transition: clip-path var(--dur-in) var(--ease-out); }
+.btn:focus-visible::after { opacity: 1; transform: none; transition: opacity var(--dur-in) linear, transform var(--dur-in) var(--ease-out); }
+@media (hover: hover) and (pointer: fine) {
+  .btn:hover {
+    color: var(--invert-fg); border-color: var(--invert-bg);
+    transition: color 0s linear 50ms, border-color 0s, transform 80ms var(--ease-out), box-shadow 80ms var(--ease-out);
+  }
+  .btn:hover::before { clip-path: inset(0 0 0 0); transition: clip-path var(--dur-in) var(--ease-out); }
+  .btn:hover::after { opacity: 1; transform: none; transition: opacity var(--dur-in) linear, transform var(--dur-in) var(--ease-out); }
+  .btn-primary:hover { box-shadow: 3px 3px 0 -1px var(--bg-panel), 3px 3px 0 0 var(--wire-strong); }
+}
 .btn:focus-visible { outline: none; box-shadow: 3px 3px 0 -1px var(--bg-panel), 3px 3px 0 0 var(--wire-mid); }
 .btn:active { transform: translate(1px, 1px); }
 .btn svg { width: 10px; height: 10px; fill: currentColor; flex-shrink: 0; }
@@ -198,7 +206,7 @@
    whole block sinks into it. */
 .btn-primary { background: var(--invert-bg); color: var(--invert-fg); border-color: var(--invert-bg); font-weight: 700; padding: 0 var(--sp-5); }
 .btn-primary::before { display: none; }
-.btn-primary:hover, .btn-primary:focus-visible { box-shadow: 3px 3px 0 -1px var(--bg-panel), 3px 3px 0 0 var(--wire-strong); }
+.btn-primary:focus-visible { box-shadow: 3px 3px 0 -1px var(--bg-panel), 3px 3px 0 0 var(--wire-strong); }
 .btn-primary:active { transform: translate(3px, 3px); box-shadow: 0 0 0 0 var(--bg-panel), 0 0 0 0 var(--wire-strong); }
 
 /* Small variants for the header and the bottom baseline; no ■ marker */

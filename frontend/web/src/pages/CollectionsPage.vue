@@ -5,7 +5,7 @@ import { useRouter } from 'vue-router'
 import { useToast } from '@/composables/use-toast'
 import GlobalMenu from '@/components/layout/GlobalMenu.vue'
 import { useMediaQuery } from '@/composables/use-media-query'
-import { useReducedMotion } from '@/composables/use-motion'
+import { useReducedMotion, useSwitchBurst } from '@/composables/use-motion'
 import CollectionScreen from '@/features/collections/CollectionScreen.vue'
 import { fmtT } from '@/features/work-detail/derive'
 import { useApiClient } from '@/lib/api/client'
@@ -138,20 +138,15 @@ let typedKey = ''
 
 // Degradation: switching more than twice in quick succession (a held key, a fast scroll) prints
 // instantly, and the animation only comes back once the switching has paused.
-const BURST_GAP = 800
-let burst = 0
-let lastSwitch = 0
+const { rapid: switching, note } = useSwitchBurst()
 function noteSwitch() {
-  const now = performance.now()
-  burst = now - lastSwitch < BURST_GAP ? burst + 1 : 1
-  lastSwitch = now
-  if (burst > 2) { clearInterval(typeTimer); tick.value = Infinity }
+  note()
+  if (switching.value) { clearInterval(typeTimer); tick.value = Infinity }
 }
-const rapid = () => burst > 2 && performance.now() - lastSwitch < BURST_GAP
 
 function startTyping() {
   clearInterval(typeTimer)
-  if (rapid() || reduced()) return void (tick.value = Infinity)
+  if (switching.value || reduced()) return void (tick.value = Infinity)
   tick.value = 0
   typeTimer = setInterval(() => {
     tick.value++
@@ -333,7 +328,7 @@ function onRow(i: number) {
         </div>
         <div class="panel">
           <div class="deck-body">
-            <CollectionScreen :url="coverUrl" @redraw="drawCover(true)" />
+            <CollectionScreen :url="coverUrl" :instant="switching" @redraw="drawCover(true)" />
             <div class="titles-col">
               <div ref="titlesEl" class="titles" lang="ja" data-testid="collection-titles">
                 <div v-for="(w, i) in titles" :key="`${current?.id}-${w.rj}`" class="ti" :class="{ off: i >= fitCount }" :title="titleText(w)">
@@ -484,9 +479,6 @@ function onRow(i: number) {
   .deck { display: none; }
   .keys { display: none; }
   .hint-wrap { padding-top: var(--sp-4); padding-bottom: var(--sp-4); }
-}
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { transition: none !important; animation: none !important; }
 }
 </style>
 

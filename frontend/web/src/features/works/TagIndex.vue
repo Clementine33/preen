@@ -198,10 +198,15 @@ const active = computed(() => applied.value > 0)
 }
 .ti-trigger::before {
   content: ''; position: absolute; inset: 0; z-index: -1; background: var(--bg-subtle);
-  clip-path: inset(0 100% 0 0); transition: clip-path var(--dur-out) var(--ease-in);
+  clip-path: inset(0 100% 0 0); transition: clip-path var(--dur-out) var(--ease-out);
 }
-.ti-trigger:hover::before, .ti-trigger:focus-visible::before {
+.ti-trigger:focus-visible::before {
   clip-path: inset(0 0 0 0); transition: clip-path var(--dur-in) var(--ease-out);
+}
+@media (hover: hover) and (pointer: fine) {
+  .ti-trigger:hover::before {
+    clip-path: inset(0 0 0 0); transition: clip-path var(--dur-in) var(--ease-out);
+  }
 }
 .ti-trigger:hover { color: var(--fg-base); }
 .ti-trigger:focus-visible { outline: 1px solid var(--wire-strong); outline-offset: 2px; }

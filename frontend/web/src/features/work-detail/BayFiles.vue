@@ -103,10 +103,14 @@ function isPlaying(entry: WorkContentDir | WorkContentFile): boolean {
 .list { overflow-y: auto; flex: 1; min-height: 0; padding-bottom: var(--sp-2); }
 
 .row { position: relative; isolation: isolate; height: 28px; border-bottom: 1px solid var(--wire-fine); cursor: pointer; width: 100%; text-align: left; background: none; color: var(--fg-base); border-top: none; border-left: none; border-right: none; font-family: inherit; }
-.row::before { content: ''; position: absolute; inset: 0; z-index: -1; background: var(--bg-subtle); clip-path: inset(0 100% 0 0); transition: clip-path var(--dur-out) var(--ease-in); }
-.row:hover::before { clip-path: inset(0 0 0 0); transition: clip-path var(--dur-in) var(--ease-out); }
+.row::before { content: ''; position: absolute; inset: 0; z-index: -1; background: var(--bg-subtle); clip-path: inset(0 100% 0 0); transition: clip-path var(--dur-out) var(--ease-out); }
+@media (hover: hover) and (pointer: fine) {
+  .row:hover::before { clip-path: inset(0 0 0 0); transition: clip-path var(--dur-in) var(--ease-out); }
+}
 .row .mark { width: 6px; height: 6px; justify-self: center; }
-.row:hover .mark { background: var(--wire-mid); }
+@media (hover: hover) and (pointer: fine) {
+  .row:hover .mark { background: var(--wire-mid); }
+}
 .row .glyph { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--fg-meta); text-align: center; }
 .row .name { font-size: var(--fs-s); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: var(--font-ja); }
 .row.dir .name { font-weight: 700; }

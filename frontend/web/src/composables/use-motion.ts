@@ -1,4 +1,4 @@
-import { computed, effectScope, ref, watch, type ComputedRef, type Ref } from 'vue'
+import { computed, effectScope, onScopeDispose, ref, watch, type ComputedRef, type Ref } from 'vue'
 import { REDUCED_MOTION_QUERY, useMediaQuery } from './use-media-query'
 
 /**
@@ -64,4 +64,27 @@ export function useReducedMotion(): ComputedRef<boolean> {
   const system = useMediaQuery(REDUCED_MOTION_QUERY)
   const { preference } = useMotion()
   return computed(() => system.value || preference.value === 'reduce')
+}
+
+/**
+ * Switching more than twice with under 800ms between switches (a held key, a
+ * fast scroll) is a burst: motion that replays per switch should complete at
+ * once while `rapid` is true. It turns false 800ms after the last switch. The
+ * layer that issues the switch owns the counter.
+ */
+export function useSwitchBurst(gap = 800): { rapid: Readonly<Ref<boolean>>; note: () => void } {
+  const rapid = ref(false)
+  let count = 0
+  let timer: ReturnType<typeof setTimeout> | undefined
+  function note() {
+    count++
+    rapid.value = count > 2
+    clearTimeout(timer)
+    timer = setTimeout(() => {
+      count = 0
+      rapid.value = false
+    }, gap)
+  }
+  onScopeDispose(() => clearTimeout(timer))
+  return { rapid, note }
 }

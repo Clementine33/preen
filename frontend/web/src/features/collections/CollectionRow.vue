@@ -145,9 +145,6 @@ const cover = computed(() => (libraryUi.veil && props.work.nsfw === true ? null 
 .fold-enter-from, .fold-leave-to { grid-template-rows: 0fr; }
 .fold-enter-from .fold { opacity: 0; transform: translateY(-6px); }
 .fold-leave-to .fold { opacity: 0; }
-@media (prefers-reduced-motion: reduce) {
-  .fold-enter-active, .fold-enter-active .fold, .fold-leave-active, .fold-leave-active .fold { transition: none; }
-}
 .fold { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: var(--sp-4);
   padding: var(--sp-3) var(--sp-3) var(--sp-4) calc(16px + 44px + 56px + var(--sp-3) * 4); }
 .fold :deep(.tracks) { max-height: 336px; }

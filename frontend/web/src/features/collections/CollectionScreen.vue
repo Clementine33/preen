@@ -6,8 +6,8 @@ import { useReducedMotion } from '@/composables/use-motion'
 // raster scan, done in CSS (clip-path plus a line mask). The old frame powers
 // down to black, then the odd and even lines are drawn, overlapping, each pass
 // led by a beam with a short phosphor afterglow. No url shows the hatched
-// empty state. Reduced motion swaps the cover at once.
-const props = defineProps<{ url: string | null }>()
+// empty state. Reduced motion, or a burst of switching, swaps the cover at once.
+const props = defineProps<{ url: string | null; instant?: boolean }>()
 defineEmits<{ redraw: [] }>()
 
 const reduce = useReducedMotion()
@@ -28,7 +28,7 @@ function settle(url: string | null) {
 }
 
 watch(() => props.url, (url) => {
-  if (!ready.value || reduce.value || !url) {
+  if (!ready.value || reduce.value || props.instant || !url) {
     ready.value = true
     return settle(url)
   }
@@ -75,11 +75,12 @@ onBeforeUnmount(() => clearTimeout(timer))
 .scr-pass.p2 { mask: repeating-linear-gradient(to bottom, transparent 0 2px, #000 2px 4px); }
 /* Scan head = a 2px beam with a short afterglow trailing above it (the lines just drawn). */
 .scr-head {
-  inset: auto 0 auto 0; top: -36px; height: 36px; opacity: 0;
+  inset: 0; opacity: 0;
   background:
     linear-gradient(var(--screen-ink), var(--screen-ink)) bottom / 100% 2px no-repeat,
-    linear-gradient(to bottom, transparent, color-mix(in srgb, var(--screen-ink) 22%, transparent));
+    linear-gradient(to bottom, transparent, color-mix(in srgb, var(--screen-ink) 22%, transparent)) bottom / 100% 36px no-repeat;
   mix-blend-mode: screen;
+  transform: translateY(-100%);
 }
 .h2 { --glow: .55; }
 /* The old picture powers down to black first, so the new lines land on a dark screen, not on a ghost. */
@@ -91,9 +92,9 @@ onBeforeUnmount(() => clearTimeout(timer))
 @keyframes decay { 40% { filter: brightness(.55) contrast(1.3); } to { filter: brightness(0); } }
 @keyframes reveal { to { clip-path: inset(0 0 0 0); } }
 @keyframes head {
-  0% { top: -36px; opacity: var(--glow, 1); }
+  0% { transform: translateY(-100%); opacity: var(--glow, 1); }
   92% { opacity: var(--glow, 1); }
-  100% { top: calc(100% - 34px); opacity: 0; }
+  100% { transform: translateY(2px); opacity: 0; }
 }
 @media (max-width: 900px) { .screen { width: 100%; height: auto; } }
 @media (prefers-reduced-motion: reduce) { .screen * { animation: none !important; } }

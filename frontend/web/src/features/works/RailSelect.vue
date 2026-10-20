@@ -104,7 +104,7 @@ const chevron = 'M0 2.5h10L5 8z'
           <button v-for="row in virtualRows" :key="shown[row.index].value" class="rs-item" type="button"
             role="option" :data-index="row.index" :aria-selected="shown[row.index].value === model"
             :aria-setsize="shown.length" :aria-posinset="row.index + 1"
-            :style="{ top: `${row.start}px`, '--d': `${Math.min(row.index, 8) * 24 + 30}ms` }"
+            :style="{ top: `${row.start}px`, '--d': `${Math.min(row.index, 5) * 24 + 30}ms` }"
             @click="choose(shown[row.index].value)">
             <span class="rs-mark"></span>
             <span class="rs-name">{{ shown[row.index].label }}</span>
@@ -128,10 +128,15 @@ const chevron = 'M0 2.5h10L5 8z'
 }
 .rs-trigger::before {
   content: ''; position: absolute; inset: 0; z-index: -1; background: var(--bg-subtle);
-  clip-path: inset(0 100% 0 0); transition: clip-path var(--dur-out) var(--ease-in);
+  clip-path: inset(0 100% 0 0); transition: clip-path var(--dur-out) var(--ease-out);
 }
-.rs-trigger:hover::before, .rs-trigger:focus-visible::before, .rs.open .rs-trigger::before {
+.rs-trigger:focus-visible::before, .rs.open .rs-trigger::before {
   clip-path: inset(0 0 0 0); transition: clip-path var(--dur-in) var(--ease-out);
+}
+@media (hover: hover) and (pointer: fine) {
+  .rs-trigger:hover::before {
+    clip-path: inset(0 0 0 0); transition: clip-path var(--dur-in) var(--ease-out);
+  }
 }
 .rs-trigger:hover, .rs.open .rs-trigger { color: var(--fg-base); }
 .rs-trigger:focus-visible { outline: 1px solid var(--wire-strong); outline-offset: 2px; }
@@ -155,7 +160,7 @@ const chevron = 'M0 2.5h10L5 8z'
   border: 1px solid var(--wire-strong);
   box-shadow: 4px 4px 0 -1px var(--bg-canvas), 4px 4px 0 0 var(--wire-mid);
   visibility: hidden; clip-path: inset(0 0 100% 0);
-  transition: clip-path 100ms var(--ease-in), visibility 0s linear 100ms;
+  transition: clip-path 100ms var(--ease-out), visibility 0s linear 100ms;
 }
 .rs.open .rs-menu {
   visibility: visible; clip-path: inset(-8px -8px -8px -8px);
@@ -188,14 +193,22 @@ const chevron = 'M0 2.5h10L5 8z'
 }
 .rs-item::before {
   content: ''; position: absolute; inset: 0; z-index: -1; background: var(--bg-subtle);
-  clip-path: inset(0 100% 0 0); transition: clip-path var(--dur-out) var(--ease-in);
+  clip-path: inset(0 100% 0 0); transition: clip-path var(--dur-out) var(--ease-out);
 }
-.rs-item:hover::before, .rs-item:focus-visible::before {
+.rs-item:focus-visible::before {
   clip-path: inset(0 0 0 0); transition: clip-path var(--dur-in) var(--ease-out);
+}
+@media (hover: hover) and (pointer: fine) {
+  .rs-item:hover::before {
+    clip-path: inset(0 0 0 0); transition: clip-path var(--dur-in) var(--ease-out);
+  }
 }
 .rs-item:focus-visible { outline: none; }
 .rs-mark { width: 6px; height: 6px; justify-self: center; }
-.rs-item:hover .rs-mark, .rs-item:focus-visible .rs-mark { background: var(--wire-mid); }
+.rs-item:focus-visible .rs-mark { background: var(--wire-mid); }
+@media (hover: hover) and (pointer: fine) {
+  .rs-item:hover .rs-mark { background: var(--wire-mid); }
+}
 .rs-name { font-size: var(--fs-s); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rs-item[aria-selected='true'] { color: var(--invert-fg); }
 .rs-item[aria-selected='true']::before { background: var(--invert-bg); clip-path: inset(0 0 0 0); }

@@ -105,6 +105,12 @@ the deployment's single user, not to one browser, and an empty list prefers
 nothing.
 _Avoid_: Calling it a filter (the wall filters works, not formats) or a default format.
 
+**Video**:
+A video file a Work ships, only ever watched on its own, outside the work's
+track queue. It is never a track, never subject to the Format Preference or a
+Desired Audio Profile, and never planned, converted or judged obsolete.
+_Avoid_: Treating a video as a track or as an audio source.
+
 ### Collections and workbench
 
 **Work Collection**:

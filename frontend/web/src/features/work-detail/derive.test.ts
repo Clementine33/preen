@@ -261,11 +261,12 @@ describe('tree walking', () => {
   const tree = d('', [
     d('a', [f('a/x.png', 'img'), f('a/y.txt', 'txt'), d('a/b', [f('a/b/z.wav', 'aud', { format: 'WAV' })])]),
     f('root.lrc', 'lrc'),
+    f('clip.mp4', 'vid'),
   ])
 
   it('counts recursively, lrc as txt', () => {
-    expect(dirCounts(tree)).toEqual({ aud: 1, img: 1, txt: 2 })
-    expect(fileCount(tree)).toBe(4)
+    expect(dirCounts(tree)).toEqual({ aud: 1, img: 1, txt: 2, vid: 1 })
+    expect(fileCount(tree)).toBe(5)
   })
 
   it('resolves a breadcrumb to its directory', () => {
@@ -335,6 +336,7 @@ describe('telemetry formatting', () => {
     expect(fmtSize(222_298_112)).toBe('212.0M')
     expect(kindGlyph('dir')).toBe('▸')
     expect(kindGlyph('lrc')).toBe('¶')
+    expect(kindGlyph('vid')).toBe('▶')
     expect(isScrollShape(800, 2400)).toBe(true)
     expect(isScrollShape(1200, 1800)).toBe(false)
     expect(isScrollShape(null, 100)).toBe(false)

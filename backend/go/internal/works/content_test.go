@@ -19,6 +19,9 @@ func TestClassifyContentKind(t *testing.T) {
 		{"はじめにお読みください.txt", ""}:                works.KindText,
 		{"01_導入.mp3", "audio/mpeg"}:            works.KindAudio,
 		{"cover.png", "image/png"}:             works.KindImage,
+		{"clip.mp4", "video/mp4"}:              works.KindVideo,
+		{"clip.M4V", ""}:                       works.KindVideo,
+		{"voice.m4a", "audio/mp4"}:             works.KindAudio,
 		{"bonus.zip", ""}:                      works.KindUnknown,
 		{"no_ext", "application/octet-stream"}: works.KindUnknown,
 	}

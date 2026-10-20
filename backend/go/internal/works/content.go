@@ -31,6 +31,7 @@ const (
 	KindImage   ContentFileKind = "img"
 	KindText    ContentFileKind = "txt"
 	KindLyrics  ContentFileKind = "lrc"
+	KindVideo   ContentFileKind = "vid"
 	KindUnknown ContentFileKind = "bin"
 )
 
@@ -171,14 +172,17 @@ func thumbVersion(e *inventory.Entry, engine string) string {
 }
 
 // classifyContentKind names a file's kind from its extension and stored
-// format. Extensions decide the text kinds first: timed text carries no MIME type
-// the scan would have recorded.
+// format. Extensions decide the text and video kinds first: timed text carries
+// no MIME type the scan would have recorded, and the recorded format of an mp4
+// depends on the host (video/mp4, or empty in the Alpine image).
 func classifyContentKind(name, format string) ContentFileKind {
 	switch strings.ToLower(extOf(name)) {
 	case ".lrc", ".vtt":
 		return KindLyrics
 	case ".txt":
 		return KindText
+	case ".mp4", ".m4v":
+		return KindVideo
 	}
 	switch {
 	case strings.HasPrefix(format, "audio/"):

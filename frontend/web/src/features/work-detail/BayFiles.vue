@@ -8,7 +8,7 @@ import type { WorkContentDir, WorkContentFile } from '@/lib/api/types'
 // The FILES tab (v3): an OpenList browser of the copy's tree — breadcrumbs,
 // kind glyphs, recursive directory counts, no filter (work folders are small).
 // Rows act on the whole page: an image locates its set on the deck, lyrics
-// and texts open in READ, an audio starts its track.
+// and texts open in READ, an audio starts its track, a video opens its modal.
 
 const store = useWorkDetailStore()
 const player = usePlayerStore()
@@ -23,7 +23,7 @@ const entries = computed(() =>
   ),
 )
 
-function counts(entry: WorkContentDir): { aud: number; img: number; txt: number } {
+function counts(entry: WorkContentDir): { aud: number; img: number; txt: number; vid: number } {
   return dirCounts(entry)
 }
 function info(entry: WorkContentFile): string {
@@ -71,6 +71,7 @@ function isPlaying(entry: WorkContentDir | WorkContentFile): boolean {
             <template v-if="counts(entry).aud">♪{{ counts(entry).aud }}</template>
             <template v-if="counts(entry).img"> ▢{{ counts(entry).img }}</template>
             <template v-if="counts(entry).txt"> ¶{{ counts(entry).txt }}</template>
+            <template v-if="counts(entry).vid"> ▶{{ counts(entry).vid }}</template>
           </span></span>
           <span class="size">{{ sizeOf(entry) }}</span>
         </button>

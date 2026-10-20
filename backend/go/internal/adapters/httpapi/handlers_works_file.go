@@ -92,7 +92,7 @@ func contentETag(loc works.ContentFileLocation) string {
 	return `"` + hex.EncodeToString(sum[:8]) + `"`
 }
 
-// setWorkFileContentType names the bytes' own type: images and audio are
+// setWorkFileContentType names the bytes' own type: images, audio and video are
 // sniffed from the content (the extension is not trusted), text declares the
 // character set the body is actually in, and anything else is a stream.
 func setWorkFileContentType(h http.Header, file *os.File, kind works.ContentFileKind) error {
@@ -110,6 +110,16 @@ func setWorkFileContentType(h http.Header, file *os.File, kind works.ContentFile
 			if contentType == "" {
 				contentType = "application/octet-stream"
 			}
+		}
+		h.Set("Content-Type", contentType)
+	case works.KindVideo:
+		sample, _, err := readSample(file, 512)
+		if err != nil {
+			return err
+		}
+		contentType := http.DetectContentType(sample)
+		if !strings.HasPrefix(contentType, "video/") {
+			contentType = "video/mp4"
 		}
 		h.Set("Content-Type", contentType)
 	case works.KindText, works.KindLyrics:

@@ -112,7 +112,7 @@ inventory** — never a live walk — as one tree per bound copy (ADR 0013):
 server-side. A copy whose member directory no longer resolves on disk answers
 `"online": false` with no `tree` — stale is worse than absent. A placeholder
 work answers an empty `copies` array, not 404. `kind` classifies each file
-(`aud`, `img`, `txt`, `lrc`, `bin`); directories carry `children` (empty
+(`aud`, `img`, `txt`, `lrc`, `vid`, `bin`); directories carry `children` (empty
 included) and files carry no `children`, always carry `size`, and carry
 `format` only for audio, as the container name the track list aggregates by.
 `width`/`height`/`duration_sec`/`bitrate` are the inventory's facts (ADR 0013): `null` means unmeasured, not zero. Dimensions and durations are measured
@@ -127,6 +127,12 @@ the manifest holds are served, resolved inside the member under the same
 containment checks [direct file management](libraries.md#direct-file-management) applies (out-of-bounds segments and
 symlink traversal is refused; an unscanned file on disk is 404, not a guess).
 Directories are refused, and the opened object must still be a regular file.
+
+The `vid` kind is classified by extension (`.mp4`, `.m4v`, case-insensitive),
+whatever format the inventory recorded; an audio-only `.mp4` is still `vid`.
+It is served by the same content route (Range, `access_token`) and carries
+`null` `format`, `bitrate` and `duration_sec`. Its `Content-Type` is the
+sniffed `video/*` type, else `video/mp4`.
 
 The `lrc` kind includes timed lyrics with `.lrc` or `.vtt` extensions
 (case-insensitive). The detail page pairs these by audio basename, preferring

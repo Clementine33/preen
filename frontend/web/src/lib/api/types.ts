@@ -478,7 +478,7 @@ export interface PatchWorkUserDataParams {
 // by kind and carries scan-time image dimensions and durations, for different
 // consumers at a different change rate.
 
-export type WorkFileKind = 'aud' | 'img' | 'txt' | 'lrc' | 'bin'
+export type WorkFileKind = 'aud' | 'img' | 'txt' | 'lrc' | 'vid' | 'bin'
 
 export interface WorkContentFile {
   name: string

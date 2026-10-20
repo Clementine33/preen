@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { FolderOpen, X } from '@lucide/vue'
+import { FolderOpen } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
+import Modal from '@/components/ui/modal/Modal.vue'
 import type { CreateLibraryInput, Library, StorageClass } from '@/lib/api/types'
 import { useDesktopAdapter } from '@/lib/desktop/desktop-adapter'
 
@@ -44,33 +45,15 @@ function submit() {
 </script>
 
 <template>
-  <div
-    v-if="open"
-    class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/65 px-4 py-4"
-    role="dialog"
-    aria-modal="true"
-    :aria-label="library ? '编辑媒体库' : '添加媒体库'"
-    @click.self="emit('close')"
+  <Modal
+    :open="open"
+    :title="library ? '编辑媒体库' : '添加媒体库'"
+    description="每个条目指向一个音频根目录。可以添加多个媒体库。"
+    class="pb-[max(1.25rem,env(safe-area-inset-bottom))]"
+    @close="emit('close')"
   >
-    <!-- Scrolls inside the remaining space instead of being clipped by the
-         shell's bottom bar; the safe area is paid once, at the edge. -->
-    <form
-      class="my-auto max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto rounded-none border border-[var(--wire-strong)] bg-popover p-4 pb-[max(1rem,env(safe-area-inset-bottom))] rail:p-5 rail:pb-5"
-      @submit.prevent="submit"
-    >
-      <div class="flex items-start gap-4 border-b border-border pb-4">
-        <div>
-          <p class="font-heading text-base font-semibold">{{ library ? '编辑媒体库' : '添加媒体库' }}</p>
-          <p class="mt-1 text-xs text-muted-foreground">
-            每个条目指向一个音频根目录。可以添加多个媒体库。
-          </p>
-        </div>
-        <Button class="ml-auto" variant="ghost" size="icon" type="button" aria-label="关闭" @click="emit('close')">
-          <X class="size-4" />
-        </Button>
-      </div>
-
-      <label class="mt-4 block text-xs font-medium" for="library-name">名称</label>
+    <form @submit.prevent="submit">
+      <label class="block text-xs font-medium" for="library-name">名称</label>
       <input
         id="library-name"
         v-model="name"
@@ -127,5 +110,5 @@ function submit() {
         </Button>
       </div>
     </form>
-  </div>
+  </Modal>
 </template>

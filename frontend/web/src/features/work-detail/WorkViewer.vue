@@ -137,6 +137,10 @@ const NEXT_ICON = 'M2 0l7 5-7 5z'
 .viewer { position: fixed; inset: 0; width: 100vw; height: 100vh; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; background: var(--grain), var(--bg-canvas); color: var(--fg-base); display: none; grid-template-rows: auto minmax(0, 1fr); }
 .viewer[open] { display: grid; }
 .viewer::backdrop { background: var(--bg-canvas); }
+.viewer, .viewer::backdrop { transition: opacity var(--dur-out) var(--ease-out); }
+@starting-style {
+  .viewer[open], .viewer[open]::backdrop { opacity: 0; }
+}
 .viewer .strip { margin: var(--sp-3) var(--sp-4) 0; }
 .viewer .strip-side { display: flex; align-items: center; gap: var(--sp-3); }
 .strip-file { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--fg-base); letter-spacing: .04em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

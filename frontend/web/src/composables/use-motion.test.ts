@@ -1,3 +1,4 @@
+import { effectScope } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // The state is module-level, so each case imports a fresh module.
@@ -45,5 +46,39 @@ describe('useMotion', () => {
     motion.preference.value = 'reduce'
     await Promise.resolve()
     expect(motion.reduced.value).toBe(true)
+  })
+})
+
+describe('useSwitchBurst', () => {
+  async function burst() {
+    const { useSwitchBurst } = await load()
+    return effectScope().run(() => useSwitchBurst())!
+  }
+  beforeEach(() => vi.useFakeTimers())
+  afterEach(() => vi.useRealTimers())
+
+  it('turns rapid on the third switch', async () => {
+    const { rapid, note } = await burst()
+    note(); note()
+    expect(rapid.value).toBe(false)
+    note()
+    expect(rapid.value).toBe(true)
+  })
+
+  it('turns rapid off 800ms after the last switch', async () => {
+    const { rapid, note } = await burst()
+    note(); note(); note()
+    vi.advanceTimersByTime(799)
+    expect(rapid.value).toBe(true)
+    vi.advanceTimersByTime(1)
+    expect(rapid.value).toBe(false)
+  })
+
+  it('restarts the count after a pause', async () => {
+    const { rapid, note } = await burst()
+    note(); note()
+    vi.advanceTimersByTime(800)
+    note()
+    expect(rapid.value).toBe(false)
   })
 })

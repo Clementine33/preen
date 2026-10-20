@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { useReducedMotion } from '@/composables/use-motion'
+import { useReducedMotion, useSwitchBurst } from '@/composables/use-motion'
 import type { WorkDetail } from '@/lib/api/types'
 import { usePlayWork } from '@/features/works/use-play-work'
 import { useCoverSrc } from '@/features/works/use-cover-src'
@@ -33,7 +33,10 @@ const deferredWork = ref<WorkDetail | null>(workNow.value)
 const dim = ref(false)
 let detailTimer: number | null = null
 const reducedMotion = useReducedMotion()
+const { rapid: switching, note } = useSwitchBurst()
 
+// Counted pre-flush, so the post-flush watcher below already sees the burst.
+watch(() => props.rj, note)
 // Post-flush so the scramble runs after Vue has patched the title's text node:
 // the animation writes textContent frame by frame, and a pre-flush watcher
 // would have its first frame overwritten by the patch.
@@ -52,8 +55,10 @@ watch(
       }
       return
     }
-    if (reducedMotion.value) {
+    if (reducedMotion.value || switching.value) {
+      if (detailTimer !== null) window.clearTimeout(detailTimer)
       deferredWork.value = current
+      dim.value = false
       scramble(current.title ?? '')
       return
     }
@@ -80,7 +85,7 @@ let scrambleFrame = 0
 function scramble(text: string) {
   cancelAnimationFrame(scrambleFrame)
   if (!titleEl.value) return
-  if (reducedMotion.value || text === '') {
+  if (reducedMotion.value || switching.value || text === '') {
     titleEl.value.textContent = text
     return
   }
@@ -143,7 +148,7 @@ watch(
 )
 function showCover(url: string | null) {
   if (url === shownCover || !coverBack.value || !coverFront.value) return
-  if (reducedMotion.value) {
+  if (reducedMotion.value || switching.value) {
     // No wipe, but the cover still has to be painted.
     shownCover = url
     paintCover(coverFront.value, url)

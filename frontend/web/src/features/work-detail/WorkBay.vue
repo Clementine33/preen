@@ -66,8 +66,10 @@ function pin(): void {
 [data-dock='right'] .bay-tabs { padding: 0 var(--sp-4); border-bottom: 1px solid var(--wire-fine); }
 
 .tab { position: relative; isolation: isolate; height: 24px; padding: 0 var(--sp-3); white-space: nowrap; color: var(--fg-muted); display: inline-flex; align-items: center; gap: var(--sp-2); background: none; border: none; cursor: pointer; }
-.tab::before { content: ''; position: absolute; inset: 0; z-index: -1; background: var(--bg-subtle); clip-path: inset(0 100% 0 0); transition: clip-path var(--dur-out) var(--ease-in); }
-.tab:hover::before { clip-path: inset(0 0 0 0); transition: clip-path var(--dur-in) var(--ease-out); }
+.tab::before { content: ''; position: absolute; inset: 0; z-index: -1; background: var(--bg-subtle); clip-path: inset(0 100% 0 0); transition: clip-path var(--dur-out) var(--ease-out); }
+@media (hover: hover) and (pointer: fine) {
+  .tab:hover::before { clip-path: inset(0 0 0 0); transition: clip-path var(--dur-in) var(--ease-out); }
+}
 .tab .lbl { color: inherit; }
 .tab[aria-pressed='true'] { background: var(--invert-bg); color: var(--invert-fg); font-weight: 700; }
 .tab[aria-pressed='true'] .lbl { color: inherit; }

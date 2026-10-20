@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useMediaQuery, WALL_MOBILE_QUERY } from '@/composables/use-media-query'
+import { useSwitchBurst } from '@/composables/use-motion'
 import type { WorkSummary } from '@/lib/api/types'
 import WorkCard from './WorkCard.vue'
 
@@ -140,8 +141,10 @@ watch(() => props.works, () => {
 
 // Keep the selected work in view; focus its cell only after a keyboard move.
 let mounted = false
+const { rapid: switching, note } = useSwitchBurst()
 // The work and its index both count: a page turn can land on the same index.
 watch([() => props.selectedRj, selectedIndex], async () => {
+  note()
   placeCursor()
   if (!mounted || selectedIndex.value < 0) return
   const claim = focusOnSelect
@@ -170,7 +173,7 @@ function onCellClick(work: WorkSummary) {
 
 <template>
   <section ref="wallEl" class="wall" data-testid="work-wall">
-    <div ref="gridEl" class="grid" role="listbox" aria-label="Works" :style="{
+    <div ref="gridEl" class="grid" :class="{ 'wall-rapid': switching }" role="listbox" aria-label="Works" :style="{
       gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
       columnGap: `${gapX}px`,
       rowGap: `${GAP_Y}px`,
@@ -204,6 +207,7 @@ function onCellClick(work: WorkSummary) {
   transition: transform var(--dur-cursor) var(--ease-out);
   will-change: transform;
 }
+.wall-rapid .cursor { transition: none; }
 .cursor.idle { animation: blink 200ms steps(1, end) 2; }
 @keyframes blink { 50% { opacity: 0; } }
 

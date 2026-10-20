@@ -4,6 +4,7 @@ import { useApiClient } from '@/lib/api/client'
 import { isScrollShape } from '@/features/work-detail/derive'
 import WorkColophon from '@/features/work-detail/WorkColophon.vue'
 import { useMediaQuery, WALL_MOBILE_QUERY } from '@/composables/use-media-query'
+import { useSwitchBurst } from '@/composables/use-motion'
 import { useWorkDetail } from '@/queries/works'
 import { useLibraryUiStore } from '@/stores/library-ui'
 import { useWorkDetailStore } from '@/stores/work-detail'
@@ -97,12 +98,14 @@ const ghosts = computed(() => {
 
 // ── Enter wipe: a step reveals the new front left to right (v3): the clip is
 //    applied without a transition, then the transition returns and opens it. ──
+const { rapid: switching, note } = useSwitchBurst()
 const entering = ref(false)
 const running = ref(true)
 watch(
   () => [store.set, store.idx] as const,
   async () => {
-    if (store.flipped) return
+    note()
+    if (store.flipped || switching.value) return
     running.value = false
     entering.value = true
     await nextTick()
@@ -287,7 +290,7 @@ const NEXT_ICON = 'M2 0l7 5-7 5z'
 .chip .jp { font-family: var(--font-ui); letter-spacing: 0; max-width: 8em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .slot { position: relative; flex: 1; min-height: 0; display: grid; place-items: center; margin: var(--sp-4) 0 var(--sp-3); }
-.plate { position: relative; transition: width 240ms var(--ease-out), height 240ms var(--ease-out), box-shadow 160ms linear; }
+.plate { position: relative; transition: box-shadow 160ms linear; }
 .face { position: absolute; inset: 0; overflow: hidden; }
 .face.front { clip-path: inset(0 0 0 0); background-size: contain; background-position: center; background-repeat: no-repeat; box-shadow: inset 0 0 0 1px var(--wire-fine); }
 .face.front.scroll { overflow-y: auto; background: none; }
@@ -297,7 +300,7 @@ const NEXT_ICON = 'M2 0l7 5-7 5z'
 .face.front:not(.veil):not(.scroll) { cursor: zoom-in; }
 .face.front.scroll img { cursor: zoom-in; }
 /* The reverse = the colophon: the bone edge wipes in from the left, then the paper settles. */
-.face.back { background: var(--grain), var(--bg-panel); border: 1px solid var(--wire-strong); clip-path: inset(0 100% 0 0); transition: clip-path var(--dur-out) var(--ease-in); overflow-y: auto; }
+.face.back { background: var(--grain), var(--bg-panel); border: 1px solid var(--wire-strong); clip-path: inset(0 100% 0 0); transition: clip-path var(--dur-out) var(--ease-out); overflow-y: auto; }
 .plate.flipped .face.back { clip-path: inset(0 0 0 0); transition: clip-path 260ms var(--ease-out) 40ms; }
 .wipe { position: absolute; top: 0; bottom: 0; left: 0; width: 100%; background: var(--invert-bg); transform: scaleX(0); transform-origin: left; pointer-events: none; z-index: 2; }
 .wipe { animation: wipe 300ms var(--ease-out); }

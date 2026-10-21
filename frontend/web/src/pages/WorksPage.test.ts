@@ -335,11 +335,11 @@ describe('works page', () => {
   it('sends each rail filter straight to its listing parameter', async () => {
     const { wrapper, listWorks, router } = await mountWorks('/works')
 
-    await pick(wrapper, 'LANGUAGE', '无语言限制')
+    await pick(wrapper, 'LANG', '无语言限制')
     expect(lastParams(listWorks)).toMatchObject({ language: 'NM' })
-    await pick(wrapper, 'LANGUAGE', '简中')
+    await pick(wrapper, 'LANG', '简中')
     expect(lastParams(listWorks)).toMatchObject({ language: 'CHI_HANS' })
-    await pick(wrapper, 'LANGUAGE', 'ALL')
+    await pick(wrapper, 'LANG', 'ALL')
     expect(router.currentRoute.value.query.language).toBeUndefined()
     await pick(wrapper, 'AGE', 'R18')
     expect(lastParams(listWorks)).toMatchObject({ age_category: 3 })
@@ -382,12 +382,12 @@ describe('works page', () => {
     const { wrapper, listWorks, router } = await mountWorks('/works')
     expect(lastParams(listWorks)).not.toHaveProperty('listening')
 
-    await pick(wrapper, '收听', '在听')
+    await pick(wrapper, 'PROG', '在听')
     expect(lastParams(listWorks)).toMatchObject({ listening: 'listening' })
     expect(router.currentRoute.value.query.listening).toBe('listening')
-    await pick(wrapper, '收听', '听完')
+    await pick(wrapper, 'PROG', '听完')
     expect(lastParams(listWorks)).toMatchObject({ listening: 'finished' })
-    await pick(wrapper, '收听', '未听')
+    await pick(wrapper, 'PROG', '未听')
     expect(lastParams(listWorks)).toMatchObject({ listening: 'none' })
 
     const bogus = await mountWorks('/works?listening=bogus')

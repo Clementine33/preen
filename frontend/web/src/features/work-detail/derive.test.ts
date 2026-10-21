@@ -160,7 +160,7 @@ describe('deriveTracks', () => {
     [['a.lrc', 'a.mp3.VTT'], 'a.mp3.VTT'],
     [['a.VTT', 'a.mp3.lrc'], 'a.VTT'],
     [['a.vtt', 'a.mp3.vtt', 'a.lrc'], 'a.mp3.vtt'],
-    [['a.wav.vtt', 'a.mp3.vtt.bak'], null],
+    [['a.wav.vtt', 'a.mp3.vtt.bak'], 'a.wav.vtt'],
   ] as const)('prefers VTT with LRC fallback for matching lyric names %j', (names, expected) => {
     const tracks = deriveTracks(d('', [
       f('a.mp3', 'aud', { format: 'MP3' }),
@@ -174,6 +174,39 @@ describe('deriveTracks', () => {
     return f(path, 'aud', { format: ext.toUpperCase() })
   }
   const layout = (...paths: string[]) => d('', paths.map(aud))
+
+  it.each([
+    [['1.mp3.vtt', '1.wav.vtt'], '1.mp3.vtt'],
+    [['1.wav.vtt'], '1.wav.vtt'],
+    [['1.mp3.lrc', '1.wav.vtt'], '1.wav.vtt'],
+    [['1.WAV.VTT'], '1.WAV.VTT'],
+    [['1.flac.lrc'], '1.flac.lrc'],
+    [['1.aac.vtt', '1.ogg.vtt', '1.opus.vtt'], '1.aac.vtt'],
+    [['1.lrc', '1.mp3.vtt'], '1.lrc'],
+    [['1.m4a.lrc', '1.wav.vtt'], '1.m4a.lrc'],
+    [['1.txt.vtt', '1.ja.vtt', '1.mp3.wav.vtt', '11.wav.vtt'], null],
+  ] as const)('falls back to other audio-format lyric names for %j', (names, expected) => {
+    const tracks = deriveTracks(d('', [aud('1.m4a'), ...names.map((name) => f(name, 'lrc'))]))
+    expect(tracks[0].lrcRel).toBe(expected)
+  })
+
+  it('keeps exact matches ahead of other-format fallback even across variants', () => {
+    const tree = d('', [
+      aud('SE有/1.m4a'),
+      f('SE有/1.mp3.vtt', 'lrc'),
+      f('SE無/1.lrc', 'lrc'),
+    ])
+    expect(deriveTracks(tree)[0].lrcRel).toBe('SE無/1.lrc')
+  })
+
+  it('prefers the same variant before VTT when falling back to other formats', () => {
+    const tree = d('', [
+      aud('SE有/1.m4a'),
+      f('SE有/1.wav.lrc', 'lrc'),
+      f('SE無/1.mp3.vtt', 'lrc'),
+    ])
+    expect(deriveTracks(tree)[0].lrcRel).toBe('SE有/1.wav.lrc')
+  })
 
   it.each(['vtt', 'lrc'])('pairs full audio filenames from any format of a track (%s)', (extension) => {
     const tree = d('', [

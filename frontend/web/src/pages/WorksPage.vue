@@ -396,7 +396,7 @@ useKeymap({
    outer edges carry the only double bar (1px fine + 2px strong); everything
    inside uses single 1px lines. */
 .works {
-  display: grid; grid-template-rows: 48px 40px minmax(0, 1fr) auto; grid-template-columns: minmax(0, 1fr);
+  display: grid; grid-template-rows: 48px minmax(40px, auto) minmax(0, 1fr) auto; grid-template-columns: minmax(0, 1fr);
   width: 100%; height: 100%;
   font-variant-numeric: tabular-nums;
 }
@@ -413,15 +413,19 @@ useKeymap({
 .header-meta b { color: var(--fg-base); font-weight: 600; letter-spacing: .08em; }
 
 .rail {
-  display: flex; align-items: center; justify-content: space-between; gap: var(--sp-4);
-  padding: 0 var(--sp-6); position: relative;
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-1) var(--sp-4);
+  padding: var(--sp-1) var(--sp-6); position: relative;
 }
 .rail::after {
   content: ''; position: absolute; left: var(--sp-6); right: var(--sp-6); bottom: 0;
   border-bottom: 1px solid var(--wire-fine);
 }
 .filters, .rail-right { display: flex; align-items: center; gap: var(--sp-1); min-width: 0; }
-.rail-right { gap: var(--sp-4); flex-shrink: 0; }
+/* Too narrow for one line, SORT/SIZE/FIND drop to their own line on the right,
+   leaving the filters the full width; only then do the tabs themselves wrap (a
+   set filter widens its tab by its value). */
+.rail-right { gap: var(--sp-4); flex-shrink: 0; margin-left: auto; }
+.filters { flex-wrap: wrap; row-gap: var(--sp-1); }
 
 .find { display: flex; align-items: center; gap: var(--sp-2); flex-shrink: 0; }
 .find input {
@@ -454,7 +458,7 @@ useKeymap({
     gap: var(--sp-2) var(--sp-1); padding-block: var(--sp-2);
   }
   .rail-right { display: contents; }
-  .filters { overflow-x: auto; scrollbar-width: none; }
+  .filters { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
   .filters::-webkit-scrollbar { display: none; }
   .filters > * { flex-shrink: 0; }
   .bench { grid-template-columns: 1fr; }

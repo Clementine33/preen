@@ -356,9 +356,9 @@ useKeymap({
         <RailSelect v-model="voiceActor" label="VOICE" :options="voiceActorOptions" marks-active searchable />
         <RailSelect v-model="circle" label="CIRCLE" :options="circleOptions" marks-active searchable />
         <RailSelect v-model="age" label="AGE" :options="AGE_OPTIONS" marks-active />
-        <RailSelect v-model="language" label="LANGUAGE" :options="LANGUAGE_OPTIONS" marks-active />
+        <RailSelect v-model="language" label="LANG" :options="LANGUAGE_OPTIONS" marks-active />
         <RailSelect v-model="rating" label="RATING" :options="RATING_OPTIONS" marks-active />
-        <RailSelect v-model="listening" label="收听" :options="LISTENING_OPTIONS" marks-active />
+        <RailSelect v-model="listening" label="PROG" :options="LISTENING_OPTIONS" marks-active />
         <TagIndex v-model="tags" :scope="tagScope" />
         <span v-if="wq.overflow.value" class="lbl notice" role="status">筛选条件过多，未应用</span>
       </div>

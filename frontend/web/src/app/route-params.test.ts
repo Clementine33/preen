@@ -115,14 +115,14 @@ describe('the wall address', () => {
     // 300 ids of one name: about 11,000 characters, never dropped for length.
     const ids = Array.from({ length: 300 }, (_, i) => `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`)
     const view = new URLSearchParams({
-      library: 'all', voice: ids.join(','), circle: 'ci-1', age: 'r18', tag: 's:s-asmr|u:u-asmr,s:s-ear',
+      library: 'all', voice: ids.join(','), circle: 'ci-1', age: 'r18', rating: '8', tag: 's:s-asmr|u:u-asmr,s:s-ear',
       mode: 'any', sort: 'rating', q: '月 下', page: '3', size: '36', rj: 'RJ01113012',
     })
     expect(cleanedQuery(routeOf(guardRouter(), `/works?${view}`))).toBeNull()
   })
 
   it('drops a wall value of the wrong shape', () => {
-    for (const [key, value] of [['page', '0'], ['page', '-1'], ['size', '50'], ['age', 'adult'], ['voice', 'a b'], ['language', 'invalid']]) {
+    for (const [key, value] of [['page', '0'], ['page', '-1'], ['size', '50'], ['age', 'adult'], ['voice', 'a b'], ['language', 'invalid'], ['rating', '11']]) {
       expect(cleanedQuery(routeOf(guardRouter(), `/works?${key}=${encodeURIComponent(value)}`)), key).toEqual({})
     }
   })

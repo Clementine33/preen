@@ -94,4 +94,32 @@ describe('RailSelect', () => {
     expect(focusedIndex()).toBe(701)
     expect(document.activeElement?.getAttribute('aria-selected')).toBe('true')
   })
+
+  it('presents the panel as a bottom sheet on a narrow screen and keeps `open` in step', async () => {
+    const real = window.matchMedia
+    window.matchMedia = ((query: string) => ({ ...real(query), matches: query.includes('max-width') })) as typeof real
+    try {
+      const { wrapper } = await mountSelect('', false)
+      const sheet = wrapper.get('dialog.rs-menu')
+      expect(sheet.attributes('open')).toBeUndefined()
+
+      await wrapper.get('.rs-trigger').trigger('click')
+      expect(sheet.attributes('open')).toBeDefined()
+      expect(wrapper.get('.rs').classes()).toContain('open')
+
+      // The dialog's own close (Esc, back) closes the select; so does CLOSE.
+      await sheet.trigger('close')
+      expect(wrapper.get('.rs').classes()).not.toContain('open')
+      await wrapper.get('.rs-trigger').trigger('click')
+      await wrapper.get('.rs-close').trigger('click')
+      expect(sheet.attributes('open')).toBeUndefined()
+
+      // A tap on the backdrop is a click on the dialog itself.
+      await wrapper.get('.rs-trigger').trigger('click')
+      await sheet.trigger('click')
+      expect(wrapper.get('.rs').classes()).not.toContain('open')
+    } finally {
+      window.matchMedia = real
+    }
+  })
 })

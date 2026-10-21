@@ -12,6 +12,10 @@ import { useTagFacets } from '@/queries/works'
 // longer matches, or whose name cannot be found, stays under SELECTED with a
 // remove control, and APPLY keeps it.
 //
+// A narrow screen presents the dialog as a bottom sheet: the same Modal,
+// anchored to the bottom edge and slid up (its overlay tap, Esc and close
+// button still count as leaving without APPLY).
+//
 // A history can hold a few hundred tags: only the two sections scroll, so FIND,
 // the mode and APPLY never leave the dialog, and 我的标签 — the short, personal
 // list — comes first instead of under the source vocabulary's long tail.
@@ -144,7 +148,7 @@ const active = computed(() => applied.value > 0)
       <span class="lbl ti-lbl">TAG</span>
       <span v-if="active" class="ti-value">{{ applied }} · {{ model.mode === 'all' ? 'AND' : 'OR' }}</span>
     </button>
-    <Modal v-model:open="open" title="TAG INDEX" class="flex w-[min(44rem,calc(100vw-2rem))] flex-col overflow-hidden">
+    <Modal v-model:open="open" title="TAG INDEX" class="flex w-[min(44rem,calc(100vw-2rem))] flex-col overflow-hidden max-[768px]:top-auto max-[768px]:bottom-0 max-[768px]:left-0 max-[768px]:w-full max-[768px]:max-h-[70dvh] max-[768px]:translate-x-0 max-[768px]:translate-y-0 max-[768px]:data-[state=open]:slide-in-from-bottom max-[768px]:data-[state=closed]:slide-out-to-bottom">
       <div class="ti-body">
         <div class="ti-bar">
           <label class="ti-find">
@@ -202,6 +206,10 @@ const active = computed(() => applied.value > 0)
 }
 .ti-trigger:focus-visible::before {
   clip-path: inset(0 0 0 0); transition: clip-path var(--dur-in) var(--ease-out);
+}
+/* A finger needs 44px. */
+@media (pointer: coarse) {
+  .ti-trigger { height: auto; min-height: 44px; }
 }
 @media (hover: hover) and (pointer: fine) {
   .ti-trigger:hover::before {

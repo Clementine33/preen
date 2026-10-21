@@ -38,6 +38,7 @@ export const KEYS = {
   'player.volume': key('player', ['Shift+ArrowUp', 'Shift+ArrowDown'], '音量 +10% / −10%'),
   'player.mute': key('player', ['M'], '静音'),
   'player.step': key('player', [',', '.'], '上一首 / 下一首'),
+  'player.lyrics': key('player', ['L'], '悬浮歌词'),
   'wall.move': key('wall', ARROWS, '移动选择'),
   'wall.page': key('wall', ['PageUp', 'PageDown'], '上一页 / 下一页'),
   'wall.play': key('wall', ['P'], '播放所选作品'),

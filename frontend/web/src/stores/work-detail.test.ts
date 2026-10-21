@@ -191,6 +191,20 @@ describe('work-detail store', () => {
     expect(store.leaf).toBe('lrc')
   })
 
+  it('hands the player each track\'s lyrics, and a pairing made while playing reaches the playing item', () => {
+    const store = useWorkDetailStore()
+    store.bind(RJ, sampleWorkContent(RJ))
+    const player = usePlayerStore()
+    store.startTrack(1)
+    const item = () => player.queue[player.trackIndex]
+    expect(item().lyrics).toEqual({ copyId: 'copy-a', relPath: '本編/lyrics/02_本編 ―雨音と耳かき―.lrc' })
+    store.pairLrc(1, '本編/lyrics/04_おやすみ.lrc')
+    expect(item().lyrics).toEqual({ copyId: 'copy-a', relPath: '本編/lyrics/04_おやすみ.lrc' })
+    // Another track's pairing leaves the playing item alone.
+    store.pairLrc(0, '本編/lyrics/02_本編 ―雨音と耳かき―.lrc')
+    expect(item().lyrics?.relPath).toBe('本編/lyrics/04_おやすみ.lrc')
+  })
+
   it('acts on file rows: an image locates its set, text and lyrics open READ', async () => {
     await bind()
     const store = useWorkDetailStore()

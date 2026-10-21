@@ -1,0 +1,39 @@
+import { mount } from '@vue/test-utils'
+import { expect, it } from 'vitest'
+import type { LyricsFrame } from '@/lib/desktop/desktop-adapter'
+import LyricsWindowView from './LyricsWindowView.vue'
+
+const frame = (over: Partial<LyricsFrame> = {}): LyricsFrame => ({
+  rj: 'RJ1', title: 'Track', paused: false, hasPrev: true, hasNext: true, line: null, noLyrics: false, ...over,
+})
+const show = (over?: Partial<LyricsFrame>) => mount(LyricsWindowView, { props: { frame: frame(over) }, global: { stubs: { Transition: false } } })
+
+it('shows the current line, and a two-line cue as a main and a smaller sub line', () => {
+  const wrapper = show({ line: { key: 'k', text: 'こんにちは\n你好\nignored' } })
+  expect(wrapper.findAll('.main').map((n) => n.text())).toEqual(['こんにちは'])
+  expect(wrapper.findAll('.sub').map((n) => n.text())).toEqual(['你好'])
+})
+
+it('dims a held cue', () => {
+  expect(show({ line: { key: 'k', text: 'a', dim: true } }).find('.line').classes()).toContain('dim')
+})
+
+it('shows the title before the first line, with 无歌词 when the track has none', () => {
+  expect(show().find('.line').text()).toBe('Track')
+  expect(show().find('.none').exists()).toBe(false)
+  expect(show({ noLyrics: true }).find('.none').text()).toBe('无歌词')
+})
+
+it('disables prev and next by the frame and labels play/pause by state', () => {
+  const wrapper = show({ hasPrev: false, hasNext: false, paused: true })
+  const [prev, toggle, next] = wrapper.findAll('button')
+  expect(prev.attributes('disabled')).toBeDefined()
+  expect(next.attributes('disabled')).toBeDefined()
+  expect(toggle.attributes('aria-label')).toBe('Resume')
+})
+
+it('emits the three commands', async () => {
+  const wrapper = show()
+  for (const button of wrapper.findAll('button')) await button.trigger('click')
+  expect(wrapper.emitted('command')).toEqual([['prev'], ['toggle'], ['next']])
+})

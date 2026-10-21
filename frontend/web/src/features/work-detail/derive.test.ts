@@ -242,6 +242,20 @@ describe('playQueue', () => {
     expect(keys(playQueue(tracks, 0, 'MP3').queue)).toEqual(['se_on/1'])
   })
 
+  it('gives each entry its Timed Lyrics: the manual pairing first, then the automatic one', () => {
+    const withLrc = deriveTracks(d('', [
+      f('a.mp3', 'aud', { format: 'MP3' }), f('b.mp3', 'aud', { format: 'MP3' }), f('c.mp3', 'aud', { format: 'MP3' }),
+      f('a.lrc', 'lrc'), f('b.lrc', 'lrc'), f('manual.lrc', 'lrc'),
+    ]))
+    const { queue } = playQueue(withLrc, 0, 'MP3', undefined, { copyId: 'copy-a', pairs: { 1: 'manual.lrc' } })
+    expect(queue.map((item) => item.lyrics)).toEqual([
+      { copyId: 'copy-a', relPath: 'a.lrc' },
+      { copyId: 'copy-a', relPath: 'manual.lrc' },
+      undefined,
+    ])
+    expect(playQueue(withLrc, 0, 'MP3').queue[0].lyrics).toBeUndefined()
+  })
+
   it('maps the start track to its place in the filtered queue', () => {
     const second = tracks.findIndex((t) => t.key === 'se_off/2')
     const { queue, index } = playQueue(tracks, second, 'WAV')
@@ -327,6 +341,10 @@ describe('parseLrc', () => {
       { time: 9, text: 'あ、降ってきたね。', sfx: false },
       { time: 15, text: 'こっち。', sfx: false },
     ])
+  })
+
+  it('drops inline word-timing tags from the line text', () => {
+    expect(parseLrc('[00:01.00]<00:01.00>あ<00:01.50>い<00:02.00>う')).toEqual([{ time: 1, text: 'あいう', sfx: false }])
   })
 
   it('marks full-line parentheticals as sound effects', () => {

@@ -138,6 +138,19 @@ track queue. It is never a track, never subject to the Format Preference or a
 Desired Audio Profile, and never planned, converted or judged obsolete.
 _Avoid_: Treating a video as a track or as an audio source.
 
+**Timed Lyrics**:
+The time-coded lyrics (LRC or WebVTT) paired with one track of a Work: a pair
+the user made by hand wins over the file sharing the track's base name. A track
+may have none; plain text a Work ships is a script to read, not Timed Lyrics.
+_Avoid_: Subtitles, script (a script is read, not followed).
+
+**Lyrics Window**:
+A floating window that follows the Timed Lyrics of whatever track is playing,
+on any page, until the user closes it. It shows lyrics and drives the player;
+it never chooses what plays. Where it lives (a browser picture-in-picture
+window, a desktop shell's own window) is not part of the concept.
+_Avoid_: PiP (one way to host it), desktop lyrics, mini player.
+
 ### Collections and workbench
 
 **Work Collection**:

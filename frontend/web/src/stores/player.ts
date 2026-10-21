@@ -38,6 +38,8 @@ export interface QueueItem {
   index?: number
   count?: number
   source?: PlaySource
+  /** Where the track's Timed Lyrics are, in the copy it plays from. */
+  lyrics?: { copyId: string; relPath: string }
 }
 
 /** The listener's volume, a per-browser convenience: unreadable storage means full volume. */

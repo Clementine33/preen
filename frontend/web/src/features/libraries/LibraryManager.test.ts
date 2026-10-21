@@ -10,7 +10,7 @@ const library: Library = {
 }
 
 const global = {
-  provide: { [desktopAdapterKey as symbol]: { platform: 'browser', resolveApi: async () => ({ baseUrl: '', token: null }), pickFolder: async () => null } },
+  provide: { [desktopAdapterKey as symbol]: { platform: 'browser', lyricsWindow: false, openLyricsWindow: async () => null, resolveApi: async () => ({ baseUrl: '', token: null }), pickFolder: async () => null } },
 }
 
 afterEach(() => document.body.replaceChildren())

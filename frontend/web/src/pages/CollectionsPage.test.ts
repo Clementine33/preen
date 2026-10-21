@@ -78,7 +78,10 @@ describe('CollectionsPage', () => {
     const now = wrapper.get('[data-testid="collections-now-playing"]')
     expect(now.text()).toContain('RJ00000007')
     expect(now.text()).toContain('01:05 / --:--')
-    expect(now.attributes('href')).toBe('/works/RJ00000007')
+    expect(now.get('[data-testid="collections-now-playing-link"]').attributes('href')).toBe('/works/RJ00000007')
+    const toggle = vi.spyOn(usePlayerStore(), 'togglePause').mockImplementation(() => {})
+    await now.get('[data-testid="collections-now-playing-toggle"]').trigger('click')
+    expect(toggle).toHaveBeenCalledOnce()
     expect(wrapper.find('[data-testid="collections-message"]').exists()).toBe(false)
   })
 

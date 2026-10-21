@@ -358,6 +358,23 @@ describe('works page', () => {
     expect(lastParams(listWorks)).not.toHaveProperty('voice_actor_match')
   })
 
+  it('maps the personal rating filter to a floor, the unrated set, or nothing', async () => {
+    const { wrapper, listWorks } = await mountWorks('/works?rating=8')
+    expect(lastParams(listWorks)).toMatchObject({ rating_from: 8 })
+    expect(lastParams(listWorks)).not.toHaveProperty('rating_to')
+
+    await pick(wrapper, 'RATING', '已评分')
+    expect(lastParams(listWorks)).toMatchObject({ rating_from: 1 })
+    await pick(wrapper, 'RATING', '未评分')
+    expect(lastParams(listWorks)).toMatchObject({ unrated: true })
+    expect(lastParams(listWorks)).not.toHaveProperty('rating_from')
+
+    // An address value outside the options constrains nothing.
+    const bogus = await mountWorks('/works?rating=bogus')
+    expect(lastParams(bogus.listWorks)).not.toHaveProperty('rating_from')
+    expect(lastParams(bogus.listWorks)).not.toHaveProperty('unrated')
+  })
+
   it('offers a name held by several per-work entities once, asking for all of them', async () => {
     const { wrapper, listWorks, listWorkFacets } = await mountWorks('/works')
     listWorkFacets.mockResolvedValue([

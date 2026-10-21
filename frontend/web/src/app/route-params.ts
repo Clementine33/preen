@@ -19,8 +19,9 @@ export type MemberFilter = (typeof MEMBER_FILTERS)[number]
 const ALLOWED_VALUES: Record<string, readonly string[]> = {
   view: ['current', 'plan'],
   filter: MEMBER_FILTERS,
-  // The wall's age rating, tag match mode, order and page size.
+  // The wall's age rating, personal rating, tag match mode, order and page size.
   age: ['safe', 'r15', 'r18'],
+  rating: ['10', '9', '8', '7', '5', 'rated', 'none'],
   language: ['CHI_HANS', 'CHI_HANT', 'JPN', 'NM'],
   mode: ['all', 'any'],
   sort: ['rj', 'release_date', 'collected_at', 'rating'],
@@ -88,7 +89,7 @@ const ALLOWED_PARAMS: Record<string, readonly string[]> = {
   ...Object.fromEntries(CONVERSION_SUBTREE.map((name) => [name, ['filter']])),
   'conversion-member-files': ['filter', 'view'],
   'collection-detail': ['sort', 'direction'],
-  works: ['library', 'rj', 'voice', 'circle', 'age', 'language', 'tag', 'mode', 'sort', 'q', 'page', 'size'],
+  works: ['library', 'rj', 'voice', 'circle', 'age', 'language', 'rating', 'tag', 'mode', 'sort', 'q', 'page', 'size'],
 }
 
 /** The filter an address asks for, or the unfiltered list. */

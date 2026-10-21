@@ -72,6 +72,7 @@ const voiceActor = computed({ get: () => wq.voice.value, set: (value) => void wq
 const circle = computed({ get: () => wq.circle.value, set: (value) => void wq.setFilters({ circle: value }) })
 const age = computed({ get: () => wq.age.value, set: (value) => void wq.setFilters({ age: value }) })
 const language = computed({ get: () => wq.language.value, set: (value) => void wq.setFilters({ language: value }) })
+const rating = computed({ get: () => wq.rating.value, set: (value) => void wq.setFilters({ rating: value }) })
 const sort = computed<WorksSort>({ get: () => wq.sort.value, set: (value) => void wq.setSort(value) })
 const size = computed({ get: () => String(wq.size.value), set: (value) => void wq.setSize(Number(value)) })
 const tags = computed<TagSelection>({
@@ -99,6 +100,24 @@ const LANGUAGE_OPTIONS: RailOption[] = [
   { value: 'JPN', label: '日语' },
   { value: 'NM', label: '无语言限制' },
 ]
+// Personal rating is a floor, never a range: a number N lists works rated N or
+// higher, so only the top score is exact ('10'); 'none' lists the unrated.
+const RATING_OPTIONS: RailOption[] = [
+  { value: '', label: 'ALL' },
+  { value: '10', label: '10' },
+  { value: '9', label: '9+' },
+  { value: '8', label: '8+' },
+  { value: '7', label: '7+' },
+  { value: '5', label: '5+' },
+  { value: 'rated', label: '已评分' },
+  { value: 'none', label: '未评分' },
+]
+/** An address value outside the options constrains nothing, like an unknown AGE. */
+function ratingParam(value: string): Pick<ListWorksParams, 'rating_from' | 'unrated'> {
+  if (value === 'none') return { unrated: true }
+  if (value === 'rated') return { rating_from: 1 }
+  return /^(10|[5789])$/.test(value) ? { rating_from: Number(value) } : {}
+}
 const AGE_PARAM: Record<string, ListWorksParams['age_category']> = { safe: 1, r15: 2, r18: 3 }
 
 // Every order runs newest / highest first; unknown dates and unrated works
@@ -118,6 +137,7 @@ const scope = computed<WorksScope>(() => ({
   ...(wq.circle.value ? { circle: wq.circle.value } : {}),
   ...(wq.language.value ? { language: wq.language.value } : {}),
   ...(wq.age.value ? { age_category: AGE_PARAM[wq.age.value] } : {}),
+  ...ratingParam(wq.rating.value),
   ...(wq.tag.value ? { tag: wq.tag.value, tag_match: wq.mode.value } : {}),
   ...(wq.q.value ? { q: wq.q.value } : {}),
 }))
@@ -325,6 +345,7 @@ useKeymap({
         <RailSelect v-model="circle" label="CIRCLE" :options="circleOptions" marks-active searchable />
         <RailSelect v-model="age" label="AGE" :options="AGE_OPTIONS" marks-active />
         <RailSelect v-model="language" label="LANGUAGE" :options="LANGUAGE_OPTIONS" marks-active />
+        <RailSelect v-model="rating" label="RATING" :options="RATING_OPTIONS" marks-active />
         <TagIndex v-model="tags" :scope="tagScope" />
         <span v-if="wq.overflow.value" class="lbl notice" role="status">筛选条件过多，未应用</span>
       </div>
@@ -410,16 +431,26 @@ useKeymap({
 .header-left { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
 
 @media (max-width: 768px) {
-  /* A phone's rail cannot hold every tab on one line: the tabs flow and wrap. */
+  /* A phone's rail cannot hold every tab on one line: the filters scroll
+     sideways in one row, SORT stays pinned beside them, and FIND takes its own
+     line. The scrolling row clips an absolute dropdown, which is fine: a
+     phone's panels are modal sheets in the top layer. */
   .works { grid-template-rows: 48px auto minmax(0, 1fr) auto; }
-  .rail { flex-wrap: wrap; justify-content: flex-start; gap: var(--sp-2) var(--sp-1); padding-block: var(--sp-2); }
-  .filters, .rail-right { display: contents; }
+  .rail {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center;
+    gap: var(--sp-2) var(--sp-1); padding-block: var(--sp-2);
+  }
+  .rail-right { display: contents; }
+  .filters { overflow-x: auto; scrollbar-width: none; }
+  .filters::-webkit-scrollbar { display: none; }
+  .filters > * { flex-shrink: 0; }
   .bench { grid-template-columns: 1fr; }
-  .header, .rail { padding: 0 var(--sp-4); }
+  .header { padding: 0 var(--sp-4); }
+  .rail { padding-inline: var(--sp-4); }
   .header::after, .rail::after { left: var(--sp-4); right: var(--sp-4); }
-  /* A phone keeps the default page size and gives FIND the rest of the line. */
+  /* A phone keeps the default page size and gives FIND the whole second line. */
   .size { display: none; }
-  .find { flex: 1 1 140px; min-width: 0; padding-left: var(--sp-2); }
+  .find { grid-column: 1 / -1; min-width: 0; padding-left: var(--sp-2); }
   .find input { flex: 1; min-width: 0; width: auto; }
   .header-meta .count, .veil-state { display: none; }
 }

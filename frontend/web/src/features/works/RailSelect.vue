@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useVirtualizer } from '@tanstack/vue-virtual'
+import { useMediaQuery, WALL_MOBILE_QUERY } from '@/composables/use-media-query'
 import { usePopupMenu } from './use-popup-menu'
 
 // One select of the filter rail: a rail tab that unfolds the
@@ -11,6 +12,11 @@ import { usePopupMenu } from './use-popup-menu'
 // A history can hold about a thousand voice actors or circles, so the list is
 // virtualized: only the rows in view exist, closed or open. There is no
 // keyboard navigation of its own: a long list is narrowed with the search box.
+//
+// A narrow screen presents the panel as a bottom sheet: the same panel as a
+// native modal <dialog> (top layer, focus trap, Esc), closed by its CLOSE
+// button or a tap on the backdrop. The dialog's own `close` event keeps `open`
+// in step, so Esc and the Android back gesture need no handler of their own.
 
 export interface RailOption {
   /** '' is the "no constraint" entry every select opens with. */
@@ -33,6 +39,24 @@ const open = ref(false)
 const root = ref<HTMLElement | null>(null)
 const trigger = ref<HTMLButtonElement | null>(null)
 const listEl = ref<HTMLElement | null>(null)
+const menuEl = ref<HTMLElement | null>(null)
+const narrow = useMediaQuery(WALL_MOBILE_QUERY)
+const coarse = useMediaQuery('(pointer: coarse)')
+
+// jsdom has no showModal, so tests render the same DOM by the plain open attribute.
+watch(open, (value) => {
+  const el = menuEl.value as HTMLDialogElement | null
+  if (!narrow.value || el === null || el.tagName !== 'DIALOG' || el.open === value) return
+  if (value) {
+    if (typeof el.showModal === 'function') el.showModal()
+    else el.setAttribute('open', '')
+  } else if (typeof el.close === 'function') el.close()
+  else el.removeAttribute('open')
+})
+/** A tap on the dialog itself, outside its content, is the backdrop. */
+function onSheetClick(event: MouseEvent): void {
+  if (event.target === menuEl.value) menu.close(true)
+}
 
 const search = ref('')
 watch(open, (value) => {
@@ -45,23 +69,25 @@ const shown = computed(() => {
   return props.options.filter((option) => option.value === '' || option.label.toLowerCase().includes(needle))
 })
 
-/** One row: 32px including its rule, the height `.rs-item` draws. */
-const ROW = 32
+/** One row including its rule, the height `.rs-item` draws: 44px for a finger. */
+const row = computed(() => (coarse.value ? 44 : 32))
 const LIST_MAX = 320
 const virtualizer = useVirtualizer(
   computed(() => ({
     count: shown.value.length,
     getScrollElement: () => listEl.value,
-    estimateSize: () => ROW,
+    estimateSize: () => row.value,
     overscan: 6,
     // The panel is laid out while hidden, but jsdom has no layout at all.
     initialRect: { width: 280, height: LIST_MAX },
   })),
 )
 const virtualRows = computed(() => virtualizer.value.getVirtualItems())
-const listHeight = computed(() => `${Math.min(LIST_MAX, shown.value.length * ROW)}px`)
+const listHeight = computed(() => `${Math.min(LIST_MAX, shown.value.length * row.value)}px`)
 // A narrower list starts from its top, not from wherever the last one was.
 watch(search, () => virtualizer.value.scrollToOffset(0))
+// Cached row measurements are of the old height.
+watch(row, () => virtualizer.value.measure())
 // Opening shows the current value in place, even when the search box takes
 // the focus: in a thousand rows it would otherwise sit far out of view.
 watch(open, (value) => {
@@ -90,16 +116,18 @@ const chevron = 'M0 2.5h10L5 8z'
       <span v-if="current && (current.value !== '' || !marksActive)" class="rs-value">{{ current.label }}</span>
       <svg class="rs-chev" viewBox="0 0 10 10" aria-hidden="true"><path :d="chevron" /></svg>
     </button>
-    <div class="rs-menu" data-own-keys>
+    <component :is="narrow ? 'dialog' : 'div'" ref="menuEl" class="rs-menu" data-own-keys :aria-label="narrow ? label : undefined"
+      @click="onSheetClick" @close="open = false">
       <div class="strip">
         <span class="strip-name lbl">{{ label }}</span>
         <span class="lbl">{{ options.length - (options[0]?.value === '' ? 1 : 0) }}</span>
+        <button v-if="narrow" class="lbl rs-close" type="button" @click="menu.close(true)">CLOSE</button>
       </div>
       <label v-if="searchable" class="rs-search">
         <span class="lbl">FIND</span>
         <input v-model="search" type="search" :aria-label="`Find ${label.toLowerCase()}`" />
       </label>
-      <div ref="listEl" class="rs-list" role="listbox" :aria-label="label" :style="{ height: listHeight }">
+      <div ref="listEl" class="rs-list" role="listbox" :aria-label="label" :style="narrow ? undefined : { height: listHeight }">
         <div class="rs-rows" :style="{ height: `${virtualizer.getTotalSize()}px` }">
           <button v-for="row in virtualRows" :key="shown[row.index].value" class="rs-item" type="button"
             role="option" :data-index="row.index" :aria-selected="shown[row.index].value === model"
@@ -113,7 +141,7 @@ const chevron = 'M0 2.5h10L5 8z'
         </div>
       </div>
       <p v-if="shown.length === 0" class="rs-empty lbl">NO MATCH</p>
-    </div>
+    </component>
   </div>
 </template>
 
@@ -216,11 +244,35 @@ const chevron = 'M0 2.5h10L5 8z'
 .rs-item[aria-selected='true'] .lbl { color: var(--invert-fg); }
 .rs-empty { padding: var(--sp-3) var(--sp-2); }
 
+/* A finger needs 44px: the trigger and the rows (the virtualizer's `row`). */
+@media (pointer: coarse) {
+  .rs-trigger { height: auto; min-height: 44px; }
+  .rs-item { height: 44px; }
+}
+
 @media (max-width: 768px) {
   /* Tabs are compact on a phone: the label alone, the value lives in the
-     panel. The panel hugs the rail's gutters instead of its trigger. */
+     panel. The panel is a bottom sheet: a modal <dialog> anchored to the
+     bottom edge, the list scrolling under a fixed header and search box. */
   .rs { position: static; }
   .rs-value { display: none; }
-  .rs-menu { left: var(--sp-4); right: var(--sp-4); width: auto; top: calc(100% - 4px); }
+  dialog.rs-menu .strip { height: auto; min-height: 20px; justify-content: flex-start; }
+  dialog.rs-menu .strip-name { margin-right: auto; }
+  .rs-close { margin-left: var(--sp-3); min-height: 44px; padding: 0 var(--sp-2); color: var(--fg-base); }
+  dialog.rs-menu {
+    position: fixed; inset: auto 0 0 0; z-index: auto; margin: 0; padding: 0;
+    width: 100%; max-width: 100%; max-height: 70dvh; color: inherit;
+    border-width: 1px 0 0; box-shadow: none;
+  }
+  dialog.rs-menu[open] {
+    display: flex; flex-direction: column;
+    animation: rs-sheet-in 220ms var(--ease-out);
+  }
+  dialog.rs-menu::backdrop { background: rgb(0 0 0 / .5); }
+  dialog.rs-menu .rs-list { flex: 1 1 auto; min-height: 0; }
+  @keyframes rs-sheet-in { from { transform: translateY(100%); } }
+}
+@media (max-width: 768px) and (prefers-reduced-motion: reduce) {
+  dialog.rs-menu[open] { animation: none; }
 }
 </style>

@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch, type Ref } from 'vue'
+import { computed, onBeforeUnmount, ref, watch, type Ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useQueryClient } from '@tanstack/vue-query'
 import { canonicalRj } from '@/app/route-params'
+import { useKeymap } from '@/composables/use-keymap'
 import { useMediaQuery, WALL_MOBILE_QUERY } from '@/composables/use-media-query'
 import { useApiClient } from '@/lib/api/client'
 import type { ListWorksParams, WorkFacet, WorksScope, WorksSort } from '@/lib/api/types'
@@ -282,74 +283,24 @@ useWallRestore({
   selectedRj: () => wq.rj.value,
 })
 
-// ── Keyboard: the wall's dispatch, with the same guards as the prototype. ──
+// ── Keyboard: the wall's shortcuts register with the keymap. ──
 const { playWork } = usePlayWork()
 function playSelected(): void {
   const work = works.value.find((candidate) => candidate.rj === selectedRj.value)
   if (work) void playWork({ rj: work.rj, title: work.title ?? work.rj })
 }
 
-/** A text field or an open menu keeps every key it receives. */
-function ownsKeys(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false
-  return (
-    target.closest('[data-own-keys]') !== null ||
-    // A dialog (the tag index) is portalled outside the page: its keys are its own.
-    target.closest('[role="dialog"]') !== null ||
-    target instanceof HTMLInputElement ||
-    target instanceof HTMLTextAreaElement ||
-    target instanceof HTMLSelectElement ||
-    target.isContentEditable
-  )
-}
-
-/** Enter and Space already mean something on a link or a button. */
-function activates(target: EventTarget | null): boolean {
-  return target instanceof HTMLElement && target.closest('a, button') !== null
-}
-
-function onKeydown(event: KeyboardEvent): void {
-  if (ownsKeys(event.target)) return
-  if (event.metaKey || event.ctrlKey || event.altKey) return
-  // defineExpose unwraps the computed, so the instance carries the number.
-  const cols = wall.value?.columns ?? 1
-  const moves: Record<string, number> = {
-    j: 1,
-    k: -1,
-    ArrowRight: 1,
-    ArrowLeft: -1,
-    ArrowDown: cols,
-    ArrowUp: -cols,
-  }
-  if (event.key in moves) {
-    event.preventDefault()
+// defineExpose unwraps the computed, so the instance carries the number.
+useKeymap({
+  'wall.move': (event) => {
+    const cols = wall.value?.columns ?? 1
+    const moves: Record<string, number> = { ArrowRight: 1, ArrowLeft: -1, ArrowDown: cols, ArrowUp: -cols }
     wall.value?.move(moves[event.key])
-    return
-  }
-  if (event.key === 'PageDown' || event.key === 'PageUp') {
-    event.preventDefault()
-    turnPage(wq.page.value + (event.key === 'PageDown' ? 1 : -1), 'first', true)
-    return
-  }
-  if (event.key === 'p') {
-    playSelected()
-    return
-  }
-  if (activates(event.target)) return
-  if (event.key === 'Enter' && selectedRj.value !== null) {
-    void openWork(selectedRj.value)
-  } else if (event.key === ' ') {
-    // Space only pauses and resumes: browsing never interrupts playback.
-    event.preventDefault()
-    player.togglePause()
-  }
-}
-
-onMounted(() => {
-  window.addEventListener('keydown', onKeydown)
-})
-onBeforeUnmount(() => {
-  window.removeEventListener('keydown', onKeydown)
+  },
+  'wall.page': (event) => void turnPage(wq.page.value + (event.key === 'PageDown' ? 1 : -1), 'first', true),
+  'wall.play': playSelected,
+  // Space is the player's: browsing never interrupts playback.
+  'wall.open': () => (selectedRj.value === null ? false : void openWork(selectedRj.value)),
 })
 </script>
 

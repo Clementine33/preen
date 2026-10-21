@@ -77,6 +77,8 @@ export const useWorkDetailStore = defineStore('work-detail', {
       const online = state.content?.copies.find((copy) => copy.online)
       return online ?? state.content?.copies[0] ?? null
     },
+    /** Whether the bay's rows are on screen (a bottom drawer may be shut). */
+    bayVisible: (state): boolean => state.dock === 'right' || state.bayOpen,
     /** The manifest tree of the copy the page reads. */
     copy(): WorkContentDir | null {
       return this.activeCopy?.tree ?? null

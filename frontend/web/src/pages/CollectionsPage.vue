@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useQueryClient } from '@tanstack/vue-query'
 import { useRouter } from 'vue-router'
+import { useKeymap } from '@/composables/use-keymap'
 import { useToast } from '@/composables/use-toast'
 import GlobalMenu from '@/components/layout/GlobalMenu.vue'
 import { useMediaQuery } from '@/composables/use-media-query'
@@ -227,20 +228,13 @@ watch(collections, () => {
 // The veil toggles in the wall; here it only re-evaluates coverUrl.
 
 // ── Keys ──
-function onKeydown(e: KeyboardEvent) {
-  const target = e.target instanceof Element ? e.target : null
-  if (target?.closest('input, textarea, select, [contenteditable], [data-own-keys]') || e.ctrlKey || e.metaKey || e.altKey) return
-  if (target?.closest('button, a') && (e.key === 'Enter' || e.key === ' ')) return
-  const keys: Record<string, () => void> = {
-    arrowup: () => select(sel.value - 1), arrowdown: () => select(sel.value + 1),
-    w: () => select(sel.value - 1), s: () => select(sel.value + 1),
-    pageup: () => select(sel.value - 5), pagedown: () => select(sel.value + 5),
-    home: () => select(0), end: () => select(collections.value.length - 1),
-    enter: pressSelected, r: () => void drawCover(true), ' ': () => player.togglePause(),
-  }
-  const run = keys[e.key.toLowerCase()]
-  if (run) { e.preventDefault(); run() }
-}
+useKeymap({
+  'collections.move': (e) => select(sel.value + (e.key === 'ArrowDown' ? 1 : -1)),
+  'collections.page': (e) => select(sel.value + (e.key === 'PageDown' ? 5 : -5)),
+  'collections.ends': (e) => select(e.key === 'Home' ? 0 : collections.value.length - 1),
+  'collections.open': pressSelected,
+  'collections.redraw': () => void drawCover(true),
+})
 
 // ── Fit: the 4:3 cover fills the panel body; its height is the smaller of what the stage
 //    allows and what leaves the text column its minimum width ──
@@ -260,7 +254,6 @@ function fit() {
 
 let observers: ResizeObserver[] = []
 onMounted(() => {
-  document.addEventListener('keydown', onKeydown)
   const make = (cb: () => void, el: Element | null) => {
     if (!el || typeof ResizeObserver === 'undefined') return
     const ro = new ResizeObserver(cb)
@@ -276,7 +269,6 @@ onMounted(() => {
   if (current.value) void drawCover()
 })
 onBeforeUnmount(() => {
-  document.removeEventListener('keydown', onKeydown)
   clearTimeout(switchTimer)
   clearInterval(typeTimer)
   observers.forEach((ro) => ro.disconnect())
@@ -348,7 +340,6 @@ function onRow(i: number) {
           <i class="st" /><span class="rj">{{ player.rj }}</span><span class="tt" lang="ja">{{ player.title }}</span><span class="clk">{{ playClock }}</span>
         </RouterLink>
         <p v-else class="msg" data-testid="collections-message">{{ message }}</p>
-        <div class="keys lbl"><kbd>↑</kbd><kbd>↓</kbd> SELECT<span class="sep">·</span><kbd>R</kbd> REDRAW<template v-if="playing"><span class="sep">·</span><kbd>␣</kbd> {{ player.paused ? 'PLAY' : 'PAUSE' }}</template></div>
       </div>
     </div>
   </section>
@@ -449,7 +440,7 @@ function onRow(i: number) {
   background: var(--bg-panel); box-shadow: inset 0 0 0 1px var(--wire-fine), inset 0 -2px 0 var(--wire-fine);
 }
 .hint::after { content: ''; position: absolute; right: 6px; bottom: 6px; width: 8px; height: 8px; background: var(--invert-bg); }
-/* The message takes the free width; a long title truncates before the key hints do */
+/* The message takes the free width */
 .msg { flex: 1; min-width: 0; margin-right: auto; font-size: var(--fs-m); letter-spacing: .06em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .msg.now { display: flex; align-items: center; gap: var(--sp-3); color: inherit; text-decoration: none; }
 .msg.now:hover .tt { text-decoration: underline; text-underline-offset: 4px; }
@@ -457,12 +448,6 @@ function onRow(i: number) {
 .msg.now.paused .st { clip-path: none; background: linear-gradient(90deg, var(--invert-bg) 35%, transparent 35% 65%, var(--invert-bg) 65%); }
 .msg.now .rj, .msg.now .clk { flex: none; font-family: var(--font-mono); font-size: var(--fs-s); color: var(--fg-meta); }
 .msg.now .tt { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-family: var(--font-mincho); }
-/* Same key legend as the work inspector's footer */
-.keys { flex: none; }
-.keys kbd {
-  font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--fg-muted);
-  border: 1px solid var(--wire-fine); padding: 0 4px; margin-right: 2px;
-}
 
 @media (max-width: 900px) {
   /* Phones: the list alone, filling the height between header and hint bar. */
@@ -470,7 +455,6 @@ function onRow(i: number) {
   .stage { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); align-items: stretch; padding-top: var(--sp-4); }
   .listwrap { height: auto; }
   .deck { display: none; }
-  .keys { display: none; }
   .hint-wrap { padding-top: var(--sp-4); padding-bottom: var(--sp-4); }
 }
 </style>

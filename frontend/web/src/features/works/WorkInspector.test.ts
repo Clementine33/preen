@@ -159,11 +159,9 @@ describe('WorkInspector', () => {
     const getWork = vi.fn((rj: string) => Promise.resolve(detail(rj, '沢城みゆき')))
     const onWall = await mountInspector(getWork, { rj: FIRST })
     expect(onWall.text()).toContain('OPEN DETAIL')
-    expect(onWall.find('.keys').exists()).toBe(true)
 
     const standalone = await mountInspector(getWork, { rj: FIRST, standalone: true })
     expect(standalone.text()).not.toContain('OPEN DETAIL')
-    expect(standalone.find('.keys').exists()).toBe(false)
   })
   it('lists the tracks of the first online copy', async () => {
     const getWork = vi.fn((rj: string) => Promise.resolve(detail(rj, '沢城みゆき')))

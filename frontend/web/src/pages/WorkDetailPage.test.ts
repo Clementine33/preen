@@ -12,6 +12,7 @@ import { usePlayerStore } from '@/stores/player'
 import { useWorkDetailStore } from '@/stores/work-detail'
 import { queryKeys } from '@/queries/query-keys'
 import { VueQueryPlugin } from '@tanstack/vue-query'
+import { mountPlayerKeys } from '@/test/player-keys'
 
 /**
  * The page-level contracts: the route's work number
@@ -112,6 +113,7 @@ describe('work detail page', () => {
 
   it('pauses with Space but never inside a text field', async () => {
     const { wrapper } = await mountPage(`/works/${RJ}`, true)
+    mountPlayerKeys()
     const store = useWorkDetailStore()
     store.startTrack(1)
     const player = usePlayerStore()

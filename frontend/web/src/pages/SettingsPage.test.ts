@@ -6,6 +6,7 @@ import { ApiError, apiClientKey } from '@/lib/api/client'
 import { useMotion } from '@/composables/use-motion'
 import { apiStub } from '@/test/api-stub'
 import { installTestQueryPlugin } from '@/test/query-client'
+import { KEYS } from '@/composables/use-keymap'
 import SettingsPage from './SettingsPage.vue'
 
 enableAutoUnmount(afterEach)
@@ -14,7 +15,7 @@ afterEach(() => vi.unstubAllGlobals())
 async function mountPage(api: ReturnType<typeof apiStub>, path = '/settings') {
   const router = createRouter({
     history: createMemoryHistory(),
-    routes: [{ path: '/settings/:section(appearance|network|tags)?', name: 'settings', component: SettingsPage }],
+    routes: [{ path: '/settings/:section(appearance|network|tags|keys)?', name: 'settings', component: SettingsPage }],
   })
   await router.push(path)
   const wrapper = mount(SettingsPage, {
@@ -173,5 +174,19 @@ describe('settings: appearance', () => {
     useMotion().preference.value = 'system'
     await flushPromises()
     expect(document.documentElement.classList.contains('reduce-motion')).toBe(false)
+  })
+})
+
+describe('settings: keyboard shortcuts', () => {
+  it('lists every shortcut of the registry, grouped, as read-only text', async () => {
+    expect((await mountPage(apiStub())).find('[data-testid="settings-keys"]').exists()).toBe(false)
+    const wrapper = await mountPage(apiStub(), '/settings/keys')
+    expect(wrapper.get('#settings-section-title').text()).toBe('键盘快捷键')
+    const list = wrapper.get('[data-testid="settings-keys"]')
+    expect(list.findAll('dt').map((group) => group.text())).toEqual(['播放器', '作品墙', '作品详情', '合集'])
+    const texts = list.findAll('dd').map((row) => row.text())
+    for (const descriptor of Object.values(KEYS)) expect(texts.some((row) => row.includes(descriptor.text))).toBe(true)
+    expect(list.findAll('kbd').map((key) => key.text())).toContain('Shift+→')
+    expect(list.find('input, button').exists()).toBe(false)
   })
 })

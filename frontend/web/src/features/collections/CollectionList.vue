@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useQueryClient } from '@tanstack/vue-query'
+import { useKeymap } from '@/composables/use-keymap'
 import { useReducedMotion } from '@/composables/use-motion'
 import { usePlayWork } from '@/features/works/use-play-work'
 import { useApiClient } from '@/lib/api/client'
@@ -177,33 +178,16 @@ watch(() => props.editing, (on) => {
   if (!on && rj) unfoldLater(rj, 0)
 })
 
-/** A text field or an open menu keeps every key it receives. */
-function ownsKeys(target: EventTarget | null): boolean {
-  return target instanceof HTMLElement && target.closest('[data-own-keys], input, textarea, select, [contenteditable]') !== null
-}
-/** Enter and Space already mean something on a link or a button. */
-function activates(target: EventTarget | null): boolean {
-  return target instanceof HTMLElement && target.closest('a, button') !== null
-}
-function onKeydown(e: KeyboardEvent) {
-  if (ownsKeys(e.target) || e.ctrlKey || e.metaKey || e.altKey) return
-  const keys: Record<string, () => void> = {
-    ArrowUp: () => move(sel.value - 1), ArrowDown: () => move(sel.value + 1),
-    Home: () => move(0), End: () => move(props.works.length - 1),
-    Escape: () => (props.editing ? emit('done') : fold()),
-    ...(props.editing ? { Delete: () => removeAt(sel.value) } : {}),
-  }
-  if (!activates(e.target)) {
-    keys.Enter = () => props.works[sel.value] && open(props.works[sel.value]!)
-    keys[' '] = () => player.togglePause()
-  }
-  const run = keys[e.key]
-  if (run) { e.preventDefault(); run() }
-}
+useKeymap({
+  'collections.move': (e) => move(sel.value + (e.key === 'ArrowDown' ? 1 : -1)),
+  'collections.ends': (e) => move(e.key === 'Home' ? 0 : props.works.length - 1),
+  'collections.close': () => (props.editing ? emit('done') : fold()),
+  'collections.remove': () => (props.editing ? removeAt(sel.value) : false),
+  'collections.open': () => (props.works[sel.value] ? open(props.works[sel.value]!) : false),
+})
 
 let observer: IntersectionObserver | undefined
 onMounted(() => {
-  document.addEventListener('keydown', onKeydown)
   // jsdom has no IntersectionObserver; the keys still ask for more near the end.
   if (typeof IntersectionObserver === 'undefined' || !sentinel.value) return
   observer = new IntersectionObserver((entries) => { if (entries.some((e) => e.isIntersecting) && props.hasMore) emit('more') }, { root: scroller.value, rootMargin: '600px' })
@@ -211,7 +195,6 @@ onMounted(() => {
 })
 onBeforeUnmount(() => {
   clearTimeout(foldTimer)
-  document.removeEventListener('keydown', onKeydown)
   observer?.disconnect()
 })
 // A chunk that does not fill the viewport leaves the sentinel in view without a new

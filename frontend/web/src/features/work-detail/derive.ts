@@ -187,6 +187,8 @@ export function playableCopy(content: WorkContent | null): WorkContentCopy | nul
  * track from a sibling variant. `index` is the start track's place in it.
  * Each entry carries its Rendition (the variant) and its place among all of
  * that Rendition's tracks, which the Listening Position records.
+ * Each entry also carries its Timed Lyrics location in `lyrics.copyId`'s copy:
+ * the manual pairing (by track index) first, then the automatic one.
  * Without an address resolver every entry plays silently.
  */
 export function playQueue(
@@ -194,14 +196,16 @@ export function playQueue(
   start: number,
   fmt: string,
   src?: (file: WorkContentFile) => string,
+  lyrics?: { copyId: string; pairs?: Readonly<Record<number, string>> },
 ): { queue: QueueItem[]; index: number; format: string | null } {
   const first = tracks[start]
   if (!first) return { queue: [], index: 0, format: null }
   const format = first.files[fmt] ? fmt : (first.formats[0] ?? null)
   const rendition = tracks.filter((t) => t.variant === first.variant)
   const members = rendition.filter((t) => format === null || t.files[format])
-  const queue = members.map((track) => {
+  const queue: QueueItem[] = members.map((track) => {
     const file = format === null ? undefined : track.files[format]
+    const relPath = lyrics ? (lyrics.pairs?.[tracks.indexOf(track)] ?? track.lrcRel) : null
     return {
       key: track.key,
       title: track.stem,
@@ -209,6 +213,7 @@ export function playQueue(
       index: rendition.indexOf(track),
       count: rendition.length,
       source: file && src ? { src: src(file), durationSec: file.duration_sec, format: file.format } : undefined,
+      lyrics: lyrics && relPath ? { copyId: lyrics.copyId, relPath } : undefined,
     }
   })
   return { queue, index: Math.max(members.indexOf(first), 0), format }
@@ -271,7 +276,8 @@ export function parseLrc(text: string): LrcLine[] {
     const match = /\[(\d{1,2}):(\d{1,2}(?:\.\d+)?)\](?:\[[^\]]*\])*(.*)$/.exec(raw)
     if (!match) continue
     const seconds = Number(match[1]) * 60 + Number(match[2])
-    const body = match[3].trim()
+    // Word-timing tags (<mm:ss.xx>) are dropped; lines are not split per word.
+    const body = match[3].replace(/<\d{1,2}:\d{1,2}(?:\.\d+)?>/g, '').trim()
     if (body === '') continue
     lines.push({ time: seconds, text: body, sfx: body.startsWith('（') })
   }

@@ -224,6 +224,12 @@ export const useWorkDetailStore = defineStore('work-detail', {
     /** Pair one track with timed lyrics by hand; the leaf follows into LISTEN. */
     pairLrc(track: number, rel: string) {
       this.pairs[track] = rel
+      // The Lyrics Window follows the playing item, so a pairing made now reaches it now.
+      const player = usePlayerStore()
+      const copyId = this.activeCopy?.copy_id
+      const key = this.tracks[track]?.key
+      const item = player.rj === this.rj && copyId && key ? player.queue.find((entry) => entry.key === key) : undefined
+      if (item) item.lyrics = { copyId: copyId!, relPath: rel }
       this.leaf = 'lrc'
     },
 
@@ -244,7 +250,7 @@ export const useWorkDetailStore = defineStore('work-detail', {
       const src = copy && resolve
         ? (file: WorkContentFile) => resolve({ rj, copyId: copy.copy_id, relPath: file.rel_path })
         : undefined
-      const { queue, index, format } = playQueue(this.tracks, track, fmt ?? this.fmt, src)
+      const { queue, index, format } = playQueue(this.tracks, track, fmt ?? this.fmt, src, copy ? { copyId: copy.copy_id, pairs: this.pairs } : undefined)
       this.playFmt = format
       usePlayerStore().play(rj, queue, index, resumeAt)
     },

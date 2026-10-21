@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useReducedMotion } from '@/composables/use-motion'
-import { useApiClient } from '@/lib/api/client'
-import { fmtT, parseLyrics, type LrcLine } from '@/features/work-detail/derive'
+import { useTimedLyrics } from '@/composables/use-timed-lyrics'
+import { fmtT, type LrcLine } from '@/features/work-detail/derive'
 import { useWorkDetailStore } from '@/stores/work-detail'
 import { usePlayerStore } from '@/stores/player'
 
@@ -12,48 +12,18 @@ import { usePlayerStore } from '@/stores/player'
 // playing track.
 
 const store = useWorkDetailStore()
-const api = useApiClient()
 const player = usePlayerStore()
 const reducedMotion = useReducedMotion()
 
 const lrcRel = computed(() => store.lrcFor(store.track))
-const lines = ref<LrcLine[]>([])
+const source = computed(() => {
+  const copyId = store.activeCopy?.copy_id
+  return store.rj && copyId && lrcRel.value ? { rj: store.rj, copyId, relPath: lrcRel.value } : null
+})
+const { lines, status, nowIndex: clockIndex } = useTimedLyrics(source, () => player.elapsed)
 const bodyEl = ref<HTMLElement | null>(null)
 const currentTrack = computed(() => player.rj === store.rj && player.trackKey === store.tracks[store.track]?.key)
-const status = ref('')
-
-watch(
-  [() => store.rj, () => store.activeCopy?.copy_id, lrcRel],
-  async ([rj, copyId, rel], _, onCleanup) => {
-    const controller = new AbortController()
-    onCleanup(() => controller.abort())
-    lines.value = []
-    status.value = ''
-    if (!rel || !rj || !copyId) return
-    status.value = '正在读取歌词…'
-    let text: string
-    try {
-      text = await api.getWorkText({ rj, copyId, relPath: rel }, controller.signal)
-    } catch {
-      if (!controller.signal.aborted) status.value = '无法读取歌词文件'
-      return
-    }
-    if (controller.signal.aborted) return
-    lines.value = parseLyrics(text, rel)
-    status.value = lines.value.length ? '' : '未找到有效的时间轴歌词'
-  },
-  { immediate: true },
-)
-
-/** The last line at or before the clock — what "now" is. */
-const nowIndex = computed(() => {
-  if (!currentTrack.value) return -1
-  let index = -1
-  lines.value.forEach((line, i) => {
-    if (player.elapsed >= line.time && (line.endTime === undefined || player.elapsed < line.endTime)) index = i
-  })
-  return index
-})
+const nowIndex = computed(() => (currentTrack.value ? clockIndex.value : -1))
 
 function sync(jump: boolean): void {
   const body = bodyEl.value

@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useLyricsWindow } from '@/composables/use-lyrics-window'
 import { usePlayerStore } from '@/stores/player'
+import { NEXT_ICON, PAUSE_ICON, PLAY_ICON, PREV_ICON } from './player-icons'
 
 // The bottom baseline: the thick top line is the progress track,
 // and the second double-bar edge of the page. A real track fills the laser to
@@ -12,6 +14,7 @@ import { usePlayerStore } from '@/stores/player'
 // hardware volume (iOS ignores an element's volume anyway).
 
 const player = usePlayerStore()
+const lyrics = useLyricsWindow()
 
 const active = computed(() => player.rj !== null)
 const playingTitle = computed(() => (active.value ? `${player.title}` : ''))
@@ -40,10 +43,7 @@ function onVolume(event: Event): void {
 const silent = computed(() => player.muted || player.volume === 0)
 const volumeFill = computed(() => `${(silent.value ? 0 : player.volume) * 100}%`)
 
-const PREV_ICON = 'M10 0L3 5l7 5zM0 0h2v10H0z'
-const NEXT_ICON = 'M0 0l7 5-7 5zM8 0h2v10H8z'
-const PLAY_ICON = 'M1 0l9 5-9 5z'
-const PAUSE_ICON = 'M1 0h3v10H1zM6 0h3v10H6z'
+const LYRICS_ICON = 'M0 1h10v1H0zM0 4.5h7v1H0zM0 8h10v1H0z'
 const SPEAKER_ICON = 'M0 3.5h2.2L5 1v8L2.2 6.5H0z'
 const WAVES_ICON = 'M6.3 3.6h1v2.8h-1zM8.3 2.2h1v5.6h-1z'
 const MUTED_ICON = 'M6 3.7l.7-.7L8 4.3 9.3 3l.7.7L8.7 5 10 6.3l-.7.7L8 5.7 6.7 7 6 6.3 7.3 5z'
@@ -81,6 +81,10 @@ const MUTED_ICON = 'M6 3.7l.7-.7L8 4.3 9.3 3l.7.7L8.7 5 10 6.3l-.7.7L8 5.7 6.7 7
       <span class="t">{{ total }}</span>
     </div>
     <div class="bl-right">
+      <button v-if="lyrics?.supported" class="btn btn-icon bl-lyrics" type="button" :aria-pressed="lyrics.open.value"
+        aria-label="Lyrics window" title="Lyrics window (L)" :disabled="!lyrics.available.value" @click="lyrics.toggle()">
+        <svg viewBox="0 0 10 10" aria-hidden="true"><path :d="LYRICS_ICON" /></svg>
+      </button>
       <div class="bl-vol">
         <button class="btn btn-icon bl-mute" type="button" :aria-pressed="player.muted"
           aria-label="Mute" title="Mute" @click="player.toggleMute()">
@@ -145,8 +149,10 @@ const MUTED_ICON = 'M6 3.7l.7-.7L8 4.3 9.3 3l.7.7L8.7 5 10 6.3l-.7.7L8 5.7 6.7 7
 
 /* Volume: the mute toggle and a 72px fader, its fill drawn like the laser. */
 .bl-vol { display: flex; align-items: center; gap: var(--sp-2); }
-.bl-mute { width: 22px; border-color: transparent; }
-.bl-mute svg { width: 10px; height: 10px; }
+.bl-mute, .bl-lyrics { width: 22px; border-color: transparent; }
+.bl-mute svg, .bl-lyrics svg { width: 10px; height: 10px; }
+.bl-lyrics:disabled { cursor: not-allowed; opacity: .5; }
+.bl-lyrics[aria-pressed="true"] { background: var(--invert-bg); color: var(--invert-fg); }
 .bl-volume {
   width: 72px; height: 18px; margin: 0; appearance: none; background: transparent; cursor: pointer;
 }

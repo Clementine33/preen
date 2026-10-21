@@ -32,7 +32,7 @@ export function usePlayWork() {
     // a resume keeps its track and plays it in the track's first format instead.
     const at = resumeAt === undefined && format && !tracks[index]?.files[format] ? Math.max(tracks.findIndex((t) => t.files[format]), 0) : index
     const { queue, index: start } = playQueue(tracks, at, format, (file) =>
-      api.workFileUrl({ rj: work.rj, copyId: copy!.copy_id, relPath: file.rel_path }))
+      api.workFileUrl({ rj: work.rj, copyId: copy!.copy_id, relPath: file.rel_path }), copy ? { copyId: copy.copy_id } : undefined)
     if (queue.length > 0) player.play(work.rj, queue, start, resumeAt)
     else player.play(work.rj, [{ title: work.title }])
   }

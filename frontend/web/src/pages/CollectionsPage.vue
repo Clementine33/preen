@@ -335,10 +335,12 @@ function onRow(i: number) {
 
     <div class="hint-wrap">
       <div class="hint">
-        <RouterLink v-if="playing" class="msg now" :class="{ paused: player.paused }" :to="`/works/${player.rj}`"
-          :title="`打开 ${player.rj}`" data-testid="collections-now-playing">
-          <i class="st" /><span class="rj">{{ player.rj }}</span><span class="tt" lang="ja">{{ player.title }}</span><span class="clk">{{ playClock }}</span>
-        </RouterLink>
+        <div v-if="playing" class="msg now" :class="{ paused: player.paused }" data-testid="collections-now-playing">
+          <button type="button" class="st" :aria-label="player.paused ? '播放' : '暂停'" data-testid="collections-now-playing-toggle"
+            @click="player.togglePause()"><i /></button>
+          <RouterLink class="rj" :to="`/works/${player.rj}`" :title="`打开 ${player.rj}`" data-testid="collections-now-playing-link">{{ player.rj }}</RouterLink>
+          <span class="tt" lang="ja">{{ player.title }}</span><span class="clk">{{ playClock }}</span>
+        </div>
         <p v-else class="msg" data-testid="collections-message">{{ message }}</p>
       </div>
     </div>
@@ -442,12 +444,15 @@ function onRow(i: number) {
 .hint::after { content: ''; position: absolute; right: 6px; bottom: 6px; width: 8px; height: 8px; background: var(--invert-bg); }
 /* The message takes the free width */
 .msg { flex: 1; min-width: 0; margin-right: auto; font-size: var(--fs-m); letter-spacing: .06em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.msg.now { display: flex; align-items: center; gap: var(--sp-3); color: inherit; text-decoration: none; }
-.msg.now:hover .tt { text-decoration: underline; text-underline-offset: 4px; }
-.msg.now .st { flex: none; width: 10px; height: 10px; background: var(--invert-bg); clip-path: polygon(0 0, 100% 50%, 0 100%); }
-.msg.now.paused .st { clip-path: none; background: linear-gradient(90deg, var(--invert-bg) 35%, transparent 35% 65%, var(--invert-bg) 65%); }
+.msg.now { display: flex; align-items: center; gap: var(--sp-3); }
+.msg.now .st { flex: none; display: grid; place-items: center; padding: 7px; margin: -7px; background: none; border: 0; color: inherit; cursor: pointer; }
+.msg.now .st i { width: 10px; height: 10px; background: linear-gradient(90deg, var(--invert-bg) 35%, transparent 35% 65%, var(--invert-bg) 65%); }
+.msg.now.paused .st i { background: var(--invert-bg); clip-path: polygon(0 0, 100% 50%, 0 100%); }
+.msg.now .st:focus-visible { outline: 1px solid var(--wire-strong); }
 .msg.now .rj, .msg.now .clk { flex: none; font-family: var(--font-mono); font-size: var(--fs-s); color: var(--fg-meta); }
-.msg.now .tt { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-family: var(--font-mincho); }
+.msg.now .rj { text-decoration: none; }
+.msg.now .rj:hover { text-decoration: underline; text-underline-offset: 4px; }
+.msg.now .tt { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-family: var(--font-ja); }
 
 @media (max-width: 900px) {
   /* Phones: the list alone, filling the height between header and hint bar. */

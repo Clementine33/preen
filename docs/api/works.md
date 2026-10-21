@@ -176,7 +176,11 @@ The `lrc` kind includes timed lyrics with `.lrc` or `.vtt` extensions
 (case-insensitive). The detail page pairs these when the lyric filename without
 its final extension equals the audio stem or a full filename of any audio format
 present on the track (for example, `預約電話.mp3.vtt` matches `預約電話.mp3`).
-Both naming styles have equal priority. Matching filenames are case-sensitive;
+Both naming styles have equal priority. If neither finds any candidate, the page
+falls back to filenames with another audio extension (`.mp3`, `.wav`, `.flac`,
+`.m4a`, `.aac`, `.ogg`, `.opus`), even when that audio format is absent; for example,
+`1.m4a` can use `1.mp3.vtt`. Only this fallback ignores the audio extension's case.
+Matching track stems and full audio filenames remain case-sensitive. In either matching stage,
 the same variant directory (after format-marker normalization) takes precedence,
 then `.vtt` is preferred over `.lrc` within each group. A manual pairing takes precedence. It reads
 their bytes through the content route and follows the playing track's audio position. WebVTT cue end times

@@ -32,6 +32,7 @@ function work(version = '1-5-9'): WorkSummary {
     has_note: false,
     collected_at: '2026-01-01T00:00:00Z',
     copy_count: 1,
+    listening: { state: 'none', track_index: null, track_count: null, updated_at: null },
     local_cover: { copy_id: 'copy-1', rel_path: 'cover.jpg', version },
   }
 }
@@ -75,5 +76,22 @@ describe('WorkCard cover', () => {
   it('keeps the remote link for a work without a local cover', () => {
     const wrapper = mountCard({ ...work(), local_cover: null })
     expect(wrapper.get('img').attributes('src')).toBe(REMOTE)
+  })
+})
+
+describe('WorkCard listening', () => {
+  const listening = (state: WorkSummary['listening']['state'], index: number | null = null, count: number | null = null) =>
+    ({ ...work(), listening: { state, track_index: index, track_count: count, updated_at: null } })
+
+  it('marks a work with a position, naming the track', () => {
+    const dot = mountCard(listening('listening', 2, 12)).find('.listening-dot')
+    expect(dot.exists()).toBe(true)
+    expect(dot.attributes('title')).toBe('在听 · 3/12')
+    expect(mountCard(listening('none')).find('.listening-dot').exists()).toBe(false)
+  })
+
+  it('marks a finished work heard again in another Rendition, and not one only finished', () => {
+    expect(mountCard(listening('finished', 2, 12)).find('.listening-dot').attributes('title')).toBe('重听 · 3/12')
+    expect(mountCard(listening('finished')).find('.listening-dot').exists()).toBe(false)
   })
 })

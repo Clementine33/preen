@@ -44,6 +44,8 @@ import type {
   StartGenerationResponse,
   UpdateLibraryInput,
   PatchWorkUserDataParams,
+  PutWorkListeningParams,
+  WorkListening,
   WorkDetail,
   WorkContent,
   ContentFileRef,
@@ -100,6 +102,7 @@ function worksQuery(params: ListWorksParams): string {
     'tag_match',
     'released_from',
     'released_to',
+    'listening',
     'sort',
     'direction',
   ] as const) {
@@ -440,6 +443,16 @@ export class ApiClient implements ApiClientContract {
     return this.request(`/works/${encodeURIComponent(rj)}/user-data`, { method: 'PATCH', body: input })
   }
 
+  // One Rendition's Listening Position; keepalive lets the request outlive a
+  // closing page (docs/api/works.md `PUT /works/{rj}/listening`).
+  putWorkListening(rj: string, input: PutWorkListeningParams, keepalive = false): Promise<WorkListening> {
+    return this.request(`/works/${encodeURIComponent(rj)}/listening`, { method: 'PUT', body: input, keepalive })
+  }
+
+  deleteWorkListening(rj: string): Promise<void> {
+    return this.request(`/works/${encodeURIComponent(rj)}/listening`, { method: 'DELETE' })
+  }
+
   // The work's user tags are exactly the given set after this call; unknown
   // ids answer USER_TAG_NOT_FOUND (docs/api.md `PUT /works/{rj}/user-tags`).
   async replaceWorkUserTags(rj: string, tagIds: string[]): Promise<WorkUserTag[]> {
@@ -750,7 +763,7 @@ export class ApiClient implements ApiClientContract {
 
   private async request<T>(
     path: string,
-    options: { method?: string; body?: unknown; signal?: AbortSignal; timeoutMs?: number; headers?: Record<string, string> } = {},
+    options: { method?: string; body?: unknown; signal?: AbortSignal; timeoutMs?: number; headers?: Record<string, string>; keepalive?: boolean } = {},
   ): Promise<T> {
     return (await this.exchange<T>(path, options)).body
   }
@@ -758,7 +771,7 @@ export class ApiClient implements ApiClientContract {
   /** request() for the few reads that need a response header too (an ETag). */
   private async exchange<T>(
     path: string,
-    options: { method?: string; body?: unknown; signal?: AbortSignal; timeoutMs?: number; headers?: Record<string, string> } = {},
+    options: { method?: string; body?: unknown; signal?: AbortSignal; timeoutMs?: number; headers?: Record<string, string>; keepalive?: boolean } = {},
   ): Promise<{ body: T; headers: Headers }> {
     const controller = new AbortController()
     let removeAbort: (() => void) | null = null
@@ -787,7 +800,7 @@ export class ApiClient implements ApiClientContract {
 
   private async doRequest<T>(
     path: string,
-    options: { method?: string; body?: unknown; headers?: Record<string, string> },
+    options: { method?: string; body?: unknown; headers?: Record<string, string>; keepalive?: boolean },
     signal: AbortSignal,
   ): Promise<{ body: T; headers: Headers }> {
     const response = await fetch(this.url(path), {
@@ -795,6 +808,7 @@ export class ApiClient implements ApiClientContract {
       headers: { ...Object.fromEntries(this.headers(options.body !== undefined)), ...options.headers },
       body: options.body === undefined ? undefined : JSON.stringify(options.body),
       signal,
+      keepalive: options.keepalive,
     })
     if (!response.ok) throw await this.toApiError(response)
     if (response.status === 204) return { body: undefined as T, headers: response.headers }

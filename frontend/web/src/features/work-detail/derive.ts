@@ -2,7 +2,7 @@
 // manifest (docs/api.md "Work content manifest") and raw text, independent of
 // any component — which makes them the unit-test focus.
 
-import type { WorkContent, WorkContentCopy, WorkContentDir, WorkContentFile, WorkFileKind } from '@/lib/api/types'
+import type { WorkContent, WorkContentCopy, WorkContentDir, WorkContentFile, WorkFileKind, WorkListening } from '@/lib/api/types'
 import type { QueueItem } from '@/stores/player'
 
 /* ── Tree walking ── */
@@ -185,6 +185,8 @@ export function playableCopy(content: WorkContent | null): WorkContentCopy | nul
  * format; the queue holds the tracks of the start track's variant that exist in
  * that codec, so continuous playback never changes codec or replays the same
  * track from a sibling variant. `index` is the start track's place in it.
+ * Each entry carries its Rendition (the variant) and its place among all of
+ * that Rendition's tracks, which the Listening Position records.
  * Without an address resolver every entry plays silently.
  */
 export function playQueue(
@@ -196,16 +198,37 @@ export function playQueue(
   const first = tracks[start]
   if (!first) return { queue: [], index: 0, format: null }
   const format = first.files[fmt] ? fmt : (first.formats[0] ?? null)
-  const members = tracks.filter((t) => t.variant === first.variant && (format === null || t.files[format]))
+  const rendition = tracks.filter((t) => t.variant === first.variant)
+  const members = rendition.filter((t) => format === null || t.files[format])
   const queue = members.map((track) => {
     const file = format === null ? undefined : track.files[format]
     return {
       key: track.key,
       title: track.stem,
+      rendition: first.variant,
+      index: rendition.indexOf(track),
+      count: rendition.length,
       source: file && src ? { src: src(file), durationSec: file.duration_sec, format: file.format } : undefined,
     }
   })
   return { queue, index: Math.max(members.indexOf(first), 0), format }
+}
+
+/**
+ * Where to resume: the most recently updated row with a position whose track
+ * the copy still has. A Finished row has no position and an orphan no track,
+ * so both fall through to the next row; null means start from track 0.
+ */
+export function resumePoint(
+  rows: readonly WorkListening[],
+  tracks: readonly Track[],
+): { row: WorkListening; track: number; position: number } | null {
+  const newestFirst = [...rows].sort((a, b) => (a.updated_at < b.updated_at ? 1 : a.updated_at > b.updated_at ? -1 : 0))
+  for (const row of newestFirst) {
+    const track = row.track_key === null || row.position_sec === null ? -1 : tracks.findIndex((t) => t.key === row.track_key)
+    if (track >= 0) return { row, track, position: row.position_sec! }
+  }
+  return null
 }
 
 /** Every timed-lyrics file in the same files-first natural depth-first order as audio. */

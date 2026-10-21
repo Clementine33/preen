@@ -118,6 +118,7 @@ func NewServer(deps Dependencies) http.Handler {
 	)
 	mux.Handle("PUT /api/v1/works/{rj}/metadata", protect(http.HandlerFunc(s.putWorkMetadata)))
 	mux.Handle("PATCH /api/v1/works/{rj}/user-data", protect(http.HandlerFunc(s.patchWorkUserData)))
+	s.listeningRoutes(mux, protect)
 	mux.Handle("PUT /api/v1/works/{rj}/user-tags", protect(http.HandlerFunc(s.putWorkUserTags)))
 	mux.Handle("DELETE /api/v1/works/{rj}", protect(http.HandlerFunc(s.deleteWork)))
 	// The filterable source entities, each feeding the listing parameter of

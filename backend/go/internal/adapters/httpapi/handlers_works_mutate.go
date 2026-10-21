@@ -133,6 +133,9 @@ type workDetailResponse struct {
 	EditionTree   []editionSlotResponse `json:"edition_tree"`
 	Copies        []copyResponse        `json:"copies"`
 	CollectionIDs []string              `json:"collection_ids"`
+	// Listening shadows the embedded summary's digest: the detail carries the
+	// rows themselves.
+	Listening []listeningResponse `json:"listening"`
 	// Placeholder marks a work a relation named but no scan has found: it is
 	// reachable here and absent from the ordinary listing.
 	Placeholder bool `json:"placeholder"`
@@ -155,6 +158,10 @@ func toWorkDetail(detail *works.WorkDetail, dirID func(works.Copy) string) workD
 		Copies:              make([]copyResponse, 0, len(detail.Copies)),
 		CollectionIDs:       append([]string{}, detail.CollectionIDs...),
 		Placeholder:         detail.Placeholder,
+		Listening:           make([]listeningResponse, 0, len(detail.Listening)),
+	}
+	for _, row := range detail.Listening {
+		out.Listening = append(out.Listening, toListening(row))
 	}
 	for _, edition := range detail.Editions {
 		out.Editions = append(out.Editions, editionResponse{

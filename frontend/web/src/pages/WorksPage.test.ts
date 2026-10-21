@@ -46,6 +46,7 @@ function makeWorks(base: number, count: number): WorkSummary[] {
     has_note: false,
     collected_at: '2026-01-01T00:00:00Z',
     copy_count: 1,
+    listening: { state: 'none', track_index: null, track_count: null, updated_at: null },
   }))
 }
 
@@ -122,7 +123,7 @@ async function mountWorks(
       series_id: null, series_name: null, voice_actors: [], source_tags: [],
       note: '', language_editions: null, edition_tree: null,
       relation: { role: null, language: null, original_rj: null, parent_rj: null },
-      copies: [], placeholder: false,
+      copies: [], placeholder: false, listening: [],
     })),
     listWorkFacets,
     listTagFacets: vi.fn().mockResolvedValue({
@@ -327,6 +328,8 @@ describe('works page', () => {
     expect(lastParams(listWorks)).toMatchObject({ sort: 'rating', direction: 'desc' })
     await pick(wrapper, 'SORT', '入库时间')
     expect(lastParams(listWorks)).toMatchObject({ sort: 'collected_at', direction: 'desc' })
+    await pick(wrapper, 'SORT', '最近收听')
+    expect(lastParams(listWorks)).toMatchObject({ sort: 'listened_at', direction: 'desc' })
   })
 
   it('sends each rail filter straight to its listing parameter', async () => {
@@ -373,6 +376,22 @@ describe('works page', () => {
     const bogus = await mountWorks('/works?rating=bogus')
     expect(lastParams(bogus.listWorks)).not.toHaveProperty('rating_from')
     expect(lastParams(bogus.listWorks)).not.toHaveProperty('unrated')
+  })
+
+  it('maps the listening filter to its listing parameter, or to nothing', async () => {
+    const { wrapper, listWorks, router } = await mountWorks('/works')
+    expect(lastParams(listWorks)).not.toHaveProperty('listening')
+
+    await pick(wrapper, '收听', '在听')
+    expect(lastParams(listWorks)).toMatchObject({ listening: 'listening' })
+    expect(router.currentRoute.value.query.listening).toBe('listening')
+    await pick(wrapper, '收听', '听完')
+    expect(lastParams(listWorks)).toMatchObject({ listening: 'finished' })
+    await pick(wrapper, '收听', '未听')
+    expect(lastParams(listWorks)).toMatchObject({ listening: 'none' })
+
+    const bogus = await mountWorks('/works?listening=bogus')
+    expect(lastParams(bogus.listWorks)).not.toHaveProperty('listening')
   })
 
   it('offers a name held by several per-work entities once, asking for all of them', async () => {

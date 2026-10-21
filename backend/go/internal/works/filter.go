@@ -54,12 +54,15 @@ const (
 	// SortByRating orders by the user's rating; unrated works always come last,
 	// the way unknown release dates do.
 	SortByRating SortField = "rating"
+	// SortByListenedAt orders by the latest listening update; works never
+	// listened to come last.
+	SortByListenedAt SortField = "listened_at"
 )
 
 // Valid reports whether the field is sortable.
 func (s SortField) Valid() bool {
 	switch s {
-	case SortByWorkID, SortByReleaseDate, SortByCollectedAt, SortByRating:
+	case SortByWorkID, SortByReleaseDate, SortByCollectedAt, SortByRating, SortByListenedAt:
 		return true
 	default:
 		return false
@@ -110,6 +113,9 @@ type Filter struct {
 	Favorite  *bool
 	Libraries []string
 	HasCopy   *bool
+	// Listening is an any-of set of ListeningNone, ListeningActive and
+	// ListeningFinished.
+	Listening []string
 
 	Sort      SortField
 	Direction Direction
@@ -175,6 +181,9 @@ func (f *Filter) Validate() *Error {
 		}
 	}
 
+	if !validListeningStates(f.Listening) {
+		return Invalid(CodeInvalidArgument, "listening must be listening, finished or none")
+	}
 	if f.RatingFrom != nil && (*f.RatingFrom < 1 || *f.RatingFrom > 10) {
 		return Invalid(CodeInvalidArgument, "rating_from must be between 1 and 10")
 	}

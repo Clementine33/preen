@@ -73,6 +73,7 @@ const circle = computed({ get: () => wq.circle.value, set: (value) => void wq.se
 const age = computed({ get: () => wq.age.value, set: (value) => void wq.setFilters({ age: value }) })
 const language = computed({ get: () => wq.language.value, set: (value) => void wq.setFilters({ language: value }) })
 const rating = computed({ get: () => wq.rating.value, set: (value) => void wq.setFilters({ rating: value }) })
+const listening = computed({ get: () => wq.listening.value, set: (value) => void wq.setFilters({ listening: value }) })
 const sort = computed<WorksSort>({ get: () => wq.sort.value, set: (value) => void wq.setSort(value) })
 const size = computed({ get: () => String(wq.size.value), set: (value) => void wq.setSize(Number(value)) })
 const tags = computed<TagSelection>({
@@ -118,6 +119,13 @@ function ratingParam(value: string): Pick<ListWorksParams, 'rating_from' | 'unra
   if (value === 'rated') return { rating_from: 1 }
   return /^(10|[5789])$/.test(value) ? { rating_from: Number(value) } : {}
 }
+// Listening state of the work: one pick of listening / finished / none.
+const LISTENING_OPTIONS: RailOption[] = [
+  { value: '', label: 'ALL' },
+  { value: 'listening', label: '在听' },
+  { value: 'finished', label: '听完' },
+  { value: 'none', label: '未听' },
+]
 const AGE_PARAM: Record<string, ListWorksParams['age_category']> = { safe: 1, r15: 2, r18: 3 }
 
 // Every order runs newest / highest first; unknown dates and unrated works
@@ -127,6 +135,7 @@ const SORT_OPTIONS: RailOption[] = [
   { value: 'release_date', label: '发售时间' },
   { value: 'collected_at', label: '入库时间' },
   { value: 'rating', label: '个人评分' },
+  { value: 'listened_at', label: '最近收听' },
 ]
 const SIZE_OPTIONS: RailOption[] = PAGE_SIZES.map((value) => ({ value: String(value), label: String(value) }))
 
@@ -138,6 +147,9 @@ const scope = computed<WorksScope>(() => ({
   ...(wq.language.value ? { language: wq.language.value } : {}),
   ...(wq.age.value ? { age_category: AGE_PARAM[wq.age.value] } : {}),
   ...ratingParam(wq.rating.value),
+  ...(LISTENING_OPTIONS.some((option) => option.value && option.value === wq.listening.value)
+    ? { listening: wq.listening.value }
+    : {}),
   ...(wq.tag.value ? { tag: wq.tag.value, tag_match: wq.mode.value } : {}),
   ...(wq.q.value ? { q: wq.q.value } : {}),
 }))
@@ -346,6 +358,7 @@ useKeymap({
         <RailSelect v-model="age" label="AGE" :options="AGE_OPTIONS" marks-active />
         <RailSelect v-model="language" label="LANGUAGE" :options="LANGUAGE_OPTIONS" marks-active />
         <RailSelect v-model="rating" label="RATING" :options="RATING_OPTIONS" marks-active />
+        <RailSelect v-model="listening" label="收听" :options="LISTENING_OPTIONS" marks-active />
         <TagIndex v-model="tags" :scope="tagScope" />
         <span v-if="wq.overflow.value" class="lbl notice" role="status">筛选条件过多，未应用</span>
       </div>

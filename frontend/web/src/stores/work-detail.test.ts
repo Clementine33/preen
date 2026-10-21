@@ -134,6 +134,16 @@ describe('work-detail store', () => {
     expect(store.playFmt).toBe('WAV')
   })
 
+  it('starts a chosen track at 0 s and a resume at its saved second', async () => {
+    await bind()
+    const store = useWorkDetailStore()
+    const player = usePlayerStore()
+    store.startTrack(2, undefined, 271)
+    expect([player.trackIndex, player.elapsed]).toEqual([2, 271])
+    store.startTrack(2)
+    expect([player.trackIndex, player.elapsed]).toEqual([2, 0])
+  })
+
   it('automatically opens same-stem VTT on playback, with LRC fallback and manual overrides', () => {
     const store = useWorkDetailStore()
     const content = structuredClone(sampleWorkContent(RJ))

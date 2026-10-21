@@ -84,6 +84,25 @@ describe('ApiClient', () => {
     expect(query.get('tag_match')).toBe('any')
   })
 
+  it('puts a Listening Position (kept alive on request), deletes it, and filters and sorts the listing by it', async () => {
+    const fetchMock = mockFetch(async (_input, init) => (init?.method === 'DELETE' ? new Response(null, { status: 204 }) : okJson({})))
+    const body = { rendition: '', track_key: 'a', position_sec: 1.5, track_index: 0, track_count: 2, client: 'c', seq: 1 }
+
+    await createClient().putWorkListening('RJ01000001', body)
+    await createClient().putWorkListening('RJ01000001', body, true)
+    await createClient().deleteWorkListening('RJ01000001')
+    await createClient().listWorks({ listening: 'listening,none', sort: 'listened_at' })
+
+    const [plain, kept, removed, listed] = fetchMock.mock.calls
+    expect(String(plain![0])).toBe('http://example.test/api/v1/works/RJ01000001/listening')
+    expect(plain![1]).toMatchObject({ method: 'PUT', keepalive: false })
+    expect(JSON.parse(String(plain![1]?.body))).toEqual(body)
+    expect(kept![1]).toMatchObject({ method: 'PUT', keepalive: true })
+    expect(removed![1]).toMatchObject({ method: 'DELETE' })
+    const query = new URL(String(listed![0])).searchParams
+    expect([query.get('listening'), query.get('sort')]).toEqual(['listening,none', 'listened_at'])
+  })
+
   it('reads and writes a Task kind\'s settings with their ETag', async () => {
     const fetchMock = mockFetch(async (input, init) => {
       expect(String(input)).toContain('/tasks/rename/settings')

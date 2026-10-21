@@ -21,6 +21,8 @@ work, while `RJ1657200` (7 digits) is refused.
 | GET | `/api/v1/works/{rj}/thumbs/{copyId}/{path...}?h=240&v=…` | 200 one manifest image's thumbnail (ADR 0013). See below. |
 | PUT | `/api/v1/works/{rj}/metadata` | Body: up to four independent data groups (below). 200 `{"applied":[…],"ignored":[…],"warnings":[…],"created_placeholders":[…]}`. |
 | PATCH | `/api/v1/works/{rj}/user-data` | Body `{"rating":8,"favorite":true,"note":"…"}`; only the fields present are applied, and `"rating":null` clears it. 200 the resulting state. |
+| PUT | `/api/v1/works/{rj}/listening` | Body `{"rendition":"","track_key":"…","position_sec":271.4,"track_index":2,"track_count":12,"client":"k3f9…","seq":41}`, or the same with `"finished":true`. Upserts the work's row for that Rendition, except that a PUT whose `client` equals the stored row's and whose `seq` is not greater leaves the row (a different `client` always applies). 200 the stored row either way. `INVALID_ARGUMENT` (400) when `track_key` or `client` is empty, `position_sec < 0`, or not `0 <= track_index < track_count`. See below. |
+| DELETE | `/api/v1/works/{rj}/listening` | 204; removes every Listening Position row of the work, Finished marks included. |
 | PUT | `/api/v1/works/{rj}/user-tags` | Body `{"tag_ids":["…"]}`; replaces the work's tag set with exactly these. 200 `{"user_tags":[…]}`. Unknown ids are `USER_TAG_NOT_FOUND` (404). |
 | GET | `/api/v1/circles` | 200 `{"circles":[{"id":"…","name":"…","work_count":3}]}`: every circle a listed work carries, ordered by name. Takes the listing's filter parameters (below) and counts only the works they list, so `library` (comma-separated ids) scopes the circles and their counts to works with a copy there, and any other filter narrows them the same way; a caller offering alternatives to its own pick leaves that dimension out. `sort`, `direction`, `limit`, `page` and any unknown parameter are `INVALID_ARGUMENT` (400). |
 | GET | `/api/v1/voice-actors` | 200 `{"voice_actors":[…]}`, the same shape and scoping for voice actors. Each `id` is what the listing's `circle` / `voice_actor` parameter takes. |
@@ -36,6 +38,42 @@ exists only as a relation placeholder holds no personal data: writing it is
 `WORK_IS_PLACEHOLDER` (409). User tag names are trimmed, must be non-empty, and
 are unique as exact text — case is not folded and source tags are a separate
 thing.
+
+## Listening Position
+
+A work's Listening Position is personal data beside rating and note
+([CONTEXT.md](../../CONTEXT.md)): one snapshot row per (work, Rendition), where
+`rendition` is the string the client derives for the track list's variant (`""`
+for a single root Rendition). It is overwritten as listening moves on and is
+not a log. Writing a Relation Placeholder is `WORK_IS_PLACEHOLDER` (409); losing
+Copies keeps the rows, and an explicit Work deletion removes them with the rating.
+
+A row holds `track_key` (`variant/stem`), `position_sec`, `track_index` and
+`track_count` (the track's 0-based place among the Rendition's tracks, a client
+snapshot for display only), `finished_at` and `updated_at`. The server never
+derives tracks: it stores what the client sends and locates by `track_key`. A
+body with `"finished":true` sets `finished_at` to now and nulls `track_key`,
+`position_sec`, `track_index` and `track_count`; a later position write
+overwrites the position and keeps `finished_at`.
+
+`client` is a random id a page makes once per load and `seq` the page's
+counter, raised for every snapshot. They order one page's writes without
+comparing clocks.
+
+The detail answers `listening`, the rows newest first, `[]` when none:
+
+```json
+"listening": [
+  { "rendition": "", "track_key": "01_導入", "position_sec": 271.4,
+    "track_index": 2, "track_count": 12, "finished_at": null,
+    "updated_at": "2026-10-21T01:02:03.000000000Z" } ]
+```
+
+Each listing item (and collection member) answers
+`"listening": {"state","track_index","track_count","updated_at"}`. `state` is
+`finished` when any Rendition has `finished_at`, else `listening` when any has a
+position, else `none`; the other three come from the most recently updated row
+with a position and are `null` when there is none.
 
 The `favorite` flag is membership in the built-in
 [Favorites collection](collections.md#favorites), shared by user-data writes,
@@ -345,7 +383,8 @@ back to `thumbnail_url` when the image fails to load.
 | `rating_from` / `rating_to` | Integer 1–10, inclusive. |
 | `unrated` | `true`/`false`. It **unions** with the rating range inside that dimension: `rating_from=8&unrated=true` means "8 or more, or not rated". |
 | `favorite`, `has_copy` | `true`/`false`. |
-| `sort` / `direction` | `rj` / `release_date` / `collected_at` / `rating`, and `asc` / `desc`. |
+| `listening` | Comma-separated listening states (`listening`, `finished`, `none`); a work matches if its state is any of them. Any other value is `INVALID_ARGUMENT` (400). |
+| `sort` / `direction` | `rj` / `release_date` / `collected_at` / `rating` / `listened_at`, and `asc` / `desc`. `listened_at` orders by the work's latest Listening Position update. |
 | `limit`, `page` | Page size and 1-based page number (below). |
 
 Different dimensions intersect. An absent `limit` is 50; a supplied one must be
@@ -355,15 +394,16 @@ the first; a supplied one must be an integer of at least 1, so `page=0`, `-1`,
 `abc` and `1.5` are `INVALID_PAGE` too. A page past the end answers an empty
 `works` with the same `total`, which is what a caller corrects against.
 
-Pages are offsets into one total order: unknown release dates and unrated works
-always sort last, in either direction, and equal sort values are broken by work
+Pages are offsets into one total order: unknown release dates, unrated works and
+never-listened works always sort last, in either direction, and equal sort values are broken by work
 number, so consecutive pages of an unchanged catalog neither repeat nor skip a
 row. There is no cross-request snapshot: a concurrent change can move a work
 across a page boundary, and `total` is counted with each page.
 
 The listing returns the work number, title, thumbnail, circle, language, adult
 flag, exact age category, release date, **sales**, personal rating, favorite flag, user tags,
-whether a note exists, when it was first collected, and its copy count. It does
+whether a note exists, when it was first collected, its copy count and its
+listening summary. It does
 not return the note text, the full edition list, relation details or the file
 tree.
 

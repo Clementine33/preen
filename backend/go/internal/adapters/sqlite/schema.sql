@@ -605,6 +605,26 @@ CREATE TABLE work_user_data (
     updated_at TEXT NOT NULL DEFAULT ''
 ) STRICT;
 
+-- Listening Position per (work, rendition): one snapshot, overwritten. The track
+-- fields are null together once the rendition is finished. client and seq order
+-- one page's writes; index and count are client snapshots for display only.
+CREATE TABLE work_listening (
+    work_id TEXT NOT NULL REFERENCES works(id) ON DELETE CASCADE,
+    rendition TEXT NOT NULL,
+    track_key TEXT,
+    position_sec REAL,
+    track_index INTEGER,
+    track_count INTEGER,
+    finished_at TEXT,
+    client TEXT NOT NULL,
+    seq INTEGER NOT NULL,
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY (work_id, rendition),
+    CHECK ((track_key IS NULL) = (position_sec IS NULL)
+       AND (track_key IS NULL) = (track_index IS NULL)
+       AND (track_key IS NULL) = (track_count IS NULL))
+) STRICT;
+
 CREATE TABLE user_tags (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL

@@ -17,9 +17,10 @@ import {
   parseTxt,
   playQueue,
   pickFormat,
+  resumePoint,
   trackFormats,
 } from './derive'
-import type { WorkContentDir, WorkContentFile, WorkFileKind } from '@/lib/api/types'
+import type { WorkContentDir, WorkContentFile, WorkFileKind, WorkListening } from '@/lib/api/types'
 
 /**
  * The pure derivations: everything the page reads off the manifest.
@@ -256,6 +257,16 @@ describe('playQueue', () => {
     expect(index).toBe(1)
   })
 
+  it('carries each entry\'s Rendition and its place among all of that Rendition\'s tracks', () => {
+    // se_on has two tracks in WAV, one in MP3: the MP3 queue is cut short, the count is not.
+    const { queue } = playQueue(tracks, 0, 'MP3')
+    expect(queue.map(({ rendition, index, count }) => ({ rendition, index, count })))
+      .toEqual([{ rendition: 'se_on', index: 0, count: 2 }])
+    const wav = playQueue(tracks, tracks.findIndex((t) => t.key === 'se_off/2'), 'WAV').queue
+    expect(wav.map(({ rendition, index, count }) => [rendition, index, count]))
+      .toEqual([['se_off', 0, 2], ['se_off', 1, 2]])
+  })
+
   it('answers an empty queue for a missing start track', () => {
     expect(playQueue(tracks, 99, 'WAV').queue).toEqual([])
   })
@@ -378,5 +389,30 @@ describe('pickFormat', () => {
     expect(pickFormat(['MP3', 'WAV'], ['FLAC', 'WAV', 'MP3'])).toBe('WAV')
     expect(pickFormat(['MP3', 'WAV'], ['FLAC'])).toBeNull()
     expect(pickFormat(['MP3', 'WAV'], [])).toBeNull()
+  })
+})
+
+describe('resumePoint', () => {
+  const tracks = deriveTracks(d('', ['1.wav', '2.wav'].map((p) => f(p, 'aud', { format: 'WAV' }))))
+  const row = (extra: Partial<WorkListening>): WorkListening => ({
+    rendition: '', track_key: '2', position_sec: 30, track_index: 1, track_count: 2,
+    finished_at: null, updated_at: '2026-10-01T00:00:00.000000000Z', ...extra,
+  })
+
+  it('picks the most recently updated row with a position', () => {
+    const older = row({ track_key: '1', position_sec: 5, updated_at: '2026-09-01T00:00:00.000000000Z' })
+    expect(resumePoint([older, row({})], tracks)).toMatchObject({ track: 1, position: 30 })
+  })
+
+  it('skips a Finished row and an orphan row for the next one', () => {
+    const finished = row({ track_key: null, position_sec: null, track_index: null, track_count: null, finished_at: '2026-10-02T00:00:00.000000000Z', updated_at: '2026-10-02T00:00:00.000000000Z' })
+    const orphan = row({ rendition: 'gone', track_key: 'gone/9', updated_at: '2026-10-03T00:00:00.000000000Z' })
+    const older = row({ track_key: '1', position_sec: 5, updated_at: '2026-09-01T00:00:00.000000000Z' })
+    expect(resumePoint([finished, orphan, older], tracks)).toMatchObject({ track: 0, position: 5 })
+  })
+
+  it('answers null when nothing is left to resume', () => {
+    expect(resumePoint([row({ track_key: 'missing' })], tracks)).toBeNull()
+    expect(resumePoint([], tracks)).toBeNull()
   })
 })

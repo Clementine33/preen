@@ -8,6 +8,7 @@ import { apiStub } from '@/test/api-stub'
 import { installTestQueryPlugin } from '@/test/query-client'
 import { makeWorkDetail } from '@/test/work-fixture'
 import { workDetailTestRouter } from '@/test/work-router'
+import { usePlayerStore } from '@/stores/player'
 import { useWorkDetailStore } from '@/stores/work-detail'
 import { useToast } from '@/composables/use-toast'
 import type { WorkCollection, WorkEditionSlot } from '@/lib/api/types'
@@ -269,5 +270,54 @@ describe('add to collection', () => {
     await click(items()[1]!)
     expect(toast.current.value?.text).toBe('boom')
     wrapper.unmount()
+  })
+})
+
+describe('WorkColophon, listening', () => {
+  const heard = (track_key: string | null = '本編/03_本編 ―添い寝―') => makeWorkDetail({
+    listening: [{
+      rendition: '本編', track_key, position_sec: track_key ? 271 : null, track_index: track_key ? 2 : null,
+      track_count: track_key ? 8 : null, finished_at: track_key ? null : '2026-10-01T00:00:00.000000000Z',
+      updated_at: '2026-10-01T00:00:00.000000000Z',
+    }],
+  })
+  const mountHeard = (work = heard()) => mountColophon({ getWork: vi.fn().mockResolvedValue(work) })
+  const button = (wrapper: Awaited<ReturnType<typeof mountColophon>>['wrapper'], label: string) =>
+    wrapper.findAll('.colo-row button').find((b) => b.text().includes(label))
+
+  it('shows nothing for a work never listened to', async () => {
+    const { wrapper } = await mountColophon()
+    expect(button(wrapper, '继续')).toBeUndefined()
+  })
+
+  it('shows 继续 with the track and second, and resumes there', async () => {
+    const { wrapper } = await mountHeard()
+    const resume = button(wrapper, '继续')!
+    expect(resume.text()).toContain('3/8 · 04:31')
+    const start = vi.spyOn(useWorkDetailStore(), 'startTrack')
+    await resume.trigger('click')
+    expect(start).toHaveBeenCalledWith(2, undefined, 271)
+  })
+
+  it('offers 从头播放 when only an orphan row is left', async () => {
+    const { wrapper } = await mountHeard(heard('本編/gone'))
+    expect(button(wrapper, '▶')!.text()).toBe('▶ 从头播放')
+  })
+
+  it('offers 重听 from track 1 when only a Finished row is left', async () => {
+    const { wrapper } = await mountHeard(heard(null))
+    const resume = button(wrapper, '重听')!
+    expect(resume.text()).toBe('▶ 重听')
+    const start = vi.spyOn(useWorkDetailStore(), 'startTrack')
+    await resume.trigger('click')
+    expect(start).toHaveBeenCalledWith(0, undefined, undefined)
+  })
+
+  it('clears the whole Work through the player', async () => {
+    const { wrapper, api } = await mountHeard()
+    usePlayerStore().bindClient(api)
+    await button(wrapper, '标记为未听')!.trigger('click')
+    await flushPromises()
+    expect(api.deleteWorkListening).toHaveBeenCalledWith(RJ)
   })
 })

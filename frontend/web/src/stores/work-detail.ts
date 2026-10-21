@@ -230,9 +230,10 @@ export const useWorkDetailStore = defineStore('work-detail', {
     /**
      * Play a track: followTrack picks the leaf, the file plays in the browsed
      * format or, when the track misses it, in its first one (v3's onlyIn). The
-     * player gets the whole list in that format, so it can step on.
+     * player gets the whole list in that format, so it can step on. A resume
+     * passes the saved second; choosing a track starts it at 0.
      */
-    startTrack(track: number, fmt?: string) {
+    startTrack(track: number, fmt?: string, resumeAt?: number) {
       const entry = this.tracks[track]
       if (!entry) return
       this.followTrack(track)
@@ -245,7 +246,7 @@ export const useWorkDetailStore = defineStore('work-detail', {
         : undefined
       const { queue, index, format } = playQueue(this.tracks, track, fmt ?? this.fmt, src)
       this.playFmt = format
-      usePlayerStore().play(rj, queue, index)
+      usePlayerStore().play(rj, queue, index, resumeAt)
     },
 
     /** The page is on a track the player moved to (it ended, or prev/next). */

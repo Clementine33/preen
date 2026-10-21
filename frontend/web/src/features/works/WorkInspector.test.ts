@@ -7,6 +7,8 @@ import { apiClientKey } from '@/lib/api/client'
 import type { WorkDetail } from '@/lib/api/types'
 import { apiStub } from '@/test/api-stub'
 import { usePlayerStore } from '@/stores/player'
+import type { QueryClient } from '@tanstack/vue-query'
+import { queryKeys } from '@/queries/query-keys'
 import { installTestQueryPlugin } from '@/test/query-client'
 import WorkInspector from './WorkInspector.vue'
 
@@ -34,6 +36,7 @@ function detail(rj: string, voice: string): WorkDetail {
     has_note: false,
     collected_at: '2026-01-01T00:00:00Z',
     copy_count: 1,
+    listening: [],
     source_url: null,
     cover_url: `https://covers.test/${rj}.jpg`,
     sample_cover_url: null,
@@ -66,6 +69,9 @@ function reducedMotion(matches: boolean): void {
   }))
 }
 
+/** The last mounted inspector's query client, to refetch through. */
+let queryClient: QueryClient
+
 async function mountInspector(
   getWork: ReturnType<typeof vi.fn>,
   props: { rj: string; standalone?: boolean },
@@ -76,10 +82,12 @@ async function mountInspector(
     history: createMemoryHistory(),
     routes: [{ path: '/', component: { template: '<div />' } }],
   })
+  const query = installTestQueryPlugin()
+  queryClient = query[1].queryClient
   const wrapper = mount(WorkInspector, {
     props,
     global: {
-      plugins: [createPinia(), router, installTestQueryPlugin()],
+      plugins: [createPinia(), router, query],
       provide: { [apiClientKey as symbol]: apiStub({
         getWork,
         getPreferences: vi.fn().mockResolvedValue({ track_formats: formatPreference }),
@@ -141,6 +149,20 @@ describe('WorkInspector', () => {
     expect(wrapper.get('.spec').text()).toContain('伊ヶ崎綾香')
     expect(wrapper.get('.spec').classes()).toContain('dim')
     expect(wrapper.get('.cover.front').classes()).not.toContain('hatch')
+  })
+
+  it('swaps a refetch of the work on show quietly: no dim, no title scramble', async () => {
+    const getWork = vi.fn((rj: string) => Promise.resolve(detail(rj, '伊ヶ崎綾香')))
+    const wrapper = await mountInspector(getWork, { rj: FIRST })
+    await settle()
+    const frame = vi.spyOn(window, 'requestAnimationFrame')
+    getWork.mockResolvedValueOnce(detail(FIRST, '沢城みゆき'))
+    await queryClient.refetchQueries({ queryKey: queryKeys.works.detail(FIRST) })
+    await flushPromises()
+
+    expect(wrapper.get('.spec').classes()).not.toContain('dim')
+    expect(wrapper.get('.spec').text()).toContain('沢城みゆき')
+    expect(frame).not.toHaveBeenCalled()
   })
 
   it('paints the cover without the wipe under a reduced-motion preference', async () => {

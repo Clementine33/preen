@@ -50,6 +50,7 @@ function makeWorks(count: number): WorkSummary[] {
     has_note: false,
     collected_at: '2026-01-01T00:00:00Z',
     copy_count: 1,
+    listening: { state: 'none', track_index: null, track_count: null, updated_at: null },
   }))
 }
 

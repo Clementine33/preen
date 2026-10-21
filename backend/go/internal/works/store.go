@@ -108,6 +108,11 @@ type Store interface {
 	ImportMetadata(in *ValidatedImport, now time.Time) (ImportOutcome, error)
 	// PatchUserData applies a partial update and returns the resulting state.
 	PatchUserData(id WorkCode, patch UserDataPatch, now time.Time) (UserData, error)
+	// PutListening upserts the (work, rendition) Listening Position, dropping a
+	// same-client write whose seq is not greater, and returns the stored row.
+	PutListening(id WorkCode, req ListeningRequest, now time.Time) (Listening, error)
+	// ClearListening removes every Listening Position row of the work.
+	ClearListening(id WorkCode) error
 	// ReplaceUserTags replaces the work's user-tag relations with exactly the
 	// given set. Every id must exist.
 	ReplaceUserTags(id WorkCode, tagIDs []string) ([]UserTag, error)

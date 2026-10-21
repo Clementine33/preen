@@ -30,7 +30,7 @@ import (
 
 const testToken = "test-token"
 
-func newWorksetServer(t *testing.T) (http.Handler, *sqlite.Repository) {
+func newWorksetServer(t *testing.T, guards ...workset.EnqueueGuard) (http.Handler, *sqlite.Repository) {
 	t.Helper()
 	tmp := t.TempDir()
 	repo, err := sqlite.NewRepository(tmp + "/test.db")
@@ -41,6 +41,10 @@ func newWorksetServer(t *testing.T) (http.Handler, *sqlite.Repository) {
 	cfg := `{"prune":{"no_effect_tags":["SEなし"]}}`
 	if err := os.WriteFile(filepath.Join(tmp, "config.json"), []byte(cfg), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
+	}
+	var guard workset.EnqueueGuard
+	if len(guards) > 0 {
+		guard = guards[0]
 	}
 	svc := workset.NewService(repo, 1, 1, []workset.Task{
 		conversion.New(
@@ -58,7 +62,7 @@ func newWorksetServer(t *testing.T) (http.Handler, *sqlite.Repository) {
 				Files: filesystem.ConversionHandles{},
 			},
 		),
-	}, nil, nil)
+	}, nil, guard)
 	handler := NewServer(Dependencies{
 		Library:        library.NewService(repo, nil, repo, filesystem.ResolveMember),
 		Catalog:        conversion.NewCatalog(repo, repo, appconfig.NewReader(tmp)),

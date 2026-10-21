@@ -57,9 +57,9 @@ func seedExecutionWorkset(t *testing.T, repo *sqlite.Repository, worksetID, root
 		t.Fatalf("seed draft: %v", err)
 	}
 	if _, err := repo.DB().Exec(`
-		INSERT INTO plans (plan_id, root_path, snapshot_token, task_kind, task_schema_version, created_at)
-		VALUES ('plan-1', ?, 'snap', 'conversion', 1, ?)
-	`, root, now); err != nil {
+		INSERT INTO plans (plan_id, root_path, snapshot_token, task_kind, task_schema_version, workset_id, created_at)
+		VALUES ('plan-1', ?, 'snap', 'conversion', 1, ?, ?)
+	`, root, worksetID, now); err != nil {
 		t.Fatalf("seed plan: %v", err)
 	}
 }
@@ -251,6 +251,10 @@ func TestPlanExecutionInterruptStaleKeepsPartialResults(t *testing.T) {
 	seedExecutionWorkset(t, repo, "ws-1", "/music")
 	queued := newExecution("exec-q", "ws-1", "plan-1", "key-q")
 	running := newExecution("exec-r", "ws-1", "plan-2", "key-r")
+	if _, err := repo.DB().Exec(`INSERT INTO plans(plan_id,root_path,snapshot_token,workset_id)
+		VALUES('plan-2','/music','snap','ws-1')`); err != nil {
+		t.Fatalf("seed second plan: %v", err)
+	}
 	// Rows are written directly: this scenario exercises the startup
 	// interruption of leftovers, not the guarded creation path.
 	insertExecutionRow(t, repo, queued)
@@ -624,6 +628,10 @@ func BenchmarkExecutionComponentResults(b *testing.B) {
 		// One session per revision is a storage invariant, so each iteration
 		// gets its own plan id.
 		executionID := "exec-bench-" + strconv.Itoa(i)
+		if _, err := repo.DB().Exec(`INSERT INTO plans(plan_id,root_path,snapshot_token,workset_id)
+			VALUES(?,'/music','snap','ws-bench')`, "plan-bench-"+strconv.Itoa(i)); err != nil {
+			b.Fatalf("seed plan: %v", err)
+		}
 		if _, err := repo.DB().Exec(`
 			INSERT INTO plan_executions (
 				execution_id, workset_id, operation_type, plan_id, status,
@@ -664,8 +672,8 @@ func seedBenchWorkset(b *testing.B, repo *sqlite.Repository) {
 		 VALUES ('lib-bench', 'bench', '/music', '/music', ?, ?)`,
 		`INSERT INTO worksets (id, title, library_id, root_path, root_path_key, version, created_at, updated_at)
 		 VALUES ('ws-bench', 'bench', 'lib-bench', '/music', '/music', 1, ?, ?)`,
-		`INSERT INTO plans (plan_id, root_path, snapshot_token, task_kind, task_schema_version, created_at)
-		 VALUES ('plan-bench', '/music', 'snap', 'conversion', 1, ?)`,
+		`INSERT INTO plans (plan_id, root_path, snapshot_token, task_kind, task_schema_version, workset_id, created_at)
+		 VALUES ('plan-bench', '/music', 'snap', 'conversion', 1, 'ws-bench', ?)`,
 	} {
 		if _, err := repo.DB().Exec(stmt, now, now); err != nil {
 			b.Fatalf("seed bench workset: %v", err)

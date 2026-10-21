@@ -1,11 +1,111 @@
 package workset_test
 
 import (
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/Clementine33/preen/backend/internal/workset"
 )
+
+// Both requests reach the enqueue guard only after the active-session check.
+func raceGenerationStarts(
+	t *testing.T, f *fixture, worksetID string, keys [2]string,
+) ([2]*workset.StartGenerationResult, [2]error) {
+	t.Helper()
+	ready := make(chan struct{})
+	var arrived sync.WaitGroup
+	arrived.Add(2)
+	f.wireService(func(fn func() error) error {
+		arrived.Done()
+		<-ready
+		return fn()
+	})
+	var results [2]*workset.StartGenerationResult
+	var errs [2]error
+	var done sync.WaitGroup
+	done.Add(2)
+	version := f.operation(worksetID).Version
+	for i := range keys {
+		go func(i int) {
+			defer done.Done()
+			results[i], errs[i] = f.svc.StartGeneration(f.ctx, worksetID, workset.OperationTypeConversion,
+				workset.StartGenerationRequest{IfMatchVersion: version, IdempotencyKey: keys[i]})
+		}(i)
+	}
+	arrived.Wait()
+	close(ready)
+	done.Wait()
+	return results, errs
+}
+
+func TestConcurrentDifferentGenerationKeysAllowOnlyOneActiveSession(t *testing.T) {
+	f := newFixture(t)
+	ids := f.standardLibrary("albumA")
+	ws := f.createCurrent("并发规划", ids...)
+	results, errs := raceGenerationStarts(t, f, ws.WorksetID, [2]string{"key-a", "key-b"})
+	created, conflicts := 0, 0
+	for i, err := range errs {
+		if err == nil && results[i].Created {
+			created++
+		} else if werr, ok := workset.AsError(err); ok && werr.Code == "GENERATION_IN_PROGRESS" {
+			conflicts++
+		} else {
+			t.Fatalf("start %d: result=%+v err=%v", i, results[i], err)
+		}
+	}
+	if created != 1 || conflicts != 1 {
+		t.Fatalf("created=%d conflicts=%d", created, conflicts)
+	}
+	var active int
+	err := f.repo.DB().QueryRow(
+		"SELECT COUNT(*) FROM plan_generations WHERE status IN ('queued','running')",
+	).Scan(&active)
+	if err != nil || active != 1 {
+		t.Fatalf("active=%d err=%v", active, err)
+	}
+}
+
+func TestConcurrentSameGenerationKeyReplaysActiveSession(t *testing.T) {
+	f := newFixture(t)
+	ids := f.standardLibrary("albumA")
+	ws := f.createCurrent("并发回放", ids...)
+	results, errs := raceGenerationStarts(t, f, ws.WorksetID, [2]string{"same-key", "same-key"})
+	for i, err := range errs {
+		if err != nil || results[i] == nil || results[i].Generation == nil {
+			t.Fatalf("start %d: result=%+v err=%v", i, results[i], err)
+		}
+	}
+	if results[0].Created == results[1].Created ||
+		results[0].Generation.GenerationID != results[1].Generation.GenerationID {
+		t.Fatalf("same-key starts = %+v, %+v", results[0], results[1])
+	}
+}
+
+func TestConcurrentReusedGenerationKeyIgnoresOlderFailure(t *testing.T) {
+	f := newFixture(t)
+	ids := f.standardLibrary("albumA")
+	ws := f.createCurrent("失败后竞争", ids...)
+	first, err := f.svc.StartGeneration(f.ctx, ws.WorksetID, workset.OperationTypeConversion,
+		workset.StartGenerationRequest{IfMatchVersion: f.operation(ws.WorksetID).Version, IdempotencyKey: "reused-key"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	old := first.Generation.GenerationID
+	if err := f.repo.MarkGenerationFailed(old, "FAILED", "first attempt"); err != nil {
+		t.Fatal(err)
+	}
+	results, errs := raceGenerationStarts(t, f, ws.WorksetID, [2]string{"reused-key", "reused-key"})
+	for i, err := range errs {
+		if err != nil || results[i] == nil || results[i].Generation == nil ||
+			results[i].Generation.GenerationID == old {
+			t.Fatalf("start %d: result=%+v err=%v old=%s", i, results[i], err, old)
+		}
+	}
+	if results[0].Generation.GenerationID != results[1].Generation.GenerationID {
+		t.Fatalf("different live sessions: %+v, %+v", results[0], results[1])
+	}
+}
 
 // TestGenerationPublishesRevisionAndReplays covers the happy path and the replay:
 // a successful session publishes exactly one revision, promotes it, and a
@@ -314,5 +414,97 @@ func TestGenerationIdempotencyKeyReuseIsScoped(t *testing.T) {
 		},
 	); err == nil {
 		t.Fatal("a missing idempotency key must be refused")
+	}
+}
+
+func TestGenerationReplayPrefersLiveKeyOverOlderTerminalRowAndCurrentPlan(t *testing.T) {
+	f := newFixture(t)
+	ids := f.standardLibrary("albumA")
+	f.insertAudioEntry("/music/albumA/01.mp3", "/music/albumA", 1024, 1000)
+	ws := f.createCurrent("幂等回放", ids...)
+	version := f.operation(ws.WorksetID).Version
+	start := func(key string, match int) (*workset.StartGenerationResult, error) {
+		return f.svc.StartGeneration(f.ctx, ws.WorksetID, workset.OperationTypeConversion,
+			workset.StartGenerationRequest{IfMatchVersion: match, IdempotencyKey: key})
+	}
+	old, err := start("reused-key", version)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = f.repo.MarkGenerationFailed(old.Generation.GenerationID, "FAILED", "first attempt"); err != nil {
+		t.Fatal(err)
+	}
+	live, err := start("reused-key", version)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !live.Created || live.Generation.GenerationID == old.Generation.GenerationID {
+		t.Fatalf("new session = %+v", live)
+	}
+	replay, err := start("reused-key", version)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if replay.Created || replay.Generation == nil || replay.Generation.GenerationID != live.Generation.GenerationID {
+		t.Fatalf("live replay = %+v", replay)
+	}
+}
+
+func TestCompletedGenerationKeyWinsOverCurrentPlanAndStaleVersion(t *testing.T) {
+	f := newFixture(t)
+	ids := f.standardLibrary("albumA")
+	f.insertAudioEntry("/music/albumA/01.mp3", "/music/albumA", 1024, 1000)
+	ws := f.createCurrent("已发布回放", ids...)
+	before := f.operation(ws.WorksetID).Version
+	completed := f.runGeneration(ws.WorksetID, before)
+	if completed.Status != workset.GenStatusCompleted {
+		t.Fatalf("completed = %+v", completed)
+	}
+	row, err := f.repo.GetGeneration(completed.GenerationID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	replay, err := f.svc.StartGeneration(f.ctx, ws.WorksetID, workset.OperationTypeConversion,
+		workset.StartGenerationRequest{IfMatchVersion: before, IdempotencyKey: row.IdempotencyKey})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if replay.Created || replay.Generation == nil || replay.Generation.GenerationID != completed.GenerationID {
+		t.Fatalf("published session replay = %+v", replay)
+	}
+	doc := draftDoc()
+	doc.NoEffectTags = []string{"different"}
+	f.saveDraft(ws.WorksetID, doc, f.operation(ws.WorksetID).Version)
+	_, err = f.svc.StartGeneration(f.ctx, ws.WorksetID, workset.OperationTypeConversion,
+		workset.StartGenerationRequest{IfMatchVersion: before, IdempotencyKey: row.IdempotencyKey})
+	if werr, ok := workset.AsError(err); !ok || werr.Code != "IDEMPOTENCY_KEY_REUSED" {
+		t.Fatalf("changed request under completed key = %v", err)
+	}
+}
+
+func TestReplacedPlanStillReplaysCompletedGeneration(t *testing.T) {
+	f := newFixture(t)
+	ids := f.standardLibrary("albumA")
+	f.insertAudioEntry("/music/albumA/01.mp3", "/music/albumA", 1024, 1000)
+	ws := f.createCurrent("替换后回放", ids...)
+	before := f.operation(ws.WorksetID).Version
+	first := f.runGeneration(ws.WorksetID, before)
+	row, err := f.repo.GetGeneration(first.GenerationID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.insertAudioEntry("/music/albumA/02.mp3", "/music/albumA", 2048, 1001)
+	second := f.runGeneration(ws.WorksetID, f.operation(ws.WorksetID).Version)
+	if second.RevisionID == first.RevisionID {
+		t.Fatalf("plan was not replaced: %+v", second)
+	}
+	replay, err := f.svc.StartGeneration(f.ctx, ws.WorksetID, workset.OperationTypeConversion,
+		workset.StartGenerationRequest{IfMatchVersion: before, IdempotencyKey: row.IdempotencyKey})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if replay.Created || replay.Generation == nil ||
+		replay.Generation.GenerationID != first.GenerationID || replay.Generation.RevisionID != "" {
+		t.Fatalf("replaced plan session replay = %+v", replay)
 	}
 }

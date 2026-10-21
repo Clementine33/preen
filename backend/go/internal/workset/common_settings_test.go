@@ -308,6 +308,8 @@ func (f *fixture) occupy(worksetID, reason string) {
 	`, worksetID, stamp(), stamp())
 	if reason == workset.RefusalExecuting {
 		f.exec(`UPDATE plan_generations SET status = 'completed' WHERE generation_id = 'gen-busy'`)
+		f.exec(`INSERT INTO plans(plan_id,root_path,snapshot_token,workset_id)
+			VALUES('plan-busy','/music','s',?)`, worksetID)
 		f.exec(`
 			INSERT INTO plan_executions (execution_id, workset_id, operation_type, plan_id, status, created_at, updated_at)
 			VALUES ('exec-busy', ?, 'conversion', 'plan-busy', 'running', ?, ?)

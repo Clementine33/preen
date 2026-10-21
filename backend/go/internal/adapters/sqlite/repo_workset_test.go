@@ -1,10 +1,12 @@
 package sqlite //nolint:testpackage // white-box tests exercise unexported internals
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
 
+	"github.com/Clementine33/preen/backend/internal/works/coverdelivery"
 	"github.com/Clementine33/preen/backend/internal/workset"
 )
 
@@ -203,6 +205,10 @@ func TestReplaceCurrentWorksetCascadesToChildren(t *testing.T) {
 		"UPDATE plan_generations SET status = 'completed' WHERE generation_id = 'gen-old'",
 	); err != nil {
 		t.Fatalf("complete seeded generation: %v", err)
+	}
+	if _, err := repo.db.Exec(`INSERT INTO plans(plan_id,root_path,snapshot_token,workset_id)
+		VALUES('plan-old','/music','snap',?)`, replaced.ID); err != nil {
+		t.Fatalf("seed plan: %v", err)
 	}
 	if _, err := repo.db.Exec(`
 		INSERT INTO plan_executions
@@ -561,6 +567,27 @@ func TestPersistOperationRevisionRetiresTheReplacedExecution(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("CreateExecutionGuarded: %v", err)
 	}
+	var planWorkset, executionWorkset string
+	if err := repo.db.QueryRow(`SELECT p.workset_id,e.workset_id FROM plan_executions e
+		JOIN plans p ON p.plan_id=e.plan_id WHERE e.execution_id='exec-r1'`).
+		Scan(&planWorkset, &executionWorkset); err != nil || planWorkset != w.ID || executionWorkset != w.ID {
+		t.Fatalf("execution ownership: plan=%q execution=%q err=%v", planWorkset, executionWorkset, err)
+	}
+	if err := repo.EnqueueCovers(context.Background(), coverdelivery.Request{
+		ExecutionID: "exec-r1", WorkCode: "RJ1", URL: "https://example.com/cover",
+		Targets: []coverdelivery.Target{{CopyID: "copy-1", WorkCode: "RJ1"}},
+	}); err != nil {
+		t.Fatalf("enqueue cover: %v", err)
+	}
+	seedGeneration(t, repo, "gen-failed", w.ID)
+	if err := repo.MarkGenerationFailed("gen-failed", "TEST_FAILURE", "failed to plan"); err != nil {
+		t.Fatalf("fail generation: %v", err)
+	}
+	var covers int
+	if err := repo.db.QueryRow(`SELECT COUNT(*) FROM cover_deliveries WHERE execution_id='exec-r1'`).
+		Scan(&covers); err != nil || covers != 1 {
+		t.Fatalf("failed planning lost cover demand: %d %v", covers, err)
+	}
 
 	seedGeneration(t, repo, "gen-r2", w.ID)
 	if err := repo.PersistOperationRevision(
@@ -576,6 +603,10 @@ func TestPersistOperationRevisionRetiresTheReplacedExecution(t *testing.T) {
 	}
 	if _, err := repo.GetExecution("exec-r1"); !errors.Is(err, workset.ErrExecutionNotFound) {
 		t.Fatalf("the replaced plan's execution must be gone, got %v", err)
+	}
+	if err := repo.db.QueryRow(`SELECT COUNT(*) FROM cover_deliveries WHERE execution_id='exec-r1'`).
+		Scan(&covers); err != nil || covers != 0 {
+		t.Fatalf("retired execution kept cover demand: %d %v", covers, err)
 	}
 }
 

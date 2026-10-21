@@ -40,7 +40,7 @@ func (l *Loop) pass(ctx context.Context) bool {
 
 	freeAfter, _, _ := l.size(ctx)
 	log.Printf(
-		"maintenance: complete=%t deleted_scan_and_generation_rows=%d reclaimed_pages=%d "+
+		"maintenance: complete=%t deleted_retention_rows=%d reclaimed_pages=%d "+
 			"freelist=%d->%d pages=%d page_size=%d wal(busy=%d frames=%d copied=%d) elapsed_ms=%d",
 		complete, deleted, reclaimed, freeBefore, freeAfter, pages, pageSize,
 		walBusy, walFrames, walCopied, time.Since(started).Milliseconds(),
@@ -66,7 +66,7 @@ func (l *Loop) deleteBatches(
 			log.Printf("maintenance: retention batch failed: %v", err)
 			return deleted, false
 		}
-		rows := stats.DeletedScanSessions + stats.DeletedGenerations
+		rows := stats.DeletedScanSessions + stats.DeletedGenerations + stats.DeletedCoverDownloads
 		deleted += rows
 		if rows == 0 {
 			return deleted, true

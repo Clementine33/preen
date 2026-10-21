@@ -12,9 +12,10 @@ execution results. Decision: [ADR 0004](../adr/0004-task-seam-and-opaque-payload
 **Status: implemented and machine-checked.** The Go handler, repository and
 e2e tests are the reference for the shapes below. There is no revision-history
 route: each operation keeps exactly one plan, the current one, and publishing a new
-plan retires the one it replaced — with its payload, roots, units and
-execution sessions — in the same transaction. The pre-operation workset routes
-(`/worksets/{id}/draft`, `/worksets/{id}/revisions`,
+plan retires the one it replaced — with its payload, roots, units, execution
+sessions and pending cover demands — in the same transaction. A failed generation
+keeps the current plan, execution and pending cover demands. The pre-operation
+workset routes (`/worksets/{id}/draft`, `/worksets/{id}/revisions`,
 `/worksets/{id}/planning-sessions/*`) and the old record-creation route
 (`POST /worksets` with `folder_ids`) were removed in the same delivery. A
 database from another schema generation is refused at startup, never cleared;
@@ -77,7 +78,7 @@ All routes require auth and use the [standard error envelope](common.md#error-en
 | GET | `/api/v1/worksets/{id}/operations/{type}` | Operation view: `version`, `planning_state`, `current_revision`, `active_generation`, `latest_generation`, `active_execution`, `latest_execution`. Unknown workset, unsupported type and unestablished operation are all 404 (`UNKNOWN_OPERATION_TYPE` for a type this iteration does not implement). |
 | GET | `/api/v1/worksets/{id}/operations/{type}/draft` | The operation version plus the sparse draft wrapped in its task envelope: `task: {kind, schema_version, payload}`. The payload is task-owned (conversion: the sparse document). |
 | PUT | `/api/v1/worksets/{id}/operations/{type}/draft` | Full replacement of the sparse document, `If-Match` = operation version. Structural validation only: an incomplete draft saves. The common section is not written here: one that differs from the deployment-wide [Task settings](tasks.md#task-settings) is refused with `COMMON_SETTINGS_MISMATCH` (409), neither applied nor ignored (ADR 0008). `GENERATION_IN_PROGRESS` while this operation's session is queued/running; `EXECUTION_IN_PROGRESS` while its execution session is; `ORPHANED_WORKSET` when read-only. |
-| POST | `/api/v1/worksets/{id}/operations/{type}/revisions` | Start generation. No request body; `If-Match` (operation version) and `Idempotency-Key` are both required. 202 `{"created":true,"generation":…}`; 200 with `revision` when the current revision has never executed and nothing semantic changed, or 202 with `generation` for a key replay. A new key after execution creates a fresh plan even with unchanged settings and folders. Conflicts: `GENERATION_IN_PROGRESS`, `EXECUTION_IN_PROGRESS`, `SCAN_IN_PROGRESS`, `NO_ACTIVE_MEMBERS`, `VERSION_CONFLICT`; `INVALID_POLICY` is 400. |
+| POST | `/api/v1/worksets/{id}/operations/{type}/revisions` | Start generation. No request body; `If-Match` (operation version) and `Idempotency-Key` are both required. 202 `{"created":true,"generation":…}`; 202 `{"created":false,"generation":…}` for an effective key replay; 200 `{"created":false,"revision":…}` when no effective key matches and the current revision has never executed and nothing semantic changed. A new key after execution creates a fresh plan even with unchanged settings and folders. At most one queued/running generation exists per workset operation, including concurrent starts: the same effective key and request replay its session; another key gets `GENERATION_IN_PROGRESS` (409). Different worksets and operations may start independently. Conflicts: `IDEMPOTENCY_KEY_REUSED` for a different request under an effective key, `GENERATION_IN_PROGRESS`, `EXECUTION_IN_PROGRESS`, `SCAN_IN_PROGRESS`, `NO_ACTIVE_MEMBERS`, `VERSION_CONFLICT`; `INVALID_POLICY` is 400. |
 | GET | `/api/v1/worksets/{id}/operations/{type}/planning-sessions/{genId}` | Session detail. Statuses `queued`, `running`, `completed`, `failed`, `canceled`, `interrupted`. A session of another workset or operation is 404. |
 | GET | `/api/v1/worksets/{id}/operations/{type}/planning-sessions/{genId}/events` | SSE progress (`session_snapshot`, `progress`, terminal event). |
 | POST | `/api/v1/worksets/{id}/operations/{type}/planning-sessions/{genId}/cancel` | Cooperative cancel; idempotent on terminal sessions. |
@@ -94,5 +95,16 @@ setting a user cancellation flag or the `CANCELED` error code. Interrupted
 planning releases its idempotency key so a later request can generate again.
 A session claimed after worker admission closes is left for startup interruption.
 Already committed revisions and independently failed sessions retain their outcome.
+
+An effective planning key belongs to a `queued`, `running`, or `completed`
+session. Key replay is checked before current-plan reuse, `If-Match`, and
+active-session admission, including after publication advances the operation
+version. `failed`, `canceled`, and `interrupted` rows release their keys. A
+completed session and its key remain available for at least 30 days after
+completion; background retention may remove them later. Replacing its plan
+does not release the key or restore the old plan: the replayed completed
+session may have an empty `revision_id` because the old plan was deleted. A
+client observing that result should refresh the current operation and report
+that the original plan was replaced, without requesting the deleted revision.
 
 Member `rel_path` and creation `folder_paths` may contain nested library-relative paths, for example `分类/RJ000001 album`. Classification directories and internal directories of a work are not members. Audio count never filters the shared batch; conversion plans the observed audio within each participating member.

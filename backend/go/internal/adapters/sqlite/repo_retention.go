@@ -63,15 +63,32 @@ func deletePlanGenerationsBatchTx(ctx context.Context, tx *sql.Tx, cutoff time.T
 	return n, nil
 }
 
+// A delivery of any status retains its shared download for reporting and retry.
+func deleteUnreferencedCoverDownloadsBatchTx(ctx context.Context, tx *sql.Tx, limit int) (int64, error) {
+	result, err := tx.ExecContext(ctx, `
+		DELETE FROM cover_downloads WHERE id IN (
+			SELECT j.id FROM cover_downloads j
+			WHERE j.status='done' AND NOT EXISTS (
+				SELECT 1 FROM cover_deliveries d WHERE d.job_id=j.id
+			) LIMIT ?
+		)
+	`, limit)
+	if err != nil {
+		return 0, fmt.Errorf("delete unreferenced cover downloads: %w", err)
+	}
+	n, _ := result.RowsAffected()
+	return n, nil
+}
+
 // RunRetentionCleanupBatch deletes one batch of the rows retention no longer
 // keeps, in one transaction, and reports what it deleted.
 //
-// At most limit rows go per table, so a batch is bounded twice over and each
+// At most limit rows go per table, so a batch is bounded and each
 // one is a short transaction. Batching is what lets the idle-time maintenance
 // pass hand the admission slot back to real work between batches: a single
 // unbounded delete over a large table would hold the database writer - and
 // anyone who needs it - for as long as it takes. A batch that deletes nothing
-// means both tables are clean.
+// means all three tables are clean.
 //
 // workset.Workset revisions, plans, executions and inventory are never purged here;
 // they are durable aggregate history, not session ledgers.
@@ -98,6 +115,9 @@ func (r *Repository) RunRetentionCleanupBatch(
 		return CleanupStats{}, err
 	}
 	if stats.DeletedGenerations, err = deletePlanGenerationsBatchTx(ctx, tx, generationCutoff, limit); err != nil {
+		return CleanupStats{}, err
+	}
+	if stats.DeletedCoverDownloads, err = deleteUnreferencedCoverDownloadsBatchTx(ctx, tx, limit); err != nil {
 		return CleanupStats{}, err
 	}
 

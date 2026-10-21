@@ -232,13 +232,8 @@ func recordActiveSessionTx(tx *sql.Tx, worksetID string) (string, error) {
 }
 
 // deleteWorksetDataTx removes one record and everything it owns. Plans and
-// revisions are deleted explicitly: plans are linked to a record by a plain
-// column (no foreign key), so nothing would cascade from the workset row.
-// Members, operations, drafts, generations and executions do cascade.
+// Plans, executions and their payload rows cascade from the workset row.
 func deleteWorksetDataTx(tx *sql.Tx, worksetID string) error {
-	if _, err := tx.Exec(`DELETE FROM plans WHERE workset_id = ?`, worksetID); err != nil {
-		return fmt.Errorf("delete record plans: %w", err)
-	}
 	result, err := tx.Exec(`DELETE FROM worksets WHERE id = ?`, worksetID)
 	if err != nil {
 		return fmt.Errorf("delete record: %w", err)

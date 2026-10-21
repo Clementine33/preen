@@ -6,5 +6,7 @@
 // Business packages own the types and consumer ports; this adapter persists
 // them and enforces their transitions within transactions. It also implements
 // development-schema initialization, release migrations, backups and database
-// maintenance, rather than coordinating HTTP requests or task execution.
+// maintenance. Retention purges terminal session ledgers and unreferenced done
+// cover downloads in bounded batches; cover delivery reports and files remain
+// owned by their respective records and filesystem adapters.
 package sqlite

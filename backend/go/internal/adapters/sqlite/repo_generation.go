@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/Clementine33/preen/backend/internal/workset"
@@ -56,8 +57,8 @@ const generationColumns = `generation_id, workset_id, operation_type, status, id
 	total_roots, completed_roots, current_root, error_count, cancel_requested, revision_id, error_code, error_message,
 	started_at, finished_at, created_at, updated_at`
 
-// CreateGeneration inserts a queued planning session. A unique conflict on the
-// operation+key partial index returns workset.ErrGenerationIdemConflict.
+// CreateGeneration inserts a queued planning session and identifies which
+// operation-scoped uniqueness rule rejected it.
 func (r *Repository) CreateGeneration(g *workset.PlanGeneration) error {
 	_, err := r.db.Exec(`
 		INSERT INTO plan_generations (generation_id, workset_id, operation_type, status, idempotency_key, request_hash, expected_draft_version, request_json,
@@ -66,21 +67,36 @@ func (r *Repository) CreateGeneration(g *workset.PlanGeneration) error {
 	`, g.GenerationID, g.WorksetID, g.OperationType, g.IdempotencyKey, g.RequestHash, g.ExpectedDraftVersion, g.RequestJSON, g.TotalRoots, g.CreatedAt.Format(timeFormat), g.CreatedAt.Format(timeFormat))
 	if err != nil {
 		if isUniqueConstraintError(err) {
-			return workset.ErrGenerationIdemConflict
+			message := err.Error()
+			if strings.Contains(message, "plan_generations.workset_id, "+
+				"plan_generations.operation_type, plan_generations.idempotency_key") {
+				return workset.ErrGenerationIdemConflict
+			}
+			if strings.Contains(message, "plan_generations.workset_id, plan_generations.operation_type") {
+				owner, lookupErr := r.GetGenerationByOperationKey(g.WorksetID, g.OperationType, g.IdempotencyKey)
+				if lookupErr != nil {
+					return fmt.Errorf("check generation key after active conflict: %w", lookupErr)
+				}
+				if owner != nil {
+					return workset.ErrGenerationIdemConflict
+				}
+				return workset.ErrGenerationActiveConflict
+			}
 		}
 		return fmt.Errorf("insert generation: %w", err)
 	}
 	return nil
 }
 
-// GetGenerationByOperationKey returns the generation owned by an operation and
-// an idempotency key. Returns nil when no row matches.
+// GetGenerationByOperationKey returns the live key owner for an operation.
+// Failed, canceled and interrupted sessions release their keys.
 func (r *Repository) GetGenerationByOperationKey(
 	worksetID, operationType, key string,
 ) (*workset.PlanGeneration, error) {
 	row := r.db.QueryRow(
 		`SELECT `+generationColumns+` FROM plan_generations
-		 WHERE workset_id = ? AND operation_type = ? AND idempotency_key = ?`,
+			 WHERE workset_id = ? AND operation_type = ? AND idempotency_key = ?
+			   AND status IN ('queued', 'running', 'completed')`,
 		worksetID,
 		operationType,
 		key,

@@ -174,18 +174,22 @@ func TestRepository_RunRetentionCleanupBatch_KeepsNonTerminalGenerations(t *test
 	cutoff := time.Date(2025, 6, 1, 0, 0, 0, 0, time.UTC)
 	seedFinishedGeneration(t, repo, worksetID, "gen-old", cutoff.Add(-24*time.Hour))
 	seedFinishedGeneration(t, repo, worksetID, "gen-new", cutoff.Add(24*time.Hour))
+	// A session interrupted at startup ages out like any other terminal row.
+	seedFinishedGeneration(t, repo, worksetID, "gen-interrupted", cutoff.Add(-48*time.Hour))
 	// Queued and running sessions have no finished_at: they are never eligible,
 	// however old they are.
 	seedGeneration(t, repo, "gen-queued", worksetID)
-	seedGeneration(t, repo, "gen-running", worksetID)
+	if err := repo.CreateGeneration(&workset.PlanGeneration{
+		GenerationID: "gen-running", WorksetID: worksetID,
+		OperationType: "rename", CreatedAt: time.Now(),
+	}); err != nil {
+		t.Fatalf("CreateGeneration: %v", err)
+	}
 	if _, err := repo.db.Exec(
 		"UPDATE plan_generations SET status = 'running' WHERE generation_id = 'gen-running'",
 	); err != nil {
 		t.Fatalf("mark generation running: %v", err)
 	}
-	// A session that was interrupted at startup has finished_at, so it ages out
-	// like any other terminal row.
-	seedFinishedGeneration(t, repo, worksetID, "gen-interrupted", cutoff.Add(-48*time.Hour))
 
 	stats, err := repo.RunRetentionCleanupBatch(t.Context(), cutoff, cutoff, 0)
 	if err != nil {
@@ -216,6 +220,74 @@ func TestRepository_RunRetentionCleanupBatch_KeepsNonTerminalGenerations(t *test
 			t.Errorf("generation %q was deleted, want retained", want)
 		}
 	}
+}
+
+func TestGenerationKeyLookupIgnoresReleasedRows(t *testing.T) {
+	for _, status := range []string{"failed", "canceled", "interrupted"} {
+		t.Run(status, func(t *testing.T) {
+			repo := newTestRepository(t)
+			worksetID := seedRetentionWorkset(t, repo)
+			seedGeneration(t, repo, "old", worksetID)
+			if _, err := repo.db.Exec(
+				"UPDATE plan_generations SET status = ?, idempotency_key = 'same' WHERE generation_id = 'old'", status,
+			); err != nil {
+				t.Fatal(err)
+			}
+			if err := repo.CreateGeneration(&workset.PlanGeneration{
+				GenerationID: "live", WorksetID: worksetID, OperationType: "conversion",
+				IdempotencyKey: "same", CreatedAt: time.Now(),
+			}); err != nil {
+				t.Fatal(err)
+			}
+			got, err := repo.GetGenerationByOperationKey(worksetID, "conversion", "same")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got == nil || got.GenerationID != "live" {
+				t.Fatalf("live key owner = %+v", got)
+			}
+		})
+	}
+}
+
+func TestCompletedGenerationKeySurvivesThirtyDayRetentionWindow(t *testing.T) {
+	repo := newTestRepository(t)
+	worksetID := seedRetentionWorkset(t, repo)
+	now := time.Date(2026, 10, 21, 0, 0, 0, 0, time.UTC)
+	seedFinishedGeneration(t, repo, worksetID, "completed", now.Add(-29*24*time.Hour))
+	if _, err := repo.db.Exec(
+		"UPDATE plan_generations SET idempotency_key = 'retained-key' WHERE generation_id = 'completed'",
+	); err != nil {
+		t.Fatal(err)
+	}
+	lookup := func(want string) {
+		t.Helper()
+		got, err := repo.GetGenerationByOperationKey(worksetID, "conversion", "retained-key")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if want == "" && got != nil || want != "" && (got == nil || got.GenerationID != want) {
+			t.Fatalf("key owner = %+v, want %q", got, want)
+		}
+	}
+	lookup("completed")
+	cutoff := now.Add(-30 * 24 * time.Hour)
+	if _, err := repo.RunRetentionCleanupBatch(t.Context(), cutoff, cutoff, 0); err != nil {
+		t.Fatal(err)
+	}
+	lookup("completed")
+	cutoff = now.Add(-28 * 24 * time.Hour)
+	if _, err := repo.RunRetentionCleanupBatch(t.Context(), cutoff, cutoff, 0); err != nil {
+		t.Fatal(err)
+	}
+	lookup("")
+	if err := repo.CreateGeneration(&workset.PlanGeneration{
+		GenerationID: "new", WorksetID: worksetID, OperationType: "conversion",
+		IdempotencyKey: "retained-key", CreatedAt: now,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	lookup("new")
 }
 
 // Each table gets its own bound, so one batch removes at most 2*limit rows and

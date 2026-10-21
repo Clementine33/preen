@@ -113,8 +113,7 @@ const (
  path=? || substr(path,length(?)+1),
  root_path=CASE WHEN root_path=? OR substr(root_path,1,length(?)+1)=? || '/' THEN ? || substr(root_path,length(?)+1) ELSE root_path END,
  parent_path=CASE WHEN parent_path=? OR substr(parent_path,1,length(?)+1)=? || '/' THEN ? || substr(parent_path,length(?)+1) ELSE parent_path END,
- name=CASE WHEN path=? THEN ? ELSE name END,
- path_posix=CASE WHEN path_posix=? OR substr(path_posix,1,length(?)+1)=? || '/' THEN ? || substr(path_posix,length(?)+1) ELSE path_posix END
+ name=CASE WHEN path=? THEN ? ELSE name END
  WHERE path=? OR (path>=? AND path<?)`
 	relocateCredentialsSQL = `UPDATE generation_records SET path=? || substr(path,length(?)+1) WHERE path=? OR (path>=? AND path<?)`
 	selectCopiesSQL        = `SELECT id, rel_path FROM work_copies WHERE library_id=? AND (rel_path=? OR (rel_path>=? AND rel_path<?))`
@@ -129,7 +128,6 @@ func relocateEntries(ctx context.Context, tx *sql.Tx, source, target string) err
 		source, source, source, target, source,
 		source, source, source, target, source,
 		source, filepath.Base(target),
-		source, source, source, target, source,
 		source, from, to)
 	if err != nil {
 		return fmt.Errorf("relocate inventory: %w", err)

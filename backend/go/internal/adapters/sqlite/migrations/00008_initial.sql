@@ -1,5 +1,5 @@
 -- +goose Up
--- Release baseline. Freeze this file once distributed (ADR 0011).
+-- Unreleased release baseline; keep its structure aligned with schema.sql until first distribution.
 -- P0 Schema V1: Main entries table with content revision tracking
 CREATE TABLE entries (
     path TEXT PRIMARY KEY,
@@ -22,11 +22,8 @@ CREATE TABLE entries (
     error_reason TEXT,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
-    -- Legacy columns for compatibility
-    path_posix TEXT NOT NULL DEFAULT '',
-    file_size INTEGER,
-    duration_ms INTEGER,
-    format TEXT
+    format TEXT,
+    is_work_root INTEGER NOT NULL DEFAULT 0
 );
 
 -- Staging table for scan operations (session-scoped)
@@ -41,11 +38,10 @@ CREATE TABLE entries_staging (
     mtime INTEGER NOT NULL DEFAULT 0,
     operation TEXT NOT NULL DEFAULT 'upsert',
     status TEXT DEFAULT 'pending',
-    file_size INTEGER,
     bitrate INTEGER,
-    duration_ms INTEGER,
     format TEXT,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    is_work_root INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (session_id, path)
 );
 
@@ -102,7 +98,7 @@ CREATE TABLE plans (
     status TEXT NOT NULL DEFAULT 'ready',
     task_kind TEXT NOT NULL DEFAULT '',
     task_schema_version INTEGER NOT NULL DEFAULT 0,
-    workset_id TEXT NOT NULL DEFAULT '',
+    workset_id TEXT NOT NULL REFERENCES worksets(id) ON DELETE CASCADE,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -179,7 +175,8 @@ CREATE TABLE libraries (
     updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
     last_scan_at TEXT,
     last_scan_status TEXT NOT NULL DEFAULT '',
-    last_scan_error TEXT NOT NULL DEFAULT ''
+    last_scan_error TEXT NOT NULL DEFAULT '',
+    storage_class TEXT NOT NULL DEFAULT 'hdd' CHECK (storage_class IN ('hdd', 'ssd'))
 );
 
 CREATE UNIQUE INDEX idx_libraries_root_path ON libraries(root_path);
@@ -320,10 +317,14 @@ CREATE TABLE plan_generations (
 CREATE UNIQUE INDEX idx_plan_generations_op_idem
     ON plan_generations(workset_id, operation_type, idempotency_key)
     WHERE idempotency_key <> '' AND status IN ('queued','running','completed');
+CREATE UNIQUE INDEX idx_plan_generations_active_operation
+    ON plan_generations(workset_id, operation_type)
+    WHERE status IN ('queued','running');
 CREATE INDEX idx_plan_generations_op_status
     ON plan_generations(workset_id, operation_type, status, created_at);
+-- Worker FIFO compares instants, including timestamps with different offsets.
 CREATE INDEX idx_plan_generations_queue
-    ON plan_generations(status, created_at, generation_id);
+    ON plan_generations(status, julianday(created_at), generation_id);
 
 -- workset.Workset execution sessions: the durable record of one revision
 -- being executed (ADR 0001). status: queued|running|succeeded|failed|
@@ -338,7 +339,7 @@ CREATE TABLE plan_executions (
     execution_id TEXT PRIMARY KEY,
     workset_id TEXT NOT NULL REFERENCES worksets(id) ON DELETE CASCADE,
     operation_type TEXT NOT NULL DEFAULT '',
-    plan_id TEXT NOT NULL,
+    plan_id TEXT NOT NULL REFERENCES plans(plan_id) ON DELETE CASCADE,
     status TEXT NOT NULL DEFAULT 'queued',
     idempotency_key TEXT NOT NULL DEFAULT '',
     request_hash TEXT NOT NULL DEFAULT '',
@@ -368,8 +369,9 @@ CREATE UNIQUE INDEX idx_plan_executions_op_idem
 CREATE UNIQUE INDEX idx_plan_executions_plan_unique ON plan_executions(plan_id);
 CREATE INDEX idx_plan_executions_op_status
     ON plan_executions(workset_id, operation_type, status, created_at);
+-- Match the execution worker's instant and id tie-break ordering.
 CREATE INDEX idx_plan_executions_queue
-    ON plan_executions(status, created_at, execution_id);
+    ON plan_executions(status, julianday(created_at), execution_id);
 
 -- One component's observed result, written in the boundary transaction that
 -- moves the session past it. The parts a component cannot observe for itself —
@@ -398,7 +400,6 @@ CREATE TABLE classifier_tag_library (
     normalized_tag TEXT NOT NULL UNIQUE,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
-CREATE INDEX idx_classifier_tag_norm ON classifier_tag_library(normalized_tag);
 
 -- ==================== Work catalog ====================
 -- Every table below is STRICT (SQLite >= 3.37): a STRICT table refuses to
@@ -426,7 +427,9 @@ CREATE TABLE works (
     sample_cover_url TEXT,
     collected_at TEXT,
     created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
+    updated_at TEXT NOT NULL,
+    age_category INTEGER CHECK (age_category IS NULL OR age_category IN (1, 2, 3)),
+    language TEXT
 ) STRICT;
 CREATE INDEX idx_works_collected ON works(collected_at, id);
 CREATE INDEX idx_works_release ON works(release_date, id);
@@ -595,11 +598,10 @@ CREATE TABLE work_copies (
 CREATE INDEX idx_work_copies_work ON work_copies(work_id);
 
 -- The single user's data about a work. No row is inserted up front: a missing
--- row reads as unrated, not favorited, empty note.
+-- row reads as unrated with an empty note. Favorites is collection membership.
 CREATE TABLE work_user_data (
     work_id TEXT PRIMARY KEY REFERENCES works(id) ON DELETE CASCADE,
     rating INTEGER CHECK (rating IS NULL OR (typeof(rating) = 'integer' AND rating BETWEEN 1 AND 10)),
-    favorite INTEGER NOT NULL DEFAULT 0 CHECK (favorite IN (0, 1)),
     note TEXT NOT NULL DEFAULT '',
     updated_at TEXT NOT NULL DEFAULT ''
 ) STRICT;
@@ -619,7 +621,6 @@ CREATE TABLE work_user_tags (
 -- Entry indexes
 CREATE INDEX idx_entries_root_path ON entries(root_path);
 CREATE INDEX idx_entries_parent_path ON entries(parent_path);
-CREATE INDEX idx_entries_path_posix ON entries(path_posix);
 -- entries.path is the primary key, so its unique index already serves every
 -- equality and range lookup; the duplicate on the same column only added a
 -- second index to maintain on every inventory write.
@@ -632,8 +633,54 @@ CREATE INDEX idx_scan_sessions_status ON scan_sessions(status);
 -- workset.Plan indexes
 CREATE INDEX idx_plans_root ON plans(root_path);
 CREATE INDEX idx_plans_status ON plans(status);
+CREATE INDEX idx_plans_workset ON plans(workset_id);
 CREATE INDEX idx_conversion_steps_plan ON conversion_steps(plan_id);
 CREATE INDEX idx_plan_roots_plan ON plan_roots(plan_id);
 CREATE INDEX idx_conversion_components_plan ON conversion_components(plan_id);
+
+-- Main-cover candidates, shared transfers and independently cancelable copy deliveries.
+CREATE TABLE cover_candidates (
+ work_code TEXT PRIMARY KEY, url TEXT NOT NULL, backup_url TEXT NOT NULL, version INTEGER NOT NULL
+) STRICT;
+CREATE TABLE cover_downloads (
+ id TEXT PRIMARY KEY, work_code TEXT NOT NULL, version INTEGER NOT NULL,
+ url TEXT NOT NULL, backup_url TEXT NOT NULL, locale TEXT NOT NULL, refresh INTEGER NOT NULL,
+ status TEXT NOT NULL DEFAULT 'queued', stage_path TEXT NOT NULL DEFAULT '',
+ extension TEXT NOT NULL DEFAULT '', digest TEXT NOT NULL DEFAULT '', etag TEXT NOT NULL DEFAULT '',
+ last_modified TEXT NOT NULL DEFAULT '', main_checked INTEGER NOT NULL DEFAULT 0, backup_checked INTEGER NOT NULL DEFAULT 0, UNIQUE(work_code,version)
+) STRICT;
+CREATE INDEX cover_downloads_queue ON cover_downloads(status);
+CREATE TABLE cover_deliveries (
+ id TEXT PRIMARY KEY, job_id TEXT NOT NULL REFERENCES cover_downloads(id) ON DELETE CASCADE,
+ execution_id TEXT NOT NULL REFERENCES plan_executions(execution_id) ON DELETE CASCADE,
+ copy_id TEXT NOT NULL, target_json TEXT NOT NULL, refresh INTEGER NOT NULL,
+ status TEXT NOT NULL DEFAULT 'pending', error_code TEXT NOT NULL DEFAULT '', error_message TEXT NOT NULL DEFAULT '',
+ published TEXT NOT NULL DEFAULT '', digest TEXT NOT NULL DEFAULT '', UNIQUE(execution_id,copy_id)
+) STRICT;
+CREATE INDEX cover_deliveries_execution ON cover_deliveries(execution_id);
+CREATE INDEX cover_deliveries_job ON cover_deliveries(job_id);
+CREATE TABLE cover_files (
+ copy_id TEXT PRIMARY KEY REFERENCES work_copies(id) ON DELETE CASCADE,
+ url TEXT NOT NULL, name TEXT NOT NULL, digest TEXT NOT NULL, etag TEXT NOT NULL, last_modified TEXT NOT NULL
+) STRICT;
+
+CREATE INDEX idx_entries_work_roots ON entries(root_path, path) WHERE is_work_root = 1;
+
+CREATE TABLE collections (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+) STRICT;
+CREATE TABLE collection_works (
+    collection_id TEXT NOT NULL REFERENCES collections(id) ON DELETE CASCADE,
+    work_id TEXT NOT NULL REFERENCES works(id),
+    position INTEGER NOT NULL,
+    PRIMARY KEY (collection_id, work_id)
+) STRICT;
+CREATE INDEX idx_collection_works_order ON collection_works(collection_id, position, work_id);
+CREATE INDEX idx_collection_works_work ON collection_works(work_id);
+INSERT INTO collections(id,name,created_at,updated_at)
+VALUES ('favorites','Favorites','1970-01-01T00:00:00.000000000Z','1970-01-01T00:00:00.000000000Z');
 
 INSERT INTO schema_meta (key, value) VALUES ('database_mode', 'release');

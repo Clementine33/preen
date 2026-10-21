@@ -262,11 +262,6 @@ func (r *Repository) DeleteLibrary(id string) error {
 	rows.Close()
 
 	for _, recordID := range recordIDs {
-		// Plans are linked by column, not by foreign key, so they are deleted
-		// explicitly; members, operations, drafts and sessions cascade.
-		if _, err := tx.Exec("DELETE FROM plans WHERE workset_id = ?", recordID); err != nil {
-			return err
-		}
 		if _, err := tx.Exec("DELETE FROM worksets WHERE id = ?", recordID); err != nil {
 			return err
 		}

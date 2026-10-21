@@ -20,12 +20,11 @@ func TestRelocateDirectoryPreservesFactsCredentialsCopiesAndSharedMembers(t *tes
 		}
 	}
 	exec(
-		`INSERT INTO entries(path,root_path,parent_path,name,path_posix,size,mtime,content_rev,bitrate,duration_sec) VALUES(?,?,?,?,?,123,42,7,128000,8.5)`,
+		`INSERT INTO entries(path,root_path,parent_path,name,size,mtime,content_rev,bitrate,duration_sec) VALUES(?,?,?,?,123,42,7,128000,8.5)`,
 		child,
 		source,
 		source+"/音_%",
 		"track.opus",
-		child,
 	)
 	exec(`INSERT INTO entries(path,name) VALUES(?,?)`, source+"suffix/keep", "keep")
 	exec(`INSERT INTO generation_records VALUES(?,'opus','ffmpeg','9.0.1',128,'vbr',123,42,'sha','date')`, child)
@@ -47,15 +46,15 @@ func TestRelocateDirectoryPreservesFactsCredentialsCopiesAndSharedMembers(t *tes
 	if err := f.repo.RelocateDirectory(t.Context(), root, source, target); err != nil {
 		t.Fatal("not idempotent", err)
 	}
-	var storedRoot, parent, name, posix string
+	var storedRoot, parent, name string
 	var size, mtime, rev, bitrate int
 	var duration float64
 	if err := f.repo.DB().
-		QueryRow(`SELECT root_path,parent_path,name,path_posix,size,mtime,content_rev,bitrate,duration_sec FROM entries WHERE path=?`, target+"/音_%/track.opus").
-		Scan(&storedRoot, &parent, &name, &posix, &size, &mtime, &rev, &bitrate, &duration); err != nil {
+		QueryRow(`SELECT root_path,parent_path,name,size,mtime,content_rev,bitrate,duration_sec FROM entries WHERE path=?`, target+"/音_%/track.opus").
+		Scan(&storedRoot, &parent, &name, &size, &mtime, &rev, &bitrate, &duration); err != nil {
 		t.Fatal(err)
 	}
-	if storedRoot != target || parent != target+"/音_%" || name != "track.opus" || posix != target+"/音_%/track.opus" ||
+	if storedRoot != target || parent != target+"/音_%" || name != "track.opus" ||
 		size != 123 ||
 		mtime != 42 ||
 		rev != 7 ||

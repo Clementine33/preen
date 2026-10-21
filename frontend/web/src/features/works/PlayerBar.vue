@@ -56,7 +56,7 @@ const MUTED_ICON = 'M6 3.7l.7-.7L8 4.3 9.3 3l.7.7L8.7 5 10 6.3l-.7.7L8 5.7 6.7 7
       :max="player.duration ?? 0" :value="player.elapsed" :disabled="!seekable" @input="onSeek" />
     <div class="bl-left">
       <span class="bl-dot"></span>
-      <span class="bl-rj">{{ player.rj ?? '' }}</span>
+      <RouterLink v-if="player.rj" class="bl-rj" :to="`/works/${player.rj}`" :title="`打开 ${player.rj}`">{{ player.rj }}</RouterLink>
       <span class="bl-title">{{ playingTitle }}</span>
     </div>
     <div class="bl-center">
@@ -126,8 +126,9 @@ const MUTED_ICON = 'M6 3.7l.7-.7L8 4.3 9.3 3l.7.7L8.7 5 10 6.3l-.7.7L8 5.7 6.7 7
 .paused .bl-dot { background: var(--fg-meta); }
 .bl-rj {
   font-family: var(--font-mono); font-size: var(--fs-xs); font-weight: 600;
-  letter-spacing: .08em; color: var(--fg-base); flex-shrink: 0;
+  letter-spacing: .08em; color: var(--fg-base); flex-shrink: 0; text-decoration: none;
 }
+.bl-rj:hover { text-decoration: underline; text-underline-offset: 4px; }
 .bl-title { font-size: var(--fs-xs); color: var(--fg-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .bl-center { display: flex; align-items: center; gap: var(--sp-3); padding-top: 2px; }

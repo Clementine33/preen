@@ -34,8 +34,9 @@ func parseTimestamp(s string) time.Time {
 
 // CleanupStats holds counts of rows deleted by each cleanup operation.
 type CleanupStats struct {
-	DeletedScanSessions int64
-	DeletedGenerations  int64
+	DeletedScanSessions   int64
+	DeletedGenerations    int64
+	DeletedCoverDownloads int64
 }
 
 // ==================== Repository ====================

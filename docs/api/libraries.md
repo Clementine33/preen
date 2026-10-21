@@ -60,7 +60,9 @@ neither interleaves with file management (ADR 0002).
 `DELETE /api/v1/libraries/:id` removes the library **together with its
 processing record**: the record's members, operation, draft, current plan and
 execution results go in the same transaction, so no orphaned record survives
-its library. Media files and all `Delete/` recovery directories on
+its library. Pending cover demands owned by removed executions go with them;
+shared downloads may continue for other demands. Media files, published covers
+and all `Delete/` recovery directories on
 disk are never touched. Deletion is blocked by active operation generation
 (`GENERATION_IN_PROGRESS`) and by an active execution session
 (`EXECUTION_IN_PROGRESS`).

@@ -101,6 +101,8 @@ func (r *Repository) EnqueueCovers(ctx context.Context, req coverdelivery.Reques
 
 const coverJobColumns = `id,work_code,url,backup_url,locale,refresh,version,stage_path,extension,digest,etag,last_modified,main_checked,backup_checked`
 
+// ClaimCover uses implicit rowid allocation on this ordinary TEXT-primary-key table for FIFO.
+// Recheck order if IDs become explicit rowids, reach the integer maximum, or the table is rebuilt/WITHOUT ROWID.
 func (r *Repository) ClaimCover(ctx context.Context) (*coverdelivery.Job, error) {
 	var j coverdelivery.Job
 	err := r.db.QueryRowContext(ctx, `UPDATE cover_downloads SET status='running' WHERE id=(SELECT id FROM cover_downloads WHERE status='queued' ORDER BY rowid LIMIT 1) AND status='queued' RETURNING `+coverJobColumns).

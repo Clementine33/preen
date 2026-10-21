@@ -205,6 +205,9 @@ ends. Covers run asynchronously and do not alter that session's terminal status.
 Stopping metadata execution leaves previously queued demands intact; use the
 separate cover cancel route to stop them. Metadata execution follows the usual
 startup interruption rule; pending covers resume automatically.
+Successful replacement of its plan or deletion of its processing record removes
+that execution's pending demands. Failed planning preserves them. Shared
+downloads continue while another demand needs them; published cover files remain.
 
 ## Copy covers and asynchronous delivery
 

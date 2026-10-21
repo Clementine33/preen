@@ -213,7 +213,7 @@ func (c *logCapture) rowsDeletedPerPass(t *testing.T) []int {
 		if !strings.Contains(line, "maintenance: complete=") {
 			continue
 		}
-		_, rest, found := strings.Cut(line, "deleted_scan_and_generation_rows=")
+		_, rest, found := strings.Cut(line, "deleted_retention_rows=")
 		if !found {
 			t.Fatalf("pass line without a deletion count: %q", line)
 		}
@@ -225,6 +225,45 @@ func (c *logCapture) rowsDeletedPerPass(t *testing.T) []int {
 		counts = append(counts, n)
 	}
 	return counts
+}
+
+func TestPassContinuesWhenOnlyCoverDownloadsRemain(t *testing.T) {
+	repo := newLoopRepo(t)
+	for i := range 3 {
+		id := fmt.Sprintf("cover-%d", i)
+		if _, err := repo.DB().Exec(`
+			INSERT INTO cover_downloads(id,work_code,version,url,backup_url,locale,refresh,status)
+			VALUES(?,?,1,'url','','ja',0,'done')
+		`, id, id); err != nil {
+			t.Fatal(err)
+		}
+	}
+	options := loopOptions()
+	options.MaxBatches = 2
+	acquire := &fakeAcquire{}
+	logs := captureLog(t)
+	loop := NewMaintenanceLoop(repo, acquire.begin, options)
+	if loop.Pass(t.Context()) {
+		t.Fatal("pass completed with cover work still due")
+	}
+	var remaining int
+	err := repo.DB().QueryRow(`SELECT COUNT(*) FROM cover_downloads`).Scan(&remaining)
+	if err != nil || remaining != 1 {
+		t.Fatalf("remaining=%d err=%v, want 1", remaining, err)
+	}
+	if !loop.Pass(t.Context()) {
+		t.Fatal("pass with final deletion and empty batch did not complete")
+	}
+	err = repo.DB().QueryRow(`SELECT COUNT(*) FROM cover_downloads`).Scan(&remaining)
+	if err != nil || remaining != 0 {
+		t.Fatalf("remaining=%d err=%v, want 0", remaining, err)
+	}
+	if got := logs.rowsDeletedPerPass(t); len(got) != 2 || got[0] != 2 || got[1] != 1 {
+		t.Fatalf("deleted per pass=%v", got)
+	}
+	if acquire.callCount() < 4 {
+		t.Fatalf("slot acquired %d times, want each batch to yield", acquire.callCount())
+	}
 }
 
 func captureLog(t *testing.T) *logCapture {

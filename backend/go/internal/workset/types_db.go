@@ -161,6 +161,9 @@ var ErrGenerationNotFound = errors.New("generation not found")
 // an active/terminal idempotency key.
 var ErrGenerationIdemConflict = errors.New("generation idempotency key conflict")
 
+// ErrGenerationActiveConflict is returned when an operation already has a queued or running generation.
+var ErrGenerationActiveConflict = errors.New("active generation conflict")
+
 // Execution session statuses. Terminal statuses never regress.
 const (
 	ExecStatusQueued      = "queued"

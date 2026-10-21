@@ -2,24 +2,25 @@ package sqlite_test
 
 import (
 	"database/sql"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"testing/fstest"
 
 	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
-	"github.com/Clementine33/preen/backend/internal/library"
-	"github.com/Clementine33/preen/backend/internal/works"
 )
 
 func releaseFixture(t *testing.T, changes ...string) fstest.MapFS {
 	t.Helper()
-	initial, err := os.ReadFile("migrations/00001_initial.sql")
-	if err != nil {
-		t.Fatal(err)
-	}
-	files := fstest.MapFS{"00001_initial.sql": {Data: initial}}
+	initial := `-- +goose Up
+CREATE TABLE schema_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+INSERT INTO schema_meta (key,value) VALUES ('database_mode','release');
+CREATE TABLE libraries (id TEXT PRIMARY KEY, name TEXT NOT NULL, root_path TEXT NOT NULL, root_path_key TEXT NOT NULL);
+`
+	files := fstest.MapFS{"00001_initial.sql": {Data: []byte(initial)}}
 	names := []string{"00002_second.sql", "00003_third.sql"}
 	for i, change := range changes {
 		files[names[i]] = &fstest.MapFile{Data: []byte("-- +goose Up\n" + change)}
@@ -239,183 +240,61 @@ func TestFailedInitialMigrationCanBeRetried(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer repo.Close()
-	if version := migrationVersion(t, repo.DB()); version != 7 {
+	if version := migrationVersion(t, repo.DB()); version != 8 {
 		t.Fatalf("initial retry version = %d", version)
 	}
 }
 
-func TestMainCoverMigrationPreservesExistingWorkData(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "cache.db")
-	initial, err := sqlite.OpenReleaseWithMigrations(path, releaseFixture(t))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err = initial.DB().
-		Exec(`INSERT INTO works(id,created_at,updated_at) VALUES('RJ00000001','now','now');INSERT INTO work_user_data(work_id,rating,note) VALUES('RJ00000001',8,'keep')`); err != nil {
-		t.Fatal(err)
-	}
-	if err = initial.Close(); err != nil {
-		t.Fatal(err)
-	}
-	upgraded, err := sqlite.NewRepository(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer upgraded.Close()
-	var note string
-	var rating int
-	if err = upgraded.DB().
-		QueryRow(`SELECT rating,note FROM work_user_data WHERE work_id='RJ00000001'`).
-		Scan(&rating, &note); err != nil || rating != 8 ||
-		note != "keep" {
-		t.Fatalf("data changed: %d %s %v", rating, note, err)
-	}
-	if _, err = upgraded.DB().Exec(`SELECT * FROM cover_candidates;SELECT * FROM cover_deliveries`); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func TestAgeMigrationPreservesDataAndDoesNotGuessNonAdultAges(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "cache.db")
-	old, err := sqlite.OpenReleaseWithMigrations(path, releaseFixture(t))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err = old.DB().Exec(`
-		INSERT INTO works(id,nsfw,title,created_at,updated_at) VALUES
-		('RJ00000001',1,'adult','now','now'),('RJ00000002',0,'non-adult','now','now'),('RJ00000003',NULL,'unreported','now','now');
-		INSERT INTO work_user_data(work_id,rating,note) VALUES ('RJ00000002',8,'keep');
-	`); err != nil {
-		t.Fatal(err)
-	}
-	if err = old.Close(); err != nil {
-		t.Fatal(err)
-	}
-	upgraded, err := sqlite.NewRepository(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer upgraded.Close()
-	for _, id := range []string{"RJ00000001", "RJ00000002", "RJ00000003"} {
-		var age sql.NullInt64
-		if err = upgraded.DB().QueryRow("SELECT age_category FROM works WHERE id=?", id).Scan(&age); err != nil {
-			t.Fatal(err)
-		}
-		if id == "RJ00000001" && (!age.Valid || age.Int64 != 3) || id != "RJ00000001" && age.Valid {
-			t.Fatalf("guessed or lost age for %s: %+v", id, age)
-		}
-	}
-	var note, title string
-	var rating int
-	if err = upgraded.DB().
-		QueryRow(`SELECT w.title,u.rating,u.note FROM works w JOIN work_user_data u ON w.id=u.work_id WHERE w.id='RJ00000002'`).
-		Scan(&title, &rating, &note); err != nil || title != "non-adult" || rating != 8 ||
-		note != "keep" {
-		t.Fatalf("data lost during upgrade: %s %d %s %v", title, rating, note, err)
-	}
-}
-
-func TestLanguageMigrationPreservesRelationsWithoutGuessingNM(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "cache.db")
-	old, err := sqlite.OpenReleaseWithMigrations(path, releaseFixture(t))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err = old.DB().Exec(`
-		INSERT INTO works(id,title,collected_at,created_at,updated_at) VALUES
-		('RJ00000001','translated','now','now','now'),('RJ00000002','unknown','now','now','now');
-		INSERT INTO work_translations(work_id,role,language) VALUES ('RJ00000001','child','CHI_HANT');
-		INSERT INTO work_user_data(work_id,rating,note) VALUES ('RJ00000002',8,'keep');
-	`); err != nil {
-		t.Fatal(err)
-	}
-	if err = old.Close(); err != nil {
-		t.Fatal(err)
-	}
-	upgraded, err := sqlite.NewRepository(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer upgraded.Close()
-	for _, id := range []works.WorkCode{"RJ00000001", "RJ00000002"} {
-		detail, found, readErr := upgraded.GetWork(id)
-		if readErr != nil || !found {
-			t.Fatalf("read upgraded work: %v, %v", found, readErr)
-		}
-		if id == "RJ00000001" {
-			if detail.Language == nil || *detail.Language != "CHI_HANT" {
-				t.Fatal("lost legacy language")
+func TestOldUnreleasedVersionsAreBackedUpAndRefused(t *testing.T) {
+	for version := 1; version <= 7; version++ {
+		t.Run(strconv.Itoa(version), func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "cache.db")
+			files := releaseFixture(t)
+			for n := 2; n <= version; n++ {
+				files[fmt.Sprintf("%05d_legacy.sql", n)] = &fstest.MapFile{
+					Data: []byte("-- +goose Up\nINSERT INTO legacy_probe VALUES ('later');"),
+				}
 			}
-		} else if detail.Language != nil || detail.Note != "keep" || detail.Rating == nil || *detail.Rating != 8 {
-			t.Fatalf("guessed language or lost user data: %+v", detail)
-		}
-	}
-	if _, err = upgraded.DB().Exec("UPDATE works SET language='NM' WHERE id='RJ00000002'"); err != nil {
-		t.Fatal(err)
-	}
-	detail, _, err := upgraded.GetWork("RJ00000002")
-	if err != nil || detail.Language == nil || *detail.Language != "NM" {
-		t.Fatalf("NM read/write: %+v, %v", detail, err)
-	}
-}
-
-func TestLibraryStorageClassUpgradePreservesExistingLibrary(t *testing.T) {
-	for _, from := range []string{"00001_initial.sql", "00006_work_collections.sql"} {
-		t.Run(from, func(t *testing.T) {
-			files := releaseMigrationsThrough(t, from)
-			path := filepath.Join(t.TempDir(), "release.db")
+			files["00001_initial.sql"] = &fstest.MapFile{Data: []byte(`-- +goose Up
+CREATE TABLE schema_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+INSERT INTO schema_meta (key,value) VALUES ('database_mode','release');
+CREATE TABLE entries (id TEXT PRIMARY KEY);
+CREATE TABLE legacy_probe (value TEXT NOT NULL);
+INSERT INTO legacy_probe VALUES ('original');`)}
 			old, err := sqlite.OpenReleaseWithMigrations(path, files)
 			if err != nil {
 				t.Fatal(err)
 			}
-			if _, err = old.DB().
-				Exec(`INSERT INTO libraries(id,name,root_path,root_path_key) VALUES('existing','Music','/music','/music')`); err != nil {
-				t.Fatal(err)
+			if closeErr := old.Close(); closeErr != nil {
+				t.Fatal(closeErr)
 			}
-			if err = old.Close(); err != nil {
-				t.Fatal(err)
+			repo, err := sqlite.NewRepository(path)
+			if repo != nil {
+				repo.Close()
+				t.Fatal("old version opened")
 			}
-			upgraded, err := sqlite.NewRepository(path)
-			if err != nil {
-				t.Fatal(err)
+			if err == nil || !strings.Contains(err.Error(), "table entries already exists") {
+				t.Fatalf("expected initial table collision: %v", err)
 			}
-			defer upgraded.Close()
-			lib, err := upgraded.GetLibrary("existing")
-			if err != nil {
-				t.Fatal(err)
+			backups, err := filepath.Glob(filepath.Join(filepath.Dir(path), "backups", "*.db"))
+			if err != nil || len(backups) != 1 {
+				t.Fatalf("backups = %v, err = %v", backups, err)
 			}
-			if lib.Name != "Music" || lib.RootPath != "/music" || lib.StorageClass != library.StorageHDD {
-				t.Fatalf("upgraded library=%+v", lib)
-			}
-			class := library.StorageSSD
-			lib, err = library.NewService(upgraded, nil, upgraded, nil).Patch(lib.ID, nil, nil, &class)
-			if err != nil || lib.StorageClass != library.StorageSSD {
-				t.Fatalf("upgraded storage edit=%+v, %v", lib, err)
-			}
-			fresh, err := upgraded.CreateLibrary("New", "/new")
-			if err != nil || fresh.StorageClass != library.StorageHDD {
-				t.Fatalf("fresh storage=%+v, %v", fresh, err)
+			for _, file := range []string{path, backups[0]} {
+				db, err := sql.Open("sqlite", file)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if got := migrationVersion(t, db); got != version {
+					t.Fatalf("%s version = %d", file, got)
+				}
+				var count int
+				queryErr := db.QueryRow("SELECT COUNT(*) FROM legacy_probe").Scan(&count)
+				if queryErr != nil || count != version {
+					t.Fatalf("%s probe count = %d, %v", file, count, queryErr)
+				}
+				db.Close()
 			}
 		})
 	}
-}
-
-func releaseMigrationsThrough(t *testing.T, last string) fstest.MapFS {
-	t.Helper()
-	files := fstest.MapFS{}
-	names, err := os.ReadDir("migrations")
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, name := range names {
-		if name.Name() > last {
-			continue
-		}
-		data, readErr := os.ReadFile(filepath.Join("migrations", name.Name()))
-		if readErr != nil {
-			t.Fatal(readErr)
-		}
-		files[name.Name()] = &fstest.MapFile{Data: data}
-	}
-	return files
 }

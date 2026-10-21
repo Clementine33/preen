@@ -24,7 +24,7 @@ afterEach(() => {
 })
 function session(status: GenerationView['status'] = 'running', id = 'g1', operation: OperationType = 'conversion'): GenerationView {
   return { generation_id: id, workset_id: 'ws1', operation_type: operation, status, total_roots: 2, completed_roots: 1,
-    current_root: '', error_count: 4, revision_id: '', error_code: '', error_message: '', started_at: '', finished_at: '', created_at: '' }
+    current_root: '', error_count: 4, revision_id: status === 'completed' ? 'plan' : '', error_code: '', error_message: '', started_at: '', finished_at: '', created_at: '' }
 }
 async function harness(path = '/elsewhere', discovered?: GenerationView) {
   let finish!: (events: GenerationEvent[]) => void
@@ -118,6 +118,32 @@ describe('app-lifetime planning observation', () => {
     dismiss()
     await vi.advanceTimersByTimeAsync(30000)
     expect(useTaskToast().current.value).toBeNull()
+  })
+
+  it('reports a replaced plan when another tab publishes before the next observation', async () => {
+    const app = await harness()
+    const unsubscribe = new QueryObserver(app.client, {
+      queryKey: queryKeys.worksets.operation('ws1', 'conversion'),
+      queryFn: () => app.api.getOperation('ws1', 'conversion'),
+    }).subscribe(() => {})
+    stops.push(unsubscribe)
+    await app.start()
+    vi.mocked(app.api.getGeneration).mockResolvedValueOnce({ ...session('completed'), revision_id: '' })
+    vi.mocked(app.api.getOperation).mockResolvedValue({ workset_id: 'ws1', operation_type: 'conversion', version: 3,
+      planning_state: 'planned', current_revision: { plan_id: 'other-plan', revision_index: 2, created_at: '',
+        status: 'ready', summary_reason: '', counts: { members: 1, changed: 1, unmet_targets: 0, blocked: 0, unchanged: 0 },
+        validation_state: 'valid', stale: false }, active_generation: null,
+      latest_generation: session('completed'), active_execution: null, latest_execution: null } satisfies Awaited<ReturnType<typeof app.api.getOperation>>)
+    app.finish([])
+    await vi.waitFor(() => expect(app.api.getGeneration).toHaveBeenCalledTimes(1))
+    dismiss()
+    await flushPromises()
+    expect(notice()).toContain('原计划已被替换')
+    expect(app.api.getOperation).toHaveBeenCalled()
+    expect(app.api.getRevision).not.toHaveBeenCalled()
+    vi.useFakeTimers()
+    await vi.advanceTimersByTimeAsync(30_000)
+    expect(app.api.getGeneration).toHaveBeenCalledTimes(1)
   })
 
   it('observes a second accepted session independently without disturbing the stream', async () => {

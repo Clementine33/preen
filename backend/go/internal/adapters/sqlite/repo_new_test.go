@@ -48,10 +48,7 @@ func TestNewRepository(t *testing.T) {
 			"is_error",
 			"error_reason",
 			"updated_at",
-			// Legacy columns for compatibility
-			"path_posix",
-			"file_size",
-			"duration_ms",
+			"duration_sec",
 			"format",
 		}
 

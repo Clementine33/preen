@@ -1,6 +1,7 @@
 package sqlite //nolint:testpackage // white-box tests exercise unexported internals
 
 import (
+	"context"
 	"errors"
 	"reflect"
 	"strings"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/Clementine33/preen/backend/internal/inventory"
 	"github.com/Clementine33/preen/backend/internal/library"
+	"github.com/Clementine33/preen/backend/internal/works/coverdelivery"
 )
 
 // insertEntryAtRoot inserts an entry belonging to another library root, so a
@@ -227,6 +229,36 @@ func TestListAndUpdateAndDeleteLibrary(t *testing.T) {
 	// Deleting an unknown library must fail with ErrLibraryNotFound.
 	if err := repo.DeleteLibrary("no-such-id"); !errors.Is(err, library.ErrLibraryNotFound) {
 		t.Errorf("expected library.ErrLibraryNotFound on delete of unknown id, got %v", err)
+	}
+}
+
+func TestDeleteLibraryRetiresExecutionCoverDemands(t *testing.T) {
+	repo := newTestRepository(t)
+	lib, err := repo.CreateLibrary("Music", "/music")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := seedRecordWithPlan(t, repo, lib.ID, "ws-1", "plan-1"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.DB().Exec(`INSERT INTO plan_executions(execution_id,workset_id,plan_id,status)
+		VALUES('exec-1','ws-1','plan-1','succeeded')`); err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.EnqueueCovers(context.Background(), coverdelivery.Request{
+		ExecutionID: "exec-1", WorkCode: "RJ1", URL: "https://example.com/cover",
+		Targets: []coverdelivery.Target{{CopyID: "copy-1", WorkCode: "RJ1"}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.DeleteLibrary(lib.ID); err != nil {
+		t.Fatal(err)
+	}
+	for _, table := range []string{"worksets", "plans", "plan_executions", "cover_deliveries"} {
+		var count int
+		if err := repo.DB().QueryRow("SELECT COUNT(*) FROM " + table).Scan(&count); err != nil || count != 0 {
+			t.Fatalf("%s remains after library deletion: %d %v", table, count, err)
+		}
 	}
 }
 

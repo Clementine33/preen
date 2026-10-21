@@ -59,6 +59,50 @@ func TestDevelopmentAndReleaseSchemasAgree(t *testing.T) {
 	}
 }
 
+func TestUnusedCompatibilitySchemaIsAbsent(t *testing.T) {
+	for mode, open := range map[string]func(string) (*sqlite.Repository, error){
+		"development": sqlite.NewDevelopmentRepository,
+		"release":     sqlite.NewRepository,
+	} {
+		t.Run(mode, func(t *testing.T) {
+			repo, err := open(filepath.Join(t.TempDir(), "cache.db"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() { _ = repo.Close() })
+			for table, columns := range map[string][]string{
+				"entries":         {"path_posix", "file_size", "duration_ms"},
+				"entries_staging": {"file_size", "duration_ms"},
+			} {
+				for _, column := range columns {
+					var count int
+					err := repo.DB().QueryRow(
+						"SELECT COUNT(*) FROM pragma_table_info(?) WHERE name=?", table, column,
+					).Scan(&count)
+					if err != nil {
+						t.Fatal(err)
+					}
+					if count != 0 {
+						t.Errorf("%s.%s still exists", table, column)
+					}
+				}
+			}
+			for _, index := range []string{"idx_entries_path_posix", "idx_classifier_tag_norm"} {
+				var count int
+				err := repo.DB().QueryRow(
+					"SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name=?", index,
+				).Scan(&count)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if count != 0 {
+					t.Errorf("%s still exists", index)
+				}
+			}
+		})
+	}
+}
+
 func schemaSnapshot(t *testing.T, db *sql.DB) []string {
 	t.Helper()
 	rows, err := db.Query(

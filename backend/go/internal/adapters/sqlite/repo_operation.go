@@ -309,14 +309,8 @@ func (r *Repository) PersistOperationRevision(
 	return tx.Commit()
 }
 
-// deletePlanDataTx removes one retired plan with its payload rows and every
-// execution session recorded for it. Executions are deleted explicitly: their
-// plan_id is a plain column, so a plan delete would leave them behind and they
-// would keep answering requests for a plan that no longer exists.
+// deletePlanDataTx removes one retired plan; payload and executions cascade.
 func deletePlanDataTx(tx *sql.Tx, planID string) error {
-	if _, err := tx.Exec(`DELETE FROM plan_executions WHERE plan_id = ?`, planID); err != nil {
-		return fmt.Errorf("delete plan executions: %w", err)
-	}
 	if _, err := tx.Exec(`DELETE FROM plans WHERE plan_id = ?`, planID); err != nil {
 		return fmt.Errorf("delete plan: %w", err)
 	}

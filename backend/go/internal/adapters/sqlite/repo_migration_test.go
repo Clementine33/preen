@@ -108,6 +108,9 @@ func TestOpenCreatesAndReportsTheSchemaMarker(t *testing.T) {
 	).Scan(&marker); scanErr != nil {
 		t.Fatalf("read schema marker: %v", scanErr)
 	}
+	if version := migrationVersion(t, repo.DB()); version != 8 {
+		t.Fatalf("fresh migration version = %d", version)
+	}
 	if marker != "release" {
 		t.Errorf("marker = %q, want %q", marker, "release")
 	}

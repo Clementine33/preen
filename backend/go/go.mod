@@ -1,6 +1,6 @@
 module github.com/Clementine33/preen/backend
 
-go 1.27.2
+go 1.27.3
 
 require (
 	facette.io/natsort v0.0.0-20181210072756-2cd4dd1e2dcb

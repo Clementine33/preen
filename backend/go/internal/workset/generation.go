@@ -48,13 +48,9 @@ func (s *serviceImpl) StartGeneration(
 	if err != nil {
 		return nil, err
 	}
-	// Replays answer before the version and single-session gates. A retried
-	// request must observe what it already asked for — the current revision, or
-	// its own queued session — rather than a conflict caused by a promotion
-	// that same request already triggered.
-	if result, replayed, err := s.replayCurrentRevision(ctx, input); err != nil || replayed {
-		return result, err
-	}
+	// A live key names its original session even after that session publishes a
+	// revision or another request replaces its plan. Both replay paths precede
+	// version and active-session gates (ADR 0001).
 	requestHash := hashJSON([]byte(input.draftHash + "|" + input.request.MemberHash))
 	if result, replayed, err := s.replayGeneration(
 		input.operation,
@@ -62,6 +58,9 @@ func (s *serviceImpl) StartGeneration(
 		requestHash,
 	); err != nil ||
 		replayed {
+		return result, err
+	}
+	if result, replayed, err := s.replayCurrentRevision(ctx, input); err != nil || replayed {
 		return result, err
 	}
 	// Only genuinely new work is gated by the caller's view of the operation.
@@ -306,6 +305,15 @@ func (s *serviceImpl) persistGeneration(
 	}); err != nil {
 		if _, ok := AsError(err); ok {
 			return nil, err
+		}
+		if errors.Is(err, ErrGenerationActiveConflict) {
+			if result, replayed, replayErr := s.replayGeneration(op, key, requestHash); replayErr != nil || replayed {
+				return result, replayErr
+			}
+			return nil, NewError(
+				ErrKindConflict, "GENERATION_IN_PROGRESS",
+				"a generation is already queued or running for this operation", err,
+			)
 		}
 		if errors.Is(err, ErrGenerationIdemConflict) {
 			existing, loadErr := s.repo.GetGenerationByOperationKey(op.WorksetID, op.OperationType, key)

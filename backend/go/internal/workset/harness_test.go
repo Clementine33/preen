@@ -85,9 +85,13 @@ func (f *fixture) open() {
 		f.t.Fatalf("new repo: %v", err)
 	}
 	f.repo = repo
-	f.svc = workset.NewService(repo, 1, 1, []workset.Task{
+	f.wireService(nil)
+}
+
+func (f *fixture) wireService(guard workset.EnqueueGuard) {
+	f.svc = workset.NewService(f.repo, 1, 1, []workset.Task{
 		conversion.New(
-			repo,
+			f.repo,
 			appconfig.NewReader(f.configDir),
 			func() execute.Encoder { return ffmpeg.New(ffmpeg.ToolsConfig{}) },
 			media.ProbeBitrate,
@@ -101,7 +105,7 @@ func (f *fixture) open() {
 				Files: filesystem.ConversionHandles{},
 			},
 		),
-	}, f.scan, nil)
+	}, f.scan, guard)
 }
 
 // queryInt reads one integer from the fixture's database.

@@ -1,5 +1,6 @@
 // Package maintenance owns the background pass that keeps the database file
-// from growing without bound: it deletes the rows retention no longer keeps and
+// from growing without bound: it deletes the session rows and unreferenced done
+// cover downloads retention no longer keeps, and
 // returns the pages those deletes freed to the filesystem.
 //
 // The pass runs only while the application is idle, and it stays on the clock

@@ -79,6 +79,10 @@ func TestSelectedRefreshWaitsForMetadataAndCoversThenMergesOnce(t *testing.T) {
 
 func TestSelectedRefreshDoesNotWaitForOtherExecutionsSharedJob(t *testing.T) {
 	_, repo, dl, req, folders, stage := deliveryFixture(t)
+	if _, err := repo.DB().Exec(`INSERT INTO plans(plan_id,root_path,snapshot_token,workset_id)
+		VALUES('other-plan','/music','s','set')`); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := repo.DB().Exec(`INSERT INTO plan_executions(execution_id,workset_id,plan_id,status)
 		VALUES('other','set','other-plan','succeeded')`); err != nil {
 		t.Fatal(err)

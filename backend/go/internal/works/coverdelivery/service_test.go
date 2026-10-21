@@ -57,6 +57,28 @@ func TestDeliveryDownloadsOnceAndPublishesSelectedCopies(t *testing.T) {
 	}
 }
 
+func TestRetiredCoverDemandCannotPublishAfterDownload(t *testing.T) {
+	svc, repo, dl, req, folders, _ := deliveryFixture(t)
+	image := dl.data
+	dl.fn = func(_ context.Context, _ coverdelivery.Validators) (coverdelivery.Download, error) {
+		if _, err := repo.DB().Exec(`DELETE FROM plans WHERE plan_id='plan'`); err != nil {
+			return coverdelivery.Download{}, err
+		}
+		return coverdelivery.Download{Data: image, Extension: "png", ContentType: "image/png"}, nil
+	}
+	if err := svc.Enqueue(t.Context(), req); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.ProcessNext(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	for _, folder := range folders {
+		if _, err := os.Stat(filepath.Join(folder, "cover.png")); !os.IsNotExist(err) {
+			t.Fatalf("retired demand published a cover: %v", err)
+		}
+	}
+}
+
 func deliveryFixture(
 	t *testing.T,
 ) (*coverdelivery.Service, *sqlite.Repository, *download, coverdelivery.Request, []string, string) {
@@ -72,7 +94,7 @@ func deliveryFixture(
 		t.Fatal(err)
 	}
 	if _, err = repo.DB().
-		Exec(`INSERT INTO worksets(id) VALUES('set');INSERT INTO plan_executions(execution_id,workset_id,plan_id) VALUES('exec','set','plan');`); err != nil {
+		Exec(`INSERT INTO worksets(id) VALUES('set');INSERT INTO plans(plan_id,root_path,snapshot_token,workset_id) VALUES('plan','/music','s','set');INSERT INTO plan_executions(execution_id,workset_id,plan_id) VALUES('exec','set','plan');`); err != nil {
 		t.Fatal(err)
 	}
 	folders := []string{}
@@ -252,6 +274,10 @@ func TestCancellationStopsUnusedDownloadAndExplicitRetryRestarts(t *testing.T) {
 }
 func TestCanceledDemandDoesNotStopOtherExecution(t *testing.T) {
 	svc, repo, dl, req, folders, _ := deliveryFixture(t)
+	if _, err := repo.DB().Exec(`INSERT INTO plans(plan_id,root_path,snapshot_token,workset_id)
+		VALUES('other-plan','/music','s','set')`); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := repo.DB().
 		Exec(`INSERT INTO plan_executions(execution_id,workset_id,plan_id) VALUES('other','set','other-plan')`); err != nil {
 		t.Fatal(err)
@@ -286,6 +312,10 @@ func TestCanceledDemandDoesNotStopOtherExecution(t *testing.T) {
 }
 func TestNewSourceVersionPreventsOldPublication(t *testing.T) {
 	svc, repo, dl, req, folders, _ := deliveryFixture(t)
+	if _, err := repo.DB().Exec(`INSERT INTO plans(plan_id,root_path,snapshot_token,workset_id)
+		VALUES('new-plan','/music','s','set')`); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := repo.DB().
 		Exec(`INSERT INTO plan_executions(execution_id,workset_id,plan_id) VALUES('new','set','new-plan')`); err != nil {
 		t.Fatal(err)
@@ -401,6 +431,10 @@ func TestConditionalRefreshRequiresMatchingLocalBytes(t *testing.T) {
 				t.Fatal(err)
 			}
 			if _, err := svc.ProcessNext(t.Context()); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := repo.DB().Exec(`INSERT INTO plans(plan_id,root_path,snapshot_token,workset_id)
+				VALUES('refresh-plan','/music','s','set')`); err != nil {
 				t.Fatal(err)
 			}
 			if _, err := repo.DB().

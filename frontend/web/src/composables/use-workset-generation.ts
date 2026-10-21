@@ -28,12 +28,12 @@ export function useWorksetGeneration() {
   const startMutation = useMutation(startGenerationMutationOptions(api, queryClient))
   const cancelMutation = useMutation(cancelGenerationMutationOptions(api))
 
-  function finalize(entry: Observation, status: GenerationStatus) {
+  function finalize(entry: Observation, status: GenerationStatus, revisionId = '') {
     // Only a known terminal status ends observation; anything else keeps watching.
     if (entry.consumed || !['completed', 'failed', 'canceled', 'interrupted'].includes(status)) return
     entry.consumed = true
     cleanup(entry)
-    const text = status === 'completed' ? '计划生成完成' : status === 'failed' ? '计划生成失败'
+    const text = status === 'completed' ? (revisionId ? '计划生成完成' : '原计划已被替换') : status === 'failed' ? '计划生成失败'
       : status === 'canceled' ? '计划生成已停止' : '计划生成已中断，未发布新计划，原有计划仍保留'
     notify(entry, text, status === 'completed' ? 'success' : status === 'failed' ? 'failed' : status === 'canceled' ? 'stopped' : 'interrupted')
     void syncAfterGenerationTerminal(queryClient, entry.worksetId, entry.operation)
@@ -45,7 +45,7 @@ export function useWorksetGeneration() {
   }
   const poll = sessionPoller(
     (entry: Observation) => queryClient.fetchQuery(generationQueryOptions(api, entry.worksetId, entry.operation, entry.generationId)),
-    (entry, session) => { syncGenerationSnapshot(queryClient, session); finalize(entry, session.status) },
+    (entry, session) => { syncGenerationSnapshot(queryClient, session); finalize(entry, session.status, session.revision_id) },
     entry => {
       entry.consumed = true
       cleanup(entry)
@@ -60,16 +60,16 @@ export function useWorksetGeneration() {
     observations.set(key, entry)
     if (initial) {
       syncGenerationSnapshot(queryClient, initial)
-      finalize(entry, initial.status)
+      finalize(entry, initial.status, initial.revision_id)
       if (entry.consumed) return entry
     }
     void store.attach(worksetId, operation, generationId, api, event => {
       if (entry.consumed) return
       syncGenerationEvent(queryClient, worksetId, operation, generationId, event)
       if (event.type === 'session_snapshot') {
-        finalize(entry, event.data.status)
+        finalize(entry, event.data.status, event.data.revision_id)
       } else if (event.type === 'completed' || event.type === 'failed' || event.type === 'canceled' || event.type === 'interrupted') {
-        finalize(entry, event.type)
+        finalize(entry, event.type, event.type === 'completed' ? event.data.revision_id : '')
       }
     }).then(attached => {
       if (entry.consumed || entry.intentional) return
@@ -95,7 +95,7 @@ export function useWorksetGeneration() {
       const result = await cancelMutation.mutateAsync({ worksetId, operation, generationId })
       if (!entry.consumed) {
         syncGenerationSnapshot(queryClient, result)
-        finalize(entry, result.status)
+        finalize(entry, result.status, result.revision_id)
       }
     } finally {
       if (!entry.consumed) void poll(entry)

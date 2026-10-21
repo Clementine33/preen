@@ -156,6 +156,9 @@ func (r *Repository) readWorkSummaries(rows *sql.Rows) ([]works.WorkSummary, err
 	if err := r.attachUserTags(summaries); err != nil {
 		return nil, err
 	}
+	if err := r.attachListening(summaries); err != nil {
+		return nil, err
+	}
 	return summaries, nil
 }
 
@@ -194,6 +197,8 @@ func nullableSortColumn(field works.SortField) (string, bool) {
 		return "w.release_date", true
 	case works.SortByRating:
 		return "u.rating", true
+	case works.SortByListenedAt:
+		return "(SELECT MAX(l.updated_at) FROM work_listening l WHERE l.work_id = w.id)", true
 	case works.SortByWorkID, works.SortByCollectedAt:
 	}
 	return "", false
@@ -278,6 +283,9 @@ func (b *listQueryBuilder) applyFilters(filter works.Filter) {
 		)
 	}
 	b.addCopyFilter(filter)
+	if len(filter.Listening) > 0 {
+		b.add(listeningStateSQL+" IN ("+placeholderList(len(filter.Listening))+")", textArgs(filter.Listening)...)
+	}
 }
 
 // addQuery matches the literal text against the number and the title. `%` and
@@ -512,6 +520,10 @@ func (r *Repository) GetWork(id works.WorkCode) (*works.WorkDetail, bool, error)
 	if detail.CollectionIDs, err = r.loadUserCollectionIDs(id); err != nil {
 		return nil, false, err
 	}
+	if detail.Listening, err = r.loadListening(id); err != nil {
+		return nil, false, err
+	}
+	detail.WorkSummary.Listening = listeningSummary(detail.Listening)
 	return detail, true, nil
 }
 

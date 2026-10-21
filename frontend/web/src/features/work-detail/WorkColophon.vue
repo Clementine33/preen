@@ -4,9 +4,10 @@ import { RouterLink } from 'vue-router'
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { useToast } from '@/composables/use-toast'
 import { newCollectionName, useCollectionManage, useCollectionMemberWrites, useCollections } from '@/queries/collections'
-import { dottedDate } from '@/features/work-detail/derive'
+import { dottedDate, fmtT, resumePoint } from '@/features/work-detail/derive'
 import { useWorkDetail, useCreateUserTag, useReplaceWorkUserTags, useUpdateWorkUserData, useUserTags } from '@/queries/works'
 import { useLibraryList } from '@/queries/libraries'
+import { usePlayerStore } from '@/stores/player'
 import { useWorkDetailStore } from '@/stores/work-detail'
 import type { WorkEditionNode, WorkEditionSlot, WorkUserTag } from '@/lib/api/types'
 
@@ -24,6 +25,7 @@ const store = useWorkDetailStore()
 const { work } = useWorkDetail(() => store.rj)
 const { librariesData } = useLibraryList()
 const { tags: allTags } = useUserTags()
+const player = usePlayerStore()
 const userData = useUpdateWorkUserData(() => store.rj)
 const tagReplace = useReplaceWorkUserTags(() => store.rj)
 const tagCreate = useCreateUserTag()
@@ -81,6 +83,23 @@ async function addToNewCollection(): Promise<void> {
     const made = await manage.create(newCollectionName(collections.value))
     await memberWrites.append(made.id, [rj])
     toast.show({ text: `已新建 ${made.name} 并添加` })
+  } catch (e) { toast.show({ text: e instanceof Error ? e.message : String(e) }) }
+}
+
+// ── Listening Position: 继续 plays the saved track at its second; with nothing
+// to resume, 重听 (a Finished work) or 从头播放 (only orphans left) starts track 1.
+// 标记为未听 forgets every Rendition's. ──
+const resume = computed(() => resumePoint(work.value?.listening ?? [], store.tracks))
+const restartLabel = computed(() => (work.value?.listening.some((l) => l.finished_at !== null) ? '重听' : '从头播放'))
+
+function resumeListening(): void {
+  store.startTrack(resume.value?.track ?? 0, undefined, resume.value?.position)
+}
+
+async function clearListening(): Promise<void> {
+  if (store.rj === null) return
+  try {
+    await player.clearListening(store.rj)
   } catch (e) { toast.show({ text: e instanceof Error ? e.message : String(e) }) }
 }
 
@@ -228,6 +247,12 @@ function copyTo(copy: { copy_id: string; library_id: string; dir_id: string }) {
           </DropdownMenu>
         </dd>
       </div>
+      <div v-if="work?.listening.length" class="colo-row"><dt>收听</dt>
+        <dd>
+          <button class="fav lead" type="button" :disabled="locked || store.tracks.length === 0" @click="resumeListening"><template v-if="resume">▶ 继续 · {{ resume.row.track_index! + 1 }}/{{ resume.row.track_count }} · {{ fmtT(resume.position) }}</template><template v-else>▶ {{ restartLabel }}</template></button>
+          <button class="fav" type="button" :disabled="locked" @click="clearListening">标记为未听</button>
+        </dd>
+      </div>
       <div class="colo-row"><dt>我的</dt>
         <dd>
           <span class="tags">
@@ -300,6 +325,7 @@ function copyTo(copy: { copy_id: string; library_id: string; dir_id: string }) {
 .rating i[role='button'] { cursor: pointer; }
 .rating i[role='button']:hover { border-color: var(--wire-strong); }
 .fav { font-family: var(--font-mono); font-size: var(--fs-xs); letter-spacing: .12em; height: 18px; padding: 0 6px; border: 1px solid var(--wire-mid); margin-left: var(--sp-3); color: var(--fg-base); background: none; cursor: pointer; }
+.fav.lead { margin-left: 0; }
 .fav[aria-pressed='true'] { background: var(--invert-bg); color: var(--invert-fg); border-color: var(--invert-bg); font-weight: 700; }
 .note { width: 100%; min-height: 64px; resize: vertical; background: transparent; border: 1px solid var(--wire-fine); padding: var(--sp-2); font-size: var(--fs-s); line-height: 20px; color: var(--fg-base); outline: none; }
 .note:focus { border-color: var(--wire-strong); }

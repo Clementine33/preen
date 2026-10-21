@@ -105,6 +105,33 @@ the deployment's single user, not to one browser, and an empty list prefers
 nothing.
 _Avoid_: Calling it a filter (the wall filters works, not formats) or a default format.
 
+**Rendition**:
+One complete set of a Work's tracks, told apart by its folders once format
+markers are removed — with and without sound effects, with and without BGM.
+Every format of the same track meets in one Rendition; a Work whose tracks
+share one folder has a single Rendition. Its tracks keep the Work's own
+track order.
+_Avoid_: Variant (a Variant Group is one track's formats), Version Scope,
+Language Edition.
+
+**Listening Position**:
+Where the deployment's single user last stopped in one Rendition of a Work:
+a track, the seconds into it, that track's place among the Rendition's
+tracks, and when. It is personal data of the Work — one per Rendition,
+overwritten as listening moves on, kept when Copies come and go — and it
+names the track, never a file or format, so it survives conversion and a
+change of Format Preference. Continuing a Work continues its most recently
+updated Rendition. A silent play (no audio behind it) never records one.
+_Avoid_: Progress (scan and task progress), history (no listening log is kept).
+
+**Finished**:
+The fact that the user listened through to the end of a Rendition's last
+track, and when. Reaching it clears that Rendition's Listening Position;
+playing it again starts a new one without un-finishing it. A Work is
+finished when any of its Renditions is; Renditions never finish each other.
+_Avoid_: A completion percentage or remaining-time threshold; ending a queue
+that stopped early because a format was missing.
+
 **Video**:
 A video file a Work ships, only ever watched on its own, outside the work's
 track queue. It is never a track, never subject to the Format Preference or a

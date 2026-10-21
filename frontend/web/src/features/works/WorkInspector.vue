@@ -55,6 +55,13 @@ watch(
       }
       return
     }
+    // A refetch of the work on show (a saved position, a rating) is not a switch: swap quietly.
+    if (current.rj === deferredWork.value?.rj) {
+      if (detailTimer !== null) window.clearTimeout(detailTimer)
+      deferredWork.value = current
+      dim.value = false
+      return
+    }
     if (reducedMotion.value || switching.value) {
       if (detailTimer !== null) window.clearTimeout(detailTimer)
       deferredWork.value = current

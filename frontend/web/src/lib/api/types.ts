@@ -263,7 +263,42 @@ export interface WorkSummary {
   has_note: boolean
   collected_at: string
   copy_count: number
+  listening: WorkListeningSummary
   local_cover?: LocalCover | null
+}
+
+/**
+ * The listing's listening digest (docs/api/works.md `listening`): index, count
+ * and time come from the most recently updated Rendition with a position.
+ */
+export interface WorkListeningSummary {
+  state: 'none' | 'listening' | 'finished'
+  track_index: number | null
+  track_count: number | null
+  updated_at: string | null
+}
+
+/** One Rendition's stored Listening Position; the track fields are null once finished. */
+export interface WorkListening {
+  rendition: string
+  track_key: string | null
+  position_sec: number | null
+  track_index: number | null
+  track_count: number | null
+  finished_at: string | null
+  updated_at: string
+}
+
+/** The `PUT /works/{rj}/listening` body: one snapshot, or `finished: true` for the Rendition's end. */
+export interface PutWorkListeningParams {
+  rendition: string
+  track_key: string
+  position_sec: number
+  track_index: number
+  track_count: number
+  finished?: boolean
+  client: string
+  seq: number
 }
 
 /** A voice actor or a source tag, with the source that reported it. */
@@ -321,7 +356,7 @@ export interface WorkEditionSlot {
 }
 
 /** The full work: metadata, personal data, resolved relation and copies. */
-export interface WorkDetail extends WorkSummary {
+export interface WorkDetail extends Omit<WorkSummary, 'listening'> {
   source_url: string | null
   cover_url: string | null
   sample_cover_url: string | null
@@ -338,6 +373,8 @@ export interface WorkDetail extends WorkSummary {
   copies: WorkCopy[]
   /** User collections holding the work, in list order; Favorites is `favorite`. */
   collection_ids: string[]
+  /** One row per played Rendition, empty when none. */
+  listening: WorkListening[]
   /** Declared by a relation but never found on disk; absent from the listing. */
   placeholder: boolean
 }
@@ -384,8 +421,11 @@ export interface CollectionWindow {
   sort?: WorksSort
 }
 
-/** `rating` puts unrated works last in either direction, as release_date does unknown dates. */
-export type WorksSort = 'rj' | 'release_date' | 'collected_at' | 'rating'
+/**
+ * `rating` puts unrated works last in either direction, as release_date does
+ * unknown dates; `listened_at` does the same for never-listened works.
+ */
+export type WorksSort = 'rj' | 'release_date' | 'collected_at' | 'rating' | 'listened_at'
 
 /**
  * One filterable source entity (docs/api.md `GET /circles`, `/voice-actors`):
@@ -451,6 +491,8 @@ export interface ListWorksParams {
   unrated?: boolean
   favorite?: boolean
   has_copy?: boolean
+  /** Comma-separated `listening`, `finished`, `none`; a work matches any of them. */
+  listening?: string
   sort?: WorksSort
   direction?: 'asc' | 'desc'
   /** 1–200; an absent limit is 50. */
@@ -1239,6 +1281,8 @@ export interface ApiClientContract {
   listWorkFacets(kind: WorkFacetKind, scope?: WorksScope, signal?: AbortSignal): Promise<WorkFacet[]>
   listTagFacets(scope?: WorksScope, signal?: AbortSignal): Promise<TagFacets>
   updateWorkUserData(rj: string, input: PatchWorkUserDataParams): Promise<WorkUserData>
+  putWorkListening(rj: string, input: PutWorkListeningParams, keepalive?: boolean): Promise<WorkListening>
+  deleteWorkListening(rj: string): Promise<void>
   replaceWorkUserTags(rj: string, tagIds: string[]): Promise<WorkUserTag[]>
   getPreferences(signal?: AbortSignal): Promise<UserPreferences>
   putPreferences(input: UserPreferences): Promise<UserPreferences>

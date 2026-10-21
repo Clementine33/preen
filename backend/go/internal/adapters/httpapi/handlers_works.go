@@ -62,24 +62,33 @@ func toUserTagResponses(tags []works.UserTag) []userTagResponse {
 
 // workSummaryResponse is one row of the ordinary listing.
 type workSummaryResponse struct {
-	RJ           string            `json:"rj"`
-	Title        *string           `json:"title"`
-	ThumbnailURL *string           `json:"thumbnail_url"`
-	Circle       *string           `json:"circle"`
-	Language     *string           `json:"language"`
-	NSFW         *bool             `json:"nsfw"`
-	AgeCategory  *int              `json:"age_category"`
-	ReleaseDate  *string           `json:"release_date"`
-	DLCount      *int              `json:"dl_count"`
-	Rating       *int              `json:"rating"`
-	Favorite     bool              `json:"favorite"`
-	UserTags     []userTagResponse `json:"user_tags"`
-	HasNote      bool              `json:"has_note"`
-	CollectedAt  string            `json:"collected_at"`
-	CopyCount    int               `json:"copy_count"`
+	RJ           string                   `json:"rj"`
+	Title        *string                  `json:"title"`
+	ThumbnailURL *string                  `json:"thumbnail_url"`
+	Circle       *string                  `json:"circle"`
+	Language     *string                  `json:"language"`
+	NSFW         *bool                    `json:"nsfw"`
+	AgeCategory  *int                     `json:"age_category"`
+	ReleaseDate  *string                  `json:"release_date"`
+	DLCount      *int                     `json:"dl_count"`
+	Rating       *int                     `json:"rating"`
+	Favorite     bool                     `json:"favorite"`
+	UserTags     []userTagResponse        `json:"user_tags"`
+	HasNote      bool                     `json:"has_note"`
+	CollectedAt  string                   `json:"collected_at"`
+	CopyCount    int                      `json:"copy_count"`
+	Listening    listeningSummaryResponse `json:"listening"`
 	// LocalCover is the copy's cover already on disk; the bytes are served by
 	// the content route.
 	LocalCover *localCoverResponse `json:"local_cover"`
+}
+
+// listeningSummaryResponse is the listing's per-work listening digest.
+type listeningSummaryResponse struct {
+	State      string  `json:"state"`
+	TrackIndex *int    `json:"track_index"`
+	TrackCount *int    `json:"track_count"`
+	UpdatedAt  *string `json:"updated_at"`
 }
 
 type localCoverResponse struct {
@@ -126,6 +135,10 @@ func toWorkSummary(summary works.WorkSummary) workSummaryResponse {
 		HasNote:      summary.HasNote,
 		CollectedAt:  summary.CollectedAt,
 		CopyCount:    summary.CopyCount,
+		Listening: listeningSummaryResponse{
+			State: summary.Listening.State, TrackIndex: summary.Listening.TrackIndex,
+			TrackCount: summary.Listening.TrackCount, UpdatedAt: summary.Listening.UpdatedAt,
+		},
 	}
 }
 
@@ -172,7 +185,7 @@ var filterKeys = map[string]bool{
 	"language": true, "nsfw": true, "age_category": true,
 	"released_from": true, "released_to": true,
 	"rating_from": true, "rating_to": true, "unrated": true,
-	"favorite": true, "library": true, "has_copy": true,
+	"favorite": true, "library": true, "has_copy": true, "listening": true,
 	"sort": true, "direction": true, "limit": true, "page": true,
 }
 
@@ -223,6 +236,7 @@ func parseWorkFilter(r *http.Request) (works.Filter, *works.Error) {
 	}
 	filter.Languages = set("language")
 	filter.Libraries = set("library")
+	filter.Listening = set("listening")
 
 	modes := []struct {
 		key  string

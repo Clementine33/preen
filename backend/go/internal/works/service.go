@@ -98,6 +98,27 @@ func (s *Service) PatchUserData(id WorkCode, req UserDataRequest) (UserData, *Er
 	return data, nil
 }
 
+// PutListening stores one Listening Position snapshot. Like PatchUserData, an
+// unknown work is a 404 and a placeholder a 409 (decided by the storage).
+func (s *Service) PutListening(id WorkCode, req ListeningRequest) (Listening, *Error) {
+	if invalid := req.Validate(); invalid != nil {
+		return Listening{}, invalid
+	}
+	row, err := s.store.PutListening(id, req, s.now())
+	if err != nil {
+		return Listening{}, asInternal(err)
+	}
+	return row, nil
+}
+
+// ClearListening forgets every Listening Position and Finished mark of the work.
+func (s *Service) ClearListening(id WorkCode) *Error {
+	if err := s.store.ClearListening(id); err != nil {
+		return asInternal(err)
+	}
+	return nil
+}
+
 // ReplaceUserTags points the work at exactly the given tags.
 func (s *Service) ReplaceUserTags(id WorkCode, req UserTagsRequest) ([]UserTag, *Error) {
 	tags, err := s.store.ReplaceUserTags(id, req.TagIDs)

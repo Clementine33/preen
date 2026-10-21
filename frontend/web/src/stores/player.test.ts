@@ -1,6 +1,8 @@
+import { flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { usePlayerStore } from './player'
+import type { ApiClientContract } from '@/lib/api/types'
+import { usePlayerStore, type QueueItem } from './player'
 
 /**
  * The silent path's state machine: the clock only runs while
@@ -237,5 +239,265 @@ describe('player store, real track', () => {
     expect(store.format).toBeNull()
     vi.advanceTimersByTime(2_000)
     expect(store.elapsed).toBe(2)
+  })
+})
+
+/**
+ * The Listening Position the store writes: the 10 s gate, the 15 s throttle, the
+ * flush points, the per-work serial chain and the pending/acknowledged
+ * bookkeeping. The element is driven by hand, one second per timeupdate.
+ */
+describe('player store, Listening Position', () => {
+  const RJ = 'RJ01000001'
+  const source = { src: '/content/a.mp3', durationSec: 252, format: 'MP3' }
+  const tracks = (count: number, shown = count): QueueItem[] =>
+    Array.from({ length: shown }, (_, index) => ({
+      key: `t${index}`, title: `t${index}`, rendition: '', index, count, source,
+    }))
+  let put: ReturnType<typeof vi.fn>
+  let del: ReturnType<typeof vi.fn>
+
+  /** Plays `seconds` of steady progress on the current element. */
+  function playFor(seconds: number, from = FakeAudio.made.at(-1)!.currentTime) {
+    const el = FakeAudio.made.at(-1)!
+    for (let t = from + 1; t <= from + seconds; t++) {
+      el.currentTime = t
+      el.dispatchEvent(new Event('timeupdate'))
+    }
+    return el
+  }
+  const bodies = () => put.mock.calls.map(([, body]) => body)
+
+  beforeEach(() => {
+    vi.restoreAllMocks() // the element tests above leave play() spied
+    setActivePinia(createPinia())
+    FakeAudio.made = []
+    vi.stubGlobal('Audio', FakeAudio)
+    put = vi.fn().mockResolvedValue({})
+    del = vi.fn().mockResolvedValue(undefined)
+    usePlayerStore().bindClient({ putWorkListening: put, deleteWorkListening: del } as unknown as ApiClientContract)
+  })
+  afterEach(async () => {
+    await flushPromises() // a request still in flight must not leak into the next test
+    vi.unstubAllGlobals()
+  })
+
+  it('writes nothing before 10 s of real playback, and a seek does not count', async () => {
+    const store = usePlayerStore()
+    store.play(RJ, tracks(3))
+    const el = playFor(9)
+    el.currentTime = 200 // a seek: a jump, not playback
+    el.dispatchEvent(new Event('timeupdate'))
+    store.togglePause() // a pause flush inside the gate writes nothing either
+    await flushPromises()
+    expect(put).not.toHaveBeenCalled()
+
+    store.togglePause()
+    playFor(1, 200)
+    await flushPromises()
+    expect(put).toHaveBeenCalledTimes(1)
+    expect(put.mock.calls[0]![0]).toBe(RJ)
+    expect(bodies()[0]).toMatchObject({
+      rendition: '', track_key: 't0', position_sec: 201, track_index: 0, track_count: 3,
+    })
+    expect(typeof bodies()[0].client).toBe('string')
+  })
+
+  it('writes every 15 s while playing, each snapshot with a higher seq', async () => {
+    const store = usePlayerStore()
+    store.play(RJ, tracks(3))
+    playFor(10)
+    await flushPromises()
+    expect(put).toHaveBeenCalledTimes(1)
+    playFor(14, 10)
+    await flushPromises()
+    expect(put).toHaveBeenCalledTimes(1)
+    playFor(1, 24)
+    await flushPromises()
+    expect(put).toHaveBeenCalledTimes(2)
+    expect(bodies()[1].seq).toBeGreaterThan(bodies()[0].seq)
+    expect(bodies()[1].client).toBe(bodies()[0].client)
+  })
+
+  it('flushes on pause, track change and work change', async () => {
+    const store = usePlayerStore()
+    store.play(RJ, tracks(3))
+    playFor(10)
+    await flushPromises()
+    playFor(3, 10)
+    store.togglePause()
+    await flushPromises()
+    expect(bodies().map((b) => [b.track_key, b.position_sec])).toEqual([['t0', 10], ['t0', 13]])
+
+    store.togglePause()
+    playFor(1, 13)
+    store.step(1)
+    await flushPromises()
+    expect(bodies().at(-1)).toMatchObject({ track_key: 't0', position_sec: 14 })
+
+    playFor(1, 0)
+    store.play('RJ01000002', tracks(2))
+    await flushPromises()
+    expect(put.mock.calls.at(-1)![0]).toBe(RJ)
+    expect(bodies().at(-1)).toMatchObject({ track_key: 't1', position_sec: 1 })
+  })
+
+  it('never writes for a silent play', async () => {
+    const store = usePlayerStore()
+    vi.useFakeTimers()
+    store.play(RJ, [{ title: 'wall' }])
+    store.play(RJ, [{ key: 'a', title: 'a', rendition: '', index: 0, count: 1 }]) // no file behind it
+    vi.advanceTimersByTime(60_000)
+    store.togglePause()
+    vi.useRealTimers()
+    await flushPromises()
+    expect(put).not.toHaveBeenCalled()
+  })
+
+  it('resends a failed save on the next flush, and on pagehide', async () => {
+    const store = usePlayerStore()
+    put.mockRejectedValueOnce(new Error('offline'))
+    store.play(RJ, tracks(3))
+    playFor(12)
+    await flushPromises()
+    expect(put).toHaveBeenCalledTimes(1)
+    store.togglePause() // the pause flush sends the newer snapshot
+    await flushPromises()
+    expect(put).toHaveBeenCalledTimes(2)
+    expect(bodies()[1]).toMatchObject({ position_sec: 12 })
+
+    // Everything fails now: pagehide still sends the pending snapshot, kept alive.
+    put.mockRejectedValue(new Error('offline'))
+    store.togglePause()
+    playFor(1, 12)
+    store.togglePause()
+    await flushPromises()
+    window.dispatchEvent(new Event('pagehide'))
+    const last = put.mock.calls.at(-1)!
+    expect(last[0]).toBe(RJ)
+    expect(last[2]).toBe(true)
+    expect(last[1]).toMatchObject({ position_sec: 13 })
+  })
+
+  it('does not resend a snapshot the server already acknowledged', async () => {
+    const store = usePlayerStore()
+    store.play(RJ, tracks(3))
+    playFor(10)
+    await flushPromises()
+    store.togglePause() // same position as the acknowledged write
+    store.togglePause()
+    store.togglePause()
+    await flushPromises()
+    expect(put).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps a pending Finished when a position follows', async () => {
+    const store = usePlayerStore()
+    store.play(RJ, tracks(1))
+    const el = playFor(10)
+    await flushPromises()
+    put.mockRejectedValueOnce(new Error('offline'))
+    el.dispatchEvent(new Event('ended')) // Finished, but the save fails
+    await flushPromises()
+    expect(bodies().at(-1)).toMatchObject({ finished: true })
+
+    store.togglePause()
+    playFor(1, 10)
+    store.togglePause() // a position snapshot while the Finished is pending
+    await flushPromises()
+    expect(put).toHaveBeenCalledTimes(3)
+    expect(bodies()[2]).toMatchObject({ finished: true, seq: bodies()[1].seq })
+  })
+
+  it('finishes only when the Rendition’s last track ends', async () => {
+    const store = usePlayerStore()
+    store.play(RJ, tracks(3))
+    playFor(10)
+    FakeAudio.made.at(-1)!.dispatchEvent(new Event('ended')) // t0 -> t1
+    FakeAudio.made.at(-1)!.dispatchEvent(new Event('ended')) // t1 -> t2
+    await flushPromises()
+    expect(bodies().some((b) => b.finished)).toBe(false)
+    FakeAudio.made.at(-1)!.dispatchEvent(new Event('ended')) // t2 is the last
+    await flushPromises()
+    expect(bodies().at(-1)).toMatchObject({ track_key: 't2', track_index: 2, track_count: 3, finished: true })
+
+    // A queue cut short (the format is missing from the last track) is not finished.
+    put.mockClear()
+    store.play(RJ, tracks(3, 2))
+    playFor(10)
+    FakeAudio.made.at(-1)!.dispatchEvent(new Event('ended'))
+    FakeAudio.made.at(-1)!.dispatchEvent(new Event('ended'))
+    await flushPromises()
+    expect(bodies().some((b) => b.finished)).toBe(false)
+  })
+
+  it('finishes past the gate when a resume ends the last track within 10 s', async () => {
+    const store = usePlayerStore()
+    store.play(RJ, tracks(1))
+    playFor(3)
+    FakeAudio.made.at(-1)!.dispatchEvent(new Event('ended'))
+    await flushPromises()
+    expect(bodies()).toHaveLength(1)
+    expect(bodies()[0]).toMatchObject({ track_key: 't0', finished: true })
+  })
+
+  it('writes no position after the Rendition finished, on a work change or pagehide', async () => {
+    const store = usePlayerStore()
+    store.play(RJ, tracks(1))
+    const el = playFor(10)
+    await flushPromises()
+    Object.assign(el, { ended: true, paused: true })
+    el.dispatchEvent(new Event('ended'))
+    await flushPromises()
+    expect(bodies().at(-1)).toMatchObject({ finished: true })
+    const sent = put.mock.calls.length
+
+    window.dispatchEvent(new Event('pagehide'))
+    store.play('RJ01000002', tracks(1)) // 继续 / another work flushes the ended element first
+    await flushPromises()
+    expect(put.mock.calls.length).toBe(sent)
+  })
+
+  it('tells the wall only about a first write, a Finished and a clear', async () => {
+    const store = usePlayerStore()
+    store.play(RJ, tracks(1))
+    const el = playFor(10)
+    await flushPromises()
+    expect(store.saved).toMatchObject({ rj: RJ, lists: true })
+    playFor(15, 10)
+    await flushPromises()
+    expect(store.saved).toMatchObject({ rj: RJ, lists: false })
+    el.dispatchEvent(new Event('ended'))
+    await flushPromises()
+    expect(store.saved).toMatchObject({ rj: RJ, lists: true })
+    store.saved = null
+    await store.clearListening(RJ)
+    expect(store.saved).toMatchObject({ rj: RJ, lists: true })
+  })
+
+  it('clears behind an in-flight write, drops what is pending and restarts the gate', async () => {
+    const store = usePlayerStore()
+    let settle: () => void = () => {}
+    put.mockImplementationOnce(() => new Promise<void>((resolve) => { settle = resolve }))
+    store.play(RJ, tracks(3))
+    playFor(10)
+    await flushPromises() // the first write is in flight
+    const cleared = store.clearListening(RJ)
+    await flushPromises()
+    expect(del).not.toHaveBeenCalled() // waits for the request in flight
+    settle()
+    await cleared
+    expect(del).toHaveBeenCalledWith(RJ)
+    expect(put.mock.invocationCallOrder[0]).toBeLessThan(del.mock.invocationCallOrder[0]!)
+
+    // Playing on records nothing until 10 more seconds have really played.
+    playFor(9, 10)
+    store.togglePause()
+    store.togglePause()
+    await flushPromises()
+    expect(put).toHaveBeenCalledTimes(1)
+    playFor(1, 19)
+    await flushPromises()
+    expect(put).toHaveBeenCalledTimes(2)
   })
 })

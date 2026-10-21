@@ -24,6 +24,15 @@ const { src: realCover, failed } = useCoverSrc(() => ({
 /** An R18 work's cover stays hatched while the veil is on. */
 const cover = computed(() => (veiled.value ? null : realCover.value))
 
+/**
+ * The dot's tooltip: the track the work is on, from the newest Rendition with a
+ * position — also on a finished work being heard again in another Rendition.
+ */
+const listeningTitle = computed(() => {
+  const { state, track_index: index, track_count: count } = props.work.listening
+  return `${state === 'finished' ? '重听' : '在听'} · ${(index ?? 0) + 1}/${count ?? 0}`
+})
+
 const veiled = computed(() => libraryUi.veil && props.work.nsfw === true)
 
 /** `YYYY.MM` from the catalog's `YYYY-MM-DD`, or the empty-state dash. */
@@ -40,6 +49,8 @@ const release = computed(() =>
     <div class="cover" :class="[cover ? '' : 'hatch', { veiled }]">
       <img v-if="cover" :src="cover" alt="" loading="lazy" decoding="async" @error="failed(cover)" />
     </div>
+    <i v-if="work.listening.track_index !== null" class="listening-dot" :title="listeningTitle" role="img"
+      :aria-label="listeningTitle"></i>
     <span v-if="playing" class="playing-tag">▶ NOW</span>
     <div class="cap">
       <div class="cap-meta">
@@ -75,6 +86,12 @@ const release = computed(() =>
 .cell:not(.active):hover .cap { background: var(--bg-subtle); }
 .cell:focus-visible { outline: none; }
 .cell:focus-visible .cover { box-shadow: inset 0 0 0 2px var(--wire-strong); }
+
+/* A work with a Listening Position: a small solid dot on the cover's corner, no text. */
+.listening-dot {
+  position: absolute; left: 6px; top: 6px; width: 8px; height: 8px; border-radius: 50%;
+  background: var(--now); box-shadow: 0 0 0 1px var(--now-fg);
+}
 
 .playing-tag {
   position: absolute; right: 0; top: 0; height: 16px; padding: 0 6px;

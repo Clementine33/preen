@@ -1,8 +1,9 @@
-import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { enableAutoUnmount, flushPromises, mount, type VueWrapper } from '@vue/test-utils'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 import { createPinia } from 'pinia'
 import { apiClientKey } from '@/lib/api/client'
+import { mountPlayerKeys } from '@/test/player-keys'
 import { apiStub } from '@/test/api-stub'
 import { installTestQueryPlugin } from '@/test/query-client'
 import WorksPage from './WorksPage.vue'
@@ -199,6 +200,8 @@ beforeEach(() => {
   document.body.innerHTML = ''
 })
 
+enableAutoUnmount(afterEach)
+
 describe('works page', () => {
   it('restores the inspected work from ?rj= and follows the keyboard in the address', async () => {
     const { wrapper, router } = await mountWorks(`/works?rj=${A2}`)
@@ -207,12 +210,20 @@ describe('works page', () => {
     expect(inspected(wrapper)).toBe(A2)
     expect(wrapper.get('.insp-title').text()).toBe(`Title ${A2}`)
 
-    press('j')
+    press('ArrowRight')
     await flushPromises()
     expect(inspected(wrapper)).toBe(A3)
     // Replace, not push: inspecting a neighbour is one state, not a page in
     // history.
     expect(router.currentRoute.value.query.rj).toBe(A3)
+  })
+
+  it('leaves J and K alone: movement is the arrows', async () => {
+    const { wrapper } = await mountWorks(`/works?rj=${A2}`)
+    press('j')
+    press('k')
+    await flushPromises()
+    expect(inspected(wrapper)).toBe(A2)
   })
 
   it('reads the 6-digit spelling of a work number as the canonical one', async () => {
@@ -410,6 +421,7 @@ describe('works page', () => {
 
   it('plays the selected work with P and never lets Space change what plays', async () => {
     const { wrapper } = await mountWorks(`/works?rj=${A1}`)
+    mountPlayerKeys()
 
     press('p')
     await flushPromises()
@@ -420,7 +432,7 @@ describe('works page', () => {
     expect(player.queue.map((item) => item.source?.src)).toEqual(['/files/01.mp3', '/files/02.mp3'])
     expect(player.trackIndex).toBe(0)
 
-    press('j') // browse away from the playing work
+    press('ArrowRight') // browse away from the playing work
     await flushPromises()
     expect(inspected(wrapper)).toBe(A2)
     expect(player.rj).toBe(A1) // browsing never interrupts playback
@@ -663,12 +675,12 @@ describe('works page', () => {
     it('turns the page from the keyboard off either end of it', async () => {
       const { wrapper, router, listWorks } = await mountWorks(`/works?size=36&rj=${worksA[35].rj}`)
 
-      press('j')
+      press('ArrowRight')
       await flushPromises()
       expect(lastParams(listWorks)).toMatchObject({ page: 2 })
       expect(inspected(wrapper)).toBe(worksA[36].rj)
 
-      press('k')
+      press('ArrowLeft')
       await flushPromises()
       // Page 1 answers from the cache; the address says where the wall is.
       expect(router.currentRoute.value.query.page).toBeUndefined()

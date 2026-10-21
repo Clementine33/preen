@@ -143,7 +143,7 @@ export const router = createRouter({
 
     // Application settings by category: appearance and user tags. Task
     // settings stay beside their tasks and are not repeated here.
-    { path: '/settings/:section(appearance|network|tags)?', name: 'settings', component: SettingsPage },
+    { path: '/settings/:section(appearance|network|tags|keys)?', name: 'settings', component: SettingsPage },
 
     // An address that names no page of this workbench. The retired long routes
     // land here: they are not redirected to a guessed target.

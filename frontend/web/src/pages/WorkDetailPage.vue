@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { useApiClient } from '@/lib/api/client'
-import { computed, onBeforeUnmount, onMounted, watch } from 'vue'
+import { computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { canonicalRj } from '@/app/route-params'
+import { useKeymap } from '@/composables/use-keymap'
 import GlobalMenu from '@/components/layout/GlobalMenu.vue'
 import PlayerBar from '@/features/works/PlayerBar.vue'
 import WorkBay from '@/features/work-detail/WorkBay.vue'
@@ -66,57 +67,13 @@ function backToWall(): void {
   void router.push({ name: 'works', query: rj.value !== null ? { rj: rj.value } : {} })
 }
 
-// ── Keyboard: I flips, the arrows step (the viewer shares
-//    the same set/idx), Esc closes the topmost layer, Space only pauses. ──
-
-/** A text field or an open menu keeps every key it receives. */
-function ownsKeys(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false
-  return (
-    target.closest('[data-own-keys]') !== null ||
-    target instanceof HTMLInputElement ||
-    target instanceof HTMLTextAreaElement ||
-    target instanceof HTMLSelectElement ||
-    target.isContentEditable
-  )
-}
-
-/** Enter and Space already mean something on a link or a button. */
-function activates(target: EventTarget | null): boolean {
-  return target instanceof HTMLElement && target.closest('a, button') !== null
-}
-
-function onKeydown(event: KeyboardEvent): void {
-  if (ownsKeys(event.target)) return
-  if (event.metaKey || event.ctrlKey || event.altKey) return
-  if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
-    event.preventDefault()
-    store.step(event.key === 'ArrowRight' ? 1 : -1)
-    return
-  }
-  if (event.key === 'i' || event.key === 'I') {
-    store.flip()
-    return
-  }
-  if (event.key === 'Escape') {
-    // The viewer is a native dialog: the browser closes it on Esc; the page
-    // only ever closes the layer underneath the topmost one.
-    if (store.viewerOpen) return
-    if (store.dock === 'bottom' && store.bayOpen) store.closeBay()
-    return
-  }
-  if (activates(event.target)) return
-  if (event.key === ' ') {
-    event.preventDefault()
-    player.togglePause()
-  }
-}
-
-onMounted(() => {
-  window.addEventListener('keydown', onKeydown)
-})
-onBeforeUnmount(() => {
-  window.removeEventListener('keydown', onKeydown)
+// ── Keyboard: I flips, the arrows step (the viewer shares the same set/idx),
+//    Esc closes the bay's drawer; Space is the player's. ──
+useKeymap({
+  'detail.step': (event) => store.step(event.key === 'ArrowRight' ? 1 : -1),
+  'detail.flip': () => store.flip(),
+  // The viewer is a native dialog: the browser closes it on Esc.
+  'detail.close': () => (store.dock === 'bottom' && store.bayOpen && !store.viewerOpen ? store.closeBay() : undefined),
 })
 </script>
 

@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
+import { useKeymap } from '@/composables/use-keymap'
 import { audioInfo, dirCounts, fmtSize, kindGlyph } from '@/features/work-detail/derive'
 import { useWorkDetailStore } from '@/stores/work-detail'
 import { usePlayerStore } from '@/stores/player'
@@ -9,6 +10,9 @@ import type { WorkContentDir, WorkContentFile } from '@/lib/api/types'
 // kind glyphs, recursive directory counts, no filter (work folders are small).
 // Rows act on the whole page: an image locates its set on the deck, lyrics
 // and texts open in READ, an audio starts its track, a video opens its modal.
+// The keyboard cursor runs over the same rows (the ".." row first, when inside
+// a folder), returns to the first on every folder change, and Enter does what
+// a click on its row does; Backspace goes up.
 
 const store = useWorkDetailStore()
 const player = usePlayerStore()
@@ -22,6 +26,28 @@ const entries = computed(() =>
     'children' in a === ('children' in b) ? 0 : 'children' in a ? -1 : 1,
   ),
 )
+
+const list = ref<HTMLElement | null>(null)
+const cursor = ref(0)
+watch(() => store.cwd, () => (cursor.value = 0))
+watch(cursor, () => void nextTick(() => list.value?.querySelector('.cur')?.scrollIntoView?.({ block: 'nearest' })))
+const offset = computed(() => (store.cwd.length ? 1 : 0))
+const at = (i: number): boolean => cursor.value === i + offset.value
+const up = (): void => store.selectDir(store.cwd.slice(0, -1))
+function enter(): void {
+  if (cursor.value < offset.value) return up()
+  const entry = entries.value[cursor.value - offset.value]
+  if (!entry) return
+  if ('children' in entry) store.selectDir([...store.cwd, entry.name])
+  else store.selectFile(entry)
+}
+useKeymap({
+  'detail.cursor': (event) => {
+    cursor.value = Math.min(Math.max(cursor.value + (event.key === 'ArrowDown' ? 1 : -1), 0), entries.value.length + offset.value - 1)
+  },
+  'detail.activate': enter,
+  'detail.parent': () => (store.cwd.length ? up() : false),
+}, () => store.bayVisible)
 
 function counts(entry: WorkContentDir): { aud: number; img: number; txt: number; vid: number } {
   return dirCounts(entry)
@@ -60,12 +86,12 @@ function isPlaying(entry: WorkContentDir | WorkContentFile): boolean {
         :title="`读取副本 ${store.activeCopy?.library_id ?? '—'}（多副本切换未实现）`">{{ store.activeCopy?.library_id ?? '—' }} ▾</button>
     </div>
     <div class="list-head"><span></span><span></span><span class="lbl">NAME</span><span class="lbl">INFO</span><span class="lbl">SIZE</span></div>
-    <div class="list" lang="ja">
-      <button v-if="store.cwd.length" class="row dir" type="button" @click="store.selectDir(store.cwd.slice(0, -1))">
+    <div ref="list" class="list" lang="ja">
+      <button v-if="store.cwd.length" class="row dir" :class="{ cur: cursor === 0 }" type="button" @click="up">
         <span class="mark"></span><span class="glyph">▴</span><span class="name">..</span><span class="info"></span><span class="size"></span>
       </button>
-      <template v-for="entry in entries" :key="entry.rel_path">
-        <button v-if="'children' in entry" class="row dir" type="button" @click="store.selectDir([...store.cwd, entry.name])">
+      <template v-for="(entry, i) in entries" :key="entry.rel_path">
+        <button v-if="'children' in entry" class="row dir" :class="{ cur: at(i) }" type="button" @click="store.selectDir([...store.cwd, entry.name])">
           <span class="mark"></span><span class="glyph">{{ kindGlyph('dir') }}</span><span class="name">{{ entry.name }}</span>
           <span class="info"><span class="counts">
             <template v-if="counts(entry).aud">♪{{ counts(entry).aud }}</template>
@@ -75,7 +101,7 @@ function isPlaying(entry: WorkContentDir | WorkContentFile): boolean {
           </span></span>
           <span class="size">{{ sizeOf(entry) }}</span>
         </button>
-        <button v-else class="row" type="button" :class="{ now: isPlaying(entry) }"
+        <button v-else class="row" type="button" :class="{ now: isPlaying(entry), cur: at(i) }"
           :aria-selected="store.sel === entry.rel_path" @click="store.selectFile(entry)">
           <span class="mark"></span><span class="glyph">{{ kindGlyph(entry.kind) }}</span>
           <span class="name">{{ entry.name }}<span v-if="isPlaying(entry)" class="nowtag">NOW</span></span>
@@ -107,6 +133,7 @@ function isPlaying(entry: WorkContentDir | WorkContentFile): boolean {
 @media (hover: hover) and (pointer: fine) {
   .row:hover::before { clip-path: inset(0 0 0 0); transition: clip-path var(--dur-in) var(--ease-out); }
 }
+.row.cur { outline: 1px solid var(--wire-strong); outline-offset: -1px; }
 .row .mark { width: 6px; height: 6px; justify-self: center; }
 @media (hover: hover) and (pointer: fine) {
   .row:hover .mark { background: var(--wire-mid); }

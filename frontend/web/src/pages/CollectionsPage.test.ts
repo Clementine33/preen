@@ -142,6 +142,13 @@ describe('CollectionsPage', () => {
     expect(wrapper.findAll('.ti')).toHaveLength(0)
   })
 
+  it('leaves W and S alone: movement is the arrows', async () => {
+    const wrapper = await mountPage(setup().api)
+    press('s')
+    await nextTick()
+    expect(wrapper.findAll('[data-testid="collection-row"]')[0]!.attributes('aria-selected')).toBe('true')
+  })
+
   it('ignores page keys typed into a field', async () => {
     const wrapper = await mountPage(setup().api)
     const input = document.body.appendChild(document.createElement('input'))

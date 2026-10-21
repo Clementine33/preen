@@ -1,6 +1,6 @@
-import { flushPromises, mount } from '@vue/test-utils'
+import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { sampleWorkContent } from '@/test/work-content-fixture'
 import WorkBay from './WorkBay.vue'
 import { apiClientKey } from '@/lib/api/client'
@@ -35,6 +35,8 @@ async function mountBay() {
 beforeEach(() => {
   vi.clearAllMocks()
 })
+
+enableAutoUnmount(afterEach)
 
 describe('WorkBay', () => {
   it('counts the tabs and lifts on the first tab click, closing on the second', async () => {
@@ -223,5 +225,92 @@ describe('WorkBay', () => {
     await wrapper.findAll('.trk')[0].trigger('click')
     expect(store.pairs[0]).toBeDefined()
     expect(store.leaf).toBe('lrc')
+  })
+
+  describe('keyboard cursor', () => {
+    const press = async (key: string) => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key }))
+      await flushPromises()
+    }
+    const cursorOf = (wrapper: ReturnType<typeof mount>, row: string) => wrapper.findAll(row).findIndex((r) => r.classes('cur'))
+
+    it('starts on the playing track and follows it; Enter plays the row', async () => {
+      const { wrapper, store } = await mountBay()
+      store.dock = 'right'
+      store.openBayTab('tracks')
+      await flushPromises()
+      expect(cursorOf(wrapper, '.trk')).toBe(0) // nothing of this work plays: row 0
+
+      store.startTrack(2)
+      await flushPromises()
+      expect(cursorOf(wrapper, '.trk')).toBe(2)
+
+      await press('ArrowDown')
+      await press('Enter')
+      expect(usePlayerStore().trackIndex).toBe(3)
+      expect(cursorOf(wrapper, '.trk')).toBe(3)
+    })
+
+    it('starts on the paired lyric file in LRC mode, and Enter pairs the selected one', async () => {
+      const { wrapper, store } = await mountBay()
+      store.dock = 'right'
+      store.startTrack(1)
+      store.pairLrc(1, store.lrcFiles[1].rel_path)
+      store.showLrc()
+      await flushPromises()
+      expect(cursorOf(wrapper, '.trk')).toBe(1)
+
+      await press('ArrowUp')
+      await press('Enter')
+      expect(store.pairs[1]).toBe(store.lrcFiles[0].rel_path)
+    })
+
+    it('walks the folders: Enter goes in, Backspace goes up, the cursor resets', async () => {
+      const { wrapper, store } = await mountBay()
+      store.dock = 'right'
+      store.openBayTab('files')
+      await flushPromises()
+      const dirs = wrapper.findAll('.row.dir')
+      const target = dirs.findIndex((row) => row.text().includes('表紙'))
+
+      await press('Backspace') // the root has no parent
+      expect(store.cwd).toEqual([])
+      for (let i = 0; i < target; i++) await press('ArrowDown')
+      await press('Enter')
+      expect(store.cwd).toEqual(['表紙'])
+      expect(cursorOf(wrapper, '.row')).toBe(0)
+
+      await press('ArrowDown') // the first file under the ".." row
+      await press('Enter')
+      expect(store.sel).toBe(store.cwdDir!.children[0].rel_path)
+
+      await press('Backspace')
+      expect(store.cwd).toEqual([])
+      expect(cursorOf(wrapper, '.row')).toBe(0)
+    })
+
+    it('Enter on the ".." row goes up', async () => {
+      const { store } = await mountBay()
+      store.dock = 'right'
+      store.openBayTab('files')
+      store.selectDir(['表紙'])
+      await flushPromises()
+      await press('Enter')
+      expect(store.cwd).toEqual([])
+    })
+
+    it('is inactive while the bottom drawer is shut', async () => {
+      const { store } = await mountBay()
+      store.openBayTab('tracks')
+      store.closeBay()
+      await flushPromises()
+      await press('Enter')
+      expect(usePlayerStore().rj).toBeNull()
+      store.openBayTab('tracks')
+      await flushPromises()
+      await press('Enter')
+      expect(usePlayerStore().trackIndex).toBe(0)
+      expect(usePlayerStore().rj).toBe(RJ)
+    })
   })
 })

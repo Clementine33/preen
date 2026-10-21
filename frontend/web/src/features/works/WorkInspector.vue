@@ -16,7 +16,7 @@ import { useLibraryUiStore } from '@/stores/library-ui'
 
 const props = defineProps<{
   rj: string | null
-  /** On the detail page: no wall to return to, so no OPEN DETAIL and no wall keys. */
+  /** On the detail page: no wall to return to, so no OPEN DETAIL. */
   standalone?: boolean
 }>()
 
@@ -238,8 +238,6 @@ const playIcon = 'M1 0l9 5-9 5z'
           OPEN DETAIL<svg viewBox="0 0 10 10" aria-hidden="true"><path :d="arrowIcon" /></svg>
         </button>
       </div>
-      <div v-if="!standalone" class="keys lbl"><kbd>J</kbd><kbd>K</kbd><kbd>←↑↓→</kbd> MOVE<span class="sep">·</span><kbd>P</kbd>
-        PLAY<span class="sep">·</span><kbd>␣</kbd> PAUSE<span class="sep">·</span><kbd>↵</kbd> OPEN</div>
     </div>
   </aside>
 </template>
@@ -316,9 +314,4 @@ const playIcon = 'M1 0l9 5-9 5z'
   display: flex; justify-content: space-between; align-items: center; gap: var(--sp-3);
 }
 .insp-foot .btn:disabled { cursor: not-allowed; opacity: .5; }
-.keys { margin-top: var(--sp-2); }
-.keys kbd {
-  font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--fg-muted);
-  border: 1px solid var(--wire-fine); padding: 0 4px; margin-right: 2px;
-}
 </style>

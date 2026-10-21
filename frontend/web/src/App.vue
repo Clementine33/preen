@@ -4,8 +4,10 @@ import AppShell from '@/components/layout/AppShell.vue'
 import TaskToastHost from '@/components/layout/TaskToastHost.vue'
 import ToastHost from '@/components/layout/ToastHost.vue'
 import { useMediaFactsSync } from '@/composables/use-media-facts-sync'
+import { usePlayerKeys } from '@/composables/use-player-keys'
 const route = useRoute()
 useMediaFactsSync()
+usePlayerKeys()
 </script>
 
 <template>

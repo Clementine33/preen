@@ -9,6 +9,7 @@ import OutboundProxySettings from '@/features/settings/OutboundProxySettings.vue
 import SettingsField from '@/features/settings/SettingsField.vue'
 import SettingsSegmented from '@/features/settings/SettingsSegmented.vue'
 import UserTagSettings from '@/features/settings/UserTagSettings.vue'
+import { GROUP_LABELS, KEYS, type KeyGroup } from '@/composables/use-keymap'
 import { MOTION_OPTIONS, useMotion, type MotionPreference } from '@/composables/use-motion'
 import { THEME_OPTIONS, useTheme, type Theme } from '@/composables/use-theme'
 
@@ -16,7 +17,7 @@ import { THEME_OPTIONS, useTheme, type Theme } from '@/composables/use-theme'
  * 设置 (`/settings/:section?`): what has no other home, one category per
  * address — appearance (theme and motion stay in this browser; the Format
  * Preference syncs through the server), network (the Outbound Proxy) and the
- * user-tag vocabulary. Each saves
+ * user-tag vocabulary, plus the read-only shortcut list. Each saves
  * where its data lives. Task settings stay beside their tasks, a library's storage
  * class in its edit dialog.
  */
@@ -24,7 +25,16 @@ const SECTIONS = [
   { id: 'appearance', label: '外观', code: 'APPEARANCE' },
   { id: 'network', label: '网络', code: 'NETWORK' },
   { id: 'tags', label: '用户标签', code: 'USER TAGS' },
+  { id: 'keys', label: '键盘快捷键', code: 'KEYBOARD' },
 ] as const
+
+/** The shortcut list, generated from the keymap's descriptors (read-only, not a setting). */
+const KEY_ROWS = (Object.keys(GROUP_LABELS) as KeyGroup[]).map((group) => ({
+  group,
+  rows: Object.values(KEYS).filter((descriptor) => descriptor.group === group),
+}))
+const keyCap = (combo: string): string =>
+  combo.replace('Arrow', '').replace('Left', '←').replace('Right', '→').replace('Up', '↑').replace('Down', '↓')
 
 const route = useRoute()
 const section = computed(() => SECTIONS.find((item) => item.id === route.params.section) ?? SECTIONS[0])
@@ -115,6 +125,18 @@ async function logout(): Promise<void> {
             <SettingsField id="outbound-proxy" label="代理服务器">
               <OutboundProxySettings />
             </SettingsField>
+          </template>
+
+          <template v-else-if="section.id === 'keys'">
+            <div data-testid="settings-keys">
+              <dl v-for="{ group, rows } in KEY_ROWS" :key="group" class="mt-4">
+                <dt class="lbl">{{ GROUP_LABELS[group] }}</dt>
+                <dd v-for="row in rows" :key="row.text" class="flex items-baseline gap-3 border-b border-[var(--wire-fine)] py-1.5 text-sm">
+                  <span class="flex min-w-32 shrink-0 gap-1"><kbd v-for="combo in row.keys" :key="combo" class="border border-[var(--wire-fine)] px-1 font-mono text-xs">{{ keyCap(combo) }}</kbd></span>
+                  <span>{{ row.text }}</span>
+                </dd>
+              </dl>
+            </div>
           </template>
 
           <template v-else>

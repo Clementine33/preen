@@ -971,13 +971,35 @@ func (r *Repository) DeleteWork(id works.WorkCode) *works.Error {
 	if err := tx.Commit(); err != nil {
 		return internalError(err)
 	}
+	r.catalogChanged()
 	return nil
 }
 
-// collectBlockers lists why a work may not be deleted: a copy on disk, or
-// another work's evidence pointing at it, or a curated collection membership.
+// collectBlockers checks stored copy bindings, personal data and inbound evidence
+// in the deleting write transaction; availability on disk never affects eligibility.
 func collectBlockers(tx *sql.Tx, id works.WorkCode) ([]string, error) {
 	blockers := []string{}
+	var rating, note, tags, listening bool
+	if err := tx.QueryRow(`SELECT
+	 EXISTS (SELECT 1 FROM work_user_data WHERE work_id = ? AND rating IS NOT NULL),
+	 EXISTS (SELECT 1 FROM work_user_data WHERE work_id = ? AND note <> ''),
+	 EXISTS (SELECT 1 FROM work_user_tags WHERE work_id = ?),
+	 EXISTS (SELECT 1 FROM work_listening WHERE work_id = ?)`,
+		string(id), string(id), string(id), string(id)).Scan(&rating, &note, &tags, &listening); err != nil {
+		return nil, err
+	}
+	if rating {
+		blockers = append(blockers, "a personal rating is saved for this work")
+	}
+	if note {
+		blockers = append(blockers, "a personal note is saved for this work")
+	}
+	if tags {
+		blockers = append(blockers, "user tags are attached to this work")
+	}
+	if listening {
+		blockers = append(blockers, "listening records are saved for this work")
+	}
 
 	var copies int
 	if err := tx.QueryRow("SELECT COUNT(*) FROM work_copies WHERE work_id = ?", string(id)).Scan(&copies); err != nil {
@@ -1012,6 +1034,18 @@ func collectBlockers(tx *sql.Tx, id works.WorkCode) ([]string, error) {
 }
 
 // ==================== shared row helpers ====================
+
+// requireWork checks existence while the caller holds the write transaction.
+func requireWork(tx *sql.Tx, id works.WorkCode) error {
+	var exists bool
+	if err := tx.QueryRow("SELECT EXISTS (SELECT 1 FROM works WHERE id = ?)", string(id)).Scan(&exists); err != nil {
+		return err
+	}
+	if !exists {
+		return works.NotFound(works.CodeWorkNotFound, "no such work")
+	}
+	return nil
+}
 
 // formatWorksTimestamp renders a time in the catalog's fixed-width UTC form.
 func formatWorksTimestamp(t time.Time) string {

@@ -139,7 +139,7 @@ type Store interface {
 	SaveOutboundProxy(url string, now time.Time) error
 
 	// DeleteWork permanently removes a work. It returns a WORK_IN_USE refusal
-	// when a copy or another work's evidence still points at it.
+	// when a copy, personal data, collection or another work's evidence holds it.
 	DeleteWork(id WorkCode) *Error
 
 	// WorkCopyRoots reads the copies of one work joined to their library

@@ -19,6 +19,9 @@ func (r *Repository) RemoveCollectionWork(ctx context.Context, id string, work w
 	if _, lookupErr := collectionInTransaction(ctx, tx, id); lookupErr != nil {
 		return lookupErr
 	}
+	if lookupErr := requireWork(tx, work); lookupErr != nil {
+		return lookupErr
+	}
 	if err := removeCollectionWork(ctx, tx, id, work, now); err != nil {
 		return err
 	}
@@ -57,6 +60,9 @@ func (r *Repository) MoveCollectionWork(
 	}
 	defer tx.Rollback()
 	if _, lookupErr := collectionInTransaction(ctx, tx, id); lookupErr != nil {
+		return lookupErr
+	}
+	if lookupErr := requireWork(tx, work); lookupErr != nil {
 		return lookupErr
 	}
 	from, err := collectionPosition(ctx, tx, id, work)

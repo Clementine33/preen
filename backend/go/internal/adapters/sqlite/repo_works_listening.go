@@ -81,15 +81,18 @@ func (r *Repository) PutListening(
 
 // ClearListening removes every row of the work; an unknown work is a 404.
 func (r *Repository) ClearListening(id works.WorkCode) error {
-	var exists int
-	if err := r.db.QueryRow("SELECT COUNT(*) FROM works WHERE id = ?", string(id)).Scan(&exists); err != nil {
+	tx, err := r.db.Begin()
+	if err != nil {
 		return err
 	}
-	if exists == 0 {
-		return works.NotFound(works.CodeWorkNotFound, "no such work")
+	defer tx.Rollback()
+	if err := requireWork(tx, id); err != nil {
+		return err
 	}
-	_, err := r.db.Exec("DELETE FROM work_listening WHERE work_id = ?", string(id))
-	return err
+	if _, err := tx.Exec("DELETE FROM work_listening WHERE work_id = ?", string(id)); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 // scanListening reads listeningColumns; lead are extra columns selected before them.

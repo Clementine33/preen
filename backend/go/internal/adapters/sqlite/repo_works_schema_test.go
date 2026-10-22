@@ -13,7 +13,7 @@ func TestCatalogTablesAreStrict(t *testing.T) {
 	repo := newTestRepository(t)
 	for _, table := range []string{
 		"works", "circles", "voice_actors", "work_voice_actors", "tags", "work_tags",
-		"work_statistics", "work_source_state", "work_relation_self", "work_declared_children",
+		"work_statistics", "work_source_state", "relation_reports", "relation_declared_children",
 		"work_translations", "work_language_editions", "work_copies", "work_user_data",
 		"user_tags", "work_user_tags",
 	} {
@@ -53,12 +53,16 @@ func TestCatalogColumnConstraints(t *testing.T) {
 			"INSERT INTO work_source_state (work_id, data_group, source, fetched_at) VALUES ('RJ00000001', 'statistics', 'asmr_one', '" + testStamp + "')",
 		},
 		{
+			"relation freshness cannot have a second authority",
+			"INSERT INTO work_source_state (work_id, data_group, source, fetched_at) VALUES ('RJ00000001', 'relations', 'dlsite', '" + testStamp + "')",
+		},
+		{
 			"an unknown data group",
 			"INSERT INTO work_source_state (work_id, data_group, source, fetched_at) VALUES ('RJ00000001', 'everything', 'dlsite', '" + testStamp + "')",
 		},
 		{
 			"an unknown relation role",
-			"INSERT INTO work_relation_self (work_id, role, source, fetched_at) VALUES ('RJ00000001', 'sequel', 'dlsite', '" + testStamp + "')",
+			"INSERT INTO relation_reports (subject_rj, role, source, fetched_at) VALUES ('RJ00000001', 'sequel', 'dlsite', '" + testStamp + "')",
 		},
 	}
 	for _, tc := range refused {
@@ -71,7 +75,7 @@ func TestCatalogColumnConstraints(t *testing.T) {
 				_, _ = repo.DB().Exec("DELETE FROM work_user_data WHERE work_id = 'RJ00000001'")
 				_, _ = repo.DB().Exec("DELETE FROM work_statistics WHERE work_id = 'RJ00000001'")
 				_, _ = repo.DB().Exec("DELETE FROM work_source_state WHERE work_id = 'RJ00000001'")
-				_, _ = repo.DB().Exec("DELETE FROM work_relation_self WHERE work_id = 'RJ00000001'")
+				_, _ = repo.DB().Exec("DELETE FROM relation_reports WHERE subject_rj = 'RJ00000001'")
 				_, _ = repo.DB().Exec("UPDATE works SET nsfw = NULL, release_date = NULL WHERE id = 'RJ00000001'")
 			})
 		})
@@ -99,13 +103,20 @@ func TestCatalogColumnConstraints(t *testing.T) {
 		}
 	}
 
-	// The child edge needs the declared child to exist, which is what makes a
-	// declared child always reachable.
-	if _, err := repo.DB().Exec(
-		"INSERT INTO work_declared_children (declaring_work_id, child_work_id, source, fetched_at) VALUES ('RJ00000001', 'RJ00000009', 'dlsite', '" + testStamp + "')",
-	); err == nil {
-		t.Error("a declaration pointing at a work that does not exist was accepted")
+	// Declarations require an owning report, but the child need not be a work.
+	if _, err := repo.DB().
+		Exec("INSERT INTO relation_declared_children VALUES ('RJ00000001', 'RJ00000009')"); err == nil {
+		t.Fatal("declaration without a report was accepted")
 	}
+	if _, err := repo.DB().
+		Exec("INSERT INTO relation_reports(subject_rj,role,source,fetched_at) VALUES ('RJ00000001','parent','dlsite','" + testStamp + "')"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.DB().
+		Exec("INSERT INTO relation_declared_children VALUES ('RJ00000001', 'RJ00000009')"); err != nil {
+		t.Fatal(err)
+	}
+
 	_ = work
 }
 

@@ -1,6 +1,6 @@
 // Package works owns the logical work catalog: the work numbers as immutable
-// identities, the source metadata of a work, the relations between an original
-// and its translations, and the single user's data about a work. The physical
+// identities, catalog metadata, independent source relation reports and their
+// resolved relations, and the single user's data about a work. The physical
 // copies of a work inside a media library bind to it from here; the file facts
 // themselves stay with package inventory.
 // Ordered collections belong to package collections; this catalog exposes

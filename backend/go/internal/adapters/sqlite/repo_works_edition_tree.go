@@ -22,8 +22,8 @@ func (r *Repository) loadEditionTree(detail *works.WorkDetail) ([]works.EditionS
 	}
 
 	rows, err := r.db.Query(`
-		SELECT declaring_work_id, child_work_id FROM work_declared_children
-		WHERE declaring_work_id IN (`+placeholderList(len(pageIDs))+`)
+		SELECT declaring_rj, child_rj FROM relation_declared_children
+		WHERE declaring_rj IN (`+placeholderList(len(pageIDs))+`)
 		UNION
 		SELECT parent_work_id, work_id FROM work_translations
 		WHERE parent_work_id IN (`+placeholderList(len(pageIDs))+`)

@@ -21,12 +21,17 @@ Six-digit and eight-digit spellings of the same number are the same work; a
 seven-digit run is not a work number at all.
 _Avoid_: Using the source's own spelling as the key.
 
-**Relation Placeholder**:
-A work a source's relation report named but no scan has found on disk. It is
-reachable through its relations and holds no personal data (writing it is
-refused), and it becomes an ordinary entry the moment a scan finds it — its
-collection time, not the source's report, is what makes it collected.
-_Avoid_: A second way to create a work.
+**External Work Reference**:
+A source-reported Work Number used to describe a relationship, whether or not
+that number has ever been collected. An uncollected reference carries a number,
+language, relationship and source link, but no personal data or full Work detail.
+_Avoid_: Relation Placeholder; treating a source mentioning a number as collecting a Work.
+
+**Relation Report**:
+A source's account of one numbered work's role, language, original, parent and
+declared children, with its provenance and observation time. The subject need
+not be collected, and keeping its report does not collect it.
+_Avoid_: A resolved relationship; a full external Work entry.
 
 **Copy (Work Binding)**:
 One scanned Work Root bound to one work. The binding is maintained by scanning and directory rename
@@ -53,10 +58,10 @@ identifies R18; a false flag cannot distinguish R15 from all ages.
 _Avoid_: Treating every non-R18 work as all ages.
 
 **Metadata Refresh**:
-A request to retrieve source data groups for explicitly selected existing Works,
-including Relation Placeholders. Missing-only refresh fills unreported groups;
-dynamic refresh renews sales and relation reports; full refresh renews all groups.
-Reported Chinese translation ancestors are filled as Relation Placeholders.
+A request to retrieve source data groups for explicitly selected existing Works.
+Missing-only refresh fills unreported groups; dynamic refresh renews sales and
+relation reports; full refresh renews all groups. Necessary external Relation
+Reports may be retrieved without collecting their subjects.
 _Avoid_: Collecting sibling translations or following every language edition.
 
 **Tag Language**:
@@ -64,6 +69,12 @@ The selected language for source tag names. It does not select a Work's title
 language or its circle: Chinese edition titles follow their own edition language,
 and their circle belongs to the Japanese original under its Japanese name.
 _Avoid_: A title translation preference; the translator as the work's circle.
+
+**Unreferenced Source Entity**:
+A source-provided tag, voice actor or circle that no Work currently carries,
+regardless of its name or language. User-created tags and classification
+settings remain personal vocabulary even when no Work uses them.
+_Avoid_: Treating a Japanese name or a change of Tag Language as proof that a tag is unused.
 
 **Chinese Translation Chain**:
 The Japanese original, a simplified or traditional Chinese edition page, and
@@ -85,12 +96,12 @@ _Avoid_: Calling an edition a "version", or treating the edition page as the thi
 **Held**:
 A Work that has at least one Copy in any Library right now, online or not. An
 edition is held when its root or any translation under it is held. A collected
-Work that has lost every Copy is not held; a Relation Placeholder never is.
-_Avoid_: Using "collected" (first found by a scan, kept forever) to mean held.
+Work that has lost every Copy is not held; an uncollected external reference never is.
+_Avoid_: Using "collected" (first found by a scan, retained while the Work record exists) to mean held.
 
 **Relation Evidence / Resolved Relation**:
-*Evidence* is what sources said — a work's own relation report, and the child
-edges other works declared. *Resolved* is what this build derives from the
+*Evidence* is what sources said in Relation Reports, including the children
+they declared; the subjects need not be collected. *Resolved* is what this build derives from the
 evidence: the role, language, original and parent a reader sees. Evidence may
 contain a conflict, which is stored and warned about; the resolved value is
 recomputed whenever evidence changes, and being derived it never blocks a

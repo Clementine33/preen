@@ -26,6 +26,12 @@ type RelationViolation struct {
 // point back at the work that outranked it - that is stored disagreement, not
 // a relation, and it does not participate in inheritance.
 func ValidateRelations(ev Evidence) *RelationViolation {
+	return ValidateResolvedRelations(ev, Resolve(ev))
+}
+
+// ValidateResolvedRelations checks evidence against its already computed
+// resolution so transactional import can reuse it for validation and storage.
+func ValidateResolvedRelations(ev Evidence, resolution Resolution) *RelationViolation {
 	for _, id := range ev.sortedSelfIDs() {
 		self := ev.Self[id]
 		switch {
@@ -43,8 +49,8 @@ func ValidateRelations(ev Evidence) *RelationViolation {
 			}
 		}
 		// An original chain: this work names an original that itself names an
-		// original, so neither is the root of the family. A placeholder parent
-		// has no report, so an unknown link is left unknown.
+		// original, so neither is the root of the family. A number without a
+		// report leaves its unknown link unknown.
 		if self.OriginalRJ != nil {
 			if upstream, reported := ev.Self[*self.OriginalRJ]; reported && upstream.OriginalRJ != nil {
 				return &RelationViolation{
@@ -55,7 +61,7 @@ func ValidateRelations(ev Evidence) *RelationViolation {
 			}
 		}
 	}
-	if cycle := findParentCycle(Resolve(ev).Relations); cycle != nil {
+	if cycle := findParentCycle(resolution.Relations); cycle != nil {
 		return &RelationViolation{
 			Code:    CodeRelationCycle,
 			WorkID:  cycle[0],

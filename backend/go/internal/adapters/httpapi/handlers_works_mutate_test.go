@@ -354,9 +354,8 @@ func TestUserTagLifecycle(t *testing.T) {
 	}
 }
 
-// TestDeleteWorkRefusesWhileReferenced: the two things that hold a work in
-// place, and the deletion that succeeds once neither is there.
-func TestDeleteWorkRefusesWhileReferenced(t *testing.T) {
+// Relationship evidence outlives deletion of a catalog entry through HTTP.
+func TestDeleteWorkPreservesExternalRelation(t *testing.T) {
 	engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) {
 		wireWorks(d, fixture)
 		seedHTTPWork(t, fixture, "RJ00000001", "the original")
@@ -372,25 +371,22 @@ func TestDeleteWorkRefusesWhileReferenced(t *testing.T) {
 		t.Fatalf("import status = %d (body=%s)", w.Code, w.Body.String())
 	}
 
-	conflict := doRequest(t, engine, http.MethodDelete, "/api/v1/works/RJ00000001", nil, nil)
-	if conflict.Code != http.StatusConflict {
-		t.Fatalf("status = %d, want 409 (body=%s)", conflict.Code, conflict.Body.String())
+	deleted := doRequest(t, engine, http.MethodDelete, "/api/v1/works/RJ00000001", nil, nil)
+	if deleted.Code != http.StatusNoContent {
+		t.Fatalf("delete = %d: %s", deleted.Code, deleted.Body.String())
 	}
-	var envelope struct {
-		Code    string   `json:"code"`
-		Details []string `json:"details"`
+	response := doRequest(t, engine, http.MethodGet, "/api/v1/works/RJ00000002", nil, nil)
+	var detail struct {
+		Relation struct {
+			Parent string `json:"parent_rj"`
+		} `json:"relation"`
 	}
-	if err := json.Unmarshal(conflict.Body.Bytes(), &envelope); err != nil {
+	if err := json.Unmarshal(response.Body.Bytes(), &detail); err != nil {
 		t.Fatal(err)
 	}
-	if envelope.Code != works.CodeWorkInUse {
-		t.Errorf("code = %q, want %q", envelope.Code, works.CodeWorkInUse)
+	if response.Code != http.StatusOK || detail.Relation.Parent != "RJ00000001" {
+		t.Fatalf("relation after deletion = %s", response.Body.String())
 	}
-	if len(envelope.Details) == 0 {
-		t.Error("the refusal named no reference")
-	}
-
-	// Deleting the translation is fine, and then the original is free.
 	if w := doRequest(
 		t,
 		engine,
@@ -399,18 +395,9 @@ func TestDeleteWorkRefusesWhileReferenced(t *testing.T) {
 		nil,
 		nil,
 	); w.Code != http.StatusNoContent {
-		t.Fatalf("delete status = %d, want 204 (body=%s)", w.Code, w.Body.String())
+		t.Fatalf("delete = %d: %s", w.Code, w.Body.String())
 	}
-	if w := doRequest(
-		t,
-		engine,
-		http.MethodDelete,
-		"/api/v1/works/RJ00000001",
-		nil,
-		nil,
-	); w.Code != http.StatusNoContent {
-		t.Fatalf("delete status = %d, want 204 (body=%s)", w.Code, w.Body.String())
-	}
+
 	if w := doRequest(t, engine, http.MethodGet, "/api/v1/works/RJ00000001", nil, nil); w.Code != http.StatusNotFound {
 		t.Errorf("status = %d, want the work to be gone", w.Code)
 	}

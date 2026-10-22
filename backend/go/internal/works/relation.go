@@ -22,8 +22,8 @@ const (
 	CodeRelationAmbiguous = "RELATION_AMBIGUOUS"
 )
 
-// RelationSelf is one work's own relation report: the row in
-// work_relation_self. Its presence in Evidence.Self means the work has
+// RelationSelf is one canonical number's own independent relation report.
+// Its presence in Evidence.Self means the work has
 // reported; its absence means it has not, which is not the same as reporting
 // no children.
 type RelationSelf struct {

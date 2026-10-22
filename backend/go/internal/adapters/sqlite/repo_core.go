@@ -49,7 +49,7 @@ type Repository struct {
 	BitrateWriteMu sync.Mutex
 
 	// OnCatalogChanged is called after a commit that changes what the works
-	// pages list: metadata, inventory merges and observations, renames and
+	// pages list: work deletion, metadata, inventory merges and observations, renames and
 	// library removal or re-rooting. It must be quick and never call back in.
 	OnCatalogChanged func()
 }

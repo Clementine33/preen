@@ -31,7 +31,7 @@ work, while `RJ1657200` (7 digits) is refused.
 | POST | `/api/v1/user-tags` | Body `{"name":"…"}`; 200 the tag, **creating it if new and returning the existing one otherwise** — creating by name is idempotent. |
 | PATCH | `/api/v1/user-tags/{id}` | Body `{"name":"…"}`; 200 the tag, `USER_TAG_EXISTS` (409) on a name another tag holds. |
 | DELETE | `/api/v1/user-tags/{id}` | 204; the tag's relations go with it, no work is touched. |
-| DELETE | `/api/v1/works/{rj}` | 204; `WORK_IN_USE` (409) with `details[]` while a copy is bound or another work's evidence points at it. |
+| DELETE | `/api/v1/works/{rj}` | 204; `WORK_NOT_FOUND` (404) for an absent Work; `WORK_IN_USE` (409) with `details[]` while stored Copies, personal data, collection membership or inbound relationship evidence protect it (below). |
 
 Ratings are integers 1–10 (`null` means unrated, which is not 0). A work that
 exists only as a relation placeholder holds no personal data: writing it is
@@ -46,7 +46,8 @@ A work's Listening Position is personal data beside rating and note
 `rendition` is the string the client derives for the track list's variant (`""`
 for a single root Rendition). It is overwritten as listening moves on and is
 not a log. Writing a Relation Placeholder is `WORK_IS_PLACEHOLDER` (409); losing
-Copies keeps the rows, and an explicit Work deletion removes them with the rating.
+Copies keeps the rows. Listening Positions and Finished marks block Work deletion;
+clear them explicitly before deleting the Work.
 
 A row holds `track_key` (`variant/stem`), `position_sec`, `track_index` and
 `track_count` (the track's 0-based place among the Rendition's tracks, a client
@@ -82,6 +83,37 @@ absent without moving existing favorites; clearing it removes membership.
 Ratings and notes retain their existing behavior. Favorites and other collection
 memberships now block permanent Work deletion with `WORK_IN_USE`; `details[]`
 names each referencing collection. Removing a Copy or Library preserves membership.
+
+## Permanent Work deletion
+
+Deleting a Work removes database records only; media files are untouched. Any
+stored Copy binding protects it, including one in an offline Library: deletion
+never scans disk or treats inaccessible files as absent. A rating, a nonempty
+note (including whitespace), user tags, Favorites or other collection membership,
+or any Listening Position or Finished mark also protects it. An empty user-data
+row with a null rating and empty note does not. First-collected time and source
+metadata alone do not protect it. Inbound relationship evidence remains a blocker.
+
+`WORK_IN_USE` retains the existing string-array `details[]` contract and includes
+every actual reason: `a local copy is bound to this work`,
+`a personal rating is saved for this work`, `a personal note is saved for this work`,
+`user tags are attached to this work`, `listening records are saved for this work`,
+`another work points at this one: <rj>`, and
+`a collection holds this work: <id> <name>` as applicable.
+
+Eligibility and deletion run in one protected write transaction. Personal-data
+patches, user-tag replacement, collection append, and Listening Position writes
+check Work existence in their write transaction: if an edit commits first, its
+data blocks deletion; if deletion commits first, the edit returns 404 /
+`WORK_NOT_FOUND`. Clearing Listening Positions also checks existence and deletes
+in one write transaction; repeating it for an existing Work succeeds, while a
+deleted Work returns `WORK_NOT_FOUND`.
+
+Successful deletion emits the existing `works_changed` notification after commit.
+A refusal or rolled-back transaction emits none. The user-tag vocabulary and
+classifier settings survive Work deletion.
+
+## Work detail relationships
 
 The detail route (not summaries) also answers `collection_ids`: the IDs of the
 [user collections](collections.md) holding the Work, in the collection list's order

@@ -173,7 +173,7 @@ func (s *Service) DeleteUserTag(id string) *Error {
 	return nil
 }
 
-// Delete permanently removes one work, if nothing points at it.
+// Delete removes a work only when no copy, personal data or inbound evidence protects it.
 func (s *Service) Delete(id WorkCode) *Error {
 	return s.store.DeleteWork(id)
 }

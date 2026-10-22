@@ -22,7 +22,7 @@ six/eight-digit, case-insensitive normalization and return canonical eight-digit
 | PATCH | `/api/v1/collections/{id}` | Body `{"name":"Rest"}`; 200 the renamed collection. |
 | DELETE | `/api/v1/collections/{id}` | 204; deletes only the collection and its membership. |
 | POST | `/api/v1/collections/{id}/works` | Body `{"rjs":["RJ00000002","RJ00000001"]}`; 200 `{"added":[…],"skipped":[…],"work_count":N}`. |
-| DELETE | `/api/v1/collections/{id}/works/{rj}` | 204; an already absent member of an existing collection succeeds. |
+| DELETE | `/api/v1/collections/{id}/works/{rj}` | 204; an already absent member succeeds when the collection and Work still exist. |
 | PATCH | `/api/v1/collections/{id}/works/{rj}` | Body `{"before_rj":"RJ00000002"}` or `{"before_rj":null}`; 204 after moving before that member or to the end. |
 
 Collection fields are `id`, `name`, `work_count`, `created_at` and `updated_at`.
@@ -112,12 +112,17 @@ expected version, schema version, fractional index or persistent idempotency key
 ## Missing resources and deletion protection
 
 An unknown collection is 404 / `COLLECTION_NOT_FOUND`, including member removal.
-Repeating member removal in an existing collection is a no-op; repeating deletion
+An absent Work returns 404 / `WORK_NOT_FOUND` on append, member removal or moving
+that Work, checked in the same write transaction as the edit. A move of a still
+existing Work whose membership was removed continues to return
+`COLLECTION_MEMBER_CONFLICT`.
+Repeating member removal for a still-existing Work in an existing collection is a no-op; repeating deletion
 of the collection itself is a 404.
 
 Membership blocks permanent Work deletion with 409 / `WORK_IN_USE`. Each referencing
 collection adds a `details[]` string `a collection holds this work: <id> <name>`,
-ordered by collection ID. Existing Copy and relationship-evidence blockers remain.
+ordered by collection ID. Existing Copy and relationship-evidence blockers remain,
+alongside the [personal-data protection rules](works.md#permanent-work-deletion).
 The ID is stable; the name is arbitrary user text. Remove memberships before deleting
 a Work, including Favorites membership.
 

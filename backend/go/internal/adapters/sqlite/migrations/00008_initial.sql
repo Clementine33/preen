@@ -519,22 +519,18 @@ CREATE TABLE work_statistics (
 -- DLsite: it is enforced by the storage, not by a handler remembering to.
 CREATE TABLE work_source_state (
     work_id TEXT NOT NULL REFERENCES works(id) ON DELETE CASCADE,
-    data_group TEXT NOT NULL CHECK (data_group IN ('core','statistics','relations','editions')),
+    data_group TEXT NOT NULL CHECK (data_group IN ('core','statistics','editions')),
     source TEXT NOT NULL CHECK (source IN ('dlsite','asmr_one')),
     fetched_at TEXT NOT NULL,
     PRIMARY KEY (work_id, data_group),
     CHECK (data_group <> 'statistics' OR source = 'dlsite')
 ) STRICT;
 
--- A work's own relation report, one row per work. The row's presence is the
--- statement "this work has reported": its absence means "not reported yet",
--- which is a different fact from "reported, and the child set is empty".
--- role is stored explicitly (from is_original/is_parent/is_child) rather than
--- derived from edges: an original has no outbound edge at all and a parent
--- without children has none either, so an edgeless report could not recover
--- its own role. language is not an edge either.
-CREATE TABLE work_relation_self (
-    work_id TEXT PRIMARY KEY REFERENCES works(id) ON DELETE CASCADE,
+-- A source report belongs to its canonical subject number, independently of
+-- catalog membership. Presence includes an explicit report with no children;
+-- source and fetched_at are the sole authority for relation freshness.
+CREATE TABLE relation_reports (
+    subject_rj TEXT PRIMARY KEY,
     role TEXT NOT NULL CHECK (role IN ('original','parent','child')),
     language TEXT,
     original_rj TEXT,
@@ -542,36 +538,25 @@ CREATE TABLE work_relation_self (
     source TEXT NOT NULL CHECK (source IN ('dlsite','asmr_one')),
     fetched_at TEXT NOT NULL
 ) STRICT;
-CREATE INDEX idx_work_relation_self_parent
-    ON work_relation_self(parent_rj) WHERE parent_rj IS NOT NULL;
 
--- The child edges a work declared (child_worknos expanded into rows). Rows
--- rather than a JSON column so the foreign key holds - a declared child always
--- has a work row - and so the inbound question "who declares me a child" is an
--- indexed lookup.
-CREATE TABLE work_declared_children (
-    declaring_work_id TEXT NOT NULL REFERENCES works(id) ON DELETE CASCADE,
-    child_work_id TEXT NOT NULL REFERENCES works(id),
-    source TEXT NOT NULL CHECK (source IN ('dlsite','asmr_one')),
-    fetched_at TEXT NOT NULL,
-    PRIMARY KEY (declaring_work_id, child_work_id)
+-- Declarations belong to a report; their targets are external numbers.
+CREATE TABLE relation_declared_children (
+    declaring_rj TEXT NOT NULL REFERENCES relation_reports(subject_rj) ON DELETE CASCADE,
+    child_rj TEXT NOT NULL,
+    PRIMARY KEY (declaring_rj, child_rj)
 ) STRICT;
-CREATE INDEX idx_work_declared_children_child
-    ON work_declared_children(child_work_id);
 
--- The resolved relation of a work, computed from the two evidence tables by
--- the rules in ADR 0009. It is DERIVED data and never blocks a deletion: both
--- foreign keys are ON DELETE SET NULL, so removing a work can only recompute
--- or blank this row, never fail because of it. With the default NO ACTION a
--- deletable work (no copies, no inbound evidence) would be refused by this
--- very row, which is a rule the database contradicts.
+-- Only catalog works own derived rows. Original and parent targets are external
+-- numbers: removing their catalog entries does not erase accepted knowledge.
 CREATE TABLE work_translations (
     work_id TEXT PRIMARY KEY REFERENCES works(id) ON DELETE CASCADE,
     role TEXT CHECK (role IS NULL OR role IN ('original','parent','child')),
     language TEXT,
-    original_work_id TEXT REFERENCES works(id) ON DELETE SET NULL,
-    parent_work_id TEXT REFERENCES works(id) ON DELETE SET NULL
+    original_work_id TEXT,
+    parent_work_id TEXT
 ) STRICT;
+CREATE INDEX idx_work_translations_parent
+    ON work_translations(parent_work_id) WHERE parent_work_id IS NOT NULL;
 
 -- The language editions a work declared. version_root_rj is a declared list
 -- entry, not a relation edge, so it carries no foreign key.

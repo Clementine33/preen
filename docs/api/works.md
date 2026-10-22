@@ -31,7 +31,7 @@ work, while `RJ1657200` (7 digits) is refused.
 | POST | `/api/v1/user-tags` | Body `{"name":"…"}`; 200 the tag, **creating it if new and returning the existing one otherwise** — creating by name is idempotent. |
 | PATCH | `/api/v1/user-tags/{id}` | Body `{"name":"…"}`; 200 the tag, `USER_TAG_EXISTS` (409) on a name another tag holds. |
 | DELETE | `/api/v1/user-tags/{id}` | 204; the tag's relations go with it, no work is touched. |
-| DELETE | `/api/v1/works/{rj}` | 204; `WORK_NOT_FOUND` (404) for an absent Work; `WORK_IN_USE` (409) with `details[]` while stored Copies, personal data, collection membership or inbound relationship evidence protect it (below). |
+| DELETE | `/api/v1/works/{rj}` | 204; `WORK_NOT_FOUND` (404) for an absent Work; `WORK_IN_USE` (409) with `details[]` while stored Copies, personal data or collection membership protect it (below). |
 
 Ratings are integers 1–10 (`null` means unrated, which is not 0). A work that
 exists only as a relation placeholder holds no personal data: writing it is
@@ -92,13 +92,16 @@ never scans disk or treats inaccessible files as absent. A rating, a nonempty
 note (including whitespace), user tags, Favorites or other collection membership,
 or any Listening Position or Finished mark also protects it. An empty user-data
 row with a null rating and empty note does not. First-collected time and source
-metadata alone do not protect it. Inbound relationship evidence remains a blocker.
+metadata alone do not protect it. Relationship references do not protect catalog
+membership: deleting a referenced Work keeps its independent relation report and
+other Works' resolved original/parent numbers. Only records owned by the Work
+are removed; deletion does not load or recompute the relation graph.
 
 `WORK_IN_USE` retains the existing string-array `details[]` contract and includes
 every actual reason: `a local copy is bound to this work`,
 `a personal rating is saved for this work`, `a personal note is saved for this work`,
 `user tags are attached to this work`, `listening records are saved for this work`,
-`another work points at this one: <rj>`, and
+and
 `a collection holds this work: <id> <name>` as applicable.
 
 Eligibility and deletion run in one protected write transaction. Personal-data
@@ -329,6 +332,23 @@ playback. Thumbnail blobs are keyed by copy, path and `thumb_v`; changed
 versions revoke the old blob and reload both thumbnail and original image.
 
 ## Source metadata import
+
+The target must already have a catalog entry; an absent target returns
+`WORK_NOT_FOUND` (404). Accepted relations are independent reports keyed by their
+canonical subject number. They retain role, language, original/parent numbers,
+child declarations, source and fetch time even after that subject leaves the
+catalog. Child declarations belong to their report; their target numbers do not
+require catalog entries. Derived rows belong only to existing catalog Works,
+and their original/parent numbers may refer to external subjects.
+
+Report source and fetch time are the sole authority for relation freshness,
+including an explicit report with no children. Metadata-state reads merge these
+report states with catalog-owned core/statistics/editions states; deletion and
+re-collection do not reset a retained report. Internal external-report import can
+save an uncollected subject without creating a Work; it is not a new HTTP route.
+Every accepted report saves evidence, validates structure, updates affected
+catalog relations and creates warnings in one transaction. Failure rolls it all
+back; the existing `works_changed` notification follows successful commit.
 
 The body carries up to four **independent** groups; a group that is absent is
 left exactly as it was, and a group that is present is a complete snapshot of

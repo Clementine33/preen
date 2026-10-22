@@ -909,13 +909,8 @@ func (r *Repository) DeleteUserTag(id string) error {
 	return nil
 }
 
-// DeleteWork permanently removes a work, after checking that nothing points at
-// it and clearing what it pointed at.
-//
-// The decision uses evidence, never a derived result: the resolved relation
-// rows of other works are computed data and are recomputed here rather than
-// consulted as if they were authoritative. That is what keeps "the rules say
-// this work may go" and "the database agrees" the same statement.
+// DeleteWork removes only catalog-owned records. Independent source reports
+// and other works' derived external targets survive catalog membership changes.
 func (r *Repository) DeleteWork(id works.WorkCode) *works.Error {
 	tx, err := r.db.Begin()
 	if err != nil {
@@ -941,30 +936,6 @@ func (r *Repository) DeleteWork(id works.WorkCode) *works.Error {
 		return inUse
 	}
 
-	before, err := loadEvidence(tx)
-	if err != nil {
-		return internalError(err)
-	}
-	// Clear this work's own evidence first: what it declared, and what it said
-	// about itself. Only then does the recomputation see the catalog the
-	// deletion leaves behind.
-	if _, execErr := tx.Exec(
-		"DELETE FROM work_declared_children WHERE declaring_work_id = ?",
-		string(id),
-	); execErr != nil {
-		return internalError(execErr)
-	}
-	if _, execErr := tx.Exec("DELETE FROM work_relation_self WHERE work_id = ?", string(id)); execErr != nil {
-		return internalError(execErr)
-	}
-	after, err := loadEvidence(tx)
-	if err != nil {
-		return internalError(err)
-	}
-	affected := works.AffectedWorks(before, after, []works.WorkCode{id})
-	if err := recomputeRelations(tx, after, affected); err != nil {
-		return internalError(err)
-	}
 	if _, err := tx.Exec("DELETE FROM works WHERE id = ?", string(id)); err != nil {
 		return internalError(err)
 	}
@@ -975,7 +946,7 @@ func (r *Repository) DeleteWork(id works.WorkCode) *works.Error {
 	return nil
 }
 
-// collectBlockers checks stored copy bindings, personal data and inbound evidence
+// collectBlockers checks stored copy bindings and personal data
 // in the deleting write transaction; availability on disk never affects eligibility.
 func collectBlockers(tx *sql.Tx, id works.WorkCode) ([]string, error) {
 	blockers := []string{}
@@ -1009,26 +980,6 @@ func collectBlockers(tx *sql.Tx, id works.WorkCode) ([]string, error) {
 		blockers = append(blockers, "a local copy is bound to this work")
 	}
 
-	rows, err := tx.Query(`
-		SELECT declaring_work_id FROM work_declared_children WHERE child_work_id = ?
-		UNION
-		SELECT work_id FROM work_relation_self WHERE original_rj = ? OR parent_rj = ?
-		ORDER BY 1
-	`, string(id), string(id), string(id))
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var other string
-		if scanErr := rows.Scan(&other); scanErr != nil {
-			return nil, scanErr
-		}
-		blockers = append(blockers, "another work points at this one: "+other)
-	}
-	if rowsErr := rows.Err(); rowsErr != nil {
-		return nil, rowsErr
-	}
 	collectionRefs, err := collectionBlockers(tx, id)
 	return append(blockers, collectionRefs...), err
 }

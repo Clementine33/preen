@@ -106,6 +106,9 @@ type Store interface {
 	// ImportMetadata applies a validated submission in one transaction,
 	// recomputing every derived relation the change affects.
 	ImportMetadata(in *ValidatedImport, now time.Time) (ImportOutcome, error)
+	// ImportRelationReport accepts evidence for a canonical number whether or
+	// not that number has a catalog entry; it never creates one.
+	ImportRelationReport(target WorkCode, group *RelationsGroup) (ImportOutcome, error)
 	// PatchUserData applies a partial update and returns the resulting state.
 	PatchUserData(id WorkCode, patch UserDataPatch, now time.Time) (UserData, error)
 	// PutListening upserts the (work, rendition) Listening Position, dropping a
@@ -139,7 +142,7 @@ type Store interface {
 	SaveOutboundProxy(url string, now time.Time) error
 
 	// DeleteWork permanently removes a work. It returns a WORK_IN_USE refusal
-	// when a copy, personal data, collection or another work's evidence holds it.
+	// when a copy, personal data or collection holds it.
 	DeleteWork(id WorkCode) *Error
 
 	// WorkCopyRoots reads the copies of one work joined to their library

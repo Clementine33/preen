@@ -242,10 +242,7 @@ func TestReropeningADeclarationClearsTheInheritedValues(t *testing.T) {
 	}
 }
 
-// TestWorkWithNoInboundEvidenceCanBeDeleted is the regression for letting a
-// derived row block a deletion the rules permit: the parent declares a child,
-// the child never reported, and the parent has no copy and nothing pointing at
-// it - so the parent must delete, and the child must give up what it inherited.
+// Independent reports preserve the child's relation after its parent leaves the catalog.
 func TestWorkWithNoInboundEvidenceCanBeDeleted(t *testing.T) {
 	repo := newTestRepository(t)
 	parent := seedWork(t, repo, "RJ00000001", true)
@@ -274,32 +271,26 @@ func TestWorkWithNoInboundEvidenceCanBeDeleted(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !after.Relation.IsEmpty() {
-		t.Errorf("the child still holds %+v after its parent was deleted", after.Relation)
+	if after.Relation.ParentID == nil || *after.Relation.ParentID != parent {
+		t.Errorf("the child lost its external parent after deletion: %+v", after.Relation)
 	}
 }
 
-// TestDeleteIsRefusedWhileSomethingPointsAtTheWork: a copy and another work's
-// evidence are the two things that hold a work in place.
-func TestDeleteIsRefusedWhileSomethingPointsAtTheWork(t *testing.T) {
+// Relationship references do not protect catalog membership; copies still do.
+func TestDeleteAllowsRelationshipReferencesButProtectsCopies(t *testing.T) {
 	repo := newTestRepository(t)
 	original := seedWork(t, repo, "RJ00000001", true)
 	translation := seedWork(t, repo, "RJ00000002", true)
-
 	importGroups(t, repo, translation, &works.ValidatedImport{
 		Target:    translation,
 		Relations: relationsGroup(t, works.RoleChild, new(string(original))),
 	})
-
-	refusal := repo.DeleteWork(original)
-	if refusal == nil {
-		t.Fatal("a work another work names as its original was deleted")
+	if refusal := repo.DeleteWork(original); refusal != nil {
+		t.Fatal(refusal)
 	}
-	if refusal.Code != works.CodeWorkInUse {
-		t.Errorf("code = %q, want %q", refusal.Code, works.CodeWorkInUse)
-	}
-	if len(refusal.Details) == 0 {
-		t.Error("the refusal named no blocker")
+	detail, _, err := repo.GetWork(translation)
+	if err != nil || detail.Relation.ParentID == nil || *detail.Relation.ParentID != original {
+		t.Fatalf("external parent lost: %+v, %v", detail, err)
 	}
 
 	// A bound copy holds it too.

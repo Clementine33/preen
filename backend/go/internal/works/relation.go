@@ -74,6 +74,8 @@ type Resolution struct {
 	// known about its relations, which is also what an empty entry means.
 	Relations map[WorkCode]ResolvedRelation
 	Warnings  []RelationWarning
+	// Dependencies records logical node dependencies, excluding OriginalRJ and raw children.
+	Dependencies map[WorkCode][]WorkCode
 }
 
 // Resolve applies the relation rules to one evidence set and returns every
@@ -86,7 +88,25 @@ type Resolution struct {
 // in-progress guard make a cycle that slipped in anyway terminate rather than
 // recurse forever.
 func Resolve(ev Evidence) Resolution {
-	out := Resolution{Relations: map[WorkCode]ResolvedRelation{}}
+	ids := make([]WorkCode, 0, len(ev.Self)+len(ev.DeclaredChildren))
+	for id := range ev.Self {
+		ids = append(ids, id)
+	}
+	for declaring, children := range ev.DeclaredChildren {
+		// Both ends matter: the declaring work, and every child it named. A
+		// child reachable only as the target of a declaration still has a
+		// relation - it inherits one - even though it reported nothing itself.
+		ids = append(ids, declaring)
+		ids = append(ids, children...)
+	}
+	slices.Sort(ids)
+	return ResolveRoots(ev, ids)
+}
+
+// ResolveRoots applies the same rules only to the requested nodes and their effective parents.
+// Index construction does not make unrelated reports logical dependencies.
+func ResolveRoots(ev Evidence, ids []WorkCode) Resolution {
+	out := Resolution{Relations: map[WorkCode]ResolvedRelation{}, Dependencies: map[WorkCode][]WorkCode{}}
 	declarers := ev.declarers()
 
 	resolved := map[WorkCode]ResolvedRelation{}
@@ -107,21 +127,18 @@ func Resolve(ev Evidence) Resolution {
 		settled[id] = true
 		resolved[id] = relation
 		out.Relations[id] = relation
+		deps := slices.Clone(declarers[id])
+		if _, exists := ev.Self[id]; exists {
+			deps = append(deps, id)
+		}
+		if relation.ParentID != nil {
+			deps = append(deps, *relation.ParentID)
+		}
+		slices.Sort(deps)
+		out.Dependencies[id] = slices.Compact(deps)
 		return relation
 	}
 
-	ids := make([]WorkCode, 0, len(ev.Self)+len(ev.DeclaredChildren))
-	for id := range ev.Self {
-		ids = append(ids, id)
-	}
-	for declaring, children := range ev.DeclaredChildren {
-		// Both ends matter: the declaring work, and every child it named. A
-		// child reachable only as the target of a declaration still has a
-		// relation - it inherits one - even though it reported nothing itself.
-		ids = append(ids, declaring)
-		ids = append(ids, children...)
-	}
-	slices.Sort(ids)
 	for _, id := range ids {
 		resolve(id)
 	}

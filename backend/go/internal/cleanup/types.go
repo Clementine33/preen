@@ -17,6 +17,7 @@ const (
 	PlanGenerations   Category = "plan_generations"
 	CoverDownloads    Category = "cover_downloads"
 	Works             Category = "works"
+	RelationReports   Category = "relation_reports"
 	SourceTags        Category = "source_tags"
 	SourceVoiceActors Category = "source_voice_actors"
 	SourceCircles     Category = "source_circles"
@@ -27,6 +28,7 @@ var supportedCategories = []Category{
 	PlanGenerations,
 	CoverDownloads,
 	Works,
+	RelationReports,
 	SourceTags,
 	SourceVoiceActors,
 	SourceCircles,
@@ -72,7 +74,7 @@ func (o Options) Cutoff(category Category, now time.Time) time.Time {
 		return now.Add(-o.ScanRetention)
 	case PlanGenerations:
 		return now.Add(-o.GenerationRetention)
-	case CoverDownloads, Works, SourceTags, SourceVoiceActors, SourceCircles:
+	case CoverDownloads, Works, RelationReports, SourceTags, SourceVoiceActors, SourceCircles:
 		return now
 	default:
 		return now
@@ -81,6 +83,8 @@ func (o Options) Cutoff(category Category, now time.Time) time.Time {
 
 type Store interface {
 	CleanupCandidates(context.Context, Category, time.Time, []Category) ([]string, error)
+	// CleanupGroups preserves indivisible report dependencies within a finite snapshot.
+	CleanupGroups(context.Context, Category, []string) ([][]string, error)
 	CreateCleanupRun(context.Context, Run) error
 	ReadCleanupRun(context.Context) (*Run, error)
 	CleanupBatch(context.Context, string, Category, time.Time, []string) error

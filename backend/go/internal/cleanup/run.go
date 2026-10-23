@@ -68,21 +68,29 @@ func (s *Service) execute(ctx context.Context, run Run, release func()) (string,
 		if err != nil {
 			return s.failure(ctx)
 		}
-		for len(ids) > 0 {
+		groups, err := s.store.CleanupGroups(ctx, category, ids)
+		if err != nil {
+			return s.failure(ctx)
+		}
+		for len(groups) > 0 {
 			if ctx.Err() != nil {
 				return s.failure(ctx)
 			}
-			size := min(len(ids), s.opts.BatchRows)
+			batch := groups[0]
+			groups = groups[1:]
+			for len(groups) > 0 && len(batch)+len(groups[0]) <= s.opts.BatchRows {
+				batch = append(batch, groups[0]...)
+				groups = groups[1:]
+			}
 			if batchErr := s.store.CleanupBatch(
 				ctx,
 				run.ID,
 				category,
 				s.opts.Cutoff(category, run.StartedAt),
-				ids[:size],
+				batch,
 			); batchErr != nil {
 				return s.failure(ctx)
 			}
-			ids = ids[size:]
 			release()
 			release = nil
 			timer := time.NewTimer(s.opts.YieldDelay)

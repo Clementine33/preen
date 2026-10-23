@@ -130,10 +130,14 @@ The detail also answers `edition_tree`: the work's Language Editions resolved
 into up to three slots in the order JPN, CHI_HANS, CHI_HANT, or `null` when the
 tree holds no node besides the work itself (language-free works, works with no
 Chinese edition and no known original). Other languages of `language_editions`
-are not shown here. It is built from the union of the work's `language_editions`,
-its resolved `relation`, and the known children of each edition page (declared
-by the page, or whose resolved parent is the page), so a translation appears
-under an edition page nobody has fetched.
+are not shown here. It combines the work's `language_editions`, its resolved `relation`, and only
+children whose effective resolved parent is that edition page. Raw child
+claims that lose to a self-report or remain ambiguous are never tree edges.
+External reports participate in resolution even when their subject is absent
+from the catalog, so B → X → A retains X as B's parent and A as its original.
+
+The abbreviated example omits the node language, relation and source-link fields
+described below.
 
 ```json
 "edition_tree": [
@@ -153,8 +157,47 @@ under an edition page nobody has fetched.
 
 `is_work` means a collected works row exists; `held` means
 at least one Copy in any Library right now, online or not. A slot is held when its
-root or any translation under it is held. `translations` lists every known
+root or any translation under it is held. `translations` lists every definite resolved
 translation of the page ordered by `rj`; the JPN slot has none.
+
+`relation_nodes` is the lightweight node set, sorted by canonical `rj`, with
+one entry per number: the detail Work, every stored language-edition target,
+every tree node, every node reached along the Work's effective parent chain,
+and its resolved original number. It preserves external intermediate nodes
+even when their language is unknown or outside the tree's three slots.
+Unadopted raw child claims are not added to this set.
+
+Both `relation_nodes` entries and `edition_tree` roots/translations carry
+`rj`, `role`, `is_work`, `held`, `language`, `relation` and `source_url`.
+`relation` has the same nullable `role`, `language`, `original_rj` and `parent_rj`
+fields as the detail's resolved relation. In `relation_nodes`, outer `role` is
+the resolved role (`original`, `parent`, `child`) or `""` when unknown; the tree
+keeps its display roles (`original`, `edition_page`, `translation`). Node
+`language` uses known Core language, then resolved relation language, then the
+stored edition language. Missing values stay `null`; the JPN display slot does
+not imply the original's language is known.
+
+`source_url` is constructed from the validated canonical RJ identity on the
+supported DLsite source; legacy six-digit numbers use that source spelling.
+Fetched URL text is never used for these navigation links. These lightweight
+nodes carry no title, artwork, tags, statistics, personal data or copies.
+`is_work=true` permits local detail navigation; an external number still returns
+404 / `WORK_NOT_FOUND` from the full detail route. A retained report survives
+Work deletion, and scanning the number again restores local presence and reuses
+its relation facts.
+
+`relation_warnings` is an array of `{code,rj,message}`, ordered by `rj` then
+`code`, empty when none. It covers selected nodes and rejected direct child
+claims of those nodes, without unrelated global conflicts. `RELATION_CONFLICT`
+states that an accepted self-report won over a different declarer;
+`RELATION_AMBIGUOUS` leaves the parent unknown when multiple declarers cannot be
+resolved. Diagnostics do not create normal tree edges.
+
+The complete detail is assembled in one deferred read-only SQLite snapshot:
+metadata, relation, editions, diagnostics, node existence/held flags, copy
+count/list, copy library roots (used for `dir_id`), and the stored local-cover
+reference all describe one committed state. Concurrent imports, scans or
+deletions may commit while it is read; a later request observes the newer state.
 
 ## Work content manifest
 

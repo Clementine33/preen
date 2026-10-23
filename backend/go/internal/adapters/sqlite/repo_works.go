@@ -435,9 +435,13 @@ func (r *Repository) attachUserTags(summaries []works.WorkSummary) error {
 	return rows.Err()
 }
 
-// GetWork loads one work in full. Nothing is cached and nothing is
-// materialized: the detail is assembled from the tables that hold each fact.
+// GetWork loads the complete detail in one deferred read-only snapshot.
 func (r *Repository) GetWork(id works.WorkCode) (*works.WorkDetail, bool, error) {
+	tx, err := r.db.BeginTx(context.Background(), &sql.TxOptions{ReadOnly: true})
+	if err != nil {
+		return nil, false, err
+	}
+	defer tx.Rollback()
 	detail := &works.WorkDetail{}
 	var (
 		title, thumbnail, circleName sql.NullString
@@ -451,7 +455,7 @@ func (r *Repository) GetWork(id works.WorkCode) (*works.WorkDetail, bool, error)
 		language, note               sql.NullString
 		copyCount                    int
 	)
-	err := r.db.QueryRow(`
+	err = tx.QueryRow(`
 		SELECT w.title, w.thumbnail_url, c.name, w.nsfw, w.age_category, w.release_date, w.source_url,
 		       w.cover_url, w.sample_cover_url, w.series_id, w.series_name,
 		       w.collected_at, s.dl_count, u.rating, EXISTS (SELECT 1 FROM collection_works f WHERE f.collection_id = 'favorites' AND f.work_id = w.id), u.note, COALESCE(w.language, t.language),
@@ -495,32 +499,39 @@ func (r *Repository) GetWork(id works.WorkCode) (*works.WorkDetail, bool, error)
 	detail.CollectedAt = collectedAt.String
 	detail.CopyCount = copyCount
 
-	if detail.VoiceActors, err = r.loadEntities(id, "work_voice_actors", "voice_actors"); err != nil {
+	if detail.VoiceActors, err = loadEntities(tx, id, "work_voice_actors", "voice_actors"); err != nil {
 		return nil, false, err
 	}
-	if detail.SourceTags, err = r.loadEntities(id, "work_tags", "tags"); err != nil {
+	if detail.SourceTags, err = loadEntities(tx, id, "work_tags", "tags"); err != nil {
 		return nil, false, err
 	}
-	if detail.UserTags, err = r.loadUserTags(id); err != nil {
+	if detail.UserTags, err = loadUserTags(tx, id); err != nil {
 		return nil, false, err
 	}
-	if detail.Editions, err = r.loadEditions(id); err != nil {
+	if detail.Editions, err = loadEditions(tx, id); err != nil {
 		return nil, false, err
 	}
-	if detail.Copies, err = r.loadCopies(id); err != nil {
+	if detail.Copies, err = loadCopies(tx, id); err != nil {
 		return nil, false, err
 	}
-	if detail.Relation, err = r.loadRelation(id); err != nil {
+	if detail.Relation, err = loadRelation(tx, id); err != nil {
 		return nil, false, err
 	}
-	if detail.EditionTree, err = r.loadEditionTree(detail); err != nil {
+	if err = loadRelationDetail(tx, detail); err != nil {
 		return nil, false, err
 	}
-	if detail.CollectionIDs, err = r.loadUserCollectionIDs(id); err != nil {
+	if detail.CollectionIDs, err = loadUserCollectionIDs(tx, id); err != nil {
 		return nil, false, err
 	}
-	if detail.Listening, err = r.loadListening(id); err != nil {
+	if detail.Listening, err = loadListening(tx, id); err != nil {
 		return nil, false, err
+	}
+	covers, err := loadLocalCovers(context.Background(), tx, []works.WorkCode{id})
+	if err != nil {
+		return nil, false, err
+	}
+	if cover, ok := covers[id]; ok {
+		detail.LocalCover = &cover
 	}
 	detail.WorkSummary.Listening = listeningSummary(detail.Listening)
 	return detail, true, nil
@@ -528,8 +539,8 @@ func (r *Repository) GetWork(id works.WorkCode) (*works.WorkDetail, bool, error)
 
 // loadUserCollectionIDs lists the user collections holding a work in the
 // collection list's order (creation timestamp, then ID).
-func (r *Repository) loadUserCollectionIDs(id works.WorkCode) ([]string, error) {
-	rows, err := r.db.Query(`
+func loadUserCollectionIDs(q workDetailReader, id works.WorkCode) ([]string, error) {
+	rows, err := q.Query(`
 		SELECT c.id FROM collections c
 		JOIN collection_works m ON m.collection_id = c.id
 		WHERE m.work_id = ? AND c.id <> 'favorites'
@@ -551,8 +562,8 @@ func (r *Repository) loadUserCollectionIDs(id works.WorkCode) ([]string, error) 
 }
 
 // loadEntities reads one many-to-many side of a work in display order.
-func (r *Repository) loadEntities(id works.WorkCode, joinTable, entityTable string) ([]works.SourceEntity, error) {
-	rows, err := r.db.Query(`
+func loadEntities(q workDetailReader, id works.WorkCode, joinTable, entityTable string) ([]works.SourceEntity, error) {
+	rows, err := q.Query(`
 		SELECT e.id, e.source, e.source_`+strings.TrimSuffix(entityTable, "s")+`_id, e.name, e.work_id
 		FROM `+joinTable+` j
 		JOIN `+entityTable+` e ON e.id = j.`+strings.TrimSuffix(entityTable, "s")+`_id
@@ -575,8 +586,8 @@ func (r *Repository) loadEntities(id works.WorkCode, joinTable, entityTable stri
 }
 
 // loadUserTags reads the tags the user attached to one work.
-func (r *Repository) loadUserTags(id works.WorkCode) ([]works.UserTag, error) {
-	rows, err := r.db.Query(`
+func loadUserTags(q workDetailReader, id works.WorkCode) ([]works.UserTag, error) {
+	rows, err := q.Query(`
 		SELECT ut.id, ut.name
 		FROM work_user_tags wt
 		JOIN user_tags ut ON ut.id = wt.tag_id
@@ -599,8 +610,8 @@ func (r *Repository) loadUserTags(id works.WorkCode) ([]works.UserTag, error) {
 }
 
 // loadEditions reads the language editions a work declared.
-func (r *Repository) loadEditions(id works.WorkCode) ([]works.LanguageEdition, error) {
-	rows, err := r.db.Query(`
+func loadEditions(q workDetailReader, id works.WorkCode) ([]works.LanguageEdition, error) {
+	rows, err := q.Query(`
 		SELECT version_root_rj, language, label, source_edition_id, display_order
 		FROM work_language_editions
 		WHERE work_id = ?
@@ -630,9 +641,9 @@ func (r *Repository) loadEditions(id works.WorkCode) ([]works.LanguageEdition, e
 }
 
 // loadCopies reads the directories bound to one work.
-func (r *Repository) loadCopies(id works.WorkCode) ([]works.Copy, error) {
-	rows, err := r.db.Query(`
-		SELECT id, library_id, rel_path FROM work_copies WHERE work_id = ? ORDER BY rel_path
+func loadCopies(q workDetailReader, id works.WorkCode) ([]works.Copy, error) {
+	rows, err := q.Query(`
+		SELECT c.id, c.library_id, c.rel_path, l.root_path FROM work_copies c JOIN libraries l ON l.id = c.library_id WHERE c.work_id = ? ORDER BY c.rel_path
 	`, string(id))
 	if err != nil {
 		return nil, err
@@ -641,7 +652,7 @@ func (r *Repository) loadCopies(id works.WorkCode) ([]works.Copy, error) {
 	var out []works.Copy
 	for rows.Next() {
 		var bound works.Copy
-		if scanErr := rows.Scan(&bound.ID, &bound.LibraryID, &bound.RelPath); scanErr != nil {
+		if scanErr := rows.Scan(&bound.ID, &bound.LibraryID, &bound.RelPath, &bound.LibraryRoot); scanErr != nil {
 			return nil, scanErr
 		}
 		out = append(out, bound)
@@ -651,14 +662,14 @@ func (r *Repository) loadCopies(id works.WorkCode) ([]works.Copy, error) {
 
 // loadRelation reads the resolved relation, which the import rules keep in
 // step with the evidence.
-func (r *Repository) loadRelation(id works.WorkCode) (works.ResolvedRelation, error) {
+func loadRelation(q workDetailReader, id works.WorkCode) (works.ResolvedRelation, error) {
 	var (
 		role       sql.NullString
 		language   sql.NullString
 		originalID sql.NullString
 		parentID   sql.NullString
 	)
-	err := r.db.QueryRow(`
+	err := q.QueryRow(`
 		SELECT role, language, original_work_id, parent_work_id
 		FROM work_translations WHERE work_id = ?
 	`, string(id)).Scan(&role, &language, &originalID, &parentID)
@@ -815,7 +826,7 @@ func (r *Repository) ReplaceUserTags(id works.WorkCode, tagIDs []string) ([]work
 	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
-	return r.loadUserTags(id)
+	return loadUserTags(r.db, id)
 }
 
 // ListUserTags returns every tag, ordered by name.

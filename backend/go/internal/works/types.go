@@ -127,9 +127,11 @@ func NormalizeUserTagName(raw string) (string, bool) {
 
 // Copy is one directory bound to a work.
 type Copy struct {
-	ID        string
-	LibraryID string
-	RelPath   string
+	// LibraryRoot is captured with the detail for stable copy navigation.
+	LibraryRoot string `json:"-"`
+	ID          string
+	LibraryID   string
+	RelPath     string
 }
 
 // LanguageEdition is one language edition a work declared.
@@ -167,16 +169,19 @@ type WorkSummary struct {
 type WorkDetail struct {
 	WorkSummary
 
-	SourceURL      *string
-	CoverURL       *string
-	SampleCoverURL *string
-	SeriesID       *string
-	SeriesName     *string
-	VoiceActors    []SourceEntity
-	SourceTags     []SourceEntity
-	Note           string
-	Editions       []LanguageEdition
-	Relation       ResolvedRelation
+	SourceURL        *string
+	CoverURL         *string
+	SampleCoverURL   *string
+	SeriesID         *string
+	SeriesName       *string
+	VoiceActors      []SourceEntity
+	SourceTags       []SourceEntity
+	Note             string
+	Editions         []LanguageEdition
+	Relation         ResolvedRelation
+	RelationWarnings []RelationWarning
+	RelationNodes    []TreeNode
+	LocalCover       *LocalCover
 	// EditionTree is the resolved edition lines (BuildEditionTree); nil when
 	// the work has no edition besides itself.
 	EditionTree []EditionSlot

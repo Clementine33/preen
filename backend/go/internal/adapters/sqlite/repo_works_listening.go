@@ -105,8 +105,8 @@ func scanListening(row interface{ Scan(...any) error }, lead ...any) (works.List
 }
 
 // loadListening reads the work's rows, newest first.
-func (r *Repository) loadListening(id works.WorkCode) ([]works.Listening, error) {
-	rows, err := r.db.Query(
+func loadListening(q workDetailReader, id works.WorkCode) ([]works.Listening, error) {
+	rows, err := q.Query(
 		"SELECT "+listeningColumns+" FROM work_listening WHERE work_id = ? ORDER BY updated_at DESC, rendition",
 		string(id),
 	)

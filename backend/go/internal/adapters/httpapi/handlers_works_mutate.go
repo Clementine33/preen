@@ -77,10 +77,13 @@ type copyResponse struct {
 
 // treeNodeResponse is one work number in the edition tree.
 type treeNodeResponse struct {
-	RJ     string `json:"rj"`
-	Role   string `json:"role"`
-	IsWork bool   `json:"is_work"`
-	Held   bool   `json:"held"`
+	RJ        string           `json:"rj"`
+	Role      string           `json:"role"`
+	IsWork    bool             `json:"is_work"`
+	Held      bool             `json:"held"`
+	Language  *string          `json:"language"`
+	Relation  relationResponse `json:"relation"`
+	SourceURL *string          `json:"source_url"`
 }
 
 // editionSlotResponse is one language line of the edition tree.
@@ -93,7 +96,8 @@ type editionSlotResponse struct {
 }
 
 func toTreeNode(node works.TreeNode) treeNodeResponse {
-	return treeNodeResponse{RJ: string(node.RJ), Role: node.Role, IsWork: node.IsWork, Held: node.Held}
+	return treeNodeResponse{RJ: string(node.RJ), Role: node.Role, IsWork: node.IsWork, Held: node.Held,
+		Language: node.Language, Relation: toRelationResponse(node.Relation), SourceURL: node.SourceURL}
 }
 
 func toEditionTree(slots []works.EditionSlot) []editionSlotResponse {
@@ -118,16 +122,18 @@ func toEditionTree(slots []works.EditionSlot) []editionSlotResponse {
 type workDetailResponse struct {
 	workSummaryResponse
 
-	SourceURL      *string                `json:"source_url"`
-	CoverURL       *string                `json:"cover_url"`
-	SampleCoverURL *string                `json:"sample_cover_url"`
-	SeriesID       *string                `json:"series_id"`
-	SeriesName     *string                `json:"series_name"`
-	VoiceActors    []sourceEntityResponse `json:"voice_actors"`
-	SourceTags     []sourceEntityResponse `json:"source_tags"`
-	Note           string                 `json:"note"`
-	Editions       []editionResponse      `json:"language_editions"`
-	Relation       relationResponse       `json:"relation"`
+	SourceURL        *string                 `json:"source_url"`
+	CoverURL         *string                 `json:"cover_url"`
+	SampleCoverURL   *string                 `json:"sample_cover_url"`
+	SeriesID         *string                 `json:"series_id"`
+	SeriesName       *string                 `json:"series_name"`
+	VoiceActors      []sourceEntityResponse  `json:"voice_actors"`
+	SourceTags       []sourceEntityResponse  `json:"source_tags"`
+	Note             string                  `json:"note"`
+	Editions         []editionResponse       `json:"language_editions"`
+	Relation         relationResponse        `json:"relation"`
+	RelationWarnings []works.RelationWarning `json:"relation_warnings"`
+	RelationNodes    []treeNodeResponse      `json:"relation_nodes"`
 	// EditionTree is the resolved JPN / CHI_HANS / CHI_HANT lines, null when
 	// the work has no edition besides itself.
 	EditionTree   []editionSlotResponse `json:"edition_tree"`
@@ -151,10 +157,18 @@ func toWorkDetail(detail *works.WorkDetail, dirID func(works.Copy) string) workD
 		SourceTags:          toSourceEntityResponses(detail.SourceTags),
 		Note:                detail.Note,
 		Relation:            toRelationResponse(detail.Relation),
+		RelationWarnings:    append([]works.RelationWarning{}, detail.RelationWarnings...),
+		RelationNodes:       make([]treeNodeResponse, 0, len(detail.RelationNodes)),
 		EditionTree:         toEditionTree(detail.EditionTree),
 		Copies:              make([]copyResponse, 0, len(detail.Copies)),
 		CollectionIDs:       append([]string{}, detail.CollectionIDs...),
 		Listening:           make([]listeningResponse, 0, len(detail.Listening)),
+	}
+	if cover := detail.LocalCover; cover != nil {
+		out.LocalCover = &localCoverResponse{CopyID: cover.CopyID, RelPath: cover.RelPath, Version: cover.Version}
+	}
+	for _, node := range detail.RelationNodes {
+		out.RelationNodes = append(out.RelationNodes, toTreeNode(node))
 	}
 	for _, row := range detail.Listening {
 		out.Listening = append(out.Listening, toListening(row))
@@ -194,21 +208,12 @@ func (s *Server) getWork(w http.ResponseWriter, r *http.Request) {
 		writeWorksError(w, refusal)
 		return
 	}
-	roots := map[string]string{}
 	out := toWorkDetail(detail, func(c works.Copy) string {
-		root, seen := roots[c.LibraryID]
-		if !seen {
-			if lib, err := s.deps.Library.Get(c.LibraryID); err == nil {
-				root = lib.RootPath
-			}
-			roots[c.LibraryID] = root
-		}
-		if root == "" {
+		if c.LibraryRoot == "" {
 			return ""
 		}
-		return library.DirID(c.LibraryID, root, c.RelPath)
+		return library.DirID(c.LibraryID, c.LibraryRoot, c.RelPath)
 	})
-	s.attachLocalCovers(r, &out.workSummaryResponse)
 	writeJSON(w, http.StatusOK, out)
 }
 

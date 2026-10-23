@@ -25,6 +25,14 @@ func (r *Repository) LocalCovers(
 	ctx context.Context,
 	ids []works.WorkCode,
 ) (map[works.WorkCode]works.LocalCover, error) {
+	return loadLocalCovers(ctx, r.db, ids)
+}
+
+func loadLocalCovers(
+	ctx context.Context,
+	q workDetailReader,
+	ids []works.WorkCode,
+) (map[works.WorkCode]works.LocalCover, error) {
 	out := map[works.WorkCode]works.LocalCover{}
 	if len(ids) == 0 {
 		return out, nil
@@ -34,7 +42,7 @@ func (r *Repository) LocalCovers(
 		rawIDs[i] = string(id)
 	}
 	encodedIDs, _ := json.Marshal(rawIDs)
-	rows, err := r.db.QueryContext(ctx, `
+	rows, err := q.QueryContext(ctx, `
 		SELECT wc.work_id, wc.id, wc.rel_path, l.root_path
 		FROM work_copies wc JOIN libraries l ON l.id = wc.library_id
 		WHERE wc.work_id IN (SELECT value FROM json_each(?))
@@ -67,7 +75,7 @@ func (r *Repository) LocalCovers(
 		return out, nil
 	}
 	encoded, _ := json.Marshal(candidates)
-	files, err := r.db.QueryContext(ctx, `
+	files, err := q.QueryContext(ctx, `
 		SELECT path, size, mtime, content_rev FROM entries
 		WHERE is_dir = 0 AND path IN (SELECT value FROM json_each(?))`, string(encoded))
 	if err != nil {

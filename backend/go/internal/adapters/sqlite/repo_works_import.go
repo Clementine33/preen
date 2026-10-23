@@ -168,11 +168,11 @@ func applyCoreGroup(
 	if _, err := tx.Exec(`
 		UPDATE works
 		SET title = ?, language = ?, circle_id = ?, nsfw = ?, age_category = ?, release_date = ?, source_url = ?,
-		    cover_url = ?, thumbnail_url = ?, sample_cover_url = ?, series_id = ?, series_name = ?,
+		    cover_url = ?, sample_cover_url = ?, series_id = ?, series_name = ?,
 		    updated_at = ?
 		WHERE id = ?
 	`, nullableString(group.Title), nullableString(group.Language), circleID, nullableBool(group.NSFW), nullableInt(group.AgeCategory), nullableString(group.ReleaseDate),
-		nullableString(group.SourceURL), nullableString(group.CoverURL), nullableString(group.ThumbnailURL),
+		nullableString(group.SourceURL), nullableString(group.CoverURL),
 		nullableString(group.SampleCoverURL), nullableString(group.SeriesID), nullableString(group.SeriesName),
 		formatWorksTimestamp(now), string(target),
 	); err != nil {

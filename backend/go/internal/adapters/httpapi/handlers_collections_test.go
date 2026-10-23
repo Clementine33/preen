@@ -202,8 +202,8 @@ func TestCollectionsDeletionProtectsWorksAndBuiltin(t *testing.T) {
 func seedCollectionWorks(t *testing.T, repo *sqlite.Repository, ids ...string) {
 	t.Helper()
 	for _, id := range ids {
-		if _, err := repo.DB().Exec(`INSERT INTO works(id,title,collected_at,created_at,updated_at)
-		 VALUES(?,?,'2026-10-14T00:00:00.000000000Z','now','now')`, id, id); err != nil {
+		if _, err := repo.DB().Exec(`INSERT INTO works(id,title,collected_at,updated_at)
+		 VALUES(?,?,'2026-10-14T00:00:00.000000000Z','now')`, id, id); err != nil {
 			t.Fatal(err)
 		}
 	}

@@ -27,7 +27,7 @@ func TestCleanupReportsRechecksCurrentRootsAndEvidence(t *testing.T) {
 				deletionSQL(
 					t,
 					repo,
-					`INSERT INTO works(id,collected_at,created_at,updated_at) VALUES('RJ00000002','','','')`,
+					`INSERT INTO works(id,collected_at,updated_at) VALUES('RJ00000002','','')`,
 				)
 			case "changed root report":
 				saveCleanupReport(
@@ -182,7 +182,7 @@ func TestCleanupReportsWaitsForConcurrentProtectionCommit(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer tx.Rollback()
-			query := `INSERT INTO works(id,collected_at,created_at,updated_at) VALUES('RJ00000002','','','')`
+			query := `INSERT INTO works(id,collected_at,updated_at) VALUES('RJ00000002','','')`
 			if kind == "report dependency" {
 				query = `INSERT INTO relation_reports VALUES('RJ00000003','child',NULL,NULL,'RJ00000002','dlsite','')`
 			}

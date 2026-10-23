@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"testing"
 
@@ -25,13 +26,69 @@ func wireWorks(d *Dependencies, fixture *sqlite.Repository) {
 
 const stamp = "2026-09-27T10:00:00.000000000Z"
 
+func TestWorkThumbnailsAreDerivedFromTheMainCover(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		cover, want *string
+	}{
+		{"DLsite jpg", new("https://img.dlsite.jp/modpub/images2/work/doujin/RJ110000/RJ109959_img_main.jpg"), new("https://img.dlsite.jp/resize/images2/work/doujin/RJ110000/RJ109959_img_main_240x240.jpg")},
+		{"DLsite webp", new("https://img.dlsite.jp/modpub/images2/work/doujin/RJ110000/RJ109959_img_main.webp"), new("https://img.dlsite.jp/resize/images2/work/doujin/RJ110000/RJ109959_img_main_240x240.jpg")},
+		{"ASMR", new("https://api.asmr.one/api/cover/109959.jpg?type=main&v=2"), new("https://api.asmr.one/api/cover/109959.jpg?type=240x240&v=2")},
+		{"other host", new("https://covers.test/main.webp"), new("https://covers.test/main.webp")},
+		{"other DLsite path", new("https://img.dlsite.jp/other/main.jpg"), new("https://img.dlsite.jp/other/main.jpg")},
+		{"empty", new(""), nil},
+		{"unknown", nil, nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) {
+				wireWorks(d, fixture)
+				seedHTTPWork(t, fixture, "RJ00000001", "work")
+			})
+			body := map[string]any{"core": map[string]any{
+				"source": "dlsite", "fetched_at": stamp, "cover_url": tc.cover,
+			}}
+			w := doRequest(t, engine, http.MethodPut, "/api/v1/works/RJ00000001/metadata", body, nil)
+			if w.Code != http.StatusOK {
+				t.Fatalf("import = %d %s", w.Code, w.Body.String())
+			}
+			w = doRequest(t, engine, http.MethodGet, "/api/v1/works", nil, nil)
+			var page struct {
+				Works []struct {
+					ThumbnailURL *string `json:"thumbnail_url"`
+					CollectedAt  string  `json:"collected_at"`
+				} `json:"works"`
+			}
+			if err := json.Unmarshal(w.Body.Bytes(), &page); err != nil {
+				t.Fatal(err)
+			}
+			if w.Code != http.StatusOK || len(page.Works) != 1 {
+				t.Fatalf("list = %d %s", w.Code, w.Body.String())
+			}
+			if !reflect.DeepEqual(page.Works[0].ThumbnailURL, tc.want) || page.Works[0].CollectedAt != stamp {
+				t.Fatalf("list cover or collection time changed: %s", w.Body.String())
+			}
+			w = doRequest(t, engine, http.MethodGet, "/api/v1/works/RJ00000001", nil, nil)
+			var detail struct {
+				CoverURL     *string `json:"cover_url"`
+				ThumbnailURL *string `json:"thumbnail_url"`
+			}
+			if err := json.Unmarshal(w.Body.Bytes(), &detail); err != nil || w.Code != http.StatusOK {
+				t.Fatalf("detail = %d %s, err = %v", w.Code, w.Body.String(), err)
+			}
+			if !reflect.DeepEqual(detail.CoverURL, tc.cover) || !reflect.DeepEqual(detail.ThumbnailURL, tc.want) {
+				t.Fatalf("detail did not derive the thumbnail from the main cover: %s", w.Body.String())
+			}
+		})
+	}
+}
+
 // seedHTTPWork inserts a work row the way a scan would have: found on disk.
 func seedHTTPWork(t *testing.T, fixture *sqlite.Repository, raw, title string) string {
 	t.Helper()
 	if _, err := fixture.DB().Exec(`
-		INSERT INTO works (id, title, collected_at, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?)
-	`, raw, title, stamp, stamp, stamp); err != nil {
+		INSERT INTO works (id, title, collected_at, updated_at)
+		VALUES (?, ?, ?, ?)
+	`, raw, title, stamp, stamp); err != nil {
 		t.Fatalf("seed %s: %v", raw, err)
 	}
 	return raw

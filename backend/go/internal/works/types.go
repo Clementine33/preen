@@ -147,22 +147,22 @@ type LanguageEdition struct {
 // whole work: the list carries what a grid shows, and the detail carries the
 // rest.
 type WorkSummary struct {
-	ID           WorkCode
-	Title        *string
-	ThumbnailURL *string
-	CircleName   *string
-	Language     *string
-	NSFW         *bool
-	AgeCategory  *int
-	ReleaseDate  *string
-	DLCount      *int
-	Rating       *int
-	Favorite     bool
-	UserTags     []UserTag
-	HasNote      bool
-	CollectedAt  string
-	CopyCount    int
-	Listening    ListeningSummary
+	ID          WorkCode
+	Title       *string
+	CoverURL    *string
+	CircleName  *string
+	Language    *string
+	NSFW        *bool
+	AgeCategory *int
+	ReleaseDate *string
+	DLCount     *int
+	Rating      *int
+	Favorite    bool
+	UserTags    []UserTag
+	HasNote     bool
+	CollectedAt string
+	CopyCount   int
+	Listening   ListeningSummary
 }
 
 // WorkDetail is everything the detail endpoint answers with.
@@ -170,7 +170,6 @@ type WorkDetail struct {
 	WorkSummary
 
 	SourceURL        *string
-	CoverURL         *string
 	SampleCoverURL   *string
 	SeriesID         *string
 	SeriesName       *string

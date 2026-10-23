@@ -18,9 +18,9 @@ func TestInitialReleaseCollectionsPreservePersonalData(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = repo.Close() })
 	if _, err := repo.DB().Exec(`
-        INSERT INTO works(id,collected_at,created_at,updated_at) VALUES
-        ('RJ00000001','now','now','now'),('RJ00000002','now','now','now'),
-        ('RJ00000003','now','now','now'),('RJ00000004','now','now','now');
+        INSERT INTO works(id,collected_at,updated_at) VALUES
+        ('RJ00000001','now','now'),('RJ00000002','now','now'),
+        ('RJ00000003','now','now'),('RJ00000004','now','now');
         INSERT INTO work_user_data(work_id,rating,note) VALUES
         ('RJ00000001',8,'keep'),('RJ00000004',9,'not favorite');
         INSERT INTO collection_works(collection_id,work_id,position) VALUES

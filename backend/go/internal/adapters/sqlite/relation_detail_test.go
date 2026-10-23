@@ -117,8 +117,7 @@ func TestDetailUsesOneDeferredReadSnapshot(t *testing.T) {
 	deletionSQL(
 		t,
 		repo,
-		`INSERT INTO works(id,collected_at,created_at,updated_at) VALUES('RJ00000003',?,?,?)`,
-		deletionStamp,
+		`INSERT INTO works(id,collected_at,updated_at) VALUES('RJ00000003',?,?)`,
 		deletionStamp,
 		deletionStamp,
 	)

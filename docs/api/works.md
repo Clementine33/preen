@@ -409,7 +409,7 @@ the set is empty. A submission with no group at all is refused.
     "age_category": 3,
     "release_date": "2025-06-25",
     "source_url": "https://…",
-    "cover_url": "…", "thumbnail_url": "…", "sample_cover_url": "…",
+    "cover_url": "…", "sample_cover_url": "…",
     "series_id": null, "series_name": null,
     "voice_actors": [{ "source_voice_actor_id": "17180", "name": "伊ヶ崎綾香" }],
     "tags": [{ "source_tag_id": "497", "name": "ASMR" }]
@@ -467,6 +467,13 @@ library and `rel_path`, then by name). Its bytes are served by the content route
 `version` is `<content_rev>-<mtime>-<size>`, so the address changes when the
 inventory observes new bytes. Clients show it ahead of `thumbnail_url` and fall
 back to `thumbnail_url` when the image fails to load.
+
+`thumbnail_url` is derived from `cover_url` when rendering a response and is
+neither stored nor accepted in a core import. DLsite main-image paths use the
+CDN's `resize` path with a `_240x240.jpg` suffix; ASMR.one cover paths use
+`type=240x240`. Other addresses fall back to the main cover unchanged. An
+missing or empty main-cover address produces a null thumbnail. Collection time
+is the first scan's `collected_at`; the work has no separate `created_at`.
 
 `GET /api/v1/works` accepts exactly these parameters; anything else is
 `INVALID_ARGUMENT` (400), so a typo cannot silently widen the answer.

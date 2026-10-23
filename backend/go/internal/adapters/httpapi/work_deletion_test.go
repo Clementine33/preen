@@ -22,8 +22,8 @@ func deletionServer(t *testing.T) (http.Handler, *sqlite.Repository) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = repo.Close() })
-	if _, err := repo.DB().Exec(`INSERT INTO works(id,collected_at,created_at,updated_at)
-	 VALUES('RJ00000001','2026-09-27T10:00:00.000000000Z','','')`); err != nil {
+	if _, err := repo.DB().Exec(`INSERT INTO works(id,collected_at,updated_at)
+	 VALUES('RJ00000001','2026-09-27T10:00:00.000000000Z','')`); err != nil {
 		t.Fatal(err)
 	}
 	return httpapi.NewServer(httpapi.Dependencies{

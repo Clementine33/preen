@@ -409,10 +409,8 @@ CREATE TABLE works (
     series_name TEXT,
     source_url TEXT,
     cover_url TEXT,
-    thumbnail_url TEXT,
     sample_cover_url TEXT,
     collected_at TEXT NOT NULL,
-    created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     age_category INTEGER CHECK (age_category IS NULL OR age_category IN (1, 2, 3)),
     language TEXT

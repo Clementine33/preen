@@ -19,7 +19,7 @@ func TestCleanupHTTPCatalogSelectionProtectionCountsAndMissingEdits(t *testing.T
 	_, repo := deletionServer(t)
 	for i := 2; i <= 10; i++ {
 		if _, err := repo.DB().
-			Exec("INSERT INTO works(id,collected_at,created_at,updated_at) VALUES(?,'','','')", fmt.Sprintf("RJ%08d", i)); err != nil {
+			Exec("INSERT INTO works(id,collected_at,updated_at) VALUES(?,'','')", fmt.Sprintf("RJ%08d", i)); err != nil {
 			t.Fatal(err)
 		}
 	}

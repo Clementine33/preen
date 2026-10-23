@@ -30,7 +30,6 @@ type ImportCore struct {
 	ReleaseDate    *string            `json:"release_date"`
 	SourceURL      *string            `json:"source_url"`
 	CoverURL       *string            `json:"cover_url"`
-	ThumbnailURL   *string            `json:"thumbnail_url"`
 	SampleCoverURL *string            `json:"sample_cover_url"`
 	SeriesID       *string            `json:"series_id"`
 	SeriesName     *string            `json:"series_name"`
@@ -112,7 +111,6 @@ type CoreGroup struct {
 	ReleaseDate    *string
 	SourceURL      *string
 	CoverURL       *string
-	ThumbnailURL   *string
 	SampleCoverURL *string
 	SeriesID       *string
 	SeriesName     *string
@@ -274,7 +272,6 @@ func validateCore(core ImportCore) (*CoreGroup, *Error) {
 		ReleaseDate:    core.ReleaseDate,
 		SourceURL:      core.SourceURL,
 		CoverURL:       core.CoverURL,
-		ThumbnailURL:   core.ThumbnailURL,
 		SampleCoverURL: core.SampleCoverURL,
 		SeriesID:       core.SeriesID,
 		SeriesName:     core.SeriesName,

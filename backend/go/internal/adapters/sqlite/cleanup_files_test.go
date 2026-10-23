@@ -21,10 +21,9 @@ func TestCleanupCatalogNeverRemovesMediaOrDerivedFiles(t *testing.T) {
 	deletionSQL(
 		t,
 		repo,
-		`UPDATE works SET source_url=?,cover_url=?,thumbnail_url=? WHERE id='RJ00000001'`,
+		`UPDATE works SET source_url=?,cover_url=? WHERE id='RJ00000001'`,
 		root,
 		filepath.Join(root, "cover.jpg"),
-		filepath.Join(root, "thumbnail.cache"),
 	)
 	deletionSQL(t, repo, `INSERT INTO tags(id,source,name) VALUES('unused','dlsite','unused')`)
 	startCatalogRun(t, repo)

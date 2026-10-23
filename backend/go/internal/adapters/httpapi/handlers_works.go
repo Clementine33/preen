@@ -3,6 +3,7 @@ package httpapi
 import (
 	"net/http"
 	"net/url"
+	"path"
 	"strconv"
 	"strings"
 
@@ -118,11 +119,35 @@ func (s *Server) attachLocalCovers(r *http.Request, rows ...*workSummaryResponse
 	}
 }
 
+// Remote thumbnails are a presentation of the main cover, not separate metadata.
+func remoteThumbnailURL(cover *string) *string {
+	if cover == nil || *cover == "" {
+		return nil
+	}
+	u, err := url.Parse(*cover)
+	if err != nil {
+		return cover
+	}
+	switch {
+	case u.Host == "img.dlsite.jp" && strings.HasPrefix(u.Path, "/modpub/") && path.Ext(u.Path) != "":
+		u.Path = "/resize/" + strings.TrimPrefix(u.Path, "/modpub/")
+		u.Path = strings.TrimSuffix(u.Path, path.Ext(u.Path)) + "_240x240.jpg"
+		u.RawPath = ""
+	case u.Host == "api.asmr.one" && strings.HasPrefix(u.Path, "/api/cover/"):
+		query := u.Query()
+		query.Set("type", "240x240")
+		u.RawQuery = query.Encode()
+	default:
+		return cover
+	}
+	return new(u.String())
+}
+
 func toWorkSummary(summary works.WorkSummary) workSummaryResponse {
 	return workSummaryResponse{
 		RJ:           string(summary.ID),
 		Title:        summary.Title,
-		ThumbnailURL: summary.ThumbnailURL,
+		ThumbnailURL: remoteThumbnailURL(summary.CoverURL),
 		Circle:       summary.CircleName,
 		Language:     summary.Language,
 		NSFW:         summary.NSFW,

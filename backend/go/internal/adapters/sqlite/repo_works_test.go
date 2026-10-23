@@ -23,8 +23,8 @@ func seedWork(t *testing.T, repo *Repository, raw string) works.WorkCode {
 	t.Helper()
 	id := code(t, raw)
 	if _, err := repo.DB().Exec(
-		"INSERT INTO works (id, title, collected_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
-		string(id), "title of "+raw, testStamp, testStamp, testStamp,
+		"INSERT INTO works (id, title, collected_at, updated_at) VALUES (?, ?, ?, ?)",
+		string(id), "title of "+raw, testStamp, testStamp,
 	); err != nil {
 		t.Fatalf("seed %s: %v", raw, err)
 	}

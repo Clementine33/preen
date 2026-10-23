@@ -23,7 +23,7 @@ var _ works.Store = (*Repository)(nil)
 // copies is a correlated subquery rather than a join, so a work with several
 // copies stays one row. Legacy rows fall back to their resolved relation language.
 var listProjection = `
-	SELECT w.id, w.title, w.thumbnail_url, c.name, COALESCE(w.language, t.language), w.nsfw, w.age_category, w.release_date,
+	SELECT w.id, w.title, w.cover_url, c.name, COALESCE(w.language, t.language), w.nsfw, w.age_category, w.release_date,
 	       s.dl_count, u.rating, EXISTS (SELECT 1 FROM collection_works f WHERE f.collection_id = 'favorites' AND f.work_id = w.id),
 	       CASE WHEN COALESCE(u.note, '') <> '' THEN 1 ELSE 0 END,
 	       w.collected_at,
@@ -115,7 +115,7 @@ func (r *Repository) readWorkSummaries(rows *sql.Rows) ([]works.WorkSummary, err
 			summary     works.WorkSummary
 			id          string
 			title       sql.NullString
-			thumbnail   sql.NullString
+			coverURL    sql.NullString
 			circleName  sql.NullString
 			language    sql.NullString
 			nsfw        sql.NullInt64
@@ -129,14 +129,14 @@ func (r *Repository) readWorkSummaries(rows *sql.Rows) ([]works.WorkSummary, err
 			copyCount   int
 		)
 		if scanErr := rows.Scan(
-			&id, &title, &thumbnail, &circleName, &language, &nsfw, &ageCategory, &releaseDate,
+			&id, &title, &coverURL, &circleName, &language, &nsfw, &ageCategory, &releaseDate,
 			&dlCount, &rating, &favorite, &hasNote, &collectedAt, &copyCount,
 		); scanErr != nil {
 			return nil, scanErr
 		}
 		summary.ID = works.WorkCode(id)
 		summary.Title = nullString(title)
-		summary.ThumbnailURL = nullString(thumbnail)
+		summary.CoverURL = nullString(coverURL)
 		summary.CircleName = nullString(circleName)
 		summary.Language = nullString(language)
 		summary.NSFW = nullBool(nsfw)
@@ -444,19 +444,19 @@ func (r *Repository) GetWork(id works.WorkCode) (*works.WorkDetail, bool, error)
 	defer tx.Rollback()
 	detail := &works.WorkDetail{}
 	var (
-		title, thumbnail, circleName sql.NullString
-		nsfw, favorite, ageCategory  sql.NullInt64
-		releaseDate                  sql.NullString
-		dlCount, rating              sql.NullInt64
-		collectedAt                  sql.NullString
-		sourceURL, coverURL          sql.NullString
-		sampleCoverURL               sql.NullString
-		seriesID, seriesName         sql.NullString
-		language, note               sql.NullString
-		copyCount                    int
+		title, circleName           sql.NullString
+		nsfw, favorite, ageCategory sql.NullInt64
+		releaseDate                 sql.NullString
+		dlCount, rating             sql.NullInt64
+		collectedAt                 sql.NullString
+		sourceURL, coverURL         sql.NullString
+		sampleCoverURL              sql.NullString
+		seriesID, seriesName        sql.NullString
+		language, note              sql.NullString
+		copyCount                   int
 	)
 	err = tx.QueryRow(`
-		SELECT w.title, w.thumbnail_url, c.name, w.nsfw, w.age_category, w.release_date, w.source_url,
+		SELECT w.title, c.name, w.nsfw, w.age_category, w.release_date, w.source_url,
 		       w.cover_url, w.sample_cover_url, w.series_id, w.series_name,
 		       w.collected_at, s.dl_count, u.rating, EXISTS (SELECT 1 FROM collection_works f WHERE f.collection_id = 'favorites' AND f.work_id = w.id), u.note, COALESCE(w.language, t.language),
 		       (SELECT COUNT(*) FROM work_copies wc WHERE wc.work_id = w.id)
@@ -467,7 +467,7 @@ func (r *Repository) GetWork(id works.WorkCode) (*works.WorkDetail, bool, error)
 		LEFT JOIN work_user_data u ON u.work_id = w.id
 		WHERE w.id = ?
 	`, string(id)).Scan(
-		&title, &thumbnail, &circleName, &nsfw, &ageCategory, &releaseDate, &sourceURL,
+		&title, &circleName, &nsfw, &ageCategory, &releaseDate, &sourceURL,
 		&coverURL, &sampleCoverURL, &seriesID, &seriesName,
 		&collectedAt, &dlCount, &rating, &favorite, &note, &language, &copyCount,
 	)
@@ -480,7 +480,6 @@ func (r *Repository) GetWork(id works.WorkCode) (*works.WorkDetail, bool, error)
 
 	detail.ID = id
 	detail.Title = nullString(title)
-	detail.ThumbnailURL = nullString(thumbnail)
 	detail.CircleName = nullString(circleName)
 	detail.NSFW = nullBool(nsfw)
 	detail.AgeCategory = nullInt(ageCategory)

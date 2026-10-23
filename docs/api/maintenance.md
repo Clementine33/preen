@@ -1,0 +1,118 @@
+# Database record cleanup
+
+These deployment-wide routes use the [common authentication, same-origin and error rules](common.md).
+They delete database records only. Media, covers, thumbnails, recovery files,
+current plans, execution results and inventory are retained. Manual cleanup never
+runs VACUUM and does not reset the automatic maintenance clock.
+
+## Routes
+
+| Method | Path under `/api/v1` | Result |
+| --- | --- | --- |
+| POST | `/maintenance/cleanup/preview` | 200 preview of the selected categories |
+| POST | `/maintenance/cleanup` | 202 accepted run summary |
+| GET | `/maintenance/cleanup` | 200 current/latest summary, or `{"run":null}` |
+| POST | `/maintenance/cleanup/{runId}/cancel` | 200 current summary after requesting stop |
+
+Preview and start require `{"categories":["scan_sessions","plan_generations","cover_downloads"]}`.
+The array must be nonempty and contain only supported keys. Duplicate keys are
+normalized to the order shown. Unknown fields (including `request_id`) and
+invalid categories return `400 INVALID_ARGUMENT`. Cancel accepts an empty body
+or `{}`. Busy admission returns `409 BUSY`; unknown or replaced run IDs return
+`404 CLEANUP_RUN_NOT_FOUND`. Unexpected failures use a safe `500 INTERNAL` envelope.
+
+The currently supported categories are:
+
+| Category | Eligibility |
+| --- | --- |
+| `scan_sessions` | completed/failed/canceled/interrupted, with terminal time strictly older than the shared scan retention window; missing finished_at falls back to started_at |
+| `plan_generations` | finished_at present and strictly older than the shared generation retention window |
+| `cover_downloads` | done, with no delivery reference of any status |
+
+Scan and generation windows currently retain 7 and 30 days respectively. Both
+manual and automatic paths receive the same app policy values; generation
+retention preserves the planning idempotency guarantee. Rules in the preview
+are the server's current policy, not client configuration.
+
+## Preview
+
+```json
+{
+  "checked_at":"2026-10-23T04:00:00Z",
+  "categories":["scan_sessions"],
+  "candidates":{"scan_sessions":12},
+  "rules":{"scan_sessions":{"retention_days":7,"protection":"Only terminal scans; missing finished_at falls back to started_at."}}
+}
+```
+
+Only selected categories appear. `retention_days` is zero for downloads, which
+have no waiting period. Preview is read-only: it neither locks candidates nor
+issues a deletion token. Start repeats eligibility checks. A run that finds
+zero candidates can succeed. Preview counts are not a fixed progress denominator.
+
+## Run summary
+
+Start, GET and cancel return the same envelope:
+
+```json
+{
+  "run":{
+    "run_id":"server-generated-uuid",
+    "categories":["scan_sessions"],
+    "status":"running",
+    "phase":"scan_sessions",
+    "started_at":"2026-10-23T04:00:00Z",
+    "finished_at":null,
+    "counts":{"scan_sessions":{"checked":500,"deleted":498,"skipped":2}},
+    "reason":""
+  }
+}
+```
+
+`phase` identifies the selected category being processed. Counts describe only
+committed batches: checked candidates, actual top-level records deleted and
+candidates skipped after rechecking. Cascaded rows are not separately counted.
+Deletion and the corresponding counters commit in one SQLite transaction.
+The safe `reason` explains unsuccessful termination without exposing SQL,
+credentials or connection information. `finished_at` becomes a UTC timestamp
+on termination.
+
+States are `running`, `stopping`, `stopped`, `succeeded`, `failed` and
+`interrupted`. Stop changes running to stopping and cooperatively cancels
+candidate discovery and batch execution. The current short transaction commits
+or rolls back before termination; earlier committed counts remain. A concurrent
+batch or successful finish cannot overwrite stopping with running/succeeded.
+Repeated stop of the same latest run, including a terminal run, is safe and
+never restarts it.
+
+There is one persistent current/latest slot, replaced by the next accepted run.
+There is no historical list, request ID, replay key or automatic retry. If a
+start response is lost or BUSY is returned, GET the global summary; the client
+must not automatically submit another start or assume the run belongs to its
+page. A new run requires a fresh explicit user confirmation.
+
+## Lifecycle and admission
+
+The worker belongs to the process context. Navigating away, closing the page or
+canceling the starting HTTP request does not cancel an accepted run. Clients
+poll GET; there is no cleanup SSE stream. A network failure means unknown state,
+not successful completion. Process shutdown cancels and joins the worker before
+SQLite closes. Startup interrupts leftover running/stopping summaries before
+requests are accepted, preserving committed counts without resuming work.
+
+Each run fixes its session cutoffs at started_at. Each selected stage captures
+a finite, cancelable candidate set and rechecks each batch of up to 500 records
+in the deletion transaction. A failure rolls back only its current batch.
+Candidates created after that stage's discovery belong to a future run.
+
+The gate atomically reserves the manual run marker and first maintenance slot.
+The marker survives each batch yield, preventing another manual run or automatic
+maintenance from acquiring a slot. Ordinary scans/tasks may enter between
+batches; if they hold admission when cleanup reenters, cleanup ends interrupted
+and retains its committed results. Busy starts do not queue.
+
+Automatic maintenance still handles only the three categories above and space
+maintenance. It attempts a pass before requests open, first waits 15 minutes in
+its background loop, then waits 24 hours after a completed pass or 15 minutes
+after a busy, incomplete or budget-limited pass. A manual run adds no timer and
+changes none of these intervals.

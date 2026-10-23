@@ -243,3 +243,72 @@ func TestGateBackgroundYieldsToEverything(t *testing.T) {
 		releaseScan()
 	})
 }
+
+func TestCleanupMarkerSurvivesYieldAndAllowsOrdinaryWork(t *testing.T) {
+	gate := admission.NewGate(nil)
+	first, finish, err := gate.BeginCleanup()
+	if err != nil {
+		t.Fatal(err)
+	}
+	first()
+	if _, busyErr := gate.BeginMaintenance(); !admission.IsBusy(busyErr) {
+		t.Fatalf("automatic during manual = %v", busyErr)
+	}
+	if _, _, busyErr := gate.BeginCleanup(); !admission.IsBusy(busyErr) {
+		t.Fatalf("second manual = %v", busyErr)
+	}
+	scan, err := gate.BeginScan()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, busyErr := gate.ContinueCleanup(); !admission.IsBusy(busyErr) {
+		t.Fatalf("reentry during scan = %v", busyErr)
+	}
+	scan()
+	finish()
+	automatic, err := gate.BeginMaintenance()
+	if err != nil {
+		t.Fatal(err)
+	}
+	automatic()
+}
+
+func TestCleanupStartRacesAutomaticAdmissionAtomically(t *testing.T) {
+	for range 100 {
+		gate := admission.NewGate(nil)
+		start := make(chan struct{})
+		type result struct {
+			release func()
+			err     error
+		}
+		results := make(chan result, 2)
+		go func() {
+			<-start
+			release, finish, err := gate.BeginCleanup()
+			if err == nil {
+				results <- result{release: func() { release(); finish() }}
+			} else {
+				results <- result{err: err}
+			}
+		}()
+		go func() {
+			<-start
+			release, err := gate.BeginMaintenance()
+			results <- result{release: release, err: err}
+		}()
+		close(start)
+		first, second := <-results, <-results
+		successes := 0
+		for _, got := range []result{first, second} {
+			if got.err == nil {
+				successes++
+				got.release()
+			} else if !admission.IsBusy(got.err) {
+				t.Fatal(got.err)
+			}
+		}
+		if successes != 1 {
+			t.Fatalf("concurrent holders: %d", successes)
+		}
+	}
+}

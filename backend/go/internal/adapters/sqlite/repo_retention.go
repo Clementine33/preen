@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -25,15 +26,22 @@ const RetentionBatchRows = 500
 // The LIMIT sits in a subquery because this build of SQLite was compiled
 // without SQLITE_ENABLE_UPDATE_DELETE_LIMIT: "DELETE ... LIMIT" is a syntax
 // error.
-func deleteScanSessionsBatchTx(ctx context.Context, tx *sql.Tx, cutoff time.Time, limit int) (int64, error) {
+func deleteScanSessionsBatchTx(
+	ctx context.Context,
+	tx *sql.Tx,
+	cutoff time.Time,
+	limit int,
+	candidates ...[]string,
+) (int64, error) {
+	filter, args := retentionCandidateFilter("session_id", []any{cutoff.Format(timeFormat)}, candidates)
+	args = append(args, limit)
 	result, err := tx.ExecContext(ctx, `
 		DELETE FROM scan_sessions WHERE session_id IN (
 			SELECT session_id FROM scan_sessions
-			WHERE status IN ('completed','failed','canceled','interrupted')
-			  AND julianday(COALESCE(finished_at, started_at)) < julianday(?)
-			LIMIT ?
+			WHERE `+scanRetentionPredicate+filter+`
+ LIMIT ?
 		)
-	`, cutoff.Format(timeFormat), limit)
+	`, args...)
 	if err != nil {
 		return 0, fmt.Errorf("delete scan_sessions older than %s: %w", cutoff.Format(timeFormat), err)
 	}
@@ -48,14 +56,22 @@ func deleteScanSessionsBatchTx(ctx context.Context, tx *sql.Tx, cutoff time.Time
 // revision_id is ON DELETE SET NULL in the other direction - dropping a plan
 // clears the session's reference to it - so purging a session never reaches the
 // plan it planned.
-func deletePlanGenerationsBatchTx(ctx context.Context, tx *sql.Tx, cutoff time.Time, limit int) (int64, error) {
+func deletePlanGenerationsBatchTx(
+	ctx context.Context,
+	tx *sql.Tx,
+	cutoff time.Time,
+	limit int,
+	candidates ...[]string,
+) (int64, error) {
+	filter, args := retentionCandidateFilter("generation_id", []any{cutoff.Format(timeFormat)}, candidates)
+	args = append(args, limit)
 	result, err := tx.ExecContext(ctx, `
 		DELETE FROM plan_generations WHERE generation_id IN (
 			SELECT generation_id FROM plan_generations
-			WHERE finished_at IS NOT NULL AND julianday(finished_at) < julianday(?)
-			LIMIT ?
+			WHERE `+generationRetentionPredicate+filter+`
+ LIMIT ?
 		)
-	`, cutoff.Format(timeFormat), limit)
+	`, args...)
 	if err != nil {
 		return 0, fmt.Errorf("delete finished plan generations older than %s: %w", cutoff.Format(timeFormat), err)
 	}
@@ -64,15 +80,20 @@ func deletePlanGenerationsBatchTx(ctx context.Context, tx *sql.Tx, cutoff time.T
 }
 
 // A delivery of any status retains its shared download for reporting and retry.
-func deleteUnreferencedCoverDownloadsBatchTx(ctx context.Context, tx *sql.Tx, limit int) (int64, error) {
+func deleteUnreferencedCoverDownloadsBatchTx(
+	ctx context.Context,
+	tx *sql.Tx,
+	limit int,
+	candidates ...[]string,
+) (int64, error) {
+	filter, args := retentionCandidateFilter("j.id", nil, candidates)
+	args = append(args, limit)
 	result, err := tx.ExecContext(ctx, `
 		DELETE FROM cover_downloads WHERE id IN (
 			SELECT j.id FROM cover_downloads j
-			WHERE j.status='done' AND NOT EXISTS (
-				SELECT 1 FROM cover_deliveries d WHERE d.job_id=j.id
-			) LIMIT ?
+			WHERE `+downloadRetentionPredicate+filter+` LIMIT ?
 		)
-	`, limit)
+	`, args...)
 	if err != nil {
 		return 0, fmt.Errorf("delete unreferenced cover downloads: %w", err)
 	}
@@ -125,4 +146,23 @@ func (r *Repository) RunRetentionCleanupBatch(
 		return CleanupStats{}, fmt.Errorf("commit retention cleanup tx: %w", err)
 	}
 	return stats, nil
+}
+
+const scanRetentionPredicate = "status IN ('completed','failed','canceled','interrupted') AND julianday(COALESCE(finished_at, started_at)) < julianday(?)"
+const generationRetentionPredicate = "finished_at IS NOT NULL AND julianday(finished_at) < julianday(?)"
+
+const downloadRetentionPredicate = "j.status='done' AND NOT EXISTS (SELECT 1 FROM cover_deliveries d WHERE d.job_id=j.id)"
+
+// Manual batches bound the existing retention delete to their finite candidates.
+func retentionCandidateFilter(column string, args []any, candidates [][]string) (string, []any) {
+	if len(candidates) == 0 {
+		return "", args
+	}
+	if len(candidates[0]) == 0 {
+		return " AND 0", args
+	}
+	for _, id := range candidates[0] {
+		args = append(args, id)
+	}
+	return " AND " + column + " IN (" + strings.TrimSuffix(strings.Repeat("?,", len(candidates[0])), ",") + ")", args
 }

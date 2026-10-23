@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/Clementine33/preen/backend/internal/cleanup"
 	"github.com/Clementine33/preen/backend/internal/collections"
 	"github.com/Clementine33/preen/backend/internal/conversion"
 	"github.com/Clementine33/preen/backend/internal/fileops"
@@ -51,8 +52,9 @@ type Dependencies struct {
 	Collections *collections.Service
 	// Thumbs renders and caches manifest image thumbnails (ADR 0013); a
 	// read-only path that takes no admission slot.
-	Thumbs *thumbnail.Service
-	Covers *coverdelivery.Service
+	Thumbs  *thumbnail.Service
+	Covers  *coverdelivery.Service
+	Cleanup *cleanup.Service
 }
 
 // Dependencies names no storage: every route reaches its business entry, and
@@ -60,11 +62,13 @@ type Dependencies struct {
 
 type Server struct{ deps Dependencies }
 
+//nolint:funlen // Keep the explicit route registry together.
 func NewServer(deps Dependencies) http.Handler {
 	s := &Server{deps: deps}
 	mux := http.NewServeMux()
 	s.publicRoutes(mux)
 	protect := authMiddleware(deps.Token)
+	s.cleanupRoutes(mux, protect)
 	mux.Handle("GET /api/v1/inventory/media-facts/events", protect(http.HandlerFunc(s.mediaFactsEvents)))
 	mux.Handle("POST /api/v1/libraries", protect(http.HandlerFunc(s.createLibrary)))
 	mux.Handle("GET /api/v1/libraries", protect(http.HandlerFunc(s.listLibraries)))

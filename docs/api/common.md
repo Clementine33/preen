@@ -167,6 +167,10 @@ Work collections add `COLLECTION_NOT_FOUND` (404), `BUILTIN_COLLECTION` and
 `COLLECTION_MEMBER_CONFLICT` (409). Append reuses `WORK_NOT_FOUND` (404), with missing canonical work numbers in `details[]`.
 Collection references, including Favorites, also block permanent Work deletion.
 
+Database cleanup adds `CLEANUP_RUN_NOT_FOUND` (404); category validation uses
+`INVALID_ARGUMENT` (400), and competing activity uses `BUSY` (409). See
+[database record cleanup](maintenance.md).
+
 ## Paths: the one rule
 
 **The frontend echoes paths verbatim; the backend normalizes them, and only
@@ -199,7 +203,7 @@ handler completion. Planning and execution sessions stopped by shutdown become
 `interrupted`; an explicit user cancel remains `canceled`.
 
 The backend joins admitted handlers, dispatcher workers, maintenance, media
-facts and cover workers before closing SQLite. File publication and its database
+facts, cover workers and manual cleanup before closing SQLite. File publication and its database
 finalization finish through their protected boundaries. One five-second
 forced-exit guard covers all joins and database Close. At its deadline the
 process logs outstanding work and exits with code 1 without closing a database

@@ -26,6 +26,7 @@ import (
 	appconfig "github.com/Clementine33/preen/backend/internal/adapters/settings"
 	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
 	"github.com/Clementine33/preen/backend/internal/admission"
+	"github.com/Clementine33/preen/backend/internal/cleanup"
 	"github.com/Clementine33/preen/backend/internal/collections"
 	"github.com/Clementine33/preen/backend/internal/conversion"
 	"github.com/Clementine33/preen/backend/internal/conversion/execute"
@@ -368,10 +369,20 @@ func runServer(
 
 	// Maintenance excludes scans, sessions and file management through their gate.
 	// Personal-data edits can still write concurrently. The loop ends with ctx.
-	maintenanceLoop := NewMaintenanceLoop(repo, services.gate.BeginMaintenance, Options{
+	maintenanceOptions := Options{
 		ScanRetention:       scanRetention,
 		GenerationRetention: generationRetention,
+	}
+	maintenanceLoop := NewMaintenanceLoop(repo, services.gate.BeginMaintenance, maintenanceOptions)
+	cleanupService := cleanup.NewService(ctx, repo, services.gate, cleanup.Options{
+		ScanRetention: maintenanceOptions.ScanRetention, GenerationRetention: maintenanceOptions.GenerationRetention,
+		BatchRows: DefaultBatchRows, YieldDelay: DefaultYieldDelay,
 	})
+	if err := cleanupService.Recover(ctx); err != nil {
+		log.Fatalf("recover cleanup: %v", err)
+	}
+	cleanupDone := make(chan struct{})
+	go func() { <-ctx.Done(); cleanupService.Shutdown(); close(cleanupDone) }()
 	// The startup pass runs to completion here, before the server accepts
 	// anything: nothing else is alive yet, so it is the cheapest pass the
 	// process will ever run, and no client can be refused by it.
@@ -412,7 +423,8 @@ func runServer(
 			media.ThumbEngine{}, filepath.Join(cfg.DataDir, "thumbs"), 512<<20,
 			runtime.NumCPU(), 4*runtime.NumCPU(),
 		),
-		Covers: services.covers,
+		Covers:  services.covers,
+		Cleanup: cleanupService,
 	}))
 	requestCtx, cancelRequests := context.WithCancel(context.Background())
 	defer cancelRequests()
@@ -437,7 +449,7 @@ func runServer(
 	log.Printf("preen listening on http %s (data=%s)", httpListener.Addr(), cfg.DataDir)
 	<-ctx.Done()
 	shutdownBackend(httpSrv, handlers, services.workset.DispatcherHandle(), map[string]<-chan struct{}{
-		"maintenance": maintenanceDone, "media facts": mediaFactsDone, "covers": coversDone,
+		"cleanup": cleanupDone, "maintenance": maintenanceDone, "media facts": mediaFactsDone, "covers": coversDone,
 	}, repo.Close, os.Exit)
 }
 

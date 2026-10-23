@@ -1,0 +1,136 @@
+package cleanup
+
+import (
+	"context"
+	"log"
+	"time"
+
+	"github.com/google/uuid"
+
+	"github.com/Clementine33/preen/backend/internal/admission"
+)
+
+func (s *Service) Start(ctx context.Context, categories []Category) (*Run, error) {
+	categories, err := Normalize(categories)
+	if err != nil {
+		return nil, err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed || s.ctx.Err() != nil {
+		return nil, context.Canceled
+	}
+	release, finish, err := s.gate.BeginCleanup()
+	if err != nil {
+		return nil, err
+	}
+	run := Run{
+		ID:         uuid.NewString(),
+		Categories: categories,
+		Status:     "running",
+		Phase:      categories[0],
+		StartedAt:  time.Now().UTC(),
+		Counts:     map[Category]Count{},
+	}
+	for _, category := range categories {
+		run.Counts[category] = Count{}
+	}
+	if err := s.store.CreateCleanupRun(ctx, run); err != nil {
+		release()
+		finish()
+		return nil, err
+	}
+	workerCtx, cancel := context.WithCancel(s.ctx)
+	s.cancel = cancel
+	s.workers.Go(func() {
+		defer func() { cancel(); s.mu.Lock(); s.cancel = nil; finish(); s.mu.Unlock() }()
+		status, reason := s.execute(workerCtx, run, release)
+		finalCtx, stop := context.WithTimeout(context.Background(), 3*time.Second)
+		defer stop()
+		if err := s.store.FinishCleanupRun(finalCtx, run.ID, status, reason); err != nil {
+			log.Printf("cleanup finalization failed: %v", err)
+		}
+	})
+	return &run, nil
+}
+
+func (s *Service) execute(ctx context.Context, run Run, release func()) (string, string) {
+	defer func() {
+		if release != nil {
+			release()
+		}
+	}()
+	for _, category := range run.Categories {
+		if err := s.store.SetCleanupPhase(ctx, run.ID, category); err != nil {
+			return s.failure(ctx)
+		}
+		ids, err := s.store.CleanupCandidates(ctx, category, s.opts.Cutoff(category, run.StartedAt))
+		if err != nil {
+			return s.failure(ctx)
+		}
+		for len(ids) > 0 {
+			if ctx.Err() != nil {
+				return s.failure(ctx)
+			}
+			size := min(len(ids), s.opts.BatchRows)
+			if batchErr := s.store.CleanupBatch(
+				ctx,
+				run.ID,
+				category,
+				s.opts.Cutoff(category, run.StartedAt),
+				ids[:size],
+			); batchErr != nil {
+				return s.failure(ctx)
+			}
+			ids = ids[size:]
+			release()
+			release = nil
+			timer := time.NewTimer(s.opts.YieldDelay)
+			select {
+			case <-ctx.Done():
+				timer.Stop()
+				return s.failure(ctx)
+			case <-timer.C:
+			}
+			release, err = s.gate.ContinueCleanup()
+			if err != nil {
+				if !admission.IsBusy(err) {
+					return "failed", "Cleanup admission check failed; previously committed results are retained."
+				}
+				return "interrupted", "Cleanup yielded to other activity."
+			}
+		}
+	}
+	if ctx.Err() != nil {
+		return s.failure(ctx)
+	}
+	return "succeeded", ""
+}
+func (s *Service) failure(ctx context.Context) (string, string) {
+	if s.ctx.Err() != nil {
+		return "interrupted", "Service stopped."
+	}
+	if ctx.Err() != nil {
+		return "stopped", "Stop requested."
+	}
+	return "failed", "Cleanup batch failed; previously committed results are retained."
+}
+
+func (s *Service) Cancel(ctx context.Context, id string) (*Run, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	run, err := s.store.StopCleanupRun(ctx, id)
+	if err == nil && run.Status == "stopping" && s.cancel != nil {
+		s.cancel()
+	}
+	return run, err
+}
+
+// Shutdown seals starts, cancels the process-owned worker and joins it before SQLite closes.
+func (s *Service) Shutdown() {
+	s.mu.Lock()
+	s.closed = true
+	s.stop()
+	s.mu.Unlock()
+	s.workers.Wait()
+}

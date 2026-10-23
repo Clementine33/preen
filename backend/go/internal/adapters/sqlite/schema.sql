@@ -684,3 +684,9 @@ CREATE INDEX idx_collection_works_order ON collection_works(collection_id, posit
 CREATE INDEX idx_collection_works_work ON collection_works(work_id);
 INSERT INTO collections(id,name,created_at,updated_at)
 VALUES ('favorites','Favorites','1970-01-01T00:00:00.000000000Z','1970-01-01T00:00:00.000000000Z');
+
+-- One deployment-wide current/latest manual cleanup summary; never a history ledger.
+CREATE TABLE cleanup_run (
+ slot INTEGER PRIMARY KEY CHECK (slot = 1),
+ summary TEXT NOT NULL CHECK (json_valid(summary))
+);

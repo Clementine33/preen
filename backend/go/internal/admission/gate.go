@@ -54,11 +54,12 @@ type ActiveTasks func() (bool, error)
 // Callers supply scan/task policy through checked scan registration and
 // exclusive enqueue. The gate keeps each check atomic with its registration.
 type Gate struct {
-	mu     sync.Mutex
-	manual bool
-	maint  bool
-	scans  int
-	tasks  ActiveTasks
+	mu      sync.Mutex
+	manual  bool
+	maint   bool
+	cleanup bool
+	scans   int
+	tasks   ActiveTasks
 
 	// The preemptible background holder (BeginBackground): how to stop it, and
 	// the channel its release closes. Both nil when the slot is free.
@@ -145,6 +146,13 @@ func (g *Gate) BeginManual() (func(), error) {
 func (g *Gate) BeginMaintenance() (func(), error) {
 	g.lockPreempting()
 	defer g.mu.Unlock()
+	if g.cleanup {
+		return nil, &BusyError{Reason: "manual cleanup is in progress"}
+	}
+	return g.beginMaintenanceLocked()
+}
+
+func (g *Gate) beginMaintenanceLocked() (func(), error) {
 	if g.manual {
 		return nil, &BusyError{Reason: "direct file management is in progress"}
 	}
@@ -269,4 +277,29 @@ func (g *Gate) releaseMaintenance() {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	g.maint = false
+}
+
+// BeginCleanup atomically reserves the whole manual run and its first batch.
+func (g *Gate) BeginCleanup() (release, finish func(), err error) {
+	g.lockPreempting()
+	defer g.mu.Unlock()
+	if g.cleanup {
+		return nil, nil, &BusyError{Reason: "manual cleanup is in progress"}
+	}
+	release, err = g.beginMaintenanceLocked()
+	if err != nil {
+		return nil, nil, err
+	}
+	g.cleanup = true
+	return release, func() { g.mu.Lock(); g.cleanup = false; g.mu.Unlock() }, nil
+}
+
+// ContinueCleanup takes the next batch slot while preserving the run marker.
+func (g *Gate) ContinueCleanup() (func(), error) {
+	g.lockPreempting()
+	defer g.mu.Unlock()
+	if !g.cleanup {
+		return nil, &BusyError{Reason: "manual cleanup has ended"}
+	}
+	return g.beginMaintenanceLocked()
 }

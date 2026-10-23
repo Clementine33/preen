@@ -687,3 +687,9 @@ INSERT INTO collections(id,name,created_at,updated_at)
 VALUES ('favorites','Favorites','1970-01-01T00:00:00.000000000Z','1970-01-01T00:00:00.000000000Z');
 
 INSERT INTO schema_meta (key, value) VALUES ('database_mode', 'release');
+
+-- One deployment-wide current/latest manual cleanup summary; never a history ledger.
+CREATE TABLE cleanup_run (
+ slot INTEGER PRIMARY KEY CHECK (slot = 1),
+ summary TEXT NOT NULL CHECK (json_valid(summary))
+);

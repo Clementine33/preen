@@ -6,20 +6,30 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/Clementine33/preen/backend/internal/cleanup"
 )
 
-// CleanupCandidates captures one finite stage using the automatic path's exact predicates.
+// CleanupCandidates captures a finite stage. Preview projects only eligible works
+// in its selection; execution uses current references after the works stage.
 func (r *Repository) CleanupCandidates(
 	ctx context.Context,
 	category cleanup.Category,
 	cutoff time.Time,
+	selected []cleanup.Category,
 ) ([]string, error) {
+	tx, err := r.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = tx.Rollback() }()
 	var query string
 	var args []any
 	switch category {
+	case cleanup.Works:
+		return cleanupWorks(ctx, tx)
 	case cleanup.ScanSessions:
 		query = "SELECT session_id FROM scan_sessions WHERE " + scanRetentionPredicate
 		args = []any{cutoff.Format(timeFormat)}
@@ -28,26 +38,25 @@ func (r *Repository) CleanupCandidates(
 		args = []any{cutoff.Format(timeFormat)}
 	case cleanup.CoverDownloads:
 		query = "SELECT j.id FROM cover_downloads j WHERE " + downloadRetentionPredicate
+	case cleanup.SourceTags, cleanup.SourceVoiceActors, cleanup.SourceCircles:
+		table, reference := cleanupSource(category)
+		projected := []string{}
+		if slices.Contains(selected, cleanup.Works) {
+			projected, err = cleanupWorks(ctx, tx)
+			if err != nil {
+				return nil, err
+			}
+		}
+		data, marshalErr := json.Marshal(projected)
+		if marshalErr != nil {
+			return nil, marshalErr
+		}
+		query = "SELECT id FROM " + table + " WHERE work_id IS NULL AND NOT EXISTS (" + reference + " AND j.work_id NOT IN (SELECT value FROM json_each(?)))"
+		args = []any{string(data)}
 	default:
 		return nil, cleanup.ErrInvalidCategories
 	}
-	rows, err := r.db.QueryContext(ctx, query, args...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	ids := []string{}
-	for rows.Next() {
-		if err := ctx.Err(); err != nil {
-			return nil, err
-		}
-		var id string
-		if err := rows.Scan(&id); err != nil {
-			return nil, err
-		}
-		ids = append(ids, id)
-	}
-	return ids, rows.Err()
+	return cleanupIDs(ctx, tx, query, args...)
 }
 
 func (r *Repository) CreateCleanupRun(ctx context.Context, run cleanup.Run) error {
@@ -99,6 +108,10 @@ func (r *Repository) CleanupBatch(
 		deleted, err = deletePlanGenerationsBatchTx(ctx, tx, cutoff, len(ids), ids)
 	case cleanup.CoverDownloads:
 		deleted, err = deleteUnreferencedCoverDownloadsBatchTx(ctx, tx, len(ids), ids)
+	case cleanup.Works:
+		deleted, err = deleteCleanupWorks(ctx, tx, ids)
+	case cleanup.SourceTags, cleanup.SourceVoiceActors, cleanup.SourceCircles:
+		deleted, err = deleteCleanupSources(ctx, tx, category, ids)
 	default:
 		return cleanup.ErrInvalidCategories
 	}
@@ -137,7 +150,14 @@ func (r *Repository) CleanupBatch(
 	if n != 1 {
 		return cleanup.ErrNotFound
 	}
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	if deleted > 0 &&
+		(category == cleanup.Works || category == cleanup.SourceTags || category == cleanup.SourceVoiceActors || category == cleanup.SourceCircles) {
+		r.catalogChanged()
+	}
+	return nil
 }
 func (r *Repository) StopCleanupRun(ctx context.Context, id string) (*cleanup.Run, error) {
 	tx, err := r.db.BeginTx(ctx, nil)

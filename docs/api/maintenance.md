@@ -14,7 +14,7 @@ runs VACUUM and does not reset the automatic maintenance clock.
 | GET | `/maintenance/cleanup` | 200 current/latest summary, or `{"run":null}` |
 | POST | `/maintenance/cleanup/{runId}/cancel` | 200 current summary after requesting stop |
 
-Preview and start require `{"categories":["scan_sessions","plan_generations","cover_downloads"]}`.
+Preview and start require a nonempty category selection, for example `{"categories":["works","source_tags"]}`.
 The array must be nonempty and contain only supported keys. Duplicate keys are
 normalized to the order shown. Unknown fields (including `request_id`) and
 invalid categories return `400 INVALID_ARGUMENT`. Cancel accepts an empty body
@@ -28,6 +28,10 @@ The currently supported categories are:
 | `scan_sessions` | completed/failed/canceled/interrupted, with terminal time strictly older than the shared scan retention window; missing finished_at falls back to started_at |
 | `plan_generations` | finished_at present and strictly older than the shared generation retention window |
 | `cover_downloads` | done, with no delivery reference of any status |
+| `works` | no stored copy binding, personal rating, nonempty note, user tag, collection membership or listening record |
+| `source_tags` | shared source tags with no work reference |
+| `source_voice_actors` | shared source voice actors with no work reference |
+| `source_circles` | shared source circles with no work reference |
 
 Scan and generation windows currently retain 7 and 30 days respectively. Both
 manual and automatic paths receive the same app policy values; generation
@@ -45,8 +49,21 @@ are the server's current policy, not client configuration.
 }
 ```
 
-Only selected categories appear. `retention_days` is zero for downloads, which
-have no waiting period. Preview is read-only: it neither locks candidates nor
+Only selected categories appear. `retention_days` is zero for downloads, works
+and source entities, which have no waiting period. Preview counts source
+references after projected eligible work deletion only when `works` is selected;
+otherwise every current work reference remains effective. Works with offline
+copies remain protected. Empty user-data rows, collection time and source
+metadata alone do not protect a work; notes are not trimmed. Any listening row,
+including a zero position or finished record, protects it.
+
+Source entities are identified by their stored identity and references, never
+name or language. An accepted refresh of a source ID reuses its identity across
+Japanese/Chinese names. User-created tag vocabulary and classifier settings
+are always retained. Work-owned source entities (`work_id` present) belong to
+the work cascade and are excluded from independent source candidates.
+
+Preview is read-only: it neither locks candidates nor
 issues a deletion token. Start repeats eligibility checks. A run that finds
 zero candidates can succeed. Preview counts are not a fixed progress denominator.
 
@@ -71,7 +88,12 @@ Start, GET and cancel return the same envelope:
 
 `phase` identifies the selected category being processed. Counts describe only
 committed batches: checked candidates, actual top-level records deleted and
-candidates skipped after rechecking. Cascaded rows are not separately counted.
+candidates skipped after rechecking. Cascaded rows are not separately counted:
+each deleted work counts once,
+including its associations and work-owned source entities even when source
+categories were not selected. Shared entities count only when independently
+deleted in their selected source stage. Work deletion preserves independent
+relation reports and other works' derived relations.
 Deletion and the corresponding counters commit in one SQLite transaction.
 The safe `reason` explains unsuccessful termination without exposing SQL,
 credentials or connection information. `finished_at` becomes a UTC timestamp
@@ -100,10 +122,17 @@ not successful completion. Process shutdown cancels and joins the worker before
 SQLite closes. Startup interrupts leftover running/stopping summaries before
 requests are accepted, preserving committed counts without resuming work.
 
+Stages run in the category order above: history, works, then source entities.
 Each run fixes its session cutoffs at started_at. Each selected stage captures
 a finite, cancelable candidate set and rechecks each batch of up to 500 records
 in the deletion transaction. A failure rolls back only its current batch.
-Candidates created after that stage's discovery belong to a future run.
+Candidates created after that stage's discovery belong to a future run. Every
+work's personal-data and copy protection and every source reference is rechecked
+inside the same transaction as deletion and progress. A protection committed
+after preview skips that candidate. When deletion commits first, later personal
+edits return `404 WORK_NOT_FOUND`. Only committed catalog changes emit the
+existing catalog notification, covering work lists/details, relation existence
+and source filters.
 
 The gate atomically reserves the manual run marker and first maintenance slot.
 The marker survives each batch yield, preventing another manual run or automatic
@@ -111,7 +140,7 @@ maintenance from acquiring a slot. Ordinary scans/tasks may enter between
 batches; if they hold admission when cleanup reenters, cleanup ends interrupted
 and retains its committed results. Busy starts do not queue.
 
-Automatic maintenance still handles only the three categories above and space
+Automatic maintenance still handles only the three history categories and space
 maintenance. It attempts a pass before requests open, first waits 15 minutes in
 its background loop, then waits 24 hours after a completed pass or 15 minutes
 after a busy, incomplete or budget-limited pass. A manual run adds no timer and

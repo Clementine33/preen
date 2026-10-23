@@ -145,7 +145,7 @@ func TestMalformedCreditsNeverBecomeAnEmptySnapshot(t *testing.T) {
 	}
 }
 
-func TestStaticSeparatesMainSampleAndResizedThumbnail(t *testing.T) {
+func TestStaticSeparatesMainAndSampleCovers(t *testing.T) {
 	client := scraper.New(&http.Client{Transport: transportFunc(func(*http.Request) (*http.Response, error) {
 		return response(
 			200,
@@ -159,9 +159,7 @@ func TestStaticSeparatesMainSampleAndResizedThumbnail(t *testing.T) {
 	if result.Core == nil || result.Core.CoverURL == nil ||
 		*result.Core.CoverURL != "https://img.dlsite.jp/main.webp" ||
 		result.Core.SampleCoverURL == nil ||
-		*result.Core.SampleCoverURL != "https://img.dlsite.jp/sample.jpg" ||
-		result.Core.ThumbnailURL == nil ||
-		*result.Core.ThumbnailURL != "https://img.dlsite.jp/resize/main_240x240.jpg" {
+		*result.Core.SampleCoverURL != "https://img.dlsite.jp/sample.jpg" {
 		t.Fatalf("incorrect cover mapping: %+v", result.Core)
 	}
 }

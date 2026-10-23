@@ -1,21 +1,13 @@
 package conversion
 
-// Catalog is the global conversion-policy catalog: the three fixed policy slots
-// and the classifier tag library. Both are edited from the settings pages rather
-// than from a workset, and both hold facts only the conversion rules can judge —
-// what a policy must contain, what a classifier tag means — so the validation
-// lives here and storage is reached through the ports below it.
-//
-// The tag library is two halves: the maintained literals the configuration
-// carries, which are read-only, and the custom tags users add, which live in
-// storage. They are offered together because to a classifier they are one list.
+// Catalog owns the conversion classifier tag library and its validation.
+// Configuration supplies read-only defaults; storage holds user-added tags.
 type Catalog struct {
-	slots    PolicySlotStore
 	tags     ClassifierTagStore
 	settings Settings
 }
 
-// NewCatalog wires the catalog to its storage and configuration.
-func NewCatalog(slots PolicySlotStore, tags ClassifierTagStore, settings Settings) *Catalog {
-	return &Catalog{slots: slots, tags: tags, settings: settings}
+// NewCatalog wires the tag library to its storage and configuration.
+func NewCatalog(tags ClassifierTagStore, settings Settings) *Catalog {
+	return &Catalog{tags: tags, settings: settings}
 }

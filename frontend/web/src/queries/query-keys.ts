@@ -27,9 +27,6 @@ export const queryKeys = {
     list: (libraryId: string, limit = 100) => ['plans', 'list', libraryId, limit] as const,
     detail: (planId: string) => ['plans', 'detail', planId] as const,
   },
-  policySlots: {
-    list: () => ['policy-slots', 'list'] as const,
-  },
   // Each Task kind's deployment-wide common settings; no record involved.
   taskSettings: {
     detail: (operation: string) => ['task-settings', operation] as const,

@@ -199,4 +199,4 @@ A record's scope is fixed once created: it is replaced, never re-scanned in
 place. `folder_paths` come from `GET /api/v1/libraries/:id/dirs` of the owning
 library, as library-relative paths.
 
-Use the shared [operation routes and versions](worksets.md) and [execution sessions](executions.md#execution-sessions). Reusable policy values are supplied by [Policy slots and classifier tags](policies.md).
+Use the shared [operation routes and versions](worksets.md) and [execution sessions](executions.md#execution-sessions). Reusable classifier tags are supplied by the [classifier tag library](policies.md).

@@ -65,7 +65,7 @@ func newWorksetServer(t *testing.T, guards ...workset.EnqueueGuard) (http.Handle
 	}, nil, guard)
 	handler := NewServer(Dependencies{
 		Library:        library.NewService(repo, nil, repo, filesystem.ResolveMember),
-		Catalog:        conversion.NewCatalog(repo, repo, appconfig.NewReader(tmp)),
+		Catalog:        conversion.NewCatalog(repo, appconfig.NewReader(tmp)),
 		Token:          testToken,
 		CORSOrigins:    []string{"http://localhost:5173"},
 		WorksetService: svc,
@@ -541,6 +541,19 @@ func TestWorksetAuthRequired(t *testing.T) {
 		map[string]any{"folder_paths": []string{"albumA"}}, "create-auth")
 	if w.Code != http.StatusUnauthorized {
 		t.Fatalf("no auth status = %d, want 401", w.Code)
+	}
+}
+
+func TestPolicySlotRoutesAreAbsent(t *testing.T) {
+	h, _ := newWorksetServer(t)
+	for _, route := range []struct{ method, path string }{
+		{http.MethodGet, "/api/v1/policy-slots"},
+		{http.MethodPut, "/api/v1/policy-slots/1"},
+	} {
+		w := req(t, h, route.method, route.path, testToken, nil)
+		if w.Code != http.StatusNotFound || !strings.Contains(w.Body.String(), `"code":"NOT_FOUND"`) {
+			t.Fatalf("removed route %s %s = %d %s", route.method, route.path, w.Code, w.Body.String())
+		}
 	}
 }
 

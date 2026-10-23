@@ -36,9 +36,7 @@ import type {
   ListWorksetsParams,
   Operation,
   OperationType,
-  PolicySlot,
   RevisionDetailResponse,
-  SavePolicySlotInput,
   ScanEvent,
   StartExecutionResponse,
   StartGenerationResponse,
@@ -242,16 +240,6 @@ export class ApiClient implements ApiClientContract {
       body: input,
       timeoutMs: 60_000,
     })
-  }
-
-  // ==================== Policy slots ====================
-
-  listPolicySlots(signal?: AbortSignal): Promise<PolicySlot[]> {
-    return this.request<{ slots: PolicySlot[] }>('/policy-slots', { signal }).then((r) => r.slots.map((slot) => ({ ...slot, policy: slot.policy ? normalizeConversionTags(slot.policy) : null })))
-  }
-
-  savePolicySlot(slot: number, input: SavePolicySlotInput): Promise<PolicySlot> {
-    return this.request(`/policy-slots/${slot}`, { method: 'PUT', body: input })
   }
 
   // ==================== Classifier tag library ====================

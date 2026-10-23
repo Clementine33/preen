@@ -237,9 +237,6 @@ A member that does not participate in one Workset Operation but retains its memb
 **Batch Edit**:
 An explicit edit of selected setting groups for a fixed member list. Unedited groups and members outside that list retain their existing settings and inheritance.
 
-**Policy Slot**:
-One of three reusable, named policy templates, initially unconfigured. Applying a configured slot copies its policy; later template changes do not alter saved drafts or revisions.
-
 **Classifier Tag Library**:
 Reusable literal tags, comprising separate installation defaults for no-effect matching and other-directory isolation, plus shared user-saved custom strings. Drafts carry their own chosen tag values.
 

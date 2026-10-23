@@ -64,7 +64,7 @@ func (s *Service) RefreshWithProgress(
 			for i := range jobs {
 				item := &result.Works[i]
 				if len(item.Issues) == 0 && ctx.Err() == nil {
-					if _, e := s.refreshWork(
+					if e := s.refreshWork(
 						ctx,
 						req,
 						item,
@@ -72,7 +72,7 @@ func (s *Service) RefreshWithProgress(
 						states[item.WorkCode][works.GroupCore].Source,
 						dynamic[item.WorkCode],
 						failures[item.WorkCode],
-						run, false,
+						run,
 					); e != nil {
 						cancel(e)
 					}

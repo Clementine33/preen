@@ -160,12 +160,11 @@ HTTP envelope.
 
 The work catalog adds: `INVALID_PAGE` / `MATCH_MODE_REQUIRED` / `INVALID_TAG_NAME` /
 `INVALID_TIMESTAMP` / `INVALID_PREFERENCES` / `INVALID_OUTBOUND_PROXY` (400), `WORK_NOT_FOUND` / `USER_TAG_NOT_FOUND` (404),
-`WORK_IN_USE` / `USER_TAG_EXISTS` / `WORK_IS_PLACEHOLDER` (409). A refusal may
+`WORK_IN_USE` / `USER_TAG_EXISTS` (409). A refusal may
 carry `details[]` naming the references that hold a work in place.
 
 Work collections add `COLLECTION_NOT_FOUND` (404), `BUILTIN_COLLECTION` and
-`COLLECTION_MEMBER_CONFLICT` (409). Append reuses `WORK_NOT_FOUND` (404) and
-`WORK_IS_PLACEHOLDER` (409), with offending canonical work numbers in `details[]`.
+`COLLECTION_MEMBER_CONFLICT` (409). Append reuses `WORK_NOT_FOUND` (404), with missing canonical work numbers in `details[]`.
 Collection references, including Favorites, also block permanent Work deletion.
 
 ## Paths: the one rule

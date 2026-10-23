@@ -144,7 +144,7 @@ func chineseLanguage(language *string) bool {
 	return language != nil && (*language == "CHI_HANS" || *language == "CHI_HANT")
 }
 
-// chineseSnapshot filters declarations before they can create placeholders.
+// chineseSnapshot keeps supported Chinese language editions and declarations.
 func chineseSnapshot(data works.ImportRequest) works.ImportRequest {
 	if data.Relations != nil && data.Relations.Role != "original" && !chineseLanguage(data.Relations.Language) {
 		data.Relations = nil
@@ -159,22 +159,6 @@ func chineseSnapshot(data works.ImportRequest) works.ImportRequest {
 		}
 		data.Editions = &editions
 	}
-	if data.Relations != nil && data.Relations.Role == "original" {
-		// Only known Chinese edition roots may be declared by the original.
-		report := *data.Relations
-		report.ChildRJs = []string{}
-		chinese := map[string]bool{}
-		if data.Editions != nil {
-			for _, edition := range data.Editions.Items {
-				chinese[edition.VersionRootRJ] = true
-			}
-		}
-		for _, child := range data.Relations.ChildRJs {
-			if chinese[child] {
-				report.ChildRJs = append(report.ChildRJs, child)
-			}
-		}
-		data.Relations = &report
-	}
+
 	return data
 }

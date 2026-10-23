@@ -419,13 +419,11 @@ type IgnoredGroup struct {
 }
 
 // ImportOutcome is the result of one submission: what was written, what was
-// valid but skipped, what was accepted with a caveat, and which works were
-// created as relation placeholders along the way.
+// valid but skipped, and what was accepted with a caveat.
 type ImportOutcome struct {
-	Applied             []AppliedGroup    `json:"applied"`
-	Ignored             []IgnoredGroup    `json:"ignored"`
-	Warnings            []RelationWarning `json:"warnings"`
-	CreatedPlaceholders []WorkCode        `json:"created_placeholders"`
+	Applied  []AppliedGroup    `json:"applied"`
+	Ignored  []IgnoredGroup    `json:"ignored"`
+	Warnings []RelationWarning `json:"warnings"`
 }
 
 func validAgeCategory(age *int) bool {

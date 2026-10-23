@@ -70,13 +70,11 @@ func TestFacetListsFeedTheListingFilters(t *testing.T) {
 			"UPDATE works SET circle_id = 'ci-2' WHERE id = 'RJ00000003'",
 			"INSERT INTO voice_actors (id, source, source_voice_actor_id, name) VALUES ('va-1', 'dlsite', '1', '伊ヶ崎綾香')",
 			"INSERT INTO voice_actors (id, source, source_voice_actor_id, name) VALUES ('va-2', 'dlsite', '2', '沢城みゆき')",
-			// A voice actor only a relation placeholder carries is not listed.
+			// An unused source voice actor is not listed.
 			"INSERT INTO voice_actors (id, source, source_voice_actor_id, name) VALUES ('va-3', 'dlsite', '3', 'unseen')",
-			"INSERT INTO works (id, created_at, updated_at) VALUES ('RJ00000009', '"+stamp+"', '"+stamp+"')",
 			"INSERT INTO work_voice_actors (work_id, voice_actor_id, position) VALUES ('RJ00000001', 'va-1', 0)",
 			"INSERT INTO work_voice_actors (work_id, voice_actor_id, position) VALUES ('RJ00000001', 'va-2', 1)",
 			"INSERT INTO work_voice_actors (work_id, voice_actor_id, position) VALUES ('RJ00000002', 'va-2', 0)",
-			"INSERT INTO work_voice_actors (work_id, voice_actor_id, position) VALUES ('RJ00000009', 'va-3', 0)",
 		)
 	})
 

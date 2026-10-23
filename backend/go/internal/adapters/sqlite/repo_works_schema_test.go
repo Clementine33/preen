@@ -34,7 +34,7 @@ func TestCatalogTablesAreStrict(t *testing.T) {
 // error, so a constraint that merely moved is still caught.
 func TestCatalogColumnConstraints(t *testing.T) {
 	repo := newTestRepository(t)
-	work := seedWork(t, repo, "RJ00000001", true)
+	work := seedWork(t, repo, "RJ00000001")
 
 	refused := []struct {
 		name string
@@ -125,7 +125,7 @@ func TestCatalogColumnConstraints(t *testing.T) {
 // duplicate row.
 func TestOneEditionPerLanguage(t *testing.T) {
 	repo := newTestRepository(t)
-	seedWork(t, repo, "RJ00000001", true)
+	seedWork(t, repo, "RJ00000001")
 	insert := func(language string) error {
 		_, err := repo.DB().Exec(`
 			INSERT INTO work_language_editions

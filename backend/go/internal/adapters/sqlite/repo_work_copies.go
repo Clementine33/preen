@@ -14,8 +14,7 @@ import (
 )
 
 // WorkCopyRoots reads the copies of one work joined to their library roots
-// (ADR 0013). The existence check is the work row itself: a placeholder
-// work — reachable in the catalog, never on disk — is found with no copies.
+// (ADR 0013). A collected work remains found after all copies disappear.
 func (r *Repository) WorkCopyRoots(id works.WorkCode) ([]works.CopyRoot, bool, error) {
 	var one int
 	switch err := r.db.QueryRow("SELECT 1 FROM works WHERE id = ?", string(id)).Scan(&one); {
@@ -217,8 +216,7 @@ func bindDirectories(tx *sql.Tx, libraryID string, bound map[string]works.WorkCo
 	workStmt, err := tx.Prepare(`
 		INSERT INTO works (id, collected_at, created_at, updated_at)
 		VALUES (?, ?, ?, ?)
-		ON CONFLICT(id) DO UPDATE SET collected_at = COALESCE(works.collected_at, excluded.collected_at)
-		WHERE works.collected_at IS NULL
+		ON CONFLICT(id) DO NOTHING
 	`)
 	if err != nil {
 		return err
@@ -235,13 +233,29 @@ func bindDirectories(tx *sql.Tx, libraryID string, bound map[string]works.WorkCo
 	}
 	defer copyStmt.Close()
 	now := formatWorksTimestamp(time.Now())
+	var added []works.WorkCode
 	for relPath, workID := range bound {
-		if _, err := workStmt.Exec(string(workID), now, now, now); err != nil {
+		result, err := workStmt.Exec(string(workID), now, now, now)
+		if err != nil {
 			return err
+		}
+		count, err := result.RowsAffected()
+		if err != nil {
+			return err
+		}
+		if count > 0 {
+			added = append(added, workID)
 		}
 		if _, err := copyStmt.Exec(uuid.NewString(), string(workID), libraryID, relPath, now); err != nil {
 			return err
 		}
+	}
+	if len(added) > 0 {
+		evidence, err := loadEvidence(tx)
+		if err != nil {
+			return err
+		}
+		return recomputeRelations(tx, works.Resolve(evidence), added)
 	}
 	return nil
 }

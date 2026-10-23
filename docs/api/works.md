@@ -14,12 +14,12 @@ work, while `RJ1657200` (7 digits) is refused.
 | Method | Path | Contract |
 | --- | --- | --- |
 | GET | `/api/v1/works` | 200 `{"works":[…],"total":N}`: one numbered page and how many works the whole filter lists. Filters and paging below. |
-| GET | `/api/v1/works/{rj}` | 200 the work in full: metadata, personal data, resolved relation, language editions and every copy. A work declared by a relation but never found on disk answers `"placeholder":true` and is absent from the listing. `collection_ids` names the user collections holding the work (below). |
+| GET | `/api/v1/works/{rj}` | 200 the work in full: metadata, personal data, resolved relation, language editions and every copy. Only scanning creates a Work; an external relation number without a Work returns `WORK_NOT_FOUND` (404). `collection_ids` names the user collections holding the work (below). |
 | GET | `/api/v1/inventory/media-facts/events` | Bearer-authenticated SSE; `changed` with `{}` after a committed measurement batch, and once on connection. See below. |
 | GET | `/api/v1/works/{rj}/content` | 200 the work's file manifest (ADR 0013): every bound copy's tree, below. |
 | GET | `/api/v1/works/{rj}/content/{copyId}/{path...}` | 200 one manifest file's bytes (ADR 0013): `path` is the copy-root-relative manifest path. See below. |
 | GET | `/api/v1/works/{rj}/thumbs/{copyId}/{path...}?h=240&v=…` | 200 one manifest image's thumbnail (ADR 0013). See below. |
-| PUT | `/api/v1/works/{rj}/metadata` | Body: up to four independent data groups (below). 200 `{"applied":[…],"ignored":[…],"warnings":[…],"created_placeholders":[…]}`. |
+| PUT | `/api/v1/works/{rj}/metadata` | Body: up to four independent data groups (below). 200 `{"applied":[…],"ignored":[…],"warnings":[…]}`. |
 | PATCH | `/api/v1/works/{rj}/user-data` | Body `{"rating":8,"favorite":true,"note":"…"}`; only the fields present are applied, and `"rating":null` clears it. 200 the resulting state. |
 | PUT | `/api/v1/works/{rj}/listening` | Body `{"rendition":"","track_key":"…","position_sec":271.4,"track_index":2,"track_count":12,"client":"k3f9…","seq":41}`, or the same with `"finished":true`. Upserts the work's row for that Rendition, except that a PUT whose `client` equals the stored row's and whose `seq` is not greater leaves the row (a different `client` always applies). 200 the stored row either way. `INVALID_ARGUMENT` (400) when `track_key` or `client` is empty, `position_sec < 0`, or not `0 <= track_index < track_count`. See below. |
 | DELETE | `/api/v1/works/{rj}/listening` | 204; removes every Listening Position row of the work, Finished marks included. |
@@ -33,9 +33,8 @@ work, while `RJ1657200` (7 digits) is refused.
 | DELETE | `/api/v1/user-tags/{id}` | 204; the tag's relations go with it, no work is touched. |
 | DELETE | `/api/v1/works/{rj}` | 204; `WORK_NOT_FOUND` (404) for an absent Work; `WORK_IN_USE` (409) with `details[]` while stored Copies, personal data or collection membership protect it (below). |
 
-Ratings are integers 1–10 (`null` means unrated, which is not 0). A work that
-exists only as a relation placeholder holds no personal data: writing it is
-`WORK_IS_PLACEHOLDER` (409). User tag names are trimmed, must be non-empty, and
+Ratings are integers 1–10 (`null` means unrated, which is not 0). Personal data
+writes require an existing Work (`WORK_NOT_FOUND`, 404). User tag names are trimmed, must be non-empty, and
 are unique as exact text — case is not folded and source tags are a separate
 thing.
 
@@ -45,7 +44,7 @@ A work's Listening Position is personal data beside rating and note
 ([CONTEXT.md](../../CONTEXT.md)): one snapshot row per (work, Rendition), where
 `rendition` is the string the client derives for the track list's variant (`""`
 for a single root Rendition). It is overwritten as listening moves on and is
-not a log. Writing a Relation Placeholder is `WORK_IS_PLACEHOLDER` (409); losing
+not a log. Writing an unknown Work returns `WORK_NOT_FOUND` (404); losing
 Copies keeps the rows. Listening Positions and Finished marks block Work deletion;
 clear them explicitly before deleting the Work.
 
@@ -121,7 +120,7 @@ classifier settings survive Work deletion.
 The detail route (not summaries) also answers `collection_ids`: the IDs of the
 [user collections](collections.md) holding the Work, in the collection list's order
 (creation timestamp, then ID), `[]` when none. Favorites is excluded; `favorite`
-states it. A relation placeholder answers `[]`.
+states it.
 
 Each entry of the detail's `copies` carries `dir_id`, the navigation id of the
 copy's folder (the `{dirId}` of the library's folder page; `""` if the library is
@@ -152,7 +151,7 @@ under an edition page nobody has fetched.
 ]
 ```
 
-`is_work` means a works row exists (relation placeholders included); `held` means
+`is_work` means a collected works row exists; `held` means
 at least one Copy in any Library right now, online or not. A slot is held when its
 root or any translation under it is held. `translations` lists every known
 translation of the page ordered by `rj`; the JPN slot has none.
@@ -183,8 +182,8 @@ inventory** — never a live walk — as one tree per bound copy (ADR 0013):
 
 `dir_id` is the copy root's navigation identity (ADR 0003), resolved
 server-side. A copy whose member directory no longer resolves on disk answers
-`"online": false` with no `tree` — stale is worse than absent. A placeholder
-work answers an empty `copies` array, not 404. `kind` classifies each file
+`"online": false` with no `tree` — stale is worse than absent. A collected
+work without Copies answers an empty `copies` array. `kind` classifies each file
 (`aud`, `img`, `txt`, `lrc`, `vid`, `bin`); directories carry `children` (empty
 included) and files carry no `children`, always carry `size`, and carry
 `format` only for audio, as the container name the track list aggregates by.
@@ -410,9 +409,11 @@ declaration disagrees with the work's own relation report (the work's own
 report always wins). Anything structurally illegal — a self-reference, an
 original chain, a cycle among effective parents, a malformed number — refuses
 the **whole** submission as a 400 and writes nothing. An import never touches
-personal data or copy bindings, and a work it names but the catalog has not
-seen on disk is created as a relation placeholder, listed in
-`created_placeholders[]`.
+personal data or copy bindings. The target must already be a scanned Work;
+referenced relation and language-edition numbers remain external references
+and never create catalog rows. Collection time is required and rescans preserve
+the first scan time. Independent relation reports can predate collection and
+are reused when a later scan creates the Work.
 
 ## Listing filters, ordering and paging
 

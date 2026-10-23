@@ -2,7 +2,6 @@ package sqlite
 
 import (
 	"database/sql"
-	"errors"
 	"time"
 
 	"github.com/Clementine33/preen/backend/internal/works"
@@ -32,20 +31,10 @@ func (r *Repository) PutListening(
 	}
 	defer tx.Rollback()
 
-	var collectedAt sql.NullString
-	err = tx.QueryRow("SELECT collected_at FROM works WHERE id = ?", string(id)).Scan(&collectedAt)
-	if errors.Is(err, sql.ErrNoRows) {
+	if exists, existsErr := workExists(tx, id); existsErr != nil {
+		return works.Listening{}, existsErr
+	} else if !exists {
 		return works.Listening{}, works.NotFound(works.CodeWorkNotFound, "no such work")
-	}
-	if err != nil {
-		return works.Listening{}, err
-	}
-	if !collectedAt.Valid {
-		return works.Listening{}, works.NewError(
-			works.KindConflict,
-			"WORK_IS_PLACEHOLDER",
-			"this work has no local copy yet, so it holds no listening position",
-		)
 	}
 
 	stamp := formatWorksTimestamp(now)

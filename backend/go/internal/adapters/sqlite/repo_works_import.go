@@ -11,9 +11,8 @@ import (
 )
 
 // ImportMetadata applies one validated submission inside a single transaction:
-// the groups that supersede what is stored are written, the works they name are
-// created as placeholders if they do not exist yet, and every derived relation
-// the change affects is recomputed. Any refusal rolls the whole thing back, so
+// the groups that supersede what is stored are written, referenced numbers stay
+// external, and affected derived relations are recomputed. Any refusal rolls back, so
 // a submission never leaves some groups written and others not.
 func (r *Repository) ImportMetadata(in *works.ValidatedImport, now time.Time) (works.ImportOutcome, error) {
 	tx, err := r.db.Begin()
@@ -49,25 +48,11 @@ func (r *Repository) ImportMetadata(in *works.ValidatedImport, now time.Time) (w
 		}
 	}
 	if in.Editions != nil {
-		if err := applyEditionsGroup(tx, in.Target, in.Editions, storedStates, &outcome, now); err != nil {
+		if err := applyEditionsGroup(tx, in.Target, in.Editions, storedStates, &outcome); err != nil {
 			return works.ImportOutcome{}, err
 		}
 	}
 	if in.Relations != nil {
-		state, present := storedStates[works.GroupRelations]
-		if works.DecideGroup(
-			works.GroupRelations,
-			in.Relations.Source,
-			in.Relations.FetchedAt.UnixNano(),
-			state,
-			present,
-		).Apply {
-			for _, referenced := range referencedWorks(in.Relations) {
-				if _, err := ensurePlaceholder(tx, referenced, &outcome, now); err != nil {
-					return works.ImportOutcome{}, err
-				}
-			}
-		}
 		warnings, err := applyRelationsGroup(tx, in.Target, in.Relations, storedStates, &outcome)
 		if err != nil {
 			return works.ImportOutcome{}, err
@@ -389,7 +374,6 @@ func applyEditionsGroup(
 	group *works.EditionsGroup,
 	stored map[works.DataGroup]works.SourceState,
 	outcome *works.ImportOutcome,
-	now time.Time,
 ) error {
 	state, present := stored[works.GroupEditions]
 	decision := works.DecideGroup(works.GroupEditions, group.Source, group.FetchedAt.UnixNano(), state, present)
@@ -400,10 +384,6 @@ func applyEditionsGroup(
 		return err
 	}
 	for _, edition := range group.Items {
-		// The version root is named by the list, so it becomes a known work.
-		if _, err := ensurePlaceholder(tx, edition.VersionRootRJ, outcome, now); err != nil {
-			return err
-		}
 		if _, err := tx.Exec(`
 			INSERT INTO work_language_editions
 			    (work_id, version_root_rj, language, label, source_edition_id, display_order)
@@ -415,40 +395,6 @@ func applyEditionsGroup(
 		}
 	}
 	return touchSourceState(tx, target, works.GroupEditions, group.Source, group.FetchedAt)
-}
-
-// referencedWorks lists every work a relation report points at.
-func referencedWorks(group *works.RelationsGroup) []works.WorkCode {
-	referenced := make([]works.WorkCode, 0, len(group.ChildRJs)+2)
-	if group.OriginalRJ != nil {
-		referenced = append(referenced, *group.OriginalRJ)
-	}
-	if group.ParentRJ != nil {
-		referenced = append(referenced, *group.ParentRJ)
-	}
-	referenced = append(referenced, group.ChildRJs...)
-	return referenced
-}
-
-// ensurePlaceholder creates a work row for a number that was named but never
-// found on disk. An existing row is left exactly as it is: a placeholder
-// becomes an ordinary entry when a scan finds it, and nothing here undoes that.
-func ensurePlaceholder(tx *sql.Tx, id works.WorkCode, outcome *works.ImportOutcome, now time.Time) (bool, error) {
-	exists, err := workExists(tx, id)
-	if err != nil {
-		return false, err
-	}
-	if exists {
-		return false, nil
-	}
-	if _, err := tx.Exec(
-		"INSERT INTO works (id, created_at, updated_at) VALUES (?, ?, ?)",
-		string(id), formatWorksTimestamp(now), formatWorksTimestamp(now),
-	); err != nil {
-		return false, err
-	}
-	outcome.CreatedPlaceholders = append(outcome.CreatedPlaceholders, id)
-	return true, nil
 }
 
 // workExists reports whether a work row is present.

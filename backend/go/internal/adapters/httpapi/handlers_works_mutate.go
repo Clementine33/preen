@@ -136,9 +136,6 @@ type workDetailResponse struct {
 	// Listening shadows the embedded summary's digest: the detail carries the
 	// rows themselves.
 	Listening []listeningResponse `json:"listening"`
-	// Placeholder marks a work a relation named but no scan has found: it is
-	// reachable here and absent from the ordinary listing.
-	Placeholder bool `json:"placeholder"`
 }
 
 // toWorkDetail renders the detail; dirID names the folder of one copy.
@@ -157,7 +154,6 @@ func toWorkDetail(detail *works.WorkDetail, dirID func(works.Copy) string) workD
 		EditionTree:         toEditionTree(detail.EditionTree),
 		Copies:              make([]copyResponse, 0, len(detail.Copies)),
 		CollectionIDs:       append([]string{}, detail.CollectionIDs...),
-		Placeholder:         detail.Placeholder,
 		Listening:           make([]listeningResponse, 0, len(detail.Listening)),
 	}
 	for _, row := range detail.Listening {
@@ -261,10 +257,9 @@ type warningResponse struct {
 // what was written with a caveat. The three never overlap in meaning: a group
 // in ignored was not written, a group in warnings was.
 type importResponse struct {
-	Applied             []appliedGroupResponse `json:"applied"`
-	Ignored             []ignoredGroupResponse `json:"ignored"`
-	Warnings            []warningResponse      `json:"warnings"`
-	CreatedPlaceholders []string               `json:"created_placeholders"`
+	Applied  []appliedGroupResponse `json:"applied"`
+	Ignored  []ignoredGroupResponse `json:"ignored"`
+	Warnings []warningResponse      `json:"warnings"`
 }
 
 // putWorkMetadata imports one submission's data groups.
@@ -292,10 +287,9 @@ func (s *Server) putWorkMetadata(w http.ResponseWriter, r *http.Request) {
 
 func toImportResponse(outcome works.ImportOutcome) importResponse {
 	out := importResponse{
-		Applied:             make([]appliedGroupResponse, 0, len(outcome.Applied)),
-		Ignored:             make([]ignoredGroupResponse, 0, len(outcome.Ignored)),
-		Warnings:            make([]warningResponse, 0, len(outcome.Warnings)),
-		CreatedPlaceholders: make([]string, 0, len(outcome.CreatedPlaceholders)),
+		Applied:  make([]appliedGroupResponse, 0, len(outcome.Applied)),
+		Ignored:  make([]ignoredGroupResponse, 0, len(outcome.Ignored)),
+		Warnings: make([]warningResponse, 0, len(outcome.Warnings)),
 	}
 	for _, applied := range outcome.Applied {
 		out.Applied = append(out.Applied, appliedGroupResponse{
@@ -316,9 +310,6 @@ func toImportResponse(outcome works.ImportOutcome) importResponse {
 			WorkID:  string(warning.WorkID),
 			Message: warning.Message,
 		})
-	}
-	for _, placeholder := range outcome.CreatedPlaceholders {
-		out.CreatedPlaceholders = append(out.CreatedPlaceholders, string(placeholder))
 	}
 	return out
 }

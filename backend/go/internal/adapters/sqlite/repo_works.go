@@ -52,7 +52,7 @@ const listFrom = `
 	LEFT JOIN work_translations t ON t.work_id = w.id
 	LEFT JOIN work_statistics s ON s.work_id = w.id
 	LEFT JOIN work_user_data u ON u.work_id = w.id
-	WHERE w.collected_at IS NOT NULL`
+	WHERE 1 = 1`
 
 // whereTail renders the filter's fragments after the shared head.
 func (b *listQueryBuilder) whereTail() string {
@@ -494,7 +494,6 @@ func (r *Repository) GetWork(id works.WorkCode) (*works.WorkDetail, bool, error)
 	detail.HasNote = strings.TrimSpace(note.String) != ""
 	detail.CollectedAt = collectedAt.String
 	detail.CopyCount = copyCount
-	detail.Placeholder = !collectedAt.Valid
 
 	if detail.VoiceActors, err = r.loadEntities(id, "work_voice_actors", "voice_actors"); err != nil {
 		return nil, false, err
@@ -710,23 +709,10 @@ func (r *Repository) PatchUserData(
 	}
 	defer tx.Rollback()
 
-	// User data belongs to a work the catalog holds because it was found on
-	// disk. A relation placeholder is a declaration, not a collection, so it
-	// offers no side door into the library.
-	var collectedAt sql.NullString
-	err = tx.QueryRow("SELECT collected_at FROM works WHERE id = ?", string(id)).Scan(&collectedAt)
-	if errors.Is(err, sql.ErrNoRows) {
+	if exists, existsErr := workExists(tx, id); existsErr != nil {
+		return works.UserData{}, existsErr
+	} else if !exists {
 		return works.UserData{}, works.NotFound(works.CodeWorkNotFound, "no such work")
-	}
-	if err != nil {
-		return works.UserData{}, err
-	}
-	if !collectedAt.Valid {
-		return works.UserData{}, works.NewError(
-			works.KindConflict,
-			"WORK_IS_PLACEHOLDER",
-			"this work has no local copy yet, so it holds no personal data",
-		)
 	}
 
 	if _, insertErr := tx.Exec(

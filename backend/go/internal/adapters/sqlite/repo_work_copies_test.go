@@ -281,67 +281,29 @@ func TestMergeOutcomeReportsTheMergedCount(t *testing.T) {
 	}
 }
 
-// TestFindingAPlaceholderPromotesItWithoutLosingItsMetadata: a work a source
-// declared is a placeholder until a scan finds it; promotion fills in when it
-// was collected and leaves everything the import had already established.
-func TestFindingAPlaceholderPromotesItWithoutLosingItsMetadata(t *testing.T) {
+func TestScanningReusesExternalRelationReports(t *testing.T) {
 	repo := newTestRepository(t)
-	coveringWork := seedWork(t, repo, "RJ00000001", true)
+	page, original, child := code(t, "RJ00000002"), code(t, "RJ00000001"), code(t, "RJ00000003")
+	if _, err := repo.ImportRelationReport(page, &works.RelationsGroup{
+		Source: works.SourceDLsite, FetchedAt: mustTime(t, testStamp), Role: works.RoleParent,
+		OriginalRJ: &original, ChildRJs: []works.WorkCode{child}, Language: new("CHI_HANS"),
+	}); err != nil {
+		t.Fatal(err)
+	}
 	library, err := repo.CreateLibrary("music", "/music")
 	if err != nil {
 		t.Fatal(err)
 	}
-	const root = "/music"
-
-	// The covering work declares a child the catalog has never seen on disk.
-	if _, importErr := repo.ImportMetadata(&works.ValidatedImport{
-		Target: coveringWork,
-		Relations: &works.RelationsGroup{
-			Source: works.SourceDLsite, FetchedAt: mustTime(t, testStamp),
-			Role: works.RoleParent, ChildRJs: []works.WorkCode{code(t, "RJ00000002")},
-		},
-	}, mustTime(t, testStamp)); importErr != nil {
-		t.Fatal(importErr)
-	}
-	placeholder, _, err := repo.GetWork(code(t, "RJ00000002"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !placeholder.Placeholder {
-		t.Fatal("the declared child was not created as a placeholder")
-	}
-
-	// A scan now finds a directory holding that work.
-	stageDir(t, repo, "scan", root, "RJ00000002 the found copy")
-	if _, mergeErr := repo.MergeStaging("scan", library.ID, root); mergeErr != nil {
-		t.Fatal(mergeErr)
-	}
-
-	promoted, _, err := repo.GetWork(code(t, "RJ00000002"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if promoted.Placeholder || promoted.CollectedAt == "" {
-		t.Errorf(
-			"the work was not promoted: placeholder=%v collected_at=%q",
-			promoted.Placeholder,
-			promoted.CollectedAt,
-		)
-	}
-	// What the import had established survives the promotion.
-	if promoted.Relation.ParentID == nil || *promoted.Relation.ParentID != coveringWork {
-		t.Errorf("parent = %v, want the declared %s to have survived", promoted.Relation.ParentID, coveringWork)
-	}
-	// And it is now in the ordinary listing.
-	page, err := repo.ListWorks(works.Filter{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(page.Works) != 2 {
-		t.Errorf(
-			"the listing holds %d works, want both the covering work and the promoted placeholder",
-			len(page.Works),
-		)
+	for _, raw := range []string{string(child), string(original), string(page)} {
+		stageDir(t, repo, "scan", "/music", raw)
+		if _, err := repo.MergeStaging("scan", library.ID, "/music"); err != nil {
+			t.Fatal(err)
+		}
+		detail, found, err := repo.GetWork(child)
+		if err != nil || !found || detail.Relation.ParentID == nil || *detail.Relation.ParentID != page ||
+			detail.Relation.OriginalID == nil || *detail.Relation.OriginalID != original {
+			t.Fatalf("scanned %s, relation: %+v, %v", raw, detail, err)
+		}
 	}
 }
 
@@ -352,8 +314,8 @@ func TestRescanRepairsWorkBindingWithoutReplacingCopy(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	seedWork(t, repo, "RJ00000001", true)
-	seedWork(t, repo, "RJ00000002", true)
+	seedWork(t, repo, "RJ00000001")
+	seedWork(t, repo, "RJ00000002")
 	if _, err := repo.DB().Exec(`
 		INSERT INTO work_copies (id, work_id, library_id, rel_path, created_at)
 		VALUES ('original-copy', 'RJ00000002', ?, 'RJ00000001 album', ?)

@@ -143,7 +143,7 @@ func TestListeningRefusals(t *testing.T) {
 	}
 	putListening(t, engine, "RJ00000009", snapshot("a", 1, 1), http.StatusNotFound)
 
-	// Declaring a child creates a placeholder, which holds no listening.
+	// External relation numbers cannot hold listening data.
 	w := doRequest(t, engine, http.MethodPut, "/api/v1/works/RJ00000001/metadata", map[string]any{
 		"relations": map[string]any{
 			"source": "dlsite", "fetched_at": stamp, "role": "parent", "child_rjs": []string{"RJ00000009"},
@@ -152,7 +152,7 @@ func TestListeningRefusals(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Fatalf("import status = %d (body=%s)", w.Code, w.Body.String())
 	}
-	putListening(t, engine, "RJ00000009", snapshot("a", 1, 1), http.StatusConflict)
+	putListening(t, engine, "RJ00000009", snapshot("a", 1, 1), http.StatusNotFound)
 }
 
 func TestListeningSummaryKeepsAnotherRenditionsPositionOnAFinishedWork(t *testing.T) {

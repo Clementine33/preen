@@ -92,10 +92,8 @@ All Works are validated before any membership is written:
 
 - An invalid RJ, absent/empty array or more than 200 entries is 400 / `INVALID_ARGUMENT`.
 - A well-formed RJ without a Work is 404 / `WORK_NOT_FOUND`.
-- A Relation Placeholder never found by a scan is 409 / `WORK_IS_PLACEHOLDER`.
-  A Work found by a scan remains eligible after all Copies disappear.
-- `details[]` lists every missing or placeholder canonical RJ in request order.
-  A mixed batch returns `WORK_NOT_FOUND`. Any refusal writes nothing.
+- A Work found by a scan remains eligible after all Copies disappear. External relation numbers are not Works.
+- `details[]` lists every missing canonical RJ in request order. Any refusal writes nothing.
 
 Moves submit an intent, not positions or the whole list. `before_rj` must be present:
 omitting it is 400, explicit null means the end. Other non-string values and invalid

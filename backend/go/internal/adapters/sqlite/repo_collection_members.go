@@ -44,7 +44,7 @@ func validateCollectionWorks(ctx context.Context, tx *sql.Tx, ids []works.WorkCo
 	}
 	rows, err := tx.QueryContext(
 		ctx,
-		"SELECT id, collected_at FROM works WHERE id IN ("+placeholderList(len(ids))+")",
+		"SELECT id FROM works WHERE id IN ("+placeholderList(len(ids))+")",
 		args...)
 	if err != nil {
 		return err
@@ -53,31 +53,24 @@ func validateCollectionWorks(ctx context.Context, tx *sql.Tx, ids []works.WorkCo
 	found := make(map[works.WorkCode]bool, len(ids))
 	for rows.Next() {
 		var id works.WorkCode
-		var stamp sql.NullString
-		if err := rows.Scan(&id, &stamp); err != nil {
+		if err := rows.Scan(&id); err != nil {
 			return err
 		}
-		found[id] = stamp.Valid
+		found[id] = true
 	}
 	if err := rows.Err(); err != nil {
 		return err
 	}
 	var bad []string
-	missing := false
 	for _, id := range ids {
-		eligible, exists := found[id]
-		if !eligible {
+		if !found[id] {
 			bad = append(bad, string(id))
-			missing = missing || !exists
 		}
 	}
 	if len(bad) == 0 {
 		return nil
 	}
-	refusal := works.NewError(works.KindConflict, "WORK_IS_PLACEHOLDER", "some works have never been found by a scan")
-	if missing {
-		refusal = works.NotFound(works.CodeWorkNotFound, "some works do not exist")
-	}
+	refusal := works.NotFound(works.CodeWorkNotFound, "some works do not exist")
 	refusal.Details = bad
 	return refusal
 }

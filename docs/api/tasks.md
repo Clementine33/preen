@@ -196,7 +196,7 @@ cancellation stop the batch and preserve committed results. Each component and
 SSE `component` event may contain optional `task_result`: `{rj, outcome, issues,
 main_url?, backup_url?}` for refresh, or the frozen skip payload. Issue fields
 are `group?`, `source?`, `code`, `message`; outcome contains `applied`, `ignored`,
-`warnings`, `created_placeholders`. Detail's optional `task_result[]` collects
+`warnings`. Detail's optional `task_result[]` collects
 results from the returned component page. A partial failure yields session
 `failed` / `METADATA_PARTIAL_FAILURE` after other works finish.
 
@@ -288,14 +288,20 @@ Chinese pages/translations take their circle from the Japanese original's
 without changing entity IDs. Missing localized titles or original circles leave
 Core unsubmitted and report issues; other complete groups still apply.
 
-Refresh follows only reported parent/original references upward, importing
-ancestor core/relations/editions into relation placeholders, without ancestor
-sales or cover demands. Translation reports and edition lists are limited to
-`CHI_HANS` and `CHI_HANT`; the original remains a separate root. Sibling IDs in
-Chinese parent reports may create placeholders but are not fetched. Responses
-are shared by Work/source/locale within one refresh. Upstream failures are
-attached to the selected Work's issues with the upstream ID; progress/results
-still describe only selected Works. No guessed parents or downward family crawl.
+Refresh follows only effective parent references upward, saving independent
+relation reports for those canonical numbers. It does not follow OriginalRJ
+alone, sibling IDs or language-edition lists. Ancestors receive no complete
+Core, Statistics or Editions imports and no cover demands; the original page
+may be read temporarily to obtain the selected Work's circle. Translation
+reports and edition lists are limited to `CHI_HANS` and `CHI_HANT`; the original
+remains a separate root. External reports never create Works. Stored effective
+parents drive traversal even when an incoming report is stale, lower priority,
+unavailable or already present in missing-only mode. Each accepted report
+commits atomically after its network request; failed retrieval retains existing
+evidence, leaves missing evidence unknown and reports issues. Responses are
+shared by Work/source/locale within one refresh; ancestor reports are deduplicated
+and cycles terminate. Upstream failures are attached to the selected Work's
+issues with the upstream ID; progress/results still describe only selected Works.
 
 Static workers: 8; dynamic batches: 500, recursively split on HTTP 414. Shared
 client limits: DLsite 8 in flight / 10 starts per second; ASMR.one 2 in flight /

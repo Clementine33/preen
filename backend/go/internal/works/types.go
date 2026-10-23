@@ -186,7 +186,4 @@ type WorkDetail struct {
 	CollectionIDs []string
 	// Listening holds one row per Rendition that has been played.
 	Listening []Listening
-	// Placeholder is true for a work declared by an import but never found on
-	// disk. Such a work is reachable here but never in the ordinary listing.
-	Placeholder bool
 }

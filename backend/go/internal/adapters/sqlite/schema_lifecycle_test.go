@@ -32,7 +32,7 @@ func TestDevelopmentAndReleaseSchemasAgree(t *testing.T) {
 				t.Fatalf("removed policy table count = %d, err = %v", slots, err)
 			}
 			if _, execErr := repo.DB().
-				Exec("INSERT INTO libraries (id, name, root_path, root_path_key) VALUES ('lib', 'Music', '/music', '/music'); INSERT INTO common_settings (operation_type, settings_json) VALUES ('conversion', '{}'); INSERT INTO works (id, collected_at, created_at, updated_at) VALUES ('RJ00000001', '2026-09-30T00:00:00Z', '2026-09-30T00:00:00Z', '2026-09-30T00:00:00Z');"); execErr != nil {
+				Exec("INSERT INTO libraries (id, name, root_path, root_path_key) VALUES ('lib', 'Music', '/music', '/music'); INSERT INTO common_settings (operation_type, settings_json) VALUES ('conversion', '{}'); INSERT INTO works (id, collected_at, updated_at) VALUES ('RJ00000001', '2026-09-30T00:00:00Z', '2026-09-30T00:00:00Z');"); execErr != nil {
 				t.Fatal(execErr)
 			}
 			settings, err := repo.GetCommonSettings("conversion")
@@ -72,6 +72,7 @@ func TestUnusedCompatibilitySchemaIsAbsent(t *testing.T) {
 			for table, columns := range map[string][]string{
 				"entries":         {"path_posix", "file_size", "duration_ms"},
 				"entries_staging": {"file_size", "duration_ms"},
+				"works":           {"created_at", "thumbnail_url"},
 			} {
 				for _, column := range columns {
 					var count int
@@ -184,7 +185,7 @@ func TestDevelopmentRebuildPreservesBackup(t *testing.T) {
 	}
 	defer rebuilt.Close()
 	if _, execErr := rebuilt.DB().
-		Exec("INSERT INTO works(id,created_at,updated_at) VALUES('RJ00000002','now','now')"); execErr == nil {
+		Exec("INSERT INTO works(id,updated_at) VALUES('RJ00000002','now')"); execErr == nil {
 		t.Fatal("rebuilt database accepted a work without collection time")
 	}
 	settings, err := rebuilt.GetCommonSettings("conversion")

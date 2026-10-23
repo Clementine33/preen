@@ -68,9 +68,9 @@ func seedWorkFiles(t *testing.T, fixture *sqlite.Repository) *fileFixture {
 		t.Fatalf("seed library: %v", err)
 	}
 	if _, err := fixture.DB().Exec(`
-		INSERT INTO works (id, title, collected_at, created_at, updated_at)
-		VALUES ('RJ01000001', '雨宿り', ?, ?, ?)
-	`, stamp, stamp, stamp); err != nil {
+		INSERT INTO works (id, title, collected_at, updated_at)
+		VALUES ('RJ01000001', '雨宿り', ?, ?)
+	`, stamp, stamp); err != nil {
 		t.Fatalf("seed work: %v", err)
 	}
 	if _, err := fixture.DB().Exec(`

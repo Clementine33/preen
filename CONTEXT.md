@@ -281,7 +281,7 @@ An independent activity that fills missing source groups, refreshes dynamic grou
 _Avoid_: Making a directory scan depend on an upstream metadata request.
 
 **Main Cover**:
-The source's main artwork, stored as one `cover.{ext}` in a Copy's directory. It retains the source format and is independent of sample and thumbnail URL fields retained for compatibility.
+The source's main artwork, stored as one `cover.{ext}` in a Copy's directory. It retains the source format; its source URL also supplies derived remote thumbnails. Sample artwork remains separate.
 _Avoid_: Treating scaled variants of the same artwork as separate cover requirements.
 
 **Cover Demand**:

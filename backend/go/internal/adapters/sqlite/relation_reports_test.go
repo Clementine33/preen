@@ -94,9 +94,8 @@ func TestRelationReportsSurviveWorkDeletionAndKeepFreshness(t *testing.T) {
 	deletionSQL(
 		t,
 		repo,
-		`INSERT INTO works(id,collected_at,created_at,updated_at) VALUES(?,?,?,?)`,
+		`INSERT INTO works(id,collected_at,updated_at) VALUES(?,?,?)`,
 		string(replacement),
-		deletionStamp,
 		deletionStamp,
 		deletionStamp,
 	)
@@ -106,9 +105,8 @@ func TestRelationReportsSurviveWorkDeletionAndKeepFreshness(t *testing.T) {
 	deletionSQL(
 		t,
 		repo,
-		`INSERT INTO works(id,collected_at,created_at,updated_at) VALUES(?,?,?,?)`,
+		`INSERT INTO works(id,collected_at,updated_at) VALUES(?,?,?)`,
 		string(page),
-		deletionStamp,
 		deletionStamp,
 		deletionStamp,
 	)
@@ -131,9 +129,8 @@ func TestRelationReportsSurviveWorkDeletionAndKeepFreshness(t *testing.T) {
 	deletionSQL(
 		t,
 		repo,
-		`INSERT INTO works(id,collected_at,created_at,updated_at) VALUES(?,?,?,?)`,
+		`INSERT INTO works(id,collected_at,updated_at) VALUES(?,?,?)`,
 		string(deletionWork),
-		deletionStamp,
 		deletionStamp,
 		deletionStamp,
 	)
@@ -187,9 +184,8 @@ func TestRelationReportReplacementUsesItsOwnSourceState(t *testing.T) {
 	deletionSQL(
 		t,
 		repo,
-		`INSERT INTO works(id,collected_at,created_at,updated_at) VALUES(?,?,?,?)`,
+		`INSERT INTO works(id,collected_at,updated_at) VALUES(?,?,?)`,
 		string(external),
-		deletionStamp,
 		deletionStamp,
 		deletionStamp,
 	)
@@ -213,9 +209,8 @@ func TestRelationReportFailureRollsBackEvidenceStateAndDerivedValues(t *testing.
 	deletionSQL(
 		t,
 		repo,
-		`INSERT INTO works(id,collected_at,created_at,updated_at) VALUES(?,?,?,?)`,
+		`INSERT INTO works(id,collected_at,updated_at) VALUES(?,?,?)`,
 		string(other),
-		deletionStamp,
 		deletionStamp,
 		deletionStamp,
 	)
@@ -344,7 +339,7 @@ func TestRelationReportsKeepAmbiguousClaimsAndPreferSelfReport(t *testing.T) {
 func TestWorksRequireCollectionTime(t *testing.T) {
 	repo := deletionRepository(t)
 	for _, statement := range []string{
-		`INSERT INTO works(id,created_at,updated_at) VALUES('RJ00000002','x','x')`,
+		`INSERT INTO works(id,updated_at) VALUES('RJ00000002','x')`,
 		`UPDATE works SET collected_at=NULL WHERE id='RJ00000001'`,
 	} {
 		if _, err := repo.DB().Exec(statement); err == nil {

@@ -104,12 +104,12 @@ func TestCleanupWorksRacesWithPersonalEdits(t *testing.T) {
 
 func TestCleanupWorksKeepsFiniteCandidatesAndRollsBackOnlyFailingBatch(t *testing.T) {
 	repo := deletionRepository(t)
-	deletionSQL(t, repo, `INSERT INTO works(id,collected_at,created_at,updated_at) VALUES('RJ00000002','','','')`)
+	deletionSQL(t, repo, `INSERT INTO works(id,collected_at,updated_at) VALUES('RJ00000002','','')`)
 	ids, err := repo.CleanupCandidates(t.Context(), cleanup.Works, time.Now(), nil)
 	if err != nil || len(ids) != 2 {
 		t.Fatalf("candidates: %v %v", ids, err)
 	}
-	deletionSQL(t, repo, `INSERT INTO works(id,collected_at,created_at,updated_at) VALUES('RJ00000003','','','')`)
+	deletionSQL(t, repo, `INSERT INTO works(id,collected_at,updated_at) VALUES('RJ00000003','','')`)
 	startCatalogRun(t, repo)
 	notifications := 0
 	repo.OnCatalogChanged = func() { notifications++ }

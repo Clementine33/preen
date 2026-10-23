@@ -14,7 +14,7 @@
 | [0006](0006-execution-sessions-and-component-results.md) | 执行会话、编码池、只读校验与安全发布 | Draft |
 | [0007](0007-business-packages-and-dependency-direction.md) | 业务分包与依赖方向 | Draft |
 | [0008](0008-deployment-wide-common-settings.md) | 部署级公共设置与唯一写入口（移除独立策略模板） | Draft |
-| [0009](0009-work-catalog.md) | 作品目录身份、外部关系报告、库存扫描与用户资料保护（独立报告、扫描复用、确定关系、详情快照与作品／报告／来源清理已实现） | Draft |
+| [0009](0009-work-catalog.md) | 作品目录身份、外部关系报告、库存扫描与用户资料保护（独立报告、扫描复用、确定关系、详情快照与作品／报告／来源清理已实现；收录时间与封面地址去重） | Draft |
 | [0010](0010-defer-single-writer.md) | 暂不引入全局单写入口 | Draft |
 | [0011](0011-development-schema-and-release-migrations.md) | 开发 schema、当前未发布基线与旧发布库边界 | Draft |
 | [0012](0012-metadata-refresh-and-directory-rename-planning.md) | 元数据刷新、外部父链报告、目录重命名与修复、封面投递、需求生命周期及下载回收（有效父链报告补抓已实现） | Draft |

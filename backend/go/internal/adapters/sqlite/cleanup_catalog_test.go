@@ -18,7 +18,7 @@ func catalogCleanup(t *testing.T, repo *sqlite.Repository) *cleanup.Service {
 
 func TestCleanupPreviewProjectsOnlySelectedWorksAndExcludesOwnedSources(t *testing.T) {
 	repo := deletionRepository(t)
-	deletionSQL(t, repo, `INSERT INTO works(id,collected_at,created_at,updated_at) VALUES('RJ00000002','','','')`)
+	deletionSQL(t, repo, `INSERT INTO works(id,collected_at,updated_at) VALUES('RJ00000002','','')`)
 	for _, table := range []string{"tags", "voice_actors", "circles"} {
 		sourceColumn := map[string]string{"tags": "source_tag_id", "voice_actors": "source_voice_actor_id", "circles": "source_circle_id"}[table]
 		deletionSQL(

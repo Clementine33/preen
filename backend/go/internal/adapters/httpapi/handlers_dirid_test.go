@@ -331,7 +331,7 @@ func TestTreeAnswersTheWorkItsDirectoryIsBoundTo(t *testing.T) {
 	seedDir(t, repo, root, "RJ01000001 album")
 	seedDir(t, repo, root, "plain")
 	if _, err := repo.DB().Exec(
-		`INSERT INTO works(id, collected_at, created_at, updated_at) VALUES('RJ01000001','now','now','now')`,
+		`INSERT INTO works(id, collected_at, updated_at) VALUES('RJ01000001','now','now')`,
 	); err != nil {
 		t.Fatalf("insert work: %v", err)
 	}

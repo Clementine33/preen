@@ -26,9 +26,8 @@ func deletionRepository(t *testing.T) *sqlite.Repository {
 	deletionSQL(
 		t,
 		repo,
-		`INSERT INTO works(id,collected_at,created_at,updated_at) VALUES(?,?,?,?)`,
+		`INSERT INTO works(id,collected_at,updated_at) VALUES(?,?,?)`,
 		string(deletionWork),
-		deletionStamp,
 		deletionStamp,
 		deletionStamp,
 	)

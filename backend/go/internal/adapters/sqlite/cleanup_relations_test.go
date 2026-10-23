@@ -96,7 +96,7 @@ func TestCleanupRelationsFixedPointConflictsAndEveryCommit(t *testing.T) {
 	deletionSQL(
 		t,
 		repo,
-		`INSERT INTO works(id,collected_at,created_at,updated_at) VALUES('RJ00000007','','',''),('RJ00000008','','','')`,
+		`INSERT INTO works(id,collected_at,updated_at) VALUES('RJ00000007','',''),('RJ00000008','','')`,
 	)
 	for _, id := range []string{"RJ00000001", "RJ00000003", "RJ00000006", "RJ00000011", "RJ00000012"} {
 		saveCleanupReport(t, repo, id, works.ImportRelations{Role: "original"})

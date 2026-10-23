@@ -113,7 +113,7 @@ func TestCleanupWorksAloneCascadesOwnedSourcesAndKeepsSharedSourcesReportsAndSet
 		repo,
 		`INSERT INTO work_user_data(work_id) VALUES('RJ00000001'); INSERT INTO user_tags VALUES('unused','keep');
  INSERT INTO relation_reports VALUES('RJ00000001','original',NULL,NULL,NULL,'dlsite','');
- INSERT INTO works(id,collected_at,created_at,updated_at) VALUES('RJ00000002','','','');
+ INSERT INTO works(id,collected_at,updated_at) VALUES('RJ00000002','','');
  INSERT INTO work_user_data(work_id,rating) VALUES('RJ00000002',1);
  INSERT INTO work_translations VALUES('RJ00000002','child',NULL,'RJ00000001','RJ00000001')`,
 	)

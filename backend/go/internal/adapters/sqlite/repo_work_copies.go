@@ -214,8 +214,8 @@ func unbindMissing(tx *sql.Tx, libraryID string, bound map[string]works.WorkCode
 // Existing collection times and copy identities survive rescans and changed bindings.
 func bindDirectories(tx *sql.Tx, libraryID string, bound map[string]works.WorkCode) error {
 	workStmt, err := tx.Prepare(`
-		INSERT INTO works (id, collected_at, created_at, updated_at)
-		VALUES (?, ?, ?, ?)
+		INSERT INTO works (id, collected_at, updated_at)
+		VALUES (?, ?, ?)
 		ON CONFLICT(id) DO NOTHING
 	`)
 	if err != nil {
@@ -235,7 +235,7 @@ func bindDirectories(tx *sql.Tx, libraryID string, bound map[string]works.WorkCo
 	now := formatWorksTimestamp(time.Now())
 	var added []works.WorkCode
 	for relPath, workID := range bound {
-		result, err := workStmt.Exec(string(workID), now, now, now)
+		result, err := workStmt.Exec(string(workID), now, now)
 		if err != nil {
 			return err
 		}

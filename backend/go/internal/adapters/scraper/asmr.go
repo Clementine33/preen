@@ -32,7 +32,6 @@ func asmrSnapshot(data record, at string) works.ImportRequest {
 			"source_url",
 		),
 		CoverURL:       cleanURL(scalar[string](data, "mainCoverUrl")),
-		ThumbnailURL:   cleanURL(scalar[string](data, "thumbnailCoverUrl")),
 		SampleCoverURL: cleanURL(scalar[string](data, "samCoverUrl")),
 		VoiceActors:    []works.ImportVoiceActor{},
 		Tags:           []works.ImportTag{},
@@ -71,7 +70,7 @@ func asmrSnapshot(data record, at string) works.ImportRequest {
 }
 
 func validASMRCore(data record) bool {
-	for _, key := range []string{"title", "release", "source_url", "mainCoverUrl", "thumbnailCoverUrl", "samCoverUrl"} {
+	for _, key := range []string{"title", "release", "source_url", "mainCoverUrl", "samCoverUrl"} {
 		if raw, ok := data[key]; ok {
 			var text *string
 			if json.Unmarshal(raw, &text) != nil {

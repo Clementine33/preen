@@ -197,16 +197,10 @@ func dlsiteCore(data record, at string) *works.ImportCore {
 		core.SourceURL = new("https://www.dlsite.com/maniax/work/=/product_id/" + *raw + ".html")
 	}
 	var image struct {
-		URL       string `json:"url"`
-		ResizeURL string `json:"resize_url"`
+		URL string `json:"url"`
 	}
 	if err := json.Unmarshal(data["image_main"], &image); err == nil && image.URL != "" {
 		core.CoverURL = cleanURL(new(image.URL))
-		if image.ResizeURL != "" {
-			core.ThumbnailURL = new(
-				"https://img.dlsite.jp/" + strings.TrimPrefix(image.ResizeURL, "/") + "_240x240.jpg",
-			)
-		}
 	}
 	image.URL = ""
 	if err := json.Unmarshal(data["image_thum"], &image); err == nil && image.URL != "" {

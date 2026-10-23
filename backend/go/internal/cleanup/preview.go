@@ -37,6 +37,10 @@ func (s *Service) Preview(ctx context.Context, categories []Category) (Preview, 
 			rule = Rule{
 				Protection: "Any stored copy, rating, nonempty note, user tag, collection or listening record protects its work.",
 			}
+		case RelationReports:
+			rule = Rule{
+				Protection: "Surviving works and retained reports protect effective parent dependencies and all incoming claims; OriginalRJ alone does not protect a report. Reports count once; child claims cascade. Dependency groups are indivisible.",
+			}
 		case SourceTags, SourceVoiceActors, SourceCircles:
 			rule = Rule{
 				Protection: "Only unreferenced shared source entities; work-owned entities cascade with their owner and are not counted separately.",

@@ -29,6 +29,7 @@ The currently supported categories are:
 | `plan_generations` | finished_at present and strictly older than the shared generation retention window |
 | `cover_downloads` | done, with no delivery reference of any status |
 | `works` | no stored copy binding, personal rating, nonempty note, user tag, collection membership or listening record |
+| `relation_reports` | reports outside the fixed-point dependency closure of all surviving works |
 | `source_tags` | shared source tags with no work reference |
 | `source_voice_actors` | shared source voice actors with no work reference |
 | `source_circles` | shared source circles with no work reference |
@@ -49,13 +50,30 @@ are the server's current policy, not client configuration.
 }
 ```
 
-Only selected categories appear. `retention_days` is zero for downloads, works
-and source entities, which have no waiting period. Preview counts source
-references after projected eligible work deletion only when `works` is selected;
+Only selected categories appear. `retention_days` is zero for downloads, works,
+relation reports and source entities, which have no waiting period. Preview
+counts source references and report roots after projected eligible work deletion only when `works` is selected;
 otherwise every current work reference remains effective. Works with offline
 copies remain protected. Empty user-data rows, collection time and source
 metadata alone do not protect a work; notes are not trimmed. Any listening row,
 including a zero position or finished record, protects it.
+
+Report roots are every surviving work, including works without copies when
+`works` was not selected. Retention follows effective parent chains and keeps
+each reached node's own report and **all** incoming declaring reports, including
+rejected or ambiguous claims. Newly retained report subjects are expanded until
+the set is stable. `OriginalRJ` alone does not retain a report, and raw child
+lists do not turn siblings into roots. Unused mutually referencing reports can
+be reclaimed together.
+
+Report groups delete dependents before dependencies; strongly connected groups
+commit together. Each write transaction recomputes current roots and logical
+dependencies, protects reports outside its finite batch and their dependencies,
+and validates the remaining evidence before committing. Existing works keep
+their resolved relations and conflict diagnostics. Concurrent additions or
+changed dependencies can cause old candidates to be skipped, including an old
+group that can no longer be deleted safely; another explicit run may reclaim
+them later. Reports created after discovery are never added to this run.
 
 Source entities are identified by their stored identity and references, never
 name or language. An accepted refresh of a source ID reuses its identity across
@@ -93,7 +111,8 @@ each deleted work counts once,
 including its associations and work-owned source entities even when source
 categories were not selected. Shared entities count only when independently
 deleted in their selected source stage. Work deletion preserves independent
-relation reports and other works' derived relations.
+relation reports and other works' derived relations. Each deleted relation report
+counts once; its owned child declarations cascade without additional counts.
 Deletion and the corresponding counters commit in one SQLite transaction.
 The safe `reason` explains unsuccessful termination without exposing SQL,
 credentials or connection information. `finished_at` becomes a UTC timestamp
@@ -101,7 +120,7 @@ on termination.
 
 States are `running`, `stopping`, `stopped`, `succeeded`, `failed` and
 `interrupted`. Stop changes running to stopping and cooperatively cancels
-candidate discovery and batch execution. The current short transaction commits
+candidate discovery and batch execution. The current transaction commits
 or rolls back before termination; earlier committed counts remain. A concurrent
 batch or successful finish cannot overwrite stopping with running/succeeded.
 Repeated stop of the same latest run, including a terminal run, is safe and
@@ -122,10 +141,13 @@ not successful completion. Process shutdown cancels and joins the worker before
 SQLite closes. Startup interrupts leftover running/stopping summaries before
 requests are accepted, preserving committed counts without resuming work.
 
-Stages run in the category order above: history, works, then source entities.
+Stages run in the category order above: history, works, relation reports, then source entities.
 Each run fixes its session cutoffs at started_at. Each selected stage captures
-a finite, cancelable candidate set and rechecks each batch of up to 500 records
-in the deletion transaction. A failure rolls back only its current batch.
+a finite, cancelable candidate set. Ordinary categories recheck batches of up to
+500 records in the deletion transaction. Report batches target 500 reports,
+without splitting an indivisible dependency group; a large group can exceed
+500 and hold the write lock longer. Stopping may wait for that transaction.
+A failure rolls back only its current batch.
 Candidates created after that stage's discovery belong to a future run. Every
 work's personal-data and copy protection and every source reference is rechecked
 inside the same transaction as deletion and progress. A protection committed

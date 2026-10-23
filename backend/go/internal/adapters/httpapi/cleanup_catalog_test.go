@@ -24,6 +24,7 @@ func TestCleanupHTTPCatalogSelectionProtectionCountsAndMissingEdits(t *testing.T
 		}
 	}
 	for _, query := range []string{
+		`INSERT INTO relation_reports VALUES('RJ00000001','original',NULL,NULL,NULL,'dlsite',''); INSERT INTO relation_declared_children VALUES('RJ00000001','RJ00000099')`,
 		`INSERT INTO work_user_data(work_id,rating) VALUES('RJ00000002',1)`,
 		`INSERT INTO work_user_data(work_id,note) VALUES('RJ00000003','note'),('RJ00000004',' ')`,
 		`INSERT INTO user_tags VALUES('keep','keep'); INSERT INTO work_user_tags VALUES('RJ00000005','keep')`,
@@ -59,7 +60,7 @@ func TestCleanupHTTPCatalogSelectionProtectionCountsAndMissingEdits(t *testing.T
 		preview.Candidates[cleanup.SourceCircles] != 0 {
 		t.Fatalf("source-only preview %d %s", response.Code, response.Body)
 	}
-	all := `{"categories":["source_circles","source_voice_actors","source_tags","works","works","cover_downloads","plan_generations","scan_sessions"]}`
+	all := `{"categories":["source_circles","source_voice_actors","source_tags","relation_reports","works","works","cover_downloads","plan_generations","scan_sessions"]}`
 	response = deletionRequest(handler, http.MethodPost, "maintenance/cleanup/preview", all)
 	if err := json.Unmarshal(response.Body.Bytes(), &preview); err != nil {
 		t.Fatal(err)
@@ -69,6 +70,7 @@ func TestCleanupHTTPCatalogSelectionProtectionCountsAndMissingEdits(t *testing.T
 		cleanup.PlanGenerations,
 		cleanup.CoverDownloads,
 		cleanup.Works,
+		cleanup.RelationReports,
 		cleanup.SourceTags,
 		cleanup.SourceVoiceActors,
 		cleanup.SourceCircles,

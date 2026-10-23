@@ -30,6 +30,9 @@ func (r *Repository) CleanupCandidates(
 	switch category {
 	case cleanup.Works:
 		return cleanupWorks(ctx, tx)
+	case cleanup.RelationReports:
+		groups, groupErr := cleanupRelationGroups(ctx, tx, selected, nil)
+		return flattenCleanupGroups(groups), groupErr
 	case cleanup.ScanSessions:
 		query = "SELECT session_id FROM scan_sessions WHERE " + scanRetentionPredicate
 		args = []any{cutoff.Format(timeFormat)}
@@ -110,6 +113,8 @@ func (r *Repository) CleanupBatch(
 		deleted, err = deleteUnreferencedCoverDownloadsBatchTx(ctx, tx, len(ids), ids)
 	case cleanup.Works:
 		deleted, err = deleteCleanupWorks(ctx, tx, ids)
+	case cleanup.RelationReports:
+		deleted, err = deleteCleanupReports(ctx, tx, ids)
 	case cleanup.SourceTags, cleanup.SourceVoiceActors, cleanup.SourceCircles:
 		deleted, err = deleteCleanupSources(ctx, tx, category, ids)
 	default:
@@ -154,7 +159,7 @@ func (r *Repository) CleanupBatch(
 		return err
 	}
 	if deleted > 0 &&
-		(category == cleanup.Works || category == cleanup.SourceTags || category == cleanup.SourceVoiceActors || category == cleanup.SourceCircles) {
+		(category == cleanup.Works || category == cleanup.RelationReports || category == cleanup.SourceTags || category == cleanup.SourceVoiceActors || category == cleanup.SourceCircles) {
 		r.catalogChanged()
 	}
 	return nil

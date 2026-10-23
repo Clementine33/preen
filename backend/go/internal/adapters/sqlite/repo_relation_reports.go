@@ -119,18 +119,28 @@ func warningsFor(warnings []works.RelationWarning, affected []works.WorkCode) []
 // loadEvidence reads both evidence tables: what works said about themselves and
 // what child edges they declared.
 func loadEvidence(tx *sql.Tx) (works.Evidence, error) {
+	return loadEvidenceContext(context.Background(), tx)
+}
+
+func loadEvidenceContext(ctx context.Context, tx *sql.Tx) (works.Evidence, error) {
 	evidence := works.Evidence{
 		Self:             map[works.WorkCode]works.RelationSelf{},
 		DeclaredChildren: map[works.WorkCode][]works.WorkCode{},
 	}
 
-	selfRows, queryErr := tx.Query("SELECT subject_rj, role, language, original_rj, parent_rj FROM relation_reports")
+	selfRows, queryErr := tx.QueryContext(
+		ctx,
+		"SELECT subject_rj, role, language, original_rj, parent_rj FROM relation_reports",
+	)
 	if queryErr != nil {
 		return evidence, queryErr
 	}
 	if rowsErr := func() error {
 		defer selfRows.Close()
 		for selfRows.Next() {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
 			var (
 				id, role           string
 				language, original sql.NullString
@@ -151,12 +161,15 @@ func loadEvidence(tx *sql.Tx) (works.Evidence, error) {
 		return evidence, rowsErr
 	}
 
-	childRows, err := tx.Query("SELECT declaring_rj, child_rj FROM relation_declared_children")
+	childRows, err := tx.QueryContext(ctx, "SELECT declaring_rj, child_rj FROM relation_declared_children")
 	if err != nil {
 		return evidence, err
 	}
 	defer childRows.Close()
 	for childRows.Next() {
+		if err := ctx.Err(); err != nil {
+			return evidence, err
+		}
 		var declaring, child string
 		if err := childRows.Scan(&declaring, &child); err != nil {
 			return evidence, err

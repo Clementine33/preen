@@ -45,13 +45,26 @@ func (s *Service) Start(ctx context.Context, categories []Category) (*Run, error
 	s.workers.Go(func() {
 		defer func() { cancel(); s.mu.Lock(); s.cancel = nil; finish(); s.mu.Unlock() }()
 		status, reason := s.execute(workerCtx, run, release)
-		finalCtx, stop := context.WithTimeout(context.Background(), 3*time.Second)
-		defer stop()
-		if err := s.store.FinishCleanupRun(finalCtx, run.ID, status, reason); err != nil {
-			log.Printf("cleanup finalization failed: %v", err)
-		}
+		s.finalize(workerCtx, run.ID, status, reason)
 	})
 	return &run, nil
+}
+
+// Finalization outlives cancellation; shutdown's process guard owns the join deadline.
+func (s *Service) finalize(ctx context.Context, id, status, reason string) {
+	for {
+		if ctx.Err() != nil {
+			status, reason = s.failure(ctx)
+		}
+		finalCtx, stop := context.WithTimeout(context.Background(), 3*time.Second)
+		err := s.store.FinishCleanupRun(finalCtx, id, status, reason)
+		stop()
+		if err == nil {
+			return
+		}
+		log.Printf("cleanup finalization failed; retrying: %v", err)
+		time.Sleep(250 * time.Millisecond)
+	}
 }
 
 func (s *Service) execute(ctx context.Context, run Run, release func()) (string, string) {

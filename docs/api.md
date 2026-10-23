@@ -27,4 +27,4 @@ All endpoint documents use the shared authentication, error and path conventions
 | [Outbound Proxy](api/outbound-proxy.md) | Deployment-wide outbound proxy for metadata sources and cover downloads |
 | [Work catalog](api/works.md) | Works, personal data, tags, content manifests, thumbnails, media facts, metadata imports and listing filters |
 | [Work collections](api/collections.md) | Ordered collections, built-in Favorites, incremental membership edits and deletion protection |
-| [Database record cleanup](api/maintenance.md) | Selected history categories, preview, process-owned runs, polling, cancellation and admission |
+| [Database record cleanup](api/maintenance.md) | Selected history, work, relation report and source categories, preview, process-owned runs, polling, cancellation and admission |

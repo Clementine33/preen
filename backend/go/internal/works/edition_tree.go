@@ -30,8 +30,11 @@ type Presence struct {
 type TreeNode struct {
 	Presence
 
-	RJ   WorkCode
-	Role string
+	RJ        WorkCode
+	Role      string
+	Language  *string
+	Relation  ResolvedRelation
+	SourceURL *string
 }
 
 // EditionSlot is one language line of the edition tree. Held is true when the
@@ -47,7 +50,7 @@ type EditionSlot struct {
 // BuildEditionTree resolves the work's language editions into at most three
 // slots (JPN, CHI_HANS, CHI_HANT) from the union of its stored edition list,
 // its resolved relation and the known children of each edition page
-// (children: page -> declared or resolved children). It returns nil when the
+// (children: page -> resolved children). It returns nil when the
 // tree holds no node besides the work itself.
 func BuildEditionTree(
 	self WorkCode,

@@ -61,3 +61,10 @@ func TestCancellationStopsBeforeTheNextDynamicBatch(t *testing.T) {
 		t.Fatalf("batch cancellation: %d batches, err=%v", len(source.batches), err)
 	}
 }
+
+func (batchCatalog) ImportRelationReport(works.WorkCode, works.ImportRelations) (works.ImportOutcome, *works.Error) {
+	panic("cancelled refresh imported report")
+}
+func (batchCatalog) RelationParent(context.Context, works.WorkCode) (*works.WorkCode, error) {
+	panic("cancelled refresh read relation")
+}

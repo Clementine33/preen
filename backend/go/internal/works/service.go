@@ -56,7 +56,7 @@ func (s *Service) List(filter Filter) (Page, *Error) {
 	return page, nil
 }
 
-// Detail returns one work in full, placeholders included.
+// Detail returns one collected work in full.
 func (s *Service) Detail(id WorkCode) (*WorkDetail, *Error) {
 	detail, found, err := s.store.GetWork(id)
 	if err != nil {
@@ -99,7 +99,7 @@ func (s *Service) PatchUserData(id WorkCode, req UserDataRequest) (UserData, *Er
 }
 
 // PutListening stores one Listening Position snapshot. Like PatchUserData, an
-// unknown work is a 404 and a placeholder a 409 (decided by the storage).
+// unknown work is a 404 (decided by the storage).
 func (s *Service) PutListening(id WorkCode, req ListeningRequest) (Listening, *Error) {
 	if invalid := req.Validate(); invalid != nil {
 		return Listening{}, invalid

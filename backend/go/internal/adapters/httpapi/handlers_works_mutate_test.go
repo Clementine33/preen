@@ -235,14 +235,13 @@ func TestUserDataRatingIsOneToTenThroughTheAPI(t *testing.T) {
 	}
 }
 
-// TestUserDataIsRefusedOnAPlaceholder: a work declared by a relation but never
-// found on disk offers no side door into the library.
-func TestUserDataIsRefusedOnAPlaceholder(t *testing.T) {
+// External relation numbers remain absent from the catalog.
+func TestUserDataRequiresCollectedWork(t *testing.T) {
 	engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) {
 		wireWorks(d, fixture)
 		seedHTTPWork(t, fixture, "RJ00000001", "the work")
 	})
-	// Declaring a child creates a placeholder for it.
+	// Declaring a child saves only the external number.
 	w := doRequest(t, engine, http.MethodPut, "/api/v1/works/RJ00000001/metadata", map[string]any{
 		"relations": map[string]any{
 			"source": "dlsite", "fetched_at": stamp, "role": "parent", "child_rjs": []string{"RJ00000009"},
@@ -252,13 +251,33 @@ func TestUserDataIsRefusedOnAPlaceholder(t *testing.T) {
 		t.Fatalf("import status = %d (body=%s)", w.Code, w.Body.String())
 	}
 
-	w = doRequest(t, engine, http.MethodPatch, "/api/v1/works/RJ00000009/user-data",
-		map[string]any{"rating": 8}, nil)
-	if w.Code != http.StatusConflict {
-		t.Fatalf("status = %d, want 409 (body=%s)", w.Code, w.Body.String())
+	var outcome map[string]json.RawMessage
+	if err := json.Unmarshal(w.Body.Bytes(), &outcome); err != nil {
+		t.Fatal(err)
+	}
+	if _, exists := outcome["created_placeholders"]; exists {
+		t.Fatal("metadata response retained removed contract")
+	}
+	detail := doRequest(t, engine, http.MethodGet, "/api/v1/works/RJ00000001", nil, nil)
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(detail.Body.Bytes(), &fields); err != nil {
+		t.Fatal(err)
+	}
+	if _, exists := fields["placeholder"]; exists {
+		t.Fatal("detail retained removed contract")
+	}
+	external := doRequest(t, engine, http.MethodGet, "/api/v1/works/RJ00000009", nil, nil)
+	if external.Code != http.StatusNotFound {
+		t.Fatalf("external detail = %d", external.Code)
 	}
 
-	// And the placeholder is absent from the ordinary listing.
+	w = doRequest(t, engine, http.MethodPatch, "/api/v1/works/RJ00000009/user-data",
+		map[string]any{"rating": 8}, nil)
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404 (body=%s)", w.Code, w.Body.String())
+	}
+
+	// The external number is absent from the ordinary listing.
 	list := doRequest(t, engine, http.MethodGet, "/api/v1/works", nil, nil)
 	assertWorks(t, list, "RJ00000001")
 }

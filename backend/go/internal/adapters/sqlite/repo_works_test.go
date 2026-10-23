@@ -18,18 +18,13 @@ func code(t *testing.T, raw string) works.WorkCode {
 	return parsed
 }
 
-// seedWork inserts a work row directly: foundOnDisk distinguishes an ordinary
-// entry from a relation placeholder.
-func seedWork(t *testing.T, repo *Repository, raw string, foundOnDisk bool) works.WorkCode {
+// seedWork inserts a collected catalog fixture.
+func seedWork(t *testing.T, repo *Repository, raw string) works.WorkCode {
 	t.Helper()
 	id := code(t, raw)
-	var collected any
-	if foundOnDisk {
-		collected = testStamp
-	}
 	if _, err := repo.DB().Exec(
 		"INSERT INTO works (id, title, collected_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
-		string(id), "title of "+raw, collected, testStamp, testStamp,
+		string(id), "title of "+raw, testStamp, testStamp, testStamp,
 	); err != nil {
 		t.Fatalf("seed %s: %v", raw, err)
 	}
@@ -83,9 +78,9 @@ func importGroups(
 
 func TestImportAppliesGroupsAndDerivesRelations(t *testing.T) {
 	repo := newTestRepository(t)
-	parent := seedWork(t, repo, "RJ00000001", true)
-	child := seedWork(t, repo, "RJ00000002", true)
-	grandchild := seedWork(t, repo, "RJ00000003", true)
+	parent := seedWork(t, repo, "RJ00000001")
+	child := seedWork(t, repo, "RJ00000002")
+	grandchild := seedWork(t, repo, "RJ00000003")
 
 	// The parent says what it is; the child declares the parent without
 	// reporting anything itself, so it inherits; the grandchild is declared by
@@ -132,9 +127,6 @@ func TestImportAppliesGroupsAndDerivesRelations(t *testing.T) {
 	if detail.DLCount == nil || *detail.DLCount != 42 {
 		t.Errorf("dl_count = %v, want 42", detail.DLCount)
 	}
-	if detail.Placeholder {
-		t.Error("a work found on disk was reported as a placeholder")
-	}
 	if detail.Relation.Role == nil || *detail.Relation.Role != works.RoleOriginal {
 		t.Errorf("role = %v, want original", detail.Relation.Role)
 	}
@@ -167,35 +159,25 @@ func TestImportAppliesGroupsAndDerivesRelations(t *testing.T) {
 	}
 }
 
-// TestDeclaredChildBecomesAPlaceholder: a number a relation names but no scan
-// has found becomes a relation placeholder, reachable through its relations and
-// absent from the ordinary listing.
-func TestDeclaredChildBecomesAPlaceholder(t *testing.T) {
+func TestImportKeepsReferencesExternal(t *testing.T) {
 	repo := newTestRepository(t)
-	parent := seedWork(t, repo, "RJ00000001", true)
-
-	outcome := importGroups(t, repo, parent, &works.ValidatedImport{
+	parent := seedWork(t, repo, "RJ00000001")
+	child := code(t, "RJ00000009")
+	importGroups(t, repo, parent, &works.ValidatedImport{
 		Target:    parent,
-		Relations: relationsGroup(t, works.RoleParent, nil, "RJ00000009"),
+		Relations: relationsGroup(t, works.RoleParent, nil, string(child)),
+		Editions: &works.EditionsGroup{
+			Source:    works.SourceDLsite,
+			FetchedAt: mustTime(t, testStamp),
+			Items:     []works.LanguageEdition{{VersionRootRJ: child, Language: "CHI_HANS"}},
+		},
 	})
-	if len(outcome.CreatedPlaceholders) != 1 {
-		t.Fatalf("created placeholders = %v, want the declared child", outcome.CreatedPlaceholders)
+	if _, found, err := repo.GetWork(child); err != nil || found {
+		t.Fatalf("reference became a work: %v, %v", found, err)
 	}
-
-	placeholder, found, err := repo.GetWork(code(t, "RJ00000009"))
-	if err != nil || !found {
-		t.Fatalf("the placeholder is not reachable: found=%v err=%v", found, err)
-	}
-	if !placeholder.Placeholder {
-		t.Error("a work with no collected_at was not reported as a placeholder")
-	}
-
 	page, err := repo.ListWorks(works.Filter{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(page.Works) != 1 || page.Works[0].ID != parent {
-		t.Errorf("the ordinary listing = %v, want only the work found on disk", page.Works)
+	if err != nil || len(page.Works) != 1 {
+		t.Fatalf("catalog: %+v, %v", page, err)
 	}
 }
 
@@ -204,8 +186,8 @@ func TestDeclaredChildBecomesAPlaceholder(t *testing.T) {
 // graph, so only the graph as it was before still knows to recompute it.
 func TestReropeningADeclarationClearsTheInheritedValues(t *testing.T) {
 	repo := newTestRepository(t)
-	parent := seedWork(t, repo, "RJ00000001", true)
-	child := seedWork(t, repo, "RJ00000002", true)
+	parent := seedWork(t, repo, "RJ00000001")
+	child := seedWork(t, repo, "RJ00000002")
 
 	language := "JPN"
 	importGroups(t, repo, parent, &works.ValidatedImport{
@@ -245,8 +227,8 @@ func TestReropeningADeclarationClearsTheInheritedValues(t *testing.T) {
 // Independent reports preserve the child's relation after its parent leaves the catalog.
 func TestWorkWithNoInboundEvidenceCanBeDeleted(t *testing.T) {
 	repo := newTestRepository(t)
-	parent := seedWork(t, repo, "RJ00000001", true)
-	child := seedWork(t, repo, "RJ00000002", true)
+	parent := seedWork(t, repo, "RJ00000001")
+	child := seedWork(t, repo, "RJ00000002")
 
 	importGroups(t, repo, parent, &works.ValidatedImport{
 		Target:    parent,
@@ -279,8 +261,8 @@ func TestWorkWithNoInboundEvidenceCanBeDeleted(t *testing.T) {
 // Relationship references do not protect catalog membership; copies still do.
 func TestDeleteAllowsRelationshipReferencesButProtectsCopies(t *testing.T) {
 	repo := newTestRepository(t)
-	original := seedWork(t, repo, "RJ00000001", true)
-	translation := seedWork(t, repo, "RJ00000002", true)
+	original := seedWork(t, repo, "RJ00000001")
+	translation := seedWork(t, repo, "RJ00000002")
 	importGroups(t, repo, translation, &works.ValidatedImport{
 		Target:    translation,
 		Relations: relationsGroup(t, works.RoleChild, new(string(original))),
@@ -295,7 +277,7 @@ func TestDeleteAllowsRelationshipReferencesButProtectsCopies(t *testing.T) {
 
 	// A bound copy holds it too.
 	repo2 := newTestRepository(t)
-	held := seedWork(t, repo2, "RJ00000003", true)
+	held := seedWork(t, repo2, "RJ00000003")
 	library, err := repo2.CreateLibrary("music", "/music")
 	if err != nil {
 		t.Fatal(err)
@@ -316,7 +298,7 @@ func TestDeleteAllowsRelationshipReferencesButProtectsCopies(t *testing.T) {
 // reuses the row instead of minting a new one.
 func TestUnnamedEntityKeepsItsIdentityAcrossRefreshes(t *testing.T) {
 	repo := newTestRepository(t)
-	work := seedWork(t, repo, "RJ00000001", true)
+	work := seedWork(t, repo, "RJ00000001")
 
 	group := func(at string) *works.ValidatedImport {
 		return &works.ValidatedImport{
@@ -353,7 +335,7 @@ func TestUnnamedEntityKeepsItsIdentityAcrossRefreshes(t *testing.T) {
 // higher-priority one, and the same source only moves forward in time.
 func TestSourceRulesPerGroup(t *testing.T) {
 	repo := newTestRepository(t)
-	work := seedWork(t, repo, "RJ00000001", true)
+	work := seedWork(t, repo, "RJ00000001")
 
 	importGroups(t, repo, work, &works.ValidatedImport{
 		Target: work,
@@ -392,7 +374,7 @@ func TestSourceRulesPerGroup(t *testing.T) {
 // and the groups it does not mention keep their stored values.
 func TestUnsubmittedGroupsAreUntouched(t *testing.T) {
 	repo := newTestRepository(t)
-	work := seedWork(t, repo, "RJ00000001", true)
+	work := seedWork(t, repo, "RJ00000001")
 
 	language := "JPN"
 	importGroups(t, repo, work, &works.ValidatedImport{
@@ -432,12 +414,12 @@ func TestUnsubmittedGroupsAreUntouched(t *testing.T) {
 // refuses the whole submission, including the groups that came with it.
 func TestRelationsRefusalsRollBackEverything(t *testing.T) {
 	repo := newTestRepository(t)
-	first := seedWork(t, repo, "RJ00000001", true)
-	second := seedWork(t, repo, "RJ00000002", true)
+	first := seedWork(t, repo, "RJ00000001")
+	second := seedWork(t, repo, "RJ00000002")
 
 	// Make the second work an original of a third, so naming it as an original
 	// makes a chain rather than a single link.
-	third := seedWork(t, repo, "RJ00000003", true)
+	third := seedWork(t, repo, "RJ00000003")
 	importGroups(t, repo, second, &works.ValidatedImport{
 		Target: second,
 		Relations: &works.RelationsGroup{
@@ -484,7 +466,7 @@ func TestRelationsRefusalsRollBackEverything(t *testing.T) {
 // itself over it.
 func TestRepeatedEntityInOnePayloadIsListedOnce(t *testing.T) {
 	repo := newTestRepository(t)
-	work := seedWork(t, repo, "RJ00000001", true)
+	work := seedWork(t, repo, "RJ00000001")
 	actor := works.EntityInput{SourceID: new("17180"), Name: "伊ヶ崎綾香"}
 
 	importGroups(t, repo, work, &works.ValidatedImport{
@@ -511,11 +493,11 @@ func TestRepeatedEntityInOnePayloadIsListedOnce(t *testing.T) {
 
 func TestParentNumberLookupUsesChineseCopiesInTheSelectedLibrary(t *testing.T) {
 	repo := newTestRepository(t)
-	parent := seedWork(t, repo, "RJ01526615", false)
-	first := seedWork(t, repo, "RJ01526629", true)
-	second := seedWork(t, repo, "RJ01535135", true)
-	english := seedWork(t, repo, "RJ01535136", true)
-	orphan := seedWork(t, repo, "RJ01535137", true)
+	parent := code(t, "RJ01526615")
+	first := seedWork(t, repo, "RJ01526629")
+	second := seedWork(t, repo, "RJ01535135")
+	english := seedWork(t, repo, "RJ01535136")
+	orphan := seedWork(t, repo, "RJ01535137")
 	libA, err := repo.CreateLibrary("A", "/a")
 	if err != nil {
 		t.Fatal(err)
@@ -559,7 +541,7 @@ func TestParentNumberLookupUsesChineseCopiesInTheSelectedLibrary(t *testing.T) {
 
 func TestAcceptedCoreRefreshesSourceTagNamesWithoutChangingIdentity(t *testing.T) {
 	repo := newTestRepository(t)
-	id := seedWork(t, repo, "RJ00000001", true)
+	id := seedWork(t, repo, "RJ00000001")
 	for i, name := range []string{"日本語タグ", "简体中文标签"} {
 		importGroups(t, repo, id, &works.ValidatedImport{Target: id, Core: &works.CoreGroup{
 			Source: works.SourceDLsite, FetchedAt: mustTime(t, testStamp).Add(time.Duration(i) * time.Second),
@@ -581,7 +563,7 @@ func TestAcceptedCoreRefreshesSourceTagNamesWithoutChangingIdentity(t *testing.T
 
 func TestWorkLanguageImportAndFilterStayIndependentOfRelations(t *testing.T) {
 	repo := newTestRepository(t)
-	id := seedWork(t, repo, "RJ00000001", true)
+	id := seedWork(t, repo, "RJ00000001")
 	for i, language := range []*string{new("NM"), new("CHI_HANS"), nil} {
 		at := mustTime(t, testStamp).Add(time.Duration(i) * time.Second).Format(works.TimestampFormat)
 		req := works.ImportRequest{Core: &works.ImportCore{Source: "dlsite", FetchedAt: at, Language: language}}

@@ -22,8 +22,7 @@ var facetJoins = map[works.FacetKind]string{
 }
 
 // ListFacets counts, per entity, the listed works that carry it. Only works
-// the listing would show count - a relation placeholder never found on disk is
-// not a work a filter can return - so an entity with no listed work is absent.
+// the listing would show count, so an entity with no listed work is absent.
 // The filter is applied exactly as the listing applies it, over the same
 // joins its fragments name.
 func (r *Repository) ListFacets(kind works.FacetKind, filter works.Filter) ([]works.Facet, error) {
@@ -38,7 +37,7 @@ func (r *Repository) ListFacets(kind works.FacetKind, filter works.Filter) ([]wo
 		FROM works w
 		LEFT JOIN work_translations t ON t.work_id = w.id
 		LEFT JOIN work_user_data u ON u.work_id = w.id` + join + `
-		WHERE w.collected_at IS NOT NULL` + builder.whereTail() + `
+		WHERE 1 = 1` + builder.whereTail() + `
 		GROUP BY e.id, e.name
 		ORDER BY e.name, e.id`
 	rows, err := r.db.Query(query, builder.args...)

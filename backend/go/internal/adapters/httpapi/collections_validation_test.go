@@ -41,10 +41,6 @@ func TestCollectionsPaging(t *testing.T) {
 func TestCollectionsRejectInvalidBatchesAtomically(t *testing.T) {
 	server, repo := collectionServer(t)
 	seedCollectionWorks(t, repo, "RJ00000001")
-	if _, err := repo.DB().
-		Exec("INSERT INTO works(id,created_at,updated_at) VALUES('RJ00000002','now','now')"); err != nil {
-		t.Fatal(err)
-	}
 	path := newCollectionPath(t, server, "Validation")
 	for _, test := range []struct {
 		rjs    []string
@@ -54,7 +50,7 @@ func TestCollectionsRejectInvalidBatchesAtomically(t *testing.T) {
 	}{
 		{[]string{}, 400, "INVALID_ARGUMENT", 0},
 		{[]string{"RJ00000001", "invalid"}, 400, "INVALID_ARGUMENT", 0},
-		{[]string{"RJ00000001", "RJ00000002"}, 409, "WORK_IS_PLACEHOLDER", 1},
+		{[]string{"RJ00000001", "RJ00000002"}, 404, "WORK_NOT_FOUND", 1},
 		{[]string{"RJ00000001", "RJ00000003", "RJ00000004"}, 404, "WORK_NOT_FOUND", 2},
 		{[]string{"RJ00000002", "RJ00000003"}, 404, "WORK_NOT_FOUND", 2},
 		{make([]string, 201), 400, "INVALID_ARGUMENT", 0},
@@ -79,7 +75,7 @@ func TestCollectionsRejectInvalidBatchesAtomically(t *testing.T) {
 		http.MethodPatch,
 		"/api/v1/works/RJ00000002/user-data",
 		map[string]any{"favorite": true},
-		409,
+		404,
 	)
 	for _, body := range []any{nil, map[string]any{}, map[string]any{"name": " \t "}, map[string]any{"name": "ok", "extra": true}} {
 		collectionRequest(t, server, http.MethodPost, "/api/v1/collections", body, 400)

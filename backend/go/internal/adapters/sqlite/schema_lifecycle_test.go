@@ -33,7 +33,7 @@ func TestDevelopmentAndReleaseSchemasAgree(t *testing.T) {
 				t.Fatalf("policy slots = %d, queryErr = %v", slots, queryErr)
 			}
 			if _, execErr := repo.DB().
-				Exec("INSERT INTO libraries (id, name, root_path, root_path_key) VALUES ('lib', 'Music', '/music', '/music'); INSERT INTO common_settings (operation_type, settings_json) VALUES ('conversion', '{}'); INSERT INTO works (id, created_at, updated_at) VALUES ('RJ00000001', '2026-09-30T00:00:00Z', '2026-09-30T00:00:00Z');"); execErr != nil {
+				Exec("INSERT INTO libraries (id, name, root_path, root_path_key) VALUES ('lib', 'Music', '/music', '/music'); INSERT INTO common_settings (operation_type, settings_json) VALUES ('conversion', '{}'); INSERT INTO works (id, collected_at, created_at, updated_at) VALUES ('RJ00000001', '2026-09-30T00:00:00Z', '2026-09-30T00:00:00Z', '2026-09-30T00:00:00Z');"); execErr != nil {
 				t.Fatal(execErr)
 			}
 			settings, err := repo.GetCommonSettings("conversion")
@@ -184,6 +184,10 @@ func TestDevelopmentRebuildPreservesBackup(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer rebuilt.Close()
+	if _, execErr := rebuilt.DB().
+		Exec("INSERT INTO works(id,created_at,updated_at) VALUES('RJ00000002','now','now')"); execErr == nil {
+		t.Fatal("rebuilt database accepted a work without collection time")
+	}
 	settings, err := rebuilt.GetCommonSettings("conversion")
 	if err != nil || settings != nil {
 		t.Fatalf("rebuilt common settings = %+v, err = %v", settings, err)

@@ -16,8 +16,7 @@ func (s *Service) refreshWork(
 	dynamic works.ImportRequest,
 	failure error,
 	run *refreshRun,
-	ancestor bool,
-) (*works.ImportRelations, error) {
+) error {
 	data := works.ImportRequest{}
 	if want[works.GroupCore] || want[works.GroupEditions] {
 		snapshot, err := run.localized(ctx, item.WorkCode, works.SourceDLsite, req.Locale, dynamic.Relations)
@@ -33,7 +32,7 @@ func (s *Service) refreshWork(
 		}
 	}
 	if ctx.Err() != nil {
-		return nil, nil
+		return nil
 	}
 	data.Statistics = dynamic.Statistics
 	if dynamic.Relations != nil {
@@ -62,7 +61,7 @@ func (s *Service) refreshWork(
 	if item.MainURL == "" && !want[works.GroupCore] {
 		saved, e := s.catalog.Detail(item.WorkCode)
 		if e != nil && e.Kind == works.KindInternal {
-			return nil, e
+			return e
 		}
 		if e == nil && saved.CoverURL != nil {
 			if storedSource == works.SourceDLsite {
@@ -73,7 +72,7 @@ func (s *Service) refreshWork(
 		}
 	}
 	if ctx.Err() != nil {
-		return nil, nil
+		return nil
 	}
 	missing := missingGroups(data, want)
 	groups := make([]works.DataGroup, 0, len(missing))
@@ -87,26 +86,22 @@ func (s *Service) refreshWork(
 			Issue{Group: group, Code: "GROUP_UNAVAILABLE", Message: "no complete snapshot was retrieved"},
 		)
 	}
-	report := data.Relations
 	data = retain(data, want)
-	if len(availableGroups(data)) == 0 {
-		return nil, nil
-	}
-	outcome, err := s.catalog.Import(item.WorkCode, data)
-	item.Outcome = outcome
-	if err != nil {
-		item.Issues = append(item.Issues, Issue{Code: err.Code, Message: err.Message})
-		if err.Kind == works.KindInternal {
-			return nil, err
-		}
-		return nil, nil
-	}
-	if !ancestor {
-		if e := run.completeAncestors(ctx, req, item, report); e != nil {
-			return report, e
+	if len(availableGroups(data)) > 0 {
+		outcome, err := s.catalog.Import(item.WorkCode, data)
+		item.Outcome = outcome
+		if err != nil {
+			item.Issues = append(item.Issues, Issue{Code: err.Code, Message: err.Message})
+			if err.Kind == works.KindInternal {
+				return err
+			}
+			return nil
 		}
 	}
-	return report, nil
+	if e := run.completeAncestors(ctx, req, item); e != nil {
+		return e
+	}
+	return nil
 }
 
 func (s *Service) supplyMissing(

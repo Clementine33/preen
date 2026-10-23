@@ -10,11 +10,13 @@ import (
 type Catalog interface {
 	Detail(works.WorkCode) (*works.WorkDetail, *works.Error)
 	Import(works.WorkCode, works.ImportRequest) (works.ImportOutcome, *works.Error)
+	ImportRelationReport(works.WorkCode, works.ImportRelations) (works.ImportOutcome, *works.Error)
 }
 
-// States reads the persisted group presence used by missing-only refreshes.
+// States reads group freshness and resolved parent links, including external reports.
 type States interface {
 	MetadataStates(context.Context, []works.WorkCode) (map[works.WorkCode]map[works.DataGroup]works.SourceState, error)
+	RelationParent(context.Context, works.WorkCode) (*works.WorkCode, error)
 }
 
 // Snapshot keeps a fetched main URL independent of whole-group validation.

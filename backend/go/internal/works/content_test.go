@@ -211,15 +211,15 @@ func TestContentManifest(t *testing.T) {
 		t.Errorf("gone member must answer offline without a tree: %+v", missing)
 	}
 
-	// An unknown work is a 404-class refusal, and a placeholder answers empty.
+	// An unknown work is a 404-class refusal, and a copyless answers empty.
 	if _, refusal = service.Content("RJ99999999"); refusal == nil {
 		t.Fatal("expected a refusal for an unknown work")
 	}
-	placeholder := works.NewService(&contentStore{found: true}, &fakeEntries{},
+	copyless := works.NewService(&contentStore{found: true}, &fakeEntries{},
 		func(string, string) (string, error) { return "", nil },
 		func(string, string, string) (string, error) { return "", nil }, "eng-1")
-	if content, refusal = placeholder.Content("RJ01000001"); refusal != nil || len(content.Copies) != 0 {
-		t.Fatalf("placeholder answers empty copies, got %+v refusal %v", content, refusal)
+	if content, refusal = copyless.Content("RJ01000001"); refusal != nil || len(content.Copies) != 0 {
+		t.Fatalf("copyless answers empty copies, got %+v refusal %v", content, refusal)
 	}
 }
 

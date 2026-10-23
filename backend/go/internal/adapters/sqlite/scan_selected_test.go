@@ -156,7 +156,7 @@ func seedSelectedBinding(t *testing.T, repo *sqlite.Repository, root string) {
 		t.Fatal(err)
 	}
 	if _, err := repo.DB().
-		Exec("INSERT INTO works(id, created_at, updated_at) VALUES('RJ000001', 'created', 'updated')"); err != nil {
+		Exec("INSERT INTO works(id, collected_at, created_at, updated_at) VALUES('RJ000001', 'collected', 'created', 'updated')"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := repo.DB().

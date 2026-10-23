@@ -300,7 +300,7 @@ func TestUnknownReleaseDatesAlwaysSortLast(t *testing.T) {
 }
 
 // TestWorkDetailAnswersTheEditionTreeAndCopyDirIDs: the detail resolves the
-// edition lines around a translation (held flags, placeholders as works) and
+// edition lines around a translation (held flags and catalog existence) and
 // gives each copy the navigation id of its folder.
 func TestWorkDetailAnswersTheEditionTreeAndCopyDirIDs(t *testing.T) {
 	engine, repo := serverOnDB(t, filepath.Join(t.TempDir(), "tree.db"))

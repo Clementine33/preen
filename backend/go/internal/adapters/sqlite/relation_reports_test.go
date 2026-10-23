@@ -340,3 +340,15 @@ func TestRelationReportsKeepAmbiguousClaimsAndPreferSelfReport(t *testing.T) {
 		t.Fatalf("self parent: %+v, %v", detail, err)
 	}
 }
+
+func TestWorksRequireCollectionTime(t *testing.T) {
+	repo := deletionRepository(t)
+	for _, statement := range []string{
+		`INSERT INTO works(id,created_at,updated_at) VALUES('RJ00000002','x','x')`,
+		`UPDATE works SET collected_at=NULL WHERE id='RJ00000001'`,
+	} {
+		if _, err := repo.DB().Exec(statement); err == nil {
+			t.Fatalf("accepted null collection time: %s", statement)
+		}
+	}
+}

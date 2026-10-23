@@ -1,6 +1,7 @@
 package sqlite
 
 import (
+	"context"
 	"database/sql"
 
 	"github.com/Clementine33/preen/backend/internal/works"
@@ -198,4 +199,18 @@ func recomputeRelations(tx *sql.Tx, resolution works.Resolution, affected []work
 		}
 	}
 	return nil
+}
+
+// RelationParent resolves the effective parent of a canonical number, including external reports.
+func (r *Repository) RelationParent(ctx context.Context, id works.WorkCode) (*works.WorkCode, error) {
+	tx, err := r.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+	evidence, err := loadEvidence(tx)
+	if err != nil {
+		return nil, err
+	}
+	return works.Resolve(evidence).Relations[id].ParentID, nil
 }

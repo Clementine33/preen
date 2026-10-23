@@ -13,7 +13,6 @@ import (
 	"github.com/Clementine33/preen/backend/internal/works/refresh"
 )
 
-//nolint:gocognit // One end-to-end assertion covers title, circle, locale and persisted ancestry together.
 func TestChineseTranslationRefreshFollowsAncestorsAndSeparatesTagLocale(t *testing.T) {
 	for _, scenario := range []struct{ language, locale, title string }{
 		{"CHI_HANS", "ja-jp", "简体中文版标题"},
@@ -34,29 +33,18 @@ func TestChineseTranslationRefreshFollowsAncestorsAndSeparatesTagLocale(t *testi
 			if err != nil || len(result.Works) != 1 || len(result.Works[0].Issues) != 0 {
 				t.Fatalf("refresh: %+v, %v", result, err)
 			}
-			for _, id := range []works.WorkCode{"RJ01449056", "RJ01449055", "RJ01407907"} {
-				detail, e := cat.Detail(id)
-				if e != nil || detail.Title == nil {
-					t.Fatalf("missing ancestor metadata for %s: %+v, %v", id, detail, e)
-				}
-				if detail.CircleName == nil || *detail.CircleName != "桃色CODE" {
-					t.Fatalf("%s has translator/platform circle: %+v", id, detail.CircleName)
-				}
-				if id != "RJ01407907" && *detail.Title != scenario.title {
-					t.Fatalf("%s has wrong title: %s", id, *detail.Title)
-				}
-				if len(detail.SourceTags) != 1 || detail.SourceTags[0].Name != locale {
-					t.Fatalf("%s has wrong tag locale: %+v", id, detail.SourceTags)
-				}
-				if len(detail.Editions) != 1 || detail.Editions[0].Language != scenario.language {
-					t.Fatalf("unfiltered editions: %+v", detail.Editions)
-				}
-				if id != "RJ01449056" && !detail.Placeholder {
-					t.Fatalf("ancestor %s became collected", id)
+			for _, id := range []works.WorkCode{"RJ01449055", "RJ01407907", "RJ09999999"} {
+				if _, e := cat.Detail(id); e == nil || e.Code != works.CodeWorkNotFound {
+					t.Fatalf("external %s became collected: %v", id, e)
 				}
 			}
-			if _, e := cat.Detail("RJ09999999"); e == nil {
-				t.Fatal("English edition created a placeholder")
+			detail, e := cat.Detail("RJ01449056")
+			if e != nil || detail.Title == nil || *detail.Title != scenario.title || detail.CircleName == nil ||
+				*detail.CircleName != "桃色CODE" ||
+				len(detail.SourceTags) != 1 ||
+				detail.SourceTags[0].Name != locale ||
+				len(detail.Editions) != 1 {
+				t.Fatalf("target metadata: %+v, %v", detail, e)
 			}
 			child, _ := cat.Detail("RJ01449056")
 			if child.Relation.ParentID == nil || *child.Relation.ParentID != "RJ01449055" ||
@@ -185,4 +173,30 @@ func translationServer(t *testing.T, failOriginal bool, language string) *httpte
 	}))
 	t.Cleanup(server.Close)
 	return server
+}
+
+func TestTemporaryOriginalCircleDoesNotImportCollectedOriginalMetadata(t *testing.T) {
+	repo, cat := catalog(t, "RJ01449056", "RJ01407907")
+	server := translationServer(t, false, "CHI_HANS")
+	source := scraper.New(&http.Client{Transport: localTransport{server}})
+	result, err := refresh.NewService(cat, repo, source, source).
+		Refresh(t.Context(), refresh.Request{WorkCodes: []string{"RJ01449056"}, Mode: refresh.RefreshAll})
+	if err != nil || len(result.Works[0].Issues) != 0 {
+		t.Fatalf("refresh: %+v, %v", result, err)
+	}
+	original, refusal := cat.Detail("RJ01407907")
+	if refusal != nil || original.Title != nil || original.CoverURL != nil || original.DLCount != nil ||
+		len(original.SourceTags) != 0 {
+		t.Fatalf("temporary original page persisted: %+v, %v", original, refusal)
+	}
+	states, err := repo.MetadataStates(t.Context(), []works.WorkCode{"RJ01407907"})
+	if err != nil || len(states["RJ01407907"]) != 0 {
+		t.Fatalf("original source groups imported: %+v, %v", states, err)
+	}
+	target, refusal := cat.Detail("RJ01449056")
+	if refusal != nil || target.Relation.ParentID == nil || *target.Relation.ParentID != "RJ01449055" ||
+		target.Relation.OriginalID == nil ||
+		*target.Relation.OriginalID != "RJ01407907" {
+		t.Fatalf("relationship skipped version page: %+v, %v", target, refusal)
+	}
 }

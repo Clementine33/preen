@@ -410,9 +410,7 @@ CREATE TABLE classifier_tag_library (
 -- a range scan.
 
 -- Logical works. id is the canonical work number (works.WorkCode), which is
--- the immutable identity. collected_at IS NULL marks a relation placeholder:
--- declared by an import, not yet found on disk. Such a row is reachable
--- through its relations but never appears in the ordinary listing.
+-- the immutable identity. Only scanning creates works and records collection time.
 CREATE TABLE works (
     id TEXT PRIMARY KEY,
     title TEXT,
@@ -425,7 +423,7 @@ CREATE TABLE works (
     cover_url TEXT,
     thumbnail_url TEXT,
     sample_cover_url TEXT,
-    collected_at TEXT,
+    collected_at TEXT NOT NULL,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     age_category INTEGER CHECK (age_category IS NULL OR age_category IN (1, 2, 3)),

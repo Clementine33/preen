@@ -132,18 +132,18 @@ func TestGetWorkContentOfBoundlessAndUnknownWorks(t *testing.T) {
 		seedHTTPWork(t, fixture, "RJ01000002", "関係だけ")
 	})
 
-	// A placeholder work has a catalog entry and no copies: an empty manifest,
+	// A collected work without copies has a catalog entry and no copies: an empty manifest,
 	// not a 404.
 	w := doRequest(t, engine, http.MethodGet, "/api/v1/works/RJ01000002/content", nil, nil)
 	if w.Code != http.StatusOK {
-		t.Fatalf("placeholder status = %d (body=%s)", w.Code, w.Body.String())
+		t.Fatalf("copyless status = %d (body=%s)", w.Code, w.Body.String())
 	}
 	var body contentResponse
 	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
 		t.Fatal(err)
 	}
 	if len(body.Copies) != 0 {
-		t.Errorf("placeholder copies = %+v", body.Copies)
+		t.Errorf("copyless copies = %+v", body.Copies)
 	}
 
 	w = doRequest(t, engine, http.MethodGet, "/api/v1/works/RJ99999999/content", nil, nil)

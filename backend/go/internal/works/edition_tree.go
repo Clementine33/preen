@@ -19,7 +19,7 @@ const (
 )
 
 // Presence is what the catalog knows about one work number: whether a works
-// row exists (placeholders included) and whether it is held, i.e. has at
+// row exists and whether it is held, i.e. has at
 // least one Copy in any Library right now.
 type Presence struct {
 	IsWork bool

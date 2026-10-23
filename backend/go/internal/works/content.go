@@ -112,7 +112,7 @@ type ContentCopy struct {
 	Tree   *ContentNode `json:"tree,omitempty"`
 }
 
-// Content is the manifest of one work. Placeholder works answer with an
+// Content is the manifest of one work. Works without copies answer with an
 // empty copy list, not a 404: they are reachable, they simply have no files.
 type Content struct {
 	RJ     string        `json:"rj"`

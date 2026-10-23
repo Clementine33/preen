@@ -99,7 +99,7 @@ func optionalID(ctx context.Context, tx *sql.Tx, query string, args ...any) (str
 
 // rebindCopy points the copy at rel_path to the work with the given code, the
 // way a scan would bind the renamed directory: the copy keeps its identity and
-// the work is created as a placeholder when the library has never seen it.
+// a missing work is created with the directory observation time.
 func rebindCopy(tx *sql.Tx, libraryID, relPath, code string) error {
 	if err := bindDirectories(tx, libraryID, map[string]works.WorkCode{relPath: works.WorkCode(code)}); err != nil {
 		return fmt.Errorf("rebind copy: %w", err)

@@ -20,7 +20,7 @@ import (
 func TestListingOrderingsAreServedByIndexes(t *testing.T) {
 	repo := newTestRepository(t)
 	for i := 1; i <= 30; i++ {
-		seedWork(t, repo, "RJ000000"+twoDigits(i), true)
+		seedWork(t, repo, "RJ000000"+twoDigits(i))
 	}
 
 	cases := []struct {

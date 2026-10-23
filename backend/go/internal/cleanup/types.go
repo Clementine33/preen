@@ -13,12 +13,24 @@ import (
 type Category string
 
 const (
-	ScanSessions    Category = "scan_sessions"
-	PlanGenerations Category = "plan_generations"
-	CoverDownloads  Category = "cover_downloads"
+	ScanSessions      Category = "scan_sessions"
+	PlanGenerations   Category = "plan_generations"
+	CoverDownloads    Category = "cover_downloads"
+	Works             Category = "works"
+	SourceTags        Category = "source_tags"
+	SourceVoiceActors Category = "source_voice_actors"
+	SourceCircles     Category = "source_circles"
 )
 
-var supportedCategories = []Category{ScanSessions, PlanGenerations, CoverDownloads}
+var supportedCategories = []Category{
+	ScanSessions,
+	PlanGenerations,
+	CoverDownloads,
+	Works,
+	SourceTags,
+	SourceVoiceActors,
+	SourceCircles,
+}
 var ErrInvalidCategories = errors.New("select at least one supported cleanup category")
 var ErrNotFound = errors.New("cleanup run not found")
 
@@ -60,7 +72,7 @@ func (o Options) Cutoff(category Category, now time.Time) time.Time {
 		return now.Add(-o.ScanRetention)
 	case PlanGenerations:
 		return now.Add(-o.GenerationRetention)
-	case CoverDownloads:
+	case CoverDownloads, Works, SourceTags, SourceVoiceActors, SourceCircles:
 		return now
 	default:
 		return now
@@ -68,7 +80,7 @@ func (o Options) Cutoff(category Category, now time.Time) time.Time {
 }
 
 type Store interface {
-	CleanupCandidates(context.Context, Category, time.Time) ([]string, error)
+	CleanupCandidates(context.Context, Category, time.Time, []Category) ([]string, error)
 	CreateCleanupRun(context.Context, Run) error
 	ReadCleanupRun(context.Context) (*Run, error)
 	CleanupBatch(context.Context, string, Category, time.Time, []string) error

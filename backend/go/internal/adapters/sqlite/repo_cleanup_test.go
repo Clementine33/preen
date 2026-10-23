@@ -37,7 +37,7 @@ func TestCleanupBatchCommitsDeletionAndCountTogether(t *testing.T) {
 	if createErr := repo.CreateCleanupRun(ctx, run); createErr != nil {
 		t.Fatal(createErr)
 	}
-	ids, err := repo.CleanupCandidates(ctx, cleanup.ScanSessions, now.Add(-24*time.Hour))
+	ids, err := repo.CleanupCandidates(ctx, cleanup.ScanSessions, now.Add(-24*time.Hour), nil)
 	if err != nil || len(ids) != 2 {
 		t.Fatalf("candidates %v %v", ids, err)
 	}
@@ -147,7 +147,7 @@ func TestManualAndAutomaticCleanupShareRetentionAndSelection(t *testing.T) {
 	if createErr := repo.CreateCleanupRun(ctx, run); createErr != nil {
 		t.Fatal(createErr)
 	}
-	ids, err := repo.CleanupCandidates(ctx, cleanup.ScanSessions, opts.Cutoff(cleanup.ScanSessions, now))
+	ids, err := repo.CleanupCandidates(ctx, cleanup.ScanSessions, opts.Cutoff(cleanup.ScanSessions, now), nil)
 	if err != nil || len(ids) != 2 {
 		t.Fatalf("scan candidates %v %v", ids, err)
 	}
@@ -163,7 +163,7 @@ func TestManualAndAutomaticCleanupShareRetentionAndSelection(t *testing.T) {
 	if countRows(t, repo, "plan_generations") != 3 || countRows(t, repo, "cover_downloads") != 1 {
 		t.Fatal("unselected categories changed")
 	}
-	ids, err = repo.CleanupCandidates(ctx, cleanup.PlanGenerations, opts.Cutoff(cleanup.PlanGenerations, now))
+	ids, err = repo.CleanupCandidates(ctx, cleanup.PlanGenerations, opts.Cutoff(cleanup.PlanGenerations, now), nil)
 	if err != nil || len(ids) != 1 {
 		t.Fatalf("generation candidates %v %v", ids, err)
 	}
@@ -205,7 +205,7 @@ func TestCleanupCandidateSnapshotRechecksProtectionAndSkipsNewRows(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	ids, err := repo.CleanupCandidates(ctx, cleanup.CoverDownloads, now)
+	ids, err := repo.CleanupCandidates(ctx, cleanup.CoverDownloads, now, nil)
 	if err != nil || len(ids) != 1 {
 		t.Fatalf("candidates %v %v", ids, err)
 	}
@@ -265,7 +265,7 @@ func TestManualDownloadCleanupKeepsEveryDeliveryStatus(t *testing.T) {
 	); insertErr != nil {
 		t.Fatal(insertErr)
 	}
-	ids, err := repo.CleanupCandidates(ctx, cleanup.CoverDownloads, time.Now())
+	ids, err := repo.CleanupCandidates(ctx, cleanup.CoverDownloads, time.Now(), nil)
 	if err != nil || len(ids) != 1 || ids[0] != "orphan" {
 		t.Fatalf("candidates %v %v", ids, err)
 	}
@@ -320,7 +320,7 @@ func TestCanceledCleanupBatchRollsBackWithoutProgress(t *testing.T) {
 	if countRows(t, repo, "scan_sessions") != 1 || saved.Counts[cleanup.ScanSessions].Deleted != 0 {
 		t.Fatal("canceled transaction committed")
 	}
-	if _, err := repo.CleanupCandidates(canceled, cleanup.ScanSessions, now); !errors.Is(err, context.Canceled) {
+	if _, err := repo.CleanupCandidates(canceled, cleanup.ScanSessions, now, nil); !errors.Is(err, context.Canceled) {
 		t.Fatalf("discovery cancel: %v", err)
 	}
 }

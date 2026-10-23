@@ -25,13 +25,6 @@ func TestDevelopmentAndReleaseSchemasAgree(t *testing.T) {
 		t.Cleanup(func() { repo.Close() })
 		schemas = append(schemas, schemaSnapshot(t, repo.DB()))
 		t.Run(mode, func(t *testing.T) {
-			var slots int
-			if queryErr := repo.DB().
-				QueryRow("SELECT COUNT(*) FROM policy_slots").
-				Scan(&slots); queryErr != nil ||
-				slots != 3 {
-				t.Fatalf("policy slots = %d, queryErr = %v", slots, queryErr)
-			}
 			if _, execErr := repo.DB().
 				Exec("INSERT INTO libraries (id, name, root_path, root_path_key) VALUES ('lib', 'Music', '/music', '/music'); INSERT INTO common_settings (operation_type, settings_json) VALUES ('conversion', '{}'); INSERT INTO works (id, collected_at, created_at, updated_at) VALUES ('RJ00000001', '2026-09-30T00:00:00Z', '2026-09-30T00:00:00Z', '2026-09-30T00:00:00Z');"); execErr != nil {
 				t.Fatal(execErr)

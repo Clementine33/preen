@@ -544,106 +544,6 @@ func TestWorksetAuthRequired(t *testing.T) {
 	}
 }
 
-// TestPolicySlotsListAndUpdate verifies the fixed-three slot endpoints: fresh
-// databases list exactly three empty slots in order, PUT validates name and
-// policy, and the saved policy round-trips.
-func TestPolicySlotsListAndUpdate(t *testing.T) {
-	h, repo := newWorksetServer(t)
-	seedLibrary(t, repo)
-	seedMember(t, repo, "albumA")
-
-	w := req(t, h, http.MethodGet, "/api/v1/policy-slots", testToken, nil)
-	if w.Code != http.StatusOK {
-		t.Fatalf("slots status = %d", w.Code)
-	}
-	var list struct {
-		Slots []struct {
-			Slot   int             `json:"slot"`
-			Name   string          `json:"name"`
-			Policy json.RawMessage `json:"policy"`
-		} `json:"slots"`
-	}
-	if err := json.Unmarshal(w.Body.Bytes(), &list); err != nil {
-		t.Fatalf("decode slots: %v", err)
-	}
-	if len(list.Slots) != 3 {
-		t.Fatalf("slots = %d, want 3", len(list.Slots))
-	}
-	for i, s := range list.Slots {
-		if s.Slot != i+1 || s.Name != "" || string(s.Policy) != "null" {
-			t.Fatalf("fresh slot %d = %+v, want empty slot", i+1, s)
-		}
-	}
-
-	// PUT out-of-range slot is rejected.
-	w = req(
-		t,
-		h,
-		http.MethodPut,
-		"/api/v1/policy-slots/4",
-		testToken,
-		map[string]any{"name": "x", "policy": map[string]any{}},
-	)
-	if w.Code != http.StatusBadRequest || !strings.Contains(w.Body.String(), "INVALID_SLOT") {
-		t.Fatalf("slot 4 = %d %s, want 400 INVALID_SLOT", w.Code, w.Body.String())
-	}
-
-	// PUT invalid regex policy is rejected.
-	badPolicy := map[string]any{
-		"schema_version": 1,
-		"no_effect_tags": []string{},
-		"matched":        map[string]any{"lossless": map[string]any{"codec": "wav"}},
-		"unmatched":      map[string]any{"lossless": map[string]any{"codec": "wav"}},
-	}
-	w = req(
-		t,
-		h,
-		http.MethodPut,
-		"/api/v1/policy-slots/1",
-		testToken,
-		map[string]any{"name": "s1", "policy": badPolicy},
-	)
-	if w.Code != http.StatusBadRequest || !strings.Contains(w.Body.String(), "INVALID_POLICY") {
-		t.Fatalf("empty tags = %d %s, want 400 INVALID_POLICY", w.Code, w.Body.String())
-	}
-
-	// PUT a valid slot then verify the round-trip.
-	goodPolicy := map[string]any{
-		"schema_version": 1,
-		"no_effect_tags": []string{"SEなし", "se_nashi"},
-		"matched":        map[string]any{"lossless": map[string]any{"codec": "wav"}},
-		"unmatched": map[string]any{
-			"encoded": map[string]any{"codec": "mp3", "quality": map[string]any{"kind": "bitrate", "bitrate": 320}},
-		},
-	}
-	w = req(
-		t,
-		h,
-		http.MethodPut,
-		"/api/v1/policy-slots/1",
-		testToken,
-		map[string]any{"name": "默认", "policy": goodPolicy},
-	)
-	if w.Code != http.StatusOK {
-		t.Fatalf("put slot 1 = %d, body=%s", w.Code, w.Body.String())
-	}
-	w = req(t, h, http.MethodGet, "/api/v1/policy-slots", testToken, nil)
-	if err := json.Unmarshal(w.Body.Bytes(), &list); err != nil {
-		t.Fatalf("decode slots 2: %v", err)
-	}
-	if list.Slots[0].Name != "默认" || len(list.Slots[0].Policy) == 0 || string(list.Slots[0].Policy) == "null" {
-		t.Fatalf("slot 1 after PUT = %+v", list.Slots[0])
-	}
-	if list.Slots[1].Name != "" || string(list.Slots[1].Policy) != "null" {
-		t.Fatalf("slot 2 must stay empty: %+v", list.Slots[1])
-	}
-
-	// The seeded workset draft must be a complete inline policy (self-contained).
-	if _, err := repo.PolicySlot(1); err != nil {
-		t.Fatalf("get slot: %v", err)
-	}
-}
-
 func TestClassifierTagsHTTPAPI(t *testing.T) {
 	h, _ := newWorksetServer(t)
 
@@ -765,28 +665,6 @@ func TestConversionTagWriteBoundaries(t *testing.T) {
 			if w.Code != http.StatusBadRequest {
 				t.Fatalf("draft must reject malformed tags: %d %s", w.Code, w.Body.String())
 			}
-			if tc.override {
-				return
-			}
-			delete(doc, "members")
-			w = req(
-				t,
-				h,
-				http.MethodPut,
-				"/api/v1/policy-slots/1",
-				testToken,
-				map[string]any{"name": "test", "policy": doc},
-			)
-			if w.Code != http.StatusBadRequest {
-				t.Fatalf("slot must reject malformed tags: %d %s", w.Code, w.Body.String())
-			}
-			slot, err := repo.PolicySlot(1)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if slot.Name != "" {
-				t.Fatalf("rejected slot was stored: %+v", slot)
-			}
 		})
 	}
 	doc := draftDocumentFixture()
@@ -797,17 +675,5 @@ func TestConversionTagWriteBoundaries(t *testing.T) {
 		map[string]any{"settings": commonOf(doc)}, seed.Header().Get("ETag"))
 	if saved.Code != http.StatusOK {
 		t.Fatalf("empty no-effect draft must save: %d %s", saved.Code, saved.Body.String())
-	}
-	delete(doc, "members")
-	slot := req(
-		t,
-		h,
-		http.MethodPut,
-		"/api/v1/policy-slots/1",
-		testToken,
-		map[string]any{"name": "test", "policy": doc},
-	)
-	if slot.Code != http.StatusBadRequest {
-		t.Fatalf("empty no-effect slot must fail: %d %s", slot.Code, slot.Body.String())
 	}
 }

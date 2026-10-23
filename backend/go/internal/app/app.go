@@ -158,8 +158,7 @@ type services struct {
 	scan    inventory.Service
 	fileOps *fileops.Service
 	workset workset.Service
-	// catalog is the global policy catalog: the three policy slots and the
-	// custom classifier tag library the settings pages edit.
+	// catalog owns the classifier tag library the settings pages edit.
 	catalog *conversion.Catalog
 	// works is the logical work catalog the library's directories bind to.
 	works *works.Service
@@ -277,7 +276,7 @@ func buildServices(repo *sqlite.Repository, configDir, dataDir string) services 
 			filesystem.IsResolvedWithinRoot,
 		),
 		workset:      worksetSvc,
-		catalog:      conversion.NewCatalog(repo, repo, appconfig.NewReader(configDir)),
+		catalog:      conversion.NewCatalog(repo, appconfig.NewReader(configDir)),
 		works:        worksSvc,
 		metadata:     metadataSvc,
 		covers:       coverSvc,

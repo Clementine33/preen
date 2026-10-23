@@ -150,7 +150,7 @@ export interface ScanEvent {
   data: ScanEventData
 }
 
-// ==================== Policy slots ====================
+// ==================== Conversion policies ====================
 
 export interface QualitySpec {
   kind: string
@@ -183,23 +183,6 @@ export interface ResolvedPolicy {
   matched: PolicyProfile
   unmatched: PolicyProfile
   other?: PolicyProfile
-}
-
-/** One of the three fixed global policy slots. policy is null while unconfigured. */
-export interface PolicySlot {
-  slot: number
-  name: string
-  policy: ResolvedPolicy | null
-  updated_at?: string
-}
-
-export interface PolicySlotListResponse {
-  slots: PolicySlot[]
-}
-
-export interface SavePolicySlotInput {
-  name: string
-  policy: ResolvedPolicy
 }
 
 export interface ClassifierCustomTag {
@@ -1246,8 +1229,6 @@ export interface ApiClientContract {
     libraryId: string,
     input: { member_path: string; operation: FileOperation; items: FileOperationItem[] },
   ): Promise<FileOperationResult>
-  listPolicySlots(signal?: AbortSignal): Promise<PolicySlot[]>
-  savePolicySlot(slot: number, input: SavePolicySlotInput): Promise<PolicySlot>
   listClassifierTags(signal?: AbortSignal): Promise<ClassifierTagLibraryResponse>
   addClassifierTag(tag: string): Promise<ClassifierCustomTag>
   deleteClassifierTag(id: number): Promise<void>

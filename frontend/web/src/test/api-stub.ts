@@ -21,12 +21,6 @@ export function apiStub(overrides: Partial<ApiClientContract> = {}): ApiClientCo
     getMemberTree: vi.fn(),
     refreshMemberTree: vi.fn(),
     applyFileOperation: vi.fn(),
-    listPolicySlots: vi.fn().mockResolvedValue([
-      { slot: 1, name: '', policy: null },
-      { slot: 2, name: '', policy: null },
-      { slot: 3, name: '', policy: null },
-    ]),
-    savePolicySlot: vi.fn(),
     listClassifierTags: vi.fn().mockResolvedValue({ default_no_effect_tags: [], default_other_tags: [], custom_tags: [] }),
     addClassifierTag: vi.fn(),
     deleteClassifierTag: vi.fn().mockResolvedValue(undefined),

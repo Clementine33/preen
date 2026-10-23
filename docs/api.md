@@ -22,7 +22,7 @@ All endpoint documents use the shared authentication, error and path conventions
 | [Rename and metadata refresh tasks](api/tasks.md) | Task payloads, rename proposals, metadata refresh and asynchronous copy covers |
 | [Operation execution](api/executions.md) | Execution guards, scope, results, SSE, cancellation and inventory sync |
 | [Audio conversion](api/conversion.md) | Sparse conversion drafts, common settings, frozen revisions and conformance rules |
-| [Reusable policy slots and classifier tags](api/policies.md) | Policy slots and classifier tag vocabulary |
+| [Classifier tags](api/policies.md) | Conversion classifier tag vocabulary |
 | [User preferences](api/preferences.md) | Server-synced Format Preference |
 | [Outbound Proxy](api/outbound-proxy.md) | Deployment-wide outbound proxy for metadata sources and cover downloads |
 | [Work catalog](api/works.md) | Works, personal data, tags, content manifests, thumbnails, media facts, metadata imports and listing filters |

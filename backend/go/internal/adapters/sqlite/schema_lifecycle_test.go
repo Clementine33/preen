@@ -25,6 +25,12 @@ func TestDevelopmentAndReleaseSchemasAgree(t *testing.T) {
 		t.Cleanup(func() { repo.Close() })
 		schemas = append(schemas, schemaSnapshot(t, repo.DB()))
 		t.Run(mode, func(t *testing.T) {
+			var slots int
+			if err := repo.DB().
+				QueryRow("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='policy_slots'").
+				Scan(&slots); err != nil || slots != 0 {
+				t.Fatalf("removed policy table count = %d, err = %v", slots, err)
+			}
 			if _, execErr := repo.DB().
 				Exec("INSERT INTO libraries (id, name, root_path, root_path_key) VALUES ('lib', 'Music', '/music', '/music'); INSERT INTO common_settings (operation_type, settings_json) VALUES ('conversion', '{}'); INSERT INTO works (id, collected_at, created_at, updated_at) VALUES ('RJ00000001', '2026-09-30T00:00:00Z', '2026-09-30T00:00:00Z', '2026-09-30T00:00:00Z');"); execErr != nil {
 				t.Fatal(execErr)

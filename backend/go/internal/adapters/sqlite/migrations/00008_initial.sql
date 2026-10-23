@@ -102,18 +102,6 @@ CREATE TABLE plans (
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
--- Three fixed global policy slots. The count is an invariant of the storage
--- itself: rows 1..3 exist from initialization, and there is no insert/delete
--- API. name is the editable display name; policy_json is NULL while the slot
--- is unconfigured.
-CREATE TABLE policy_slots (
-    slot_index INTEGER PRIMARY KEY CHECK (slot_index BETWEEN 1 AND 3),
-    name TEXT NOT NULL DEFAULT '',
-    policy_json TEXT,
-    updated_at TEXT DEFAULT CURRENT_TIMESTAMP
-);
-INSERT OR IGNORE INTO policy_slots (slot_index) VALUES (1), (2), (3);
-
 -- Task payload rows of one plan (owned by the task named in plans.task_kind;
 -- the conversion task stores its resolved policy/classifier snapshots here).
 -- classifier_pattern stores the task's canonical tag snapshot.

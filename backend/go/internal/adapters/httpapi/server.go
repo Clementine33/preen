@@ -22,7 +22,7 @@ import (
 
 // Dependencies carries the wiring for the HTTP API. Inventory is used by the
 // scan and refresh routes; WorksetService by the workset routes; Catalog by the
-// settings routes that hold the global policy templates and tag library. Any
+// settings routes that hold the classifier tag library. Any
 // may be nil until wired, and the handlers guard against that.
 type Dependencies struct {
 	// Library is the media-library business entry: creation, edits, root
@@ -62,7 +62,6 @@ type Dependencies struct {
 
 type Server struct{ deps Dependencies }
 
-//nolint:funlen // Keep the explicit route registry together.
 func NewServer(deps Dependencies) http.Handler {
 	s := &Server{deps: deps}
 	mux := http.NewServeMux()
@@ -94,8 +93,6 @@ func NewServer(deps Dependencies) http.Handler {
 		"PUT /api/v1/libraries/{id}/operations/{type}/current",
 		protect(http.HandlerFunc(s.putCurrentRecord)),
 	)
-	mux.Handle("GET /api/v1/policy-slots", protect(http.HandlerFunc(s.listPolicySlots)))
-	mux.Handle("PUT /api/v1/policy-slots/{slot}", protect(http.HandlerFunc(s.putPolicySlot)))
 	// The work catalog: the ordinary listing and one work's detail, the source
 	// metadata import, the single user's data and tags, and the protected
 	// permanent deletion. Copies are maintained by scanning, so there is no

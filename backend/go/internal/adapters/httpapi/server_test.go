@@ -28,7 +28,7 @@ func newTestServer(t *testing.T, mutate func(d *Dependencies, fixture *sqlite.Re
 	fixture := newHTTPTestRepository(t)
 	deps := Dependencies{
 		Library:     library.NewService(fixture, nil, fixture, filesystem.ResolveMember),
-		Catalog:     conversion.NewCatalog(fixture, fixture, appconfig.NewReader("")),
+		Catalog:     conversion.NewCatalog(fixture, appconfig.NewReader("")),
 		Token:       "",
 		CORSOrigins: []string{},
 		Version:     "dev",

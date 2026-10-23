@@ -11,7 +11,6 @@ import type {
   Operation,
   ListWorksetsParams,
   OperationType,
-  ResolvedPolicy,
   StartExecutionResponse,
   TaskSettings,
   TaskSettingsMap,
@@ -166,26 +165,6 @@ export function operationRevisionDetailQueryOptions(
     queryFn: ({ signal }: { signal?: AbortSignal }) =>
       api.getRevision(worksetId as string, operation, planId as string, signal),
   })
-}
-
-// The three global policy slots. Global templates: loaded once, refreshed
-// after a slot save.
-export function policySlotListQueryOptions(api: ApiClientContract) {
-  return queryOptions({
-    queryKey: queryKeys.policySlots.list(),
-    staleTime: Infinity,
-    queryFn: ({ signal }: { signal?: AbortSignal }) => api.listPolicySlots(signal),
-  })
-}
-
-export function savePolicySlotMutationOptions(api: ApiClientContract, queryClient: QueryClient) {
-  return {
-    mutationFn: (input: { slot: number; name: string; policy: ResolvedPolicy }) =>
-      api.savePolicySlot(input.slot, { name: input.name, policy: input.policy }),
-    onSuccess: () => {
-      void refreshOrRemoveQueries(queryClient, queryKeys.policySlots.list())
-    },
-  }
 }
 
 // Global classifier tag library (defaults from config + custom from DB).

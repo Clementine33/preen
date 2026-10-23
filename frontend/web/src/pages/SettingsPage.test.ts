@@ -15,7 +15,7 @@ afterEach(() => vi.unstubAllGlobals())
 async function mountPage(api: ReturnType<typeof apiStub>, path = '/settings') {
   const router = createRouter({
     history: createMemoryHistory(),
-    routes: [{ path: '/settings/:section(appearance|network|tags|keys)?', name: 'settings', component: SettingsPage }],
+    routes: [{ path: '/settings/:section(appearance|network|tags|maintenance|keys)?', name: 'settings', component: SettingsPage }],
   })
   await router.push(path)
   const wrapper = mount(SettingsPage, {

@@ -37,6 +37,9 @@ export const queryKeys = {
   outboundProxy: {
     detail: () => ['outbound-proxy'] as const,
   },
+  cleanup: {
+    run: () => ['maintenance', 'cleanup'] as const,
+  },
   classifierTags: {
     list: () => ['classifier-tags', 'list'] as const,
   },

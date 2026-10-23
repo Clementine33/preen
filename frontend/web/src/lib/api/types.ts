@@ -208,6 +208,32 @@ export interface UserPreferences {
   track_formats: string[]
 }
 
+export type CleanupCategory =
+  | 'scan_sessions' | 'plan_generations' | 'cover_downloads' | 'works'
+  | 'relation_reports' | 'source_tags' | 'source_voice_actors' | 'source_circles'
+
+export interface CleanupPreview {
+  checked_at: string
+  categories: CleanupCategory[]
+  candidates: Partial<Record<CleanupCategory, number>>
+  /** The server's retention rules; `retention_days` is 0 when there is no waiting period. */
+  rules: Partial<Record<CleanupCategory, { retention_days: number; protection: string }>>
+}
+
+export type CleanupStatus = 'running' | 'stopping' | 'stopped' | 'succeeded' | 'failed' | 'interrupted'
+
+/** The current or latest deployment-wide cleanup run (docs/api/maintenance.md). */
+export interface CleanupRun {
+  run_id: string
+  categories: CleanupCategory[]
+  status: CleanupStatus
+  phase: CleanupCategory | ''
+  started_at: string
+  finished_at: string | null
+  counts: Partial<Record<CleanupCategory, { checked: number; deleted: number; skipped: number }>>
+  reason: string
+}
+
 /** The Outbound Proxy; empty means a direct connection (docs/api/outbound-proxy.md). */
 export interface OutboundProxy {
   url: string
@@ -321,10 +347,27 @@ export interface WorkCopy {
 export interface WorkEditionNode {
   rj: string
   role: 'original' | 'edition_page' | 'translation'
-  /** A works row exists (relation placeholders included). */
+  /** A collected works row exists; otherwise the node is external (no local detail). */
   is_work: boolean
   /** At least one copy in any library right now, online or not. */
   held: boolean
+  /** Known language only; null stays unknown. */
+  language: string | null
+  relation: WorkRelation
+  /** Server-built source link; the only link an external node has. */
+  source_url: string | null
+}
+
+/** One entry of `relation_nodes`; `role` is the resolved role, `""` when unknown. */
+export interface WorkRelationNode extends Omit<WorkEditionNode, 'role'> {
+  role: string
+}
+
+/** A relation diagnostic: `RELATION_CONFLICT` or `RELATION_AMBIGUOUS`. */
+export interface WorkRelationWarning {
+  code: string
+  rj: string
+  message: string
 }
 
 /** One language line of the edition tree: JPN, CHI_HANS or CHI_HANT. */
@@ -353,13 +396,13 @@ export interface WorkDetail extends Omit<WorkSummary, 'listening'> {
   /** Resolved JPN / CHI_HANS / CHI_HANT lines; null when nothing but this work. */
   edition_tree: WorkEditionSlot[] | null
   relation: WorkRelation
+  relation_warnings: WorkRelationWarning[]
+  relation_nodes: WorkRelationNode[]
   copies: WorkCopy[]
   /** User collections holding the work, in list order; Favorites is `favorite`. */
   collection_ids: string[]
   /** One row per played Rendition, empty when none. */
   listening: WorkListening[]
-  /** Declared by a relation but never found on disk; absent from the listing. */
-  placeholder: boolean
 }
 
 export interface WorkListResponse {
@@ -1269,6 +1312,10 @@ export interface ApiClientContract {
   putPreferences(input: UserPreferences): Promise<UserPreferences>
   getOutboundProxy(signal?: AbortSignal): Promise<OutboundProxy>
   putOutboundProxy(input: OutboundProxy): Promise<OutboundProxy>
+  previewCleanup(categories: CleanupCategory[]): Promise<CleanupPreview>
+  startCleanup(categories: CleanupCategory[]): Promise<CleanupRun>
+  getCleanup(signal?: AbortSignal): Promise<CleanupRun | null>
+  cancelCleanup(runId: string): Promise<CleanupRun>
   listUserTags(signal?: AbortSignal): Promise<WorkUserTag[]>
   createUserTag(name: string): Promise<WorkUserTag>
   renameUserTag(id: string, name: string): Promise<WorkUserTag>

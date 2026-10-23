@@ -138,7 +138,10 @@ The worker belongs to the process context. Navigating away, closing the page or
 canceling the starting HTTP request does not cancel an accepted run. Clients
 poll GET; there is no cleanup SSE stream. A network failure means unknown state,
 not successful completion. Process shutdown cancels and joins the worker before
-SQLite closes. Startup interrupts leftover running/stopping summaries before
+SQLite closes. Terminal-summary writes retry after contention while the worker
+and manual run marker remain active; shutdown cancellation does not abandon
+persistence. The existing process shutdown guard handles a finalizer that cannot
+make progress. Startup interrupts leftover running/stopping summaries before
 requests are accepted, preserving committed counts without resuming work.
 
 Stages run in the category order above: history, works, relation reports, then source entities.

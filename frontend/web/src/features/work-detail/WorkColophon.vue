@@ -30,8 +30,6 @@ const userData = useUpdateWorkUserData(() => store.rj)
 const tagReplace = useReplaceWorkUserTags(() => store.rj)
 const tagCreate = useCreateUserTag()
 
-// Placeholder works refuse personal-data writes (WORK_IS_PLACEHOLDER, docs/api.md).
-const locked = computed(() => work.value?.placeholder ?? false)
 const rating = computed(() => work.value?.rating ?? null)
 const favorite = computed(() => work.value?.favorite ?? false)
 const mine = computed<WorkUserTag[]>(() => work.value?.user_tags ?? [])
@@ -44,13 +42,11 @@ const age = computed(() =>
 )
 
 function setRating(n: number): void {
-  if (locked.value) return
   // Clicking the set value clears it (rating null is the unrated state).
   userData.mutate({ rating: rating.value === n ? null : n })
 }
 
 function toggleFavorite(): void {
-  if (locked.value) return
   userData.mutate({ favorite: !favorite.value })
 }
 
@@ -64,7 +60,7 @@ const held = computed(() => work.value?.collection_ids ?? [])
 
 async function toggleCollection(id: string, name: string): Promise<void> {
   const rj = store.rj
-  if (locked.value || rj === null) return
+  if (rj === null) return
   try {
     if (held.value.includes(id)) {
       await memberWrites.remove(id, rj)
@@ -78,7 +74,7 @@ async function toggleCollection(id: string, name: string): Promise<void> {
 
 async function addToNewCollection(): Promise<void> {
   const rj = store.rj
-  if (locked.value || rj === null) return
+  if (rj === null) return
   try {
     const made = await manage.create(newCollectionName(collections.value))
     await memberWrites.append(made.id, [rj])
@@ -104,7 +100,6 @@ async function clearListening(): Promise<void> {
 }
 
 function saveNote(event: Event): void {
-  if (locked.value) return
   const value = (event.target as HTMLTextAreaElement).value
   if (work.value && value !== work.value.note) userData.mutate({ note: value })
 }
@@ -187,6 +182,9 @@ function copyTo(copy: { copy_id: string; library_id: string; dir_id: string }) {
       <div v-if="age" class="colo-row"><dt>分级</dt>
         <dd><span class="mono">{{ age }}</span></dd>
       </div>
+      <div v-if="work?.relation_warnings?.length" class="colo-row"><dt>关系</dt>
+        <dd><span class="rel-warn" role="note"><span v-for="warning in work.relation_warnings" :key="`${warning.code}-${warning.rj}`">{{ warning.rj }} · {{ warning.message }}</span></span></dd>
+      </div>
       <div v-if="work?.series_name" class="colo-row"><dt>系列</dt><dd><span lang="ja">{{ work.series_name }}</span></dd></div>
       <div v-if="editionLines.length" class="colo-row"><dt>版本</dt>
         <dd><span class="ed">
@@ -197,8 +195,10 @@ function copyTo(copy: { copy_id: string; library_id: string; dir_id: string }) {
               <span v-if="index > 0" class="sep">{{ index === 1 ? '→' : '·' }}</span>
               <span class="tag" :aria-current="node.rj === work?.rj ? 'true' : undefined">
                 {{ ROLE_NAMES[node.role] }}
-                <RouterLink v-if="node.held && node.rj !== work?.rj" class="mono" :to="{ name: 'work-detail', params: { rj: node.rj } }">{{ node.rj }}</RouterLink>
+                <RouterLink v-if="node.is_work && node.rj !== work?.rj" class="mono" :to="{ name: 'work-detail', params: { rj: node.rj } }">{{ node.rj }}</RouterLink>
+                <a v-else-if="!node.is_work && node.source_url" class="mono" :href="node.source_url" target="_blank" rel="noreferrer noopener">{{ node.rj }}</a>
                 <span v-else class="mono">{{ node.rj }}</span>
+                <span v-if="!node.is_work" class="lbl">外部</span>
                 <span v-if="node.held" class="lbl">HELD</span>
               </span>
             </template>
@@ -229,14 +229,14 @@ function copyTo(copy: { copy_id: string; library_id: string; dir_id: string }) {
         <dd>
           <span class="rating">
             <i v-for="n in 10" :key="n" class="on-able" :class="{ on: rating !== null && n <= rating }"
-              :role="locked ? undefined : 'button'" :tabindex="locked ? undefined : 0"
+              role="button" tabindex="0"
               :aria-label="`评分 ${n}`" @click="setRating(n)" @keydown.enter="setRating(n)"></i>
           </span>
           <span class="lbl"><b>{{ rating ?? '—' }}</b>/10</span>
-          <button class="fav" type="button" :aria-pressed="favorite" :disabled="locked" @click="toggleFavorite">♥ FAV</button>
+          <button class="fav" type="button" :aria-pressed="favorite" @click="toggleFavorite">♥ FAV</button>
           <DropdownMenu>
             <DropdownMenuTrigger as-child>
-              <button class="fav" type="button" :disabled="locked" data-testid="work-collections">+ 合集</button>
+              <button class="fav" type="button" data-testid="work-collections">+ 合集</button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" class="w-52" data-own-keys>
               <DropdownMenuCheckboxItem v-for="c in userCollections" :key="c.id" :model-value="held.includes(c.id)"
@@ -249,16 +249,16 @@ function copyTo(copy: { copy_id: string; library_id: string; dir_id: string }) {
       </div>
       <div v-if="work?.listening.length" class="colo-row"><dt>收听</dt>
         <dd>
-          <button class="fav lead" type="button" :disabled="locked || store.tracks.length === 0" @click="resumeListening"><template v-if="resume">▶ 继续 · {{ resume.row.track_index! + 1 }}/{{ resume.row.track_count }} · {{ fmtT(resume.position) }}</template><template v-else>▶ {{ restartLabel }}</template></button>
-          <button class="fav" type="button" :disabled="locked" @click="clearListening">标记为未听</button>
+          <button class="fav lead" type="button" :disabled="store.tracks.length === 0" @click="resumeListening"><template v-if="resume">▶ 继续 · {{ resume.row.track_index! + 1 }}/{{ resume.row.track_count }} · {{ fmtT(resume.position) }}</template><template v-else>▶ {{ restartLabel }}</template></button>
+          <button class="fav" type="button" @click="clearListening">标记为未听</button>
         </dd>
       </div>
       <div class="colo-row"><dt>我的</dt>
         <dd>
           <span class="tags">
-            <button v-for="tag in mine" :key="tag.id" class="tag mine" type="button" :disabled="locked"
-              :title="locked ? undefined : '移除这个标签'" @click="removeTag(tag.id)">{{ tag.name }}</button>
-            <button class="tag add" :class="{ quiet: mine.length > 0 && !adding }" type="button" :disabled="locked" :aria-expanded="adding"
+            <button v-for="tag in mine" :key="tag.id" class="tag mine" type="button"
+              title="移除这个标签" @click="removeTag(tag.id)">{{ tag.name }}</button>
+            <button class="tag add" :class="{ quiet: mine.length > 0 && !adding }" type="button" :aria-expanded="adding"
               @click="adding = !adding">+ TAG</button>
           </span>
           <span v-if="adding" class="menu" role="menu">
@@ -273,7 +273,7 @@ function copyTo(copy: { copy_id: string; library_id: string; dir_id: string }) {
         </dd>
       </div>
       <div class="colo-row"><dt>笔记</dt>
-        <dd><textarea class="note" :rows="props.compact ? 2 : 3" :value="work?.note ?? ''" :disabled="locked"
+        <dd><textarea class="note" :rows="props.compact ? 2 : 3" :value="work?.note ?? ''"
           @change="saveNote"></textarea></dd></div>
     </dl>
 
@@ -313,6 +313,7 @@ function copyTo(copy: { copy_id: string; library_id: string; dir_id: string }) {
 .tag.mine:hover { text-decoration: line-through; }
 .tag.add { border-style: dashed; color: var(--fg-meta); font-family: var(--font-mono); }
 .ed { display: flex; flex-direction: column; gap: 4px; }
+.rel-warn { display: flex; flex-direction: column; gap: 2px; color: var(--warning-ink); }
 .ed-line { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
 .ed-line[aria-current='true'] > .lbl { color: var(--fg-base); font-weight: 700; }
 .tag .lbl { margin-left: 4px; }

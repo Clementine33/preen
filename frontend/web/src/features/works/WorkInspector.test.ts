@@ -49,7 +49,8 @@ function detail(rj: string, voice: string): WorkDetail {
     relation: { role: null, language: null, original_rj: null, parent_rj: null },
     copies: [],
     collection_ids: [],
-    placeholder: false,
+    relation_warnings: [],
+    relation_nodes: [],
   }
 }
 

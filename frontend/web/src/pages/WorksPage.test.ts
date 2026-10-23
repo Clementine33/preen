@@ -123,7 +123,7 @@ async function mountWorks(
       series_id: null, series_name: null, voice_actors: [], source_tags: [],
       note: '', language_editions: null, edition_tree: null,
       relation: { role: null, language: null, original_rj: null, parent_rj: null },
-      copies: [], placeholder: false, listening: [],
+      copies: [], relation_warnings: [], relation_nodes: [], listening: [],
     })),
     listWorkFacets,
     listTagFacets: vi.fn().mockResolvedValue({

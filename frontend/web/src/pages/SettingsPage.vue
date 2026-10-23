@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 import GlobalMenu from '@/components/layout/GlobalMenu.vue'
 import { Button } from '@/components/ui/button'
 import { useApiClient } from '@/lib/api/client'
+import DataMaintenanceSettings from '@/features/settings/DataMaintenanceSettings.vue'
 import FormatPreferenceSettings from '@/features/settings/FormatPreferenceSettings.vue'
 import OutboundProxySettings from '@/features/settings/OutboundProxySettings.vue'
 import SettingsField from '@/features/settings/SettingsField.vue'
@@ -17,7 +18,7 @@ import { THEME_OPTIONS, useTheme, type Theme } from '@/composables/use-theme'
  * 设置 (`/settings/:section?`): what has no other home, one category per
  * address — appearance (theme and motion stay in this browser; the Format
  * Preference syncs through the server), network (the Outbound Proxy) and the
- * user-tag vocabulary, plus the read-only shortcut list. Each saves
+ * user-tag vocabulary and data maintenance (record cleanup), plus the read-only shortcut list. Each saves
  * where its data lives. Task settings stay beside their tasks, a library's storage
  * class in its edit dialog.
  */
@@ -25,6 +26,7 @@ const SECTIONS = [
   { id: 'appearance', label: '外观', code: 'APPEARANCE' },
   { id: 'network', label: '网络', code: 'NETWORK' },
   { id: 'tags', label: '用户标签', code: 'USER TAGS' },
+  { id: 'maintenance', label: '数据维护', code: 'DATA MAINTENANCE' },
   { id: 'keys', label: '键盘快捷键', code: 'KEYBOARD' },
 ] as const
 
@@ -125,6 +127,10 @@ async function logout(): Promise<void> {
             <SettingsField id="outbound-proxy" label="代理服务器">
               <OutboundProxySettings />
             </SettingsField>
+          </template>
+
+          <template v-else-if="section.id === 'maintenance'">
+            <DataMaintenanceSettings />
           </template>
 
           <template v-else-if="section.id === 'keys'">

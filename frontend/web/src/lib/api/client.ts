@@ -53,6 +53,9 @@ import type {
   WorkListResponse,
   WorkUserData,
   OutboundProxy,
+  CleanupCategory,
+  CleanupPreview,
+  CleanupRun,
   UserPreferences,
   WorkUserTag,
   Workset,
@@ -467,6 +470,24 @@ export class ApiClient implements ApiClientContract {
 
   putOutboundProxy(input: OutboundProxy): Promise<OutboundProxy> {
     return this.request('/outbound-proxy', { method: 'PUT', body: input })
+  }
+
+  // Deployment-wide record cleanup (docs/api/maintenance.md). Start has no
+  // request id: a lost answer is resolved by reading the global run, never by resending.
+  previewCleanup(categories: CleanupCategory[]): Promise<CleanupPreview> {
+    return this.request('/maintenance/cleanup/preview', { method: 'POST', body: { categories } })
+  }
+
+  async startCleanup(categories: CleanupCategory[]): Promise<CleanupRun> {
+    return (await this.request<{ run: CleanupRun }>('/maintenance/cleanup', { method: 'POST', body: { categories } })).run
+  }
+
+  async getCleanup(signal?: AbortSignal): Promise<CleanupRun | null> {
+    return (await this.request<{ run: CleanupRun | null }>('/maintenance/cleanup', { signal })).run
+  }
+
+  async cancelCleanup(runId: string): Promise<CleanupRun> {
+    return (await this.request<{ run: CleanupRun }>(`/maintenance/cleanup/${encodeURIComponent(runId)}/cancel`, { method: 'POST', body: {} })).run
   }
 
   // Creating by name is idempotent: an existing name answers with the existing

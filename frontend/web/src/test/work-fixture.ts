@@ -47,10 +47,11 @@ export function makeWorkDetail(overrides: Partial<WorkDetail> = {}): WorkDetail 
     ],
     edition_tree: null,
     relation: { role: null, language: null, original_rj: null, parent_rj: null },
+    relation_warnings: [],
+    relation_nodes: [],
     copies: [{ copy_id: 'copy-a', library_id: 'lib-a', rel_path: 'works/RJ01000001', dir_id: 'dir-a' }],
     collection_ids: [],
     listening: [],
-    placeholder: false,
     ...overrides,
   }
 }

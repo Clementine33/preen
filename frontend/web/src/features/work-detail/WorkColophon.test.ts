@@ -40,7 +40,10 @@ beforeEach(() => {
 })
 
 describe('WorkColophon', () => {
-  const node = (rj: string, role: WorkEditionSlot['root']['role'], is_work = true, held = false) => ({ rj, role, is_work, held })
+  const node = (rj: string, role: WorkEditionSlot['root']['role'], is_work = true, held = false) => ({
+    rj, role, is_work, held, language: null, relation: { role: null, language: null, original_rj: null, parent_rj: null },
+    source_url: `https://www.dlsite.com/maniax/work/=/product_id/${rj}.html`,
+  })
   const TREE: WorkEditionSlot[] = [
     { language: 'JPN', label: null, held: true, root: node('RJ01287230', 'original', true, true), translations: [] },
     {
@@ -61,12 +64,22 @@ describe('WorkColophon', () => {
     expect(lines).toEqual([
       '日语原作 RJ01287230HELD',
       '简中页面 RJ01289610→翻译 RJ01289611HELD·翻译 RJ01289700',
-      '繁中页面 RJ01291590',
+      '繁中页面 RJ01291590外部',
     ])
-    const hrefs = wrapper.findAll('.ed a').map((a) => a.attributes('href'))
-    // Only other held works link: not the page, the placeholder or the work itself.
-    expect(hrefs).toEqual(['/works/RJ01287230'])
+    const links = wrapper.findAll('.ed a').map((a) => [a.attributes('href'), a.attributes('target')])
+    // Collected works open locally (not the work itself); the external node opens its source page.
+    expect(links).toEqual([
+      ['/works/RJ01287230', undefined], ['/works/RJ01289610', undefined], ['/works/RJ01289700', undefined],
+      ['https://www.dlsite.com/maniax/work/=/product_id/RJ01291590.html', '_blank'],
+    ])
     expect(wrapper.text()).not.toContain('关系')
+  })
+
+  it('lists relation warnings', async () => {
+    const { wrapper } = await mountColophon({ getWork: vi.fn().mockResolvedValue(makeWorkDetail({
+      relation_warnings: [{ code: 'RELATION_CONFLICT', rj: 'RJ01289610', message: 'declared by another work' }],
+    })) })
+    expect(wrapper.get('.rel-warn').text()).toBe('RJ01289610 · declared by another work')
   })
 
   it('marks the page slot and the translation itself current on a translation page', async () => {
@@ -92,7 +105,7 @@ describe('WorkColophon', () => {
     expect(wrapper.findAll('.ed-line').map((line) => line.text())).toEqual([
       '日语原作 RJ01287230HELD',
       '简中页面 RJ01289610→翻译 RJ01289611HELD',
-      '繁中页面 RJ01291590',
+      '繁中页面 RJ01291590外部',
     ])
   })
 
@@ -188,21 +201,6 @@ describe('WorkColophon', () => {
     await flushPromises()
     expect(create).toHaveBeenCalledWith('反复听')
     expect(replace).toHaveBeenLastCalledWith(RJ, ['t-2', 't-9'])
-  })
-
-  it('locks the personal rows of a placeholder work', async () => {
-    const pinia = createPinia()
-    setActivePinia(pinia)
-    const store = useWorkDetailStore()
-    store.bind(RJ, sampleWorkContent(RJ))
-    const api = apiStub({ getWork: vi.fn().mockResolvedValue(makeWorkDetail({ placeholder: true })) } as never)
-    const wrapper = mount(WorkColophon, {
-      global: { plugins: [pinia, await workDetailTestRouter(), installTestQueryPlugin()], provide: { [apiClientKey as symbol]: api } },
-    })
-    await flushPromises()
-    expect(wrapper.get('.fav').attributes('disabled')).toBeDefined()
-    expect(wrapper.find('.rating i[role="button"]').exists()).toBe(false)
-    expect(wrapper.get('textarea.note').attributes('disabled')).toBeDefined()
   })
 })
 

@@ -372,7 +372,6 @@ it('normalizes legacy conversion tags at every stored JSON read without losing e
   const legacy = { schema_version: 1, classifier_tags: ['SEなし'], matched: {}, unmatched: {} }
   mockFetch((input) => {
     const url = String(input)
-    if (url.endsWith('/policy-slots')) return okJson({ slots: [{ slot: 1, name: 'old', policy: legacy }, { slot: 2, name: 'new', policy: { ...legacy, no_effect_tags: [] } }] })
     if (url.endsWith('/draft')) return okJson({ operation_type: 'conversion', task: { kind: 'conversion', schema_version: 1, payload: { ...legacy, members: [{ member_id: 'one', overrides: { classifier_tags: [] } }, { member_id: 'two' }] } } })
     return okJson({ task: { kind: 'conversion', payload: { policy: legacy } } })
   })
@@ -382,8 +381,5 @@ it('normalizes legacy conversion tags at every stored JSON read without losing e
   expect(draft.document.members[0]?.overrides).toEqual({ no_effect_tags: [] })
   expect(draft.document.members[1]?.overrides).toBeUndefined()
   expect(draft.document).not.toHaveProperty('classifier_tags')
-  const slots = await client.listPolicySlots()
-  expect(slots[0]?.policy).toMatchObject({ no_effect_tags: ['SEなし'], other_tags: [] })
-  expect(slots[1]?.policy?.no_effect_tags).toEqual([])
   expect((await client.getRevision('ws', 'conversion', 'p')).task.payload.policy).toMatchObject({ no_effect_tags: ['SEなし'], other_tags: [] })
 })

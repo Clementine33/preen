@@ -18,7 +18,7 @@ func (s *Service) Preview(ctx context.Context, categories []Category) (Preview, 
 		Rules:      map[Category]Rule{},
 	}
 	for _, category := range categories {
-		ids, err := s.store.CleanupCandidates(ctx, category, s.opts.Cutoff(category, now), categories)
+		ids, err := s.store.CleanupCandidates(ctx, category, now, categories)
 		if err != nil {
 			return Preview{}, err
 		}
@@ -26,10 +26,10 @@ func (s *Service) Preview(ctx context.Context, categories []Category) (Preview, 
 		var rule Rule
 		switch category {
 		case ScanSessions:
-			rule = Rule{RetentionDays: s.opts.ScanRetention.Hours() / 24,
+			rule = Rule{
 				Protection: "Only terminal scans; missing finished_at falls back to started_at."}
 		case PlanGenerations:
-			rule = Rule{RetentionDays: s.opts.GenerationRetention.Hours() / 24,
+			rule = Rule{
 				Protection: "Only finished planning sessions; current plans and results are retained."}
 		case CoverDownloads:
 			rule = Rule{Protection: "Any delivery reference protects its download; only done downloads are eligible."}

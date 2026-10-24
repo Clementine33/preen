@@ -52,8 +52,7 @@ type Run struct {
 	Reason     string             `json:"reason"`
 }
 type Rule struct {
-	RetentionDays float64 `json:"retention_days"`
-	Protection    string  `json:"protection"`
+	Protection string `json:"protection"`
 }
 type Preview struct {
 	CheckedAt  time.Time          `json:"checked_at"`
@@ -62,23 +61,8 @@ type Preview struct {
 	Rules      map[Category]Rule  `json:"rules"`
 }
 type Options struct {
-	ScanRetention       time.Duration
-	GenerationRetention time.Duration
-	BatchRows           int
-	YieldDelay          time.Duration
-}
-
-func (o Options) Cutoff(category Category, now time.Time) time.Time {
-	switch category {
-	case ScanSessions:
-		return now.Add(-o.ScanRetention)
-	case PlanGenerations:
-		return now.Add(-o.GenerationRetention)
-	case CoverDownloads, Works, RelationReports, SourceTags, SourceVoiceActors, SourceCircles:
-		return now
-	default:
-		return now
-	}
+	BatchRows  int
+	YieldDelay time.Duration
 }
 
 type Store interface {

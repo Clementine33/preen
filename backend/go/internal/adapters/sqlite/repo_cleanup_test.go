@@ -105,92 +105,46 @@ func TestCleanupStopCannotBeOverwrittenAndRecoveryInterrupts(t *testing.T) {
 	}
 }
 
-func TestManualAndAutomaticCleanupShareRetentionAndSelection(t *testing.T) {
+func TestManualCleanupIgnoresRetentionWhileAutomaticKeepsIt(t *testing.T) {
 	repo := newTestRepository(t)
 	ctx := t.Context()
 	now := time.Date(2026, 10, 23, 12, 0, 0, 0, time.UTC)
-	opts := cleanup.Options{ScanRetention: 2 * 24 * time.Hour, GenerationRetention: 5 * 24 * time.Hour}
-	for _, tc := range []struct {
-		id, status string
-		age        time.Duration
-	}{
-		{"scan-old", "completed", 3 * 24 * time.Hour}, {"scan-boundary", "completed", 2 * 24 * time.Hour},
-		{"scan-active", "running", 10 * 24 * time.Hour}, {"scan-failed", "failed", 3 * 24 * time.Hour},
-	} {
-		if err := repo.CreateScanSession(
-			&inventory.ScanSession{
-				SessionID: tc.id,
-				RootPath:  "/music",
-				Kind:      "full",
-				Status:    tc.status,
-				StartedAt: now.Add(-tc.age),
-			},
-		); err != nil {
+	for _, tc := range []struct{ id, status string }{{"scan-recent", "completed"}, {"scan-active", "running"}} {
+		if err := repo.CreateScanSession(&inventory.ScanSession{
+			SessionID: tc.id, RootPath: "/music", Kind: "full", Status: tc.status, StartedAt: now.Add(-time.Hour),
+		}); err != nil {
 			t.Fatal(err)
 		}
 	}
 	ws := seedRetentionWorkset(t, repo)
-	seedFinishedGeneration(t, repo, ws, "gen-old", now.Add(-6*24*time.Hour))
-	seedFinishedGeneration(t, repo, ws, "gen-boundary", now.Add(-5*24*time.Hour))
+	seedFinishedGeneration(t, repo, ws, "gen-recent", now.Add(-time.Hour))
 	seedGeneration(t, repo, "gen-active", ws)
-	if _, err := repo.db.Exec(
-		`INSERT INTO cover_downloads(id,work_code,version,url,backup_url,locale,refresh,status) VALUES ('orphan','RJ00000001',1,'url','','ja',0,'done')`,
-	); err != nil {
-		t.Fatal(err)
+
+	stats, err := repo.RunRetentionCleanupBatch(ctx, now.Add(-2*24*time.Hour), now.Add(-5*24*time.Hour), 500)
+	if err != nil || stats.DeletedScanSessions != 0 || stats.DeletedGenerations != 0 {
+		t.Fatalf("automatic retention %+v %v", stats, err)
 	}
+
 	run := cleanup.Run{
-		ID:         "selected",
-		Status:     "running",
-		Categories: []cleanup.Category{cleanup.ScanSessions},
+		ID: "manual", Status: "running",
+		Categories: []cleanup.Category{cleanup.ScanSessions, cleanup.PlanGenerations},
 		Counts:     map[cleanup.Category]cleanup.Count{},
 	}
 	if createErr := repo.CreateCleanupRun(ctx, run); createErr != nil {
 		t.Fatal(createErr)
 	}
-	ids, err := repo.CleanupCandidates(ctx, cleanup.ScanSessions, opts.Cutoff(cleanup.ScanSessions, now), nil)
-	if err != nil || len(ids) != 2 {
-		t.Fatalf("scan candidates %v %v", ids, err)
+	for _, category := range run.Categories {
+		ids, candidateErr := repo.CleanupCandidates(ctx, category, now, nil)
+		if candidateErr != nil || len(ids) != 1 {
+			t.Fatalf("%s candidates %v %v", category, ids, candidateErr)
+		}
+		if batchErr := repo.CleanupBatch(ctx, run.ID, category, now, ids); batchErr != nil {
+			t.Fatal(batchErr)
+		}
 	}
-	if batchErr := repo.CleanupBatch(
-		ctx,
-		run.ID,
-		cleanup.ScanSessions,
-		opts.Cutoff(cleanup.ScanSessions, now),
-		ids,
-	); batchErr != nil {
-		t.Fatal(batchErr)
-	}
-	if countRows(t, repo, "plan_generations") != 3 || countRows(t, repo, "cover_downloads") != 1 {
-		t.Fatal("unselected categories changed")
-	}
-	ids, err = repo.CleanupCandidates(ctx, cleanup.PlanGenerations, opts.Cutoff(cleanup.PlanGenerations, now), nil)
-	if err != nil || len(ids) != 1 {
-		t.Fatalf("generation candidates %v %v", ids, err)
-	}
-	if batchErr := repo.CleanupBatch(
-		ctx,
-		run.ID,
-		cleanup.PlanGenerations,
-		opts.Cutoff(cleanup.PlanGenerations, now),
-		ids,
-	); batchErr != nil {
-		t.Fatal(batchErr)
-	}
-	if _, updateErr := repo.db.Exec(
-		"UPDATE plan_generations SET finished_at=? WHERE generation_id='gen-boundary'",
-		now.Add(-6*24*time.Hour).Format(timeFormat),
-	); updateErr != nil {
-		t.Fatal(updateErr)
-	}
-	stats, err := repo.RunRetentionCleanupBatch(
-		ctx,
-		opts.Cutoff(cleanup.ScanSessions, now),
-		opts.Cutoff(cleanup.PlanGenerations, now),
-		500,
-	)
-	if err != nil || stats.DeletedScanSessions != 0 || stats.DeletedGenerations != 1 ||
-		stats.DeletedCoverDownloads != 1 {
-		t.Fatalf("shared windows %+v %v", stats, err)
+	// Only the unfinished records remain.
+	if countRows(t, repo, "scan_sessions") != 1 || countRows(t, repo, "plan_generations") != 1 {
+		t.Fatal("manual cleanup must delete recent terminal records and keep active ones")
 	}
 }
 func TestCleanupCandidateSnapshotRechecksProtectionAndSkipsNewRows(t *testing.T) {

@@ -70,10 +70,8 @@ func newCleanup(t *testing.T, delay time.Duration, failAfter int) (*cleanup.Serv
 		store,
 		gate,
 		cleanup.Options{
-			ScanRetention:       24 * time.Hour,
-			GenerationRetention: 72 * time.Hour,
-			BatchRows:           1,
-			YieldDelay:          delay,
+			BatchRows:  1,
+			YieldDelay: delay,
 		},
 	)
 	t.Cleanup(svc.Shutdown)
@@ -249,7 +247,7 @@ func TestStartupRecoveryInterruptsPersistedRunWithoutResuming(t *testing.T) {
 		context.Background(),
 		reopened,
 		admission.NewGate(nil),
-		cleanup.Options{ScanRetention: time.Hour, GenerationRetention: time.Hour},
+		cleanup.Options{},
 	)
 	defer svc.Shutdown()
 	if recoverErr := svc.Recover(t.Context()); recoverErr != nil {

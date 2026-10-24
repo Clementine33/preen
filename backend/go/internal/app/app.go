@@ -374,7 +374,6 @@ func runServer(
 	}
 	maintenanceLoop := NewMaintenanceLoop(repo, services.gate.BeginMaintenance, maintenanceOptions)
 	cleanupService := cleanup.NewService(ctx, repo, services.gate, cleanup.Options{
-		ScanRetention: maintenanceOptions.ScanRetention, GenerationRetention: maintenanceOptions.GenerationRetention,
 		BatchRows: DefaultBatchRows, YieldDelay: DefaultYieldDelay,
 	})
 	if err := cleanupService.Recover(ctx); err != nil {

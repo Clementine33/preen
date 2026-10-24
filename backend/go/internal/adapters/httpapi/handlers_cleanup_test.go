@@ -9,7 +9,6 @@ import (
 	"net/http/httptest"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/Clementine33/preen/backend/internal/adapters/httpapi"
 	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
@@ -28,7 +27,7 @@ func TestCleanupHTTPValidationAdmissionAndAuth(t *testing.T) {
 		context.Background(),
 		repo,
 		gate,
-		cleanup.Options{ScanRetention: 7 * 24 * time.Hour, GenerationRetention: 30 * 24 * time.Hour},
+		cleanup.Options{},
 	)
 	defer service.Shutdown()
 	handler := httpapi.NewServer(httpapi.Dependencies{Cleanup: service, Token: "secret"})
@@ -84,7 +83,7 @@ func TestCleanupHTTPValidationAdmissionAndAuth(t *testing.T) {
 	if decodeErr := json.Unmarshal(rec.Body.Bytes(), &preview); decodeErr != nil {
 		t.Fatal(decodeErr)
 	}
-	if rec.Code != 200 || len(preview.Categories) != 1 || preview.Rules[cleanup.ScanSessions].RetentionDays != 7 {
+	if rec.Code != 200 || len(preview.Categories) != 1 {
 		t.Fatalf("preview %d %s", rec.Code, rec.Body)
 	}
 	release, err := gate.BeginMaintenance()

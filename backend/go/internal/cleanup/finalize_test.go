@@ -148,7 +148,7 @@ func newFinalizingCleanup(t *testing.T) (*cleanup.Service, *finalizingStore, *ad
 		context.Background(),
 		store,
 		gate,
-		cleanup.Options{ScanRetention: time.Hour, GenerationRetention: time.Hour},
+		cleanup.Options{},
 	)
 	t.Cleanup(svc.Shutdown)
 	t.Cleanup(func() {

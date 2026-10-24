@@ -762,15 +762,22 @@ func (r *Repository) PatchUserData(
 		return works.UserData{}, err
 	}
 
+	// An empty row carries no data; it is dropped in the same transaction.
+	if _, err := tx.Exec(
+		"DELETE FROM work_user_data WHERE work_id = ? AND rating IS NULL AND note = ''", string(id),
+	); err != nil {
+		return works.UserData{}, err
+	}
+
 	var (
 		rating   sql.NullInt64
 		favorite int
 		note     string
 	)
 	if err := tx.QueryRow(
-		`SELECT rating, EXISTS (SELECT 1 FROM collection_works f
-		 WHERE f.collection_id = 'favorites' AND f.work_id = work_user_data.work_id), note
-		 FROM work_user_data WHERE work_id = ?`, string(id),
+		`SELECT d.rating, EXISTS (SELECT 1 FROM collection_works f
+		 WHERE f.collection_id = 'favorites' AND f.work_id = w.id), COALESCE(d.note, '')
+		 FROM works w LEFT JOIN work_user_data d ON d.work_id = w.id WHERE w.id = ?`, string(id),
 	).Scan(&rating, &favorite, &note); err != nil {
 		return works.UserData{}, err
 	}
@@ -946,13 +953,12 @@ func (r *Repository) DeleteWork(id works.WorkCode) *works.Error {
 // in the deleting write transaction; availability on disk never affects eligibility.
 func collectBlockers(tx *sql.Tx, id works.WorkCode) ([]string, error) {
 	blockers := []string{}
-	var rating, note, tags, listening bool
+	var rating, note, tags bool
 	if err := tx.QueryRow(`SELECT
 	 EXISTS (SELECT 1 FROM work_user_data WHERE work_id = ? AND rating IS NOT NULL),
 	 EXISTS (SELECT 1 FROM work_user_data WHERE work_id = ? AND note <> ''),
-	 EXISTS (SELECT 1 FROM work_user_tags WHERE work_id = ?),
-	 EXISTS (SELECT 1 FROM work_listening WHERE work_id = ?)`,
-		string(id), string(id), string(id), string(id)).Scan(&rating, &note, &tags, &listening); err != nil {
+	 EXISTS (SELECT 1 FROM work_user_tags WHERE work_id = ?)`,
+		string(id), string(id), string(id)).Scan(&rating, &note, &tags); err != nil {
 		return nil, err
 	}
 	if rating {
@@ -963,9 +969,6 @@ func collectBlockers(tx *sql.Tx, id works.WorkCode) ([]string, error) {
 	}
 	if tags {
 		blockers = append(blockers, "user tags are attached to this work")
-	}
-	if listening {
-		blockers = append(blockers, "listening records are saved for this work")
 	}
 
 	var copies int

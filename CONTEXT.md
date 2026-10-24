@@ -129,7 +129,8 @@ Language Edition.
 Where the deployment's single user last stopped in one Rendition of a Work:
 a track, the seconds into it, that track's place among the Rendition's
 tracks, and when. It is personal data of the Work — one per Rendition,
-overwritten as listening moves on, kept when Copies come and go — and it
+overwritten as listening moves on, kept when Copies come and go, though it
+never by itself keeps the Work collected — and it
 names the track, never a file or format, so it survives conversion and a
 change of Format Preference. Continuing a Work continues its most recently
 updated Rendition. A silent play (no audio behind it) never records one.

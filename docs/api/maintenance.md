@@ -28,7 +28,7 @@ The currently supported categories are:
 | `scan_sessions` | completed/failed/canceled/interrupted, with a terminal time before the run starts, regardless of age; missing finished_at falls back to started_at; running scans are never eligible |
 | `plan_generations` | finished_at present and before the run starts, regardless of age; unfinished generations are never eligible |
 | `cover_downloads` | done, with no delivery reference of any status |
-| `works` | no stored copy binding, personal rating, nonempty note, user tag, collection membership or listening record |
+| `works` | no stored copy binding, personal rating, nonempty note, user tag or collection membership; listening positions and Finished marks do not protect it |
 | `relation_reports` | reports outside the fixed-point dependency closure of all surviving works |
 | `source_tags` | shared source tags with no work reference |
 | `source_voice_actors` | shared source voice actors with no work reference |
@@ -54,8 +54,8 @@ Only selected categories appear; each rule carries a `protection` description. P
 counts source references and report roots after projected eligible work deletion only when `works` is selected;
 otherwise every current work reference remains effective. Works with offline
 copies remain protected. Empty user-data rows, collection time and source
-metadata alone do not protect a work; notes are not trimmed. Any listening row,
-including a zero position or finished record, protects it.
+metadata alone do not protect a work; notes are not trimmed. Listening positions and Finished marks do not protect a
+work and are deleted with it.
 
 Report roots are every surviving work, including works without copies when
 `works` was not selected. Retention follows effective parent chains and keeps

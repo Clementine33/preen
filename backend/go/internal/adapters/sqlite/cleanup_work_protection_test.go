@@ -26,8 +26,6 @@ func TestCleanupWorksRechecksEveryProtectionAfterPreview(t *testing.T) {
 		{"user tag", `INSERT INTO user_tags VALUES('tag','keep'); INSERT INTO work_user_tags VALUES('RJ00000001','tag')`},
 		{"favorites", `INSERT INTO collection_works VALUES('favorites','RJ00000001',0)`},
 		{"collection", `INSERT INTO collections VALUES('custom','keep','',''); INSERT INTO collection_works VALUES('custom','RJ00000001',0)`},
-		{"listening at zero", `INSERT INTO work_listening VALUES('RJ00000001','','track',0,0,1,NULL,'client',1,'')`},
-		{"finished", `INSERT INTO work_listening VALUES('RJ00000001','',NULL,NULL,NULL,NULL,'finished','client',1,'')`},
 		{"offline copy", `INSERT INTO libraries(id,name,root_path,created_at,updated_at) VALUES('offline','Offline','/nonexistent-preen-library','',''); INSERT INTO work_copies VALUES('copy','RJ00000001','offline','work','')`},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -64,7 +62,7 @@ func TestCleanupWorksRechecksEveryProtectionAfterPreview(t *testing.T) {
 }
 
 func TestCleanupWorksRacesWithPersonalEdits(t *testing.T) {
-	for _, kind := range []string{"rating", "note", "favorite", "tags", "collection", "listening"} {
+	for _, kind := range []string{"rating", "note", "favorite", "tags", "collection"} {
 		t.Run(kind, func(t *testing.T) {
 			repo := deletionRepository(t)
 			tag, _, err := repo.CreateUserTag("keep")

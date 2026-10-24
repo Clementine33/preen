@@ -96,22 +96,11 @@ async function stop(): Promise<void> {
   }
 }
 
-const rules = computed(() => ordered.value.flatMap((c) => {
-  const days = preview.value?.rules[c.id]?.retention_days ?? 0
-  return days > 0 ? [{ id: c.id, text: `${c.label}：保留 ${days} 天` }] : []
-}))
 </script>
 
 <template>
   <div class="space-y-4" data-testid="data-maintenance">
-    <div class="space-y-1.5 text-xs leading-relaxed text-[var(--text-secondary)]">
-      <p>只删除数据库记录，不删除媒体、作品目录、封面、缩略图或回收目录文件。个人资料和离线副本受保护。</p>
-      <p>被清理的作品重新收录后，收录时间可能重置，并需要重新抓取基础资料。</p>
-      <p>
-        自动维护只处理扫描记录、规划记录和无引用的已完成封面下载记录。完整的一轮结束后等待 24 小时再运行，未完成时 15 分钟后重试。
-        留存规则（保留天数）由服务器决定，检查后显示。
-      </p>
-    </div>
+    <p class="text-xs leading-relaxed text-[var(--text-secondary)]">自动清理保留最近 7 天的扫描记录和 30 天的规划记录，完整一轮结束后每 24 小时运行一次。</p>
 
     <p v-if="unknown" role="alert" class="text-xs text-destructive" data-testid="cleanup-unknown">
       无法读取清理状态，当前状态未知。
@@ -148,9 +137,6 @@ const rules = computed(() => ordered.value.flatMap((c) => {
         </label>
       </fieldset>
 
-      <ul v-if="rules.length" class="text-[11px] text-[var(--text-secondary)]" data-testid="cleanup-rules">
-        <li v-for="rule in rules" :key="rule.id">{{ rule.text }}</li>
-      </ul>
       <p v-if="preview && total === 0" class="text-xs" data-testid="cleanup-none">无需清理</p>
       <p v-if="error" role="alert" class="text-xs text-destructive" data-testid="cleanup-error">{{ error }}</p>
 

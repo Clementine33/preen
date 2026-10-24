@@ -101,7 +101,9 @@ session. Key replay is checked before current-plan reuse, `If-Match`, and
 active-session admission, including after publication advances the operation
 version. `failed`, `canceled`, and `interrupted` rows release their keys. A
 completed session and its key remain available for at least 30 days after
-completion; background retention may remove them later. Replacing its plan
+completion under automatic retention; background retention may remove them
+later, and a manual [database cleanup](maintenance.md) removes finished planning
+sessions and their keys immediately. Replacing its plan
 does not release the key or restore the old plan: the replayed completed
 session may have an empty `revision_id` because the old plan was deleted. A
 client observing that result should refresh the current operation and report

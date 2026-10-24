@@ -77,7 +77,7 @@ func (s *Service) execute(ctx context.Context, run Run, release func()) (string,
 		if err := s.store.SetCleanupPhase(ctx, run.ID, category); err != nil {
 			return s.failure(ctx)
 		}
-		ids, err := s.store.CleanupCandidates(ctx, category, s.opts.Cutoff(category, run.StartedAt), nil)
+		ids, err := s.store.CleanupCandidates(ctx, category, run.StartedAt, nil)
 		if err != nil {
 			return s.failure(ctx)
 		}
@@ -99,7 +99,7 @@ func (s *Service) execute(ctx context.Context, run Run, release func()) (string,
 				ctx,
 				run.ID,
 				category,
-				s.opts.Cutoff(category, run.StartedAt),
+				run.StartedAt,
 				batch,
 			); batchErr != nil {
 				return s.failure(ctx)

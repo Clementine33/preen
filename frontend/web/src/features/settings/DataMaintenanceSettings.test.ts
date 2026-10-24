@@ -14,7 +14,7 @@ const ALL: CleanupCategory[] = [
 ]
 const preview = (candidates: Partial<Record<CleanupCategory, number>>, categories = ALL): CleanupPreview => ({
   checked_at: '2026-10-23T04:00:00Z', categories, candidates,
-  rules: { scan_sessions: { retention_days: 7, protection: 'x' }, plan_generations: { retention_days: 30, protection: 'x' } },
+  rules: {},
 })
 const run = (over: Partial<CleanupRun> = {}): CleanupRun => ({
   run_id: 'r1', categories: ['scan_sessions'], status: 'running', phase: 'scan_sessions',
@@ -33,16 +33,16 @@ async function mountIt(api: ReturnType<typeof apiStub>) {
 const tid = (id: string) => `[data-testid="${id}"]`
 
 describe('data maintenance', () => {
-  it('states protections and the automatic schedule without a second retention setting', async () => {
+  it('states only the automatic retention periods and schedule', async () => {
     const wrapper = await mountIt(apiStub())
-    expect(wrapper.text()).toContain('不删除媒体、作品目录、封面、缩略图或回收目录文件')
+    expect(wrapper.text()).toContain('7 天的扫描记录和 30 天的规划记录')
     expect(wrapper.text()).toContain('24 小时')
-    expect(wrapper.text()).toContain('15 分钟')
+    expect(wrapper.text()).not.toContain('15 分钟')
     expect(wrapper.findAll('input[type="checkbox"]')).toHaveLength(8)
     expect(wrapper.findAll('input[type="checkbox"]').every((box) => (box.element as HTMLInputElement).checked)).toBe(true)
   })
 
-  it('cannot start before a check, drops the summary on a selection change, and shows server rules', async () => {
+  it('cannot start before a check and drops the summary on a selection change', async () => {
     const previewCleanup = vi.fn(async (categories: CleanupCategory[]) => preview({ scan_sessions: 3, works: 2 }, categories))
     const wrapper = await mountIt(apiStub({ previewCleanup }))
     expect(wrapper.get(tid('cleanup-start')).attributes('disabled')).toBeDefined()
@@ -50,8 +50,6 @@ describe('data maintenance', () => {
     await flushPromises()
     expect(previewCleanup).toHaveBeenCalledWith(ALL)
     expect(wrapper.get(tid('cleanup-candidates-works')).text()).toBe('2')
-    expect(wrapper.get(tid('cleanup-rules')).text()).toContain('保留 7 天')
-    expect(wrapper.get(tid('cleanup-rules')).text()).toContain('保留 30 天')
     expect(wrapper.get(tid('cleanup-start')).attributes('disabled')).toBeUndefined()
 
     await wrapper.get(tid('cleanup-select-works')).setValue(false)

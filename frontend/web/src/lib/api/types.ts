@@ -216,8 +216,7 @@ export interface CleanupPreview {
   checked_at: string
   categories: CleanupCategory[]
   candidates: Partial<Record<CleanupCategory, number>>
-  /** The server's retention rules; `retention_days` is 0 when there is no waiting period. */
-  rules: Partial<Record<CleanupCategory, { retention_days: number; protection: string }>>
+  rules: Partial<Record<CleanupCategory, { protection: string }>>
 }
 
 export type CleanupStatus = 'running' | 'stopping' | 'stopped' | 'succeeded' | 'failed' | 'interrupted'

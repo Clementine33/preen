@@ -25,8 +25,8 @@ The currently supported categories are:
 
 | Category | Eligibility |
 | --- | --- |
-| `scan_sessions` | completed/failed/canceled/interrupted, with terminal time strictly older than the shared scan retention window; missing finished_at falls back to started_at |
-| `plan_generations` | finished_at present and strictly older than the shared generation retention window |
+| `scan_sessions` | completed/failed/canceled/interrupted, with a terminal time before the run starts, regardless of age; missing finished_at falls back to started_at; running scans are never eligible |
+| `plan_generations` | finished_at present and before the run starts, regardless of age; unfinished generations are never eligible |
 | `cover_downloads` | done, with no delivery reference of any status |
 | `works` | no stored copy binding, personal rating, nonempty note, user tag, collection membership or listening record |
 | `relation_reports` | reports outside the fixed-point dependency closure of all surviving works |
@@ -34,10 +34,10 @@ The currently supported categories are:
 | `source_voice_actors` | shared source voice actors with no work reference |
 | `source_circles` | shared source circles with no work reference |
 
-Scan and generation windows currently retain 7 and 30 days respectively. Both
-manual and automatic paths receive the same app policy values; generation
-retention preserves the planning idempotency guarantee. Rules in the preview
-are the server's current policy, not client configuration.
+Manual cleanup ignores retention windows: every eligible finished scan and
+planning record is deleted immediately, including the idempotency key of a
+finished planning session. Automatic maintenance keeps its own windows (7 days
+for scans, 30 days for planning records) and is unchanged by manual runs.
 
 ## Preview
 
@@ -46,12 +46,11 @@ are the server's current policy, not client configuration.
   "checked_at":"2026-10-23T04:00:00Z",
   "categories":["scan_sessions"],
   "candidates":{"scan_sessions":12},
-  "rules":{"scan_sessions":{"retention_days":7,"protection":"Only terminal scans; missing finished_at falls back to started_at."}}
+  "rules":{"scan_sessions":{"protection":"Only terminal scans; missing finished_at falls back to started_at."}}
 }
 ```
 
-Only selected categories appear. `retention_days` is zero for downloads, works,
-relation reports and source entities, which have no waiting period. Preview
+Only selected categories appear; each rule carries a `protection` description. Preview
 counts source references and report roots after projected eligible work deletion only when `works` is selected;
 otherwise every current work reference remains effective. Works with offline
 copies remain protected. Empty user-data rows, collection time and source

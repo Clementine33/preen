@@ -31,6 +31,7 @@ async function mountIt(api: ReturnType<typeof apiStub>) {
   return wrapper
 }
 const tid = (id: string) => `[data-testid="${id}"]`
+const body = (id: string) => document.body.querySelector<HTMLElement>(tid(id))
 
 describe('data maintenance', () => {
   it('states only the automatic retention periods and schedule', async () => {
@@ -42,99 +43,106 @@ describe('data maintenance', () => {
     expect(wrapper.findAll('input[type="checkbox"]').every((box) => (box.element as HTMLInputElement).checked)).toBe(true)
   })
 
-  it('cannot start before a check and drops the summary on a selection change', async () => {
+  it('previews the current selection when start is pressed', async () => {
     const previewCleanup = vi.fn(async (categories: CleanupCategory[]) => preview({ scan_sessions: 3, works: 2 }, categories))
     const wrapper = await mountIt(apiStub({ previewCleanup }))
-    expect(wrapper.get(tid('cleanup-start')).attributes('disabled')).toBeDefined()
-    await wrapper.get(tid('cleanup-check')).trigger('click')
-    await flushPromises()
-    expect(previewCleanup).toHaveBeenCalledWith(ALL)
-    expect(wrapper.get(tid('cleanup-candidates-works')).text()).toBe('2')
-    expect(wrapper.get(tid('cleanup-start')).attributes('disabled')).toBeUndefined()
-
+    expect(previewCleanup).not.toHaveBeenCalled()
     await wrapper.get(tid('cleanup-select-works')).setValue(false)
-    expect(wrapper.find(tid('cleanup-candidates-scan_sessions')).exists()).toBe(false)
-    expect(wrapper.get(tid('cleanup-start')).attributes('disabled')).toBeDefined()
-    await wrapper.get(tid('cleanup-check')).trigger('click')
-    await flushPromises()
-    expect(previewCleanup).toHaveBeenLastCalledWith(ALL.filter((id) => id !== 'works'))
-  })
-
-  it('reports nothing to clean and keeps start disabled', async () => {
-    const wrapper = await mountIt(apiStub({ previewCleanup: vi.fn(async () => preview({})) }))
-    await wrapper.get(tid('cleanup-check')).trigger('click')
-    await flushPromises()
-    expect(wrapper.get(tid('cleanup-none')).text()).toBe('无需清理')
-    expect(wrapper.get(tid('cleanup-start')).attributes('disabled')).toBeDefined()
-  })
-
-  it('confirms with categories and counts only, then starts once and shows the live run', async () => {
-    const startCleanup = vi.fn(async () => run())
-    const wrapper = await mountIt(apiStub({ previewCleanup: vi.fn(async () => preview({ scan_sessions: 3 })), startCleanup }))
-    await wrapper.get(tid('cleanup-check')).trigger('click')
-    await flushPromises()
     await wrapper.get(tid('cleanup-start')).trigger('click')
     await flushPromises()
-    const list = document.body.querySelector(tid('cleanup-confirm-list'))!
-    expect(list.textContent).toContain('扫描记录3')
+    expect(previewCleanup).toHaveBeenCalledWith(ALL.filter((id) => id !== 'works'))
+    expect(document.body.querySelector(tid('cleanup-confirm-total'))!.textContent).toContain('将清理 3 条记录')
+  })
+
+  it('cannot start with nothing selected', async () => {
+    const wrapper = await mountIt(apiStub())
+    for (const id of ALL) await wrapper.get(tid(`cleanup-select-${id}`)).setValue(false)
+    expect(wrapper.get(tid('cleanup-start')).attributes('disabled')).toBeDefined()
+  })
+
+  it('reports nothing to clean and keeps confirm disabled', async () => {
+    const wrapper = await mountIt(apiStub({ previewCleanup: vi.fn(async () => preview({})) }))
+    await wrapper.get(tid('cleanup-start')).trigger('click')
+    await flushPromises()
+    expect(document.body.querySelector(tid('cleanup-none'))!.textContent).toBe('无需清理')
+    expect((document.body.querySelector(tid('cleanup-confirm')) as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('confirms with the total only, then starts once and shows the live run in the dialog', async () => {
+    const startCleanup = vi.fn(async () => run())
+    const wrapper = await mountIt(apiStub({ previewCleanup: vi.fn(async () => preview({ scan_sessions: 3 })), startCleanup }))
+    await wrapper.get(tid('cleanup-start')).trigger('click')
+    await flushPromises()
+    expect(document.body.querySelector(tid('cleanup-confirm-total'))!.textContent).toContain('将清理 3 条记录')
     expect(document.body.textContent).toContain('无法撤销')
     expect(document.body.querySelector('input[type="text"]')).toBeNull()
     ;(document.body.querySelector(tid('cleanup-confirm')) as HTMLElement).click()
     await flushPromises()
     expect(startCleanup).toHaveBeenCalledTimes(1)
-    expect(wrapper.get(tid('cleanup-status')).text()).toBe('清理正在运行')
-    expect(wrapper.get(tid('cleanup-count-scan_sessions')).text()).toContain('541')
-    expect(wrapper.find(tid('cleanup-check')).exists()).toBe(false)
+    expect(body('cleanup-status')!.textContent).toBe('清理正在运行')
+    expect(body('cleanup-count-scan_sessions')!.textContent).toContain('541')
+    expect(wrapper.find(tid('cleanup-start')).exists()).toBe(false)
+    expect(wrapper.find(tid('cleanup-run')).exists()).toBe(false)
   })
 
-  it('shows a run found on return and stops it', async () => {
+  it('shows its own run\'s result once it ends', async () => {
+    const done = run({ status: 'succeeded', finished_at: '2026-10-23T05:00:00Z' })
+    const wrapper = await mountIt(apiStub({ previewCleanup: vi.fn(async () => preview({ scan_sessions: 3 })), startCleanup: vi.fn(async () => done) }))
+    await wrapper.get(tid('cleanup-start')).trigger('click')
+    await flushPromises()
+    body('cleanup-confirm')!.click()
+    await flushPromises()
+    expect(body('cleanup-status')!.textContent).toBe('已完成')
+    expect(body('cleanup-count-scan_sessions')!.textContent).toContain('541')
+  })
+
+  it('offers a run found on return and stops it from the dialog', async () => {
     const cancelCleanup = vi.fn(async () => run({ status: 'stopping' }))
     const wrapper = await mountIt(apiStub({ getCleanup: vi.fn().mockResolvedValue(run()), cancelCleanup }))
-    expect(wrapper.get(tid('cleanup-status')).text()).toBe('清理正在运行')
-    await wrapper.get(tid('cleanup-stop')).trigger('click')
+    expect(wrapper.get(tid('cleanup-active')).text()).toContain('清理正在运行')
+    expect(wrapper.find(tid('cleanup-start')).exists()).toBe(false)
+    await wrapper.get(tid('cleanup-show')).trigger('click')
+    await flushPromises()
+    body('cleanup-stop')!.click()
     await flushPromises()
     expect(cancelCleanup).toHaveBeenCalledWith('r1')
-    expect(wrapper.get(tid('cleanup-status')).text()).toContain('正在停止')
-    expect(wrapper.get(tid('cleanup-stop')).attributes('disabled')).toBeDefined()
+    expect(body('cleanup-status')!.textContent).toContain('正在停止')
+    expect((body('cleanup-stop') as HTMLButtonElement).disabled).toBe(true)
   })
 
   it.each([
-    ['stopped', '已按请求停止'], ['succeeded', '已完成'], ['failed', '失败'], ['interrupted', '已中断'],
-  ] as const)('keeps committed counts on a %s run and allows a new check', async (status, text) => {
+    ['stopped'], ['succeeded'], ['failed'], ['interrupted'],
+  ] as const)('never shows an earlier %s run on the page', async (status) => {
     const wrapper = await mountIt(apiStub({ getCleanup: vi.fn().mockResolvedValue(run({ status, finished_at: '2026-10-23T05:00:00Z' })) }))
-    expect(wrapper.get(tid('cleanup-status')).text()).toBe(text)
-    expect(wrapper.get(tid('cleanup-count-scan_sessions')).text()).toContain('541')
-    expect(wrapper.get(tid('cleanup-check')).attributes('disabled')).toBeUndefined()
+    expect(document.body.querySelector(tid('cleanup-status'))).toBeNull()
+    expect(document.body.querySelector(tid('cleanup-run'))).toBeNull()
+    expect(wrapper.get(tid('cleanup-start')).attributes('disabled')).toBeUndefined()
   })
 
   it('on BUSY reads the global run instead of resending, without claiming it is ours', async () => {
     const startCleanup = vi.fn().mockRejectedValue(new ApiError(409, 'BUSY', 'busy'))
     const getCleanup = vi.fn().mockResolvedValueOnce(null).mockResolvedValue(run())
     const wrapper = await mountIt(apiStub({ previewCleanup: vi.fn(async () => preview({ works: 1 })), startCleanup, getCleanup }))
-    await wrapper.get(tid('cleanup-check')).trigger('click')
-    await flushPromises()
     await wrapper.get(tid('cleanup-start')).trigger('click')
     await flushPromises()
     ;(document.body.querySelector(tid('cleanup-confirm')) as HTMLElement).click()
     await flushPromises()
     expect(startCleanup).toHaveBeenCalledTimes(1)
     expect(getCleanup).toHaveBeenCalledTimes(2)
-    expect(wrapper.get(tid('cleanup-status')).text()).toBe('清理正在运行')
+    expect(body('cleanup-status')!.textContent).toBe('清理正在运行')
   })
 
   it('treats a lost start response as unknown and only queries status', async () => {
     const startCleanup = vi.fn().mockRejectedValue(new TypeError('network'))
     const getCleanup = vi.fn().mockResolvedValue(null)
     const wrapper = await mountIt(apiStub({ previewCleanup: vi.fn(async () => preview({ works: 1 })), startCleanup, getCleanup }))
-    await wrapper.get(tid('cleanup-check')).trigger('click')
-    await flushPromises()
     await wrapper.get(tid('cleanup-start')).trigger('click')
     await flushPromises()
     ;(document.body.querySelector(tid('cleanup-confirm')) as HTMLElement).click()
     await flushPromises()
     expect(startCleanup).toHaveBeenCalledTimes(1)
     expect(getCleanup).toHaveBeenCalledTimes(2)
-    expect(wrapper.get(tid('cleanup-error')).text()).toContain('无法确认')
+    expect(body('cleanup-error')!.textContent).toContain('无法确认')
   })
 
   it('marks the state unknown when the status read fails', async () => {

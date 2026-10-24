@@ -49,7 +49,6 @@ func TestWorkDeletionReportsEveryPersonalDataBlocker(t *testing.T) {
 		`INSERT INTO collection_works VALUES('favorites','RJ00000001',0)`,
 		`INSERT INTO collections VALUES('custom','Sleep','','')`,
 		`INSERT INTO collection_works VALUES('custom','RJ00000001',0)`,
-		`INSERT INTO work_listening VALUES('RJ00000001','',NULL,NULL,NULL,NULL,'finished','client',1,'')`,
 		`INSERT INTO libraries(id,name,root_path,created_at,updated_at) VALUES('offline','Offline','/nonexistent-preen-library','','')`,
 		`INSERT INTO work_copies VALUES('copy','RJ00000001','offline','work','')`,
 	} {
@@ -65,14 +64,13 @@ func TestWorkDeletionReportsEveryPersonalDataBlocker(t *testing.T) {
 	if err := json.Unmarshal(response.Body.Bytes(), &envelope); err != nil {
 		t.Fatal(err)
 	}
-	if response.Code != http.StatusConflict || envelope.Code != works.CodeWorkInUse || len(envelope.Details) != 7 {
+	if response.Code != http.StatusConflict || envelope.Code != works.CodeWorkInUse || len(envelope.Details) != 6 {
 		t.Fatalf("delete=%d %s", response.Code, response.Body)
 	}
 	for _, reason := range []string{
 		"a personal rating is saved for this work",
 		"a personal note is saved for this work",
 		"user tags are attached to this work",
-		"listening records are saved for this work",
 		"a local copy is bound to this work",
 		"a collection holds this work: custom Sleep",
 		"a collection holds this work: favorites Favorites",

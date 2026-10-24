@@ -35,7 +35,7 @@ func (s *Service) Preview(ctx context.Context, categories []Category) (Preview, 
 			rule = Rule{Protection: "Any delivery reference protects its download; only done downloads are eligible."}
 		case Works:
 			rule = Rule{
-				Protection: "Any stored copy, rating, nonempty note, user tag, collection or listening record protects its work.",
+				Protection: "Any stored copy, rating, nonempty note, user tag or collection protects its work.",
 			}
 		case RelationReports:
 			rule = Rule{

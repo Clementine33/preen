@@ -30,7 +30,7 @@ func TestCleanupHTTPCatalogSelectionProtectionCountsAndMissingEdits(t *testing.T
 		`INSERT INTO user_tags VALUES('keep','keep'); INSERT INTO work_user_tags VALUES('RJ00000005','keep')`,
 		`INSERT INTO collection_works VALUES('favorites','RJ00000006',0)`,
 		`INSERT INTO collections VALUES('keep','keep','',''); INSERT INTO collection_works VALUES('keep','RJ00000007',0)`,
-		`INSERT INTO work_listening VALUES('RJ00000008','','track',0,0,1,NULL,'client',1,''),('RJ00000009','',NULL,NULL,NULL,NULL,'finished','client',1,'')`,
+		`INSERT INTO work_user_data(work_id,rating) VALUES('RJ00000008',2),('RJ00000009',3)`,
 		`INSERT INTO libraries(id,name,root_path,created_at,updated_at) VALUES('offline','Offline','/nonexistent-preen-library','',''); INSERT INTO work_copies VALUES('copy','RJ00000010','offline','work','')`,
 		`INSERT INTO tags(id,source,source_tag_id,name) VALUES('shared','dlsite','68','日本語'); INSERT INTO tags(id,source,name,work_id) VALUES('owned','dlsite','owned','RJ00000001'); INSERT INTO work_tags VALUES('RJ00000001','shared',0),('RJ00000001','owned',1)`,
 		`INSERT INTO voice_actors(id,source,source_voice_actor_id,name) VALUES('shared','dlsite','1','voice'); INSERT INTO work_voice_actors VALUES('RJ00000001','shared',0)`,

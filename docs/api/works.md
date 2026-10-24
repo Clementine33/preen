@@ -31,7 +31,7 @@ work, while `RJ1657200` (7 digits) is refused.
 | POST | `/api/v1/user-tags` | Body `{"name":"…"}`; 200 the tag, **creating it if new and returning the existing one otherwise** — creating by name is idempotent. |
 | PATCH | `/api/v1/user-tags/{id}` | Body `{"name":"…"}`; 200 the tag, `USER_TAG_EXISTS` (409) on a name another tag holds. |
 | DELETE | `/api/v1/user-tags/{id}` | 204; the tag's relations go with it, no work is touched. |
-| DELETE | `/api/v1/works/{rj}` | 204; `WORK_NOT_FOUND` (404) for an absent Work; `WORK_IN_USE` (409) with `details[]` while stored Copies, personal data or collection membership protect it (below). |
+| DELETE | `/api/v1/works/{rj}` | 204; `WORK_NOT_FOUND` (404) for an absent Work; `WORK_IN_USE` (409) with `details[]` while stored Copies, a rating, a note, user tags or collection membership protect it (below). |
 
 Ratings are integers 1–10 (`null` means unrated, which is not 0). Personal data
 writes require an existing Work (`WORK_NOT_FOUND`, 404). User tag names are trimmed, must be non-empty, and
@@ -45,8 +45,8 @@ A work's Listening Position is personal data beside rating and note
 `rendition` is the string the client derives for the track list's variant (`""`
 for a single root Rendition). It is overwritten as listening moves on and is
 not a log. Writing an unknown Work returns `WORK_NOT_FOUND` (404); losing
-Copies keeps the rows. Listening Positions and Finished marks block Work deletion;
-clear them explicitly before deleting the Work.
+Copies keeps the rows. Listening Positions and Finished marks do not protect the
+Work; permanent deletion removes them with it.
 
 A row holds `track_key` (`variant/stem`), `position_sec`, `track_index` and
 `track_count` (the track's 0-based place among the Rendition's tracks, a client
@@ -88,9 +88,11 @@ names each referencing collection. Removing a Copy or Library preserves membersh
 Deleting a Work removes database records only; media files are untouched. Any
 stored Copy binding protects it, including one in an offline Library: deletion
 never scans disk or treats inaccessible files as absent. A rating, a nonempty
-note (including whitespace), user tags, Favorites or other collection membership,
-or any Listening Position or Finished mark also protects it. An empty user-data
-row with a null rating and empty note does not. First-collected time and source
+note (including whitespace), user tags, or Favorites or other collection membership
+also protects it. Listening Positions and Finished marks do not, and are deleted
+with the Work. A user-data row with a null rating and empty note carries no data
+and does not protect it; clearing both through `PATCH /works/{rj}/user-data` deletes
+the row. First-collected time and source
 metadata alone do not protect it. Relationship references do not protect catalog
 membership: deleting a referenced Work keeps its independent relation report and
 other Works' resolved original/parent numbers. Only records owned by the Work
@@ -99,8 +101,7 @@ are removed; deletion does not load or recompute the relation graph.
 `WORK_IN_USE` retains the existing string-array `details[]` contract and includes
 every actual reason: `a local copy is bound to this work`,
 `a personal rating is saved for this work`, `a personal note is saved for this work`,
-`user tags are attached to this work`, `listening records are saved for this work`,
-and
+`user tags are attached to this work`, and
 `a collection holds this work: <id> <name>` as applicable.
 
 Eligibility and deletion run in one protected write transaction. Personal-data

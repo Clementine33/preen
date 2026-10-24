@@ -50,8 +50,6 @@ func TestWorkDeletionProtectsPersonalData(t *testing.T) {
 			{"user tag", `INSERT INTO user_tags VALUES('tag','keep'); INSERT INTO work_user_tags VALUES('RJ00000001','tag')`, "user tags are attached to this work"},
 			{"favorite", `INSERT INTO collection_works VALUES('favorites','RJ00000001',0)`, "a collection holds this work: favorites Favorites"},
 			{"collection", `INSERT INTO collections VALUES('custom','Sleep','',''); INSERT INTO collection_works VALUES('custom','RJ00000001',0)`, "a collection holds this work: custom Sleep"},
-			{"position at zero", `INSERT INTO work_listening VALUES('RJ00000001','','track',0,0,1,NULL,'client',1,'')`, "listening records are saved for this work"},
-			{"finished", `INSERT INTO work_listening VALUES('RJ00000001','',NULL,NULL,NULL,NULL,'finished','client',1,'')`, "listening records are saved for this work"},
 			{"offline copy", `INSERT INTO libraries(id,name,root_path,created_at,updated_at) VALUES('offline','Offline','/nonexistent-preen-library','',''); INSERT INTO work_copies VALUES('copy','RJ00000001','offline','work','')`, "a local copy is bound to this work"},
 		} {
 			t.Run(seam+"/"+tc.name, func(t *testing.T) {
@@ -76,6 +74,50 @@ func TestWorkDeletionProtectsPersonalData(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+func TestListeningAloneDoesNotProtectWork(t *testing.T) {
+	for _, row := range []string{
+		`INSERT INTO work_listening VALUES('RJ00000001','','track',0,0,1,NULL,'client',1,'')`,
+		`INSERT INTO work_listening VALUES('RJ00000001','',NULL,NULL,NULL,NULL,'finished','client',1,'')`,
+	} {
+		repo := deletionRepository(t)
+		deletionSQL(t, repo, row)
+		if refusal := repo.DeleteWork(deletionWork); refusal != nil {
+			t.Fatalf("delete refused: %+v", refusal)
+		}
+		var rows int
+		if err := repo.DB().QueryRow("SELECT COUNT(*) FROM work_listening").Scan(&rows); err != nil || rows != 0 {
+			t.Fatalf("listening rows after delete = %d, %v", rows, err)
+		}
+	}
+}
+
+func TestClearingRatingAndNoteDeletesEmptyUserDataRow(t *testing.T) {
+	repo := deletionRepository(t)
+	now := time.Now()
+	if _, err := repo.PatchUserData(deletionWork, works.UserDataPatch{
+		Rating:   works.NullableInt{Set: true, Value: new(8)},
+		Note:     works.Optional[string]{Set: true, Value: "keep"},
+		Favorite: works.Optional[bool]{Set: true, Value: true},
+	}, now); err != nil {
+		t.Fatal(err)
+	}
+	got, err := repo.PatchUserData(deletionWork, works.UserDataPatch{
+		Rating: works.NullableInt{Set: true},
+		Note:   works.Optional[string]{Set: true, Value: ""},
+	}, now)
+	if err != nil || got.Rating != nil || got.Note != "" || !got.Favorite {
+		t.Fatalf("user data = %+v, %v", got, err)
+	}
+	var rows int
+	if err = repo.DB().QueryRow("SELECT COUNT(*) FROM work_user_data").Scan(&rows); err != nil || rows != 0 {
+		t.Fatalf("user data rows = %d, %v", rows, err)
+	}
+	got, err = repo.PatchUserData(deletionWork, works.UserDataPatch{Favorite: works.Optional[bool]{Set: true}}, now)
+	if err != nil || got.Favorite {
+		t.Fatalf("favorite off = %+v, %v", got, err)
 	}
 }
 
@@ -157,7 +199,7 @@ func assertMissingWork(t *testing.T, err error) {
 
 func TestWorkDeletionAndEditsRespectCommitOrder(t *testing.T) {
 	for _, seam := range []string{"repository", "service"} {
-		for _, kind := range []string{"rating", "note", "favorite", "tags", "collection", "listening"} {
+		for _, kind := range []string{"rating", "note", "favorite", "tags", "collection"} {
 			for _, editFirst := range []bool{true, false} {
 				t.Run(
 					seam+"/"+kind+"/editFirst="+map[bool]string{true: "true", false: "false"}[editFirst],
@@ -228,17 +270,6 @@ func editDeletionWork(repo *sqlite.Repository, seam, kind, tagID string) error {
 			time.Now(),
 		)
 		return e
-	case "listening":
-		listening := works.ListeningRequest{TrackKey: "track", TrackCount: 1, Client: "client", Seq: 1}
-		if seam == "service" {
-			_, e := service.PutListening(deletionWork, listening)
-			if e != nil {
-				return e
-			}
-			return nil
-		}
-		_, e := repo.PutListening(deletionWork, listening, time.Now())
-		return e
 	}
 	if seam == "service" {
 		_, e := service.PatchUserData(deletionWork, req)
@@ -283,7 +314,7 @@ func TestWorkDeletionMakesSubsequentRemovalsMissing(t *testing.T) {
 }
 
 func TestWorkDeletionRacesWithPersonalEdits(t *testing.T) {
-	for _, kind := range []string{"rating", "note", "favorite", "tags", "collection", "listening"} {
+	for _, kind := range []string{"rating", "note", "favorite", "tags", "collection"} {
 		t.Run(kind, func(t *testing.T) {
 			repo := deletionRepository(t)
 			tag, _, err := repo.CreateUserTag("tag")

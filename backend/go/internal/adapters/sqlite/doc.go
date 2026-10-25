@@ -5,6 +5,12 @@
 // own dedicated physical connections: TEMP-only staging leaves the main writer
 // free, and the same connection merges atomically before releasing its temp files.
 //
+// A positive inventory directory mtime is paired with its complete direct-entry
+// listing, including the library root. Synthetic parents and execution ancestors
+// use 0; scoped refreshes reset an unobserved scope root to 0. Directory relocation
+// preserves mtimes.
+// New directory writers without a complete paired observation must use 0.
+//
 // Business packages own the types and consumer ports; this adapter persists
 // them and enforces their transitions within transactions. It also implements
 // development-schema initialization, release migrations, backups and database

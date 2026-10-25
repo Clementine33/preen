@@ -40,8 +40,8 @@ func mustWriteFile(t *testing.T, path string, data []byte, mode ...os.FileMode) 
 	}
 }
 
-// TestWalkRootParallel_RootExcluded verifies root itself is not emitted.
-func TestWalkRootParallel_RootExcluded(t *testing.T) {
+// TestWalkRootParallel_RootObserved verifies the root is observed without becoming a work.
+func TestWalkRootParallel_RootObserved(t *testing.T) {
 	tmp := t.TempDir()
 	mustMkdirAll(t, filepath.Join(tmp, "album"), 0755)
 	mustWriteFile(t, filepath.Join(tmp, "album", "song.wav"), []byte("dummy"), 0644)
@@ -62,11 +62,17 @@ func TestWalkRootParallel_RootExcluded(t *testing.T) {
 		t.Fatalf("WalkRootEntriesParallel failed: %v", err)
 	}
 
-	// Verify root is not in entries
+	found := false
 	for _, e := range entries {
 		if e.Path == tmp {
-			t.Errorf("root path %s should not be in entries", tmp)
+			found = true
+			if !e.IsDir || e.IsWorkRoot || e.Mtime == 0 {
+				t.Errorf("invalid root observation: %+v", e)
+			}
 		}
+	}
+	if !found {
+		t.Fatal("library root was not observed")
 	}
 }
 
@@ -94,9 +100,9 @@ func TestWalkRootParallel_IncludesFilesAndDirs(t *testing.T) {
 		t.Fatalf("WalkRootEntriesParallel failed: %v", err)
 	}
 
-	// Should have 4 entries: album (dir), sub (dir), song.wav, nested.mp3
-	if len(entries) != 4 {
-		t.Errorf("expected 4 entries, got %d", len(entries))
+	// Root, album and sub directories, plus song.wav and nested.mp3.
+	if len(entries) != 5 {
+		t.Errorf("expected 5 entries, got %d", len(entries))
 	}
 
 	foundFiles := 0
@@ -112,8 +118,8 @@ func TestWalkRootParallel_IncludesFilesAndDirs(t *testing.T) {
 		}
 	}
 
-	if foundDirs != 2 {
-		t.Errorf("expected 2 directories, got %d", foundDirs)
+	if foundDirs != 3 {
+		t.Errorf("expected 3 directories, got %d", foundDirs)
 	}
 	if foundFiles != 2 {
 		t.Errorf("expected 2 files, got %d", foundFiles)
@@ -148,8 +154,8 @@ func TestWalkRootParallel_DefaultConcurrency(t *testing.T) {
 	if err != nil {
 		t.Fatalf("WalkRootEntriesParallel with 0 concurrency failed: %v", err)
 	}
-	if count != 1 {
-		t.Errorf("expected 1 entry, got %d", count)
+	if count != 2 {
+		t.Errorf("expected 2 entries, got %d", count)
 	}
 }
 

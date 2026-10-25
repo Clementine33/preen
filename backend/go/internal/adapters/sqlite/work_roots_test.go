@@ -15,7 +15,7 @@ import (
 	"github.com/Clementine33/preen/backend/internal/librarypath"
 )
 
-//nolint:funlen // Covers full scan, no-op rescan and scoped refresh as one lifecycle.
+//nolint:funlen,gocyclo // Covers full scan, no-op rescan and scoped refresh as one lifecycle.
 func TestNestedWorkInventoryAndNoOpRescan(t *testing.T) {
 	root := t.TempDir()
 	for _, rel := range []string{
@@ -154,6 +154,10 @@ func TestNestedWorkInventoryAndNoOpRescan(t *testing.T) {
 	if copyID != afterID {
 		t.Fatal("copy identity changed")
 	}
+	// The first member refresh invalidates its unobserved root mtime.
+	if _, err = repo.DB().Exec("DROP TRIGGER reject_inventory_dirs_update"); err != nil {
+		t.Fatal(err)
+	}
 	if _, err = pipeline.ScanFolderCtx(
 		context.Background(),
 		filepath.Join(root, filepath.FromSlash(want[1])),
@@ -164,6 +168,13 @@ func TestNestedWorkInventoryAndNoOpRescan(t *testing.T) {
 	roots, err = repo.ListLibraryWorkRoots(root)
 	if err != nil || !reflect.DeepEqual(roots, want) {
 		t.Fatalf("refresh roots = %v, %v", roots, err)
+	}
+	if _, err = repo.DB().Exec(`CREATE TRIGGER reject_inventory_dirs_update BEFORE UPDATE ON inventory_dirs
+ BEGIN SELECT RAISE(ABORT, 'unchanged inventory rewritten'); END`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = pipeline.ScanFolderCtx(t.Context(), librarypath.JoinRel(root, want[1]), root); err != nil {
+		t.Fatal(err)
 	}
 }
 

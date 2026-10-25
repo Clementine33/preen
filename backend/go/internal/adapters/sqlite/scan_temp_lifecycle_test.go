@@ -49,7 +49,7 @@ func TestScanSessionsLeaveNoStagingAcrossSuccessFailureAndCancellation(t *testin
 	}
 	for _, cancelScan := range []bool{false, true} {
 		ctx, cancel := context.WithCancel(t.Context())
-		walk = func(ctx context.Context, root, base string, workers int, emit func(inventory.DirEntry) error) error {
+		walk = func(ctx context.Context, root, base string, workers int, emit func(inventory.DirEntry) error, reuse ...inventory.ReuseDirectory) error {
 			if walkErr := filesystem.WalkRootEntriesParallel(ctx, root, base, workers, emit); walkErr != nil {
 				return walkErr
 			}

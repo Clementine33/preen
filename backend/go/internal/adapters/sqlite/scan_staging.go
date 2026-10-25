@@ -50,7 +50,7 @@ func (a *ScanStaging) WriteStagingEntries(sessionID string, entries []inventory.
 	}
 	defer func() { _, _ = session.conn.ExecContext(ctx, "ROLLBACK") }()
 	stmt, err := session.conn.PrepareContext(ctx, `INSERT OR REPLACE INTO temp.entries_staging
- (path,parent_path,name,is_dir,is_work_root,size,mtime,format) VALUES(?,?,?,?,?,?,?,?)`)
+ (path,parent_path,name,is_dir,is_work_root,size,mtime,format,carried) VALUES(?,?,?,?,?,?,?,?,?)`)
 	if err != nil {
 		return err
 	}
@@ -70,6 +70,7 @@ func (a *ScanStaging) WriteStagingEntries(sessionID string, entries []inventory.
 			e.Size,
 			e.Mtime,
 			e.Format,
+			e.Carried,
 		); err != nil {
 			return fmt.Errorf("insert staging entry %q: %w", e.Path, err)
 		}

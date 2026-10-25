@@ -18,22 +18,36 @@ var dirEntryInfoFunc func(fs.DirEntry) (fs.FileInfo, error)
 
 // WalkRootEntriesParallel discovers work roots while bounded workers scan each
 // work sequentially. Classification directories are traversed by the discoverer.
-// Every entry is emitted once; the library root and its recovery subtree are excluded.
+// Observed entries are emitted once; reusable directories carry their direct files.
+// The library root is observed as a classification directory; recovery subtrees are excluded.
 func WalkRootEntriesParallel(
 	ctx context.Context,
 	rootPath, basePath string,
 	workers int,
 	emit func(inventory.DirEntry) error,
+	reuse ...inventory.ReuseDirectory,
 ) error {
 	if workers <= 0 {
 		workers = inventory.DefaultScanWorkers
 	}
 	workers = min(workers, 32)
 	group, ctx := errgroup.WithContext(ctx)
-	jobs := make(chan string, 2*workers)
+	jobs := make(chan inventory.DirEntry, 2*workers)
+	var carry inventory.ReuseDirectory
+	if len(reuse) > 0 {
+		carry = reuse[0]
+	}
 	group.Go(func() error {
 		defer close(jobs)
-		return walkEntries(ctx, rootPath, basePath, emit, jobs)
+		info, err := os.Stat(rootPath)
+		if err != nil {
+			return err
+		}
+		root := inventory.DirEntry{
+			Path: rootPath, ParentPath: filepath.Dir(rootPath), Name: filepath.Base(rootPath),
+			IsDir: true, Mtime: info.ModTime().Unix(),
+		}
+		return walkEntries(ctx, rootPath, basePath, emit, jobs, carry, &root)
 	})
 	for range workers {
 		group.Go(func() error {
@@ -45,7 +59,7 @@ func WalkRootEntriesParallel(
 					if !ok {
 						return ctx.Err()
 					}
-					if err := WalkFolderEntries(ctx, folder, basePath, emit); err != nil {
+					if err := walkEntries(ctx, folder.Path, basePath, emit, nil, carry, &folder); err != nil {
 						return err
 					}
 				}
@@ -65,19 +79,21 @@ func WalkFolderEntries(ctx context.Context, folderPath, basePath string, emit fu
 	if librarypath.IsRecoveryRelPath(basePath, filepath.ToSlash(rel)) {
 		return ctx.Err()
 	}
-	return walkEntries(ctx, folderPath, basePath, emit, nil)
+	return walkEntries(ctx, folderPath, basePath, emit, nil, nil, nil)
 }
 
 func walkEntries(
 	ctx context.Context,
 	currentPath, basePath string,
 	emit func(inventory.DirEntry) error,
-	jobs chan<- string,
+	jobs chan<- inventory.DirEntry,
+	reuse inventory.ReuseDirectory,
+	directory *inventory.DirEntry,
 ) error {
 	if contextErr := ctx.Err(); contextErr != nil {
 		return contextErr
 	}
-	entries, err := os.ReadDir(currentPath)
+	entries, err := listObservedDirectory(currentPath, basePath, emit, reuse, directory)
 	if err != nil {
 		return err
 	}
@@ -88,6 +104,9 @@ func walkEntries(
 		entryPath := filepath.Join(currentPath, d.Name())
 		// Soft-deleted media is outside the inventory; skip before stat or descent.
 		if d.IsDir() && librarypath.IsRecoveryRelPath(basePath, d.Name()) {
+			continue
+		}
+		if !d.IsDir() && directory != nil && directory.Carried {
 			continue
 		}
 		var info fs.FileInfo
@@ -105,23 +124,80 @@ func walkEntries(
 			Path: entryPath, ParentPath: filepath.Dir(entryPath), Name: d.Name(),
 			IsDir: d.IsDir(), IsWorkRoot: isWorkRoot, Size: info.Size(), Mtime: info.ModTime().Unix(),
 		}
-		if err := emit(entry); err != nil {
-			return err
-		}
 		if !d.IsDir() {
+			if err := emit(entry); err != nil {
+				return err
+			}
 			continue
+		}
+		if isWorkRoot && reuse != nil {
+			if retained, ok := reuse(entryPath, entry.Mtime); ok && retained.Entries == nil {
+				entry.Carried, entry.FilesCarried = true, retained.FileCount
+				if err := emit(entry); err != nil {
+					return err
+				}
+				continue
+			}
 		}
 		if isWorkRoot {
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
-			case jobs <- entryPath:
+			case jobs <- entry:
 			}
-		} else if err := walkEntries(ctx, entryPath, basePath, emit, jobs); err != nil {
+		} else if err := walkEntries(ctx, entryPath, basePath, emit, jobs, reuse, &entry); err != nil {
 			return err
 		}
 	}
 	return ctx.Err()
+}
+
+// listObservedDirectory pairs the directory observation with its complete listing or carried files.
+func listObservedDirectory(
+	currentPath, basePath string,
+	emit func(inventory.DirEntry) error,
+	reuse inventory.ReuseDirectory,
+	directory *inventory.DirEntry,
+) ([]fs.DirEntry, error) {
+	var retained inventory.DirectoryReuse
+	if directory != nil && reuse != nil {
+		retained, directory.Carried = reuse(currentPath, directory.Mtime)
+		if directory.Carried && retained.Entries == nil {
+			directory.FilesCarried = retained.FileCount
+			return nil, emit(*directory)
+		}
+	}
+	entries, err := os.ReadDir(currentPath)
+	if err != nil {
+		return nil, err
+	}
+	if directory != nil {
+		if directory.Carried {
+			directory.Carried = matchingEntries(entries, retained.Entries, basePath)
+			if directory.Carried {
+				directory.FilesCarried = retained.FileCount
+			}
+		}
+		if err = emit(*directory); err != nil {
+			return nil, err
+		}
+	}
+	return entries, nil
+}
+
+func matchingEntries(entries []fs.DirEntry, retained map[string]bool, basePath string) bool {
+	count := 0
+	for _, entry := range entries {
+		if entry.IsDir() && librarypath.IsRecoveryRelPath(basePath, entry.Name()) {
+			continue
+		}
+		isDir, ok := retained[entry.Name()]
+		if !ok || isDir != entry.IsDir() {
+			return false
+		}
+		count++
+	}
+	return count == len(retained)
 }
 
 // Allowed audio extensions.

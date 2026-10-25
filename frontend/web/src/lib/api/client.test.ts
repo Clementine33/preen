@@ -6,6 +6,21 @@ function createClient(config: Partial<ApiConfig> = {}): ApiClient {
   return new ApiClient({ baseUrl: config.baseUrl ?? 'http://example.test/api/v1', token: config.token ?? null })
 }
 
+it.each([
+  [undefined, undefined, {}],
+  ['/music', 'full', { root_path: '/music', mode: 'full' }],
+  [undefined, 'full', { mode: 'full' }],
+] as const)('encodes scan root %s and mode %s', async (root, mode, body) => {
+  const fetch = mockFetch(() => new Response('event: completed\ndata: {"stage":"scan"}\n\n'))
+  const signal = new AbortController().signal
+  const events = []
+  for await (const event of createClient().scanLibrary('lib-1', signal, root, mode)) events.push(event)
+  expect(events).toHaveLength(1)
+  expect(fetch).toHaveBeenCalledWith('http://example.test/api/v1/libraries/lib-1/scans', expect.objectContaining({
+    method: 'POST', signal, body: JSON.stringify(body),
+  }))
+})
+
 it('logs out through the public session endpoint', async () => {
   const fetch = mockFetch(() => new Response(null, { status: 204 }))
   await createClient().deleteSession()

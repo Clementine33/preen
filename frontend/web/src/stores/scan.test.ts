@@ -15,6 +15,12 @@ function apiWithScan(scanLibrary: ApiClientContract['scanLibrary']): ApiClientCo
 describe('scan store', () => {
   beforeEach(() => setActivePinia(createPinia()))
 
+  it.each([undefined, 'full'] as const)('forwards scan mode %s', async (mode) => {
+    const scanLibrary = vi.fn(() => events([{ type: 'completed', data: { stage: 'scan' } }]))
+    await useScanStore().start('lib-a', apiWithScan(scanLibrary), undefined, mode)
+    expect(scanLibrary).toHaveBeenCalledWith('lib-a', expect.any(AbortSignal), undefined, mode)
+  })
+
   it('tracks start and progress before settling as a confirmed event terminal', async () => {
     const api = apiWithScan(
       vi.fn(() =>

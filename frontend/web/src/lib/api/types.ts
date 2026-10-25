@@ -143,6 +143,8 @@ export interface ScanEventData {
   code?: string
 }
 
+export type ScanMode = 'full'
+
 export type ScanEventType = 'started' | 'progress' | 'completed' | 'cancelled' | 'error'
 
 export interface ScanEvent {
@@ -1261,7 +1263,7 @@ export interface ApiClientContract {
   createLibrary(input: CreateLibraryInput): Promise<Library>
   updateLibrary(id: string, input: UpdateLibraryInput): Promise<Library>
   deleteLibrary(id: string): Promise<void>
-  scanLibrary(id: string, signal: AbortSignal, rootPath?: string): AsyncIterable<ScanEvent>
+  scanLibrary(id: string, signal: AbortSignal, rootPath?: string, mode?: ScanMode): AsyncIterable<ScanEvent>
   streamMediaFactsEvents(signal: AbortSignal): AsyncIterable<MediaFactsEvent>
   listDirs(libraryId: string, signal?: AbortSignal): Promise<LibraryDir[]>
   getMemberTree(libraryId: string, folderRelPath: string, signal?: AbortSignal): Promise<MemberTreeResponse>

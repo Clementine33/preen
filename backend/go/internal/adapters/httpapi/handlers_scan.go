@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"time"
@@ -12,9 +13,11 @@ import (
 )
 
 // scanRequest is the POST /api/v1/libraries/:id/scans payload. root_path is
-// optional; when absent the library's own root path is scanned.
+// optional; when absent the library's own root path is scanned. mode is either
+// omitted (Library Scan) or "full" (Full Rescan).
 type scanRequest struct {
-	RootPath *string `json:"root_path"`
+	RootPath *string         `json:"root_path"`
+	Mode     json.RawMessage `json:"mode"`
 }
 
 // scanEventData is the JSON data of the started/progress/completed/cancelled/
@@ -65,6 +68,13 @@ func (s *Server) postLibraryScan(w http.ResponseWriter, r *http.Request) {
 	if decodeErr := decodeJSONAllowEmpty(w, r, &req); decodeErr != nil {
 		writeDecodeError(w, decodeErr, "invalid scan payload")
 		return
+	}
+	if req.Mode != nil {
+		var mode string
+		if err := json.Unmarshal(req.Mode, &mode); err != nil || mode != "full" {
+			writeError(w, http.StatusBadRequest, "INVALID_SCAN_MODE", "mode must be omitted or full")
+			return
+		}
 	}
 	rootPath := lib.RootPath
 	if req.RootPath != nil {
@@ -117,7 +127,7 @@ func (s *Server) postLibraryScan(w http.ResponseWriter, r *http.Request) {
 
 	result, err := s.deps.Inventory.Scan(
 		r.Context(),
-		inventory.Request{LibraryID: lib.ID, RootPath: rootPath},
+		inventory.Request{LibraryID: lib.ID, RootPath: rootPath, Full: req.Mode != nil},
 		func(ev inventory.Event) {
 			// The entry emits started/progress/completed internally; only
 			// progress is forwarded, the handler owns the terminal events.

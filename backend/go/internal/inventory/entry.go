@@ -16,6 +16,7 @@ import (
 type Request struct {
 	LibraryID string
 	RootPath  string
+	Full      bool // Bypass directory reuse for an explicit Full Rescan.
 }
 
 // Event is emitted during a scan. Type is one of started|progress|completed
@@ -236,10 +237,14 @@ func (s *service) Scan(ctx context.Context, req Request, emit func(Event)) (Resu
 	// The request's library id must reach the merge: the binding reconciliation
 	// only runs for a full scan that names its library (ADR 0009), and
 	// dropping it here leaves the catalog with no works ever bound.
-	scanID, err := s.pipeline.ScanRootCtx(ctx, req.RootPath, WithLibrary(req.LibraryID), WithProgress(func(p Progress) {
+	opts := []ScanOption{WithLibrary(req.LibraryID), WithProgress(func(p Progress) {
 		lastProgress = p
 		emit(Event{Type: "progress", Stage: "scan", FilesScanned: p.FilesScanned, DirsScanned: p.DirsScanned})
-	}))
+	})}
+	if req.Full {
+		opts = append(opts, WithFullScan())
+	}
+	scanID, err := s.pipeline.ScanRootCtx(ctx, req.RootPath, opts...)
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
 			s.recordOutcome(req, "canceled", "")

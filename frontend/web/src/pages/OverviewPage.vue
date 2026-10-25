@@ -24,6 +24,7 @@ import { useScanStore } from '@/stores/scan'
 import {
   CONVERSION,
   type LibraryDir,
+  type ScanMode,
   type SkippedFolder,
   type SkippedReason,
   type UpdateLibraryInput,
@@ -258,9 +259,9 @@ const managementError = computed(() => {
 
 const scanningThisLibrary = computed(() => scan.status === 'scanning' && scan.libraryId === libraryId.value)
 
-async function runScan() {
+async function runScan(mode?: ScanMode) {
   if (!libraryId.value) return
-  await libraryScan.start(libraryId.value)
+  await libraryScan.start(libraryId.value, mode)
 }
 
 // ---- misc -------------------------------------------------------------
@@ -349,10 +350,20 @@ const libraryRoot = computed(() => activeLibrary.value?.root_path ?? '')
                 variant="outline"
                 data-testid="scan-button"
                 :disabled="scanningThisLibrary"
-                @click="runScan"
+                @click="runScan()"
               >
                 <ScanLine class="size-3.5" />
                 {{ scanningThisLibrary ? '扫描中…' : '扫描' }}
+              </Button>
+              <Button
+                v-if="activeLibrary"
+                size="xs"
+                variant="outline"
+                data-testid="full-rescan-button"
+                :disabled="scanningThisLibrary"
+                @click="runScan('full')"
+              >
+                完整重扫
               </Button>
               <Button v-if="scanningThisLibrary" size="xs" variant="ghost" data-testid="cancel-scan" @click="libraryScan.cancel">
                 <Square class="size-3" />

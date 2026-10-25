@@ -38,6 +38,7 @@ import type {
   OperationType,
   RevisionDetailResponse,
   ScanEvent,
+  ScanMode,
   StartExecutionResponse,
   StartGenerationResponse,
   UpdateLibraryInput,
@@ -186,8 +187,8 @@ export class ApiClient implements ApiClientContract {
     return this.request(`/libraries/${encodeURIComponent(id)}`, { method: 'DELETE' })
   }
 
-  async *scanLibrary(id: string, signal: AbortSignal, rootPath?: string): AsyncGenerator<ScanEvent> {
-    const body = rootPath === undefined ? {} : { root_path: rootPath }
+  async *scanLibrary(id: string, signal: AbortSignal, rootPath?: string, mode?: ScanMode): AsyncGenerator<ScanEvent> {
+    const body = { root_path: rootPath, mode }
     const response = await fetch(this.url(`/libraries/${encodeURIComponent(id)}/scans`), {
       method: 'POST',
       headers: this.headers(true),

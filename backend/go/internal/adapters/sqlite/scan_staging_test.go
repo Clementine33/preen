@@ -17,8 +17,7 @@ type SQLiteAdapterTestSuite struct {
 
 func setupTestDB(t *testing.T) *SQLiteAdapterTestSuite {
 	t.Helper()
-	// Use in-memory database for tests
-	sqliteRepo, err := NewRepository(":memory:")
+	sqliteRepo, err := NewRepository(t.TempDir() + "/test.db")
 	if err != nil {
 		t.Fatalf("failed to create test repository: %v", err)
 	}
@@ -561,7 +560,7 @@ func TestCleanupStagingSession_PreservesOtherSessions(t *testing.T) {
 
 // Benchmark for large batch performance.
 func BenchmarkWriteStagingEntries_LargeBatch(b *testing.B) {
-	sqliteRepo, err := NewRepository(":memory:")
+	sqliteRepo, err := NewRepository(b.TempDir() + "/test.db")
 	if err != nil {
 		b.Fatalf("failed to create test repository: %v", err)
 	}

@@ -1,8 +1,8 @@
 package sqlite
 
 import (
+	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 	"path/filepath"
 
@@ -21,7 +21,15 @@ import (
 // does not reconcile the library's work roots and must not touch another
 // copy's binding.
 func (r *Repository) MergeStaging(sessionID, libraryID, rootPath string) (inventory.MergeOutcome, error) {
-	tx, err := r.db.Begin()
+	session, err := r.scanConnection(sessionID, rootPath)
+	if err != nil {
+		return inventory.MergeOutcome{}, err
+	}
+	defer func() { _ = r.closeStagingSession(sessionID) }()
+	if rootPath == "" {
+		rootPath = session.root
+	}
+	tx, err := session.conn.BeginTx(context.Background(), nil)
 	if err != nil {
 		return inventory.MergeOutcome{}, fmt.Errorf("failed to begin transaction: %w", err)
 	}
@@ -57,11 +65,11 @@ func mergeStagingEntries(tx *sql.Tx, scanID, libraryID, rootPath string) (invent
 			return inventory.MergeOutcome{}, err
 		}
 	}
-	if err := mergeObservedEntries(tx, scanID, cleanupRoot); err != nil {
+	if err := mergeObservedEntries(tx, cleanupRoot); err != nil {
 		return inventory.MergeOutcome{}, fmt.Errorf("failed to merge staging entries: %w", err)
 	}
 	if cleanupRoot != "" {
-		if err := cleanupInventoryScope(tx, scanID, cleanupRoot, scopePath); err != nil {
+		if err := cleanupInventoryScope(tx, cleanupRoot, scopePath); err != nil {
 			return inventory.MergeOutcome{}, fmt.Errorf("failed to clean stale entries: %w", err)
 		}
 	}
@@ -70,7 +78,7 @@ func mergeStagingEntries(tx *sql.Tx, scanID, libraryID, rootPath string) (invent
 	// full scan is authoritative for a library's work roots; a member
 	// refresh leaves every other copy alone.
 	var merged int
-	if err := tx.QueryRow("SELECT COUNT(*) FROM entries_staging WHERE session_id = ?", scanID).
+	if err := tx.QueryRow("SELECT COUNT(*) FROM temp.entries_staging").
 		Scan(&merged); err != nil {
 		return inventory.MergeOutcome{}, fmt.Errorf("failed to count merged entries: %w", err)
 	}
@@ -83,11 +91,6 @@ func mergeStagingEntries(tx *sql.Tx, scanID, libraryID, rootPath string) (invent
 		outcome.DirsWithMultipleNumbers = bindings.multiple
 		outcome.ExampleDirs = bindings.examples
 		outcome.ExamplesTruncated = bindings.truncated
-	}
-
-	// Clear staging for this session
-	if _, err := tx.Exec("DELETE FROM entries_staging WHERE session_id = ?", scanID); err != nil {
-		return inventory.MergeOutcome{}, fmt.Errorf("failed to clear staging: %w", err)
 	}
 
 	return outcome, nil
@@ -112,18 +115,6 @@ func stagingCleanupScope(tx *sql.Tx, scanID, rootPath string) (root, scope strin
 	}
 	if rootPath == "" {
 		rootPath = sessionRootPath
-	}
-
-	// If still no rootPath, derive from staging entries
-	if rootPath == "" {
-		var stagingRootPath string
-		deriveErr := tx.QueryRow(`
-			SELECT root_path FROM entries_staging WHERE session_id = ? LIMIT 1
-		`, scanID).Scan(&stagingRootPath)
-		if deriveErr != nil && !errors.Is(deriveErr, sql.ErrNoRows) {
-			return rootPath, "", deriveErr
-		}
-		rootPath = stagingRootPath
 	}
 
 	// Normalize rootPath to POSIX format for consistent SQL matching

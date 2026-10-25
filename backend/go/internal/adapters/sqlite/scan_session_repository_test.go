@@ -272,9 +272,7 @@ func TestRepository_InterruptStaleScanSessions(t *testing.T) {
 		t.Fatalf("complete scan: %v", err)
 	}
 
-	// Staging left by the dead scan and by a session already gone.
-	stageDir(t, repo, "scan-running", "/music", "RJ00000001 album")
-	stageDir(t, repo, "scan-deleted", "/music", "RJ00000002 album")
+	// No TEMP database survives the process that owned these sessions.
 
 	interrupted, err := repo.InterruptStaleScanSessions()
 	if err != nil {
@@ -284,7 +282,9 @@ func TestRepository_InterruptStaleScanSessions(t *testing.T) {
 		t.Errorf("interrupted = %d, want 3", interrupted)
 	}
 	var staged int
-	if countErr := repo.DB().QueryRow("SELECT COUNT(*) FROM entries_staging").Scan(&staged); countErr != nil {
+	if countErr := repo.DB().
+		QueryRow("SELECT COUNT(*) FROM sqlite_master WHERE name='entries_staging'").
+		Scan(&staged); countErr != nil {
 		t.Fatal(countErr)
 	}
 	if staged != 0 {

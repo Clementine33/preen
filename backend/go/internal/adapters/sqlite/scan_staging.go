@@ -1,6 +1,7 @@
 package sqlite
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"path/filepath"
@@ -8,7 +9,7 @@ import (
 	"github.com/Clementine33/preen/backend/internal/inventory"
 )
 
-// ScanStaging adapts Repository to scanner.Repository.
+// ScanStaging writes each scan into its private TEMP database and tracks its lifecycle.
 type ScanStaging struct {
 	repo *Repository
 	// testExecSeam allows tests to inject failures after N exec calls.
@@ -16,7 +17,7 @@ type ScanStaging struct {
 	testExecSeam func(callCount int) error
 }
 
-// NewScanStaging creates a scanner repository adapter for sqlite.
+// NewScanStaging creates the scan-session storage adapter.
 func NewScanStaging(repo *Repository) *ScanStaging {
 	return &ScanStaging{repo: repo}
 }
@@ -33,65 +34,48 @@ func (a *ScanStaging) execStmt(stmt *sql.Stmt, callCount int, args ...any) (sql.
 
 const defaultBatchSize = 1000
 
-// WriteStagingEntries writes scanner staging entries into sqlite entries_staging.
-// Entries are chunked into batches (defaultBatchSize=1000) within a single transaction
-// for atomicity. On any mid-batch error, the entire transaction is rolled back.
-func (a *ScanStaging) WriteStagingEntries(_ string, entries []inventory.StagingEntry) error {
+// WriteStagingEntries commits one TEMP-only batch without acquiring the main writer lock.
+func (a *ScanStaging) WriteStagingEntries(sessionID string, entries []inventory.StagingEntry) error {
 	if len(entries) == 0 {
 		return nil
 	}
-
-	tx, err := a.repo.DB().Begin()
+	root := entries[0].RootPath
+	session, err := a.repo.scanConnection(sessionID, root)
 	if err != nil {
-		return fmt.Errorf("begin staging tx: %w", err)
+		return err
 	}
-	defer tx.Rollback()
-
-	stmt, err := tx.Prepare(`
-		INSERT OR REPLACE INTO entries_staging (
-			session_id, path, root_path, parent_path, name, is_dir, is_work_root, size, mtime, format
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`)
+	ctx := context.Background()
+	if _, err = session.conn.ExecContext(ctx, "BEGIN DEFERRED"); err != nil {
+		return err
+	}
+	defer func() { _, _ = session.conn.ExecContext(ctx, "ROLLBACK") }()
+	stmt, err := session.conn.PrepareContext(ctx, `INSERT OR REPLACE INTO temp.entries_staging
+ (path,parent_path,name,is_dir,is_work_root,size,mtime,format) VALUES(?,?,?,?,?,?,?,?)`)
 	if err != nil {
-		return fmt.Errorf("prepare staging insert: %w", err)
+		return err
 	}
 	defer stmt.Close()
-
-	// Process entries in chunks to stay within SQLite parameter limits and improve performance
-	for batchStart := 0; batchStart < len(entries); batchStart += defaultBatchSize {
-		batchEnd := min(batchStart+defaultBatchSize, len(entries))
-
-		batch := entries[batchStart:batchEnd]
-		execCount := 0
-		for _, e := range batch {
-			isDir := 0
-			if e.IsDir {
-				isDir = 1
-			}
-			execCount++
-			if _, err := a.execStmt(
-				stmt,
-				execCount,
-				e.SessionID,
-				e.Path,
-				e.RootPath,
-				e.ParentPath,
-				e.Name,
-				isDir,
-				e.IsWorkRoot,
-				e.Size,
-				e.Mtime,
-				e.Format,
-			); err != nil {
-				return fmt.Errorf("insert staging entry %q: %w", e.Path, err)
-			}
+	for i, e := range entries {
+		if e.RootPath != "" && filepath.ToSlash(e.RootPath) != session.root {
+			return fmt.Errorf("staging root mismatch")
+		}
+		if _, err = a.execStmt(
+			stmt,
+			i+1,
+			e.Path,
+			e.ParentPath,
+			e.Name,
+			e.IsDir,
+			e.IsWorkRoot,
+			e.Size,
+			e.Mtime,
+			e.Format,
+		); err != nil {
+			return fmt.Errorf("insert staging entry %q: %w", e.Path, err)
 		}
 	}
-
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit staging tx: %w", err)
-	}
-	return nil
+	_, err = session.conn.ExecContext(ctx, "COMMIT")
+	return err
 }
 
 // MergeStaging merges staged entries and reconciles the library's bindings,
@@ -110,7 +94,7 @@ func (a *ScanStaging) CreateScanSession(session *inventory.ScanSession) error {
 		scopePath = &p
 	}
 
-	return a.repo.CreateScanSession(&inventory.ScanSession{
+	err := a.repo.CreateScanSession(&inventory.ScanSession{
 		SessionID:    session.SessionID,
 		RootPath:     filepath.ToSlash(session.RootPath),
 		ScopePath:    scopePath,
@@ -121,6 +105,14 @@ func (a *ScanStaging) CreateScanSession(session *inventory.ScanSession) error {
 		StartedAt:    session.StartedAt,
 		FinishedAt:   session.FinishedAt,
 	})
+	if err != nil {
+		return err
+	}
+	_, err = a.repo.scanConnection(session.SessionID, filepath.ToSlash(session.RootPath))
+	if err != nil {
+		_ = a.repo.UpdateScanSessionStatus(session.SessionID, "failed", "STAGING_OPEN_FAILED", err.Error())
+	}
+	return err
 }
 
 // UpdateScanSessionStatus updates session lifecycle status in sqlite.
@@ -128,81 +120,14 @@ func (a *ScanStaging) UpdateScanSessionStatus(sessionID, status, errorCode, erro
 	return a.repo.UpdateScanSessionStatus(sessionID, status, errorCode, errorMessage)
 }
 
-// CleanupStagingSession deletes all staging entries for a session.
-// This is used for failure cleanup to remove partial staging data.
-// Note: Partial staging persistence may exist before cleanup - this is expected.
-func (a *ScanStaging) CleanupStagingSession(sessionID string) error {
-	_, err := a.repo.DB().Exec(
-		"DELETE FROM entries_staging WHERE session_id = ?",
-		sessionID,
-	)
-	if err != nil {
-		return fmt.Errorf("cleanup staging session %s: %w", sessionID, err)
-	}
-	return nil
+// CloseStagingSession releases the physical connection and its TEMP database.
+func (a *ScanStaging) CloseStagingSession(sessionID string) error {
+	return a.repo.closeStagingSession(sessionID)
 }
 
-// pipelineRepo is an internal interface for pipeline batch writing capabilities.
-// This interface is NOT part of the public Repository interface and is only
-// used internally by Pipeline for streaming batch writes.
-type pipelineRepo interface {
-	WriteStagingBatch(sessionID string, batch []inventory.StagingEntry) error
-	CleanupStagingSession(sessionID string) error
-}
-
-// Compile-time interface check.
-var _ pipelineRepo = (*ScanStaging)(nil)
-
-// WriteStagingBatch writes a batch of staging entries in a single transaction.
-// This is used for pipeline batch writing (batchSize=1000).
-// Each batch is committed individually - partial persistence is possible on failure.
+// WriteStagingBatch commits each batch independently in the scan's TEMP database.
 func (a *ScanStaging) WriteStagingBatch(sessionID string, batch []inventory.StagingEntry) error {
-	if len(batch) == 0 {
-		return nil
-	}
-
-	tx, err := a.repo.DB().Begin()
-	if err != nil {
-		return fmt.Errorf("begin staging batch tx: %w", err)
-	}
-	defer tx.Rollback()
-
-	stmt, err := tx.Prepare(`
-		INSERT OR REPLACE INTO entries_staging (
-			session_id, path, root_path, parent_path, name, is_dir, is_work_root, size, mtime, format
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`)
-	if err != nil {
-		return fmt.Errorf("prepare staging insert: %w", err)
-	}
-	defer stmt.Close()
-
-	for _, e := range batch {
-		isDir := 0
-		if e.IsDir {
-			isDir = 1
-		}
-		if _, err := stmt.Exec(
-			e.SessionID,
-			e.Path,
-			e.RootPath,
-			e.ParentPath,
-			e.Name,
-			isDir,
-			e.IsWorkRoot,
-			e.Size,
-			e.Mtime,
-			e.Format,
-		); err != nil {
-			return fmt.Errorf("insert staging entry %q: %w", e.Path, err)
-		}
-	}
-
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit staging batch tx: %w", err)
-	}
-	return nil
+	return a.WriteStagingEntries(sessionID, batch)
 }
 
-// Ensure compile-time interface compatibility.
 var _ inventory.StagingStore = (*ScanStaging)(nil)

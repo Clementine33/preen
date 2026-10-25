@@ -76,6 +76,10 @@ func Run(ctx context.Context, cfg Config) {
 		log.Fatalf("ensure db path: %v", ensureErr)
 	}
 
+	if tempErr := sqlite.SetTempDirectory(cfg.DataDir); tempErr != nil {
+		log.Fatalf("SQLite temp directory: %v", tempErr)
+	}
+
 	openRepository := sqlite.NewRepository
 	if IsDevelopmentVersion(cfg.Version) {
 		openRepository = sqlite.NewDevelopmentRepository

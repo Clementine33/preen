@@ -111,9 +111,13 @@ func (m *fakeStagingStore) WriteStagingBatch(sessionID string, batch []inventory
 	return nil
 }
 
-// CleanupStagingSession removes staging entries for a session (failure cleanup).
-// CleanupStagingSession removes staging entries for a session (failure cleanup).
-func (m *fakeStagingStore) CleanupStagingSession(sessionID string) error {
+// Keep completed observations as the test log; failed sessions release partial rows.
+func (m *fakeStagingStore) CloseStagingSession(sessionID string) error {
+	for _, session := range m.Sessions {
+		if session.SessionID == sessionID && session.Status == "completed" {
+			return nil
+		}
+	}
 	var filtered []inventory.StagingEntry
 	for _, e := range m.StagingEntries {
 		if e.SessionID != sessionID {
@@ -541,7 +545,7 @@ func TestPipeline_CleanupOnFailure(t *testing.T) {
 		t.Fatal("expected error from ScanRoot")
 	}
 
-	// Cleanup should have been called (RepositoryThatFailsStaging has CleanupStagingSession)
+	// Cleanup should have been called (RepositoryThatFailsStaging has CloseStagingSession)
 	// Any partial staging would be cleaned up on failure
 }
 

@@ -10,10 +10,20 @@ import (
 
 func stageFile(t *testing.T, repo *Repository, session, root, parent, name string, size int64) {
 	t.Helper()
-	if _, err := repo.DB().Exec(`
-		INSERT INTO entries_staging (session_id, path, root_path, parent_path, name, is_dir, is_work_root, size, mtime)
-		VALUES (?, ?, ?, ?, ?, 0, 0, ?, 7)
-	`, session, parent+"/"+name, root, parent, name, size); err != nil {
+	if err := stageTestRows(
+		repo,
+		inventory.StagingEntry{
+			SessionID:  session,
+			Path:       parent + "/" + name,
+			RootPath:   root,
+			ParentPath: parent,
+			Name:       name,
+			IsDir:      false,
+			IsWorkRoot: false,
+			Size:       size,
+			Mtime:      7,
+		},
+	); err != nil {
 		t.Fatal(err)
 	}
 }

@@ -2,7 +2,6 @@ package inventory
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -47,20 +46,21 @@ func (s *Pipeline) ScanFoldersCtx(
 	); err != nil {
 		return "", err
 	}
+	defer func() { _ = s.repo.CloseStagingSession(id) }()
 	if err := s.stageSelected(ctx, store, id, root, scopes, workers, options.progress); err != nil {
 		code, status := "SCAN_FAILED", "failed"
 		if ctx.Err() != nil {
 			code, status = "SCAN_CANCELLED", "canceled"
 		}
 		_ = s.repo.UpdateScanSessionStatus(id, status, code, err.Error())
-		return "", errors.Join(err, store.CleanupStagingSession(id))
+		return "", err
 	}
 	if err := ctx.Err(); err != nil {
 		_ = s.repo.UpdateScanSessionStatus(id, "canceled", "SCAN_CANCELLED", err.Error())
-		return "", errors.Join(err, store.CleanupStagingSession(id))
+		return "", err
 	}
 	if err := s.repo.UpdateScanSessionStatus(id, "merging", "", ""); err != nil {
-		return "", errors.Join(err, store.CleanupStagingSession(id))
+		return "", err
 	}
 	if _, err := store.MergeSelectedStaging(ctx, id, root, scopes); err != nil {
 		status, code := "failed", "MERGE_FAILED"
@@ -68,7 +68,7 @@ func (s *Pipeline) ScanFoldersCtx(
 			status, code = "canceled", "SCAN_CANCELLED"
 		}
 		_ = s.repo.UpdateScanSessionStatus(id, status, code, err.Error())
-		return "", errors.Join(err, store.CleanupStagingSession(id))
+		return "", err
 	}
 	s.notifyMerged()
 	if err := s.repo.UpdateScanSessionStatus(id, "completed", "", ""); err != nil {

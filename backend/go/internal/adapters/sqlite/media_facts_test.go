@@ -16,10 +16,20 @@ import (
 func stageFactsRow(t *testing.T, repo *Repository, root, path, format string, size, mtime int64, sessionID string) {
 	t.Helper()
 	parent, name := splitInventoryPath(path)
-	_, err := repo.db.Exec(`
-		INSERT INTO entries_staging (session_id, path, root_path, parent_path, name, is_dir, size, mtime, format)
-		VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?)
-	`, sessionID, path, root, parent, name, size, mtime, format)
+	err := stageTestRows(
+		repo,
+		inventory.StagingEntry{
+			SessionID:  sessionID,
+			Path:       path,
+			RootPath:   root,
+			ParentPath: parent,
+			Name:       name,
+			IsDir:      false,
+			Size:       size,
+			Mtime:      mtime,
+			Format:     format,
+		},
+	)
 	if err != nil {
 		t.Fatalf("seed staging: %v", err)
 	}

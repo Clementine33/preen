@@ -12,10 +12,20 @@ import (
 // stageDir inserts one direct-child directory row into a scan's staging set.
 func stageDir(t *testing.T, repo *Repository, session, root, name string) {
 	t.Helper()
-	if _, err := repo.DB().Exec(`
-		INSERT INTO entries_staging (session_id, path, root_path, parent_path, name, is_dir, is_work_root, size, mtime)
-		VALUES (?, ?, ?, ?, ?, 1, ?, 0, 0)
-	`, session, root+"/"+name, root, root, name, works.CodesInDirName(name).Kind == works.DirCodeSingle); err != nil {
+	if err := stageTestRows(
+		repo,
+		inventory.StagingEntry{
+			SessionID:  session,
+			Path:       root + "/" + name,
+			RootPath:   root,
+			ParentPath: root,
+			Name:       name,
+			IsDir:      true,
+			IsWorkRoot: works.CodesInDirName(name).Kind == works.DirCodeSingle,
+			Size:       0,
+			Mtime:      0,
+		},
+	); err != nil {
 		t.Fatalf("stage %s: %v", name, err)
 	}
 }

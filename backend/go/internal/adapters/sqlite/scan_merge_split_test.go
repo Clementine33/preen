@@ -319,7 +319,7 @@ func TestSplitMergeFailureRollsBackInventoryBindingsAndStaging(t *testing.T) {
 				inventory.StagingEntry{Path: "/library/RJ000002/new.mp3"},
 			)
 			if _, err = repo.DB().
-				Exec(`CREATE TRIGGER reject_split_cleanup BEFORE DELETE ON entries_staging BEGIN SELECT RAISE(ABORT,'cleanup failed'); END`); err != nil {
+				Exec(`CREATE TRIGGER reject_split_cleanup BEFORE INSERT ON inventory_files BEGIN SELECT RAISE(ABORT,'cleanup failed'); END`); err != nil {
 				t.Fatal(err)
 			}
 			if kind == "selected" {
@@ -341,12 +341,11 @@ func TestSplitMergeFailureRollsBackInventoryBindingsAndStaging(t *testing.T) {
 				Scan(&bindings); err != nil {
 				t.Fatal(err)
 			}
-			if err = repo.DB().
-				QueryRow("SELECT COUNT(*) FROM entries_staging WHERE session_id='failed'").
+			if err = stagingTestRow(repo, "failed", "SELECT COUNT(*) FROM entries_staging").
 				Scan(&staged); err != nil {
 				t.Fatal(err)
 			}
-			if bindings != 1 || staged != 2 {
+			if bindings != 1 || staged != 0 {
 				t.Fatalf("bindings=%d staging=%d", bindings, staged)
 			}
 		})

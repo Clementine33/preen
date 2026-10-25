@@ -104,7 +104,7 @@ function checkMediaFormats(name) {
       const output = `/tmp/formats/output.${target.ext}`
       const bitrate = ['mp3', 'm4a', 'opus'].includes(target.ext) ? '-b:a 192k' : ''
       const result = JSON.parse(command(['exec', name, 'sh', '-ec', `
-        ffmpeg -nostdin -v error -xerror -fd 0 -i fd: -map 0:a:0 -map_metadata 0 -vn \
+        ffmpeg -nostdin -v error -xerror -fd 0 -i fd: -map 0:a:0 -map_metadata 0 -map_chapters -1 -vn \
           -c:a ${target.encoder} ${bitrate} -f ${target.muxer} -fd 1 fd: < "$1" > "$2"
         ffmpeg -nostdin -v error -xerror -fd 0 -i fd: -map 0:a:0 -f null - < "$2"
         ffprobe -v error -show_streams -of json -fd 0 -i fd: < "$2"

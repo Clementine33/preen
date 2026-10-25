@@ -209,7 +209,7 @@ export interface UserPreferences {
 }
 
 export type CleanupCategory =
-  | 'scan_sessions' | 'plan_generations' | 'cover_downloads' | 'works'
+  | 'scan_sessions' | 'plan_generations' | 'cover_downloads' | 'generation_records' | 'works'
   | 'relation_reports' | 'source_tags' | 'source_voice_actors' | 'source_circles'
 
 export interface CleanupPreview {

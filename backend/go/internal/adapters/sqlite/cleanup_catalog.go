@@ -60,7 +60,12 @@ func cleanupSource(category cleanup.Category) (string, string) {
 		return "voice_actors", "SELECT 1 FROM work_voice_actors j WHERE j.voice_actor_id = voice_actors.id"
 	case cleanup.SourceCircles:
 		return "circles", "SELECT 1 FROM (SELECT id AS work_id, circle_id FROM works) j WHERE j.circle_id = circles.id"
-	case cleanup.ScanSessions, cleanup.PlanGenerations, cleanup.CoverDownloads, cleanup.Works, cleanup.RelationReports:
+	case cleanup.ScanSessions,
+		cleanup.PlanGenerations,
+		cleanup.CoverDownloads,
+		cleanup.GenerationRecords,
+		cleanup.Works,
+		cleanup.RelationReports:
 		return "", ""
 	default:
 		return "", ""

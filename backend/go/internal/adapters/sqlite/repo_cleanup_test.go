@@ -3,6 +3,7 @@ package sqlite //nolint:testpackage // SQLite fault injection proves atomic dele
 import (
 	"context"
 	"errors"
+	"slices"
 	"testing"
 	"time"
 
@@ -276,5 +277,54 @@ func TestCanceledCleanupBatchRollsBackWithoutProgress(t *testing.T) {
 	}
 	if _, err := repo.CleanupCandidates(canceled, cleanup.ScanSessions, now, nil); !errors.Is(err, context.Canceled) {
 		t.Fatalf("discovery cancel: %v", err)
+	}
+}
+
+func TestGenerationRecordCleanupKeepsRecordsWithAnEntry(t *testing.T) {
+	repo := newTestRepository(t)
+	ctx := t.Context()
+	now := time.Now().UTC()
+	record := `INSERT INTO generation_records(path,codec,encoder,encoder_version,bitrate_kbps,mode,size,mtime,content_sha256,created_at)
+ VALUES (?,'aac','enc','1',256,'cbr',1,1,'sum','2026-10-01T00:00:00Z')`
+	for _, path := range []string{"/music/kept.m4a", "/music/moved.m4a", "/music/back.m4a"} {
+		if _, err := repo.db.Exec(record, path); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := repo.db.Exec(`INSERT INTO entries(path,root_path) VALUES('/music/kept.m4a','/music')`); err != nil {
+		t.Fatal(err)
+	}
+	ids, err := repo.CleanupCandidates(ctx, cleanup.GenerationRecords, now, nil)
+	slices.Sort(ids)
+	if err != nil || !slices.Equal(ids, []string{"/music/back.m4a", "/music/moved.m4a"}) {
+		t.Fatalf("candidates %v %v", ids, err)
+	}
+	// A scan finds one file again before the batch: the recheck keeps its record.
+	if _, err = repo.db.Exec(`INSERT INTO entries(path,root_path) VALUES('/music/back.m4a','/music')`); err != nil {
+		t.Fatal(err)
+	}
+	run := cleanup.Run{ID: "run", Status: "running", Counts: map[cleanup.Category]cleanup.Count{}}
+	if createErr := repo.CreateCleanupRun(ctx, run); createErr != nil {
+		t.Fatal(createErr)
+	}
+	if batchErr := repo.CleanupBatch(ctx, run.ID, cleanup.GenerationRecords, now, ids); batchErr != nil {
+		t.Fatal(batchErr)
+	}
+	saved, err := repo.ReadCleanupRun(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if saved.Counts[cleanup.GenerationRecords] != (cleanup.Count{Checked: 2, Deleted: 1, Skipped: 1}) ||
+		countRows(t, repo, "generation_records") != 2 {
+		t.Fatalf("rechecked %+v", saved)
+	}
+
+	// Automatic maintenance removes an orphan the same way.
+	if _, err = repo.db.Exec(`DELETE FROM entries WHERE path = '/music/back.m4a'`); err != nil {
+		t.Fatal(err)
+	}
+	stats, err := repo.RunRetentionCleanupBatch(ctx, now, now, 0)
+	if err != nil || stats.DeletedGenerationRecords != 1 || countRows(t, repo, "generation_records") != 1 {
+		t.Fatalf("automatic %+v %v", stats, err)
 	}
 }

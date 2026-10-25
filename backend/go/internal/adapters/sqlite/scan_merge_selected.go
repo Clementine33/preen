@@ -18,8 +18,9 @@ func (a *ScanStaging) MergeSelectedStaging(
 }
 
 // MergeSelectedStaging accepts explicit ranges and never derives cleanup scope
-// from null session scope. Staged rows, stale cleanup and staging removal commit
-// together; unchanged media facts and all bindings retain the usual merge rules.
+// from null session scope. Observed writes and stale cleanup commit together;
+// the physical connection then releases staging. Media facts and bindings retain
+// the usual merge rules.
 func (r *Repository) MergeSelectedStaging(
 	ctx context.Context,
 	id, root string,
@@ -30,7 +31,12 @@ func (r *Repository) MergeSelectedStaging(
 		return inventory.MergeOutcome{}, err
 	}
 	root = librarypath.CleanRootPath(root)
-	tx, err := r.db.BeginTx(ctx, nil)
+	session, err := r.scanConnection(id, root)
+	if err != nil {
+		return inventory.MergeOutcome{}, err
+	}
+	defer func() { _ = r.closeStagingSession(id) }()
+	tx, err := session.conn.BeginTx(ctx, nil)
 	if err != nil {
 		return inventory.MergeOutcome{}, err
 	}
@@ -50,12 +56,11 @@ func (r *Repository) MergeSelectedStaging(
 	}
 	var outside int
 	// Build covered paths once from indexed ranges instead of testing every row against every scope.
-	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM entries_staging s
-		WHERE s.session_id = ? AND (s.root_path <> ? OR s.path NOT IN (
-			SELECT covered.path FROM json_each(?) scope CROSS JOIN entries_staging covered
-			WHERE covered.session_id = ?
-			AND `+subtreeSQL("covered.path", "scope.value")+`
-		))`, id, root, string(encodedScopes), id).Scan(&outside); err != nil {
+	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM temp.entries_staging s
+		WHERE s.path NOT IN (
+			SELECT covered.path FROM json_each(?) scope CROSS JOIN temp.entries_staging covered
+			WHERE `+subtreeSQL("covered.path", "scope.value")+`
+		)`, string(encodedScopes)).Scan(&outside); err != nil {
 		return inventory.MergeOutcome{}, err
 	}
 	if outside != 0 {
@@ -66,20 +71,17 @@ func (r *Repository) MergeSelectedStaging(
 			return inventory.MergeOutcome{}, err
 		}
 	}
-	if err := mergeObservedEntries(tx, id, root); err != nil {
+	if err := mergeObservedEntries(tx, root); err != nil {
 		return inventory.MergeOutcome{}, err
 	}
 	for _, scope := range scopes {
-		if err := cleanupInventoryScope(tx, id, root, scope); err != nil {
+		if err := cleanupInventoryScope(tx, root, scope); err != nil {
 			return inventory.MergeOutcome{}, err
 		}
 	}
 	var count int
-	if err := tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM entries_staging WHERE session_id = ?", id).
+	if err := tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM temp.entries_staging").
 		Scan(&count); err != nil {
-		return inventory.MergeOutcome{}, err
-	}
-	if _, err := tx.ExecContext(ctx, "DELETE FROM entries_staging WHERE session_id = ?", id); err != nil {
 		return inventory.MergeOutcome{}, err
 	}
 	if err := ctx.Err(); err != nil {

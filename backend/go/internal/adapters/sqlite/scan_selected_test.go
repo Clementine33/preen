@@ -129,8 +129,16 @@ func TestSelectedMergeRejectsUnboundedScopeAndRollsBack(t *testing.T) {
 	if _, err := repo.MergeStaging("selected", "", "/library"); err == nil {
 		t.Fatal("selected session accepted by full merge")
 	}
+	if err := store.WriteStagingBatch(
+		"selected",
+		[]inventory.StagingEntry{
+			{RootPath: "/library", Path: "/library/a/new.mp3", ParentPath: "/library/a", Name: "new.mp3"},
+		},
+	); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := repo.DB().
-		Exec(`CREATE TRIGGER reject_selected_cleanup BEFORE DELETE ON entries_staging BEGIN SELECT RAISE(ABORT, 'cleanup failure'); END`); err != nil {
+		Exec(`CREATE TRIGGER reject_selected_cleanup BEFORE INSERT ON inventory_files BEGIN SELECT RAISE(ABORT, 'cleanup failure'); END`); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := repo.MergeSelectedStaging(t.Context(), "selected", "/library", []string{"/library/a"}); err == nil {
@@ -139,6 +147,17 @@ func TestSelectedMergeRejectsUnboundedScopeAndRollsBack(t *testing.T) {
 	entries, readErr := repo.ListEntriesUnderPath("/library")
 	if readErr != nil || len(entries) != 0 {
 		t.Fatalf("merge did not roll back: %+v, %v", entries, readErr)
+	}
+	if _, err := repo.DB().Exec("DROP TRIGGER reject_selected_cleanup"); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.WriteStagingBatch(
+		"selected",
+		[]inventory.StagingEntry{
+			{RootPath: "/library", Path: "/library/a/new.mp3", ParentPath: "/library/a", Name: "new.mp3"},
+		},
+	); err != nil {
+		t.Fatal(err)
 	}
 	if _, err := repo.MergeSelectedStaging(t.Context(), "selected", "/library", nil); err != nil {
 		t.Fatal(err)
@@ -228,6 +247,13 @@ func TestSelectedMergeValidatesAllRangesBeforeWriting(t *testing.T) {
 				)
 			}
 			if stagingErr := store.WriteStagingBatch("ranges", entries); stagingErr != nil {
+				if scenario.name == "wrong root" {
+					stored, readErr := repo.ListEntriesUnderPath("/library")
+					if readErr != nil || len(stored) != 0 {
+						t.Fatalf("invalid batch changed inventory: %+v, %v", stored, readErr)
+					}
+					return
+				}
 				t.Fatal(stagingErr)
 			}
 			_, err = repo.MergeSelectedStaging(t.Context(), "ranges", "/library",

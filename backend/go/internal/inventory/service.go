@@ -141,6 +141,7 @@ type StagingStore interface {
 	// CreateScanSession validates the library root before admitting a traversal.
 	CreateScanSession(session *ScanSession) error
 	UpdateScanSessionStatus(sessionID, status, errorCode, errorMessage string) error
+	CloseStagingSession(sessionID string) error
 }
 
 // StagingEntry represents an entry to be written to staging.
@@ -226,8 +227,8 @@ func NewPipeline(repo StagingStore, walkRoot WalkRoot, walkMember WalkMember, me
 // ScanRootCtx performs a full scan of the given root path using
 // bounded work scanning + inline metadata + staging pipeline.
 // It is context-aware: on ctx cancellation the merge is skipped, the scan
-// session is marked canceled (error_code SCAN_CANCELLED), and staging rows
-// are cleaned up best-effort.
+// session is marked canceled (error_code SCAN_CANCELLED), and its private
+// staging connection is closed.
 //
 // Invariant: Root = bounded work scanning + inline metadata + pipeline.
 //
@@ -256,6 +257,7 @@ func (s *Pipeline) ScanRootCtx(ctx context.Context, rootPath string, opts ...Sca
 		if err := s.repo.CreateScanSession(session); err != nil {
 			return "", fmt.Errorf("create scan session: %w", err)
 		}
+		defer func() { _ = s.repo.CloseStagingSession(sessionID) }()
 	}
 
 	// Run pipeline: walk + batch write to staging
@@ -296,10 +298,6 @@ func (s *Pipeline) ScanRootCtx(ctx context.Context, rootPath string, opts ...Sca
 	})
 
 	// Consumer: batch writes from channel
-	var cleanupFn func(string) error
-	if pipeline, ok := s.repo.(pipelineRepo); ok {
-		cleanupFn = pipeline.CleanupStagingSession
-	}
 
 	// The consumer's final counts outlive its goroutine: the report after the
 	// merge repeats them so the caller sees one event carrying both the scan's
@@ -351,26 +349,16 @@ func (s *Pipeline) ScanRootCtx(ctx context.Context, rootPath string, opts ...Sca
 	// Wait for both producer and consumer to finish
 	wg.Wait()
 
-	// Cancellation (caller context): skip merge, mark canceled, cleanup staging.
+	// Cancellation (caller context): skip merge and mark canceled.
 	if err := baseCtx.Err(); err != nil {
 		if s.repo != nil {
 			_ = s.repo.UpdateScanSessionStatus(sessionID, "canceled", "SCAN_CANCELLED", err.Error())
-		}
-		if cleanupFn != nil {
-			_ = cleanupFn(sessionID) // Best-effort cleanup
 		}
 		return "", err
 	}
 
 	// Check for errors from either
 	if producerErr != nil || consumerErr != nil {
-		// Try to cleanup staging on failure
-		// Note: Partial persistence is expected - cleanup is best-effort
-		var cleanupFailure error
-		if cleanupFn != nil {
-			cleanupFailure = cleanupFn(sessionID)
-		}
-
 		// Update session status to failed
 		code, primaryErr := resolvePipelineError(producerErr, consumerErr)
 		if s.repo != nil {
@@ -383,7 +371,6 @@ func (s *Pipeline) ScanRootCtx(ctx context.Context, rootPath string, opts ...Sca
 		// commonly records context.Canceled that is a symptom, not the cause.
 		// An independent walk error (not caused by our cancellation) stays
 		// primary even when staging also failed.
-		_ = cleanupFailure // We could log this, but primary error is what's expected
 		if errors.Is(primaryErr, consumerErr) {
 			return "", fmt.Errorf("write staging: %w", consumerErr)
 		}
@@ -432,8 +419,8 @@ func (s *Pipeline) ScanRootCtx(ctx context.Context, rootPath string, opts ...Sca
 // ScanFolderCtx performs a scoped scan of a single folder using
 // single-enumerator directory discovery + inline metadata + staging pipeline.
 // It is context-aware: on ctx cancellation the merge is skipped, the scan
-// session is marked canceled (error_code SCAN_CANCELLED), and staging rows
-// are cleaned up best-effort.
+// session is marked canceled (error_code SCAN_CANCELLED), and its private
+// staging connection is closed.
 //
 // Invariant: Folder = single-enumerator directory discovery + inline metadata + pipeline.
 //
@@ -466,6 +453,7 @@ func (s *Pipeline) ScanFolderCtx(
 		if err := s.repo.CreateScanSession(session); err != nil {
 			return "", fmt.Errorf("create scan session: %w", err)
 		}
+		defer func() { _ = s.repo.CloseStagingSession(sessionID) }()
 	}
 
 	// Run pipeline: walk + batch write to staging
@@ -505,10 +493,6 @@ func (s *Pipeline) ScanFolderCtx(
 	})
 
 	// Consumer: batch writes from channel
-	var cleanupFn func(string) error
-	if pipeline, ok := s.repo.(pipelineRepo); ok {
-		cleanupFn = pipeline.CleanupStagingSession
-	}
 
 	wg.Go(func() {
 		batch := make([]StagingEntry, 0, pipelineBatchSize)
@@ -553,32 +537,22 @@ func (s *Pipeline) ScanFolderCtx(
 	// Wait for both producer and consumer
 	wg.Wait()
 
-	// Cancellation (caller context): skip merge, mark canceled, cleanup staging.
+	// Cancellation (caller context): skip merge and mark canceled.
 	if err := baseCtx.Err(); err != nil {
 		if s.repo != nil {
 			_ = s.repo.UpdateScanSessionStatus(sessionID, "canceled", "SCAN_CANCELLED", err.Error())
-		}
-		if cleanupFn != nil {
-			_ = cleanupFn(sessionID) // Best-effort cleanup
 		}
 		return "", err
 	}
 
 	// Check for errors
 	if producerErr != nil || consumerErr != nil {
-		// Cleanup staging on failure
-		var cleanupFailure error
-		if cleanupFn != nil {
-			cleanupFailure = cleanupFn(sessionID)
-		}
-
 		// Update session status
 		code, primaryErr := resolvePipelineError(producerErr, consumerErr)
 		if s.repo != nil {
 			_ = s.repo.UpdateScanSessionStatus(sessionID, "failed", code, primaryErr.Error())
 		}
 
-		_ = cleanupFailure // Best effort cleanup
 		if errors.Is(primaryErr, consumerErr) {
 			return "", consumerErr
 		}

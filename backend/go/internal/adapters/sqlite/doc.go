@@ -1,7 +1,9 @@
 // Package sqlite implements the backend's persistence and scan-staging seams.
 // It owns SQL projections, nullable-value mapping, connection configuration and
 // atomic operations spanning related records, including scan merges, ordered
-// collection membership and the catalog's Favorites projection.
+// collection membership and the catalog's Favorites projection. Scan sessions
+// own dedicated physical connections: TEMP-only staging leaves the main writer
+// free, and the same connection merges atomically before releasing its temp files.
 //
 // Business packages own the types and consumer ports; this adapter persists
 // them and enforces their transitions within transactions. It also implements

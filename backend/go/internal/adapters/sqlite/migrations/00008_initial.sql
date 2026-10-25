@@ -26,21 +26,6 @@ CREATE TABLE inventory_files (
     PRIMARY KEY (dir_ref, name)
 ) WITHOUT ROWID;
 
--- Staging table for scan operations (session-scoped)
-CREATE TABLE entries_staging (
-    session_id TEXT NOT NULL,
-    path TEXT NOT NULL,
-    root_path TEXT NOT NULL DEFAULT '',
-    parent_path TEXT NOT NULL DEFAULT '',
-    name TEXT NOT NULL DEFAULT '',
-    is_dir INTEGER NOT NULL DEFAULT 0,
-    size INTEGER NOT NULL DEFAULT 0,
-    mtime INTEGER NOT NULL DEFAULT 0,
-    format TEXT,
-    is_work_root INTEGER NOT NULL DEFAULT 0,
-    PRIMARY KEY (session_id, path)
-) WITHOUT ROWID;
-
 -- Generation credentials: what this app wrote at a path, and the facts that
 -- bind the record to those bytes. A row exists only for an output that passed
 -- the executor's stream and full-decode verification and was committed, so the

@@ -152,9 +152,9 @@ jobs:
       - name: Check conversion handles and strict moves on Windows
         working-directory: backend/go
         run: go test ./internal/adapters/filesystem -run "TestConversion(SourceHandleKeepsPlatformIdentity|Probe)" -count=1
-      - name: Check SQLite connection pragmas on Windows
+      - name: Check SQLite connections, scan lifecycle and temp spills on Windows
         working-directory: backend/go
-        run: go test ./internal/adapters/sqlite -run TestConnectionPragmasAreAppliedToEveryConnection -count=1
+        run: go test ./internal/adapters/sqlite -count=1
 
   web-e2e:
     needs: [prepare, go-test, web-quality]

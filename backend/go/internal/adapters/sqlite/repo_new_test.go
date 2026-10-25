@@ -13,7 +13,6 @@ func TestNewRepository(t *testing.T) {
 		tables := []string{
 			"inventory_dirs",
 			"inventory_files",
-			"entries_staging",
 			"scan_sessions",
 			"plans",
 		}
@@ -190,8 +189,8 @@ func TestRepoSchemaInit(t *testing.T) {
 		t.Fatalf("entries table not found: %v", err)
 	}
 
-	err = repo.db.QueryRow("SELECT COUNT(*) FROM entries_staging").Scan(&count)
-	if err != nil {
-		t.Fatalf("entries_staging table not found: %v", err)
+	err = repo.db.QueryRow("SELECT COUNT(*) FROM sqlite_master WHERE name='entries_staging'").Scan(&count)
+	if err != nil || count != 0 {
+		t.Fatalf("main staging table exists: count=%d, err=%v", count, err)
 	}
 }

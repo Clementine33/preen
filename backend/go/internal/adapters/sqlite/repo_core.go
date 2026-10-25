@@ -42,7 +42,10 @@ type CleanupStats struct {
 // ==================== Repository ====================
 
 type Repository struct {
-	db *sql.DB
+	db        *sql.DB
+	dbPath    string
+	stagingMu sync.Mutex
+	staging   map[string]*scanConnection
 
 	// BitrateWriteMu serializes bitrate DB writes across concurrent Analyzer
 	// goroutines to avoid SQLITE_BUSY under concurrent folder-plan requests.
@@ -71,14 +74,21 @@ func (r *Repository) catalogChanged() {
 // and SQLite only started refusing it in 3.51.3, where losing the race used to
 // be silent. Every write path here reads before it writes (find the queued
 // session, load the draft, then claim or persist), so the transaction has to
-// own the write lock before it reads. Read-only transactions are unaffected:
-// the driver leaves them deferred.
+// own the write lock before it reads. Scan TEMP batches explicitly use BEGIN
+// DEFERRED and never read main; their merge still uses IMMEDIATE. Read-only
+// transactions are unaffected: the driver leaves them deferred.
 //
 // File-wide auto_vacuum is initialized before the first table instead: setting
 // it on every new connection would make even readers wait for the writer lock.
 const connectionPragmas = "?_pragma=foreign_keys(1)&_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_txlock=immediate"
 
 func (r *Repository) Close() error {
+	r.stagingMu.Lock()
+	defer r.stagingMu.Unlock()
+	for id, session := range r.staging {
+		_ = session.close()
+		delete(r.staging, id)
+	}
 	return r.db.Close()
 }
 

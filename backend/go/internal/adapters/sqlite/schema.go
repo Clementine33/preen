@@ -42,7 +42,7 @@ func openRepository(dbPath string, development bool, migrations fs.FS) (*Reposit
 		db.Close()
 		return nil, err
 	}
-	return &Repository{db: db}, nil
+	return &Repository{db: db, dbPath: dbPath, staging: make(map[string]*scanConnection)}, nil
 }
 
 func prepareSchema(db *sql.DB, dbPath string, development bool, migrations fs.FS) error {

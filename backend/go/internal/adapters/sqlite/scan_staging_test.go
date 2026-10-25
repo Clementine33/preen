@@ -63,10 +63,7 @@ func TestWriteStagingEntries_LargeBatch_SucceedsAtomically(t *testing.T) {
 
 	// Verify all entries were written
 	var count int
-	err = suite.repo.DB().QueryRow(
-		"SELECT COUNT(*) FROM entries_staging WHERE session_id = ?",
-		sessionID,
-	).Scan(&count)
+	err = stagingTestRow(suite.repo, sessionID, "SELECT COUNT(*) FROM entries_staging").Scan(&count)
 	if err != nil {
 		t.Fatalf("failed to count staging entries: %v", err)
 	}
@@ -121,10 +118,7 @@ func TestWriteStagingEntries_StagingWriteFailure_TriggersRollbackAndReturnsError
 
 	// Verify rollback occurred - no partial rows should remain
 	var count int
-	queryErr := suite.repo.DB().QueryRow(
-		"SELECT COUNT(*) FROM entries_staging WHERE session_id = ?",
-		sessionID,
-	).Scan(&count)
+	queryErr := stagingTestRow(suite.repo, sessionID, "SELECT COUNT(*) FROM entries_staging").Scan(&count)
 	if queryErr != nil {
 		t.Fatalf("failed to count staging entries: %v", queryErr)
 	}
@@ -163,10 +157,7 @@ func TestWriteStagingEntries_BatchSizeBoundary(t *testing.T) {
 	}
 
 	var count int
-	err = suite.repo.DB().QueryRow(
-		"SELECT COUNT(*) FROM entries_staging WHERE session_id = ?",
-		sessionID,
-	).Scan(&count)
+	err = stagingTestRow(suite.repo, sessionID, "SELECT COUNT(*) FROM entries_staging").Scan(&count)
 	if err != nil {
 		t.Fatalf("failed to count entries: %v", err)
 	}
@@ -196,10 +187,7 @@ func TestWriteStagingEntries_BatchSizeBoundary(t *testing.T) {
 		t.Fatalf("WriteStagingEntries failed for batch+1: %v", err)
 	}
 
-	err = suite.repo.DB().QueryRow(
-		"SELECT COUNT(*) FROM entries_staging WHERE session_id = ?",
-		sessionID2,
-	).Scan(&count)
+	err = stagingTestRow(suite.repo, sessionID2, "SELECT COUNT(*) FROM entries_staging").Scan(&count)
 	if err != nil {
 		t.Fatalf("failed to count entries: %v", err)
 	}
@@ -222,10 +210,7 @@ func TestWriteStagingEntries_EmptyEntries(t *testing.T) {
 
 	// Verify no entries were written
 	var count int
-	err = suite.repo.DB().QueryRow(
-		"SELECT COUNT(*) FROM entries_staging WHERE session_id = ?",
-		sessionID,
-	).Scan(&count)
+	err = stagingTestRow(suite.repo, sessionID, "SELECT COUNT(*) FROM entries_staging").Scan(&count)
 	if err != nil {
 		t.Fatalf("failed to count entries: %v", err)
 	}
@@ -262,9 +247,11 @@ func TestWriteStagingEntries_InsertOrReplace(t *testing.T) {
 
 	// Verify initial write
 	var size int64
-	err = suite.repo.DB().QueryRow(
-		"SELECT size FROM entries_staging WHERE session_id = ? AND path = ?",
-		sessionID, "/music/file1.mp3",
+	err = stagingTestRow(
+		suite.repo,
+		sessionID,
+		"SELECT size FROM entries_staging WHERE path = ?",
+		"/music/file1.mp3",
 	).Scan(&size)
 	if err != nil {
 		t.Fatalf("failed to read entry: %v", err)
@@ -281,9 +268,11 @@ func TestWriteStagingEntries_InsertOrReplace(t *testing.T) {
 	}
 
 	// Verify entry was replaced, not duplicated
-	err = suite.repo.DB().QueryRow(
-		"SELECT size FROM entries_staging WHERE session_id = ? AND path = ?",
-		sessionID, "/music/file1.mp3",
+	err = stagingTestRow(
+		suite.repo,
+		sessionID,
+		"SELECT size FROM entries_staging WHERE path = ?",
+		"/music/file1.mp3",
 	).Scan(&size)
 	if err != nil {
 		t.Fatalf("failed to read entry after upsert: %v", err)
@@ -294,10 +283,7 @@ func TestWriteStagingEntries_InsertOrReplace(t *testing.T) {
 
 	// Verify only one entry exists
 	var count int
-	err = suite.repo.DB().QueryRow(
-		"SELECT COUNT(*) FROM entries_staging WHERE session_id = ?",
-		sessionID,
-	).Scan(&count)
+	err = stagingTestRow(suite.repo, sessionID, "SELECT COUNT(*) FROM entries_staging").Scan(&count)
 	if err != nil {
 		t.Fatalf("failed to count entries: %v", err)
 	}
@@ -365,10 +351,7 @@ func TestWriteStagingBatch_MultiTransaction(t *testing.T) {
 
 	// Verify both batches were written
 	var count int
-	err := suite.repo.DB().QueryRow(
-		"SELECT COUNT(*) FROM entries_staging WHERE session_id = ?",
-		sessionID,
-	).Scan(&count)
+	err := stagingTestRow(suite.repo, sessionID, "SELECT COUNT(*) FROM entries_staging").Scan(&count)
 	if err != nil {
 		t.Fatalf("failed to count entries: %v", err)
 	}
@@ -406,10 +389,7 @@ func TestWriteStagingBatch_PartialPersistence(t *testing.T) {
 
 	// Verify first batch was written
 	var count int
-	err := suite.repo.DB().QueryRow(
-		"SELECT COUNT(*) FROM entries_staging WHERE session_id = ?",
-		sessionID,
-	).Scan(&count)
+	err := stagingTestRow(suite.repo, sessionID, "SELECT COUNT(*) FROM entries_staging").Scan(&count)
 	if err != nil {
 		t.Fatalf("failed to count entries: %v", err)
 	}
@@ -418,8 +398,8 @@ func TestWriteStagingBatch_PartialPersistence(t *testing.T) {
 	}
 }
 
-// TestCleanupStagingSession_RemovesAllEntriesForSession verifies cleanup removes all staging entries.
-func TestCleanupStagingSession_RemovesAllEntriesForSession(t *testing.T) {
+// TestCloseStagingSession_RemovesAllEntriesForSession verifies cleanup removes all staging entries.
+func TestCloseStagingSession_RemovesAllEntriesForSession(t *testing.T) {
 	suite := setupTestDB(t)
 
 	sessionID := "test-cleanup-session"
@@ -456,10 +436,7 @@ func TestCleanupStagingSession_RemovesAllEntriesForSession(t *testing.T) {
 
 	// Verify entries exist
 	var count int
-	err := suite.repo.DB().QueryRow(
-		"SELECT COUNT(*) FROM entries_staging WHERE session_id = ?",
-		sessionID,
-	).Scan(&count)
+	err := stagingTestRow(suite.repo, sessionID, "SELECT COUNT(*) FROM entries_staging").Scan(&count)
 	if err != nil {
 		t.Fatalf("failed to count entries: %v", err)
 	}
@@ -468,15 +445,12 @@ func TestCleanupStagingSession_RemovesAllEntriesForSession(t *testing.T) {
 	}
 
 	// Cleanup
-	if cleanupErr := suite.adapter.CleanupStagingSession(sessionID); cleanupErr != nil {
-		t.Fatalf("CleanupStagingSession failed: %v", cleanupErr)
+	if cleanupErr := suite.adapter.CloseStagingSession(sessionID); cleanupErr != nil {
+		t.Fatalf("CloseStagingSession failed: %v", cleanupErr)
 	}
 
 	// Verify entries removed
-	err = suite.repo.DB().QueryRow(
-		"SELECT COUNT(*) FROM entries_staging WHERE session_id = ?",
-		sessionID,
-	).Scan(&count)
+	err = stagingTestRow(suite.repo, sessionID, "SELECT COUNT(*) FROM entries_staging").Scan(&count)
 	if err != nil {
 		t.Fatalf("failed to count entries after cleanup: %v", err)
 	}
@@ -485,8 +459,8 @@ func TestCleanupStagingSession_RemovesAllEntriesForSession(t *testing.T) {
 	}
 }
 
-// TestCleanupStagingSession_PreservesOtherSessions verifies cleanup only affects target session.
-func TestCleanupStagingSession_PreservesOtherSessions(t *testing.T) {
+// TestCloseStagingSession_PreservesOtherSessions verifies cleanup only affects target session.
+func TestCloseStagingSession_PreservesOtherSessions(t *testing.T) {
 	suite := setupTestDB(t)
 
 	sessionID1 := "test-cleanup-session1"
@@ -528,16 +502,13 @@ func TestCleanupStagingSession_PreservesOtherSessions(t *testing.T) {
 	}
 
 	// Cleanup only session1
-	if err := suite.adapter.CleanupStagingSession(sessionID1); err != nil {
-		t.Fatalf("CleanupStagingSession failed: %v", err)
+	if err := suite.adapter.CloseStagingSession(sessionID1); err != nil {
+		t.Fatalf("CloseStagingSession failed: %v", err)
 	}
 
 	// Verify session1 entries removed
 	var count1, count2 int
-	err := suite.repo.DB().QueryRow(
-		"SELECT COUNT(*) FROM entries_staging WHERE session_id = ?",
-		sessionID1,
-	).Scan(&count1)
+	err := stagingTestRow(suite.repo, sessionID1, "SELECT COUNT(*) FROM entries_staging").Scan(&count1)
 	if err != nil {
 		t.Fatalf("failed to count session1 entries: %v", err)
 	}
@@ -546,10 +517,7 @@ func TestCleanupStagingSession_PreservesOtherSessions(t *testing.T) {
 	}
 
 	// Verify session2 entries preserved
-	err = suite.repo.DB().QueryRow(
-		"SELECT COUNT(*) FROM entries_staging WHERE session_id = ?",
-		sessionID2,
-	).Scan(&count2)
+	err = stagingTestRow(suite.repo, sessionID2, "SELECT COUNT(*) FROM entries_staging").Scan(&count2)
 	if err != nil {
 		t.Fatalf("failed to count session2 entries: %v", err)
 	}

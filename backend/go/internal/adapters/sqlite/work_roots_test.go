@@ -131,7 +131,9 @@ func TestNestedWorkInventoryAndNoOpRescan(t *testing.T) {
 	second := scan()
 
 	var staging int
-	if err = repo.DB().QueryRow("SELECT count(*) FROM entries_staging").Scan(&staging); err != nil {
+	if err = repo.DB().
+		QueryRow("SELECT count(*) FROM sqlite_master WHERE name='entries_staging'").
+		Scan(&staging); err != nil {
 		t.Fatal(err)
 	}
 	if staging != 0 {

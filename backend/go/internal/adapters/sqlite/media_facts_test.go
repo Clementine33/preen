@@ -89,7 +89,7 @@ func TestMergePreservesMediaFactsWhenUnchanged(t *testing.T) {
 }
 
 func TestEntriesMissingMediaFactsAndWriteBack(t *testing.T) {
-	repo, err := NewRepository(":memory:")
+	repo, err := NewRepository(t.TempDir() + "/test.db")
 	if err != nil {
 		t.Fatalf("create repo: %v", err)
 	}
@@ -170,7 +170,7 @@ func candidatePaths(candidates []inventory.MediaCandidate) string {
 }
 
 func TestEncodedAudioWaitsForItsBitrateAndKeepsKnownFacts(t *testing.T) {
-	repo, err := NewRepository(":memory:")
+	repo, err := NewRepository(t.TempDir() + "/test.db")
 	if err != nil {
 		t.Fatalf("create repo: %v", err)
 	}
@@ -276,7 +276,7 @@ func TestMediaFactsCountsSplitAtTheCursorPerLibrary(t *testing.T) {
 }
 
 func TestMediaFactsTupleCursor(t *testing.T) {
-	repo, err := NewRepository(":memory:")
+	repo, err := NewRepository(t.TempDir() + "/test.db")
 	if err != nil {
 		t.Fatal(err)
 	}

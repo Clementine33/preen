@@ -3,7 +3,9 @@ package ffmpeg_test
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -95,7 +97,7 @@ func TestOpusPageIntegrity(t *testing.T) {
 	}
 }
 
-func TestM4AChapterTrack(t *testing.T) {
+func TestEncodingDropsChapters(t *testing.T) {
 	_, wav := audioFixture(t)
 	dir := t.TempDir()
 	metadata := filepath.Join(dir, "chapters.txt")
@@ -125,13 +127,68 @@ func TestM4AChapterTrack(t *testing.T) {
 		"mp4",
 		sourcePath,
 	)
-	spec := reconcile.AudioOutputSpec{
-		Codec:   reconcile.CodecAac,
-		Quality: &reconcile.Quality{Kind: reconcile.QualityBitrate, Bitrate: 128},
+	wavData, err := os.ReadFile(wav)
+	if err != nil {
+		t.Fatal(err)
 	}
-	_, _, data := outputFixture(t, sourcePath, spec)
-	if bytes.Count(data, []byte("stco")) < 2 {
-		t.Fatal("fixture did not preserve chapter text track")
+	const cueCount = 198
+	cues := uint32le(cueCount)
+	for i := range cueCount {
+		cue := append(uint32le(i+1), make([]byte, 20)...)
+		copy(cue[8:], "data") // DAW markers at the same position, without labels.
+		cues = append(cues, cue...)
+	}
+	wavData = append(wavData, riffChunk("cue ", cues)...)
+	copy(wavData[4:8], uint32le(len(wavData)-8))
+	cuePath := filepath.Join(dir, "cue.wav")
+	if err := os.WriteFile(cuePath, wavData, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for _, source := range []struct {
+		name     string
+		path     string
+		chapters int
+	}{
+		{"titled M4A", sourcePath, 1},
+		{"untitled WAV cues", cuePath, cueCount},
+	} {
+		t.Run(source.name, func(t *testing.T) {
+			assertChapterCount(t, source.path, source.chapters)
+			for _, codec := range []reconcile.Codec{
+				reconcile.CodecWav, reconcile.CodecFlac, reconcile.CodecMp3, reconcile.CodecAac, reconcile.CodecOpus,
+			} {
+				t.Run(string(codec), func(t *testing.T) {
+					spec := reconcile.AudioOutputSpec{Codec: codec}
+					if !spec.Lossless() {
+						spec.Quality = &reconcile.Quality{Kind: reconcile.QualityBitrate, Bitrate: 128}
+					}
+					_, _, data := outputFixture(t, source.path, spec)
+					path := filepath.Join(t.TempDir(), "output"+reconcile.ExtForCodec(codec))
+					if err := os.WriteFile(path, data, 0o600); err != nil {
+						t.Fatal(err)
+					}
+					assertChapterCount(t, path, 0)
+				})
+			}
+		})
+	}
+}
+
+func assertChapterCount(t *testing.T, path string, want int) {
+	t.Helper()
+	data, err := exec.CommandContext(t.Context(), "ffprobe", "-v", "error", "-show_chapters", "-of", "json", path).
+		CombinedOutput()
+	if err != nil {
+		t.Fatalf("probe chapters: %v: %s", err, data)
+	}
+	var result struct {
+		Chapters []json.RawMessage `json:"chapters"`
+	}
+	if err := json.Unmarshal(data, &result); err != nil {
+		t.Fatalf("probe chapters: %v: %s", err, data)
+	}
+	if len(result.Chapters) != want {
+		t.Fatalf("chapters = %d, want %d", len(result.Chapters), want)
 	}
 }
 

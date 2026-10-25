@@ -112,8 +112,8 @@ func (f Encoder) TargetFacts(spec reconcile.AudioOutputSpec) (encoder, mode stri
 // The source's tags come with it, whichever container reconciliation picked as
 // the source — a declared lossless target, else WAV, else FLAC — and a WAV that
 // carries them as legacy Shift-JIS RIFF INFO bytes has those values repaired
-// instead of copied as mojibake. An embedded picture does not come with it: no
-// target gets container-specific handling for one.
+// instead of copied as mojibake. Chapters and embedded pictures are not copied:
+// each output is one complete track, without container-specific extras.
 // AAC uses bitrate-controlled CBR (-b:a), never quality/VBR (-q:a).
 // The caller owns a newly created seekable destination handle. Partial output on failure
 // belongs to the caller; this adapter never commits, removes or replaces media.
@@ -157,6 +157,8 @@ func (f Encoder) encodeHandles(
 		"0:a:0",
 		"-map_metadata",
 		"0",
+		"-map_chapters",
+		"-1",
 		"-vn",
 	}
 	args = append(args, tagArgs...)

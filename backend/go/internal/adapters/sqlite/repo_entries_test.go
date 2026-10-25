@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Clementine33/preen/backend/internal/testutil/inventoryfixture"
+
 	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
 )
 
@@ -29,19 +31,23 @@ func TestObservedAudioEntriesSpansTheWholeSubtree(t *testing.T) {
 		"/music/ab/03.mp3",
 		"/other/04.mp3",
 	} {
-		if _, err := repo.DB().Exec(`
-			INSERT INTO entries (path, root_path, parent_path, name, is_dir, size, mtime, format, created_at, updated_at)
-			VALUES (?, ?, ?, ?, 0, 0, 0, 'mp3', ?, ?)
-		`, path, filepath.Dir(path), filepath.Dir(path), filepath.Base(path), now, now); err != nil {
-			t.Fatalf("seed %s: %v", path, err)
-		}
+		inventoryfixture.SeedInventory(
+			t,
+			repo,
+			inventoryfixture.Row{
+				Path:      path,
+				RootPath:  filepath.Dir(path),
+				Format:    "mp3",
+				CreatedAt: now,
+				UpdatedAt: now,
+			},
+		)
 	}
-	if _, err := repo.DB().Exec(`
-		INSERT INTO entries (path, root_path, parent_path, name, is_dir, size, mtime, created_at, updated_at)
-		VALUES ('/music/a/deep', '/music/a', '/music/a', 'deep', 1, 0, 0, ?, ?)
-	`, now, now); err != nil {
-		t.Fatalf("seed directory row: %v", err)
-	}
+	inventoryfixture.SeedInventory(
+		t,
+		repo,
+		inventoryfixture.Row{Path: "/music/a/deep", RootPath: "/music/a", IsDir: true, CreatedAt: now, UpdatedAt: now},
+	)
 
 	for _, tc := range []struct {
 		root string

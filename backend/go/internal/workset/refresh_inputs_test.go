@@ -3,9 +3,12 @@ package workset_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/Clementine33/preen/backend/internal/inventory"
 
 	"github.com/Clementine33/preen/backend/internal/conversion/reconcile"
 	"github.com/Clementine33/preen/backend/internal/workset"
@@ -66,10 +69,19 @@ func TestExecutionRevalidatesInputsAfterRefresh(t *testing.T) {
 	var f *execFixture
 	f = newExecFixtureWithScan(t, func(_ context.Context, folderPath, _ string) error {
 		// The disk moved since the revision was frozen; the scan records it.
-		_, err := f.repo.DB().Exec(
-			"UPDATE entries SET mtime = mtime + 500 WHERE path = ?", folderPath+"/00.mp3",
+		entry, found, err := f.repo.EntryByPath(folderPath + "/00.mp3")
+		if err != nil {
+			return err
+		}
+		if !found {
+			return fmt.Errorf("missing inventory file")
+		}
+		return f.repo.SyncObservedInventory(
+			filepath.ToSlash(f.root),
+			nil,
+			[]inventory.InventoryFile{{Path: entry.Path, Size: entry.Size, Mtime: entry.Mtime + 500}},
+			nil,
 		)
-		return err
 	})
 	f.runDispatcher()
 	source, size, mtime := f.writeAudio("albumA", "00.mp3", []byte("obsolete-audio"))

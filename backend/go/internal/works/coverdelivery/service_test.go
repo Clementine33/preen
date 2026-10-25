@@ -10,8 +10,11 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/Clementine33/preen/backend/internal/testutil/inventoryfixture"
 
 	"github.com/Clementine33/preen/backend/internal/adapters/httpapi"
 
@@ -106,14 +109,22 @@ func deliveryFixture(
 			t.Fatal(err)
 		}
 		folders = append(folders, filepath.ToSlash(dir))
+		inventoryfixture.SeedInventory(t, repo, inventoryfixture.Row{
+			Path:       filepath.ToSlash(dir),
+			RootPath:   filepath.ToSlash(root),
+			IsDir:      true,
+			IsWorkRoot: true,
+		})
 		if _, err = repo.DB().
-			Exec(`INSERT INTO entries_staging(session_id,path,root_path,parent_path,name,is_dir,is_work_root,size,mtime,operation) VALUES('scan',?,?,?, ?,1,1,0,0,'upsert')`, filepath.ToSlash(dir), filepath.ToSlash(root), filepath.ToSlash(root), name); err != nil {
+			Exec(`INSERT INTO works(id,collected_at,updated_at) VALUES('RJ00000001','now','now') ON CONFLICT(id) DO NOTHING`); err != nil {
+			t.Fatal(err)
+		}
+		if _, err = repo.DB().
+			Exec(`INSERT INTO work_copies(id,work_id,library_id,rel_path,created_at) VALUES(?,'RJ00000001',?,?,'now')`, strings.ReplaceAll(name, " ", "-"), lib.ID, name); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if _, err = repo.MergeStaging("scan", lib.ID, filepath.ToSlash(root)); err != nil {
-		t.Fatal(err)
-	}
+
 	setCoverURL(t, repo, "https://img.dlsite.jp/main")
 	targets, err := repo.CoverTargets(t.Context(), root, folders)
 	if err != nil {

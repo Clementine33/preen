@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Clementine33/preen/backend/internal/testutil/inventoryfixture"
+
 	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
 	"github.com/Clementine33/preen/backend/internal/library"
 )
@@ -71,12 +73,14 @@ func seedContentWork(t *testing.T, fixture *sqlite.Repository) string {
 	mtime := time.Now().Unix()
 	seedEntry := func(path string, name string, isDir int, size int64, format string) {
 		t.Helper()
-		if _, err := fixture.DB().Exec(`
-			INSERT INTO entries (path, root_path, parent_path, name, is_dir, size, mtime, format)
-			VALUES (?, ?, ?, ?, ?, ?, ?, NULLIF(?, ''))
-		`, path, filepath.ToSlash(root), filepath.ToSlash(filepath.Dir(path)), name, isDir, size, mtime, format); err != nil {
-			t.Fatalf("seed entry %s: %v", path, err)
-		}
+		inventoryfixture.SeedInventory(t, fixture, inventoryfixture.Row{
+			Path:     path,
+			RootPath: filepath.ToSlash(root),
+			IsDir:    isDir == 1,
+			Size:     size,
+			Mtime:    mtime,
+			Format:   format,
+		})
 	}
 	seedEntry(memberPosix, "RJ01000001", 1, 0, "")
 	seedEntry(memberPosix+"/表紙", "表紙", 1, 0, "")

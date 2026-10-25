@@ -54,9 +54,16 @@ func TestMergePreservesMediaFactsWhenUnchanged(t *testing.T) {
 	mergeFactsFixture(t, repo, "/music", "/music/cover.png", "image/png", 1024, now, "scan-2")
 
 	var width, height sql.NullInt64
-	if err := repo.db.QueryRow("SELECT width, height FROM entries WHERE path = ?", "/music/cover.png").
-		Scan(&width, &height); err != nil {
-		t.Fatal(err)
+	{
+		entry := inventoryEntry(t, repo, "/music/cover.png")
+		width = sql.NullInt64{}
+		if entry.Width != nil {
+			width = sql.NullInt64{Int64: int64(*entry.Width), Valid: true}
+		}
+		height = sql.NullInt64{}
+		if entry.Height != nil {
+			height = sql.NullInt64{Int64: int64(*entry.Height), Valid: true}
+		}
 	}
 	if !width.Valid || width.Int64 != 1200 || !height.Valid || height.Int64 != 900 {
 		t.Errorf("expected preserved 1200x900, got %v x %v", width.Int64, height.Int64)
@@ -64,9 +71,16 @@ func TestMergePreservesMediaFactsWhenUnchanged(t *testing.T) {
 
 	// A changed file clears them: the recorded facts describe old bytes.
 	mergeFactsFixture(t, repo, "/music", "/music/cover.png", "image/png", 2048, now, "scan-3")
-	if err := repo.db.QueryRow("SELECT width, height FROM entries WHERE path = ?", "/music/cover.png").
-		Scan(&width, &height); err != nil {
-		t.Fatal(err)
+	{
+		entry := inventoryEntry(t, repo, "/music/cover.png")
+		width = sql.NullInt64{}
+		if entry.Width != nil {
+			width = sql.NullInt64{Int64: int64(*entry.Width), Valid: true}
+		}
+		height = sql.NullInt64{}
+		if entry.Height != nil {
+			height = sql.NullInt64{Int64: int64(*entry.Height), Valid: true}
+		}
 	}
 	if width.Valid || height.Valid {
 		t.Errorf("expected cleared facts after change, got %v x %v", width.Int64, height.Int64)
@@ -134,9 +148,12 @@ func TestEntriesMissingMediaFactsAndWriteBack(t *testing.T) {
 		t.Fatal(updateErr)
 	}
 	var duration sql.NullFloat64
-	if err := repo.db.QueryRow("SELECT duration_sec FROM entries WHERE path = ?", "/music/track.mp3").
-		Scan(&duration); err != nil {
-		t.Fatal(err)
+	{
+		entry := inventoryEntry(t, repo, "/music/track.mp3")
+		duration = sql.NullFloat64{}
+		if entry.DurationSec != nil {
+			duration = sql.NullFloat64{Float64: float64(*entry.DurationSec), Valid: true}
+		}
 	}
 	if !duration.Valid || duration.Float64 != 185.5 {
 		t.Errorf("expected duration 185.5, got %v", duration.Float64)
@@ -189,9 +206,16 @@ func TestEncodedAudioWaitsForItsBitrateAndKeepsKnownFacts(t *testing.T) {
 	}
 	var duration sql.NullFloat64
 	var bitrate sql.NullInt64
-	if err := repo.db.QueryRow("SELECT duration_sec, bitrate FROM entries WHERE path = ?", "/music/a.mp3").
-		Scan(&duration, &bitrate); err != nil {
-		t.Fatal(err)
+	{
+		entry := inventoryEntry(t, repo, "/music/a.mp3")
+		duration = sql.NullFloat64{}
+		if entry.DurationSec != nil {
+			duration = sql.NullFloat64{Float64: float64(*entry.DurationSec), Valid: true}
+		}
+		bitrate = sql.NullInt64{}
+		if entry.Bitrate != nil {
+			bitrate = sql.NullInt64{Int64: int64(*entry.Bitrate), Valid: true}
+		}
 	}
 	if duration.Float64 != 60 || bitrate.Int64 != 320000 {
 		t.Errorf("facts = %v s, %v bps; want 60 s, 320000 bps", duration.Float64, bitrate.Int64)

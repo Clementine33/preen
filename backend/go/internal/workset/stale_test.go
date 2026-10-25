@@ -3,6 +3,8 @@ package workset_test
 import (
 	"testing"
 
+	"github.com/Clementine33/preen/backend/internal/inventory"
+
 	"github.com/Clementine33/preen/backend/internal/workset"
 )
 
@@ -29,7 +31,18 @@ func TestStaleValidationIgnoresNonAudioChanges(t *testing.T) {
 	}
 
 	// Non-audio churn must not invalidate the plan.
-	f.exec("UPDATE entries SET mtime = mtime + 500 WHERE path = '/music/albumA/cover.jpg'")
+	entry500, found500, err500 := f.repo.EntryByPath("/music/albumA/cover.jpg")
+	if err500 != nil || !found500 {
+		t.Fatalf("read inventory: found=%v err=%v", found500, err500)
+	}
+	if err := f.repo.SyncObservedInventory(
+		"/music",
+		nil,
+		[]inventory.InventoryFile{{Path: "/music/albumA/cover.jpg", Size: entry500.Size, Mtime: entry500.Mtime + 500}},
+		nil,
+	); err != nil {
+		t.Fatal(err)
+	}
 	f.insertNonAudioEntry("/music/albumA/notes.txt", "/music/albumA", 500, 1000)
 	afterSidecar := f.operation(ws.WorksetID).CurrentRevision
 	if afterSidecar.ValidationState != workset.ValidationValid || *afterSidecar.Stale {
@@ -37,7 +50,18 @@ func TestStaleValidationIgnoresNonAudioChanges(t *testing.T) {
 	}
 
 	// Audio churn does.
-	f.exec("UPDATE entries SET mtime = mtime + 100 WHERE path = '/music/albumA/01.mp3'")
+	entry100, found100, err100 := f.repo.EntryByPath("/music/albumA/01.mp3")
+	if err100 != nil || !found100 {
+		t.Fatalf("read inventory: found=%v err=%v", found100, err100)
+	}
+	if err := f.repo.SyncObservedInventory(
+		"/music",
+		nil,
+		[]inventory.InventoryFile{{Path: "/music/albumA/01.mp3", Size: entry100.Size, Mtime: entry100.Mtime + 100}},
+		nil,
+	); err != nil {
+		t.Fatal(err)
+	}
 	afterAudio := f.operation(ws.WorksetID).CurrentRevision
 	if afterAudio.ValidationState != workset.ValidationStale || !*afterAudio.Stale {
 		t.Fatalf("audio change must mark the revision stale: state=%q", afterAudio.ValidationState)
@@ -108,7 +132,17 @@ func TestMissingRootIsBlockedButNotStaleUntilAudioAppears(t *testing.T) {
 	// The directory is gone from the disk, so the next scan of the library
 	// drops its subtree from the inventory. The record keeps its member: the
 	// scope is fixed, the facts about it are not.
-	f.exec("DELETE FROM entries WHERE path = '/music/albumMissing' OR path LIKE '/music/albumMissing/%'")
+	rows, err := f.repo.ListEntriesUnderPath("/music/albumMissing")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var removed []string
+	for _, row := range rows {
+		removed = append(removed, row.Path)
+	}
+	if err := f.repo.SyncObservedInventory("/music", removed, nil, nil); err != nil {
+		t.Fatal(err)
+	}
 
 	gen := f.runGeneration(ws.WorksetID, f.operation(ws.WorksetID).Version)
 	if gen.Status != "completed" {

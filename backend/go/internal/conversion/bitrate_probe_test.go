@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/Clementine33/preen/backend/internal/testutil/inventoryfixture"
+
 	"github.com/Clementine33/preen/backend/internal/adapters/media"
 
 	appconfig "github.com/Clementine33/preen/backend/internal/adapters/settings"
@@ -40,14 +42,14 @@ func TestPlanReadsAnOpusBitrateFromTheContainer(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = repo.Close() })
-	_, insertErr := repo.DB().Exec(
-		`INSERT INTO entries (path, root_path, is_dir, size, format, content_rev, mtime, bitrate)
-		VALUES (?, ?, 0, 80000, 'opus', 1, 1, 0)`,
-		filepath.ToSlash(track), filepath.ToSlash(dir),
-	)
-	if insertErr != nil {
-		t.Fatal(insertErr)
-	}
+	inventoryfixture.SeedInventory(t, repo, inventoryfixture.Row{
+		Path:     filepath.ToSlash(track),
+		RootPath: filepath.ToSlash(dir),
+		Size:     80000,
+		Format:   "opus",
+		Mtime:    1,
+		Bitrate:  new(int32(0)),
+	})
 	profile := reconcile.DesiredProfile{Encoded: &reconcile.AudioOutputSpec{
 		Codec: reconcile.CodecOpus, Quality: &reconcile.Quality{Kind: reconcile.QualityBitrate, Bitrate: 160},
 	}}
@@ -73,10 +75,11 @@ func TestPlanReadsAnOpusBitrateFromTheContainer(t *testing.T) {
 			res.Summary.UnmetTargets,
 		)
 	}
-	var bitrate int64
-	if scanErr := repo.DB().QueryRow("SELECT bitrate FROM entries").Scan(&bitrate); scanErr != nil {
-		t.Fatal(scanErr)
+	entry, found, scanErr := repo.EntryByPath(filepath.ToSlash(track))
+	if scanErr != nil || !found || entry.Bitrate == nil {
+		t.Fatalf("read bitrate: found=%v entry=%+v err=%v", found, entry, scanErr)
 	}
+	bitrate := *entry.Bitrate
 	if bitrate < 159000 {
 		t.Fatalf("persisted bitrate = %d, want the container average at or above the target", bitrate)
 	}
@@ -105,11 +108,14 @@ func TestPlanProbesMissingBitrate(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = repo.Close() })
-	_, err = repo.DB().Exec(`INSERT INTO entries (path, root_path, is_dir, size, format, content_rev, mtime, bitrate)
-		VALUES (?, ?, 0, 80000, 'mpeg', 1, 1, 0)`, filepath.ToSlash(track), filepath.ToSlash(dir))
-	if err != nil {
-		t.Fatal(err)
-	}
+	inventoryfixture.SeedInventory(t, repo, inventoryfixture.Row{
+		Path:     filepath.ToSlash(track),
+		RootPath: filepath.ToSlash(dir),
+		Size:     80000,
+		Format:   "mpeg",
+		Mtime:    1,
+		Bitrate:  new(int32(0)),
+	})
 	profile := reconcile.DesiredProfile{Encoded: &reconcile.AudioOutputSpec{
 		Codec: reconcile.CodecMp3, Quality: &reconcile.Quality{Kind: reconcile.QualityBitrate, Bitrate: 320},
 	}}
@@ -128,9 +134,14 @@ func TestPlanProbesMissingBitrate(t *testing.T) {
 		if writeErr := os.WriteFile(filepath.Join(dir, "config.json"), cfg, 0o600); writeErr != nil {
 			t.Fatal(writeErr)
 		}
-		if _, resetErr := repo.DB().Exec("UPDATE entries SET bitrate = 0"); resetErr != nil {
-			t.Fatal(resetErr)
-		}
+		inventoryfixture.SeedInventory(t, repo, inventoryfixture.Row{
+			Path:     filepath.ToSlash(track),
+			RootPath: filepath.ToSlash(dir),
+			Size:     80000,
+			Format:   "mpeg",
+			Mtime:    1,
+			Bitrate:  new(int32(0)),
+		})
 		res, runErr := conversion.Plan(t.Context(), repo, appconfig.NewReader(dir), media.New(probe).ProbeBitrate, in)
 		if runErr != nil {
 			t.Fatal(runErr)
@@ -141,10 +152,11 @@ func TestPlanProbesMissingBitrate(t *testing.T) {
 		if res.Summary.UnmetTargets != 0 {
 			t.Fatalf("unmet = %d, want none: the probed rate is what accepts a CBR mp3", res.Summary.UnmetTargets)
 		}
-		var bitrate int64
-		if scanErr := repo.DB().QueryRow("SELECT bitrate FROM entries").Scan(&bitrate); scanErr != nil {
-			t.Fatal(scanErr)
+		entry, found, scanErr := repo.EntryByPath(filepath.ToSlash(track))
+		if scanErr != nil || !found || entry.Bitrate == nil {
+			t.Fatalf("read bitrate: found=%v entry=%+v err=%v", found, entry, scanErr)
 		}
+		bitrate := *entry.Bitrate
 		if bitrate != 320000 {
 			t.Fatalf("persisted bitrate = %d, want 320000", bitrate)
 		}

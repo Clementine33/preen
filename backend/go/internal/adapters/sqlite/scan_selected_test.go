@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Clementine33/preen/backend/internal/testutil/inventoryfixture"
+
 	"github.com/Clementine33/preen/backend/internal/adapters/filesystem"
 	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
 	"github.com/Clementine33/preen/backend/internal/inventory"
@@ -33,11 +35,22 @@ func TestSelectedScanPreservesScopeMarkersNeighborsAndMediaFacts(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, path := range []string{scope, file, scope + "/deleted.mp3", root + "/a2/unselected.mp3", root + "/other/unselected.mp3"} {
-		if _, err := repo.DB().
-			Exec(`INSERT INTO entries(path, root_path, parent_path, name, is_dir, is_work_root, size, mtime, format, bitrate, duration_sec, content_rev, dirty_flag)
-			VALUES(?, ?, ?, ?, ?, ?, 5, ?, 'mpeg', 320000, 12, 7, 0)`, path, root, filepath.ToSlash(filepath.Dir(path)), filepath.Base(path), path == scope, path == scope, info.ModTime().Unix()); err != nil {
-			t.Fatal(err)
-		}
+		inventoryfixture.SeedInventory(
+			t,
+			repo,
+			inventoryfixture.Row{
+				Path:        path,
+				RootPath:    root,
+				IsDir:       path == scope,
+				IsWorkRoot:  path == scope,
+				Size:        5,
+				Mtime:       info.ModTime().Unix(),
+				Format:      "mpeg",
+				Bitrate:     new(int32(320000)),
+				DurationSec: new(float64(12)),
+				ContentRev:  7,
+			},
+		)
 	}
 	seedSelectedBinding(t, repo, root)
 	pipeline := inventory.NewPipeline(
@@ -50,12 +63,9 @@ func TestSelectedScanPreservesScopeMarkersNeighborsAndMediaFacts(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, path := range []string{scope, root + "/a2/unselected.mp3", root + "/other/unselected.mp3"} {
-		var count int
-		if err := repo.DB().
-			QueryRow("SELECT COUNT(*) FROM entries WHERE path = ?", path).
-			Scan(&count); err != nil ||
-			count != 1 {
-			t.Fatalf("preserved %s = %d, %v", path, count, err)
+		found, readErr := repo.RootExistsInInventory(path)
+		if readErr != nil || !found {
+			t.Fatalf("preserved %s: found=%v err=%v", path, found, readErr)
 		}
 	}
 	var copyID string
@@ -66,22 +76,16 @@ func TestSelectedScanPreservesScopeMarkersNeighborsAndMediaFacts(t *testing.T) {
 		t.Fatalf("binding changed: %s, %v", copyID, bindErr)
 	}
 
-	var count, revision, bitrate int
-	var duration float64
-	if err := repo.DB().
-		QueryRow("SELECT COUNT(*) FROM entries WHERE path = ?", scope+"/deleted.mp3").
-		Scan(&count); err != nil ||
-		count != 0 {
-		t.Fatalf("stale row = %d, %v", count, err)
+	deleted, readErr := repo.RootExistsInInventory(scope + "/deleted.mp3")
+	if readErr != nil || deleted {
+		t.Fatalf("stale row: found=%v err=%v", deleted, readErr)
 	}
-	if err := repo.DB().
-		QueryRow("SELECT content_rev, bitrate, duration_sec FROM entries WHERE path = ?", file).
-		Scan(&revision, &bitrate, &duration); err != nil {
-		t.Fatal(err)
+	entry := inventoryEntry(t, repo, file)
+	if entry.ContentRev != 7 || entry.Bitrate == nil || *entry.Bitrate != 320000 || entry.DurationSec == nil ||
+		*entry.DurationSec != 12 {
+		t.Fatalf("unchanged media facts changed: %+v", entry)
 	}
-	if revision != 7 || bitrate != 320000 || duration != 12 {
-		t.Fatalf("unchanged media facts changed: %d %d %f", revision, bitrate, duration)
-	}
+	var count int
 	if _, err := pipeline.ScanFoldersCtx(t.Context(), nil, root, 32); err != nil {
 		t.Fatal(err)
 	}
@@ -132,9 +136,9 @@ func TestSelectedMergeRejectsUnboundedScopeAndRollsBack(t *testing.T) {
 	if _, err := repo.MergeSelectedStaging(t.Context(), "selected", "/library", []string{"/library/a"}); err == nil {
 		t.Fatal("merge failure ignored")
 	}
-	var count int
-	if err := repo.DB().QueryRow("SELECT COUNT(*) FROM entries").Scan(&count); err != nil || count != 0 {
-		t.Fatalf("merge did not roll back: %d, %v", count, err)
+	entries, readErr := repo.ListEntriesUnderPath("/library")
+	if readErr != nil || len(entries) != 0 {
+		t.Fatalf("merge did not roll back: %+v, %v", entries, readErr)
 	}
 	if _, err := repo.MergeSelectedStaging(t.Context(), "selected", "/library", nil); err != nil {
 		t.Fatal(err)
@@ -237,9 +241,9 @@ func TestSelectedMergeValidatesAllRangesBeforeWriting(t *testing.T) {
 			} else if err != nil {
 				t.Fatal(err)
 			}
-			var count int
-			if err := repo.DB().QueryRow("SELECT COUNT(*) FROM entries").Scan(&count); err != nil || count != want {
-				t.Fatalf("inventory rows = %d, want %d: %v", count, want, err)
+			stored, readErr := repo.ListEntriesUnderPath("/library")
+			if readErr != nil || len(stored) != want {
+				t.Fatalf("inventory rows = %d, want %d: %v", len(stored), want, readErr)
 			}
 		})
 	}

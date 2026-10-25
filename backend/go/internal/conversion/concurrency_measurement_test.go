@@ -14,6 +14,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Clementine33/preen/backend/internal/testutil/inventoryfixture"
+
 	"github.com/Clementine33/preen/backend/internal/adapters/ffmpeg"
 	"github.com/Clementine33/preen/backend/internal/adapters/filesystem"
 	"github.com/Clementine33/preen/backend/internal/adapters/media"
@@ -205,9 +207,7 @@ func measureConcurrentGeneration(t *testing.T, initial []byte, ids []string) *co
 		}
 	}
 	if os.Getenv("CONCURRENCY_MEASURE_MISSING") == "1" {
-		if _, err := repo.DB().Exec("UPDATE entries SET bitrate = NULL WHERE is_dir = 0"); err != nil {
-			t.Fatal(err)
-		}
+		inventoryfixture.ClearBitrates(t, repo)
 	}
 	m := &concurrencyMeasurement{
 		Stages: map[string]*stageMeasurement{}, active: map[string]int{},

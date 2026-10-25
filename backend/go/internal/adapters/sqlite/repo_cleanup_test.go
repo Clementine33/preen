@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Clementine33/preen/backend/internal/testutil/inventoryfixture"
+
 	"github.com/Clementine33/preen/backend/internal/cleanup"
 	"github.com/Clementine33/preen/backend/internal/inventory"
 )
@@ -204,18 +206,14 @@ func TestGenerationRecordCleanupKeepsRecordsWithAnEntry(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if _, err := repo.db.Exec(`INSERT INTO entries(path,root_path) VALUES('/music/kept.m4a','/music')`); err != nil {
-		t.Fatal(err)
-	}
+	inventoryfixture.SeedInventory(t, repo, inventoryfixture.Row{Path: "/music/kept.m4a", RootPath: "/music"})
 	ids, err := repo.CleanupCandidates(ctx, cleanup.GenerationRecords, now, nil)
 	slices.Sort(ids)
 	if err != nil || !slices.Equal(ids, []string{"/music/back.m4a", "/music/moved.m4a"}) {
 		t.Fatalf("candidates %v %v", ids, err)
 	}
 	// A scan finds one file again before the batch: the recheck keeps its record.
-	if _, err = repo.db.Exec(`INSERT INTO entries(path,root_path) VALUES('/music/back.m4a','/music')`); err != nil {
-		t.Fatal(err)
-	}
+	inventoryfixture.SeedInventory(t, repo, inventoryfixture.Row{Path: "/music/back.m4a", RootPath: "/music"})
 	run := cleanup.Run{ID: "run", Status: "running", Counts: map[cleanup.Category]cleanup.Count{}}
 	if createErr := repo.CreateCleanupRun(ctx, run); createErr != nil {
 		t.Fatal(createErr)
@@ -233,7 +231,12 @@ func TestGenerationRecordCleanupKeepsRecordsWithAnEntry(t *testing.T) {
 	}
 
 	// Automatic maintenance removes an orphan the same way.
-	if _, err = repo.db.Exec(`DELETE FROM entries WHERE path = '/music/back.m4a'`); err != nil {
+	if err = NewScanStaging(
+		repo,
+	).WriteStagingEntries("remove-back", []inventory.StagingEntry{{SessionID: "remove-back", Path: "/music/kept.m4a", RootPath: "/music", ParentPath: "/music", Name: "kept.m4a"}}); err != nil {
+		t.Fatal(err)
+	}
+	if err = repo.MergeStagingSimple("remove-back", "/music"); err != nil {
 		t.Fatal(err)
 	}
 	stats, err := repo.RunRetentionCleanupBatch(ctx, now, now, 0)

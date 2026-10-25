@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Clementine33/preen/backend/internal/testutil/inventoryfixture"
+
 	"github.com/Clementine33/preen/backend/internal/adapters/filesystem"
 	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
 	"github.com/Clementine33/preen/backend/internal/admission"
@@ -185,10 +187,7 @@ func TestRepairFailureCanRetryAndPersistedRollbackFailureIsSkipped(t *testing.T)
 	if _, err := f.repo.InterruptStaleExecutions(); err != nil {
 		t.Fatal(err)
 	}
-	if _, writeErr := f.repo.DB().
-		Exec(`INSERT INTO entries(path,name) VALUES(?,?)`, target, "conflict"); writeErr != nil {
-		t.Fatal(writeErr)
-	}
+	inventoryfixture.SeedInventory(t, f.repo, inventoryfixture.Row{Path: target})
 	if errs := f.task.RecoverInterrupted(t.Context(), f.repo); len(errs) != 1 {
 		t.Fatalf("missing conflict: %v", errs)
 	}
@@ -196,8 +195,8 @@ func TestRepairFailureCanRetryAndPersistedRollbackFailureIsSkipped(t *testing.T)
 	if err != nil || len(rows) != 0 {
 		t.Fatalf("failed repair saved result: %+v %v", rows, err)
 	}
-	if _, writeErr := f.repo.DB().Exec(`DELETE FROM entries WHERE path=?`, target); writeErr != nil {
-		t.Fatal(writeErr)
+	if err := f.repo.SyncObservedInventory("", []string{target}, nil, nil); err != nil {
+		t.Fatal(err)
 	}
 	if errs := f.task.RecoverInterrupted(t.Context(), f.repo); len(errs) > 0 {
 		t.Fatal(errs)

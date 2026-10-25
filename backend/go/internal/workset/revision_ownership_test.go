@@ -3,6 +3,8 @@ package workset_test
 import (
 	"testing"
 	"time"
+
+	"github.com/Clementine33/preen/backend/internal/testutil/inventoryfixture"
 )
 
 // TestRevisionComponentRootOwnership covers the stable component→root
@@ -82,8 +84,9 @@ func TestRevisionComponentRootOwnership(t *testing.T) {
 func (f *fixture) insertNestedDir(path string) {
 	f.t.Helper()
 	now := time.Now().Format(timeFmt)
-	f.exec(`
-		INSERT INTO entries (path, root_path, parent_path, name, is_dir, size, mtime, created_at, updated_at)
-		VALUES (?, '/music', ?, ?, 1, 0, ?, ?, ?)
-	`, path, path, "dir", now, now, now)
+	inventoryfixture.SeedInventory(
+		f.t,
+		f.repo,
+		inventoryfixture.Row{Path: path, RootPath: "/music", IsDir: true, CreatedAt: now, UpdatedAt: now},
+	)
 }

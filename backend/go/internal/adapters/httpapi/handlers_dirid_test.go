@@ -2,6 +2,7 @@ package httpapi //nolint:testpackage // white-box tests exercise unexported inte
 
 import (
 	"github.com/Clementine33/preen/backend/internal/adapters/filesystem"
+	"github.com/Clementine33/preen/backend/internal/testutil/inventoryfixture"
 
 	"encoding/json"
 	"fmt"
@@ -87,11 +88,14 @@ func renameInventoryDir(t *testing.T, repo *sqlite.Repository, root, from, to st
 	if err := os.Rename(filepath.FromSlash(fromAbs), filepath.FromSlash(toAbs)); err != nil {
 		t.Fatalf("rename %s -> %s: %v", fromAbs, toAbs, err)
 	}
-	if _, err := repo.DB().Exec(
-		`UPDATE entries SET path = ?, name = ? WHERE path = ?`, toAbs, to, fromAbs,
-	); err != nil {
-		t.Fatalf("update the inventory: %v", err)
+	if err := repo.SyncObservedInventory(filepath.ToSlash(root), []string{fromAbs}, nil, nil); err != nil {
+		t.Fatal(err)
 	}
+	inventoryfixture.SeedInventory(
+		t,
+		repo,
+		inventoryfixture.Row{Path: toAbs, RootPath: filepath.ToSlash(root), IsDir: true, IsWorkRoot: true},
+	)
 }
 
 // TestDirIDSurvivesARescanAndARestart covers the stability a link depends on:

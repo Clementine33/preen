@@ -10,6 +10,8 @@
 - Extend an existing owner first; split a package when a distinct responsibility yields a useful interface, so directory layers do not add indirection by themselves. Package comments describe current responsibilities, AGENTS holds working rules, and ADRs retain decisions and reasons; update comments on both sides of a move. Code comments cite `ADR NNNN` without section numbers, and cite `docs/api/*.md#anchor` for wire contracts.
 - `internal/arch` classifies every production package under `internal/` as business except `adapters/**`, `app` and `arch`, so new packages cannot escape checks by omission. Pure cores opt in by name (`conversion/reconcile`, `librarypath`): their direct imports forbid `os`, `net/**`, `os/exec`, `database/sql` and `io/fs`; process, database and network dependencies are also checked transitively. This keeps supplied-fact algorithms independent of I/O without declaring all orchestration pure. Every automated rule must explain its purpose.
 
+- Library owns canonical root containment policy: configured roots are disjoint. Keep create/root-change validation in the same storage transaction as the write, and validate the library root before scan admission/session creation; member and selected scopes remain inside their own root. Existing conflicts stay editable for repair rather than being silently reassigned.
+
 ## Engineering rules
 - Each file has one clear responsibility. Split when responsibilities change independently or a struct and its methods become difficult to read; line counts alone do not justify a split.
 - `service.go` holds only types, constructors and DI wiring (≤80 lines); put use cases in files named by business verb, such as `run.go`, `persist.go` or `load_plan.go`.

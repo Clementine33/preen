@@ -9,17 +9,29 @@ import (
 
 // ==================== Scan Session Methods ====================
 
-// CreateScanSession creates a new scan session.
+// CreateScanSession validates root ownership and creates a session in one transaction.
 func (r *Repository) CreateScanSession(s *inventory.ScanSession) error {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if err = checkScanRoot(tx, s.RootPath); err != nil {
+		return err
+	}
+
 	var scopePath any
 	if s.ScopePath != nil {
 		scopePath = *s.ScopePath
 	}
-	_, err := r.db.Exec(`
+	_, err = tx.Exec(`
 		INSERT INTO scan_sessions (session_id, root_path, scope_path, kind, status, started_at)
 		VALUES (?, ?, ?, ?, ?, ?)
 	`, s.SessionID, s.RootPath, scopePath, s.Kind, s.Status, s.StartedAt.Format(timeFormat))
-	return err
+	if err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 // GetScanSession retrieves a scan session by ID.

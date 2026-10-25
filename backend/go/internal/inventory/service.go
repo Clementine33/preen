@@ -138,6 +138,7 @@ type MergeOutcome struct {
 type StagingStore interface {
 	WriteStagingEntries(sessionID string, entries []StagingEntry) error
 	MergeStaging(sessionID, libraryID, rootPath string) (MergeOutcome, error)
+	// CreateScanSession validates the library root before admitting a traversal.
 	CreateScanSession(session *ScanSession) error
 	UpdateScanSessionStatus(sessionID, status, errorCode, errorMessage string) error
 }

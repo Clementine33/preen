@@ -23,6 +23,8 @@ type fakeScanStore struct {
 	asked     []string
 }
 
+func (*fakeScanStore) CheckScanRoot(string) error { return nil }
+
 func (f *fakeScanStore) HasActiveExecutionForRoot(rootPath string) (bool, error) {
 	f.asked = append(f.asked, rootPath)
 	return f.executing, f.err

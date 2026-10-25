@@ -11,6 +11,8 @@ import (
 	"testing"
 
 	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
+	"github.com/Clementine33/preen/backend/internal/library"
+	"github.com/Clementine33/preen/backend/internal/testutil/inventoryfixture"
 )
 
 // seedScanTree writes a small real music tree on disk and returns its root.
@@ -300,5 +302,40 @@ func TestScanRejectsInvalidPayloads(t *testing.T) {
 				t.Fatalf("status = %d, want %d (body=%s)", w.Code, tc.want, w.Body.String())
 			}
 		})
+	}
+}
+
+func TestLegacyLibraryOverlapScanAdmissionIsJSON(t *testing.T) {
+	root := filepath.ToSlash(t.TempDir())
+	member := root + "/RJ123456"
+	if err := os.Mkdir(member, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	var repo *sqlite.Repository
+	engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) {
+		repo = fixture
+		wireInventory(d, fixture, nil)
+	})
+	if _, err := repo.DB().Exec(`INSERT INTO libraries(id,name,root_path,root_path_key)
+  VALUES('outer','outer',?,?),('inner','inner',?,?)`, root, root, member, member); err != nil {
+		t.Fatal(err)
+	}
+	inventoryfixture.SeedInventory(t, repo,
+		inventoryfixture.Row{Path: member, RootPath: root, IsDir: true, IsWorkRoot: true},
+		inventoryfixture.Row{Path: member + "/track.mp3", RootPath: root})
+	for _, path := range []string{
+		"/api/v1/libraries/outer/scans", "/api/v1/libraries/inner/scans",
+		"/api/v1/libraries/outer/tree/refresh?dir=" + library.DirID("outer", root, "RJ123456"),
+	} {
+		w := doRequest(t, engine, http.MethodPost, path, nil, nil)
+		code, message := errorEnvelope(t, w)
+		if w.Code != http.StatusConflict || code != "LIBRARY_ROOT_OVERLAP" || message == "" ||
+			strings.Contains(w.Header().Get("Content-Type"), "text/event-stream") {
+			t.Fatalf("%s: status=%d type=%s body=%s", path, w.Code, w.Header().Get("Content-Type"), w.Body.String())
+		}
+	}
+	_, found, err := repo.EntryByPath(member + "/track.mp3")
+	if err != nil || !found {
+		t.Fatalf("refusal changed inventory: found=%v err=%v", found, err)
 	}
 }

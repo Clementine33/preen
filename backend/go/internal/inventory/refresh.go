@@ -29,6 +29,9 @@ func (s *service) RefreshMember(ctx context.Context, folderPath, rootPath string
 			nil,
 		)
 	}
+	if err := s.store.CheckScanRoot(rootPath); err != nil {
+		return err
+	}
 	info, err := os.Stat(folderPath)
 	if err != nil {
 		return NewError(
@@ -47,6 +50,9 @@ func (s *service) RefreshMember(ctx context.Context, folderPath, rootPath string
 		)
 	}
 	if _, scanErr := s.pipeline.ScanFolderCtx(ctx, folderPath, rootPath); scanErr != nil {
+		if typed, ok := AsError(scanErr); ok {
+			return typed
+		}
 		return NewError(ErrKindInternal, "SCAN_FAILED", "failed to refresh the member inventory", scanErr)
 	}
 	return nil

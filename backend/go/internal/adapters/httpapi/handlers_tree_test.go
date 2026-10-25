@@ -478,3 +478,20 @@ func TestRefreshMemberTreeFailureIsReported(t *testing.T) {
 		}
 	}
 }
+
+func TestRefreshMemberTreeRetainsRootConflict(t *testing.T) {
+	var repo *sqlite.Repository
+	scan := &fakeScanService{err: inventory.NewError(
+		inventory.ErrKindConflict, "LIBRARY_ROOT_OVERLAP", "repair conflicting library roots", nil,
+	)}
+	engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) { repo = fixture; d.Inventory = scan })
+	libID, root := treeLibrary(t, engine, repo, "Music")
+	seedDir(t, repo, root, "albumA")
+	albumID := dirIDFor(t, engine, libID, "albumA")
+	w := doRequest(t, engine, http.MethodPost,
+		fmt.Sprintf("/api/v1/libraries/%s/tree/refresh?dir=%s", libID, albumID), nil, nil)
+	code, _ := errorEnvelope(t, w)
+	if w.Code != http.StatusConflict || code != "LIBRARY_ROOT_OVERLAP" {
+		t.Fatalf("status=%d body=%s", w.Code, w.Body.String())
+	}
+}

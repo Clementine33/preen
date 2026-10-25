@@ -152,7 +152,7 @@ Non-2xx JSON responses always use the same shape:
 
 Common codes: `INVALID_ARGUMENT` (400), `UNAUTHORIZED` (401),
 `LIBRARY_NOT_FOUND` / `DIRECTORY_NOT_FOUND` / `MEMBER_MISSING` (404),
-`LIBRARY_EXISTS` / `BUSY` (409), `INTERNAL` (500). The session routes add their
+`LIBRARY_EXISTS` / `LIBRARY_ROOT_OVERLAP` / `BUSY` (409), `INTERNAL` (500). The session routes add their
 own guards: `IDEMPOTENCY_KEY_REQUIRED`, `VERSION_REQUIRED`,
 `INVALID_IDEMPOTENCY_KEY`, `INVALID_PAGE` (400) and `PAYLOAD_TOO_LARGE` (413).
 Codes such as `SCOPE_REQUIRED` are a planning session's `error_code`, never an

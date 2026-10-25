@@ -1,6 +1,8 @@
 package fileops_test
 
 import (
+	"context"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -47,7 +49,13 @@ func TestTheInternalRefreshIsNotRefusedByTheSlotItHolds(t *testing.T) {
 	f := &fixture{t: t, root: root, gate: gate}
 	f.svc = fileops.NewService(
 		gate,
-		scanSvc.RefreshMember,
+		func(ctx context.Context, folder, root string) error {
+			moved := filepath.ToSlash(filepath.Join(member, "02.flac"))
+			if found, readErr := repo.RootExistsInInventory(moved); readErr != nil || !found {
+				t.Fatalf("inventory move must precede refresh: found=%v err=%v", found, readErr)
+			}
+			return scanSvc.RefreshMember(ctx, folder, root)
+		},
 		filesystem.Recover,
 		filesystem.RenameNoReplace,
 		filesystem.IsResolvedWithinRoot,
@@ -55,6 +63,15 @@ func TestTheInternalRefreshIsNotRefusedByTheSlotItHolds(t *testing.T) {
 	)
 	f.mkdir("albumA")
 	f.write("albumA/01.flac", "audio")
+	f.write("albumA/child/track.mp3", "old")
+	stamp := time.Unix(100, 0)
+	if err = os.Chtimes(filepath.Join(member, "child"), stamp, stamp); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = scanSvc.Scan(t.Context(), inventory.Request{RootPath: root}, nil); err != nil {
+		t.Fatal(err)
+	}
+	f.write("albumA/child/track.mp3", "updated audio")
 
 	result := f.apply(fileops.Request{
 		MemberPath: "albumA",
@@ -76,11 +93,15 @@ func TestTheInternalRefreshIsNotRefusedByTheSlotItHolds(t *testing.T) {
 	}
 
 	// The refresh really scanned the member: its rows are in the inventory.
-	if found, err := repo.RootExistsInInventory(
+	if found, readErr := repo.RootExistsInInventory(
 		filepath.ToSlash(filepath.Join(member, "02.flac")),
-	); err != nil ||
+	); readErr != nil ||
 		!found {
-		t.Fatalf("renamed file missing from inventory: found=%v err=%v", found, err)
+		t.Fatalf("renamed file missing from inventory: found=%v err=%v", found, readErr)
+	}
+	entries, err := repo.ListEntriesUnderPath(filepath.ToSlash(member))
+	if err != nil || len(entries) != 4 || entries[0].Mtime != 0 || entries[2].Mtime != 100 || entries[3].Size != 13 {
+		t.Fatalf("complete member refresh must pair directory mtimes with current listings: %+v, %v", entries, err)
 	}
 }
 

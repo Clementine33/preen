@@ -46,7 +46,7 @@ func TestScanRefusesLegacyOverlappingLibraries(t *testing.T) {
 				walked := false
 				pipeline := inventory.NewPipeline(
 					sqlite.NewScanStaging(repo),
-					func(context.Context, string, string, int, func(inventory.DirEntry) error) error {
+					func(context.Context, string, string, int, func(inventory.DirEntry) error, ...inventory.ReuseDirectory) error {
 						walked = true
 						return nil
 					},

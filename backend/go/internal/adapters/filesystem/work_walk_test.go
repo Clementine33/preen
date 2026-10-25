@@ -48,7 +48,7 @@ func TestWorkWalkSkipsRecoveryDirectoriesAtEveryDepth(t *testing.T) {
 	}
 	slices.Sort(paths)
 	want := []string{
-		"Delete extras", "Delete extras/RJ000003", "Delete extras/RJ000003/track.mp3",
+		".", "Delete extras", "Delete extras/RJ000003", "Delete extras/RJ000003/track.mp3",
 		"RJ000001",
 		"分类", "分类/RJ000005", "分类/RJ000005/track.mp3",
 	}
@@ -96,7 +96,7 @@ func TestWorkWalkDoesNotFollowLinksOrRepeatNestedWorkRoots(t *testing.T) {
 			roots++
 		}
 	}
-	if len(seen) != 5 || roots != 1 {
+	if len(seen) != 6 || roots != 1 {
 		t.Fatalf("entries=%d roots=%d: %+v", len(seen), roots, seen)
 	}
 	if seen[filepath.Join(root, "RJ000003 link")].IsDir {

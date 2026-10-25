@@ -38,6 +38,12 @@ type Progress struct {
 type scanOptions struct {
 	progress  func(Progress)
 	libraryID string
+	full      bool
+}
+
+// WithFullScan reads all files even when directory observations are unchanged.
+func WithFullScan() ScanOption {
+	return func(o *scanOptions) { o.full = true }
 }
 
 // ScanOption configures a scan operation.
@@ -94,7 +100,10 @@ func (t *progressTracker) record(entry StagingEntry) {
 		return
 	}
 	if entry.IsDir {
-		t.dirs++
+		if entry.Path != entry.RootPath {
+			t.dirs++
+		}
+		t.files += entry.FilesCarried
 	} else {
 		t.files++
 	}
@@ -146,16 +155,18 @@ type StagingStore interface {
 
 // StagingEntry represents an entry to be written to staging.
 type StagingEntry struct {
-	SessionID  string
-	Path       string
-	RootPath   string
-	ParentPath string
-	Name       string
-	IsDir      bool
-	IsWorkRoot bool
-	Size       int64
-	Mtime      int64
-	Format     string
+	SessionID    string
+	Path         string
+	RootPath     string
+	ParentPath   string
+	Name         string
+	IsDir        bool
+	IsWorkRoot   bool
+	Size         int64
+	Mtime        int64
+	Format       string
+	FilesCarried int
+	Carried      bool
 }
 
 // detectFormatFromPath names an entry's media type from its extension. A macOS
@@ -198,7 +209,7 @@ func detectFormatFromPath(path string, isDir bool) string {
 }
 
 // Pipeline runs one scan: it walks a root (or one member directory) through
-// the injected traversal, stages every observed entry through the store, and
+// the injected traversal, stages observed directories and files through the store, and
 // merges the staged rows into the inventory. The traversal is a port so this
 // pipeline never reads the filesystem itself. merged is told after every
 // successful merge, which is how the media enricher learns there may be facts
@@ -259,6 +270,11 @@ func (s *Pipeline) ScanRootCtx(ctx context.Context, rootPath string, opts ...Sca
 		}
 		defer func() { _ = s.repo.CloseStagingSession(sessionID) }()
 	}
+	reuse, err := s.directoryReuse(normalizedRootPath, o.full)
+	if err != nil {
+		_ = s.repo.UpdateScanSessionStatus(sessionID, "failed", "REUSE_SNAPSHOT_FAILED", err.Error())
+		return "", fmt.Errorf("load directory reuse: %w", err)
+	}
 
 	// Run pipeline: walk + batch write to staging
 	//
@@ -268,8 +284,8 @@ func (s *Pipeline) ScanRootCtx(ctx context.Context, rootPath string, opts ...Sca
 	// - producer closes entryCh when done
 	// - consumer exits on entryCh close or ctx cancellation
 	// - first error from either triggers ctx.cancel and stops both
-	// - after waiting both, if any error, cleanup staging and mark failed
-	// - on caller ctx cancellation: skip merge, mark canceled, cleanup staging best-effort
+	// - after waiting both, any error marks the scan failed; the private connection closes on return
+	// - on caller ctx cancellation: skip merge and mark canceled
 	baseCtx := ctx
 	ctx, cancel := context.WithCancel(baseCtx)
 	defer cancel()
@@ -291,7 +307,7 @@ func (s *Pipeline) ScanRootCtx(ctx context.Context, rootPath string, opts ...Sca
 			}
 		}
 
-		if err := s.walkRoot(ctx, rootPath, rootPath, s.rootConcurrency, emitFn); err != nil {
+		if err := s.walkRoot(ctx, rootPath, rootPath, s.rootConcurrency, emitFn, reuse); err != nil {
 			producerErr = err
 			cancel()
 		}
@@ -591,15 +607,17 @@ func (s *Pipeline) notifyMerged() {
 // DirEntryToStagingEntry converts a DirEntry to StagingEntry with format detection.
 func DirEntryToStagingEntry(entry DirEntry, sessionID, rootPath string) StagingEntry {
 	return StagingEntry{
-		SessionID:  sessionID,
-		Path:       filepath.ToSlash(entry.Path),
-		RootPath:   filepath.ToSlash(rootPath),
-		ParentPath: filepath.ToSlash(entry.ParentPath),
-		Name:       entry.Name,
-		IsDir:      entry.IsDir,
-		IsWorkRoot: entry.IsWorkRoot,
-		Size:       entry.Size,
-		Mtime:      entry.Mtime,
-		Format:     detectFormatFromPath(entry.Path, entry.IsDir),
+		SessionID:    sessionID,
+		Path:         filepath.ToSlash(entry.Path),
+		RootPath:     filepath.ToSlash(rootPath),
+		ParentPath:   filepath.ToSlash(entry.ParentPath),
+		Name:         entry.Name,
+		IsDir:        entry.IsDir,
+		IsWorkRoot:   entry.IsWorkRoot,
+		FilesCarried: entry.FilesCarried,
+		Carried:      entry.Carried,
+		Size:         entry.Size,
+		Mtime:        entry.Mtime,
+		Format:       detectFormatFromPath(entry.Path, entry.IsDir),
 	}
 }

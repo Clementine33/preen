@@ -41,7 +41,7 @@ func (r *Repository) scanConnection(id, root string) (*scanConnection, error) {
 	if _, err = conn.ExecContext(context.Background(), `CREATE TEMP TABLE entries_staging (
  path TEXT PRIMARY KEY, parent_path TEXT NOT NULL, name TEXT NOT NULL,
  is_dir INTEGER NOT NULL, is_work_root INTEGER NOT NULL DEFAULT 0,
- size INTEGER NOT NULL, mtime INTEGER NOT NULL, format TEXT NOT NULL
+ size INTEGER NOT NULL, mtime INTEGER NOT NULL, format TEXT NOT NULL, carried INTEGER NOT NULL DEFAULT 0
  ) WITHOUT ROWID`); err != nil {
 		_ = s.close()
 		return nil, err

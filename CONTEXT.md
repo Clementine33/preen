@@ -184,6 +184,14 @@ _Avoid_: Treating every RJ directory inside a work as another copy.
 A directory organizing paths above Work Roots, with no work binding of its own. Its descendants may contain independent Work Roots.
 _Avoid_: Selecting a category as one processing member.
 
+**Library Scan**:
+Observing one whole Library root and reconciling its inventory with what is on disk. When a directory's entries have provably not been added, removed or renamed since it was last listed, the files directly inside it are carried over rather than observed again. A file rewritten in place inside such a directory is therefore not noticed until a Full Rescan or a Member Files refresh, and a change made moments before the scan, while the client still reports the directory's earlier state, may be noticed by a later scan rather than this one.
+_Avoid_: "Incremental scan" — the scan still accounts for every directory, it only re-observes fewer files.
+
+**Full Rescan**:
+A Library Scan that observes every file, carrying nothing over. It is the way to pick up files that external tools rewrote in place.
+_Avoid_: Treating it as a repair for anything other than in-place rewrites.
+
 **Album Folder / Planning Root**:
 A Work Root of a Library, including its descendants. It is listed whether or not it holds audio, and each selected root is an independent boundary for classification, association and planning.
 

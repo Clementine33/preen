@@ -23,7 +23,7 @@ func mergeObservedEntries(tx *sql.Tx, root string) error {
    OR inventory_dirs.is_work_root IS NOT excluded.is_work_root`, root); err != nil {
 		return err
 	}
-	// Walks omit library and scope roots; file-only staging still needs its owning directory.
+	// Scoped walks omit their root; file-only staging still needs its owning directory.
 	if _, err := tx.Exec(`INSERT INTO inventory_dirs(path,root_path)
  SELECT parent_path,? FROM temp.entries_staging WHERE is_dir=0 AND parent_path<>''
  ON CONFLICT(path) DO NOTHING`, root); err != nil {
@@ -76,6 +76,11 @@ func cleanupInventoryScope(tx *sql.Tx, root, scope string) error {
 	dirArgs := []any{root, root}
 	fileArgs := []any{root}
 	if scope != "" {
+		// Folder walks omit the scope root's attributes, so its refreshed listing has no paired mtime.
+		if _, err := tx.Exec(`UPDATE inventory_dirs SET mtime=0 WHERE path=? AND mtime<>0
+ AND NOT EXISTS (SELECT 1 FROM temp.entries_staging WHERE is_dir=1 AND path=?)`, scope, scope); err != nil {
+			return err
+		}
 		from, to := subtree(scope)
 		dirRange += " AND path >= ? AND path < ? AND path <> ?"
 		dirArgs = append(dirArgs, from, to, scope)
@@ -90,6 +95,7 @@ func cleanupInventoryScope(tx *sql.Tx, root, scope string) error {
 	_, err := tx.Exec(`DELETE FROM inventory_files WHERE (dir_ref,name) IN (
   SELECT d.id,f.name FROM inventory_dirs d CROSS JOIN inventory_files f
   WHERE f.dir_ref=d.id AND `+fileRange+` AND NOT EXISTS (
-   SELECT 1 FROM temp.entries_staging s WHERE s.is_dir=0 AND s.path=`+joinInventoryPathSQL("d.path", "f.name")+`))`, fileArgs...)
+   SELECT 1 FROM temp.entries_staging s WHERE s.is_dir=0 AND s.path=`+joinInventoryPathSQL("d.path", "f.name")+`)
+  AND NOT EXISTS (SELECT 1 FROM temp.entries_staging s WHERE s.is_dir=1 AND s.carried=1 AND s.path=d.path))`, fileArgs...)
 	return err
 }

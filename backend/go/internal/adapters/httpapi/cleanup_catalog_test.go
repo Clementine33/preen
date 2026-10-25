@@ -60,7 +60,7 @@ func TestCleanupHTTPCatalogSelectionProtectionCountsAndMissingEdits(t *testing.T
 		preview.Candidates[cleanup.SourceCircles] != 0 {
 		t.Fatalf("source-only preview %d %s", response.Code, response.Body)
 	}
-	all := `{"categories":["source_circles","source_voice_actors","source_tags","relation_reports","works","works","cover_downloads","plan_generations","scan_sessions"]}`
+	all := `{"categories":["source_circles","source_voice_actors","source_tags","relation_reports","works","works","generation_records","cover_downloads","plan_generations","scan_sessions"]}`
 	response = deletionRequest(handler, http.MethodPost, "maintenance/cleanup/preview", all)
 	if err := json.Unmarshal(response.Body.Bytes(), &preview); err != nil {
 		t.Fatal(err)
@@ -69,6 +69,7 @@ func TestCleanupHTTPCatalogSelectionProtectionCountsAndMissingEdits(t *testing.T
 		cleanup.ScanSessions,
 		cleanup.PlanGenerations,
 		cleanup.CoverDownloads,
+		cleanup.GenerationRecords,
 		cleanup.Works,
 		cleanup.RelationReports,
 		cleanup.SourceTags,
@@ -78,7 +79,7 @@ func TestCleanupHTTPCatalogSelectionProtectionCountsAndMissingEdits(t *testing.T
 	if response.Code != 200 || !reflect.DeepEqual(preview.Categories, order) {
 		t.Fatalf("normalized preview %d %s", response.Code, response.Body)
 	}
-	for _, category := range order[3:] {
+	for _, category := range order[4:] {
 		if preview.Candidates[category] != 1 {
 			t.Fatalf("projected preview %d %s", response.Code, response.Body)
 		}
@@ -107,7 +108,7 @@ func TestCleanupHTTPCatalogSelectionProtectionCountsAndMissingEdits(t *testing.T
 	if envelope.Run.Status != "succeeded" || !reflect.DeepEqual(envelope.Run.Categories, order) {
 		t.Fatalf("run %d %s", response.Code, response.Body)
 	}
-	for _, category := range order[3:] {
+	for _, category := range order[4:] {
 		if envelope.Run.Counts[category] != (cleanup.Count{Checked: 1, Deleted: 1}) {
 			t.Fatalf("counts %s: %s", category, response.Body)
 		}

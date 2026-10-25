@@ -19,6 +19,7 @@ const CATEGORIES: { id: CleanupCategory; label: string }[] = [
   { id: 'scan_sessions', label: '扫描记录' },
   { id: 'plan_generations', label: '规划记录' },
   { id: 'cover_downloads', label: '无引用的已完成封面下载记录' },
+  { id: 'generation_records', label: '无对应文件的生成记录' },
   { id: 'works', label: '无副本、未入合集且无评分、备注、标签的作品' },
   { id: 'relation_reports', label: '无用途的关系报告' },
   { id: 'source_tags', label: '无引用的来源标签' },

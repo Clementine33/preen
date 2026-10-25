@@ -66,7 +66,8 @@ func (l *Loop) deleteBatches(
 			log.Printf("maintenance: retention batch failed: %v", err)
 			return deleted, false
 		}
-		rows := stats.DeletedScanSessions + stats.DeletedGenerations + stats.DeletedCoverDownloads
+		rows := stats.DeletedScanSessions + stats.DeletedGenerations + stats.DeletedCoverDownloads +
+			stats.DeletedGenerationRecords
 		deleted += rows
 		if rows == 0 {
 			return deleted, true

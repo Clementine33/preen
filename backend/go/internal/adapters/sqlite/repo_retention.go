@@ -101,6 +101,31 @@ func deleteUnreferencedCoverDownloadsBatchTx(
 	return n, nil
 }
 
+// A generation record is read only through the inventory entry at its path, so
+// one with no entry is dead: its output was moved or deleted outside the app, or
+// its library is gone. A later scan finding the file again judges it by its
+// measured rate instead.
+func deleteOrphanGenerationRecordsBatchTx(
+	ctx context.Context,
+	tx *sql.Tx,
+	limit int,
+	candidates ...[]string,
+) (int64, error) {
+	filter, args := retentionCandidateFilter("g.path", nil, candidates)
+	args = append(args, limit)
+	result, err := tx.ExecContext(ctx, `
+		DELETE FROM generation_records WHERE path IN (
+			SELECT g.path FROM generation_records g
+			WHERE `+generationRecordRetentionPredicate+filter+` LIMIT ?
+		)
+	`, args...)
+	if err != nil {
+		return 0, fmt.Errorf("delete orphan generation records: %w", err)
+	}
+	n, _ := result.RowsAffected()
+	return n, nil
+}
+
 // RunRetentionCleanupBatch deletes one batch of the rows retention no longer
 // keeps, in one transaction, and reports what it deleted.
 //
@@ -109,7 +134,7 @@ func deleteUnreferencedCoverDownloadsBatchTx(
 // pass hand the admission slot back to real work between batches: a single
 // unbounded delete over a large table would hold the database writer - and
 // anyone who needs it - for as long as it takes. A batch that deletes nothing
-// means all three tables are clean.
+// means every table is clean.
 //
 // workset.Workset revisions, plans, executions and inventory are never purged here;
 // they are durable aggregate history, not session ledgers.
@@ -141,6 +166,9 @@ func (r *Repository) RunRetentionCleanupBatch(
 	if stats.DeletedCoverDownloads, err = deleteUnreferencedCoverDownloadsBatchTx(ctx, tx, limit); err != nil {
 		return CleanupStats{}, err
 	}
+	if stats.DeletedGenerationRecords, err = deleteOrphanGenerationRecordsBatchTx(ctx, tx, limit); err != nil {
+		return CleanupStats{}, err
+	}
 
 	if err := tx.Commit(); err != nil {
 		return CleanupStats{}, fmt.Errorf("commit retention cleanup tx: %w", err)
@@ -150,6 +178,8 @@ func (r *Repository) RunRetentionCleanupBatch(
 
 const scanRetentionPredicate = "status IN ('completed','failed','canceled','interrupted') AND julianday(COALESCE(finished_at, started_at)) < julianday(?)"
 const generationRetentionPredicate = "finished_at IS NOT NULL AND julianday(finished_at) < julianday(?)"
+
+const generationRecordRetentionPredicate = "NOT EXISTS (SELECT 1 FROM entries e WHERE e.path = g.path)"
 
 const downloadRetentionPredicate = "j.status='done' AND NOT EXISTS (SELECT 1 FROM cover_deliveries d WHERE d.job_id=j.id)"
 

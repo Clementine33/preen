@@ -83,10 +83,6 @@ func (r *Repository) RelocateDirectoryAs(ctx context.Context, root, source, targ
 	return nil
 }
 
-// subtree is the binary range holding everything below p: "/" is followed by
-// "0" in byte order, so [p+"/", p+"0") spans exactly the descendants.
-func subtree(p string) (from, to string) { return p + "/", p + "0" }
-
 // optionalID reads one id, or "" when no row matches.
 func optionalID(ctx context.Context, tx *sql.Tx, query string, args ...any) (string, error) {
 	var id string

@@ -82,7 +82,14 @@ disk are never touched. Deletion is blocked by active operation generation
 ## Scan: POST + SSE
 
 `POST /api/v1/libraries/:id/scans` takes a JSON object body; an empty body is
-read as "no override", like `{}`. An optional `root_path` is retained for
+read like `{}`. The optional `mode` field accepts only `"full"`:
+omitting it runs a Library Scan, which reuses eligible unchanged directories;
+`{"mode":"full"}` runs a Full Rescan, reading every directory without reuse.
+Every other supplied value, including `""`, `null` and non-string values,
+returns 400 `INVALID_SCAN_MODE` before admission or SSE starts. Background
+task-driven scans use the default Library Scan mode.
+
+An optional `root_path` is retained for
 client compatibility but must resolve to the selected library's configured
 root; cross-library scan overrides are rejected with
 `ROOT_PATH_OUTSIDE_LIBRARY`. The response is
@@ -104,6 +111,17 @@ inventory — the only listing source: there is no separate derived folder table
 to rebuild, and a rescan cannot renumber anything the workbench navigates by.
 A `completed` scan state is recorded on the library.
 
+`files_scanned` includes both newly observed files and files carried forward
+from reused directories; it is the reconciled file count, not a count of
+filesystem metadata reads. Directories still count toward `dirs_scanned` when
+their files are reused.
+
+Library Scan has two known limits: it cannot detect an external tool's in-place
+file rewrite when that directory's mtime stays unchanged, and client filesystem
+attribute caches can temporarily hide a directory change. The latter is caught
+by a later scan after the cache expires. Use Full Rescan to read the files in
+unchanged directories, for example after editing tags in place.
+
 `Delete/` is a reserved recovery directory name at every depth. Such directories
 and their descendants are skipped before reading their metadata or traversing
 them, including old library-level recovery directories. They are not stored in
@@ -111,7 +129,7 @@ the inventory or counted in scan progress. A successful full rescan removes
 recovery entries and copy bindings left by older scans. Windows paths compare
 the name case-insensitively; POSIX paths compare it exactly.
 
-Full scans, member refreshes and selected-folder scans reject an affected
+Library Scans, Full Rescans, member refreshes and selected-folder scans reject an affected
 pre-existing overlapping root with `LIBRARY_ROOT_OVERLAP`; unrelated sibling
 libraries remain usable. The check applies to the configured library root,
 not to the member or selected scope. HTTP scan and tree-refresh admission

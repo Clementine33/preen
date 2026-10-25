@@ -3,12 +3,14 @@ package httpapi //nolint:testpackage // white-box tests exercise unexported inte
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
 	"github.com/Clementine33/preen/backend/internal/library"
@@ -225,6 +227,76 @@ func TestScanSSERejectsRootOutsideLibrary(t *testing.T) {
 	}
 	if len(dirs) != 0 {
 		t.Fatalf("rejected scan persisted %d directories", len(dirs))
+	}
+}
+
+func TestScanRejectsInvalidModeBeforeAdmission(t *testing.T) {
+	var repo *sqlite.Repository
+	engine := newTestServer(t, func(_ *Dependencies, fixture *sqlite.Repository) { repo = fixture })
+	libID := createLibraryViaAPI(t, engine, "Music", seedScanTree(t))
+	for _, mode := range []any{"unknown", "", "FULL", nil, 1, true, []string{"full"}, map[string]string{"mode": "full"}} {
+		t.Run(fmt.Sprint(mode), func(t *testing.T) {
+			w := doRequest(t, engine, http.MethodPost, "/api/v1/libraries/"+libID+"/scans",
+				map[string]any{"mode": mode}, nil)
+			code, _ := errorEnvelope(t, w)
+			if w.Code != http.StatusBadRequest || code != "INVALID_SCAN_MODE" ||
+				strings.Contains(w.Body.String(), "event:") {
+				t.Fatalf("status=%d body=%s", w.Code, w.Body.String())
+			}
+		})
+	}
+	lib, err := repo.GetLibrary(libID)
+	if err != nil || lib.LastScanStatus != "" {
+		t.Fatalf("rejected mode changed scan state: %+v, %v", lib, err)
+	}
+}
+
+func TestScanSSEFullRescanFindsInPlaceRewrite(t *testing.T) {
+	root := seedScanTree(t)
+	leaf := filepath.Join(root, "RJ000001 album-01")
+	old := time.Now().Add(-time.Hour)
+	if err := os.Chtimes(leaf, old, old); err != nil {
+		t.Fatal(err)
+	}
+	var repo *sqlite.Repository
+	engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) {
+		repo = fixture
+		wireInventory(d, fixture, nil)
+	})
+	libID := createLibraryViaAPI(t, engine, "Music", root)
+	scan := func(body map[string]string) {
+		t.Helper()
+		w := doRequest(t, engine, http.MethodPost, "/api/v1/libraries/"+libID+"/scans", body, nil)
+		if w.Code != http.StatusOK || w.Header().Get("Content-Type") != "text/event-stream" {
+			t.Fatalf("status=%d body=%s", w.Code, w.Body.String())
+		}
+		for _, event := range []string{"started", "progress", "completed"} {
+			if !strings.Contains(w.Body.String(), "event: "+event) {
+				t.Fatalf("missing %s: %s", event, w.Body.String())
+			}
+		}
+	}
+	scan(map[string]string{})
+	path := filepath.ToSlash(filepath.Join(leaf, "01.flac"))
+	before, found, err := repo.EntryByPath(path)
+	if err != nil || !found {
+		t.Fatalf("initial file: %+v, %v", before, err)
+	}
+	if writeErr := os.WriteFile(path, []byte("rewritten audio"), 0o644); writeErr != nil {
+		t.Fatal(writeErr)
+	}
+	if timeErr := os.Chtimes(leaf, old, old); timeErr != nil {
+		t.Fatal(timeErr)
+	}
+	scan(map[string]string{})
+	afterDefault, _, err := repo.EntryByPath(path)
+	if err != nil || afterDefault.Size != before.Size || afterDefault.ContentRev != before.ContentRev {
+		t.Fatalf("default scan did not carry unchanged leaf: %+v, %v", afterDefault, err)
+	}
+	scan(map[string]string{"mode": "full"})
+	afterFull, _, err := repo.EntryByPath(path)
+	if err != nil || afterFull.Size != 15 || afterFull.ContentRev != before.ContentRev+1 {
+		t.Fatalf("full rescan missed rewrite: %+v, %v", afterFull, err)
 	}
 }
 

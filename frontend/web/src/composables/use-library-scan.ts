@@ -1,7 +1,7 @@
 import { useRouter } from 'vue-router'
 import { useTaskToast } from './use-task-toast'
 import { libraryListQueryOptions } from '@/queries/libraries'
-import type { Library } from '@/lib/api/types'
+import type { Library, ScanMode } from '@/lib/api/types'
 import { useQueryClient, type QueryClient } from '@tanstack/vue-query'
 import { useApiClient } from '@/lib/api/client'
 import { refreshOrRemoveQueries } from '@/queries/cache-sync'
@@ -78,10 +78,10 @@ export function useLibraryScan() {
   const router = useRouter()
   const toast = useTaskToast()
 
-  async function start(libraryId: string): Promise<void> {
+  async function start(libraryId: string, mode?: ScanMode): Promise<void> {
     const libraryName = queryClient.getQueryData<Library[]>(queryKeys.libraries.list())
       ?.find((library) => library.id === libraryId)?.name ?? libraryId
-    const outcome = await scan.start(libraryId, api, notify)
+    const outcome = await scan.start(libraryId, api, notify, mode)
     // Refused or superseded requests have no result of their own.
     if (!outcome) return
     await syncAfterScan(queryClient, libraryId, outcome.status, outcome.terminal, outcome.receivedEvent)

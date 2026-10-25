@@ -100,6 +100,25 @@ beforeEach(() => {
   localStorage.clear()
 })
 
+it.each([
+  ['scan-button', undefined],
+  ['full-rescan-button', 'full'],
+] as const)('starts a scan through %s', async (entry, mode) => {
+  const scanLibrary = vi.fn(async function* () {
+    yield { type: 'started', data: { stage: 'scan' } } as const
+    await new Promise<void>((resolve) => { finish = resolve })
+    yield { type: 'completed', data: { stage: 'scan', scan_id: 'scan-1' } } as const
+  })
+  let finish = () => {}
+  const { wrapper } = await mountOverview({ scanLibrary })
+  await wrapper.get(`[data-testid="${entry}"]`).trigger('click')
+  expect(scanLibrary).toHaveBeenCalledWith('lib-1', expect.any(AbortSignal), undefined, mode)
+  expect(wrapper.get('[data-testid="scan-button"]').attributes('disabled')).toBeDefined()
+  expect(wrapper.get('[data-testid="full-rescan-button"]').attributes('disabled')).toBeDefined()
+  finish()
+  await flushPromises()
+})
+
 describe('workbench overview', () => {
   it('lists what the scan saw, and offers no action until something is selected', async () => {
     const { wrapper, api } = await mountOverview()

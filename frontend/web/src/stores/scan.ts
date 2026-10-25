@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { markRaw } from 'vue'
 import { ApiError } from '@/lib/api/client'
-import type { ApiClientContract, ScanEvent } from '@/lib/api/types'
+import type { ApiClientContract, ScanEvent, ScanMode } from '@/lib/api/types'
 
 export type ScanStatus = 'idle' | 'scanning' | 'completed' | 'cancelled' | 'error'
 
@@ -37,7 +37,7 @@ export const useScanStore = defineStore('scan', {
     controller: null as AbortController | null,
   }),
   actions: {
-    async start(libraryId: string, client: ApiClientContract, onOutcome?: (outcome: ScanOutcome) => void): Promise<ScanOutcome | undefined> {
+    async start(libraryId: string, client: ApiClientContract, onOutcome?: (outcome: ScanOutcome) => void, mode?: ScanMode): Promise<ScanOutcome | undefined> {
       if (this.status === 'scanning') return
       const controller = markRaw(new AbortController())
       this.controller = controller
@@ -62,7 +62,7 @@ export const useScanStore = defineStore('scan', {
         return settledOutcome
       }
       try {
-        for await (const event of client.scanLibrary(libraryId, controller.signal)) {
+        for await (const event of client.scanLibrary(libraryId, controller.signal, undefined, mode)) {
           // A reset() or a newer scan superseded this request — never let
           // its events overwrite the current scan state.
           if (this.controller !== controller) return

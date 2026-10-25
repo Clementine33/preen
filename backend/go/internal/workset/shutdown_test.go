@@ -33,8 +33,10 @@ func TestGenerationShutdownInterruptsAndReleasesKey(t *testing.T) {
 	for _, fail := range []bool{false, true} {
 		t.Run(map[bool]string{false: "interrupted", true: "real_failure"}[fail], func(t *testing.T) {
 			f := newFixture(t)
-			task := shutdownGenerationTask{entered: make(chan struct{}),
-				kind: "shutdown", seed: `{}`}
+			task := shutdownGenerationTask{
+				stubTask: stubTask{kind: "shutdown", seed: `{}`},
+				entered:  make(chan struct{}),
+			}
 			if fail {
 				task.failure = errors.New("independent planning failure")
 			}

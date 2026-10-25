@@ -35,11 +35,11 @@ func TestProxiedDownloadKeepsAllowlistAndSkipsDialCheck(t *testing.T) {
 	}
 	client := coverhttp.NewProxied(func() (*url.URL, error) { return proxy, nil })
 
-	if _, err = client.Download(ctx, "https://example.com/a.webp", coverdelivery.Validators{}); err == nil ||
+	if _, err = client.Download(ctx, "https://example.com/a.webp"); err == nil ||
 		coverdelivery.Code(err) != "UNSUPPORTED_CDN" || hits.Load() != 0 {
 		t.Fatalf("off-allowlist host: err=%v hits=%d", err, hits.Load())
 	}
-	_, _ = client.Download(ctx, "https://img.dlsite.jp/a.webp", coverdelivery.Validators{})
+	_, _ = client.Download(ctx, "https://img.dlsite.jp/a.webp")
 	if got, _ := target.Load().(string); got != "CONNECT img.dlsite.jp:443" {
 		t.Fatalf("proxy saw %q", got)
 	}
@@ -49,7 +49,7 @@ func TestProxiedDownloadFailsClosedWhenSettingIsUnreadable(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Millisecond)
 	defer cancel()
 	client := coverhttp.NewProxied(func() (*url.URL, error) { return nil, errors.New("setting unreadable") })
-	if _, err := client.Download(ctx, "https://img.dlsite.jp/a.webp", coverdelivery.Validators{}); err == nil {
+	if _, err := client.Download(ctx, "https://img.dlsite.jp/a.webp"); err == nil {
 		t.Fatal("download succeeded with an unreadable proxy setting")
 	}
 }

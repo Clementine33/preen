@@ -9,7 +9,7 @@ import DataMaintenanceSettings from './DataMaintenanceSettings.vue'
 enableAutoUnmount(afterEach)
 
 const ALL: CleanupCategory[] = [
-  'scan_sessions', 'plan_generations', 'cover_downloads', 'generation_records', 'works',
+  'scan_sessions', 'plan_generations', 'generation_records', 'works',
   'relation_reports', 'source_tags', 'source_voice_actors', 'source_circles',
 ]
 const preview = (candidates: Partial<Record<CleanupCategory, number>>, categories = ALL): CleanupPreview => ({
@@ -39,7 +39,7 @@ describe('data maintenance', () => {
     expect(wrapper.text()).toContain('7 天的扫描记录和 30 天的规划记录')
     expect(wrapper.text()).toContain('24 小时')
     expect(wrapper.text()).not.toContain('15 分钟')
-    expect(wrapper.findAll('input[type="checkbox"]')).toHaveLength(9)
+    expect(wrapper.findAll('input[type="checkbox"]')).toHaveLength(8)
     expect(wrapper.findAll('input[type="checkbox"]').every((box) => (box.element as HTMLInputElement).checked)).toBe(true)
   })
 

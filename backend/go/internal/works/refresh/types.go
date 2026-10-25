@@ -28,13 +28,11 @@ type Issue struct {
 
 // WorkResult contains a work's import outcome and channel failures.
 type WorkResult struct {
-	MainChecked   bool                `json:"-"`
-	BackupChecked bool                `json:"-"`
-	WorkCode      works.WorkCode      `json:"rj"`
-	MainURL       string              `json:"main_url,omitempty"`
-	BackupURL     string              `json:"backup_url,omitempty"`
-	Outcome       works.ImportOutcome `json:"outcome"`
-	Issues        []Issue             `json:"issues"`
+	WorkCode  works.WorkCode      `json:"rj"`
+	MainURL   string              `json:"main_url,omitempty"`
+	BackupURL string              `json:"backup_url,omitempty"`
+	Outcome   works.ImportOutcome `json:"outcome"`
+	Issues    []Issue             `json:"issues"`
 }
 
 // Result is ordered by canonical work number, including partial results on cancellation.

@@ -184,11 +184,7 @@ func TestPendingCoverAdmissionUsesFrozenPathsAndSelectedScope(t *testing.T) {
 	target := targets[f.member.FolderPath]
 	raw, _ := json.Marshal(target)
 	if _, err = f.repo.DB().
-		Exec(`INSERT INTO cover_downloads(id,work_code,version,url,backup_url,locale,refresh,status) VALUES('job','RJ00000001',1,'url','','ja-jp',0,'running')`); err != nil {
-		t.Fatal(err)
-	}
-	if _, err = f.repo.DB().
-		Exec(`INSERT INTO cover_deliveries(id,job_id,execution_id,copy_id,target_json,refresh) VALUES('delivery','job',?,?,?,0)`, ex.ExecutionID, target.CopyID, string(raw)); err != nil {
+		Exec(`INSERT INTO cover_deliveries(id,execution_id,work_code,locale,copy_id,target_json,refresh,status) VALUES('delivery',?,'RJ00000001','ja-jp',?,?,0,'running')`, ex.ExecutionID, target.CopyID, string(raw)); err != nil {
 		t.Fatal(err)
 	}
 	d, err := f.repo.GetPlanDetail(f.planID)

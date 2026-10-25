@@ -209,7 +209,7 @@ export interface UserPreferences {
 }
 
 export type CleanupCategory =
-  | 'scan_sessions' | 'plan_generations' | 'cover_downloads' | 'generation_records' | 'works'
+  | 'scan_sessions' | 'plan_generations' | 'generation_records' | 'works'
   | 'relation_reports' | 'source_tags' | 'source_voice_actors' | 'source_circles'
 
 export interface CleanupPreview {
@@ -1206,7 +1206,6 @@ export interface CoverDelivery {
 export interface CoverReport {
   items: CoverDelivery[]
   counts: Record<CoverStatus, number>
-  downloads: Record<'total' | 'queued' | 'running' | 'done', number>
 }
 
 /** One member of a frozen revision: effective settings plus unit provenance. */

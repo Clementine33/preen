@@ -27,8 +27,6 @@ func (s *Service) refreshWork(
 				item.Issues,
 				Issue{Source: works.SourceDLsite, Code: "STATIC_FAILED", Message: err.Error()},
 			)
-		} else {
-			item.MainChecked = true
 		}
 	}
 	if ctx.Err() != nil {
@@ -124,7 +122,6 @@ func (s *Service) supplyMissing(
 		)
 		return data
 	}
-	item.BackupChecked = true
 	item.BackupURL = fallback.MainURL
 	if missing[works.GroupCore] {
 		data.Core = fallback.Core

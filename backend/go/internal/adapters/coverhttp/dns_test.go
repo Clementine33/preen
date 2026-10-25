@@ -27,7 +27,7 @@ func TestDownloadRejectsPrivateDNSConnections(t *testing.T) {
 	defer func() { net.DefaultResolver = previous }()
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
-	_, err = coverhttp.New(nil).Download(ctx, "https://img.dlsite.jp/main.webp", coverdelivery.Validators{})
+	_, err = coverhttp.New(nil).Download(ctx, "https://img.dlsite.jp/main.webp")
 	if coverdelivery.Code(err) != "UNSUPPORTED_CDN" {
 		t.Fatalf("private DNS address not blocked: %v", err)
 	}

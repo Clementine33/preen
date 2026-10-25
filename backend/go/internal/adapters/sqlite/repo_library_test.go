@@ -246,7 +246,7 @@ func TestDeleteLibraryRetiresExecutionCoverDemands(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := repo.EnqueueCovers(context.Background(), coverdelivery.Request{
-		ExecutionID: "exec-1", WorkCode: "RJ1", URL: "https://example.com/cover",
+		ExecutionID: "exec-1", WorkCode: "RJ1",
 		Targets: []coverdelivery.Target{{CopyID: "copy-1", WorkCode: "RJ1"}},
 	}); err != nil {
 		t.Fatal(err)

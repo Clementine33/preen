@@ -286,7 +286,7 @@ The source's main artwork, stored as one `cover.{ext}` in a Copy's directory. It
 _Avoid_: Treating scaled variants of the same artwork as separate cover requirements.
 
 **Cover Demand**:
-An execution's request to deliver a Main Cover to one selected Copy. It can be stopped or retried independently; demands sharing the same Work and source version share a transfer while each Copy keeps its own publication result. Pending delivery resumes after interruption; a stopped demand requires an explicit retry.
+An execution's request to deliver a Main Cover to one selected Copy. It can be stopped or retried independently; demands for the same Work that are pending at the same time share one transfer while each Copy keeps its own publication result. Pending delivery resumes after interruption; a stopped demand requires an explicit retry.
 _Avoid_: Extending a metadata Execution Session until its covers finish.
 
 **Outbound Proxy**:

@@ -39,15 +39,15 @@ func (r *Repository) HasActiveRenameExecutionForRoot(root string) (bool, error) 
 	return r.HasActiveExecutionForRootKinds(root, []string{"rename"})
 }
 
-// HasPendingRenameCovers checks frozen delivery paths, including a running
-// shared download whose delivery remains pending. Terminal failures do not block.
+// HasPendingRenameCovers checks frozen delivery paths of pending and running
+// deliveries. Terminal outcomes do not block.
 func (r *Repository) HasPendingRenameCovers(ctx context.Context, root string, paths []string) (bool, error) {
 	if len(paths) == 0 {
 		return false, nil
 	}
 	selected := newSelectedPaths(paths)
 	rootKey := librarypath.RootPathKey(root)
-	rows, err := r.db.QueryContext(ctx, `SELECT target_json FROM cover_deliveries WHERE status='pending'`)
+	rows, err := r.db.QueryContext(ctx, `SELECT target_json FROM cover_deliveries WHERE status IN('pending','running')`)
 	if err != nil {
 		return false, err
 	}

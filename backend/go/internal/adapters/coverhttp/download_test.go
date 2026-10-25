@@ -36,7 +36,6 @@ func TestDownloadUsesContentFormatAndRejectsUntrustedSources(t *testing.T) {
 	got, err := client.Download(
 		context.Background(),
 		"https://img.dlsite.jp/incorrect.webp",
-		coverdelivery.Validators{},
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -44,7 +43,7 @@ func TestDownloadUsesContentFormatAndRejectsUntrustedSources(t *testing.T) {
 	if got.Extension != "png" || got.ContentType != "image/png" {
 		t.Fatalf("format was guessed from URL/header: %+v", got)
 	}
-	if _, err = client.Download(t.Context(), "https://127.0.0.1/image", coverdelivery.Validators{}); err == nil {
+	if _, err = client.Download(t.Context(), "https://127.0.0.1/image"); err == nil {
 		t.Fatal("untrusted source accepted")
 	}
 }
@@ -81,7 +80,6 @@ func TestDownloadRejectsCrossCDNRedirectAndInvalidBodies(t *testing.T) {
 				if _, err := client.Download(
 					t.Context(),
 					"https://img.dlsite.jp/main.webp",
-					coverdelivery.Validators{},
 				); coverdelivery.Code(
 					err,
 				) != tc.code {
@@ -106,7 +104,6 @@ func TestDownloadBackoffIsBoundedAndHonorsCancellation(t *testing.T) {
 		if _, err := client.Download(
 			t.Context(),
 			"https://img.dlsite.jp/main.webp",
-			coverdelivery.Validators{},
 		); err == nil {
 			t.Fatal("429 accepted")
 		}
@@ -115,25 +112,25 @@ func TestDownloadBackoffIsBoundedAndHonorsCancellation(t *testing.T) {
 		}
 		ctx, cancel := context.WithCancel(t.Context())
 		cancel()
-		if _, err := client.Download(ctx, "https://img.dlsite.jp/main.webp", coverdelivery.Validators{}); err == nil {
+		if _, err := client.Download(ctx, "https://img.dlsite.jp/main.webp"); err == nil {
 			t.Fatal("cancellation ignored")
 		}
 	})
 }
-func TestDownloadConditionalsAreIndependentOfCredentials(t *testing.T) {
+func TestDownloadSendsNoCredentialsOrConditionals(t *testing.T) {
+	var b bytes.Buffer
+	if err := png.Encode(&b, image.NewRGBA(image.Rect(0, 0, 1, 1))); err != nil {
+		t.Fatal(err)
+	}
 	client := coverhttp.New(&http.Client{Transport: transport(func(r *http.Request) (*http.Response, error) {
-		if r.Header.Get("If-None-Match") != "saved" || r.Header.Get("Authorization") != "" ||
-			r.Header.Get("Cookie") != "" {
-			t.Fatal("conditional credentials incorrect")
+		for _, header := range []string{"Authorization", "Cookie", "If-None-Match", "If-Modified-Since"} {
+			if r.Header.Get(header) != "" {
+				t.Fatalf("unexpected %s header", header)
+			}
 		}
-		return &http.Response{StatusCode: http.StatusNotModified, Body: io.NopCloser(bytes.NewReader(nil))}, nil
+		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(bytes.NewReader(b.Bytes()))}, nil
 	})})
-	result, err := client.Download(
-		t.Context(),
-		"https://img.dlsite.jp/main.webp",
-		coverdelivery.Validators{ETag: "saved"},
-	)
-	if err != nil || !result.NotModified {
-		t.Fatalf("304: %+v %v", result, err)
+	if _, err := client.Download(t.Context(), "https://img.dlsite.jp/main.webp"); err != nil {
+		t.Fatal(err)
 	}
 }

@@ -90,15 +90,18 @@ func TestPlanOwnershipAndCoverDemandCascade(t *testing.T) {
 			target := coverdelivery.Target{CopyID: "copy-1", WorkCode: "RJ1"}
 			for _, execution := range []string{"e-1", "e-2"} {
 				if err := repo.EnqueueCovers(ctx, coverdelivery.Request{
-					ExecutionID: execution, WorkCode: "RJ1", URL: "https://example.com/cover",
+					ExecutionID: execution, WorkCode: "RJ1",
 					Targets: []coverdelivery.Target{target},
 				}); err != nil {
 					t.Fatal(err)
 				}
 			}
-			var job coverdelivery.Job
-			if err := db.QueryRow(`SELECT id,work_code,version FROM cover_downloads`).
-				Scan(&job.ID, &job.WorkCode, &job.Version); err != nil {
+			var running string
+			if err := db.QueryRow(`SELECT id FROM cover_deliveries WHERE execution_id='e-2'`).
+				Scan(&running); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := db.Exec(`UPDATE cover_deliveries SET status='running'`); err != nil {
 				t.Fatal(err)
 			}
 			if _, err := db.Exec(`DELETE FROM plans WHERE plan_id='p-1'`); err != nil {
@@ -107,7 +110,7 @@ func TestPlanOwnershipAndCoverDemandCascade(t *testing.T) {
 			assertCount(t, db, `SELECT COUNT(*) FROM plan_executions WHERE execution_id='e-1'`, 0)
 			assertCount(t, db, `SELECT COUNT(*) FROM cover_deliveries WHERE execution_id='e-1'`, 0)
 			assertCount(t, db, `SELECT COUNT(*) FROM cover_deliveries WHERE execution_id='e-2'`, 1)
-			if current, err := repo.CoverCurrent(ctx, job); err != nil || !current {
+			if current, err := repo.CoverCurrent(ctx, []string{running}); err != nil || !current {
 				t.Fatalf("shared download stopped: current=%v err=%v", current, err)
 			}
 			if _, err := db.Exec(`DELETE FROM worksets WHERE id='ws-2'`); err != nil {
@@ -115,8 +118,7 @@ func TestPlanOwnershipAndCoverDemandCascade(t *testing.T) {
 			}
 			assertCount(t, db, `SELECT COUNT(*) FROM plans WHERE plan_id='p-2'`, 0)
 			assertCount(t, db, `SELECT COUNT(*) FROM cover_deliveries`, 0)
-			assertCount(t, db, `SELECT COUNT(*) FROM cover_downloads`, 1)
-			if current, err := repo.CoverCurrent(ctx, job); err != nil || current {
+			if current, err := repo.CoverCurrent(ctx, []string{running}); err != nil || current {
 				t.Fatalf("retired demand republished: current=%v err=%v", current, err)
 			}
 		})

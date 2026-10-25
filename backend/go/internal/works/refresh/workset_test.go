@@ -163,7 +163,7 @@ func verifyCoverHTTP(t *testing.T, svc workset.Service, cover *coverdelivery.Ser
 		t.Fatalf("retry: %d %s", out.Code, out.Body.String())
 	}
 	report, err = cover.Report(t.Context(), executionID)
-	if err != nil || report.Counts["pending"] != 2 || report.Downloads["total"] != 1 {
+	if err != nil || report.Counts["pending"] != 2 {
 		t.Fatalf("retry report: %+v %v", report, err)
 	}
 	request = httptest.NewRequest(
@@ -228,7 +228,6 @@ func worksetFixtureWithRefresh(
 			Downloader:      coverhttp.New(nil),
 			Source:          source,
 			Files:           filesystem.CoverFiles{},
-			Staging:         coverStaging(t, t.TempDir()),
 			Acquire:         gate.BeginManual,
 			RefreshSelected: onRefresh,
 		},
@@ -476,15 +475,6 @@ func TestRefreshAllCanRunAgainWithoutChangingSettingsOrFolders(t *testing.T) {
 	if statics.Load() != 2 {
 		t.Fatalf("the second execution did not fetch fresh metadata: %d static requests", statics.Load())
 	}
-}
-
-func coverStaging(t *testing.T, dir string) *filesystem.CoverStaging {
-	t.Helper()
-	stage, err := filesystem.NewCoverStaging(dir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return stage
 }
 
 func stopDispatcher(t *testing.T, svc workset.Service) {

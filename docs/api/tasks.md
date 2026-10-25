@@ -184,7 +184,7 @@ only the actual executed folder scope, including frozen skips, using bounded
 parallel folder walks (the built-in default of 32), one staging writer and one
 selected-range merge. Unselected inventory and bindings are preserved. No covers
 or disabled cover downloading does not prevent this refresh; empty executions
-do not schedule it. It waits for file-operation admission, not unrelated shared
+do not schedule it. It waits for file-operation admission, not unrelated cover
 downloads. Scan failures are logged and do not change metadata or cover results;
 there is no automatic scan retry. Pending completion refreshes are process-local
 and do not resume after backend restart. Explicit cover retries do not schedule
@@ -207,7 +207,8 @@ separate cover cancel route to stop them. Metadata execution follows the usual
 startup interruption rule; pending covers resume automatically.
 Successful replacement of its plan or deletion of its processing record removes
 that execution's pending demands. Failed planning preserves them. Shared
-downloads continue while another demand needs them; published cover files remain.
+downloads continue while another demand for the same work needs them;
+published cover files remain.
 
 ## Copy covers and asynchronous delivery
 
@@ -216,32 +217,33 @@ All routes below require the normal Bearer authentication.
 | Method | Path | Behavior |
 | --- | --- | --- |
 | GET | `/api/v1/works/{rj}/copies/{copyId}/cover` | Read the copy's existing local main image. Validates copy ownership; never starts a download. Actual image MIME, digest ETag, `private, no-cache` and `nosniff`; conditional GET and ranges use standard HTTP semantics. 404 `COPY_NOT_FOUND` / `COVER_UNAVAILABLE`, 409 `COVER_CONFLICT` / `INPUT_CHANGED`. |
-| GET | `/api/v1/worksets/{id}/operations/metadata_refresh/executions/{executionId}/covers` | `{items: [...], counts: {...}, downloads: {...}}`; execution ownership is checked, including operation kind. |
-| POST | same path + `/retry` | Retry failed or stopped demands only when their candidate version is current. Returns the updated report. Does not restart metadata execution. |
-| POST | same path + `/cancel` | Stop this execution's pending/running demands. Shared transfers needed by other executions continue. Returns the updated report. |
+| GET | `/api/v1/worksets/{id}/operations/metadata_refresh/executions/{executionId}/covers` | `{items: [...], counts: {...}}`; execution ownership is checked, including operation kind. |
+| POST | same path + `/retry` | Requeue every failed or canceled demand of the execution. Returns the updated report. Does not restart metadata execution. |
+| POST | same path + `/cancel` | Stop this execution's pending/running demands. A transfer still needed by another execution's demand for the same work continues. Returns the updated report. |
 
 Each item contains `id`, `execution_id`, `target` (the frozen copy target),
 `refresh`, `status`, optional `error_code`, `error_message`, `published`, `digest`.
 Statuses/count keys: `pending`, `running`, `succeeded`, `skipped`, `failed`,
-`canceled`. `downloads` counts distinct shared jobs: `total`, `queued`, `running`,
-`done`; a done transfer may still have failed copy results. Inventory failure
-reports `INVENTORY_REFRESH_FAILED` with `published` retained. Source supersession
-reports canceled / `SOURCE_UPDATED`; stale-version demands cannot be revived.
+`canceled`. `running` marks a demand a worker has claimed; a restart returns it
+to `pending`. Inventory failure reports `INVENTORY_REFRESH_FAILED` with
+`published` retained.
 
-Only main artwork is downloaded: DLsite `image_main.url`, then ASMR.one
-`mainCoverUrl` on absence/download failure, independently of Core group priority.
+Only main artwork is downloaded: the work's current stored cover URL, read when
+the download starts, then ASMR.one `mainCoverUrl` on absence/rejection/download
+failure.
 Only HTTPS `img.dlsite.jp` is initially allowed, including every redirect and DNS
 connection; unknown/nonpublic addresses yield `UNSUPPORTED_CDN`. No metadata
 cookies or application token are sent. Per-request timeout 10 seconds, size cap
 16 MiB, at most three attempts for network/5xx/429 with cancelable backoff.
 Actual image signatures and decoding determine `webp`, `jpg`, `png`, `gif`;
 HTML/damaged content is `INVALID_IMAGE`, excess bytes are `IMAGE_TOO_LARGE`.
-Bytes are not transcoded. Refresh conditionals are sent only for a verified
-matching local file; an unsolicited 304 is refused.
+Bytes are not transcoded. No conditional requests are sent.
 
-Two workers share temporary staged bytes, retaining them while targets remain.
-Restart requeues interrupted transfers, reuses complete stages and cleans
-unreferenced staging files; stopped demands remain stopped. Network transfers do
+Two workers each claim one pending demand together with every other pending
+demand for the same work, download once into memory and publish to each copy.
+Restart returns claimed demands to pending and downloads again; no bytes are
+kept between attempts, and stopped demands remain stopped. Refresh-all always
+downloads and leaves a file whose digest already matches untouched (`skipped`). Network transfers do
 not hold directory admission. Publication waits for file-operation admission,
 then checks the frozen directory exists with its frozen name and retains safe
 path containment and symlink restrictions. It uses the frozen copy target without

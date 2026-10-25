@@ -62,7 +62,6 @@ func cleanupSource(category cleanup.Category) (string, string) {
 		return "circles", "SELECT 1 FROM (SELECT id AS work_id, circle_id FROM works) j WHERE j.circle_id = circles.id"
 	case cleanup.ScanSessions,
 		cleanup.PlanGenerations,
-		cleanup.CoverDownloads,
 		cleanup.GenerationRecords,
 		cleanup.Works,
 		cleanup.RelationReports:

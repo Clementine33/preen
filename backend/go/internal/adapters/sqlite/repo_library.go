@@ -318,6 +318,9 @@ func scanLibrary(row interface{ Scan(...any) error }) (*library.Library, error) 
 
 // ==================== Overview listing ====================
 
+var librarySubtreeFilesSQL = `FROM inventory_dirs sub JOIN inventory_files f ON f.dir_ref = sub.id
+ WHERE sub.root_path = d.root_path AND ` + subtreeIncludingRootSQL("sub.path", "d.path")
+
 // ListLibraryDirs returns the scanned work roots of a library root that
 // the workbench overview shows: every directory the last scan saw, whether or
 // not it holds audio, with the audio and file counts of its subtree. The
@@ -331,10 +334,8 @@ func (r *Repository) ListLibraryDirs(rootPath string) ([]*inventory.LibraryDir, 
 	rootPath = librarypath.CleanRootPath(rootPath)
 	rows, err := r.db.Query(`
 		SELECT d.path, d.created_at,
-		       (SELECT COUNT(*) FROM inventory_dirs sub JOIN inventory_files f ON f.dir_ref = sub.id
-		         WHERE sub.root_path = d.root_path AND (sub.path = d.path OR `+subtreeSQL("sub.path", "d.path")+`) AND f.is_audio = 1) AS audio_count,
-		       (SELECT COUNT(*) FROM inventory_dirs sub JOIN inventory_files f ON f.dir_ref = sub.id
-		         WHERE sub.root_path = d.root_path AND (sub.path = d.path OR `+subtreeSQL("sub.path", "d.path")+`)) AS file_count
+		       (SELECT COUNT(*) `+librarySubtreeFilesSQL+` AND f.is_audio = 1) AS audio_count,
+		       (SELECT COUNT(*) `+librarySubtreeFilesSQL+`) AS file_count
 		FROM inventory_dirs d
 		WHERE d.path != d.root_path
 		  AND d.root_path = ? AND d.is_work_root = 1
@@ -428,8 +429,7 @@ func (r *Repository) DirAudioCounts(rootPath string, relPaths []string) (map[str
 	args = append(args, librarypath.CleanRootPath(rootPath))
 	rows, err := r.db.Query(`
 		SELECT d.path,
-		       (SELECT COUNT(*) FROM inventory_dirs sub JOIN inventory_files f ON f.dir_ref = sub.id
-		         WHERE sub.root_path = d.root_path AND (sub.path = d.path OR `+subtreeSQL("sub.path", "d.path")+`) AND f.is_audio = 1) AS audio_count
+		       (SELECT COUNT(*) `+librarySubtreeFilesSQL+` AND f.is_audio = 1) AS audio_count
 		FROM inventory_dirs d
 		WHERE d.path IN (`+strings.Join(placeholders, ", ")+`) AND d.root_path = ?
 	`, args...)

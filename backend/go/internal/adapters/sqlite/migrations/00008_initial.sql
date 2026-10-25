@@ -608,11 +608,11 @@ CREATE TABLE work_user_tags (
 ) STRICT;
 
 -- Entry indexes
-CREATE INDEX idx_entries_root_path ON entries(root_path);
 CREATE INDEX idx_entries_parent_path ON entries(parent_path);
 -- entries.path is the primary key, so its unique index already serves every
 -- equality and range lookup; the duplicate on the same column only added a
 -- second index to maintain on every inventory write.
+-- Likewise root_path lookups use the leading column of this index.
 CREATE INDEX idx_entries_root_dir_path ON entries(root_path, is_dir, path);
 
 -- Scan session indexes
@@ -623,9 +623,7 @@ CREATE INDEX idx_scan_sessions_status ON scan_sessions(status);
 CREATE INDEX idx_plans_root ON plans(root_path);
 CREATE INDEX idx_plans_status ON plans(status);
 CREATE INDEX idx_plans_workset ON plans(workset_id);
-CREATE INDEX idx_conversion_steps_plan ON conversion_steps(plan_id);
-CREATE INDEX idx_plan_roots_plan ON plan_roots(plan_id);
-CREATE INDEX idx_conversion_components_plan ON conversion_components(plan_id);
+-- The plan payload tables need no plan_id index: their primary keys lead with it.
 
 -- Main-cover candidates, shared transfers and independently cancelable copy deliveries.
 CREATE TABLE cover_candidates (
@@ -646,7 +644,6 @@ CREATE TABLE cover_deliveries (
  status TEXT NOT NULL DEFAULT 'pending', error_code TEXT NOT NULL DEFAULT '', error_message TEXT NOT NULL DEFAULT '',
  published TEXT NOT NULL DEFAULT '', digest TEXT NOT NULL DEFAULT '', UNIQUE(execution_id,copy_id)
 ) STRICT;
-CREATE INDEX cover_deliveries_execution ON cover_deliveries(execution_id);
 CREATE INDEX cover_deliveries_job ON cover_deliveries(job_id);
 CREATE TABLE cover_files (
  copy_id TEXT PRIMARY KEY REFERENCES work_copies(id) ON DELETE CASCADE,

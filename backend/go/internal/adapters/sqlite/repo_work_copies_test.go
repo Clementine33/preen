@@ -407,3 +407,36 @@ func TestMergeBindsMoreThanSQLiteVariableLimit(t *testing.T) {
 		)
 	}
 }
+
+func TestDeleteLibraryDropsOnlyItsInventory(t *testing.T) {
+	repo := newTestRepository(t)
+	gone, err := repo.CreateLibrary("gone", "/gone")
+	if err != nil {
+		t.Fatal(err)
+	}
+	kept, err := repo.CreateLibrary("kept", "/kept")
+	if err != nil {
+		t.Fatal(err)
+	}
+	stageDir(t, repo, "scan-gone", "/gone", "RJ00000001 album")
+	if _, err := repo.MergeStaging("scan-gone", gone.ID, "/gone"); err != nil {
+		t.Fatal(err)
+	}
+	stageDir(t, repo, "scan-kept", "/kept", "RJ00000002 album")
+	if _, err := repo.MergeStaging("scan-kept", kept.ID, "/kept"); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := repo.DeleteLibrary(gone.ID); err != nil {
+		t.Fatal(err)
+	}
+	for root, want := range map[string]int{"/gone": 0, "/kept": 1} {
+		var n int
+		if err := repo.DB().QueryRow("SELECT COUNT(*) FROM entries WHERE root_path = ?", root).Scan(&n); err != nil {
+			t.Fatal(err)
+		}
+		if n != want {
+			t.Errorf("%s entries = %d, want %d", root, n, want)
+		}
+	}
+}

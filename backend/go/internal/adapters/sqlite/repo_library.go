@@ -273,6 +273,14 @@ func (r *Repository) DeleteLibrary(id string) error {
 	if err := unbindLibraryCopies(tx, id); err != nil {
 		return err
 	}
+	// As with a root change, the inventory of the root goes with the library;
+	// no other library's scan would ever remove it.
+	if _, err := tx.Exec(
+		"DELETE FROM entries WHERE root_path = (SELECT root_path FROM libraries WHERE id = ?)",
+		id,
+	); err != nil {
+		return err
+	}
 	if _, err := tx.Exec("DELETE FROM libraries WHERE id = ?", id); err != nil {
 		return err
 	}

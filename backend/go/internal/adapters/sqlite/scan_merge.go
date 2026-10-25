@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/Clementine33/preen/backend/internal/inventory"
@@ -267,12 +266,13 @@ func cleanupStaleEntries(tx *sql.Tx, scanID, rootPath string) (root string, full
 	// Binary path ranges preserve slash boundaries and treat `%` and `_`
 	// literally. Pin the primary path index: without this hint SQLite can
 	// choose root_path alone and visit the entire library for a member refresh.
+	from, to := subtree(scopePath)
 	if _, err := tx.Exec(`
 		DELETE FROM entries
 		WHERE root_path = ?
 			AND path >= ? AND path < ? AND path <> ?
 			AND path NOT IN (SELECT path FROM entries_staging WHERE session_id = ?)
-	`, rootPath, strings.TrimRight(scopePath, "/")+"/", strings.TrimRight(scopePath, "/")+"0", librarypath.CleanRootPath(scopePath), scanID); err != nil {
+	`, rootPath, from, to, librarypath.CleanRootPath(scopePath), scanID); err != nil {
 		return rootPath, false, err
 	}
 	return rootPath, false, nil

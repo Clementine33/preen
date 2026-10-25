@@ -3,29 +3,22 @@ package sqlite
 import (
 	"database/sql"
 	"fmt"
-	"strings"
 
 	"github.com/Clementine33/preen/backend/internal/inventory"
 )
 
 // ObservedAudioEntries reads the observed audio files at or beneath one root,
 // each with the generation credential recorded for it when there is one. The
-// subtree is matched as a binary range rather than with LIKE, for the two
-// reasons subtreeFilePredicateSQL gives: SQLite's LIKE is ASCII
-// case-insensitive, which would conflate case-distinct POSIX siblings and read
-// a name holding % or _ as a pattern, and it cannot use the path index.
-// Everything under a directory sorts between prefix+"/" and prefix+"0" ("0" is
-// the next character after "/"), where the prefix is the root without its
-// trailing slash — so the root "/" is matched by the file's own row or by
-// anything under it. The caller passes the stored POSIX form.
+// subtree uses the stored POSIX path's binary range, preserving case and treating
+// '%' and '_' literally while searching the path index.
 func (r *Repository) ObservedAudioEntries(rootPath string) ([]inventory.ObservedAudio, error) {
-	prefix := strings.TrimSuffix(rootPath, "/")
+	from, to := subtree(rootPath)
 	rows, err := r.db.Query(`
 		SELECT e.path, COALESCE(e.size, 0), COALESCE(e.mtime, 0), COALESCE(e.bitrate, 0), COALESCE(e.format, ''),
 		       g.codec, g.bitrate_kbps, g.mode, g.size, g.mtime
 		FROM entries e LEFT JOIN generation_records g ON g.path = e.path
 		WHERE e.is_dir = 0 AND (e.path = ? OR (e.path >= ? AND e.path < ?))
-	`, rootPath, prefix+"/", prefix+"0")
+	`, rootPath, from, to)
 	if err != nil {
 		return nil, err
 	}

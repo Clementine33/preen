@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"path"
 	"time"
 
 	"github.com/Clementine33/preen/backend/internal/inventory"
@@ -642,6 +641,7 @@ func (r *Repository) SyncObservedInventory(
 // scan merge applies: new rows start at content_rev 1, changed rows bump it and
 // drop the stale bitrate, unchanged rows keep both.
 func upsertObservedFile(tx *sql.Tx, rootPath string, f inventory.InventoryFile) error {
+	parent, name := splitInventoryPath(f.Path)
 	var contentRev, size, mtime int64
 	var bitrate sql.NullInt64
 	err := tx.QueryRow(
@@ -652,7 +652,7 @@ func upsertObservedFile(tx *sql.Tx, rootPath string, f inventory.InventoryFile) 
 		if _, insErr := tx.Exec(`
 			INSERT INTO entries (path, root_path, parent_path, name, is_dir, size, mtime, content_rev, dirty_flag, updated_at)
 			VALUES (?, ?, ?, ?, 0, ?, ?, 1, 0, ?)
-		`, f.Path, rootPath, path.Dir(f.Path), path.Base(f.Path), f.Size, f.Mtime, time.Now().Format(timeFormat)); insErr != nil {
+		`, f.Path, rootPath, parent, name, f.Size, f.Mtime, time.Now().Format(timeFormat)); insErr != nil {
 			return fmt.Errorf("insert inventory row %s: %w", f.Path, insErr)
 		}
 		return nil
@@ -674,7 +674,7 @@ func upsertObservedFile(tx *sql.Tx, rootPath string, f inventory.InventoryFile) 
 		UPDATE entries SET root_path = ?, parent_path = ?, name = ?, size = ?, mtime = ?,
 			content_rev = ?, dirty_flag = ?, bitrate = ?, updated_at = ?
 		WHERE path = ?
-	`, rootPath, path.Dir(f.Path), path.Base(f.Path), f.Size, f.Mtime, contentRev,
+	`, rootPath, parent, name, f.Size, f.Mtime, contentRev,
 		dirty, bitrateVal, time.Now().Format(timeFormat), f.Path); err != nil {
 		return fmt.Errorf("update inventory row %s: %w", f.Path, err)
 	}

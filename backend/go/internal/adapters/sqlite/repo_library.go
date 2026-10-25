@@ -19,13 +19,6 @@ import (
 // the recognized audio extensions (case-insensitive).
 const audioExtCond = `(lower(name) LIKE '%.mp3' OR lower(name) LIKE '%.flac' OR lower(name) LIKE '%.wav' OR lower(name) LIKE '%.m4a' OR lower(name) LIKE '%.aac' OR lower(name) LIKE '%.ogg')`
 
-// subtreeFilePredicateSQL matches file rows f at or beneath directory row d at
-// a slash boundary, using binary comparison. SQLite LIKE is ASCII
-// case-insensitive by default, which would conflate case-distinct POSIX
-// siblings (`/music/Rock` vs `/music/rock`), so path identity here must be
-// exact and case-sensitive; % and _ are ordinary characters.
-const subtreeFilePredicateSQL = `(f.path >= d.path || '/' AND f.path < d.path || '0')`
-
 // isUniqueConstraintError reports whether err is a SQLite UNIQUE constraint
 // violation.
 func isUniqueConstraintError(err error) bool {
@@ -343,9 +336,9 @@ func (r *Repository) ListLibraryDirs(rootPath string) ([]*inventory.LibraryDir, 
 	rows, err := r.db.Query(`
 		SELECT d.path, d.name, d.created_at,
 		       (SELECT COUNT(*) FROM entries f
-		         WHERE f.root_path = d.root_path AND f.is_dir = 0 AND `+subtreeFilePredicateSQL+` AND `+audioExtCond+`) AS audio_count,
+		         WHERE f.root_path = d.root_path AND f.is_dir = 0 AND `+subtreeSQL("f.path", "d.path")+` AND `+audioExtCond+`) AS audio_count,
 		       (SELECT COUNT(*) FROM entries f
-		         WHERE f.root_path = d.root_path AND f.is_dir = 0 AND `+subtreeFilePredicateSQL+`) AS file_count
+		         WHERE f.root_path = d.root_path AND f.is_dir = 0 AND `+subtreeSQL("f.path", "d.path")+`) AS file_count
 		FROM entries d
 		WHERE d.is_dir = 1
 		  AND d.root_path = ? AND d.is_work_root = 1
@@ -356,10 +349,7 @@ func (r *Repository) ListLibraryDirs(rootPath string) ([]*inventory.LibraryDir, 
 	}
 	defer rows.Close()
 
-	prefix := rootPath
-	if !strings.HasSuffix(prefix, "/") {
-		prefix += "/"
-	}
+	prefix := joinInventoryPath(rootPath, "")
 	var out []*inventory.LibraryDir
 	for rows.Next() {
 		var d inventory.LibraryDir
@@ -398,10 +388,7 @@ func (r *Repository) ListLibraryWorkRoots(rootPath string) ([]string, error) {
 	}
 	defer rows.Close()
 
-	prefix := rootPath
-	if !strings.HasSuffix(prefix, "/") {
-		prefix += "/"
-	}
+	prefix := joinInventoryPath(rootPath, "")
 	var out []string
 	for rows.Next() {
 		var path, name string
@@ -445,7 +432,7 @@ func (r *Repository) DirAudioCounts(rootPath string, relPaths []string) (map[str
 	rows, err := r.db.Query(`
 		SELECT d.path,
 		       (SELECT COUNT(*) FROM entries f
-		         WHERE f.root_path = d.root_path AND f.is_dir = 0 AND `+subtreeFilePredicateSQL+` AND `+audioExtCond+`) AS audio_count
+		         WHERE f.root_path = d.root_path AND f.is_dir = 0 AND `+subtreeSQL("f.path", "d.path")+` AND `+audioExtCond+`) AS audio_count
 		FROM entries d
 		WHERE d.is_dir = 1 AND d.path IN (`+strings.Join(placeholders, ", ")+`) AND d.root_path = ?
 	`, args...)
@@ -472,12 +459,13 @@ func (r *Repository) DirAudioCounts(rootPath string, relPaths []string) (map[str
 // case-distinct siblings stay distinct.
 func (r *Repository) ListEntriesUnderPath(pathPrefix string) ([]inventory.Entry, error) {
 	pathPrefix = librarypath.CleanRootPath(pathPrefix)
+	from, to := subtree(pathPrefix)
 	rows, err := r.db.Query(`
 		SELECT path, parent_path, name, is_dir, size, mtime, bitrate, format, width, height, duration_sec, content_rev
 		FROM entries
 		WHERE path = ? OR (path >= ? AND path < ?)
 		ORDER BY path
-	`, pathPrefix, strings.TrimRight(pathPrefix, "/")+"/", strings.TrimRight(pathPrefix, "/")+"0")
+	`, pathPrefix, from, to)
 	if err != nil {
 		return nil, err
 	}

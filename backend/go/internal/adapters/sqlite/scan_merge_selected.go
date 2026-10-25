@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/Clementine33/preen/backend/internal/inventory"
@@ -56,7 +55,7 @@ func (r *Repository) MergeSelectedStaging(
 		WHERE s.session_id = ? AND (s.root_path <> ? OR s.path NOT IN (
 			SELECT covered.path FROM json_each(?) scope CROSS JOIN entries_staging covered
 			WHERE covered.session_id = ?
-			AND covered.path >= scope.value || '/' AND covered.path < scope.value || '0'
+			AND `+subtreeSQL("covered.path", "scope.value")+`
 		))`, id, root, string(encodedScopes), id).Scan(&outside); err != nil {
 		return inventory.MergeOutcome{}, err
 	}
@@ -68,11 +67,12 @@ func (r *Repository) MergeSelectedStaging(
 	}
 	// Point lookups avoid rebuilding the whole staging path set for each scope.
 	for _, scope := range scopes {
+		from, to := subtree(scope)
 		if _, err := tx.ExecContext(ctx, `DELETE FROM entries INDEXED BY sqlite_autoindex_entries_1
 			WHERE root_path = ? AND path >= ? AND path < ?
 			AND NOT EXISTS (SELECT 1 FROM entries_staging s
 			WHERE s.session_id = ? AND s.path = entries.path)`, root,
-			strings.TrimRight(scope, "/")+"/", strings.TrimRight(scope, "/")+"0", id); err != nil {
+			from, to, id); err != nil {
 			return inventory.MergeOutcome{}, err
 		}
 	}

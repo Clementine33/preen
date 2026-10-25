@@ -15,7 +15,7 @@ import (
 )
 
 func TestCoverInventoryRetryOnlyChangesPublishedAndRemovedCoverRows(t *testing.T) {
-	_, repo, dl, req, folders, stage := deliveryFixture(t)
+	_, repo, dl, req, folders := deliveryFixture(t)
 	req.Refresh = true
 	root := req.Targets[0].LibraryRoot
 	old := filepath.ToSlash(filepath.Join(folders[0], "cover.jpg"))
@@ -46,7 +46,6 @@ func TestCoverInventoryRetryOnlyChangesPublishedAndRemovedCoverRows(t *testing.T
 		Store:      repo,
 		Downloader: dl,
 		Files:      filesystem.CoverFiles{},
-		Staging:    coverStaging(t, stage),
 		Acquire:    admission.NewGate(nil).BeginManual,
 		SyncInventory: func(_ context.Context, target coverdelivery.Target, result coverdelivery.Publication) error {
 			if fail {

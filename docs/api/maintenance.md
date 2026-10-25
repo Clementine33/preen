@@ -27,7 +27,6 @@ The currently supported categories are:
 | --- | --- |
 | `scan_sessions` | completed/failed/canceled/interrupted, with a terminal time before the run starts, regardless of age; missing finished_at falls back to started_at; running scans are never eligible |
 | `plan_generations` | finished_at present and before the run starts, regardless of age; unfinished generations are never eligible |
-| `cover_downloads` | done, with no delivery reference of any status |
 | `generation_records` | no inventory entry at the record's path: the output was moved or deleted outside the app, or its library is gone. A file found again later is judged by its measured rate |
 | `works` | no stored copy binding, personal rating, nonempty note, user tag or collection membership; listening positions and Finished marks do not protect it |
 | `relation_reports` | reports outside the fixed-point dependency closure of all surviving works |
@@ -165,7 +164,7 @@ maintenance from acquiring a slot. Ordinary scans/tasks may enter between
 batches; if they hold admission when cleanup reenters, cleanup ends interrupted
 and retains its committed results. Busy starts do not queue.
 
-Automatic maintenance still handles only the four history categories (those
+Automatic maintenance still handles only the three history categories (those
 before `works`) and space maintenance. It attempts a pass before requests open, first waits 15 minutes in
 its background loop, then waits 24 hours after a completed pass or 15 minutes
 after a busy, incomplete or budget-limited pass. A manual run adds no timer and

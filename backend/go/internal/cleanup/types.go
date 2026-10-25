@@ -15,7 +15,6 @@ type Category string
 const (
 	ScanSessions      Category = "scan_sessions"
 	PlanGenerations   Category = "plan_generations"
-	CoverDownloads    Category = "cover_downloads"
 	GenerationRecords Category = "generation_records"
 	Works             Category = "works"
 	RelationReports   Category = "relation_reports"
@@ -27,7 +26,6 @@ const (
 var supportedCategories = []Category{
 	ScanSessions,
 	PlanGenerations,
-	CoverDownloads,
 	GenerationRecords,
 	Works,
 	RelationReports,

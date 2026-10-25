@@ -36,7 +36,6 @@ func parseTimestamp(s string) time.Time {
 type CleanupStats struct {
 	DeletedScanSessions      int64
 	DeletedGenerations       int64
-	DeletedCoverDownloads    int64
 	DeletedGenerationRecords int64
 }
 

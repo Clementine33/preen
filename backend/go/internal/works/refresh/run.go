@@ -79,15 +79,11 @@ func (e Executor) Run(ctx context.Context, in workset.BatchExecutionInput) error
 				queueErr = e.Covers.Enqueue(
 					ctx,
 					coverdelivery.Request{
-						ExecutionID:   in.ExecutionID,
-						WorkCode:      code,
-						URL:           item.MainURL,
-						MainChecked:   item.MainChecked,
-						BackupChecked: item.BackupChecked,
-						BackupURL:     item.BackupURL,
-						Locale:        common.Locale,
-						Refresh:       common.Mode == RefreshAll,
-						Targets:       targets[code],
+						ExecutionID: in.ExecutionID,
+						WorkCode:    code,
+						Locale:      common.Locale,
+						Refresh:     common.Mode == RefreshAll,
+						Targets:     targets[code],
 					},
 				)
 			}

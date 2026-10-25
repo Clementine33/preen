@@ -132,7 +132,7 @@ func dialPublic(ctx context.Context, network, address string) (net.Conn, error) 
 	}
 	return nil, last
 }
-func (c *Client) Download(ctx context.Context, raw string, v coverdelivery.Validators) (coverdelivery.Download, error) {
+func (c *Client) Download(ctx context.Context, raw string) (coverdelivery.Download, error) {
 	u, err := url.Parse(raw)
 	if err != nil {
 		return coverdelivery.Download{}, coverdelivery.Failure("UNSUPPORTED_CDN", err)
@@ -141,7 +141,7 @@ func (c *Client) Download(ctx context.Context, raw string, v coverdelivery.Valid
 		return coverdelivery.Download{}, err
 	}
 	for attempt := range 3 {
-		result, retry, delay, e := c.once(ctx, raw, v)
+		result, retry, delay, e := c.once(ctx, raw)
 		if e == nil || !retry || attempt == 2 {
 			return result, e
 		}
@@ -162,29 +162,18 @@ func (c *Client) Download(ctx context.Context, raw string, v coverdelivery.Valid
 func (c *Client) once(
 	ctx context.Context,
 	raw string,
-	v coverdelivery.Validators,
 ) (coverdelivery.Download, bool, time.Duration, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, raw, nil)
 	if err != nil {
 		return coverdelivery.Download{}, false, 0, err
 	}
 	req.Header.Set("Accept", "image/webp,image/png,image/jpeg,image/gif")
-	if v.ETag != "" {
-		req.Header.Set("If-None-Match", v.ETag)
-	}
-	if v.LastModified != "" {
-		req.Header.Set("If-Modified-Since", v.LastModified)
-	}
 	res, err := c.http.Do(req)
 	if err != nil {
 		return coverdelivery.Download{}, ctx.Err() == nil && coverdelivery.Code(err) != "UNSUPPORTED_CDN", 0, err
 	}
 	defer res.Body.Close()
-	out := coverdelivery.Download{ETag: res.Header.Get("ETag"), LastModified: res.Header.Get("Last-Modified")}
-	if res.StatusCode == http.StatusNotModified && (v.ETag != "" || v.LastModified != "") {
-		out.NotModified = true
-		return out, false, 0, nil
-	}
+	out := coverdelivery.Download{}
 	if res.StatusCode != http.StatusOK {
 		delay := time.Duration(0)
 		if n, e := strconv.Atoi(res.Header.Get("Retry-After")); e == nil && n > 0 {

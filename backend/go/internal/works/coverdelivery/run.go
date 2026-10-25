@@ -44,82 +44,62 @@ func (s *Service) ProcessNext(ctx context.Context) (bool, error) {
 	if err != nil || job == nil {
 		return false, err
 	}
+	ids := make([]string, len(job.Destinations))
+	for i, d := range job.Destinations {
+		ids[i] = d.ID
+	}
 	downloadCtx, cancel := context.WithCancel(ctx)
-	active := &activeDownload{job: *job, cancel: cancel}
+	active := &activeDownload{ids: ids, cancel: cancel}
 	s.activeMu.Lock()
-	s.active[job.ID] = active
+	s.active[ids[0]] = active
 	s.activeMu.Unlock()
 	defer func() {
 		cancel()
 		s.activeMu.Lock()
-		if s.active[job.ID] == active {
-			delete(s.active, job.ID)
-		}
+		delete(s.active, ids[0])
 		s.activeMu.Unlock()
 	}()
-	done, err := s.process(downloadCtx, job)
+	done, err := s.process(downloadCtx, job, ids)
 	if ctx.Err() != nil {
 		return true, ctx.Err()
-	} // restart recovers the claimed row
+	} // restart recovers the claimed rows
 	if downloadCtx.Err() != nil {
 		err = nil
 	}
-	s.publication.Lock()
-	defer s.publication.Unlock()
-	if e := s.deps.Store.FinishCover(ctx, job.ID); e != nil {
+	// Anything still running (admission busy, interrupted) goes back to pending.
+	if e := s.deps.Store.FinishCover(ctx, ids); e != nil {
 		return true, errors.Join(err, e)
 	}
-	// Finish atomically requeues any remaining demands. Do not requeue again:
-	// another worker may already have claimed that row.
-	current, e := s.deps.Store.CoverCurrent(ctx, *job)
-	if e != nil {
-		return true, errors.Join(err, e)
-	}
-	if current {
-		return done, err
-	}
-	if e := s.deps.Staging.Remove(job.ID, job.StagePath); e != nil {
-		return true, errors.Join(err, e)
-	}
-	return true, err
+	return done, err
 }
-func (s *Service) process(ctx context.Context, j *Job) (bool, error) {
-	destinations, err := s.deps.Store.CoverDestinations(ctx, j.ID)
-	if err != nil {
-		return false, err
-	}
+func (s *Service) process(ctx context.Context, j *Job, ids []string) (bool, error) {
 	pending := false
-	for i := range destinations {
-		d := &destinations[i]
-		if d.Status != "pending" {
-			continue
-		}
-		skipped, e := s.skipExisting(ctx, d)
+	for i := range j.Destinations {
+		skipped, e := s.skipExisting(ctx, &j.Destinations[i])
 		if e != nil {
 			return false, e
 		}
-		if skipped {
-			continue
+		if !skipped {
+			pending = true
 		}
-		pending = true
 	}
 	if !pending {
 		return true, nil
 	}
-	current, err := s.deps.Store.CoverCurrent(ctx, *j)
+	current, err := s.deps.Store.CoverCurrent(ctx, ids)
 	if err != nil {
 		return false, err
 	}
 	if !current {
 		return true, nil
 	}
-	data, err := s.stage(ctx, j, destinations)
+	data, digest, err := s.fetch(ctx, j)
 	if err != nil {
 		if ctx.Err() != nil {
 			return false, ctx.Err()
 		}
-		for _, d := range destinations {
-			if d.Status != "pending" {
+		for _, d := range j.Destinations {
+			if d.Status != "running" {
 				continue
 			}
 			d.Status = "failed"
@@ -131,16 +111,42 @@ func (s *Service) process(ctx context.Context, j *Job) (bool, error) {
 		}
 		return true, nil
 	}
-	for _, d := range destinations {
-		if d.Status != "pending" {
-			continue
+	// Admission can stay busy for a long execution; keep the bytes and wait
+	// instead of downloading again on every claim.
+	remaining := []Destination{}
+	for _, d := range j.Destinations {
+		if d.Status == "running" {
+			remaining = append(remaining, d)
 		}
-		busy, e := s.deliver(ctx, *j, d, data)
-		if busy {
-			return false, nil
+	}
+	for len(remaining) > 0 {
+		waiting := remaining[:0]
+		for _, d := range remaining {
+			busy, e := s.deliver(ctx, d, data, digest)
+			if e != nil {
+				return false, e
+			}
+			if busy {
+				waiting = append(waiting, d)
+			}
 		}
-		if e != nil {
-			return false, e
+		remaining = waiting
+		if len(remaining) == 0 {
+			break
+		}
+		ids := make([]string, len(remaining))
+		for i, d := range remaining {
+			ids[i] = d.ID
+		}
+		if current, e := s.deps.Store.CoverCurrent(ctx, ids); e != nil || !current {
+			return e == nil, e
+		}
+		timer := time.NewTimer(s.deps.BusyRetry)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return false, ctx.Err()
+		case <-timer.C:
 		}
 	}
 	return true, nil

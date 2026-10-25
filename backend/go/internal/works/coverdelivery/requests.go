@@ -9,13 +9,7 @@ func (s *Service) Enqueue(ctx context.Context, r Request) error {
 	if r.ExecutionID == "" || r.WorkCode == "" {
 		return fmt.Errorf("missing cover ownership")
 	}
-	s.publication.Lock()
-	err := s.deps.Store.EnqueueCovers(ctx, r)
-	s.publication.Unlock()
-	if err == nil {
-		err = s.stopUnneeded(ctx)
-	}
-	return err
+	return s.deps.Store.EnqueueCovers(ctx, r)
 }
 func (s *Service) Report(ctx context.Context, execution string) (Report, error) {
 	return s.deps.Store.CoverReport(ctx, execution)
@@ -53,7 +47,7 @@ func (s *Service) stopUnneeded(ctx context.Context) error {
 	s.activeMu.Lock()
 	defer s.activeMu.Unlock()
 	for _, active := range s.active {
-		current, err := s.deps.Store.CoverCurrent(ctx, active.job)
+		current, err := s.deps.Store.CoverCurrent(ctx, active.ids)
 		if err != nil {
 			return err
 		}

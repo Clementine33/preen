@@ -16,7 +16,7 @@ import (
 )
 
 func TestSelectedRefreshWaitsForMetadataAndCoversThenMergesOnce(t *testing.T) {
-	_, repo, dl, req, folders, stage := deliveryFixture(t)
+	_, repo, dl, req, folders := deliveryFixture(t)
 	root := req.Targets[0].LibraryRoot
 	req.Targets = req.Targets[:1]
 	newFile := filepath.ToSlash(filepath.Join(folders[0], "new.txt"))
@@ -36,7 +36,7 @@ func TestSelectedRefreshWaitsForMetadataAndCoversThenMergesOnce(t *testing.T) {
 		sqlite.NewScanStaging(repo), filesystem.WalkRootEntriesParallel, filesystem.WalkFolderEntries, nil,
 	)
 	calls := 0
-	svc := selectedRefreshService(t, repo, dl, stage, func(ctx context.Context, base string, selected []string) error {
+	svc := selectedRefreshService(t, repo, dl, func(ctx context.Context, base string, selected []string) error {
 		calls++
 		if base != root || !slices.Equal(selected, folders[:1]) {
 			t.Fatalf("wrong scope: %s %v", base, selected)
@@ -78,7 +78,7 @@ func TestSelectedRefreshWaitsForMetadataAndCoversThenMergesOnce(t *testing.T) {
 }
 
 func TestSelectedRefreshDoesNotWaitForOtherExecutionsSharedJob(t *testing.T) {
-	_, repo, dl, req, folders, stage := deliveryFixture(t)
+	_, repo, dl, req, folders := deliveryFixture(t)
 	if _, err := repo.DB().Exec(`INSERT INTO plans(plan_id,root_path,snapshot_token,workset_id)
 		VALUES('other-plan','/music','s','set')`); err != nil {
 		t.Fatal(err)
@@ -88,7 +88,7 @@ func TestSelectedRefreshDoesNotWaitForOtherExecutionsSharedJob(t *testing.T) {
 		t.Fatal(err)
 	}
 	calls := 0
-	svc := selectedRefreshService(t, repo, dl, stage, func(context.Context, string, []string) error {
+	svc := selectedRefreshService(t, repo, dl, func(context.Context, string, []string) error {
 		calls++
 		return nil
 	})
@@ -106,8 +106,8 @@ func TestSelectedRefreshDoesNotWaitForOtherExecutionsSharedJob(t *testing.T) {
 		t.Fatal(err)
 	}
 	report, err := svc.Report(t.Context(), "exec")
-	if err != nil || report.Counts["canceled"] != 2 || report.Downloads["queued"] != 1 {
-		t.Fatalf("shared job: %+v %v", report, err)
+	if err != nil || report.Counts["canceled"] != 2 {
+		t.Fatalf("cancel: %+v %v", report, err)
 	}
 	assertRefresh(t, svc, true, nil)
 	if calls != 1 {
@@ -116,10 +116,10 @@ func TestSelectedRefreshDoesNotWaitForOtherExecutionsSharedJob(t *testing.T) {
 }
 
 func TestSelectedRefreshFailureAndEmptyScopeDoNotChangeMetadata(t *testing.T) {
-	_, repo, dl, req, folders, stage := deliveryFixture(t)
+	_, repo, dl, req, folders := deliveryFixture(t)
 	scanErr := errors.New("walk failed")
 	calls := 0
-	svc := selectedRefreshService(t, repo, dl, stage, func(context.Context, string, []string) error {
+	svc := selectedRefreshService(t, repo, dl, func(context.Context, string, []string) error {
 		calls++
 		return scanErr
 	})
@@ -146,12 +146,12 @@ func TestSelectedRefreshFailureAndEmptyScopeDoNotChangeMetadata(t *testing.T) {
 }
 
 func selectedRefreshService(
-	t *testing.T, repo *sqlite.Repository, dl *download, stage string,
+	t *testing.T, repo *sqlite.Repository, dl *download,
 	refresh func(context.Context, string, []string) error,
 ) *coverdelivery.Service {
 	t.Helper()
 	svc, err := coverdelivery.New(coverdelivery.Dependencies{
-		Store: repo, Downloader: dl, Files: filesystem.CoverFiles{}, Staging: coverStaging(t, stage),
+		Store: repo, Downloader: dl, Files: filesystem.CoverFiles{},
 		Acquire: admission.NewGate(repo.HasActiveSession).BeginManual, RefreshSelected: refresh,
 	})
 	if err != nil {

@@ -596,8 +596,7 @@ describe.each(['metadata_refresh', 'rename'] as const)('%s execution notices', o
 
 function covers(counts: Partial<CoverReport['counts']> = {}): CoverReport {
   return { items: Object.values(counts).some(Boolean) ? [{ id: 'stable-delivery', execution_id: 'e1', refresh: false, status: 'succeeded', target: { copy_id: 'copy', rj: 'RJ01', library_root: '/library', rel_path: 'RJ01', identity: 'identity' } }] : [],
-    counts: { pending: 0, running: 0, succeeded: 0, skipped: 0, failed: 0, canceled: 0, ...counts },
-    downloads: { total: 1, queued: 0, running: 0, done: 1 } }
+    counts: { pending: 0, running: 0, succeeded: 0, skipped: 0, failed: 0, canceled: 0, ...counts } }
 }
 describe('metadata cover round notices', () => {
   it('continues after leaving and reports cumulative cover results independently of metadata', async () => {
@@ -692,7 +691,7 @@ describe('cover report outcomes', () => {
     [{ failed: 2, canceled: 1 }, '失败'],
     [{ failed: 1, skipped: 1 }, '部分失败'],
     [{ canceled: 1, succeeded: 2 }, '已停止'],
-  ] as const)('classifies cumulative counts %j independently of shared downloads', async (counts, label) => {
+  ] as const)('classifies cumulative counts %j independently of metadata', async (counts, label) => {
     const app = await harness('/worksets/lib-a/metadata')
     vi.mocked(app.api.getExecutionCovers).mockResolvedValue(covers(counts))
     await app.start('metadata_refresh')

@@ -28,17 +28,16 @@ func (CoverFiles) Publish(
 	if err != nil || prior.Name != "" && prior.Digest == sum {
 		return prior, err
 	}
-	if !refresh {
-		old, e := existingCover(root)
-		if e != nil {
-			return prior, e
-		}
-		if old != nil {
-			old.File.Path = coverPath(t, old.Name)
-			return coverdelivery.Publication{
-				Name: old.Name, Digest: old.Digest, Skipped: true, File: &old.File, Removed: prior.Removed,
-			}, nil
-		}
+	// Refresh replaces a differing or misnamed cover but leaves identical bytes untouched.
+	old, e := existingCover(root)
+	if e != nil && !refresh {
+		return prior, e
+	}
+	if e == nil && old != nil && (!refresh || old.Digest == sum && old.Name == "cover."+old.Extension) {
+		old.File.Path = coverPath(t, old.Name)
+		return coverdelivery.Publication{
+			Name: old.Name, Digest: old.Digest, Skipped: true, File: &old.File, Removed: prior.Removed,
+		}, nil
 	}
 	return publishCover(ctx, root, t, data, sum, prior)
 }

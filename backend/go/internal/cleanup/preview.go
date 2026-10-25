@@ -31,8 +31,6 @@ func (s *Service) Preview(ctx context.Context, categories []Category) (Preview, 
 		case PlanGenerations:
 			rule = Rule{
 				Protection: "Only finished planning sessions; current plans and results are retained."}
-		case CoverDownloads:
-			rule = Rule{Protection: "Any delivery reference protects its download; only done downloads are eligible."}
 		case GenerationRecords:
 			rule = Rule{Protection: "Any inventory entry at the record's path protects it."}
 		case Works:

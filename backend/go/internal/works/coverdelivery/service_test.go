@@ -10,8 +10,8 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"strconv"
 	"testing"
+	"time"
 
 	"github.com/Clementine33/preen/backend/internal/adapters/httpapi"
 
@@ -24,18 +24,20 @@ import (
 type download struct {
 	data  []byte
 	calls int
-	fn    func(context.Context, coverdelivery.Validators) (coverdelivery.Download, error)
+	urls  []string
+	fn    func(context.Context, string) (coverdelivery.Download, error)
 }
 
-func (d *download) Download(ctx context.Context, _ string, v coverdelivery.Validators) (coverdelivery.Download, error) {
+func (d *download) Download(ctx context.Context, url string) (coverdelivery.Download, error) {
 	d.calls++
+	d.urls = append(d.urls, url)
 	if d.fn != nil {
-		return d.fn(ctx, v)
+		return d.fn(ctx, url)
 	}
 	return coverdelivery.Download{Data: d.data, Extension: "png", ContentType: "image/png"}, nil
 }
 func TestDeliveryDownloadsOnceAndPublishesSelectedCopies(t *testing.T) {
-	svc, _, dl, req, folders, _ := deliveryFixture(t)
+	svc, _, dl, req, folders := deliveryFixture(t)
 	var b bytes.Buffer
 	b.Write(dl.data)
 	var err error
@@ -46,7 +48,7 @@ func TestDeliveryDownloadsOnceAndPublishesSelectedCopies(t *testing.T) {
 		t.Fatal(err)
 	}
 	report, err := svc.Report(t.Context(), "exec")
-	if err != nil || report.Counts["succeeded"] != 2 || dl.calls != 1 || report.Downloads["total"] != 1 {
+	if err != nil || report.Counts["succeeded"] != 2 || dl.calls != 1 {
 		t.Fatalf("delivery: %+v, %v, downloads %d", report, err, dl.calls)
 	}
 	for _, dir := range folders {
@@ -58,9 +60,9 @@ func TestDeliveryDownloadsOnceAndPublishesSelectedCopies(t *testing.T) {
 }
 
 func TestRetiredCoverDemandCannotPublishAfterDownload(t *testing.T) {
-	svc, repo, dl, req, folders, _ := deliveryFixture(t)
+	svc, repo, dl, req, folders := deliveryFixture(t)
 	image := dl.data
-	dl.fn = func(_ context.Context, _ coverdelivery.Validators) (coverdelivery.Download, error) {
+	dl.fn = func(_ context.Context, _ string) (coverdelivery.Download, error) {
 		if _, err := repo.DB().Exec(`DELETE FROM plans WHERE plan_id='plan'`); err != nil {
 			return coverdelivery.Download{}, err
 		}
@@ -81,7 +83,7 @@ func TestRetiredCoverDemandCannotPublishAfterDownload(t *testing.T) {
 
 func deliveryFixture(
 	t *testing.T,
-) (*coverdelivery.Service, *sqlite.Repository, *download, coverdelivery.Request, []string, string) {
+) (*coverdelivery.Service, *sqlite.Repository, *download, coverdelivery.Request, []string) {
 	t.Helper()
 	root := t.TempDir()
 	repo, err := sqlite.NewDevelopmentRepository(filepath.Join(t.TempDir(), "cache.db"))
@@ -112,6 +114,7 @@ func deliveryFixture(
 	if _, err = repo.MergeStaging("scan", lib.ID, filepath.ToSlash(root)); err != nil {
 		t.Fatal(err)
 	}
+	setCoverURL(t, repo, "https://img.dlsite.jp/main")
 	targets, err := repo.CoverTargets(t.Context(), root, folders)
 	if err != nil {
 		t.Fatal(err)
@@ -119,7 +122,6 @@ func deliveryFixture(
 	req := coverdelivery.Request{
 		ExecutionID: "exec",
 		WorkCode:    "RJ00000001",
-		URL:         "https://img.dlsite.jp/main",
 		Targets:     []coverdelivery.Target{},
 	}
 	for _, dir := range folders {
@@ -133,108 +135,23 @@ func deliveryFixture(
 	}
 	dl := &download{data: b.Bytes()}
 	gate := admission.NewGate(nil)
-	stage := t.TempDir()
 	svc, err := coverdelivery.New(
 		coverdelivery.Dependencies{
 			Store:      repo,
 			Downloader: dl,
 			Files:      filesystem.CoverFiles{},
-			Staging:    coverStaging(t, stage),
 			Acquire:    gate.BeginManual,
 		},
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return svc, repo, dl, req, folders, stage
-}
-
-func TestBusyDeliveryResumesItsStageAfterRestart(t *testing.T) {
-	svc, repo, dl, req, folders, stage := deliveryFixture(t)
-	busy := true
-	recovered, err := coverdelivery.New(
-		coverdelivery.Dependencies{
-			Store:      repo,
-			Downloader: dl,
-			Files:      filesystem.CoverFiles{},
-			Staging:    coverStaging(t, stage),
-			Acquire: func() (func(), error) {
-				if busy {
-					return nil, &admission.BusyError{Reason: "test admission"}
-				}
-				return func() {}, nil
-			},
-		},
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err = svc.Enqueue(t.Context(), req); err != nil {
-		t.Fatal(err)
-	}
-	if _, err = recovered.ProcessNext(t.Context()); err != nil {
-		t.Fatal(err)
-	}
-	for _, folder := range folders {
-		if _, err = os.Stat(filepath.Join(folder, "cover.png")); !os.IsNotExist(err) {
-			t.Fatal("busy gate allowed publication")
-		}
-	}
-	if dl.calls != 1 {
-		t.Fatal("download should not wait for admission")
-	}
-	orphan := filepath.Join(stage, "00000000-0000-0000-0000-000000000000.image")
-	if err = os.WriteFile(orphan, dl.data, 0600); err != nil {
-		t.Fatal(err)
-	}
-	var sequence int
-	var name, dbPath string
-	if err = repo.DB().QueryRow("PRAGMA database_list").Scan(&sequence, &name, &dbPath); err != nil {
-		t.Fatal(err)
-	}
-	if err = repo.Close(); err != nil {
-		t.Fatal(err)
-	}
-	reopened, err := sqlite.NewDevelopmentRepository(dbPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = reopened.Close() })
-	recovered, err = coverdelivery.New(
-		coverdelivery.Dependencies{
-			Store:      reopened,
-			Downloader: dl,
-			Files:      filesystem.CoverFiles{},
-			Staging:    coverStaging(t, stage),
-			Acquire:    admission.NewGate(nil).BeginManual,
-		},
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err = recovered.Recover(t.Context()); err != nil {
-		t.Fatal(err)
-	}
-	if _, err = os.Stat(orphan); !os.IsNotExist(err) {
-		t.Fatal("unreferenced staging image survived restart")
-	}
-	busy = false
-	if _, err = recovered.ProcessNext(t.Context()); err != nil {
-		t.Fatal(err)
-	}
-	report, err := recovered.Report(t.Context(), "exec")
-	if err != nil || report.Counts["succeeded"] != 2 || dl.calls != 1 {
-		t.Fatalf("resume: %+v %v calls=%d", report, err, dl.calls)
-	}
-	entries, err := os.ReadDir(stage)
-	if err != nil || len(entries) != 0 {
-		t.Fatalf("stage leaked: %v %v", entries, err)
-	}
+	return svc, repo, dl, req, folders
 }
 
 func TestCancellationStopsUnusedDownloadAndExplicitRetryRestarts(t *testing.T) {
-	svc, _, dl, req, folders, _ := deliveryFixture(t)
-	dl.fn = func(ctx context.Context, _ coverdelivery.Validators) (coverdelivery.Download, error) {
+	svc, _, dl, req, folders := deliveryFixture(t)
+	dl.fn = func(ctx context.Context, _ string) (coverdelivery.Download, error) {
 		if err := svc.Cancel(t.Context(), "exec"); err != nil {
 			t.Fatal(err)
 		}
@@ -273,7 +190,7 @@ func TestCancellationStopsUnusedDownloadAndExplicitRetryRestarts(t *testing.T) {
 	}
 }
 func TestCanceledDemandDoesNotStopOtherExecution(t *testing.T) {
-	svc, repo, dl, req, folders, _ := deliveryFixture(t)
+	svc, repo, dl, req, folders := deliveryFixture(t)
 	if _, err := repo.DB().Exec(`INSERT INTO plans(plan_id,root_path,snapshot_token,workset_id)
 		VALUES('other-plan','/music','s','set')`); err != nil {
 		t.Fatal(err)
@@ -291,7 +208,7 @@ func TestCanceledDemandDoesNotStopOtherExecution(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	dl.fn = func(ctx context.Context, _ coverdelivery.Validators) (coverdelivery.Download, error) {
+	dl.fn = func(ctx context.Context, _ string) (coverdelivery.Download, error) {
 		if err := svc.Cancel(t.Context(), "exec"); err != nil {
 			t.Fatal(err)
 		}
@@ -310,48 +227,8 @@ func TestCanceledDemandDoesNotStopOtherExecution(t *testing.T) {
 		t.Fatal(err)
 	}
 }
-func TestNewSourceVersionPreventsOldPublication(t *testing.T) {
-	svc, repo, dl, req, folders, _ := deliveryFixture(t)
-	if _, err := repo.DB().Exec(`INSERT INTO plans(plan_id,root_path,snapshot_token,workset_id)
-		VALUES('new-plan','/music','s','set')`); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := repo.DB().
-		Exec(`INSERT INTO plan_executions(execution_id,workset_id,plan_id) VALUES('new','set','new-plan')`); err != nil {
-		t.Fatal(err)
-	}
-	newer := req
-	newer.ExecutionID = "new"
-	newer.URL = "https://img.dlsite.jp/new.webp"
-	if err := svc.Enqueue(t.Context(), req); err != nil {
-		t.Fatal(err)
-	}
-	dl.fn = func(_ context.Context, _ coverdelivery.Validators) (coverdelivery.Download, error) {
-		if err := svc.Enqueue(t.Context(), newer); err != nil {
-			t.Fatal(err)
-		}
-		return coverdelivery.Download{Data: dl.data}, nil
-	}
-	if _, err := svc.ProcessNext(t.Context()); err != nil {
-		t.Fatal(err)
-	}
-	for _, folder := range folders {
-		if _, err := os.Stat(filepath.Join(folder, "cover.png")); !os.IsNotExist(err) {
-			t.Fatal("stale source landed")
-		}
-	}
-	old, err := svc.Report(t.Context(), "exec")
-	if err != nil || old.Counts["canceled"] != 2 || old.Items[0].ErrorCode != "SOURCE_UPDATED" {
-		t.Fatalf("stale: %+v %v", old, err)
-	}
-	dl.fn = nil
-	if _, err = svc.ProcessNext(t.Context()); err != nil {
-		t.Fatal(err)
-	}
-}
-
 func TestBindingChangeKeepsFrozenCoverTarget(t *testing.T) {
-	svc, repo, dl, req, folders, _ := deliveryFixture(t)
+	svc, repo, dl, req, folders := deliveryFixture(t)
 	if err := svc.Enqueue(t.Context(), req); err != nil {
 		t.Fatal(err)
 	}
@@ -371,13 +248,12 @@ func TestBindingChangeKeepsFrozenCoverTarget(t *testing.T) {
 	}
 }
 func TestInventoryFailureKeepsPublicationAndLocalRead(t *testing.T) {
-	_, repo, dl, req, _, stage := deliveryFixture(t)
+	_, repo, dl, req, _ := deliveryFixture(t)
 	svc, err := coverdelivery.New(
 		coverdelivery.Dependencies{
 			Store:      repo,
 			Downloader: dl,
 			Files:      filesystem.CoverFiles{},
-			Staging:    coverStaging(t, stage),
 			Acquire:    admission.NewGate(nil).BeginManual,
 			SyncInventory: func(context.Context, coverdelivery.Target, coverdelivery.Publication) error {
 				return fmt.Errorf("inventory unavailable")
@@ -420,93 +296,180 @@ func TestInventoryFailureKeepsPublicationAndLocalRead(t *testing.T) {
 		t.Fatal("GET triggered download")
 	}
 }
-func TestConditionalRefreshRequiresMatchingLocalBytes(t *testing.T) {
-	for _, keep := range []bool{true, false} {
-		t.Run(strconv.FormatBool(keep), func(t *testing.T) {
-			svc, repo, dl, req, folders, _ := deliveryFixture(t)
-			dl.fn = func(context.Context, coverdelivery.Validators) (coverdelivery.Download, error) {
-				return coverdelivery.Download{Data: dl.data, ETag: "saved"}, nil
-			}
-			if err := svc.Enqueue(t.Context(), req); err != nil {
-				t.Fatal(err)
-			}
-			if _, err := svc.ProcessNext(t.Context()); err != nil {
-				t.Fatal(err)
-			}
-			if _, err := repo.DB().Exec(`INSERT INTO plans(plan_id,root_path,snapshot_token,workset_id)
-				VALUES('refresh-plan','/music','s','set')`); err != nil {
-				t.Fatal(err)
-			}
-			if _, err := repo.DB().
-				Exec(`INSERT INTO plan_executions(execution_id,workset_id,plan_id) VALUES('refresh','set','refresh-plan')`); err != nil {
-				t.Fatal(err)
-			}
-			if !keep {
-				for _, folder := range folders {
-					if err := os.Remove(filepath.Join(folder, "cover.png")); err != nil {
-						t.Fatal(err)
-					}
+
+func setCoverURL(t *testing.T, repo *sqlite.Repository, url string) {
+	t.Helper()
+	if _, err := repo.DB().Exec(
+		`INSERT INTO works(id,cover_url,collected_at,updated_at) VALUES('RJ00000001',?,'now','now')
+		 ON CONFLICT(id) DO UPDATE SET cover_url=excluded.cover_url`, url); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestDeliveriesOfOneWorkAcrossExecutionsShareOneDownload(t *testing.T) {
+	svc, repo, dl, req, folders := deliveryFixture(t)
+	if _, err := repo.DB().Exec(`INSERT INTO plans(plan_id,root_path,snapshot_token,workset_id)
+		VALUES('other-plan','/music','s','set');
+		INSERT INTO plan_executions(execution_id,workset_id,plan_id) VALUES('other','set','other-plan')`); err != nil {
+		t.Fatal(err)
+	}
+	other := req
+	other.ExecutionID = "other"
+	other.Targets = req.Targets[1:]
+	req.Targets = req.Targets[:1]
+	for _, r := range []coverdelivery.Request{req, other} {
+		if err := svc.Enqueue(t.Context(), r); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := svc.ProcessNext(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if worked, err := svc.ProcessNext(t.Context()); err != nil || worked {
+		t.Fatalf("second claim: %v %v", worked, err)
+	}
+	if dl.calls != 1 {
+		t.Fatalf("downloads: %d", dl.calls)
+	}
+	for _, folder := range folders {
+		if _, err := os.Stat(filepath.Join(folder, "cover.png")); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func TestRetryRequeuesEveryFailedOrCanceledDelivery(t *testing.T) {
+	svc, repo, dl, req, _ := deliveryFixture(t)
+	if err := svc.Enqueue(t.Context(), req); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.DB().Exec(
+		`UPDATE cover_deliveries SET status=CASE copy_id WHEN ? THEN 'failed' ELSE 'canceled' END`,
+		req.Targets[0].CopyID); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.Retry(t.Context(), "exec"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.ProcessNext(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	report, err := svc.Report(t.Context(), "exec")
+	if err != nil || report.Counts["succeeded"] != 2 || dl.calls != 1 {
+		t.Fatalf("retry: %+v %v", report, err)
+	}
+}
+
+func TestDownloadReadsCurrentWorkCoverURL(t *testing.T) {
+	svc, repo, dl, req, _ := deliveryFixture(t)
+	if err := svc.Enqueue(t.Context(), req); err != nil {
+		t.Fatal(err)
+	}
+	setCoverURL(t, repo, "https://img.dlsite.jp/newer.webp")
+	if _, err := svc.ProcessNext(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if len(dl.urls) != 1 || dl.urls[0] != "https://img.dlsite.jp/newer.webp" {
+		t.Fatalf("urls: %v", dl.urls)
+	}
+}
+
+type asmrSource struct {
+	url   string
+	calls []string
+}
+
+func (s *asmrSource) FetchMain(_ context.Context, _, provider, _ string) (string, error) {
+	s.calls = append(s.calls, provider)
+	return s.url, nil
+}
+
+func TestMissingOrFailedMainFallsBackToASMROne(t *testing.T) {
+	for _, tc := range []struct {
+		name, main string
+		wantCalls  int
+	}{{"empty", "", 1}, {"download fails", "https://img.dlsite.jp/broken", 2}} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, repo, dl, req, _ := deliveryFixture(t)
+			setCoverURL(t, repo, tc.main)
+			image := dl.data
+			dl.fn = func(_ context.Context, url string) (coverdelivery.Download, error) {
+				if url != "https://img.asmr-200.com/backup.webp" {
+					return coverdelivery.Download{}, fmt.Errorf("rejected")
 				}
+				return coverdelivery.Download{Data: image}, nil
 			}
-			req.ExecutionID = "refresh"
-			req.Refresh = true
-			dl.fn = conditionalDownload(t, dl.data, keep)
-			if err := svc.Enqueue(t.Context(), req); err != nil {
+			source := &asmrSource{url: "https://img.asmr-200.com/backup.webp"}
+			svc, err := coverdelivery.New(coverdelivery.Dependencies{
+				Store: repo, Downloader: dl, Source: source, Files: filesystem.CoverFiles{},
+				Acquire: admission.NewGate(nil).BeginManual,
+			})
+			if err != nil {
 				t.Fatal(err)
 			}
-			if _, err := svc.ProcessNext(t.Context()); err != nil {
+			if err = svc.Enqueue(t.Context(), req); err != nil {
 				t.Fatal(err)
 			}
-			report, err := svc.Report(t.Context(), "refresh")
-			if err != nil || report.Counts["succeeded"] != 2 {
-				t.Fatalf("refresh: %+v %v", report, err)
+			if _, err = svc.ProcessNext(t.Context()); err != nil {
+				t.Fatal(err)
+			}
+			report, err := svc.Report(t.Context(), "exec")
+			if err != nil || report.Counts["succeeded"] != 2 || len(source.calls) != 1 ||
+				source.calls[0] != "asmr_one" ||
+				len(dl.urls) != tc.wantCalls {
+				t.Fatalf("fallback: %+v %v source=%v urls=%v", report, err, source.calls, dl.urls)
 			}
 		})
 	}
 }
 
-func conditionalDownload(
-	t *testing.T,
-	data []byte,
-	keep bool,
-) func(context.Context, coverdelivery.Validators) (coverdelivery.Download, error) {
-	t.Helper()
-	return func(_ context.Context, v coverdelivery.Validators) (coverdelivery.Download, error) {
-		if keep {
-			if v.ETag != "saved" {
-				t.Fatal("matching local file did not send validator")
-			}
-			return coverdelivery.Download{NotModified: true}, nil
-		}
-		if v.ETag != "" || v.LastModified != "" {
-			t.Fatal("missing local file sent validator")
-		}
-		return coverdelivery.Download{Data: data}, nil
+func TestRefreshRedownloadsAndSkipsIdenticalBytes(t *testing.T) {
+	svc, repo, dl, req, folders := deliveryFixture(t)
+	if err := svc.Enqueue(t.Context(), req); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.ProcessNext(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	before, err := os.Stat(filepath.Join(folders[0], "cover.png"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = repo.DB().Exec(`INSERT INTO plans(plan_id,root_path,snapshot_token,workset_id)
+		VALUES('refresh-plan','/music','s','set');
+		INSERT INTO plan_executions(execution_id,workset_id,plan_id) VALUES('refresh','set','refresh-plan')`); err != nil {
+		t.Fatal(err)
+	}
+	req.ExecutionID = "refresh"
+	req.Refresh = true
+	if err = svc.Enqueue(t.Context(), req); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = svc.ProcessNext(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	report, err := svc.Report(t.Context(), "refresh")
+	if err != nil || report.Counts["skipped"] != 2 || dl.calls != 2 {
+		t.Fatalf("refresh: %+v %v calls=%d", report, err, dl.calls)
+	}
+	after, err := os.Stat(filepath.Join(folders[0], "cover.png"))
+	if err != nil || !after.ModTime().Equal(before.ModTime()) {
+		t.Fatalf("identical bytes rewritten: %v", err)
 	}
 }
 
-type fetchedSource struct{ t *testing.T }
-
-func (s fetchedSource) FetchMain(context.Context, string, string, string) (string, error) {
-	s.t.Error("already fetched source response was requested again")
-	return "", fmt.Errorf("unexpected refetch")
-}
-func TestKnownMissingMainUsesBackupWithoutRepeatingMetadata(t *testing.T) {
-	_, repo, dl, req, _, stage := deliveryFixture(t)
-	req.URL = ""
-	req.MainChecked = true
-	req.BackupChecked = true
-	req.BackupURL = "https://img.dlsite.jp/backup.webp"
-	svc, err := coverdelivery.New(
-		coverdelivery.Dependencies{
-			Store:      repo,
-			Downloader: dl,
-			Source:     fetchedSource{t},
-			Files:      filesystem.CoverFiles{},
-			Staging:    coverStaging(t, stage),
-			Acquire:    admission.NewGate(nil).BeginManual,
+func TestBusyAdmissionWaitsWithoutDownloadingAgain(t *testing.T) {
+	_, repo, dl, req, folders := deliveryFixture(t)
+	attempts := 0
+	svc, err := coverdelivery.New(coverdelivery.Dependencies{
+		Store: repo, Downloader: dl, Files: filesystem.CoverFiles{}, BusyRetry: time.Millisecond,
+		Acquire: func() (func(), error) {
+			if attempts++; attempts <= 6 {
+				return nil, &admission.BusyError{Reason: "test admission"}
+			}
+			return func() {}, nil
 		},
-	)
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -518,15 +481,48 @@ func TestKnownMissingMainUsesBackupWithoutRepeatingMetadata(t *testing.T) {
 	}
 	report, err := svc.Report(t.Context(), "exec")
 	if err != nil || report.Counts["succeeded"] != 2 || dl.calls != 1 {
-		t.Fatalf("main fallback: %+v %v", report, err)
+		t.Fatalf("busy wait: %+v %v calls=%d", report, err, dl.calls)
+	}
+	for _, folder := range folders {
+		if _, err = os.Stat(filepath.Join(folder, "cover.png")); err != nil {
+			t.Fatal(err)
+		}
 	}
 }
 
-func coverStaging(t *testing.T, dir string) *filesystem.CoverStaging {
-	t.Helper()
-	stage, err := filesystem.NewCoverStaging(dir)
+func TestBusyAdmissionYieldsToRestartRecovery(t *testing.T) {
+	_, repo, dl, req, _ := deliveryFixture(t)
+	busy := true
+	svc, err := coverdelivery.New(coverdelivery.Dependencies{
+		Store: repo, Downloader: dl, Files: filesystem.CoverFiles{}, BusyRetry: time.Millisecond,
+		Acquire: func() (func(), error) {
+			if busy {
+				return nil, &admission.BusyError{Reason: "test admission"}
+			}
+			return func() {}, nil
+		},
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	return stage
+	if err = svc.Enqueue(t.Context(), req); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(t.Context(), 50*time.Millisecond)
+	defer cancel()
+	if _, err = svc.ProcessNext(ctx); err == nil {
+		t.Fatal("shutdown during busy wait was not reported")
+	}
+	// The process died with the rows claimed; restart returns them to pending.
+	if err = svc.Recover(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	busy = false
+	if _, err = svc.ProcessNext(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	report, err := svc.Report(t.Context(), "exec")
+	if err != nil || report.Counts["succeeded"] != 2 || dl.calls != 2 {
+		t.Fatalf("resume: %+v %v calls=%d", report, err, dl.calls)
+	}
 }

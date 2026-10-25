@@ -140,7 +140,7 @@ describe('task operation page', () => {
         yield { type: 'execution_snapshot' as const, data: view }
         yield { type: 'failed' as const, data: { execution_id: 'e-1', error_code: 'FAILED', error_message: 'Failed' } }
       } })),
-      getExecutionCovers: vi.fn().mockResolvedValue({ items: [], counts: { pending: 0, running: 0, succeeded: 0, skipped: 0, failed: 0, canceled: 0 }, downloads: {} }),
+      getExecutionCovers: vi.fn().mockResolvedValue({ items: [], counts: { pending: 0, running: 0, succeeded: 0, skipped: 0, failed: 0, canceled: 0 } }),
     })
     expect(wrapper.get('[data-testid="results-pane"]').text()).toContain('2/2')
     wrapper.unmount()
@@ -161,7 +161,7 @@ describe('task operation page', () => {
         await renameStream
         yield { type: 'succeeded' as const, data: { execution_id: id, plan_id: 'p-1' } }
       } })),
-      getExecutionCovers: vi.fn().mockResolvedValue({ items: [], counts: { pending: 1, running: 0, succeeded: 0, skipped: 0, failed: 0, canceled: 0 }, downloads: {} }),
+      getExecutionCovers: vi.fn().mockResolvedValue({ items: [], counts: { pending: 1, running: 0, succeeded: 0, skipped: 0, failed: 0, canceled: 0 } }),
     })
     const original = wrapper.get('[data-testid="task-page-rename"]').element
     await router.push('/worksets/lib-1/metadata')
@@ -331,7 +331,6 @@ describe('task operation page', () => {
       getExecutionCovers: vi.fn(async () => ({
         items: [],
         counts: { pending: 0, running: 0, succeeded: 0, skipped: 0, failed: 0, canceled: 0 },
-        downloads: {},
       })) as never,
     })
 
@@ -381,7 +380,7 @@ it('keeps failed cover retries visible inline without a fictional task result', 
   const { wrapper } = await mountPage('/worksets/lib-1/metadata', {
     getRevision: vi.fn().mockResolvedValue({ plan_id: 'p-1', task: { kind: 'metadata_refresh', schema_version: 1, payload: { components: [] } }, execution: view }),
     getExecution: vi.fn().mockResolvedValue(view),
-    getExecutionCovers: vi.fn().mockResolvedValue({ items: [], counts: { pending: 0, running: 0, succeeded: 0, skipped: 0, failed: 1, canceled: 0 }, downloads: {} }),
+    getExecutionCovers: vi.fn().mockResolvedValue({ items: [], counts: { pending: 0, running: 0, succeeded: 0, skipped: 0, failed: 1, canceled: 0 } }),
     changeExecutionCovers: vi.fn().mockRejectedValue(new Error('封面重试不可用')),
   })
   const retry = wrapper.get('[data-testid="covers"]').findAll('button').find(button => button.text() === '重试')!

@@ -39,8 +39,6 @@ func (r *Repository) CleanupCandidates(
 	case cleanup.PlanGenerations:
 		query = "SELECT generation_id FROM plan_generations WHERE " + generationRetentionPredicate
 		args = []any{cutoff.Format(timeFormat)}
-	case cleanup.CoverDownloads:
-		query = "SELECT j.id FROM cover_downloads j WHERE " + downloadRetentionPredicate
 	case cleanup.GenerationRecords:
 		query = "SELECT g.path FROM generation_records g WHERE " + generationRecordRetentionPredicate
 	case cleanup.SourceTags, cleanup.SourceVoiceActors, cleanup.SourceCircles:
@@ -111,8 +109,6 @@ func (r *Repository) CleanupBatch(
 		deleted, err = deleteScanSessionsBatchTx(ctx, tx, cutoff, len(ids), ids)
 	case cleanup.PlanGenerations:
 		deleted, err = deletePlanGenerationsBatchTx(ctx, tx, cutoff, len(ids), ids)
-	case cleanup.CoverDownloads:
-		deleted, err = deleteUnreferencedCoverDownloadsBatchTx(ctx, tx, len(ids), ids)
 	case cleanup.GenerationRecords:
 		deleted, err = deleteOrphanGenerationRecordsBatchTx(ctx, tx, len(ids), ids)
 	case cleanup.Works:

@@ -79,28 +79,6 @@ func deletePlanGenerationsBatchTx(
 	return n, nil
 }
 
-// A delivery of any status retains its shared download for reporting and retry.
-func deleteUnreferencedCoverDownloadsBatchTx(
-	ctx context.Context,
-	tx *sql.Tx,
-	limit int,
-	candidates ...[]string,
-) (int64, error) {
-	filter, args := retentionCandidateFilter("j.id", nil, candidates)
-	args = append(args, limit)
-	result, err := tx.ExecContext(ctx, `
-		DELETE FROM cover_downloads WHERE id IN (
-			SELECT j.id FROM cover_downloads j
-			WHERE `+downloadRetentionPredicate+filter+` LIMIT ?
-		)
-	`, args...)
-	if err != nil {
-		return 0, fmt.Errorf("delete unreferenced cover downloads: %w", err)
-	}
-	n, _ := result.RowsAffected()
-	return n, nil
-}
-
 // A generation record is read only through the inventory entry at its path, so
 // one with no entry is dead: its output was moved or deleted outside the app, or
 // its library is gone. A later scan finding the file again judges it by its
@@ -163,9 +141,6 @@ func (r *Repository) RunRetentionCleanupBatch(
 	if stats.DeletedGenerations, err = deletePlanGenerationsBatchTx(ctx, tx, generationCutoff, limit); err != nil {
 		return CleanupStats{}, err
 	}
-	if stats.DeletedCoverDownloads, err = deleteUnreferencedCoverDownloadsBatchTx(ctx, tx, limit); err != nil {
-		return CleanupStats{}, err
-	}
 	if stats.DeletedGenerationRecords, err = deleteOrphanGenerationRecordsBatchTx(ctx, tx, limit); err != nil {
 		return CleanupStats{}, err
 	}
@@ -180,8 +155,6 @@ const scanRetentionPredicate = "status IN ('completed','failed','canceled','inte
 const generationRetentionPredicate = "finished_at IS NOT NULL AND julianday(finished_at) < julianday(?)"
 
 const generationRecordRetentionPredicate = "NOT EXISTS (SELECT 1 FROM entries e WHERE e.path = g.path)"
-
-const downloadRetentionPredicate = "j.status='done' AND NOT EXISTS (SELECT 1 FROM cover_deliveries d WHERE d.job_id=j.id)"
 
 // Manual batches bound the existing retention delete to their finite candidates.
 func retentionCandidateFilter(column string, args []any, candidates [][]string) (string, []any) {

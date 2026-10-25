@@ -19,21 +19,13 @@ type Error struct {
 func (e *Error) Error() string             { return e.Code + ": " + e.Message }
 func Failure(code string, err error) error { return &Error{Code: code, Message: err.Error()} }
 
-// Validators are sent only when a matching local file is still available.
-type Validators struct {
-	ETag         string
-	LastModified string
-}
 type Download struct {
-	Data         []byte
-	Extension    string
-	ContentType  string
-	ETag         string
-	LastModified string
-	NotModified  bool
+	Data        []byte
+	Extension   string
+	ContentType string
 }
 type Downloader interface {
-	Download(context.Context, string, Validators) (Download, error)
+	Download(context.Context, string) (Download, error)
 }
 
 // Target freezes one selected copy and its path. Identity is a legacy payload
@@ -57,53 +49,39 @@ type Destination struct {
 	Digest       string `json:"digest,omitempty"`
 }
 
-// Job is one shared download, with independently cancelable delivery requests.
+// Job is the pending deliveries of one work, claimed together for one download.
 type Job struct {
-	MainChecked   bool
-	BackupChecked bool
-	ID            string
-	WorkCode      string
-	URL           string
-	BackupURL     string
-	Locale        string
-	Refresh       bool
-	Version       int64
-	StagePath     string
-	Extension     string
-	Digest        string
-	ETag          string
-	LastModified  string
+	WorkCode     string
+	Locale       string
+	Destinations []Destination
 }
 type Request struct {
-	MainChecked   bool
-	BackupChecked bool
-	ExecutionID   string
-	WorkCode      string
-	URL           string
-	BackupURL     string
-	Locale        string
-	Refresh       bool
-	Targets       []Target
+	ExecutionID string
+	WorkCode    string
+	Locale      string
+	Refresh     bool
+	Targets     []Target
 }
 type Report struct {
-	Items     []Destination  `json:"items"`
-	Counts    map[string]int `json:"counts"`
-	Downloads map[string]int `json:"downloads"`
+	Items  []Destination  `json:"items"`
+	Counts map[string]int `json:"counts"`
 }
 type Store interface {
 	EnqueueCovers(context.Context, Request) error
+	// ClaimCover marks the oldest pending delivery and every other pending
+	// delivery of its work running; it returns nil when nothing is pending.
 	ClaimCover(context.Context) (*Job, error)
-	SaveCoverStage(context.Context, Job) error
-	CoverDestinations(context.Context, string) ([]Destination, error)
 	SaveCoverDestination(context.Context, Destination) error
-	CoverCurrent(context.Context, Job) (bool, error)
-	FinishCover(context.Context, string) error
+	// CoverCurrent reports whether any of the deliveries is still running.
+	CoverCurrent(context.Context, []string) (bool, error)
+	// FinishCover requeues the claimed deliveries that did not reach an outcome.
+	FinishCover(context.Context, []string) error
+	// RecoverCovers requeues deliveries a previous process left running.
 	RecoverCovers(context.Context) error
-	ActiveCoverJobs(context.Context) (map[string]bool, error)
 	CoverReport(context.Context, string) (Report, error)
 	ChangeCoverRequests(context.Context, string, bool) error
-	StoredCover(context.Context, string) (*Stored, error)
-	SaveStoredCover(context.Context, string, Stored) error
+	// WorkCoverURL is the work's current main cover URL, empty when unknown.
+	WorkCoverURL(context.Context, string) (string, error)
 	ResolveCoverCopy(context.Context, string) (Target, error)
 	CoverTargets(context.Context, string, []string) (map[string]Target, error)
 }
@@ -142,21 +120,4 @@ type Files interface {
 	Publish(context.Context, Target, []byte, string, bool) (Publication, error)
 	// CompletePublication releases the recovery journal after inventory sync.
 	CompletePublication(Target) error
-}
-
-// Staging retains validated download bytes across delivery attempts. Saved paths
-// are opaque to the workflow; the adapter checks them against the job's location.
-type Staging interface {
-	Read(jobID, savedPath string) ([]byte, error)
-	Write(jobID string, data []byte) (string, error)
-	Remove(jobID, savedPath string) error
-	Cleanup(activeJobs map[string]bool) error
-}
-
-type Stored struct {
-	URL          string
-	Name         string
-	Digest       string
-	ETag         string
-	LastModified string
 }

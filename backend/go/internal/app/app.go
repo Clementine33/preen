@@ -215,24 +215,19 @@ func buildServices(repo *sqlite.Repository, configDir, dataDir string) services 
 	)
 	scraperClient := scraper.NewProxied(outboundProxy.Resolve)
 	metadataSvc := refresh.NewService(worksSvc, repo, scraperClient, scraperClient)
-	coverStage, err := filesystem.NewCoverStaging(filepath.Join(dataDir, "cover-staging"))
-	if err != nil {
-		log.Fatalf("cover staging: %v", err)
-	}
 	coverSvc, err := coverdelivery.New(
 		coverdelivery.Dependencies{
 			Store:           repo,
 			Downloader:      coverhttp.NewProxied(outboundProxy.Resolve),
 			Source:          scraperClient,
 			Files:           filesystem.CoverFiles{},
-			Staging:         coverStage,
 			Acquire:         gate.BeginManual,
 			SyncInventory:   coverInventorySync(repo),
 			RefreshSelected: metadataInventoryRefresh(scanPipeline),
 		},
 	)
 	if err != nil {
-		log.Fatalf("cover staging: %v", err)
+		log.Fatalf("cover delivery: %v", err)
 	}
 	metadataExecutor := refresh.Executor{Metadata: metadataSvc, Covers: coverSvc}
 	renameTask := dirrename.New(repo, filesystem.ReadRenameDirectory, dirrename.ExecutionIO{

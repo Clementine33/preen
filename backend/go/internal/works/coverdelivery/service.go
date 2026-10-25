@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 )
 
 // Dependencies are the storage, CDN, filesystem and admission seams.
@@ -12,8 +13,10 @@ type Dependencies struct {
 	Downloader Downloader
 	Source     Source
 	Files      Files
-	Staging    Staging
 	Acquire    func() (func(), error)
+	// BusyRetry is how long a download waits for file-operation admission
+	// before delivering again; zero means one second.
+	BusyRetry time.Duration
 	// SyncInventory receives observed cover facts and exact removed names,
 	// including partial publications. File may be nil for deletion-only recovery.
 	// It never scans a member.
@@ -23,12 +26,12 @@ type Dependencies struct {
 	RefreshSelected func(context.Context, string, []string) error
 }
 type activeDownload struct {
-	job    Job
+	ids    []string
 	cancel context.CancelFunc
 }
 type Service struct {
 	deps Dependencies
-	// Serialize candidate changes with publication; network transfers never hold this lock.
+	// Serialize cancellation with publication; network transfers never hold this lock.
 	publication sync.Mutex
 	activeMu    sync.Mutex
 	active      map[string]*activeDownload
@@ -37,8 +40,11 @@ type Service struct {
 }
 
 func New(d Dependencies) (*Service, error) {
-	if d.Store == nil || d.Downloader == nil || d.Files == nil || d.Staging == nil || d.Acquire == nil {
+	if d.Store == nil || d.Downloader == nil || d.Files == nil || d.Acquire == nil {
 		return nil, fmt.Errorf("incomplete cover dependencies")
+	}
+	if d.BusyRetry <= 0 {
+		d.BusyRetry = time.Second
 	}
 	return &Service{deps: d, active: map[string]*activeDownload{}, refreshes: map[string]selectedRefresh{}}, nil
 }

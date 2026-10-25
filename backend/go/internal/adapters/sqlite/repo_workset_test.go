@@ -574,7 +574,7 @@ func TestPersistOperationRevisionRetiresTheReplacedExecution(t *testing.T) {
 		t.Fatalf("execution ownership: plan=%q execution=%q err=%v", planWorkset, executionWorkset, err)
 	}
 	if err := repo.EnqueueCovers(context.Background(), coverdelivery.Request{
-		ExecutionID: "exec-r1", WorkCode: "RJ1", URL: "https://example.com/cover",
+		ExecutionID: "exec-r1", WorkCode: "RJ1",
 		Targets: []coverdelivery.Target{{CopyID: "copy-1", WorkCode: "RJ1"}},
 	}); err != nil {
 		t.Fatalf("enqueue cover: %v", err)

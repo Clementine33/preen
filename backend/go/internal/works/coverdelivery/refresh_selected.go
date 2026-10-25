@@ -28,7 +28,7 @@ func (s *Service) ScheduleRefresh(executionID, root string, folders []string) {
 }
 
 // RefreshNext attempts one ready execution's inventory reconciliation. Demand
-// states, rather than shared download states, define this execution's boundary.
+// states define this execution's boundary.
 // Admission waits for metadata's persisted terminal state and other file work.
 // A scan failure is independent of metadata and is not automatically retried.
 func (s *Service) RefreshNext(ctx context.Context) (bool, error) {

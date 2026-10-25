@@ -24,7 +24,7 @@ func TestRelocateDirectoryRebasesStoredInventoryRoot(t *testing.T) {
 	}
 	var root string
 	if err := repo.DB().
-		QueryRow(`SELECT root_path FROM entries WHERE path=?`, "/lib/target/音_%/track.opus").
+		QueryRow(`SELECT root_path FROM inventory_dirs WHERE path=?`, "/lib/target/音_%").
 		Scan(&root); err != nil {
 		t.Fatal(err)
 	}

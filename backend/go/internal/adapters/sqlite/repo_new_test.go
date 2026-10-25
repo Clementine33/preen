@@ -11,7 +11,8 @@ func TestNewRepository(t *testing.T) {
 		repo := newTestRepository(t)
 
 		tables := []string{
-			"entries",
+			"inventory_dirs",
+			"inventory_files",
 			"entries_staging",
 			"scan_sessions",
 			"plans",
@@ -30,47 +31,48 @@ func TestNewRepository(t *testing.T) {
 		}
 	})
 
-	t.Run("creates entries columns", func(t *testing.T) {
+	t.Run("creates inventory columns", func(t *testing.T) {
 		repo := newTestRepository(t)
-
-		requiredColumns := []string{
-			"path",
-			"root_path",
-			"parent_path",
-			"name",
-			"is_dir",
-			"size",
-			"mtime",
-			"content_rev",
-			"created_at",
-			"is_audio",
-			"bitrate",
-			"duration_sec",
-			"format",
-		}
-
-		for _, col := range requiredColumns {
-			var count int
-			err := repo.db.QueryRow("SELECT COUNT(*) FROM pragma_table_xinfo('entries') WHERE name=?", col).Scan(&count)
-			if err != nil {
-				t.Errorf("failed to check column %s: %v", col, err)
-			}
-			if count != 1 {
-				t.Errorf("column %s does not exist in entries table", col)
+		for table, columns := range map[string][]string{
+			"inventory_dirs":  {"id", "path", "root_path", "mtime", "is_work_root", "created_at"},
+			"inventory_files": {"dir_ref", "name", "size", "mtime", "content_rev", "is_audio", "bitrate", "width", "height", "duration_sec", "format"},
+		} {
+			for _, col := range columns {
+				var count int
+				err := repo.db.QueryRow("SELECT COUNT(*) FROM pragma_table_xinfo(?) WHERE name=?", table, col).
+					Scan(&count)
+				if err != nil || count != 1 {
+					t.Errorf("column %s.%s missing: %v", table, col, err)
+				}
 			}
 		}
 	})
 
-	t.Run("sets entries path as primary key", func(t *testing.T) {
+	t.Run("sets inventory primary keys", func(t *testing.T) {
 		repo := newTestRepository(t)
-
-		var pk int
-		err := repo.db.QueryRow("SELECT pk FROM pragma_table_info('entries') WHERE name='path'").Scan(&pk)
-		if err != nil {
-			t.Fatalf("failed to inspect entries.path PK flag: %v", err)
+		for _, key := range []struct {
+			table, column string
+			position      int
+		}{
+			{"inventory_dirs", "id", 1}, {"inventory_files", "dir_ref", 1}, {"inventory_files", "name", 2},
+		} {
+			var pk int
+			err := repo.db.QueryRow("SELECT pk FROM pragma_table_info(?) WHERE name=?", key.table, key.column).Scan(&pk)
+			if err != nil || pk != key.position {
+				t.Errorf("%s.%s primary key = %d, want %d: %v", key.table, key.column, pk, key.position, err)
+			}
 		}
-		if pk != 1 {
-			t.Fatalf("expected entries.path to be primary key, got pk=%d", pk)
+		var schema string
+		if err := repo.db.QueryRow("SELECT sql FROM sqlite_master WHERE name='inventory_files'").
+			Scan(&schema); err != nil ||
+			!strings.Contains(schema, "WITHOUT ROWID") {
+			t.Fatalf("files must use WITHOUT ROWID: %s, %v", schema, err)
+		}
+		var legacy int
+		if err := repo.db.QueryRow("SELECT COUNT(*) FROM sqlite_master WHERE name='entries'").
+			Scan(&legacy); err != nil ||
+			legacy != 0 {
+			t.Fatalf("legacy entries table/view remains: %d, %v", legacy, err)
 		}
 	})
 
@@ -122,18 +124,18 @@ func TestConnectionPragmasAreAppliedToEveryConnection(t *testing.T) {
 	}
 }
 
-func TestNewRepository_CreatesEntriesRootDirPathIndex(t *testing.T) {
+func TestNewRepository_CreatesInventoryRootPathIndex(t *testing.T) {
 	repo := newTestRepository(t)
 
 	var count int
 	err := repo.db.QueryRow(
-		"SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name='idx_entries_root_dir_path'",
+		"SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name='idx_inventory_dirs_root_path'",
 	).Scan(&count)
 	if err != nil {
-		t.Fatalf("failed to query sqlite_master for idx_entries_root_dir_path: %v", err)
+		t.Fatalf("failed to query sqlite_master for idx_inventory_dirs_root_path: %v", err)
 	}
 	if count != 1 {
-		t.Fatalf("expected idx_entries_root_dir_path index to exist, got count=%d", count)
+		t.Fatalf("expected idx_inventory_dirs_root_path index to exist, got count=%d", count)
 	}
 }
 
@@ -151,7 +153,7 @@ func TestEntriesPathLookupIsIndexedWithoutADuplicateIndex(t *testing.T) {
 	}
 
 	rows, err := repo.db.Query(
-		"EXPLAIN QUERY PLAN SELECT path FROM entries WHERE path = ? OR (path >= ? AND path < ?)",
+		"EXPLAIN QUERY PLAN SELECT path FROM inventory_dirs WHERE path = ? OR (path >= ? AND path < ?)",
 		"/music/a", "/music/a/", "/music/a0",
 	)
 	if err != nil {
@@ -183,7 +185,7 @@ func TestRepoSchemaInit(t *testing.T) {
 	repo := newTestRepository(t)
 
 	var count int
-	err := repo.db.QueryRow("SELECT COUNT(*) FROM entries").Scan(&count)
+	err := repo.db.QueryRow("SELECT COUNT(*) FROM inventory_dirs").Scan(&count)
 	if err != nil {
 		t.Fatalf("entries table not found: %v", err)
 	}

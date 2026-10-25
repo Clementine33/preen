@@ -37,3 +37,8 @@ func subtreeSQL(path, root string) string {
 	prefix := "rtrim(" + root + ", '/')"
 	return "(" + path + " >= " + prefix + " || '/' AND " + path + " < " + prefix + " || '0')"
 }
+
+// joinInventoryPathSQL keeps reconstructed file paths consistent with joinInventoryPath.
+func joinInventoryPathSQL(dir, name string) string {
+	return "rtrim(" + dir + ", '/') || '/' || " + name
+}

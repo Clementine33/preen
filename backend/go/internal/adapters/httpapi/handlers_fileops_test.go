@@ -84,7 +84,7 @@ func fileOpsServer(t *testing.T) (http.Handler, string, *blockingScan) {
 			gate,
 			func(context.Context, string, string) error { return nil },
 			filesystem.Recover,
-			filesystem.RenameNoReplace, filesystem.IsResolvedWithinRoot)
+			filesystem.RenameNoReplace, filesystem.IsResolvedWithinRoot, repo.MoveInventoryPath)
 	})
 	if _, err := repo.CreateLibrary("Music", filepath.ToSlash(root)); err != nil {
 		t.Fatalf("create library: %v", err)

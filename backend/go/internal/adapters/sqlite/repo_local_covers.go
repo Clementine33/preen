@@ -15,7 +15,7 @@ var coverFileNames = []string{"cover.gif", "cover.jpeg", "cover.jpg", "cover.png
 
 // LocalCovers finds, for one page of works, each work's cover file in the
 // stored inventory with a single primary-key lookup: the candidate paths are
-// derived from the copies, so nothing walks the entries table or the disk.
+// derived from the copies, so nothing walks the inventory or the disk.
 // The winner per work is the first copy by (library, rel_path), then name.
 //
 // shortcut: Version is content_rev-mtime-size. When an external replacement
@@ -52,7 +52,7 @@ func loadLocalCovers(
 	}
 	type copyRef struct{ work, id, rel, member string }
 	var copies []copyRef
-	var candidates []string
+	var candidates [][2]string
 	for rows.Next() {
 		var c copyRef
 		var root string
@@ -63,7 +63,7 @@ func loadLocalCovers(
 		c.member = librarypath.NormalizeToPOSIX(librarypath.JoinRel(root, c.rel))
 		copies = append(copies, c)
 		for _, name := range coverFileNames {
-			candidates = append(candidates, c.member+"/"+name)
+			candidates = append(candidates, [2]string{c.member, name})
 		}
 	}
 	if err = rows.Err(); err != nil {
@@ -76,20 +76,22 @@ func loadLocalCovers(
 	}
 	encoded, _ := json.Marshal(candidates)
 	files, err := q.QueryContext(ctx, `
-		SELECT path, size, mtime, content_rev FROM entries
-		WHERE is_dir = 0 AND path IN (SELECT value FROM json_each(?))`, string(encoded))
+		SELECT d.path, f.name, f.size, f.mtime, f.content_rev
+		FROM json_each(?) candidate
+		JOIN inventory_dirs d ON d.path = json_extract(candidate.value, '$[0]')
+		JOIN inventory_files f ON f.dir_ref = d.id AND f.name = json_extract(candidate.value, '$[1]')`, string(encoded))
 	if err != nil {
 		return nil, err
 	}
 	defer files.Close()
 	versions := map[string]string{}
 	for files.Next() {
-		var path string
+		var dir, name string
 		var size, mtime, rev int64
-		if err = files.Scan(&path, &size, &mtime, &rev); err != nil {
+		if err = files.Scan(&dir, &name, &size, &mtime, &rev); err != nil {
 			return nil, err
 		}
-		versions[path] = strconv.FormatInt(
+		versions[joinInventoryPath(dir, name)] = strconv.FormatInt(
 			rev,
 			10,
 		) + "-" + strconv.FormatInt(

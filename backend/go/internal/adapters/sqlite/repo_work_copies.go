@@ -90,9 +90,9 @@ func syncWorkCopies(tx *sql.Tx, libraryID, rootPath string) (bindingOutcome, err
 	rootPath = librarypath.CleanRootPath(rootPath)
 
 	rows, err := tx.Query(`
-		SELECT path, name, is_work_root
-		FROM entries
-		WHERE is_dir = 1 AND root_path = ?
+		SELECT path, is_work_root
+		FROM inventory_dirs
+		WHERE root_path = ? AND path <> root_path
 		ORDER BY path
 	`, rootPath)
 	if err != nil {
@@ -105,10 +105,11 @@ func syncWorkCopies(tx *sql.Tx, libraryID, rootPath string) (bindingOutcome, err
 	var children []childDir
 	for rows.Next() {
 		var child childDir
-		if err := rows.Scan(&child.path, &child.name, &child.isWorkRoot); err != nil {
+		if err := rows.Scan(&child.path, &child.isWorkRoot); err != nil {
 			rows.Close()
 			return outcome, err
 		}
+		_, child.name = splitInventoryPath(child.path)
 		children = append(children, child)
 	}
 	if err := rows.Err(); err != nil {

@@ -8,6 +8,7 @@ import (
 
 	"github.com/Clementine33/preen/backend/internal/inventory"
 	"github.com/Clementine33/preen/backend/internal/library"
+	"github.com/Clementine33/preen/backend/internal/librarypath"
 	"github.com/Clementine33/preen/backend/internal/workset"
 )
 
@@ -610,7 +611,15 @@ func (r *Repository) SyncObservedInventory(
 	defer tx.Rollback()
 
 	for _, p := range removed {
-		if _, err := tx.Exec("DELETE FROM entries WHERE path = ?", p); err != nil {
+		if _, err := tx.Exec("DELETE FROM inventory_dirs WHERE path=?", p); err != nil {
+			return fmt.Errorf("remove inventory directory %s: %w", p, err)
+		}
+		dir, name := splitInventoryPath(p)
+		if _, err := tx.Exec(
+			"DELETE FROM inventory_files WHERE dir_ref=(SELECT id FROM inventory_dirs WHERE path=?) AND name=?",
+			dir,
+			name,
+		); err != nil {
 			return fmt.Errorf("remove inventory row %s: %w", p, err)
 		}
 		// A credential describes the bytes that were there. With the file gone,
@@ -642,17 +651,35 @@ func (r *Repository) SyncObservedInventory(
 // drop the stale bitrate, unchanged rows keep both.
 func upsertObservedFile(tx *sql.Tx, rootPath string, f inventory.InventoryFile) error {
 	parent, name := splitInventoryPath(f.Path)
+	// Outputs can create several nested directories without a scan observation.
+	for dir := parent; ; {
+		if err := ensureInventoryDirectory(tx, dir, rootPath); err != nil {
+			return fmt.Errorf("ensure output directory %s: %w", dir, err)
+		}
+		if dir == rootPath {
+			break
+		}
+		next, _ := splitInventoryPath(dir)
+		if next == dir || !librarypath.IsWithinRoot(rootPath, next) {
+			break
+		}
+		dir = next
+	}
+	var dirRef int64
+	if err := tx.QueryRow("SELECT id FROM inventory_dirs WHERE path=?", parent).Scan(&dirRef); err != nil {
+		return fmt.Errorf("load output directory %s: %w", parent, err)
+	}
 	var contentRev, size, mtime int64
 	var bitrate sql.NullInt64
 	err := tx.QueryRow(
-		"SELECT content_rev, size, mtime, bitrate FROM entries WHERE path = ?", f.Path,
+		"SELECT content_rev, size, mtime, bitrate FROM inventory_files WHERE dir_ref = ? AND name = ?", dirRef, name,
 	).Scan(&contentRev, &size, &mtime, &bitrate)
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
 		if _, insErr := tx.Exec(`
-			INSERT INTO entries (path, root_path, parent_path, name, is_dir, size, mtime, content_rev)
-			VALUES (?, ?, ?, ?, 0, ?, ?, 1)
-		`, f.Path, rootPath, parent, name, f.Size, f.Mtime); insErr != nil {
+			INSERT INTO inventory_files (dir_ref, name, size, mtime, content_rev)
+			VALUES (?, ?, ?, ?, 1)
+		`, dirRef, name, f.Size, f.Mtime); insErr != nil {
 			return fmt.Errorf("insert inventory row %s: %w", f.Path, insErr)
 		}
 		return nil
@@ -667,11 +694,9 @@ func upsertObservedFile(tx *sql.Tx, rootPath string, f inventory.InventoryFile) 
 		bitrateVal = bitrate.Int64
 	}
 	if _, err := tx.Exec(`
-		UPDATE entries SET root_path = ?, parent_path = ?, name = ?, size = ?, mtime = ?,
-			content_rev = ?, bitrate = ?
-		WHERE path = ?
-	`, rootPath, parent, name, f.Size, f.Mtime, contentRev,
-		bitrateVal, f.Path); err != nil {
+		UPDATE inventory_files SET size = ?, mtime = ?, content_rev = ?, bitrate = ?
+		WHERE dir_ref = ? AND name = ?
+	`, f.Size, f.Mtime, contentRev, bitrateVal, dirRef, name); err != nil {
 		return fmt.Errorf("update inventory row %s: %w", f.Path, err)
 	}
 	return nil

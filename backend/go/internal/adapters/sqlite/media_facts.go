@@ -3,6 +3,7 @@ package sqlite
 import (
 	"fmt"
 	"runtime"
+	"strings"
 
 	"github.com/Clementine33/preen/backend/internal/inventory"
 	"github.com/Clementine33/preen/backend/internal/library"
@@ -13,18 +14,18 @@ import (
 // counts, so what the status reports is exactly what the pass still visits.
 // Images are the formats the prober has a header decoder for (media/probe.go);
 // any other image keeps unknown dimensions without being retried.
-const missingMediaFacts = `is_dir = 0 AND format IS NOT NULL
+const missingMediaFacts = `format IS NOT NULL
 	AND ((format IN ('image/jpeg', 'image/png', 'image/gif', 'image/webp') AND (width IS NULL OR height IS NULL))
 		OR (format LIKE 'audio/%' AND duration_sec IS NULL)
 		OR (format IN ('audio/mpeg', 'audio/mp4', 'audio/aac', 'audio/opus') AND bitrate IS NULL))`
 
-// EntriesMissingMediaFacts pages, in path order after the given path, through
+// EntriesMissingMediaFacts pages, in (directory path, filename) order after the cursor, through
 // the inventory's files whose image dimensions, audio duration or encoded
 // bitrate are still unknown (ADR 0013). The bitrate formats are the
 // containers the planner's gate compares against a target. It spans every root: the background pass resumes
 // whatever an earlier pass, or an earlier process, left unmeasured. The format
-// filter keeps it to the two kinds a prober can measure; the path key makes
-// the cursor an index walk.
+// filter keeps it to the two kinds a prober can measure; directory and file keys make
+// the cursor an index walk while the port retains complete paths.
 func (a *ScanStaging) EntriesMissingMediaFacts(after string, limit int) ([]inventory.MediaCandidate, error) {
 	libraries, err := a.repo.ListLibraries()
 	if err != nil {
@@ -35,12 +36,8 @@ func (a *ScanStaging) EntriesMissingMediaFacts(after string, limit int) ([]inven
 	for _, lib := range libraries {
 		classes[librarypath.RootPathKey(lib.RootPath)] = lib.StorageClass
 	}
-	rows, err := a.repo.DB().Query(`
-		SELECT path, format, root_path FROM entries
-		WHERE path > ? AND `+missingMediaFacts+`
-		ORDER BY path
-		LIMIT ?
-	`, after, limit)
+	dir, name := mediaFactsCursor(after)
+	rows, err := a.repo.DB().Query(mediaFactsCandidatesSQL, dir, name, limit)
 	if err != nil {
 		return nil, fmt.Errorf("select media-fact candidates: %w", err)
 	}
@@ -60,18 +57,14 @@ func (a *ScanStaging) EntriesMissingMediaFacts(after string, limit int) ([]inven
 }
 
 // MediaFactsCounts counts, per library, the files still missing media facts,
-// split at the pass cursor: those after it are pending, those up to it were
+// split at the pass cursor in (directory path, filename) order: those after it
+// are pending, those up to it were
 // visited and stay unknown. Entries belong to a library by the root they were
 // scanned under, so no path pattern is involved. Libraries with nothing
 // missing are absent.
 func (a *ScanStaging) MediaFactsCounts(after string) ([]inventory.LibraryMediaCounts, error) {
-	rows, err := a.repo.DB().Query(`
-		SELECT l.id, COALESCE(SUM(e.path > ?1), 0), COALESCE(SUM(e.path <= ?1), 0)
-		FROM entries e JOIN libraries l ON l.root_path = e.root_path
-		WHERE `+missingMediaFacts+`
-		GROUP BY l.id
-		ORDER BY l.id
-	`, after)
+	dir, name := mediaFactsCursor(after)
+	rows, err := a.repo.DB().Query(mediaFactsCountsSQL, dir, name)
 	if err != nil {
 		return nil, fmt.Errorf("count media-fact candidates: %w", err)
 	}
@@ -88,8 +81,8 @@ func (a *ScanStaging) MediaFactsCounts(after string) ([]inventory.LibraryMediaCo
 	return counts, rows.Err()
 }
 
-// UpdateEntryMediaFacts writes measured media facts back onto the entries
-// table in one transaction. A zero field is unmeasured and keeps the stored
+// UpdateEntryMediaFacts writes measured facts onto inventory files in one transaction.
+// A zero field is unmeasured and keeps the stored
 // value: a pass that re-measures a file for its missing bitrate never erases a
 // duration it failed to read this time. The merge is what clears facts, when
 // the file changed.
@@ -105,10 +98,10 @@ func (a *ScanStaging) UpdateEntryMediaFacts(updates []inventory.MediaFactsUpdate
 	defer tx.Rollback()
 
 	stmt, err := tx.Prepare(`
-		UPDATE entries
+		UPDATE inventory_files
 		SET width = COALESCE(?, width), height = COALESCE(?, height),
 			duration_sec = COALESCE(?, duration_sec), bitrate = COALESCE(?, bitrate)
-		WHERE path = ?
+		WHERE dir_ref = (SELECT id FROM inventory_dirs WHERE path = ?) AND name = ?
 	`)
 	if err != nil {
 		return fmt.Errorf("prepare media-facts update: %w", err)
@@ -126,10 +119,29 @@ func (a *ScanStaging) UpdateEntryMediaFacts(updates []inventory.MediaFactsUpdate
 		if u.Bitrate > 0 {
 			bitrate = u.Bitrate
 		}
-		if _, err := stmt.Exec(width, height, duration, bitrate, u.Path); err != nil {
+		dir, name := splitInventoryPath(u.Path)
+		if _, err := stmt.Exec(width, height, duration, bitrate, dir, name); err != nil {
 			return fmt.Errorf("update media facts %q: %w", u.Path, err)
 		}
 	}
 
 	return tx.Commit()
 }
+
+// Empty and end-of-pass cursors have no filename; compare their directory key directly.
+func mediaFactsCursor(cursor string) (string, string) {
+	if !strings.Contains(cursor, "/") {
+		return cursor, ""
+	}
+	return splitInventoryPath(cursor)
+}
+
+var mediaFactsCandidatesSQL = `SELECT ` + joinInventoryPathSQL("d.path", "f.name") + `, f.format, d.root_path
+ FROM inventory_dirs d CROSS JOIN inventory_files f
+ WHERE d.path >= ?1 AND f.dir_ref = d.id AND (d.path, f.name) > (?1, ?2)
+ AND ` + missingMediaFacts + ` ORDER BY d.path, f.name LIMIT ?3`
+
+const mediaFactsCountsSQL = `SELECT l.id,
+ SUM((d.path, f.name) > (?1, ?2)), SUM((d.path, f.name) <= (?1, ?2))
+ FROM inventory_dirs d CROSS JOIN inventory_files f JOIN libraries l ON l.root_path = d.root_path
+ WHERE f.dir_ref = d.id AND ` + missingMediaFacts + ` GROUP BY l.id ORDER BY l.id`

@@ -154,7 +154,11 @@ func (r *Repository) RunRetentionCleanupBatch(
 const scanRetentionPredicate = "status IN ('completed','failed','canceled','interrupted') AND julianday(COALESCE(finished_at, started_at)) < julianday(?)"
 const generationRetentionPredicate = "finished_at IS NOT NULL AND julianday(finished_at) < julianday(?)"
 
-const generationRecordRetentionPredicate = "NOT EXISTS (SELECT 1 FROM entries e WHERE e.path = g.path)"
+// Materialize inventory paths once, rather than scan inventory for each credential.
+var generationRecordRetentionPredicate = `g.path NOT IN (
+ SELECT path FROM inventory_dirs
+ UNION ALL SELECT ` + joinInventoryPathSQL("d.path", "f.name") + `
+ FROM inventory_dirs d CROSS JOIN inventory_files f WHERE f.dir_ref=d.id)`
 
 // Manual batches bound the existing retention delete to their finite candidates.
 func retentionCandidateFilter(column string, args []any, candidates [][]string) (string, []any) {

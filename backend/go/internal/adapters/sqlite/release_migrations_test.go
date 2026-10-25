@@ -273,7 +273,7 @@ INSERT INTO legacy_probe VALUES ('original');`)}
 				repo.Close()
 				t.Fatal("old version opened")
 			}
-			if err == nil || !strings.Contains(err.Error(), "table entries already exists") {
+			if err == nil || !strings.Contains(err.Error(), "table schema_meta already exists") {
 				t.Fatalf("expected initial table collision: %v", err)
 			}
 			backups, err := filepath.Glob(filepath.Join(filepath.Dir(path), "backups", "*.db"))

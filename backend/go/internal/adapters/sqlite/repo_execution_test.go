@@ -402,7 +402,7 @@ func TestSyncObservedInventoryLifecycle(t *testing.T) {
 		[]string{"/music/album/gone.mp3"},
 		[]inventory.InventoryFile{
 			{Path: "/music/album/changed.mp3", Size: 222, Mtime: 2000},
-			{Path: "/music/album/Delete/gone.mp3", Size: 100, Mtime: 1000},
+			{Path: "/music/album/Delete/nested/gone.mp3", Size: 100, Mtime: 1000},
 		},
 		[]inventory.GenerationRecord{{
 			Path: "/music/album/changed.mp3", Codec: "mp3", Encoder: "libmp3lame",
@@ -433,17 +433,23 @@ func TestSyncObservedInventoryLifecycle(t *testing.T) {
 	if n != 0 {
 		t.Fatal("removed source row must be gone")
 	}
+	for _, p := range []string{"/music", "/music/album", "/music/album/Delete", "/music/album/Delete/nested"} {
+		found, readErr := repo.RootExistsInInventory(p)
+		if readErr != nil || !found {
+			t.Fatalf("output ancestor %s: %v, %v", p, found, readErr)
+		}
+	}
 	assertGenerationRecords(t, repo)
 
 	var parent, name string
 	var revNew int64
 	{
-		entry := inventoryEntry(t, repo, "/music/album/Delete/gone.mp3")
+		entry := inventoryEntry(t, repo, "/music/album/Delete/nested/gone.mp3")
 		parent = entry.ParentPath
 		name = entry.Name
 		revNew = int64(entry.ContentRev)
 	}
-	if parent != "/music/album/Delete" || name != "gone.mp3" || revNew != 1 {
+	if parent != "/music/album/Delete/nested" || name != "gone.mp3" || revNew != 1 {
 		t.Fatalf("recovery row = parent=%q name=%q rev=%d", parent, name, revNew)
 	}
 

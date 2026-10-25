@@ -61,17 +61,16 @@ func (r *Repository) MergeSelectedStaging(
 	if outside != 0 {
 		return inventory.MergeOutcome{}, fmt.Errorf("staging contains entries outside selected ranges")
 	}
-	if _, err := tx.ExecContext(ctx, mergeObservedEntriesSQL, id); err != nil {
+	for _, scope := range scopes {
+		if err := ensureInventoryDirectory(tx, scope, root); err != nil {
+			return inventory.MergeOutcome{}, err
+		}
+	}
+	if err := mergeObservedEntries(tx, id, root); err != nil {
 		return inventory.MergeOutcome{}, err
 	}
-	// Point lookups avoid rebuilding the whole staging path set for each scope.
 	for _, scope := range scopes {
-		from, to := subtree(scope)
-		if _, err := tx.ExecContext(ctx, `DELETE FROM entries INDEXED BY sqlite_autoindex_entries_1
-			WHERE root_path = ? AND path >= ? AND path < ?
-			AND NOT EXISTS (SELECT 1 FROM entries_staging s
-			WHERE s.session_id = ? AND s.path = entries.path)`, root,
-			from, to, id); err != nil {
+		if err := cleanupInventoryScope(tx, id, root, scope); err != nil {
 			return inventory.MergeOutcome{}, err
 		}
 	}

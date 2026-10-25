@@ -24,13 +24,13 @@ const (
 // MediaFactsStore is the inventory the enricher reads its candidates from and
 // writes measured facts back to.
 type MediaFactsStore interface {
-	// EntriesMissingMediaFacts lists, in path order after the given path, up to
+	// EntriesMissingMediaFacts lists, in (directory path, filename) order after the given path, up to
 	// limit files whose dimensions, duration or encoded bitrate are still
 	// unknown.
 	EntriesMissingMediaFacts(after string, limit int) ([]MediaCandidate, error)
 	UpdateEntryMediaFacts(updates []MediaFactsUpdate) error
 	// MediaFactsCounts counts, per library, the files still missing facts,
-	// split into those after the cursor and those up to it.
+	// split in the same (directory path, filename) order as candidates.
 	MediaFactsCounts(after string) ([]LibraryMediaCounts, error)
 }
 
@@ -95,7 +95,7 @@ func (e *MediaEnricher) Run(ctx context.Context) {
 	}
 }
 
-// pass walks every candidate once, in path order, resuming after each refusal
+// pass walks every candidate once, in (directory path, filename) order, resuming after each refusal
 // or preemption from the last batch it finished.
 func (e *MediaEnricher) pass(ctx context.Context) {
 	after := ""

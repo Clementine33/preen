@@ -61,7 +61,7 @@ func TestPersistBitrateUpdates_ReturnsExecError(t *testing.T) {
 	}
 	defer repo.Close()
 
-	if _, dropErr := repo.DB().Exec("DROP TABLE entries"); dropErr != nil {
+	if _, dropErr := repo.DB().Exec("DROP TABLE inventory_files"); dropErr != nil {
 		t.Fatalf("failed to drop entries table: %v", dropErr)
 	}
 
@@ -107,12 +107,12 @@ func TestPersistBitrateUpdates_RollsBackEarlierChunksOnLaterChunkFailure(t *test
 	}
 
 	failPath := updates[len(updates)-1].Path
-	failPathEscaped := strings.ReplaceAll(failPath, "'", "''")
+	failPathEscaped := strings.ReplaceAll(filepath.Base(failPath), "'", "''")
 	triggerSQL := fmt.Sprintf(`
 		CREATE TRIGGER fail_second_chunk_update
-		BEFORE UPDATE OF bitrate ON entries
+		BEFORE UPDATE OF bitrate ON inventory_files
 		FOR EACH ROW
-		WHEN NEW.path = '%s'
+		WHEN NEW.name = '%s'
 		BEGIN
 			SELECT RAISE(ABORT, 'forced update failure');
 		END;

@@ -53,7 +53,7 @@ func TestRelocationStatementsSearchByPathRange(t *testing.T) {
 		{selectMembersSQL, "workset_id=? AND rel_path>? AND rel_path<?"},
 	} {
 		plan := explain(t, repo, tc.statement)
-		if !strings.Contains(plan, tc.want) || strings.Contains(plan, "SCAN entries") ||
+		if !strings.Contains(plan, tc.want) || strings.Contains(plan, "SCAN inventory_dirs") ||
 			strings.Contains(plan, "SCAN generation_records") {
 			t.Errorf("%.40s…\nwant %q in plan:\n%s", tc.statement, tc.want, plan)
 		}
@@ -108,7 +108,15 @@ func TestRelocateDirectoryMovesOnlyTheSubtree(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = repo.Close() })
 	for _, p := range []string{"/lib/a", "/lib/a/f", "/lib/ab", "/lib/ab/f", "/lib/a_", "/lib/a%"} {
-		inventoryfixture.SeedInventory(t, repo, inventoryfixture.Row{Path: p, RootPath: "/lib"})
+		inventoryfixture.SeedInventory(
+			t,
+			repo,
+			inventoryfixture.Row{Path: p, RootPath: "/lib", IsDir: !strings.HasSuffix(p, "/f")},
+		)
+	}
+	if _, err = repo.DB().
+		Exec(`CREATE TRIGGER forbid_relocate_files BEFORE UPDATE ON inventory_files BEGIN SELECT RAISE(ABORT, 'directory move rewrote files'); END`); err != nil {
+		t.Fatal(err)
 	}
 	if relocateErr := repo.RelocateDirectory(t.Context(), "/lib", "/lib/a", "/lib/c"); relocateErr != nil {
 		t.Fatal(relocateErr)

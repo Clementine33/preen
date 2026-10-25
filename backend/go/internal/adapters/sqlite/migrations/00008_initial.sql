@@ -1,26 +1,30 @@
 -- +goose Up
 -- Unreleased release baseline; keep its structure aligned with schema.sql until first distribution.
--- Inventory stores only observed content and measured facts (ADR 0017).
-CREATE TABLE entries (
-    path TEXT PRIMARY KEY,
-    root_path TEXT NOT NULL DEFAULT '',
-    parent_path TEXT NOT NULL DEFAULT '',
-    name TEXT NOT NULL DEFAULT '',
-    is_dir INTEGER NOT NULL DEFAULT 0,
+-- Inventory directories own paths; files keep only their directory reference (ADR 0017).
+CREATE TABLE inventory_dirs (
+    id INTEGER PRIMARY KEY,
+    root_path TEXT NOT NULL,
+    path TEXT NOT NULL UNIQUE,
+    mtime INTEGER NOT NULL DEFAULT 0,
+    is_work_root INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER DEFAULT (unixepoch())
+);
+
+CREATE TABLE inventory_files (
+    dir_ref INTEGER NOT NULL REFERENCES inventory_dirs(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
     size INTEGER NOT NULL DEFAULT 0,
     mtime INTEGER NOT NULL DEFAULT 0,
     content_rev INTEGER NOT NULL DEFAULT 1,
     bitrate INTEGER,
-    -- Scan-time media facts (ADR 0013): image pixel size and
-    -- audio duration in seconds, NULL while unmeasured.
+    -- Scan-time media facts (ADR 0013), NULL while unmeasured.
     width INTEGER,
     height INTEGER,
     duration_sec REAL,
-    created_at INTEGER DEFAULT (unixepoch()),
     format TEXT,
     is_audio INTEGER GENERATED ALWAYS AS (lower(name) LIKE '%.mp3' OR lower(name) LIKE '%.flac' OR lower(name) LIKE '%.wav' OR lower(name) LIKE '%.m4a' OR lower(name) LIKE '%.aac' OR lower(name) LIKE '%.ogg') STORED,
-    is_work_root INTEGER NOT NULL DEFAULT 0
-);
+    PRIMARY KEY (dir_ref, name)
+) WITHOUT ROWID;
 
 -- Staging table for scan operations (session-scoped)
 CREATE TABLE entries_staging (
@@ -599,13 +603,8 @@ CREATE TABLE work_user_tags (
     PRIMARY KEY (work_id, tag_id)
 ) STRICT;
 
--- Entry indexes
-CREATE INDEX idx_entries_parent_path ON entries(parent_path);
--- entries.path is the primary key, so its unique index already serves every
--- equality and range lookup; the duplicate on the same column only added a
--- second index to maintain on every inventory write.
--- Likewise root_path lookups use the leading column of this index.
-CREATE INDEX idx_entries_root_dir_path ON entries(root_path, is_dir, path);
+-- Directory paths have a unique index; this index also scopes library subtree ranges.
+CREATE INDEX idx_inventory_dirs_root_path ON inventory_dirs(root_path, path);
 
 -- Scan session indexes
 CREATE INDEX idx_scan_sessions_root ON scan_sessions(root_path);
@@ -628,7 +627,7 @@ CREATE TABLE cover_deliveries (
 ) STRICT;
 CREATE INDEX cover_deliveries_pending ON cover_deliveries(work_code) WHERE status='pending';
 
-CREATE INDEX idx_entries_work_roots ON entries(root_path, path) WHERE is_work_root = 1;
+CREATE INDEX idx_inventory_dirs_work_roots ON inventory_dirs(root_path, path) WHERE is_work_root = 1;
 
 CREATE TABLE collections (
     id TEXT PRIMARY KEY,

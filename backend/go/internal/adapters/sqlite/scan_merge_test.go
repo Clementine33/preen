@@ -15,43 +15,29 @@ import (
 
 func TestMergeUpdatesOnlyObservedChanges(t *testing.T) {
 	for _, tc := range []struct {
-		name     string
-		root     string
-		format   string
-		workRoot int
-		changed  bool
+		name, root, format string
+		workRoot           int
+		file, changed      bool
 	}{
 		{name: "unchanged", root: "/music"},
 		{name: "work_root", root: "/music", workRoot: 1, changed: true},
-		{name: "format", root: "/music", format: "flac", changed: true},
+		{name: "format", root: "/music", format: "flac", file: true, changed: true},
 		{name: "root_path", root: "/other", changed: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			repo, err := NewRepository(t.TempDir() + "/test.db")
-			if err != nil {
-				t.Fatal(err)
-			}
-			defer repo.Close()
-			inventoryfixture.SeedInventory(
-				t,
-				repo,
-				inventoryfixture.Row{
-					Path:     "/music/work",
-					RootPath: "/music",
-					IsDir:    true,
-					Size:     10,
-					Mtime:    20,
-				},
-			)
-			_, err = repo.db.Exec(`INSERT INTO entries_staging
+			repo := newTestRepository(t)
+			inventoryfixture.SeedInventory(t, repo, inventoryfixture.Row{
+				Path: "/music/work", RootPath: "/music", IsDir: !tc.file, Size: 10, Mtime: 20,
+			})
+			_, err := repo.db.Exec(`INSERT INTO entries_staging
 				(session_id, path, root_path, parent_path, name, is_dir, is_work_root, size, mtime, format)
-				VALUES ('new-scan', '/music/work', ?, '/music', 'work', 1, ?, 10, 20, ?)`, tc.root, tc.workRoot, tc.format)
+				VALUES ('new-scan', '/music/work', ?, '/music', 'work', ?, ?, 10, 20, ?)`, tc.root, !tc.file, tc.workRoot, tc.format)
 			if err != nil {
 				t.Fatal(err)
 			}
 			if !tc.changed {
 				if _, err = repo.db.Exec(
-					`CREATE TRIGGER reject_inventory_update BEFORE UPDATE ON entries BEGIN SELECT RAISE(ABORT, 'unchanged inventory rewritten'); END`,
+					`CREATE TRIGGER reject_inventory_update BEFORE UPDATE ON inventory_dirs BEGIN SELECT RAISE(ABORT, 'unchanged inventory rewritten'); END`,
 				); err != nil {
 					t.Fatal(err)
 				}
@@ -66,15 +52,24 @@ func TestMergeUpdatesOnlyObservedChanges(t *testing.T) {
 			var root string
 			var workRoot int
 			var format sql.NullString
-			err = repo.db.QueryRow(`SELECT root_path, is_work_root, format FROM entries WHERE path = '/music/work'`).
-				Scan(&root, &workRoot, &format)
-			if err != nil {
+			query := `SELECT root_path, is_work_root, NULL FROM inventory_dirs WHERE path = '/music/work'`
+			if tc.file {
+				query = `SELECT d.root_path, 0, f.format FROM inventory_files f JOIN inventory_dirs d ON d.id=f.dir_ref WHERE d.path='/music' AND f.name='work'`
+			}
+			if err := repo.db.QueryRow(query).Scan(&root, &workRoot, &format); err != nil {
 				t.Fatal(err)
 			}
 			wantFormat := sql.NullString{String: tc.format, Valid: tc.format != ""}
 			if root != tc.root || workRoot != tc.workRoot || format != wantFormat {
-				t.Fatalf("observed fields = %q, %d, %+v; want %q, %d, %+v",
-					root, workRoot, format, tc.root, tc.workRoot, wantFormat)
+				t.Fatalf(
+					"observed fields = %q, %d, %+v; want %q, %d, %+v",
+					root,
+					workRoot,
+					format,
+					tc.root,
+					tc.workRoot,
+					wantFormat,
+				)
 			}
 		})
 	}

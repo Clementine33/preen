@@ -51,6 +51,7 @@ func TestTheInternalRefreshIsNotRefusedByTheSlotItHolds(t *testing.T) {
 		filesystem.Recover,
 		filesystem.RenameNoReplace,
 		filesystem.IsResolvedWithinRoot,
+		repo.MoveInventoryPath,
 	)
 	f.mkdir("albumA")
 	f.write("albumA/01.flac", "audio")
@@ -109,6 +110,7 @@ func TestRenameExtensionRefreshesOverviewAudioCounts(t *testing.T) {
 		filesystem.Recover,
 		filesystem.RenameNoReplace,
 		filesystem.IsResolvedWithinRoot,
+		repo.MoveInventoryPath,
 	)
 	f.mkdir("albumA")
 	f.write("albumA/track.MP3", "audio")
@@ -160,5 +162,84 @@ func TestRenameExtensionRefreshesOverviewAudioCounts(t *testing.T) {
 			want = 1
 		}
 		assertCounts(want)
+	}
+}
+
+func TestDirectoryMovesKeepFileFactsBeforeRefreshAndSoftDeleteRemovesThem(t *testing.T) {
+	f := newFixture(t, false)
+	repo, err := sqlite.NewDevelopmentRepository(filepath.Join(t.TempDir(), "moves.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer repo.Close()
+	scan := inventory.NewService(
+		inventory.NewPipeline(
+			sqlite.NewScanStaging(repo),
+			filesystem.WalkRootEntriesParallel,
+			filesystem.WalkFolderEntries,
+			nil,
+		),
+		repo,
+		f.gate,
+		repo.UpdateLibraryScanState,
+	)
+	f.svc = fileops.NewService(
+		f.gate,
+		scan.RefreshMember,
+		filesystem.Recover,
+		filesystem.RenameNoReplace,
+		filesystem.IsResolvedWithinRoot,
+		repo.MoveInventoryPath,
+	)
+	f.mkdir("albumA/destination")
+	f.write("albumA/old/nested/track.mp3", "audio")
+	member := filepath.Join(f.root, "albumA")
+	if err = scan.RefreshMember(t.Context(), member, f.root); err != nil {
+		t.Fatal(err)
+	}
+	original := filepath.ToSlash(filepath.Join(member, "old/nested/track.mp3"))
+	if err = sqlite.NewScanStaging(repo).
+		UpdateEntryMediaFacts([]inventory.MediaFactsUpdate{{Path: original, Bitrate: 320000, DurationSec: 12}}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = repo.DB().
+		Exec(`CREATE TRIGGER forbid_file_rewrite BEFORE UPDATE ON inventory_files BEGIN SELECT RAISE(ABORT,'rewrote files'); END`); err != nil {
+		t.Fatal(err)
+	}
+	for _, req := range []fileops.Request{
+		{MemberPath: "albumA", Operation: fileops.OpRename, Items: []fileops.Item{{Source: "old", Name: "new"}}},
+		{MemberPath: "albumA", Operation: fileops.OpMove, Items: []fileops.Item{{Source: "new", TargetDir: "destination"}}},
+	} {
+		result := f.apply(req)
+		if result.Succeeded != 1 || !result.Refresh.OK {
+			t.Fatalf("directory move: %+v", result)
+		}
+	}
+	moved := filepath.ToSlash(filepath.Join(member, "destination/new/nested/track.mp3"))
+	entry, found, err := repo.EntryByPath(moved)
+	if err != nil || !found || entry.ContentRev != 1 || entry.Bitrate == nil || *entry.Bitrate != 320000 ||
+		entry.DurationSec == nil ||
+		*entry.DurationSec != 12 {
+		t.Fatalf("moved file facts: %+v %v", entry, err)
+	}
+	if found, err := repo.RootExistsInInventory(original); err != nil || found {
+		t.Fatalf("old path remains: %v %v", found, err)
+	}
+	result := f.apply(
+		fileops.Request{
+			MemberPath: "albumA",
+			Operation:  fileops.OpSoftDelete,
+			Items:      []fileops.Item{{Source: "destination/new/nested/track.mp3"}},
+		},
+	)
+	if result.Succeeded != 1 || !result.Refresh.OK || !f.exists(result.Items[0].RecoveredPath) {
+		t.Fatalf("soft deletion: %+v", result)
+	}
+	if found, err := repo.RootExistsInInventory(moved); err != nil || found {
+		t.Fatalf("deleted source remains: %v %v", found, err)
+	}
+	recovered := filepath.ToSlash(filepath.Join(f.root, result.Items[0].RecoveredPath))
+	if found, err := repo.RootExistsInInventory(recovered); err != nil || found {
+		t.Fatalf("recovery path entered inventory: %v %v", found, err)
 	}
 }

@@ -15,10 +15,11 @@ import (
 // the full-root stale cleanup eat the earlier rows.
 func stageFactsRow(t *testing.T, repo *Repository, root, path, format string, size, mtime int64, sessionID string) {
 	t.Helper()
+	parent, name := splitInventoryPath(path)
 	_, err := repo.db.Exec(`
 		INSERT INTO entries_staging (session_id, path, root_path, parent_path, name, is_dir, size, mtime, format)
 		VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?)
-	`, sessionID, path, root, root, path, size, mtime, format)
+	`, sessionID, path, root, parent, name, size, mtime, format)
 	if err != nil {
 		t.Fatalf("seed staging: %v", err)
 	}
@@ -270,6 +271,59 @@ func TestMediaFactsCountsSplitAtTheCursorPerLibrary(t *testing.T) {
 	for _, c := range got {
 		if c != want[c.LibraryID] {
 			t.Errorf("library %s counts = %+v, want %+v", c.LibraryID, c, want[c.LibraryID])
+		}
+	}
+}
+
+func TestMediaFactsTupleCursor(t *testing.T) {
+	repo, err := NewRepository(":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer repo.Close()
+	lib, err := repo.CreateLibrary("library", "/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range []string{"/a/z.png", "/a b/a.png", "/a b/b.png"} {
+		stageFactsRow(t, repo, "/", p, "image/png", 1, 1, "tuple")
+	}
+	if err := repo.MergeStagingSimple("tuple", "/"); err != nil {
+		t.Fatal(err)
+	}
+	adapter := NewScanStaging(repo)
+	after := ""
+	for _, want := range []string{"/a/z.png", "/a b/a.png", "/a b/b.png"} {
+		page, err := adapter.EntriesMissingMediaFacts(after, 1)
+		if err != nil || len(page) != 1 || page[0].Path != want {
+			t.Fatalf("after %q: %+v, %v; want %s", after, page, err, want)
+		}
+		after = page[0].Path
+	}
+	for _, tc := range []struct {
+		cursor           string
+		pending, unknown int
+	}{{"", 3, 0}, {"/a/z.png", 2, 1}, {"\U0010FFFF", 0, 3}} {
+		counts, err := adapter.MediaFactsCounts(tc.cursor)
+		if err != nil || len(counts) != 1 || counts[0].LibraryID != lib.ID || counts[0].Pending != tc.pending ||
+			counts[0].Unmeasurable != tc.unknown {
+			t.Fatalf("cursor %q: %+v, %v", tc.cursor, counts, err)
+		}
+	}
+}
+
+func TestMediaFactsQueriesWalkDirectoryAndFileKeys(t *testing.T) {
+	repo, err := NewRepository(":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer repo.Close()
+	for _, query := range []string{mediaFactsCandidatesSQL, mediaFactsCountsSQL} {
+		plan := explain(t, repo, query)
+		t.Log(plan)
+		if strings.Contains(plan, "SCAN f") || strings.Contains(plan, "TEMP B-TREE FOR ORDER BY") ||
+			!strings.Contains(plan, "SEARCH f USING PRIMARY KEY") {
+			t.Fatalf("media facts query plan: %s", plan)
 		}
 	}
 }

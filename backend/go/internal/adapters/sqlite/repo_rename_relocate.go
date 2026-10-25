@@ -105,11 +105,9 @@ func rebindCopy(tx *sql.Tx, libraryID, relPath, code string) error {
 
 // The statements whose WHERE must stay a range search; the tests EXPLAIN them.
 const (
-	relocateEntriesSQL = `UPDATE entries SET
+	relocateEntriesSQL = `UPDATE inventory_dirs SET
  path=? || substr(path,length(?)+1),
- root_path=CASE WHEN root_path=? OR substr(root_path,1,length(?)+1)=? || '/' THEN ? || substr(root_path,length(?)+1) ELSE root_path END,
- parent_path=CASE WHEN parent_path=? OR substr(parent_path,1,length(?)+1)=? || '/' THEN ? || substr(parent_path,length(?)+1) ELSE parent_path END,
- name=CASE WHEN path=? THEN ? ELSE name END
+ root_path=CASE WHEN root_path=? OR substr(root_path,1,length(?)+1)=? || '/' THEN ? || substr(root_path,length(?)+1) ELSE root_path END
  WHERE path=? OR (path>=? AND path<?)`
 	relocateCredentialsSQL = `UPDATE generation_records SET path=? || substr(path,length(?)+1) WHERE path=? OR (path>=? AND path<?)`
 	selectCopiesSQL        = `SELECT id, rel_path FROM work_copies WHERE library_id=? AND (rel_path=? OR (rel_path>=? AND rel_path<?))`
@@ -118,12 +116,20 @@ const (
 )
 
 func relocateEntries(ctx context.Context, tx *sql.Tx, source, target string) error {
+	parent, name := splitInventoryPath(target)
+	var conflict bool
+	if err := tx.QueryRowContext(ctx, `SELECT EXISTS(
+ SELECT 1 FROM inventory_dirs s WHERE s.path=? AND EXISTS(
+ SELECT 1 FROM inventory_dirs d JOIN inventory_files f ON f.dir_ref=d.id WHERE d.path=? AND f.name=?))`, source, parent, name).Scan(&conflict); err != nil {
+		return err
+	}
+	if conflict {
+		return fmt.Errorf("relocate inventory: target already exists")
+	}
 	from, to := subtree(source)
 	_, err := tx.ExecContext(ctx, relocateEntriesSQL,
 		target, source,
 		source, source, source, target, source,
-		source, source, source, target, source,
-		source, filepath.Base(target),
 		source, from, to)
 	if err != nil {
 		return fmt.Errorf("relocate inventory: %w", err)

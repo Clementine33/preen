@@ -18,7 +18,7 @@ const bitratePersistRetryLimit = 3
 // bitratePersistRetryBase is the base delay for retry backoff.
 const bitratePersistRetryBase = 50 * time.Millisecond
 
-// UpdateEntryBitrates writes probed bitrates back onto the entries table.
+// UpdateEntryBitrates writes probed bitrates back onto the inventory files.
 //
 // batch selects between the two write shapes the planner's configuration
 // offers, and they differ in what a failure leaves behind:
@@ -68,11 +68,13 @@ func (r *Repository) UpdateEntryBitrates(updates []inventory.BitrateUpdate, batc
 func (r *Repository) updateEntryBitratesOnce(updates []inventory.BitrateUpdate, batch bool) error {
 	if !batch {
 		for _, update := range updates {
+			dir, name := splitInventoryPath(update.Path)
 			if _, err := r.db.
 				Exec(
-					"UPDATE entries SET bitrate = ? WHERE path = ?",
+					"UPDATE inventory_files SET bitrate = ? WHERE dir_ref = (SELECT id FROM inventory_dirs WHERE path = ?) AND name = ?",
 					update.BitrateKbps,
-					update.Path,
+					dir,
+					name,
 				); err != nil {
 				return err
 			}
@@ -138,28 +140,22 @@ func chunkBitrateUpdates(updates []inventory.BitrateUpdate, chunkSize int) [][]i
 	return chunks
 }
 
-// buildBatchBitrateUpdateQuery renders one chunk as a single CASE/WHEN update.
-// The ELSE keeps an unlisted path's bitrate as it is; the WHERE IN limits the
-// statement to the rows the chunk names.
+// buildBatchBitrateUpdateQuery resolves directory keys once per supplied path.
 func buildBatchBitrateUpdateQuery(chunk []inventory.BitrateUpdate) (string, []any) {
 	var b strings.Builder
-	b.Grow(128 + len(chunk)*32)
-
-	b.WriteString("UPDATE entries SET bitrate = CASE path")
+	b.WriteString("WITH updates(dir_path,name,bitrate) AS (VALUES ")
 	args := make([]any, 0, len(chunk)*3)
-	for _, u := range chunk {
-		b.WriteString(" WHEN ? THEN ?")
-		args = append(args, u.Path, u.BitrateKbps)
-	}
-	b.WriteString(" ELSE bitrate END WHERE path IN (")
 	for i, u := range chunk {
 		if i > 0 {
 			b.WriteByte(',')
 		}
-		b.WriteByte('?')
-		args = append(args, u.Path)
+		b.WriteString("(?,?,?)")
+		dir, name := splitInventoryPath(u.Path)
+		args = append(args, dir, name, u.BitrateKbps)
 	}
-	b.WriteByte(')')
-
+	b.WriteString(
+		`), resolved AS (SELECT d.id AS dir_ref,u.name,u.bitrate FROM updates u JOIN inventory_dirs d ON d.path=u.dir_path)
+ UPDATE inventory_files AS f SET bitrate=r.bitrate FROM resolved r WHERE f.dir_ref=r.dir_ref AND f.name=r.name`,
+	)
 	return b.String(), args
 }

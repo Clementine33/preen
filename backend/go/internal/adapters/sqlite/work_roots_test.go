@@ -122,9 +122,11 @@ func TestNestedWorkInventoryAndNoOpRescan(t *testing.T) {
 	if err = repo.DB().QueryRow("SELECT id FROM work_copies WHERE rel_path = ?", want[1]).Scan(&copyID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = repo.DB().Exec(`CREATE TRIGGER reject_inventory_update BEFORE UPDATE ON entries
+	for _, table := range []string{"inventory_dirs", "inventory_files"} {
+		if _, err = repo.DB().Exec(`CREATE TRIGGER reject_` + table + `_update BEFORE UPDATE ON ` + table + `
  BEGIN SELECT RAISE(ABORT, 'unchanged inventory rewritten'); END`); err != nil {
-		t.Fatal(err)
+			t.Fatal(err)
+		}
 	}
 	second := scan()
 
@@ -229,14 +231,13 @@ func TestMergeKeepsFactsUntilContentChanges(t *testing.T) {
 	entry.Name = "changed observation"
 	merge("name")
 	renamed := inventoryEntry(t, repo, entry.Path)
-	same.Name = entry.Name
 	if !reflect.DeepEqual(same, renamed) {
 		t.Fatalf("observation update invalidated facts: %+v", renamed)
 	}
 	entry.IsDir = true
 	merge("type")
 	changed := inventoryEntry(t, repo, entry.Path)
-	if changed.ContentRev != 2 || !changed.IsDir || changed.Bitrate != nil || changed.Width != nil ||
+	if changed.ContentRev != 0 || !changed.IsDir || changed.Bitrate != nil || changed.Width != nil ||
 		changed.Height != nil ||
 		changed.DurationSec != nil {
 		t.Fatalf("type change lifecycle=%+v", changed)
@@ -301,13 +302,13 @@ func TestScopedRootRefreshKeepsItsOwnRowAndOtherInventory(t *testing.T) {
 	t.Cleanup(func() { _ = repo.Close() })
 	inventoryfixture.SeedInventory(t, repo, inventoryfixture.Row{Path: "/", RootPath: "/", IsDir: true},
 		inventoryfixture.Row{Path: "/stale", RootPath: "/"},
-		inventoryfixture.Row{Path: "/foreign", RootPath: "/another"})
+		inventoryfixture.Row{Path: "/another/foreign", RootPath: "/another"})
 	pipeline := inventory.NewPipeline(sqlite.NewScanStaging(repo), filesystem.WalkRootEntriesParallel,
 		func(context.Context, string, string, func(inventory.DirEntry) error) error { return nil }, nil)
 	if _, err = pipeline.ScanFolderCtx(t.Context(), "/", "/"); err != nil {
 		t.Fatal(err)
 	}
-	for _, path := range []string{"/", "/foreign"} {
+	for _, path := range []string{"/", "/another/foreign"} {
 		found, err := repo.RootExistsInInventory(path)
 		if err != nil || !found {
 			t.Fatalf("preserved %s: found=%v err=%v", path, found, err)

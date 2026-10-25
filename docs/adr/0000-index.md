@@ -22,6 +22,7 @@
 | [0014](0014-storage-class-and-concurrency-limits.md) | 存储档与并发上限 | Draft |
 | [0015](0015-deployment-and-credentials.md) | 部署形态与凭证投递 | Draft |
 | [0016](0016-lyrics-window-hosting.md) | 歌词窗口的宿主：Document PiP 与桌面壳接缝 | Draft |
+| [0017](0017-inventory-storage-dirs-and-files.md) | 库存存储：目录表与文件表分离 | Draft |
 
 ## 历史编号映射表
 

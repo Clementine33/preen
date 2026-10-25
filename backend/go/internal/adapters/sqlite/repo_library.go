@@ -165,7 +165,7 @@ func (r *Repository) UpdateLibrary(
 		// stale listing as if it described the new root. The bindings go with
 		// it - they name directories under the old root, so keeping them would
 		// point the catalog at paths that are no longer part of this library.
-		if _, err := tx.Exec("DELETE FROM entries WHERE root_path = ?", currentRoot); err != nil {
+		if _, err := tx.Exec("DELETE FROM inventory_dirs WHERE root_path = ?", currentRoot); err != nil {
 			return nil, err
 		}
 		if err := unbindLibraryCopies(tx, id); err != nil {
@@ -265,7 +265,7 @@ func (r *Repository) DeleteLibrary(id string) error {
 	// As with a root change, the inventory of the root goes with the library;
 	// no other library's scan would ever remove it.
 	if _, err := tx.Exec(
-		"DELETE FROM entries WHERE root_path = (SELECT root_path FROM libraries WHERE id = ?)",
+		"DELETE FROM inventory_dirs WHERE root_path = (SELECT root_path FROM libraries WHERE id = ?)",
 		id,
 	); err != nil {
 		return err
@@ -330,13 +330,13 @@ func scanLibrary(row interface{ Scan(...any) error }) (*library.Library, error) 
 func (r *Repository) ListLibraryDirs(rootPath string) ([]*inventory.LibraryDir, error) {
 	rootPath = librarypath.CleanRootPath(rootPath)
 	rows, err := r.db.Query(`
-		SELECT d.path, d.name, d.created_at,
-		       (SELECT COUNT(*) FROM entries f
-		         WHERE f.root_path = d.root_path AND f.is_dir = 0 AND `+subtreeSQL("f.path", "d.path")+` AND f.is_audio = 1) AS audio_count,
-		       (SELECT COUNT(*) FROM entries f
-		         WHERE f.root_path = d.root_path AND f.is_dir = 0 AND `+subtreeSQL("f.path", "d.path")+`) AS file_count
-		FROM entries d
-		WHERE d.is_dir = 1
+		SELECT d.path, d.created_at,
+		       (SELECT COUNT(*) FROM inventory_dirs sub JOIN inventory_files f ON f.dir_ref = sub.id
+		         WHERE sub.root_path = d.root_path AND (sub.path = d.path OR `+subtreeSQL("sub.path", "d.path")+`) AND f.is_audio = 1) AS audio_count,
+		       (SELECT COUNT(*) FROM inventory_dirs sub JOIN inventory_files f ON f.dir_ref = sub.id
+		         WHERE sub.root_path = d.root_path AND (sub.path = d.path OR `+subtreeSQL("sub.path", "d.path")+`)) AS file_count
+		FROM inventory_dirs d
+		WHERE d.path != d.root_path
 		  AND d.root_path = ? AND d.is_work_root = 1
 		ORDER BY d.path
 	`, rootPath)
@@ -350,12 +350,13 @@ func (r *Repository) ListLibraryDirs(rootPath string) ([]*inventory.LibraryDir, 
 	for rows.Next() {
 		var d inventory.LibraryDir
 		var addedAt sql.NullInt64
-		if err := rows.Scan(&d.Path, &d.Name, &addedAt, &d.AudioFileCount, &d.FileCount); err != nil {
+		if err := rows.Scan(&d.Path, &addedAt, &d.AudioFileCount, &d.FileCount); err != nil {
 			return nil, err
 		}
 		if addedAt.Valid {
 			d.AddedAt = time.Unix(addedAt.Int64, 0).UTC()
 		}
+		_, d.Name = splitInventoryPath(d.Path)
 		d.RelPath = strings.TrimPrefix(librarypath.NormalizeToPOSIX(d.Path), prefix)
 		if librarypath.IsRecoveryRelPath(rootPath, d.RelPath) {
 			continue
@@ -373,9 +374,9 @@ func (r *Repository) ListLibraryDirs(rootPath string) ([]*inventory.LibraryDir, 
 func (r *Repository) ListLibraryWorkRoots(rootPath string) ([]string, error) {
 	rootPath = librarypath.CleanRootPath(rootPath)
 	rows, err := r.db.Query(`
-		SELECT path, name
-		FROM entries
-		WHERE is_dir = 1
+		SELECT path
+		FROM inventory_dirs
+		WHERE path != root_path
 		  AND root_path = ? AND is_work_root = 1
 		ORDER BY path
 	`, rootPath)
@@ -387,8 +388,8 @@ func (r *Repository) ListLibraryWorkRoots(rootPath string) ([]string, error) {
 	prefix := joinInventoryPath(rootPath, "")
 	var out []string
 	for rows.Next() {
-		var path, name string
-		if err := rows.Scan(&path, &name); err != nil {
+		var path string
+		if err := rows.Scan(&path); err != nil {
 			return nil, err
 		}
 		if librarypath.IsRecoveryRelPath(
@@ -427,10 +428,10 @@ func (r *Repository) DirAudioCounts(rootPath string, relPaths []string) (map[str
 	args = append(args, librarypath.CleanRootPath(rootPath))
 	rows, err := r.db.Query(`
 		SELECT d.path,
-		       (SELECT COUNT(*) FROM entries f
-		         WHERE f.root_path = d.root_path AND f.is_dir = 0 AND `+subtreeSQL("f.path", "d.path")+` AND f.is_audio = 1) AS audio_count
-		FROM entries d
-		WHERE d.is_dir = 1 AND d.path IN (`+strings.Join(placeholders, ", ")+`) AND d.root_path = ?
+		       (SELECT COUNT(*) FROM inventory_dirs sub JOIN inventory_files f ON f.dir_ref = sub.id
+		         WHERE sub.root_path = d.root_path AND (sub.path = d.path OR `+subtreeSQL("sub.path", "d.path")+`) AND f.is_audio = 1) AS audio_count
+		FROM inventory_dirs d
+		WHERE d.path IN (`+strings.Join(placeholders, ", ")+`) AND d.root_path = ?
 	`, args...)
 	if err != nil {
 		return nil, err
@@ -447,91 +448,4 @@ func (r *Repository) DirAudioCounts(rootPath string, relPaths []string) (map[str
 		}
 	}
 	return out, rows.Err()
-}
-
-// ListEntriesUnderPath returns entries under a path prefix (including the
-// prefix itself) for tree building. Path identity is binary and slash-boundary
-// exact, so folder names like "100%_hits" match only their own subtree and
-// case-distinct siblings stay distinct.
-func (r *Repository) ListEntriesUnderPath(pathPrefix string) ([]inventory.Entry, error) {
-	pathPrefix = librarypath.CleanRootPath(pathPrefix)
-	from, to := subtree(pathPrefix)
-	rows, err := r.db.Query(`
-		SELECT path, parent_path, name, is_dir, size, mtime, bitrate, format, width, height, duration_sec, content_rev
-		FROM entries
-		WHERE path = ? OR (path >= ? AND path < ?)
-		ORDER BY path
-	`, pathPrefix, from, to)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var entries []inventory.Entry
-	for rows.Next() {
-		e, err := scanEntry(rows)
-		if err != nil {
-			return nil, err
-		}
-		entries = append(entries, e)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return entries, nil
-}
-
-// EntryByPath reads one file's stored row (ADR 0013): the whitelist the
-// content endpoint serves from — a path with no inventory row is not served,
-// whatever the disk holds.
-func (r *Repository) EntryByPath(path string) (inventory.Entry, bool, error) {
-	rows, err := r.db.Query(`
-		SELECT path, parent_path, name, is_dir, size, mtime, bitrate, format, width, height, duration_sec, content_rev
-		FROM entries
-		WHERE path = ? AND is_dir = 0
-	`, librarypath.NormalizeToPOSIX(path))
-	if err != nil {
-		return inventory.Entry{}, false, err
-	}
-	defer rows.Close()
-
-	if !rows.Next() {
-		return inventory.Entry{}, false, rows.Err()
-	}
-	entry, scanErr := scanEntry(rows)
-	if scanErr != nil {
-		return inventory.Entry{}, false, scanErr
-	}
-	return entry, true, rows.Err()
-}
-
-// scanEntry reads one entries row in the tree projection's column order.
-func scanEntry(rows *sql.Rows) (inventory.Entry, error) {
-	var e inventory.Entry
-	var isDir int
-	var bitrate sql.NullInt32
-	var format sql.NullString
-	var width, height sql.NullInt64
-	var duration sql.NullFloat64
-	if err := rows.Scan(
-		&e.Path, &e.ParentPath, &e.Name, &isDir, &e.Size, &e.Mtime,
-		&bitrate, &format, &width, &height, &duration, &e.ContentRev,
-	); err != nil {
-		return inventory.Entry{}, err
-	}
-	e.IsDir = isDir == 1
-	if bitrate.Valid {
-		v := bitrate.Int32
-		e.Bitrate = &v
-	}
-	e.Format = format.String
-	if width.Valid && height.Valid {
-		w, h := int(width.Int64), int(height.Int64)
-		e.Width, e.Height = &w, &h
-	}
-	if duration.Valid {
-		sec := duration.Float64
-		e.DurationSec = &sec
-	}
-	return e, nil
 }

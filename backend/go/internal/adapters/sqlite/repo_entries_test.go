@@ -2,8 +2,14 @@ package sqlite_test
 
 import (
 	"path/filepath"
+	"reflect"
+	"strings"
+
 	"testing"
 	"time"
+
+	"github.com/Clementine33/preen/backend/internal/inventory"
+	"github.com/Clementine33/preen/backend/internal/works"
 
 	"github.com/Clementine33/preen/backend/internal/testutil/inventoryfixture"
 
@@ -76,5 +82,138 @@ func TestObservedAudioEntriesSpansTheWholeSubtree(t *testing.T) {
 				break
 			}
 		}
+	}
+}
+
+func TestInventoryReadsPreservePathIdentityAndFileFacts(t *testing.T) {
+	for _, root := range []string{"/", "C:/", "//server/share", "/music"} {
+		t.Run(root, func(t *testing.T) { checkInventoryReadPaths(t, root) })
+	}
+}
+
+func checkInventoryReadPaths(t *testing.T, root string) {
+	t.Helper()
+	repo, err := sqlite.NewDevelopmentRepository(filepath.Join(t.TempDir(), "cache.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer repo.Close()
+	prefix := strings.TrimSuffix(root, "/") + "/"
+	work := prefix + "RJ000001%_日"
+	file := work + "/disc/track.mp3"
+	inventoryfixture.SeedInventory(t, repo,
+		inventoryfixture.Row{Path: work, RootPath: root, IsDir: true, IsWorkRoot: true, CreatedAt: 123, Mtime: 17},
+		inventoryfixture.Row{Path: file, RootPath: root, Size: 11, Mtime: 22, ContentRev: 3, Format: "mp3",
+			Bitrate: new(int32(320000)), Width: new(50), Height: new(60), DurationSec: new(7.5)},
+		inventoryfixture.Row{Path: prefix + "direct.jpg", RootPath: root},
+		inventoryfixture.Row{Path: work + " sibling/other.mp3", RootPath: root},
+	)
+	if _, err = repo.DB().Exec(`INSERT INTO generation_records
+    (path,codec,encoder,encoder_version,bitrate_kbps,mode,size,mtime,content_sha256,created_at)
+    VALUES(?,'mp3','encoder','1',320,'cbr',11,22,'hash','2026-01-01')`, file); err != nil {
+		t.Fatal(err)
+	}
+	got, found, err := repo.EntryByPath(file)
+	want := inventory.Entry{
+		Path:        file,
+		ParentPath:  work + "/disc",
+		Name:        "track.mp3",
+		Size:        11,
+		Mtime:       22,
+		ContentRev:  3,
+		Format:      "mp3",
+		Bitrate:     new(int32(320000)),
+		Width:       new(50),
+		Height:      new(60),
+		DurationSec: new(7.5),
+	}
+	if err != nil || !found || !reflect.DeepEqual(got, want) {
+		t.Fatalf("point=%+v found=%v err=%v", got, found, err)
+	}
+	for _, absent := range []string{work, file + ".missing", work + "/track.mp3"} {
+		if _, found, err = repo.EntryByPath(absent); err != nil || found {
+			t.Fatalf("whitelist %q found=%v err=%v", absent, found, err)
+		}
+	}
+	entries, err := repo.ListEntriesUnderPath(file)
+	if err != nil || len(entries) != 1 || !reflect.DeepEqual(entries[0], want) {
+		t.Fatalf("file scope=%+v err=%v", entries, err)
+	}
+	entries, err = repo.ListEntriesUnderPath(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range entries {
+		if entry.Path == root {
+			t.Fatalf("library root leaked: %+v", entry)
+		}
+	}
+	direct, found, err := repo.EntryByPath(prefix + "direct.jpg")
+	if err != nil || !found || direct.ParentPath != root {
+		t.Fatalf("root file=%+v found=%v err=%v", direct, found, err)
+	}
+	listed, err := repo.ListLibraryDirs(root)
+	if err != nil || len(listed) != 1 || listed[0].FileCount != 1 || listed[0].AudioFileCount != 1 ||
+		listed[0].Name != "RJ000001%_日" || listed[0].AddedAt.Unix() != 123 {
+		t.Fatalf("overview=%+v err=%v", listed, err)
+	}
+	observed, err := repo.ObservedAudioEntries(work + "/")
+	credential := &inventory.GeneratedCredential{Codec: "mp3", BitrateKbps: 320, Mode: "cbr", Size: 11, Mtime: 22}
+	if err != nil || len(observed) != 1 || observed[0].Path != file ||
+		!reflect.DeepEqual(observed[0].Generated, credential) {
+		t.Fatalf("observed=%+v err=%v", observed, err)
+	}
+	pointObserved, err := repo.ObservedAudioEntries(file)
+	if err != nil || !reflect.DeepEqual(pointObserved, observed) {
+		t.Fatalf("file-root observed=%+v err=%v; want %+v", pointObserved, err, observed)
+	}
+}
+
+func TestLocalCoverReadUsesCandidateFilesAndStableVersions(t *testing.T) {
+	repo, err := sqlite.NewDevelopmentRepository(filepath.Join(t.TempDir(), "cache.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer repo.Close()
+	lib, err := repo.CreateLibrary("music", "/music")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var staged []inventory.StagingEntry
+	for _, name := range []string{"RJ000001 a", "RJ000001 b", "RJ000002 empty"} {
+		staged = append(staged, inventory.StagingEntry{SessionID: "scan", RootPath: "/music", Path: "/music/" + name,
+			ParentPath: "/music", Name: name, IsDir: true, IsWorkRoot: true})
+	}
+	if err = sqlite.NewScanStaging(repo).WriteStagingEntries("scan", staged); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = repo.MergeStaging("scan", lib.ID, "/music"); err != nil {
+		t.Fatal(err)
+	}
+	ids := []works.WorkCode{"RJ00000001", "RJ00000002"}
+	inventoryfixture.SeedInventory(
+		t,
+		repo,
+		inventoryfixture.Row{
+			Path:       "/music/RJ000001 b/cover.png",
+			RootPath:   "/music",
+			Size:       11,
+			Mtime:      7,
+			ContentRev: 2,
+		},
+		inventoryfixture.Row{Path: "/music/RJ000001 a/not-cover.jpg", RootPath: "/music"},
+	)
+	covers, err := repo.LocalCovers(t.Context(), ids)
+	if err != nil || len(covers) != 1 || covers[ids[0]].RelPath != "cover.png" || covers[ids[0]].Version != "2-7-11" {
+		t.Fatalf("cover candidates=%+v err=%v", covers, err)
+	}
+	first := covers[ids[0]]
+	inventoryfixture.SeedInventory(t, repo,
+		inventoryfixture.Row{Path: "/music/RJ000001 a/cover.webp", RootPath: "/music"},
+		inventoryfixture.Row{Path: "/music/RJ000001 a/cover.jpg", RootPath: "/music", Size: 4, Mtime: 8, ContentRev: 3})
+	covers, err = repo.LocalCovers(t.Context(), ids)
+	winner := covers[ids[0]]
+	if err != nil || winner.CopyID == first.CopyID || winner.RelPath != "cover.jpg" || winner.Version != "3-8-4" {
+		t.Fatalf("stable winner=%+v err=%v", covers, err)
 	}
 }

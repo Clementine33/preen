@@ -39,7 +39,7 @@ func newFixture(t *testing.T, tasksActive bool) *fixture {
 	f.svc = fileops.NewService(f.gate, func(_ context.Context, folderPath, _ string) error {
 		f.refreshed = append(f.refreshed, folderPath)
 		return f.scanErr
-	}, filesystem.Recover, filesystem.RenameNoReplace, filesystem.IsResolvedWithinRoot)
+	}, filesystem.Recover, filesystem.RenameNoReplace, filesystem.IsResolvedWithinRoot, nil)
 	return f
 }
 
@@ -686,5 +686,39 @@ func TestCaseOnlyRename(t *testing.T) {
 	entries, err := os.ReadDir(filepath.Join(f.root, "albumA"))
 	if err != nil || len(entries) != 1 || entries[0].Name() != "track.mp3" {
 		t.Fatalf("entries = %v, %v", entries, err)
+	}
+}
+
+func TestInventoryMoveFailureIsReportedAfterSuccessfulWrite(t *testing.T) {
+	f := newFixture(t, false)
+	f.mkdir("albumA")
+	f.write("albumA/track.flac", "audio")
+	var calls []string
+	f.svc = fileops.NewService(f.gate, func(context.Context, string, string) error {
+		calls = append(calls, "scan")
+		return nil
+	}, filesystem.Recover, filesystem.RenameNoReplace, filesystem.IsResolvedWithinRoot,
+		func(_ context.Context, root, source, target string) error {
+			calls = append(calls, "inventory")
+			if root != filepath.ToSlash(f.root) ||
+				source != filepath.ToSlash(filepath.Join(f.root, "albumA/track.flac")) ||
+				target != filepath.ToSlash(filepath.Join(f.root, "albumA/renamed.flac")) {
+				t.Fatalf("move paths: %s %s %s", root, source, target)
+			}
+			return errors.New("inventory exploded")
+		})
+	result := f.apply(
+		fileops.Request{
+			MemberPath: "albumA",
+			Operation:  fileops.OpRename,
+			Items:      []fileops.Item{{Source: "track.flac", Name: "renamed.flac"}},
+		},
+	)
+	if result.Succeeded != 1 || result.Failed != 0 || result.Refresh.OK || result.Refresh.Code != "REFRESH_FAILED" ||
+		!f.exists("albumA/renamed.flac") {
+		t.Fatalf("inventory failure changed disk outcome: %+v", result)
+	}
+	if strings.Join(calls, ",") != "inventory,scan" {
+		t.Fatalf("refresh order: %v", calls)
 	}
 }

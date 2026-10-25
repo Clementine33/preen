@@ -180,7 +180,8 @@ type services struct {
 // refused while a file operation holds the slot (ADR 0002).
 //
 // Library scans, manual member refresh and inventory-based tasks share one
-// pipeline. Directory-only tasks bypass it; covers synchronize exact file deltas
+// pipeline. Direct file operations preserve inventory move identities before
+// refreshing; directory-only tasks bypass scans; covers synchronize exact file deltas
 // and metadata's completed cover queue triggers one selected batch reconciliation.
 func buildServices(repo *sqlite.Repository, configDir, dataDir string) services {
 	worksChanged := &notify.Hub{}
@@ -269,6 +270,7 @@ func buildServices(repo *sqlite.Repository, configDir, dataDir string) services 
 			filesystem.Recover,
 			filesystem.RenameNoReplace,
 			filesystem.IsResolvedWithinRoot,
+			repo.MoveInventoryPath,
 		),
 		workset:      worksetSvc,
 		catalog:      conversion.NewCatalog(repo, appconfig.NewReader(configDir)),

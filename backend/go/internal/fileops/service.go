@@ -1,6 +1,6 @@
 // Package fileops owns direct file management inside a library member
 // (rename, move, soft delete): the scope and path rules it refuses, the
-// per-item result contract, and the write-then-refresh behaviour. Admission
+// per-item result contract, and inventory move-then-refresh behaviour. Admission
 // against the other paths that touch the same trees is package admission (ADR 0002).
 package fileops
 
@@ -18,6 +18,10 @@ import (
 // service does not depend on the scanner.
 type MemberScan func(ctx context.Context, folderPath, rootPath string) error
 
+// InventoryMove preserves inventory facts after a successful disk move. An empty
+// target deletes the source from inventory without admitting its recovery path.
+type InventoryMove func(ctx context.Context, root, source, target string) error
+
 // RecoverFile moves an item into the recovery directory beside its work root.
 type RecoverFile func(ctx context.Context, workRoot, source string) (string, error)
 
@@ -30,26 +34,36 @@ type ResolvedWithinRoot func(root, candidate string) (bool, error)
 
 // Service applies direct file-management requests inside a library member.
 type Service struct {
-	gate        *admission.Gate
-	scan        MemberScan
-	recoverFile RecoverFile
-	renameFile  RenameFile
-	withinRoot  ResolvedWithinRoot
+	gate          *admission.Gate
+	scan          MemberScan
+	moveInventory InventoryMove
+	recoverFile   RecoverFile
+	renameFile    RenameFile
+	withinRoot    ResolvedWithinRoot
 }
 
 // NewService creates the file-management service. gate is the process-wide
 // admission control; scan refreshes the affected inventory after a write (nil
 // means the writes are reported without a refresh, which the tests use).
 // recoverFile and renameFile provide moves; withinRoot resolves host filesystem
-// indirection without exposing a general filesystem interface.
+// indirection without exposing a general filesystem interface. moveInventory
+// synchronizes successful writes before scanning, preserving measured facts.
 func NewService(
 	gate *admission.Gate,
 	scan MemberScan,
 	recoverFile RecoverFile,
 	renameFile RenameFile,
 	withinRoot ResolvedWithinRoot,
+	moveInventory InventoryMove,
 ) *Service {
-	return &Service{gate: gate, scan: scan, recoverFile: recoverFile, renameFile: renameFile, withinRoot: withinRoot}
+	return &Service{
+		gate:          gate,
+		scan:          scan,
+		recoverFile:   recoverFile,
+		renameFile:    renameFile,
+		withinRoot:    withinRoot,
+		moveInventory: moveInventory,
+	}
 }
 
 // Apply runs one request: admission first, then the items in order, then the
@@ -143,7 +157,7 @@ func (s *Service) Apply(ctx context.Context, req Request) (*Result, error) {
 			result.Untouched++
 		}
 	}
-	result.Refresh = s.refreshAfter(ctx, m)
+	result.Refresh = s.refreshAfter(ctx, m, result.Items)
 	return result, nil
 }
 
@@ -205,17 +219,41 @@ func isDescendant(candidate, ancestor string) bool {
 	return strings.HasPrefix(candidate, strings.TrimSuffix(ancestor, "/")+"/")
 }
 
-// refreshAfter re-reads the member inventory; recovery files are excluded from
-// scanning. The refresh keeps the same admission as the writes.
-func (s *Service) refreshAfter(ctx context.Context, m *member) RefreshState {
-	if s.scan == nil {
-		return RefreshState{OK: true}
+// refreshAfter synchronizes successful moves, then scans the member inside the
+// held admission slot. Inventory failures never turn a committed disk write into
+// a failed item; the scan still runs to reconcile any observed paths.
+func (s *Service) refreshAfter(ctx context.Context, m *member, items []ItemResult) RefreshState {
+	var syncErr error
+	if s.moveInventory != nil {
+		for _, item := range items {
+			if item.Status != StatusOK {
+				continue
+			}
+			target := ""
+			if item.Target != "" {
+				target = librarypath.JoinRel(m.abs, item.Target)
+			}
+			if err := s.moveInventory(
+				ctx,
+				m.root,
+				librarypath.JoinRel(m.abs, item.Source),
+				target,
+			); err != nil &&
+				syncErr == nil {
+				syncErr = err
+			}
+		}
 	}
-	if err := s.scan(ctx, m.nativeAbs, m.nativeRoot); err != nil {
+	if s.scan != nil {
+		if err := s.scan(ctx, m.nativeAbs, m.nativeRoot); err != nil && syncErr == nil {
+			syncErr = err
+		}
+	}
+	if syncErr != nil {
 		return RefreshState{
 			OK:      false,
 			Code:    "REFRESH_FAILED",
-			Message: "files were modified, but refreshing the inventory failed: " + err.Error(),
+			Message: "files were modified, but refreshing the inventory failed: " + syncErr.Error(),
 		}
 	}
 	return RefreshState{OK: true}

@@ -1,6 +1,7 @@
 package sqlite //nolint:testpackage // white-box tests exercise unexported internals
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -333,5 +334,14 @@ func TestRepository_RunRetentionCleanupBatch_LimitsEachTable(t *testing.T) {
 	}
 	if count := countRows(t, repo, "plan_generations"); count != 0 {
 		t.Errorf("plan_generations remaining = %d, want 0", count)
+	}
+}
+
+func TestGenerationRecordRetentionChecksAnInventorySet(t *testing.T) {
+	repo := newTestRepository(t)
+	plan := explain(t, repo, "SELECT g.path FROM generation_records g WHERE "+generationRecordRetentionPredicate)
+	if strings.Contains(plan, "CORRELATED") || strings.Contains(plan, "SCAN f") ||
+		!strings.Contains(plan, "SEARCH f USING PRIMARY KEY") {
+		t.Fatalf("retention must build inventory paths once: %s", plan)
 	}
 }

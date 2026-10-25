@@ -38,6 +38,12 @@ func subtreeSQL(path, root string) string {
 	return "(" + path + " >= " + prefix + " || '/' AND " + path + " < " + prefix + " || '0')"
 }
 
+// The outer bounds make inclusive subtrees searchable by a composite root/path index.
+func subtreeIncludingRootSQL(path, root string) string {
+	return "(" + path + " >= " + root + " AND " + path + " < rtrim(" + root + ", '/') || '0' AND (" +
+		path + " = " + root + " OR " + subtreeSQL(path, root) + "))"
+}
+
 // joinInventoryPathSQL keeps reconstructed file paths consistent with joinInventoryPath.
 func joinInventoryPathSQL(dir, name string) string {
 	return "rtrim(" + dir + ", '/') || '/' || " + name

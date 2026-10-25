@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Clementine33/preen/backend/internal/testutil/inventoryfixture"
+
 	"github.com/Clementine33/preen/backend/internal/inventory"
 	"github.com/Clementine33/preen/backend/internal/library"
 	"github.com/Clementine33/preen/backend/internal/works/coverdelivery"
@@ -17,18 +19,12 @@ import (
 // test can assert that a change scoped to one root leaves the others alone.
 func insertEntryAtRoot(t *testing.T, repo *Repository, path, parentPath, name string, isDir bool) {
 	t.Helper()
-	isDirInt := 0
-	if isDir {
-		isDirInt = 1
-	}
 	root, _, _ := strings.CutLast(path, "/")
-	_, err := repo.DB().Exec(`
-		INSERT INTO entries (path, root_path, parent_path, name, is_dir, size, mtime, scan_id, content_rev)
-		VALUES (?, ?, ?, ?, ?, 0, 0, 'scan-1', 1)
-	`, path, root, parentPath, name, isDirInt)
-	if err != nil {
-		t.Fatalf("failed to insert entry %s: %v", path, err)
-	}
+	inventoryfixture.SeedInventory(
+		t,
+		repo,
+		inventoryfixture.Row{Path: path, RootPath: root, IsDir: isDir, ScanID: "scan-1"},
+	)
 }
 
 // seedRecordWithPlan creates a processing record with a member, an operation,
@@ -59,17 +55,17 @@ func seedRecordWithPlan(t *testing.T, repo *Repository, libraryID, worksetID, pl
 // /music, mirroring how scan results are stored.
 func insertEntry(t *testing.T, repo *Repository, path, parentPath, name string, isDir bool) {
 	t.Helper()
-	isDirInt := 0
-	if isDir {
-		isDirInt = 1
-	}
-	_, err := repo.DB().Exec(`
-		INSERT INTO entries (path, root_path, parent_path, name, is_dir, is_work_root, size, mtime, scan_id, content_rev)
-		VALUES (?, '/music', ?, ?, ?, ?, 0, 0, 'scan-1', 1)
-	`, path, parentPath, name, isDirInt, isDir && parentPath == "/music")
-	if err != nil {
-		t.Fatalf("failed to insert entry %s: %v", path, err)
-	}
+	inventoryfixture.SeedInventory(
+		t,
+		repo,
+		inventoryfixture.Row{
+			Path:       path,
+			RootPath:   "/music",
+			IsDir:      isDir,
+			IsWorkRoot: isDir && parentPath == "/music",
+			ScanID:     "scan-1",
+		},
+	)
 }
 
 func TestCreateAndGetLibrary(t *testing.T) {
@@ -286,14 +282,9 @@ func TestUpdateLibraryRootClearsDerivedState(t *testing.T) {
 	if updated.LastScanAt != nil || updated.LastScanStatus != "" || updated.LastScanError != "" {
 		t.Fatalf("scan state was not reset: %+v", updated)
 	}
-	var stale int
-	if scanErr := repo.DB().QueryRow(
-		"SELECT COUNT(*) FROM entries WHERE root_path = '/music'",
-	).Scan(&stale); scanErr != nil {
-		t.Fatalf("count stale entries: %v", scanErr)
-	}
-	if stale != 0 {
-		t.Fatalf("root change retained %d entries of the old root", stale)
+	stale, err := repo.ListEntriesUnderPath("/music")
+	if err != nil || len(stale) != 0 {
+		t.Fatalf("root change retained old inventory: %+v, %v", stale, err)
 	}
 }
 
@@ -467,14 +458,9 @@ func TestUpdateLibraryEquivalentRootKeepsDerivedState(t *testing.T) {
 	if updated.LastScanAt == nil || updated.LastScanStatus != "completed" {
 		t.Errorf("scan state must be retained for spelling-only root update: %+v", updated)
 	}
-	var kept int
-	if scanErr := repo.DB().QueryRow(
-		"SELECT COUNT(*) FROM entries WHERE root_path = '/music'",
-	).Scan(&kept); scanErr != nil {
-		t.Fatalf("count entries: %v", scanErr)
-	}
-	if kept != 1 {
-		t.Errorf("inventory must survive a spelling-only root update, got %d rows", kept)
+	kept, err := repo.ListEntriesUnderPath("/music")
+	if err != nil || len(kept) != 1 {
+		t.Fatalf("inventory must survive a spelling-only root update: %+v, %v", kept, err)
 	}
 }
 

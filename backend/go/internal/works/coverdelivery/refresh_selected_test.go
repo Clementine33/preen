@@ -60,12 +60,9 @@ func TestSelectedRefreshWaitsForMetadataAndCoversThenMergesOnce(t *testing.T) {
 		t.Fatalf("refresh calls: %d", calls)
 	}
 	for _, path := range []string{newFile, untouched, filepath.ToSlash(filepath.Join(folders[0], "cover.png"))} {
-		var count int
-		if err := repo.DB().
-			QueryRow(`SELECT COUNT(*) FROM entries WHERE path=?`, path).
-			Scan(&count); err != nil ||
-			count != 1 {
-			t.Fatalf("inventory %s: %d %v", path, count, err)
+		if count, err := repo.RootExistsInInventory(path); err != nil ||
+			!count {
+			t.Fatalf("inventory %s: %v %v", path, count, err)
 		}
 	}
 	var count int

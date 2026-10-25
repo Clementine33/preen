@@ -9,6 +9,8 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/Clementine33/preen/backend/internal/testutil/inventoryfixture"
+
 	"github.com/Clementine33/preen/backend/internal/inventory"
 )
 
@@ -89,13 +91,18 @@ func TestPersistBitrateUpdates_RollsBackEarlierChunksOnLaterChunkFailure(t *test
 	updates := make([]inventory.BitrateUpdate, 0, bitrateUpdateBatchSize+1)
 	for i := range bitrateUpdateBatchSize + 1 {
 		p := fmt.Sprintf("/scope/%03d.mp3", i)
-		_, err = repo.DB().Exec(`
-			INSERT INTO entries (path, root_path, is_dir, size, format, content_rev, mtime, bitrate)
-			VALUES (?, ?, 0, 1000, 'audio/mpeg', 1, ?, 0)
-		`, p, "/scope", 1234567890)
-		if err != nil {
-			t.Fatalf("failed to insert entry %s: %v", p, err)
-		}
+		inventoryfixture.SeedInventory(
+			t,
+			repo,
+			inventoryfixture.Row{
+				Path:     p,
+				RootPath: "/scope",
+				Size:     1000,
+				Format:   "audio/mpeg",
+				Mtime:    1234567890,
+				Bitrate:  new(int32(0)),
+			},
+		)
 		updates = append(updates, inventory.BitrateUpdate{Path: p, BitrateKbps: 128000})
 	}
 
@@ -123,21 +130,27 @@ func TestPersistBitrateUpdates_RollsBackEarlierChunksOnLaterChunkFailure(t *test
 		t.Fatalf("expected forced update failure error, got %v", err)
 	}
 
+	entries, readErr := repo.ListEntriesUnderPath("/scope")
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
 	var updatedCount int
-	if err := repo.DB().
-		QueryRow("SELECT COUNT(1) FROM entries WHERE COALESCE(bitrate,0) > 0").
-		Scan(&updatedCount); err != nil {
-		t.Fatalf("failed to count updated rows after rollback: %v", err)
+	for _, entry := range entries {
+		if entry.Bitrate != nil && *entry.Bitrate > 0 {
+			updatedCount++
+		}
 	}
 	if updatedCount != 0 {
 		t.Fatalf("expected all updates rolled back, got %d rows with bitrate > 0", updatedCount)
 	}
 
 	var firstPathBitrate int64
-	if err := repo.DB().
-		QueryRow("SELECT COALESCE(bitrate,0) FROM entries WHERE path = ?", updates[0].Path).
-		Scan(&firstPathBitrate); err != nil {
-		t.Fatalf("failed to read first-path bitrate after rollback: %v", err)
+	{
+		entry := inventoryEntry(t, repo, updates[0].Path)
+		firstPathBitrate = 0
+		if entry.Bitrate != nil {
+			firstPathBitrate = int64(*entry.Bitrate)
+		}
 	}
 	if firstPathBitrate != 0 {
 		t.Fatalf("expected earlier-chunk row rollback to 0 bitrate, got %d", firstPathBitrate)
@@ -239,13 +252,11 @@ func TestPersistBitrateUpdates_ConcurrentSerialization(t *testing.T) {
 	updates := make([]inventory.BitrateUpdate, 0, totalEntries)
 	for i := range totalEntries {
 		p := fmt.Sprintf("/scope/%03d.mp3", i)
-		_, err = repo.DB().Exec(`
-			INSERT INTO entries (path, root_path, is_dir, size, format, content_rev, mtime, bitrate)
-			VALUES (?, ?, 0, 1000, 'audio/mpeg', 1, ?, NULL)
-		`, p, "/scope", 1234567890)
-		if err != nil {
-			t.Fatalf("failed to insert entry %s: %v", p, err)
-		}
+		inventoryfixture.SeedInventory(
+			t,
+			repo,
+			inventoryfixture.Row{Path: p, RootPath: "/scope", Size: 1000, Format: "audio/mpeg", Mtime: 1234567890},
+		)
 		updates = append(updates, inventory.BitrateUpdate{Path: p, BitrateKbps: 128000})
 	}
 
@@ -277,11 +288,15 @@ func TestPersistBitrateUpdates_ConcurrentSerialization(t *testing.T) {
 	}
 
 	// Verify all entries have bitrate set.
+	entries, readErr := repo.ListEntriesUnderPath("/scope")
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
 	var updatedCount int
-	if err := repo.DB().
-		QueryRow("SELECT COUNT(1) FROM entries WHERE COALESCE(bitrate,0) > 0").
-		Scan(&updatedCount); err != nil {
-		t.Fatalf("failed to count updated entries: %v", err)
+	for _, entry := range entries {
+		if entry.Bitrate != nil && *entry.Bitrate > 0 {
+			updatedCount++
+		}
 	}
 	if updatedCount != totalEntries {
 		t.Fatalf("expected %d entries with bitrate > 0, got %d", totalEntries, updatedCount)

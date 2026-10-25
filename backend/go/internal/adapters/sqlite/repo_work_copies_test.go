@@ -431,12 +431,9 @@ func TestDeleteLibraryDropsOnlyItsInventory(t *testing.T) {
 		t.Fatal(err)
 	}
 	for root, want := range map[string]int{"/gone": 0, "/kept": 1} {
-		var n int
-		if err := repo.DB().QueryRow("SELECT COUNT(*) FROM entries WHERE root_path = ?", root).Scan(&n); err != nil {
-			t.Fatal(err)
-		}
-		if n != want {
-			t.Errorf("%s entries = %d, want %d", root, n, want)
+		entries, err := repo.ListEntriesUnderPath(root)
+		if err != nil || len(entries) != want {
+			t.Errorf("%s entries = %d, want %d: %v", root, len(entries), want, err)
 		}
 	}
 }

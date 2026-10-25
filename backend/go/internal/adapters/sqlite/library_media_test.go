@@ -5,6 +5,8 @@ import (
 	"runtime"
 	"testing"
 
+	"github.com/Clementine33/preen/backend/internal/testutil/inventoryfixture"
+
 	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
 	"github.com/Clementine33/preen/backend/internal/library"
 )
@@ -40,10 +42,11 @@ func TestMediaCandidateBatchCapturesOwningLibraryLimit(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, root := range []string{"/ssd", "/hdd", "/unowned", "C:/Music"} {
-		if _, err = repo.DB().
-			Exec(`INSERT INTO entries(path,root_path,parent_path,name,is_dir,size,mtime,format) VALUES(?,?,?,'a.mp3',0,1,1,'audio/mpeg')`, root+"/a.mp3", root, root); err != nil {
-			t.Fatal(err)
-		}
+		inventoryfixture.SeedInventory(
+			t,
+			repo,
+			inventoryfixture.Row{Path: root + "/a.mp3", RootPath: root, Size: 1, Mtime: 1, Format: "audio/mpeg"},
+		)
 	}
 	store := sqlite.NewScanStaging(repo)
 	batch, err := store.EntriesMissingMediaFacts("", 64)

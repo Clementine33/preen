@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Clementine33/preen/backend/internal/testutil/inventoryfixture"
+
 	"github.com/google/uuid"
 	driverSQLite "modernc.org/sqlite"
 
@@ -127,7 +129,10 @@ func TestDetailUsesOneDeferredReadSnapshot(t *testing.T) {
 		repo,
 		`INSERT INTO work_copies VALUES('snapshot-old-copy','RJ00000001','snapshot-library','old','now')`,
 	)
-	deletionSQL(t, repo, `INSERT INTO entries(path,size,mtime,content_rev) VALUES('/snapshot/old/cover.jpg',10,20,1)`)
+	inventoryfixture.SeedInventory(t, repo,
+		inventoryfixture.Row{Path: "/snapshot/old/cover.jpg", Size: 10, Mtime: 20},
+		inventoryfixture.Row{Path: "/snapshot-new/work/cover.png", Size: 30, Mtime: 40, ContentRev: 2},
+	)
 	deletionSQL(t, repo, `INSERT INTO circles(id,source,name) VALUES('snapshot-circle','dlsite','circle')`)
 	deletionSQL(t, repo, `UPDATE works SET title='old',circle_id='snapshot-circle' WHERE id=?`, string(deletionWork))
 	deletionSQL(
@@ -165,7 +170,6 @@ func TestDetailUsesOneDeferredReadSnapshot(t *testing.T) {
 		`DELETE FROM works WHERE id='RJ00000003'`,
 		`DELETE FROM work_copies WHERE work_id='RJ00000001'`,
 		`UPDATE libraries SET root_path='/snapshot-new' WHERE id='snapshot-library'`,
-		`INSERT INTO entries(path,size,mtime,content_rev) VALUES('/snapshot-new/work/cover.png',30,40,2)`,
 		`INSERT INTO work_copies VALUES('snapshot-copy','RJ00000001','snapshot-library','work','now')`,
 	} {
 		if _, execErr := tx.ExecContext(ctx, query); execErr != nil {

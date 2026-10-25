@@ -72,13 +72,10 @@ func TestTheInternalRefreshIsNotRefusedByTheSlotItHolds(t *testing.T) {
 	}
 
 	// The refresh really scanned the member: its rows are in the inventory.
-	var rows int
-	if err := repo.DB().QueryRow(
-		`SELECT COUNT(*) FROM entries WHERE path = ?`, filepath.ToSlash(filepath.Join(member, "02.flac")),
-	).Scan(&rows); err != nil {
-		t.Fatalf("count inventory rows: %v", err)
-	}
-	if rows != 1 {
-		t.Fatalf("inventory rows for the renamed file = %d, want 1", rows)
+	if found, err := repo.RootExistsInInventory(
+		filepath.ToSlash(filepath.Join(member, "02.flac")),
+	); err != nil ||
+		!found {
+		t.Fatalf("renamed file missing from inventory: found=%v err=%v", found, err)
 	}
 }

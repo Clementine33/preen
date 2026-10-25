@@ -13,6 +13,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Clementine33/preen/backend/internal/testutil/inventoryfixture"
+
 	"github.com/Clementine33/preen/backend/internal/conversion/execute"
 	"github.com/Clementine33/preen/backend/internal/inventory"
 
@@ -118,17 +120,10 @@ func seedLibrary(t *testing.T, repo *sqlite.Repository) string {
 // is resolved against.
 func seedMember(t *testing.T, repo *sqlite.Repository, rel string) {
 	t.Helper()
-	_ = rel
-	for _, stmt := range []string{
-		`INSERT INTO entries (path, root_path, parent_path, name, is_dir, is_work_root, size, mtime, format)
-		 VALUES ('/music/albumA', '/music', '/music', 'albumA', 1, 1, 0, 0, '')`,
-		`INSERT INTO entries (path, root_path, parent_path, name, is_dir, size, mtime, format)
-		 VALUES ('/music/albumA/01.flac', '/music', '/music/albumA', '01.flac', 0, 1024, 0, 'flac')`,
-	} {
-		if _, err := repo.DB().Exec(stmt); err != nil {
-			t.Fatalf("seed member: %v", err)
-		}
-	}
+	inventoryfixture.SeedInventory(t, repo,
+		inventoryfixture.Row{Path: "/music/albumA", RootPath: "/music", IsDir: true, IsWorkRoot: true},
+		inventoryfixture.Row{Path: "/music/albumA/01.flac", RootPath: "/music", Size: 1024, Format: "flac"},
+	)
 }
 
 // createRecord creates the current conversion record of a library through the

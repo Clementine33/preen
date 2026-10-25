@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Clementine33/preen/backend/internal/testutil/inventoryfixture"
+
 	"github.com/Clementine33/preen/backend/internal/conversion/execute"
 	"github.com/Clementine33/preen/backend/internal/inventory"
 
@@ -137,8 +139,15 @@ func newExecFixtureWithTask(
 	if err != nil {
 		t.Fatalf("CreateCurrentWorkset: %v", err)
 	}
-	if _, deleteErr := repo.DB().Exec("DELETE FROM entries WHERE name = '__member__.flac'"); deleteErr != nil {
-		t.Fatal(deleteErr)
+	for _, member := range members {
+		if deleteErr := repo.SyncObservedInventory(
+			"",
+			[]string{filepath.ToSlash(filepath.Join(root, member, "__member__.flac"))},
+			nil,
+			nil,
+		); deleteErr != nil {
+			t.Fatal(deleteErr)
+		}
 	}
 	f.worksetID = res.Workset.WorksetID
 	for _, m := range res.Workset.Members {
@@ -179,24 +188,23 @@ func (f *execFixture) operation() *workset.OperationView {
 func insertInventoryDir(t *testing.T, repo *sqlite.Repository, root, name string) {
 	t.Helper()
 	now := time.Now().Format(timeFmt)
-	if _, err := repo.DB().Exec(`
-		INSERT INTO entries (path, root_path, parent_path, name, is_dir, is_work_root, size, mtime, format, content_rev, updated_at)
-		VALUES (?, ?, ?, ?, 1, 1, 0, 0, '', 1, ?)
-	`, root+"/"+name, root, root, name, now); err != nil {
-		t.Fatalf("insert inventory dir: %v", err)
-	}
+	inventoryfixture.SeedInventory(
+		t,
+		repo,
+		inventoryfixture.Row{Path: root + "/" + name, RootPath: root, IsDir: true, IsWorkRoot: true, UpdatedAt: now},
+	)
 }
 
 // insertInventoryAudio records one audio file in the scanned inventory.
 func insertInventoryAudio(t *testing.T, repo *sqlite.Repository, dir, name string) {
 	t.Helper()
 	now := time.Now().Format(timeFmt)
-	if _, err := repo.DB().Exec(`
-		INSERT INTO entries (path, root_path, parent_path, name, is_dir, size, mtime, format, content_rev, updated_at)
-		VALUES (?, ?, ?, ?, 0, 0, 0, 'flac', 1, ?)
-	`, filepath.ToSlash(filepath.Join(dir, name)), filepath.ToSlash(filepath.Dir(dir)), filepath.ToSlash(dir), name, now); err != nil {
-		t.Fatalf("insert inventory audio: %v", err)
-	}
+	inventoryfixture.SeedInventory(t, repo, inventoryfixture.Row{
+		Path:      filepath.ToSlash(filepath.Join(dir, name)),
+		RootPath:  filepath.ToSlash(filepath.Dir(dir)),
+		Format:    "flac",
+		UpdatedAt: now,
+	})
 }
 
 // writeAudio writes a real file and records its scan row.
@@ -216,40 +224,32 @@ func (f *execFixture) writeAudio(member, name string, content []byte) (string, i
 	if ext := filepath.Ext(name); ext == ".mp3" {
 		format = "mpeg"
 	}
-	if _, err := f.repo.DB().Exec(`
-		INSERT INTO entries (path, root_path, parent_path, name, is_dir, size, mtime, format, content_rev, updated_at)
-		VALUES (?, ?, ?, ?, 0, ?, ?, ?, 1, ?)
-	`, filepath.ToSlash(path), filepath.ToSlash(f.root), filepath.ToSlash(dir), name,
-		info.Size(), info.ModTime().Unix(), format, now); err != nil {
-		f.t.Fatalf("insert entry: %v", err)
-	}
+	inventoryfixture.SeedInventory(f.t, f.repo, inventoryfixture.Row{
+		Path:      filepath.ToSlash(path),
+		RootPath:  filepath.ToSlash(f.root),
+		Size:      info.Size(),
+		Mtime:     info.ModTime().Unix(),
+		Format:    format,
+		UpdatedAt: now,
+	})
 	return filepath.ToSlash(path), info.Size(), info.ModTime().Unix()
 }
 
-// liveFingerprint recomputes a root's inventory fingerprint from the entries
-// table to seed a frozen root. It matches the subtree with LIKE, which agrees
-// with the collection's binary range on the fixtures' lowercase temp paths (and
-// would diverge on case-distinct siblings, which no fixture seeds here).
+// liveFingerprint recomputes the stored inventory facts for a frozen root.
 func (f *execFixture) liveFingerprint(root string) (string, int) {
 	f.t.Helper()
-	rows, err := f.repo.DB().Query(`
-		SELECT path, COALESCE(size, 0), COALESCE(mtime, 0), COALESCE(bitrate, 0), COALESCE(format, '')
-		FROM entries WHERE is_dir = 0 AND (path = ? OR path LIKE ? ESCAPE '\')
-	`, filepath.ToSlash(root), filepath.ToSlash(root)+"/%")
+	rows, err := f.repo.ObservedAudioEntries(filepath.ToSlash(root))
 	if err != nil {
-		f.t.Fatalf("collect entries: %v", err)
+		f.t.Fatal(err)
 	}
-	defer rows.Close()
 	var entries []reconcile.AudioEntry
-	for rows.Next() {
-		var e reconcile.AudioEntry
-		if err := rows.Scan(&e.PathPosix, &e.Size, &e.Mtime, &e.Bitrate, &e.Format); err != nil {
-			f.t.Fatalf("scan entry: %v", err)
-		}
-		entries = append(entries, e)
+	for _, e := range rows {
+		entries = append(
+			entries,
+			reconcile.AudioEntry{PathPosix: e.Path, Size: e.Size, Mtime: e.Mtime, Bitrate: e.Bitrate, Format: e.Format},
+		)
 	}
-	digest, count := reconcile.InventoryFingerprint(reconcile.AudioEntries(entries))
-	return digest, count
+	return reconcile.InventoryFingerprint(reconcile.AudioEntries(entries))
 }
 
 // seedUnpromotedRevision writes a plan and its revision association without
@@ -664,21 +664,11 @@ func TestExecutionSoftDeleteMovesAndSyncsInventory(t *testing.T) {
 	if err != nil || string(content) != "obsolete-audio" {
 		t.Fatalf("recovery copy = %q, %v", content, err)
 	}
-	var n int
-	if err := f.repo.DB().QueryRow("SELECT COUNT(*) FROM entries WHERE path = ?", source).Scan(&n); err != nil {
-		t.Fatalf("count source rows: %v", err)
+	if found, err := f.repo.RootExistsInInventory(source); err != nil || found {
+		t.Fatalf("moved source remains: %v %v", found, err)
 	}
-	if n != 0 {
-		t.Fatal("the moved source row must leave the inventory")
-	}
-	var recoveryRows int
-	if err := f.repo.DB().QueryRow(
-		"SELECT COUNT(*) FROM entries WHERE path = ?", filepath.ToSlash(recovered),
-	).Scan(&recoveryRows); err != nil {
-		t.Fatalf("recovery row: %v", err)
-	}
-	if recoveryRows != 0 {
-		t.Fatal("recovery files must stay outside the inventory")
+	if found, err := f.repo.RootExistsInInventory(filepath.ToSlash(recovered)); err != nil || found {
+		t.Fatalf("recovery file in inventory: %v %v", found, err)
 	}
 }
 
@@ -828,8 +818,13 @@ func TestExecutionScopedToSelectedFolders(t *testing.T) {
 
 	// Drift both disk and inventory for the unselected root. Admission and the
 	// worker must agree on the selected units, while detail remains globally stale.
-	if _, driftErr := f.repo.DB().Exec("UPDATE entries SET size = size + 1 WHERE path = ?", aSource); driftErr != nil {
-		t.Fatal(driftErr)
+	if err := f.repo.SyncObservedInventory(
+		filepath.ToSlash(f.root),
+		nil,
+		[]inventory.InventoryFile{{Path: aSource, Size: aSize + 1, Mtime: aMtime}},
+		nil,
+	); err != nil {
+		t.Fatal(err)
 	}
 	if writeErr := os.WriteFile(filepath.FromSlash(aSource), []byte("unselected-changed"), 0o600); writeErr != nil {
 		t.Fatal(writeErr)

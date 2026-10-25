@@ -11,6 +11,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Clementine33/preen/backend/internal/testutil/inventoryfixture"
+
 	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
 	"github.com/Clementine33/preen/backend/internal/admission"
 	"github.com/Clementine33/preen/backend/internal/inventory"
@@ -40,10 +42,7 @@ func seedDir(t *testing.T, repo *sqlite.Repository, root, rel string) string {
 		parent = root
 	}
 	insertTreeEntry(t, repo, root, abs, parent, filepath.Base(abs), true, 0, nil, "")
-	if _, err := repo.DB().
-		Exec("UPDATE entries SET is_work_root = ? WHERE path = ?", parent == root, filepath.ToSlash(abs)); err != nil {
-		t.Fatal(err)
-	}
+
 	return abs
 }
 
@@ -54,7 +53,7 @@ func seedFile(
 	repo *sqlite.Repository,
 	root, rel string,
 	size int64,
-	bitrate *int64,
+	bitrate *int32,
 	format string,
 ) string {
 	t.Helper()
@@ -74,34 +73,20 @@ func insertTreeEntry(
 	root, path, parentPath, name string,
 	isDir bool,
 	size int64,
-	bitrate *int64,
+	bitrate *int32,
 	format string,
 ) {
 	t.Helper()
-	isDirInt := 0
-	if isDir {
-		isDirInt = 1
-	}
-	var bitrateVal any
-	if bitrate != nil {
-		bitrateVal = *bitrate
-	}
-	_, err := repo.DB().Exec(`
-		INSERT INTO entries (path, root_path, parent_path, name, is_dir, size, mtime, scan_id, content_rev, bitrate, format)
-		VALUES (?, ?, ?, ?, ?, ?, 0, 'scan-1', 1, ?, ?)
-	`,
-		filepath.ToSlash(path),
-		filepath.ToSlash(root),
-		filepath.ToSlash(parentPath),
-		name,
-		isDirInt,
-		size,
-		bitrateVal,
-		format,
-	)
-	if err != nil {
-		t.Fatalf("failed to insert entry %s: %v", path, err)
-	}
+	inventoryfixture.SeedInventory(t, repo, inventoryfixture.Row{
+		Path:       filepath.ToSlash(path),
+		RootPath:   filepath.ToSlash(root),
+		IsDir:      isDir,
+		IsWorkRoot: isDir && parentPath == root,
+		Size:       size,
+		ScanID:     "scan-1",
+		Bitrate:    bitrate,
+		Format:     format,
+	})
 }
 
 // dirIDFor reads one directory's identity from the overview listing: the value
@@ -138,7 +123,7 @@ func TestListLibraryDirs(t *testing.T) {
 
 	libID, root := treeLibrary(t, engine, repo, "Music")
 	seedDir(t, repo, root, "albumA")
-	seedFile(t, repo, root, "albumA/01.flac", 1234, ptr(int64(320)), "flac")
+	seedFile(t, repo, root, "albumA/01.flac", 1234, ptr(int32(320)), "flac")
 	seedDir(t, repo, root, "docs")
 	seedFile(t, repo, root, "docs/readme.txt", 12, nil, "")
 	seedDir(t, repo, root, "RJ000001 coded")
@@ -207,7 +192,7 @@ func TestMemberTree(t *testing.T) {
 	libID, root := treeLibrary(t, engine, repo, "Music")
 	seedDir(t, repo, root, "albumA")
 	seedDir(t, repo, root, "albumA/disc2")
-	seedFile(t, repo, root, "albumA/01.flac", 1234, ptr(int64(320)), "flac")
+	seedFile(t, repo, root, "albumA/01.flac", 1234, ptr(int32(320)), "flac")
 	seedFile(t, repo, root, "albumA/disc2/02.flac", 2048, nil, "flac")
 	seedFile(t, repo, root, "albumA/cover.jpg", 999, nil, "")
 

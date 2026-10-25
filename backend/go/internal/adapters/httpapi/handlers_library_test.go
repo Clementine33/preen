@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Clementine33/preen/backend/internal/testutil/inventoryfixture"
+
 	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
 	"github.com/Clementine33/preen/backend/internal/admission"
 )
@@ -163,12 +165,7 @@ func TestPatchLibraryRootInvalidatesDerivedFolders(t *testing.T) {
 	engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) { repo = fixture })
 	libID := createLibraryViaAPI(t, engine, "Music", "/music")
 
-	if _, err := repo.DB().Exec(`
-		INSERT INTO entries (path, root_path, parent_path, name, is_dir, size, mtime, format)
-		VALUES ('/music/album', '/music', '/music', 'album', 1, 0, 0, '')
-	`); err != nil {
-		t.Fatalf("seed library directory: %v", err)
-	}
+	inventoryfixture.SeedInventory(t, repo, inventoryfixture.Row{Path: "/music/album", RootPath: "/music", IsDir: true})
 	if err := repo.UpdateLibraryScanState(libID, "completed", "", time.Now()); err != nil {
 		t.Fatalf("UpdateLibraryScanState failed: %v", err)
 	}
@@ -188,13 +185,11 @@ func TestPatchLibraryRootInvalidatesDerivedFolders(t *testing.T) {
 
 	// The inventory of the old root is gone: the listing endpoint arrives with
 	// the workbench routes, so this asserts the storage fact.
-	var stale int
-	if scanErr := repo.DB().QueryRow(
-		"SELECT COUNT(*) FROM entries WHERE root_path = '/music'",
-	).Scan(&stale); scanErr != nil {
-		t.Fatalf("count stale entries: %v", scanErr)
+	stale, scanErr := repo.ListEntriesUnderPath("/music")
+	if scanErr != nil {
+		t.Fatalf("read stale entries: %v", scanErr)
 	}
-	if stale != 0 {
-		t.Fatalf("root change retained %d stale entries", stale)
+	if len(stale) != 0 {
+		t.Fatalf("root change retained %d stale entries", len(stale))
 	}
 }

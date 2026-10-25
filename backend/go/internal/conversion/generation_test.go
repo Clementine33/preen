@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/Clementine33/preen/backend/internal/testutil/inventoryfixture"
+
 	"github.com/Clementine33/preen/backend/internal/adapters/filesystem"
 	"github.com/Clementine33/preen/backend/internal/conversion/execute"
 
@@ -50,13 +52,14 @@ func TestGenerationRecordClosesTheLoop(t *testing.T) {
 		t.Fatalf("new repo: %v", err)
 	}
 	t.Cleanup(func() { _ = repo.Close() })
-	if _, insertErr := repo.DB().Exec(`
-		INSERT INTO entries (path, root_path, parent_path, name, is_dir, size, mtime, bitrate, format, content_rev)
-		VALUES (?, ?, ?, '00.wav', 0, ?, ?, 0, 'wav', 1)
-	`, filepath.ToSlash(source), filepath.ToSlash(root), filepath.ToSlash(root),
-		info.Size(), info.ModTime().Unix()); insertErr != nil {
-		t.Fatalf("seed entry: %v", insertErr)
-	}
+	inventoryfixture.SeedInventory(t, repo, inventoryfixture.Row{
+		Path:     filepath.ToSlash(source),
+		RootPath: filepath.ToSlash(root),
+		Size:     info.Size(),
+		Mtime:    info.ModTime().Unix(),
+		Format:   "wav",
+		Bitrate:  new(int32(0)),
+	})
 
 	// The declared shape is the wav source plus the encoded target: a profile
 	// that declared the encoded lane alone would make the source obsolete.
@@ -108,12 +111,11 @@ func TestGenerationRecordClosesTheLoop(t *testing.T) {
 	}
 	// ...and the rate really could not have done it: the plan probed the file it
 	// just found satisfied, and that average is below the target.
-	var probed int64
-	if scanErr := repo.DB().QueryRow(
-		"SELECT COALESCE(bitrate, 0) FROM entries WHERE path = ?", filepath.ToSlash(target),
-	).Scan(&probed); scanErr != nil {
-		t.Fatalf("read probed bitrate: %v", scanErr)
+	entry, found, scanErr := repo.EntryByPath(filepath.ToSlash(target))
+	if scanErr != nil || !found || entry.Bitrate == nil {
+		t.Fatalf("read probed bitrate: found=%v entry=%+v err=%v", found, entry, scanErr)
 	}
+	probed := *entry.Bitrate
 	if probed == 0 || probed >= 159000 {
 		t.Fatalf("probed bitrate = %d, want a VBR average below the 160k target", probed)
 	}

@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Clementine33/preen/backend/internal/testutil/inventoryfixture"
+
 	"golang.org/x/text/encoding/japanese"
 	"golang.org/x/text/encoding/simplifiedchinese"
 	"golang.org/x/text/transform"
@@ -83,12 +85,14 @@ func seedWorkFiles(t *testing.T, fixture *sqlite.Repository) *fileFixture {
 	mtime := time.Now().Unix()
 	seedEntry := func(path, name, format string, size int64, isDir int) {
 		t.Helper()
-		if _, err := fixture.DB().Exec(`
-			INSERT INTO entries (path, root_path, parent_path, name, is_dir, size, mtime, format)
-			VALUES (?, ?, ?, ?, ?, ?, ?, NULLIF(?, ''))
-		`, path, filepath.ToSlash(root), filepath.ToSlash(filepath.Dir(path)), name, isDir, size, mtime, format); err != nil {
-			t.Fatalf("seed entry %s: %v", path, err)
-		}
+		inventoryfixture.SeedInventory(t, fixture, inventoryfixture.Row{
+			Path:     path,
+			RootPath: filepath.ToSlash(root),
+			IsDir:    isDir == 1,
+			Size:     size,
+			Mtime:    mtime,
+			Format:   format,
+		})
 	}
 	seedEntry(memberPosix, "RJ01000001", "", 0, 1)
 	seedEntry(memberPosix+"/表紙", "表紙", "", 0, 1)
@@ -165,12 +169,12 @@ func TestWorkTimedLyricsAreListedAndServed(t *testing.T) {
 				if err := os.WriteFile(filepath.Join(files.member, name), []byte(text), 0o644); err != nil {
 					t.Fatal(err)
 				}
-				if _, err := fixture.DB().Exec(`
-					INSERT INTO entries (path, root_path, parent_path, name, is_dir, size, mtime)
-					VALUES (?, ?, ?, ?, 0, ?, ?)
-				`, files.member+"/"+name, filepath.ToSlash(files.root), files.member, name, len(text), time.Now().Unix()); err != nil {
-					t.Fatal(err)
-				}
+				inventoryfixture.SeedInventory(t, fixture, inventoryfixture.Row{
+					Path:     files.member + "/" + name,
+					RootPath: filepath.ToSlash(files.root),
+					Size:     int64(len(text)),
+					Mtime:    time.Now().Unix(),
+				})
 			})
 			manifest := doRequest(t, engine, http.MethodGet, "/api/v1/works/RJ01000001/content", nil, nil)
 			var body contentResponse
@@ -204,12 +208,12 @@ func TestWorkVideoIsServedWithRange(t *testing.T) {
 		if err := os.WriteFile(filepath.Join(files.member, "clip.mp4"), data, 0o644); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := fixture.DB().Exec(`
-			INSERT INTO entries (path, root_path, parent_path, name, is_dir, size, mtime)
-			VALUES (?, ?, ?, ?, 0, ?, ?)
-		`, files.member+"/clip.mp4", filepath.ToSlash(files.root), files.member, "clip.mp4", len(data), time.Now().Unix()); err != nil {
-			t.Fatal(err)
-		}
+		inventoryfixture.SeedInventory(t, fixture, inventoryfixture.Row{
+			Path:     files.member + "/clip.mp4",
+			RootPath: filepath.ToSlash(files.root),
+			Size:     int64(len(data)),
+			Mtime:    time.Now().Unix(),
+		})
 	})
 	w := doRequest(t, engine, http.MethodGet, fileURL("c-1", "clip.mp4"), nil, map[string]string{"Range": "bytes=0-3"})
 	if w.Code != http.StatusPartialContent || !strings.HasPrefix(w.Header().Get("Content-Type"), "video/") {

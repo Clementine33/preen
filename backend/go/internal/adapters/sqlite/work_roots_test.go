@@ -8,6 +8,8 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/Clementine33/preen/backend/internal/testutil/inventoryfixture"
+
 	"github.com/Clementine33/preen/backend/internal/adapters/filesystem"
 	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
 	"github.com/Clementine33/preen/backend/internal/inventory"
@@ -42,14 +44,40 @@ func TestNestedWorkInventoryAndNoOpRescan(t *testing.T) {
 		t.Fatal(err)
 	}
 	// An older scan included recovered media; a full rescan must remove those rows.
-	if _, err = repo.DB().Exec("INSERT INTO entries(path,root_path,is_dir) VALUES(?,?,1),(?,?,0)",
-		librarypath.JoinRel(root, "Delete"), root,
-		librarypath.JoinRel(root, "Delete/RJ000005 recovered/track.flac"), root); err != nil {
-		t.Fatal(err)
-	}
-	if _, err = repo.DB().Exec("INSERT INTO entries(path,root_path,name,is_dir,is_work_root) VALUES(?,?,?,1,1)",
-		librarypath.JoinRel(root, "分类/A/Delete/RJ000006 recovered"), root, "RJ000006 recovered"); err != nil {
-		t.Fatal(err)
+	inventoryfixture.SeedInventory(
+		t,
+		repo,
+		inventoryfixture.Row{Path: librarypath.JoinRel(root, "Delete"), RootPath: root, IsDir: true},
+		inventoryfixture.Row{Path: librarypath.JoinRel(root, "Delete/RJ000005 recovered/track.flac"), RootPath: root},
+	)
+	inventoryfixture.SeedInventory(
+		t,
+		repo,
+		inventoryfixture.Row{
+			Path:       librarypath.JoinRel(root, "分类/A/Delete/RJ000006 recovered"),
+			RootPath:   root,
+			IsDir:      true,
+			IsWorkRoot: true,
+		},
+	)
+	// Existing classification ancestors carry their observed facts, so the first scan is clean.
+	for _, rel := range []string{"分类", "分类/A"} {
+		path := librarypath.JoinRel(root, rel)
+		info, statErr := os.Stat(path)
+		if statErr != nil {
+			t.Fatal(statErr)
+		}
+		inventoryfixture.SeedInventory(
+			t,
+			repo,
+			inventoryfixture.Row{
+				Path:     path,
+				RootPath: root,
+				IsDir:    true,
+				Size:     info.Size(),
+				Mtime:    info.ModTime().Unix(),
+			},
+		)
 	}
 	pipeline := inventory.NewPipeline(
 		sqlite.NewScanStaging(repo),
@@ -65,7 +93,7 @@ func TestNestedWorkInventoryAndNoOpRescan(t *testing.T) {
 		}
 		return id
 	}
-	first := scan()
+	scan()
 	recovered, err := repo.ListEntriesUnderPath(librarypath.JoinRel(root, "Delete"))
 	if err != nil || len(recovered) != 0 {
 		t.Fatalf("recovery inventory = %v, err = %v", recovered, err)
@@ -95,16 +123,22 @@ func TestNestedWorkInventoryAndNoOpRescan(t *testing.T) {
 	if err = repo.DB().QueryRow("SELECT id FROM work_copies WHERE rel_path = ?", want[1]).Scan(&copyID); err != nil {
 		t.Fatal(err)
 	}
+	writeState := func() string {
+		t.Helper()
+		var state string
+		if stateErr := repo.DB().
+			QueryRow("SELECT group_concat(path || ':' || scan_id || ':' || updated_at, char(10) ORDER BY path) FROM entries").
+			Scan(&state); stateErr != nil {
+			t.Fatal(stateErr)
+		}
+		return state
+	}
+	before := writeState()
 	second := scan()
-	var unchanged, staging int
-	if err = repo.DB().
-		QueryRow("SELECT count(*) FROM entries WHERE scan_id <> ?", first).
-		Scan(&unchanged); err != nil {
-		t.Fatal(err)
+	if after := writeState(); before != after {
+		t.Fatalf("no-op scan rewrote inventory: before=%q after=%q", before, after)
 	}
-	if unchanged != 0 {
-		t.Fatalf("no-op scan rewrote %d entries", unchanged)
-	}
+	var staging int
 	if err = repo.DB().QueryRow("SELECT count(*) FROM entries_staging").Scan(&staging); err != nil {
 		t.Fatal(err)
 	}
@@ -145,10 +179,11 @@ func TestLibraryListingsExcludeLegacyNestedRecovery(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = repo.Close() })
-	if _, err = repo.DB().Exec("INSERT INTO entries(path,root_path,name,is_dir,is_work_root) VALUES(?,?,?,1,1)",
-		"/music/分类/Delete/RJ000006", "/music", "RJ000006"); err != nil {
-		t.Fatal(err)
-	}
+	inventoryfixture.SeedInventory(
+		t,
+		repo,
+		inventoryfixture.Row{Path: "/music/分类/Delete/RJ000006", RootPath: "/music", IsDir: true, IsWorkRoot: true},
+	)
 	listed, err := repo.ListLibraryDirs("/music")
 	if err != nil || len(listed) != 0 {
 		t.Fatalf("legacy recovery listed as work = %v, err = %v", listed, err)
@@ -283,26 +318,32 @@ func TestScopedRootRefreshKeepsItsOwnRowAndOtherInventory(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = repo.Close() })
-	if _, err = repo.DB().
-		Exec("INSERT INTO entries(path,root_path,is_dir) VALUES('/','/',1),('/stale','/',0),('/foreign','/another',0)"); err != nil {
-		t.Fatal(err)
-	}
+	inventoryfixture.SeedInventory(t, repo, inventoryfixture.Row{Path: "/", RootPath: "/", IsDir: true},
+		inventoryfixture.Row{Path: "/stale", RootPath: "/"},
+		inventoryfixture.Row{Path: "/foreign", RootPath: "/another"})
 	pipeline := inventory.NewPipeline(sqlite.NewScanStaging(repo), filesystem.WalkRootEntriesParallel,
 		func(context.Context, string, string, func(inventory.DirEntry) error) error { return nil }, nil)
 	if _, err = pipeline.ScanFolderCtx(t.Context(), "/", "/"); err != nil {
 		t.Fatal(err)
 	}
-	var rows int
-	if err = repo.DB().
-		QueryRow("SELECT COUNT(*) FROM entries WHERE path IN ('/','/foreign')").
-		Scan(&rows); err != nil ||
-		rows != 2 {
-		t.Fatalf("preserved=%d err=%v", rows, err)
+	for _, path := range []string{"/", "/foreign"} {
+		found, err := repo.RootExistsInInventory(path)
+		if err != nil || !found {
+			t.Fatalf("preserved %s: found=%v err=%v", path, found, err)
+		}
 	}
-	if err = repo.DB().
-		QueryRow("SELECT COUNT(*) FROM entries WHERE path='/stale'").
-		Scan(&rows); err != nil ||
-		rows != 0 {
-		t.Fatalf("stale=%d err=%v", rows, err)
+	var rows int
+	{
+		found, readErr := repo.RootExistsInInventory("/stale")
+		if readErr != nil {
+			t.Fatal(readErr)
+		}
+		rows = 0
+		if found {
+			rows = 1
+		}
+	}
+	if rows != 0 {
+		t.Fatalf("stale=%d nil=%v", rows, nil)
 	}
 }

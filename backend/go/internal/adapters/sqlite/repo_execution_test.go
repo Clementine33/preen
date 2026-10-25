@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Clementine33/preen/backend/internal/testutil/inventoryfixture"
+
 	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
 	"github.com/Clementine33/preen/backend/internal/inventory"
 	"github.com/Clementine33/preen/backend/internal/library"
@@ -372,16 +374,23 @@ func TestPlanExecutionActiveForRootGuard(t *testing.T) {
 func TestSyncObservedInventoryLifecycle(t *testing.T) {
 	repo := newExecutionRepo(t)
 	now := time.Now().Format(time.RFC3339Nano)
-	seed := func(path string, size, mtime, contentRev int64, bitrate any) {
+	seed := func(path string, size, mtime, contentRev int64, bitrate *int32) {
 		t.Helper()
-		if _, err := repo.DB().Exec(`
-			INSERT INTO entries (path, root_path, parent_path, name, is_dir, size, mtime, content_rev, bitrate, updated_at)
-			VALUES (?, '/music', ?, ?, 0, ?, ?, ?, ?, ?)
-		`, path, filepath.ToSlash(filepath.Dir(path)), filepath.Base(path), size, mtime, contentRev, bitrate, now); err != nil {
-			t.Fatalf("seed entry %s: %v", path, err)
-		}
+		inventoryfixture.SeedInventory(
+			t,
+			repo,
+			inventoryfixture.Row{
+				Path:       path,
+				RootPath:   "/music",
+				Size:       size,
+				Mtime:      mtime,
+				ContentRev: int(contentRev),
+				Bitrate:    bitrate,
+				UpdatedAt:  now,
+			},
+		)
 	}
-	seed("/music/album/changed.mp3", 100, 1000, 3, 5000)
+	seed("/music/album/changed.mp3", 100, 1000, 3, new(int32(5000)))
 	seed("/music/album/gone.mp3", 100, 1000, 1, nil)
 	if _, err := repo.DB().Exec(`
 		INSERT INTO generation_records
@@ -420,10 +429,15 @@ func TestSyncObservedInventoryLifecycle(t *testing.T) {
 	}
 
 	var n int
-	if countErr := repo.DB().QueryRow(
-		"SELECT COUNT(*) FROM entries WHERE path = '/music/album/gone.mp3'",
-	).Scan(&n); countErr != nil {
-		t.Fatalf("removed row: %v", countErr)
+	{
+		found, readErr := repo.RootExistsInInventory("/music/album/gone.mp3")
+		if readErr != nil {
+			t.Fatal(readErr)
+		}
+		n = 0
+		if found {
+			n = 1
+		}
 	}
 	if n != 0 {
 		t.Fatal("removed source row must be gone")
@@ -432,10 +446,11 @@ func TestSyncObservedInventoryLifecycle(t *testing.T) {
 
 	var parent, name string
 	var revNew int64
-	if scanErr := repo.DB().QueryRow(`
-		SELECT parent_path, name, content_rev FROM entries WHERE path = '/music/album/Delete/gone.mp3'
-	`).Scan(&parent, &name, &revNew); scanErr != nil {
-		t.Fatalf("recovery row: %v", scanErr)
+	{
+		entry := inventoryEntry(t, repo, "/music/album/Delete/gone.mp3")
+		parent = entry.ParentPath
+		name = entry.Name
+		revNew = int64(entry.ContentRev)
 	}
 	if parent != "/music/album/Delete" || name != "gone.mp3" || revNew != 1 {
 		t.Fatalf("recovery row = parent=%q name=%q rev=%d", parent, name, revNew)

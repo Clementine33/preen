@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Clementine33/preen/backend/internal/testutil/inventoryfixture"
+
 	"github.com/Clementine33/preen/backend/internal/conversion/execute"
 	"github.com/Clementine33/preen/backend/internal/inventory"
 
@@ -156,10 +158,15 @@ func (f *fixture) insertDir(root, rel string, withAudio bool) {
 func (f *fixture) ensurePlaceholders() {
 	f.t.Helper()
 	for _, path := range f.placeholders {
-		f.exec(`
-			INSERT OR IGNORE INTO entries (path, root_path, parent_path, name, is_dir, size, mtime, format)
-			VALUES (?, ?, ?, '__member__.flac', 0, 1024, 0, 'flac')
-		`, path, f.rootOf(path), f.parentOf(path))
+		if found, err := f.repo.RootExistsInInventory(path); err != nil {
+			f.t.Fatal(err)
+		} else if !found {
+			inventoryfixture.SeedInventory(
+				f.t,
+				f.repo,
+				inventoryfixture.Row{Path: path, RootPath: f.rootOf(path), Size: 1024, Format: "flac"},
+			)
+		}
 	}
 }
 
@@ -168,7 +175,9 @@ func (f *fixture) ensurePlaceholders() {
 func (f *fixture) clearPlaceholders() {
 	f.t.Helper()
 	for _, path := range f.placeholders {
-		f.exec("DELETE FROM entries WHERE path = ?", path)
+		if err := f.repo.SyncObservedInventory("", []string{path}, nil, nil); err != nil {
+			f.t.Fatal(err)
+		}
 	}
 }
 
@@ -182,41 +191,45 @@ func (f *fixture) rootOf(path string) string {
 	return "/music"
 }
 
-// parentOf is the directory a placeholder path sits in.
-func (f *fixture) parentOf(path string) string {
-	for i := len(path) - 1; i >= 0; i-- {
-		if path[i] == '/' {
-			return path[:i]
-		}
-	}
-	return path
-}
-
 func (f *fixture) insertDirEntry(abs, root, name string) {
 	f.t.Helper()
 	now := time.Now().Format(timeFmt)
-	f.exec(`
-		INSERT INTO entries (path, root_path, parent_path, name, is_dir, is_work_root, size, mtime, format, created_at, updated_at)
-		VALUES (?, ?, ?, ?, 1, ?, 0, 0, '', ?, ?)
-	`, abs, root, filepath.Dir(abs), filepath.Base(abs), filepath.Dir(abs) == root, now, now)
+	inventoryfixture.SeedInventory(f.t, f.repo, inventoryfixture.Row{
+		Path:       abs,
+		RootPath:   root,
+		IsDir:      true,
+		IsWorkRoot: filepath.Dir(abs) == root,
+		CreatedAt:  now,
+		UpdatedAt:  now,
+	})
 }
 
 func (f *fixture) insertAudioEntry(path, root string, size, mtime int64) {
 	f.t.Helper()
 	now := time.Now().Format(timeFmt)
-	f.exec(`
-		INSERT INTO entries (path, root_path, parent_path, name, is_dir, size, mtime, format, created_at, updated_at)
-		VALUES (?, ?, ?, ?, 0, ?, ?, 'mp3', ?, ?)
-	`, path, root, filepath.Dir(path), filepath.Base(path), size, mtime, now, now)
+	inventoryfixture.SeedInventory(f.t, f.repo, inventoryfixture.Row{
+		Path:      path,
+		RootPath:  root,
+		Size:      size,
+		Mtime:     mtime,
+		Format:    "mp3",
+		CreatedAt: now,
+		UpdatedAt: now,
+	})
 }
 
 func (f *fixture) insertNonAudioEntry(path, root string, size, mtime int64) {
 	f.t.Helper()
 	now := time.Now().Format(timeFmt)
-	f.exec(`
-		INSERT INTO entries (path, root_path, parent_path, name, is_dir, size, mtime, format, created_at, updated_at)
-		VALUES (?, ?, ?, ?, 0, ?, ?, 'txt', ?, ?)
-	`, path, root, filepath.Dir(path), filepath.Base(path), size, mtime, now, now)
+	inventoryfixture.SeedInventory(f.t, f.repo, inventoryfixture.Row{
+		Path:      path,
+		RootPath:  root,
+		Size:      size,
+		Mtime:     mtime,
+		Format:    "txt",
+		CreatedAt: now,
+		UpdatedAt: now,
+	})
 }
 
 // standardLibrary creates one library with the given member directories,

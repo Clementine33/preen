@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/Clementine33/preen/backend/internal/testutil/inventoryfixture"
+
 	"github.com/Clementine33/preen/backend/internal/adapters/media"
 
 	appconfig "github.com/Clementine33/preen/backend/internal/adapters/settings"
@@ -23,7 +25,8 @@ func seedRootEntries(t *testing.T, repo *sqlite.Repository) {
 	t.Helper()
 	type row struct {
 		path, parent, name, format string
-		size, mtime, bitrate       int64
+		size, mtime                int64
+		bitrate                    int32
 	}
 	rows := []row{
 		{"/music", "", "music", "", 0, 0, 0},
@@ -60,17 +63,15 @@ func seedRootEntries(t *testing.T, repo *sqlite.Repository) {
 		}
 	}
 	for _, r := range rows {
-		isDir := 0
-		if r.size == 0 && r.bitrate == 0 && r.format == "" {
-			isDir = 1
-		}
-		_, err := repo.DB().Exec(`
-			INSERT INTO entries (path, root_path, parent_path, name, is_dir, size, mtime, bitrate, format, content_rev)
-			VALUES (?, '/music', ?, ?, ?, ?, ?, ?, ?, 1)
-		`, r.path, r.parent, r.name, isDir, r.size, r.mtime, r.bitrate, r.format)
-		if err != nil {
-			t.Fatalf("seed entry %s: %v", r.path, err)
-		}
+		inventoryfixture.SeedInventory(t, repo, inventoryfixture.Row{
+			Path:     r.path,
+			RootPath: "/music",
+			IsDir:    r.size == 0 && r.bitrate == 0 && r.format == "",
+			Size:     r.size,
+			Mtime:    r.mtime,
+			Bitrate:  new(r.bitrate),
+			Format:   r.format,
+		})
 	}
 }
 

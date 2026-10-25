@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Clementine33/preen/backend/internal/testutil/inventoryfixture"
+
 	"github.com/Clementine33/preen/backend/internal/librarypath"
 )
 
@@ -106,31 +108,18 @@ func TestRelocateDirectoryMovesOnlyTheSubtree(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = repo.Close() })
 	for _, p := range []string{"/lib/a", "/lib/a/f", "/lib/ab", "/lib/ab/f", "/lib/a_", "/lib/a%"} {
-		if _, execErr := repo.db.Exec(
-			`INSERT INTO entries(path,name,parent_path,root_path) VALUES(?,?,?,?)`,
-			p,
-			filepath.Base(p),
-			filepath.Dir(p),
-			"/lib",
-		); execErr != nil {
-			t.Fatal(execErr)
-		}
+		inventoryfixture.SeedInventory(t, repo, inventoryfixture.Row{Path: p, RootPath: "/lib"})
 	}
 	if relocateErr := repo.RelocateDirectory(t.Context(), "/lib", "/lib/a", "/lib/c"); relocateErr != nil {
 		t.Fatal(relocateErr)
 	}
-	rows, err := repo.db.Query(`SELECT path FROM entries ORDER BY path`)
+	entries, err := repo.ListEntriesUnderPath("/lib")
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer rows.Close()
 	var got []string
-	for rows.Next() {
-		var p string
-		if err := rows.Scan(&p); err != nil {
-			t.Fatal(err)
-		}
-		got = append(got, p)
+	for _, entry := range entries {
+		got = append(got, entry.Path)
 	}
 	if want := "/lib/a%,/lib/a_,/lib/ab,/lib/ab/f,/lib/c,/lib/c/f"; strings.Join(got, ",") != want {
 		t.Fatalf("paths = %v, want %s", got, want)

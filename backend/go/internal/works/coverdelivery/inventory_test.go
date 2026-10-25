@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/Clementine33/preen/backend/internal/testutil/inventoryfixture"
+
 	"github.com/Clementine33/preen/backend/internal/adapters/filesystem"
 	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
 	"github.com/Clementine33/preen/backend/internal/admission"
@@ -31,10 +33,17 @@ func TestCoverInventoryRetryOnlyChangesPublishedAndRemovedCoverRows(t *testing.T
 	}, nil); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := repo.DB().
-		Exec(`UPDATE entries SET bitrate=128,duration_sec=25,width=123,content_rev=7 WHERE path=?`, audio); err != nil {
-		t.Fatal(err)
-	}
+	inventoryfixture.SeedInventory(t, repo, inventoryfixture.Row{
+		Path:        audio,
+		RootPath:    root,
+		Size:        200,
+		Mtime:       2,
+		Bitrate:     new(int32(128)),
+		DurationSec: new(float64(25)),
+		Width:       new(int(123)),
+		Height:      new(int(456)),
+		ContentRev:  7,
+	})
 	var bindingBefore string
 	if err := repo.DB().
 		QueryRow(`SELECT rel_path FROM work_copies WHERE id=?`, req.Targets[0].CopyID).
@@ -89,19 +98,16 @@ func TestCoverInventoryRetryOnlyChangesPublishedAndRemovedCoverRows(t *testing.T
 	if err != nil || report.Counts["succeeded"] != 2 {
 		t.Fatalf("retry: %+v %v", report, err)
 	}
-	var count int
-	if err = repo.DB().
-		QueryRow(`SELECT COUNT(*) FROM entries WHERE path=?`, old).
-		Scan(&count); err != nil ||
-		count != 0 {
-		t.Fatalf("stale old row: %d %v", count, err)
+	if count, readErr := repo.RootExistsInInventory(old); readErr != nil ||
+		count {
+		t.Fatalf("stale old row: %v %v", count, readErr)
 	}
 	for _, folder := range folders {
-		if err = repo.DB().
-			QueryRow(`SELECT COUNT(*) FROM entries WHERE path=?`, filepath.ToSlash(filepath.Join(folder, "cover.png"))).
-			Scan(&count); err != nil ||
-			count != 1 {
-			t.Fatalf("published row: %d %v", count, err)
+		if count, readErr := repo.RootExistsInInventory(
+			filepath.ToSlash(filepath.Join(folder, "cover.png")),
+		); readErr != nil ||
+			!count {
+			t.Fatalf("published row: %v %v", count, readErr)
 		}
 		if _, err = os.Stat(filepath.Join(folder, ".onsei-cover-publish.json")); !os.IsNotExist(err) {
 			t.Fatalf("acknowledged journal: %v", err)
@@ -116,21 +122,20 @@ func assertUnchangedCoverNeighbours(
 	audio, untouched, copyID, bindingBefore string,
 ) {
 	t.Helper()
-	var size, mtime, bitrate, width, rev int
-	var duration float64
-	if err := repo.DB().
-		QueryRow(`SELECT size,mtime,bitrate,width,duration_sec,content_rev FROM entries WHERE path=?`, audio).
-		Scan(&size, &mtime, &bitrate, &width, &duration, &rev); err != nil {
-		t.Fatal(err)
+	entry, found, err := repo.EntryByPath(audio)
+	if err != nil || !found {
+		t.Fatalf("read audio: found=%v err=%v", found, err)
 	}
-	if size != 200 || mtime != 2 || bitrate != 128 || width != 123 || duration != 25 || rev != 7 {
-		t.Fatal("audio facts changed")
+	if entry.Size != 200 || entry.Mtime != 2 || entry.Bitrate == nil || *entry.Bitrate != 128 || entry.Width == nil ||
+		*entry.Width != 123 ||
+		entry.DurationSec == nil ||
+		*entry.DurationSec != 25 ||
+		entry.ContentRev != 7 {
+		t.Fatalf("audio facts changed: %+v", entry)
 	}
-	if err := repo.DB().
-		QueryRow(`SELECT size FROM entries WHERE path=?`, untouched).
-		Scan(&size); err != nil ||
-		size != 300 {
-		t.Fatalf("unrelated image: %d %v", size, err)
+	other, found, err := repo.EntryByPath(untouched)
+	if err != nil || !found || other.Size != 300 {
+		t.Fatalf("unrelated image: %+v found=%v err=%v", other, found, err)
 	}
 	var bindingAfter string
 	if err := repo.DB().

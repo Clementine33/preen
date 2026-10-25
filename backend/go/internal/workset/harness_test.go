@@ -193,20 +193,19 @@ func (f *fixture) rootOf(path string) string {
 
 func (f *fixture) insertDirEntry(abs, root, name string) {
 	f.t.Helper()
-	now := time.Now().Format(timeFmt)
+	now := time.Now().Unix()
 	inventoryfixture.SeedInventory(f.t, f.repo, inventoryfixture.Row{
 		Path:       abs,
 		RootPath:   root,
 		IsDir:      true,
 		IsWorkRoot: filepath.Dir(abs) == root,
 		CreatedAt:  now,
-		UpdatedAt:  now,
 	})
 }
 
 func (f *fixture) insertAudioEntry(path, root string, size, mtime int64) {
 	f.t.Helper()
-	now := time.Now().Format(timeFmt)
+	now := time.Now().Unix()
 	inventoryfixture.SeedInventory(f.t, f.repo, inventoryfixture.Row{
 		Path:      path,
 		RootPath:  root,
@@ -214,13 +213,12 @@ func (f *fixture) insertAudioEntry(path, root string, size, mtime int64) {
 		Mtime:     mtime,
 		Format:    "mp3",
 		CreatedAt: now,
-		UpdatedAt: now,
 	})
 }
 
 func (f *fixture) insertNonAudioEntry(path, root string, size, mtime int64) {
 	f.t.Helper()
-	now := time.Now().Format(timeFmt)
+	now := time.Now().Unix()
 	inventoryfixture.SeedInventory(f.t, f.repo, inventoryfixture.Row{
 		Path:      path,
 		RootPath:  root,
@@ -228,7 +226,6 @@ func (f *fixture) insertNonAudioEntry(path, root string, size, mtime int64) {
 		Mtime:     mtime,
 		Format:    "txt",
 		CreatedAt: now,
-		UpdatedAt: now,
 	})
 }
 
@@ -295,7 +292,7 @@ func (f *fixture) createCurrentOperation(
 	return view.Workset
 }
 
-// currentIDFor is the current record id of one (library, operation) pair.
+// currentIDFor is the current record id of one (library) pair.
 func (f *fixture) currentIDFor(libraryID, operationType string) string {
 	f.t.Helper()
 	view, err := f.svc.GetCurrentWorkset(f.ctx, libraryID, operationType)

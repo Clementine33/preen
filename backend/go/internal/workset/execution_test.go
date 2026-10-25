@@ -187,23 +187,20 @@ func (f *execFixture) operation() *workset.OperationView {
 // insertInventoryDir records one directory in the scanned inventory.
 func insertInventoryDir(t *testing.T, repo *sqlite.Repository, root, name string) {
 	t.Helper()
-	now := time.Now().Format(timeFmt)
 	inventoryfixture.SeedInventory(
 		t,
 		repo,
-		inventoryfixture.Row{Path: root + "/" + name, RootPath: root, IsDir: true, IsWorkRoot: true, UpdatedAt: now},
+		inventoryfixture.Row{Path: root + "/" + name, RootPath: root, IsDir: true, IsWorkRoot: true},
 	)
 }
 
 // insertInventoryAudio records one audio file in the scanned inventory.
 func insertInventoryAudio(t *testing.T, repo *sqlite.Repository, dir, name string) {
 	t.Helper()
-	now := time.Now().Format(timeFmt)
 	inventoryfixture.SeedInventory(t, repo, inventoryfixture.Row{
-		Path:      filepath.ToSlash(filepath.Join(dir, name)),
-		RootPath:  filepath.ToSlash(filepath.Dir(dir)),
-		Format:    "flac",
-		UpdatedAt: now,
+		Path:     filepath.ToSlash(filepath.Join(dir, name)),
+		RootPath: filepath.ToSlash(filepath.Dir(dir)),
+		Format:   "flac",
 	})
 }
 
@@ -219,18 +216,16 @@ func (f *execFixture) writeAudio(member, name string, content []byte) (string, i
 	if err != nil {
 		f.t.Fatalf("stat %s: %v", path, err)
 	}
-	now := time.Now().Format(timeFmt)
 	format := strings.TrimPrefix(filepath.Ext(name), ".")
 	if ext := filepath.Ext(name); ext == ".mp3" {
 		format = "mpeg"
 	}
 	inventoryfixture.SeedInventory(f.t, f.repo, inventoryfixture.Row{
-		Path:      filepath.ToSlash(path),
-		RootPath:  filepath.ToSlash(f.root),
-		Size:      info.Size(),
-		Mtime:     info.ModTime().Unix(),
-		Format:    format,
-		UpdatedAt: now,
+		Path:     filepath.ToSlash(path),
+		RootPath: filepath.ToSlash(f.root),
+		Size:     info.Size(),
+		Mtime:    info.ModTime().Unix(),
+		Format:   format,
 	})
 	return filepath.ToSlash(path), info.Size(), info.ModTime().Unix()
 }

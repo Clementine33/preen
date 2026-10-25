@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
-	"time"
 
 	"github.com/Clementine33/preen/backend/internal/inventory"
 	"github.com/Clementine33/preen/backend/internal/librarypath"
@@ -47,109 +46,73 @@ func (r *Repository) MergeStagingSimple(scanID, rootPath string) error {
 	return err
 }
 
-// SELECT skips the rows rejected by DO UPDATE; unchanged content yields excluded dirty_flag=0.
-// Format uses NULLIF normalization, and unique staging paths prevent inter-row effects.
+// Unchanged observations leave the stored row and its measured facts untouched.
 const mergeObservedEntriesSQL = `
-		INSERT INTO entries (
-			path, root_path, parent_path, name, is_dir, is_work_root, size, mtime,
-			scan_id, content_rev, dirty_flag, bitrate, width, height, duration_sec, format, updated_at
-		)
-		SELECT
-			s.path,
-			s.root_path,
-			s.parent_path,
-			s.name,
-			s.is_dir,
-			s.is_work_root,
-			s.size,
-			s.mtime,
-			?,
-			CASE
-				WHEN e.path IS NULL THEN 1
-				WHEN e.size IS NOT s.size OR e.mtime IS NOT s.mtime OR e.is_dir IS NOT s.is_dir THEN e.content_rev + 1
-				ELSE e.content_rev
-			END,
-CASE
-			WHEN e.path IS NULL THEN 0
-			WHEN e.size IS NOT s.size OR e.mtime IS NOT s.mtime OR e.is_dir IS NOT s.is_dir THEN 1
-			ELSE 0
-		END,
-			CASE
-			WHEN e.path IS NULL THEN NULL
-			WHEN e.size IS NOT s.size OR e.mtime IS NOT s.mtime OR e.is_dir IS NOT s.is_dir THEN NULL
-			ELSE e.bitrate
-		END,
-			CASE
-			WHEN e.path IS NULL THEN NULL
-			WHEN e.size IS NOT s.size OR e.mtime IS NOT s.mtime OR e.is_dir IS NOT s.is_dir THEN NULL
-			ELSE e.width
-		END,
-			CASE
-			WHEN e.path IS NULL THEN NULL
-			WHEN e.size IS NOT s.size OR e.mtime IS NOT s.mtime OR e.is_dir IS NOT s.is_dir THEN NULL
-			ELSE e.height
-		END,
-			CASE
-			WHEN e.path IS NULL THEN NULL
-			WHEN e.size IS NOT s.size OR e.mtime IS NOT s.mtime OR e.is_dir IS NOT s.is_dir THEN NULL
-			ELSE e.duration_sec
-		END,
-			NULLIF(s.format, ''),
-			?
-		FROM entries_staging s
-		LEFT JOIN entries e ON s.path = e.path
-		WHERE s.session_id = ?
-		  AND (e.path IS NULL
-		    OR e.root_path IS NOT s.root_path
-		    OR e.parent_path IS NOT s.parent_path
-		    OR e.name IS NOT s.name
-		    OR e.is_dir IS NOT s.is_dir
-		    OR e.is_work_root IS NOT s.is_work_root
-		    OR e.size IS NOT s.size
-		    OR e.mtime IS NOT s.mtime
-		    OR e.format IS NOT NULLIF(s.format, '')
-		    OR e.dirty_flag IS NOT 0)
-		ON CONFLICT(path) DO UPDATE SET
-			root_path = excluded.root_path,
-			parent_path = excluded.parent_path,
-			name = excluded.name,
-			is_dir = excluded.is_dir,
-			is_work_root = excluded.is_work_root,
-			size = excluded.size,
-			mtime = excluded.mtime,
-			scan_id = excluded.scan_id,
-			content_rev = excluded.content_rev,
-			dirty_flag = excluded.dirty_flag,
-			bitrate = excluded.bitrate,
-			width = excluded.width,
-			height = excluded.height,
-			duration_sec = excluded.duration_sec,
-			format = excluded.format,
-			updated_at = excluded.updated_at
-            WHERE entries.root_path IS NOT excluded.root_path
-               OR entries.parent_path IS NOT excluded.parent_path
-               OR entries.name IS NOT excluded.name
-               OR entries.is_dir IS NOT excluded.is_dir
-               OR entries.is_work_root IS NOT excluded.is_work_root
-               OR entries.size IS NOT excluded.size
-               OR entries.mtime IS NOT excluded.mtime
-               OR entries.format IS NOT excluded.format
-               OR entries.dirty_flag IS NOT excluded.dirty_flag
-	`
+ INSERT INTO entries (
+  path, root_path, parent_path, name, is_dir, is_work_root, size, mtime,
+  content_rev, bitrate, width, height, duration_sec, format
+ )
+ SELECT s.path, s.root_path, s.parent_path, s.name, s.is_dir, s.is_work_root, s.size, s.mtime,
+  CASE
+   WHEN e.path IS NULL THEN 1
+   WHEN e.size IS NOT s.size OR e.mtime IS NOT s.mtime OR e.is_dir IS NOT s.is_dir THEN e.content_rev + 1
+   ELSE e.content_rev
+  END,
+  CASE WHEN e.size IS NOT s.size OR e.mtime IS NOT s.mtime OR e.is_dir IS NOT s.is_dir
+   THEN NULL ELSE e.bitrate END,
+  CASE WHEN e.size IS NOT s.size OR e.mtime IS NOT s.mtime OR e.is_dir IS NOT s.is_dir
+   THEN NULL ELSE e.width END,
+  CASE WHEN e.size IS NOT s.size OR e.mtime IS NOT s.mtime OR e.is_dir IS NOT s.is_dir
+   THEN NULL ELSE e.height END,
+  CASE WHEN e.size IS NOT s.size OR e.mtime IS NOT s.mtime OR e.is_dir IS NOT s.is_dir
+   THEN NULL ELSE e.duration_sec END, NULLIF(s.format, '')
+ FROM entries_staging s
+ LEFT JOIN entries e ON s.path = e.path
+ WHERE s.session_id = ?
+  AND (e.path IS NULL
+   OR e.root_path IS NOT s.root_path
+   OR e.parent_path IS NOT s.parent_path
+   OR e.name IS NOT s.name
+   OR e.is_dir IS NOT s.is_dir
+   OR e.is_work_root IS NOT s.is_work_root
+   OR e.size IS NOT s.size
+   OR e.mtime IS NOT s.mtime
+   OR e.format IS NOT NULLIF(s.format, ''))
+ ON CONFLICT(path) DO UPDATE SET
+  root_path = excluded.root_path,
+  parent_path = excluded.parent_path,
+  name = excluded.name,
+  is_dir = excluded.is_dir,
+  is_work_root = excluded.is_work_root,
+  size = excluded.size,
+  mtime = excluded.mtime,
+  format = excluded.format,
+  content_rev = excluded.content_rev,
+  bitrate = excluded.bitrate,
+  width = excluded.width,
+  height = excluded.height,
+  duration_sec = excluded.duration_sec
+ WHERE entries.root_path IS NOT excluded.root_path
+    OR entries.parent_path IS NOT excluded.parent_path
+    OR entries.name IS NOT excluded.name
+    OR entries.is_dir IS NOT excluded.is_dir
+    OR entries.is_work_root IS NOT excluded.is_work_root
+    OR entries.size IS NOT excluded.size
+    OR entries.mtime IS NOT excluded.mtime
+    OR entries.format IS NOT excluded.format
+`
 
 // mergeStagingEntries is the set-based merge plus session-scoped stale cleanup
 // and, for a full-root scan, the binding reconciliation.
 func mergeStagingEntries(tx *sql.Tx, scanID, libraryID, rootPath string) (inventory.MergeOutcome, error) {
-	now := time.Now()
-
 	// Step 1: Set-based merge with content_rev lifecycle logic
 	// Using INSERT ... SELECT ... ON CONFLICT for efficient batch processing
 	// Semantics:
-	// - new row => content_rev=1, dirty_flag=0
-	// - changed size/mtime/type => increment content_rev, dirty_flag=1, bitrate and
+	// - new row => content_rev=1
+	// - changed size/mtime/type => increment content_rev, bitrate and
 	//   the media facts (width/height/duration, ADR 0013) cleared
 	// - unchanged size/mtime/type => preserve content_rev, bitrate and media facts
-	_, err := tx.Exec(mergeObservedEntriesSQL, scanID, now.Format(timeFormat), scanID)
+	_, err := tx.Exec(mergeObservedEntriesSQL, scanID)
 	if err != nil {
 		return inventory.MergeOutcome{}, fmt.Errorf("failed to merge staging entries: %w", err)
 	}

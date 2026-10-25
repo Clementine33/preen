@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"time"
 
 	"github.com/Clementine33/preen/backend/internal/inventory"
 	"github.com/Clementine33/preen/backend/internal/librarypath"
@@ -62,7 +61,7 @@ func (r *Repository) MergeSelectedStaging(
 	if outside != 0 {
 		return inventory.MergeOutcome{}, fmt.Errorf("staging contains entries outside selected ranges")
 	}
-	if _, err := tx.ExecContext(ctx, mergeObservedEntriesSQL, id, time.Now().Format(timeFormat), id); err != nil {
+	if _, err := tx.ExecContext(ctx, mergeObservedEntriesSQL, id); err != nil {
 		return inventory.MergeOutcome{}, err
 	}
 	// Point lookups avoid rebuilding the whole staging path set for each scope.

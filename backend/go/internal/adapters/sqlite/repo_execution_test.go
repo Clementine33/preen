@@ -1,7 +1,6 @@
 package sqlite_test
 
 import (
-	"database/sql"
 	"errors"
 	"os"
 	"path/filepath"
@@ -386,7 +385,6 @@ func TestSyncObservedInventoryLifecycle(t *testing.T) {
 				Mtime:      mtime,
 				ContentRev: int(contentRev),
 				Bitrate:    bitrate,
-				UpdatedAt:  now,
 			},
 		)
 	}
@@ -416,16 +414,9 @@ func TestSyncObservedInventoryLifecycle(t *testing.T) {
 		t.Fatalf("SyncObservedInventory: %v", err)
 	}
 
-	var contentRev, size, mtime int64
-	var bitrate sql.NullInt64
-	var dirty int
-	if scanErr := repo.DB().QueryRow(`
-		SELECT content_rev, size, mtime, bitrate, dirty_flag FROM entries WHERE path = '/music/album/changed.mp3'
-	`).Scan(&contentRev, &size, &mtime, &bitrate, &dirty); scanErr != nil {
-		t.Fatalf("changed row: %v", scanErr)
-	}
-	if contentRev != 4 || size != 222 || mtime != 2000 || bitrate.Valid || dirty != 1 {
-		t.Fatalf("changed row = rev=%d size=%d mtime=%d bitrate=%v dirty=%d", contentRev, size, mtime, bitrate, dirty)
+	changed := inventoryEntry(t, repo, "/music/album/changed.mp3")
+	if changed.ContentRev != 4 || changed.Size != 222 || changed.Mtime != 2000 || changed.Bitrate != nil {
+		t.Fatalf("changed row=%+v", changed)
 	}
 
 	var n int
@@ -456,20 +447,22 @@ func TestSyncObservedInventoryLifecycle(t *testing.T) {
 		t.Fatalf("recovery row = parent=%q name=%q rev=%d", parent, name, revNew)
 	}
 
-	// An unchanged observation keeps the surviving bitrate fact and revision.
+	// An unchanged observation keeps a newly measured bitrate and the revision.
+	if err = repo.UpdateEntryBitrates(
+		[]inventory.BitrateUpdate{{Path: "/music/album/changed.mp3", BitrateKbps: 320000}},
+		false,
+	); err != nil {
+		t.Fatal(err)
+	}
 	err = repo.SyncObservedInventory("/music", nil, []inventory.InventoryFile{
 		{Path: "/music/album/changed.mp3", Size: 222, Mtime: 2000},
 	}, nil)
 	if err != nil {
 		t.Fatalf("second sync: %v", err)
 	}
-	if scanErr := repo.DB().QueryRow(`
-		SELECT content_rev, dirty_flag FROM entries WHERE path = '/music/album/changed.mp3'
-	`).Scan(&contentRev, &dirty); scanErr != nil {
-		t.Fatalf("changed row reload: %v", scanErr)
-	}
-	if contentRev != 4 || dirty != 0 {
-		t.Fatalf("unchanged observation must not bump the revision: rev=%d dirty=%d", contentRev, dirty)
+	unchanged := inventoryEntry(t, repo, "/music/album/changed.mp3")
+	if unchanged.ContentRev != 4 || unchanged.Bitrate == nil || *unchanged.Bitrate != 320000 {
+		t.Fatalf("unchanged facts=%+v", unchanged)
 	}
 }
 

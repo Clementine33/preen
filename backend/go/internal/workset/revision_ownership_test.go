@@ -83,10 +83,10 @@ func TestRevisionComponentRootOwnership(t *testing.T) {
 // grouping.
 func (f *fixture) insertNestedDir(path string) {
 	f.t.Helper()
-	now := time.Now().Format(timeFmt)
+	now := time.Now().Unix()
 	inventoryfixture.SeedInventory(
 		f.t,
 		f.repo,
-		inventoryfixture.Row{Path: path, RootPath: "/music", IsDir: true, CreatedAt: now, UpdatedAt: now},
+		inventoryfixture.Row{Path: path, RootPath: "/music", IsDir: true, CreatedAt: now},
 	)
 }

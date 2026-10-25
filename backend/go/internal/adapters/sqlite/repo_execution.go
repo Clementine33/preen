@@ -650,9 +650,9 @@ func upsertObservedFile(tx *sql.Tx, rootPath string, f inventory.InventoryFile) 
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
 		if _, insErr := tx.Exec(`
-			INSERT INTO entries (path, root_path, parent_path, name, is_dir, size, mtime, content_rev, dirty_flag, updated_at)
-			VALUES (?, ?, ?, ?, 0, ?, ?, 1, 0, ?)
-		`, f.Path, rootPath, parent, name, f.Size, f.Mtime, time.Now().Format(timeFormat)); insErr != nil {
+			INSERT INTO entries (path, root_path, parent_path, name, is_dir, size, mtime, content_rev)
+			VALUES (?, ?, ?, ?, 0, ?, ?, 1)
+		`, f.Path, rootPath, parent, name, f.Size, f.Mtime); insErr != nil {
 			return fmt.Errorf("insert inventory row %s: %w", f.Path, insErr)
 		}
 		return nil
@@ -666,16 +666,12 @@ func upsertObservedFile(tx *sql.Tx, rootPath string, f inventory.InventoryFile) 
 	} else if bitrate.Valid {
 		bitrateVal = bitrate.Int64
 	}
-	dirty := 0
-	if touched {
-		dirty = 1
-	}
 	if _, err := tx.Exec(`
 		UPDATE entries SET root_path = ?, parent_path = ?, name = ?, size = ?, mtime = ?,
-			content_rev = ?, dirty_flag = ?, bitrate = ?, updated_at = ?
+			content_rev = ?, bitrate = ?
 		WHERE path = ?
 	`, rootPath, parent, name, f.Size, f.Mtime, contentRev,
-		dirty, bitrateVal, time.Now().Format(timeFormat), f.Path); err != nil {
+		bitrateVal, f.Path); err != nil {
 		return fmt.Errorf("update inventory row %s: %w", f.Path, err)
 	}
 	return nil

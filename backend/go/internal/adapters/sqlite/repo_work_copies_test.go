@@ -13,8 +13,8 @@ import (
 func stageDir(t *testing.T, repo *Repository, session, root, name string) {
 	t.Helper()
 	if _, err := repo.DB().Exec(`
-		INSERT INTO entries_staging (session_id, path, root_path, parent_path, name, is_dir, is_work_root, size, mtime, operation)
-		VALUES (?, ?, ?, ?, ?, 1, ?, 0, 0, 'upsert')
+		INSERT INTO entries_staging (session_id, path, root_path, parent_path, name, is_dir, is_work_root, size, mtime)
+		VALUES (?, ?, ?, ?, ?, 1, ?, 0, 0)
 	`, session, root+"/"+name, root, root, name, works.CodesInDirName(name).Kind == works.DirCodeSingle); err != nil {
 		t.Fatalf("stage %s: %v", name, err)
 	}

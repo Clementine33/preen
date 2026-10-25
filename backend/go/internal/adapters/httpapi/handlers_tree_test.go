@@ -83,9 +83,9 @@ func insertTreeEntry(
 		IsDir:      isDir,
 		IsWorkRoot: isDir && parentPath == root,
 		Size:       size,
-		ScanID:     "scan-1",
-		Bitrate:    bitrate,
-		Format:     format,
+
+		Bitrate: bitrate,
+		Format:  format,
 	})
 }
 

@@ -32,18 +32,15 @@ func TestMergeUpdatesOnlyObservedChanges(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer repo.Close()
-			const oldUpdated = "2000-01-01T00:00:00Z"
 			inventoryfixture.SeedInventory(
 				t,
 				repo,
 				inventoryfixture.Row{
-					Path:      "/music/work",
-					RootPath:  "/music",
-					IsDir:     true,
-					Size:      10,
-					Mtime:     20,
-					ScanID:    "old-scan",
-					UpdatedAt: oldUpdated,
+					Path:     "/music/work",
+					RootPath: "/music",
+					IsDir:    true,
+					Size:     10,
+					Mtime:    20,
 				},
 			)
 			_, err = repo.db.Exec(`INSERT INTO entries_staging
@@ -52,6 +49,13 @@ func TestMergeUpdatesOnlyObservedChanges(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			if !tc.changed {
+				if _, err = repo.db.Exec(
+					`CREATE TRIGGER reject_inventory_update BEFORE UPDATE ON entries BEGIN SELECT RAISE(ABORT, 'unchanged inventory rewritten'); END`,
+				); err != nil {
+					t.Fatal(err)
+				}
+			}
 			outcome, err := repo.MergeStaging("new-scan", "", tc.root)
 			if err != nil {
 				t.Fatal(err)
@@ -59,11 +63,11 @@ func TestMergeUpdatesOnlyObservedChanges(t *testing.T) {
 			if outcome.Merged != 1 {
 				t.Fatalf("merged = %d, want 1", outcome.Merged)
 			}
-			var root, scanID, updated string
+			var root string
 			var workRoot int
 			var format sql.NullString
-			err = repo.db.QueryRow(`SELECT root_path, is_work_root, format, scan_id, updated_at FROM entries WHERE path = '/music/work'`).
-				Scan(&root, &workRoot, &format, &scanID, &updated)
+			err = repo.db.QueryRow(`SELECT root_path, is_work_root, format FROM entries WHERE path = '/music/work'`).
+				Scan(&root, &workRoot, &format)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -71,13 +75,6 @@ func TestMergeUpdatesOnlyObservedChanges(t *testing.T) {
 			if root != tc.root || workRoot != tc.workRoot || format != wantFormat {
 				t.Fatalf("observed fields = %q, %d, %+v; want %q, %d, %+v",
 					root, workRoot, format, tc.root, tc.workRoot, wantFormat)
-			}
-			if tc.changed {
-				if scanID != "new-scan" || updated == oldUpdated || updated == "" {
-					t.Fatalf("changed row scan_id=%q updated_at=%q", scanID, updated)
-				}
-			} else if scanID != "old-scan" || updated != oldUpdated {
-				t.Fatalf("unchanged row scan_id=%q updated_at=%q", scanID, updated)
 			}
 		})
 	}
@@ -104,7 +101,6 @@ func TestMergePreservesBitrateWhenUnchanged(t *testing.T) {
 			RootPath: "/music",
 			Size:     1024000,
 			Mtime:    now,
-			ScanID:   "scan-prev",
 			Bitrate:  new(int32(320000)),
 		},
 	)
@@ -112,8 +108,8 @@ func TestMergePreservesBitrateWhenUnchanged(t *testing.T) {
 	// Create staging entry with same size (but no bitrate - tests preservation)
 	// The staging entry represents the same file scanned again
 	_, err = repo.db.Exec(`
-		INSERT INTO entries_staging (session_id, path, root_path, parent_path, name, is_dir, size, mtime, operation)
-		VALUES ('scan-123', '/music/test.mp3', '/music', '/music', 'test.mp3', 0, 1024000, ?, 'upsert')
+		INSERT INTO entries_staging (session_id, path, root_path, parent_path, name, is_dir, size, mtime)
+		VALUES ('scan-123', '/music/test.mp3', '/music', '/music', 'test.mp3', 0, 1024000, ?)
 	`, now)
 	if err != nil {
 		t.Fatalf("failed to seed staging: %v", err)
@@ -149,16 +145,6 @@ func TestMergePreservesBitrateWhenUnchanged(t *testing.T) {
 	if contentRev != 1 {
 		t.Errorf("expected content_rev=1 (preserved), got content_rev=%d", contentRev)
 	}
-
-	// Verify: dirty_flag should be 0
-	var dirtyFlag int
-	err = repo.db.QueryRow("SELECT dirty_flag FROM entries WHERE path = ?", "/music/test.mp3").Scan(&dirtyFlag)
-	if err != nil {
-		t.Fatalf("failed to query dirty_flag: %v", err)
-	}
-	if dirtyFlag != 0 {
-		t.Errorf("expected dirty_flag=0, got dirty_flag=%d", dirtyFlag)
-	}
 }
 
 func TestMergeIncrementsContentRevOnChange(t *testing.T) {
@@ -183,15 +169,14 @@ func TestMergeIncrementsContentRevOnChange(t *testing.T) {
 			RootPath: "/music",
 			Size:     1024000,
 			Mtime:    oldMtime,
-			ScanID:   "scan-prev",
 			Bitrate:  new(int32(320000)),
 		},
 	)
 
 	// Create staging entry with changed mtime
 	_, err = repo.db.Exec(`
-		INSERT INTO entries_staging (session_id, path, root_path, parent_path, name, is_dir, size, mtime, operation)
-		VALUES ('scan-123', '/music/test.mp3', '/music', '/music', 'test.mp3', 0, 1024000, ?, 'upsert')
+		INSERT INTO entries_staging (session_id, path, root_path, parent_path, name, is_dir, size, mtime)
+		VALUES ('scan-123', '/music/test.mp3', '/music', '/music', 'test.mp3', 0, 1024000, ?)
 	`, newMtime)
 	if err != nil {
 		t.Fatalf("failed to seed staging: %v", err)
@@ -212,28 +197,9 @@ func TestMergeIncrementsContentRevOnChange(t *testing.T) {
 	if contentRev != 2 {
 		t.Errorf("expected content_rev=2, got content_rev=%d", contentRev)
 	}
-
-	// Verify: dirty_flag should be 1
-	var dirtyFlag int
-	err = repo.db.QueryRow("SELECT dirty_flag FROM entries WHERE path = ?", "/music/test.mp3").Scan(&dirtyFlag)
-	if err != nil {
-		t.Fatalf("failed to query dirty_flag: %v", err)
-	}
-	if dirtyFlag != 1 {
-		t.Errorf("expected dirty_flag=1, got dirty_flag=%d", dirtyFlag)
-	}
-
-	// Verify: bitrate should be cleared
-	var bitrate sql.NullInt64
-	{
-		entry := inventoryEntry(t, repo, "/music/test.mp3")
-		bitrate = sql.NullInt64{}
-		if entry.Bitrate != nil {
-			bitrate = sql.NullInt64{Int64: int64(*entry.Bitrate), Valid: true}
-		}
-	}
-	if bitrate.Valid && bitrate.Int64 != 0 {
-		t.Errorf("expected bitrate=0 (cleared), got bitrate=%d", bitrate.Int64)
+	entry := inventoryEntry(t, repo, "/music/test.mp3")
+	if entry.Bitrate != nil {
+		t.Fatalf("changed bitrate was retained: %d", *entry.Bitrate)
 	}
 }
 
@@ -251,10 +217,10 @@ func TestMergeClearsStagingScope(t *testing.T) {
 
 	// Create multiple staging entries for scan-123
 	_, err = repo.db.Exec(`
-		INSERT INTO entries_staging (session_id, path, root_path, parent_path, name, is_dir, size, mtime, operation)
+		INSERT INTO entries_staging (session_id, path, root_path, parent_path, name, is_dir, size, mtime)
 		VALUES 
-			('scan-123', '/music/a.mp3', '/music', '/music', 'a.mp3', 0, 1024000, ?, 'upsert'),
-			('scan-123', '/music/b.mp3', '/music', '/music', 'b.mp3', 0, 1024000, ?, 'upsert')
+			('scan-123', '/music/a.mp3', '/music', '/music', 'a.mp3', 0, 1024000, ?),
+			('scan-123', '/music/b.mp3', '/music', '/music', 'b.mp3', 0, 1024000, ?)
 	`, now, now)
 	if err != nil {
 		t.Fatalf("failed to seed staging: %v", err)
@@ -299,8 +265,8 @@ func TestMergeAppliesStaleCleanup(t *testing.T) {
 
 	// Create staging entry for different file
 	_, err = repo.db.Exec(`
-		INSERT INTO entries_staging (session_id, path, root_path, parent_path, name, is_dir, size, mtime, operation)
-		VALUES ('scan-123', '/music/new.mp3', '/music', '/music', 'new.mp3', 0, 1024000, ?, 'upsert')
+		INSERT INTO entries_staging (session_id, path, root_path, parent_path, name, is_dir, size, mtime)
+		VALUES ('scan-123', '/music/new.mp3', '/music', '/music', 'new.mp3', 0, 1024000, ?)
 	`, now)
 	if err != nil {
 		t.Fatalf("failed to seed staging: %v", err)
@@ -352,8 +318,8 @@ func TestMergeFullRootCleanupDoesNotTouchOtherRoots(t *testing.T) {
 
 	// Stage a new file under /music to drive full-root cleanup there.
 	_, err = repo.db.Exec(`
-		INSERT INTO entries_staging (session_id, path, root_path, parent_path, name, is_dir, size, mtime, operation)
-		VALUES ('scan-123', '/music/new.mp3', '/music', '/music', 'new.mp3', 0, 1024000, ?, 'upsert')
+		INSERT INTO entries_staging (session_id, path, root_path, parent_path, name, is_dir, size, mtime)
+		VALUES ('scan-123', '/music/new.mp3', '/music', '/music', 'new.mp3', 0, 1024000, ?)
 	`, now)
 	if err != nil {
 		t.Fatalf("failed to seed staging: %v", err)
@@ -408,8 +374,8 @@ func TestMergeNewEntryGetsContentRev1(t *testing.T) {
 
 	// Create staging entry (no existing entry in entries table)
 	_, err = repo.db.Exec(`
-		INSERT INTO entries_staging (session_id, path, root_path, parent_path, name, is_dir, size, mtime, operation)
-		VALUES ('scan-123', '/music/new.mp3', '/music', '/music', 'new.mp3', 0, 1024000, ?, 'upsert')
+		INSERT INTO entries_staging (session_id, path, root_path, parent_path, name, is_dir, size, mtime)
+		VALUES ('scan-123', '/music/new.mp3', '/music', '/music', 'new.mp3', 0, 1024000, ?)
 	`, now)
 	if err != nil {
 		t.Fatalf("failed to seed staging: %v", err)
@@ -432,7 +398,7 @@ func TestMergeNewEntryGetsContentRev1(t *testing.T) {
 	}
 }
 
-func TestMergeUnchangedRowClearsDirtyFlag(t *testing.T) {
+func TestMergeUnchangedRowPreservesExistingRevision(t *testing.T) {
 	// Setup: create temp database
 	tmpDir := t.TempDir()
 	dbPath := tmpDir + "/test.db"
@@ -444,7 +410,7 @@ func TestMergeUnchangedRowClearsDirtyFlag(t *testing.T) {
 
 	now := time.Now().Unix()
 
-	// Seed existing entry with dirty_flag=1 (from previous change)
+	// A later unchanged scan preserves the revision of a previously changed file.
 	inventoryfixture.SeedInventory(
 		t,
 		repo,
@@ -453,16 +419,14 @@ func TestMergeUnchangedRowClearsDirtyFlag(t *testing.T) {
 			RootPath:   "/music",
 			Size:       1024000,
 			Mtime:      now,
-			ScanID:     "scan-prev",
 			ContentRev: 2,
-			DirtyFlag:  1,
 		},
 	)
 
 	// Create staging entry with same size/mtime (unchanged)
 	_, err = repo.db.Exec(`
-		INSERT INTO entries_staging (session_id, path, root_path, parent_path, name, is_dir, size, mtime, operation)
-		VALUES ('scan-123', '/music/test.mp3', '/music', '/music', 'test.mp3', 0, 1024000, ?, 'upsert')
+		INSERT INTO entries_staging (session_id, path, root_path, parent_path, name, is_dir, size, mtime)
+		VALUES ('scan-123', '/music/test.mp3', '/music', '/music', 'test.mp3', 0, 1024000, ?)
 	`, now)
 	if err != nil {
 		t.Fatalf("failed to seed staging: %v", err)
@@ -474,14 +438,9 @@ func TestMergeUnchangedRowClearsDirtyFlag(t *testing.T) {
 		t.Fatalf("merge failed: %v", err)
 	}
 
-	// Verify: dirty_flag should be 0 for unchanged row (regardless of previous value)
-	var dirtyFlag int
-	err = repo.db.QueryRow("SELECT dirty_flag FROM entries WHERE path = ?", "/music/test.mp3").Scan(&dirtyFlag)
-	if err != nil {
-		t.Fatalf("failed to query dirty_flag: %v", err)
-	}
-	if dirtyFlag != 0 {
-		t.Errorf("expected dirty_flag=0 for unchanged row (was 1 before merge), got dirty_flag=%d", dirtyFlag)
+	entry := inventoryEntry(t, repo, "/music/test.mp3")
+	if entry.ContentRev != 2 {
+		t.Fatalf("unchanged revision = %d", entry.ContentRev)
 	}
 }
 
@@ -497,8 +456,8 @@ func TestMergePersistsFormatFromStaging(t *testing.T) {
 	now := time.Now().Unix()
 
 	_, err = repo.db.Exec(`
-		INSERT INTO entries_staging (session_id, path, root_path, parent_path, name, is_dir, size, mtime, format, operation)
-		VALUES ('scan-123', '/music/new.mp3', '/music', '/music', 'new.mp3', 0, 1024000, ?, 'audio/mpeg', 'upsert')
+		INSERT INTO entries_staging (session_id, path, root_path, parent_path, name, is_dir, size, mtime, format)
+		VALUES ('scan-123', '/music/new.mp3', '/music', '/music', 'new.mp3', 0, 1024000, ?, 'audio/mpeg')
 	`, now)
 	if err != nil {
 		t.Fatalf("failed to seed staging: %v", err)
@@ -544,8 +503,8 @@ func TestMergeWithExplicitStalePaths(t *testing.T) {
 
 	// Create staging only for in_staging.mp3
 	_, err = repo.db.Exec(`
-		INSERT INTO entries_staging (session_id, path, root_path, parent_path, name, is_dir, size, mtime, operation)
-		VALUES ('scan-123', '/music/in_staging.mp3', '/music', '/music', 'in_staging.mp3', 0, 1024000, ?, 'upsert')
+		INSERT INTO entries_staging (session_id, path, root_path, parent_path, name, is_dir, size, mtime)
+		VALUES ('scan-123', '/music/in_staging.mp3', '/music', '/music', 'in_staging.mp3', 0, 1024000, ?)
 	`, now)
 	if err != nil {
 		t.Fatalf("failed to seed staging: %v", err)
@@ -623,8 +582,8 @@ func TestMergeScopedCleanupWithEmptyStaging(t *testing.T) {
 
 	// Create empty staging (no files scanned)
 	_, err = repo.db.Exec(`
-		INSERT INTO entries_staging (session_id, path, root_path, parent_path, name, is_dir, size, mtime, operation)
-		VALUES ('scan-empty', '/music/albums/.placeholder', '/music', '/music/albums', '.placeholder', 0, 0, ?, 'upsert')
+		INSERT INTO entries_staging (session_id, path, root_path, parent_path, name, is_dir, size, mtime)
+		VALUES ('scan-empty', '/music/albums/.placeholder', '/music', '/music/albums', '.placeholder', 0, 0, ?)
 	`, now)
 	if err != nil {
 		t.Fatalf("failed to seed staging: %v", err)
@@ -741,8 +700,8 @@ func TestMergeBoundarySafeScopeMatching(t *testing.T) {
 
 	// Create staging with only file1
 	_, err = repo.db.Exec(`
-		INSERT INTO entries_staging (session_id, path, root_path, parent_path, name, is_dir, size, mtime, operation)
-		VALUES ('scan-boundary', '/music/albums/file1.mp3', '/music', '/music/albums', 'file1.mp3', 0, 1024000, ?, 'upsert')
+		INSERT INTO entries_staging (session_id, path, root_path, parent_path, name, is_dir, size, mtime)
+		VALUES ('scan-boundary', '/music/albums/file1.mp3', '/music', '/music/albums', 'file1.mp3', 0, 1024000, ?)
 	`, now)
 	if err != nil {
 		t.Fatalf("failed to seed staging: %v", err)
@@ -887,8 +846,8 @@ func TestMergeLargeSetStaleCleanup(t *testing.T) {
 	// Create many staging entries (2000+ to test large-set handling)
 	for i := range 2100 {
 		_, err = repo.db.Exec(`
-			INSERT INTO entries_staging (session_id, path, root_path, parent_path, name, is_dir, size, mtime, operation)
-			VALUES ('scan-large', ?, '/music', '/music', ?, 0, 1024000, ?, 'upsert')
+			INSERT INTO entries_staging (session_id, path, root_path, parent_path, name, is_dir, size, mtime)
+			VALUES ('scan-large', ?, '/music', '/music', ?, 0, 1024000, ?)
 		`, fmt.Sprintf("/music/new%04d.mp3", i), fmt.Sprintf("new%04d.mp3", i), now)
 		if err != nil {
 			t.Fatalf("failed to seed staging %d: %v", i, err)
@@ -965,7 +924,6 @@ func TestMergeUpsertContentRevIncrementSemantics(t *testing.T) {
 			RootPath:   "/music",
 			Size:       1024000,
 			Mtime:      oldMtime,
-			ScanID:     "scan-prev",
 			ContentRev: 3,
 			Bitrate:    new(int32(320000)),
 		},
@@ -973,8 +931,8 @@ func TestMergeUpsertContentRevIncrementSemantics(t *testing.T) {
 
 	// Test 1: New entry should get content_rev=1
 	_, err = repo.db.Exec(`
-		INSERT INTO entries_staging (session_id, path, root_path, parent_path, name, is_dir, size, mtime, operation)
-		VALUES ('scan-upsert', '/music/new.mp3', '/music', '/music', 'new.mp3', 0, 1024000, ?, 'upsert')
+		INSERT INTO entries_staging (session_id, path, root_path, parent_path, name, is_dir, size, mtime)
+		VALUES ('scan-upsert', '/music/new.mp3', '/music', '/music', 'new.mp3', 0, 1024000, ?)
 	`, now)
 	if err != nil {
 		t.Fatalf("failed to seed staging: %v", err)
@@ -982,8 +940,8 @@ func TestMergeUpsertContentRevIncrementSemantics(t *testing.T) {
 
 	// Test 2: Unchanged existing entry should preserve content_rev
 	_, err = repo.db.Exec(`
-		INSERT INTO entries_staging (session_id, path, root_path, parent_path, name, is_dir, size, mtime, operation)
-		VALUES ('scan-upsert', '/music/existing.mp3', '/music', '/music', 'existing.mp3', 0, 1024000, ?, 'upsert')
+		INSERT INTO entries_staging (session_id, path, root_path, parent_path, name, is_dir, size, mtime)
+		VALUES ('scan-upsert', '/music/existing.mp3', '/music', '/music', 'existing.mp3', 0, 1024000, ?)
 	`, oldMtime) // Same size and mtime
 	if err != nil {
 		t.Fatalf("failed to seed staging: %v", err)
@@ -992,8 +950,8 @@ func TestMergeUpsertContentRevIncrementSemantics(t *testing.T) {
 	// Test 3: Changed existing entry should increment content_rev and clear bitrate
 	changedMtime := now
 	_, err = repo.db.Exec(`
-		INSERT INTO entries_staging (session_id, path, root_path, parent_path, name, is_dir, size, mtime, operation)
-		VALUES ('scan-upsert', '/music/changed.mp3', '/music', '/music', 'changed.mp3', 0, 2048000, ?, 'upsert')
+		INSERT INTO entries_staging (session_id, path, root_path, parent_path, name, is_dir, size, mtime)
+		VALUES ('scan-upsert', '/music/changed.mp3', '/music', '/music', 'changed.mp3', 0, 2048000, ?)
 	`, changedMtime)
 	if err != nil {
 		t.Fatalf("failed to seed staging: %v", err)
@@ -1008,7 +966,6 @@ func TestMergeUpsertContentRevIncrementSemantics(t *testing.T) {
 			RootPath:   "/music",
 			Size:       1024000,
 			Mtime:      oldMtime,
-			ScanID:     "scan-prev",
 			ContentRev: 2,
 			Bitrate:    new(int32(256000)),
 		},
@@ -1030,14 +987,6 @@ func TestMergeUpsertContentRevIncrementSemantics(t *testing.T) {
 	changed := inventoryEntry(t, repo, "/music/changed.mp3")
 	if changed.ContentRev != 3 || changed.Bitrate != nil {
 		t.Errorf("changed facts=%+v", changed)
-	}
-	var changedDirtyFlag int
-	if err = repo.db.QueryRow("SELECT dirty_flag FROM entries WHERE path = ?", "/music/changed.mp3").
-		Scan(&changedDirtyFlag); err != nil {
-		t.Fatal(err)
-	}
-	if changedDirtyFlag != 1 {
-		t.Errorf("changed dirty_flag=%d, want 1", changedDirtyFlag)
 	}
 }
 
@@ -1073,8 +1022,8 @@ func TestMergeScopedCleanupKeepsTheScopeAndItsNeighbours(t *testing.T) {
 		inventoryfixture.Row{Path: "/music/album", RootPath: "/music", IsDir: true},
 	)
 	if _, err := repo.db.Exec(`
-		INSERT INTO entries_staging (session_id, path, root_path, parent_path, name, is_dir, size, mtime, operation)
-		VALUES ('scan-wild', '/music/100%_hits/kept.mp3', '/music', '/music/100%_hits', 'kept.mp3', 0, 1, 1, 'upsert')
+		INSERT INTO entries_staging (session_id, path, root_path, parent_path, name, is_dir, size, mtime)
+		VALUES ('scan-wild', '/music/100%_hits/kept.mp3', '/music', '/music/100%_hits', 'kept.mp3', 0, 1, 1)
 	`); err != nil {
 		t.Fatalf("seed staging: %v", err)
 	}

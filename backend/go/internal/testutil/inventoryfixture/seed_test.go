@@ -29,7 +29,7 @@ func TestSeedInventoryCreatesAncestorsAndPreservesStoredFacts(t *testing.T) {
 			RootPath:   "/music",
 			IsDir:      true,
 			IsWorkRoot: true,
-			CreatedAt:  "2026-01-02T03:04:05Z",
+			CreatedAt:  1767323045,
 		})
 	entries, err := repo.ListEntriesUnderPath("/music/work")
 	if err != nil || len(entries) != 3 {

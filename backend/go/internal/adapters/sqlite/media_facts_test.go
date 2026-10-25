@@ -16,8 +16,8 @@ import (
 func stageFactsRow(t *testing.T, repo *Repository, root, path, format string, size, mtime int64, sessionID string) {
 	t.Helper()
 	_, err := repo.db.Exec(`
-		INSERT INTO entries_staging (session_id, path, root_path, parent_path, name, is_dir, size, mtime, format, operation)
-		VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, 'upsert')
+		INSERT INTO entries_staging (session_id, path, root_path, parent_path, name, is_dir, size, mtime, format)
+		VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?)
 	`, sessionID, path, root, root, path, size, mtime, format)
 	if err != nil {
 		t.Fatalf("seed staging: %v", err)

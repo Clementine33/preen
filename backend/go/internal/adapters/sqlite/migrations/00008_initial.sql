@@ -1,6 +1,6 @@
 -- +goose Up
 -- Unreleased release baseline; keep its structure aligned with schema.sql until first distribution.
--- P0 Schema V1: Main entries table with content revision tracking
+-- Inventory stores only observed content and measured facts (ADR 0017).
 CREATE TABLE entries (
     path TEXT PRIMARY KEY,
     root_path TEXT NOT NULL DEFAULT '',
@@ -9,7 +9,6 @@ CREATE TABLE entries (
     is_dir INTEGER NOT NULL DEFAULT 0,
     size INTEGER NOT NULL DEFAULT 0,
     mtime INTEGER NOT NULL DEFAULT 0,
-    scan_id TEXT NOT NULL DEFAULT '',
     content_rev INTEGER NOT NULL DEFAULT 1,
     bitrate INTEGER,
     -- Scan-time media facts (ADR 0013): image pixel size and
@@ -17,12 +16,9 @@ CREATE TABLE entries (
     width INTEGER,
     height INTEGER,
     duration_sec REAL,
-    dirty_flag INTEGER NOT NULL DEFAULT 0,
-    is_error INTEGER NOT NULL DEFAULT 0,
-    error_reason TEXT,
-    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-    updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    created_at INTEGER DEFAULT (unixepoch()),
     format TEXT,
+    is_audio INTEGER GENERATED ALWAYS AS (lower(name) LIKE '%.mp3' OR lower(name) LIKE '%.flac' OR lower(name) LIKE '%.wav' OR lower(name) LIKE '%.m4a' OR lower(name) LIKE '%.aac' OR lower(name) LIKE '%.ogg') STORED,
     is_work_root INTEGER NOT NULL DEFAULT 0
 );
 
@@ -36,14 +32,10 @@ CREATE TABLE entries_staging (
     is_dir INTEGER NOT NULL DEFAULT 0,
     size INTEGER NOT NULL DEFAULT 0,
     mtime INTEGER NOT NULL DEFAULT 0,
-    operation TEXT NOT NULL DEFAULT 'upsert',
-    status TEXT DEFAULT 'pending',
-    bitrate INTEGER,
     format TEXT,
-    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
     is_work_root INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (session_id, path)
-);
+) WITHOUT ROWID;
 
 -- Generation credentials: what this app wrote at a path, and the facts that
 -- bind the record to those bytes. A row exists only for an output that passed

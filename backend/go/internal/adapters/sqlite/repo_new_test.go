@@ -41,20 +41,17 @@ func TestNewRepository(t *testing.T) {
 			"is_dir",
 			"size",
 			"mtime",
-			"scan_id",
 			"content_rev",
+			"created_at",
+			"is_audio",
 			"bitrate",
-			"dirty_flag",
-			"is_error",
-			"error_reason",
-			"updated_at",
 			"duration_sec",
 			"format",
 		}
 
 		for _, col := range requiredColumns {
 			var count int
-			err := repo.db.QueryRow("SELECT COUNT(*) FROM pragma_table_info('entries') WHERE name=?", col).Scan(&count)
+			err := repo.db.QueryRow("SELECT COUNT(*) FROM pragma_table_xinfo('entries') WHERE name=?", col).Scan(&count)
 			if err != nil {
 				t.Errorf("failed to check column %s: %v", col, err)
 			}

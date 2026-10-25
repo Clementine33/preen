@@ -134,11 +134,15 @@ func (s *Server) refreshMemberTree(w http.ResponseWriter, r *http.Request) {
 		// The refresh failed; the caller keeps the tree it already shows and
 		// says so. Nothing else was touched, so the failure is the whole
 		// outcome.
+		status := http.StatusBadGateway
 		code, message := "REFRESH_FAILED", "failed to refresh the folder"
 		if scanErr, isScanErr := inventory.AsError(err); isScanErr {
 			code, message = scanErr.Code, scanErr.Message
+			if scanErr.Kind == inventory.ErrKindConflict {
+				status = http.StatusConflict
+			}
 		}
-		writeError(w, http.StatusBadGateway, code, message)
+		writeError(w, status, code, message)
 		return
 	}
 	tree, err := s.deps.Library.Tree(member)

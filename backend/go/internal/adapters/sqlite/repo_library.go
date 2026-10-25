@@ -34,9 +34,14 @@ func isUniqueConstraintError(err error) bool {
 func (r *Repository) CreateLibrary(name, rootPath string) (*library.Library, error) {
 	rootPath = librarypath.CleanRootPath(rootPath)
 	rootPathKey := librarypath.RootPathKey(rootPath)
+	tx, err := r.db.Begin()
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
 	now := time.Now().Format(timeFormat)
 	id := uuid.NewString()
-	_, err := r.db.Exec(`
+	_, err = tx.Exec(`
 		INSERT INTO libraries (id, name, root_path, root_path_key, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?)
 	`, id, name, rootPath, rootPathKey, now, now)
@@ -44,6 +49,12 @@ func (r *Repository) CreateLibrary(name, rootPath string) (*library.Library, err
 		if isUniqueConstraintError(err) {
 			return nil, library.ErrLibraryExists
 		}
+		return nil, err
+	}
+	if err := checkLibraryRootOverlap(tx, rootPath, id); err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
 	return r.GetLibrary(id)
@@ -160,6 +171,9 @@ func (r *Repository) UpdateLibrary(
 		return nil, err
 	}
 	if rootChanged {
+		if err := checkLibraryRootOverlap(tx, candidateRoot, id); err != nil {
+			return nil, err
+		}
 		// The inventory of the previous root is not the inventory of the new
 		// one: drop it and let the next scan rebuild it, so nothing reads a
 		// stale listing as if it described the new root. The bindings go with

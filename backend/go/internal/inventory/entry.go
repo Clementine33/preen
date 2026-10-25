@@ -87,6 +87,8 @@ func AsError(err error) (*Error, bool) {
 // the database and outlive any single request, so the entry asks rather than
 // tracks them.
 type Store interface {
+	// CheckScanRoot rejects overlapping library roots before traversal or admission.
+	CheckScanRoot(rootPath string) error
 	HasActiveExecutionForRoot(rootPath string) (bool, error)
 	HasActiveRenameExecutionForRoot(rootPath string) (bool, error)
 }
@@ -158,6 +160,9 @@ func (s *service) AdmitMemberRefresh(rootPath string) (func(), error) {
 }
 
 func (s *service) checkExecution(check func(string) (bool, error), root string) error {
+	if err := s.store.CheckScanRoot(root); err != nil {
+		return err
+	}
 	active, err := check(root)
 	if err != nil {
 		return NewError(ErrKindInternal, "INTERNAL", "failed to check active executions", err)
@@ -183,6 +188,14 @@ func (s *service) Scan(ctx context.Context, req Request, emit func(Event)) (Resu
 
 	if req.RootPath == "" {
 		return s.fail(req, NewError(ErrKindInvalidArgument, "ROOT_PATH_REQUIRED", "root_path is required", nil), emit)
+	}
+
+	if err := s.store.CheckScanRoot(req.RootPath); err != nil {
+		scanErr, ok := AsError(err)
+		if !ok {
+			scanErr = NewError(ErrKindInternal, "INTERNAL", "failed to check library roots", err)
+		}
+		return s.fail(req, scanErr, emit)
 	}
 
 	// Classify validation failures so a missing root, a non-directory root,
@@ -232,6 +245,9 @@ func (s *service) Scan(ctx context.Context, req Request, emit func(Event)) (Resu
 			s.recordOutcome(req, "canceled", "")
 			emit(Event{Type: "error", Stage: "scan", Message: "scan canceled"})
 			return Result{}, err
+		}
+		if scanErr, ok := AsError(err); ok {
+			return s.fail(req, scanErr, emit)
 		}
 		scanErr := NewError(ErrKindInternal, "SCAN_FAILED", fmt.Sprintf("Scan failed: %v", err), err)
 		return s.fail(req, scanErr, emit)

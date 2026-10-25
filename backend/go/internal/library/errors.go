@@ -5,6 +5,10 @@ import "errors"
 var (
 	// ErrLibraryExists is returned when a library root path already exists.
 	ErrLibraryExists = errors.New("library already exists")
+	// ErrLibraryRootOverlap is returned when one library root contains another.
+	ErrLibraryRootOverlap = errors.New(
+		"library roots must not contain one another; delete or change a conflicting library root before scanning",
+	)
 	// ErrLibraryNotFound is returned when a library cannot be found.
 	ErrLibraryNotFound = errors.New("library not found")
 	// ErrLibraryHasWorksets is returned when a library root change is refused

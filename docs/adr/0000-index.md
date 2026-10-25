@@ -7,7 +7,7 @@
 | 记录 | 主题 | 状态 |
 |---|---|---|
 | [0001](0001-library-workbench-and-processing-record.md) | 媒体库即工作台、计划与执行所有权、规划回放与活动约束、数据库自清理与留存、手动运行准入（历史、作品、关系报告与共享来源实体清理 API 已实现；网页入口待实现） | Draft |
-| [0002](0002-direct-file-management-and-admission.md) | 直接文件管理、全局准入互斥与作品同级回收目录 | Draft |
+| [0002](0002-direct-file-management-and-admission.md) | 直接文件管理、全局准入互斥与作品同级回收目录（库根互不包含） | Draft |
 | [0003](0003-short-routes-and-directory-identity.md) | 短路由与不透明目录身份 | Draft |
 | [0004](0004-task-seam-and-opaque-payloads.md) | Task 接缝、不透明载荷与工作集共享批次 | Draft |
 | [0005](0005-declarative-audio-planning.md) | 声明式规划、稀疏继承、无音效匹配与子树隔离 | Draft |
@@ -22,7 +22,7 @@
 | [0014](0014-storage-class-and-concurrency-limits.md) | 存储档与并发上限 | Draft |
 | [0015](0015-deployment-and-credentials.md) | 部署形态与凭证投递 | Draft |
 | [0016](0016-lyrics-window-hosting.md) | 歌词窗口的宿主：Document PiP 与桌面壳接缝 | Draft |
-| [0017](0017-inventory-storage-dirs-and-files.md) | 库存存储：目录表与文件表分离 | Draft |
+| [0017](0017-inventory-storage-dirs-and-files.md) | 库存存储：目录表与文件表分离、Library 库根互不包含 | Draft |
 
 ## 历史编号映射表
 

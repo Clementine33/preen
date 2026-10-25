@@ -1,5 +1,5 @@
 // Package library owns media libraries: the entries a user creates, the rules
-// a root change and a deletion must satisfy, and the derivation of directory
+// disjoint roots, the rules a root change and a deletion must satisfy, and the derivation of directory
 // identity. The observed inventory a library browses belongs to package
 // inventory; this package owns the library row itself (ADR 0001;
 // ADR 0003).

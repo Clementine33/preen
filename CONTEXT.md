@@ -174,7 +174,7 @@ The built-in Work Collection representing the user's favorite Works. Its members
 _Avoid_: A second favorite marker synchronized with collection membership.
 
 **Library**:
-A named media collection rooted at one directory, whose scanned inventory supplies the member directories and media facts. It owns the workbench: entering a library is entering its overview, its browsing, its conversion record and its file management. Its deletion removes its entry (and that entry's shared Workset) but never the media.
+A named media collection rooted at one directory, whose scanned inventory supplies the member directories and media facts. Library roots are disjoint: neither root contains another Library root; sibling roots remain independent. It owns the workbench: entering a library is entering its overview, its browsing, its conversion record and its file management. Its deletion removes its entry (and that entry's shared Workset) but never the media.
 
 **Work Root**:
 The first directory in a Library descendant chain whose name unambiguously carries one Work Number. Its whole subtree belongs to that independent work, even when an internal directory also carries a Work Number.

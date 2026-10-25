@@ -46,6 +46,10 @@ func (s *Server) createLibrary(w http.ResponseWriter, r *http.Request) {
 	}
 	lib, err := s.deps.Library.Create(req.Name, req.RootPath)
 	if err != nil {
+		if errors.Is(err, library.ErrLibraryRootOverlap) {
+			writeError(w, http.StatusConflict, "LIBRARY_ROOT_OVERLAP", err.Error())
+			return
+		}
 		if errors.Is(err, library.ErrLibraryExists) {
 			writeError(w, http.StatusConflict, "LIBRARY_EXISTS", "a library with this root path already exists")
 			return
@@ -94,6 +98,8 @@ func (s *Server) patchLibrary(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, "INVALID_STORAGE_CLASS", err.Error())
 		case admission.IsBusy(err):
 			writeBusyError(w, err)
+		case errors.Is(err, library.ErrLibraryRootOverlap):
+			writeError(w, http.StatusConflict, "LIBRARY_ROOT_OVERLAP", err.Error())
 		case errors.Is(err, library.ErrLibraryExists):
 			writeError(w, http.StatusConflict, "LIBRARY_EXISTS", "a library with this root path already exists")
 		case errors.Is(err, library.ErrLibraryNotFound):

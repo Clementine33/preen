@@ -48,6 +48,19 @@ new value. Queued execution sessions capture it when the worker starts processin
 them, before session preparation. Neither worker counts nor a second SSD library
 list are file configuration.
 
+Library roots must be disjoint: neither configured root may be a strict
+ancestor of another. Creation and a canonical root change return 409
+`LIBRARY_ROOT_OVERLAP` for containment in either direction. Canonical duplicates
+keep 409 `LIBRARY_EXISTS`. Checks use the normal lexical root identity rules:
+POSIX case is significant; drive and UNC paths compare without case; component
+boundaries keep `/a`, `/a b` and `/ab` distinct. They do not traverse media or
+resolve filesystem aliases.
+
+A pre-existing overlapping configuration is left intact for repair. Names,
+storage class and identity-preserving root spelling edits remain available;
+deleting a conflicting library or moving its root to a disjoint location
+unblocks scanning. Media files are untouched.
+
 Changing
 `root_path` clears the scanned inventory of the old root and the prior scan
 state; the library must be scanned again before anything is planned from it.
@@ -97,6 +110,15 @@ them, including old library-level recovery directories. They are not stored in
 the inventory or counted in scan progress. A successful full rescan removes
 recovery entries and copy bindings left by older scans. Windows paths compare
 the name case-insensitively; POSIX paths compare it exactly.
+
+Full scans, member refreshes and selected-folder scans reject an affected
+pre-existing overlapping root with `LIBRARY_ROOT_OVERLAP`; unrelated sibling
+libraries remain usable. The check applies to the configured library root,
+not to the member or selected scope. HTTP scan and tree-refresh admission
+return 409 JSON before starting SSE or traversal; refusal leaves inventory
+unchanged. A conflict detected after a stream has started retains the same
+code in its terminal `error` event. Internal task-driven scans apply the same
+validation before traversing media.
 
 A scan is refused with `EXECUTION_IN_PROGRESS` (409) while any record of the
 library has a queued/running execution: an execution validates the inventory

@@ -193,3 +193,26 @@ func TestPatchLibraryRootInvalidatesDerivedFolders(t *testing.T) {
 		t.Fatalf("root change retained %d stale entries", len(stale))
 	}
 }
+
+func TestLibraryOverlapHTTPRefusals(t *testing.T) {
+	engine := newTestServer(t, nil)
+	createLibraryViaAPI(t, engine, "outer", "/a")
+	sibling := createLibraryViaAPI(t, engine, "sibling", "/b")
+	for _, req := range []struct{ method, path string }{
+		{http.MethodPost, "/api/v1/libraries"},
+		{http.MethodPatch, "/api/v1/libraries/" + sibling},
+	} {
+		w := doRequest(
+			t,
+			engine,
+			req.method,
+			req.path,
+			map[string]string{"name": "nested", "root_path": "/a/nested"},
+			nil,
+		)
+		code, message := errorEnvelope(t, w)
+		if w.Code != http.StatusConflict || code != "LIBRARY_ROOT_OVERLAP" || message == "" {
+			t.Fatalf("%s refusal: %d %s", req.method, w.Code, w.Body.String())
+		}
+	}
+}

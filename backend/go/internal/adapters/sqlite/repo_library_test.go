@@ -23,7 +23,7 @@ func insertEntryAtRoot(t *testing.T, repo *Repository, path, parentPath, name st
 	inventoryfixture.SeedInventory(
 		t,
 		repo,
-		inventoryfixture.Row{Path: path, RootPath: root, IsDir: isDir, ScanID: "scan-1"},
+		inventoryfixture.Row{Path: path, RootPath: root, IsDir: isDir},
 	)
 }
 
@@ -63,7 +63,6 @@ func insertEntry(t *testing.T, repo *Repository, path, parentPath, name string, 
 			RootPath:   "/music",
 			IsDir:      isDir,
 			IsWorkRoot: isDir && parentPath == "/music",
-			ScanID:     "scan-1",
 		},
 	)
 }

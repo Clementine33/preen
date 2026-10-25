@@ -3,6 +3,9 @@ package fileops_test
 import (
 	"path/filepath"
 	"testing"
+	"time"
+
+	"github.com/Clementine33/preen/backend/internal/testutil/inventoryfixture"
 
 	"github.com/Clementine33/preen/backend/internal/adapters/filesystem"
 	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
@@ -77,5 +80,85 @@ func TestTheInternalRefreshIsNotRefusedByTheSlotItHolds(t *testing.T) {
 	); err != nil ||
 		!found {
 		t.Fatalf("renamed file missing from inventory: found=%v err=%v", found, err)
+	}
+}
+
+func TestRenameExtensionRefreshesOverviewAudioCounts(t *testing.T) {
+	root := t.TempDir()
+	repo, err := sqlite.NewDevelopmentRepository(filepath.Join(t.TempDir(), "rename.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = repo.Close() })
+	gate := admission.NewGate(repo.HasActiveSession)
+	scan := inventory.NewService(
+		inventory.NewPipeline(
+			sqlite.NewScanStaging(repo),
+			filesystem.WalkRootEntriesParallel,
+			filesystem.WalkFolderEntries,
+			nil,
+		),
+		repo,
+		gate,
+		repo.UpdateLibraryScanState,
+	)
+	f := &fixture{t: t, root: root, gate: gate}
+	f.svc = fileops.NewService(
+		gate,
+		scan.RefreshMember,
+		filesystem.Recover,
+		filesystem.RenameNoReplace,
+		filesystem.IsResolvedWithinRoot,
+	)
+	f.mkdir("albumA")
+	f.write("albumA/track.MP3", "audio")
+	member := filepath.ToSlash(filepath.Join(root, "albumA"))
+	inventoryfixture.SeedInventory(
+		t,
+		repo,
+		inventoryfixture.Row{
+			Path:       member,
+			RootPath:   filepath.ToSlash(root),
+			IsDir:      true,
+			IsWorkRoot: true,
+			CreatedAt:  1767323045,
+		},
+	)
+	if err = scan.RefreshMember(t.Context(), filepath.Join(root, "albumA"), root); err != nil {
+		t.Fatal(err)
+	}
+	assertCounts := func(want int) {
+		t.Helper()
+		dirs, err := repo.ListLibraryDirs(root)
+		if err != nil || len(dirs) != 1 {
+			t.Fatalf("dirs=%+v err=%v", dirs, err)
+		}
+		d := dirs[0]
+		if d.AudioFileCount != want || d.FileCount != 1 ||
+			!d.AddedAt.Equal(time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)) {
+			t.Fatalf("overview=%+v", d)
+		}
+		counts, err := repo.DirAudioCounts(root, []string{"albumA"})
+		if err != nil || counts["albumA"] != want {
+			t.Fatalf("counts=%v err=%v", counts, err)
+		}
+	}
+	assertCounts(1)
+	for _, names := range [][2]string{{"track.MP3", "track.txt"}, {"track.txt", "track.FLAC"}} {
+		result := f.apply(
+			fileops.Request{
+				MemberPath: "albumA",
+				Operation:  fileops.OpRename,
+				Items:      []fileops.Item{{Source: names[0], Name: names[1]}},
+			},
+		)
+		if result.Succeeded != 1 || !result.Refresh.OK {
+			t.Fatalf("rename=%+v", result)
+		}
+		want := 0
+		if names[1] == "track.FLAC" {
+			want = 1
+		}
+		assertCounts(want)
 	}
 }

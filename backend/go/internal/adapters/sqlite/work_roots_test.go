@@ -2,7 +2,6 @@ package sqlite_test
 
 import (
 	"context"
-	"database/sql"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -123,21 +122,12 @@ func TestNestedWorkInventoryAndNoOpRescan(t *testing.T) {
 	if err = repo.DB().QueryRow("SELECT id FROM work_copies WHERE rel_path = ?", want[1]).Scan(&copyID); err != nil {
 		t.Fatal(err)
 	}
-	writeState := func() string {
-		t.Helper()
-		var state string
-		if stateErr := repo.DB().
-			QueryRow("SELECT group_concat(path || ':' || scan_id || ':' || updated_at, char(10) ORDER BY path) FROM entries").
-			Scan(&state); stateErr != nil {
-			t.Fatal(stateErr)
-		}
-		return state
+	if _, err = repo.DB().Exec(`CREATE TRIGGER reject_inventory_update BEFORE UPDATE ON entries
+ BEGIN SELECT RAISE(ABORT, 'unchanged inventory rewritten'); END`); err != nil {
+		t.Fatal(err)
 	}
-	before := writeState()
 	second := scan()
-	if after := writeState(); before != after {
-		t.Fatalf("no-op scan rewrote inventory: before=%q after=%q", before, after)
-	}
+
 	var staging int
 	if err = repo.DB().QueryRow("SELECT count(*) FROM entries_staging").Scan(&staging); err != nil {
 		t.Fatal(err)
@@ -194,7 +184,7 @@ func TestLibraryListingsExcludeLegacyNestedRecovery(t *testing.T) {
 	}
 }
 
-func TestMergeKeepsFactsUntilContentChangesAndCleansDirty(t *testing.T) {
+func TestMergeKeepsFactsUntilContentChanges(t *testing.T) {
 	repo, err := sqlite.NewDevelopmentRepository(filepath.Join(t.TempDir(), "cache.db"))
 	if err != nil {
 		t.Fatal(err)
@@ -221,48 +211,39 @@ func TestMergeKeepsFactsUntilContentChangesAndCleansDirty(t *testing.T) {
 		}
 	}
 	merge("first")
-	if _, err := repo.DB().
-		Exec("UPDATE entries SET bitrate=320000,width=100,height=200,duration_sec=3,is_error=1,error_reason='saved',updated_at='unchanged'"); err != nil {
+	if err := store.UpdateEntryMediaFacts(
+		[]inventory.MediaFactsUpdate{{Path: entry.Path, Bitrate: 320000, Width: 100, Height: 200, DurationSec: 3}},
+	); err != nil {
 		t.Fatal(err)
 	}
 	merge("same")
-	var session, updated string
-	if err := repo.DB().QueryRow("SELECT scan_id,updated_at FROM entries").Scan(&session, &updated); err != nil {
-		t.Fatal(err)
-	}
-	if session != "first" || updated != "unchanged" {
-		t.Fatal("unchanged row was updated")
+	same := inventoryEntry(t, repo, entry.Path)
+	if same.ContentRev != 1 || same.Bitrate == nil || *same.Bitrate != 320000 || same.Width == nil ||
+		*same.Width != 100 ||
+		same.Height == nil ||
+		*same.Height != 200 ||
+		same.DurationSec == nil ||
+		*same.DurationSec != 3 {
+		t.Fatalf("unchanged facts=%+v", same)
 	}
 	entry.Name = "changed observation"
 	merge("name")
-	var rev, dirty, isError int
-	var bitrate sql.NullInt64
-	if err := repo.DB().
-		QueryRow("SELECT content_rev,dirty_flag,is_error,bitrate FROM entries").
-		Scan(&rev, &dirty, &isError, &bitrate); err != nil {
-		t.Fatal(err)
-	}
-	if rev != 1 || !bitrate.Valid || isError != 1 {
-		t.Fatal("observation update invalidated facts or errors")
+	renamed := inventoryEntry(t, repo, entry.Path)
+	same.Name = entry.Name
+	if !reflect.DeepEqual(same, renamed) {
+		t.Fatalf("observation update invalidated facts: %+v", renamed)
 	}
 	entry.IsDir = true
 	merge("type")
-	if err := repo.DB().
-		QueryRow("SELECT content_rev,dirty_flag,is_error,bitrate FROM entries").
-		Scan(&rev, &dirty, &isError, &bitrate); err != nil {
-		t.Fatal(err)
+	changed := inventoryEntry(t, repo, entry.Path)
+	if changed.ContentRev != 2 || !changed.IsDir || changed.Bitrate != nil || changed.Width != nil ||
+		changed.Height != nil ||
+		changed.DurationSec != nil {
+		t.Fatalf("type change lifecycle=%+v", changed)
 	}
-	if rev != 2 || dirty != 1 || bitrate.Valid || isError != 1 {
-		t.Fatal("type change lifecycle is incorrect")
-	}
-	merge("clean")
-	if err := repo.DB().
-		QueryRow("SELECT content_rev,dirty_flag,scan_id FROM entries").
-		Scan(&rev, &dirty, &session); err != nil {
-		t.Fatal(err)
-	}
-	if rev != 2 || dirty != 0 || session != "clean" {
-		t.Fatal("unchanged dirty row was not cleaned")
+	merge("same-type")
+	if current := inventoryEntry(t, repo, entry.Path); !reflect.DeepEqual(changed, current) {
+		t.Fatalf("unchanged type facts=%+v", current)
 	}
 }
 

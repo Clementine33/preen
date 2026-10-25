@@ -70,7 +70,7 @@ func (r *Repository) updateEntryBitratesOnce(updates []inventory.BitrateUpdate, 
 		for _, update := range updates {
 			if _, err := r.db.
 				Exec(
-					"UPDATE entries SET bitrate = ?, updated_at = datetime('now') WHERE path = ?",
+					"UPDATE entries SET bitrate = ? WHERE path = ?",
 					update.BitrateKbps,
 					update.Path,
 				); err != nil {
@@ -151,7 +151,7 @@ func buildBatchBitrateUpdateQuery(chunk []inventory.BitrateUpdate) (string, []an
 		b.WriteString(" WHEN ? THEN ?")
 		args = append(args, u.Path, u.BitrateKbps)
 	}
-	b.WriteString(" ELSE bitrate END, updated_at = datetime('now') WHERE path IN (")
+	b.WriteString(" ELSE bitrate END WHERE path IN (")
 	for i, u := range chunk {
 		if i > 0 {
 			b.WriteByte(',')

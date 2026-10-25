@@ -15,10 +15,6 @@ import (
 
 // ==================== Types ====================
 
-// audioExtCond is a SQL predicate matching file entries whose name has one of
-// the recognized audio extensions (case-insensitive).
-const audioExtCond = `(lower(name) LIKE '%.mp3' OR lower(name) LIKE '%.flac' OR lower(name) LIKE '%.wav' OR lower(name) LIKE '%.m4a' OR lower(name) LIKE '%.aac' OR lower(name) LIKE '%.ogg')`
-
 // isUniqueConstraintError reports whether err is a SQLite UNIQUE constraint
 // violation.
 func isUniqueConstraintError(err error) bool {
@@ -336,7 +332,7 @@ func (r *Repository) ListLibraryDirs(rootPath string) ([]*inventory.LibraryDir, 
 	rows, err := r.db.Query(`
 		SELECT d.path, d.name, d.created_at,
 		       (SELECT COUNT(*) FROM entries f
-		         WHERE f.root_path = d.root_path AND f.is_dir = 0 AND `+subtreeSQL("f.path", "d.path")+` AND `+audioExtCond+`) AS audio_count,
+		         WHERE f.root_path = d.root_path AND f.is_dir = 0 AND `+subtreeSQL("f.path", "d.path")+` AND f.is_audio = 1) AS audio_count,
 		       (SELECT COUNT(*) FROM entries f
 		         WHERE f.root_path = d.root_path AND f.is_dir = 0 AND `+subtreeSQL("f.path", "d.path")+`) AS file_count
 		FROM entries d
@@ -353,12 +349,12 @@ func (r *Repository) ListLibraryDirs(rootPath string) ([]*inventory.LibraryDir, 
 	var out []*inventory.LibraryDir
 	for rows.Next() {
 		var d inventory.LibraryDir
-		var addedAt sql.NullString
+		var addedAt sql.NullInt64
 		if err := rows.Scan(&d.Path, &d.Name, &addedAt, &d.AudioFileCount, &d.FileCount); err != nil {
 			return nil, err
 		}
 		if addedAt.Valid {
-			d.AddedAt = parseTimestamp(addedAt.String)
+			d.AddedAt = time.Unix(addedAt.Int64, 0).UTC()
 		}
 		d.RelPath = strings.TrimPrefix(librarypath.NormalizeToPOSIX(d.Path), prefix)
 		if librarypath.IsRecoveryRelPath(rootPath, d.RelPath) {
@@ -432,7 +428,7 @@ func (r *Repository) DirAudioCounts(rootPath string, relPaths []string) (map[str
 	rows, err := r.db.Query(`
 		SELECT d.path,
 		       (SELECT COUNT(*) FROM entries f
-		         WHERE f.root_path = d.root_path AND f.is_dir = 0 AND `+subtreeSQL("f.path", "d.path")+` AND `+audioExtCond+`) AS audio_count
+		         WHERE f.root_path = d.root_path AND f.is_dir = 0 AND `+subtreeSQL("f.path", "d.path")+` AND f.is_audio = 1) AS audio_count
 		FROM entries d
 		WHERE d.is_dir = 1 AND d.path IN (`+strings.Join(placeholders, ", ")+`) AND d.root_path = ?
 	`, args...)

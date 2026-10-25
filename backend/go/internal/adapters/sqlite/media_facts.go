@@ -3,7 +3,6 @@ package sqlite
 import (
 	"fmt"
 	"runtime"
-	"time"
 
 	"github.com/Clementine33/preen/backend/internal/inventory"
 	"github.com/Clementine33/preen/backend/internal/library"
@@ -108,7 +107,7 @@ func (a *ScanStaging) UpdateEntryMediaFacts(updates []inventory.MediaFactsUpdate
 	stmt, err := tx.Prepare(`
 		UPDATE entries
 		SET width = COALESCE(?, width), height = COALESCE(?, height),
-			duration_sec = COALESCE(?, duration_sec), bitrate = COALESCE(?, bitrate), updated_at = ?
+			duration_sec = COALESCE(?, duration_sec), bitrate = COALESCE(?, bitrate)
 		WHERE path = ?
 	`)
 	if err != nil {
@@ -116,7 +115,6 @@ func (a *ScanStaging) UpdateEntryMediaFacts(updates []inventory.MediaFactsUpdate
 	}
 	defer stmt.Close()
 
-	now := time.Now().Format(timeFormat)
 	for _, u := range updates {
 		width, height, duration, bitrate := any(nil), any(nil), any(nil), any(nil)
 		if u.Width > 0 && u.Height > 0 {
@@ -128,7 +126,7 @@ func (a *ScanStaging) UpdateEntryMediaFacts(updates []inventory.MediaFactsUpdate
 		if u.Bitrate > 0 {
 			bitrate = u.Bitrate
 		}
-		if _, err := stmt.Exec(width, height, duration, bitrate, now, u.Path); err != nil {
+		if _, err := stmt.Exec(width, height, duration, bitrate, u.Path); err != nil {
 			return fmt.Errorf("update media facts %q: %w", u.Path, err)
 		}
 	}

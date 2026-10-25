@@ -24,7 +24,7 @@ func TestObservedAudioEntriesSpansTheWholeSubtree(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = repo.Close() })
 
-	now := time.Now().Format(time.RFC3339Nano)
+	now := time.Now().Unix()
 	for _, path := range []string{
 		"/music/a/01.mp3",
 		"/music/a/deep/02.mp3",
@@ -39,14 +39,13 @@ func TestObservedAudioEntriesSpansTheWholeSubtree(t *testing.T) {
 				RootPath:  filepath.Dir(path),
 				Format:    "mp3",
 				CreatedAt: now,
-				UpdatedAt: now,
 			},
 		)
 	}
 	inventoryfixture.SeedInventory(
 		t,
 		repo,
-		inventoryfixture.Row{Path: "/music/a/deep", RootPath: "/music/a", IsDir: true, CreatedAt: now, UpdatedAt: now},
+		inventoryfixture.Row{Path: "/music/a/deep", RootPath: "/music/a", IsDir: true, CreatedAt: now},
 	)
 
 	for _, tc := range []struct {

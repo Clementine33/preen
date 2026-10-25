@@ -49,8 +49,8 @@ func (a *ScanStaging) WriteStagingEntries(_ string, entries []inventory.StagingE
 
 	stmt, err := tx.Prepare(`
 		INSERT OR REPLACE INTO entries_staging (
-			session_id, path, root_path, parent_path, name, is_dir, is_work_root, size, mtime, format, operation
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'upsert')
+			session_id, path, root_path, parent_path, name, is_dir, is_work_root, size, mtime, format
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`)
 	if err != nil {
 		return fmt.Errorf("prepare staging insert: %w", err)
@@ -169,8 +169,8 @@ func (a *ScanStaging) WriteStagingBatch(sessionID string, batch []inventory.Stag
 
 	stmt, err := tx.Prepare(`
 		INSERT OR REPLACE INTO entries_staging (
-			session_id, path, root_path, parent_path, name, is_dir, is_work_root, size, mtime, format, operation
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'upsert')
+			session_id, path, root_path, parent_path, name, is_dir, is_work_root, size, mtime, format
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`)
 	if err != nil {
 		return fmt.Errorf("prepare staging insert: %w", err)

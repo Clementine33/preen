@@ -18,11 +18,7 @@ type Row struct {
 	Bitrate           *int32
 	Width, Height     *int
 	DurationSec       *float64
-	CreatedAt         string
-	// Legacy lifecycle fields support white-box tests until the unused states are removed.
-	ScanID, UpdatedAt  string
-	DirtyFlag, IsError int
-	ErrorReason        *string
+	CreatedAt         int64
 }
 
 // SeedInventory inserts rows and missing ancestor directories without replacing existing ancestors.
@@ -58,9 +54,9 @@ func SeedInventory(t testing.TB, repo interface{ DB() *sql.DB }, rows ...Row) {
 			row.ContentRev = 1
 		}
 		_, err = tx.Exec(
-			`INSERT INTO entries(path,root_path,parent_path,name,is_dir,is_work_root,size,mtime,format,content_rev,bitrate,width,height,duration_sec,created_at,scan_id,updated_at,dirty_flag,is_error,error_reason)
-			VALUES(?,?,?,?,?,?,?,?,NULLIF(?,''),?,?,?,?,?,COALESCE(NULLIF(?,''),CURRENT_TIMESTAMP),?,COALESCE(NULLIF(?,''),CURRENT_TIMESTAMP),?,?,?)
-			ON CONFLICT(path) DO UPDATE SET root_path=excluded.root_path,parent_path=excluded.parent_path,name=excluded.name,is_dir=excluded.is_dir,is_work_root=excluded.is_work_root,size=excluded.size,mtime=excluded.mtime,format=excluded.format,content_rev=excluded.content_rev,bitrate=excluded.bitrate,width=excluded.width,height=excluded.height,duration_sec=excluded.duration_sec,created_at=excluded.created_at,scan_id=excluded.scan_id,updated_at=excluded.updated_at,dirty_flag=excluded.dirty_flag,is_error=excluded.is_error,error_reason=excluded.error_reason`,
+			`INSERT INTO entries(path,root_path,parent_path,name,is_dir,is_work_root,size,mtime,format,content_rev,bitrate,width,height,duration_sec,created_at)
+			VALUES(?,?,?,?,?,?,?,?,NULLIF(?,''),?,?,?,?,?,COALESCE(NULLIF(?,0),unixepoch()))
+			ON CONFLICT(path) DO UPDATE SET root_path=excluded.root_path,parent_path=excluded.parent_path,name=excluded.name,is_dir=excluded.is_dir,is_work_root=excluded.is_work_root,size=excluded.size,mtime=excluded.mtime,format=excluded.format,content_rev=excluded.content_rev,bitrate=excluded.bitrate,width=excluded.width,height=excluded.height,duration_sec=excluded.duration_sec,created_at=excluded.created_at`,
 			row.Path,
 			row.RootPath,
 			parent,
@@ -76,11 +72,6 @@ func SeedInventory(t testing.TB, repo interface{ DB() *sql.DB }, rows ...Row) {
 			row.Height,
 			row.DurationSec,
 			row.CreatedAt,
-			row.ScanID,
-			row.UpdatedAt,
-			row.DirtyFlag,
-			row.IsError,
-			row.ErrorReason,
 		)
 		if err != nil {
 			t.Fatalf("seed inventory %s: %v", row.Path, err)

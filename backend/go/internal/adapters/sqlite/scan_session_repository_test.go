@@ -272,12 +272,23 @@ func TestRepository_InterruptStaleScanSessions(t *testing.T) {
 		t.Fatalf("complete scan: %v", err)
 	}
 
+	// Staging left by the dead scan and by a session already gone.
+	stageDir(t, repo, "scan-running", "/music", "RJ00000001 album")
+	stageDir(t, repo, "scan-deleted", "/music", "RJ00000002 album")
+
 	interrupted, err := repo.InterruptStaleScanSessions()
 	if err != nil {
 		t.Fatalf("InterruptStaleScanSessions: %v", err)
 	}
 	if interrupted != 3 {
 		t.Errorf("interrupted = %d, want 3", interrupted)
+	}
+	var staged int
+	if countErr := repo.DB().QueryRow("SELECT COUNT(*) FROM entries_staging").Scan(&staged); countErr != nil {
+		t.Fatal(countErr)
+	}
+	if staged != 0 {
+		t.Errorf("staging rows = %d, want every dead session's staging dropped", staged)
 	}
 
 	for _, status := range []string{"queued", "running", "merging"} {

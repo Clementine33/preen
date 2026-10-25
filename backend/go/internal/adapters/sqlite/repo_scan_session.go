@@ -73,15 +73,30 @@ func (r *Repository) UpdateScanSessionStatus(sessionID, status, errorCode, error
 // row would stay non-terminal forever: never eligible for cleanup, and
 // HasActiveScanForRoot would keep refusing planning and execution against its
 // root.
+//
+// No scan runs yet at startup, so every staging row belongs to a dead session,
+// including ones interrupted or deleted earlier; all of them are dropped.
 func (r *Repository) InterruptStaleScanSessions() (int64, error) {
-	result, err := r.db.Exec(`
+	tx, err := r.db.Begin()
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+	result, err := tx.Exec(`
 		UPDATE scan_sessions SET status = 'interrupted', error_code = 'INTERRUPTED', finished_at = ?
 		WHERE status IN ('queued','running','merging')
 	`, time.Now().Format(timeFormat))
 	if err != nil {
 		return 0, err
 	}
-	return result.RowsAffected()
+	if _, clearErr := tx.Exec("DELETE FROM entries_staging"); clearErr != nil {
+		return 0, clearErr
+	}
+	n, err := result.RowsAffected()
+	if err != nil {
+		return 0, err
+	}
+	return n, tx.Commit()
 }
 
 // ListScanSessionsByRoot returns scan sessions for a root.

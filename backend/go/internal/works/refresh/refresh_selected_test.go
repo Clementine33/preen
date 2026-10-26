@@ -2,27 +2,18 @@ package refresh_test
 
 import (
 	"context"
-	"path/filepath"
-	"slices"
 	"sync/atomic"
 	"testing"
-	"time"
 
 	"github.com/Clementine33/preen/backend/internal/works/refresh"
 	"github.com/Clementine33/preen/backend/internal/workset"
 )
 
 func TestMetadataWorkersAutomaticallyRefreshOnlyExecutedScope(t *testing.T) {
-	type scope struct {
-		root    string
-		folders []string
-	}
-	refreshed := make(chan scope, 1)
 	var calls atomic.Int32
-	svc, covers, _, root, names, libID, _ := worksetFixtureWithRefresh(
-		t, func(_ context.Context, root string, folders []string) error {
+	svc, covers, _, _, names, libID, _ := worksetFixtureWithRefresh(
+		t, func(context.Context, string, []string) error {
 			calls.Add(1)
-			refreshed <- scope{root, slices.Clone(folders)}
 			return nil
 		},
 	)
@@ -60,20 +51,10 @@ func TestMetadataWorkersAutomaticallyRefreshOnlyExecutedScope(t *testing.T) {
 	if err := covers.Cancel(t.Context(), result.ExecutionID); err != nil {
 		t.Fatal(err)
 	}
-	ctx, cancel := context.WithCancel(t.Context())
-	done := make(chan error, 1)
-	go func() { done <- covers.Run(ctx) }()
-	defer func() { cancel(); <-done }()
-	select {
-	case got := <-refreshed:
-		want := []string{filepath.ToSlash(filepath.Join(root, names[0]))}
-		if got.root != filepath.ToSlash(root) || !slices.Equal(got.folders, want) {
-			t.Fatalf("follow-up scope: %+v, want %s %v", got, root, want)
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("workers did not run the completion refresh")
+	if worked, err := covers.RefreshNext(t.Context()); !worked || err != nil {
+		t.Fatalf("canceled covers did not finish follow-up: %v %v", worked, err)
 	}
-	if worked, err := covers.RefreshNext(t.Context()); worked || err != nil || calls.Load() != 1 {
-		t.Fatalf("duplicate refresh: %v %v, calls %d", worked, err, calls.Load())
+	if worked, err := covers.RefreshNext(t.Context()); worked || err != nil || calls.Load() != 0 {
+		t.Fatalf("canceled covers scanned inventory: %v %v, calls %d", worked, err, calls.Load())
 	}
 }

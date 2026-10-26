@@ -24,7 +24,12 @@ func (e Executor) Run(ctx context.Context, in workset.BatchExecutionInput) error
 	if err := validateCommon(common); err != nil {
 		return err
 	}
-	defer e.scheduleInventoryRefresh(in)
+	queued := false
+	defer func() {
+		if queued {
+			e.scheduleInventoryRefresh(in)
+		}
+	}()
 	byCode := map[string][]workset.ExecutionUnit{}
 	targets := map[string][]coverdelivery.Target{}
 	codes := []string{}
@@ -62,6 +67,7 @@ func (e Executor) Run(ctx context.Context, in workset.BatchExecutionInput) error
 		}); err != nil {
 			return err
 		}
+		queued = true
 	}
 	if len(codes) == 0 {
 		return nil
@@ -86,6 +92,7 @@ func (e Executor) Run(ctx context.Context, in workset.BatchExecutionInput) error
 						Targets:     targets[code],
 					},
 				)
+				queued = queued || queueErr == nil
 			}
 			if err := reportWork(in, byCode[code], item, queueErr); err != nil {
 				return err

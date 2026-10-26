@@ -55,6 +55,10 @@ type Repository struct {
 	// pages list: work deletion, metadata, inventory merges and observations, renames and
 	// library removal or re-rooting. It must be quick and never call back in.
 	OnCatalogChanged func()
+
+	// OnMediaFactsNeeded wakes measurement after exact sync commits new or
+	// changed files. Like OnCatalogChanged, it must be quick and never call back in.
+	OnMediaFactsNeeded func()
 }
 
 func (r *Repository) catalogChanged() {

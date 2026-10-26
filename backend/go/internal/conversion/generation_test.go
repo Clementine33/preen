@@ -97,6 +97,14 @@ func TestGenerationRecordClosesTheLoop(t *testing.T) {
 		t.Fatalf("record = %+v", record)
 	}
 	assertRecordDescribesFile(t, record, target)
+	entry, found, err := repo.EntryByPath(filepath.ToSlash(target))
+	if err != nil || !found || (entry.Format != "audio/opus" && entry.Format != "audio/ogg") {
+		t.Fatalf("committed output facts = %+v, found = %v, err = %v", entry, found, err)
+	}
+	candidates, err := sqlite.NewScanStaging(repo).EntriesMissingMediaFacts("", 10)
+	if err != nil || len(candidates) != 1 || candidates[0].Path != filepath.ToSlash(target) {
+		t.Fatalf("output media candidates = %+v, err = %v", candidates, err)
+	}
 
 	// The loop closes: the next plan accepts the output on that record.
 	plan, err := conversion.Plan(t.Context(), repo, appconfig.NewReader(dir), media.ProbeBitrate, conversion.Input{

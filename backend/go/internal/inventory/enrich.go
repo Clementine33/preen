@@ -40,13 +40,14 @@ type BeginBackground func(stop func()) (release func(), err error)
 
 // MediaEnricher measures the media facts the inventory does not know yet -
 // image dimensions, audio duration, the bitrate of encoded audio - in the
-// background, after the scan that recorded the entries has completed (ADR 0013).
+// background, after scans or exact synchronization record entries (ADR 0013).
 // It never runs alongside a scan's walk or anything else the admission slot serializes: it holds the
 // preemptible slot, and whatever arrives stops it and waits for its last write.
 //
-// A pass runs only when kicked (a scan or member refresh merged, the process
-// started), so a file that cannot be measured is retried once per kick, never
-// in a loop. Unknown is a value, not a failure: the facts stay NULL.
+// A pass runs only when kicked (a scan or member refresh merged, exact file
+// synchronization changed files, or the process started), so a file that cannot
+// be measured is retried once per kick, never in a loop. Unknown is a value, not
+// a failure: the facts stay NULL.
 type MediaEnricher struct {
 	store  MediaFactsStore
 	prober MediaProber

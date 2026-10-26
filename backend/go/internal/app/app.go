@@ -167,7 +167,7 @@ type services struct {
 	// works is the logical work catalog the library's directories bind to.
 	works *works.Service
 	// mediaFacts measures the inventory's unknown media facts in the
-	// background, after scans (ADR 0013).
+	// background, after scans and exact file synchronization (ADR 0013).
 	mediaFacts *inventory.MediaEnricher
 	// worksChanged tells the root stream's readers that committed catalog
 	// changes (metadata, inventory, bindings) may alter what they list.
@@ -186,15 +186,16 @@ type services struct {
 // Library scans, manual member refresh and inventory-based tasks share one
 // pipeline. Direct file operations preserve inventory move identities before
 // refreshing; directory-only tasks bypass scans; covers synchronize exact file deltas
-// and metadata's completed cover queue triggers one selected batch reconciliation.
+// and metadata's completed cover queue repairs only inventory-sync failures in one scan.
 func buildServices(repo *sqlite.Repository, configDir, dataDir string) services {
 	worksChanged := &notify.Hub{}
 	repo.OnCatalogChanged = worksChanged.Notify
 	gate := admission.NewGate(repo.HasActiveSession)
 	// The background media pass holds the gate's preemptible slot, so it
-	// never reads alongside a scan's walk; every merge kicks it.
+	// never reads alongside a scan's walk; merges and changed-file syncs kick it.
 	prober := media.New("")
 	mediaFacts := inventory.NewMediaEnricher(sqlite.NewScanStaging(repo), prober, gate.BeginBackground)
+	repo.OnMediaFactsNeeded = mediaFacts.Kick
 	librarySvc := library.NewService(repo, gate, repo, filesystem.ResolveMember)
 	scanPipeline := inventory.NewPipeline(
 		sqlite.NewScanStaging(repo),

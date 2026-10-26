@@ -8,9 +8,5 @@ func (e Executor) scheduleInventoryRefresh(in workset.BatchExecutionInput) {
 	if e.Covers == nil {
 		return
 	}
-	folders := make([]string, 0, len(in.Units))
-	for _, unit := range in.Units {
-		folders = append(folders, unit.RootPath)
-	}
-	e.Covers.ScheduleRefresh(in.ExecutionID, in.LibraryRoot, folders)
+	e.Covers.ScheduleRefresh(in.ExecutionID, in.LibraryRoot)
 }

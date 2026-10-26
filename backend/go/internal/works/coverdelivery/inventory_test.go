@@ -103,6 +103,7 @@ func TestCoverInventoryRetryOnlyChangesPublishedAndRemovedCoverRows(t *testing.T
 		t.Fatalf("stale old row: %v %v", count, readErr)
 	}
 	for _, folder := range folders {
+		assertCoverMediaCandidate(t, repo, filepath.ToSlash(filepath.Join(folder, "cover.png")))
 		if count, readErr := repo.RootExistsInInventory(
 			filepath.ToSlash(filepath.Join(folder, "cover.png")),
 		); readErr != nil ||
@@ -114,6 +115,25 @@ func TestCoverInventoryRetryOnlyChangesPublishedAndRemovedCoverRows(t *testing.T
 		}
 	}
 	assertUnchangedCoverNeighbours(t, repo, audio, untouched, req.Targets[0].CopyID, bindingBefore)
+}
+
+func assertCoverMediaCandidate(t *testing.T, repo *sqlite.Repository, cover string) {
+	t.Helper()
+	entry, found, err := repo.EntryByPath(cover)
+	if err != nil || !found || entry.Format != "image/png" {
+		t.Fatalf("published cover facts: %+v found=%v err=%v", entry, found, err)
+	}
+	candidates, err := sqlite.NewScanStaging(repo).EntriesMissingMediaFacts("", 20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	candidate := false
+	for _, c := range candidates {
+		candidate = candidate || c.Path == cover
+	}
+	if !candidate {
+		t.Fatalf("published cover missing from media candidates: %+v", candidates)
+	}
 }
 
 func assertUnchangedCoverNeighbours(

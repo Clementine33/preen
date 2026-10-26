@@ -73,11 +73,16 @@ access no directories. Missing/name/type changes are `INPUT_CHANGED`, permission
 or I/O errors are `SCAN_FAILED` with diagnostics, and cancellation is `CANCELED`.
 The batch executes frozen RJ targets without post-import revalidation. After its
 execution and its own cover demands are terminal, a separate background job
-refreshes the actual selected inventory scope once; it also runs when no covers
-were requested. Empty executions schedule no refresh. This reconciliation does
-not change execution results or add HTTP/SSE fields; failures are logged
-independently. Pending refreshes are process-local and are not recovered after
-restart. See [metadata task lifecycle](tasks.md).
+rescans only target directories whose cover delivery reports
+`INVENTORY_REFRESH_FAILED`, deduplicated into one selected-range scan. An empty
+repair scope requests no file-operation admission or scan; batches without cover
+demands register no follow-up. This reconciliation does not change execution
+results or add HTTP/SSE fields; failures are logged independently without automatic
+retry. Pending repairs are process-local and are not recovered after restart.
+Actually published files can be discovered by a later Library Scan, subject to
+attribute-cache delay. Reusing an existing cover does not change directory mtime;
+an unrepaired inventory failure on that path needs a successful cover retry,
+member refresh or Full Rescan. See [metadata task lifecycle](tasks.md).
 
 Conversion fixes the tool configuration once per session. Actual encode work
 checks tools and their version once, then verifies each actual output container
@@ -251,8 +256,11 @@ container-specific picture handling.
 
 **Inventory sync.** After each component the observed disk changes are applied
 to the entries inventory for the affected paths only (removed sources lose
-their row, committed outputs are refreshed with the scan merge's `content_rev`
-semantics). A soft removal lands under
+their row, committed outputs receive their extension-derived format and the scan
+merge's `content_rev` semantics, clearing stale measured facts when size or mtime
+changes). After a successful sync with new or changed files, the background
+Media Facts Pass is woken to measure dimensions, duration and bitrate. A soft
+removal lands under
 `<work parent>/Delete/<work name>/<member-relative path>`, so a nested member
 `分类/RJ000001` recovers beside itself at `分类/Delete/RJ000001/…`.
 Recovery paths remain in the execution report; recovery files are excluded from

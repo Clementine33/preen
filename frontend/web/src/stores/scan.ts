@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { markRaw } from 'vue'
 import { ApiError } from '@/lib/api/client'
+import { errorDetails } from '@/lib/api/error'
 import type { ApiClientContract, ScanEvent, ScanMode } from '@/lib/api/types'
 
 export type ScanStatus = 'idle' | 'scanning' | 'completed' | 'cancelled' | 'error'
@@ -91,7 +92,7 @@ export const useScanStore = defineStore('scan', {
         } else {
           this.status = 'error'
           this.errorCode = error instanceof ApiError ? error.code : 'STREAM_ERROR'
-          this.errorMessage = error instanceof Error ? error.message : '扫描连接失败，请重试。'
+          this.errorMessage = errorDetails(error, '扫描连接失败，请重试。').message
         }
       } finally {
         if (this.controller === controller) this.controller = null

@@ -1312,6 +1312,7 @@ export interface ApiClientContract {
   putPreferences(input: UserPreferences): Promise<UserPreferences>
   getOutboundProxy(signal?: AbortSignal): Promise<OutboundProxy>
   putOutboundProxy(input: OutboundProxy): Promise<OutboundProxy>
+  downloadDiagnosticLog(): Promise<{ blob: Blob; filename: string }>
   previewCleanup(categories: CleanupCategory[]): Promise<CleanupPreview>
   startCleanup(categories: CleanupCategory[]): Promise<CleanupRun>
   getCleanup(signal?: AbortSignal): Promise<CleanupRun | null>

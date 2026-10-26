@@ -5,6 +5,7 @@ import GlobalMenu from '@/components/layout/GlobalMenu.vue'
 import { Button } from '@/components/ui/button'
 import { useApiClient } from '@/lib/api/client'
 import DataMaintenanceSettings from '@/features/settings/DataMaintenanceSettings.vue'
+import DiagnosticLogExport from '@/features/settings/DiagnosticLogExport.vue'
 import FormatPreferenceSettings from '@/features/settings/FormatPreferenceSettings.vue'
 import OutboundProxySettings from '@/features/settings/OutboundProxySettings.vue'
 import SettingsField from '@/features/settings/SettingsField.vue'
@@ -131,6 +132,9 @@ async function logout(): Promise<void> {
 
           <template v-else-if="section.id === 'maintenance'">
             <DataMaintenanceSettings />
+            <SettingsField id="diagnostic-log" label="诊断日志" hint="最近的后端运行日志，用于反馈问题；不含访问密钥，含媒体路径" class="mt-6">
+              <DiagnosticLogExport />
+            </SettingsField>
           </template>
 
           <template v-else-if="section.id === 'keys'">

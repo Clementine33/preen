@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { markRaw } from 'vue'
 import { ApiError } from '@/lib/api/client'
+import { errorDetails } from '@/lib/api/error'
 import type {
   ApiClientContract,
   ExecutionComponent,
@@ -140,7 +141,7 @@ export const useWorksetExecutionStore = defineStore('workset-execution', {
         } else {
           this.status = 'error'
           this.errorCode = error instanceof ApiError ? error.code : 'STREAM_ERROR'
-          this.errorMessage = error instanceof Error ? error.message : '执行进度连接失败。'
+          this.errorMessage = errorDetails(error, '执行进度连接失败。').message
         }
       } finally {
         if (this.controller === controller) this.controller = null

@@ -2,10 +2,9 @@ import { getCurrentInstance } from 'vue'
 import { useRouter } from 'vue-router'
 import { isCancelledError, type QueryClient } from '@tanstack/vue-query'
 import type { OperationType, Workset, Library, CurrentRecordResponse } from '@/lib/api/types'
-import { ApiError, useApiClient } from '@/lib/api/client'
+import { ApiError } from '@/lib/api/client'
 import { queryKeys } from '@/queries/query-keys'
-import { libraryListQueryOptions } from '@/queries/libraries'
-import { useTaskToast } from './use-task-toast'
+import { useTaskResultNotice } from './use-task-toast'
 import type { TaskTone } from '@/stores/task-toast'
 
 export type SessionIdentity = { worksetId: string; operation: OperationType; libraryId: string; libraryName: string }
@@ -16,9 +15,8 @@ const phases_ = { planning: '规划', execution: '执行', covers: '封面' }
 const routes = { conversion: 'conversion', rename: 'rename', metadata_refresh: 'metadata-refresh' }
 
 export function useWorksetObservation<T extends SessionIdentity>(queryClient: QueryClient, phase: 'planning' | 'execution' | 'covers', stop: () => void) {
-  const api = useApiClient()
   const router = useRouter()
-  const toast = useTaskToast()
+  const notice = useTaskResultNotice(queryClient)
   let phases = registries.get(queryClient)
   if (!phases) { phases = new Map(); registries.set(queryClient, phases) }
   let registry = phases.get(phase)
@@ -39,24 +37,12 @@ export function useWorksetObservation<T extends SessionIdentity>(queryClient: Qu
   }
   // Success and stopped are suppressed on the corresponding page; everything else always shows.
   function notify(entry: SessionIdentity, text: string, tone: TaskTone = 'unknown') {
-    const route = router.currentRoute.value
-    const corresponding = route.params.libraryId === entry.libraryId && route.matched.some(record => record.name === routes[entry.operation])
-    if (corresponding && (tone === 'success' || tone === 'stopped')) return
-    toast.show({ title: `${entry.libraryName} · ${labels[entry.operation]} · ${phases_[phase]}`, text, tone,
-      action: { label: '查看结果', run: () => { void viewResults() } } })
-    async function viewResults() {
-      try {
-        const libraries = await queryClient.fetchQuery({ ...libraryListQueryOptions(api), staleTime: 0 })
-        if (libraries.some(library => library.id === entry.libraryId)) {
-          await router.push({ name: phase === 'execution' && entry.operation === 'conversion' ? 'conversion-execution' : routes[entry.operation], params: { libraryId: entry.libraryId } })
-        } else {
-          await router.push({ name: 'worksets' })
-          toast.show({ title: entry.libraryName, text: '媒体库已移除，结果不可用', tone: 'unknown' })
-        }
-      } catch {
-        notify(entry, '无法确认媒体库是否可用，请重试')
-      }
-    }
+    notice({
+      libraryId: entry.libraryId, libraryName: entry.libraryName,
+      title: `${entry.libraryName} · ${labels[entry.operation]} · ${phases_[phase]}`, text, tone,
+      target: phase === 'execution' && entry.operation === 'conversion' ? 'conversion-execution' : routes[entry.operation],
+      quietOn: tone === 'success' || tone === 'stopped' ? [routes[entry.operation]] : [],
+    })
   }
   return { observations, identity, notify }
 }

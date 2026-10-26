@@ -69,7 +69,7 @@ async function toggleCollection(id: string, name: string): Promise<void> {
       await memberWrites.append(id, [rj])
       toast.show({ text: `已添加到 ${name}` })
     }
-  } catch (e) { toast.show({ text: e instanceof Error ? e.message : String(e) }) }
+  } catch (e) { toast.error(e) }
 }
 
 async function addToNewCollection(): Promise<void> {
@@ -79,7 +79,7 @@ async function addToNewCollection(): Promise<void> {
     const made = await manage.create(newCollectionName(collections.value))
     await memberWrites.append(made.id, [rj])
     toast.show({ text: `已新建 ${made.name} 并添加` })
-  } catch (e) { toast.show({ text: e instanceof Error ? e.message : String(e) }) }
+  } catch (e) { toast.error(e) }
 }
 
 // ── Listening Position: 继续 plays the saved track at its second; with nothing
@@ -96,7 +96,7 @@ async function clearListening(): Promise<void> {
   if (store.rj === null) return
   try {
     await player.clearListening(store.rj)
-  } catch (e) { toast.show({ text: e instanceof Error ? e.message : String(e) }) }
+  } catch (e) { toast.error(e) }
 }
 
 function saveNote(event: Event): void {

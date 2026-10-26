@@ -16,7 +16,8 @@ ARG VERSION
 COPY backend/go backend/go
 WORKDIR /src/backend/go
 RUN printf '%s\n' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$' \
-    && case "$VERSION" in *-dev) exit 1;; esac \
+    && prerelease="" && case "$VERSION" in *-*) prerelease="${VERSION#*-}";; esac \
+    && case ".$prerelease." in *.dev.*) exit 1;; esac \
     && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 mise exec go -- go build -trimpath -ldflags "-s -w -X main.version=$VERSION" -o /out/preen ./cmd/preen
 
 FROM alpine:3.24 AS media
@@ -24,38 +25,29 @@ FROM alpine:3.24 AS media
 RUN apk add --no-cache build-base pkgconf nasm curl xz gnupg lame-dev opus-dev zlib-dev zlib-static \
     && rm /usr/lib/libmp3lame.so /usr/lib/libz.so
 WORKDIR /build
-COPY mise.toml ./
-# FFmpeg release signing key: https://ffmpeg.org/download.html#releases
-ARG FFMPEG_SIGNING_KEY=FCF986EA15E6E293A5644F10B4322F04D67658D8
-# Keep this audio whitelist aligned with the encoder adapter; no video pipeline.
+COPY mise.toml /src/mise.toml
+COPY scripts/ffmpeg-source.sh scripts/ffmpeg-configure.sh /src/scripts/
 # The final check allows only musl and libopus as runtime libraries.
-RUN ffmpeg_version="$(sed -n 's/^ffmpeg = "\([^"]*\)"$/\1/p' mise.toml)" \
-    && test -n "$ffmpeg_version" \
-    && curl -fsSL "https://ffmpeg.org/releases/ffmpeg-${ffmpeg_version}.tar.xz" -o ffmpeg.tar.xz \
-    && curl -fsSL "https://ffmpeg.org/releases/ffmpeg-${ffmpeg_version}.tar.xz.asc" -o ffmpeg.tar.xz.asc \
-    && curl -fsSL https://ffmpeg.org/ffmpeg-devel.asc -o ffmpeg-devel.asc \
-    && export GNUPGHOME="$(mktemp -d)" \
-    && gpg --batch --quiet --import ffmpeg-devel.asc \
-    && gpg --batch --status-fd 1 --verify ffmpeg.tar.xz.asc ffmpeg.tar.xz \
-        | grep -Eq "^\[GNUPG:\] VALIDSIG .* ${FFMPEG_SIGNING_KEY}\$" \
-    && tar -xJf ffmpeg.tar.xz \
+RUN sh /src/scripts/ffmpeg-source.sh \
+    && ffmpeg_version="$(sed -n 's/^ffmpeg = "\([^"]*\)"$/\1/p' /src/mise.toml)" \
     && cd "ffmpeg-${ffmpeg_version}" \
-    && ./configure \
-        --prefix=/out --disable-everything --disable-autodetect \
-        --disable-shared --enable-static \
-        --disable-doc --disable-debug --disable-network --disable-avdevice --disable-swscale \
-        --enable-small --enable-libmp3lame --enable-libopus --enable-zlib \
-        --enable-protocol=file,pipe,fd \
-        --enable-demuxer=wav,flac,mp3,aac,mov,ogg \
-        --enable-muxer=wav,flac,mp3,ipod,opus,null \
-        --enable-decoder='pcm_*,flac,mp3,mp3float,aac,alac,opus,png,mjpeg' \
-        --enable-encoder=aac,flac,pcm_s16le,pcm_s24le,pcm_s32le,pcm_f32le,pcm_f64le,libmp3lame,libopus \
-        --enable-parser=aac,aac_latm,flac,mpegaudio,opus,png,mjpeg \
-        --enable-filter=aresample,aformat,anull \
+    && sh /src/scripts/ffmpeg-configure.sh \
     && make -j"$(getconf _NPROCESSORS_ONLN)" \
     && make install \
     && ! readelf -d /out/bin/ffmpeg /out/bin/ffprobe | sed -n 's/.*Shared library: \[\(.*\)\]/\1/p' \
         | grep -Evx 'libc\.musl-x86_64\.so\.1|libopus\.so\.0'
+
+FROM debian:13-slim AS media-windows
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential mingw-w64 pkg-config nasm curl ca-certificates xz-utils gnupg \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /build
+COPY mise.toml Dockerfile /src/
+COPY scripts/ffmpeg-source.sh scripts/ffmpeg-configure.sh scripts/build-windows-ffmpeg.sh /src/scripts/
+RUN sh /src/scripts/build-windows-ffmpeg.sh
+
+FROM scratch AS desktop-ffmpeg
+COPY --from=media-windows /out/ /
 
 FROM alpine:3.24
 RUN apk add --no-cache ca-certificates opus \

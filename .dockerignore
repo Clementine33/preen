@@ -1,4 +1,9 @@
 **
+!scripts/
+!scripts/ffmpeg-source.sh
+!scripts/ffmpeg-configure.sh
+!scripts/build-windows-ffmpeg.sh
+!Dockerfile
 !mise.toml
 !package.json
 !pnpm-lock.yaml

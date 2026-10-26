@@ -129,7 +129,7 @@ try {
   assert.equal((await fetch(`${base}/api/v1/libraries`, { headers: { Cookie: login.headers.get('set-cookie').split(';')[0] } })).status, 200)
   const version = (await api(base, '/health')).version
   assert.match(version, /^\d+\.\d+\.\d+/)
-  assert(!version.includes('-dev'))
+  assert(!version.includes('-') || !version.slice(version.indexOf('-') + 1).split('.').includes('dev'))
   const config = JSON.parse(command(['exec', name, 'cat', '/data/config.json']))
   const template = JSON.parse(readFileSync(new URL('../backend/go/internal/adapters/settings/config.json.template', import.meta.url), 'utf8'))
   assert.deepEqual(config, template, 'first boot must deliver the shared configuration template')

@@ -3,7 +3,7 @@ package coverdelivery
 import (
 	"context"
 	"errors"
-	"log"
+	"log/slog"
 	"sync"
 	"time"
 )
@@ -16,11 +16,11 @@ func (s *Service) Run(ctx context.Context) error {
 			for ctx.Err() == nil {
 				worked, err := s.ProcessNext(ctx)
 				if err != nil && ctx.Err() == nil {
-					log.Printf("covers: %v", err)
+					slog.Error("cover delivery failed", "err", err)
 				}
 				refreshed, refreshErr := s.RefreshNext(ctx)
 				if refreshErr != nil && ctx.Err() == nil {
-					log.Printf("metadata inventory refresh: %v", refreshErr)
+					slog.Error("metadata inventory refresh failed", "err", refreshErr)
 				}
 				worked = worked || refreshed
 				if !worked || err != nil {

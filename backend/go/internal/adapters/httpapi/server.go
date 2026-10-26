@@ -6,6 +6,7 @@ import (
 	"path"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/Clementine33/preen/backend/internal/cleanup"
 	"github.com/Clementine33/preen/backend/internal/collections"
@@ -33,6 +34,10 @@ type Dependencies struct {
 	Token       string
 	CORSOrigins []string
 	Version     string
+	// StartedAt and DiagnosticLog head and fill Log Export; DiagnosticLog
+	// returns the in-memory tail of the process's own log output.
+	StartedAt     time.Time
+	DiagnosticLog func() []byte
 	// WebRoot optionally serves the built application, confined to this directory.
 	WebRoot    *os.Root
 	Inventory  inventory.Service

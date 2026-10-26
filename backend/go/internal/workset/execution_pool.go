@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"runtime"
 	"sync"
 
@@ -417,10 +417,8 @@ func (s *sessionRun) reportFailedUnit(stop sessionStop) {
 		writeErr = s.recordUnit(stop.unit, entry, stop.open.prepared.Discard(stop.err), ExecutionUnit{})
 	}
 	if writeErr != nil {
-		log.Printf(
-			"execution %s: failed component %s could not be recorded: %v",
-			s.ex.ExecutionID, stop.unit.ID, writeErr,
-		)
+		slog.Error("failed component could not be recorded",
+			"execution_id", s.ex.ExecutionID, "component_id", stop.unit.ID, "err", writeErr)
 	}
 }
 
@@ -443,10 +441,8 @@ func (s *sessionRun) discardOpen(except *openUnit) {
 		// left to a terminal report that no longer exists. A failure is logged
 		// and the session still ends.
 		if err := s.persistEntry(entry, ExecutionUnit{}); err != nil {
-			log.Printf(
-				"execution %s: discarded component %s could not be recorded: %v",
-				s.ex.ExecutionID, unit.frozen.ID, err,
-			)
+			slog.Error("discarded component could not be recorded",
+				"execution_id", s.ex.ExecutionID, "component_id", unit.frozen.ID, "err", err)
 		}
 	}
 }

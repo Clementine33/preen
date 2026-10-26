@@ -3,6 +3,8 @@ package httpapi //nolint:testpackage // white-box tests exercise unexported inte
 import (
 	"bytes"
 	"errors"
+	"log"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -174,6 +176,36 @@ func TestRecoveryMiddlewareReturnsInternalEnvelope(t *testing.T) {
 	}
 	if got := recorder.Body.String(); got != `{"code":"INTERNAL","message":"internal server error"}` {
 		t.Fatalf("body = %q", got)
+	}
+}
+
+// The access log keeps the query out (it can carry access_token) and raises
+// only a server failure above debug.
+func TestRecoveryMiddlewareLogsRequestsWithoutQuery(t *testing.T) {
+	var logs bytes.Buffer
+	// SetDefault also redirects the log package, and restoring slog's own
+	// default does not undo that, so the log package is restored too.
+	previous, output, flags := slog.Default(), log.Writer(), log.Flags()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&logs, &slog.HandlerOptions{Level: slog.LevelDebug})))
+	t.Cleanup(func() { slog.SetDefault(previous); log.SetOutput(output); log.SetFlags(flags) })
+	for path, status := range map[string]int{"/ok": http.StatusOK, "/gone": http.StatusNotFound, "/fail": http.StatusBadGateway} {
+		handler := recoveryMiddleware(
+			http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(status) }),
+		)
+		handler.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, path+"?access_token=secret", nil))
+	}
+	got := logs.String()
+	if strings.Contains(got, "secret") {
+		t.Fatalf("query logged: %s", got)
+	}
+	for _, want := range []string{
+		`level=DEBUG msg="http request" method=GET path=/ok status=200`,
+		`level=DEBUG msg="http request" method=GET path=/gone status=404`,
+		`level=ERROR msg="http request" method=GET path=/fail status=502`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("missing %q in %s", want, got)
+		}
 	}
 }
 

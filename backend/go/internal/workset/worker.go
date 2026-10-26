@@ -2,7 +2,7 @@ package workset
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"strings"
 	"time"
 )
@@ -75,7 +75,7 @@ const claimRetryDelay = 50 * time.Millisecond
 // this worker, and the queue would stall until an unrelated session arrived.
 // The timer bounds that wait, and the failure is never silent.
 func (d *dispatcher) retryClaim(wake chan struct{}, err error) bool {
-	log.Printf("dispatcher: claim failed, retrying in %s: %v", claimRetryDelay, err)
+	slog.Warn("dispatcher claim failed", "retry_in", claimRetryDelay, "err", err)
 	timer := time.NewTimer(claimRetryDelay)
 	defer timer.Stop()
 	select {
@@ -265,5 +265,5 @@ func genIDNano(id string) string {
 }
 
 func logGenerationTerminalFailure(id string, err error) {
-	log.Printf("generation %s: terminal write failed: %v", id, err)
+	slog.Error("generation terminal write failed", "generation_id", id, "err", err)
 }

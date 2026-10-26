@@ -3,10 +3,12 @@ package httpapi
 import (
 	"crypto/subtle"
 	"encoding/base64"
-	"log"
+	"log/slog"
 	"net/http"
 	"net/url"
+	"runtime/debug"
 	"strings"
+	"time"
 )
 
 // authMiddleware accepts a Bearer header or browser cookie. An empty
@@ -101,6 +103,7 @@ type responseState struct {
 	http.ResponseWriter
 
 	wroteHeader bool
+	status      int
 }
 
 func (w *responseState) WriteHeader(status int) {
@@ -112,6 +115,7 @@ func (w *responseState) WriteHeader(status int) {
 		return
 	}
 	w.wroteHeader = true
+	w.status = status
 	w.ResponseWriter.WriteHeader(status)
 }
 
@@ -124,12 +128,18 @@ func (w *responseState) Write(payload []byte) (int, error) {
 
 func (w *responseState) Unwrap() http.ResponseWriter { return w.ResponseWriter }
 
+// recoveryMiddleware turns a panic into a 500 and writes the access log:
+// every request at debug and a 5xx at error; a 4xx stays at debug, since it is
+// an expected refusal. Only method, path, status and duration are logged; the
+// query and headers can carry the access key.
 func recoveryMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		state := &responseState{ResponseWriter: w}
+		started := time.Now()
 		defer func() {
 			if recovered := recover(); recovered != nil {
-				log.Printf("http panic: %v", recovered)
+				slog.Error("http panic", "method", r.Method, "path", r.URL.Path,
+					"panic", recovered, "stack", string(debug.Stack()))
 				if !state.wroteHeader {
 					writeJSON(
 						state,
@@ -137,7 +147,18 @@ func recoveryMiddleware(next http.Handler) http.Handler {
 						errorResponse{Code: "INTERNAL", Message: "internal server error"},
 					)
 				}
+				return
 			}
+			status := state.status
+			if status == 0 {
+				status = http.StatusOK
+			}
+			level := slog.LevelDebug
+			if status >= http.StatusInternalServerError {
+				level = slog.LevelError
+			}
+			slog.Log(r.Context(), level, "http request", "method", r.Method, "path", r.URL.Path,
+				"status", status, "duration_ms", time.Since(started).Milliseconds())
 		}()
 		next.ServeHTTP(state, r)
 	})

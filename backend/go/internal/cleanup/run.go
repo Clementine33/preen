@@ -2,7 +2,7 @@ package cleanup
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -62,7 +62,7 @@ func (s *Service) finalize(ctx context.Context, id, status, reason string) {
 		if err == nil {
 			return
 		}
-		log.Printf("cleanup finalization failed; retrying: %v", err)
+		slog.Warn("cleanup finalization failed, retrying", "err", err)
 		time.Sleep(250 * time.Millisecond)
 	}
 }

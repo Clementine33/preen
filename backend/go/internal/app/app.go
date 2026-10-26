@@ -8,7 +8,7 @@ package app
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/Clementine33/preen/backend/internal/adapters/coverhttp"
+	"github.com/Clementine33/preen/backend/internal/adapters/diaglog"
 	"github.com/Clementine33/preen/backend/internal/adapters/ffmpeg"
 	"github.com/Clementine33/preen/backend/internal/adapters/filesystem"
 	"github.com/Clementine33/preen/backend/internal/adapters/httpapi"
@@ -45,39 +46,46 @@ import (
 
 // Run starts the process: it opens the repository, assembles the services,
 // serves until ctx is done, and returns once everything it started has stopped.
-// Startup failures are fatal (log.Fatalf) so CI and dev surface them.
+// Startup failures are fatal so CI and dev surface them.
 func Run(ctx context.Context, cfg Config) {
-	if err := appconfig.SeedDefaults(cfg.ConfigDir); err != nil {
-		log.Fatalf("initial configuration: %v", err)
+	// Everything the process says goes to stdout as logfmt, next to the
+	// handshake line, and its recent tail stays in memory for Log Export.
+	logger, logTail, err := diaglog.New(os.Stdout, cfg.LogLevel)
+	if err != nil {
+		fatal("log configuration", err)
+	}
+	slog.SetDefault(logger)
+	if err = appconfig.SeedDefaults(cfg.ConfigDir); err != nil {
+		fatal("initial configuration", err)
 	}
 	server, err := appconfig.NewReader(cfg.ConfigDir).Server(cfg.Token, cfg.AllowLAN, cfg.Port)
 	if err != nil {
-		log.Fatalf("server configuration: %v", err)
+		fatal("server configuration", err)
 	}
 	var webRoot *os.Root
 	if cfg.WebDir != "" {
 		webRoot, err = os.OpenRoot(cfg.WebDir)
 		if err != nil {
-			log.Fatalf("web directory: %v", err)
+			fatal("web directory", err)
 		}
 		defer webRoot.Close()
 		index, openErr := webRoot.Open("index.html")
 		if openErr != nil {
-			log.Fatalf("web directory index.html: %v", openErr)
+			fatal("web directory index.html", openErr)
 		}
 		info, statErr := index.Stat()
 		_ = index.Close()
 		if statErr != nil || !info.Mode().IsRegular() {
-			log.Fatal("web directory must contain a readable index.html file")
+			fatal("web directory must contain a readable index.html file", statErr)
 		}
 	}
 	dbPath := filepath.Join(cfg.DataDir, "cache.db")
 	if ensureErr := sqlite.EnsureDBPath(dbPath); ensureErr != nil {
-		log.Fatalf("ensure db path: %v", ensureErr)
+		fatal("ensure db path", ensureErr)
 	}
 
 	if tempErr := sqlite.SetTempDirectory(cfg.DataDir); tempErr != nil {
-		log.Fatalf("SQLite temp directory: %v", tempErr)
+		fatal("sqlite temp directory", tempErr)
 	}
 
 	openRepository := sqlite.NewRepository
@@ -86,18 +94,25 @@ func Run(ctx context.Context, cfg Config) {
 	}
 	repo, err := openRepository(dbPath)
 	if err != nil {
-		log.Fatalf("open repository: %v", err)
+		fatal("open repository", err)
 	}
-
-	// Route std logger to stdout so host-side stdout drain also covers logs.
-	log.SetOutput(os.Stdout)
 
 	// Whether this database can give freed space back is worth one line at
 	// startup: the answer is fixed when the file is created, and reclamation
 	// cannot change it later (ADR 0001).
 	logAutoVacuumMode(ctx, repo)
 
-	runServer(ctx, repo, cfg, server, webRoot)
+	runServer(ctx, repo, cfg, server, webRoot, logTail)
+}
+
+// started is when this process began, as Log Export reports it.
+var started = time.Now()
+
+// fatal ends a startup that cannot continue; deferred cleanup is skipped, as
+// nothing it would release has been handed out yet.
+func fatal(msg string, err error) {
+	slog.Error(msg, "err", err)
+	os.Exit(1)
 }
 
 // Config is what the process is started with: where its data and configuration
@@ -107,9 +122,11 @@ type Config struct {
 	ConfigDir string
 	Token     string
 	Version   string
-	AllowLAN  *bool
-	Port      *int
-	WebDir    string
+	// LogLevel is PREEN_LOG_LEVEL; empty means info.
+	LogLevel string
+	AllowLAN *bool
+	Port     *int
+	WebDir   string
 }
 
 // ParseCORSOrigins splits a comma-separated allowlist into a slice, trimming
@@ -141,15 +158,12 @@ const (
 func logAutoVacuumMode(ctx context.Context, repo *sqlite.Repository) {
 	mode, err := repo.AutoVacuumMode(ctx)
 	if err != nil {
-		log.Printf("auto_vacuum probe failed: %v", err)
+		slog.Error("auto_vacuum probe failed", "err", err)
 		return
 	}
 	if mode != sqlite.AutoVacuumIncremental {
-		log.Printf(
-			"auto_vacuum=%d: reclaimed pages cannot be returned to the filesystem; "+
-				"point PREEN_DATA_DIR at a new directory for a database that can",
-			mode,
-		)
+		slog.Warn("database cannot return freed pages", "auto_vacuum", mode,
+			"hint", "point PREEN_DATA_DIR at a new directory for a database that can")
 	}
 }
 
@@ -233,7 +247,7 @@ func buildServices(repo *sqlite.Repository, configDir, dataDir string) services 
 		},
 	)
 	if err != nil {
-		log.Fatalf("cover delivery: %v", err)
+		fatal("cover delivery", err)
 	}
 	metadataExecutor := refresh.Executor{Metadata: metadataSvc, Covers: coverSvc}
 	renameTask := dirrename.New(repo, filesystem.ReadRenameDirectory, dirrename.ExecutionIO{
@@ -329,30 +343,31 @@ func coverInventorySync(
 // startCoverWorkers restores the persistent queue before accepting requests.
 func startCoverWorkers(ctx context.Context, service *coverdelivery.Service) <-chan struct{} {
 	if err := service.Recover(ctx); err != nil {
-		log.Fatalf("recover cover queue: %v", err)
+		fatal("recover cover queue", err)
 	}
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
 		if err := service.Run(ctx); err != nil && ctx.Err() == nil {
-			log.Printf("cover workers stopped: %v", err)
+			slog.Error("cover workers stopped", "err", err)
 		}
 	}()
 	return done
 }
 
 // runServer starts the HTTP listener and blocks until the process is killed.
-// Startup failures are fatal (log.Fatalf) so CI/dev surfaces them.
+// Startup failures are fatal so CI/dev surfaces them.
 func runServer(
 	ctx context.Context,
 	repo *sqlite.Repository,
 	cfg Config,
 	server appconfig.ServerConfig,
 	webRoot *os.Root,
+	logTail *diaglog.Tail,
 ) {
 	httpListener, err := net.Listen("tcp", server.ListenAddress())
 	if err != nil {
-		log.Fatalf("http listen: %v", err)
+		fatal("http listen", err)
 	}
 	httpPort := httpListener.Addr().(*net.TCPAddr).Port
 
@@ -364,7 +379,7 @@ func runServer(
 	// is marked interrupted before the dispatcher starts from an empty queue.
 	interruptStaleSessions(repo)
 	for _, err := range services.rename.RecoverInterrupted(ctx, repo) {
-		log.Printf("rename startup repair failed: %v", err)
+		slog.Error("rename startup repair failed", "err", err)
 	}
 	services.workset.DispatcherHandle().Start()
 
@@ -379,7 +394,7 @@ func runServer(
 		BatchRows: DefaultBatchRows, YieldDelay: DefaultYieldDelay,
 	})
 	if err := cleanupService.Recover(ctx); err != nil {
-		log.Fatalf("recover cleanup: %v", err)
+		fatal("recover cleanup", err)
 	}
 	cleanupDone := make(chan struct{})
 	go func() { <-ctx.Done(); cleanupService.Shutdown(); close(cleanupDone) }()
@@ -408,6 +423,8 @@ func runServer(
 		Token:          server.Token,
 		CORSOrigins:    ParseCORSOrigins(os.Getenv("PREEN_CORS_ORIGINS")),
 		Version:        cfg.Version,
+		StartedAt:      started,
+		DiagnosticLog:  logTail.Bytes,
 		WebRoot:        webRoot,
 		Inventory:      services.scan,
 		MediaFacts:     services.mediaFacts,
@@ -436,7 +453,7 @@ func runServer(
 	httpSrv.RegisterOnShutdown(cancelRequests)
 	go func() {
 		if err := httpSrv.Serve(httpListener); err != nil && err != http.ErrServerClosed && ctx.Err() == nil {
-			log.Fatalf("http serve: %v", err)
+			fatal("http serve", err)
 		}
 	}()
 
@@ -446,8 +463,9 @@ func runServer(
 	fmt.Println(BuildHandshakeLine(cfg.Version, httpPort))
 
 	// Block until killed
-	log.Printf("preen listening on http %s (data=%s)", httpListener.Addr(), cfg.DataDir)
+	slog.Info("preen listening", "addr", httpListener.Addr().String(), "data_dir", cfg.DataDir, "version", cfg.Version)
 	<-ctx.Done()
+	slog.Info("shutting down")
 	shutdownBackend(httpSrv, handlers, services.workset.DispatcherHandle(), map[string]<-chan struct{}{
 		"cleanup": cleanupDone, "maintenance": maintenanceDone, "media facts": mediaFactsDone, "covers": coversDone,
 	}, repo.Close, os.Exit)
@@ -462,20 +480,20 @@ func runServer(
 // re-encoded or re-deleted.
 func interruptStaleSessions(repo *sqlite.Repository) {
 	if err := repo.InterruptStaleGenerations(); err != nil {
-		log.Printf("interrupt stale generations failed: %v", err)
+		slog.Error("interrupt stale generations failed", "err", err)
 	}
 	if scans, err := repo.InterruptStaleScanSessions(); err != nil {
-		log.Printf("interrupt stale scan sessions failed: %v", err)
+		slog.Error("interrupt stale scan sessions failed", "err", err)
 	} else if scans > 0 {
-		log.Printf("interrupted %d stale scan session(s)", scans)
+		slog.Info("interrupted stale scan sessions", "count", scans)
 	}
 	n, err := repo.InterruptStaleExecutions()
 	if err != nil {
-		log.Printf("interrupt stale executions failed: %v", err)
+		slog.Error("interrupt stale executions failed", "err", err)
 		return
 	}
 	if n > 0 {
-		log.Printf("interrupted %d stale execution session(s)", n)
+		slog.Info("interrupted stale execution sessions", "count", n)
 	}
 }
 
@@ -491,7 +509,7 @@ func DrainHTTPServer(
 	select {
 	case err := <-done:
 		if err != nil {
-			log.Printf("http shutdown: %v", err)
+			slog.Error("http shutdown", "err", err)
 		}
 		if ctx.Err() != nil {
 			_ = httpClose()

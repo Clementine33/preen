@@ -210,7 +210,7 @@ func (c *logCapture) rowsDeletedPerPass(t *testing.T) []int {
 	defer c.mu.Unlock()
 	var counts []int
 	for line := range strings.SplitSeq(c.text.String(), "\n") {
-		if !strings.Contains(line, "maintenance: complete=") {
+		if !strings.Contains(line, "maintenance pass") {
 			continue
 		}
 		_, rest, found := strings.Cut(line, "deleted_retention_rows=")

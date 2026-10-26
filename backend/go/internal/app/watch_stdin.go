@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
-	"log"
+	"log/slog"
 )
 
 // WatchStdinEOF requests graceful shutdown when a host closes its stdin pipe.
@@ -27,7 +27,7 @@ func WatchStdinEOF(ctx context.Context, stdin io.Reader, cancel context.CancelFu
 			return
 		}
 		if err != nil {
-			log.Printf("stdin watcher read error: %v", err)
+			slog.Error("stdin watcher read failed", "err", err)
 			return
 		}
 		if n == 0 {

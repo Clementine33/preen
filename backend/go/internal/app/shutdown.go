@@ -2,7 +2,7 @@ package app
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"net/http"
 	"slices"
 	"sync"
@@ -97,10 +97,13 @@ func shutdownBackend(
 		}
 		pendingMu.Unlock()
 		slices.Sort(remaining)
-		log.Printf(
-			"forced shutdown timeout: pending=%v dispatcher=%v handlers=%v",
+		slog.Error(
+			"forced shutdown timeout",
+			"pending",
 			remaining,
+			"dispatcher",
 			dispatcher,
+			"handlers",
 			handlers.pending(),
 		)
 		defer close(forcedDone)
@@ -115,7 +118,7 @@ func shutdownBackend(
 	joined.Go(func() { <-handlerDone; markDone("handlers") })
 	joined.Go(func() {
 		if err := dispatcher.Stop(ctx); err != nil {
-			log.Printf("shutdown: %v", err)
+			slog.Error("dispatcher stop failed", "err", err)
 			return
 		}
 		markDone("dispatcher")
@@ -138,7 +141,7 @@ func shutdownBackend(
 		return
 	}
 	if err := closeDB(); err != nil {
-		log.Printf("close repository: %v", err)
+		slog.Error("close repository", "err", err)
 	}
 	markDone("database")
 	forcedExit.Stop()

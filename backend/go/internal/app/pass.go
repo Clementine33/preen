@@ -2,7 +2,7 @@ package app
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"time"
 
 	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
@@ -39,11 +39,11 @@ func (l *Loop) pass(ctx context.Context) bool {
 	}
 
 	freeAfter, _, _ := l.size(ctx)
-	log.Printf(
-		"maintenance: complete=%t deleted_retention_rows=%d reclaimed_pages=%d "+
-			"freelist=%d->%d pages=%d page_size=%d wal(busy=%d frames=%d copied=%d) elapsed_ms=%d",
-		complete, deleted, reclaimed, freeBefore, freeAfter, pages, pageSize,
-		walBusy, walFrames, walCopied, time.Since(started).Milliseconds(),
+	slog.Info("maintenance pass",
+		"complete", complete, "deleted_retention_rows", deleted, "reclaimed_pages", reclaimed,
+		"freelist_before", freeBefore, "freelist_after", freeAfter, "pages", pages, "page_size", pageSize,
+		"wal_busy", walBusy, "wal_frames", walFrames, "wal_copied", walCopied,
+		"elapsed_ms", time.Since(started).Milliseconds(),
 	)
 	return complete
 }
@@ -63,7 +63,7 @@ func (l *Loop) deleteBatches(
 	for batch := 0; ; batch++ {
 		stats, err := l.repo.RunRetentionCleanupBatch(ctx, scanCutoff, generationCutoff, l.opts.BatchRows)
 		if err != nil {
-			log.Printf("maintenance: retention batch failed: %v", err)
+			slog.Error("maintenance retention batch failed", "err", err)
 			return deleted, false
 		}
 		rows := stats.DeletedScanSessions + stats.DeletedGenerations + stats.DeletedGenerationRecords
@@ -97,21 +97,23 @@ func (l *Loop) reclaimPages(ctx context.Context, s *slot) (int, bool) {
 
 	mode, err := l.repo.AutoVacuumMode(ctx)
 	if err != nil {
-		log.Printf("maintenance: auto_vacuum probe failed: %v", err)
+		slog.Error("maintenance auto_vacuum probe failed", "err", err)
 		return 0, false
 	}
 	if mode != sqlite.AutoVacuumIncremental {
-		log.Printf(
-			"maintenance: not reclaiming: the database was created with auto_vacuum=%d, and only an "+
-				"incremental one can return free pages; point PREEN_DATA_DIR at a new directory to get that",
+		slog.Warn(
+			"maintenance not reclaiming",
+			"auto_vacuum",
 			mode,
+			"hint",
+			"only an incremental database can return free pages; point PREEN_DATA_DIR at a new directory to get that",
 		)
 		return 0, true
 	}
 
 	free, err := l.repo.FreePageCount(ctx)
 	if err != nil {
-		log.Printf("maintenance: read freelist failed: %v", err)
+		slog.Error("maintenance read freelist failed", "err", err)
 		return 0, false
 	}
 	reclaimed := 0
@@ -124,7 +126,7 @@ func (l *Loop) reclaimPages(ctx context.Context, s *slot) (int, bool) {
 		}
 		moved, err := l.repo.ReclaimFreePages(ctx, l.opts.VacuumPages)
 		if err != nil {
-			log.Printf("maintenance: reclaim failed: %v", err)
+			slog.Error("maintenance reclaim failed", "err", err)
 			return reclaimed, false
 		}
 		reclaimed += moved
@@ -135,7 +137,7 @@ func (l *Loop) reclaimPages(ctx context.Context, s *slot) (int, bool) {
 			return reclaimed, true
 		}
 		if free, err = l.repo.FreePageCount(ctx); err != nil {
-			log.Printf("maintenance: read freelist failed: %v", err)
+			slog.Error("maintenance read freelist failed", "err", err)
 			return reclaimed, false
 		}
 	}
@@ -153,7 +155,7 @@ func (l *Loop) checkpointWAL(ctx context.Context, s *slot) (busy, frames, copied
 	}
 	busy, frames, copied, err := l.repo.CheckpointWAL(ctx)
 	if err != nil {
-		log.Printf("maintenance: checkpoint failed: %v", err)
+		slog.Error("maintenance checkpoint failed", "err", err)
 		return 0, 0, 0, false
 	}
 	return busy, frames, copied, true
@@ -164,13 +166,13 @@ func (l *Loop) checkpointWAL(ctx context.Context, s *slot) (busy, frames, copied
 func (l *Loop) size(ctx context.Context) (free, pages, pageSize int) {
 	var err error
 	if free, err = l.repo.FreePageCount(ctx); err != nil {
-		log.Printf("maintenance: read freelist failed: %v", err)
+		slog.Error("maintenance read freelist failed", "err", err)
 	}
 	if pages, err = l.repo.PageCount(ctx); err != nil {
-		log.Printf("maintenance: read page count failed: %v", err)
+		slog.Error("maintenance read page count failed", "err", err)
 	}
 	if pageSize, err = l.repo.PageSize(ctx); err != nil {
-		log.Printf("maintenance: read page size failed: %v", err)
+		slog.Error("maintenance read page size failed", "err", err)
 	}
 	return free, pages, pageSize
 }

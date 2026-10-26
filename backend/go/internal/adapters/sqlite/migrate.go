@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"io/fs"
-	"log"
+	"log/slog"
 
 	"github.com/pressly/goose/v3"
 )
@@ -38,7 +38,7 @@ func migrateRelease(db *sql.DB, dbPath string, migrations fs.FS) error {
 		if err != nil {
 			return fmt.Errorf("backup before migration: %w", err)
 		}
-		log.Printf("database backup before migration %d -> %d: %s", current, target, backup)
+		slog.Info("database backup before migration", "from", current, "to", target, "backup", backup)
 	}
 	if _, err := provider.Up(ctx); err != nil {
 		return fmt.Errorf("migrate %s to %d: %w", dbPath, target, err)

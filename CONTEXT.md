@@ -369,3 +369,13 @@ _Avoid_: Workset Operation when referring to a file change.
 
 **Reconciliation**:
 Comparison of observed variants with their Desired Audio Profile to produce Decisions and required Operations under the chosen Conversion Mode.
+
+### Operations and diagnostics
+
+**Diagnostic Log**:
+The running service's own account of what it did and what went wrong, written for whoever operates or debugs the deployment. It is never read back to show business state: a failed scan, plan or execution is told by its own session or processing record, and the Diagnostic Log only adds why. It does not survive a restart inside the application; the container or desktop host that captured the output keeps the older lines.
+_Avoid_: Log for a processing record, execution result or listening history; treating it as an audit trail.
+
+**Log Export**:
+A file of the recent Diagnostic Log that the user downloads from the application to attach to a bug report. It is a snapshot to hand over, not a place to browse or search.
+_Avoid_: Log viewer.

@@ -5,7 +5,8 @@
 ## Startup handshake
 
 On startup the backend unconditionally prints one readiness line to stdout
-(alongside ordinary logs). It contains no credentials:
+(alongside the [Diagnostic Log](diagnostics.md#output), whose lines are
+logfmt). It is the only line not written as logfmt and contains no credentials:
 
 ```
 PREEN_BACKEND_READY version=%s http_port=%d

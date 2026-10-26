@@ -6,7 +6,8 @@ package main
 import (
 	"context"
 	"flag"
-	"log"
+	"fmt"
+	"log/slog"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -26,7 +27,9 @@ func main() {
 	webDir := flag.String("web-dir", "", "serve the built web application from this directory")
 	flag.Parse()
 	if flag.NArg() != 0 {
-		log.Fatal("unexpected positional arguments")
+		// A usage error, like the ones flag itself reports.
+		fmt.Fprintln(os.Stderr, "unexpected positional arguments")
+		os.Exit(2)
 	}
 	var allowLANOverride *bool
 	var portOverride *int
@@ -61,8 +64,9 @@ func main() {
 	// wherever it is unpacked; PREEN_DATA_DIR overrides it.
 	exePath, err := os.Executable()
 	if err != nil {
+		slog.Error("cannot find executable path", "err", err)
 		//nolint:gocritic // a process that cannot locate itself exits, deferred cleanup and all
-		log.Fatalf("cannot find executable path: %v", err)
+		os.Exit(1)
 	}
 	// Executable is at backend/go/bin/preen[.exe]; the data
 	// directory is the project root, three levels up.
@@ -78,6 +82,7 @@ func main() {
 		ConfigDir: dataDir,
 		Token:     os.Getenv("PREEN_TOKEN"),
 		Version:   version,
+		LogLevel:  os.Getenv("PREEN_LOG_LEVEL"),
 		AllowLAN:  allowLANOverride,
 		Port:      portOverride,
 		WebDir:    *webDir,

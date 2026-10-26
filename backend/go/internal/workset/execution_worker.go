@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"time"
 )
 
@@ -252,10 +252,8 @@ func (d *dispatcher) executeRun(ex *PlanExecution) {
 			// teardown leaves the component's real facts unpersisted rather
 			// than inventing them.
 			code, message := taskFailureOf(writeErr)
-			log.Printf(
-				"execution %s: component %s committed but its result could not be persisted: %v",
-				ex.ExecutionID, head.frozen.ID, writeErr,
-			)
+			slog.Error("committed component result could not be persisted",
+				"execution_id", ex.ExecutionID, "component_id", head.frozen.ID, "err", writeErr)
 			session.stopAfterHead(
 				ExecStatusFailed,
 				code,
@@ -432,7 +430,7 @@ func (d *dispatcher) persistUnitResult(
 func (d *dispatcher) finishExecution(ex *PlanExecution, status, code, message string) {
 	err := d.svc.repo.FinishExecution(ex.ExecutionID, status, code, message)
 	if err != nil {
-		log.Printf("execution %s: terminal write failed (status=%s): %v", ex.ExecutionID, status, err)
+		slog.Error("execution terminal write failed", "execution_id", ex.ExecutionID, "status", status, "err", err)
 	}
 }
 

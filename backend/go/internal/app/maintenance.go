@@ -16,7 +16,7 @@ package app
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"time"
 
 	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
@@ -178,7 +178,7 @@ func (s *slot) hold() bool {
 	release, err := s.acquire()
 	if err != nil {
 		if !admission.IsBusy(err) {
-			log.Printf("maintenance: admission check failed: %v", err)
+			slog.Error("maintenance admission check failed", "err", err)
 		}
 		return false
 	}

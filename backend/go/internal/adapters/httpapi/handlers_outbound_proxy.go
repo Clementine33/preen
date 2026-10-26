@@ -2,12 +2,14 @@ package httpapi
 
 import "net/http"
 
-// settingsRoutes registers the server-synced single-user settings.
+// settingsRoutes registers the server-synced single-user settings and the
+// Settings page's Log Export.
 func (s *Server) settingsRoutes(mux *http.ServeMux, protect func(http.Handler) http.Handler) {
 	mux.Handle("GET /api/v1/preferences", protect(http.HandlerFunc(s.getPreferences)))
 	mux.Handle("PUT /api/v1/preferences", protect(http.HandlerFunc(s.putPreferences)))
 	mux.Handle("GET /api/v1/outbound-proxy", protect(http.HandlerFunc(s.getOutboundProxy)))
 	mux.Handle("PUT /api/v1/outbound-proxy", protect(http.HandlerFunc(s.putOutboundProxy)))
+	mux.Handle("GET /api/v1/diagnostics/log", protect(http.HandlerFunc(s.getDiagnosticLog)))
 }
 
 // getOutboundProxy handles GET /api/v1/outbound-proxy.

@@ -7,7 +7,7 @@ import { redirectToLogin } from './app/auth-navigation'
 import { ApiClient, ApiError, apiClientKey } from './lib/api/client'
 import { useToast } from './composables/use-toast'
 import { desktopAdapterKey } from './lib/desktop/desktop-adapter'
-import { createDesktopAdapter } from './lib/desktop/web-adapter'
+import { createDesktopAdapter } from './lib/desktop/host-adapter'
 import { createAppQueryClient } from './queries/query-client'
 import './style.css'
 
@@ -26,7 +26,7 @@ async function bootstrap() {
   window.addEventListener('pageshow', (event) => {
     if (event.persisted) location.reload()
   })
-  const desktopAdapter = createDesktopAdapter()
+  const desktopAdapter = await createDesktopAdapter()
   const apiClient = new ApiClient({
     ...await desktopAdapter.resolveApi(),
     onUnauthorized: desktopAdapter.platform === 'browser' ? redirectToLogin : undefined,

@@ -1,10 +1,10 @@
-Status: Draft — 2026-10-21
+Status: Draft — 2026-10-26
 
 # 0016 歌词窗口的宿主：Document PiP 与桌面壳接缝
 
 ## 背景
 
-Lyrics Window（见 [CONTEXT.md](../../CONTEXT.md)）要在任何页面跟随正在播放曲目的 Timed Lyrics，并能控制播放器。浏览器侧没有一种悬浮窗口能同时覆盖所有引擎；桌面壳尚未选定（倾向 Wails v3，Tauri 为备选），但两者的多窗口都是独立 webview，与主页面不共享 JS realm。
+Lyrics Window（见 [CONTEXT.md](../../CONTEXT.md)）要在任何页面跟随正在播放曲目的 Timed Lyrics，并能控制播放器。浏览器侧没有一种悬浮窗口能同时覆盖所有引擎；桌面壳选用 Wails v3，其多窗口都是独立 webview，与主页面不共享 JS realm。
 
 ## 决定
 
@@ -25,4 +25,5 @@ Lyrics Window（见 [CONTEXT.md](../../CONTEXT.md)）要在任何页面跟随正
 
 - 非 Chromium 浏览器用户没有 Lyrics Window。
 - 桌面壳落地时需要：一个承载窗口组件的入口、主窗口到窗口的快照推送与命令回传通道；契约本身不变。
+- Wayland 没有窗口置顶协议，Linux 桌面壳的 Lyrics Window 不能保证悬浮在其他窗口之上。
 - 若改为支持 Safari 或放宽契约（例如窗口内跳转、键盘控制），重新评估本记录。

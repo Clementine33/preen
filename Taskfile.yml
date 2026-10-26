@@ -39,6 +39,18 @@ tasks:
     cmds:
       - node scripts/dev-web.mjs
 
+  desktop:dev:
+    desc: Build and run the Desktop Shell with isolated development data
+    cmds:
+      - node scripts/build-desktop.mjs --dev
+
+  desktop:build:
+    desc: Build desktop release binaries and web assets (RAW_TAG=vX.Y.Z)
+    env:
+      RAW_TAG: '{{.RAW_TAG}}'
+    cmds:
+      - node scripts/build-desktop.mjs
+
   db:rebuild:dev:
     desc: Back up and rebuild .dev_data/cache.db; stop the development backend first
     dir: backend/go

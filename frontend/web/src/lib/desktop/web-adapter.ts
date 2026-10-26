@@ -70,7 +70,3 @@ export class WebDesktopAdapter implements DesktopAdapter {
     return close
   }
 }
-
-export function createDesktopAdapter(): DesktopAdapter {
-  return new WebDesktopAdapter()
-}

@@ -2,6 +2,7 @@
 
 ## Scope
 - When changing backend code, apply [backend/go/AGENTS.md](backend/go/AGENTS.md); when changing web code, apply [frontend/web/AGENTS.md](frontend/web/AGENTS.md). Cross-stack changes apply both.
+- When changing the Desktop Shell, apply [desktop/AGENTS.md](desktop/AGENTS.md).
 - `scripts/dev-web.mjs` starts the backend and Vite together; `PREEN_DATA_DIR` defaults to `<repo>/.dev_data`.
 
 ## Documentation responsibilities

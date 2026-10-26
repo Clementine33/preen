@@ -179,16 +179,23 @@ does not revalidate directories/inventory after importing metadata.
 
 After the batch has stopped enqueueing covers and its execution is terminal,
 an independent background refresh waits for this execution's cover demands to
-be terminal (`succeeded`, `skipped`, `failed`, or `canceled`). It then reconciles
-only the actual executed folder scope, including frozen skips, using bounded
-parallel folder walks (the built-in default of 32), one staging writer and one
-selected-range merge. Unselected inventory and bindings are preserved. No covers
-or disabled cover downloading does not prevent this refresh; empty executions
-do not schedule it. It waits for file-operation admission, not unrelated cover
+be terminal (`succeeded`, `skipped`, `failed`, or `canceled`). It then collects
+only target directories whose delivery reports `INVENTORY_REFRESH_FAILED`, for
+both newly published and reused existing covers, and deduplicates them into one
+scan. The scan uses bounded parallel folder walks (the built-in default of 32),
+one staging writer and one selected-range merge. Inventory and bindings outside
+that repair scope are preserved. An empty scope requests no file-operation
+admission and creates no scan session. Batches without cover demands register no
+follow-up. Download failures, publication failures and cancellations alone do not
+trigger scans. A repair waits for file-operation admission, not unrelated cover
 downloads. Scan failures are logged and do not change metadata or cover results;
-there is no automatic scan retry. Pending completion refreshes are process-local
-and do not resume after backend restart. Explicit cover retries do not schedule
-another completion scan; they retain normal incremental inventory updates.
+there is no automatic scan retry. Pending repairs are process-local and do not
+resume after backend restart. Actually published files can be discovered by a
+later Library Scan because publication changes directory mtime, subject to
+attribute-cache delay. Reusing an existing cover does not change directory mtime;
+an unrepaired inventory failure on that path needs a successful cover retry,
+member refresh or Full Rescan. Explicit cover retries do not schedule another
+completion scan; they retain normal exact inventory updates.
 
 Execution deduplicates upstream metadata by RJ and retains every selected copy
 as a cover target. Per-work source failures continue; database failures or

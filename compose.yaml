@@ -7,6 +7,7 @@ services:
       - "127.0.0.1:8765:8765" # Replace with your NAS LAN address for LAN access.
     environment:
       PREEN_TOKEN: ${PREEN_TOKEN:?Set PREEN_TOKEN in .env}
+      # PREEN_LOG_LEVEL: debug # debug | info (default) | warn | error
     volumes:
       - ./data:/data
       - /srv/media/audio:/media/audio
@@ -18,4 +19,9 @@ services:
     security_opt:
       - no-new-privileges:true
     stop_grace_period: 30s
+    logging: # Docker's default json-file driver never rotates.
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     restart: unless-stopped

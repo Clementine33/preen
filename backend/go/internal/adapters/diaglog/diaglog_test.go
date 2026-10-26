@@ -48,8 +48,44 @@ func TestTailKeepsNewestWholeLinesWithinCapacity(t *testing.T) {
 	}
 }
 
-func TestNewRefusesUnknownLevel(t *testing.T) {
-	if _, _, err := diaglog.New(&bytes.Buffer{}, "verbose"); err == nil {
-		t.Fatal("verbose accepted")
+// Dropping makes exactly the room the new line needs: a cut that already falls
+// on a line boundary costs no extra line.
+func TestTailDropsOnlyTheOldestLinesItMust(t *testing.T) {
+	line := func(c byte) []byte { return append(bytes.Repeat([]byte{c}, 1<<20-1), '\n') }
+	tail := &diaglog.Tail{}
+	for _, c := range []byte("abc") {
+		_, _ = tail.Write(line(c))
+	}
+	if got := tail.Bytes(); !bytes.Equal(got, append(line('b'), line('c')...)) {
+		t.Fatalf("kept %d bytes starting %q, want the last two lines", len(got), got[:1])
+	}
+}
+
+func TestTailSkipsALineLargerThanItself(t *testing.T) {
+	tail := &diaglog.Tail{}
+	_, _ = tail.Write([]byte("kept\n"))
+	if n, err := tail.Write(append(bytes.Repeat([]byte{'x'}, 20<<20), '\n')); n != 20<<20+1 || err != nil {
+		t.Fatalf("write = %d, %v", n, err)
+	}
+	if got := string(tail.Bytes()); got != "kept\n" {
+		t.Fatalf("tail = %.20q", got)
+	}
+}
+
+func TestNewAcceptsOnlyTheFourLevels(t *testing.T) {
+	for _, level := range []string{"verbose", "ERROR+1", "info-4", "0"} {
+		if _, _, err := diaglog.New(&bytes.Buffer{}, level); err == nil {
+			t.Fatalf("%q accepted", level)
+		}
+	}
+	var out bytes.Buffer
+	logger, _, err := diaglog.New(&out, "ERROR")
+	if err != nil {
+		t.Fatal(err)
+	}
+	logger.Warn("hidden")
+	logger.Error("shown")
+	if got := out.String(); strings.Contains(got, "hidden") || !strings.Contains(got, "shown") {
+		t.Fatalf("output = %q", got)
 	}
 }

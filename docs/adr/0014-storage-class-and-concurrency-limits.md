@@ -31,5 +31,5 @@ Status: Draft — 2026-10-18
 - 媒体库存储档及按档推导已接入后端。编码会话在 worker 开始处理时、预检之前固定宽度；排队期间的档位修改会被尚未开始处理的会话读取。
 - 旧 `scan.workers`、`execute.max_io_workers` 与 `workset.generation_concurrency` 配置读取已移除；配置文件中遗留这些键会被忽略。
 - 未测前台响应性：CPU 余量比例只在 6 核 12 线程机器上验证过，后台任务是否需要更大余量待测；无超线程、大小核等拓扑未测。
-- 本地机械盘冷缓存下 32 个扫描 worker 是否因寻道变慢未测，若要让扫描参与档位须先补测。
-- 测量数据与初始常量依据参见 [ssd-concurrency-measurement.md](../issues/ssd-concurrency-measurement.md) 与 [adr-performance-evidence.md](../issues/adr-performance-evidence.md)。
+- 直连机械盘冷缓存实测中，单线程遍历比 32 个扫描 worker 慢 2.1 倍；按 inode 排序没有收益，扫描保持统一 32 个 worker。
+- 测量数据与初始常量依据参见 [ssd-concurrency-measurement.md](../issues/ssd-concurrency-measurement.md)、[library-rescan-measurement.md](../issues/library-rescan-measurement.md) 与 [adr-performance-evidence.md](../issues/adr-performance-evidence.md)。

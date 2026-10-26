@@ -19,7 +19,7 @@
 | [0011](0011-development-schema-and-release-migrations.md) | 开发 schema、当前未发布基线与旧发布库边界 | Draft |
 | [0012](0012-metadata-refresh-and-directory-rename-planning.md) | 元数据刷新、外部父链报告、目录重命名与修复、封面投递、需求生命周期及下载回收（有效父链报告补抓已实现） | Draft |
 | [0013](0013-derived-media-thumbnails-content-and-facts.md) | 派生媒体：缩略图、文件内容分发与后台媒体事实 | Draft |
-| [0014](0014-storage-class-and-concurrency-limits.md) | 存储档与并发上限 | Draft |
+| [0014](0014-storage-class-and-concurrency-limits.md) | 存储档与并发上限（冷机械盘实测保持 32 个扫描 worker，inode 排序无收益） | Draft |
 | [0015](0015-deployment-and-credentials.md) | 部署形态与凭证投递 | Draft |
 | [0016](0016-lyrics-window-hosting.md) | 歌词窗口的宿主：Document PiP 与桌面壳接缝 | Draft |
 | [0017](0017-inventory-storage-dirs-and-files.md) | 库存存储：目录表与文件表分离、会话临时暂存、Library 库根互不包含 | Draft |

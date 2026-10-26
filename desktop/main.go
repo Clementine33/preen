@@ -51,7 +51,8 @@ func (d *Desktop) PickFolder() (*string, error) {
 
 func (d *Desktop) fail(err error) {
 	dialog := d.app.Dialog.Error().SetTitle("Preen 无法继续运行").SetMessage(err.Error())
-	button := dialog.AddButton("OK").OnClick(d.app.Quit)
+	// Windows invokes this callback synchronously; let Show return before shutdown waits for run.
+	button := dialog.AddButton("OK").OnClick(func() { go d.app.Quit() })
 	dialog.SetDefaultButton(button).SetCancelButton(button)
 	dialog.Show()
 }

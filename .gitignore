@@ -31,6 +31,8 @@ skills-lock.json
 .pnpm-store/
 node_modules/
 frontend/web/dist/
+desktop/assets/*
+!desktop/assets/.gitkeep
 
 # dev runtime data (dev-web.mjs backend data dir)
 .dev_data/

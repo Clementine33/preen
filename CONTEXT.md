@@ -160,7 +160,7 @@ _Avoid_: Subtitles, script (a script is read, not followed).
 A floating window that follows the Timed Lyrics of whatever track is playing,
 on any page, until the user closes it. It shows lyrics and drives the player;
 it never chooses what plays. Where it lives (a browser picture-in-picture
-window, a desktop shell's own window) is not part of the concept.
+window, a Desktop Shell's own window) is not part of the concept.
 _Avoid_: PiP (one way to host it), desktop lyrics, mini player.
 
 ### Collections and workbench
@@ -372,8 +372,16 @@ Comparison of observed variants with their Desired Audio Profile to produce Deci
 
 ### Operations and diagnostics
 
+**Desktop Shell**:
+The native application that puts Preen on a user's desktop: it shows the same web
+application in its own windows and runs the Preen service as its own child,
+starting it on launch and releasing it on quit. It is a host for the service,
+not a second implementation of it; whatever the service does in a container it
+does the same under a Desktop Shell.
+_Avoid_: Desktop host, desktop client, desktop app (for the service it hosts).
+
 **Diagnostic Log**:
-The running service's own account of what it did and what went wrong, written for whoever operates or debugs the deployment. It is never read back to show business state: a failed scan, plan or execution is told by its own session or processing record, and the Diagnostic Log only adds why. It does not survive a restart inside the application; the container or desktop host that captured the output keeps the older lines.
+The running service's own account of what it did and what went wrong, written for whoever operates or debugs the deployment. It is never read back to show business state: a failed scan, plan or execution is told by its own session or processing record, and the Diagnostic Log only adds why. It does not survive a restart inside the application; the container or Desktop Shell that captured the output keeps the older lines.
 _Avoid_: Log for a processing record, execution result or listening history; treating it as an audit trail.
 
 **Log Export**:

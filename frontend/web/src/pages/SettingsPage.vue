@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 import GlobalMenu from '@/components/layout/GlobalMenu.vue'
 import { Button } from '@/components/ui/button'
 import { useApiClient } from '@/lib/api/client'
+import AboutSettings from '@/features/settings/AboutSettings.vue'
 import DataMaintenanceSettings from '@/features/settings/DataMaintenanceSettings.vue'
 import DiagnosticLogExport from '@/features/settings/DiagnosticLogExport.vue'
 import FormatPreferenceSettings from '@/features/settings/FormatPreferenceSettings.vue'
@@ -19,7 +20,7 @@ import { THEME_OPTIONS, useTheme, type Theme } from '@/composables/use-theme'
  * 设置 (`/settings/:section?`): what has no other home, one category per
  * address — appearance (theme and motion stay in this browser; the Format
  * Preference syncs through the server), network (the Outbound Proxy) and the
- * user-tag vocabulary and data maintenance (record cleanup), plus the read-only shortcut list. Each saves
+ * user-tag vocabulary and data maintenance (record cleanup), plus the read-only shortcut list and 关于 (version and licence). Each saves
  * where its data lives. Task settings stay beside their tasks, a library's storage
  * class in its edit dialog.
  */
@@ -29,6 +30,7 @@ const SECTIONS = [
   { id: 'tags', label: '用户标签', code: 'USER TAGS' },
   { id: 'maintenance', label: '数据维护', code: 'DATA MAINTENANCE' },
   { id: 'keys', label: '键盘快捷键', code: 'KEYBOARD' },
+  { id: 'about', label: '关于', code: 'ABOUT' },
 ] as const
 
 /** The shortcut list, generated from the keymap's descriptors (read-only, not a setting). */
@@ -148,6 +150,8 @@ async function logout(): Promise<void> {
               </dl>
             </div>
           </template>
+
+          <AboutSettings v-else-if="section.id === 'about'" />
 
           <template v-else>
             <UserTagSettings />

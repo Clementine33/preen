@@ -42,7 +42,7 @@ async function createNew() {
   try {
     const made = await manage.create(newCollectionName(collections.value))
     await router.push({ name: 'collection-detail', params: { id: made.id } })
-  } catch (e) { toast.show({ text: e instanceof Error ? e.message : String(e) }) }
+  } catch (e) { toast.error(e) }
 }
 
 const TITLE_LINE = 22 // a title's line height; a one-line title is the shortest item

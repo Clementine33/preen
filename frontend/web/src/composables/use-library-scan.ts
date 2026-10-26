@@ -1,6 +1,4 @@
-import { useRouter } from 'vue-router'
-import { useTaskToast } from './use-task-toast'
-import { libraryListQueryOptions } from '@/queries/libraries'
+import { useTaskResultNotice } from './use-task-toast'
 import type { Library, ScanMode } from '@/lib/api/types'
 import { useQueryClient, type QueryClient } from '@tanstack/vue-query'
 import { useApiClient } from '@/lib/api/client'
@@ -74,9 +72,7 @@ export function useLibraryScan() {
   const api = useApiClient()
   const queryClient = useQueryClient()
   const scan = useScanStore()
-
-  const router = useRouter()
-  const toast = useTaskToast()
+  const notice = useTaskResultNotice(queryClient)
 
   async function start(libraryId: string, mode?: ScanMode): Promise<void> {
     const libraryName = queryClient.getQueryData<Library[]>(queryKeys.libraries.list())
@@ -87,36 +83,19 @@ export function useLibraryScan() {
     await syncAfterScan(queryClient, libraryId, outcome.status, outcome.terminal, outcome.receivedEvent)
 
     function notify({ status, terminal, admissionError }: ScanOutcome) {
-      const route = router.currentRoute.value
-      const corresponding = route.params.libraryId === libraryId
-        && route.matched.some((record) => record.name === 'workbench-overview' || record.name === 'overview-files')
+      if (admissionError) return
       const localCancel = terminal === 'transport' && status === 'cancelled'
       const unknown = terminal === 'transport' && !localCancel
-      const suppressed = corresponding && (status === 'completed' || status === 'cancelled')
-      if (admissionError || suppressed) return
       const result = localCancel ? '扫描停止已请求，结果尚未确认'
         : unknown ? '连接中断，扫描结果尚未确认'
           : status === 'completed' ? '扫描完成'
             : status === 'cancelled' ? '扫描已停止' : '扫描失败'
       const tone = localCancel || unknown ? 'unknown' : status === 'completed' ? 'success' : status === 'cancelled' ? 'stopped' : 'failed'
-      toast.show({
-        title: `${libraryName} · 扫描`, text: result, tone,
-        action: { label: '查看结果', run: () => { void viewResults() } },
+      notice({
+        libraryId, libraryName, title: `${libraryName} · 扫描`, text: result, tone, target: 'workbench-overview',
+        // Its own overview shows a settled result, including a cancel still being confirmed.
+        quietOn: status === 'completed' || status === 'cancelled' ? ['workbench-overview', 'overview-files'] : [],
       })
-    }
-
-    async function viewResults() {
-      try {
-        const libraries = await queryClient.fetchQuery({ ...libraryListQueryOptions(api), staleTime: 0 })
-        if (libraries.some((library) => library.id === libraryId)) {
-          await router.push({ name: 'workbench-overview', params: { libraryId } })
-        } else {
-          await router.push({ name: 'worksets' })
-          toast.show({ title: libraryName, text: '媒体库已移除，结果不可用', tone: 'unknown' })
-        }
-      } catch {
-        toast.show({ title: libraryName, text: '无法确认媒体库是否可用，请重试', tone: 'unknown', action: { label: '查看结果', run: () => { void viewResults() } } })
-      }
     }
   }
 

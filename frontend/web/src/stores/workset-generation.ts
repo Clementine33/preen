@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { markRaw } from 'vue'
 import { ApiError } from '@/lib/api/client'
+import { errorDetails } from '@/lib/api/error'
 import type { ApiClientContract, GenerationEvent, OperationType } from '@/lib/api/types'
 
 export type GenerationRunStatus =
@@ -100,7 +101,7 @@ export const useWorksetGenerationStore = defineStore('workset-generation', {
         } else {
           this.status = 'error'
           this.errorCode = error instanceof ApiError ? error.code : 'STREAM_ERROR'
-          this.errorMessage = error instanceof Error ? error.message : '生成进度连接失败。'
+          this.errorMessage = errorDetails(error, '生成进度连接失败。').message
         }
       } finally {
         if (this.controller === controller) this.controller = null

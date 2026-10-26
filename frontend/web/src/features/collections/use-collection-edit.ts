@@ -42,7 +42,8 @@ export function useCollectionEdit(src: {
   }
 
   function fail(e: unknown) {
-    toast.show({ text: e instanceof ApiError && e.code === 'COLLECTION_MEMBER_CONFLICT' ? '合集已在别处变动，已刷新' : e instanceof Error ? e.message : String(e) })
+    if (e instanceof ApiError && e.code === 'COLLECTION_MEMBER_CONFLICT') toast.show({ text: '合集已在别处变动，已刷新' })
+    else toast.error(e)
   }
 
   async function move(rj: string, gap: number): Promise<void> {

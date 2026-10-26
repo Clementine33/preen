@@ -152,8 +152,7 @@ async function refresh() {
   try {
     await refreshMutation.mutateAsync(dirId.value)
   } catch (error) {
-    const apiError = error as { code?: string; message?: string }
-    refreshError.value = apiError.message ?? '刷新失败'
+    refreshError.value = errorDetails(error, '刷新失败').message
   }
 }
 

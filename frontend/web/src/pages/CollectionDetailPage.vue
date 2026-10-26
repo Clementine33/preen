@@ -52,14 +52,13 @@ const edit = useCollectionEdit({ id, sort, direction, name, works, hasMore: () =
 
 const manage = useCollectionManage()
 const toast = useToast()
-const fail = (e: unknown) => toast.show({ text: e instanceof Error ? e.message : String(e) })
 const dialog = ref<'none' | 'rename' | 'delete'>('none')
 const draft = ref('')
 const trimmed = computed(() => draft.value.trim())
 function openRename() { draft.value = name.value; dialog.value = 'rename' }
 async function submitRename() {
   if (!trimmed.value) return
-  try { await manage.rename(id.value, trimmed.value); dialog.value = 'none' } catch (e) { fail(e) }
+  try { await manage.rename(id.value, trimmed.value); dialog.value = 'none' } catch (e) { toast.error(e) }
 }
 async function submitDelete() {
   const gone = name.value
@@ -68,7 +67,7 @@ async function submitDelete() {
     dialog.value = 'none'
     toast.show({ text: `已删除 ${gone}` })
     await router.push({ name: 'collections' })
-  } catch (e) { fail(e) }
+  } catch (e) { toast.error(e) }
 }
 
 // Back to the entry this collection was opened from: that history entry holds

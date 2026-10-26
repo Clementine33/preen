@@ -473,6 +473,14 @@ export class ApiClient implements ApiClientContract {
     return this.request('/outbound-proxy', { method: 'PUT', body: input })
   }
 
+  /** Log Export (docs/api/diagnostics.md#log-export): the file and the name the server gave it. */
+  async downloadDiagnosticLog(): Promise<{ blob: Blob; filename: string }> {
+    const response = await fetch(this.url('/diagnostics/log'), { headers: this.headers(false) })
+    if (!response.ok) throw await this.toApiError(response)
+    const filename = /filename="([^"]+)"/.exec(response.headers.get('Content-Disposition') ?? '')?.[1] ?? 'preen.log'
+    return { blob: await response.blob(), filename }
+  }
+
   // Deployment-wide record cleanup (docs/api/maintenance.md). Start has no
   // request id: a lost answer is resolved by reading the global run, never by resending.
   previewCleanup(categories: CleanupCategory[]): Promise<CleanupPreview> {

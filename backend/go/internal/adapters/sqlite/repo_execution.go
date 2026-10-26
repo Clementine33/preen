@@ -594,7 +594,7 @@ func (r *Repository) HasActiveExecutionForRoot(rootPath string) (bool, error) {
 // SyncObservedInventory applies the observed disk changes of an execution to the
 // entries inventory without a rescan: removed paths lose their row, changed
 // paths are refreshed with the scan merge's content_rev semantics (a changed
-// size/mtime bumps content_rev and clears the bitrate fact), and the generation
+// size/mtime bumps content_rev and clears measured facts), and the generation
 // credentials of the outputs this execution committed are written beside them,
 // so the next plan reads them with the inventory. rootPath is the scan root the
 // entries belong to.
@@ -629,10 +629,13 @@ func (r *Repository) SyncObservedInventory(
 			return fmt.Errorf("remove generation record %s: %w", p, err)
 		}
 	}
+	filesChanged := false
 	for _, f := range changed {
-		if err := upsertObservedFile(tx, rootPath, f); err != nil {
+		updated, err := upsertObservedFile(tx, rootPath, f)
+		if err != nil {
 			return err
 		}
+		filesChanged = filesChanged || updated
 	}
 	for _, g := range generated {
 		if err := upsertGenerationRecord(tx, g); err != nil {
@@ -643,18 +646,21 @@ func (r *Repository) SyncObservedInventory(
 		return err
 	}
 	r.catalogChanged()
+	if filesChanged && r.OnMediaFactsNeeded != nil {
+		r.OnMediaFactsNeeded()
+	}
 	return nil
 }
 
 // upsertObservedFile writes one observed file with the same lifecycle rules the
 // scan merge applies: new rows start at content_rev 1, changed rows bump it and
-// drop the stale bitrate, unchanged rows keep both.
-func upsertObservedFile(tx *sql.Tx, rootPath string, f inventory.InventoryFile) error {
+// drop stale measured facts, unchanged rows keep them.
+func upsertObservedFile(tx *sql.Tx, rootPath string, f inventory.InventoryFile) (bool, error) {
 	parent, name := splitInventoryPath(f.Path)
 	// Outputs can create several nested directories without a scan observation.
 	for dir := parent; ; {
 		if err := ensureInventoryDirectory(tx, dir, rootPath); err != nil {
-			return fmt.Errorf("ensure output directory %s: %w", dir, err)
+			return false, fmt.Errorf("ensure output directory %s: %w", dir, err)
 		}
 		if dir == rootPath {
 			break
@@ -667,37 +673,15 @@ func upsertObservedFile(tx *sql.Tx, rootPath string, f inventory.InventoryFile) 
 	}
 	var dirRef int64
 	if err := tx.QueryRow("SELECT id FROM inventory_dirs WHERE path=?", parent).Scan(&dirRef); err != nil {
-		return fmt.Errorf("load output directory %s: %w", parent, err)
+		return false, fmt.Errorf("load output directory %s: %w", parent, err)
 	}
-	var contentRev, size, mtime int64
-	var bitrate sql.NullInt64
-	err := tx.QueryRow(
-		"SELECT content_rev, size, mtime, bitrate FROM inventory_files WHERE dir_ref = ? AND name = ?", dirRef, name,
-	).Scan(&contentRev, &size, &mtime, &bitrate)
-	switch {
-	case errors.Is(err, sql.ErrNoRows):
-		if _, insErr := tx.Exec(`
-			INSERT INTO inventory_files (dir_ref, name, size, mtime, content_rev)
-			VALUES (?, ?, ?, ?, 1)
-		`, dirRef, name, f.Size, f.Mtime); insErr != nil {
-			return fmt.Errorf("insert inventory row %s: %w", f.Path, insErr)
-		}
-		return nil
-	case err != nil:
-		return fmt.Errorf("load inventory row %s: %w", f.Path, err)
+	result, err := tx.Exec(`
+		INSERT INTO inventory_files (dir_ref, name, size, mtime, format)
+		VALUES (?, ?, ?, ?, NULLIF(?,''))
+	`+observedFileUpsertSQL, dirRef, name, f.Size, f.Mtime, inventory.DetectFormatFromPath(f.Path, false))
+	if err != nil {
+		return false, fmt.Errorf("upsert inventory row %s: %w", f.Path, err)
 	}
-	touched := size != f.Size || mtime != f.Mtime
-	var bitrateVal any
-	if touched {
-		contentRev++
-	} else if bitrate.Valid {
-		bitrateVal = bitrate.Int64
-	}
-	if _, err := tx.Exec(`
-		UPDATE inventory_files SET size = ?, mtime = ?, content_rev = ?, bitrate = ?
-		WHERE dir_ref = ? AND name = ?
-	`, f.Size, f.Mtime, contentRev, bitrateVal, dirRef, name); err != nil {
-		return fmt.Errorf("update inventory row %s: %w", f.Path, err)
-	}
-	return nil
+	updated, err := result.RowsAffected()
+	return updated > 0, err
 }

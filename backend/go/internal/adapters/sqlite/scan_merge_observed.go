@@ -53,20 +53,25 @@ func ensureInventoryDirectory(tx *sql.Tx, path, root string) error {
 
 // Unchanged observations do not rewrite files or their measured facts.
 const mergeObservedFilesSQL = `
- INSERT INTO inventory_files(dir_ref,name,size,mtime,content_rev,bitrate,width,height,duration_sec,format)
- SELECT d.id,s.name,s.size,s.mtime,
-  CASE WHEN f.name IS NULL THEN 1 WHEN f.size IS NOT s.size OR f.mtime IS NOT s.mtime THEN f.content_rev+1 ELSE f.content_rev END,
-  CASE WHEN f.size IS NOT s.size OR f.mtime IS NOT s.mtime THEN NULL ELSE f.bitrate END,
-  CASE WHEN f.size IS NOT s.size OR f.mtime IS NOT s.mtime THEN NULL ELSE f.width END,
-  CASE WHEN f.size IS NOT s.size OR f.mtime IS NOT s.mtime THEN NULL ELSE f.height END,
-  CASE WHEN f.size IS NOT s.size OR f.mtime IS NOT s.mtime THEN NULL ELSE f.duration_sec END,NULLIF(s.format,'')
+ INSERT INTO inventory_files(dir_ref,name,size,mtime,format)
+ SELECT d.id,s.name,s.size,s.mtime,NULLIF(s.format,'')
  FROM temp.entries_staging s JOIN inventory_dirs d ON d.path=s.parent_path
- LEFT JOIN inventory_files f ON f.dir_ref=d.id AND f.name=s.name
  WHERE s.is_dir=0
- AND (f.name IS NULL OR f.size IS NOT s.size OR f.mtime IS NOT s.mtime OR f.format IS NOT NULLIF(s.format,''))
- ON CONFLICT(dir_ref,name) DO UPDATE SET size=excluded.size,mtime=excluded.mtime,content_rev=excluded.content_rev,
-  bitrate=excluded.bitrate,width=excluded.width,height=excluded.height,duration_sec=excluded.duration_sec,format=excluded.format
+` + observedFileUpsertSQL
+
+// Scans and exact synchronization share the same revision and measured-fact rules.
+const observedFileUpsertSQL = `
+ ON CONFLICT(dir_ref,name) DO UPDATE SET
+  size=excluded.size,mtime=excluded.mtime,format=excluded.format,
+  content_rev=inventory_files.content_rev+CASE WHEN ` + observedContentChangedSQL + ` THEN 1 ELSE 0 END,
+  bitrate=CASE WHEN ` + observedContentChangedSQL + ` THEN NULL ELSE inventory_files.bitrate END,
+  width=CASE WHEN ` + observedContentChangedSQL + ` THEN NULL ELSE inventory_files.width END,
+  height=CASE WHEN ` + observedContentChangedSQL + ` THEN NULL ELSE inventory_files.height END,
+  duration_sec=CASE WHEN ` + observedContentChangedSQL + ` THEN NULL ELSE inventory_files.duration_sec END
+ WHERE ` + observedContentChangedSQL + ` OR inventory_files.format IS NOT excluded.format
 `
+
+const observedContentChangedSQL = `inventory_files.size IS NOT excluded.size OR inventory_files.mtime IS NOT excluded.mtime`
 
 // cleanupInventoryScope compares both path and type; directory removal cascades its files.
 // A scope root is retained because folder walks report only its descendants.

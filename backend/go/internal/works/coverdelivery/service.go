@@ -21,8 +21,8 @@ type Dependencies struct {
 	// including partial publications. File may be nil for deletion-only recovery.
 	// It never scans a member.
 	SyncInventory func(context.Context, Target, Publication) error
-	// RefreshSelected reconciles one execution's selected folders after metadata
-	// and its cover demands finish. Acquire must exclude active task executions.
+	// RefreshSelected repairs only cover targets whose inventory sync failed after
+	// this execution's demands finish. Acquire must exclude active task executions.
 	RefreshSelected func(context.Context, string, []string) error
 }
 type activeDownload struct {
@@ -36,7 +36,7 @@ type Service struct {
 	activeMu    sync.Mutex
 	active      map[string]*activeDownload
 	refreshMu   sync.Mutex
-	refreshes   map[string]selectedRefresh
+	refreshes   map[string]string
 }
 
 func New(d Dependencies) (*Service, error) {
@@ -46,5 +46,5 @@ func New(d Dependencies) (*Service, error) {
 	if d.BusyRetry <= 0 {
 		d.BusyRetry = time.Second
 	}
-	return &Service{deps: d, active: map[string]*activeDownload{}, refreshes: map[string]selectedRefresh{}}, nil
+	return &Service{deps: d, active: map[string]*activeDownload{}, refreshes: map[string]string{}}, nil
 }

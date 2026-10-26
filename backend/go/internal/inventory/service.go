@@ -169,11 +169,11 @@ type StagingEntry struct {
 	Carried      bool
 }
 
-// detectFormatFromPath names an entry's media type from its extension. A macOS
+// DetectFormatFromPath names an entry's media type from its extension. A macOS
 // AppleDouble sidecar ("._name.mp3") borrows its file's extension but holds
 // only metadata, so it gets no media type: it stays a plain file, never a
 // media facts candidate.
-func detectFormatFromPath(path string, isDir bool) string {
+func DetectFormatFromPath(path string, isDir bool) string {
 	if isDir || strings.HasPrefix(filepath.Base(path), "._") {
 		return ""
 	}
@@ -618,6 +618,6 @@ func DirEntryToStagingEntry(entry DirEntry, sessionID, rootPath string) StagingE
 		Carried:      entry.Carried,
 		Size:         entry.Size,
 		Mtime:        entry.Mtime,
-		Format:       detectFormatFromPath(entry.Path, entry.IsDir),
+		Format:       DetectFormatFromPath(entry.Path, entry.IsDir),
 	}
 }

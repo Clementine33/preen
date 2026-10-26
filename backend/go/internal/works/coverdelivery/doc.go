@@ -12,6 +12,8 @@
 // identical files.
 // Delivery uses frozen paths and synchronizes observed cover inventory deltas,
 // retaining publication journals until inventory acknowledgment succeeds.
-// It also coordinates one selected inventory refresh after a metadata batch and
-// its own delivery demands finish.
+// After a metadata batch and its own delivery demands finish, it repairs only
+// targets whose inventory synchronization failed, in one selected-range scan.
+// Successful deliveries need no scan or file-operation admission. Follow-ups
+// are process-local; explicit retries retain only exact inventory synchronization.
 package coverdelivery

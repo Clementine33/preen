@@ -42,7 +42,7 @@ func toCustomTagItem(r conversion.ClassifierTag) classifierCustomTagItem {
 func (s *Server) listClassifierTags(w http.ResponseWriter, _ *http.Request) {
 	customTags, err := s.deps.Catalog.Tags()
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "INTERNAL", "failed to load classifier tags")
+		writeInternal(w, err, "failed to load classifier tags")
 		return
 	}
 
@@ -72,7 +72,7 @@ func (s *Server) addClassifierTag(w http.ResponseWriter, r *http.Request) {
 			writeWorksetError(w, err)
 			return
 		}
-		writeError(w, http.StatusInternalServerError, "INTERNAL", "failed to save tag")
+		writeInternal(w, err, "failed to save tag")
 		return
 	}
 	writeJSON(w, http.StatusCreated, toCustomTagItem(*created))

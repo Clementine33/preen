@@ -17,7 +17,7 @@ func (s *Server) library(w http.ResponseWriter, r *http.Request) (*library.Libra
 			writeError(w, http.StatusNotFound, "LIBRARY_NOT_FOUND", "library not found")
 			return nil, false
 		}
-		writeError(w, http.StatusInternalServerError, "INTERNAL", "failed to load library")
+		writeInternal(w, err, "failed to load library")
 		return nil, false
 	}
 	return lib, true
@@ -26,7 +26,7 @@ func (s *Server) library(w http.ResponseWriter, r *http.Request) (*library.Libra
 func (s *Server) listLibraries(w http.ResponseWriter, _ *http.Request) {
 	libs, err := s.deps.Library.List()
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "INTERNAL", "failed to list libraries")
+		writeInternal(w, err, "failed to list libraries")
 		return
 	}
 	out := make([]libraryResponse, 0, len(libs))
@@ -54,7 +54,7 @@ func (s *Server) createLibrary(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusConflict, "LIBRARY_EXISTS", "a library with this root path already exists")
 			return
 		}
-		writeError(w, http.StatusInternalServerError, "INTERNAL", "failed to create library")
+		writeInternal(w, err, "failed to create library")
 		return
 	}
 	writeJSON(w, http.StatusCreated, toLibraryResponse(lib))
@@ -112,7 +112,7 @@ func (s *Server) patchLibrary(w http.ResponseWriter, r *http.Request) {
 				"cannot change the library root while a record is linked; delete the library (its record goes with it) and re-create it at the new root",
 			)
 		default:
-			writeError(w, http.StatusInternalServerError, "INTERNAL", "failed to update library")
+			writeInternal(w, err, "failed to update library")
 		}
 		return
 	}
@@ -147,6 +147,6 @@ func (s *Server) deleteLibrary(w http.ResponseWriter, r *http.Request) {
 			"cancel active executions before deleting the library",
 		)
 	default:
-		writeError(w, http.StatusInternalServerError, "INTERNAL", "failed to delete library")
+		writeInternal(w, err, "failed to delete library")
 	}
 }

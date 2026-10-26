@@ -38,7 +38,7 @@ func (s *Server) listLibraryDirs(w http.ResponseWriter, r *http.Request) {
 	}
 	dirs, err := s.deps.Library.Dirs(lib)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "INTERNAL", "failed to list library folders")
+		writeInternal(w, err, "failed to list library folders")
 		return
 	}
 	out := make([]dirResponse, 0, len(dirs))
@@ -99,7 +99,7 @@ func (s *Server) getMemberTree(w http.ResponseWriter, r *http.Request) {
 	}
 	tree, err := s.deps.Library.Tree(member)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "INTERNAL", "failed to list folder entries")
+		writeInternal(w, err, "failed to list folder entries")
 		return
 	}
 	writeJSON(w, http.StatusOK, treeResponse{
@@ -147,7 +147,7 @@ func (s *Server) refreshMemberTree(w http.ResponseWriter, r *http.Request) {
 	}
 	tree, err := s.deps.Library.Tree(member)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "INTERNAL", "failed to list folder entries")
+		writeInternal(w, err, "failed to list folder entries")
 		return
 	}
 	writeJSON(w, http.StatusOK, treeResponse{
@@ -188,6 +188,7 @@ func writeResolveError(w http.ResponseWriter, err error) {
 		case library.ErrKindConflict:
 			writeError(w, http.StatusConflict, libErr.Code, libErr.Message)
 		default:
+			failed(w, err)
 			writeError(w, http.StatusInternalServerError, libErr.Code, libErr.Message)
 		}
 		return

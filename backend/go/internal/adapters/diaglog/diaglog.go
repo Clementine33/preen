@@ -17,11 +17,14 @@ import (
 const capacity = 2 << 20
 
 // Tail is the in-memory end of the Diagnostic Log: the newest whole lines
-// whose total size fits capacity.
+// whose total size fits capacity, and how many lines it has lost.
 type Tail struct {
-	mu    sync.Mutex
-	lines [][]byte
-	size  int
+	mu      sync.Mutex
+	level   slog.Level
+	lines   [][]byte
+	size    int
+	dropped int // oldest lines pushed out to make room
+	skipped int // records larger than the whole Tail
 }
 
 // Write keeps p as one line; the handler writes one whole record per call.
@@ -29,26 +32,32 @@ type Tail struct {
 // larger than the whole Tail cannot be kept whole, so it is skipped and the
 // lines before it stay; stdout still has it.
 func (t *Tail) Write(p []byte) (int, error) {
-	if len(p) > capacity {
-		return len(p), nil
-	}
 	t.mu.Lock()
 	defer t.mu.Unlock()
+	if len(p) > capacity {
+		t.skipped++
+		return len(p), nil
+	}
 	t.lines = append(t.lines, bytes.Clone(p))
 	t.size += len(p)
 	for t.size > capacity {
 		t.size -= len(t.lines[0])
 		t.lines[0] = nil // release the bytes, not just the slot
 		t.lines = t.lines[1:]
+		t.dropped++
 	}
 	return len(p), nil
 }
 
-// Bytes returns a copy of the kept lines, oldest first.
-func (t *Tail) Bytes() []byte {
+// Export returns one header line saying how complete the export is (the
+// level, lines dropped and records skipped since start), then a copy of the
+// kept lines, oldest first.
+func (t *Tail) Export() []byte {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	return bytes.Join(t.lines, nil)
+	header := fmt.Appendf(nil, "# log level=%s dropped=%d skipped=%d\n",
+		strings.ToLower(t.level.String()), t.dropped, t.skipped)
+	return append(header, bytes.Join(t.lines, nil)...)
 }
 
 // levels are the PREEN_LOG_LEVEL values. slog's own parser also takes offsets
@@ -68,7 +77,7 @@ func New(out io.Writer, level string) (*slog.Logger, *Tail, error) {
 			return nil, nil, fmt.Errorf("PREEN_LOG_LEVEL %q: want debug, info, warn or error", level)
 		}
 	}
-	tail := &Tail{}
+	tail := &Tail{level: minLevel}
 	// The tail first: it never fails, and a closed output must not cost the export.
 	handler := slog.NewTextHandler(io.MultiWriter(tail, out), &slog.HandlerOptions{Level: minLevel})
 	return slog.New(handler), tail, nil

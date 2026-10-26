@@ -81,6 +81,8 @@ func writeWorksetError(w http.ResponseWriter, err error) {
 			status = http.StatusConflict
 		case workset.ErrKindPrecondition:
 			status = http.StatusPreconditionFailed
+		default:
+			failed(w, err)
 		}
 		if len(werr.Details) > 0 {
 			writeJSON(w, status, errorResponse{
@@ -95,7 +97,7 @@ func writeWorksetError(w http.ResponseWriter, err error) {
 		writeError(w, http.StatusNotFound, "WORKSET_NOT_FOUND", "workset not found")
 		return
 	}
-	writeError(w, http.StatusInternalServerError, "INTERNAL", "workset operation failed")
+	writeInternal(w, err, "workset operation failed")
 }
 
 // planSummaryResponse mirrors the plan usecase summary.

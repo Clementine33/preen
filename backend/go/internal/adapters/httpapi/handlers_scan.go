@@ -49,7 +49,7 @@ func writeScanAdmissionError(w http.ResponseWriter, err error) {
 		writeError(w, http.StatusConflict, scanErr.Code, scanErr.Message)
 		return
 	}
-	writeError(w, http.StatusInternalServerError, "INTERNAL", "failed to admit the scan")
+	writeInternal(w, err, "failed to admit the scan")
 }
 
 // postLibraryScan streams a scan of the library root over SSE. The handler

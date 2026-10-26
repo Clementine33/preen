@@ -424,7 +424,7 @@ func runServer(
 		CORSOrigins:    ParseCORSOrigins(os.Getenv("PREEN_CORS_ORIGINS")),
 		Version:        cfg.Version,
 		StartedAt:      started,
-		DiagnosticLog:  logTail.Bytes,
+		DiagnosticLog:  logTail.Export,
 		WebRoot:        webRoot,
 		Inventory:      services.scan,
 		MediaFacts:     services.mediaFacts,

@@ -56,7 +56,9 @@ func refusal(err error) *works.Error {
 	if business, ok := errors.AsType[*works.Error](err); ok {
 		return business
 	}
-	return works.NewError(works.KindInternal, "INTERNAL", "collection storage failed")
+	refused := works.NewError(works.KindInternal, "INTERNAL", "collection storage failed")
+	refused.Cause = err
+	return refused
 }
 
 func (s *Service) Detail(ctx context.Context, id string, window Window) (Detail, *works.Error) {

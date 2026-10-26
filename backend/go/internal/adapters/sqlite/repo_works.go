@@ -1007,6 +1007,7 @@ func formatWorksTimestamp(t time.Time) string {
 func internalError(err error) *works.Error {
 	wrapped := works.NewError(works.KindInternal, "INTERNAL", "the catalog could not complete the request")
 	wrapped.Details = []string{err.Error()}
+	wrapped.Cause = err
 	return wrapped
 }
 

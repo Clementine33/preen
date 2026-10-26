@@ -26,6 +26,8 @@ func writeCoverError(w http.ResponseWriter, err error) {
 		status = http.StatusConflict
 	case "INVALID_IMAGE":
 		status = http.StatusUnprocessableEntity
+	default:
+		failed(w, err)
 	}
 	writeError(w, status, code, err.Error())
 }

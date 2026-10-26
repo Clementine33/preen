@@ -67,7 +67,7 @@ func (s *Server) getWorkThumb(w http.ResponseWriter, r *http.Request) {
 	case r.Context().Err() != nil:
 		return
 	default:
-		writeError(w, http.StatusInternalServerError, "INTERNAL", "the thumbnail could not be rendered")
+		writeInternal(w, err, "the thumbnail could not be rendered")
 		return
 	}
 	w.Header().Set("ETag", etag)

@@ -1002,11 +1002,10 @@ func formatWorksTimestamp(t time.Time) string {
 	return t.UTC().Format(works.TimestampFormat)
 }
 
-// internalError wraps an unexpected storage failure as a refusal, keeping the
-// driver's own message for the log.
+// internalError wraps an unexpected storage failure as a refusal. The driver's
+// error is its Cause, which reaches the log and never the response.
 func internalError(err error) *works.Error {
 	wrapped := works.NewError(works.KindInternal, "INTERNAL", "the catalog could not complete the request")
-	wrapped.Details = []string{err.Error()}
 	wrapped.Cause = err
 	return wrapped
 }

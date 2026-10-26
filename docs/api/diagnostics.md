@@ -38,6 +38,7 @@ three header lines:
 ```
 
 followed by the newest Diagnostic Log lines, byte-for-byte as written to
-stdout at the current level, up to 2 MiB of whole lines. The tail lives in
-memory only: a restart starts it empty, and older lines are wherever the
+stdout at the current level: the newest whole lines whose total fits 2 MiB.
+The oldest lines are dropped first; a single record larger than 2 MiB is left
+out of the export (stdout still has it). The tail lives in memory only: a restart starts it empty, and older lines are wherever the
 process's stdout went (for Docker, `docker compose logs`).

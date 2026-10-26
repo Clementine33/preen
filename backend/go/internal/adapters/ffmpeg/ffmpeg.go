@@ -1,7 +1,7 @@
 // Package ffmpeg is the media tool adapter behind the execution pipeline: it
-// probes streams with ffprobe and writes outputs with ffmpeg. Everything an
-// invocation is made of — the arguments, the tool paths, the post-encode
-// validation — lives here; the pipeline only names the target specification.
+// probes streams with ffprobe and writes outputs with ffmpeg. Tool arguments,
+// paths and post-encode validation live here; toolprocess owns platform process
+// creation. The pipeline only names the target specification.
 package ffmpeg
 
 import (
@@ -13,6 +13,7 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/Clementine33/preen/backend/internal/adapters/toolprocess"
 	"github.com/Clementine33/preen/backend/internal/conversion/execute"
 	"github.com/Clementine33/preen/backend/internal/conversion/reconcile"
 )
@@ -67,7 +68,7 @@ func (f Encoder) Check() error {
 // it describes.
 func (f Encoder) Version(ctx context.Context) string {
 	encoder, _ := f.paths()
-	out, err := exec.CommandContext(ctx, encoder, "-version").Output()
+	out, err := toolprocess.CommandContext(ctx, encoder, "-version").Output()
 	if err != nil {
 		return ""
 	}
@@ -78,7 +79,7 @@ func (f Encoder) Version(ctx context.Context) string {
 // Probe reads the first audio stream of one file.
 func (f Encoder) Probe(ctx context.Context, path string) (execute.AudioStream, error) {
 	_, probe := f.paths()
-	data, err := exec.CommandContext(ctx, probe, "-v", "error", "-select_streams", "a:0", "-show_streams", "-of", "json", path).
+	data, err := toolprocess.CommandContext(ctx, probe, "-v", "error", "-select_streams", "a:0", "-show_streams", "-of", "json", path).
 		Output()
 	if err != nil {
 		return execute.AudioStream{}, fmt.Errorf("probe %s: %w", path, err)
@@ -171,7 +172,7 @@ func (f Encoder) encodeHandles(
 	if _, seekErr := dst.Seek(0, 0); seekErr != nil {
 		return execute.AudioStream{}, seekErr
 	}
-	cmd := exec.CommandContext(ctx, encoder, args...)
+	cmd := toolprocess.CommandContext(ctx, encoder, args...)
 	cmd.Stdin, cmd.Stdout = src, dst
 	var diagnostic bytes.Buffer
 	cmd.Stderr = &diagnostic
@@ -186,7 +187,7 @@ func (f Encoder) decodeHandle(ctx context.Context, file *os.File) error {
 		return seekErr
 	}
 	encoder, _ := f.paths()
-	cmd := exec.CommandContext(
+	cmd := toolprocess.CommandContext(
 		ctx,
 		encoder,
 		"-nostdin",

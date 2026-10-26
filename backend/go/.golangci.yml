@@ -99,6 +99,13 @@ linters:
     exhaustive:
       check: [ switch, map ]
 
+    forbidigo:
+      analyze-types: true
+      forbid:
+        - pattern: '^(fmt\.Print(|f|ln)|print|println)$'
+        - pattern: '^exec\.Command(Context)?$'
+          msg: Use toolprocess.CommandContext so Windows external tools never create console windows.
+
     funcorder:
       struct-method: false
 
@@ -169,6 +176,14 @@ linters:
     rules:
       - source: 'TODO'
         linters: [ godot ]
+      # Only the shared creation point may choose external process window flags.
+      - path: '^internal/adapters/toolprocess/command\.go$'
+        text: 'exec\.CommandContext'
+        linters: [ forbidigo ]
+      # Test fixtures and test subprocesses do not run inside the hosted service.
+      - path: '_test\.go'
+        text: 'exec\.Command(Context)?'
+        linters: [ forbidigo ]
       # The assembly root keeps a few point exclusions: exitAfterDefer is intentional
       # (process exit); errcheck/unused cover the checked port assertion and the
       # Windows-conditional wsacancelled const.

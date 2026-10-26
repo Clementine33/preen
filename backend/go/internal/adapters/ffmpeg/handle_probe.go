@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/Clementine33/preen/backend/internal/adapters/toolprocess"
 	"github.com/Clementine33/preen/backend/internal/conversion/execute"
 )
 
@@ -69,7 +70,7 @@ func (f Encoder) probeData(ctx context.Context, file *os.File, tags, strict bool
 		}
 	}
 	args = append(args, "-fd", "0", "fd:")
-	cmd := exec.CommandContext(ctx, probe, args...)
+	cmd := toolprocess.CommandContext(ctx, probe, args...)
 	cmd.Stdin = file
 	var output, diagnostic bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &output, &diagnostic

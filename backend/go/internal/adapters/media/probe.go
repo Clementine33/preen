@@ -17,13 +17,14 @@ import (
 	_ "image/jpeg"
 	_ "image/png"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
 	_ "golang.org/x/image/webp" // header registration for image.DecodeConfig
+
+	"github.com/Clementine33/preen/backend/internal/adapters/toolprocess"
 )
 
 // probeTimeout bounds one file's probe: a header read is a few KiB and ffprobe
@@ -166,8 +167,7 @@ func carriesBitrate(pathPosix string) bool {
 //     container's average - for the CBR the executor writes it sits a little
 //     above the target, which the satisfaction comparison can use.
 func (p *Prober) ffprobeAudio(ctx context.Context, pathPosix string) (float64, int64, error) {
-	// #nosec G204 -- executable path comes from trusted process assembly, never a request.
-	cmd := exec.CommandContext(ctx, p.ffprobePath, "-v", "error", "-select_streams", "a:0",
+	cmd := toolprocess.CommandContext(ctx, p.ffprobePath, "-v", "error", "-select_streams", "a:0",
 		"-show_entries", "stream=duration,bit_rate:format=duration,bit_rate", "-of", "json",
 		"-i", filepath.FromSlash(pathPosix))
 	// A killed ffprobe whose output pipe something else still holds must not

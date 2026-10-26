@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Preen
+Comment=Manage and play your media library
+Exec=preen-desktop
+Icon=preen
+Terminal=false
+Categories=AudioVideo;Audio;

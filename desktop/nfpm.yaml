@@ -1,0 +1,33 @@
+name: preen
+arch: ${GOARCH}
+platform: linux
+version: ${PREEN_PACKAGE_VERSION}
+# nFPM 2.48 omits prerelease from PKGINFO unless an epoch is explicit.
+epoch: "0"
+release: 1
+homepage: https://github.com/Clementine33/preen
+description: Media library manager with a native desktop window
+license: GPL-3.0-only
+depends:
+  - gtk4
+  - webkitgtk-6.0
+  - ffmpeg
+  - gst-plugins-good
+  - gst-libav
+contents:
+  - src: dist/desktop/linux-${GOARCH}/bin/preen-desktop
+    dst: /usr/bin/preen-desktop
+    expand: true
+    file_info:
+      mode: 0755
+  - src: dist/desktop/linux-${GOARCH}/lib/preen/preen
+    dst: /usr/lib/preen/preen
+    expand: true
+    file_info:
+      mode: 0755
+  - src: desktop/preen.desktop
+    dst: /usr/share/applications/preen.desktop
+  - src: frontend/web/public/favicon.svg
+    dst: /usr/share/icons/hicolor/scalable/apps/preen.svg
+  - src: LICENSE
+    dst: /usr/share/licenses/preen/LICENSE

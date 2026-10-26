@@ -51,6 +51,38 @@ tasks:
     cmds:
       - node scripts/build-desktop.mjs
 
+  desktop:ffmpeg:
+    desc: Export Windows audio tools, licenses and corresponding sources to dist/desktop-ffmpeg
+    cmds:
+      - docker build --platform linux/amd64 --target desktop-ffmpeg --output type=local,dest=dist/desktop-ffmpeg .
+
+  desktop:package:arch:
+    desc: Build a native Linux desktop release and pacman package (RAW_TAG=vX.Y.Z)
+    vars:
+      ARCH:
+        sh: go env GOHOSTARCH
+    env:
+      RAW_TAG: '{{.RAW_TAG}}'
+      PREEN_PACKAGE_VERSION: '{{.VERSION}}'
+      GOOS: linux
+      GOARCH: '{{.ARCH}}'
+    cmds:
+      - node scripts/build-desktop.mjs
+      - nfpm package --config desktop/nfpm.yaml --packager archlinux --target dist/
+
+  desktop:package:windows:
+    desc: Assemble a Windows portable zip from desktop and FFmpeg builds (RAW_TAG=vX.Y.Z)
+    env:
+      RAW_TAG: '{{.RAW_TAG}}'
+    cmds:
+      - node scripts/package-windows.mjs
+
+  test:desktop:packaging:
+    desc: Check release version validation and portable archive assembly
+    cmds:
+      - node --test scripts/build-desktop.test.mjs scripts/package-windows.test.mjs
+      - go test scripts/zip-directory.go scripts/zip-directory_test.go
+
   db:rebuild:dev:
     desc: Back up and rebuild .dev_data/cache.db; stop the development backend first
     dir: backend/go

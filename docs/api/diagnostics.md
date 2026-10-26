@@ -16,8 +16,9 @@ never logged; media paths are.
 once at startup and has no `config.json` field.
 
 Every HTTP request is logged at `debug` with `method`, `path`, `status` and
-`duration_ms`; a 5xx is logged at `error`. The query string and headers are
-never logged. A handler panic is logged at `error` with its stack and answered
+`duration_ms`; a 5xx is logged at `error` and carries the failure behind it as
+`err` on the same line (the response still says only `INTERNAL`). The query
+string and headers are never logged. A handler panic is logged at `error` with its stack and answered
 with `500` / `INTERNAL`.
 
 ## Log Export
@@ -29,13 +30,19 @@ with `500` / `INTERNAL`.
 Authenticated like every protected route. The response carries
 `Content-Disposition: attachment; filename="preen-<version>-<YYYYMMDDTHHMMSSZ>.log"`
 (the export time in UTC) and `Cache-Control: no-store`. The body starts with
-three header lines:
+four header lines:
 
 ```
 # preen <version> <go version> <os>/<arch>
 # started <process start, RFC 3339 UTC>
 # exported <export time, RFC 3339 UTC>
+# log level=<PREEN_LOG_LEVEL> dropped=<lines> skipped=<records>
 ```
+
+`dropped` counts the oldest lines pushed out since start and `skipped` the
+records too large to keep; both `0` means the export holds every line since
+start. Lines below `level` were never written: at the default `info` the
+per-request lines are absent, so reproduce with `debug` to get them.
 
 followed by the newest Diagnostic Log lines, byte-for-byte as written to
 stdout at the current level: the newest whole lines whose total fits 2 MiB.

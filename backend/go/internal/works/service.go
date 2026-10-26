@@ -184,7 +184,12 @@ func asInternal(err error) *Error {
 	if classified, ok := AsError(err); ok {
 		return classified
 	}
-	return &Error{Kind: KindInternal, Code: "INTERNAL", Message: "the catalog could not complete the request"}
+	return &Error{
+		Kind:    KindInternal,
+		Code:    "INTERNAL",
+		Message: "the catalog could not complete the request",
+		Cause:   err,
+	}
 }
 
 // WorkAt answers the work a library directory is bound to, if any. Binding is

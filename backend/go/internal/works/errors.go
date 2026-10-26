@@ -28,12 +28,15 @@ const (
 	CodeInvalidOutboundProxy = "INVALID_OUTBOUND_PROXY"
 )
 
-// Error is one refusal, carrying the stable code a caller branches on.
+// Error is one refusal, carrying the stable code a caller branches on. Cause is
+// the unexpected failure behind an internal refusal: for the log, never the
+// response.
 type Error struct {
 	Kind    Kind
 	Code    string
 	Message string
 	Details []string
+	Cause   error
 }
 
 // NewError builds a refusal.
@@ -47,7 +50,14 @@ func Invalid(code, message string) *Error { return NewError(KindInvalid, code, m
 // NotFound builds a 404 refusal.
 func NotFound(code, message string) *Error { return NewError(KindNotFound, code, message) }
 
-func (e *Error) Error() string { return e.Code + ": " + e.Message }
+func (e *Error) Error() string {
+	if e.Cause != nil {
+		return e.Code + ": " + e.Message + ": " + e.Cause.Error()
+	}
+	return e.Code + ": " + e.Message
+}
+
+func (e *Error) Unwrap() error { return e.Cause }
 
 // AsError extracts a refusal from an error chain.
 func AsError(err error) (*Error, bool) {

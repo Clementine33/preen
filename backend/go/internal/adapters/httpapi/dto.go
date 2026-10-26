@@ -20,6 +20,29 @@ func writeError(w http.ResponseWriter, status int, code, message string) {
 	writeJSON(w, status, errorResponse{Code: code, Message: message})
 }
 
+// writeInternal answers 500 / INTERNAL with message and hands err to the
+// access log, which writes it on this request's line (see failed).
+func writeInternal(w http.ResponseWriter, err error, message string) {
+	failed(w, err)
+	writeError(w, http.StatusInternalServerError, "INTERNAL", message)
+}
+
+// failed records err as the cause the access log writes for this request: the
+// client gets the stable envelope, the log gets the reason.
+func failed(w http.ResponseWriter, err error) {
+	for {
+		switch rw := w.(type) {
+		case *responseState:
+			rw.cause = err
+			return
+		case interface{ Unwrap() http.ResponseWriter }:
+			w = rw.Unwrap()
+		default:
+			return
+		}
+	}
+}
+
 // writeErrorDetails is writeError for a refusal that has something specific to
 // say, such as which references still hold a work in place.
 func writeErrorDetails(w http.ResponseWriter, status int, code, message string, details []string) {

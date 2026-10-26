@@ -45,7 +45,7 @@ func (s *Server) getWorkContentFile(w http.ResponseWriter, r *http.Request) {
 
 	file, err := os.Open(loc.AbsPath)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "INTERNAL", "the file could not be opened")
+		writeInternal(w, err, "the file could not be opened")
 		return
 	}
 	defer file.Close()
@@ -70,7 +70,7 @@ func (s *Server) getWorkContentFile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := setWorkFileContentType(w.Header(), file, loc.Kind); err != nil {
-		writeError(w, http.StatusInternalServerError, "INTERNAL", "the file could not be read")
+		writeInternal(w, err, "the file could not be read")
 		return
 	}
 

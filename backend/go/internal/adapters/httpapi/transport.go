@@ -83,6 +83,7 @@ func classifyDecodeError(err error) error {
 func writeJSON(w http.ResponseWriter, status int, value any) {
 	payload, err := json.Marshal(value)
 	if err != nil {
+		failed(w, err)
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}

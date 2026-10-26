@@ -43,7 +43,7 @@ func writeCleanupError(w http.ResponseWriter, err error) {
 	case admission.IsBusy(err):
 		writeError(w, http.StatusConflict, "BUSY", "database cleanup cannot start while other activity is running")
 	default:
-		writeError(w, http.StatusInternalServerError, "INTERNAL", "database cleanup failed")
+		writeInternal(w, err, "database cleanup failed")
 	}
 }
 func (s *Server) previewCleanup(w http.ResponseWriter, r *http.Request) {

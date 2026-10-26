@@ -104,6 +104,7 @@ type responseState struct {
 
 	wroteHeader bool
 	status      int
+	cause       error
 }
 
 func (w *responseState) WriteHeader(status int) {
@@ -130,8 +131,8 @@ func (w *responseState) Unwrap() http.ResponseWriter { return w.ResponseWriter }
 
 // recoveryMiddleware turns a panic into a 500 and writes the access log:
 // every request at debug and a 5xx at error; a 4xx stays at debug, since it is
-// an expected refusal. Only method, path, status and duration are logged; the
-// query and headers can carry the access key.
+// an expected refusal. Only method, path, status, duration and a 5xx's cause
+// (recorded by failed) are logged; the query and headers can carry the access key.
 func recoveryMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		state := &responseState{ResponseWriter: w}
@@ -157,8 +158,12 @@ func recoveryMiddleware(next http.Handler) http.Handler {
 			if status >= http.StatusInternalServerError {
 				level = slog.LevelError
 			}
-			slog.Log(r.Context(), level, "http request", "method", r.Method, "path", r.URL.Path,
-				"status", status, "duration_ms", time.Since(started).Milliseconds())
+			attrs := []any{"method", r.Method, "path", r.URL.Path,
+				"status", status, "duration_ms", time.Since(started).Milliseconds()}
+			if state.cause != nil {
+				attrs = append(attrs, "err", state.cause)
+			}
+			slog.Log(r.Context(), level, "http request", attrs...)
 		}()
 		next.ServeHTTP(state, r)
 	})

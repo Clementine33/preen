@@ -10,6 +10,9 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/Clementine33/preen/backend/internal/works"
+	"github.com/Clementine33/preen/backend/internal/workset"
 )
 
 func TestSSEWriterSendsAndFlushesEvent(t *testing.T) {
@@ -205,6 +208,40 @@ func TestRecoveryMiddlewareLogsRequestsWithoutQuery(t *testing.T) {
 	} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("missing %q in %s", want, got)
+		}
+	}
+}
+
+// A 500's cause reaches the access log line of its request, never the response.
+func TestRecoveryMiddlewareLogsTheCauseOfA500(t *testing.T) {
+	var logs bytes.Buffer
+	previous, output, flags := slog.Default(), log.Writer(), log.Flags()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&logs, nil)))
+	t.Cleanup(func() { slog.SetDefault(previous); log.SetOutput(output); log.SetFlags(flags) })
+	cause := errors.New("database is locked")
+	for _, write := range []func(http.ResponseWriter){
+		func(w http.ResponseWriter) { writeInternal(w, cause, "failed to list libraries") },
+		func(w http.ResponseWriter) {
+			writeWorksError(w, &works.Error{Kind: works.KindInternal, Code: "INTERNAL", Message: "catalog failed", Cause: cause})
+		},
+		func(w http.ResponseWriter) {
+			writeWorksetError(w, workset.NewError(workset.ErrKindInternal, "INTERNAL", "workset failed", cause))
+		},
+	} {
+		logs.Reset()
+		recorder := httptest.NewRecorder()
+		handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { write(w) })
+		recoveryMiddleware(
+			corsMiddleware(nil)(handler),
+		).ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/fail", nil))
+		if recorder.Code != http.StatusInternalServerError || strings.Contains(recorder.Body.String(), "locked") {
+			t.Fatalf("response = %d %s", recorder.Code, recorder.Body)
+		}
+		got := logs.String()
+		want := `level=ERROR msg="http request" method=GET path=/fail status=500`
+		if !strings.Contains(got, want) || !strings.Contains(got, "database is locked") ||
+			strings.Count(got, "\n") != 1 {
+			t.Fatalf("log = %s", got)
 		}
 	}
 }

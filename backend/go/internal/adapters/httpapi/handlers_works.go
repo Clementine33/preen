@@ -21,7 +21,7 @@ func writeWorksError(w http.ResponseWriter, err *works.Error) {
 	case works.KindConflict:
 		status = http.StatusConflict
 	case works.KindInternal:
-		status = http.StatusInternalServerError
+		failed(w, err)
 	}
 	writeErrorDetails(w, status, err.Code, err.Message, err.Details)
 }

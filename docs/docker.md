@@ -20,6 +20,14 @@ HTTP exposes credentials and media to anyone able to observe network traffic. Us
 
 The outbound proxy for metadata and cover downloads is set in the Settings page (Network); the container's `HTTP_PROXY` / `HTTPS_PROXY` variables no longer apply.
 
+## Logs
+
+Preen writes one logfmt line per event to stdout (`time=… level=… msg="…" key=value …`); read them with `docker compose logs preen`. The sample Compose file rotates them with the `json-file` driver (three files of 10 MB); without that option Docker keeps container output forever. The `PREEN_BACKEND_READY` readiness line is the only line that is not logfmt.
+
+Set `PREEN_LOG_LEVEL` to `debug`, `info` (default), `warn` or `error` in Compose and recreate the container; any other value prevents startup. `debug` adds one line per HTTP request.
+
+To report a problem, use **Settings → Maintenance → Diagnostic log → Export**. It downloads the most recent lines (up to 2 MiB) together with the version and platform. It holds only lines since the last start, so use `docker compose logs` for anything earlier. Logs never contain the access key or proxy credentials, but they do contain media paths.
+
 ## Upgrade
 
 1. Stop the current instance with `docker compose down`.

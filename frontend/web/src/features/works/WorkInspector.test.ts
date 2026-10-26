@@ -156,6 +156,7 @@ describe('WorkInspector', () => {
     const getWork = vi.fn((rj: string) => Promise.resolve(detail(rj, '伊ヶ崎綾香')))
     const wrapper = await mountInspector(getWork, { rj: FIRST })
     await settle()
+    await vi.waitFor(() => expect(wrapper.get('.insp-title').text()).toBe(`Title ${FIRST}`))
     const frame = vi.spyOn(window, 'requestAnimationFrame')
     getWork.mockResolvedValueOnce(detail(FIRST, '沢城みゆき'))
     await queryClient.refetchQueries({ queryKey: queryKeys.works.detail(FIRST) })

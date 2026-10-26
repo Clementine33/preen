@@ -28,6 +28,7 @@ jobs:
       duplicate: ${{ steps.duplicate.outcome == 'success' && steps.duplicate.outputs.should_skip == 'true' && fromJSON(steps.duplicate.outputs.skipped_by).event == 'push' }}
       go: ${{ steps.paths.outcome != 'success' || steps.paths.outputs.go == 'true' }}
       web: ${{ steps.paths.outcome != 'success' || steps.paths.outputs.web == 'true' }}
+      desktop: ${{ steps.paths.outcome != 'success' || steps.paths.outputs.desktop == 'true' }}
     steps:
       - id: duplicate
         if: github.event_name == 'push' && github.ref_type == 'branch'
@@ -53,6 +54,20 @@ jobs:
               - 'mise.toml'
               - 'Taskfile.yml'
               - '.github/workflows/ci.yml'
+            desktop:
+              - 'desktop/**'
+              - 'backend/go/**'
+              - 'frontend/web/**'
+              - 'scripts/build-desktop*.mjs'
+              - 'scripts/package-windows*.mjs'
+              - 'scripts/zip-directory*.go'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+              - 'mise.toml'
+              - 'Taskfile.yml'
+              - '.github/workflows/ci.yml'
+              - '.github/workflows/desktop-windows.yml'
 
   go-test:
     needs: prepare
@@ -106,6 +121,55 @@ jobs:
       - run: pnpm -C frontend/web exec playwright install chromium --with-deps
       - run: task test:web:browser
 
+  desktop:
+    needs: prepare
+    if: ${{ !cancelled() && needs.prepare.result == 'success' && needs.prepare.outputs.duplicate != 'true' && (github.event_name != 'pull_request' || needs.prepare.outputs.desktop == 'true') }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    env:
+      PREEN_SUPERVISOR_TEST_BINARY: ${{ github.workspace }}/preen-test${{ matrix.os == 'windows-latest' && '.exe' || '' }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: jdx/mise-action@v4
+        with:
+          minimum_release_age: 7d
+          cache: true
+          cache_key_prefix: mise-desktop
+      - name: Find Go cache paths
+        id: go-cache
+        run: |
+          echo "modules=$(go env GOMODCACHE)" >> "$GITHUB_OUTPUT"
+          echo "build=$(go env GOCACHE)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ${{ steps.go-cache.outputs.modules }}
+            ${{ steps.go-cache.outputs.build }}
+          key: go-${{ runner.os }}-${{ runner.arch }}-desktop-${{ hashFiles('mise.toml', 'backend/go/go.sum', 'desktop/go.sum') }}-${{ github.sha }}
+          restore-keys: go-${{ runner.os }}-${{ runner.arch }}-desktop-${{ hashFiles('mise.toml', 'backend/go/go.sum', 'desktop/go.sum') }}-
+      - name: Install Linux WebView build dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libgtk-4-dev libwebkitgtk-6.0-dev pkg-config
+      - run: task test:desktop:packaging
+      - name: Build release backend for lifecycle tests
+        working-directory: backend/go
+        run: go build -trimpath -ldflags "-X main.version=0.2.0" -o "$PREEN_SUPERVISOR_TEST_BINARY" ./cmd/preen
+      - name: Populate placeholder web assets
+        working-directory: desktop
+        run: printf '<!doctype html><title>Preen CI</title>\n' > assets/index.html
+      - name: Test desktop module and service lifecycle
+        working-directory: desktop
+        run: go test ./... -count=1
+      - name: Compile production desktop shell
+        working-directory: desktop
+        run: go build -trimpath -tags production -ldflags "-X main.version=0.2.0 ${{ runner.os == 'Windows' && '-H windowsgui' || '' }}" -o "${{ runner.temp }}/preen-desktop${{ runner.os == 'Windows' && '.exe' || '' }}" .
+
   # Expensive checks start only after both fast suites pass. Main and manual
   # runs are full; pull requests get the path-filtered fast suites above.
   go-race:
@@ -146,6 +210,9 @@ jobs:
           cache: true
           cache_key_prefix: mise-windows
       - run: task build:go:windows-x64
+      - name: Check external tools create no console windows on Windows
+        working-directory: backend/go
+        run: go test ./internal/adapters/toolprocess -count=1
       - name: Check first-start configuration delivery on Windows
         working-directory: backend/go
         run: go test ./internal/adapters/settings -count=1
@@ -200,7 +267,7 @@ jobs:
   # Stable required status: skipped jobs are valid only when paths or a prior
   # successful full push explain them. All other skips fail closed.
   result:
-    needs: [prepare, go-test, web-quality, go-race, windows-smoke, web-e2e, go-vuln]
+    needs: [prepare, go-test, web-quality, desktop, go-race, windows-smoke, web-e2e, go-vuln]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     steps:
@@ -211,8 +278,10 @@ jobs:
           DUPLICATE: ${{ needs.prepare.outputs.duplicate }}
           GO_CHANGED: ${{ needs.prepare.outputs.go }}
           WEB_CHANGED: ${{ needs.prepare.outputs.web }}
+          DESKTOP_CHANGED: ${{ needs.prepare.outputs.desktop }}
           GO: ${{ needs.go-test.result }}
           WEB: ${{ needs.web-quality.result }}
+          DESKTOP: ${{ needs.desktop.result }}
           RACE: ${{ needs.go-race.result }}
           WINDOWS: ${{ needs.windows-smoke.result }}
           E2E: ${{ needs.web-e2e.result }}
@@ -222,12 +291,13 @@ jobs:
           if [ "$EVENT" = pull_request ]; then
             if [ "$GO_CHANGED" = true ]; then test "$GO" = success; else test "$GO" = skipped; fi
             if [ "$WEB_CHANGED" = true ]; then test "$WEB" = success; else test "$WEB" = skipped; fi
+            if [ "$DESKTOP_CHANGED" = true ]; then test "$DESKTOP" = success; else test "$DESKTOP" = skipped; fi
             for check in "$RACE" "$WINDOWS" "$E2E" "$VULN"; do test "$check" = skipped; done
           elif [ "$DUPLICATE" = true ]; then
-            for check in "$GO" "$WEB" "$RACE" "$WINDOWS" "$E2E"; do test "$check" = skipped; done
+            for check in "$GO" "$WEB" "$DESKTOP" "$RACE" "$WINDOWS" "$E2E"; do test "$check" = skipped; done
             test "$VULN" = success
           else
-            for check in "$GO" "$WEB" "$RACE" "$WINDOWS" "$E2E" "$VULN"; do
+            for check in "$GO" "$WEB" "$DESKTOP" "$RACE" "$WINDOWS" "$E2E" "$VULN"; do
               test "$check" = success
             done
           fi
@@ -260,7 +330,7 @@ jobs:
           assert(match, 'Expected vMAJOR.MINOR.PATCH with optional SemVer prerelease')
           assert(!match[4]?.split('.').some(id => /^[0-9]+$/.test(id) && id.length > 1 && id.startsWith('0')), 'Numeric prerelease identifiers must not have leading zeros')
           const version = tag.slice(1)
-          assert(version.length <= 128 && !version.endsWith('-dev'), 'Invalid release image version')
+          assert(version.length <= 128 && !match[4]?.split('.').includes('dev'), 'Invalid release image version')
           appendFileSync(process.env.GITHUB_OUTPUT, `version=${version}\nstable=${!match[4]}\n`)
           NODE
       - name: Build release image without registry credentials

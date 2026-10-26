@@ -141,9 +141,9 @@ export const router = createRouter({
       props: { operation: 'metadata_refresh' },
     },
 
-    // Application settings by category: appearance and user tags. Task
+    // Application settings by category: appearance, network, user tags, maintenance, shortcuts and about. Task
     // settings stay beside their tasks and are not repeated here.
-    { path: '/settings/:section(appearance|network|tags|maintenance|keys)?', name: 'settings', component: SettingsPage },
+    { path: '/settings/:section(appearance|network|tags|maintenance|keys|about)?', name: 'settings', component: SettingsPage },
 
     // An address that names no page of this workbench. The retired long routes
     // land here: they are not redirected to a guessed target.

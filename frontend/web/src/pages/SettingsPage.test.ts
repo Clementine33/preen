@@ -15,7 +15,7 @@ afterEach(() => vi.unstubAllGlobals())
 async function mountPage(api: ReturnType<typeof apiStub>, path = '/settings') {
   const router = createRouter({
     history: createMemoryHistory(),
-    routes: [{ path: '/settings/:section(appearance|network|tags|maintenance|keys)?', name: 'settings', component: SettingsPage }],
+    routes: [{ path: '/settings/:section(appearance|network|tags|maintenance|keys|about)?', name: 'settings', component: SettingsPage }],
   })
   await router.push(path)
   const wrapper = mount(SettingsPage, {
@@ -188,5 +188,20 @@ describe('settings: keyboard shortcuts', () => {
     for (const descriptor of Object.values(KEYS)) expect(texts.some((row) => row.includes(descriptor.text))).toBe(true)
     expect(list.findAll('kbd').map((key) => key.text())).toContain('Shift+→')
     expect(list.find('input, button').exists()).toBe(false)
+  })
+})
+
+describe('settings: about', () => {
+  it('shows the server version and the licence', async () => {
+    const wrapper = await mountPage(apiStub({ getHealth: vi.fn(async () => ({ ok: true, version: '1.2.3' })) }), '/settings/about')
+    expect(wrapper.get('#settings-section-title').text()).toBe('关于')
+    expect(wrapper.get('[data-testid="about-version"]').text()).toBe('1.2.3')
+    expect(wrapper.get('[data-testid="settings-about"]').text()).toContain('GPL')
+    expect(wrapper.get('[data-testid="about-repo"]').attributes('href')).toBe('https://github.com/Clementine33/preen')
+  })
+
+  it('shows a dash when the version cannot be read', async () => {
+    const wrapper = await mountPage(apiStub({ getHealth: vi.fn(async () => { throw new Error('down') }) }), '/settings/about')
+    expect(wrapper.get('[data-testid="about-version"]').text()).toBe('—')
   })
 })

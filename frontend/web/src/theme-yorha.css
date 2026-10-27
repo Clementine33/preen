@@ -29,22 +29,14 @@
   --dur-in: 160ms; --dur-out: 90ms; --dur-cursor: 160ms; --dur-ghost-delay: 70ms;
   --ease-out: cubic-bezier(.2, .8, .2, 1);
 
-  /* Font matrix: mono telemetry, CN-first UD gothic UI, mincho
-     display. The Chinese face leads the UI stack on purpose: a family match is
-     per family, not per weight, and BIZ UDPGothic carries the JIS glyphs — left
-     first it would win every shared ideograph with the Japanese variant (直/骨/
-     者/次). Noto Sans SC also supplies the 500/600/700 the Tailwind weights need;
-     the Japanese face stays for JP-only coverage. Mincho is scoped to work titles
-     and the work detail specimen — never a site-wide h1 or a workbench heading,
-     which read as UI (--font-heading resolves to --font-ui in style.css).
-     Loaded in style.css via Google Fonts; offline falls back to the stacks. */
+  /* Font matrix: mono telemetry, one CJK sans for UI, mincho display. Mincho is
+     scoped to work titles and the work detail specimen — never a site-wide h1
+     or a workbench heading, which read as UI (--font-heading resolves to
+     --font-ui in style.css). Glyphs a face lacks fall back to the system serif
+     or sans. Bundled same-origin via @fontsource in main.ts (ADR 0018). */
   --font-mono: 'IBM Plex Mono', 'JetBrains Mono', ui-monospace, monospace;
-  --font-ui: 'Noto Sans SC', 'BIZ UDPGothic', 'PingFang SC', 'Microsoft YaHei', sans-serif;
-  --font-mincho: 'Shippori Mincho', 'Noto Serif JP', 'Noto Serif SC', serif;
-  /* The Japanese face for the work detail page's lang="ja" spans (v3's
-     --sans-ja: the reading script's vertical setting above all). Scoped there
-     on purpose: the UI stack stays CN-first (, unchanged). */
-  --font-ja: 'Noto Sans JP', 'BIZ UDPGothic', sans-serif;
+  --font-ui: 'Noto Sans SC Variable', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --font-mincho: 'Noto Serif SC Variable', serif;
 
   /* ── Light palette ── */
   --bg-canvas: #f6f5f0;

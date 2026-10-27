@@ -73,7 +73,7 @@ watch(txtRel, () => {
 .script-wrap { height: 100%; overflow-y: auto; overflow-x: hidden; }
 .script {
   padding: var(--sp-5) var(--sp-4);
-  font-family: var(--font-ja); font-size: 15px; line-height: 1.9; letter-spacing: .04em;
+  font-size: 15px; line-height: 1.9; letter-spacing: .04em;
   color: var(--fg-base);
 }
 .script p { text-indent: 1em; margin: 0; }

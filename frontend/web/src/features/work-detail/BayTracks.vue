@@ -90,7 +90,7 @@ useKeymap({
 </template>
 
 <style scoped>
-.list { overflow-y: auto; flex: 1; min-height: 0; padding-bottom: var(--sp-2); font-family: var(--font-ja); }
+.list { overflow-y: auto; flex: 1; min-height: 0; padding-bottom: var(--sp-2); }
 
 /* The duration bar is the track's weight in the whole work; the right dock and
    the phone drop it (v3). */

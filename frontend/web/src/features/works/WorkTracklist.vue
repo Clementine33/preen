@@ -75,7 +75,7 @@ function playTrack(t: number) {
 
 <style scoped>
 .tracklist { display: flex; flex-direction: column; min-height: 0; }
-.tracks { margin-top: var(--sp-2); font-family: var(--font-ja); overflow-y: auto; transition: opacity 80ms linear; }
+.tracks { margin-top: var(--sp-2); overflow-y: auto; transition: opacity 80ms linear; }
 .dim { opacity: .3; }
 .fmt { margin-right: var(--sp-2); font-family: var(--font-mono); }
 .trk {

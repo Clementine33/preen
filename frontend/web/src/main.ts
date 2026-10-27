@@ -9,6 +9,14 @@ import { useToast } from './composables/use-toast'
 import { desktopAdapterKey } from './lib/desktop/desktop-adapter'
 import { createDesktopAdapter } from './lib/desktop/host-adapter'
 import { createAppQueryClient } from './queries/query-client'
+// Fonts are bundled, not fetched from a CDN (ADR 0018); the CSS is sliced by
+// unicode-range, so only the slices a page uses are requested.
+import '@fontsource-variable/noto-sans-sc'
+import '@fontsource-variable/noto-serif-sc'
+import '@fontsource/ibm-plex-mono/latin-400.css'
+import '@fontsource/ibm-plex-mono/latin-500.css'
+import '@fontsource/ibm-plex-mono/latin-600.css'
+import '@fontsource/ibm-plex-mono/latin-700.css'
 import './style.css'
 
 // Last line of defence for an error no caller handled: an API refusal keeps its

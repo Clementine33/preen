@@ -452,7 +452,7 @@ function onRow(i: number) {
 .msg.now .rj, .msg.now .clk { flex: none; font-family: var(--font-mono); font-size: var(--fs-s); color: var(--fg-meta); }
 .msg.now .rj { text-decoration: none; text-underline-offset: 4px; }
 .msg.now .rj:hover { color: var(--fg-base); text-decoration: underline; }
-.msg.now .tt { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-family: var(--font-ja); }
+.msg.now .tt { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 
 @media (max-width: 900px) {
   /* Phones: the list alone, filling the height between header and hint bar. */

@@ -297,9 +297,6 @@ function copyTo(copy: { copy_id: string; library_id: string; dir_id: string }) {
 .colo-row:last-child { border-bottom: none; }
 .colo-row dt { font-size: var(--fs-s); color: var(--fg-muted); letter-spacing: .3em; white-space: nowrap; }
 .colo-row dd { font-size: var(--fs-s); font-weight: 500; min-width: 0; position: relative; }
-/* The Japanese face for lang="ja" values ( matrix untouched);
-   mono telemetry keeps its own face. */
-.colo dd :lang(ja):not(.mono) { font-family: var(--font-ja); }
 .mono { font-family: var(--font-mono); font-size: var(--fs-xs); letter-spacing: .06em; }
 .colo-row dd a { color: inherit; text-decoration: underline; text-decoration-color: var(--wire-mid); text-underline-offset: 3px; font-family: var(--font-mono); font-size: var(--fs-xs); word-break: break-all; }
 /* Overrides the global `.tags` input-field box (theme-yorha.css). */

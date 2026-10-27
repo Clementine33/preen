@@ -115,6 +115,7 @@ jobs:
           key: pnpm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('mise.toml') }}-${{ hashFiles('pnpm-lock.yaml') }}
           restore-keys: pnpm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('mise.toml') }}-
       - run: pnpm install --frozen-lockfile
+      - run: pnpm lint:web
       - run: pnpm typecheck:web
       - run: pnpm test:web
       - run: pnpm build:web

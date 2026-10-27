@@ -13,7 +13,8 @@
 
 ## Runtime and checks
 - Vue 3 + TypeScript, entry `src/main.ts`, in the pnpm workspace. Tool versions are pinned in the root `mise.toml`.
-- From this directory: `pnpm typecheck`, `pnpm test`, `pnpm build`.
-- From the repository root: `task typecheck:web`, `task test:web`, `task build:web`; `task dev:web` starts backend + Vite and `task e2e:web` runs Playwright.
+- From this directory: `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`.
+- From the repository root: `task lint:web`, `task typecheck:web`, `task test:web`, `task build:web`; `task dev:web` starts backend + Vite and `task e2e:web` runs Playwright.
+- ESLint with `@antfu/eslint-config` (`eslint.config.js`) is both linter and formatter; there is no Prettier. `pnpm lint:fix` / `task lint:web:fix` applies formatting. Overrides in the config record where project idioms differ from the preset.
 - Keep full-stack browser tests for cross-stack user journeys. Backend disk/codec/session contracts belong in `backend/go/tests/e2e/`; browser-only layout/input checks run with `task test:web:browser` (Vite only).
 - Install Chromium once when needed for e2e: `pnpm exec playwright install chromium` from this directory.

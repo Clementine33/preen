@@ -95,6 +95,18 @@ tasks:
     cmds:
       - pnpm typecheck
 
+  lint:web:
+    desc: Lint and format-check the web app (ESLint, @antfu/eslint-config)
+    dir: frontend/web
+    cmds:
+      - pnpm lint
+
+  lint:web:fix:
+    desc: Auto-fix web lint and formatting issues
+    dir: frontend/web
+    cmds:
+      - pnpm lint:fix
+
   test:web:
     desc: Run web app unit tests (Vitest)
     dir: frontend/web
@@ -133,6 +145,7 @@ tasks:
       - task test:go
       - task lint:go
       - task vuln:go
+      - task lint:web
       - task typecheck:web
       - task test:web
       - task build:web

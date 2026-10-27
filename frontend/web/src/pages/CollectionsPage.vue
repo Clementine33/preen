@@ -87,13 +87,16 @@ async function drawCover(redraw = false) {
 // CSS background, which cannot report an error); the wall's useCoverSrc can.
 const coverUrl = computed(() => {
   const w = coverWork.value
-  if (!w || (libraryUi.veil && w.nsfw === true)) return null
+  if (!w) return null
   if (w.local_cover) {
     const { copy_id: copyId, rel_path: relPath, version } = w.local_cover
     return api.workFileUrl({ rj: w.rj, copyId, relPath }, version)
   }
   return w.thumbnail_url
 })
+
+/** An R18 cover is shown only as a Gaussian blur while the veil is on. */
+const coverVeiled = computed(() => libraryUi.veil && coverWork.value?.nsfw === true)
 
 // ── Message line (the Intel menu's bottom sentence): what is playing, else the selection ──
 const playing = computed(() => player.rj !== null)
@@ -320,7 +323,7 @@ function onRow(i: number) {
         </div>
         <div class="panel">
           <div class="deck-body">
-            <CollectionScreen :url="coverUrl" :instant="switching" @redraw="drawCover(true)" />
+            <CollectionScreen :url="coverUrl" :instant="switching" :veiled="coverVeiled" @redraw="drawCover(true)" />
             <div class="titles-col">
               <div ref="titlesEl" class="titles" lang="ja" data-testid="collection-titles">
                 <div v-for="(w, i) in titles" :key="`${current?.id}-${w.rj}`" class="ti" :class="{ off: i >= fitCount }" :title="titleText(w)">

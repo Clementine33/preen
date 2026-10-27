@@ -6,8 +6,8 @@ import { useReducedMotion } from '@/composables/use-motion'
 // raster scan, done in CSS (clip-path plus a line mask). The old frame powers
 // down to black, then the odd and even lines are drawn, overlapping, each pass
 // led by a beam with a short phosphor afterglow. No url shows the hatched
-// empty state. Reduced motion, or a burst of switching, swaps the cover at once.
-const props = defineProps<{ url: string | null; instant?: boolean }>()
+// empty state; `veiled` Gaussian-blurs the picture instead. Reduced motion, or a burst of switching, swaps the cover at once.
+const props = defineProps<{ url: string | null; instant?: boolean; veiled?: boolean }>()
 defineEmits<{ redraw: [] }>()
 
 const reduce = useReducedMotion()
@@ -15,32 +15,43 @@ const SETTLE_MS = 400 // second pass delay (120) + pass (260) + a frame
 
 const cur = ref<string | null>(null)
 const next = ref<string | null>(null)
+// Each layer is blurred by its own picture's veil, so a switch never shows the old one sharp.
+const curV = ref(false)
+const nextV = ref(false)
 const scanning = ref(false)
 const ready = ref(false)
 let timer: ReturnType<typeof setTimeout> | undefined
 
 const css = (url: string | null) => (url ? `url("${url.replace(/"/g, '%22')}")` : 'none')
 
-function settle(url: string | null) {
+function settle(url: string | null, veiled: boolean) {
   clearTimeout(timer)
   scanning.value = false
   cur.value = next.value = url
+  curV.value = nextV.value = veiled
 }
 
 watch(() => props.url, (url) => {
   if (!ready.value || reduce.value || props.instant || !url) {
     ready.value = true
-    return settle(url)
+    return settle(url, props.veiled === true)
   }
-  settle(next.value) // an interrupted scan lands first
+  settle(next.value, nextV.value) // an interrupted scan lands first
   next.value = url
+  nextV.value = props.veiled === true
   scanning.value = false
   // Restart the animations: one frame with the class off, then on.
   requestAnimationFrame(() => {
     scanning.value = true
-    timer = setTimeout(() => settle(url), SETTLE_MS)
+    timer = setTimeout(() => settle(url, nextV.value), SETTLE_MS)
   })
 }, { immediate: true })
+// The veil toggled on the picture already shown.
+watch(() => props.veiled, (veiled) => {
+  nextV.value = veiled === true
+  // A url switch in the same tick leaves cur behind: the old picture keeps its own veil.
+  if (next.value === cur.value) curV.value = nextV.value
+})
 
 onBeforeUnmount(() => clearTimeout(timer))
 </script>
@@ -49,9 +60,9 @@ onBeforeUnmount(() => clearTimeout(timer))
   <div class="screen" :class="{ scanning, empty: !cur && !scanning }" data-testid="collection-screen"
     :style="{ '--cur': css(cur), '--new': css(next) }" role="button" tabindex="-1" title="换一张"
     @click="$emit('redraw')">
-    <div class="scr-base" />
-    <div class="scr-pass p1" />
-    <div class="scr-pass p2" />
+    <div class="scr-base" :class="{ blur: curV }" />
+    <div class="scr-pass p1" :class="{ blur: nextV }" />
+    <div class="scr-pass p2" :class="{ blur: nextV }" />
     <i class="scr-head h1" />
     <i class="scr-head h2" />
   </div>
@@ -66,9 +77,11 @@ onBeforeUnmount(() => clearTimeout(timer))
   background: var(--screen-bg); cursor: pointer; user-select: none;
 }
 .screen > * { position: absolute; inset: 0; pointer-events: none; }
+.scr-base, .scr-pass { --blur: blur(0); --zoom: 1; filter: var(--blur); transform: scale(var(--zoom)); }
+.blur { --blur: blur(28px); --zoom: 1.15; } /* the zoom hides the blur's faded edge */
 .scr-base { background: var(--cur) center / cover no-repeat; }
 /* The wall's empty/veiled cover: the same 45° hatch on the panel colour, not the dark device. */
-.screen.empty { background: repeating-linear-gradient(-45deg, var(--wire-mid) 0 1px, transparent 1px 6px), var(--bg-panel); }
+.screen.empty { background: linear-gradient(-45deg, transparent calc(50% - .5px), var(--wire-mid) calc(50% - .5px) calc(50% + .5px), transparent calc(50% + .5px)) 0 0 / 8px 8px, var(--bg-panel); }
 .screen.empty .scr-base { display: none; }
 .scr-pass { background: var(--new) center / cover no-repeat; clip-path: inset(0 0 100% 0); }
 .scr-pass.p1 { mask: repeating-linear-gradient(to bottom, #000 0 2px, transparent 2px 4px); }
@@ -89,7 +102,7 @@ onBeforeUnmount(() => clearTimeout(timer))
 .scanning .p2 { animation: reveal var(--t) linear var(--t2) forwards; }
 .scanning .h1 { animation: head var(--t) linear forwards; }
 .scanning .h2 { animation: head var(--t) linear var(--t2) forwards; }
-@keyframes decay { 40% { filter: brightness(.55) contrast(1.3); } to { filter: brightness(0); } }
+@keyframes decay { 40% { filter: brightness(.55) contrast(1.3) var(--blur); } to { filter: brightness(0) var(--blur); } }
 @keyframes reveal { to { clip-path: inset(0 0 0 0); } }
 @keyframes head {
   0% { transform: translateY(-100%); opacity: var(--glow, 1); }

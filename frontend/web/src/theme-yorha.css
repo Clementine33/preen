@@ -142,7 +142,7 @@
      offline library tag. ── */
 .hatch {
   background:
-    repeating-linear-gradient(-45deg, var(--wire-fine) 0 1px, transparent 1px 6px),
+    linear-gradient(-45deg, transparent calc(50% - .5px), var(--wire-fine) calc(50% - .5px) calc(50% + .5px), transparent calc(50% + .5px)) 0 0 / 8px 8px,
     var(--bg-panel);
   display: grid; place-items: center;
 }

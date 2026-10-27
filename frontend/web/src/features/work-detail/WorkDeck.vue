@@ -322,7 +322,7 @@ const NEXT_ICON = 'M2 0l7 5-7 5z'
 .tick.br:hover + .flip-hint { opacity: 1; transition: opacity var(--dur-in) linear; }
 
 /* The R18 veil: the empty-state hatch, heavier for the thumbs so the two read apart. */
-.face.front.veil { background: repeating-linear-gradient(-45deg, var(--wire-fine) 0 1px, transparent 1px 6px), var(--bg-panel); cursor: pointer; display: grid; place-items: center; }
+.face.front.veil { background: linear-gradient(-45deg, transparent calc(50% - .5px), var(--wire-fine) calc(50% - .5px) calc(50% + .5px), transparent calc(50% + .5px)) 0 0 / 8px 8px, var(--bg-panel); cursor: pointer; display: grid; place-items: center; }
 .face.front.veil::after { content: 'SHOW'; font-family: var(--font-mono); font-size: var(--fs-xs); letter-spacing: .14em; color: var(--fg-muted); background: var(--bg-panel); border: 1px solid var(--wire-mid); padding: 2px var(--sp-2); }
 .face.front.veil:hover::after { color: var(--invert-fg); background: var(--invert-bg); border-color: var(--invert-bg); }
 
@@ -332,9 +332,9 @@ const NEXT_ICON = 'M2 0l7 5-7 5z'
 .thumb:hover { opacity: 1; box-shadow: inset 0 0 0 1px var(--wire-strong); }
 .thumb[aria-current='true'] { opacity: 1; box-shadow: 0 0 0 1px var(--wire-strong), 3px 3px 0 0 var(--wire-mid); }
 .thumb[aria-current='true']::after { content: ''; position: absolute; left: 50%; bottom: -5px; width: 6px; height: 3px; margin-left: -3px; background: var(--invert-bg); }
-.thumb.crop::before { content: ''; position: absolute; right: 0; top: 0; bottom: 0; width: 6px; background: repeating-linear-gradient(-45deg, var(--invert-bg) 0 1px, transparent 1px 3px), var(--bg-panel); }
-.thumb.pending, .thumb.veiled { background: repeating-linear-gradient(-45deg, var(--wire-fine) 0 1px, transparent 1px 4px), var(--bg-panel); opacity: 1; }
-.thumb.veiled { background: repeating-linear-gradient(-45deg, var(--wire-mid) 0 1px, transparent 1px 4px), var(--bg-panel); }
+.thumb.crop::before { content: ''; position: absolute; right: 0; top: 0; bottom: 0; width: 6px; background: linear-gradient(-45deg, transparent calc(50% - .5px), var(--invert-bg) calc(50% - .5px) calc(50% + .5px), transparent calc(50% + .5px)) 0 0 / 4px 4px, var(--bg-panel); }
+.thumb.pending, .thumb.veiled { background: linear-gradient(-45deg, transparent calc(50% - .5px), var(--wire-fine) calc(50% - .5px) calc(50% + .5px), transparent calc(50% + .5px)) 0 0 / 4px 4px, var(--bg-panel); opacity: 1; }
+.thumb.veiled { background: linear-gradient(-45deg, transparent calc(50% - .5px), var(--wire-mid) calc(50% - .5px) calc(50% + .5px), transparent calc(50% + .5px)) 0 0 / 4px 4px, var(--bg-panel); }
 
 @media (max-width: 768px) {
   .slot { height: 62vw; flex: none; }

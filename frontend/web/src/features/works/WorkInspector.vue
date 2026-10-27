@@ -279,9 +279,10 @@ const playIcon = 'M1 0l9 5-9 5z'
 .plate-frame { position: relative; height: 100%; max-width: 100%; aspect-ratio: var(--cover-ratio); margin: 0 auto; }
 .cover {
   position: absolute; inset: 0; overflow: hidden;
-  background-size: cover; background-position: center;
+  background-position: center;
   box-shadow: inset 0 0 0 1px var(--wire-fine);
 }
+.cover:not(.hatch) { background-size: cover; }
 .veiled .cover::before { content: none; }
 .reveal { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 1; }
 .cover.front { clip-path: inset(0 0 0 0); }

@@ -108,6 +108,7 @@ const cover = computed(() => (libraryUi.veil && props.work.nsfw === true ? null 
 .row.sel .lbl { color: var(--invert-fg); }
 .pos { text-align: right; }
 .cover { position: relative; width: 56px; height: 42px; overflow: hidden; box-shadow: inset 0 0 0 1px var(--wire-fine); }
+.cover.hatch::before { content: none; }
 .cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .main { min-width: 0; display: grid; }
 .title { font-family: var(--font-mincho); font-size: var(--fs-m); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

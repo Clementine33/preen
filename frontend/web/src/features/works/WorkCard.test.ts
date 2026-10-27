@@ -37,13 +37,13 @@ function work(version = '1-5-9'): WorkSummary {
   }
 }
 
-function mountCard(summary: WorkSummary) {
+function mountCard(summary: WorkSummary, index = 0) {
   const api = apiStub({
     workFileUrl: ((ref: { copyId: string; relPath: string }, version?: string) =>
       `/files/${ref.copyId}/${ref.relPath}?v=${version}`) as never,
   })
   return mount(WorkCard, {
-    props: { work: summary, selected: false, playing: false },
+    props: { work: summary, selected: false, playing: false, index },
     global: { plugins: [createPinia()], provide: { [apiClientKey as symbol]: api } },
   })
 }
@@ -71,6 +71,16 @@ describe('WorkCard cover', () => {
     bumpCoverEpoch() // a list/detail refresh landed; address and version unchanged
     await nextTick()
     expect(wrapper.get('img').attributes('src')).toBe('/files/copy-1/cover.jpg?v=1-5-9')
+  })
+
+  it('loads the first covers eagerly, the first one at high priority, and the rest lazily', () => {
+    const first = mountCard(work(), 0).get('img')
+    expect(first.attributes('loading')).toBe('eager')
+    expect(first.attributes('fetchpriority')).toBe('high')
+    const twelfth = mountCard(work(), 11).get('img')
+    expect(twelfth.attributes('loading')).toBe('eager')
+    expect(twelfth.attributes('fetchpriority')).toBeUndefined()
+    expect(mountCard(work(), 12).get('img').attributes('loading')).toBe('lazy')
   })
 
   it('keeps the remote link for a work without a local cover', () => {

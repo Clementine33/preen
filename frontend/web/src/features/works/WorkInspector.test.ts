@@ -135,6 +135,45 @@ describe('WorkInspector', () => {
     vi.unstubAllGlobals()
   })
 
+  it('fills the first work at once: no pause, no scramble, no wipe, and its cover is fetched at high priority', async () => {
+    const probes: Array<{ priority: string | undefined; url: string }> = []
+    class StubImage {
+      onload: (() => void) | null = null
+      onerror: (() => void) | null = null
+      fetchPriority: string | undefined
+      set src(url: string) {
+        probes.push({ priority: this.fetchPriority, url })
+        queueMicrotask(() => this.onload?.())
+      }
+    }
+    vi.stubGlobal('Image', StubImage)
+    const getWork = vi.fn(async (rj: string) => ({
+      ...detail(rj, 'va'),
+      local_cover: { copy_id: 'c1', rel_path: `${rj}.jpg`, version: '1-2-3' },
+    }))
+    const frame = vi.spyOn(window, 'requestAnimationFrame')
+    const wrapper = await mountInspector(getWork, { rj: FIRST })
+    await flushPromises()
+
+    // No settle(): the 70ms deferral does not apply to the first fill.
+    expect(wrapper.get('.insp-title').text()).toBe(`Title ${FIRST}`)
+    expect(frame).not.toHaveBeenCalled()
+    expect(wrapper.get('.spec').classes()).not.toContain('dim')
+    expect(wrapper.get('.spec').text()).toContain('va')
+    const front = wrapper.get<HTMLElement>('.cover.front').element
+    expect(front.style.backgroundImage).toContain('/files/')
+    expect(front.classList.contains('run')).toBe(false)
+    expect(probes.at(-1)?.priority).toBe('high')
+
+    // A later switch keeps the ordinary pause and probe priority.
+    await wrapper.setProps({ rj: SECOND })
+    await flushPromises()
+    expect(wrapper.get('.spec').classes()).toContain('dim')
+    await settle()
+    expect(probes.at(-1)?.priority).toBeUndefined()
+    vi.unstubAllGlobals()
+  })
+
   it('keeps the last body, dimmed, while the next work is still loading', async () => {
     const getWork = vi.fn((rj: string) =>
       rj === FIRST ? Promise.resolve(detail(FIRST, '伊ヶ崎綾香')) : new Promise<WorkDetail>(() => {}),

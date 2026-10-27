@@ -14,6 +14,8 @@ import (
 	"strings"
 	"sync"
 
+	// Initialized before Wails, which would otherwise override the renderer.
+	_ "github.com/Clementine33/preen/desktop/rendering"
 	"github.com/Clementine33/preen/desktop/supervisor"
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"

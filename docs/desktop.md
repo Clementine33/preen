@@ -74,7 +74,7 @@ If WebKit shows a blank window or crashes with an NVIDIA driver, close Preen and
 WEBKIT_DISABLE_DMABUF_RENDERER=1 preen-desktop
 ```
 
-This disables the DMA-BUF renderer and can make CSS `backdrop-filter` effects unavailable, changing translucent blur appearance. The shell currently performs no automatic NVIDIA detection or environment override. Keep this workaround only if it fixes the problem; remove it to return to the default renderer.
+This disables the DMA-BUF renderer, which makes rendering slower and can make CSS `backdrop-filter` effects unavailable, changing translucent blur appearance. Otherwise the shell keeps the DMA-BUF renderer enabled on every GPU, overriding the toolkit's automatic NVIDIA workaround; a value you set explicitly is always kept. Keep this workaround only if it fixes the problem; remove it to return to the default renderer.
 
 ## Licenses and corresponding sources
 

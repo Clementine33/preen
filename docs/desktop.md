@@ -76,6 +76,12 @@ WEBKIT_DISABLE_DMABUF_RENDERER=1 preen-desktop
 
 This disables the DMA-BUF renderer, which makes rendering slower and can make CSS `backdrop-filter` effects unavailable, changing translucent blur appearance. Otherwise the shell keeps the DMA-BUF renderer enabled on every GPU, overriding the toolkit's automatic NVIDIA workaround; a value you set explicitly is always kept. Keep this workaround only if it fixes the problem; remove it to return to the default renderer.
 
+## Lyrics Window
+
+The Lyrics Window opens from the player bar as its own window titled `Preen 歌词` and closes from its hover bar or with the main window. On Windows it has a transparent background and stays on top; its backdrop button switches to a dark background and back, remembered on this device; its lock button makes it click-through, and the player bar's lyrics button unlocks it again. On Linux it keeps a dark background and asks to stay on top, which only X11 honours: Wayland has no protocol for it.
+
+On KDE Plasma under Wayland, keep it on top with a window rule: **System Settings → Window Management → Window Rules → Add New**, set **Window title** to `Preen 歌词` (Exact Match), then add **Keep above other windows**, set to **Force** and **Yes**. Other compositors offer equivalent rules matched on the window title.
+
 ## Licenses and corresponding sources
 
 Windows archives include `licenses/Preen-GPL-3.0.txt` and `licenses/Preen-README.txt`. The latter identifies the exact Preen build commit, its source URL and the workflow run. `licenses/README.txt` records the bundled FFmpeg, LAME, Opus and zlib versions, their licenses and rebuild instructions. The directory also includes full licenses, copyright notices, FFmpeg configure options and compiler/runtime notices, including the GCC Runtime Library Exception. FFmpeg and its dependencies are statically linked; only Windows system DLLs are imported.

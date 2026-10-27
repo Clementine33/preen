@@ -9,7 +9,7 @@ import { usePlayerStore } from '@/stores/player'
  * `player.elapsed` (the audio element's timeupdate), never from the main
  * window's animation frames, so a background tab keeps it current. Commands
  * come back as plain player actions. The window outlives tracks without
- * lyrics and an idle player; only the user (or the page unloading) closes it.
+ * lyrics and an idle player; only the user (or the page unloading) closes it, and a locked one takes the next toggle to unlock.
  */
 export function createLyricsWindow() {
   const adapter = useDesktopAdapter()
@@ -50,17 +50,21 @@ export function createLyricsWindow() {
   }
 
   const open = ref(false)
+  /** The desktop window is click-through and can only be unlocked from here. */
+  const locked = ref(false)
   let close: (() => void) | null = null
 
-  /** Open or close. Opening needs a user gesture and must not await before asking the adapter. */
+  /** Open or close; while locked, unlock instead. Opening needs a user gesture and must not await before asking the adapter. */
   function toggle(): void {
+    if (locked.value) return adapter.setLyricsLocked(false)
     if (close) return close()
     if (open.value || !item.value?.lyrics) return
     open.value = true
     void adapter.openLyricsWindow(frame, (command) => commands[command](), () => {
       open.value = false
+      locked.value = false
       close = null
-    }).then((closer) => {
+    }, (value) => { locked.value = value }).then((closer) => {
       if (closer) close = closer
       else open.value = false
     })
@@ -69,6 +73,7 @@ export function createLyricsWindow() {
   return {
     supported: adapter.lyricsWindow,
     open,
+    locked,
     /** Opening needs Timed Lyrics on the current track; closing is always possible. */
     available: computed(() => open.value || !!item.value?.lyrics),
     toggle,

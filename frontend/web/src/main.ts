@@ -51,4 +51,9 @@ async function bootstrap() {
     .mount('#app')
 }
 
-void bootstrap()
+// The desktop Lyrics Window is a bare view of its own: no client, store, router or adapter.
+if (location.pathname === '/lyrics-window') {
+  void import('./lib/desktop/lyrics-window-entry').then((entry) => { entry.mountLyricsWindow() })
+} else {
+  void bootstrap()
+}

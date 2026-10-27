@@ -82,7 +82,7 @@ const MUTED_ICON = 'M6 3.7l.7-.7L8 4.3 9.3 3l.7.7L8.7 5 10 6.3l-.7.7L8 5.7 6.7 7
     </div>
     <div class="bl-right">
       <button v-if="lyrics?.supported" class="btn btn-icon bl-lyrics" type="button" :aria-pressed="lyrics.open.value"
-        aria-label="Lyrics window" title="Lyrics window (L)" :disabled="!lyrics.available.value" @click="lyrics.toggle()">
+        :aria-label="lyrics.locked.value ? 'Unlock lyrics window' : 'Lyrics window'" :title="lyrics.locked.value ? 'Unlock lyrics window (L)' : 'Lyrics window (L)'" :disabled="!lyrics.available.value" @click="lyrics.toggle()">
         <svg viewBox="0 0 10 10" aria-hidden="true"><path :d="LYRICS_ICON" /></svg>
       </button>
       <div class="bl-vol">

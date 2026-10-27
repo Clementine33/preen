@@ -10,7 +10,8 @@
     "build:web": "pnpm -C frontend/web build",
     "test:web": "pnpm -C frontend/web test",
     "typecheck:web": "pnpm -C frontend/web typecheck",
-    "ci:quality": "pnpm install --frozen-lockfile && pnpm typecheck:web && pnpm test:web && pnpm build:web"
+    "lint:web": "pnpm -C frontend/web lint",
+    "ci:quality": "pnpm install --frozen-lockfile && pnpm lint:web && pnpm typecheck:web && pnpm test:web && pnpm build:web"
   },
   "devDependencies": {
     "vite-plugin-vue-devtools": "^8.2.1"

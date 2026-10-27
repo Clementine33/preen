@@ -23,6 +23,7 @@
 | [0015](0015-deployment-and-credentials.md) | 部署形态、凭证投递与桌面壳（Wails v3 子进程托管、便携数据位置） | Draft |
 | [0016](0016-lyrics-window-hosting.md) | 歌词窗口的宿主：Document PiP 与桌面壳接缝 | Draft |
 | [0017](0017-inventory-storage-dirs-and-files.md) | 库存存储：目录表与文件表分离、会话临时暂存、Library 库根互不包含 | Draft |
+| [0018](0018-self-hosted-fonts.md) | 字体：同源自托管的 CJK 无衬线与衬线（Noto Sans SC Variable、Noto Serif SC Variable、IBM Plex Mono） | Draft |
 
 ## 历史编号映射表
 

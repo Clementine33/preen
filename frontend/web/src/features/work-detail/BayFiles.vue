@@ -139,7 +139,7 @@ function isPlaying(entry: WorkContentDir | WorkContentFile): boolean {
   .row:hover .mark { background: var(--wire-mid); }
 }
 .row .glyph { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--fg-meta); text-align: center; }
-.row .name { font-size: var(--fs-s); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: var(--font-ja); }
+.row .name { font-size: var(--fs-s); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .row.dir .name { font-weight: 700; }
 .row .info, .row .size { font-family: var(--font-mono); font-size: var(--fs-xs); letter-spacing: .04em; color: var(--fg-muted); white-space: nowrap; }
 .row .counts { display: inline-flex; gap: var(--sp-2); }

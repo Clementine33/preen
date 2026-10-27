@@ -44,7 +44,7 @@ const rows = computed(() => shown.value.text.split('\n').slice(0, 2))
 <style scoped>
 .lw {
   position: fixed; inset: 0; display: flex; flex-direction: column;
-  background: var(--invert-bg); color: var(--invert-fg); font-family: var(--font-ja);
+  background: var(--invert-bg); color: var(--invert-fg); font-family: var(--font-ui);
 }
 .stage { container-type: size; position: relative; flex: 1; min-height: 0; overflow: hidden; transition: opacity var(--dur-in) linear; }
 .paused .stage { opacity: .7; }

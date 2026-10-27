@@ -55,7 +55,7 @@ const lineTime = (line: LrcLine): string => fmtT(line.time)
 
 <style scoped>
 .lrc-scroll { height: 100%; overflow-y: auto; }
-.lrc { padding: 30% var(--sp-2) 60%; display: flex; flex-direction: column; gap: 2px; font-family: var(--font-ja); }
+.lrc { padding: 30% var(--sp-2) 60%; display: flex; flex-direction: column; gap: 2px; }
 .lrc-line { display: grid; grid-template-columns: 44px 1fr; gap: var(--sp-3); padding: 6px var(--sp-2); font-size: var(--fs-m); line-height: 22px; color: var(--fg-meta); transition: color var(--dur-out) linear; position: relative; background: none; border: none; cursor: pointer; text-align: left; font-family: inherit; white-space: pre-line; }
 .lrc-line:disabled { cursor: default; }
 .lrc-scroll > p { padding: var(--sp-3); color: var(--fg-meta); }

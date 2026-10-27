@@ -1,7 +1,7 @@
-import { expect, test } from '@playwright/test'
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { expect, test } from '@playwright/test'
 
 /**
  * The workbench's addresses (ADR 0003): they carry identities, never names.
@@ -19,12 +19,20 @@ import path from 'node:path'
 
 const e2eEnabled = process.env.BROWSER_E2E === '1'
 
-const NAMES = ['RJ000001 专辑 A', 'RJ000002 🎵 emoji', 'RJ000003 100%_hits', 'RJ000004 space here']
+const NAMES = [
+  'RJ000001 专辑 A',
+  'RJ000002 🎵 emoji',
+  'RJ000003 100%_hits',
+  'RJ000004 space here',
+]
 
 function makeNamedTree(): string {
   const root = mkdtempSync(path.join(os.tmpdir(), 'onsei-names-'))
   const fillers = Array.from({ length: 116 }, (_, i) => `RJ${String(i + 100).padStart(6, '0')} album-${i}`)
-  for (const name of [...NAMES, ...fillers]) {
+  for (const name of [
+    ...NAMES,
+    ...fillers,
+  ]) {
     const dir = path.join(root, name)
     mkdirSync(dir, { recursive: true })
     writeFileSync(path.join(dir, '01.flac'), 'address fixture')
@@ -83,7 +91,7 @@ test.describe('workbench addresses', () => {
     await expect(page.getByTestId('member-tree')).toBeVisible()
     await page.getByTestId('overview-breadcrumb').getByRole('link').last().click()
     await expect(page.getByText('已选择 1 个文件夹')).toBeVisible()
-    await expect.poll(() => scroller.evaluate((el) => Math.abs(el.scrollTop - 600))).toBeLessThan(5)
+    await expect.poll(() => scroller.evaluate(el => Math.abs(el.scrollTop - 600))).toBeLessThan(5)
     expect(offset).toBe(600)
     await scroller.evaluate((el) => { el.scrollTop = 0 })
 
@@ -141,7 +149,7 @@ test.describe('workbench addresses', () => {
     await expect(page.getByTestId('worksets-page')).toBeVisible()
 
     // Clean up: the library record this spec created, then the fixture on disk.
-    page.on('dialog', (dialog) => void dialog.accept())
+    page.on('dialog', dialog => void dialog.accept())
     await page.getByRole('button', { name: /^编辑 / }).first().click()
     await page.getByRole('button', { name: '删除媒体库' }).click()
     await expect(page.getByRole('button', { name: '删除媒体库' })).toBeHidden({ timeout: 15_000 })

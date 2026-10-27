@@ -1,7 +1,7 @@
 <script setup lang="ts">
+import type { ContentFileRef } from '@/lib/api/types'
 import { computed, ref, watch } from 'vue'
 import { useApiClient } from '@/lib/api/client'
-import type { ContentFileRef } from '@/lib/api/types'
 import { useWorkDetailStore } from '@/stores/work-detail'
 
 // The fullscreen viewer (v3): a native <dialog> on a solid substrate — no
@@ -17,7 +17,8 @@ const count = computed(() =>
 )
 const src = computed(() => {
   const item = file.value
-  if (!item || !store.rj || !store.activeCopy) return ''
+  if (!item || !store.rj || !store.activeCopy)
+    return ''
   const ref: ContentFileRef = { rj: store.rj, copyId: store.activeCopy.copy_id, relPath: item.rel_path }
   return api.workFileUrl(ref, item.thumb_v ?? undefined)
 })
@@ -29,12 +30,16 @@ watch(
   () => store.viewerOpen,
   (open) => {
     const el = dialogEl.value
-    if (!el) return
+    if (!el)
+      return
     if (open && !el.open) {
-      if (typeof el.showModal === 'function') el.showModal()
+      if (typeof el.showModal === 'function')
+        el.showModal()
       else el.setAttribute('open', '')
-    } else if (!open && el.open) {
-      if (typeof el.close === 'function') el.close()
+    }
+    else if (!open && el.open) {
+      if (typeof el.close === 'function')
+        el.close()
       else el.removeAttribute('open')
     }
   },
@@ -50,7 +55,8 @@ const realOne = computed(() => real.value && !fits.value)
 
 function applyFit(): void {
   const img = imgEl.value
-  if (!img) return
+  if (!img)
+    return
   // jsdom reports natural size 0: everything fits, exactly like a mock image.
   fits.value = img.naturalWidth <= window.innerWidth - 112 && img.naturalHeight <= window.innerHeight - 96
   big.value = !fits.value
@@ -75,7 +81,9 @@ watch(
 
 function close(): void {
   const el = dialogEl.value
-  if (el && typeof el.close === 'function') el.close()
+  if (el && typeof el.close === 'function') {
+    el.close()
+  }
   else {
     el?.removeAttribute('open')
     store.closeViewer()
@@ -85,15 +93,23 @@ function close(): void {
 // ── 1:1 drag-pan (v3): the pointer drags the scroll, the image ignores it so
 //    the drag never stalls. ──
 const dragging = ref(false)
-let drag: { x: number; y: number; left: number; top: number } | null = null
+let drag: { x: number, y: number, left: number, top: number } | null = null
 function onPointerDown(event: PointerEvent): void {
-  if (!realOne.value || !bodyEl.value) return
-  drag = { x: event.clientX, y: event.clientY, left: bodyEl.value.scrollLeft, top: bodyEl.value.scrollTop }
+  if (!realOne.value || !bodyEl.value)
+    return
+  drag = {
+    x: event.clientX,
+    y: event.clientY,
+    left: bodyEl.value.scrollLeft,
+    top: bodyEl.value.scrollTop,
+  }
   dragging.value = true
-  if (typeof bodyEl.value.setPointerCapture === 'function') bodyEl.value.setPointerCapture(event.pointerId)
+  if (typeof bodyEl.value.setPointerCapture === 'function')
+    bodyEl.value.setPointerCapture(event.pointerId)
 }
 function onPointerMove(event: PointerEvent): void {
-  if (!drag || !bodyEl.value) return
+  if (!drag || !bodyEl.value)
+    return
   bodyEl.value.scrollLeft = drag.left - (event.clientX - drag.x)
   bodyEl.value.scrollTop = drag.top - (event.clientY - drag.y)
 }
@@ -121,15 +137,23 @@ const NEXT_ICON = 'M2 0l7 5-7 5z'
         <button class="btn btn-s" type="button" @click="close">CLOSE</button>
       </span>
     </div>
-    <div ref="bodyEl" class="vw-body" :class="{ real: realOne, dragging }"
-      @pointerdown="onPointerDown" @pointermove="onPointerMove" @pointerup="onPointerUp" @pointercancel="onPointerUp">
-      <img ref="imgEl" :src="src" :class="{ big }" :alt="file?.name ?? ''" @load="applyFit"
-        @click="!realOne && big && setReal(true)" />
+    <div
+      ref="bodyEl" class="vw-body" :class="{ real: realOne, dragging }"
+      @pointerdown="onPointerDown" @pointermove="onPointerMove" @pointerup="onPointerUp" @pointercancel="onPointerUp"
+    >
+      <img
+        ref="imgEl" :src="src" :class="{ big }" :alt="file?.name ?? ''" @load="applyFit"
+        @click="!realOne && big && setReal(true)"
+      >
     </div>
-    <button v-show="store.idx > 0" class="btn btn-icon step prev" type="button" aria-label="上一张"
-      @click="store.step(-1)"><svg viewBox="0 0 10 10" aria-hidden="true"><path :d="PREV_ICON" /></svg></button>
-    <button v-show="store.idx < (store.currentSet?.files.length ?? 1) - 1" class="btn btn-icon step next" type="button"
-      aria-label="下一张" @click="store.step(1)"><svg viewBox="0 0 10 10" aria-hidden="true"><path :d="NEXT_ICON" /></svg></button>
+    <button
+      v-show="store.idx > 0" class="btn btn-icon step prev" type="button" aria-label="上一张"
+      @click="store.step(-1)"
+    ><svg viewBox="0 0 10 10" aria-hidden="true"><path :d="PREV_ICON" /></svg></button>
+    <button
+      v-show="store.idx < (store.currentSet?.files.length ?? 1) - 1" class="btn btn-icon step next" type="button"
+      aria-label="下一张" @click="store.step(1)"
+    ><svg viewBox="0 0 10 10" aria-hidden="true"><path :d="NEXT_ICON" /></svg></button>
   </dialog>
 </template>
 

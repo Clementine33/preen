@@ -1,7 +1,7 @@
-import { flushPromises, mount } from '@vue/test-utils'
 import { useQuery, VueQueryPlugin } from '@tanstack/vue-query'
-import { defineComponent } from 'vue'
+import { flushPromises, mount } from '@vue/test-utils'
 import { describe, expect, it, vi } from 'vitest'
+import { defineComponent } from 'vue'
 import { createTestQueryClient } from '@/test/query-client'
 import { refreshOrRemoveQueries } from './cache-sync'
 
@@ -26,7 +26,14 @@ describe('refreshOrRemoveQueries', () => {
       template: `<div>{{ query.data ?? 'none' }}</div>`,
     })
     const wrapper = mount(Active, {
-      global: { plugins: [[VueQueryPlugin, { queryClient }]] },
+      global: {
+        plugins: [
+          [
+            VueQueryPlugin,
+            { queryClient },
+          ],
+        ],
+      },
     })
     await flushPromises()
     expect(wrapper.text()).toBe('first')

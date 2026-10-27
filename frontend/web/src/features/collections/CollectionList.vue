@@ -1,16 +1,16 @@
 <script setup lang="ts">
+import type { WorkSummary } from '@/lib/api/types'
+import { useQueryClient } from '@tanstack/vue-query'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { useQueryClient } from '@tanstack/vue-query'
 import { useKeymap } from '@/composables/use-keymap'
 import { useReducedMotion } from '@/composables/use-motion'
 import { usePlayWork } from '@/features/works/use-play-work'
 import { useApiClient } from '@/lib/api/client'
-import type { WorkSummary } from '@/lib/api/types'
 import { queryKeys } from '@/queries/query-keys'
 import { usePlayerStore } from '@/stores/player'
-import { landingIndex, moveIntent } from './move-intent'
 import CollectionRow from './CollectionRow.vue'
+import { landingIndex, moveIntent } from './move-intent'
 
 // A collection's members as one continuously scrolling ordered list. The page
 // owns the data (chunked, see useCollectionPages) and the view sort; this list
@@ -32,7 +32,7 @@ const props = defineProps<{
   hasMore: boolean
   editing: boolean
 }>()
-const emit = defineEmits<{ more: []; move: [rj: string, gap: number]; remove: [rj: string]; done: [] }>()
+const emit = defineEmits<{ more: [], move: [rj: string, gap: number], remove: [rj: string], done: [] }>()
 
 const router = useRouter()
 const api = useApiClient()
@@ -45,11 +45,19 @@ const sel = ref(0)
 const scroller = ref<HTMLElement | null>(null)
 const sentinel = ref<HTMLElement | null>(null)
 
-const position = (i: number) => (props.custom && props.direction === 'desc' ? props.total - i : i + 1)
+function position(i: number) {
+  return props.custom && props.direction === 'desc'
+    ? props.total - i
+    : i + 1
+}
 
 function open(work: WorkSummary) {
-  if (props.editing) return
-  void router.push({ name: 'work-detail', params: { rj: work.rj } })
+  if (props.editing)
+    return
+  void router.push({
+    name: 'work-detail',
+    params: { rj: work.rj },
+  })
 }
 function play(work: WorkSummary) {
   void playWork({ rj: work.rj, title: work.title ?? work.rj })
@@ -71,38 +79,46 @@ function fold() {
   unfolded.value = null
 }
 function unfoldLater(rj: string, delay: number) {
-  if (props.editing) return
+  if (props.editing)
+    return
   const ticket = foldTicket
   foldTimer = setTimeout(async () => {
     await client.ensureQueryData({
       queryKey: queryKeys.works.content(rj),
       queryFn: ({ signal }) => api.getWorkContent(rj, signal),
     }).catch(() => undefined)
-    if (ticket === foldTicket) unfolded.value = rj
+    if (ticket === foldTicket)
+      unfolded.value = rj
   }, delay)
 }
 function select(i: number, delay = FOLD_DELAY) {
   const to = Math.max(0, Math.min(props.works.length - 1, i))
   const rj = props.works[to]?.rj
-  if (!rj) return
-  if (to === sel.value && unfolded.value === rj) return
+  if (!rj)
+    return
+  if (to === sel.value && unfolded.value === rj)
+    return
   fold()
   sel.value = to
   unfoldLater(rj, delay)
 }
 function click(i: number) {
-  if (i === sel.value && unfolded.value === props.works[i]?.rj) fold()
+  if (i === sel.value && unfolded.value === props.works[i]?.rj)
+    fold()
   else select(i, 0)
 }
 function move(to: number) {
   select(to)
-  if (sel.value >= props.works.length - 5 && props.hasMore) emit('more')
+  if (sel.value >= props.works.length - 5 && props.hasMore)
+    emit('more')
   void nextTick(() => scroller.value?.querySelector('.row.sel')?.scrollIntoView?.({ block: 'nearest' }))
 }
 /** A row that has just unfolded is brought into view whole, if it fits. */
 function reveal(rj: string) {
-  scroller.value?.querySelector(`[data-rj="${rj}"]`)?.parentElement
-    ?.scrollIntoView?.({ block: 'nearest', behavior: reducedMotion.value ? 'auto' : 'smooth' })
+  scroller.value?.querySelector(`[data-rj="${rj}"]`)?.parentElement?.scrollIntoView?.({
+    block: 'nearest',
+    behavior: reducedMotion.value ? 'auto' : 'smooth',
+  })
 }
 
 // A different order is a different list: the cursor goes back to its top, and
@@ -112,7 +128,8 @@ watch(() => [props.custom, props.direction], () => {
   sel.value = 0
 })
 watch(() => props.works[0]?.rj, (rj) => {
-  if (rj && sel.value === 0 && unfolded.value === null) unfoldLater(rj, 0)
+  if (rj && sel.value === 0 && unfolded.value === null)
+    unfoldLater(rj, 0)
 }, { immediate: true })
 
 // ── Editing: gaps are 0..n, gap g lying above row g. ──
@@ -121,76 +138,113 @@ const gap = ref<number | null>(null)
 
 function moveTo(from: number, to: number) {
   const rj = props.works[from]?.rj
-  if (!rj || !moveIntent(props.works.map((w) => w.rj), from, to, props.direction, !props.hasMore)) return
+  if (!rj || !moveIntent(props.works.map(w => w.rj), from, to, props.direction, !props.hasMore))
+    return
   sel.value = landingIndex(from, to)
   emit('move', rj, to)
 }
 function menuMove(i: number, to: 'top' | 'up' | 'down' | 'bottom') {
-  moveTo(i, { top: 0, up: i - 1, down: i + 2, bottom: props.works.length }[to])
+  moveTo(i, {
+    top: 0,
+    up: i - 1,
+    down: i + 2,
+    bottom: props.works.length,
+  }[to])
 }
 function removeAt(i: number) {
   const rj = props.works[i]?.rj
-  if (!rj) return
+  if (!rj)
+    return
   const next = props.works[i + 1] ?? props.works[i - 1]
   fold()
   sel.value = Math.max(0, Math.min(i, props.works.length - 2))
-  if (next) unfoldLater(next.rj, FOLD_DELAY)
+  if (next)
+    unfoldLater(next.rj, FOLD_DELAY)
   emit('remove', rj)
 }
 
 function dragStart(e: DragEvent, rj: string) {
   dragging.value = rj
-  if (!e.dataTransfer) return
+  if (!e.dataTransfer)
+    return
   e.dataTransfer.effectAllowed = 'move'
   e.dataTransfer.setData('text/plain', rj)
   const row = (e.target as HTMLElement | null)?.closest('.row')
-  if (row) e.dataTransfer.setDragImage?.(row, 16, 28)
+  if (row)
+    e.dataTransfer.setDragImage?.(row, 16, 28)
 }
 /** The gap under the pointer: the upper half of a row is above it, the lower half below. */
 function gapAt(e: DragEvent): number | null {
   const row = (e.target as HTMLElement | null)?.closest<HTMLElement>('.row')
-  const i = props.works.findIndex((w) => w.rj === row?.dataset.rj)
-  if (!row || i < 0) return null
+  const i = props.works.findIndex(w => w.rj === row?.dataset.rj)
+  if (!row || i < 0)
+    return null
   const box = row.getBoundingClientRect()
-  return i + (e.clientY > box.top + box.height / 2 ? 1 : 0)
+  return i + (e.clientY > box.top + box.height / 2
+    ? 1
+    : 0)
 }
 function dragOver(e: DragEvent) {
-  if (dragging.value === null) return
+  if (dragging.value === null)
+    return
   e.preventDefault()
   gap.value = gapAt(e)
 }
 function drop(e: DragEvent) {
-  if (dragging.value === null) return
+  if (dragging.value === null)
+    return
   e.preventDefault()
   const to = gapAt(e) ?? gap.value
-  const from = props.works.findIndex((w) => w.rj === dragging.value)
+  const from = props.works.findIndex(w => w.rj === dragging.value)
   dragEnd()
-  if (to !== null && from >= 0) moveTo(from, to)
+  if (to !== null && from >= 0)
+    moveTo(from, to)
 }
 function dragEnd() { dragging.value = null; gap.value = null }
 /** The insertion line sits above the row at the gap, or below the last row. */
-const dropMark = (i: number) => (gap.value === i ? 'above' : gap.value === i + 1 && i === props.works.length - 1 ? 'below' : null)
+function dropMark(i: number) {
+  return gap.value === i
+    ? 'above'
+    : gap.value === i + 1 && i === props.works.length - 1
+      ? 'below'
+      : null
+}
 
 // Entering edit mode folds the open row; leaving it unfolds the selected one again.
 watch(() => props.editing, (on) => {
   fold()
   const rj = props.works[sel.value]?.rj
-  if (!on && rj) unfoldLater(rj, 0)
+  if (!on && rj)
+    unfoldLater(rj, 0)
 })
 
 useKeymap({
-  'collections.move': (e) => move(sel.value + (e.key === 'ArrowDown' ? 1 : -1)),
-  'collections.ends': (e) => move(e.key === 'Home' ? 0 : props.works.length - 1),
-  'collections.close': () => (props.editing ? emit('done') : fold()),
-  'collections.remove': () => (props.editing ? removeAt(sel.value) : false),
-  'collections.open': () => (props.works[sel.value] ? open(props.works[sel.value]!) : false),
+  'collections.move': e => move(sel.value + (e.key === 'ArrowDown'
+    ? 1
+    : -1)),
+  'collections.ends': e => move(e.key === 'Home'
+    ? 0
+    : props.works.length - 1),
+  'collections.close': () => (props.editing
+    ? emit('done')
+    : fold()),
+  'collections.remove': () => (props.editing
+    ? removeAt(sel.value)
+    : false),
+  'collections.open': () => (props.works[sel.value]
+    ? open(props.works[sel.value]!)
+    : false),
 })
 
 let observer: IntersectionObserver | undefined
 onMounted(() => {
   // jsdom has no IntersectionObserver; the keys still ask for more near the end.
-  if (typeof IntersectionObserver === 'undefined' || !sentinel.value) return
-  observer = new IntersectionObserver((entries) => { if (entries.some((e) => e.isIntersecting) && props.hasMore) emit('more') }, { root: scroller.value, rootMargin: '600px' })
+  if (typeof IntersectionObserver === 'undefined' || !sentinel.value)
+    return
+  observer = new IntersectionObserver((entries) => {
+    if (entries.some(e => e.isIntersecting) && props.hasMore)
+      emit('more')
+  }, { root: scroller.value, rootMargin: '600px' })
   observer.observe(sentinel.value)
 })
 onBeforeUnmount(() => {
@@ -200,7 +254,8 @@ onBeforeUnmount(() => {
 // A chunk that does not fill the viewport leaves the sentinel in view without a new
 // intersection change; re-observing reports it again.
 watch(() => props.works.length, () => void nextTick(() => {
-  if (!observer || !sentinel.value) return
+  if (!observer || !sentinel.value)
+    return
   observer.unobserve(sentinel.value)
   observer.observe(sentinel.value)
 }))
@@ -209,13 +264,17 @@ const active = computed(() => props.works[sel.value]?.rj)
 </script>
 
 <template>
-  <div ref="scroller" class="list" role="listbox" aria-label="合集作品" tabindex="-1"
-    :aria-activedescendant="active ? `cw-${active}` : undefined" @dragover="dragOver" @drop="drop">
-    <CollectionRow v-for="(w, i) in works" :key="w.rj" :work="w" :position="position(i)" :selected="i === sel"
+  <div
+    ref="scroller" class="list" role="listbox" aria-label="合集作品" tabindex="-1"
+    :aria-activedescendant="active ? `cw-${active}` : undefined" @dragover="dragOver" @drop="drop"
+  >
+    <CollectionRow
+      v-for="(w, i) in works" :key="w.rj" :work="w" :position="position(i)" :selected="i === sel"
       :expanded="unfolded === w.rj" :playing="player.rj === w.rj"
       :editing="editing" :movable="editing && custom" :first="i === 0" :last="i === works.length - 1 && !hasMore" :drop="dropMark(i)"
       @select="click(i)" @open="open(w)" @play="play(w)" @unfolded="reveal(w.rj)"
-      @dragstart="dragStart($event, w.rj)" @dragend="dragEnd" @move="menuMove(i, $event)" @remove="removeAt(i)" />
+      @dragstart="dragStart($event, w.rj)" @dragend="dragEnd" @move="menuMove(i, $event)" @remove="removeAt(i)"
+    />
     <div ref="sentinel" class="sentinel" aria-hidden="true" />
   </div>
 </template>

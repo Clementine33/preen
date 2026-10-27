@@ -1,5 +1,5 @@
-import { vi } from 'vitest'
 import type { ApiClientContract } from '@/lib/api/types'
+import { vi } from 'vitest'
 
 // Full-contract ApiClient stub factory. Every method is a vi.fn() that
 // resolves to a sensible neutral default; tests override per method via
@@ -49,9 +49,9 @@ export function apiStub(overrides: Partial<ApiClientContract> = {}): ApiClientCo
     deleteWorkListening: vi.fn().mockResolvedValue(undefined),
     replaceWorkUserTags: vi.fn().mockResolvedValue([]),
     getPreferences: vi.fn().mockResolvedValue({ track_formats: [] }),
-    putPreferences: vi.fn(async (input) => input),
+    putPreferences: vi.fn(async input => input),
     getOutboundProxy: vi.fn().mockResolvedValue({ url: '' }),
-    putOutboundProxy: vi.fn(async (input) => input),
+    putOutboundProxy: vi.fn(async input => input),
     downloadDiagnosticLog: vi.fn(),
     previewCleanup: vi.fn(),
     startCleanup: vi.fn(),

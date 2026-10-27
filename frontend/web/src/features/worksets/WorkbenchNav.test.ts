@@ -1,14 +1,20 @@
-import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
+import type { VueWrapper } from '@vue/test-utils'
+import type { Router } from 'vue-router'
+import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia } from 'pinia'
 import { describe, expect, it } from 'vitest'
 import { nextTick } from 'vue'
-import { createMemoryHistory, createRouter, type Router } from 'vue-router'
+import { createMemoryHistory, createRouter } from 'vue-router'
 import WorkbenchNav from './WorkbenchNav.vue'
 
 const router: Router = createRouter({
   history: createMemoryHistory(),
   routes: [
-    { path: '/worksets', name: 'worksets', component: { template: '<div />' } },
+    {
+      path: '/worksets',
+      name: 'worksets',
+      component: { template: '<div />' },
+    },
     {
       path: '/worksets/:libraryId',
       name: 'workbench-overview',
@@ -24,8 +30,16 @@ const router: Router = createRouter({
       name: 'conversion-settings',
       component: { template: '<div />' },
     },
-    { path: '/worksets/:libraryId/rename', name: 'rename', component: { template: '<div />' } },
-    { path: '/worksets/:libraryId/metadata', name: 'metadata-refresh', component: { template: '<div />' } },
+    {
+      path: '/worksets/:libraryId/rename',
+      name: 'rename',
+      component: { template: '<div />' },
+    },
+    {
+      path: '/worksets/:libraryId/metadata',
+      name: 'metadata-refresh',
+      component: { template: '<div />' },
+    },
   ],
 })
 
@@ -42,7 +56,12 @@ async function mountNav(path: string, props: NavProps = {}): Promise<VueWrapper>
       libraryId: 'lib-1',
       ...props,
     },
-    global: { plugins: [createPinia(), router] },
+    global: {
+      plugins: [
+        createPinia(),
+        router,
+      ],
+    },
   })
 }
 

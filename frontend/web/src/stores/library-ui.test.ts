@@ -1,6 +1,6 @@
+import type { Library, LibraryDir } from '@/lib/api/types'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it } from 'vitest'
-import type { Library, LibraryDir } from '@/lib/api/types'
 import { useLibraryUiStore } from './library-ui'
 
 const libA: Library = {
@@ -15,11 +15,34 @@ const libA: Library = {
   storage_class: 'hdd',
 }
 
-const libB: Library = { ...libA, id: 'lib-b', name: 'Brazil', root_path: 'C:\\Audio\\Brazil' }
+const libB: Library = {
+  ...libA,
+  id: 'lib-b',
+  name: 'Brazil',
+  root_path: 'C:\\Audio\\Brazil',
+}
 
 const dirs: LibraryDir[] = [
-  { name: 'Alpha', path: '/music/Alpha', rel_path: 'Alpha', dir_id: 'dir-alpha', audio_file_count: 4, file_count: 4, added_at: '2026-05-01T00:00:00Z', work_code: null },
-  { name: 'Beta', path: '/music/Beta', rel_path: 'Beta', dir_id: 'dir-beta', audio_file_count: 9, file_count: 9, added_at: '2026-05-01T00:00:00Z', work_code: null },
+  {
+    name: 'Alpha',
+    path: '/music/Alpha',
+    rel_path: 'Alpha',
+    dir_id: 'dir-alpha',
+    audio_file_count: 4,
+    file_count: 4,
+    added_at: '2026-05-01T00:00:00Z',
+    work_code: null,
+  },
+  {
+    name: 'Beta',
+    path: '/music/Beta',
+    rel_path: 'Beta',
+    dir_id: 'dir-beta',
+    audio_file_count: 9,
+    file_count: 9,
+    added_at: '2026-05-01T00:00:00Z',
+    work_code: null,
+  },
 ]
 
 describe('library-ui store', () => {
@@ -86,7 +109,7 @@ describe('library-ui store', () => {
     store.reconcileDirs('lib-b', [])
     expect(store.selectedDirPaths).toEqual(['Alpha', 'Beta'])
 
-    store.reconcileDirs('lib-a', dirs.filter((dir) => dir.rel_path !== 'Beta'))
+    store.reconcileDirs('lib-a', dirs.filter(dir => dir.rel_path !== 'Beta'))
     expect(store.selectedDirPaths).toEqual(['Alpha'])
   })
 

@@ -1,17 +1,17 @@
+import type { ApiClientContract, GenerationEvent, OperationType } from '@/lib/api/types'
 import { defineStore } from 'pinia'
 import { markRaw } from 'vue'
 import { ApiError } from '@/lib/api/client'
 import { errorDetails } from '@/lib/api/error'
-import type { ApiClientContract, GenerationEvent, OperationType } from '@/lib/api/types'
 
-export type GenerationRunStatus =
-  | 'idle'
-  | 'streaming'
-  | 'completed'
-  | 'failed'
-  | 'canceled'
-  | 'interrupted'
-  | 'error'
+export type GenerationRunStatus
+  = | 'idle'
+    | 'streaming'
+    | 'completed'
+    | 'failed'
+    | 'canceled'
+    | 'interrupted'
+    | 'error'
 
 // How the terminal was reached. `event` means the backend confirmed the
 // outcome over SSE (a revision may have been created); `transport` means the
@@ -59,7 +59,8 @@ export const useWorksetGenerationStore = defineStore('workset-generation', {
       client: ApiClientContract,
       onEvent?: (event: GenerationEvent) => void,
     ): Promise<boolean> {
-      if (this.status === 'streaming') return false
+      if (this.status === 'streaming')
+        return false
       const controller = markRaw(new AbortController())
       this.controller = controller
       this.status = 'streaming'
@@ -76,13 +77,17 @@ export const useWorksetGenerationStore = defineStore('workset-generation', {
         for await (const event of client.streamGenerationEvents(worksetId, operation, generationId, controller.signal)) {
           // A reset() or a newer session superseded this stream — never let
           // stale events overwrite the current state.
-          if (this.controller !== controller) return true
+          if (this.controller !== controller)
+            return true
           this.applyEvent(event as GenerationEvent)
           onEvent?.(event)
-          if (this.controller !== controller) return true
-          if (this.status !== 'streaming') break // terminal event applied
+          if (this.controller !== controller)
+            return true
+          if (this.status !== 'streaming')
+            break // terminal event applied
         }
-        if (this.controller !== controller) return true
+        if (this.controller !== controller)
+          return true
         if (this.status === 'streaming') {
           // Stream ended without a terminal event: the backend outcome is
           // unknown (it may have completed just after the last event).
@@ -91,20 +96,27 @@ export const useWorksetGenerationStore = defineStore('workset-generation', {
           this.errorCode = 'STREAM_ENDED'
           this.errorMessage = '生成连接提前结束，请刷新查看结果。'
         }
-      } catch (error) {
-        if (this.controller !== controller) return true
+      }
+      catch (error) {
+        if (this.controller !== controller)
+          return true
         this.terminal = 'transport'
         if (controller.signal.aborted || (error instanceof DOMException && error.name === 'AbortError')) {
           this.status = 'error'
           this.errorCode = 'STREAM_ABORTED'
           this.errorMessage = '生成进度连接已断开。'
-        } else {
+        }
+        else {
           this.status = 'error'
-          this.errorCode = error instanceof ApiError ? error.code : 'STREAM_ERROR'
+          this.errorCode = error instanceof ApiError
+            ? error.code
+            : 'STREAM_ERROR'
           this.errorMessage = errorDetails(error, '生成进度连接失败。').message
         }
-      } finally {
-        if (this.controller === controller) this.controller = null
+      }
+      finally {
+        if (this.controller === controller)
+          this.controller = null
       }
       return true
     },

@@ -18,9 +18,11 @@ async function download(): Promise<void> {
     link.download = filename
     link.click()
     URL.revokeObjectURL(link.href)
-  } catch (error) {
+  }
+  catch (error) {
     toast.error(error, '日志导出失败')
-  } finally {
+  }
+  finally {
     pending.value = false
   }
 }

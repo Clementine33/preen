@@ -1,10 +1,10 @@
-import { flushPromises, mount, enableAutoUnmount } from '@vue/test-utils'
+import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { ApiClient, apiClientKey } from '@/lib/api/client'
-import { sampleWorkContent } from '@/test/work-content-fixture'
-import { useWorkDetailStore } from '@/stores/work-detail'
 import { usePlayerStore } from '@/stores/player'
+import { useWorkDetailStore } from '@/stores/work-detail'
+import { sampleWorkContent } from '@/test/work-content-fixture'
 import LeafLyrics from './LeafLyrics.vue'
 
 const RJ = 'RJ01000001'
@@ -15,6 +15,7 @@ const originalScrollTo = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 
 beforeEach(() => {
   setActivePinia(createPinia())
   audio = document.createElement('audio')
+  // eslint-disable-next-line prefer-arrow-callback -- called with `new`
   vi.stubGlobal('Audio', function () { return audio })
   vi.stubGlobal('fetch', vi.fn())
   Object.defineProperty(HTMLElement.prototype, 'scrollTo', { configurable: true, value: scrollTo })
@@ -25,19 +26,26 @@ afterEach(() => {
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
   scrollTo.mockReset()
-  if (originalScrollTo) Object.defineProperty(HTMLElement.prototype, 'scrollTo', originalScrollTo)
+  if (originalScrollTo)
+    Object.defineProperty(HTMLElement.prototype, 'scrollTo', originalScrollTo)
   else Reflect.deleteProperty(HTMLElement.prototype, 'scrollTo')
 })
 enableAutoUnmount(afterEach)
 
 async function listen(rel: string, text: string) {
-  vi.mocked(fetch).mockResolvedValue(new Response(text, { headers: { 'Content-Type': 'text/plain; charset=utf-8' } }))
+  vi.mocked(fetch).mockResolvedValue(new Response(text, {
+    headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+  }))
   const api = new ApiClient({ baseUrl: '/api/v1', token: 'test-token' })
   const store = useWorkDetailStore()
-  store.bind(RJ, sampleWorkContent(RJ), (ref) => api.workFileUrl(ref))
+  store.bind(RJ, sampleWorkContent(RJ), ref => api.workFileUrl(ref))
   store.pairLrc(1, rel)
   store.startTrack(1)
-  const wrapper = mount(LeafLyrics, { global: { provide: { [apiClientKey as symbol]: api } } })
+  const wrapper = mount(LeafLyrics, {
+    global: {
+      provide: { [apiClientKey as symbol]: api },
+    },
+  })
   await flushPromises()
   return wrapper
 }
@@ -76,7 +84,12 @@ it.each(['vtt', 'VTT'])('loads %s cues and respects their end times and gaps', a
 
 it('does not highlight or seek another playing work', async () => {
   const wrapper = await listen('lyrics/a.lrc', '[00:01]first')
-  usePlayerStore().play('RJ02000002', [{ title: 'other', source: { src: '/other.mp3', durationSec: null, format: 'MP3' } }])
+  usePlayerStore().play('RJ02000002', [
+    {
+      title: 'other',
+      source: { src: '/other.mp3', durationSec: null, format: 'MP3' },
+    },
+  ])
   audio.currentTime = 2
   audio.dispatchEvent(new Event('timeupdate'))
   await flushPromises()
@@ -90,10 +103,20 @@ it('reloads the same path for another copy and ignores the previous response', a
   let finishOld: (response: Response) => void = () => {}
   vi.mocked(fetch).mockImplementationOnce(() => new Promise<Response>((resolve) => { finishOld = resolve }))
   const store = useWorkDetailStore()
-  store.bind(RJ, { ...sampleWorkContent(RJ), copies: [{ ...store.activeCopy!, copy_id: 'copy-b' }] })
+  store.bind(RJ, {
+    ...sampleWorkContent(RJ),
+    copies: [
+      { ...store.activeCopy!, copy_id: 'copy-b' },
+    ],
+  })
   await flushPromises()
   vi.mocked(fetch).mockResolvedValue(new Response('[00:01]new copy'))
-  store.bind(RJ, { ...sampleWorkContent(RJ), copies: [{ ...store.activeCopy!, copy_id: 'copy-c' }] })
+  store.bind(RJ, {
+    ...sampleWorkContent(RJ),
+    copies: [
+      { ...store.activeCopy!, copy_id: 'copy-c' },
+    ],
+  })
   await flushPromises()
   finishOld(new Response('[00:01]stale copy'))
   await flushPromises()

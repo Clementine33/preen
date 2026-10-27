@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed } from 'vue'
 import type { LyricsCommand, LyricsFrame } from '@/lib/desktop/desktop-adapter'
+import { computed } from 'vue'
 import { NEXT_ICON, PAUSE_ICON, PLAY_ICON, PREV_ICON } from '@/features/works/player-icons'
 
 // The Lyrics Window's content (ADR 0016): the current line of the playing

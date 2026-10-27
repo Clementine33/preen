@@ -10,7 +10,14 @@ import type { RouteLocationNormalized, Router } from 'vue-router'
  * wall's whole view is shareable state there. One table
  * therefore answers what any address can mean.
  */
-export const MEMBER_FILTERS = ['all', 'change', 'warn', 'blocked', 'source_conflict', 'excluded'] as const
+export const MEMBER_FILTERS = [
+  'all',
+  'change',
+  'warn',
+  'blocked',
+  'source_conflict',
+  'excluded',
+] as const
 
 /** The conclusion filter of the conversion list. */
 export type MemberFilter = (typeof MEMBER_FILTERS)[number]
@@ -21,11 +28,25 @@ const ALLOWED_VALUES: Record<string, readonly string[]> = {
   filter: MEMBER_FILTERS,
   // The wall's age rating, personal rating, tag match mode, order and page size.
   age: ['safe', 'r15', 'r18'],
-  rating: ['10', '9', '8', '7', '5', 'rated', 'none'],
+  rating: [
+    '10',
+    '9',
+    '8',
+    '7',
+    '5',
+    'rated',
+    'none',
+  ],
   listening: ['listening', 'finished', 'none'],
   language: ['CHI_HANS', 'CHI_HANT', 'JPN', 'NM'],
   mode: ['all', 'any'],
-  sort: ['rj', 'release_date', 'collected_at', 'rating', 'listened_at'],
+  sort: [
+    'rj',
+    'release_date',
+    'collected_at',
+    'rating',
+    'listened_at',
+  ],
   direction: ['asc', 'desc'],
   size: ['36', '60', '120', '180'],
 }
@@ -66,7 +87,8 @@ const OPEN_VALUE: Record<string, RegExp> = {
  */
 export function canonicalRj(raw: string): string | null {
   const match = /^RJ(\d{6}|\d{8})$/i.exec(raw.trim())
-  if (!match) return null
+  if (!match)
+    return null
   return `RJ${match[1].padStart(8, '0')}`
 }
 
@@ -86,16 +108,34 @@ const CONVERSION_SUBTREE = [
 ]
 
 const ALLOWED_PARAMS: Record<string, readonly string[]> = {
-  login: ['redirect'],
-  ...Object.fromEntries(CONVERSION_SUBTREE.map((name) => [name, ['filter']])),
+  'login': ['redirect'],
+  ...Object.fromEntries(CONVERSION_SUBTREE.map(name => [
+    name,
+    ['filter'],
+  ])),
   'conversion-member-files': ['filter', 'view'],
   'collection-detail': ['sort', 'direction'],
-  works: ['library', 'rj', 'voice', 'circle', 'age', 'language', 'rating', 'listening', 'tag', 'mode', 'sort', 'q', 'page', 'size'],
+  'works': [
+    'library',
+    'rj',
+    'voice',
+    'circle',
+    'age',
+    'language',
+    'rating',
+    'listening',
+    'tag',
+    'mode',
+    'sort',
+    'q',
+    'page',
+    'size',
+  ],
 }
 
 /** The filter an address asks for, or the unfiltered list. */
 export function readMemberFilter(value: unknown): MemberFilter {
-  return MEMBER_FILTERS.find((candidate) => candidate === value) ?? 'all'
+  return MEMBER_FILTERS.find(candidate => candidate === value) ?? 'all'
 }
 
 /**
@@ -107,8 +147,14 @@ export function readMemberFilter(value: unknown): MemberFilter {
 export function installAddressHygiene(router: Router): void {
   router.beforeEach((to) => {
     const query = cleanedQuery(to)
-    if (query === null) return true
-    return { path: to.path, query, hash: '', replace: true }
+    if (query === null)
+      return true
+    return {
+      path: to.path,
+      query,
+      hash: '',
+      replace: true,
+    }
   })
 }
 
@@ -124,7 +170,9 @@ export type AddressLike = Pick<RouteLocationNormalized, 'query' | 'hash'> & { na
  * clean, so the guard neither redirects nor writes history for nothing.
  */
 export function cleanedQuery(route: AddressLike): Record<string, string> | null {
-  const allowed = typeof route.name === 'string' ? (ALLOWED_PARAMS[route.name] ?? []) : []
+  const allowed = typeof route.name === 'string'
+    ? (ALLOWED_PARAMS[route.name] ?? [])
+    : []
   const kept: Record<string, string> = {}
   for (const key of allowed) {
     const value = route.query[key]
@@ -137,7 +185,8 @@ export function cleanedQuery(route: AddressLike): Record<string, string> | null 
     }
   }
   const carried = Object.keys(route.query)
-  const clean = carried.length === Object.keys(kept).length && carried.every((key) => key in kept)
-  if (clean && !route.hash) return null
+  const clean = carried.length === Object.keys(kept).length && carried.every(key => key in kept)
+  if (clean && !route.hash)
+    return null
   return kept
 }

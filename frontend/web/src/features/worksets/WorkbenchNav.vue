@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, watch } from 'vue'
+import type { WorkbenchNavId } from './workbench-nav'
 import { ChevronDown, ChevronRight } from '@lucide/vue'
+import { computed, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
-import { useWorksetEditorStore } from '@/stores/workset-editor'
 import { useWorkbenchNavStore } from '@/stores/workbench-nav'
-import { workbenchNav, workbenchNavPosition, type WorkbenchNavId } from './workbench-nav'
+import { useWorksetEditorStore } from '@/stores/workset-editor'
+import { workbenchNav, workbenchNavPosition } from './workbench-nav'
 
 /**
  * The workbench's contextual navigation.
@@ -27,12 +28,13 @@ const items = computed(() => workbenchNav(props.libraryId))
 const position = computed(() => workbenchNavPosition(route.name))
 
 // Entering 转换全局设置 unfolds its group, by direct load or by navigation
-//. The watch is on the route name, never on query data, so a collapse
+// . The watch is on the route name, never on query data, so a collapse
 // the user made afterwards is not undone by an unrelated refetch.
 watch(
   () => position.value?.current,
   (current) => {
-    if (current === 'conversion-settings') nav.setGroupCollapsed('conversion', false)
+    if (current === 'conversion-settings')
+      nav.setGroupCollapsed('conversion', false)
   },
   { immediate: true },
 )
@@ -44,7 +46,9 @@ function rowClass(current: boolean, parent: boolean, child = false): string {
     // Touch devices get the 44px minimum at any width — the tablet tiers are
     // touch too, so this is a pointer query, not a width one.
     'h-8 pointer-coarse:min-h-11',
-    current ? 'bg-primary font-medium text-primary-foreground' : parent ? 'bg-sidebar-accent/60' : 'hover:bg-sidebar-accent',
+    current
+      ? 'bg-primary font-medium text-primary-foreground'
+      : parent ? 'bg-sidebar-accent/60' : 'hover:bg-sidebar-accent',
   ].join(' ')
 }
 
@@ -67,7 +71,7 @@ function isCollapsed(id: WorkbenchNavId): boolean {
           <!-- An unapplied edit is never hidden behind the section switch. -->
           <span
             v-if="item.id === 'conversion' && editor.isDirty"
-            :class="['size-1.5 shrink-0 bg-[var(--warning-ink)]', position?.current === item.id && 'outline outline-1 outline-[var(--invert-fg)]']"
+            class="size-1.5 shrink-0 bg-[var(--warning-ink)]" :class="[position?.current === item.id && 'outline outline-1 outline-[var(--invert-fg)]']"
             title="有未应用的修改"
             data-testid="nav-dirty"
           />
@@ -80,10 +84,7 @@ function isCollapsed(id: WorkbenchNavId): boolean {
           :aria-expanded="!isCollapsed(item.id)"
           :aria-controls="`nav-children-${item.id}`"
           :aria-label="`${isCollapsed(item.id) ? '展开' : '收起'}${item.label}`"
-          :class="[
-            'flex shrink-0 items-center justify-center text-[var(--text-muted)] hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
-            'h-8 w-7 pointer-coarse:min-h-11 pointer-coarse:min-w-11',
-          ]"
+          class="flex shrink-0 items-center justify-center text-[var(--text-muted)] hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none h-8 w-7 pointer-coarse:min-h-11 pointer-coarse:min-w-11"
           :data-testid="`nav-group-${item.id}`"
           @click="nav.setGroupCollapsed(item.id, !isCollapsed(item.id))"
         >
@@ -94,8 +95,8 @@ function isCollapsed(id: WorkbenchNavId): boolean {
 
       <ul
         v-if="(item.children?.length ?? 0) > 0"
-        :id="`nav-children-${item.id}`"
         v-show="!isCollapsed(item.id)"
+        :id="`nav-children-${item.id}`"
         class="ml-4 border-l border-[var(--wire-mid)]"
       >
         <li v-for="child in item.children" :key="child.id">

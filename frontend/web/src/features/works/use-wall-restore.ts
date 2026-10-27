@@ -1,4 +1,5 @@
-import { nextTick, onBeforeUnmount, watch, type Ref } from 'vue'
+import type { Ref } from 'vue'
+import { nextTick, onBeforeUnmount, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
 // Where the wall was when a work was opened from it. It belongs to that list
@@ -26,7 +27,9 @@ const KEY = 'wallReturn'
 export function useRecordWallReturn() {
   const router = useRouter()
   return (state: WallReturn) => {
-    router.options.history.replace(router.currentRoute.value.fullPath, { [KEY]: { ...state } })
+    router.options.history.replace(router.currentRoute.value.fullPath, {
+      [KEY]: { ...state },
+    })
   }
 }
 
@@ -48,7 +51,9 @@ export function useWallRestore(options: {
 }): void {
   const router = useRouter()
   const raw = router.options.history.state[KEY] as WallReturn | null | undefined
-  const saved = raw && typeof raw.scrollTop === 'number' && typeof raw.focusRj === 'string' ? raw : null
+  const saved = raw && typeof raw.scrollTop === 'number' && typeof raw.focusRj === 'string'
+    ? raw
+    : null
   let done = false
   let focusCancelled = false
 
@@ -57,7 +62,8 @@ export function useWallRestore(options: {
   }
   const listen = (add: boolean) => {
     for (const type of ['pointerdown', 'keydown'] as const) {
-      if (add) document.addEventListener(type, cancel, { capture: true })
+      if (add)
+        document.addEventListener(type, cancel, { capture: true })
       else document.removeEventListener(type, cancel, { capture: true })
     }
   }
@@ -65,20 +71,25 @@ export function useWallRestore(options: {
   onBeforeUnmount(() => listen(false))
 
   watch(options.ready, async (ready) => {
-    if (!ready || done) return
+    if (!ready || done)
+      return
     done = true
     listen(false)
     await nextTick()
     const wall = options.wall.value
-    if (!wall) return
+    if (!wall)
+      return
     if (saved) {
-      if (wall.scroller) wall.scroller.scrollTop = saved.scrollTop
-      if (!focusCancelled) wall.cellFor(saved.focusRj)?.focus({ preventScroll: true })
+      if (wall.scroller)
+        wall.scroller.scrollTop = saved.scrollTop
+      if (!focusCancelled)
+        wall.cellFor(saved.focusRj)?.focus({ preventScroll: true })
       // Used once: a later visit to this entry by other means starts fresh.
       router.options.history.replace(router.currentRoute.value.fullPath, { [KEY]: null })
       return
     }
     const rj = options.selectedRj()
-    if (rj) wall.cellFor(rj)?.scrollIntoView?.({ block: 'nearest' })
+    if (rj)
+      wall.cellFor(rj)?.scrollIntoView?.({ block: 'nearest' })
   }, { immediate: true, flush: 'post' })
 }

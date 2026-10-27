@@ -33,8 +33,10 @@ const chevron = 'M0 2.5h10L5 8z'
 
 <template>
   <div ref="root" class="lib" :class="{ open }" @keydown="menu.onKeydown" @focusout="menu.onFocusOut">
-    <button ref="trigger" class="lib-trigger" type="button" aria-haspopup="listbox"
-      :aria-expanded="open" @click="menu.setOpen(!open)">
+    <button
+      ref="trigger" class="lib-trigger" type="button" aria-haspopup="listbox"
+      :aria-expanded="open" @click="menu.setOpen(!open)"
+    >
       <span class="lbl lib-lbl">LIBRARY</span>
       <span class="lib-name">{{ libraryUi.allLibraries ? 'ALL' : (activeLibrary?.name ?? '—') }}</span>
       <span class="lib-chev"><svg viewBox="0 0 10 10" aria-hidden="true"><path :d="chevron" /></svg></span>
@@ -45,18 +47,22 @@ const chevron = 'M0 2.5h10L5 8z'
         <span class="lbl">{{ librariesData.length }} ROOTS</span>
       </div>
       <div class="lib-list" role="listbox" aria-label="Media libraries">
-        <button class="lib-item" type="button" role="option" :aria-selected="libraryUi.allLibraries"
-          :style="{ '--d': '10ms' }" @click="selectAll">
-          <span class="lib-mark"></span>
+        <button
+          class="lib-item" type="button" role="option" :aria-selected="libraryUi.allLibraries"
+          :style="{ '--d': '10ms' }" @click="selectAll"
+        >
+          <span class="lib-mark" />
           <span class="lib-text">
             <span class="nm">ALL LIBRARIES</span>
             <span class="lbl path">{{ librariesData.length }} ROOTS</span>
           </span>
         </button>
-        <button v-for="(library, i) in librariesData" :key="library.id" class="lib-item" type="button" role="option"
+        <button
+          v-for="(library, i) in librariesData" :key="library.id" class="lib-item" type="button" role="option"
           :aria-selected="!libraryUi.allLibraries && library.id === libraryUi.activeLibraryId" :style="{ '--d': `${40 + Math.min(i, 5) * 30}ms` }"
-          @click="selectLibrary(library.id)">
-          <span class="lib-mark"></span>
+          @click="selectLibrary(library.id)"
+        >
+          <span class="lib-mark" />
           <span class="lib-text">
             <span class="nm">{{ library.name }}</span>
             <span class="lbl path">{{ library.root_path }}</span>
@@ -64,8 +70,10 @@ const chevron = 'M0 2.5h10L5 8z'
         </button>
       </div>
       <div class="lib-foot">
-        <RouterLink class="btn btn-s" :to="{ name: 'worksets' }"
-          @click="menu.setOpen(false)">MANAGE</RouterLink>
+        <RouterLink
+          class="btn btn-s" :to="{ name: 'worksets' }"
+          @click="menu.setOpen(false)"
+        >MANAGE</RouterLink>
       </div>
     </div>
   </div>

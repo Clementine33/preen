@@ -18,7 +18,7 @@ withDefaults(
   }>(),
   { rowClass: 'h-8 [contain-intrinsic-size:auto_32px]' },
 )
-defineSlots<{ default(props: { item: T }): unknown }>()
+defineSlots<{ default: (props: { item: T }) => unknown }>()
 </script>
 
 <template>

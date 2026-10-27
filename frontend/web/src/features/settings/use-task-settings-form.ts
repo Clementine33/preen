@@ -1,8 +1,9 @@
-import { computed, type MaybeRefOrGetter } from 'vue'
 import type { UseQueryReturnType } from '@tanstack/vue-query'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
-import { useApiClient } from '@/lib/api/client'
+import type { MaybeRefOrGetter } from 'vue'
 import type { OperationType, TaskSettings, TaskSettingsMap } from '@/lib/api/types'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
+import { computed } from 'vue'
+import { useApiClient } from '@/lib/api/client'
 import { queryKeys } from '@/queries/query-keys'
 import { saveTaskSettingsMutationOptions, taskSettingsQueryOptions } from '@/queries/worksets'
 import { useSettingsForm } from './use-settings-form'
@@ -31,9 +32,11 @@ export function useTaskSettingsForm<T extends OperationType, V extends object>(o
     Error
   >
   const mutation = useMutation(saveTaskSettingsMutationOptions(api, queryClient, options.operation) as never) as unknown as {
-    mutateAsync: (input: { settings: TaskSettingsMap[T]; etag: string }) => Promise<TaskSettings<T>>
+    mutateAsync: (input: { settings: TaskSettingsMap[T], etag: string }) => Promise<TaskSettings<T>>
   }
-  const saved = computed(() => (query.data.value ? options.toView(query.data.value.settings) : undefined))
+  const saved = computed(() => (query.data.value
+    ? options.toView(query.data.value.settings)
+    : undefined))
 
   const form = useSettingsForm<V>({
     saved,
@@ -41,14 +44,20 @@ export function useTaskSettingsForm<T extends OperationType, V extends object>(o
     label: options.label,
     save: (edits) => {
       const current = query.data.value
-      if (!current) return Promise.reject(new Error('设置尚未载入'))
+      if (!current)
+        return Promise.reject(new Error('设置尚未载入'))
       return mutation.mutateAsync({
-        settings: { ...current.settings, ...edits } as TaskSettingsMap[T],
+        settings: {
+          ...current.settings,
+          ...edits,
+        } as TaskSettingsMap[T],
         etag: current.etag,
       })
     },
     onConflict: () =>
-      void queryClient.invalidateQueries({ queryKey: queryKeys.taskSettings.detail(options.operation) }),
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.taskSettings.detail(options.operation),
+      }),
   })
   return { form, query, saved }
 }

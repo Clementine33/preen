@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { ComponentOutcome, RevisionDetailResponse, RevisionMember, WorksetMember } from '@/lib/api/types'
 import { computed } from 'vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -11,7 +12,6 @@ import {
   resolutionText,
   revisionComponents,
 } from '@/features/worksets/plan-readers'
-import type { ComponentOutcome, RevisionDetailResponse, RevisionMember, WorksetMember } from '@/lib/api/types'
 
 /**
  * One member's frozen review: the configuration the revision was planned with
@@ -29,7 +29,7 @@ const props = defineProps<{
 const emit = defineEmits<{ edit: [] }>()
 
 const frozen = computed<RevisionMember | null>(
-  () => props.revision.members.find((m) => m.member_id === props.member.member_id) ?? null,
+  () => props.revision.members.find(m => m.member_id === props.member.member_id) ?? null,
 )
 
 const UNIT_LABELS: Record<string, string> = {
@@ -42,18 +42,19 @@ const UNIT_LABELS: Record<string, string> = {
 }
 
 const rootIndex = computed(
-  () => props.revision.roots.find((r) => r.root_path === props.member.folder_path)?.root_index ?? null,
+  () => props.revision.roots.find(r => r.root_path === props.member.folder_path)?.root_index ?? null,
 )
 
 const components = computed<ComponentOutcome[]>(() => {
-  if (rootIndex.value === null) return []
+  if (rootIndex.value === null)
+    return []
   const owned = new Set(
-    props.revision.component_roots.filter((ref) => ref.root_index === rootIndex.value).map((ref) => ref.component_id),
+    props.revision.component_roots.filter(ref => ref.root_index === rootIndex.value).map(ref => ref.component_id),
   )
-  return revisionComponents(props.revision).filter((component) => owned.has(component.component_id))
+  return revisionComponents(props.revision).filter(component => owned.has(component.component_id))
 })
 
-const inputStatus = computed(() => props.revision.roots.find((r) => r.root_path === props.member.folder_path) ?? null)
+const inputStatus = computed(() => props.revision.roots.find(r => r.root_path === props.member.folder_path) ?? null)
 
 /** Only the member's own settings are called out; inheriting is the default. */
 function isOverride(unit: string): boolean {
@@ -65,8 +66,12 @@ function isOverride(unit: string): boolean {
  * every kept file names its own reason below, and the member row already
  * carries the warning.
  */
-function componentFacts(component: ComponentOutcome): { label: string; tone: 'success' | 'warning' | 'danger' | 'neutral' }[] {
-  if (component.status === 'blocked') return [{ label: '阻塞', tone: 'danger' }]
+function componentFacts(component: ComponentOutcome): { label: string, tone: 'success' | 'warning' | 'danger' | 'neutral' }[] {
+  if (component.status === 'blocked') {
+    return [
+      { label: '阻塞', tone: 'danger' },
+    ]
+  }
   return [
     componentOperationCount(component) > 0
       ? { label: '有变化', tone: 'success' }

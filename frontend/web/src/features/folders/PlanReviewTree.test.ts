@@ -1,12 +1,13 @@
-import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
+import type { VueWrapper } from '@vue/test-utils'
+import type { ComponentOutcome, RevisionDetailResponse, Workset } from '@/lib/api/types'
+import { flushPromises, mount } from '@vue/test-utils'
+import { createPinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
-import { createPinia } from 'pinia'
 import { apiClientKey } from '@/lib/api/client'
 import { apiStub } from '@/test/api-stub'
 import { installTestQueryPlugin } from '@/test/query-client'
 import PlanReviewTree from './PlanReviewTree.vue'
-import type { ComponentOutcome, RevisionDetailResponse, Workset } from '@/lib/api/types'
 
 /**
  * The plan's own view of a member (ADR 0001).
@@ -23,7 +24,13 @@ const workset: Workset = {
   version: 1,
   library: { library_id: 'lib-1', name: 'Archive', root_path: '/music' },
   members: [
-    { member_id: 'm-1', folder_path: '/music/albumA', folder_name: 'albumA', rel_path: 'albumA', dir_id: 'dir-albumA' },
+    {
+      member_id: 'm-1',
+      folder_path: '/music/albumA',
+      folder_name: 'albumA',
+      rel_path: 'albumA',
+      dir_id: 'dir-albumA',
+    },
   ],
   operations: [],
   updated_at: '',
@@ -70,7 +77,13 @@ const revision: RevisionDetailResponse = {
   root_path: '/music',
   snapshot_token: 'snap',
   status: 'ready',
-  summary: { operation_count: 1, error_count: 0, total_count: 1, actionable_count: 1, summary_reason: 'ACTIONABLE' },
+  summary: {
+    operation_count: 1,
+    error_count: 0,
+    total_count: 1,
+    actionable_count: 1,
+    summary_reason: 'ACTIONABLE',
+  },
   task: {
     kind: 'conversion',
     schema_version: 1,
@@ -78,11 +91,25 @@ const revision: RevisionDetailResponse = {
       policy: {},
       policy_hash: 'ph',
       classifier: {},
-      summary: { component_count: 1, blocked_count: 0, operation_count: 1, error_count: 0, summary_reason: 'ACTIONABLE' },
-      components: [component()],
+      summary: {
+        component_count: 1,
+        blocked_count: 0,
+        operation_count: 1,
+        error_count: 0,
+        summary_reason: 'ACTIONABLE',
+      },
+      components: [
+        component(),
+      ],
     },
   },
-  counts: { members: 1, changed: 1, unmet_targets: 0, blocked: 0, unchanged: 0 },
+  counts: {
+    members: 1,
+    changed: 1,
+    unmet_targets: 0,
+    blocked: 0,
+    unchanged: 0,
+  },
   members: [],
   roots: [
     {
@@ -96,12 +123,21 @@ const revision: RevisionDetailResponse = {
       entry_count: 3,
     },
   ],
-  component_roots: [{ step_index: 0, component_index: 0, component_id: 'c-1', root_index: 0 }],
+  component_roots: [
+    {
+      step_index: 0,
+      component_index: 0,
+      component_id: 'c-1',
+      root_index: 0,
+    },
+  ],
   execution: null,
 }
 
-/** A plan whose files sit two directories deep, plus a projected output inside
- *  the deepest one: a member is a folder shape, not a flat list. */
+/**
+ * A plan whose files sit two directories deep, plus a projected output inside
+ *  the deepest one: a member is a folder shape, not a flat list.
+ */
 function nestedRevision(): Partial<RevisionDetailResponse> {
   return {
     task: {
@@ -111,7 +147,13 @@ function nestedRevision(): Partial<RevisionDetailResponse> {
         policy: {},
         policy_hash: 'ph',
         classifier: {},
-        summary: { component_count: 1, blocked_count: 0, operation_count: 1, error_count: 0, summary_reason: 'ACTIONABLE' },
+        summary: {
+          component_count: 1,
+          blocked_count: 0,
+          operation_count: 1,
+          error_count: 0,
+          summary_reason: 'ACTIONABLE',
+        },
         components: [
           {
             ...component(),
@@ -160,12 +202,33 @@ async function mountTree(
         latest_execution: null,
       },
     ),
-    getOperationDraft: vi.fn().mockResolvedValue({ version: 2, document: { members: [] } }),
-    getRevision: vi.fn().mockResolvedValue({ ...revision, ...overrides.revision }),
+    getOperationDraft: vi.fn().mockResolvedValue({
+      version: 2,
+      document: { members: [] },
+    }),
+    getRevision: vi.fn().mockResolvedValue({
+      ...revision,
+      ...overrides.revision,
+    }),
   } as never)
   const wrapper = mount(PlanReviewTree, {
     props: { worksetId: 'ws-1', memberPath: overrides.memberPath ?? 'albumA' },
-    global: { plugins: [createPinia(), installTestQueryPlugin(), createRouter({ history: createMemoryHistory(), routes: [{ path: '/', component: { template: '<div />' } }] })], provide: { [apiClientKey as symbol]: api } },
+    global: {
+      plugins: [
+        createPinia(),
+        installTestQueryPlugin(),
+        createRouter({
+          history: createMemoryHistory(),
+          routes: [
+            {
+              path: '/',
+              component: { template: '<div />' },
+            },
+          ],
+        }),
+      ],
+      provide: { [apiClientKey as symbol]: api },
+    },
   })
   await flushPromises()
   return wrapper
@@ -273,11 +336,29 @@ describe('plan review tree', () => {
         active_execution: null,
         latest_execution: null,
       }),
-      getOperationDraft: vi.fn().mockResolvedValue({ version: 1, document: { members: [] } }),
+      getOperationDraft: vi.fn().mockResolvedValue({
+        version: 1,
+        document: { members: [] },
+      }),
     } as never)
     const wrapper = mount(PlanReviewTree, {
       props: { worksetId: 'ws-1', memberPath: 'albumA' },
-      global: { plugins: [createPinia(), installTestQueryPlugin(), createRouter({ history: createMemoryHistory(), routes: [{ path: '/', component: { template: '<div />' } }] })], provide: { [apiClientKey as symbol]: api } },
+      global: {
+        plugins: [
+          createPinia(),
+          installTestQueryPlugin(),
+          createRouter({
+            history: createMemoryHistory(),
+            routes: [
+              {
+                path: '/',
+                component: { template: '<div />' },
+              },
+            ],
+          }),
+        ],
+        provide: { [apiClientKey as symbol]: api },
+      },
     })
     await flushPromises()
 
@@ -291,10 +372,18 @@ describe('plan review tree: nested directories', () => {
   }
 
   it('shows every level of the member, not just the first', async () => {
-    const wrapper = await mountTree({ revision: nestedRevision() })
+    const wrapper = await mountTree({
+      revision: nestedRevision(),
+    })
 
     const text = treeText(wrapper)
-    for (const name of ['sub', 'deep', 'nested.mp3', 'track1.wav', 'track2.wav']) {
+    for (const name of [
+      'sub',
+      'deep',
+      'nested.mp3',
+      'track1.wav',
+      'track2.wav',
+    ]) {
       expect(text).toContain(name)
     }
     // Depth-first, and a directory's own files come before its children.
@@ -314,7 +403,9 @@ describe('plan review tree: nested directories', () => {
   })
 
   it('hides a collapsed directory and everything under it, and brings it back', async () => {
-    const wrapper = await mountTree({ revision: nestedRevision() })
+    const wrapper = await mountTree({
+      revision: nestedRevision(),
+    })
 
     await wrapper.get('button[aria-label="折叠 sub"]').trigger('click')
     expect(treeText(wrapper)).not.toContain('nested.mp3')
@@ -332,7 +423,9 @@ describe('plan review tree: nested directories', () => {
   })
 
   it('collapses one level without touching its siblings', async () => {
-    const wrapper = await mountTree({ revision: nestedRevision() })
+    const wrapper = await mountTree({
+      revision: nestedRevision(),
+    })
 
     await wrapper.get('button[aria-label="折叠 deep"]').trigger('click')
     expect(treeText(wrapper)).not.toContain('track1.wav')

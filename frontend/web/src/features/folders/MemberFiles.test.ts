@@ -1,13 +1,15 @@
-import { enableAutoUnmount, flushPromises, mount, type VueWrapper } from '@vue/test-utils'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createMemoryHistory, createRouter, type Router } from 'vue-router'
-import { installAddressHygiene } from '@/app/route-params'
+import type { VueWrapper } from '@vue/test-utils'
+import type { Router } from 'vue-router'
+import type { FileOperationResult, TreeNode, Workset } from '@/lib/api/types'
+import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { createPinia } from 'pinia'
-import { ApiError, apiClientKey } from '@/lib/api/client'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { createMemoryHistory, createRouter } from 'vue-router'
+import { installAddressHygiene } from '@/app/route-params'
+import { apiClientKey, ApiError } from '@/lib/api/client'
 import { apiStub } from '@/test/api-stub'
 import { installTestQueryPlugin } from '@/test/query-client'
 import MemberFiles from './MemberFiles.vue'
-import type { FileOperationResult, TreeNode, Workset } from '@/lib/api/types'
 
 /**
  * The shared current-files module (ADR 0001; ADR 0002).
@@ -72,7 +74,12 @@ const record: Workset = {
 }
 
 /** What the tree route answers: the tree, and the identity and path it resolved. */
-const memberTreeResponse = { tree: memberTree, dir_id: DIR_ID, member_path: 'albumA', rj: null }
+const memberTreeResponse = {
+  tree: memberTree,
+  dir_id: DIR_ID,
+  member_path: 'albumA',
+  rj: null,
+}
 
 function routerFor(): Router {
   const router = createRouter({
@@ -84,9 +91,21 @@ function routerFor(): Router {
         name: 'conversion-member-files',
         component: MemberFiles,
       },
-      { path: '/worksets/:libraryId/conversion', name: 'conversion', component: { template: '<div />' } },
-      { path: '/worksets/:libraryId', name: 'workbench-overview', component: { template: '<div />' } },
-      { path: '/worksets', name: 'worksets', component: { template: '<div />' } },
+      {
+        path: '/worksets/:libraryId/conversion',
+        name: 'conversion',
+        component: { template: '<div />' },
+      },
+      {
+        path: '/worksets/:libraryId',
+        name: 'workbench-overview',
+        component: { template: '<div />' },
+      },
+      {
+        path: '/worksets',
+        name: 'worksets',
+        component: { template: '<div />' },
+      },
     ],
   })
   // The app installs the same guard: the page's own parameters survive, extras do not.
@@ -97,7 +116,7 @@ function routerFor(): Router {
 async function mountFiles(
   path: string,
   overrides: Partial<Record<string, unknown>> = {},
-): Promise<{ wrapper: VueWrapper; api: ReturnType<typeof apiStub>; router: Router }> {
+): Promise<{ wrapper: VueWrapper, api: ReturnType<typeof apiStub>, router: Router }> {
   const api = apiStub({
     listLibraries: vi.fn().mockResolvedValue([
       {
@@ -114,23 +133,72 @@ async function mountFiles(
     getCurrentRecord: vi.fn().mockResolvedValue({ workset: record }),
     getWorkset: vi.fn().mockResolvedValue(record),
     getOperation: vi.fn().mockResolvedValue({
-      workset_id: 'ws-1', operation_type: 'conversion', version: 1,
-      planning_state: 'needs_planning', current_revision: null,
-      active_generation: null, latest_generation: null, active_execution: null, latest_execution: null,
+      workset_id: 'ws-1',
+      operation_type: 'conversion',
+      version: 1,
+      planning_state: 'needs_planning',
+      current_revision: null,
+      active_generation: null,
+      latest_generation: null,
+      active_execution: null,
+      latest_execution: null,
     }),
     getOperationDraft: vi.fn().mockResolvedValue({
-      workset_id: 'ws-1', operation_type: 'conversion', version: 1, schema_version: 1, updated_at: '',
-      document: { schema_version: 1, no_effect_tags: [], matched: {}, unmatched: {}, members: [] },
+      workset_id: 'ws-1',
+      operation_type: 'conversion',
+      version: 1,
+      schema_version: 1,
+      updated_at: '',
+      document: {
+        schema_version: 1,
+        no_effect_tags: [],
+        matched: {},
+        unmatched: {},
+        members: [],
+      },
     }),
     getRevision: vi.fn().mockResolvedValue({
-      plan_id: 'plan-1', revision_index: 1, created_at: '', root_path: '/music', snapshot_token: 'tok', status: 'ready',
-      summary: { operation_count: 0, error_count: 0, total_count: 0, actionable_count: 0, summary_reason: '' },
-      task: { kind: 'conversion', schema_version: 1, payload: {
-        policy: {}, policy_hash: '', classifier: {}, components: [],
-        summary: { component_count: 0, blocked_count: 0, operation_count: 0, error_count: 0, summary_reason: '' },
-      } },
-      counts: { members: 1, changed: 0, unmet_targets: 0, blocked: 0, unchanged: 0 },
-      members: [], roots: [], component_roots: [], execution: null,
+      plan_id: 'plan-1',
+      revision_index: 1,
+      created_at: '',
+      root_path: '/music',
+      snapshot_token: 'tok',
+      status: 'ready',
+      summary: {
+        operation_count: 0,
+        error_count: 0,
+        total_count: 0,
+        actionable_count: 0,
+        summary_reason: '',
+      },
+      task: {
+        kind: 'conversion',
+        schema_version: 1,
+        payload: {
+          policy: {},
+          policy_hash: '',
+          classifier: {},
+          components: [],
+          summary: {
+            component_count: 0,
+            blocked_count: 0,
+            operation_count: 0,
+            error_count: 0,
+            summary_reason: '',
+          },
+        },
+      },
+      counts: {
+        members: 1,
+        changed: 0,
+        unmet_targets: 0,
+        blocked: 0,
+        unchanged: 0,
+      },
+      members: [],
+      roots: [],
+      component_roots: [],
+      execution: null,
     }),
     getMemberTree: vi.fn().mockResolvedValue(memberTreeResponse),
     refreshMemberTree: vi.fn().mockResolvedValue({ ...memberTreeResponse, refreshed: true }),
@@ -142,7 +210,14 @@ async function mountFiles(
   await router.isReady()
   const wrapper = mount(MemberFiles, {
     attachTo: document.body,
-    global: { plugins: [createPinia(), router, installTestQueryPlugin()], provide: { [apiClientKey as symbol]: api } },
+    global: {
+      plugins: [
+        createPinia(),
+        router,
+        installTestQueryPlugin(),
+      ],
+      provide: { [apiClientKey as symbol]: api },
+    },
   })
   await flushPromises()
   return { wrapper, api, router }
@@ -197,7 +272,12 @@ describe('shared member files', () => {
       member_path: 'albumA',
       items: [
         { source: '01.flac', status: 'ok', recovered_path: 'Delete/albumA/01.flac' },
-        { source: 'cover.jpg', status: 'failed', code: 'TARGET_EXISTS', message: 'the destination already exists' },
+        {
+          source: 'cover.jpg',
+          status: 'failed',
+          code: 'TARGET_EXISTS',
+          message: 'the destination already exists',
+        },
       ],
       succeeded: 1,
       failed: 1,
@@ -219,14 +299,14 @@ describe('shared member files', () => {
 
     const call = applyFileOperation.mock.calls[0] as unknown as [
       string,
-      { member_path: string; operation: string; items: { source: string }[] },
+      { member_path: string, operation: string, items: { source: string }[] },
     ]
     expect(call[0]).toBe('lib-1')
     // The path the request addresses comes from the tree response, not from the
     // address: the address carries an identity.
     expect(call[1].member_path).toBe('albumA')
     expect(call[1].operation).toBe('soft_delete')
-    expect(call[1].items.map((item) => item.source)).toEqual(['01.flac', 'cover.jpg'])
+    expect(call[1].items.map(item => item.source)).toEqual(['01.flac', 'cover.jpg'])
 
     // Both facts are reported: what happened per item, and that the refresh
     // failed after the files were already modified.
@@ -249,7 +329,7 @@ describe('shared member files', () => {
     ;(document.body.querySelector('[data-testid="delete-submit"]') as HTMLElement).click()
     await flushPromises()
 
-    const alert = wrapper.findAll('[role="alert"]').map((node) => node.text()).join(' ')
+    const alert = wrapper.findAll('[role="alert"]').map(node => node.text()).join(' ')
     expect(alert).toContain('BUSY')
     expect(wrapper.find('[data-testid="file-op-result"]').exists()).toBe(false)
   })
@@ -258,7 +338,9 @@ describe('shared member files', () => {
     const applyFileOperation = vi.fn().mockResolvedValue({
       operation: 'rename',
       member_path: 'albumA',
-      items: [{ source: '01.flac', status: 'ok', target: '02.flac' }],
+      items: [
+        { source: '01.flac', status: 'ok', target: '02.flac' },
+      ],
       succeeded: 1,
       failed: 0,
       untouched: 0,
@@ -289,18 +371,45 @@ describe('shared member files', () => {
       ...memberTree,
       children: [
         {
-          name: 'disc1', path: '/music/albumA/disc1', rel_path: 'disc1', type: 'dir', format: '', bitrate: null,
+          name: 'disc1',
+          path: '/music/albumA/disc1',
+          rel_path: 'disc1',
+          type: 'dir',
+          format: '',
+          bitrate: null,
           children: [
-            { name: 'a.flac', path: '/music/albumA/disc1/a.flac', rel_path: 'disc1/a.flac', type: 'file', size: 1, bitrate: null, format: 'flac' },
+            {
+              name: 'a.flac',
+              path: '/music/albumA/disc1/a.flac',
+              rel_path: 'disc1/a.flac',
+              type: 'file',
+              size: 1,
+              bitrate: null,
+              format: 'flac',
+            },
           ],
         },
-        { name: 'b.flac', path: '/music/albumA/b.flac', rel_path: 'b.flac', type: 'file', size: 1, bitrate: null, format: 'flac' },
+        {
+          name: 'b.flac',
+          path: '/music/albumA/b.flac',
+          rel_path: 'b.flac',
+          type: 'file',
+          size: 1,
+          bitrate: null,
+          format: 'flac',
+        },
       ],
     }
     const applyFileOperation = vi.fn().mockResolvedValue({
-      operation: 'soft_delete', member_path: 'albumA',
-      items: [{ source: 'disc1', status: 'ok', recovered_path: 'Delete/albumA/disc1' }],
-      succeeded: 1, failed: 0, untouched: 0, refresh: { ok: true },
+      operation: 'soft_delete',
+      member_path: 'albumA',
+      items: [
+        { source: 'disc1', status: 'ok', recovered_path: 'Delete/albumA/disc1' },
+      ],
+      succeeded: 1,
+      failed: 0,
+      untouched: 0,
+      refresh: { ok: true },
     })
     const getMemberTree = vi.fn().mockResolvedValue({ ...memberTreeResponse, tree: nested })
     const { wrapper } = await mountFiles(`/worksets/lib-1/f/${DIR_ID}`, { applyFileOperation, getMemberTree })
@@ -317,7 +426,7 @@ describe('shared member files', () => {
     await flushPromises()
 
     const call = applyFileOperation.mock.calls[0] as unknown as [string, { items: { source: string }[] }]
-    expect(call[1].items.map((item) => item.source)).toEqual(['disc1'])
+    expect(call[1].items.map(item => item.source)).toEqual(['disc1'])
     expect(wrapper.find('[data-testid="tree-row-disc1/a.flac"]').exists()).toBe(true)
   })
 
@@ -326,17 +435,36 @@ describe('shared member files', () => {
       ...memberTree,
       children: [
         {
-          name: 'disc1', path: '/music/albumA/disc1', rel_path: 'disc1', type: 'dir', format: '', bitrate: null,
+          name: 'disc1',
+          path: '/music/albumA/disc1',
+          rel_path: 'disc1',
+          type: 'dir',
+          format: '',
+          bitrate: null,
           children: [
-            { name: 'a.flac', path: '/music/albumA/disc1/a.flac', rel_path: 'disc1/a.flac', type: 'file', size: 1, bitrate: null, format: 'flac' },
+            {
+              name: 'a.flac',
+              path: '/music/albumA/disc1/a.flac',
+              rel_path: 'disc1/a.flac',
+              type: 'file',
+              size: 1,
+              bitrate: null,
+              format: 'flac',
+            },
           ],
         },
       ],
     }
     const applyFileOperation = vi.fn().mockResolvedValue({
-      operation: 'move', member_path: 'albumA',
-      items: [{ source: 'disc1/a.flac', status: 'ok', target: 'a.flac' }],
-      succeeded: 1, failed: 0, untouched: 0, refresh: { ok: true },
+      operation: 'move',
+      member_path: 'albumA',
+      items: [
+        { source: 'disc1/a.flac', status: 'ok', target: 'a.flac' },
+      ],
+      succeeded: 1,
+      failed: 0,
+      untouched: 0,
+      refresh: { ok: true },
     })
     const getMemberTree = vi.fn().mockResolvedValue({ ...memberTreeResponse, tree: nested })
     const { wrapper } = await mountFiles(`/worksets/lib-1/f/${DIR_ID}`, { applyFileOperation, getMemberTree })
@@ -352,9 +480,11 @@ describe('shared member files', () => {
     ;(document.body.querySelector('[data-testid="move-submit"]') as HTMLElement).click()
     await flushPromises()
 
-    const call = applyFileOperation.mock.calls[0] as unknown as [string, { operation: string; items: unknown[] }]
+    const call = applyFileOperation.mock.calls[0] as unknown as [string, { operation: string, items: unknown[] }]
     expect(call[1].operation).toBe('move')
-    expect(call[1].items).toEqual([{ source: 'disc1/a.flac', target_dir: '.' }])
+    expect(call[1].items).toEqual([
+      { source: 'disc1/a.flac', target_dir: '.' },
+    ])
   })
 
   it('addresses a member by identity, and keeps the view parameter to itself', async () => {
@@ -376,7 +506,9 @@ describe('shared member files', () => {
   it('tells the user when the record that owned this member was replaced', async () => {
     const { wrapper } = await mountFiles(
       '/worksets/lib-1/conversion/m-old/files',
-      { getCurrentRecord: vi.fn().mockResolvedValue({ workset: record }) },
+      {
+        getCurrentRecord: vi.fn().mockResolvedValue({ workset: record }),
+      },
     )
 
     expect(wrapper.get('[data-testid="record-replaced"]').text()).toContain('处理记录已更新')

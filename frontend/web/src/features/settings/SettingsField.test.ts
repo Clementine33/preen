@@ -4,10 +4,14 @@ import SettingsApplyBar from './SettingsApplyBar.vue'
 import SettingsField from './SettingsField.vue'
 import SettingsHead from './SettingsHead.vue'
 
-const mountField = (props: Record<string, unknown> = {}) =>
-  mount(SettingsField, { props: { id: 'f', label: '转换模式', ...props }, slots: { default: '<input data-testid="control" />' } })
+function mountField(props: Record<string, unknown> = {}) {
+  return mount(SettingsField, {
+    props: { id: 'f', label: '转换模式', ...props },
+    slots: { default: '<input data-testid="control" />' },
+  })
+}
 
-describe('SettingsField', () => {
+describe('settingsField', () => {
   it('shows nothing about an untouched field', () => {
     const wrapper = mountField({ modified: false })
     expect(wrapper.find('[data-testid="f-modified"]').exists()).toBe(false)
@@ -33,19 +37,25 @@ describe('SettingsField', () => {
   })
 })
 
-describe('SettingsHead', () => {
+describe('settingsHead', () => {
   it('offers the one 恢复默认 only while some field is not at its default', async () => {
-    const off = mount(SettingsHead, { props: { scope: '所有重命名记录共用', canRestore: false } })
+    const off = mount(SettingsHead, {
+      props: { scope: '所有重命名记录共用', canRestore: false },
+    })
     expect(off.get('[data-testid="settings-restore-defaults"]').attributes('disabled')).toBeDefined()
-    const on = mount(SettingsHead, { props: { scope: '所有重命名记录共用', canRestore: true } })
+    const on = mount(SettingsHead, {
+      props: { scope: '所有重命名记录共用', canRestore: true },
+    })
     await on.get('[data-testid="settings-restore-defaults"]').trigger('click')
     expect(on.emitted('restore')).toHaveLength(1)
   })
 })
 
-describe('SettingsApplyBar', () => {
+describe('settingsApplyBar', () => {
   it('says 应用 and shows a refusal beside the buttons', async () => {
-    const wrapper = mount(SettingsApplyBar, { props: { applying: false, error: '另一条记录正在执行' } })
+    const wrapper = mount(SettingsApplyBar, {
+      props: { applying: false, error: '另一条记录正在执行' },
+    })
     expect(wrapper.get('[data-testid="settings-apply"]').text()).toBe('应用')
     expect(wrapper.get('[role="alert"]').text()).toBe('另一条记录正在执行')
     await wrapper.get('[data-testid="settings-apply"]').trigger('click')
@@ -55,7 +65,9 @@ describe('SettingsApplyBar', () => {
   })
 
   it('locks both buttons while applying', () => {
-    const wrapper = mount(SettingsApplyBar, { props: { applying: true, error: null } })
+    const wrapper = mount(SettingsApplyBar, {
+      props: { applying: true, error: null },
+    })
     expect(wrapper.get('[data-testid="settings-apply"]').attributes('disabled')).toBeDefined()
     expect(wrapper.get('[data-testid="settings-discard"]').attributes('disabled')).toBeDefined()
     expect(wrapper.find('[role="alert"]').exists()).toBe(false)

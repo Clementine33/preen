@@ -1,22 +1,33 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import type { PlanTab } from '@/features/worksets/TaskPlanTable.vue'
+import type {
+  MetadataComponent,
+  MetadataDraftDocument,
+  MetadataTaskResult,
+  OperationType,
+  RenameComponent,
+  RenameDraftDocument,
+  RenameTaskResult,
+  RevisionDetailResponse,
+  TaskPlanPayload,
+} from '@/lib/api/types'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
+import { computed, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
+import WorkbenchShell from '@/components/layout/WorkbenchShell.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import WorkbenchShell from '@/components/layout/WorkbenchShell.vue'
-import WorkbenchNav from '@/features/worksets/WorkbenchNav.vue'
-import RenameSettingsFields from '@/features/worksets/RenameSettingsFields.vue'
-import MetadataSettingsFields from '@/features/worksets/MetadataSettingsFields.vue'
-import FilterTabs from '@/features/worksets/FilterTabs.vue'
-import SettingsSection from '@/features/settings/SettingsSection.vue'
-import TaskPlanTable from '@/features/worksets/TaskPlanTable.vue'
-import ManualRename from '@/features/worksets/ManualRename.vue'
-import type { PlanTab } from '@/features/worksets/TaskPlanTable.vue'
-import RowList from '@/features/worksets/RowList.vue'
-import { useApiClient } from '@/lib/api/client'
-import { useWorksetGeneration } from '@/composables/use-workset-generation'
 import { useWorksetExecution } from '@/composables/use-workset-execution'
+import { useWorksetGeneration } from '@/composables/use-workset-generation'
+import SettingsSection from '@/features/settings/SettingsSection.vue'
+import FilterTabs from '@/features/worksets/FilterTabs.vue'
+import ManualRename from '@/features/worksets/ManualRename.vue'
+import MetadataSettingsFields from '@/features/worksets/MetadataSettingsFields.vue'
+import RenameSettingsFields from '@/features/worksets/RenameSettingsFields.vue'
+import RowList from '@/features/worksets/RowList.vue'
+import TaskPlanTable from '@/features/worksets/TaskPlanTable.vue'
+import WorkbenchNav from '@/features/worksets/WorkbenchNav.vue'
+import { useApiClient } from '@/lib/api/client'
 import {
   currentRecordQueryOptions,
   executionCoversQueryOptions,
@@ -27,17 +38,6 @@ import {
   saveOperationDraftMutationOptions,
   syncAfterDraftConflict,
 } from '@/queries/worksets'
-import type {
-  MetadataComponent,
-  MetadataDraftDocument,
-  MetadataTaskResult,
-  RenameTaskResult,
-  OperationType,
-  RenameComponent,
-  RenameDraftDocument,
-  RevisionDetailResponse,
-  TaskPlanPayload,
-} from '@/lib/api/types'
 
 /**
  * The rename and metadata refresh section of one library's workbench
@@ -61,7 +61,10 @@ const generation = useWorksetGeneration()
 const execution = useWorksetExecution()
 
 const libraryId = computed(() => (route.params.libraryId as string) || '')
-const overviewRoute = computed(() => ({ name: 'workbench-overview' as const, params: { libraryId: libraryId.value } }))
+const overviewRoute = computed(() => ({
+  name: 'workbench-overview' as const,
+  params: { libraryId: libraryId.value },
+}))
 
 const recordQuery = useQuery(() => currentRecordQueryOptions(api, libraryId.value, operation.value))
 const record = computed(() => recordQuery.data.value?.workset ?? null)
@@ -94,7 +97,8 @@ const sessionActive = computed(() => Boolean(op.value?.active_generation || op.v
 
 async function persistDraft(next: RenameDraftDocument | MetadataDraftDocument) {
   const draft = draftQuery.data.value
-  if (!worksetId.value || !draft) return
+  if (!worksetId.value || !draft)
+    return
   nameError.value = null
   try {
     await saveMutation.mutateAsync({
@@ -103,12 +107,14 @@ async function persistDraft(next: RenameDraftDocument | MetadataDraftDocument) {
       document: next,
       ifMatchVersion: draft.version,
     })
-  } catch (error) {
-    const failure = error as { code?: string; message?: string }
+  }
+  catch (error) {
+    const failure = error as { code?: string, message?: string }
     if (failure.code === 'VERSION_CONFLICT') {
       nameError.value = '设置已在别处修改，已重新加载'
       await syncAfterDraftConflict(queryClient, worksetId.value, operation.value)
-    } else {
+    }
+    else {
       nameError.value = failure.message ?? '无法保存设置'
     }
   }
@@ -119,17 +125,33 @@ async function persistDraft(next: RenameDraftDocument | MetadataDraftDocument) {
 const renameRecords = computed(() => (draftDocument.value as RenameDraftDocument | null)?.members ?? [])
 function nameFolder(memberId: string, name: string) {
   const document = draftDocument.value as RenameDraftDocument | null
-  if (!document) return
-  const existing = document.members.find((entry) => entry.member_id === memberId)
-  const kept = { member_id: memberId, excluded: existing?.excluded ?? false, ...(name ? { name } : {}) }
+  if (!document)
+    return
+  const existing = document.members.find(entry => entry.member_id === memberId)
+  const kept = {
+    member_id: memberId,
+    excluded: existing?.excluded ?? false,
+    ...(name
+      ? { name }
+      : {}),
+  }
   // Names a run has already applied (the folder now has that name) go with this save.
-  const folderNames = new Map(record.value?.members.map((member) => [member.member_id, member.folder_name]))
+  const folderNames = new Map(record.value?.members.map(member => [member.member_id, member.folder_name]))
   const rest = document.members
-    .filter((entry) => entry.member_id !== memberId)
-    .flatMap((entry) => (entry.name && folderNames.get(entry.member_id) === entry.name
-      ? entry.excluded ? [{ member_id: entry.member_id, excluded: true }] : []
+    .filter(entry => entry.member_id !== memberId)
+    .flatMap(entry => (entry.name && folderNames.get(entry.member_id) === entry.name
+      ? entry.excluded
+        ? [
+            { member_id: entry.member_id, excluded: true },
+          ]
+        : []
       : [entry]))
-  void persistDraft({ ...document, members: name || kept.excluded ? [...rest, kept] : rest })
+  void persistDraft({
+    ...document,
+    members: name || kept.excluded
+      ? [...rest, kept]
+      : rest,
+  })
 }
 
 // ---- planning -----------------------------------------------------------
@@ -145,7 +167,8 @@ const GENERATE_CODES: Record<string, string> = {
 const generateError = ref<string | null>(null)
 
 async function generate() {
-  if (!worksetId.value || !op.value) return
+  if (!worksetId.value || !op.value)
+    return
   generateError.value = null
   try {
     await generation.start({
@@ -154,8 +177,9 @@ async function generate() {
       ifMatchVersion: op.value.version,
       idempotencyKey: crypto.randomUUID(),
     })
-  } catch (error) {
-    const failure = error as { code?: string; message?: string }
+  }
+  catch (error) {
+    const failure = error as { code?: string, message?: string }
     generateError.value = `无法生成：${(failure.code && GENERATE_CODES[failure.code]) ?? failure.message ?? '未知错误'}`
   }
 }
@@ -165,7 +189,8 @@ async function generate() {
 const generationProgress = computed(() => {
   const store = generation.store
   const active = op.value?.active_generation
-  if (!active) return null
+  if (!active)
+    return null
   if (store.status === 'streaming' && store.generationId === active.generation_id) {
     return { done: store.completedRoots, total: store.totalRoots }
   }
@@ -175,18 +200,23 @@ const generationProgress = computed(() => {
 const LOCALE_LABELS: Record<string, string> = { 'ja-jp': '日本語', 'zh-cn': '简体中文', 'zh-tw': '繁體中文' }
 const metadataLocaleLabel = computed(() => {
   const locale = (draftDocument.value as MetadataDraftDocument | null)?.common.locale
-  return locale ? (LOCALE_LABELS[locale] ?? locale) : '—'
+  return locale
+    ? (LOCALE_LABELS[locale] ?? locale)
+    : '—'
 })
 const metadataPlanCounts = computed(() => {
-  const skip = (components.value as MetadataComponent[]).filter((c) => c.action !== 'refresh').length
+  const skip = (components.value as MetadataComponent[]).filter(c => c.action !== 'refresh').length
   return { run: components.value.length - skip, skip }
 })
 
 const planNote = computed(() => {
   const state = op.value?.planning_state
-  if (state === 'orphaned') return '媒体库已删除：该记录只读'
-  if (state === 'needs_planning') return '设置已改变，需重新生成计划'
-  if (op.value?.current_revision?.validation_state === 'stale') return '输入已变化，需重新生成计划'
+  if (state === 'orphaned')
+    return '媒体库已删除：该记录只读'
+  if (state === 'needs_planning')
+    return '设置已改变，需重新生成计划'
+  if (op.value?.current_revision?.validation_state === 'stale')
+    return '输入已变化，需重新生成计划'
   return null
 })
 
@@ -209,8 +239,12 @@ const executionQuery = useQuery(() =>
 // Like generation, the execution store may be streaming another operation.
 const executionView = computed(() => {
   const store = execution.store
-  const streamed = store.worksetId === worksetId.value && store.operation === operation.value && store.executionId === executionId.value ? store.view : null
-  return store.status === 'streaming' && streamed ? streamed : (executionQuery.data.value ?? streamed)
+  const streamed = store.worksetId === worksetId.value && store.operation === operation.value && store.executionId === executionId.value
+    ? store.view
+    : null
+  return store.status === 'streaming' && streamed
+    ? streamed
+    : (executionQuery.data.value ?? streamed)
 })
 // Every member is a bound work, so the outcome worth listing is the works whose
 // fetch failed; non-fatal source issues of a refreshed work are not shown.
@@ -221,16 +255,22 @@ const FAILURES: Record<string, string> = {
 const metadataRows = computed(() =>
   (executionView.value?.components ?? []).flatMap((component) => {
     const failed = component.status === 'failed'
-    if (!failed && component.status !== 'succeeded') return []
+    if (!failed && component.status !== 'succeeded')
+      return []
     const result = component.task_result as MetadataTaskResult | undefined
-    if (!failed && ['skip', 'cover'].includes((result as { action?: string } | undefined)?.action ?? '')) return []
-    return [{
-      key: component.component_id,
-      rj: result?.rj ?? component.root_path,
-      failed,
-      reason: failed ? (FAILURES[component.error_code ?? ''] ?? component.error_code ?? '') : '已刷新',
-      message: component.error_message ?? '',
-    }]
+    if (!failed && ['skip', 'cover'].includes((result as { action?: string } | undefined)?.action ?? ''))
+      return []
+    return [
+      {
+        key: component.component_id,
+        rj: result?.rj ?? component.root_path,
+        failed,
+        reason: failed
+          ? (FAILURES[component.error_code ?? ''] ?? component.error_code ?? '')
+          : '已刷新',
+        message: component.error_message ?? '',
+      },
+    ]
   }),
 )
 
@@ -239,35 +279,41 @@ const metadataRows = computed(() =>
 const renameResults = computed(() =>
   (executionView.value?.components ?? []).flatMap((component) => {
     const facts = component.task_result as RenameTaskResult | undefined
-    if (facts?.skipped) return []
+    if (facts?.skipped)
+      return []
     const failed = component.status === 'failed'
-    if (!failed && component.status !== 'succeeded') return []
+    if (!failed && component.status !== 'succeeded')
+      return []
     const status = failed
-      ? facts?.rolled_back ? '失败（已恢复原名称）' : facts?.renamed ? '失败（目录已改名）' : '失败'
+      ? facts?.rolled_back
+        ? '失败（已恢复原名称）'
+        : facts?.renamed ? '失败（目录已改名）' : '失败'
       : facts?.recovered ? '已改名（启动恢复）' : '已改名'
-    return [{
-      key: component.component_id,
-      source: facts?.source_path ?? component.root_path,
-      target: facts?.target_path ?? '',
-      failed,
-      status,
-      message: component.error_message ?? '',
-    }]
+    return [
+      {
+        key: component.component_id,
+        source: facts?.source_path ?? component.root_path,
+        target: facts?.target_path ?? '',
+        failed,
+        status,
+        message: component.error_message ?? '',
+      },
+    ]
   }),
 )
 const resultRows = computed(() => (isMetadata.value ? metadataRows.value : renameResults.value))
 const resultTabs = computed(() => [
-  { key: 'failed', label: '失败', count: resultRows.value.filter((row) => row.failed).length },
-  { key: 'succeeded', label: '成功', count: resultRows.value.filter((row) => !row.failed).length },
+  { key: 'failed', label: '失败', count: resultRows.value.filter(row => row.failed).length },
+  { key: 'succeeded', label: '成功', count: resultRows.value.filter(row => !row.failed).length },
 ])
-const shownResultRows = computed(() => resultRows.value.filter((row) => row.failed === (resultTab.value === 'failed')))
+const shownResultRows = computed(() => resultRows.value.filter(row => row.failed === (resultTab.value === 'failed')))
 const shownMetadataRows = computed(() => shownResultRows.value as typeof metadataRows.value)
 const shownRenameRows = computed(() => shownResultRows.value as typeof renameResults.value)
 const renameSkipped = computed(
-  () => (executionView.value?.components ?? []).filter((c) => (c.task_result as RenameTaskResult | undefined)?.skipped).length,
+  () => (executionView.value?.components ?? []).filter(c => (c.task_result as RenameTaskResult | undefined)?.skipped).length,
 )
 const metadataSkipped = computed(
-  () => (executionView.value?.components ?? []).filter((c) => ['skip', 'cover'].includes((c.task_result as { action?: string } | undefined)?.action ?? '')).length,
+  () => (executionView.value?.components ?? []).filter(c => ['skip', 'cover'].includes((c.task_result as { action?: string } | undefined)?.action ?? '')).length,
 )
 
 // ---- the results pane --------------------------------------------------
@@ -280,12 +326,21 @@ watch([planId, executionId], () => {
   chosenPlanTab.value = null
   resultTab.value = 'failed'
 })
-const renameComponents = computed(() => (isMetadata.value ? [] : (components.value as RenameComponent[])))
+const renameComponents = computed(() => (isMetadata.value
+  ? []
+  : (components.value as RenameComponent[])))
 const planCounts = computed(() => {
-  const count = { rename: 0, blocked: 0, noop: 0, unchanged: 0 }
+  const count = {
+    rename: 0,
+    blocked: 0,
+    noop: 0,
+    unchanged: 0,
+  }
   for (const c of renameComponents.value) {
-    if (c.action !== 'noop') count[c.action]++
-    else if (c.observed_name) count.noop++
+    if (c.action !== 'noop')
+      count[c.action]++
+    else if (c.observed_name)
+      count.noop++
     else count.unchanged++
   }
   return count
@@ -305,15 +360,16 @@ const planTabs = computed(() => [
 const executeError = ref<string | null>(null)
 const canExecute = computed(
   () =>
-    Boolean(revision.value) &&
-    Boolean(planId.value) &&
-    !revision.value?.execution &&
-    !sessionActive.value &&
-    planNote.value === null,
+    Boolean(revision.value)
+    && Boolean(planId.value)
+    && !revision.value?.execution
+    && !sessionActive.value
+    && planNote.value === null,
 )
 
 async function execute() {
-  if (!worksetId.value || !op.value || !planId.value) return
+  if (!worksetId.value || !op.value || !planId.value)
+    return
   executeError.value = null
   try {
     await execution.start({
@@ -323,8 +379,9 @@ async function execute() {
       ifMatchVersion: op.value.version,
       idempotencyKey: crypto.randomUUID(),
     })
-  } catch (error) {
-    const failure = error as { message?: string; details?: string[] }
+  }
+  catch (error) {
+    const failure = error as { message?: string, details?: string[] }
     executeError.value = `无法执行：${failure.details?.join('；') || failure.message || '未知错误'}`
   }
 }
@@ -333,8 +390,12 @@ const coversQuery = useQuery(() =>
   executionCoversQueryOptions(api, worksetId.value, isMetadata.value ? executionId.value : null),
 )
 const coversMutation = execution.coversMutation
-watch(() => [worksetId.value, isMetadata.value ? executionId.value : null] as const, ([id, executionId]) => {
-  if (id && executionId) execution.observeCovers(id, executionId)
+watch(() => [
+  worksetId.value,
+  isMetadata.value ? executionId.value : null,
+] as const, ([id, executionId]) => {
+  if (id && executionId)
+    execution.observeCovers(id, executionId)
 }, { immediate: true })
 function changeCovers(action: 'retry' | 'cancel') {
   if (worksetId.value && executionId.value) {
@@ -347,14 +408,16 @@ function changeCovers(action: 'retry' | 'cancel') {
 watch(
   () => [worksetId.value, op.value?.active_generation?.generation_id] as const,
   ([id, generationId]) => {
-    if (id && generationId) generation.attach(id, operation.value, generationId)
+    if (id && generationId)
+      generation.attach(id, operation.value, generationId)
   },
   { immediate: true },
 )
 watch(
   () => [worksetId.value, op.value?.active_execution?.execution_id] as const,
   ([id, activeId]) => {
-    if (id && activeId) execution.attach(id, operation.value, activeId)
+    if (id && activeId)
+      execution.attach(id, operation.value, activeId)
   },
   { immediate: true },
 )

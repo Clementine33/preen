@@ -1,4 +1,5 @@
-import { nextTick, onBeforeUnmount, onMounted, type Ref } from 'vue'
+import type { Ref } from 'vue'
+import { nextTick, onBeforeUnmount, onMounted } from 'vue'
 
 /**
  * The shared behaviour of the wall's popup menus (the library switcher, the
@@ -24,7 +25,8 @@ export function usePopupMenu(options: {
 
   function setOpen(value: boolean): void {
     open.value = value
-    if (!value) return
+    if (!value)
+      return
     void nextTick(() => {
       const search = root.value?.querySelector<HTMLInputElement>('input[type="search"]')
       if (search) {
@@ -32,18 +34,20 @@ export function usePopupMenu(options: {
         return
       }
       const list = items()
-      const current = list.findIndex((item) => item.getAttribute('aria-selected') === 'true')
+      const current = list.findIndex(item => item.getAttribute('aria-selected') === 'true')
       list[Math.max(0, current)]?.focus({ preventScroll: true })
     })
   }
 
   function close(returnFocus: boolean): void {
     setOpen(false)
-    if (returnFocus) trigger.value?.focus()
+    if (returnFocus)
+      trigger.value?.focus()
   }
 
   function onKeydown(event: KeyboardEvent): void {
-    if (!open.value) return
+    if (!open.value)
+      return
     const list = items()
     const at = list.indexOf(document.activeElement as HTMLElement)
     const inSearch = event.target instanceof HTMLInputElement
@@ -51,11 +55,14 @@ export function usePopupMenu(options: {
     const up = event.key === 'ArrowUp' || (!inSearch && event.key === 'k')
     if (event.key === 'Escape') {
       close(true)
-    } else if (down) {
+    }
+    else if (down) {
       list[Math.min(list.length - 1, at + 1)]?.focus({ preventScroll: true })
-    } else if (up) {
+    }
+    else if (up) {
       list[Math.max(0, at - 1)]?.focus({ preventScroll: true })
-    } else {
+    }
+    else {
       return
     }
     event.preventDefault()
@@ -79,5 +86,10 @@ export function usePopupMenu(options: {
   onMounted(() => document.addEventListener('pointerdown', onPointerDown))
   onBeforeUnmount(() => document.removeEventListener('pointerdown', onPointerDown))
 
-  return { setOpen, close, onKeydown, onFocusOut }
+  return {
+    setOpen,
+    close,
+    onKeydown,
+    onFocusOut,
+  }
 }

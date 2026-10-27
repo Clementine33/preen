@@ -1,5 +1,5 @@
-import { defineStore } from 'pinia'
 import type { MediaFactsStatus } from '@/lib/api/types'
+import { defineStore } from 'pinia'
 
 /**
  * The Media Facts Pass's latest reported status, owned by the root

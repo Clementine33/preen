@@ -14,12 +14,12 @@ import type {
  * member override and an explicit "inherit" really deletes the override.
  */
 
-export type EditTarget =
-  | { kind: 'batch'; memberIds: string[] }
-  | { kind: 'member'; memberId: string }
+export type EditTarget
+  = | { kind: 'batch', memberIds: string[] }
+    | { kind: 'member', memberId: string }
 
 /** keep = leave the stored state untouched; set = write an explicit value. */
-export type UnitIntent<T> = { intent: 'keep' } | { intent: 'set'; value: T } | { intent: 'inherit' }
+export type UnitIntent<T> = { intent: 'keep' } | { intent: 'set', value: T } | { intent: 'inherit' }
 
 export type ParticipationIntent = 'keep' | 'participate' | 'exclude'
 
@@ -48,7 +48,14 @@ export interface UnitValue {
   members: number
 }
 
-export const OVERRIDE_UNITS: OverrideUnit[] = ['mode', 'no_effect_tags', 'other_tags', 'matched', 'unmatched', 'other']
+export const OVERRIDE_UNITS: OverrideUnit[] = [
+  'mode',
+  'no_effect_tags',
+  'other_tags',
+  'matched',
+  'unmatched',
+  'other',
+]
 
 function commonValue(doc: OperationDraftDocument, unit: OverrideUnit): unknown {
   switch (unit) {
@@ -67,12 +74,13 @@ function commonValue(doc: OperationDraftDocument, unit: OverrideUnit): unknown {
 }
 
 function memberRecord(doc: OperationDraftDocument, memberId: string): DraftMember | undefined {
-  return doc.members.find((m) => m.member_id === memberId)
+  return doc.members.find(m => m.member_id === memberId)
 }
 
-function overrideValue(record: DraftMember | undefined, unit: OverrideUnit): { present: boolean; value: unknown } {
+function overrideValue(record: DraftMember | undefined, unit: OverrideUnit): { present: boolean, value: unknown } {
   const overrides = record?.overrides
-  if (!overrides) return { present: false, value: undefined }
+  if (!overrides)
+    return { present: false, value: undefined }
   switch (unit) {
     case 'mode':
       return overrides.mode === undefined
@@ -107,9 +115,12 @@ export function sameUnitValue(a: unknown, b: unknown): boolean {
 function canonical(value: unknown): string {
   return JSON.stringify(value, (_key, v) =>
     v && typeof v === 'object' && !Array.isArray(v)
-      ? Object.fromEntries(Object.entries(v).sort(([x], [y]) => (x < y ? -1 : x > y ? 1 : 0)))
-      : v,
-  )
+      ? Object.fromEntries(Object.entries(v).sort(([x], [y]) => (x < y
+          ? -1
+          : x > y
+            ? 1
+            : 0)))
+      : v)
 }
 
 /**
@@ -124,7 +135,12 @@ export function sameDocument(a: OperationDraftDocument, b: OperationDraftDocumen
 
 /** The server omits empty mode/delete_mode: absent and the default are one fact. */
 function withDefaults(doc: OperationDraftDocument): OperationDraftDocument {
-  return { ...doc, other_tags: doc.other_tags ?? [], mode: doc.mode ?? 'available_sources', delete_mode: doc.delete_mode ?? 'soft' }
+  return {
+    ...doc,
+    other_tags: doc.other_tags ?? [],
+    mode: doc.mode ?? 'available_sources',
+    delete_mode: doc.delete_mode ?? 'soft',
+  }
 }
 
 /**
@@ -133,7 +149,9 @@ function withDefaults(doc: OperationDraftDocument): OperationDraftDocument {
  * never something that can be saved.
  */
 export function readUnit(doc: OperationDraftDocument, target: EditTarget, unit: OverrideUnit): UnitValue {
-  const memberIds = target.kind === 'member' ? [target.memberId] : target.memberIds
+  const memberIds = target.kind === 'member'
+    ? [target.memberId]
+    : target.memberIds
   const common = commonValue(doc, unit)
   let overridden = 0
   const effective: unknown[] = []
@@ -142,14 +160,19 @@ export function readUnit(doc: OperationDraftDocument, target: EditTarget, unit: 
     if (present) {
       overridden++
       effective.push(value)
-    } else {
+    }
+    else {
       effective.push(common)
     }
   }
   const first = effective[0]
-  const uniform = effective.every((v) => sameUnitValue(v, first))
-  const source: UnitSource =
-    overridden === 0 ? 'common' : overridden === memberIds.length && uniform ? 'member' : 'mixed'
+  const uniform = effective.every(v => sameUnitValue(v, first))
+  const source: UnitSource
+    = overridden === 0
+      ? 'common'
+      : overridden === memberIds.length && uniform
+        ? 'member'
+        : 'mixed'
   return {
     value: uniform ? first : undefined,
     source,
@@ -163,13 +186,18 @@ export function readParticipation(
   doc: OperationDraftDocument,
   target: EditTarget,
 ): 'participate' | 'exclude' | 'mixed' {
-  const memberIds = target.kind === 'member' ? [target.memberId] : target.memberIds
+  const memberIds = target.kind === 'member'
+    ? [target.memberId]
+    : target.memberIds
   let excluded = 0
   for (const memberId of memberIds) {
-    if (memberRecord(doc, memberId)?.excluded) excluded++
+    if (memberRecord(doc, memberId)?.excluded)
+      excluded++
   }
-  if (excluded === 0) return 'participate'
-  if (excluded === memberIds.length) return 'exclude'
+  if (excluded === 0)
+    return 'participate'
+  if (excluded === memberIds.length)
+    return 'exclude'
   return 'mixed'
 }
 
@@ -197,7 +225,8 @@ function setOverride(record: DraftMember, unit: OverrideUnit, value: unknown): v
 }
 
 function clearOverride(record: DraftMember, unit: OverrideUnit): void {
-  if (!record.overrides) return
+  if (!record.overrides)
+    return
   switch (unit) {
     case 'mode':
       delete record.overrides.mode
@@ -216,7 +245,8 @@ function clearOverride(record: DraftMember, unit: OverrideUnit): void {
       delete record.overrides.unmatched
       break
   }
-  if (Object.keys(record.overrides).length === 0) delete record.overrides
+  if (Object.keys(record.overrides).length === 0)
+    delete record.overrides
 }
 
 function recordFor(doc: OperationDraftDocument, memberId: string): DraftMember {
@@ -230,7 +260,7 @@ function recordFor(doc: OperationDraftDocument, memberId: string): DraftMember {
 
 /** Drops records that state nothing: participation plus no override. */
 function pruneMembers(doc: OperationDraftDocument): void {
-  doc.members = doc.members.filter((m) => m.excluded === true || (m.overrides && Object.keys(m.overrides).length > 0))
+  doc.members = doc.members.filter(m => m.excluded === true || (m.overrides && Object.keys(m.overrides).length > 0))
 }
 
 /**
@@ -246,30 +276,42 @@ export function applyIntent(
 ): OperationDraftDocument {
   const doc: OperationDraftDocument = {
     ...base,
-    no_effect_tags: [...(base.no_effect_tags ?? [])],
-    other_tags: [...(base.other_tags ?? [])],
-    members: base.members.map((m) => ({
+    no_effect_tags: [
+      ...(base.no_effect_tags ?? []),
+    ],
+    other_tags: [
+      ...(base.other_tags ?? []),
+    ],
+    members: base.members.map(m => ({
       member_id: m.member_id,
       excluded: m.excluded,
-      overrides: m.overrides ? { ...m.overrides } : undefined,
+      overrides: m.overrides
+        ? { ...m.overrides }
+        : undefined,
     })),
   }
 
-  const memberIds = target.kind === 'member' ? [target.memberId] : target.memberIds
+  const memberIds = target.kind === 'member'
+    ? [target.memberId]
+    : target.memberIds
   for (const memberId of memberIds) {
     if (intent.participation !== 'keep') {
       const record = recordFor(doc, memberId)
-      if (intent.participation === 'exclude') record.excluded = true
+      if (intent.participation === 'exclude')
+        record.excluded = true
       else delete record.excluded
     }
     for (const unit of OVERRIDE_UNITS) {
       const unitIntent = intent.units[unit]
-      if (!unitIntent || unitIntent.intent === 'keep') continue
+      if (!unitIntent || unitIntent.intent === 'keep')
+        continue
       if (unitIntent.intent === 'set') {
         setOverride(recordFor(doc, memberId), unit, unitIntent.value)
-      } else {
+      }
+      else {
         const record = memberRecord(doc, memberId)
-        if (record) clearOverride(record, unit)
+        if (record)
+          clearOverride(record, unit)
       }
     }
   }
@@ -279,7 +321,8 @@ export function applyIntent(
 
 /** True when the intent would write anything at all. */
 export function intentIsEmpty(intent: EditIntent): boolean {
-  if (intent.participation !== 'keep') return false
+  if (intent.participation !== 'keep')
+    return false
   return OVERRIDE_UNITS.every((unit) => {
     const unitIntent = intent.units[unit]
     return !unitIntent || unitIntent.intent === 'keep'

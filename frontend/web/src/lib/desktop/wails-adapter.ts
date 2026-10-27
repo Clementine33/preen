@@ -1,6 +1,6 @@
+import type { DesktopAdapter, LyricsCommand, LyricsFrame } from './desktop-adapter'
 import { Call, Events } from '@wailsio/runtime'
 import { watch } from 'vue'
-import type { DesktopAdapter, LyricsCommand, LyricsFrame } from './desktop-adapter'
 
 /** Event names of the Lyrics Window channel; Go interprets none of the frames and commands (ADR 0016). */
 export const LYRICS_EVENTS = {
@@ -17,7 +17,7 @@ export class WailsDesktopAdapter implements DesktopAdapter {
   readonly lyricsWindow = true
   private closeLyrics: (() => void) | null = null
 
-  async resolveApi(): Promise<{ baseUrl: string; token: string }> {
+  async resolveApi(): Promise<{ baseUrl: string, token: string }> {
     return Call.ByName('main.Desktop.ResolveApi')
   }
 
@@ -35,15 +35,16 @@ export class WailsDesktopAdapter implements DesktopAdapter {
     onClose: () => void,
     onLock?: (locked: boolean) => void,
   ): Promise<(() => void) | null> {
-    if (this.closeLyrics) return this.closeLyrics
+    if (this.closeLyrics)
+      return this.closeLyrics
     // frame() follows player.elapsed, so push only when the serialized frame changes.
     const push = (json: string) => void Events.Emit(LYRICS_EVENTS.frame, json)
     const stopWatch = watch(() => JSON.stringify(frame()), push)
     const off = [
       // A freshly mounted window asks for the current frame, which may not change again for a while.
       Events.On(LYRICS_EVENTS.ready, () => push(JSON.stringify(frame()))),
-      Events.On(LYRICS_EVENTS.command, (event) => onCommand(event.data as LyricsCommand)),
-      Events.On(LYRICS_EVENTS.locked, (event) => onLock?.(event.data as boolean)),
+      Events.On(LYRICS_EVENTS.command, event => onCommand(event.data as LyricsCommand)),
+      Events.On(LYRICS_EVENTS.locked, event => onLock?.(event.data as boolean)),
       Events.On(LYRICS_EVENTS.closed, () => {
         release()
         onClose()
@@ -51,7 +52,7 @@ export class WailsDesktopAdapter implements DesktopAdapter {
     ]
     const release = () => {
       stopWatch()
-      off.forEach((stop) => stop())
+      off.forEach(stop => stop())
       this.closeLyrics = null
     }
     // Set before awaiting: lyrics:closed may arrive before the call returns.
@@ -59,7 +60,8 @@ export class WailsDesktopAdapter implements DesktopAdapter {
     this.closeLyrics = close
     try {
       await Call.ByName('main.Desktop.OpenLyricsWindow')
-    } catch {
+    }
+    catch {
       release()
       return null
     }

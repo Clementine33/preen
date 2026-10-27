@@ -10,17 +10,19 @@ import { useReducedMotion } from '@/composables/use-motion'
 // first, then settles it around the new number; each dot it passes flashes.
 // It only reports the page asked for; the address is the page's to change.
 
-const props = defineProps<{ page: number; pageCount: number }>()
+const props = defineProps<{ page: number, pageCount: number }>()
 const emit = defineEmits<{ go: [page: number] }>()
 
 /** A phone keeps one neighbour either side; a gap is still marked as one. */
 const narrow = useMediaQuery('(max-width: 640px)')
 
 /** One place in the row; n is the page number, 0 for the others. */
-interface Step { kind: 'prev' | 'next' | 'gap' | 'page'; n: number }
+interface Step { kind: 'prev' | 'next' | 'gap' | 'page', n: number }
 const steps = computed<Step[]>(() => [
   { kind: 'prev', n: 0 },
-  ...pagerItems(props.page, props.pageCount, narrow.value ? 1 : 2).map((n): Step => (n === null ? { kind: 'gap', n: 0 } : { kind: 'page', n })),
+  ...pagerItems(props.page, props.pageCount, narrow.value ? 1 : 2).map((n): Step => (n === null
+    ? { kind: 'gap', n: 0 }
+    : { kind: 'page', n })),
   { kind: 'next', n: 0 },
 ])
 
@@ -45,18 +47,21 @@ const SETTLE = 120
 const EASE = 'cubic-bezier(.2, .8, .2, 1)'
 
 /** The dot before step i, when that dot borders the current page. */
-const flanking = (i: number) => [steps.value[i], steps.value[i - 1]].some((s) => s.kind === 'page' && s.n === props.page)
+const flanking = (i: number) => [steps.value[i], steps.value[i - 1]].some(s => s.kind === 'page' && s.n === props.page)
 /** Where a mark sits beside a number centred at x, opened by `spread` pixels. */
-const markAt = (x: number, side: -1 | 1, spread = 0) =>
-  `translate(${Math.round(x + side * flank.value - MARK_SIZE / 2) + side * spread}px, ${Math.round(markY.value - MARK_SIZE / 2)}px)`
+function markAt(x: number, side: -1 | 1, spread = 0) {
+  return `translate(${Math.round(x + side * flank.value - MARK_SIZE / 2) + side * spread}px, ${Math.round(markY.value - MARK_SIZE / 2)}px)`
+}
 
 function place(): void {
   const current = row.value?.querySelector<HTMLElement>('[aria-current="page"]')
   const dot = row.value?.querySelector<HTMLElement>('.dot')
-  if (!current) return
+  if (!current)
+    return
   markX.value = current.offsetLeft + current.offsetWidth / 2
   flank.value = current.offsetWidth / 2 + DOT_SLOT / 2
-  if (dot) markY.value = dot.offsetTop + dot.offsetHeight / 2
+  if (dot)
+    markY.value = dot.offsetTop + dot.offsetHeight / 2
 }
 
 const reducedMotion = useReducedMotion()
@@ -67,29 +72,57 @@ const centre = (el: HTMLElement) => el.offsetLeft + el.offsetWidth / 2
 function travel(el: HTMLElement, fromX: number): void {
   const toX = markX.value
   const distance = toX - fromX
-  if (!distance) return
-  const dots = [...el.querySelectorAll<HTMLElement>('.dot:not(.flanking)')]
-    .filter((dot) => (centre(dot) - fromX) * (centre(dot) - toX) < 0)
+  if (!distance)
+    return
+  const dots = [
+    ...el.querySelectorAll<HTMLElement>('.dot:not(.flanking)'),
+  ]
+    .filter(dot => (centre(dot) - fromX) * (centre(dot) - toX) < 0)
   const hops = Math.min(MAX_HOPS, Math.max(1, dots.length + 1))
   const span = hops * GLIDE + (hops - 1) * HOLD
   const forward = distance > 0
 
   el.querySelectorAll<SVGElement>('.mark').forEach((mark) => {
     const side = Number(mark.dataset.side) as -1 | 1
-    const delay = side === 1 === forward ? 0 : TRAIL
-    const frames: Keyframe[] = [{ offset: 0, transform: markAt(fromX, side), easing: EASE }]
+    const delay = side === 1 === forward
+      ? 0
+      : TRAIL
+    const frames: Keyframe[] = [
+      {
+        offset: 0,
+        transform: markAt(fromX, side),
+        easing: EASE,
+      },
+    ]
     for (let k = 1; k <= hops; k++) {
       const x = fromX + (distance * k) / hops
       const landed = (k - 1) * (GLIDE + HOLD) + GLIDE
-      frames.push({ offset: landed / span, transform: markAt(x, side), easing: 'linear' })
-      if (k < hops) frames.push({ offset: (landed + HOLD) / span, transform: markAt(x, side), easing: EASE })
+      frames.push({
+        offset: landed / span,
+        transform: markAt(x, side),
+        easing: 'linear',
+      })
+      if (k < hops) {
+        frames.push({
+          offset: (landed + HOLD) / span,
+          transform: markAt(x, side),
+          easing: EASE,
+        })
+      }
     }
     mark.animate?.(frames, { duration: span, delay, fill: 'backwards' })
     // The landing: the pair breathes out a pixel and a half around the number.
     mark.animate?.([
-      { transform: markAt(toX, side) },
-      { transform: markAt(toX, side, 1.5), offset: 0.4 },
-      { transform: markAt(toX, side) },
+      {
+        transform: markAt(toX, side),
+      },
+      {
+        transform: markAt(toX, side, 1.5),
+        offset: 0.4,
+      },
+      {
+        transform: markAt(toX, side),
+      },
     ], { duration: SETTLE, delay: delay + span, easing: EASE })
   })
 
@@ -99,7 +132,10 @@ function travel(el: HTMLElement, fromX: number): void {
   const dim = style.getPropertyValue('--wire-mid').trim()
   for (const dot of dots) {
     const at = (Math.abs(centre(dot) - fromX) / Math.abs(distance)) * span
-    dot.animate?.([{ backgroundColor: bright }, { backgroundColor: dim }], { duration: 220, delay: at, easing: 'ease-out' })
+    dot.animate?.([
+      { backgroundColor: bright },
+      { backgroundColor: dim },
+    ], { duration: 220, delay: at, easing: 'ease-out' })
   }
 }
 
@@ -107,26 +143,43 @@ watch(() => [props.page, props.pageCount] as const, ([to], [from]) => {
   const before = markX.value
   place()
   const el = row.value
-  if (to === from || !el || reduced()) return
+  if (to === from || !el || reduced())
+    return
   // Measured in the new row where possible: the window may have shifted under
   // the pair, and the motion should go from the old number to the new one.
   const old = el.querySelector<HTMLElement>(`[aria-label="Page ${from}"]`)
-  travel(el, old ? centre(old) : before)
+  travel(el, old
+    ? centre(old)
+    : before)
   // The numbers trade faces: the new one rises into Mincho a beat after the
   // pair sets off, the old one fades back into the row.
   el.querySelector<HTMLElement>('.current')?.animate?.(
-    [{ opacity: 0, transform: 'translateY(1px) scale(.9)' }, { opacity: 1, transform: 'none' }],
-    { duration: 160, delay: 60, easing: EASE, fill: 'backwards' })
-  old?.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: 140, easing: 'ease-out' })
+    [
+      { opacity: 0, transform: 'translateY(1px) scale(.9)' },
+      { opacity: 1, transform: 'none' },
+    ],
+    {
+      duration: 160,
+      delay: 60,
+      easing: EASE,
+      fill: 'backwards',
+    },
+  )
+  old?.animate?.([
+    { opacity: 0 },
+    { opacity: 1 },
+  ], { duration: 140, easing: 'ease-out' })
 }, { flush: 'post' })
 
 // The row appears once there is a second page, often after the first fetch.
 // From then on, a narrower window or any reflow moves the current number, so
 // the pair follows the row's size.
 watch(row, (el, _, onCleanup) => {
-  if (!el) return
+  if (!el)
+    return
   place()
-  if (typeof ResizeObserver !== 'function') return
+  if (typeof ResizeObserver !== 'function')
+    return
   const observer = new ResizeObserver(place)
   observer.observe(el)
   onCleanup(() => observer.disconnect())
@@ -136,14 +189,19 @@ watch(row, (el, _, onCleanup) => {
 <script lang="ts">
 export function pagerItems(page: number, count: number, reach = 2): (number | null)[] {
   const wanted = new Set([1, count])
-  for (let n = page - reach; n <= page + reach; n++) if (n >= 1 && n <= count) wanted.add(n)
+  for (let n = page - reach; n <= page + reach; n++) {
+    if (n >= 1 && n <= count)
+      wanted.add(n)
+  }
   const sorted = [...wanted].sort((a, b) => a - b)
   const out: (number | null)[] = []
   for (const n of sorted) {
     const last = out.at(-1)
     // A gap of exactly one page shows that page rather than an ellipsis.
-    if (typeof last === 'number' && n - last === 2) out.push(last + 1)
-    else if (typeof last === 'number' && n - last > 2) out.push(null)
+    if (typeof last === 'number' && n - last === 2)
+      out.push(last + 1)
+    else if (typeof last === 'number' && n - last > 2)
+      out.push(null)
     out.push(n)
   }
   return out
@@ -158,19 +216,29 @@ const MARK = 'M5.5.2l2.3 2.3-2.3 2.3-2.3-2.3zM5.5 6.2l2.3 2.3-2.3 2.3-2.3-2.3zM.
   <nav v-if="pageCount > 1" class="folio" aria-label="Pages" :style="{ '--digits': String(pageCount).length }">
     <div ref="row" class="row">
       <span v-for="(step, i) in steps" :key="step.kind === 'page' ? step.n : `${step.kind}-${i}`" class="step">
-        <i v-if="i > 1 && i < steps.length - 1" class="dot" :class="{ flanking: flanking(i) }" aria-hidden="true"></i>
-        <button v-if="step.kind === 'prev'" class="cell turn" type="button" aria-label="Previous page"
-          :disabled="page <= 1" @click="emit('go', page - 1)">‹</button>
-        <button v-else-if="step.kind === 'next'" class="cell turn" type="button" aria-label="Next page"
-          :disabled="page >= pageCount" @click="emit('go', page + 1)">›</button>
+        <i v-if="i > 1 && i < steps.length - 1" class="dot" :class="{ flanking: flanking(i) }" aria-hidden="true" />
+        <button
+          v-if="step.kind === 'prev'" class="cell turn" type="button" aria-label="Previous page"
+          :disabled="page <= 1" @click="emit('go', page - 1)"
+        >‹</button>
+        <button
+          v-else-if="step.kind === 'next'" class="cell turn" type="button" aria-label="Next page"
+          :disabled="page >= pageCount" @click="emit('go', page + 1)"
+        >›</button>
         <span v-else-if="step.kind === 'gap'" class="cell gap" aria-hidden="true">…</span>
-        <button v-else-if="step.n === page" class="cell current" type="button" :aria-label="`Page ${step.n}`"
-          aria-current="page" tabindex="-1">{{ step.n }}</button>
-        <button v-else class="cell" type="button" :aria-label="`Page ${step.n}`"
-          @click="emit('go', step.n)">{{ step.n }}</button>
+        <button
+          v-else-if="step.n === page" class="cell current" type="button" :aria-label="`Page ${step.n}`"
+          aria-current="page" tabindex="-1"
+        >{{ step.n }}</button>
+        <button
+          v-else class="cell" type="button" :aria-label="`Page ${step.n}`"
+          @click="emit('go', step.n)"
+        >{{ step.n }}</button>
       </span>
-      <svg v-for="side in ([-1, 1] as const)" :key="side" class="mark" :data-side="side" viewBox="0 0 11 11"
-        aria-hidden="true" :style="{ transform: markAt(markX, side) }"><path :d="MARK" /></svg>
+      <svg
+        v-for="side in ([-1, 1] as const)" :key="side" class="mark" :data-side="side" viewBox="0 0 11 11"
+        aria-hidden="true" :style="{ transform: markAt(markX, side) }"
+      ><path :d="MARK" /></svg>
     </div>
   </nav>
 </template>

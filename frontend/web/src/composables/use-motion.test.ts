@@ -1,5 +1,5 @@
-import { effectScope } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { effectScope } from 'vue'
 
 // The state is module-level, so each case imports a fresh module.
 async function load() {
@@ -10,8 +10,13 @@ async function load() {
 function systemReduces(matches: boolean) {
   vi.spyOn(window, 'matchMedia').mockImplementation((query: string) => ({
     matches: matches && query === '(prefers-reduced-motion: reduce)',
-    media: query, onchange: null, addEventListener: vi.fn(), removeEventListener: vi.fn(),
-    addListener: vi.fn(), removeListener: vi.fn(), dispatchEvent: vi.fn(),
+    media: query,
+    onchange: null,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    dispatchEvent: vi.fn(),
   }) as MediaQueryList)
 }
 

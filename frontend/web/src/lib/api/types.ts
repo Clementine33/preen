@@ -8,17 +8,17 @@ export interface ApiConfig {
 export interface MediaFactsStatus {
   state: 'running' | 'paused' | 'idle'
   /** Libraries with nothing unknown are omitted. */
-  libraries: { library_id: string; pending: number; unmeasurable: number }[]
+  libraries: { library_id: string, pending: number, unmeasurable: number }[]
 }
 
 /** A reload signal for committed media facts, including the initial connection, or the pass's status. */
-export type MediaFactsEvent =
-  | {
-      /** `works_changed`: a commit may alter what the works pages show; also sent once per connection. */
-      type: 'changed' | 'works_changed'
-      data: Record<string, never>
-    }
-  | { type: 'status'; data: MediaFactsStatus }
+export type MediaFactsEvent
+  = | {
+    /** `works_changed`: a commit may alter what the works pages show; also sent once per connection. */
+    type: 'changed' | 'works_changed'
+    data: Record<string, never>
+  }
+  | { type: 'status', data: MediaFactsStatus }
 
 export interface HealthResponse {
   ok: boolean
@@ -210,9 +210,9 @@ export interface UserPreferences {
   track_formats: string[]
 }
 
-export type CleanupCategory =
-  | 'scan_sessions' | 'plan_generations' | 'generation_records' | 'works'
-  | 'relation_reports' | 'source_tags' | 'source_voice_actors' | 'source_circles'
+export type CleanupCategory
+  = | 'scan_sessions' | 'plan_generations' | 'generation_records' | 'works'
+    | 'relation_reports' | 'source_tags' | 'source_voice_actors' | 'source_circles'
 
 export interface CleanupPreview {
   checked_at: string
@@ -231,7 +231,7 @@ export interface CleanupRun {
   phase: CleanupCategory | ''
   started_at: string
   finished_at: string | null
-  counts: Partial<Record<CleanupCategory, { checked: number; deleted: number; skipped: number }>>
+  counts: Partial<Record<CleanupCategory, { checked: number, deleted: number, skipped: number }>>
   reason: string
 }
 
@@ -699,13 +699,13 @@ export interface WorksetListResponse {
 }
 
 /** Why a selected directory did not become a member of the record. */
-export type SkippedReason =
-  | 'no_audio'
-  | 'missing'
-  | 'recovery_dir'
-  | 'duplicate'
-  | 'invalid_path'
-  | 'not_work_root'
+export type SkippedReason
+  = | 'no_audio'
+    | 'missing'
+    | 'recovery_dir'
+    | 'duplicate'
+    | 'invalid_path'
+    | 'not_work_root'
 
 export interface SkippedFolder {
   path: string
@@ -743,7 +743,7 @@ export interface ListWorksetsParams {
 /** One shared output spec of a desired profile. */
 export interface AudioOutputSpec {
   codec: string
-  quality?: { kind: string; bitrate?: number }
+  quality?: { kind: string, bitrate?: number }
 }
 
 export interface DesiredProfile {
@@ -821,7 +821,7 @@ export type MetadataLocale = 'ja-jp' | 'zh-cn' | 'zh-tw'
 
 export interface MetadataDraftDocument {
   schema_version: number
-  common: { mode: MetadataMode; locale: MetadataLocale; download_cover: boolean }
+  common: { mode: MetadataMode, locale: MetadataLocale, download_cover: boolean }
   members: TaskDraftMember[]
 }
 
@@ -896,23 +896,23 @@ export interface RevisionListResponse {
   next_before_index?: number
 }
 
-export type StartGenerationResponse =
-  | { created: true; generation: GenerationView }
+export type StartGenerationResponse
+  = | { created: true, generation: GenerationView }
   // Unchanged-input replay: current revision stands (200).
-  | { created: false; revision: CurrentRevisionSummary }
+    | { created: false, revision: CurrentRevisionSummary }
   // Idempotency-key replay of an already-accepted request: the existing
   // session is returned (202).
-  | { created: false; generation: GenerationView }
+    | { created: false, generation: GenerationView }
 
 // Generation SSE events (session_snapshot payload is a GenerationView).
-export type GenerationEvent =
-  | { type: 'session_snapshot'; data: GenerationView }
-  | { type: 'progress'; data: { generation_id: string; total_roots: number; completed_roots: number; current_root: string; error_count: number } }
-  | { type: 'completed'; data: { generation_id: string; revision_id: string } }
-  | { type: 'failed'; data: { generation_id: string; error_code: string; error_message: string } }
-  | { type: 'canceled'; data: { generation_id: string } }
-  | { type: 'interrupted'; data: { generation_id: string } }
-  | { type: 'error'; data: { code: string; message: string } }
+export type GenerationEvent
+  = | { type: 'session_snapshot', data: GenerationView }
+    | { type: 'progress', data: { generation_id: string, total_roots: number, completed_roots: number, current_root: string, error_count: number } }
+    | { type: 'completed', data: { generation_id: string, revision_id: string } }
+    | { type: 'failed', data: { generation_id: string, error_code: string, error_message: string } }
+    | { type: 'canceled', data: { generation_id: string } }
+    | { type: 'interrupted', data: { generation_id: string } }
+    | { type: 'error', data: { code: string, message: string } }
 
 // ==================== Execution sessions ====================
 
@@ -998,8 +998,10 @@ export interface ExecutionView {
   current_component_id: string
   current_phase: string
   components: ExecutionComponent[]
-  /** The scope this session ran: record-relative paths, absent for a whole
-   *  revision. The folders it left out are the next plan's work. */
+  /**
+   * The scope this session ran: record-relative paths, absent for a whole
+   *  revision. The folders it left out are the next plan's work.
+   */
   selected_folders?: string[]
   error_code: string
   error_message: string
@@ -1008,9 +1010,11 @@ export interface ExecutionView {
   created_at: string
 }
 
-/** The progress event carries counts and the current position, never the
+/**
+ * The progress event carries counts and the current position, never the
  *  components themselves: those arrive as `component` events, and a client that
- *  missed them reads the detail route. */
+ *  missed them reads the detail route.
+ */
 export interface ExecutionProgressEvent {
   execution_id: string
   status: ExecutionStatus
@@ -1024,17 +1028,19 @@ export interface ExecutionProgressEvent {
 }
 
 // Execution SSE events (execution_snapshot payload is an ExecutionView).
-export type ExecutionEvent =
-  | { type: 'execution_snapshot'; data: ExecutionView }
-  /** One component's entry, as it appears in `components[]`, sent as its
-   *  result lands; the next terminal event always follows the results. */
-  | { type: 'component'; data: ExecutionComponent }
-  | { type: 'progress'; data: ExecutionProgressEvent }
-  | { type: 'succeeded'; data: { execution_id: string; plan_id: string } }
-  | { type: 'failed'; data: { execution_id: string; error_code: string; error_message: string } }
-  | { type: 'canceled'; data: { execution_id: string } }
-  | { type: 'interrupted'; data: { execution_id: string } }
-  | { type: 'error'; data: { code: string; message: string } }
+export type ExecutionEvent
+  = | { type: 'execution_snapshot', data: ExecutionView }
+  /**
+   * One component's entry, as it appears in `components[]`, sent as its
+   *  result lands; the next terminal event always follows the results.
+   */
+    | { type: 'component', data: ExecutionComponent }
+    | { type: 'progress', data: ExecutionProgressEvent }
+    | { type: 'succeeded', data: { execution_id: string, plan_id: string } }
+    | { type: 'failed', data: { execution_id: string, error_code: string, error_message: string } }
+    | { type: 'canceled', data: { execution_id: string } }
+    | { type: 'interrupted', data: { execution_id: string } }
+    | { type: 'error', data: { code: string, message: string } }
 
 export interface StartExecutionResponse {
   /** true only for a fresh 202; false when the idempotency key replayed (200). */
@@ -1104,7 +1110,7 @@ export interface ComponentOutcome {
   variant_decisions: VariantDecision[]
   operations: PlanOperation[]
   projected_inventory: string[]
-  files: { path: string; size: number; mtime: number }[]
+  files: { path: string, size: number, mtime: number }[]
 }
 
 export interface StepSummary {
@@ -1255,146 +1261,146 @@ export interface RevisionDetailResponse<P = ConversionPlanPayload> {
 }
 
 export interface ApiClientContract {
-  createSession(token: string): Promise<void>
-  deleteSession(): Promise<void>
-  getHealth(signal?: AbortSignal): Promise<HealthResponse>
-  listLibraries(signal?: AbortSignal): Promise<Library[]>
-  getLibrary(id: string, signal?: AbortSignal): Promise<Library>
-  createLibrary(input: CreateLibraryInput): Promise<Library>
-  updateLibrary(id: string, input: UpdateLibraryInput): Promise<Library>
-  deleteLibrary(id: string): Promise<void>
-  scanLibrary(id: string, signal: AbortSignal, rootPath?: string, mode?: ScanMode): AsyncIterable<ScanEvent>
-  streamMediaFactsEvents(signal: AbortSignal): AsyncIterable<MediaFactsEvent>
-  listDirs(libraryId: string, signal?: AbortSignal): Promise<LibraryDir[]>
-  getMemberTree(libraryId: string, folderRelPath: string, signal?: AbortSignal): Promise<MemberTreeResponse>
-  refreshMemberTree(libraryId: string, folderRelPath: string): Promise<MemberTreeResponse>
-  applyFileOperation(
+  createSession: (token: string) => Promise<void>
+  deleteSession: () => Promise<void>
+  getHealth: (signal?: AbortSignal) => Promise<HealthResponse>
+  listLibraries: (signal?: AbortSignal) => Promise<Library[]>
+  getLibrary: (id: string, signal?: AbortSignal) => Promise<Library>
+  createLibrary: (input: CreateLibraryInput) => Promise<Library>
+  updateLibrary: (id: string, input: UpdateLibraryInput) => Promise<Library>
+  deleteLibrary: (id: string) => Promise<void>
+  scanLibrary: (id: string, signal: AbortSignal, rootPath?: string, mode?: ScanMode) => AsyncIterable<ScanEvent>
+  streamMediaFactsEvents: (signal: AbortSignal) => AsyncIterable<MediaFactsEvent>
+  listDirs: (libraryId: string, signal?: AbortSignal) => Promise<LibraryDir[]>
+  getMemberTree: (libraryId: string, folderRelPath: string, signal?: AbortSignal) => Promise<MemberTreeResponse>
+  refreshMemberTree: (libraryId: string, folderRelPath: string) => Promise<MemberTreeResponse>
+  applyFileOperation: (
     libraryId: string,
-    input: { member_path: string; operation: FileOperation; items: FileOperationItem[] },
-  ): Promise<FileOperationResult>
-  listClassifierTags(signal?: AbortSignal): Promise<ClassifierTagLibraryResponse>
-  addClassifierTag(tag: string): Promise<ClassifierCustomTag>
-  deleteClassifierTag(id: number): Promise<void>
-  getCurrentRecord(
+    input: { member_path: string, operation: FileOperation, items: FileOperationItem[] },
+  ) => Promise<FileOperationResult>
+  listClassifierTags: (signal?: AbortSignal) => Promise<ClassifierTagLibraryResponse>
+  addClassifierTag: (tag: string) => Promise<ClassifierCustomTag>
+  deleteClassifierTag: (id: number) => Promise<void>
+  getCurrentRecord: (
     libraryId: string,
     operation: OperationType,
     signal?: AbortSignal,
-  ): Promise<CurrentRecordResponse>
-  createCurrentRecord(
+  ) => Promise<CurrentRecordResponse>
+  createCurrentRecord: (
     libraryId: string,
     operation: OperationType,
     input: CreateRecordInput,
     idempotencyKey: string,
-  ): Promise<CreateRecordResponse>
-  listWorksets(params?: ListWorksetsParams, signal?: AbortSignal): Promise<WorksetListResponse>
-  getWorkset(id: string, signal?: AbortSignal): Promise<Workset>
-  listWorks(params?: ListWorksParams, signal?: AbortSignal): Promise<WorkListResponse>
-  getWork(rj: string, signal?: AbortSignal): Promise<WorkDetail>
-  listCollections(window?: CollectionWindow, signal?: AbortSignal): Promise<CollectionListResponse>
-  getCollection(id: string, window?: CollectionWindow, signal?: AbortSignal): Promise<CollectionDetail>
-  createCollection(name: string): Promise<WorkCollection>
-  renameCollection(id: string, name: string): Promise<WorkCollection>
-  deleteCollection(id: string): Promise<void>
-  appendToCollection(id: string, rjs: string[]): Promise<CollectionAppendResult>
-  removeFromCollection(id: string, rj: string): Promise<void>
-  moveCollectionMember(id: string, rj: string, beforeRj: string | null): Promise<void>
-  getWorkContent(rj: string, signal?: AbortSignal): Promise<WorkContent>
-  workFileUrl(ref: ContentFileRef, version?: string): string
-  getWorkText(ref: ContentFileRef, signal?: AbortSignal): Promise<string>
-  getWorkThumb(ref: ContentFileRef, height: number, version: string, signal?: AbortSignal): Promise<Blob>
-  listWorkFacets(kind: WorkFacetKind, scope?: WorksScope, signal?: AbortSignal): Promise<WorkFacet[]>
-  listTagFacets(scope?: WorksScope, signal?: AbortSignal): Promise<TagFacets>
-  updateWorkUserData(rj: string, input: PatchWorkUserDataParams): Promise<WorkUserData>
-  putWorkListening(rj: string, input: PutWorkListeningParams, keepalive?: boolean): Promise<WorkListening>
-  deleteWorkListening(rj: string): Promise<void>
-  replaceWorkUserTags(rj: string, tagIds: string[]): Promise<WorkUserTag[]>
-  getPreferences(signal?: AbortSignal): Promise<UserPreferences>
-  putPreferences(input: UserPreferences): Promise<UserPreferences>
-  getOutboundProxy(signal?: AbortSignal): Promise<OutboundProxy>
-  putOutboundProxy(input: OutboundProxy): Promise<OutboundProxy>
-  downloadDiagnosticLog(): Promise<{ blob: Blob; filename: string }>
-  previewCleanup(categories: CleanupCategory[]): Promise<CleanupPreview>
-  startCleanup(categories: CleanupCategory[]): Promise<CleanupRun>
-  getCleanup(signal?: AbortSignal): Promise<CleanupRun | null>
-  cancelCleanup(runId: string): Promise<CleanupRun>
-  listUserTags(signal?: AbortSignal): Promise<WorkUserTag[]>
-  createUserTag(name: string): Promise<WorkUserTag>
-  renameUserTag(id: string, name: string): Promise<WorkUserTag>
-  deleteUserTag(id: string): Promise<void>
-  getOperation(worksetId: string, operation: OperationType, signal?: AbortSignal): Promise<Operation>
-  getOperationDraft(worksetId: string, operation: OperationType, signal?: AbortSignal): Promise<DraftResponse>
-  saveOperationDraft(
+  ) => Promise<CreateRecordResponse>
+  listWorksets: (params?: ListWorksetsParams, signal?: AbortSignal) => Promise<WorksetListResponse>
+  getWorkset: (id: string, signal?: AbortSignal) => Promise<Workset>
+  listWorks: (params?: ListWorksParams, signal?: AbortSignal) => Promise<WorkListResponse>
+  getWork: (rj: string, signal?: AbortSignal) => Promise<WorkDetail>
+  listCollections: (window?: CollectionWindow, signal?: AbortSignal) => Promise<CollectionListResponse>
+  getCollection: (id: string, window?: CollectionWindow, signal?: AbortSignal) => Promise<CollectionDetail>
+  createCollection: (name: string) => Promise<WorkCollection>
+  renameCollection: (id: string, name: string) => Promise<WorkCollection>
+  deleteCollection: (id: string) => Promise<void>
+  appendToCollection: (id: string, rjs: string[]) => Promise<CollectionAppendResult>
+  removeFromCollection: (id: string, rj: string) => Promise<void>
+  moveCollectionMember: (id: string, rj: string, beforeRj: string | null) => Promise<void>
+  getWorkContent: (rj: string, signal?: AbortSignal) => Promise<WorkContent>
+  workFileUrl: (ref: ContentFileRef, version?: string) => string
+  getWorkText: (ref: ContentFileRef, signal?: AbortSignal) => Promise<string>
+  getWorkThumb: (ref: ContentFileRef, height: number, version: string, signal?: AbortSignal) => Promise<Blob>
+  listWorkFacets: (kind: WorkFacetKind, scope?: WorksScope, signal?: AbortSignal) => Promise<WorkFacet[]>
+  listTagFacets: (scope?: WorksScope, signal?: AbortSignal) => Promise<TagFacets>
+  updateWorkUserData: (rj: string, input: PatchWorkUserDataParams) => Promise<WorkUserData>
+  putWorkListening: (rj: string, input: PutWorkListeningParams, keepalive?: boolean) => Promise<WorkListening>
+  deleteWorkListening: (rj: string) => Promise<void>
+  replaceWorkUserTags: (rj: string, tagIds: string[]) => Promise<WorkUserTag[]>
+  getPreferences: (signal?: AbortSignal) => Promise<UserPreferences>
+  putPreferences: (input: UserPreferences) => Promise<UserPreferences>
+  getOutboundProxy: (signal?: AbortSignal) => Promise<OutboundProxy>
+  putOutboundProxy: (input: OutboundProxy) => Promise<OutboundProxy>
+  downloadDiagnosticLog: () => Promise<{ blob: Blob, filename: string }>
+  previewCleanup: (categories: CleanupCategory[]) => Promise<CleanupPreview>
+  startCleanup: (categories: CleanupCategory[]) => Promise<CleanupRun>
+  getCleanup: (signal?: AbortSignal) => Promise<CleanupRun | null>
+  cancelCleanup: (runId: string) => Promise<CleanupRun>
+  listUserTags: (signal?: AbortSignal) => Promise<WorkUserTag[]>
+  createUserTag: (name: string) => Promise<WorkUserTag>
+  renameUserTag: (id: string, name: string) => Promise<WorkUserTag>
+  deleteUserTag: (id: string) => Promise<void>
+  getOperation: (worksetId: string, operation: OperationType, signal?: AbortSignal) => Promise<Operation>
+  getOperationDraft: (worksetId: string, operation: OperationType, signal?: AbortSignal) => Promise<DraftResponse>
+  saveOperationDraft: (
     worksetId: string,
     operation: OperationType,
     document: AnyDraftDocument,
     ifMatchVersion: number,
-  ): Promise<Operation>
-  getTaskSettings<T extends OperationType>(operation: T, signal?: AbortSignal): Promise<TaskSettings<T>>
-  saveTaskSettings<T extends OperationType>(
+  ) => Promise<Operation>
+  getTaskSettings: <T extends OperationType>(operation: T, signal?: AbortSignal) => Promise<TaskSettings<T>>
+  saveTaskSettings: <T extends OperationType>(
     operation: T,
     settings: TaskSettingsMap[T],
     etag: string,
-  ): Promise<TaskSettings<T>>
-  startGeneration(
+  ) => Promise<TaskSettings<T>>
+  startGeneration: (
     worksetId: string,
     operation: OperationType,
     ifMatchVersion: number,
     idempotencyKey: string,
-  ): Promise<StartGenerationResponse>
-  getGeneration(
+  ) => Promise<StartGenerationResponse>
+  getGeneration: (
     worksetId: string,
     operation: OperationType,
     generationId: string,
     signal?: AbortSignal,
-  ): Promise<GenerationView>
-  cancelGeneration(worksetId: string, operation: OperationType, generationId: string): Promise<GenerationView>
-  streamGenerationEvents(
+  ) => Promise<GenerationView>
+  cancelGeneration: (worksetId: string, operation: OperationType, generationId: string) => Promise<GenerationView>
+  streamGenerationEvents: (
     worksetId: string,
     operation: OperationType,
     generationId: string,
     signal: AbortSignal,
-  ): AsyncIterable<GenerationEvent>
-  getRevision(
+  ) => AsyncIterable<GenerationEvent>
+  getRevision: (
     worksetId: string,
     operation: OperationType,
     planId: string,
     signal?: AbortSignal,
-  ): Promise<RevisionDetailResponse>
-  startExecution(
+  ) => Promise<RevisionDetailResponse>
+  startExecution: (
     worksetId: string,
     operation: OperationType,
     planId: string,
-    input: { ifMatchVersion: number; idempotencyKey: string; folderPaths?: string[] },
-  ): Promise<StartExecutionResponse>
-  getExecution(
+    input: { ifMatchVersion: number, idempotencyKey: string, folderPaths?: string[] },
+  ) => Promise<StartExecutionResponse>
+  getExecution: (
     worksetId: string,
     operation: OperationType,
     executionId: string,
     signal?: AbortSignal,
-    page?: { from: number; limit: number },
-  ): Promise<ExecutionView>
-  cancelExecution(
+    page?: { from: number, limit: number },
+  ) => Promise<ExecutionView>
+  cancelExecution: (
     worksetId: string,
     operation: OperationType,
     executionId: string,
-  ): Promise<ExecutionView>
-  streamExecutionEvents(
+  ) => Promise<ExecutionView>
+  streamExecutionEvents: (
     worksetId: string,
     operation: OperationType,
     executionId: string,
     signal: AbortSignal,
-  ): AsyncIterable<ExecutionEvent>
-  getExecutionCovers(worksetId: string, executionId: string, signal?: AbortSignal): Promise<CoverReport>
-  changeExecutionCovers(worksetId: string, executionId: string, action: 'retry' | 'cancel'): Promise<CoverReport>
+  ) => AsyncIterable<ExecutionEvent>
+  getExecutionCovers: (worksetId: string, executionId: string, signal?: AbortSignal) => Promise<CoverReport>
+  changeExecutionCovers: (worksetId: string, executionId: string, action: 'retry' | 'cancel') => Promise<CoverReport>
 }
 
 /** Observed directory location; an interrupted session may contain a recovered success. */
 export interface RenameTaskResult {
- source_path: string
- target_path: string
- renamed: boolean
- /** The reason a blocked folder was left alone; the run went on. */
- skipped?: string
- rolled_back?: boolean
- recovered?: boolean
+  source_path: string
+  target_path: string
+  renamed: boolean
+  /** The reason a blocked folder was left alone; the run went on. */
+  skipped?: string
+  rolled_back?: boolean
+  recovered?: boolean
 }

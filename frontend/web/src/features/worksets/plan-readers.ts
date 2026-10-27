@@ -43,8 +43,8 @@ export function readVariant(variant: VariantDecision): VariantDecision {
 
 /** Plan facts of one component, as independent observations. */
 export function componentHasUnmetTarget(component: ComponentOutcome): boolean {
-  return (component.variant_decisions ?? []).some((variant) =>
-    (variant.decisions ?? []).some((decision) => decision.reason_code === 'UNMET_TARGET'),
+  return (component.variant_decisions ?? []).some(variant =>
+    (variant.decisions ?? []).some(decision => decision.reason_code === 'UNMET_TARGET'),
   )
 }
 
@@ -59,11 +59,11 @@ export function componentOperationCount(component: ComponentOutcome): number {
  * satisfy it (UNMET_TARGET keeps the stem instead of a silently satisfied one).
  */
 export function keptDecisions(component: ComponentOutcome): FileDecision[] {
-  return decisionsOf(component).filter((decision) => decision.resolution === 'keep')
+  return decisionsOf(component).filter(decision => decision.resolution === 'keep')
 }
 
 function decisionsOf(component: ComponentOutcome): FileDecision[] {
-  return (component.variant_decisions ?? []).flatMap((variant) => variant.decisions ?? [])
+  return (component.variant_decisions ?? []).flatMap(variant => variant.decisions ?? [])
 }
 
 /**
@@ -100,25 +100,36 @@ export function decisionGroups(component: ComponentOutcome, memberRoot = ''): De
       reasonCode: decision.reason_code ?? '',
     }
     const dir = posixDir(rel)
-    groups.set(dir, [...(groups.get(dir) ?? []), row])
+    groups.set(dir, [
+      ...(groups.get(dir) ?? []),
+      row,
+    ])
   }
   return [...groups].map(([dir, rows]) => ({ dir, rows }))
 }
 
 /** A frozen path as the member reads it: the member root is the header. */
 function relativeTo(path: string, memberRoot: string): string {
-  const prefix = memberRoot && !memberRoot.endsWith('/') ? `${memberRoot}/` : memberRoot
-  return prefix && path.startsWith(prefix) ? path.slice(prefix.length) : path
+  const prefix = memberRoot && !memberRoot.endsWith('/')
+    ? `${memberRoot}/`
+    : memberRoot
+  return prefix && path.startsWith(prefix)
+    ? path.slice(prefix.length)
+    : path
 }
 
 function posixDir(path: string): string {
   const at = path.lastIndexOf('/')
-  return at < 0 ? '' : path.slice(0, at)
+  return at < 0
+    ? ''
+    : path.slice(0, at)
 }
 
 function posixBase(path: string): string {
   const at = path.lastIndexOf('/')
-  return at < 0 ? path : path.slice(at + 1)
+  return at < 0
+    ? path
+    : path.slice(at + 1)
 }
 
 /** Why a kept file was kept, in the plan's own short words. */
@@ -137,7 +148,8 @@ const KEEP_REASON_TEXT: Record<string, string> = {
 }
 
 export function keepReasonText(reasonCode: string | undefined): string {
-  if (!reasonCode) return '原样保留'
+  if (!reasonCode)
+    return '原样保留'
   return KEEP_REASON_TEXT[reasonCode] ?? reasonCode
 }
 
@@ -179,15 +191,30 @@ export const PARTITION_TEXT: Record<keyof MemberFacts, string> = {
  */
 export function partitionFacts(components: ComponentOutcome[]): MemberFacts {
   const facts: MemberFacts = {
-    matched: { applicable: false, blocked: false, unmet: false, changes: false },
-    unmatched: { applicable: false, blocked: false, unmet: false, changes: false },
+    matched: {
+      applicable: false,
+      blocked: false,
+      unmet: false,
+      changes: false,
+    },
+    unmatched: {
+      applicable: false,
+      blocked: false,
+      unmet: false,
+      changes: false,
+    },
   }
   for (const component of components) {
-    const side = facts[component.partition === 'matched' ? 'matched' : 'unmatched']
+    const side = facts[component.partition === 'matched'
+      ? 'matched'
+      : 'unmatched']
     side.applicable = true
-    if (component.status === 'blocked') side.blocked = true
-    if (componentHasUnmetTarget(component)) side.unmet = true
-    if (componentOperationCount(component) > 0) side.changes = true
+    if (component.status === 'blocked')
+      side.blocked = true
+    if (componentHasUnmetTarget(component))
+      side.unmet = true
+    if (componentOperationCount(component) > 0)
+      side.changes = true
   }
   return facts
 }
@@ -210,44 +237,96 @@ export function memberConclusion(input: {
   components: ComponentOutcome[]
 }): MemberConclusion {
   if (input.excluded) {
-    return { tone: 'neutral', label: '已排除', detail: '本操作已排除该文件夹。', filter: null }
+    return {
+      tone: 'neutral',
+      label: '已排除',
+      detail: '本操作已排除该文件夹。',
+      filter: null,
+    }
   }
   if (!input.hasRoot) {
-    return { tone: 'neutral', label: '未参与', detail: '该文件夹在此版本中没有规划输入。', filter: null }
+    return {
+      tone: 'neutral',
+      label: '未参与',
+      detail: '该文件夹在此版本中没有规划输入。',
+      filter: null,
+    }
   }
   if (input.rootMissing) {
-    return { tone: 'danger', label: '输入缺失', detail: '规划时未在扫描结果中找到该文件夹。', filter: 'blocked' }
+    return {
+      tone: 'danger',
+      label: '输入缺失',
+      detail: '规划时未在扫描结果中找到该文件夹。',
+      filter: 'blocked',
+    }
   }
   const components = input.components
   const unmetCount = components.filter(componentHasUnmetTarget).length
   const detail = detailText(partitionFacts(components))
-  if (components.some((component) => component.status === 'blocked' && component.reason_code !== 'SOURCE_AMBIGUOUS')) {
-    return { tone: 'danger', label: '阻塞', detail, filter: 'blocked' }
+  if (components.some(component => component.status === 'blocked' && component.reason_code !== 'SOURCE_AMBIGUOUS')) {
+    return {
+      tone: 'danger',
+      label: '阻塞',
+      detail,
+      filter: 'blocked',
+    }
   }
-  if (components.some((component) => component.reason_code === 'SOURCE_AMBIGUOUS')) {
-    return { tone: 'danger', label: '源竞争', detail: `存在多个同优先级无损源，无法唯一选源。${detail}`, filter: 'source_conflict' }
+  if (components.some(component => component.reason_code === 'SOURCE_AMBIGUOUS')) {
+    return {
+      tone: 'danger',
+      label: '源竞争',
+      detail: `存在多个同优先级无损源，无法唯一选源。${detail}`,
+      filter: 'source_conflict',
+    }
   }
   if (unmetCount > 0) {
-    return { tone: 'warning', label: unmetCount < components.length ? '部分未满足' : '未满足', detail, filter: 'warn' }
+    return {
+      tone: 'warning',
+      label: unmetCount < components.length
+        ? '部分未满足'
+        : '未满足',
+      detail,
+      filter: 'warn',
+    }
   }
-  if (components.some((component) => componentOperationCount(component) > 0)) {
-    return { tone: 'success', label: '有变化', detail, filter: 'change' }
+  if (components.some(component => componentOperationCount(component) > 0)) {
+    return {
+      tone: 'success',
+      label: '有变化',
+      detail,
+      filter: 'change',
+    }
   }
-  if (components.length === 0) return { tone: 'neutral', label: '无适用', detail, filter: null }
-  return { tone: 'neutral', label: '无需转换', detail, filter: null }
+  if (components.length === 0) {
+    return {
+      tone: 'neutral',
+      label: '无适用',
+      detail,
+      filter: null,
+    }
+  }
+  return {
+    tone: 'neutral',
+    label: '无需转换',
+    detail,
+    filter: null,
+  }
 }
 
 /** One line per partition: what it does, or why it does nothing. */
 function detailText(facts: MemberFacts): string {
   return (Object.keys(facts) as (keyof MemberFacts)[])
-    .map((key) => `${PARTITION_TEXT[key]}：${sideText(facts[key])}`)
+    .map(key => `${PARTITION_TEXT[key]}：${sideText(facts[key])}`)
     .join('；')
 }
 
 function sideText(side: PartitionFacts): string {
-  if (side.blocked) return '阻塞'
-  if (side.unmet) return side.changes ? '目标未满足，其余按可用源转换' : '目标未满足，现有文件按可用源保留'
-  if (side.changes) return '将转换'
+  if (side.blocked)
+    return '阻塞'
+  if (side.unmet)
+    return side.changes ? '目标未满足，其余按可用源转换' : '目标未满足，现有文件按可用源保留'
+  if (side.changes)
+    return '将转换'
   return side.applicable ? '无需改动' : '无适用文件'
 }
 
@@ -262,13 +341,21 @@ export function cloneProfile(value: unknown): DesiredProfile {
   if (src.lossless) {
     out.lossless = {
       codec: src.lossless.codec,
-      ...(src.lossless.quality ? { quality: { ...src.lossless.quality } } : {}),
+      ...(src.lossless.quality
+        ? {
+            quality: { ...src.lossless.quality },
+          }
+        : {}),
     }
   }
   if (src.encoded) {
     out.encoded = {
       codec: src.encoded.codec,
-      ...(src.encoded.quality ? { quality: { ...src.encoded.quality } } : {}),
+      ...(src.encoded.quality
+        ? {
+            quality: { ...src.encoded.quality },
+          }
+        : {}),
     }
   }
   return out
@@ -276,21 +363,30 @@ export function cloneProfile(value: unknown): DesiredProfile {
 
 /** One lane of a profile: "WAV", "MP3 320", or nothing when the lane is absent. */
 function laneText(spec: AudioOutputSpec | undefined): string | null {
-  if (!spec?.codec) return null
+  if (!spec?.codec)
+    return null
   const codec = spec.codec.toUpperCase()
   const bitrate = spec.quality?.bitrate
-  return bitrate ? `${codec} ${bitrate}` : codec
+  return bitrate
+    ? `${codec} ${bitrate}`
+    : codec
 }
 
 /** A desired profile in one line: the exact output set the revision asks for. */
 export function profileText(profile: DesiredProfile | undefined): string {
-  if (!profile) return '未设置'
-  const parts = [laneText(profile.lossless), laneText(profile.encoded)].filter(
+  if (!profile)
+    return '未设置'
+  const parts = [
+    laneText(profile.lossless),
+    laneText(profile.encoded),
+  ].filter(
     (part): part is string => part !== null,
   )
   // A profile that declares nothing is a declaration, not a gap: the partition
   // keeps no managed audio.
-  return parts.length > 0 ? parts.join(' + ') : '不需要'
+  return parts.length > 0
+    ? parts.join(' + ')
+    : '不需要'
 }
 
 const MODE_TEXT: Record<string, string> = { strict: '严格', available_sources: '可用源' }
@@ -306,13 +402,17 @@ export const modeText = (mode: string): string => MODE_TEXT[mode] ?? mode
 export function unitValueText(unit: OverrideUnit, value: unknown): string {
   switch (unit) {
     case 'mode': {
-      const mode = typeof value === 'string' ? value : ''
+      const mode = typeof value === 'string'
+        ? value
+        : ''
       return MODE_TEXT[mode] ?? (mode || '未设置')
     }
     case 'no_effect_tags':
     case 'other_tags': {
       const tags = (value as string[] | undefined) ?? []
-      return tags.length > 0 ? tags.join(', ') : '（空）'
+      return tags.length > 0
+        ? tags.join(', ')
+        : '（空）'
     }
     default:
       return profileText(value as DesiredProfile | undefined)
@@ -330,10 +430,14 @@ export function memberConclusions(
   members: WorksetMember[],
 ): Map<string, MemberConclusion> {
   const out = new Map<string, MemberConclusion>()
-  if (!view) return out
-  const frozen = new Map(view.members.map((m) => [m.member_id, m]))
+  if (!view)
+    return out
+  const frozen = new Map(view.members.map(m => [m.member_id, m]))
   const rootByPath = new Map<string, (typeof view.roots)[number]>()
-  for (const root of view.roots) if (!rootByPath.has(root.root_path)) rootByPath.set(root.root_path, root)
+  for (const root of view.roots) {
+    if (!rootByPath.has(root.root_path))
+      rootByPath.set(root.root_path, root)
+  }
   const rootsOf = new Map<string, Set<number>>()
   for (const ref of view.component_roots ?? []) {
     const roots = rootsOf.get(ref.component_id) ?? new Set<number>()
@@ -357,7 +461,9 @@ export function memberConclusions(
         excluded: frozen.get(member.member_id)?.excluded ?? false,
         hasRoot: Boolean(root),
         rootMissing: root?.root_status === 'missing',
-        components: root ? (byRoot.get(root.root_index) ?? []) : [],
+        components: root
+          ? (byRoot.get(root.root_index) ?? [])
+          : [],
       }),
     )
   }

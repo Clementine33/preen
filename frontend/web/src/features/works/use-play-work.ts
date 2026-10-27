@@ -1,7 +1,7 @@
+import type { WorkContent, WorkListening } from '@/lib/api/types'
 import { useQueryClient } from '@tanstack/vue-query'
 import { deriveTracks, pickFormat, playableCopy, playQueue, resumePoint, trackFormats } from '@/features/work-detail/derive'
 import { useApiClient } from '@/lib/api/client'
-import type { WorkContent, WorkListening } from '@/lib/api/types'
 import { usePreferences } from '@/queries/preferences'
 import { queryKeys } from '@/queries/query-keys'
 import { usePlayerStore } from '@/stores/player'
@@ -25,23 +25,36 @@ export function usePlayWork() {
   /** Synchronous, for a click with the manifest in hand: play() stays user-initiated. */
   function playFrom(work: PlayableWork, content: WorkContent | null, index = 0, format = '', resumeAt?: number): void {
     const copy = playableCopy(content)
-    const tracks = copy?.tree ? deriveTracks(copy.tree) : []
+    const tracks = copy?.tree
+      ? deriveTracks(copy.tree)
+      : []
     // No explicit format: the preference decides, so no caller repeats it.
     format ||= pickFormat(trackFormats(tracks), preference.value) ?? ''
     // A codec that the requested start track lacks starts at the first track that has it;
     // a resume keeps its track and plays it in the track's first format instead.
-    const at = resumeAt === undefined && format && !tracks[index]?.files[format] ? Math.max(tracks.findIndex((t) => t.files[format]), 0) : index
-    const { queue, index: start } = playQueue(tracks, at, format, (file) =>
-      api.workFileUrl({ rj: work.rj, copyId: copy!.copy_id, relPath: file.rel_path }), copy ? { copyId: copy.copy_id } : undefined)
-    if (queue.length > 0) player.play(work.rj, queue, start, resumeAt)
-    else player.play(work.rj, [{ title: work.title }])
+    const at = resumeAt === undefined && format && !tracks[index]?.files[format]
+      ? Math.max(tracks.findIndex(t => t.files[format]), 0)
+      : index
+    const { queue, index: start } = playQueue(tracks, at, format, file =>
+      api.workFileUrl({ rj: work.rj, copyId: copy!.copy_id, relPath: file.rel_path }), copy
+      ? { copyId: copy.copy_id }
+      : undefined)
+    if (queue.length > 0) {
+      player.play(work.rj, queue, start, resumeAt)
+    }
+    else {
+      player.play(work.rj, [
+        { title: work.title },
+      ])
+    }
   }
 
   /** The saved rows, fresh: the cached detail predates the player's latest write. */
   async function savedListening(rj: string): Promise<WorkListening[]> {
     try {
       return (await api.getWork(rj)).listening
-    } catch {
+    }
+    catch {
       return []
     }
   }
@@ -60,10 +73,14 @@ export function usePlayWork() {
       savedListening(work.rj),
     ])
     // An unreadable manifest plays nothing: the silent clock would pretend audio exists.
-    if (content === undefined) return
+    if (content === undefined)
+      return
     const copy = playableCopy(content)
-    const point = resumePoint(saved, copy?.tree ? deriveTracks(copy.tree) : [])
-    if (point) playFrom(work, content, point.track, format, point.position)
+    const point = resumePoint(saved, copy?.tree
+      ? deriveTracks(copy.tree)
+      : [])
+    if (point)
+      playFrom(work, content, point.track, format, point.position)
     else playFrom(work, content, 0, format)
   }
 

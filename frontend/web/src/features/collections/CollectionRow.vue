@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed } from 'vue'
 import type { WorkSummary } from '@/lib/api/types'
+import { computed } from 'vue'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { useCoverSrc } from '@/features/works/use-cover-src'
 import WorkTracklist from '@/features/works/WorkTracklist.vue'
@@ -31,27 +31,38 @@ const props = defineProps<{
   drop: 'above' | 'below' | null
 }>()
 defineEmits<{
-  select: []; open: []; play: []; unfolded: []
-  dragstart: [e: DragEvent]; dragend: []
-  move: [to: 'top' | 'up' | 'down' | 'bottom']; remove: []
+  select: []
+  open: []
+  play: []
+  unfolded: []
+  dragstart: [e: DragEvent]
+  dragend: []
+  move: [to: 'top' | 'up' | 'down' | 'bottom']
+  remove: []
 }>()
 
 const libraryUi = useLibraryUiStore()
 const { src, failed } = useCoverSrc(() => ({ rj: props.work.rj, local: props.work.local_cover, remote: props.work.thumbnail_url ?? null }))
 // An R18 work's cover stays hatched while the veil is on.
-const cover = computed(() => (libraryUi.veil && props.work.nsfw === true ? null : src.value))
+const cover = computed(() => (libraryUi.veil && props.work.nsfw === true
+  ? null
+  : src.value))
 </script>
 
 <template>
   <div class="item">
-    <div :id="`cw-${work.rj}`" class="row" :class="[{ sel: selected }, drop && `drop-${drop}`]" role="option" :aria-selected="selected"
-      :data-rj="work.rj" data-testid="collection-work" @click="$emit('select')" @dblclick="$emit('open')">
-      <span v-if="movable" class="handle" draggable="true" aria-hidden="true" data-testid="collection-handle"
-        @click.stop @dragstart="$emit('dragstart', $event)" @dragend="$emit('dragend')" />
+    <div
+      :id="`cw-${work.rj}`" class="row" :class="[{ sel: selected }, drop && `drop-${drop}`]" role="option" :aria-selected="selected"
+      :data-rj="work.rj" data-testid="collection-work" @click="$emit('select')" @dblclick="$emit('open')"
+    >
+      <span
+        v-if="movable" class="handle" draggable="true" aria-hidden="true" data-testid="collection-handle"
+        @click.stop @dragstart="$emit('dragstart', $event)" @dragend="$emit('dragend')"
+      />
       <span v-else class="no-handle" />
       <span class="lbl pos">{{ position }}</span>
       <span class="cover" :class="{ hatch: !cover }">
-        <img v-if="cover" :src="cover" alt="" loading="lazy" decoding="async" @error="failed(cover)" />
+        <img v-if="cover" :src="cover" alt="" loading="lazy" decoding="async" @error="failed(cover)">
       </span>
       <span class="main">
         <span class="title" lang="ja">{{ work.title ?? '—' }}</span>
@@ -62,8 +73,10 @@ const cover = computed(() => (libraryUi.veil && props.work.nsfw === true ? null 
       <span class="lbl date">{{ work.release_date ?? '—' }}</span>
       <span class="end">
         <span v-if="playing" class="playing-tag" data-testid="collection-playing">▶ NOW</span>
-        <button v-if="!editing" class="play" type="button" aria-label="播放" title="播放" data-testid="collection-play"
-          @click.stop="$emit('play')" @dblclick.stop>▶</button>
+        <button
+          v-if="!editing" class="play" type="button" aria-label="播放" title="播放" data-testid="collection-play"
+          @click.stop="$emit('play')" @dblclick.stop
+        >▶</button>
         <DropdownMenu v-if="editing">
           <DropdownMenuTrigger as-child>
             <button class="more" type="button" aria-label="更多" title="更多" data-testid="collection-more" @click.stop @dblclick.stop>⋯</button>

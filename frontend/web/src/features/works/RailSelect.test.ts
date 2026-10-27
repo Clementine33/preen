@@ -1,7 +1,8 @@
+import type { RailOption } from './RailSelect.vue'
 import { flushPromises, mount } from '@vue/test-utils'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { defineComponent, h, ref } from 'vue'
-import RailSelect, { type RailOption } from './RailSelect.vue'
+import RailSelect from './RailSelect.vue'
 
 /**
  * A history's voice actors and circles run to about a thousand, so the rail's
@@ -21,14 +22,37 @@ const nativeScrollTo = HTMLElement.prototype.scrollTo
 beforeAll(() => {
   const isList = (el: HTMLElement) => el.classList.contains('rs-list')
   Object.defineProperties(HTMLElement.prototype, {
-    offsetHeight: { configurable: true, get(this: HTMLElement) { return isList(this) ? 320 : 0 } },
-    offsetWidth: { configurable: true, get(this: HTMLElement) { return isList(this) ? 280 : 0 } },
-    clientHeight: { configurable: true, get(this: HTMLElement) { return isList(this) ? 320 : 0 } },
+    offsetHeight: {
+      configurable: true,
+      get(this: HTMLElement) {
+        return isList(this)
+          ? 320
+          : 0
+      },
+    },
+    offsetWidth: {
+      configurable: true,
+      get(this: HTMLElement) {
+        return isList(this)
+          ? 280
+          : 0
+      },
+    },
+    clientHeight: {
+      configurable: true,
+      get(this: HTMLElement) {
+        return isList(this)
+          ? 320
+          : 0
+      },
+    },
     // The virtualizer clamps a jump to scrollHeight - clientHeight.
     scrollHeight: {
       configurable: true,
       get(this: HTMLElement) {
-        return isList(this) ? parseFloat((this.firstElementChild as HTMLElement | null)?.style.height ?? '0') : 0
+        return isList(this)
+          ? Number.parseFloat((this.firstElementChild as HTMLElement | null)?.style.height ?? '0')
+          : 0
       },
     },
   })
@@ -40,7 +64,8 @@ beforeAll(() => {
     set(this: HTMLElement, value: number) { tops.set(this, value) },
   })
   HTMLElement.prototype.scrollTo = function (this: HTMLElement, options?: ScrollToOptions | number) {
-    if (typeof options === 'object' && options.top !== undefined) this.scrollTop = options.top
+    if (typeof options === 'object' && options.top !== undefined)
+      this.scrollTop = options.top
     this.dispatchEvent(new Event('scroll'))
   } as typeof HTMLElement.prototype.scrollTo
 })
@@ -60,20 +85,26 @@ async function mountSelect(initial = '', searchable = true) {
   const wrapper = mount(
     defineComponent(() => () =>
       h(RailSelect, {
-        label: 'VOICE', options: OPTIONS, searchable, marksActive: true,
-        modelValue: value.value, 'onUpdate:modelValue': (next: string) => (value.value = next),
+        'label': 'VOICE',
+        'options': OPTIONS,
+        searchable,
+        'marksActive': true,
+        'modelValue': value.value,
+        'onUpdate:modelValue': (next: string) => (value.value = next),
       }),
     ),
-    { attachTo: document.body.appendChild(document.createElement('div')) },
+    {
+      attachTo: document.body.appendChild(document.createElement('div')),
+    },
   )
   await flushPromises()
   return { wrapper, value }
 }
 
-const frame = () => new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)))
+const frame = () => new Promise(resolve => requestAnimationFrame(() => resolve(undefined)))
 const focusedIndex = () => Number((document.activeElement as HTMLElement).dataset.index ?? -1)
 
-describe('RailSelect', () => {
+describe('railSelect', () => {
   it('draws only the rows in view of a thousand options', async () => {
     const { wrapper } = await mountSelect()
 
@@ -97,7 +128,10 @@ describe('RailSelect', () => {
 
   it('presents the panel as a bottom sheet on a narrow screen and keeps `open` in step', async () => {
     const real = window.matchMedia
-    window.matchMedia = ((query: string) => ({ ...real(query), matches: query.includes('max-width') })) as typeof real
+    window.matchMedia = ((query: string) => ({
+      ...real(query),
+      matches: query.includes('max-width'),
+    })) as typeof real
     try {
       const { wrapper } = await mountSelect('', false)
       const sheet = wrapper.get('dialog.rs-menu')
@@ -118,7 +152,8 @@ describe('RailSelect', () => {
       await wrapper.get('.rs-trigger').trigger('click')
       await sheet.trigger('click')
       expect(wrapper.get('.rs').classes()).not.toContain('open')
-    } finally {
+    }
+    finally {
       window.matchMedia = real
     }
   })

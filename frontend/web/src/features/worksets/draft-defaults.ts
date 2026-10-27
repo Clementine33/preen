@@ -11,7 +11,10 @@ export function defaultDraftValues(
   defaultOtherTags: string[] = [],
 ): Record<OverrideUnit, unknown> & { delete_mode: DeleteMode } {
   const profile: DesiredProfile = {
-    encoded: { codec: 'mp3', quality: { kind: 'bitrate', bitrate: 320 } },
+    encoded: {
+      codec: 'mp3',
+      quality: { kind: 'bitrate', bitrate: 320 },
+    },
   }
   return {
     mode: 'available_sources',

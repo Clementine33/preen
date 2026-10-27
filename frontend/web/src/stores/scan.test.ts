@@ -1,6 +1,6 @@
+import type { ApiClientContract, ScanEvent } from '@/lib/api/types'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ApiClientContract, ScanEvent } from '@/lib/api/types'
 import { apiStub } from '@/test/api-stub'
 import { useScanStore } from './scan'
 
@@ -16,7 +16,12 @@ describe('scan store', () => {
   beforeEach(() => setActivePinia(createPinia()))
 
   it.each([undefined, 'full'] as const)('forwards scan mode %s', async (mode) => {
-    const scanLibrary = vi.fn(() => events([{ type: 'completed', data: { stage: 'scan' } }]))
+    const scanLibrary = vi.fn(() => events([
+      {
+        type: 'completed',
+        data: { stage: 'scan' },
+      },
+    ]))
     await useScanStore().start('lib-a', apiWithScan(scanLibrary), undefined, mode)
     expect(scanLibrary).toHaveBeenCalledWith('lib-a', expect.any(AbortSignal), undefined, mode)
   })
@@ -25,11 +30,22 @@ describe('scan store', () => {
     const api = apiWithScan(
       vi.fn(() =>
         events([
-          { type: 'started', data: { stage: 'scan', message: 'Scanning /music' } },
-          { type: 'progress', data: { stage: 'scan', files_scanned: 8, dirs_scanned: 2 } },
+          {
+            type: 'started',
+            data: { stage: 'scan', message: 'Scanning /music' },
+          },
+          {
+            type: 'progress',
+            data: { stage: 'scan', files_scanned: 8, dirs_scanned: 2 },
+          },
           {
             type: 'completed',
-            data: { stage: 'scan', scan_id: 'scan-1', root_path: '/music', files_scanned: 8 },
+            data: {
+              stage: 'scan',
+              scan_id: 'scan-1',
+              root_path: '/music',
+              files_scanned: 8,
+            },
           },
         ]),
       ),
@@ -48,9 +64,13 @@ describe('scan store', () => {
 
   it('aborts an active scan and settles as cancelled', async () => {
     const scanLibrary = vi.fn((_id: string, signal: AbortSignal) => ({
-      async *[Symbol.asyncIterator]() {
-        yield { type: 'started', data: { stage: 'scan' } } as ScanEvent
-        if (signal.aborted) throw new DOMException('Aborted', 'AbortError')
+      async* [Symbol.asyncIterator]() {
+        yield {
+          type: 'started',
+          data: { stage: 'scan' },
+        } as ScanEvent
+        if (signal.aborted)
+          throw new DOMException('Aborted', 'AbortError')
         await new Promise<void>((_resolve, reject) => {
           signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), {
             once: true,
@@ -94,8 +114,14 @@ describe('scan store', () => {
     const api = apiWithScan(
       vi.fn(() =>
         events([
-          { type: 'started', data: { stage: 'scan', message: 'Scanning /music' } },
-          { type: 'progress', data: { stage: 'scan', files_scanned: 1, dirs_scanned: 0 } },
+          {
+            type: 'started',
+            data: { stage: 'scan', message: 'Scanning /music' },
+          },
+          {
+            type: 'progress',
+            data: { stage: 'scan', files_scanned: 1, dirs_scanned: 0 },
+          },
         ]),
       ),
     )
@@ -110,9 +136,13 @@ describe('scan store', () => {
 
   it('marks an abort-driven cancel as a transport terminal', async () => {
     const scanLibrary = vi.fn((_id: string, signal: AbortSignal) => ({
-      async *[Symbol.asyncIterator]() {
-        yield { type: 'started', data: { stage: 'scan' } } as ScanEvent
-        if (signal.aborted) throw new DOMException('Aborted', 'AbortError')
+      async* [Symbol.asyncIterator]() {
+        yield {
+          type: 'started',
+          data: { stage: 'scan' },
+        } as ScanEvent
+        if (signal.aborted)
+          throw new DOMException('Aborted', 'AbortError')
         await new Promise<void>((_resolve, reject) => {
           signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), {
             once: true,

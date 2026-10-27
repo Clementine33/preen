@@ -3,7 +3,7 @@ import { ref, watch } from 'vue'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/composables/use-toast'
 import { errorDetails } from '@/lib/api/error'
-import { useSetOutboundProxy, useOutboundProxy } from '@/queries/outbound-proxy'
+import { useOutboundProxy, useSetOutboundProxy } from '@/queries/outbound-proxy'
 
 /**
  * The Outbound Proxy editor: one URL the server uses for metadata sources and
@@ -24,7 +24,8 @@ async function submit(): Promise<void> {
   try {
     await save.mutateAsync(url.value)
     toast.show({ text: '代理已保存' })
-  } catch (failure) {
+  }
+  catch (failure) {
     error.value = errorDetails(failure).message
   }
 }
@@ -42,7 +43,7 @@ async function submit(): Promise<void> {
       spellcheck="false"
       data-testid="outbound-proxy-url"
       @input="error = ''"
-    />
+    >
     <Button type="submit" class="h-11 rail:h-[30px]" size="sm" variant="outline" :disabled="save.isPending.value" data-testid="outbound-proxy-save">
       保存
     </Button>

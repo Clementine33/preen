@@ -1,7 +1,7 @@
 import type { DesktopAdapter } from './desktop-adapter'
 import { WebDesktopAdapter } from './web-adapter'
 
-type NativeHost = { chrome?: { webview?: unknown }; webkit?: { messageHandlers?: { external?: unknown } } }
+interface NativeHost { chrome?: { webview?: unknown }, webkit?: { messageHandlers?: { external?: unknown } } }
 
 /**
  * Select the host before bootstrap; loading Wails has runtime side effects.

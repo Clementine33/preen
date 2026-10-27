@@ -1,6 +1,6 @@
+import type { ApiConfig } from './types'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ApiClient, ApiError } from './client'
-import type { ApiConfig } from './types'
 
 function createClient(config: Partial<ApiConfig> = {}): ApiClient {
   return new ApiClient({ baseUrl: config.baseUrl ?? 'http://example.test/api/v1', token: config.token ?? null })
@@ -8,8 +8,16 @@ function createClient(config: Partial<ApiConfig> = {}): ApiClient {
 
 it.each([
   [undefined, undefined, {}],
-  ['/music', 'full', { root_path: '/music', mode: 'full' }],
-  [undefined, 'full', { mode: 'full' }],
+  [
+    '/music',
+    'full',
+    { root_path: '/music', mode: 'full' },
+  ],
+  [
+    undefined,
+    'full',
+    { mode: 'full' },
+  ],
 ] as const)('encodes scan root %s and mode %s', async (root, mode, body) => {
   const fetch = mockFetch(() => new Response('event: completed\ndata: {"stage":"scan"}\n\n'))
   const signal = new AbortController().signal
@@ -17,7 +25,9 @@ it.each([
   for await (const event of createClient().scanLibrary('lib-1', signal, root, mode)) events.push(event)
   expect(events).toHaveLength(1)
   expect(fetch).toHaveBeenCalledWith('http://example.test/api/v1/libraries/lib-1/scans', expect.objectContaining({
-    method: 'POST', signal, body: JSON.stringify(body),
+    method: 'POST',
+    signal,
+    body: JSON.stringify(body),
   }))
 })
 
@@ -28,7 +38,10 @@ it('logs out through the public session endpoint', async () => {
 })
 
 function okJson(body: unknown, headers: Record<string, string> = {}, status = 200): Response {
-  return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', ...headers } })
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json', ...headers },
+  })
 }
 
 // Typed fetch mock factory so mock.calls elements keep their RequestInit type.
@@ -46,7 +59,7 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-describe('ApiClient', () => {
+describe('apiClient', () => {
   it('keeps desktop unauthorized responses on the desktop path', async () => {
     mockFetch(async () => new Response('{}', { status: 401 }))
     const onUnauthorized = vi.fn()
@@ -70,7 +83,9 @@ describe('ApiClient', () => {
     await createClient().listWorks({ age_category: age })
 
     const query = new URL(String(fetchMock.mock.calls[0]![0])).searchParams
-    expect(query.get('age_category')).toBe(age === undefined ? null : String(age))
+    expect(query.get('age_category')).toBe(age === undefined
+      ? null
+      : String(age))
   })
 
   it('sends the collection window, and only the detail route takes a direction', async () => {
@@ -80,7 +95,7 @@ describe('ApiClient', () => {
     await createClient().getCollection('favorites', { limit: 20, direction: 'desc' })
     await createClient().getCollection('a/b')
 
-    const urls = fetchMock.mock.calls.map((call) => new URL(String(call[0])))
+    const urls = fetchMock.mock.calls.map(call => new URL(String(call[0])))
     expect(urls[0]!.pathname.endsWith('/collections')).toBe(true)
     expect(urls[0]!.search).toBe('?limit=200')
     expect(urls[1]!.pathname.endsWith('/collections/favorites')).toBe(true)
@@ -100,8 +115,18 @@ describe('ApiClient', () => {
   })
 
   it('puts a Listening Position (kept alive on request), deletes it, and filters and sorts the listing by it', async () => {
-    const fetchMock = mockFetch(async (_input, init) => (init?.method === 'DELETE' ? new Response(null, { status: 204 }) : okJson({})))
-    const body = { rendition: '', track_key: 'a', position_sec: 1.5, track_index: 0, track_count: 2, client: 'c', seq: 1 }
+    const fetchMock = mockFetch(async (_input, init) => (init?.method === 'DELETE'
+      ? new Response(null, { status: 204 })
+      : okJson({})))
+    const body = {
+      rendition: '',
+      track_key: 'a',
+      position_sec: 1.5,
+      track_index: 0,
+      track_count: 2,
+      client: 'c',
+      seq: 1,
+    }
 
     await createClient().putWorkListening('RJ01000001', body)
     await createClient().putWorkListening('RJ01000001', body, true)
@@ -115,7 +140,10 @@ describe('ApiClient', () => {
     expect(kept![1]).toMatchObject({ method: 'PUT', keepalive: true })
     expect(removed![1]).toMatchObject({ method: 'DELETE' })
     const query = new URL(String(listed![0])).searchParams
-    expect([query.get('listening'), query.get('sort')]).toEqual(['listening,none', 'listened_at'])
+    expect([
+      query.get('listening'),
+      query.get('sort'),
+    ]).toEqual(['listening,none', 'listened_at'])
   })
 
   it('reads and writes a Task kind\'s settings with their ETag', async () => {
@@ -123,24 +151,42 @@ describe('ApiClient', () => {
       expect(String(input)).toContain('/tasks/rename/settings')
       if (init?.method === 'PUT') {
         expect(new Headers(init.headers).get('If-Match')).toBe('"abc"')
-        expect(JSON.parse(String(init.body))).toEqual({ settings: { template: '{rj}' } })
-        return okJson({ operation_type: 'rename', settings: { template: '{rj}' } }, { ETag: '"def"' })
+        expect(JSON.parse(String(init.body))).toEqual({
+          settings: { template: '{rj}' },
+        })
+        return okJson({
+          operation_type: 'rename',
+          settings: { template: '{rj}' },
+        }, { ETag: '"def"' })
       }
-      return okJson({ operation_type: 'rename', settings: { template: '[{rj}] {title}' } }, { ETag: '"abc"' })
+      return okJson({
+        operation_type: 'rename',
+        settings: { template: '[{rj}] {title}' },
+      }, { ETag: '"abc"' })
     })
 
     const client = createClient()
     const read = await client.getTaskSettings('rename')
-    expect(read).toEqual({ settings: { template: '[{rj}] {title}' }, etag: '"abc"' })
+    expect(read).toEqual({
+      settings: { template: '[{rj}] {title}' },
+      etag: '"abc"',
+    })
     const saved = await client.saveTaskSettings('rename', { template: '{rj}' }, read.etag)
-    expect(saved).toEqual({ settings: { template: '{rj}' }, etag: '"def"' })
+    expect(saved).toEqual({
+      settings: { template: '{rj}' },
+      etag: '"def"',
+    })
     expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 
   it('passes a non-conversion draft through without conversion defaults', async () => {
     // Rename and metadata drafts reject unknown fields, so a save of what was
     // read must not carry conversion's no_effect_tags back.
-    const payload = { schema_version: 1, common: { template: '{rj}' }, members: [] }
+    const payload = {
+      schema_version: 1,
+      common: { template: '{rj}' },
+      members: [],
+    }
     mockFetch(async () => okJson({
       workset_id: 'ws-1',
       operation_type: 'rename',
@@ -161,9 +207,7 @@ describe('ApiClient', () => {
       // abort reaches the fetch signal while the request is in flight.
       return new Promise<Response>((_resolve, reject) => {
         init?.signal?.addEventListener('abort', () =>
-          reject(new DOMException('Aborted', 'AbortError')),
-          { once: true },
-        )
+          reject(new DOMException('Aborted', 'AbortError')), { once: true })
       })
     })
 
@@ -186,9 +230,7 @@ describe('ApiClient', () => {
       captured.push(init?.signal ?? undefined)
       return new Promise<Response>((_resolve, reject) => {
         init?.signal?.addEventListener('abort', () =>
-          reject(new DOMException('Aborted', 'AbortError')),
-          { once: true },
-        )
+          reject(new DOMException('Aborted', 'AbortError')), { once: true })
       })
     })
 
@@ -218,17 +260,30 @@ describe('ApiClient', () => {
       if (path.endsWith('/draft')) {
         expect(headers.get('If-Match')).toBe('3')
         expect(JSON.parse(String(init?.body)).apply_common_settings).toBeUndefined()
-        return okJson({ workset_id: 'ws-1', version: 4, planning_state: 'planned', members: [] })
+        return okJson({
+          workset_id: 'ws-1',
+          version: 4,
+          planning_state: 'planned',
+          members: [],
+        })
       }
       if (path.endsWith('/revisions')) {
         expect(path).toContain('/operations/conversion/')
         expect(headers.get('Idempotency-Key')).toBe('key-1')
         expect(headers.get('If-Match')).toBe('3')
-        return okJson({ created: true, generation: { generation_id: 'gen-1', status: 'queued' } })
+        return okJson({
+          created: true,
+          generation: { generation_id: 'gen-1', status: 'queued' },
+        })
       }
       if (path.endsWith('/operations/conversion/current') && init?.method === 'PUT') {
         expect(headers.get('Idempotency-Key')).toBe('create-key')
-        return okJson({ workset: { workset_id: 'ws-1', members: [] }, created: true, recorded: 1, skipped: [] })
+        return okJson({
+          workset: { workset_id: 'ws-1', members: [] },
+          created: true,
+          recorded: 1,
+          skipped: [],
+        })
       }
       return okJson({})
     })
@@ -247,7 +302,9 @@ describe('ApiClient', () => {
       3,
     )
     await client.startGeneration('ws-1', 'conversion', 3, 'key-1')
-    await client.createCurrentRecord('lib-1', 'conversion', { folder_paths: ['albumA'] }, 'create-key')
+    await client.createCurrentRecord('lib-1', 'conversion', {
+      folder_paths: ['albumA'],
+    }, 'create-key')
     expect(fetchMock).toHaveBeenCalledTimes(3)
   })
 
@@ -267,8 +324,7 @@ describe('ApiClient', () => {
       const fetchMock = mockFetch(async (_input, init) => {
         await new Promise((_resolve, reject) => {
           init?.signal?.addEventListener('abort', () =>
-            reject(new DOMException('请求超时', 'TimeoutError')),
-          )
+            reject(new DOMException('请求超时', 'TimeoutError')))
         })
         return okJson({ libraries: [] })
       })
@@ -281,7 +337,8 @@ describe('ApiClient', () => {
 
       await expectation
       expect(fetchMock).toHaveBeenCalledTimes(1)
-    } finally {
+    }
+    finally {
       vi.useRealTimers()
     }
   })
@@ -348,7 +405,9 @@ describe('work content routes', () => {
     const signal = new AbortController().signal
     const events = []
     for await (const event of createClient({ token: 'secret' }).streamMediaFactsEvents(signal)) events.push(event)
-    expect(events).toEqual([{ type: 'changed', data: {} }])
+    expect(events).toEqual([
+      { type: 'changed', data: {} },
+    ])
     const [url, init] = fetchMock.mock.calls[0]
     expect(String(url)).toContain('/inventory/media-facts/events')
     expect(new Headers(init?.headers).get('Authorization')).toBe('Bearer secret')
@@ -357,8 +416,21 @@ describe('work content routes', () => {
 
   it('decodes text by the charset the server declared', async () => {
     // 「こんにちは」 in Shift_JIS.
-    const sjis = new Uint8Array([0x82, 0xb1, 0x82, 0xf1, 0x82, 0xc9, 0x82, 0xbf, 0x82, 0xcd])
-    mockFetch(() => new Response(sjis, { headers: { 'Content-Type': 'text/plain; charset=shift_jis' } }))
+    const sjis = new Uint8Array([
+      0x82,
+      0xB1,
+      0x82,
+      0xF1,
+      0x82,
+      0xC9,
+      0x82,
+      0xBF,
+      0x82,
+      0xCD,
+    ])
+    mockFetch(() => new Response(sjis, {
+      headers: { 'Content-Type': 'text/plain; charset=shift_jis' },
+    }))
     await expect(createClient().getWorkText(ref)).resolves.toBe('こんにちは')
   })
 
@@ -367,8 +439,13 @@ describe('work content routes', () => {
     let calls = 0
     const fetchMock = mockFetch(() =>
       ++calls === 1
-        ? new Response(null, { status: 503, headers: { 'Retry-After': '2' } })
-        : new Response('png', { headers: { 'Content-Type': 'image/png' } }),
+        ? new Response(null, {
+            status: 503,
+            headers: { 'Retry-After': '2' },
+          })
+        : new Response('png', {
+            headers: { 'Content-Type': 'image/png' },
+          }),
     )
     const pending = createClient({ token: 'secret' }).getWorkThumb(ref, 120, 'v1')
     await vi.advanceTimersByTimeAsync(2000)
@@ -384,11 +461,39 @@ describe('work content routes', () => {
 })
 
 it('normalizes legacy conversion tags at every stored JSON read without losing empty overrides', async () => {
-  const legacy = { schema_version: 1, classifier_tags: ['SEなし'], matched: {}, unmatched: {} }
+  const legacy = {
+    schema_version: 1,
+    classifier_tags: ['SEなし'],
+    matched: {},
+    unmatched: {},
+  }
   mockFetch((input) => {
     const url = String(input)
-    if (url.endsWith('/draft')) return okJson({ operation_type: 'conversion', task: { kind: 'conversion', schema_version: 1, payload: { ...legacy, members: [{ member_id: 'one', overrides: { classifier_tags: [] } }, { member_id: 'two' }] } } })
-    return okJson({ task: { kind: 'conversion', payload: { policy: legacy } } })
+    if (url.endsWith('/draft')) {
+      return okJson({
+        operation_type: 'conversion',
+        task: {
+          kind: 'conversion',
+          schema_version: 1,
+          payload: {
+            ...legacy,
+            members: [
+              {
+                member_id: 'one',
+                overrides: { classifier_tags: [] },
+              },
+              { member_id: 'two' },
+            ],
+          },
+        },
+      })
+    }
+    return okJson({
+      task: {
+        kind: 'conversion',
+        payload: { policy: legacy },
+      },
+    })
   })
   const client = createClient()
   const draft = await client.getOperationDraft('ws', 'conversion')
@@ -396,5 +501,8 @@ it('normalizes legacy conversion tags at every stored JSON read without losing e
   expect(draft.document.members[0]?.overrides).toEqual({ no_effect_tags: [] })
   expect(draft.document.members[1]?.overrides).toBeUndefined()
   expect(draft.document).not.toHaveProperty('classifier_tags')
-  expect((await client.getRevision('ws', 'conversion', 'p')).task.payload.policy).toMatchObject({ no_effect_tags: ['SEなし'], other_tags: [] })
+  expect((await client.getRevision('ws', 'conversion', 'p')).task.payload.policy).toMatchObject({
+    no_effect_tags: ['SEなし'],
+    other_tags: [],
+  })
 })

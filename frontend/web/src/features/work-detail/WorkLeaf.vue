@@ -3,8 +3,8 @@ import { computed, ref } from 'vue'
 import LeafLyrics from '@/features/work-detail/LeafLyrics.vue'
 import LeafScript from '@/features/work-detail/LeafScript.vue'
 import WorkColophon from '@/features/work-detail/WorkColophon.vue'
-import { useWorkDetailStore } from '@/stores/work-detail'
 import { usePlayerStore } from '@/stores/player'
+import { useWorkDetailStore } from '@/stores/work-detail'
 
 // The leaf (v3): one of three modes behind one strip, listing only what exists
 // right now — LISTEN while the current track has a paired lyric (a live dot
@@ -15,22 +15,33 @@ const store = useWorkDetailStore()
 const player = usePlayerStore()
 
 const mode = computed(() =>
-  store.leaf === 'lrc' ? 'LISTEN' : store.leaf === 'script' ? 'READ' : 'COLOPHON',
+  store.leaf === 'lrc'
+    ? 'LISTEN'
+    : store.leaf === 'script'
+      ? 'READ'
+      : 'COLOPHON',
 )
 const pairedLrc = computed(() => store.lrcFor(store.track))
 const playing = computed(() => player.rj === store.rj && !player.paused)
 
 const LISTEN = computed(() => {
   const lrc = pairedLrc.value
-  if (!lrc) return null
+  if (!lrc)
+    return null
   return { mode: 'lrc' as const, label: 'LISTEN' }
 })
-const READ = computed(() => (store.scriptSeen && store.activeTxt !== null ? { mode: 'script' as const, label: 'READ' } : null))
+const READ = computed(() => (store.scriptSeen && store.activeTxt !== null
+  ? { mode: 'script' as const, label: 'READ' }
+  : null))
 /** The switcher's items, in v3's order: LISTEN, READ, 奥付. */
 const items = computed(() => {
-  const out: Array<{ mode: 'colophon' | 'lrc' | 'script'; label: string }> = [{ mode: 'colophon', label: '奥付' }]
-  if (READ.value) out.unshift(READ.value)
-  if (LISTEN.value) out.unshift(LISTEN.value)
+  const out: Array<{ mode: 'colophon' | 'lrc' | 'script', label: string }> = [
+    { mode: 'colophon', label: '奥付' },
+  ]
+  if (READ.value)
+    out.unshift(READ.value)
+  if (LISTEN.value)
+    out.unshift(LISTEN.value)
   return out
 })
 
@@ -56,9 +67,11 @@ const side = computed(() => {
           <span class="strip-file" lang="ja">{{ side.file }}</span>
         </template>
         <span class="seg" role="group" aria-label="页叶">
-          <button v-for="item in items" :key="item.mode" class="seg-b" type="button"
-            :aria-pressed="store.leaf === item.mode" @click="store.setLeaf(item.mode)">
-            <span v-if="item.mode === 'lrc' && playing" class="live" aria-hidden="true"></span>
+          <button
+            v-for="item in items" :key="item.mode" class="seg-b" type="button"
+            :aria-pressed="store.leaf === item.mode" @click="store.setLeaf(item.mode)"
+          >
+            <span v-if="item.mode === 'lrc' && playing" class="live" aria-hidden="true" />
             <span v-if="item.mode === 'colophon'" class="jp">COLOPHON</span>
             <template v-else>{{ item.label }}</template>
           </button>

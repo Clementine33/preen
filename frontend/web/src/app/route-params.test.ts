@@ -1,5 +1,6 @@
+import type { Router } from 'vue-router'
 import { describe, expect, it } from 'vitest'
-import { createMemoryHistory, createRouter, type Router } from 'vue-router'
+import { createMemoryHistory, createRouter } from 'vue-router'
 import { canonicalRj, cleanedQuery, installAddressHygiene, readMemberFilter } from './route-params'
 
 /**
@@ -17,16 +18,36 @@ function guardRouter(): Router {
   const router = createRouter({
     history: createMemoryHistory(),
     routes: [
-      { path: '/worksets', name: 'worksets', component: { template: '<div />' } },
-      { path: '/works', name: 'works', component: { template: '<div />' } },
-      { path: '/collections/:id', name: 'collection-detail', component: { template: '<div />' } },
-      { path: '/worksets/:libraryId', name: 'workbench-overview', component: { template: '<div />' } },
+      {
+        path: '/worksets',
+        name: 'worksets',
+        component: { template: '<div />' },
+      },
+      {
+        path: '/works',
+        name: 'works',
+        component: { template: '<div />' },
+      },
+      {
+        path: '/collections/:id',
+        name: 'collection-detail',
+        component: { template: '<div />' },
+      },
+      {
+        path: '/worksets/:libraryId',
+        name: 'workbench-overview',
+        component: { template: '<div />' },
+      },
       {
         path: '/worksets/:libraryId/f/:dirId',
         name: 'overview-files',
         component: { template: '<div />' },
       },
-      { path: '/worksets/:libraryId/conversion', name: 'conversion', component: { template: '<div />' } },
+      {
+        path: '/worksets/:libraryId/conversion',
+        name: 'conversion',
+        component: { template: '<div />' },
+      },
       {
         path: '/worksets/:libraryId/conversion/settings',
         name: 'conversion-settings',
@@ -37,7 +58,11 @@ function guardRouter(): Router {
         name: 'conversion-member-files',
         component: { template: '<div />' },
       },
-      { path: '/:pathMatch(.*)*', name: 'not-found', component: { template: '<div />' } },
+      {
+        path: '/:pathMatch(.*)*',
+        name: 'not-found',
+        component: { template: '<div />' },
+      },
     ],
   })
   installAddressHygiene(router)
@@ -115,14 +140,34 @@ describe('the wall address', () => {
     // 300 ids of one name: about 11,000 characters, never dropped for length.
     const ids = Array.from({ length: 300 }, (_, i) => `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`)
     const view = new URLSearchParams({
-      library: 'all', voice: ids.join(','), circle: 'ci-1', age: 'r18', rating: '8', listening: 'listening', tag: 's:s-asmr|u:u-asmr,s:s-ear',
-      mode: 'any', sort: 'listened_at', q: '月 下', page: '3', size: '36', rj: 'RJ01113012',
+      library: 'all',
+      voice: ids.join(','),
+      circle: 'ci-1',
+      age: 'r18',
+      rating: '8',
+      listening: 'listening',
+      tag: 's:s-asmr|u:u-asmr,s:s-ear',
+      mode: 'any',
+      sort: 'listened_at',
+      q: '月 下',
+      page: '3',
+      size: '36',
+      rj: 'RJ01113012',
     })
     expect(cleanedQuery(routeOf(guardRouter(), `/works?${view}`))).toBeNull()
   })
 
   it('drops a wall value of the wrong shape', () => {
-    for (const [key, value] of [['page', '0'], ['page', '-1'], ['size', '50'], ['age', 'adult'], ['voice', 'a b'], ['language', 'invalid'], ['rating', '11'], ['listening', 'maybe']]) {
+    for (const [key, value] of [
+      ['page', '0'],
+      ['page', '-1'],
+      ['size', '50'],
+      ['age', 'adult'],
+      ['voice', 'a b'],
+      ['language', 'invalid'],
+      ['rating', '11'],
+      ['listening', 'maybe'],
+    ]) {
       expect(cleanedQuery(routeOf(guardRouter(), `/works?${key}=${encodeURIComponent(value)}`)), key).toEqual({})
     }
   })

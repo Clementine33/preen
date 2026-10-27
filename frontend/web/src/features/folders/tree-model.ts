@@ -1,5 +1,5 @@
-import { computed, reactive } from 'vue'
 import type { TreeNode } from '@/lib/api/types'
+import { computed, reactive } from 'vue'
 
 /**
  * Render/selection model over the server folder tree.
@@ -39,21 +39,21 @@ export interface TreeModel {
   /** Selected items, files and directories alike, by member-relative path. */
   selected: Set<string>
   /** Depth-first visible rows below the member root; re-read after toggles. */
-  getVisibleNodes(): TreeModelNode[]
-  isExpanded(relPath: string): boolean
+  getVisibleNodes: () => TreeModelNode[]
+  isExpanded: (relPath: string) => boolean
   /** A directory's tri-state: its own mark, a covered one, or a mark below it. */
-  dirSelection(relPath: string): DirSelection
+  dirSelection: (relPath: string) => DirSelection
   /** A selected ancestor already stands for this item. */
-  isCovered(relPath: string): boolean
-  toggleDir(relPath: string): void
+  isCovered: (relPath: string) => boolean
+  toggleDir: (relPath: string) => void
   /** Open every directory, or fold everything back to the member root. */
-  setAllExpanded(open: boolean): void
+  setAllExpanded: (open: boolean) => void
   /** Selecting an item drops its descendants: the item stands for them. */
-  select(relPath: string, selected: boolean): void
+  select: (relPath: string, selected: boolean) => void
   /** The selected member-relative paths, in tree order. */
-  selectedPaths(): string[]
+  selectedPaths: () => string[]
   /** One node by its member-relative path, for the operation dialogs. */
-  findByRelPath(relPath: string): TreeModelNode | null
+  findByRelPath: (relPath: string) => TreeModelNode | null
 }
 
 /** What a rebuilt tree keeps from the one it replaces. */
@@ -64,12 +64,16 @@ export interface TreeModelCarry {
 
 /** Dirs first, stable within each group (server order is preserved). */
 function dirsFirst(children: TreeNode[]): TreeNode[] {
-  return [...children].sort((a, b) => (a.type === b.type ? 0 : a.type === 'dir' ? -1 : 1))
+  return [...children].sort((a, b) => (a.type === b.type
+    ? 0
+    : a.type === 'dir'
+      ? -1
+      : 1))
 }
 
 function buildNode(node: TreeNode, depth: number): TreeModelNode {
   const children = (node.children ?? []).length
-    ? dirsFirst(node.children ?? []).map((child) => buildNode(child, depth + 1))
+    ? dirsFirst(node.children ?? []).map(child => buildNode(child, depth + 1))
     : []
   return {
     id: node.path,
@@ -102,13 +106,20 @@ export function createTreeModel(rootNode: TreeNode, carry?: TreeModelCarry): Tre
   // The root is expanded by default; nested directories start collapsed.
   const expanded = reactive(new Set<string>([root.relPath]))
   const selected = reactive(new Set<string>())
-  for (const rel of carry?.expanded ?? []) if (byRel.get(rel)?.type === 'dir') expanded.add(rel)
-  for (const rel of carry?.selected ?? []) if (rel !== root.relPath && byRel.has(rel)) selected.add(rel)
+  for (const rel of carry?.expanded ?? []) {
+    if (byRel.get(rel)?.type === 'dir')
+      expanded.add(rel)
+  }
+  for (const rel of carry?.selected ?? []) {
+    if (rel !== root.relPath && byRel.has(rel))
+      selected.add(rel)
+  }
 
   const visibleNodes = computed(() => {
     const out: TreeModelNode[] = []
     const walk = (node: TreeModelNode): void => {
-      if (node !== root) out.push(node)
+      if (node !== root)
+        out.push(node)
       if (node.type === 'dir' && expanded.has(node.relPath)) {
         for (const child of node.children) walk(child)
       }
@@ -119,16 +130,21 @@ export function createTreeModel(rootNode: TreeNode, carry?: TreeModelCarry): Tre
 
   function isCovered(relPath: string): boolean {
     for (const rel of selected) {
-      if (rel !== relPath && relPath.startsWith(`${rel}/`)) return true
+      if (rel !== relPath && relPath.startsWith(`${rel}/`))
+        return true
     }
     return false
   }
 
   function dirSelection(relPath: string): DirSelection {
-    if (selected.has(relPath) || isCovered(relPath)) return 'checked'
-    const below = relPath ? `${relPath}/` : ''
+    if (selected.has(relPath) || isCovered(relPath))
+      return 'checked'
+    const below = relPath
+      ? `${relPath}/`
+      : ''
     for (const rel of selected) {
-      if (rel.startsWith(below)) return 'indeterminate'
+      if (rel.startsWith(below))
+        return 'indeterminate'
     }
     return 'unchecked'
   }
@@ -138,8 +154,12 @@ export function createTreeModel(rootNode: TreeNode, carry?: TreeModelCarry): Tre
       selected.delete(relPath)
       return
     }
-    if (relPath === root.relPath || isCovered(relPath)) return
-    for (const rel of [...selected]) if (rel.startsWith(`${relPath}/`)) selected.delete(rel)
+    if (relPath === root.relPath || isCovered(relPath))
+      return
+    for (const rel of [...selected]) {
+      if (rel.startsWith(`${relPath}/`))
+        selected.delete(rel)
+    }
     selected.add(relPath)
   }
 
@@ -147,7 +167,8 @@ export function createTreeModel(rootNode: TreeNode, carry?: TreeModelCarry): Tre
   function selectedPaths(): string[] {
     const out: string[] = []
     const walk = (node: TreeModelNode): void => {
-      if (selected.has(node.relPath)) out.push(node.relPath)
+      if (selected.has(node.relPath))
+        out.push(node.relPath)
       node.children.forEach(walk)
     }
     walk(root)
@@ -155,15 +176,20 @@ export function createTreeModel(rootNode: TreeNode, carry?: TreeModelCarry): Tre
   }
 
   function toggleDir(relPath: string): void {
-    if (expanded.has(relPath)) expanded.delete(relPath)
+    if (expanded.has(relPath))
+      expanded.delete(relPath)
     else expanded.add(relPath)
   }
 
   function setAllExpanded(open: boolean): void {
     expanded.clear()
     expanded.add(root.relPath)
-    if (!open) return
-    for (const node of byRel.values()) if (node.type === 'dir') expanded.add(node.relPath)
+    if (!open)
+      return
+    for (const node of byRel.values()) {
+      if (node.type === 'dir')
+        expanded.add(node.relPath)
+    }
   }
 
   return {
@@ -171,13 +197,13 @@ export function createTreeModel(rootNode: TreeNode, carry?: TreeModelCarry): Tre
     expanded,
     selected,
     getVisibleNodes: () => visibleNodes.value,
-    isExpanded: (relPath) => expanded.has(relPath),
+    isExpanded: relPath => expanded.has(relPath),
     dirSelection,
     isCovered,
     toggleDir,
     setAllExpanded,
     select,
     selectedPaths,
-    findByRelPath: (relPath) => byRel.get(relPath) ?? null,
+    findByRelPath: relPath => byRel.get(relPath) ?? null,
   }
 }

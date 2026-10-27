@@ -1,6 +1,6 @@
+import type { ScanEvent } from './types'
 import { describe, expect, it } from 'vitest'
 import { parseSSEStream } from './sse'
-import type { ScanEvent } from './types'
 
 function streamFromChunks(chunks: string[]): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder()
@@ -25,11 +25,22 @@ describe('parseSSEStream', () => {
     for await (const event of parseSSEStream<ScanEvent>(stream)) events.push(event)
 
     expect(events).toEqual([
-      { type: 'started', data: { stage: 'scan', message: 'Scanning /music' } },
-      { type: 'progress', data: { stage: 'scan', files_scanned: 12, dirs_scanned: 3 } },
+      {
+        type: 'started',
+        data: { stage: 'scan', message: 'Scanning /music' },
+      },
+      {
+        type: 'progress',
+        data: { stage: 'scan', files_scanned: 12, dirs_scanned: 3 },
+      },
       {
         type: 'completed',
-        data: { stage: 'scan', scan_id: 'scan-1', root_path: 'C:\\Music', files_scanned: 12 },
+        data: {
+          stage: 'scan',
+          scan_id: 'scan-1',
+          root_path: 'C:\\Music',
+          files_scanned: 12,
+        },
       },
     ])
   })
@@ -44,7 +55,10 @@ describe('parseSSEStream', () => {
     for await (const event of parseSSEStream<ScanEvent>(stream)) events.push(event)
 
     expect(events).toEqual([
-      { type: 'cancelled', data: { stage: 'scan', message: 'scan canceled' } },
+      {
+        type: 'cancelled',
+        data: { stage: 'scan', message: 'scan canceled' },
+      },
     ])
   })
 
@@ -72,7 +86,10 @@ describe('parseSSEStream', () => {
 
     const generator = parseSSEStream<ScanEvent>(stream)
     const first = await generator.next()
-    expect(first.value).toEqual({ type: 'started', data: { stage: 'scan', message: 'hi' } })
+    expect(first.value).toEqual({
+      type: 'started',
+      data: { stage: 'scan', message: 'hi' },
+    })
 
     // Break out of iteration while the stream is still open.
     await generator.return(undefined as never)

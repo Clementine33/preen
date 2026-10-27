@@ -1,69 +1,70 @@
 import type { InjectionKey } from 'vue'
-import { inject } from 'vue'
-import { parseSSEStream, type SSEEvent } from './sse'
+import type { SSEEvent } from './sse'
 import type {
+  AnyDraftDocument,
+  ApiClientContract,
+  ApiConfig,
+  ClassifierCustomTag,
+  ClassifierTagLibraryResponse,
+  CleanupCategory,
+  CleanupPreview,
+  CleanupRun,
   CollectionAppendResult,
   CollectionDetail,
   CollectionListResponse,
   CollectionWindow,
-  WorkCollection,
-  TagFacets,
-  ApiClientContract,
-  AnyDraftDocument,
-  ApiConfig,
-  ClassifierCustomTag,
-  ClassifierTagLibraryResponse,
+  ContentFileRef,
   CoverReport,
   CreateLibraryInput,
   CreateRecordInput,
   CreateRecordResponse,
   CurrentRecordResponse,
-  FileOperation,
-  FileOperationItem,
-  FileOperationResult,
-  LibraryDir,
-  MemberTreeResponse,
-  MediaFactsEvent,
   DraftEnvelopeResponse,
   DraftResponse,
   ExecutionEvent,
   ExecutionView,
+  FileOperation,
+  FileOperationItem,
+  FileOperationResult,
   GenerationEvent,
   GenerationView,
   HealthResponse,
   Library,
-  ListWorksParams,
+  LibraryDir,
   ListWorksetsParams,
+  ListWorksParams,
+  MediaFactsEvent,
+  MemberTreeResponse,
   Operation,
   OperationType,
+  OutboundProxy,
+  PatchWorkUserDataParams,
+  PutWorkListeningParams,
   RevisionDetailResponse,
   ScanEvent,
   ScanMode,
   StartExecutionResponse,
   StartGenerationResponse,
-  UpdateLibraryInput,
-  PatchWorkUserDataParams,
-  PutWorkListeningParams,
-  WorkListening,
-  WorkDetail,
-  WorkContent,
-  ContentFileRef,
-  WorkFacet,
-  WorkFacetKind,
-  WorksScope,
-  WorkListResponse,
-  WorkUserData,
-  OutboundProxy,
-  CleanupCategory,
-  CleanupPreview,
-  CleanupRun,
-  UserPreferences,
-  WorkUserTag,
-  Workset,
-  WorksetListResponse,
+  TagFacets,
   TaskSettings,
   TaskSettingsMap,
+  UpdateLibraryInput,
+  UserPreferences,
+  WorkCollection,
+  WorkContent,
+  WorkDetail,
+  WorkFacet,
+  WorkFacetKind,
+  WorkListening,
+  WorkListResponse,
+  Workset,
+  WorksetListResponse,
+  WorksScope,
+  WorkUserData,
+  WorkUserTag,
 } from './types'
+import { inject } from 'vue'
+import { parseSSEStream } from './sse'
 
 interface ErrorEnvelope {
   code?: string
@@ -108,38 +109,63 @@ function worksQuery(params: ListWorksParams): string {
     'sort',
     'direction',
   ] as const) {
-    if (params[key]) query.set(key, params[key])
+    if (params[key])
+      query.set(key, params[key])
   }
-  for (const key of ['rating_from', 'rating_to', 'age_category', 'limit', 'page'] as const) {
-    if (params[key] !== undefined) query.set(key, String(params[key]))
+  for (const key of [
+    'rating_from',
+    'rating_to',
+    'age_category',
+    'limit',
+    'page',
+  ] as const) {
+    if (params[key] !== undefined)
+      query.set(key, String(params[key]))
   }
-  for (const key of ['nsfw', 'unrated', 'favorite', 'has_copy'] as const) {
+  for (const key of [
+    'nsfw',
+    'unrated',
+    'favorite',
+    'has_copy',
+  ] as const) {
     const value = params[key]
-    if (value !== undefined) query.set(key, String(value))
+    if (value !== undefined)
+      query.set(key, String(value))
   }
   const qs = query.toString()
-  return qs ? `?${qs}` : ''
+  return qs
+    ? `?${qs}`
+    : ''
 }
 
 function windowQuery(window: CollectionWindow): string {
   const query = new URLSearchParams()
-  for (const [key, value] of Object.entries(window)) if (value !== undefined) query.set(key, String(value))
+  for (const [key, value] of Object.entries(window)) {
+    if (value !== undefined)
+      query.set(key, String(value))
+  }
   const qs = query.toString()
-  return qs ? `?${qs}` : ''
+  return qs
+    ? `?${qs}`
+    : ''
 }
 
-/** Stored conversion JSON may still use the old key; writes only use the new one.
+/**
+ * Stored conversion JSON may still use the old key; writes only use the new one.
  * Overrides preserve absence, while common settings materialize empty arrays.
  */
-function normalizeConversionTags<T extends { no_effect_tags?: string[]; other_tags?: string[] }>(value: T, override = false): T {
+function normalizeConversionTags<T extends { no_effect_tags?: string[], other_tags?: string[] }>(value: T, override = false): T {
   const out = { ...value } as T & { classifier_tags?: string[] }
   if (!override || out.no_effect_tags != null || out.classifier_tags != null) {
     out.no_effect_tags = out.no_effect_tags ?? out.classifier_tags ?? []
-  } else {
+  }
+  else {
     delete out.no_effect_tags
   }
-  if (!override) out.other_tags = out.other_tags ?? []
-  else if (out.other_tags == null) delete out.other_tags
+  if (!override)
+    out.other_tags = out.other_tags ?? []
+  else if (out.other_tags == null)
+    delete out.other_tags
   delete out.classifier_tags
   return out
 }
@@ -156,7 +182,10 @@ export class ApiClient implements ApiClientContract {
   }
 
   createSession(token: string): Promise<void> {
-    return this.request('/session', { method: 'POST', body: { token } })
+    return this.request('/session', {
+      method: 'POST',
+      body: { token },
+    })
   }
 
   deleteSession(): Promise<void> {
@@ -187,7 +216,7 @@ export class ApiClient implements ApiClientContract {
     return this.request(`/libraries/${encodeURIComponent(id)}`, { method: 'DELETE' })
   }
 
-  async *scanLibrary(id: string, signal: AbortSignal, rootPath?: string, mode?: ScanMode): AsyncGenerator<ScanEvent> {
+  async* scanLibrary(id: string, signal: AbortSignal, rootPath?: string, mode?: ScanMode): AsyncGenerator<ScanEvent> {
     const body = { root_path: rootPath, mode }
     const response = await fetch(this.url(`/libraries/${encodeURIComponent(id)}/scans`), {
       method: 'POST',
@@ -195,7 +224,8 @@ export class ApiClient implements ApiClientContract {
       body: JSON.stringify(body),
       signal,
     })
-    if (!response.ok) throw await this.toApiError(response)
+    if (!response.ok)
+      throw await this.toApiError(response)
     if (!response.body) {
       throw new ApiError(response.status, 'STREAM_UNAVAILABLE', 'Scan response did not include a stream')
     }
@@ -237,7 +267,7 @@ export class ApiClient implements ApiClientContract {
    */
   applyFileOperation(
     libraryId: string,
-    input: { member_path: string; operation: FileOperation; items: FileOperationItem[] },
+    input: { member_path: string, operation: FileOperation, items: FileOperationItem[] },
   ): Promise<FileOperationResult> {
     return this.request(`/libraries/${encodeURIComponent(libraryId)}/file-operations`, {
       method: 'POST',
@@ -253,7 +283,10 @@ export class ApiClient implements ApiClientContract {
   }
 
   addClassifierTag(tag: string): Promise<ClassifierCustomTag> {
-    return this.request<ClassifierCustomTag>('/classifier-tags', { method: 'POST', body: { tag } })
+    return this.request<ClassifierCustomTag>('/classifier-tags', {
+      method: 'POST',
+      body: { tag },
+    })
   }
 
   deleteClassifierTag(id: number): Promise<void> {
@@ -300,11 +333,16 @@ export class ApiClient implements ApiClientContract {
 
   listWorksets(params: ListWorksetsParams = {}, signal?: AbortSignal): Promise<WorksetListResponse> {
     const query = new URLSearchParams()
-    if (params.library_id) query.set('library_id', params.library_id)
-    if (params.cursor) query.set('cursor', params.cursor)
-    if (params.limit !== undefined) query.set('limit', String(params.limit))
+    if (params.library_id)
+      query.set('library_id', params.library_id)
+    if (params.cursor)
+      query.set('cursor', params.cursor)
+    if (params.limit !== undefined)
+      query.set('limit', String(params.limit))
     const qs = query.toString()
-    return this.request(`/worksets${qs ? `?${qs}` : ''}`, { signal })
+    return this.request(`/worksets${qs
+      ? `?${qs}`
+      : ''}`, { signal })
   }
 
   getWorkset(id: string, signal?: AbortSignal): Promise<Workset> {
@@ -334,11 +372,17 @@ export class ApiClient implements ApiClientContract {
   }
 
   createCollection(name: string): Promise<WorkCollection> {
-    return this.request('/collections', { method: 'POST', body: { name } })
+    return this.request('/collections', {
+      method: 'POST',
+      body: { name },
+    })
   }
 
   renameCollection(id: string, name: string): Promise<WorkCollection> {
-    return this.request(`/collections/${encodeURIComponent(id)}`, { method: 'PATCH', body: { name } })
+    return this.request(`/collections/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: { name },
+    })
   }
 
   deleteCollection(id: string): Promise<void> {
@@ -346,7 +390,10 @@ export class ApiClient implements ApiClientContract {
   }
 
   appendToCollection(id: string, rjs: string[]): Promise<CollectionAppendResult> {
-    return this.request(`/collections/${encodeURIComponent(id)}/works`, { method: 'POST', body: { rjs } })
+    return this.request(`/collections/${encodeURIComponent(id)}/works`, {
+      method: 'POST',
+      body: { rjs },
+    })
   }
 
   removeFromCollection(id: string, rj: string): Promise<void> {
@@ -355,7 +402,10 @@ export class ApiClient implements ApiClientContract {
 
   /** Moves a member before `beforeRj`, or to the end when null. */
   moveCollectionMember(id: string, rj: string, beforeRj: string | null): Promise<void> {
-    return this.request(`/collections/${encodeURIComponent(id)}/works/${encodeURIComponent(rj)}`, { method: 'PATCH', body: { before_rj: beforeRj } })
+    return this.request(`/collections/${encodeURIComponent(id)}/works/${encodeURIComponent(rj)}`, {
+      method: 'PATCH',
+      body: { before_rj: beforeRj },
+    })
   }
 
   /** The work's file manifest (docs/api.md "Work content manifest"). */
@@ -370,10 +420,14 @@ export class ApiClient implements ApiClientContract {
    */
   workFileUrl(ref: ContentFileRef, version?: string): string {
     const params = new URLSearchParams()
-    if (this.token) params.set('access_token', this.token)
-    if (version) params.set('v', version)
+    if (this.token)
+      params.set('access_token', this.token)
+    if (version)
+      params.set('v', version)
     const qs = params.toString()
-    return this.url(contentPath('content', ref) + (qs ? `?${qs}` : ''))
+    return this.url(contentPath('content', ref) + (qs
+      ? `?${qs}`
+      : ''))
   }
 
   /**
@@ -382,13 +436,18 @@ export class ApiClient implements ApiClientContract {
    * bytes go through a TextDecoder for the declared label.
    */
   async getWorkText(ref: ContentFileRef, signal?: AbortSignal): Promise<string> {
-    const response = await fetch(this.url(contentPath('content', ref)), { headers: this.headers(false), signal })
-    if (!response.ok) throw await this.toApiError(response)
+    const response = await fetch(this.url(contentPath('content', ref)), {
+      headers: this.headers(false),
+      signal,
+    })
+    if (!response.ok)
+      throw await this.toApiError(response)
     const charset = /charset=([^;]+)/i.exec(response.headers.get('Content-Type') ?? '')?.[1]?.trim() ?? 'utf-8'
     const bytes = await response.arrayBuffer()
     try {
       return new TextDecoder(charset).decode(bytes)
-    } catch {
+    }
+    catch {
       // An unknown label: UTF-8 with replacements beats no text at all.
       return new TextDecoder().decode(bytes)
     }
@@ -402,12 +461,16 @@ export class ApiClient implements ApiClientContract {
   async getWorkThumb(ref: ContentFileRef, height: number, version: string, signal?: AbortSignal): Promise<Blob> {
     const path = `${contentPath('thumbs', ref)}?h=${height}&v=${encodeURIComponent(version)}`
     for (;;) {
-      const response = await fetch(this.url(path), { headers: this.headers(false), signal })
+      const response = await fetch(this.url(path), {
+        headers: this.headers(false),
+        signal,
+      })
       if (response.status === 503) {
         await backOff(Number(response.headers.get('Retry-After')) || 1, signal)
         continue
       }
-      if (!response.ok) throw await this.toApiError(response)
+      if (!response.ok)
+        throw await this.toApiError(response)
       return response.blob()
     }
   }
@@ -474,9 +537,12 @@ export class ApiClient implements ApiClientContract {
   }
 
   /** Log Export (docs/api/diagnostics.md#log-export): the file and the name the server gave it. */
-  async downloadDiagnosticLog(): Promise<{ blob: Blob; filename: string }> {
-    const response = await fetch(this.url('/diagnostics/log'), { headers: this.headers(false) })
-    if (!response.ok) throw await this.toApiError(response)
+  async downloadDiagnosticLog(): Promise<{ blob: Blob, filename: string }> {
+    const response = await fetch(this.url('/diagnostics/log'), {
+      headers: this.headers(false),
+    })
+    if (!response.ok)
+      throw await this.toApiError(response)
     const filename = /filename="([^"]+)"/.exec(response.headers.get('Content-Disposition') ?? '')?.[1] ?? 'preen.log'
     return { blob: await response.blob(), filename }
   }
@@ -484,11 +550,17 @@ export class ApiClient implements ApiClientContract {
   // Deployment-wide record cleanup (docs/api/maintenance.md). Start has no
   // request id: a lost answer is resolved by reading the global run, never by resending.
   previewCleanup(categories: CleanupCategory[]): Promise<CleanupPreview> {
-    return this.request('/maintenance/cleanup/preview', { method: 'POST', body: { categories } })
+    return this.request('/maintenance/cleanup/preview', {
+      method: 'POST',
+      body: { categories },
+    })
   }
 
   async startCleanup(categories: CleanupCategory[]): Promise<CleanupRun> {
-    return (await this.request<{ run: CleanupRun }>('/maintenance/cleanup', { method: 'POST', body: { categories } })).run
+    return (await this.request<{ run: CleanupRun }>('/maintenance/cleanup', {
+      method: 'POST',
+      body: { categories },
+    })).run
   }
 
   async getCleanup(signal?: AbortSignal): Promise<CleanupRun | null> {
@@ -507,12 +579,18 @@ export class ApiClient implements ApiClientContract {
   }
 
   async createUserTag(name: string): Promise<WorkUserTag> {
-    return this.request('/user-tags', { method: 'POST', body: { name } })
+    return this.request('/user-tags', {
+      method: 'POST',
+      body: { name },
+    })
   }
 
   // A name another tag holds answers USER_TAG_EXISTS; tags are never merged.
   renameUserTag(id: string, name: string): Promise<WorkUserTag> {
-    return this.request(`/user-tags/${encodeURIComponent(id)}`, { method: 'PATCH', body: { name } })
+    return this.request(`/user-tags/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: { name },
+    })
   }
 
   // The tag's relations go with it; no work is touched.
@@ -546,9 +624,13 @@ export class ApiClient implements ApiClientContract {
         operation === 'conversion'
           ? {
               ...normalizeConversionTags(payload),
-              members: (payload.members ?? []).map((member) => ({
+              members: (payload.members ?? []).map(member => ({
                 ...member,
-                ...(member.overrides ? { overrides: normalizeConversionTags(member.overrides, true) } : {}),
+                ...(member.overrides
+                  ? {
+                      overrides: normalizeConversionTags(member.overrides, true),
+                    }
+                  : {}),
               })),
             }
           : payload,
@@ -566,7 +648,9 @@ export class ApiClient implements ApiClientContract {
     return this.request(`${this.operationPath(worksetId, operation)}/draft`, {
       method: 'PUT',
       body: document,
-      headers: { 'If-Match': String(ifMatchVersion) },
+      headers: {
+        'If-Match': String(ifMatchVersion),
+      },
     })
   }
 
@@ -590,7 +674,7 @@ export class ApiClient implements ApiClientContract {
     )
   }
 
-  private settingsResult<T extends OperationType>(response: { body: unknown; headers: Headers }): TaskSettings<T> {
+  private settingsResult<T extends OperationType>(response: { body: unknown, headers: Headers }): TaskSettings<T> {
     const body = response.body as { settings: TaskSettingsMap[T] }
     return { settings: body.settings, etag: response.headers.get('ETag') ?? '' }
   }
@@ -608,7 +692,10 @@ export class ApiClient implements ApiClientContract {
     // (a retry with a fresh key could start a duplicate session).
     return this.request(`${this.operationPath(worksetId, operation)}/revisions`, {
       method: 'POST',
-      headers: { 'If-Match': String(ifMatchVersion), 'Idempotency-Key': idempotencyKey },
+      headers: {
+        'If-Match': String(ifMatchVersion),
+        'Idempotency-Key': idempotencyKey,
+      },
       timeoutMs: 60_000,
     })
   }
@@ -643,7 +730,16 @@ export class ApiClient implements ApiClientContract {
       { signal },
     )
     if (operation === 'conversion' && wire.task.payload.policy) {
-      return { ...wire, task: { ...wire.task, payload: { ...wire.task.payload, policy: normalizeConversionTags(wire.task.payload.policy) } } }
+      return {
+        ...wire,
+        task: {
+          ...wire.task,
+          payload: {
+            ...wire.task.payload,
+            policy: normalizeConversionTags(wire.task.payload.policy),
+          },
+        },
+      }
     }
     return wire
   }
@@ -660,26 +756,31 @@ export class ApiClient implements ApiClientContract {
     worksetId: string,
     operation: OperationType,
     planId: string,
-    input: { ifMatchVersion: number; idempotencyKey: string; folderPaths?: string[] },
+    input: { ifMatchVersion: number, idempotencyKey: string, folderPaths?: string[] },
   ): Promise<StartExecutionResponse> {
     return this.request(
       `${this.operationPath(worksetId, operation)}/revisions/${encodeURIComponent(planId)}/executions`,
       {
         method: 'POST',
-        headers: { 'If-Match': String(input.ifMatchVersion), 'Idempotency-Key': input.idempotencyKey },
+        headers: {
+          'If-Match': String(input.ifMatchVersion),
+          'Idempotency-Key': input.idempotencyKey,
+        },
         body: { folder_paths: input.folderPaths ?? [] },
       },
     )
   }
 
-  /** Session detail. `page` reads a slice of the component list, which is
-   *  ordered by component index; without it the whole list comes back. */
+  /**
+   * Session detail. `page` reads a slice of the component list, which is
+   *  ordered by component index; without it the whole list comes back.
+   */
   getExecution(
     worksetId: string,
     operation: OperationType,
     executionId: string,
     signal?: AbortSignal,
-    page?: { from: number; limit: number },
+    page?: { from: number, limit: number },
   ): Promise<ExecutionView> {
     const query = page
       ? `?components_from=${page.from}&components_limit=${page.limit}`
@@ -752,9 +853,13 @@ export class ApiClient implements ApiClientContract {
   }
 
   /** Shared GET-SSE lifecycle: fetch, error envelope, then the parsed stream. */
-  private async *streamEvents<T extends SSEEvent>(path: string, signal: AbortSignal, surface: string): AsyncGenerator<T> {
-    const response = await fetch(this.url(path), { headers: this.headers(false), signal })
-    if (!response.ok) throw await this.toApiError(response)
+  private async* streamEvents<T extends SSEEvent>(path: string, signal: AbortSignal, surface: string): AsyncGenerator<T> {
+    const response = await fetch(this.url(path), {
+      headers: this.headers(false),
+      signal,
+    })
+    if (!response.ok)
+      throw await this.toApiError(response)
     if (!response.body) {
       throw new ApiError(response.status, 'STREAM_UNAVAILABLE', `${surface} response did not include a stream`)
     }
@@ -767,8 +872,10 @@ export class ApiClient implements ApiClientContract {
 
   private headers(json = false): Headers {
     const headers = new Headers({ Accept: 'application/json' })
-    if (json) headers.set('Content-Type', 'application/json')
-    if (this.token) headers.set('Authorization', `Bearer ${this.token}`)
+    if (json)
+      headers.set('Content-Type', 'application/json')
+    if (this.token)
+      headers.set('Authorization', `Bearer ${this.token}`)
     return headers
   }
 
@@ -781,7 +888,7 @@ export class ApiClient implements ApiClientContract {
 
   private async request<T>(
     path: string,
-    options: { method?: string; body?: unknown; signal?: AbortSignal; timeoutMs?: number; headers?: Record<string, string>; keepalive?: boolean } = {},
+    options: { method?: string, body?: unknown, signal?: AbortSignal, timeoutMs?: number, headers?: Record<string, string>, keepalive?: boolean } = {},
   ): Promise<T> {
     return (await this.exchange<T>(path, options)).body
   }
@@ -789,8 +896,8 @@ export class ApiClient implements ApiClientContract {
   /** request() for the few reads that need a response header too (an ETag). */
   private async exchange<T>(
     path: string,
-    options: { method?: string; body?: unknown; signal?: AbortSignal; timeoutMs?: number; headers?: Record<string, string>; keepalive?: boolean } = {},
-  ): Promise<{ body: T; headers: Headers }> {
+    options: { method?: string, body?: unknown, signal?: AbortSignal, timeoutMs?: number, headers?: Record<string, string>, keepalive?: boolean } = {},
+  ): Promise<{ body: T, headers: Headers }> {
     const controller = new AbortController()
     let removeAbort: (() => void) | null = null
     if (options.signal) {
@@ -798,7 +905,8 @@ export class ApiClient implements ApiClientContract {
         // Caller already cancelled: still issue the fetch so it rejects
         // immediately with the aborted reason rather than hanging.
         controller.abort(options.signal.reason)
-      } else {
+      }
+      else {
         const forwardAbort = () => controller.abort(options.signal?.reason)
         options.signal.addEventListener('abort', forwardAbort, { once: true })
         removeAbort = () => options.signal?.removeEventListener('abort', forwardAbort)
@@ -810,7 +918,8 @@ export class ApiClient implements ApiClientContract {
     )
     try {
       return await this.doRequest<T>(path, options, controller.signal)
-    } finally {
+    }
+    finally {
       clearTimeout(timer)
       removeAbort?.()
     }
@@ -818,27 +927,36 @@ export class ApiClient implements ApiClientContract {
 
   private async doRequest<T>(
     path: string,
-    options: { method?: string; body?: unknown; headers?: Record<string, string>; keepalive?: boolean },
+    options: { method?: string, body?: unknown, headers?: Record<string, string>, keepalive?: boolean },
     signal: AbortSignal,
-  ): Promise<{ body: T; headers: Headers }> {
+  ): Promise<{ body: T, headers: Headers }> {
     const response = await fetch(this.url(path), {
       method: options.method ?? 'GET',
-      headers: { ...Object.fromEntries(this.headers(options.body !== undefined)), ...options.headers },
-      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      headers: {
+        ...Object.fromEntries(this.headers(options.body !== undefined)),
+        ...options.headers,
+      },
+      body: options.body === undefined
+        ? undefined
+        : JSON.stringify(options.body),
       signal,
       keepalive: options.keepalive,
     })
-    if (!response.ok) throw await this.toApiError(response)
-    if (response.status === 204) return { body: undefined as T, headers: response.headers }
+    if (!response.ok)
+      throw await this.toApiError(response)
+    if (response.status === 204)
+      return { body: undefined as T, headers: response.headers }
     return { body: (await response.json()) as T, headers: response.headers }
   }
 
   private async toApiError(response: Response): Promise<ApiError> {
-    if (response.status === 401 && this.token === null) this.onUnauthorized?.()
+    if (response.status === 401 && this.token === null)
+      this.onUnauthorized?.()
     let envelope: ErrorEnvelope = {}
     try {
       envelope = (await response.json()) as ErrorEnvelope
-    } catch {
+    }
+    catch {
       // A proxy can replace the documented JSON envelope; retain useful status context.
     }
     return new ApiError(
@@ -859,7 +977,8 @@ function contentPath(route: 'content' | 'thumbs', ref: ContentFileRef): string {
 /** Waits the server's Retry-After, ending early with the caller's abort. */
 export function backOff(seconds: number, signal?: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
-    if (signal?.aborted) return reject(signal.reason)
+    if (signal?.aborted)
+      return reject(signal.reason)
     const onAbort = () => {
       clearTimeout(timer)
       reject(signal?.reason)
@@ -876,6 +995,7 @@ export const apiClientKey: InjectionKey<ApiClientContract> = Symbol('api-client'
 
 export function useApiClient(): ApiClientContract {
   const client = inject(apiClientKey)
-  if (!client) throw new Error('ApiClient was not provided')
+  if (!client)
+    throw new Error('ApiClient was not provided')
   return client
 }

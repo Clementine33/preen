@@ -1,7 +1,7 @@
 <script setup lang="ts">
+import type { ContentFileRef } from '@/lib/api/types'
 import { computed, ref, watch } from 'vue'
 import { useApiClient } from '@/lib/api/client'
-import type { ContentFileRef } from '@/lib/api/types'
 import { useWorkDetailStore } from '@/stores/work-detail'
 
 // The video modal: a native <dialog> around a native <video controls>, opened
@@ -14,7 +14,8 @@ const api = useApiClient()
 const file = computed(() => store.video)
 const src = computed(() => {
   const item = file.value
-  if (!item || !store.rj || !store.activeCopy) return ''
+  if (!item || !store.rj || !store.activeCopy)
+    return ''
   const ref: ContentFileRef = { rj: store.rj, copyId: store.activeCopy.copy_id, relPath: item.rel_path }
   return api.workFileUrl(ref)
 })
@@ -28,12 +29,16 @@ watch(
   (video) => {
     failed.value = false
     const el = dialogEl.value
-    if (!el) return
+    if (!el)
+      return
     if (video && !el.open) {
-      if (typeof el.showModal === 'function') el.showModal()
+      if (typeof el.showModal === 'function')
+        el.showModal()
       else el.setAttribute('open', '')
-    } else if (!video && el.open) {
-      if (typeof el.close === 'function') el.close()
+    }
+    else if (!video && el.open) {
+      if (typeof el.close === 'function')
+        el.close()
       else el.removeAttribute('open')
     }
   },
@@ -52,7 +57,9 @@ function onClose(): void {
 
 function close(): void {
   const el = dialogEl.value
-  if (el && typeof el.close === 'function') el.close()
+  if (el && typeof el.close === 'function') {
+    el.close()
+  }
   else {
     el?.removeAttribute('open')
     onClose()
@@ -70,7 +77,7 @@ function close(): void {
       </span>
     </div>
     <div class="vd-body">
-      <video v-if="file" ref="videoEl" :src="src" controls autoplay @error="failed = true"></video>
+      <video v-if="file" ref="videoEl" :src="src" controls autoplay @error="failed = true" />
       <p v-if="failed" class="vd-error">浏览器无法播放</p>
     </div>
   </dialog>

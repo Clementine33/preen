@@ -1,8 +1,8 @@
-import { computed } from 'vue'
+import type { UserPreferences } from '@/lib/api/types'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
+import { computed } from 'vue'
 import { useToast } from '@/composables/use-toast'
 import { useApiClient } from '@/lib/api/client'
-import type { UserPreferences } from '@/lib/api/types'
 import { queryKeys } from './query-keys'
 
 /** The server-synced preferences (docs/api/preferences.md); empty until loaded. */

@@ -1,15 +1,15 @@
-import { describe, expect, it, vi } from 'vitest'
 import type { ApiClientContract, Library, LibraryDir, TreeNode } from '@/lib/api/types'
-import { apiStub as sharedApiStub } from '@/test/api-stub'
+import { describe, expect, it, vi } from 'vitest'
 import { rootPathIdentityKey } from '@/lib/root-path-identity'
+import { apiStub as sharedApiStub } from '@/test/api-stub'
 import { createTestQueryClient } from '@/test/query-client'
-import { queryKeys } from './query-keys'
 import {
   createLibraryMutationOptions,
   deleteLibraryMutationOptions,
   fileOperationMutationOptions,
   updateLibraryMutationOptions,
 } from './libraries'
+import { queryKeys } from './query-keys'
 
 const libA: Library = {
   id: 'lib-a',
@@ -28,7 +28,16 @@ const libADifferentRoot: Library = { ...libA, root_path: 'D:\\Audio\\Archive' }
 const newLibrary: Library = { ...libA, id: 'lib-new', name: 'New library' }
 
 const dirs: LibraryDir[] = [
-  { name: 'Alpha', path: '/music/Alpha', rel_path: 'Alpha', dir_id: 'dir-alpha', audio_file_count: 4, file_count: 6, added_at: '2026-05-01T00:00:00Z', work_code: null },
+  {
+    name: 'Alpha',
+    path: '/music/Alpha',
+    rel_path: 'Alpha',
+    dir_id: 'dir-alpha',
+    audio_file_count: 4,
+    file_count: 6,
+    added_at: '2026-05-01T00:00:00Z',
+    work_code: null,
+  },
 ]
 
 const treeRoot: TreeNode = {
@@ -45,7 +54,11 @@ function apiStub(overrides: Partial<ApiClientContract> = {}): ApiClientContract 
   return sharedApiStub(overrides)
 }
 
-const workKeys = [queryKeys.works.content('RJ01000001'), queryKeys.works.detail('RJ01000001'), queryKeys.works.list({})]
+const workKeys = [
+  queryKeys.works.content('RJ01000001'),
+  queryKeys.works.detail('RJ01000001'),
+  queryKeys.works.list({}),
+]
 
 function seedDerivedCaches(client: ReturnType<typeof createTestQueryClient>) {
   for (const key of workKeys) client.setQueryData(key, 'cached')
@@ -60,7 +73,9 @@ describe('library mutation cache synchronization', () => {
   it('create upserts the returned library into the cached list', async () => {
     const client = createTestQueryClient()
     client.setQueryData(queryKeys.libraries.list(), [libA])
-    const api = apiStub({ createLibrary: vi.fn().mockResolvedValue(newLibrary) })
+    const api = apiStub({
+      createLibrary: vi.fn().mockResolvedValue(newLibrary),
+    })
     const options = createLibraryMutationOptions(api, client)
 
     const created = await options.mutationFn({ name: 'New library', root_path: 'C:\\Audio\\New' })
@@ -72,7 +87,9 @@ describe('library mutation cache synchronization', () => {
   it('create seeds the cached list with the returned library when no cache exists', async () => {
     const client = createTestQueryClient()
     expect(client.getQueryData(queryKeys.libraries.list())).toBeUndefined()
-    const api = apiStub({ createLibrary: vi.fn().mockResolvedValue(newLibrary) })
+    const api = apiStub({
+      createLibrary: vi.fn().mockResolvedValue(newLibrary),
+    })
     const options = createLibraryMutationOptions(api, client)
 
     const created = await options.mutationFn({ name: 'New library', root_path: 'C:\\Audio\\New' })
@@ -86,11 +103,19 @@ describe('library mutation cache synchronization', () => {
     client.setQueryData(queryKeys.libraries.list(), [libA])
     seedDerivedCaches(client)
     const renamed = { ...libA, name: 'Renamed' }
-    const api = apiStub({ updateLibrary: vi.fn().mockResolvedValue(renamed) })
+    const api = apiStub({
+      updateLibrary: vi.fn().mockResolvedValue(renamed),
+    })
     const options = updateLibraryMutationOptions(api, client)
 
-    const updated = await options.mutationFn({ id: 'lib-a', input: { name: 'Renamed' } })
-    options.onSuccess?.(updated, { id: 'lib-a', input: { name: 'Renamed' } }, undefined)
+    const updated = await options.mutationFn({
+      id: 'lib-a',
+      input: { name: 'Renamed' },
+    })
+    options.onSuccess?.(updated, {
+      id: 'lib-a',
+      input: { name: 'Renamed' },
+    }, undefined)
 
     expect(client.getQueryData<Library[]>(queryKeys.libraries.list())).toContainEqual(renamed)
     for (const key of workKeys) expect(client.getQueryData(key)).toBe('cached')
@@ -104,11 +129,19 @@ describe('library mutation cache synchronization', () => {
     client.setQueryData(queryKeys.libraries.list(), [libA])
     seedDerivedCaches(client)
     const equivalent = { ...libA, root_path: 'C:\\Audio\\archive' }
-    const api = apiStub({ updateLibrary: vi.fn().mockResolvedValue(equivalent) })
+    const api = apiStub({
+      updateLibrary: vi.fn().mockResolvedValue(equivalent),
+    })
     const options = updateLibraryMutationOptions(api, client)
 
-    const updated = await options.mutationFn({ id: 'lib-a', input: { root_path: 'C:\\Audio\\archive' } })
-    options.onSuccess?.(updated, { id: 'lib-a', input: { root_path: 'C:\\Audio\\archive' } }, undefined)
+    const updated = await options.mutationFn({
+      id: 'lib-a',
+      input: { root_path: 'C:\\Audio\\archive' },
+    })
+    options.onSuccess?.(updated, {
+      id: 'lib-a',
+      input: { root_path: 'C:\\Audio\\archive' },
+    }, undefined)
 
     expect(client.getQueryData(queryKeys.libraries.dirs('lib-a', rootPathIdentityKey(libA.root_path)))).toEqual(
       dirs,
@@ -119,11 +152,19 @@ describe('library mutation cache synchronization', () => {
     const client = createTestQueryClient()
     client.setQueryData(queryKeys.libraries.list(), [libA])
     seedDerivedCaches(client)
-    const api = apiStub({ updateLibrary: vi.fn().mockResolvedValue(libADifferentRoot) })
+    const api = apiStub({
+      updateLibrary: vi.fn().mockResolvedValue(libADifferentRoot),
+    })
     const options = updateLibraryMutationOptions(api, client)
 
-    const updated = await options.mutationFn({ id: 'lib-a', input: { root_path: 'D:\\Audio\\Archive' } })
-    options.onSuccess?.(updated, { id: 'lib-a', input: { root_path: 'D:\\Audio\\Archive' } }, undefined)
+    const updated = await options.mutationFn({
+      id: 'lib-a',
+      input: { root_path: 'D:\\Audio\\Archive' },
+    })
+    options.onSuccess?.(updated, {
+      id: 'lib-a',
+      input: { root_path: 'D:\\Audio\\Archive' },
+    }, undefined)
 
     expect(client.getQueryData<Library[]>(queryKeys.libraries.list())).toContainEqual(libADifferentRoot)
     await vi.waitFor(() => {
@@ -139,13 +180,15 @@ describe('library mutation cache synchronization', () => {
     const client = createTestQueryClient()
     client.setQueryData(queryKeys.libraries.list(), [libA, newLibrary])
     seedDerivedCaches(client)
-    const api = apiStub({ deleteLibrary: vi.fn().mockResolvedValue(undefined) })
+    const api = apiStub({
+      deleteLibrary: vi.fn().mockResolvedValue(undefined),
+    })
     const options = deleteLibraryMutationOptions(api, client)
 
     await options.mutationFn('lib-a')
     options.onSuccess?.(undefined, 'lib-a', undefined)
 
-    expect(client.getQueryData<Library[]>(queryKeys.libraries.list())?.map((lib) => lib.id)).toEqual(['lib-new'])
+    expect(client.getQueryData<Library[]>(queryKeys.libraries.list())?.map(lib => lib.id)).toEqual(['lib-new'])
     await vi.waitFor(() => {
       for (const key of workKeys) expect(client.getQueryData(key)).toBeUndefined()
       expect(client.getQueryData(queryKeys.libraries.dirs('lib-a', rootPathIdentityKey(libA.root_path)))).toBeUndefined()
@@ -158,12 +201,14 @@ describe('library mutation cache synchronization', () => {
     const client = createTestQueryClient()
     seedDerivedCaches(client)
     const options = fileOperationMutationOptions(apiStub(), client, 'lib-a', rootPathIdentityKey(libA.root_path))
-    const input = { dirId: 'dir-alpha', body: { member_path: 'Alpha', operation: 'soft_delete' as const, items: [] } }
+    const input = {
+      dirId: 'dir-alpha',
+      body: { member_path: 'Alpha', operation: 'soft_delete' as const, items: [] },
+    }
     const result = await options.mutationFn(input)
     options.onSuccess(result, input)
     await vi.waitFor(() => {
       for (const key of workKeys) expect(client.getQueryData(key)).toBeUndefined()
     })
   })
-
 })

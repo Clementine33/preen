@@ -1,5 +1,7 @@
-import { computed, ref, toValue, watch, type MaybeRefOrGetter } from 'vue'
-import { parseLyrics, type LrcLine } from '@/features/work-detail/derive'
+import type { MaybeRefOrGetter } from 'vue'
+import type { LrcLine } from '@/features/work-detail/derive'
+import { computed, ref, toValue, watch } from 'vue'
+import { parseLyrics } from '@/features/work-detail/derive'
 import { useApiClient } from '@/lib/api/client'
 
 /** Where a track's Timed Lyrics file lives. */
@@ -30,16 +32,20 @@ export function useTimedLyrics(source: MaybeRefOrGetter<LyricsSource | null>, cl
       lines.value = []
       status.value = ''
       const s = toValue(source)
-      if (!s) return
+      if (!s)
+        return
       status.value = '正在读取歌词…'
       let text: string
       try {
         text = await api.getWorkText(s, controller.signal)
-      } catch {
-        if (!controller.signal.aborted) status.value = '无法读取歌词文件'
+      }
+      catch {
+        if (!controller.signal.aborted)
+          status.value = '无法读取歌词文件'
         return
       }
-      if (controller.signal.aborted) return
+      if (controller.signal.aborted)
+        return
       lines.value = parseLyrics(text, s.relPath)
       status.value = lines.value.length ? '' : '未找到有效的时间轴歌词'
     },
@@ -51,7 +57,8 @@ export function useTimedLyrics(source: MaybeRefOrGetter<LyricsSource | null>, cl
     const now = clock()
     let index = -1
     lines.value.forEach((line, i) => {
-      if (now >= line.time && (line.endTime === undefined || now < line.endTime)) index = i
+      if (now >= line.time && (line.endTime === undefined || now < line.endTime))
+        index = i
     })
     return index
   })

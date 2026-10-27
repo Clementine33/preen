@@ -1,10 +1,11 @@
 <script setup lang="ts">
+import type { LrcLine } from '@/features/work-detail/derive'
 import { computed, ref, watch } from 'vue'
 import { useReducedMotion } from '@/composables/use-motion'
 import { useTimedLyrics } from '@/composables/use-timed-lyrics'
-import { fmtT, type LrcLine } from '@/features/work-detail/derive'
-import { useWorkDetailStore } from '@/stores/work-detail'
+import { fmtT } from '@/features/work-detail/derive'
 import { usePlayerStore } from '@/stores/player'
+import { useWorkDetailStore } from '@/stores/work-detail'
 
 // LISTEN (v3): the paired lyric, framed like subtitles (30% above, 60% below),
 // the current line inverted with its ■ marker and scrolled to 38% of the pane,
@@ -18,23 +19,34 @@ const reducedMotion = useReducedMotion()
 const lrcRel = computed(() => store.lrcFor(store.track))
 const source = computed(() => {
   const copyId = store.activeCopy?.copy_id
-  return store.rj && copyId && lrcRel.value ? { rj: store.rj, copyId, relPath: lrcRel.value } : null
+  return store.rj && copyId && lrcRel.value
+    ? { rj: store.rj, copyId, relPath: lrcRel.value }
+    : null
 })
 const { lines, status, nowIndex: clockIndex } = useTimedLyrics(source, () => player.elapsed)
 const bodyEl = ref<HTMLElement | null>(null)
 const currentTrack = computed(() => player.rj === store.rj && player.trackKey === store.tracks[store.track]?.key)
-const nowIndex = computed(() => (currentTrack.value ? clockIndex.value : -1))
+const nowIndex = computed(() => (currentTrack.value
+  ? clockIndex.value
+  : -1))
 
 function sync(jump: boolean): void {
   const body = bodyEl.value
   const now = body?.querySelector<HTMLElement>('.lrc-line.now')
-  if (!body || !now) return
-  body.scrollTo({ top: now.offsetTop - body.clientHeight * 0.38, behavior: jump || reducedMotion.value ? 'auto' : 'smooth' })
+  if (!body || !now)
+    return
+  body.scrollTo({
+    top: now.offsetTop - body.clientHeight * 0.38,
+    behavior: jump || reducedMotion.value
+      ? 'auto'
+      : 'smooth',
+  })
 }
 watch([lines, nowIndex], (_, previous) => sync(previous[0] !== lines.value), { flush: 'post' })
 
 function seek(line: LrcLine): void {
-  if (currentTrack.value) player.seek(line.time)
+  if (currentTrack.value)
+    player.seek(line.time)
 }
 
 const lineTime = (line: LrcLine): string => fmtT(line.time)
@@ -44,8 +56,10 @@ const lineTime = (line: LrcLine): string => fmtT(line.time)
   <div ref="bodyEl" class="lrc-scroll">
     <p v-if="status" role="status">{{ status }}</p>
     <div class="lrc" lang="ja">
-      <button v-for="(line, i) in lines" :key="`${i}-${line.time}`" class="lrc-line" type="button"
-        :disabled="!currentTrack" :class="{ now: i === nowIndex, past: currentTrack && i !== nowIndex && player.elapsed >= (line.endTime ?? line.time), sfx: line.sfx }" @click="seek(line)">
+      <button
+        v-for="(line, i) in lines" :key="`${i}-${line.time}`" class="lrc-line" type="button"
+        :disabled="!currentTrack" :class="{ now: i === nowIndex, past: currentTrack && i !== nowIndex && player.elapsed >= (line.endTime ?? line.time), sfx: line.sfx }" @click="seek(line)"
+      >
         <span class="t">{{ lineTime(line) }}</span>
         <span>{{ line.text }}</span>
       </button>

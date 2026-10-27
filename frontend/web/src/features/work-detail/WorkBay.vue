@@ -14,39 +14,59 @@ import { useWorkDetailStore } from '@/stores/work-detail'
 const store = useWorkDetailStore()
 
 const trackCount = computed(() => store.tracks.length)
-const fileTotal = computed(() => (store.copy ? fileCount(store.copy) : 0))
+const fileTotal = computed(() => (store.copy
+  ? fileCount(store.copy)
+  : 0))
 
 /** `8 TRACKS · 2H45M · ♪15 ▢31 ¶9 ▶2`: the work at a glance (hidden pinned/mobile); ▶ only when it ships videos. */
 const summary = computed(() => {
-  const counts = store.copy ? dirCounts(store.copy) : { aud: 0, img: 0, txt: 0, vid: 0 }
-  const browsed = store.tracks.filter((track) => track.files[store.fmt])
+  const counts = store.copy
+    ? dirCounts(store.copy)
+    : { aud: 0, img: 0, txt: 0, vid: 0 }
+  const browsed = store.tracks.filter(track => track.files[store.fmt])
   const total = browsed.reduce((sum, track) => sum + (track.files[store.fmt]?.duration_sec ?? 0), 0)
-  const vid = counts.vid ? ` ▶${counts.vid}` : ''
-  return `${trackCount.value} TRACKS · ${total > 0 ? fmtLong(total) : '—'} · ♪${counts.aud} ▢${counts.img} ¶${counts.txt}${vid}`
+  const vid = counts.vid
+    ? ` ▶${counts.vid}`
+    : ''
+  return `${trackCount.value} TRACKS · ${total > 0
+    ? fmtLong(total)
+    : '—'} · ♪${counts.aud} ▢${counts.img} ¶${counts.txt}${vid}`
 })
 
 function pin(): void {
-  store.setDock(store.dock === 'right' ? 'bottom' : 'right')
+  store.setDock(store.dock === 'right'
+    ? 'bottom'
+    : 'right')
 }
 </script>
 
 <template>
   <aside class="bay substrate-panel" :class="{ open: store.bayOpen }" aria-label="File bay">
     <div class="bay-tabs">
-      <button class="tab" type="button" :aria-pressed="store.tab === 'tracks' && (store.bayOpen || store.dock === 'right')"
-        @click="store.openBayTab('tracks')"><span class="lbl">TRACKS</span><span class="lbl">{{ trackCount }}</span></button>
-      <button class="tab" type="button" :aria-pressed="store.tab === 'files' && (store.bayOpen || store.dock === 'right')"
-        @click="store.openBayTab('files')"><span class="lbl">FILES</span><span class="lbl">{{ fileTotal }}</span></button>
+      <button
+        class="tab" type="button" :aria-pressed="store.tab === 'tracks' && (store.bayOpen || store.dock === 'right')"
+        @click="store.openBayTab('tracks')"
+      ><span class="lbl">TRACKS</span><span class="lbl">{{ trackCount }}</span></button>
+      <button
+        class="tab" type="button" :aria-pressed="store.tab === 'files' && (store.bayOpen || store.dock === 'right')"
+        @click="store.openBayTab('files')"
+      ><span class="lbl">FILES</span><span class="lbl">{{ fileTotal }}</span></button>
       <span v-show="store.tab === 'tracks'" class="chips">
-        <button v-for="format in store.formats" :key="format" class="chip" type="button"
-          :aria-pressed="!store.lrcMode && store.fmt === format" @click="store.setFmt(format)">{{ format }}</button>
-        <button v-if="store.lrcFiles.length" class="chip" type="button" :aria-pressed="store.lrcMode" title="歌词文件：选择当前音轨的 LRC / VTT"
-          @click="store.showLrc()">LRC</button>
+        <button
+          v-for="format in store.formats" :key="format" class="chip" type="button"
+          :aria-pressed="!store.lrcMode && store.fmt === format" @click="store.setFmt(format)"
+        >{{ format }}</button>
+        <button
+          v-if="store.lrcFiles.length" class="chip" type="button" :aria-pressed="store.lrcMode" title="歌词文件：选择当前音轨的 LRC / VTT"
+          @click="store.showLrc()"
+        >LRC</button>
       </span>
       <span class="bay-sum lbl">{{ summary }}</span>
-      <span class="grow"></span>
-      <button class="btn btn-s pin" type="button" :title="store.dock === 'right' ? '机库停靠底部' : '机库钉在右侧'"
-        @click="pin">{{ store.dock === 'right' ? 'DOCK BOTTOM' : 'PIN RIGHT' }}</button>
+      <span class="grow" />
+      <button
+        class="btn btn-s pin" type="button" :title="store.dock === 'right' ? '机库停靠底部' : '机库钉在右侧'"
+        @click="pin"
+      >{{ store.dock === 'right' ? 'DOCK BOTTOM' : 'PIN RIGHT' }}</button>
     </div>
     <div class="bay-body">
       <div class="bay-inner">

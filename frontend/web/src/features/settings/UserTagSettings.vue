@@ -1,10 +1,10 @@
 <script setup lang="ts">
+import type { WorkUserTag } from '@/lib/api/types'
 import { computed, nextTick, ref } from 'vue'
 import { Button } from '@/components/ui/button'
 import Modal from '@/components/ui/modal/Modal.vue'
 import { useToast } from '@/composables/use-toast'
 import { errorDetails } from '@/lib/api/error'
-import type { WorkUserTag } from '@/lib/api/types'
 import { useCreateUserTag, useDeleteUserTag, useRenameUserTag, useTagFacets, useUserTags } from '@/queries/works'
 
 /**
@@ -16,7 +16,7 @@ import { useCreateUserTag, useDeleteUserTag, useRenameUserTag, useTagFacets, use
 const { query, tags } = useUserTags()
 // Work counts come from the unscoped tag index; a tag it omits has none.
 const { facets } = useTagFacets({})
-const counts = computed(() => new Map(facets.value.user_tags.map((facet) => [facet.id, facet.work_count])))
+const counts = computed(() => new Map(facets.value.user_tags.map(facet => [facet.id, facet.work_count])))
 const sorted = computed(() => [...tags.value].sort((a, b) => a.name.localeCompare(b.name, 'zh-CN')))
 
 const toast = useToast()
@@ -28,14 +28,20 @@ const newName = ref('')
 const createError = ref('')
 async function submitCreate(): Promise<void> {
   const name = newName.value.trim()
-  if (!name) return
+  if (!name)
+    return
   createError.value = ''
-  const existed = tags.value.some((tag) => tag.name === name)
+  const existed = tags.value.some(tag => tag.name === name)
   try {
     await create.mutateAsync(name)
     newName.value = ''
-    toast.show({ text: existed ? `标签「${name}」已存在` : `已新建「${name}」` })
-  } catch (error) {
+    toast.show({
+      text: existed
+        ? `标签「${name}」已存在`
+        : `已新建「${name}」`,
+    })
+  }
+  catch (error) {
     createError.value = errorDetails(error).message
   }
 }
@@ -53,15 +59,20 @@ async function startRename(tag: WorkUserTag): Promise<void> {
 }
 async function submitRename(tag: WorkUserTag): Promise<void> {
   const name = editName.value.trim()
-  if (!name) return
-  if (name === tag.name) return void (editingId.value = null)
+  if (!name)
+    return
+  if (name === tag.name)
+    return void (editingId.value = null)
   editError.value = ''
   try {
     await rename.mutateAsync({ id: tag.id, name })
     editingId.value = null
-  } catch (error) {
+  }
+  catch (error) {
     const details = errorDetails(error)
-    editError.value = details.code === 'USER_TAG_EXISTS' ? `「${name}」已被另一个标签使用。标签不会自动合并。` : details.message
+    editError.value = details.code === 'USER_TAG_EXISTS'
+      ? `「${name}」已被另一个标签使用。标签不会自动合并。`
+      : details.message
   }
 }
 
@@ -73,16 +84,20 @@ function askDelete(tag: WorkUserTag): void {
 }
 async function confirmDelete(): Promise<void> {
   const tag = deleting.value
-  if (!tag) return
+  if (!tag)
+    return
   try {
     await remove.mutateAsync(tag.id)
     deleting.value = null
     toast.show({ text: `已删除标签「${tag.name}」` })
-  } catch (error) {
+  }
+  catch (error) {
     deleteError.value = errorDetails(error).message
   }
 }
-const deletingCount = computed(() => (deleting.value ? (counts.value.get(deleting.value.id) ?? 0) : 0))
+const deletingCount = computed(() => (deleting.value
+  ? (counts.value.get(deleting.value.id) ?? 0)
+  : 0))
 </script>
 
 <template>
@@ -96,7 +111,7 @@ const deletingCount = computed(() => (deleting.value ? (counts.value.get(deletin
         autocomplete="off"
         data-testid="user-tag-new"
         @input="createError = ''"
-      />
+      >
       <Button type="submit" class="h-11 rail:h-[30px]" size="sm" variant="outline" :disabled="!newName.trim() || create.isPending.value" data-testid="user-tag-create">
         新建
       </Button>
@@ -134,7 +149,7 @@ const deletingCount = computed(() => (deleting.value ? (counts.value.get(deletin
               autocomplete="off"
               data-testid="user-tag-rename-input"
               @input="editError = ''"
-            />
+            >
             <Button type="button" size="sm" variant="ghost" @click="editingId = null">取消</Button>
             <Button type="submit" size="sm" :disabled="!editName.trim() || rename.isPending.value" data-testid="user-tag-rename-submit">保存</Button>
             <p v-if="editError" class="w-full text-[11px] text-destructive" role="alert" data-testid="user-tag-rename-error">{{ editError }}</p>

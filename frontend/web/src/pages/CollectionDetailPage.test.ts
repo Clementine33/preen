@@ -1,36 +1,58 @@
+import type { CollectionDetail, WorkSummary } from '@/lib/api/types'
 import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { createPinia } from 'pinia'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter, createWebHistory } from 'vue-router'
-import { apiClientKey } from '@/lib/api/client'
-import type { CollectionDetail, WorkSummary } from '@/lib/api/types'
+import { useToast } from '@/composables/use-toast'
+import RailSelect from '@/features/works/RailSelect.vue'
+import { apiClientKey, ApiError } from '@/lib/api/client'
 import { apiStub } from '@/test/api-stub'
 import { installTestQueryPlugin } from '@/test/query-client'
 import { sampleWorkContent } from '@/test/work-content-fixture'
-import { ApiError } from '@/lib/api/client'
-import { useToast } from '@/composables/use-toast'
-import RailSelect from '@/features/works/RailSelect.vue'
 import CollectionDetailPage from './CollectionDetailPage.vue'
 
 const playWork = vi.fn()
 const playFrom = vi.fn()
-vi.mock('@/features/works/use-play-work', () => ({ usePlayWork: () => ({ playWork, playFrom }) }))
+vi.mock('@/features/works/use-play-work', () => ({
+  usePlayWork: () => ({ playWork, playFrom }),
+}))
 
 enableAutoUnmount(afterEach)
 
-const work = (n: number): WorkSummary => ({
-  rj: `RJ${String(n).padStart(8, '0')}`, title: `作品${n}`, thumbnail_url: null, circle: `社${n}`, language: null,
-  nsfw: false, age_category: 1, release_date: null, dl_count: null, rating: null,
-} as WorkSummary)
+function work(n: number): WorkSummary {
+  return {
+    rj: `RJ${String(n).padStart(8, '0')}`,
+    title: `作品${n}`,
+    thumbnail_url: null,
+    circle: `社${n}`,
+    language: null,
+    nsfw: false,
+    age_category: 1,
+    release_date: null,
+    dl_count: null,
+    rating: null,
+  } as WorkSummary
+}
 
 const ALL = Array.from({ length: 205 }, (_, i) => work(i + 1))
 
 function setup(total = ALL.length) {
-  const getCollection = vi.fn(async (_id: string, w: { limit?: number; page?: number } = {}) => {
+  const getCollection = vi.fn(async (_id: string, w: { limit?: number, page?: number } = {}) => {
     const start = ((w.page ?? 1) - 1) * (w.limit ?? 200)
-    return { id: 'c1', name: 'Sleep', work_count: total, created_at: '', updated_at: '', total, works: ALL.slice(start, start + (w.limit ?? 200)).slice(0, total) } as CollectionDetail
+    return {
+      id: 'c1',
+      name: 'Sleep',
+      work_count: total,
+      created_at: '',
+      updated_at: '',
+      total,
+      works: ALL.slice(start, start + (w.limit ?? 200)).slice(0, total),
+    } as CollectionDetail
   })
-  return { getCollection, api: apiStub({ getCollection }) }
+  return {
+    getCollection,
+    api: apiStub({ getCollection }),
+  }
 }
 
 async function mountPage(api: ReturnType<typeof apiStub>, path = '/collections/c1') {
@@ -47,7 +69,14 @@ async function mountPage(api: ReturnType<typeof apiStub>, path = '/collections/c
   await router.push(path)
   const wrapper = mount(CollectionDetailPage, {
     attachTo: document.body.appendChild(document.createElement('div')),
-    global: { plugins: [createPinia(), router, installTestQueryPlugin()], provide: { [apiClientKey as symbol]: api } },
+    global: {
+      plugins: [
+        createPinia(),
+        router,
+        installTestQueryPlugin(),
+      ],
+      provide: { [apiClientKey as symbol]: api },
+    },
   })
   await flushPromises()
   return { wrapper, router }
@@ -62,21 +91,21 @@ beforeEach(() => {
   vi.unstubAllGlobals()
 })
 
-describe('CollectionDetailPage', () => {
+describe('collectionDetailPage', () => {
   it('lists the saved order, numbered by position, with the name and count in the header', async () => {
     const { getCollection, api } = setup(3)
     const { wrapper } = await mountPage(api)
     expect(getCollection).toHaveBeenCalledWith('c1', { limit: 200, page: 1, direction: 'asc' }, expect.anything())
     expect(wrapper.get('h1').text()).toBe('Sleep')
-    expect(rows(wrapper).map((r) => r.get('.pos').text())).toEqual(['1', '2', '3'])
+    expect(rows(wrapper).map(r => r.get('.pos').text())).toEqual(['1', '2', '3'])
   })
 
   it('numbers a descending custom order from the end, and other sorts by row', async () => {
     const { api } = setup(3)
     const desc = await mountPage(api, '/collections/c1?direction=desc')
-    expect(rows(desc.wrapper).map((r) => r.get('.pos').text())).toEqual(['3', '2', '1'])
+    expect(rows(desc.wrapper).map(r => r.get('.pos').text())).toEqual(['3', '2', '1'])
     const sorted = await mountPage(api, '/collections/c1?sort=rj')
-    expect(rows(sorted.wrapper).map((r) => r.get('.pos').text())).toEqual(['1', '2', '3'])
+    expect(rows(sorted.wrapper).map(r => r.get('.pos').text())).toEqual(['1', '2', '3'])
   })
 
   it('writes a sort change to the address and requests it, newest first by default', async () => {
@@ -86,11 +115,21 @@ describe('CollectionDetailPage', () => {
     wrapper.getComponent(RailSelect).vm.$emit('update:modelValue', 'collected_at')
     await flushPromises()
     expect(router.currentRoute.value.query).toEqual({ sort: 'collected_at' })
-    expect(getCollection).toHaveBeenLastCalledWith('c1', { limit: 200, page: 1, direction: 'desc', sort: 'collected_at' }, expect.anything())
+    expect(getCollection).toHaveBeenLastCalledWith('c1', {
+      limit: 200,
+      page: 1,
+      direction: 'desc',
+      sort: 'collected_at',
+    }, expect.anything())
     await wrapper.get('[data-testid="collection-direction"]').trigger('click')
     await flushPromises()
     expect(router.currentRoute.value.query).toEqual({ sort: 'collected_at', direction: 'asc' })
-    expect(getCollection).toHaveBeenLastCalledWith('c1', { limit: 200, page: 1, direction: 'asc', sort: 'collected_at' }, expect.anything())
+    expect(getCollection).toHaveBeenLastCalledWith('c1', {
+      limit: 200,
+      page: 1,
+      direction: 'asc',
+      sort: 'collected_at',
+    }, expect.anything())
   })
 
   it('loads the next chunk when the end of the list comes into view', async () => {
@@ -102,7 +141,9 @@ describe('CollectionDetailPage', () => {
     const { getCollection, api } = setup()
     const { wrapper } = await mountPage(api)
     expect(rows(wrapper)).toHaveLength(200)
-    fire([{ isIntersecting: true }])
+    fire([
+      { isIntersecting: true },
+    ])
     await flushPromises()
     expect(getCollection).toHaveBeenLastCalledWith('c1', { limit: 200, page: 2, direction: 'asc' }, expect.anything())
     expect(rows(wrapper)).toHaveLength(205)
@@ -151,7 +192,7 @@ describe('CollectionDetailPage', () => {
     expect(rows(wrapper)).toHaveLength(0)
   })
 
-  it('BACK steps back to the entry it was opened from, else opens the entry fresh', async () => {
+  it('bACK steps back to the entry it was opened from, else opens the entry fresh', async () => {
     window.history.replaceState(null, '', '/')
     const stub = { template: '<i />' }
     const router = createRouter({
@@ -166,7 +207,14 @@ describe('CollectionDetailPage', () => {
     await router.push('/collections/c1')
     const before = window.history.length
     const wrapper = mount(CollectionDetailPage, {
-      global: { plugins: [createPinia(), router, installTestQueryPlugin()], provide: { [apiClientKey as symbol]: setup(3).api } },
+      global: {
+        plugins: [
+          createPinia(),
+          router,
+          installTestQueryPlugin(),
+        ],
+        provide: { [apiClientKey as symbol]: setup(3).api },
+      },
     })
     await flushPromises()
     await wrapper.get('[data-testid="collection-back"]').trigger('click')
@@ -225,7 +273,8 @@ describe('CollectionDetailPage', () => {
       press('Escape')
       await flushPromises()
       expect(wrapper.findAll('[data-testid="collection-fold"]')).toHaveLength(0)
-    } finally {
+    }
+    finally {
       vi.useRealTimers()
     }
   })
@@ -236,7 +285,14 @@ describe('CollectionDetailPage', () => {
 
     // jsdom has no DataTransfer: a bare event with the few members the handlers read.
     function drag(el: Element, type: string, clientY = 0) {
-      const e = Object.assign(new Event(type, { bubbles: true, cancelable: true }), { clientY, dataTransfer: { setData() {}, setDragImage() {}, effectAllowed: '' } })
+      const e = Object.assign(new Event(type, { bubbles: true, cancelable: true }), {
+        clientY,
+        dataTransfer: {
+          setData() {},
+          setDragImage() {},
+          effectAllowed: '',
+        },
+      })
       el.dispatchEvent(e)
     }
     const dropOn = (wrapper: ReturnType<typeof mount>, from: number, to: number, below = false) => {
@@ -247,22 +303,49 @@ describe('CollectionDetailPage', () => {
     // A server that keeps the saved order, so the re-read after a write agrees with it.
     const edited = (n = 4) => {
       let saved = ALL.slice(0, n)
-      const getCollection = vi.fn(async (_id: string, w: { direction?: string; sort?: string } = {}) => {
-        const view = w.sort ? [...saved].sort((a, b) => a.rj.localeCompare(b.rj)) : [...saved]
-        if (w.direction === 'desc') view.reverse()
-        return { id: 'c1', name: 'Sleep', work_count: saved.length, created_at: '', updated_at: '', total: saved.length, works: view } as CollectionDetail
+      const getCollection = vi.fn(async (_id: string, w: { direction?: string, sort?: string } = {}) => {
+        const view = w.sort
+          ? [...saved].sort((a, b) => a.rj.localeCompare(b.rj))
+          : [...saved]
+        if (w.direction === 'desc')
+          view.reverse()
+        return {
+          id: 'c1',
+          name: 'Sleep',
+          work_count: saved.length,
+          created_at: '',
+          updated_at: '',
+          total: saved.length,
+          works: view,
+        } as CollectionDetail
       })
       const moveCollectionMember = vi.fn(async (_id: string, rj: string, before: string | null) => {
-        const w = saved.find((x) => x.rj === rj)!
-        saved = saved.filter((x) => x !== w)
-        saved.splice(before === null ? saved.length : saved.findIndex((x) => x.rj === before), 0, w)
+        const w = saved.find(x => x.rj === rj)!
+        saved = saved.filter(x => x !== w)
+        saved.splice(before === null
+          ? saved.length
+          : saved.findIndex(x => x.rj === before), 0, w)
       })
-      const removeFromCollection = vi.fn(async (_id: string, rj: string) => { saved = saved.filter((x) => x.rj !== rj) })
+      const removeFromCollection = vi.fn(async (_id: string, rj: string) => { saved = saved.filter(x => x.rj !== rj) })
       const appendToCollection = vi.fn(async (_id: string, rjs: string[]) => {
-        saved = [...saved, ...rjs.map((rj) => ALL.find((x) => x.rj === rj)!)]
+        saved = [
+          ...saved,
+          ...rjs.map(rj => ALL.find(x => x.rj === rj)!),
+        ]
         return { added: rjs, skipped: [], work_count: saved.length }
       })
-      return { getCollection, moveCollectionMember, removeFromCollection, appendToCollection, api: apiStub({ getCollection, moveCollectionMember, removeFromCollection, appendToCollection }) }
+      return {
+        getCollection,
+        moveCollectionMember,
+        removeFromCollection,
+        appendToCollection,
+        api: apiStub({
+          getCollection,
+          moveCollectionMember,
+          removeFromCollection,
+          appendToCollection,
+        }),
+      }
     }
     const mountEditing = async (api: ReturnType<typeof apiStub>, path?: string) => {
       const mounted = await mountPage(api, path)
@@ -308,7 +391,12 @@ describe('CollectionDetailPage', () => {
       dropOn(wrapper, 3, 1)
       await flushPromises()
       expect(moveCollectionMember).toHaveBeenLastCalledWith('c1', 'RJ00000004', 'RJ00000002')
-      expect(rows(wrapper).map((r) => r.attributes('data-rj'))).toEqual(['RJ00000001', 'RJ00000004', 'RJ00000002', 'RJ00000003'])
+      expect(rows(wrapper).map(r => r.attributes('data-rj'))).toEqual([
+        'RJ00000001',
+        'RJ00000004',
+        'RJ00000002',
+        'RJ00000003',
+      ])
       expect(rows(wrapper)[1]!.attributes('aria-selected')).toBe('true')
       dropOn(wrapper, 0, 3, true)
       await flushPromises()
@@ -355,9 +443,12 @@ describe('CollectionDetailPage', () => {
       press('Delete')
       await flushPromises()
       expect(removeFromCollection).toHaveBeenCalledWith('c1', 'RJ00000002')
-      expect(rows(wrapper).map((r) => r.attributes('data-rj'))).toEqual(['RJ00000001', 'RJ00000003', 'RJ00000004'])
+      expect(rows(wrapper).map(r => r.attributes('data-rj'))).toEqual(['RJ00000001', 'RJ00000003', 'RJ00000004'])
       expect(rows(wrapper)[1]!.attributes('aria-selected')).toBe('true')
-      expect(toast.current.value).toMatchObject({ text: '已从 Sleep 移除', action: { label: '撤销' } })
+      expect(toast.current.value).toMatchObject({
+        text: '已从 Sleep 移除',
+        action: { label: '撤销' },
+      })
       toast.current.value!.action!.run()
       await flushPromises()
       expect(appendToCollection).toHaveBeenCalledWith('c1', ['RJ00000002'])
@@ -383,7 +474,7 @@ describe('CollectionDetailPage', () => {
       await flushPromises()
       expect(toast.current.value?.text).toBe('合集已在别处变动，已刷新')
       expect(getCollection).toHaveBeenCalled()
-      expect(rows(wrapper).map((r) => r.attributes('data-rj'))[0]).toBe('RJ00000001')
+      expect(rows(wrapper).map(r => r.attributes('data-rj'))[0]).toBe('RJ00000001')
       moveCollectionMember.mockRejectedValueOnce(new ApiError(500, 'INTERNAL', 'boom'))
       dropOn(wrapper, 3, 0)
       await flushPromises()
@@ -415,7 +506,15 @@ describe('CollectionDetailPage', () => {
 
     it('refuses a blank name, then renames with the trimmed one and retitles in place', async () => {
       let current = 'Sleep'
-      const getCollection = vi.fn(async () => ({ id: 'c1', name: current, work_count: 0, created_at: '', updated_at: '', total: 0, works: [] }) as CollectionDetail)
+      const getCollection = vi.fn(async () => ({
+        id: 'c1',
+        name: current,
+        work_count: 0,
+        created_at: '',
+        updated_at: '',
+        total: 0,
+        works: [],
+      }) as CollectionDetail)
       const renameCollection = vi.fn(async (_id: string, n: string) => { current = n; return {} as never })
       const { wrapper } = await mountPage(apiStub({ getCollection, renameCollection }))
       await openItem('collection-rename')
@@ -433,7 +532,10 @@ describe('CollectionDetailPage', () => {
 
     it('toasts the error when a rename fails', async () => {
       const renameCollection = vi.fn().mockRejectedValue(new Error('boom'))
-      await mountPage(apiStub({ ...setup(3).api, renameCollection }))
+      await mountPage(apiStub({
+        ...setup(3).api,
+        renameCollection,
+      }))
       await openItem('collection-rename')
       await type('Calm')
       await submit()
@@ -442,7 +544,10 @@ describe('CollectionDetailPage', () => {
 
     it('deletes, goes back to the entry and toasts', async () => {
       const deleteCollection = vi.fn().mockResolvedValue(undefined)
-      const { wrapper, router } = await mountPage(apiStub({ ...setup(3).api, deleteCollection }))
+      const { wrapper, router } = await mountPage(apiStub({
+        ...setup(3).api,
+        deleteCollection,
+      }))
       await openItem('collection-delete')
       expect(document.body.textContent).toContain('删除合集「Sleep」？其中 3 部作品与文件不受影响。')
       document.body.querySelector<HTMLElement>('[data-testid="collection-delete-confirm"]')!.click()

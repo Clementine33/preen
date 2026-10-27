@@ -5,7 +5,7 @@
  * use SettingsOptions.
  */
 defineProps<{
-  options: { value: string; label: string }[]
+  options: { value: string, label: string }[]
   value: string
   label: string
   disabled?: boolean

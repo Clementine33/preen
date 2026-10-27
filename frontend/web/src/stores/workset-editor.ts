@@ -1,13 +1,13 @@
-import { defineStore } from 'pinia'
+import type { EditIntent, EditTarget } from '@/features/worksets/draft-intents'
 import type { OperationDraftDocument, OperationType, OverrideUnit } from '@/lib/api/types'
+import { defineStore } from 'pinia'
 import {
   applyIntent,
+
   EMPTY_INTENT,
   intentIsEmpty,
   intentUnitCount,
   sameDocument,
-  type EditIntent,
-  type EditTarget,
 } from '@/features/worksets/draft-intents'
 
 /**
@@ -41,15 +41,19 @@ export const useWorksetEditorStore = defineStore('workset-editor', {
     conflictNotices: 0,
   }),
   getters: {
-    active: (state) => state.session,
-    isDirty: (state) => (state.session ? sessionHasChanges(state.session) : false),
+    active: state => state.session,
+    isDirty: state => (state.session
+      ? sessionHasChanges(state.session)
+      : false),
     /** The document a save would send: base + intents, never the live draft. */
     pendingDocument(state): OperationDraftDocument | null {
-      if (!state.session) return null
+      if (!state.session)
+        return null
       return applyIntent(state.session.baseDocument, state.session.target, state.session.intent)
     },
     editedUnitCount(): number {
-      if (!this.session) return 0
+      if (!this.session)
+        return 0
       return intentUnitCount(this.session.intent)
     },
   },
@@ -83,32 +87,39 @@ export const useWorksetEditorStore = defineStore('workset-editor', {
       return true
     },
     setUnit(unit: OverrideUnit, next: EditIntent['units'][OverrideUnit]) {
-      if (!this.session) return
+      if (!this.session)
+        return
       this.session.intent = {
         ...this.session.intent,
         units: { ...this.session.intent.units, [unit]: next },
       }
     },
     setParticipation(participation: EditIntent['participation']) {
-      if (!this.session) return
+      if (!this.session)
+        return
       this.session.intent = { ...this.session.intent, participation }
     },
     startApplying() {
-      if (!this.session) return
+      if (!this.session)
+        return
       this.session.applying = true
       this.session.error = null
     },
     /** Successful save: the base becomes the saved document, intents clear. */
     markApplied(document?: OperationDraftDocument, version?: number) {
-      if (!this.session) return
+      if (!this.session)
+        return
       this.session.intent = { ...EMPTY_INTENT, units: {} }
       this.session.applying = false
-      if (document) this.session.baseDocument = document
-      if (version !== undefined) this.session.baseVersion = version
+      if (document)
+        this.session.baseDocument = document
+      if (version !== undefined)
+        this.session.baseVersion = version
     },
     /** A refused save is answered by its cause, never one blanket banner. */
-    failSave(error: { code?: string; message?: string }) {
-      if (!this.session) return
+    failSave(error: { code?: string, message?: string }) {
+      if (!this.session)
+        return
       this.session.applying = false
       this.session.error = saveFailureMessage(error)
     },
@@ -120,17 +131,21 @@ export const useWorksetEditorStore = defineStore('workset-editor', {
      * edits, and the save reports the conflict.
      */
     syncWithServer(
-      input: { worksetId: string; operation: OperationType },
-      server: { version: number; document: OperationDraftDocument },
+      input: { worksetId: string, operation: OperationType },
+      server: { version: number, document: OperationDraftDocument },
     ) {
       const session = this.session
-      if (!session || session.worksetId !== input.worksetId || session.operation !== input.operation) return
+      if (!session || session.worksetId !== input.worksetId || session.operation !== input.operation)
+        return
       const versionMoved = server.version !== session.baseVersion
       const documentMoved = !sameDocument(server.document, session.baseDocument)
-      if (!versionMoved && !documentMoved) return
-      if (documentMoved && !intentIsEmpty(session.intent)) return
+      if (!versionMoved && !documentMoved)
+        return
+      if (documentMoved && !intentIsEmpty(session.intent))
+        return
       session.baseVersion = server.version
-      if (documentMoved) session.baseDocument = server.document
+      if (documentMoved)
+        session.baseDocument = server.document
       // A moved server copy retires both a stale-conflict banner and the
       // "wait for the generation" advice: neither cause is true any more.
       session.error = null
@@ -141,7 +156,8 @@ export const useWorksetEditorStore = defineStore('workset-editor', {
     },
     /** Server data moved under a dirty session: keep content, flag conflict. */
     markStale() {
-      if (!this.session) return
+      if (!this.session)
+        return
       this.session.applying = false
       this.session.error = '服务端草稿已更新：请放弃本地修改后重新进入以加载服务器版本'
     },
@@ -157,7 +173,7 @@ const SAVE_FAILURE_MESSAGES: Record<string, string> = {
   COMMON_SETTINGS_MISMATCH: '全局设置已在别处改动：请放弃本地修改后重新进入以加载最新设置',
 }
 
-function saveFailureMessage(error: { code?: string; message?: string }): string {
+function saveFailureMessage(error: { code?: string, message?: string }): string {
   const mapped = error.code ? SAVE_FAILURE_MESSAGES[error.code] : undefined
   return mapped ?? error.message ?? '保存草稿失败'
 }
@@ -178,8 +194,10 @@ function sessionHasChanges(session: EditSession): boolean {
 }
 
 function sameTarget(a: EditTarget, b: EditTarget): boolean {
-  if (a.kind !== b.kind) return false
-  if (a.kind === 'member' && b.kind === 'member') return a.memberId === b.memberId
+  if (a.kind !== b.kind)
+    return false
+  if (a.kind === 'member' && b.kind === 'member')
+    return a.memberId === b.memberId
   if (a.kind === 'batch' && b.kind === 'batch') {
     return a.memberIds.length === b.memberIds.length && a.memberIds.every((id, i) => id === b.memberIds[i])
   }

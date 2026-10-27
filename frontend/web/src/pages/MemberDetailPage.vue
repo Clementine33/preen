@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import MemberReview from '@/features/worksets/MemberReview.vue'
 import { useCurrentConversion } from '@/composables/use-operation-context'
+import MemberReview from '@/features/worksets/MemberReview.vue'
 
 /**
  * One member's frozen review (`/worksets/:L/conversion/:M`). The page renders
@@ -15,7 +15,7 @@ const libraryId = computed(() => (route.params.libraryId as string) || '')
 const { workspace } = useCurrentConversion(libraryId)
 
 const memberId = computed(() => (route.params.memberId as string) || null)
-const member = computed(() => workspace.workset.value?.members.find((m) => m.member_id === memberId.value) ?? null)
+const member = computed(() => workspace.workset.value?.members.find(m => m.member_id === memberId.value) ?? null)
 const revision = workspace.revision
 
 function edit() {

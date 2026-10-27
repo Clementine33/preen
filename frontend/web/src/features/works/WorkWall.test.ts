@@ -1,8 +1,8 @@
+import type { WorkSummary } from '@/lib/api/types'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia } from 'pinia'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
-import type { WorkSummary } from '@/lib/api/types'
 import WorkWall from './WorkWall.vue'
 
 /**
@@ -29,7 +29,11 @@ class StubResizeObserver {
 
   /** Deliver a measurement, as a real observer would after a layout settle. */
   trigger(width: number) {
-    this.callback([{ contentRect: { width } }])
+    this.callback([
+      {
+        contentRect: { width },
+      },
+    ])
   }
 }
 
@@ -50,19 +54,32 @@ function makeWorks(count: number): WorkSummary[] {
     has_note: false,
     collected_at: '2026-01-01T00:00:00Z',
     copy_count: 1,
-    listening: { state: 'none', track_index: null, track_count: null, updated_at: null },
+    listening: {
+      state: 'none',
+      track_index: null,
+      track_count: null,
+      updated_at: null,
+    },
   }))
 }
 
 const WORKS = makeWorks(8)
 
 async function scaffold(
-  options: { works?: WorkSummary[]; selectedRj?: string | null; attach?: boolean } = {},
+  options: { works?: WorkSummary[], selectedRj?: string | null, attach?: boolean } = {},
 ) {
   vi.stubGlobal('ResizeObserver', StubResizeObserver)
   const wrapper = mount(WorkWall, {
-    ...(options.attach ? { attachTo: document.body.appendChild(document.createElement('div')) } : {}),
-    global: { plugins: [createPinia()] },
+    ...(options.attach
+      ? {
+          attachTo: document.body.appendChild(document.createElement('div')),
+        }
+      : {}),
+    global: {
+      plugins: [
+        createPinia(),
+      ],
+    },
     props: {
       works: options.works ?? WORKS,
       selectedRj: options.selectedRj ?? null,
@@ -72,10 +89,23 @@ async function scaffold(
   const scroller = wrapper.find('[data-testid="work-wall"]').element as HTMLElement
   let top = 0
   Object.defineProperties(scroller, {
-    offsetHeight: { configurable: true, get: () => 560 },
-    offsetWidth: { configurable: true, get: () => 800 },
-    scrollTop: { configurable: true, get: () => top, set: (v: number) => (top = v) },
-    clientHeight: { configurable: true, get: () => 560 },
+    offsetHeight: {
+      configurable: true,
+      get: () => 560,
+    },
+    offsetWidth: {
+      configurable: true,
+      get: () => 800,
+    },
+    scrollTop: {
+      configurable: true,
+      get: () => top,
+      set: (v: number) => (top = v),
+    },
+    clientHeight: {
+      configurable: true,
+      get: () => 560,
+    },
   })
   // Deliver the measurement, as a real layout settle would.
   for (const observer of StubResizeObserver.instances) observer.trigger(800)
@@ -85,9 +115,9 @@ async function scaffold(
     wrapper,
     exposed: wrapper.vm as unknown as {
       columns: number
-      move(delta: number): void
-      claimFocus(): void
-      cellFor(rj: string): HTMLElement | null
+      move: (delta: number) => void
+      claimFocus: () => void
+      cellFor: (rj: string) => HTMLElement | null
       scroller: HTMLElement | null
     },
   }
@@ -99,7 +129,7 @@ afterEach(() => {
   StubResizeObserver.instances = []
 })
 
-describe('WorkWall', () => {
+describe('workWall', () => {
   it('derives the column count from the grid width and drives the grid style with it', async () => {
     const { wrapper, exposed } = await scaffold()
 
@@ -115,7 +145,7 @@ describe('WorkWall', () => {
 
     const cells = wrapper.findAll('.cell')
     expect(cells).toHaveLength(WORKS.length)
-    const tabbable = cells.filter((cell) => cell.attributes('tabindex') === '0')
+    const tabbable = cells.filter(cell => cell.attributes('tabindex') === '0')
     expect(tabbable).toHaveLength(1)
     expect(tabbable[0].attributes('data-rj')).toBe(WORKS[2].rj)
     expect(tabbable[0].attributes('aria-selected')).toBe('true')
@@ -125,19 +155,31 @@ describe('WorkWall', () => {
     const { wrapper, exposed } = await scaffold({ selectedRj: WORKS[0].rj })
 
     exposed.move(4) // one full row down
-    expect(wrapper.emitted('select')).toEqual([[WORKS[4].rj]])
+    expect(wrapper.emitted('select')).toEqual([
+      [WORKS[4].rj],
+    ])
 
     // The parent feeds the selection back, as WorksPage does.
     await wrapper.setProps({ selectedRj: WORKS[4].rj })
     exposed.move(-1)
-    expect(wrapper.emitted('select')).toEqual([[WORKS[4].rj], [WORKS[3].rj]])
+    expect(wrapper.emitted('select')).toEqual([
+      [WORKS[4].rj],
+      [WORKS[3].rj],
+    ])
 
     await wrapper.setProps({ selectedRj: WORKS[0].rj })
     exposed.move(-99) // already at the start: clamped, no emission
-    expect(wrapper.emitted('select')).toEqual([[WORKS[4].rj], [WORKS[3].rj]])
+    expect(wrapper.emitted('select')).toEqual([
+      [WORKS[4].rj],
+      [WORKS[3].rj],
+    ])
 
     exposed.move(99) // clamped to the last work
-    expect(wrapper.emitted('select')).toEqual([[WORKS[4].rj], [WORKS[3].rj], [WORKS[7].rj]])
+    expect(wrapper.emitted('select')).toEqual([
+      [WORKS[4].rj],
+      [WORKS[3].rj],
+      [WORKS[7].rj],
+    ])
   })
 
   it('starts a move from the first work when nothing on the wall is selected', async () => {
@@ -145,7 +187,9 @@ describe('WorkWall', () => {
     const { wrapper, exposed } = await scaffold({ selectedRj: 'RJ99999999' })
 
     exposed.move(1)
-    expect(wrapper.emitted('select')).toEqual([[WORKS[0].rj]])
+    expect(wrapper.emitted('select')).toEqual([
+      [WORKS[0].rj],
+    ])
   })
 
   it('takes focus on a keyboard move and never on any other selection change', async () => {
@@ -180,11 +224,15 @@ describe('WorkWall', () => {
     const { wrapper } = await scaffold({ selectedRj: WORKS[0].rj })
 
     await wrapper.find(`[data-rj="${WORKS[3].rj}"]`).trigger('click')
-    expect(wrapper.emitted('select')).toEqual([[WORKS[3].rj]])
+    expect(wrapper.emitted('select')).toEqual([
+      [WORKS[3].rj],
+    ])
     expect(wrapper.emitted('open')).toBeUndefined()
 
     await wrapper.find(`[data-rj="${WORKS[3].rj}"]`).trigger('dblclick')
-    expect(wrapper.emitted('open')).toEqual([[WORKS[3].rj]])
+    expect(wrapper.emitted('open')).toEqual([
+      [WORKS[3].rj],
+    ])
   })
 
   it('routes a mobile tap straight to the detail page instead of selecting', async () => {
@@ -204,20 +252,30 @@ describe('WorkWall', () => {
 
     await wrapper.find(`[data-rj="${WORKS[3].rj}"]`).trigger('click')
     expect(wrapper.emitted('select')).toBeUndefined()
-    expect(wrapper.emitted('open')).toEqual([[WORKS[3].rj]])
+    expect(wrapper.emitted('open')).toEqual([
+      [WORKS[3].rj],
+    ])
   })
 
   it('asks for the neighbouring page when a ±1 move runs off either end', async () => {
     const { wrapper, exposed } = await scaffold({ selectedRj: WORKS[7].rj })
 
     exposed.move(1)
-    expect(wrapper.emitted('edge')).toEqual([[1]])
+    expect(wrapper.emitted('edge')).toEqual([
+      [1],
+    ])
     await wrapper.setProps({ selectedRj: WORKS[0].rj })
     exposed.move(-1)
-    expect(wrapper.emitted('edge')).toEqual([[1], [-1]])
+    expect(wrapper.emitted('edge')).toEqual([
+      [1],
+      [-1],
+    ])
     // A row move still clamps inside the page.
     exposed.move(-4)
-    expect(wrapper.emitted('edge')).toEqual([[1], [-1]])
+    expect(wrapper.emitted('edge')).toEqual([
+      [1],
+      [-1],
+    ])
     expect(wrapper.emitted('select')).toBeUndefined()
   })
 

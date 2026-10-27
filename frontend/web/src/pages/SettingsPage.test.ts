@@ -2,11 +2,11 @@ import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { createPinia } from 'pinia'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
-import { ApiError, apiClientKey } from '@/lib/api/client'
+import { KEYS } from '@/composables/use-keymap'
 import { useMotion } from '@/composables/use-motion'
+import { apiClientKey, ApiError } from '@/lib/api/client'
 import { apiStub } from '@/test/api-stub'
 import { installTestQueryPlugin } from '@/test/query-client'
-import { KEYS } from '@/composables/use-keymap'
 import SettingsPage from './SettingsPage.vue'
 
 enableAutoUnmount(afterEach)
@@ -15,12 +15,21 @@ afterEach(() => vi.unstubAllGlobals())
 async function mountPage(api: ReturnType<typeof apiStub>, path = '/settings') {
   const router = createRouter({
     history: createMemoryHistory(),
-    routes: [{ path: '/settings/:section(appearance|network|tags|maintenance|keys|about)?', name: 'settings', component: SettingsPage }],
+    routes: [
+      { path: '/settings/:section(appearance|network|tags|maintenance|keys|about)?', name: 'settings', component: SettingsPage },
+    ],
   })
   await router.push(path)
   const wrapper = mount(SettingsPage, {
     attachTo: document.body.appendChild(document.createElement('div')),
-    global: { plugins: [createPinia(), router, installTestQueryPlugin()], provide: { [apiClientKey as symbol]: api } },
+    global: {
+      plugins: [
+        createPinia(),
+        router,
+        installTestQueryPlugin(),
+      ],
+      provide: { [apiClientKey as symbol]: api },
+    },
   })
   await flushPromises()
   return wrapper
@@ -44,7 +53,9 @@ describe('settings: logout', () => {
   it('keeps the page open and allows retry when logout fails', async () => {
     const replace = vi.fn()
     vi.stubGlobal('location', { replace })
-    const wrapper = await mountPage(apiStub({ deleteSession: vi.fn().mockRejectedValue(new Error('offline')) }))
+    const wrapper = await mountPage(apiStub({
+      deleteSession: vi.fn().mockRejectedValue(new Error('offline')),
+    }))
     await wrapper.get('[data-testid="logout"]').trigger('click')
     await flushPromises()
     expect(replace).not.toHaveBeenCalled()
@@ -54,11 +65,17 @@ describe('settings: logout', () => {
 })
 
 describe('settings: user tags', () => {
-  const tags = [{ id: 't1', name: '睡眠用' }, { id: 't2', name: '雨音' }]
+  const tags = [
+    { id: 't1', name: '睡眠用' },
+    { id: 't2', name: '雨音' },
+  ]
 
   it('lists the whole vocabulary and keeps the typed name on a rename conflict', async () => {
     const renameUserTag = vi.fn().mockRejectedValue(new ApiError(409, 'USER_TAG_EXISTS', 'exists'))
-    const wrapper = await mountPage(apiStub({ listUserTags: vi.fn().mockResolvedValue(tags), renameUserTag }), '/settings/tags')
+    const wrapper = await mountPage(apiStub({
+      listUserTags: vi.fn().mockResolvedValue(tags),
+      renameUserTag,
+    }), '/settings/tags')
     expect(wrapper.find('[data-testid="user-tag-t1"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="user-tag-t2"]').exists()).toBe(true)
 
@@ -76,7 +93,12 @@ describe('settings: user tags', () => {
     const deleteUserTag = vi.fn().mockResolvedValue(undefined)
     const wrapper = await mountPage(apiStub({
       listUserTags: vi.fn().mockResolvedValue(tags),
-      listTagFacets: vi.fn().mockResolvedValue({ source_tags: [], user_tags: [{ id: 't2', name: '雨音', work_count: 4 }] }),
+      listTagFacets: vi.fn().mockResolvedValue({
+        source_tags: [],
+        user_tags: [
+          { id: 't2', name: '雨音', work_count: 4 },
+        ],
+      }),
       deleteUserTag,
     }), '/settings/tags')
 
@@ -96,31 +118,39 @@ describe('settings: format preference', () => {
   it('saves each edit at once, keeps the order, and rolls back with a toast on failure', async () => {
     const putPreferences = vi.fn(async (input: { track_formats: string[] }) => input)
     const wrapper = await mountPage(apiStub({
-      getPreferences: vi.fn().mockResolvedValue({ track_formats: ['WAV', 'FLAC'] }),
+      getPreferences: vi.fn().mockResolvedValue({
+        track_formats: ['WAV', 'FLAC'],
+      }),
       putPreferences,
     }))
     const rows = () => wrapper.findAll('li[data-testid^="format-"]')
-    expect(rows().map((row) => row.get('span.font-mono').text())).toEqual(['WAV', 'FLAC'])
+    expect(rows().map(row => row.get('span.font-mono').text())).toEqual(['WAV', 'FLAC'])
 
     await wrapper.get('[aria-label="FLAC 上移"]').trigger('click')
     await flushPromises()
-    expect(putPreferences).toHaveBeenLastCalledWith({ track_formats: ['FLAC', 'WAV'] })
+    expect(putPreferences).toHaveBeenLastCalledWith({
+      track_formats: ['FLAC', 'WAV'],
+    })
 
     await wrapper.get('[data-testid="format-add-MP3"]').trigger('click')
     await flushPromises()
-    expect(putPreferences).toHaveBeenLastCalledWith({ track_formats: ['FLAC', 'WAV', 'MP3'] })
+    expect(putPreferences).toHaveBeenLastCalledWith({
+      track_formats: ['FLAC', 'WAV', 'MP3'],
+    })
     expect(wrapper.find('[data-testid="format-add-MP3"]').exists()).toBe(false)
 
     putPreferences.mockRejectedValueOnce(new ApiError(500, 'INTERNAL', 'boom'))
     await wrapper.get('[aria-label="移除 WAV"]').trigger('click')
     await flushPromises()
-    expect(rows().map((row) => row.get('span.font-mono').text())).toEqual(['FLAC', 'WAV', 'MP3'])
+    expect(rows().map(row => row.get('span.font-mono').text())).toEqual(['FLAC', 'WAV', 'MP3'])
   })
 })
 
 describe('settings: outbound proxy', () => {
   it('loads the stored URL, saves it, and keeps a refused value beside the field', async () => {
-    const putOutboundProxy = vi.fn(async (input: { url: string }) => ({ url: input.url.trim() }))
+    const putOutboundProxy = vi.fn(async (input: { url: string }) => ({
+      url: input.url.trim(),
+    }))
     const wrapper = await mountPage(apiStub({
       getOutboundProxy: vi.fn().mockResolvedValue({ url: 'socks5://127.0.0.1:7890' }),
       putOutboundProxy,
@@ -145,7 +175,9 @@ describe('settings: outbound proxy', () => {
 
 describe('settings: categories', () => {
   it('opens on appearance and switches category from the sidebar', async () => {
-    const wrapper = await mountPage(apiStub({ listUserTags: vi.fn().mockResolvedValue([]) }))
+    const wrapper = await mountPage(apiStub({
+      listUserTags: vi.fn().mockResolvedValue([]),
+    }))
     expect(wrapper.get('[data-testid="settings-nav-appearance"]').attributes('aria-current')).toBe('page')
     expect(wrapper.find('[data-testid="user-tag-settings"]').exists()).toBe(false)
 
@@ -183,17 +215,19 @@ describe('settings: keyboard shortcuts', () => {
     const wrapper = await mountPage(apiStub(), '/settings/keys')
     expect(wrapper.get('#settings-section-title').text()).toBe('键盘快捷键')
     const list = wrapper.get('[data-testid="settings-keys"]')
-    expect(list.findAll('dt').map((group) => group.text())).toEqual(['播放器', '作品墙', '作品详情', '合集'])
-    const texts = list.findAll('dd').map((row) => row.text())
-    for (const descriptor of Object.values(KEYS)) expect(texts.some((row) => row.includes(descriptor.text))).toBe(true)
-    expect(list.findAll('kbd').map((key) => key.text())).toContain('Shift+→')
+    expect(list.findAll('dt').map(group => group.text())).toEqual(['播放器', '作品墙', '作品详情', '合集'])
+    const texts = list.findAll('dd').map(row => row.text())
+    for (const descriptor of Object.values(KEYS)) expect(texts.some(row => row.includes(descriptor.text))).toBe(true)
+    expect(list.findAll('kbd').map(key => key.text())).toContain('Shift+→')
     expect(list.find('input, button').exists()).toBe(false)
   })
 })
 
 describe('settings: about', () => {
   it('shows the server version and the licence', async () => {
-    const wrapper = await mountPage(apiStub({ getHealth: vi.fn(async () => ({ ok: true, version: '1.2.3' })) }), '/settings/about')
+    const wrapper = await mountPage(apiStub({
+      getHealth: vi.fn(async () => ({ ok: true, version: '1.2.3' })),
+    }), '/settings/about')
     expect(wrapper.get('#settings-section-title').text()).toBe('关于')
     expect(wrapper.get('[data-testid="about-version"]').text()).toBe('1.2.3')
     expect(wrapper.get('[data-testid="settings-about"]').text()).toContain('GPL')
@@ -201,7 +235,9 @@ describe('settings: about', () => {
   })
 
   it('shows a dash when the version cannot be read', async () => {
-    const wrapper = await mountPage(apiStub({ getHealth: vi.fn(async () => { throw new Error('down') }) }), '/settings/about')
+    const wrapper = await mountPage(apiStub({
+      getHealth: vi.fn(async () => { throw new Error('down') }),
+    }), '/settings/about')
     expect(wrapper.get('[data-testid="about-version"]').text()).toBe('—')
   })
 })

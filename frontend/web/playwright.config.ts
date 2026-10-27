@@ -29,7 +29,9 @@ export default defineConfig({
   fullyParallel: false,
   timeout: 120_000,
   expect: { timeout: 15_000 },
-  reporter: [['list']],
+  reporter: [
+    ['list'],
+  ],
   use: {
     baseURL: webURL,
     trace: 'retain-on-failure',

@@ -1,4 +1,5 @@
-import { onBeforeUnmount, onMounted, ref, type Ref } from 'vue'
+import type { Ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref } from 'vue'
 
 /** Workbench container tiers. */
 export type ContainerTier = 'narrow' | 'mid' | 'wide'
@@ -12,8 +13,10 @@ export type ContainerTier = 'narrow' | 'mid' | 'wide'
 export const CONTAINER_BREAKPOINTS = { mid: 641, wide: 1101 } as const
 
 export function tierForWidth(width: number): ContainerTier {
-  if (width >= CONTAINER_BREAKPOINTS.wide) return 'wide'
-  if (width >= CONTAINER_BREAKPOINTS.mid) return 'mid'
+  if (width >= CONTAINER_BREAKPOINTS.wide)
+    return 'wide'
+  if (width >= CONTAINER_BREAKPOINTS.mid)
+    return 'mid'
   return 'narrow'
 }
 
@@ -29,7 +32,8 @@ export function useContainerTier(target: Ref<HTMLElement | null>) {
 
   function measure() {
     const el = target.value
-    if (!el) return
+    if (!el)
+      return
     const measured = el.clientWidth
     width.value = measured
     tier.value = tierForWidth(measured)
@@ -37,9 +41,11 @@ export function useContainerTier(target: Ref<HTMLElement | null>) {
 
   onMounted(() => {
     measure()
-    if (typeof ResizeObserver === 'undefined') return
+    if (typeof ResizeObserver === 'undefined')
+      return
     observer = new ResizeObserver(measure)
-    if (target.value) observer.observe(target.value)
+    if (target.value)
+      observer.observe(target.value)
   })
   onBeforeUnmount(() => observer?.disconnect())
 

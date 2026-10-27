@@ -36,24 +36,58 @@ function file(relPath: string, kind: WorkFileKind, extra: Partial<WorkContentFil
 }
 
 function image(relPath: string, w: number, h: number): WorkContentFile {
-  return file(relPath, 'img', { size: Math.round(w * h * 1.4), width: w, height: h, thumb_v: 'mock' })
+  return file(relPath, 'img', {
+    size: Math.round(w * h * 1.4),
+    width: w,
+    height: h,
+    thumb_v: 'mock',
+  })
 }
 
 function dir(relPath: string, children: Array<WorkContentDir | WorkContentFile>): WorkContentDir {
-  return { name: relPath === '' ? '' : relPath.slice(relPath.lastIndexOf('/') + 1), rel_path: relPath, children }
+  return {
+    name: relPath === ''
+      ? ''
+      : relPath.slice(relPath.lastIndexOf('/') + 1),
+    rel_path: relPath,
+    children,
+  }
 }
 
 // 24 CGs of mixed ratios, one ultra-tall scroll, with 差分 variants (v3).
 const CG_SHAPES: Array<[w: number, h: number]> = [
-  [1200, 1800], [1920, 1080], [1400, 1400], [1200, 1600], [1080, 1920], [1600, 1200], [1200, 1800], [1920, 1080],
-  [1200, 1800], [1500, 1500], [1920, 1080], [1200, 1700], [1080, 1920], [1600, 1200], [1200, 1800], [1920, 1080],
-  [1400, 1400], [1200, 1800], [1920, 1080], [1200, 1600], [1600, 1200], [1080, 1920], [1200, 1800], [800, 2400],
+  [1200, 1800],
+  [1920, 1080],
+  [1400, 1400],
+  [1200, 1600],
+  [1080, 1920],
+  [1600, 1200],
+  [1200, 1800],
+  [1920, 1080],
+  [1200, 1800],
+  [1500, 1500],
+  [1920, 1080],
+  [1200, 1700],
+  [1080, 1920],
+  [1600, 1200],
+  [1200, 1800],
+  [1920, 1080],
+  [1400, 1400],
+  [1200, 1800],
+  [1920, 1080],
+  [1200, 1600],
+  [1600, 1200],
+  [1080, 1920],
+  [1200, 1800],
+  [800, 2400],
 ]
 const cgMain: WorkContentFile[] = []
 const cgDiff: WorkContentFile[] = []
 CG_SHAPES.forEach(([w, h], i) => {
   const diff = i % 3 === 1 && i !== 23
-  const name = i === 23 ? 'cg_24_縦長スクロール.png' : `cg_${String(i + 1).padStart(2, '0')}${diff ? '_差分' : ''}.png`
+  const name = i === 23
+    ? 'cg_24_縦長スクロール.png'
+    : `cg_${String(i + 1).padStart(2, '0')}${diff ? '_差分' : ''}.png`
   const item = image(`CG/${diff ? '差分' : '本編'}/${name}`, w, h)
   ;(diff ? cgDiff : cgMain).push(item)
 })
@@ -70,11 +104,15 @@ const bonusImgs = [
 
 // One track often ships in several formats; 08 exists only as WAV (v3).
 function audio(fmt: 'MP3' | 'WAV', track: [name: string, dur: number]): WorkContentFile {
-  const bytesPerSec = fmt === 'MP3' ? 40_000 : 178_000
+  const bytesPerSec = fmt === 'MP3'
+    ? 40_000
+    : 178_000
   return file(`本編/${fmt.toLowerCase()}/${track[0]}.${fmt.toLowerCase()}`, 'aud', {
     size: Math.round(track[1] * bytesPerSec),
     format: fmt,
-    bitrate: fmt === 'MP3' ? 320 : null,
+    bitrate: fmt === 'MP3'
+      ? 320
+      : null,
     duration_sec: track[1],
   })
 }
@@ -83,8 +121,8 @@ function audio(fmt: 'MP3' | 'WAV', track: [name: string, dur: number]): WorkCont
 
 const TREE: WorkContentDir = dir('', [
   dir('本編', [
-    dir('本編/mp3', TRACKS.filter((_, t) => t < 7).map((track) => audio('MP3', track))),
-    dir('本編/wav', TRACKS.map((track) => audio('WAV', track))),
+    dir('本編/mp3', TRACKS.filter((_, t) => t < 7).map(track => audio('MP3', track))),
+    dir('本編/wav', TRACKS.map(track => audio('WAV', track))),
     dir('本編/lyrics', [
       file('本編/lyrics/02_本編 ―雨音と耳かき―.lrc', 'lrc', { size: 6_348 }),
       file('本編/lyrics/04_おやすみ.lrc', 'lrc', { size: 1_843 }),
@@ -94,7 +132,10 @@ const TREE: WorkContentDir = dir('', [
     file('台本/台本_全編.txt', 'txt', { size: 90_112 }),
     file('台本/台本_おまけ.txt', 'txt', { size: 14_336 }),
   ]),
-  dir('CG', [dir('CG/本編', cgMain), dir('CG/差分', cgDiff)]),
+  dir('CG', [
+    dir('CG/本編', cgMain),
+    dir('CG/差分', cgDiff),
+  ]),
   dir('表紙', cover),
   dir('特典', [
     ...bonusImgs,
@@ -108,8 +149,19 @@ export function sampleWorkContent(rj: string): WorkContent {
   return {
     rj,
     copies: [
-      { copy_id: 'copy-a', library_id: 'lib-a', dir_id: 'dir-a', online: true, tree: TREE },
-      { copy_id: 'copy-b', library_id: 'lib-b', dir_id: 'dir-b', online: false },
+      {
+        copy_id: 'copy-a',
+        library_id: 'lib-a',
+        dir_id: 'dir-a',
+        online: true,
+        tree: TREE,
+      },
+      {
+        copy_id: 'copy-b',
+        library_id: 'lib-b',
+        dir_id: 'dir-b',
+        online: false,
+      },
     ],
   }
 }

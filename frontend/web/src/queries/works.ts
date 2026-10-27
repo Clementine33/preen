@@ -1,23 +1,27 @@
-import { keepPreviousData, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/vue-query'
-import { computed, toValue, type MaybeRefOrGetter } from 'vue'
-import { useApiClient } from '@/lib/api/client'
+import type { QueryClient } from '@tanstack/vue-query'
+import type { MaybeRefOrGetter } from 'vue'
 import type {
   ApiClientContract,
   ListWorksParams,
   WorkFacetKind,
-  WorkUserTag,
   WorksScope,
+  WorkUserTag,
 } from '@/lib/api/types'
-import { queryKeys } from './query-keys'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
+import { computed, toValue } from 'vue'
+import { useApiClient } from '@/lib/api/client'
 import { refreshOrRemoveQueries } from './cache-sync'
 import { bumpCoverEpoch } from './cover-epoch'
+import { queryKeys } from './query-keys'
 
 /** Inventory and bindings changed; personal tag vocabulary is unaffected. */
 export async function sweepWorkCaches(client: QueryClient): Promise<void> {
   await Promise.all([
-    queryKeys.works.listPrefix(), queryKeys.works.detailPrefix(),
-    queryKeys.works.contentPrefix(), queryKeys.works.facetsPrefix(),
-  ].map((prefix) => refreshOrRemoveQueries(client, prefix)))
+    queryKeys.works.listPrefix(),
+    queryKeys.works.detailPrefix(),
+    queryKeys.works.contentPrefix(),
+    queryKeys.works.facetsPrefix(),
+  ].map(prefix => refreshOrRemoveQueries(client, prefix)))
 }
 
 // ---------- query options ----------
@@ -64,7 +68,8 @@ export function workDetailQueryOptions(api: ApiClientContract, rj: string | null
     queryKey: queryKeys.works.detail(rj ?? ''),
     enabled: rj !== null,
     queryFn: ({ signal }: { signal?: AbortSignal }) => {
-      if (rj === null) throw new Error('work detail query requires a work number')
+      if (rj === null)
+        throw new Error('work detail query requires a work number')
       return api.getWork(rj, signal).then((work) => {
         bumpCoverEpoch()
         return work
@@ -140,7 +145,8 @@ export function useWorkContent(rj: MaybeRefOrGetter<string | null>) {
       enabled: toValue(rj) !== null,
       queryFn: ({ signal }: { signal?: AbortSignal }) => {
         const value = toValue(rj)
-        if (value === null) throw new Error('work content query requires a work number')
+        if (value === null)
+          throw new Error('work content query requires a work number')
         return api.getWorkContent(value, signal)
       },
     })),
@@ -165,10 +171,15 @@ function mergeIntoWorkCache(rj: () => string | null) {
   const client = useQueryClient()
   return (patch: object) => {
     const key = rj()
-    if (key === null) return
-    client.setQueryData<Record<string, unknown>>(queryKeys.works.detail(key), (work) =>
-      work ? { ...work, ...patch } : work,
-    )
+    if (key === null)
+      return
+    client.setQueryData<Record<string, unknown>>(queryKeys.works.detail(key), work =>
+      work
+        ? {
+            ...work,
+            ...patch,
+          }
+        : work)
   }
 }
 
@@ -180,13 +191,15 @@ export function useUpdateWorkUserData(rj: MaybeRefOrGetter<string | null>) {
   return useMutation({
     mutationFn: (input: Parameters<ApiClientContract['updateWorkUserData']>[1]) => {
       const value = toValue(rj)
-      if (value === null) throw new Error('a personal-data write requires a work number')
+      if (value === null)
+        throw new Error('a personal-data write requires a work number')
       return api.updateWorkUserData(value, input)
     },
     onSuccess: (data, input) => {
       merge(data)
       // Favorite is membership of the Favorites collection: its entry and detail follow.
-      if ('favorite' in input) void refreshOrRemoveQueries(client, queryKeys.collections.all())
+      if ('favorite' in input)
+        void refreshOrRemoveQueries(client, queryKeys.collections.all())
     },
   })
 }
@@ -199,7 +212,8 @@ export function useReplaceWorkUserTags(rj: MaybeRefOrGetter<string | null>) {
   return useMutation({
     mutationFn: (tagIds: string[]) => {
       const value = toValue(rj)
-      if (value === null) throw new Error('a user-tag write requires a work number')
+      if (value === null)
+        throw new Error('a user-tag write requires a work number')
       return api.replaceWorkUserTags(value, tagIds)
     },
     onSuccess: (userTags) => {
@@ -219,9 +233,13 @@ export function useCreateUserTag() {
   return useMutation({
     mutationFn: (name: string) => api.createUserTag(name),
     onSuccess: (tag) => {
-      client.setQueryData<WorkUserTag[]>(queryKeys.works.userTags(), (tags) =>
-        tags ? [...tags.filter((entry) => entry.id !== tag.id), tag] : [tag],
-      )
+      client.setQueryData<WorkUserTag[]>(queryKeys.works.userTags(), tags =>
+        tags
+          ? [
+              ...tags.filter(entry => entry.id !== tag.id),
+              tag,
+            ]
+          : [tag])
     },
   })
 }
@@ -232,7 +250,11 @@ export function useCreateUserTag() {
  * filtered by it all read the same relation.
  */
 function refreshTagReaders(client: QueryClient): void {
-  for (const prefix of [queryKeys.works.detailPrefix(), queryKeys.works.listPrefix(), queryKeys.works.tagFacetsPrefix()]) {
+  for (const prefix of [
+    queryKeys.works.detailPrefix(),
+    queryKeys.works.listPrefix(),
+    queryKeys.works.tagFacetsPrefix(),
+  ]) {
     void refreshOrRemoveQueries(client, prefix)
   }
 }
@@ -242,11 +264,12 @@ export function useRenameUserTag() {
   const api = useApiClient()
   const client = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, name }: { id: string; name: string }) => api.renameUserTag(id, name),
+    mutationFn: ({ id, name }: { id: string, name: string }) => api.renameUserTag(id, name),
     onSuccess: (tag) => {
-      client.setQueryData<WorkUserTag[]>(queryKeys.works.userTags(), (tags) =>
-        tags?.map((entry) => (entry.id === tag.id ? tag : entry)),
-      )
+      client.setQueryData<WorkUserTag[]>(queryKeys.works.userTags(), tags =>
+        tags?.map(entry => (entry.id === tag.id
+          ? tag
+          : entry)))
       refreshTagReaders(client)
     },
   })
@@ -259,7 +282,7 @@ export function useDeleteUserTag() {
   return useMutation({
     mutationFn: (id: string) => api.deleteUserTag(id),
     onSuccess: (_result, id) => {
-      client.setQueryData<WorkUserTag[]>(queryKeys.works.userTags(), (tags) => tags?.filter((entry) => entry.id !== id))
+      client.setQueryData<WorkUserTag[]>(queryKeys.works.userTags(), tags => tags?.filter(entry => entry.id !== id))
       refreshTagReaders(client)
     },
   })

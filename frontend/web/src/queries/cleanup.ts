@@ -1,13 +1,14 @@
+import type { CleanupCategory, CleanupRun } from '@/lib/api/types'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { useApiClient } from '@/lib/api/client'
-import type { CleanupCategory, CleanupRun } from '@/lib/api/types'
 import { queryKeys } from './query-keys'
 
 /** How often a live run is re-read; there is no cleanup SSE stream. */
 export const CLEANUP_POLL_MS = 2000
 
-export const isCleanupActive = (run: CleanupRun | null | undefined): boolean =>
-  run?.status === 'running' || run?.status === 'stopping'
+export function isCleanupActive(run: CleanupRun | null | undefined): boolean {
+  return run?.status === 'running' || run?.status === 'stopping'
+}
 
 /**
  * The deployment's current/latest cleanup run (docs/api/maintenance.md). It
@@ -21,13 +22,17 @@ export function useCleanupRun() {
     queryFn: ({ signal }: { signal?: AbortSignal }) => api.getCleanup(signal),
     staleTime: 0,
     refetchOnMount: 'always',
-    refetchInterval: (query) => (isCleanupActive(query.state.data) ? CLEANUP_POLL_MS : false),
+    refetchInterval: query => (isCleanupActive(query.state.data)
+      ? CLEANUP_POLL_MS
+      : false),
   })
 }
 
 export function usePreviewCleanup() {
   const api = useApiClient()
-  return useMutation({ mutationFn: (categories: CleanupCategory[]) => api.previewCleanup(categories) })
+  return useMutation({
+    mutationFn: (categories: CleanupCategory[]) => api.previewCleanup(categories),
+  })
 }
 
 /** Starts once per confirmation; a lost answer is resolved by reading the run, never by resending. */
@@ -36,7 +41,7 @@ export function useStartCleanup() {
   const client = useQueryClient()
   return useMutation({
     mutationFn: (categories: CleanupCategory[]) => api.startCleanup(categories),
-    onSuccess: (run) => client.setQueryData(queryKeys.cleanup.run(), run),
+    onSuccess: run => client.setQueryData(queryKeys.cleanup.run(), run),
   })
 }
 
@@ -45,6 +50,6 @@ export function useCancelCleanup() {
   const client = useQueryClient()
   return useMutation({
     mutationFn: (runId: string) => api.cancelCleanup(runId),
-    onSuccess: (run) => client.setQueryData(queryKeys.cleanup.run(), run),
+    onSuccess: run => client.setQueryData(queryKeys.cleanup.run(), run),
   })
 }

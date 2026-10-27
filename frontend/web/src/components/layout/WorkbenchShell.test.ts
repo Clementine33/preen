@@ -1,7 +1,9 @@
-import { enableAutoUnmount, mount, type VueWrapper } from '@vue/test-utils'
+import type { VueWrapper } from '@vue/test-utils'
+import type { Router } from 'vue-router'
+import { enableAutoUnmount, mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, nextTick } from 'vue'
-import { createRouter, createWebHistory, type Router } from 'vue-router'
+import { createRouter, createWebHistory } from 'vue-router'
 import WorkbenchShell from './WorkbenchShell.vue'
 
 /**
@@ -30,30 +32,51 @@ class StubResizeObserver {
 const router: Router = createRouter({
   history: createWebHistory(),
   routes: [
-    { path: '/', name: 'home', component: { template: '<div />' } },
-    { path: '/other', name: 'other', component: { template: '<div />' } },
-    { path: '/worksets', name: 'worksets', component: { template: '<div />' } },
+    {
+      path: '/',
+      name: 'home',
+      component: { template: '<div />' },
+    },
+    {
+      path: '/other',
+      name: 'other',
+      component: { template: '<div />' },
+    },
+    {
+      path: '/worksets',
+      name: 'worksets',
+      component: { template: '<div />' },
+    },
   ],
 })
 
 const shell = defineComponent({
   components: { WorkbenchShell },
   setup: () => () =>
-    h(WorkbenchShell, { contextTitle: '工作集名', contextPage: '转换', contextBackTo: '/worksets', contextBackLabel: '工作集列表' }, {
-      nav: () =>
+    h(WorkbenchShell, {
+      contextTitle: '工作集名',
+      contextPage: '转换',
+      contextBackTo: '/worksets',
+      contextBackLabel: '工作集列表',
+    }, {
+      'nav': () =>
         h('div', { 'data-testid': 'nav-content' }, [
           h('a', { href: '/' }, 'current page'),
-          h('button', { type: 'button', 'data-testid': 'fold-action' }, 'fold'),
+          h('button', { 'type': 'button', 'data-testid': 'fold-action' }, 'fold'),
         ]),
-      main: () => h('div', { 'data-testid': 'main-content' }, 'list'),
-      detail: () => h('div', { 'data-testid': 'inline-detail' }, 'detail'),
+      'main': () => h('div', { 'data-testid': 'main-content' }, 'list'),
+      'detail': () => h('div', { 'data-testid': 'inline-detail' }, 'detail'),
       'detail-modal': () => h('div', { 'data-testid': 'modal-detail' }, 'detail'),
     }),
 })
 
-function mountShell(width: number): { wrapper: VueWrapper; elementWidth: ReturnType<typeof vi.spyOn> } {
+function mountShell(width: number): { wrapper: VueWrapper, elementWidth: ReturnType<typeof vi.spyOn> } {
   const elementWidth = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(width)
-  const options = { global: { plugins: [router] } }
+  const options = {
+    global: {
+      plugins: [router],
+    },
+  }
   const wrapper = mount(shell, { ...options, attachTo: document.body })
   return { wrapper, elementWidth }
 }
@@ -197,7 +220,8 @@ describe('narrow workbench drawer', () => {
 
       expect(router.currentRoute.value.path).toBe('/')
       expect(wrapper.find('[data-testid="workbench-nav-drawer"] [data-testid="nav-content"]').exists()).toBe(true)
-    } finally {
+    }
+    finally {
       unblock()
       elementWidth.mockRestore()
     }

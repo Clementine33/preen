@@ -1,14 +1,16 @@
-import { enableAutoUnmount, flushPromises, mount, type VueWrapper } from '@vue/test-utils'
+import type { VueWrapper } from '@vue/test-utils'
+import type { Router } from 'vue-router'
+import type { ApiClientContract, ExecutionView, Operation, OperationType, Workset } from '@/lib/api/types'
+import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { createPinia } from 'pinia'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createMemoryHistory, createRouter, type Router } from 'vue-router'
+import { createMemoryHistory, createRouter } from 'vue-router'
+import TaskToastHost from '@/components/layout/TaskToastHost.vue'
+import { useTaskToast } from '@/composables/use-task-toast'
 import { apiClientKey } from '@/lib/api/client'
-import type { ApiClientContract, ExecutionView, Operation, OperationType, Workset } from '@/lib/api/types'
 import { apiStub } from '@/test/api-stub'
 import { installTestQueryPlugin } from '@/test/query-client'
 import TaskOperationPage from './TaskOperationPage.vue'
-import TaskToastHost from '@/components/layout/TaskToastHost.vue'
-import { useTaskToast } from '@/composables/use-task-toast'
 
 enableAutoUnmount(afterEach)
 
@@ -35,7 +37,15 @@ const workset: Workset = {
   title: 'T',
   version: 1,
   library: { library_id: 'lib-1', name: 'Lib', root_path: '/music' },
-  members: [{ member_id: 'm-1', folder_path: '/music/a', folder_name: 'a', rel_path: 'a', dir_id: 'd-a' }],
+  members: [
+    {
+      member_id: 'm-1',
+      folder_path: '/music/a',
+      folder_name: 'a',
+      rel_path: 'a',
+      dir_id: 'd-a',
+    },
+  ],
   operations: [],
   updated_at: '',
   created_at: '',
@@ -53,7 +63,13 @@ function operationOf(type: OperationType): Operation {
       created_at: '',
       status: 'ready',
       summary_reason: '',
-      counts: { members: 1, changed: 1, unmet_targets: 0, blocked: 0, unchanged: 0 },
+      counts: {
+        members: 1,
+        changed: 1,
+        unmet_targets: 0,
+        blocked: 0,
+        unchanged: 0,
+      },
       validation_state: 'valid',
       stale: false,
     },
@@ -70,10 +86,27 @@ const COMMON = {
 }
 const COMPONENTS = {
   rename: [
-    { member_id: 'm-1', source_name: 'a', work_code: 'RJ01', raw_name: '', target_name: '[RJ01] Title', action: 'rename' },
+    {
+      member_id: 'm-1',
+      source_name: 'a',
+      work_code: 'RJ01',
+      raw_name: '',
+      target_name: '[RJ01] Title',
+      action: 'rename',
+    },
   ],
   metadata_refresh: [
-    { member_id: 'm-1', target: { copy_id: 'c', rj: 'RJ01', library_root: '/music', rel_path: 'a', identity: '' }, action: 'refresh' },
+    {
+      member_id: 'm-1',
+      target: {
+        copy_id: 'c',
+        rj: 'RJ01',
+        library_root: '/music',
+        rel_path: 'a',
+        identity: '',
+      },
+      action: 'refresh',
+    },
   ],
 }
 
@@ -92,7 +125,11 @@ function pageApi(overrides: Partial<ApiClientContract> = {}): ApiClientContract 
     })) as never,
     getRevision: vi.fn(async (_id: string, type: OperationType) => ({
       plan_id: 'p-1',
-      task: { kind: type, schema_version: 1, payload: { components: COMPONENTS[type as 'rename'] } },
+      task: {
+        kind: type,
+        schema_version: 1,
+        payload: { components: COMPONENTS[type as 'rename'] },
+      },
       execution: null,
     })) as never,
     getTaskSettings: vi.fn(async (type: OperationType) => ({ settings: COMMON[type as 'rename'], etag: '"e1"' })) as never,
@@ -106,41 +143,119 @@ function pageApi(overrides: Partial<ApiClientContract> = {}): ApiClientContract 
 async function mountPage(
   path: string,
   overrides: Partial<ApiClientContract> = {},
-): Promise<{ wrapper: VueWrapper; api: ApiClientContract; router: Router }> {
+): Promise<{ wrapper: VueWrapper, api: ApiClientContract, router: Router }> {
   const api = pageApi(overrides)
   const router = createRouter({
     history: createMemoryHistory(),
     routes: [
-      { path: '/worksets/:libraryId', name: 'workbench-overview', component: { template: '<div />' } },
-      { path: '/worksets/:libraryId/rename', name: 'rename', component: TaskOperationPage, props: { operation: 'rename' } },
-      { path: '/worksets/:libraryId/metadata', name: 'metadata-refresh', component: TaskOperationPage, props: { operation: 'metadata_refresh' } },
-      { path: '/worksets', name: 'worksets', component: { template: '<div />' } },
-      { path: '/worksets/:libraryId/conversion', name: 'conversion', component: { template: '<div />' } },
-      { path: '/worksets/:libraryId/conversion/settings', name: 'conversion-settings', component: { template: '<div />' } },
+      {
+        path: '/worksets/:libraryId',
+        name: 'workbench-overview',
+        component: { template: '<div />' },
+      },
+      {
+        path: '/worksets/:libraryId/rename',
+        name: 'rename',
+        component: TaskOperationPage,
+        props: { operation: 'rename' },
+      },
+      {
+        path: '/worksets/:libraryId/metadata',
+        name: 'metadata-refresh',
+        component: TaskOperationPage,
+        props: { operation: 'metadata_refresh' },
+      },
+      {
+        path: '/worksets',
+        name: 'worksets',
+        component: { template: '<div />' },
+      },
+      {
+        path: '/worksets/:libraryId/conversion',
+        name: 'conversion',
+        component: { template: '<div />' },
+      },
+      {
+        path: '/worksets/:libraryId/conversion/settings',
+        name: 'conversion-settings',
+        component: { template: '<div />' },
+      },
     ],
   })
   await router.push(path)
   await router.isReady()
-  const wrapper = mount({ components: { TaskToastHost }, template: '<RouterView /><TaskToastHost />' }, {
-    global: { plugins: [createPinia(), router, installTestQueryPlugin()], provide: { [apiClientKey as symbol]: api } },
+  const wrapper = mount({
+    components: { TaskToastHost },
+    template: '<RouterView /><TaskToastHost />',
+  }, {
+    global: {
+      plugins: [
+        createPinia(),
+        router,
+        installTestQueryPlugin(),
+      ],
+      provide: { [apiClientKey as symbol]: api },
+    },
   })
   await flushPromises()
   return { wrapper, api, router }
 }
 
 describe('task operation page', () => {
-  it.each(['rename', 'metadata_refresh'] as const)('shows authoritative %s details after its stream ends', async operation => {
-    const view: ExecutionView = { execution_id: 'e-1', workset_id: 'ws-1', operation_type: operation, plan_id: 'p-1', status: 'running',
-      total_components: 2, completed_components: 0, total_operations: 2, completed_operations: 0,
-      current_root: '', current_component_id: '', current_phase: '', components: [], error_code: '', error_message: '', started_at: '', finished_at: '', created_at: '' }
-    const { wrapper } = await mountPage('/worksets/lib-1/' + (operation === 'rename' ? 'rename' : 'metadata'), {
-      getOperation: vi.fn().mockResolvedValue({ ...operationOf(operation), active_execution: view }),
-      getExecution: vi.fn().mockResolvedValue({ ...view, status: 'failed', completed_components: 2, completed_operations: 1 }),
-      streamExecutionEvents: vi.fn(() => ({ async *[Symbol.asyncIterator]() {
-        yield { type: 'execution_snapshot' as const, data: view }
-        yield { type: 'failed' as const, data: { execution_id: 'e-1', error_code: 'FAILED', error_message: 'Failed' } }
-      } })),
-      getExecutionCovers: vi.fn().mockResolvedValue({ items: [], counts: { pending: 0, running: 0, succeeded: 0, skipped: 0, failed: 0, canceled: 0 } }),
+  it.each(['rename', 'metadata_refresh'] as const)('shows authoritative %s details after its stream ends', async (operation) => {
+    const view: ExecutionView = {
+      execution_id: 'e-1',
+      workset_id: 'ws-1',
+      operation_type: operation,
+      plan_id: 'p-1',
+      status: 'running',
+      total_components: 2,
+      completed_components: 0,
+      total_operations: 2,
+      completed_operations: 0,
+      current_root: '',
+      current_component_id: '',
+      current_phase: '',
+      components: [],
+      error_code: '',
+      error_message: '',
+      started_at: '',
+      finished_at: '',
+      created_at: '',
+    }
+    const { wrapper } = await mountPage(`/worksets/lib-1/${operation === 'rename'
+      ? 'rename'
+      : 'metadata'}`, {
+      getOperation: vi.fn().mockResolvedValue({
+        ...operationOf(operation),
+        active_execution: view,
+      }),
+      getExecution: vi.fn().mockResolvedValue({
+        ...view,
+        status: 'failed',
+        completed_components: 2,
+        completed_operations: 1,
+      }),
+      streamExecutionEvents: vi.fn(() => ({
+        async* [Symbol.asyncIterator]() {
+          yield { type: 'execution_snapshot' as const, data: view }
+          yield {
+            type: 'failed' as const,
+            data: { execution_id: 'e-1', error_code: 'FAILED', error_message: 'Failed' },
+          }
+        },
+      })),
+      getExecutionCovers: vi.fn().mockResolvedValue({
+        items: [],
+        counts: {
+          pending: 0,
+          running: 0,
+          succeeded: 0,
+          skipped: 0,
+          failed: 0,
+          canceled: 0,
+        },
+      }),
     })
     expect(wrapper.get('[data-testid="results-pane"]').text()).toContain('2/2')
     wrapper.unmount()
@@ -148,20 +263,58 @@ describe('task operation page', () => {
 
   it('keeps Task identity and polled progress when the same page instance switches from rename to metadata', async () => {
     vi.useFakeTimers()
-    const view = (operation: OperationType, id: string, done = 0): ExecutionView => ({ execution_id: id, workset_id: 'ws-1', operation_type: operation, plan_id: 'p-1', status: 'running',
-      total_components: 3, completed_components: done, total_operations: 3, completed_operations: done,
-      current_root: '', current_component_id: '', current_phase: '', components: [], error_code: '', error_message: '', started_at: '', finished_at: '', created_at: '' })
+    const view = (operation: OperationType, id: string, done = 0): ExecutionView => ({
+      execution_id: id,
+      workset_id: 'ws-1',
+      operation_type: operation,
+      plan_id: 'p-1',
+      status: 'running',
+      total_components: 3,
+      completed_components: done,
+      total_operations: 3,
+      completed_operations: done,
+      current_root: '',
+      current_component_id: '',
+      current_phase: '',
+      components: [],
+      error_code: '',
+      error_message: '',
+      started_at: '',
+      finished_at: '',
+      created_at: '',
+    })
     let finishRename!: () => void
-    const renameStream = new Promise<void>(resolve => { finishRename = resolve })
+    const renameStream = new Promise<void>((resolve) => { finishRename = resolve })
     const { wrapper, api, router } = await mountPage('/worksets/lib-1/rename', {
-      getOperation: vi.fn(async (_ws, operation) => ({ ...operationOf(operation), active_execution: view(operation, operation) })),
+      getOperation: vi.fn(async (_ws, operation) => ({
+        ...operationOf(operation),
+        active_execution: view(operation, operation),
+      })),
       getExecution: vi.fn(async (_ws, operation, id) => view(operation, id, 2)),
-      streamExecutionEvents: vi.fn((_ws, operation, id) => ({ async *[Symbol.asyncIterator]() {
-        yield { type: 'execution_snapshot' as const, data: view(operation, id) }
-        await renameStream
-        yield { type: 'succeeded' as const, data: { execution_id: id, plan_id: 'p-1' } }
-      } })),
-      getExecutionCovers: vi.fn().mockResolvedValue({ items: [], counts: { pending: 1, running: 0, succeeded: 0, skipped: 0, failed: 0, canceled: 0 } }),
+      streamExecutionEvents: vi.fn((_ws, operation, id) => ({
+        async* [Symbol.asyncIterator]() {
+          yield {
+            type: 'execution_snapshot' as const,
+            data: view(operation, id),
+          }
+          await renameStream
+          yield {
+            type: 'succeeded' as const,
+            data: { execution_id: id, plan_id: 'p-1' },
+          }
+        },
+      })),
+      getExecutionCovers: vi.fn().mockResolvedValue({
+        items: [],
+        counts: {
+          pending: 1,
+          running: 0,
+          succeeded: 0,
+          skipped: 0,
+          failed: 0,
+          canceled: 0,
+        },
+      }),
     })
     const original = wrapper.get('[data-testid="task-page-rename"]').element
     await router.push('/worksets/lib-1/metadata')
@@ -175,7 +328,10 @@ describe('task operation page', () => {
     expect(wrapper.get('[data-testid="task-toast"]').text()).toContain('执行完成')
     const toast = useTaskToast()
     toast.dismiss(toast.current.value!.id)
-    vi.mocked(api.getExecution).mockResolvedValue({ ...view('metadata_refresh', 'metadata_refresh', 3), status: 'succeeded' })
+    vi.mocked(api.getExecution).mockResolvedValue({
+      ...view('metadata_refresh', 'metadata_refresh', 3),
+      status: 'succeeded',
+    })
     await vi.advanceTimersByTimeAsync(2000)
     await flushPromises()
     expect(wrapper.find('[data-testid="task-toast"]').exists()).toBe(false)
@@ -223,19 +379,42 @@ describe('task operation page', () => {
     await wrapper.get('[data-testid="settings-apply"]').trigger('click')
     await flushPromises()
     expect(vi.mocked(api.saveTaskSettings).mock.calls[0][1]).toMatchObject({
-      template: '[{rj}] {voice_actors}', voice_actor_separator: ' & ',
+      template: '[{rj}] {voice_actors}',
+      voice_actor_separator: ' & ',
     })
   })
 
   it('executes a rename plan that holds a blocked folder and lists only changes', async () => {
     const { wrapper } = await mountPage('/worksets/lib-1/rename', {
       getRevision: vi.fn(async () => ({
-        plan_id: 'p-1', counts: { blocked: 1 },
-        task: { kind: 'rename', schema_version: 1, payload: { components: [
-          ...COMPONENTS.rename,
-          { member_id: 'm-2', source_name: 'b', work_code: 'RJ02', raw_name: '', target_name: '', action: 'blocked', reason_code: 'TARGET_EXISTS' },
-          { member_id: 'm-3', source_name: 'c', work_code: 'RJ03', raw_name: '', target_name: 'c', action: 'noop' },
-        ] } },
+        plan_id: 'p-1',
+        counts: { blocked: 1 },
+        task: {
+          kind: 'rename',
+          schema_version: 1,
+          payload: {
+            components: [
+              ...COMPONENTS.rename,
+              {
+                member_id: 'm-2',
+                source_name: 'b',
+                work_code: 'RJ02',
+                raw_name: '',
+                target_name: '',
+                action: 'blocked',
+                reason_code: 'TARGET_EXISTS',
+              },
+              {
+                member_id: 'm-3',
+                source_name: 'c',
+                work_code: 'RJ03',
+                raw_name: '',
+                target_name: 'c',
+                action: 'noop',
+              },
+            ],
+          },
+        },
       })) as never,
     })
     expect(wrapper.text()).not.toContain('排除阻塞项后重新生成')
@@ -256,8 +435,13 @@ describe('task operation page', () => {
     await wrapper.get('[data-testid="manual-rename-form"]').trigger('submit')
     await flushPromises()
     expect(api.saveOperationDraft).toHaveBeenCalledWith(
-      'ws-1', 'rename',
-      expect.objectContaining({ members: [{ member_id: 'm-1', excluded: false, name: '[RJ01] mine' }] }),
+      'ws-1',
+      'rename',
+      expect.objectContaining({
+        members: [
+          { member_id: 'm-1', excluded: false, name: '[RJ01] mine' },
+        ],
+      }),
       3,
     )
   })
@@ -265,8 +449,17 @@ describe('task operation page', () => {
   it('drops names a run already applied when the draft is saved again', async () => {
     const { wrapper, api } = await mountPage('/worksets/lib-1/rename', {
       getOperationDraft: vi.fn(async () => ({
-        workset_id: 'ws-1', operation_type: 'rename', version: 3, schema_version: 1,
-        document: { schema_version: 1, common: COMMON.rename, members: [{ member_id: 'm-1', excluded: false, name: 'a' }] },
+        workset_id: 'ws-1',
+        operation_type: 'rename',
+        version: 3,
+        schema_version: 1,
+        document: {
+          schema_version: 1,
+          common: COMMON.rename,
+          members: [
+            { member_id: 'm-1', excluded: false, name: 'a' },
+          ],
+        },
         updated_at: '',
       })) as never,
     })
@@ -277,20 +470,42 @@ describe('task operation page', () => {
     await wrapper.get('[data-testid="manual-rename-form"]').trigger('submit')
     await flushPromises()
     expect(api.saveOperationDraft).toHaveBeenCalledWith(
-      'ws-1', 'rename', expect.objectContaining({ members: [] }), 3,
+      'ws-1',
+      'rename',
+      expect.objectContaining({ members: [] }),
+      3,
     )
   })
 
   it('shows recovered rename results while the session stays interrupted', async () => {
     const { wrapper } = await mountPage('/worksets/lib-1/rename', {
       getRevision: vi.fn(async () => ({
-        plan_id: 'p-1', task: { kind: 'rename', schema_version: 1, payload: { components: COMPONENTS.rename } },
+        plan_id: 'p-1',
+        task: {
+          kind: 'rename',
+          schema_version: 1,
+          payload: { components: COMPONENTS.rename },
+        },
         execution: { execution_id: 'e-1' },
       })) as never,
       getExecution: vi.fn(async () => ({
-        execution_id: 'e-1', status: 'interrupted', completed_components: 1, total_components: 2,
-        components: [{ component_id: 'm-1', root_path: '/music/a', status: 'succeeded',
-          task_result: { source_path: '/music/a', target_path: '/music/title', renamed: true, recovered: true } }],
+        execution_id: 'e-1',
+        status: 'interrupted',
+        completed_components: 1,
+        total_components: 2,
+        components: [
+          {
+            component_id: 'm-1',
+            root_path: '/music/a',
+            status: 'succeeded',
+            task_result: {
+              source_path: '/music/a',
+              target_path: '/music/title',
+              renamed: true,
+              recovered: true,
+            },
+          },
+        ],
       })) as never,
     })
     expect(wrapper.get('[data-testid="results-pane"]').text()).toContain('已中断')
@@ -310,11 +525,25 @@ describe('task operation page', () => {
   })
 
   it('lists only the works whose metadata fetch failed', async () => {
-    const component = { root_path: '/music/a', partition: 'matched', operations: 1, completed_operations: 1, committed: [], removed: [], remaining: [], recovery: [], inventory_synced: true }
+    const component = {
+      root_path: '/music/a',
+      partition: 'matched',
+      operations: 1,
+      completed_operations: 1,
+      committed: [],
+      removed: [],
+      remaining: [],
+      recovery: [],
+      inventory_synced: true,
+    }
     const { wrapper } = await mountPage('/worksets/lib-1/metadata', {
       getRevision: vi.fn(async () => ({
         plan_id: 'p-1',
-        task: { kind: 'metadata_refresh', schema_version: 1, payload: { components: COMPONENTS.metadata_refresh } },
+        task: {
+          kind: 'metadata_refresh',
+          schema_version: 1,
+          payload: { components: COMPONENTS.metadata_refresh },
+        },
         execution: { execution_id: 'e-1' },
       })) as never,
       getExecution: vi.fn(async () => ({
@@ -324,13 +553,39 @@ describe('task operation page', () => {
         completed_components: 2,
         error_message: '',
         components: [
-          { ...component, component_index: 0, component_id: 'c-1', status: 'succeeded', task_result: { rj: 'RJ01', issues: [{ source: 'asmr.one', code: 'BACKUP_FAILED', message: 'x' }] } },
-          { ...component, component_index: 1, component_id: 'c-2', status: 'failed', error_code: 'METADATA_UNAVAILABLE', error_message: 'not found', task_result: { rj: 'RJ02' } },
+          {
+            ...component,
+            component_index: 0,
+            component_id: 'c-1',
+            status: 'succeeded',
+            task_result: {
+              rj: 'RJ01',
+              issues: [
+                { source: 'asmr.one', code: 'BACKUP_FAILED', message: 'x' },
+              ],
+            },
+          },
+          {
+            ...component,
+            component_index: 1,
+            component_id: 'c-2',
+            status: 'failed',
+            error_code: 'METADATA_UNAVAILABLE',
+            error_message: 'not found',
+            task_result: { rj: 'RJ02' },
+          },
         ],
       })) as never,
       getExecutionCovers: vi.fn(async () => ({
         items: [],
-        counts: { pending: 0, running: 0, succeeded: 0, skipped: 0, failed: 0, canceled: 0 },
+        counts: {
+          pending: 0,
+          running: 0,
+          succeeded: 0,
+          skipped: 0,
+          failed: 0,
+          canceled: 0,
+        },
       })) as never,
     })
 
@@ -374,13 +629,48 @@ describe('task operation page', () => {
 })
 
 it('keeps failed cover retries visible inline without a fictional task result', async () => {
-  const view: ExecutionView = { execution_id: 'e-1', workset_id: 'ws-1', operation_type: 'metadata_refresh', plan_id: 'p-1', status: 'succeeded',
-    total_components: 1, completed_components: 1, total_operations: 1, completed_operations: 1,
-    current_root: '', current_component_id: '', current_phase: '', components: [], error_code: '', error_message: '', started_at: '', finished_at: '', created_at: '' }
+  const view: ExecutionView = {
+    execution_id: 'e-1',
+    workset_id: 'ws-1',
+    operation_type: 'metadata_refresh',
+    plan_id: 'p-1',
+    status: 'succeeded',
+    total_components: 1,
+    completed_components: 1,
+    total_operations: 1,
+    completed_operations: 1,
+    current_root: '',
+    current_component_id: '',
+    current_phase: '',
+    components: [],
+    error_code: '',
+    error_message: '',
+    started_at: '',
+    finished_at: '',
+    created_at: '',
+  }
   const { wrapper } = await mountPage('/worksets/lib-1/metadata', {
-    getRevision: vi.fn().mockResolvedValue({ plan_id: 'p-1', task: { kind: 'metadata_refresh', schema_version: 1, payload: { components: [] } }, execution: view }),
+    getRevision: vi.fn().mockResolvedValue({
+      plan_id: 'p-1',
+      task: {
+        kind: 'metadata_refresh',
+        schema_version: 1,
+        payload: { components: [] },
+      },
+      execution: view,
+    }),
     getExecution: vi.fn().mockResolvedValue(view),
-    getExecutionCovers: vi.fn().mockResolvedValue({ items: [], counts: { pending: 0, running: 0, succeeded: 0, skipped: 0, failed: 1, canceled: 0 } }),
+    getExecutionCovers: vi.fn().mockResolvedValue({
+      items: [],
+      counts: {
+        pending: 0,
+        running: 0,
+        succeeded: 0,
+        skipped: 0,
+        failed: 1,
+        canceled: 0,
+      },
+    }),
     changeExecutionCovers: vi.fn().mockRejectedValue(new Error('封面重试不可用')),
   })
   const retry = wrapper.get('[data-testid="covers"]').findAll('button').find(button => button.text() === '重试')!

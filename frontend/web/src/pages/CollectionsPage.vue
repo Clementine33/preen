@@ -1,17 +1,17 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import type { WorkSummary } from '@/lib/api/types'
 import { useQueryClient } from '@tanstack/vue-query'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { useKeymap } from '@/composables/use-keymap'
-import { useToast } from '@/composables/use-toast'
 import GlobalMenu from '@/components/layout/GlobalMenu.vue'
+import { useKeymap } from '@/composables/use-keymap'
 import { useMediaQuery } from '@/composables/use-media-query'
 import { useReducedMotion, useSwitchBurst } from '@/composables/use-motion'
+import { useToast } from '@/composables/use-toast'
 import CollectionScreen from '@/features/collections/CollectionScreen.vue'
 import { fmtT } from '@/features/work-detail/derive'
 import { useApiClient } from '@/lib/api/client'
-import type { WorkSummary } from '@/lib/api/types'
-import { collectionDetailQueryOptions, newCollectionName, useCollectionManage, useCollectionTitles, useCollections } from '@/queries/collections'
+import { collectionDetailQueryOptions, newCollectionName, useCollectionManage, useCollections, useCollectionTitles } from '@/queries/collections'
 import { useLibraryUiStore } from '@/stores/library-ui'
 import { usePlayerStore } from '@/stores/player'
 
@@ -41,8 +41,12 @@ const toast = useToast()
 async function createNew() {
   try {
     const made = await manage.create(newCollectionName(collections.value))
-    await router.push({ name: 'collection-detail', params: { id: made.id } })
-  } catch (e) { toast.error(e) }
+    await router.push({
+      name: 'collection-detail',
+      params: { id: made.id },
+    })
+  }
+  catch (e) { toast.error(e) }
 }
 
 const TITLE_LINE = 22 // a title's line height; a one-line title is the shortest item
@@ -64,8 +68,10 @@ let draw = 0
 async function drawCover(redraw = false) {
   const col = current.value
   const mine = ++draw
-  if (narrow.value) return
-  if (!col || col.work_count === 0) return void (coverWork.value = null)
+  if (narrow.value)
+    return
+  if (!col || col.work_count === 0)
+    return void (coverWork.value = null)
   let page = 1 + Math.floor(Math.random() * col.work_count)
   if (col.work_count > 1 && (redraw || page === lastPage)) {
     while (page === lastPage) page = 1 + Math.floor(Math.random() * col.work_count)
@@ -75,11 +81,14 @@ async function drawCover(redraw = false) {
       ...collectionDetailQueryOptions(api, col.id, { limit: 1, page }),
       staleTime: 60_000,
     })
-    if (mine !== draw) return
+    if (mine !== draw)
+      return
     lastPage = page
     coverWork.value = detail.works[0] ?? null
-  } catch {
-    if (mine === draw) coverWork.value = null
+  }
+  catch {
+    if (mine === draw)
+      coverWork.value = null
   }
 }
 
@@ -87,7 +96,8 @@ async function drawCover(redraw = false) {
 // CSS background, which cannot report an error); the wall's useCoverSrc can.
 const coverUrl = computed(() => {
   const w = coverWork.value
-  if (!w) return null
+  if (!w)
+    return null
   if (w.local_cover) {
     const { copy_id: copyId, rel_path: relPath, version } = w.local_cover
     return api.workFileUrl({ rj: w.rj, copyId, relPath }, version)
@@ -100,11 +110,15 @@ const coverVeiled = computed(() => libraryUi.veil && coverWork.value?.nsfw === t
 
 // ── Message line (the Intel menu's bottom sentence): what is playing, else the selection ──
 const playing = computed(() => player.rj !== null)
-const playClock = computed(() => `${fmtT(player.elapsed)} / ${player.duration === null ? '--:--' : fmtT(player.duration)}`)
+const playClock = computed(() => `${fmtT(player.elapsed)} / ${player.duration === null
+  ? '--:--'
+  : fmtT(player.duration)}`)
 const message = computed(() => {
   const col = current.value
-  if (!col) return '还没有合集。'
-  if (col.work_count === 0) return `${col.name} 还是空的。`
+  if (!col)
+    return '还没有合集。'
+  if (col.work_count === 0)
+    return `${col.name} 还是空的。`
   return `${col.name} 收录 ${col.work_count} 部作品。`
 })
 
@@ -113,12 +127,17 @@ const titlesEl = ref<HTMLElement | null>(null)
 const fitCount = ref(Infinity)
 function measureTitles() {
   const box = titlesEl.value
-  if (!box) return
+  if (!box)
+    return
   // Most titles that could fit: all one line. Taller ones fit fewer, hidden below.
-  titleLimit.value = box.clientHeight > 0 ? Math.min(200, Math.max(1, Math.floor((box.clientHeight + TITLE_GAP) / (TITLE_LINE + TITLE_GAP)))) : TITLE_FALLBACK
+  titleLimit.value = box.clientHeight > 0
+    ? Math.min(200, Math.max(1, Math.floor((box.clientHeight + TITLE_GAP) / (TITLE_LINE + TITLE_GAP))))
+    : TITLE_FALLBACK
   const items = Array.from(box.children) as HTMLElement[]
-  const n = items.findIndex((el) => el.offsetTop + el.offsetHeight > box.clientHeight)
-  fitCount.value = n === -1 ? items.length : n
+  const n = items.findIndex(el => el.offsetTop + el.offsetHeight > box.clientHeight)
+  fitCount.value = n === -1
+    ? items.length
+    : n
 }
 
 // Terminal print: the newest TYPED_LINES titles type out character by character, one after another;
@@ -126,16 +145,19 @@ function measureTitles() {
 // hidden), so measuring never depends on how far the print has got.
 const TYPED_LINES = 3
 const TYPE_STEP = 3 // characters per 16ms tick, about 190 per second
-const titleText = (w: { title: string | null; rj: string }) => w.title ?? w.rj
+const titleText = (w: { title: string | null, rj: string }) => w.title ?? w.rj
 const tick = ref(0)
 const typedTicks = computed(() => {
-  const lens = titles.value.slice(0, TYPED_LINES).map((w) => Math.ceil(titleText(w).length / TYPE_STEP))
+  const lens = titles.value.slice(0, TYPED_LINES).map(w => Math.ceil(titleText(w).length / TYPE_STEP))
   return lens.reduce<number[]>((ends, n) => [...ends, (ends.at(-1) ?? 0) + n], [])
 })
-const typedOf = (i: number, w: { title: string | null; rj: string }) => {
+function typedOf(i: number, w: { title: string | null, rj: string }) {
   const len = titleText(w).length
-  if (i < TYPED_LINES) return Math.max(0, Math.min(len, (tick.value - (typedTicks.value[i - 1] ?? 0)) * TYPE_STEP))
-  return tick.value - (typedTicks.value.at(-1) ?? 0) >= i - TYPED_LINES + 1 ? len : 0
+  if (i < TYPED_LINES)
+    return Math.max(0, Math.min(len, (tick.value - (typedTicks.value[i - 1] ?? 0)) * TYPE_STEP))
+  return tick.value - (typedTicks.value.at(-1) ?? 0) >= i - TYPED_LINES + 1
+    ? len
+    : 0
 }
 let typeTimer: ReturnType<typeof setInterval> | undefined
 let typedKey = ''
@@ -150,11 +172,13 @@ function noteSwitch() {
 
 function startTyping() {
   clearInterval(typeTimer)
-  if (switching.value || reduced()) return void (tick.value = Infinity)
+  if (switching.value || reduced())
+    return void (tick.value = Infinity)
   tick.value = 0
   typeTimer = setInterval(() => {
     tick.value++
-    if (tick.value >= (typedTicks.value.at(-1) ?? 0) + fitCount.value) clearInterval(typeTimer)
+    if (tick.value >= (typedTicks.value.at(-1) ?? 0) + fitCount.value)
+      clearInterval(typeTimer)
   }, 16)
 }
 // A resize re-measures but keeps what is printed; a new collection (or newest work) prints again.
@@ -172,69 +196,97 @@ const rowEls = ref<HTMLElement[]>([])
 const pressed = ref(-1)
 
 function syncChrome() {
-  const list = listEl.value, row = rowEls.value[sel.value]
-  if (!list || !row) return
+  const list = listEl.value; const row = rowEls.value[sel.value]
+  if (!list || !row)
+    return
   const y = list.offsetTop + row.offsetTop - list.scrollTop + row.offsetHeight / 2
-  cursorY.value = y > list.offsetTop && y < list.offsetTop + list.clientHeight ? y : null
+  cursorY.value = y > list.offsetTop && y < list.offsetTop + list.clientHeight
+    ? y
+    : null
 }
 
 function reveal(row: HTMLElement) {
   const list = listEl.value
-  if (!list) return
-  const pad = 18, top = row.offsetTop - pad, bottom = row.offsetTop + row.offsetHeight + pad
-  if (top < list.scrollTop) list.scrollTop = Math.max(0, top)
-  else if (bottom > list.scrollTop + list.clientHeight) list.scrollTop = bottom - list.clientHeight
+  if (!list)
+    return
+  const pad = 18; const top = row.offsetTop - pad; const bottom = row.offsetTop + row.offsetHeight + pad
+  if (top < list.scrollTop)
+    list.scrollTop = Math.max(0, top)
+  else if (bottom > list.scrollTop + list.clientHeight)
+    list.scrollTop = bottom - list.clientHeight
 }
 
 const reducedMotion = useReducedMotion()
 const reduced = () => reducedMotion.value
 let switchTimer: ReturnType<typeof setTimeout> | undefined
 function select(i: number) {
-  if (!collections.value.length) return
+  if (!collections.value.length)
+    return
   sel.value = Math.max(0, Math.min(collections.value.length - 1, i))
   noteSwitch()
   glide.value = true
   void nextTick(() => { reveal(rowEls.value[sel.value]); syncChrome() })
   // Holding ↓ must not redraw per row: only the row you stop on switches the detail.
   clearTimeout(switchTimer)
-  switchTimer = setTimeout(() => { shown.value = sel.value }, reduced() ? 0 : 140)
+  switchTimer = setTimeout(() => { shown.value = sel.value }, reduced()
+    ? 0
+    : 140)
 }
 const RETURN_KEY = 'collectionReturn'
 function pressSelected() {
   pressed.value = sel.value
   setTimeout(() => (pressed.value = -1), 120)
   const col = collections.value[sel.value]
-  if (!col) return
+  if (!col)
+    return
   router.options.history.replace(router.currentRoute.value.fullPath, { [RETURN_KEY]: col.id })
-  void router.push({ name: 'collection-detail', params: { id: col.id } })
+  void router.push({
+    name: 'collection-detail',
+    params: { id: col.id },
+  })
 }
 
 // Back from a collection: the list may arrive after mount, so wait for it once.
 let returnId = router.options.history.state[RETURN_KEY] as string | null | undefined
 watch(collections, (list) => {
-  if (!returnId || !list.length) return
-  const i = list.findIndex((c) => c.id === returnId)
+  if (!returnId || !list.length)
+    return
+  const i = list.findIndex(c => c.id === returnId)
   returnId = null
   router.options.history.replace(router.currentRoute.value.fullPath, { [RETURN_KEY]: null })
-  if (i < 0) return
+  if (i < 0)
+    return
   sel.value = shown.value = i
-  void nextTick(() => { const row = rowEls.value[i]; if (row) reveal(row); syncChrome() })
+  void nextTick(() => {
+    const row = rowEls.value[i]; if (row)
+      reveal(row); syncChrome()
+  })
 }, { immediate: true })
 
 // A switch (or the list arriving after mount) draws a new cover.
 watch(() => current.value?.id, () => void drawCover())
-watch(narrow, (n) => { if (!n) void drawCover() })
+watch(narrow, (n) => {
+  if (!n)
+    void drawCover()
+})
 watch(collections, () => {
-  if (sel.value >= collections.value.length) select(0)
+  if (sel.value >= collections.value.length)
+    select(0)
   void nextTick(syncChrome)
 })
 // The veil toggles in the wall; here it only re-evaluates coverUrl.
 
 // ── Keys ──
 useKeymap({
-  'collections.move': (e) => select(sel.value + (e.key === 'ArrowDown' ? 1 : -1)),
-  'collections.page': (e) => select(sel.value + (e.key === 'PageDown' ? 5 : -5)),
-  'collections.ends': (e) => select(e.key === 'Home' ? 0 : collections.value.length - 1),
+  'collections.move': e => select(sel.value + (e.key === 'ArrowDown'
+    ? 1
+    : -1)),
+  'collections.page': e => select(sel.value + (e.key === 'PageDown'
+    ? 5
+    : -5)),
+  'collections.ends': e => select(e.key === 'Home'
+    ? 0
+    : collections.value.length - 1),
   'collections.open': pressSelected,
   'collections.redraw': () => void drawCover(true),
 })
@@ -246,8 +298,10 @@ const listWrap = ref<HTMLElement | null>(null)
 const coverH = ref<number | null>(null)
 function fit() {
   const el = stage.value
-  if (!el) return
-  if (innerWidth <= 900) return void (coverH.value = null)
+  if (!el)
+    return
+  if (innerWidth <= 900)
+    return void (coverH.value = null)
   const cs = getComputedStyle(el)
   const inner = el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)
   const byW = ((inner - (listWrap.value?.offsetWidth ?? 0) - parseFloat(cs.columnGap) - 48 - 20 - 260) * 3) / 4
@@ -258,7 +312,8 @@ function fit() {
 let observers: ResizeObserver[] = []
 onMounted(() => {
   const make = (cb: () => void, el: Element | null) => {
-    if (!el || typeof ResizeObserver === 'undefined') return
+    if (!el || typeof ResizeObserver === 'undefined')
+      return
     const ro = new ResizeObserver(cb)
     ro.observe(el)
     observers.push(ro)
@@ -269,20 +324,23 @@ onMounted(() => {
   fit()
   measureTitles()
   void nextTick(() => { syncChrome(); glide.value = false })
-  if (current.value) void drawCover()
+  if (current.value)
+    void drawCover()
 })
 onBeforeUnmount(() => {
   clearTimeout(switchTimer)
   clearInterval(typeTimer)
-  observers.forEach((ro) => ro.disconnect())
+  observers.forEach(ro => ro.disconnect())
   observers = []
   draw++
 })
 
 function onRow(i: number) {
   const selected = i === sel.value
-  if (!selected) select(i)
-  if (selected || narrow.value) pressSelected()
+  if (!selected)
+    select(i)
+  if (selected || narrow.value)
+    pressSelected()
 }
 </script>
 
@@ -299,18 +357,22 @@ function onRow(i: number) {
       <button class="btn btn-s" type="button" data-testid="collections-new" @click="createNew">+ NEW</button>
     </header>
 
-    <main ref="stage" class="stage" :style="coverH ? { '--cover-h': coverH + 'px' } : undefined">
+    <main ref="stage" class="stage" :style="coverH ? { '--cover-h': `${coverH}px` } : undefined">
       <div ref="listWrap" class="listwrap">
         <div class="gutter">
           <i class="cursor" :class="{ glide }" :style="{ transform: `translateY(${cursorY ?? 0}px)`, visibility: cursorY === null ? 'hidden' : 'visible' }" />
         </div>
         <div class="panel">
-          <div ref="listEl" class="list" role="listbox" tabindex="0" aria-label="合集"
+          <div
+            ref="listEl" class="list" role="listbox" tabindex="0" aria-label="合集"
             :aria-activedescendant="collections[sel] ? `col-${collections[sel].id}` : undefined"
-            @scroll.passive="syncChrome" @wheel.passive="glide = false">
-            <div v-for="(col, i) in collections" :id="`col-${col.id}`" :key="col.id"
+            @scroll.passive="syncChrome" @wheel.passive="glide = false"
+          >
+            <div
+              v-for="(col, i) in collections" :id="`col-${col.id}`" :key="col.id"
               :ref="(el) => { if (el) rowEls[i] = el as HTMLElement }" class="row" :class="{ press: pressed === i }"
-              role="option" :aria-selected="i === sel" :title="col.name" data-testid="collection-row" @click="onRow(i)">
+              role="option" :aria-selected="i === sel" :title="col.name" data-testid="collection-row" @click="onRow(i)"
+            >
               <i class="sq" /><span class="nm">{{ col.name }}</span>
             </div>
           </div>
@@ -339,8 +401,10 @@ function onRow(i: number) {
     <div class="hint-wrap">
       <div class="hint">
         <div v-if="playing" class="msg now" :class="{ paused: player.paused }" data-testid="collections-now-playing">
-          <button type="button" class="st" :aria-label="player.paused ? '播放' : '暂停'" data-testid="collections-now-playing-toggle"
-            @click="player.togglePause()"><i /></button>
+          <button
+            type="button" class="st" :aria-label="player.paused ? '播放' : '暂停'" data-testid="collections-now-playing-toggle"
+            @click="player.togglePause()"
+          ><i /></button>
           <RouterLink class="rj" :to="`/works/${player.rj}`" :title="`打开 ${player.rj}`" data-testid="collections-now-playing-link">{{ player.rj }}</RouterLink>
           <span class="tt" lang="ja">{{ player.title }}</span><span class="clk">{{ playClock }}</span>
         </div>
@@ -466,4 +530,3 @@ function onRow(i: number) {
   .hint-wrap { padding-top: var(--sp-4); padding-bottom: var(--sp-4); }
 }
 </style>
-

@@ -1,15 +1,15 @@
 <script setup lang="ts">
+import type { WorkEditionNode, WorkEditionSlot, WorkUserTag } from '@/lib/api/types'
 import { computed, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { useToast } from '@/composables/use-toast'
-import { newCollectionName, useCollectionManage, useCollectionMemberWrites, useCollections } from '@/queries/collections'
 import { dottedDate, fmtT, resumePoint } from '@/features/work-detail/derive'
-import { useWorkDetail, useCreateUserTag, useReplaceWorkUserTags, useUpdateWorkUserData, useUserTags } from '@/queries/works'
+import { newCollectionName, useCollectionManage, useCollectionMemberWrites, useCollections } from '@/queries/collections'
 import { useLibraryList } from '@/queries/libraries'
+import { useCreateUserTag, useReplaceWorkUserTags, useUpdateWorkUserData, useUserTags, useWorkDetail } from '@/queries/works'
 import { usePlayerStore } from '@/stores/player'
 import { useWorkDetailStore } from '@/stores/work-detail'
-import type { WorkEditionNode, WorkEditionSlot, WorkUserTag } from '@/lib/api/types'
 
 // The colophon (奥付, v3): the work as a printed edition — ruled rows of what
 // the catalog knows, then the personal rows, written straight through (rating,
@@ -35,15 +35,23 @@ const favorite = computed(() => work.value?.favorite ?? false)
 const mine = computed<WorkUserTag[]>(() => work.value?.user_tags ?? [])
 
 const voice = computed(() =>
-  work.value && work.value.voice_actors.length > 0 ? work.value.voice_actors.map((actor) => actor.name).join(' / ') : '—',
+  work.value && work.value.voice_actors.length > 0
+    ? work.value.voice_actors.map(actor => actor.name).join(' / ')
+    : '—',
 )
 const age = computed(() =>
-  work.value?.age_category ? ({ 1: '全年龄', 2: 'R15', 3: 'R18' }[work.value.age_category]) : null,
+  work.value?.age_category
+    ? ({ 1: '全年龄', 2: 'R15', 3: 'R18' }[work.value.age_category])
+    : null,
 )
 
 function setRating(n: number): void {
   // Clicking the set value clears it (rating null is the unrated state).
-  userData.mutate({ rating: rating.value === n ? null : n })
+  userData.mutate({
+    rating: rating.value === n
+      ? null
+      : n,
+  })
 }
 
 function toggleFavorite(): void {
@@ -55,72 +63,86 @@ const toast = useToast()
 const { collections } = useCollections()
 const memberWrites = useCollectionMemberWrites()
 const manage = useCollectionManage()
-const userCollections = computed(() => collections.value.filter((c) => c.id !== 'favorites'))
+const userCollections = computed(() => collections.value.filter(c => c.id !== 'favorites'))
 const held = computed(() => work.value?.collection_ids ?? [])
 
 async function toggleCollection(id: string, name: string): Promise<void> {
   const rj = store.rj
-  if (rj === null) return
+  if (rj === null)
+    return
   try {
     if (held.value.includes(id)) {
       await memberWrites.remove(id, rj)
       toast.show({ text: `已从 ${name} 移除` })
-    } else {
+    }
+    else {
       await memberWrites.append(id, [rj])
       toast.show({ text: `已添加到 ${name}` })
     }
-  } catch (e) { toast.error(e) }
+  }
+  catch (e) { toast.error(e) }
 }
 
 async function addToNewCollection(): Promise<void> {
   const rj = store.rj
-  if (rj === null) return
+  if (rj === null)
+    return
   try {
     const made = await manage.create(newCollectionName(collections.value))
     await memberWrites.append(made.id, [rj])
     toast.show({ text: `已新建 ${made.name} 并添加` })
-  } catch (e) { toast.error(e) }
+  }
+  catch (e) { toast.error(e) }
 }
 
 // ── Listening Position: 继续 plays the saved track at its second; with nothing
 // to resume, 重听 (a Finished work) or 从头播放 (only orphans left) starts track 1.
 // 标记为未听 forgets every Rendition's. ──
 const resume = computed(() => resumePoint(work.value?.listening ?? [], store.tracks))
-const restartLabel = computed(() => (work.value?.listening.some((l) => l.finished_at !== null) ? '重听' : '从头播放'))
+const restartLabel = computed(() => (work.value?.listening.some(l => l.finished_at !== null)
+  ? '重听'
+  : '从头播放'))
 
 function resumeListening(): void {
   store.startTrack(resume.value?.track ?? 0, undefined, resume.value?.position)
 }
 
 async function clearListening(): Promise<void> {
-  if (store.rj === null) return
+  if (store.rj === null)
+    return
   try {
     await player.clearListening(store.rj)
-  } catch (e) { toast.error(e) }
+  }
+  catch (e) { toast.error(e) }
 }
 
 function saveNote(event: Event): void {
   const value = (event.target as HTMLTextAreaElement).value
-  if (work.value && value !== work.value.note) userData.mutate({ note: value })
+  if (work.value && value !== work.value.note)
+    userData.mutate({ note: value })
 }
 
 // ── My tags: pick from the vocabulary, or create a tag by name (idempotent). ──
 const adding = ref(false)
 const newTag = ref('')
-const addable = computed(() => allTags.value.filter((tag) => !mine.value.some((entry) => entry.id === tag.id)))
+const addable = computed(() => allTags.value.filter(tag => !mine.value.some(entry => entry.id === tag.id)))
 
 function addTag(id: string): void {
   adding.value = false
-  tagReplace.mutate([...mine.value.map((tag) => tag.id), id])
+  tagReplace.mutate([
+    ...mine.value.map(tag => tag.id),
+    id,
+  ])
 }
 
 function removeTag(id: string): void {
-  tagReplace.mutate(mine.value.filter((tag) => tag.id !== id).map((tag) => tag.id))
+  tagReplace.mutate(mine.value.filter(tag => tag.id !== id).map(tag => tag.id))
 }
 
 async function createTag(): Promise<void> {
   const name = newTag.value.trim()
-  if (name === '') return
+  if (name === '')
+    return
   const tag = await tagCreate.mutateAsync(name)
   newTag.value = ''
   addTag(tag.id)
@@ -128,12 +150,14 @@ async function createTag(): Promise<void> {
 
 /** A catalog date or timestamp, as `YYYY.MM.DD`. */
 function dotted(value: string | null): string {
-  return dottedDate(value === null ? null : value.slice(0, 10))
+  return dottedDate(value === null
+    ? null
+    : value.slice(0, 10))
 }
 
 /** A copy's online square: the manifest knows, the catalog listing does not. */
 function copyOnline(copyId: string): boolean | null {
-  return store.content?.copies.find((copy) => copy.copy_id === copyId)?.online ?? null
+  return store.content?.copies.find(copy => copy.copy_id === copyId)?.online ?? null
 }
 
 const SLOT_NAMES: Record<string, string> = { JPN: '日语', CHI_HANS: '简中', CHI_HANT: '繁中' }
@@ -150,15 +174,26 @@ const editionLines = computed(() => {
   return (work.value?.edition_tree ?? []).map((slot: WorkEditionSlot) => ({
     slot,
     current: slot.root.rj === self || slot.root.rj === parent,
-    nodes: [slot.root, ...(props.compact ? slot.translations.filter((node) => node.rj === self) : slot.translations)],
+    nodes: [
+      slot.root,
+      ...(props.compact
+        ? slot.translations.filter(node => node.rj === self)
+        : slot.translations),
+    ],
   }))
 })
 
 /** A copy's library link: its folder, or the library overview when offline. */
-function copyTo(copy: { copy_id: string; library_id: string; dir_id: string }) {
+function copyTo(copy: { copy_id: string, library_id: string, dir_id: string }) {
   return copyOnline(copy.copy_id) === false || copy.dir_id === ''
-    ? { name: 'workbench-overview', params: { libraryId: copy.library_id } }
-    : { name: 'overview-files', params: { libraryId: copy.library_id, dirId: copy.dir_id } }
+    ? {
+        name: 'workbench-overview',
+        params: { libraryId: copy.library_id },
+      }
+    : {
+        name: 'overview-files',
+        params: { libraryId: copy.library_id, dirId: copy.dir_id },
+      }
 }
 </script>
 
@@ -188,8 +223,10 @@ function copyTo(copy: { copy_id: string; library_id: string; dir_id: string }) {
       <div v-if="work?.series_name" class="colo-row"><dt>系列</dt><dd><span lang="ja">{{ work.series_name }}</span></dd></div>
       <div v-if="editionLines.length" class="colo-row"><dt>版本</dt>
         <dd><span class="ed">
-          <span v-for="line in editionLines" :key="line.slot.language" class="ed-line"
-            :aria-current="line.current ? 'true' : undefined">
+          <span
+            v-for="line in editionLines" :key="line.slot.language" class="ed-line"
+            :aria-current="line.current ? 'true' : undefined"
+          >
             <span class="lbl">{{ SLOT_NAMES[line.slot.language] ?? line.slot.language }}</span>
             <template v-for="(node, index) in line.nodes" :key="node.rj">
               <span v-if="index > 0" class="sep">{{ index === 1 ? '→' : '·' }}</span>
@@ -226,9 +263,11 @@ function copyTo(copy: { copy_id: string; library_id: string; dir_id: string }) {
       <div class="colo-row"><dt>评分</dt>
         <dd>
           <span class="rating">
-            <i v-for="n in 10" :key="n" class="on-able" :class="{ on: rating !== null && n <= rating }"
+            <i
+              v-for="n in 10" :key="n" class="on-able" :class="{ on: rating !== null && n <= rating }"
               role="button" tabindex="0"
-              :aria-label="`评分 ${n}`" @click="setRating(n)" @keydown.enter="setRating(n)"></i>
+              :aria-label="`评分 ${n}`" @click="setRating(n)" @keydown.enter="setRating(n)"
+            />
           </span>
           <span class="lbl"><b>{{ rating ?? '—' }}</b>/10</span>
           <button class="fav" type="button" :aria-pressed="favorite" @click="toggleFavorite">♥ FAV</button>
@@ -237,8 +276,10 @@ function copyTo(copy: { copy_id: string; library_id: string; dir_id: string }) {
               <button class="fav" type="button" data-testid="work-collections">+ 合集</button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" class="w-52" data-own-keys>
-              <DropdownMenuCheckboxItem v-for="c in userCollections" :key="c.id" :model-value="held.includes(c.id)"
-                data-testid="work-collection-item" :data-id="c.id" @select.prevent="toggleCollection(c.id, c.name)">{{ c.name }}</DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                v-for="c in userCollections" :key="c.id" :model-value="held.includes(c.id)"
+                data-testid="work-collection-item" :data-id="c.id" @select.prevent="toggleCollection(c.id, c.name)"
+              >{{ c.name }}</DropdownMenuCheckboxItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem data-testid="work-collection-new" @select="addToNewCollection">新建合集</DropdownMenuItem>
             </DropdownMenuContent>
@@ -254,25 +295,33 @@ function copyTo(copy: { copy_id: string; library_id: string; dir_id: string }) {
       <div class="colo-row"><dt>我的</dt>
         <dd>
           <span class="tags">
-            <button v-for="tag in mine" :key="tag.id" class="tag mine" type="button"
-              title="移除这个标签" @click="removeTag(tag.id)">{{ tag.name }}</button>
-            <button class="tag add" :class="{ quiet: mine.length > 0 && !adding }" type="button" :aria-expanded="adding"
-              @click="adding = !adding">+ TAG</button>
+            <button
+              v-for="tag in mine" :key="tag.id" class="tag mine" type="button"
+              title="移除这个标签" @click="removeTag(tag.id)"
+            >{{ tag.name }}</button>
+            <button
+              class="tag add" :class="{ quiet: mine.length > 0 && !adding }" type="button" :aria-expanded="adding"
+              @click="adding = !adding"
+            >+ TAG</button>
           </span>
           <span v-if="adding" class="menu" role="menu">
             <div class="strip"><span class="strip-name lbl">ADD TAG</span></div>
-            <button v-for="tag in addable" :key="tag.id" class="menu-item" type="button" role="menuitem"
-              @click="addTag(tag.id)"><span class="glyph">¶</span>{{ tag.name }}</button>
+            <button
+              v-for="tag in addable" :key="tag.id" class="menu-item" type="button" role="menuitem"
+              @click="addTag(tag.id)"
+            ><span class="glyph">¶</span>{{ tag.name }}</button>
             <form class="menu-item new-tag" @submit.prevent="createTag">
               <span class="glyph">＋</span>
-              <input v-model="newTag" data-own-keys type="text" placeholder="NEW TAG" />
+              <input v-model="newTag" data-own-keys type="text" placeholder="NEW TAG">
             </form>
           </span>
         </dd>
       </div>
       <div class="colo-row"><dt>笔记</dt>
-        <dd><textarea class="note" :rows="props.compact ? 2 : 3" :value="work?.note ?? ''"
-          @change="saveNote"></textarea></dd></div>
+        <dd><textarea
+          class="note" :rows="props.compact ? 2 : 3" :value="work?.note ?? ''"
+          @change="saveNote"
+        /></dd></div>
     </dl>
 
     <div class="colo-foot">

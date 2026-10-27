@@ -1,7 +1,7 @@
-import { createPinia, setActivePinia } from 'pinia'
-import { nextTick, ref } from 'vue'
-import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import type { LyricsFrame } from './desktop-adapter'
+import { createPinia, setActivePinia } from 'pinia'
+import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { nextTick, ref } from 'vue'
 import { createDesktopAdapter } from './host-adapter'
 import { WailsDesktopAdapter } from './wails-adapter'
 
@@ -9,7 +9,9 @@ const handlers = new Map<string, (event: { data?: unknown }) => void>()
 const emit = vi.fn()
 const call = vi.fn(async (_name: string, ..._args: unknown[]): Promise<unknown> => null)
 vi.mock('@wailsio/runtime', () => ({
-  Call: { ByName: (name: string, ...args: unknown[]) => call(name, ...args) },
+  Call: {
+    ByName: (name: string, ...args: unknown[]) => call(name, ...args),
+  },
   Events: {
     On: (name: string, cb: (event: { data?: unknown }) => void) => (handlers.set(name, cb), () => handlers.delete(name)),
     Emit: (...args: unknown[]) => emit(...args),
@@ -25,17 +27,37 @@ beforeEach(() => {
   call.mockClear()
 })
 
-const base: LyricsFrame = { rj: 'RJ1', title: 'T', paused: false, hasPrev: false, hasNext: false, line: null, noLyrics: false }
+const base: LyricsFrame = {
+  rj: 'RJ1',
+  title: 'T',
+  paused: false,
+  hasPrev: false,
+  hasNext: false,
+  line: null,
+  noLyrics: false,
+}
 
 async function open() {
   const elapsed = ref(0)
-  const frame = vi.fn(() => ({ ...base, title: elapsed.value >= 100 ? 'U' : 'T' }))
+  const frame = vi.fn(() => ({
+    ...base,
+    title: elapsed.value >= 100
+      ? 'U'
+      : 'T',
+  }))
   const onCommand = vi.fn()
   const onClose = vi.fn()
   const onLock = vi.fn()
   const adapter = new WailsDesktopAdapter()
   const close = await adapter.openLyricsWindow(() => (elapsed.value, frame()), onCommand, onClose, onLock)
-  return { adapter, close, elapsed, onCommand, onClose, onLock }
+  return {
+    adapter,
+    close,
+    elapsed,
+    onCommand,
+    onClose,
+    onLock,
+  }
 }
 
 it('pushes the frame only when its serialized value changes, and resends it when the window is ready', async () => {
@@ -82,7 +104,13 @@ it('selects the browser host without a native message channel', async () => {
 })
 
 it('selects the desktop host, preserves folder cancellation and offers the Lyrics Window', async () => {
-  vi.stubGlobal('webkit', { messageHandlers: { external: { postMessage() {} } } })
+  vi.stubGlobal('webkit', {
+    messageHandlers: {
+      external: {
+        postMessage() {},
+      },
+    },
+  })
   const adapter = await createDesktopAdapter()
   expect(adapter.platform).toBe('desktop')
   expect(await adapter.pickFolder()).toBeNull()

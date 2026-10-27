@@ -1,16 +1,17 @@
+import type { ImageSet, Track } from '@/features/work-detail/derive'
+import type { ContentFileRef, WorkContent, WorkContentDir, WorkContentFile } from '@/lib/api/types'
 import { defineStore } from 'pinia'
 import {
   deriveTracks,
   dirAt,
+
   imageSets,
   lrcFilesOf,
   pickFormat,
-  trackFormats,
   playQueue,
-  type ImageSet,
-  type Track,
+
+  trackFormats,
 } from '@/features/work-detail/derive'
-import type { ContentFileRef, WorkContent, WorkContentDir, WorkContentFile } from '@/lib/api/types'
 import { usePlayerStore } from './player'
 
 /**
@@ -74,7 +75,7 @@ export const useWorkDetailStore = defineStore('work-detail', {
   getters: {
     /** The page reads the first online copy; offline ones stay listed. */
     activeCopy(state) {
-      const online = state.content?.copies.find((copy) => copy.online)
+      const online = state.content?.copies.find(copy => copy.online)
       return online ?? state.content?.copies[0] ?? null
     },
     /** Whether the bay's rows are on screen (a bottom drawer may be shut). */
@@ -84,14 +85,20 @@ export const useWorkDetailStore = defineStore('work-detail', {
       return this.activeCopy?.tree ?? null
     },
     sets(): ImageSet[] {
-      return this.copy ? imageSets(this.copy) : []
+      return this.copy
+        ? imageSets(this.copy)
+        : []
     },
     /** Every timed-lyrics file of the copy, the LRC chip's rows. */
     lrcFiles(): WorkContentFile[] {
-      return this.copy ? lrcFilesOf(this.copy) : []
+      return this.copy
+        ? lrcFilesOf(this.copy)
+        : []
     },
     tracks(): Track[] {
-      return this.copy ? deriveTracks(this.copy) : []
+      return this.copy
+        ? deriveTracks(this.copy)
+        : []
     },
     /** The format chips the work's audio actually ships. */
     formats(): string[] {
@@ -105,15 +112,17 @@ export const useWorkDetailStore = defineStore('work-detail', {
     },
     /** The automatic pairing: the same-basename timed lyrics of the given track. */
     autoLrc(): (track: number) => string | null {
-      return (track) => this.tracks[track]?.lrcRel ?? null
+      return track => this.tracks[track]?.lrcRel ?? null
     },
     /** The pairing that counts: manual first, then the automatic one. */
     lrcFor(state): (track: number) => string | null {
-      return (track) => state.pairs[track] ?? this.tracks[track]?.lrcRel ?? null
+      return track => state.pairs[track] ?? this.tracks[track]?.lrcRel ?? null
     },
     /** The directory the file browser is in. */
     cwdDir(state): WorkContentDir | null {
-      return this.copy ? dirAt(this.copy, state.cwd) : null
+      return this.copy
+        ? dirAt(this.copy, state.cwd)
+        : null
     },
   },
 
@@ -125,22 +134,26 @@ export const useWorkDetailStore = defineStore('work-detail', {
      * picks the opening format chip.
      */
     bind(rj: string, content: WorkContent, resolveFileUrl?: FileUrl, formatPreference: readonly string[] = []) {
-      if (this.rj !== rj) this.newVisit()
+      if (this.rj !== rj)
+        this.newVisit()
       // Without a resolver (a test binding the sample) tracks play silently.
       fileUrl = resolveFileUrl ?? null
       this.rj = rj
       this.content = content
       // Only the initial chip follows the Format Preference; every chip stays switchable.
-      if (!this.formats.includes(this.fmt)) this.fmt = pickFormat(this.formats, formatPreference) ?? this.formats[0] ?? ''
+      if (!this.formats.includes(this.fmt))
+        this.fmt = pickFormat(this.formats, formatPreference) ?? this.formats[0] ?? ''
       if (this.set >= this.sets.length) {
         this.set = 0
         this.idx = 0
         this.flipped = false
-      } else if (this.idx >= this.sets[this.set].files.length) {
+      }
+      else if (this.idx >= this.sets[this.set].files.length) {
         this.idx = 0
         this.flipped = false
       }
-      if (this.leaf === 'lrc' && !this.lrcFor(this.track)) this.leaf = 'colophon'
+      if (this.leaf === 'lrc' && !this.lrcFor(this.track))
+        this.leaf = 'colophon'
     },
 
     /** A different work: the visit resets, the bay stays where the user left it. */
@@ -157,10 +170,12 @@ export const useWorkDetailStore = defineStore('work-detail', {
     /** Stepping always shows the front and clamps at the set's ends (v3's arrows). */
     step(delta: number) {
       const set = this.currentSet
-      if (!set) return
+      if (!set)
+        return
       this.flipped = false
       const next = Math.min(Math.max(this.idx + delta, 0), set.files.length - 1)
-      if (next !== this.idx) this.idx = next
+      if (next !== this.idx)
+        this.idx = next
     },
 
     showSet(set: number) {
@@ -176,9 +191,12 @@ export const useWorkDetailStore = defineStore('work-detail', {
     },
 
     setLeaf(mode: LeafMode) {
-      if (mode === 'script' && this.activeTxt === null) return
-      if (mode === 'lrc' && !this.lrcFor(this.track)) mode = 'colophon'
-      if (mode === 'script') this.scriptSeen = true
+      if (mode === 'script' && this.activeTxt === null)
+        return
+      if (mode === 'lrc' && !this.lrcFor(this.track))
+        mode = 'colophon'
+      if (mode === 'script')
+        this.scriptSeen = true
       this.leaf = mode
     },
 
@@ -188,7 +206,8 @@ export const useWorkDetailStore = defineStore('work-detail', {
 
     /** A bay tab click both selects and lifts; the open tab clicked again closes (v3). */
     openBayTab(tab: BayTab) {
-      if (this.dock === 'bottom') this.bayOpen = !(this.bayOpen && this.tab === tab)
+      if (this.dock === 'bottom')
+        this.bayOpen = !(this.bayOpen && this.tab === tab)
       this.tab = tab
     },
 
@@ -228,8 +247,11 @@ export const useWorkDetailStore = defineStore('work-detail', {
       const player = usePlayerStore()
       const copyId = this.activeCopy?.copy_id
       const key = this.tracks[track]?.key
-      const item = player.rj === this.rj && copyId && key ? player.queue.find((entry) => entry.key === key) : undefined
-      if (item) item.lyrics = { copyId: copyId!, relPath: rel }
+      const item = player.rj === this.rj && copyId && key
+        ? player.queue.find(entry => entry.key === key)
+        : undefined
+      if (item)
+        item.lyrics = { copyId: copyId!, relPath: rel }
       this.leaf = 'lrc'
     },
 
@@ -241,16 +263,20 @@ export const useWorkDetailStore = defineStore('work-detail', {
      */
     startTrack(track: number, fmt?: string, resumeAt?: number) {
       const entry = this.tracks[track]
-      if (!entry) return
+      if (!entry)
+        return
       this.followTrack(track)
-      if (this.rj === null) return
+      if (this.rj === null)
+        return
       const rj = this.rj
       const copy = this.activeCopy
       const resolve = fileUrl
       const src = copy && resolve
         ? (file: WorkContentFile) => resolve({ rj, copyId: copy.copy_id, relPath: file.rel_path })
         : undefined
-      const { queue, index, format } = playQueue(this.tracks, track, fmt ?? this.fmt, src, copy ? { copyId: copy.copy_id, pairs: this.pairs } : undefined)
+      const { queue, index, format } = playQueue(this.tracks, track, fmt ?? this.fmt, src, copy
+        ? { copyId: copy.copy_id, pairs: this.pairs }
+        : undefined)
       this.playFmt = format
       usePlayerStore().play(rj, queue, index, resumeAt)
     },
@@ -259,7 +285,11 @@ export const useWorkDetailStore = defineStore('work-detail', {
     followTrack(track: number) {
       this.track = track
       // A script being read is never interrupted; lyrics swap; else the colophon.
-      if (this.leaf !== 'script') this.leaf = this.lrcFor(track) ? 'lrc' : 'colophon'
+      if (this.leaf !== 'script') {
+        this.leaf = this.lrcFor(track)
+          ? 'lrc'
+          : 'colophon'
+      }
     },
 
     /** A directory row navigates the browser. */
@@ -276,22 +306,29 @@ export const useWorkDetailStore = defineStore('work-detail', {
     selectFile(f: WorkContentFile) {
       this.sel = f.rel_path
       if (f.kind === 'img') {
-        const setIdx = this.sets.findIndex((set) => set.files.some((img) => img.rel_path === f.rel_path))
-        if (setIdx >= 0) this.showImg(setIdx, this.sets[setIdx].files.findIndex((img) => img.rel_path === f.rel_path))
-      } else if (f.kind === 'txt' || f.kind === 'lrc') {
+        const setIdx = this.sets.findIndex(set => set.files.some(img => img.rel_path === f.rel_path))
+        if (setIdx >= 0)
+          this.showImg(setIdx, this.sets[setIdx].files.findIndex(img => img.rel_path === f.rel_path))
+      }
+      else if (f.kind === 'txt' || f.kind === 'lrc') {
         this.activeTxt = f.rel_path
         this.scriptSeen = true
         this.leaf = 'script'
-      } else if (f.kind === 'vid') {
+      }
+      else if (f.kind === 'vid') {
         // The page's sound is one at a time; closing the video does not resume it.
         const player = usePlayerStore()
-        if (player.rj !== null && !player.paused) player.togglePause()
+        if (player.rj !== null && !player.paused)
+          player.togglePause()
         this.video = f
-      } else if (f.kind === 'aud') {
-        const track = this.tracks.findIndex((entry) => Object.values(entry.files).some((a) => a?.rel_path === f.rel_path))
-        if (track >= 0) this.startTrack(track, f.format ?? undefined)
       }
-      if (this.dock === 'bottom' && f.kind !== 'aud' && f.kind !== 'vid') this.bayOpen = false
+      else if (f.kind === 'aud') {
+        const track = this.tracks.findIndex(entry => Object.values(entry.files).some(a => a?.rel_path === f.rel_path))
+        if (track >= 0)
+          this.startTrack(track, f.format ?? undefined)
+      }
+      if (this.dock === 'bottom' && f.kind !== 'aud' && f.kind !== 'vid')
+        this.bayOpen = false
     },
   },
 })

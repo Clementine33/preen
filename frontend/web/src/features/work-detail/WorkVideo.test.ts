@@ -3,24 +3,32 @@ import { createPinia, setActivePinia } from 'pinia'
 import { describe, expect, it } from 'vitest'
 import { defineComponent, h } from 'vue'
 import { apiClientKey } from '@/lib/api/client'
-import { apiStub } from '@/test/api-stub'
-import { sampleWorkContent } from '@/test/work-content-fixture'
 import { usePlayerStore } from '@/stores/player'
 import { useWorkDetailStore } from '@/stores/work-detail'
+import { apiStub } from '@/test/api-stub'
+import { sampleWorkContent } from '@/test/work-content-fixture'
 import BayFiles from './BayFiles.vue'
 import WorkVideo from './WorkVideo.vue'
 
 const RJ = 'RJ01000001'
 
-describe('WorkVideo', () => {
+describe('workVideo', () => {
   it('opens from a video row, pauses the player and stays paused after closing, keeping the bottom bay open', async () => {
     const pinia = createPinia()
     setActivePinia(pinia)
     const store = useWorkDetailStore()
     const content = sampleWorkContent(RJ)
     content.copies[0].tree!.children.push({
-      name: 'clip.mp4', rel_path: 'clip.mp4', kind: 'vid', size: 1024,
-      format: null, bitrate: null, width: null, height: null, duration_sec: null, thumb_v: null,
+      name: 'clip.mp4',
+      rel_path: 'clip.mp4',
+      kind: 'vid',
+      size: 1024,
+      format: null,
+      bitrate: null,
+      width: null,
+      height: null,
+      duration_sec: null,
+      thumb_v: null,
     })
     store.bind(RJ, content)
     store.startTrack(0)
@@ -29,10 +37,22 @@ describe('WorkVideo', () => {
     expect(player.paused).toBe(false)
 
     const wrapper = mount(
-      defineComponent({ render: () => [h(BayFiles), h(WorkVideo)] }),
-      { global: { plugins: [pinia], provide: { [apiClientKey as symbol]: apiStub() } } },
+      defineComponent({
+        render: () => [
+          h(BayFiles),
+          h(WorkVideo),
+        ],
+      }),
+      {
+        global: {
+          plugins: [pinia],
+          provide: {
+            [apiClientKey as symbol]: apiStub(),
+          },
+        },
+      },
     )
-    const row = wrapper.findAll('.row').find((r) => r.text().includes('clip.mp4'))!
+    const row = wrapper.findAll('.row').find(r => r.text().includes('clip.mp4'))!
     await row.trigger('click')
     await flushPromises()
 

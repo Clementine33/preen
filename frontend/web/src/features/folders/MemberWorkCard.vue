@@ -20,13 +20,13 @@ const { src: realCover, failed } = useCoverSrc(() =>
 /** An R18 work's cover stays hatched while the veil is on, as on the wall. */
 const veiled = computed(() => libraryUi.veil && work.value?.nsfw === true)
 const cover = computed(() => (veiled.value ? null : realCover.value))
-const voiceActors = computed(() => work.value?.voice_actors.map((va) => va.name).join(' / ') || '—')
+const voiceActors = computed(() => work.value?.voice_actors.map(va => va.name).join(' / ') || '—')
 </script>
 
 <template>
   <div v-if="work" class="work-card" data-testid="member-work-card">
     <div class="cover" :class="[cover ? '' : 'hatch', { veiled }]">
-      <img v-if="cover" :src="cover" alt="" loading="lazy" decoding="async" @error="failed(cover)" />
+      <img v-if="cover" :src="cover" alt="" loading="lazy" decoding="async" @error="failed(cover)">
     </div>
     <div class="info">
       <div class="title" data-testid="work-title">{{ work.title ?? '—' }}</div>

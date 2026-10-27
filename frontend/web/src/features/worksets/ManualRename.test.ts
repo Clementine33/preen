@@ -1,20 +1,33 @@
+import type { WorksetMember } from '@/lib/api/types'
 import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
 import ManualRename from './ManualRename.vue'
-import type { WorksetMember } from '@/lib/api/types'
 
 function members(count: number): WorksetMember[] {
   return Array.from({ length: count }, (_, i) => {
     const code = `RJ${String(i + 1).padStart(8, '0')}`
-    return { member_id: `m-${i}`, folder_path: `/lib/${code} x`, folder_name: `${code} x`, rel_path: `${code} x`, dir_id: `d-${i}` }
+    return {
+      member_id: `m-${i}`,
+      folder_path: `/lib/${code} x`,
+      folder_name: `${code} x`,
+      rel_path: `${code} x`,
+      dir_id: `d-${i}`,
+    }
   })
 }
 
-function mountList(count = 3000, records: { member_id: string; excluded: boolean; name?: string }[] = []) {
-  return mount(ManualRename, { props: { members: members(count), records, disabled: false, saving: false } })
+function mountList(count = 3000, records: { member_id: string, excluded: boolean, name?: string }[] = []) {
+  return mount(ManualRename, {
+    props: {
+      members: members(count),
+      records,
+      disabled: false,
+      saving: false,
+    },
+  })
 }
 
-describe('ManualRename', () => {
+describe('manualRename', () => {
   it('draws nothing until the user searches, and never more than twenty matches', async () => {
     const wrapper = mountList()
     expect(wrapper.find('[data-testid="manual-rename-matches"]').exists()).toBe(false)
@@ -56,15 +69,21 @@ describe('ManualRename', () => {
     await wrapper.get('[data-testid="manual-rename-matches"] button').trigger('click')
     await wrapper.get('[data-testid="manual-rename-input"]').setValue('[RJ00000003] mine')
     await wrapper.get('[data-testid="manual-rename-form"]').trigger('submit')
-    expect(wrapper.emitted('save')).toEqual([['m-2', '[RJ00000003] mine']])
+    expect(wrapper.emitted('save')).toEqual([
+      ['m-2', '[RJ00000003] mine'],
+    ])
   })
 
   it('lists the names already given and clears one', async () => {
-    const wrapper = mountList(5, [{ member_id: 'm-1', excluded: false, name: '[RJ00000002] mine' }])
+    const wrapper = mountList(5, [
+      { member_id: 'm-1', excluded: false, name: '[RJ00000002] mine' },
+    ])
     const named = wrapper.get('[data-testid="manual-rename-named"]')
     expect(named.text()).toContain('RJ00000002 x → [RJ00000002] mine')
     await named.get('button').trigger('click')
-    expect(wrapper.emitted('save')).toEqual([['m-1', '']])
+    expect(wrapper.emitted('save')).toEqual([
+      ['m-1', ''],
+    ])
   })
 
   it('stops listing a name once the folder carries it', () => {

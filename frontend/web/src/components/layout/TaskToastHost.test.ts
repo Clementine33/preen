@@ -1,11 +1,11 @@
-import { defineComponent, h } from 'vue'
 import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
-import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { createPinia, getActivePinia, setActivePinia } from 'pinia'
-import { useToast } from '@/composables/use-toast'
+import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { defineComponent, h } from 'vue'
 import { useTaskToast } from '@/composables/use-task-toast'
-import ToastHost from './ToastHost.vue'
+import { useToast } from '@/composables/use-toast'
 import TaskToastHost from './TaskToastHost.vue'
+import ToastHost from './ToastHost.vue'
 
 enableAutoUnmount(afterEach)
 beforeEach(() => { setActivePinia(createPinia()) })
@@ -16,9 +16,24 @@ afterEach(() => {
 })
 
 it('keeps FIFO results and editing undo independent, including stale dismissal', async () => {
-  mount(defineComponent({ setup: () => () => [h(ToastHost), h(TaskToastHost)] }), { attachTo: document.body, global: { plugins: [getActivePinia()!] } })
+  mount(defineComponent({
+    setup: () => () => [
+      h(ToastHost),
+      h(TaskToastHost),
+    ],
+  }), {
+    attachTo: document.body,
+    global: {
+      plugins: [
+        getActivePinia()!,
+      ],
+    },
+  })
   const undo = vi.fn()
-  useToast().show({ text: '已移除', action: { label: '撤销', run: undo } })
+  useToast().show({
+    text: '已移除',
+    action: { label: '撤销', run: undo },
+  })
   const tasks = useTaskToast()
   tasks.show({ title: 'Archive', text: '扫描完成', tone: 'success' })
   const firstId = tasks.current.value!.id
@@ -54,7 +69,14 @@ it('keeps task queues independent between app lifetimes', () => {
 it('expires success after 8s but keeps failures until dismissed', async () => {
   vi.useFakeTimers()
   try {
-    mount(TaskToastHost, { attachTo: document.body, global: { plugins: [getActivePinia()!] } })
+    mount(TaskToastHost, {
+      attachTo: document.body,
+      global: {
+        plugins: [
+          getActivePinia()!,
+        ],
+      },
+    })
     const tasks = useTaskToast()
     tasks.show({ title: 'Archive · 扫描', text: '扫描完成', tone: 'success' })
     tasks.show({ title: 'Archive · 转换 · 执行', text: '执行失败', tone: 'failed' })
@@ -68,7 +90,8 @@ it('expires success after 8s but keeps failures until dismissed', async () => {
     expect(toast()).toContain('Archive · 转换 · 执行')
     await vi.advanceTimersByTimeAsync(60_000)
     expect(toast()).toContain('执行失败')
-  } finally {
+  }
+  finally {
     vi.useRealTimers()
   }
 })

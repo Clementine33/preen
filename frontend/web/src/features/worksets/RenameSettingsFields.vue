@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { Button } from '@/components/ui/button'
 import SettingsApplyBar from '@/features/settings/SettingsApplyBar.vue'
 import SettingsColumn from '@/features/settings/SettingsColumn.vue'
 import SettingsField from '@/features/settings/SettingsField.vue'
 import SettingsHead from '@/features/settings/SettingsHead.vue'
 import SettingsSwitch from '@/features/settings/SettingsSwitch.vue'
 import { useTaskSettingsForm } from '@/features/settings/use-task-settings-form'
-import { Button } from '@/components/ui/button'
 
 /**
  * The deployment-wide rename settings (ADR 0008), edited and applied through
@@ -15,7 +15,14 @@ import { Button } from '@/components/ui/button'
  */
 defineProps<{ collapsible: boolean }>()
 
-const PLACEHOLDERS = ['{rj}', '{title}', '{circle}', '{voice_actors}', '{language}', '{release_date}']
+const PLACEHOLDERS = [
+  '{rj}',
+  '{title}',
+  '{circle}',
+  '{voice_actors}',
+  '{language}',
+  '{release_date}',
+]
 interface View {
   template: string
   strip_bracketed_title: boolean
@@ -31,9 +38,24 @@ const DEFAULTS: View = {
   voice_actor_separator: '',
 }
 const STRIPS = [
-  { key: 'strip_bracketed_title', id: 'rename-strip-bracketed', label: '去掉【…】', mark: '【】' },
-  { key: 'strip_tilde_title', id: 'rename-strip-tilde', label: '去掉 ～…～', mark: '～～' },
-  { key: 'strip_book_title', id: 'rename-strip-book', label: '去掉《…》', mark: '《》' },
+  {
+    key: 'strip_bracketed_title',
+    id: 'rename-strip-bracketed',
+    label: '去掉【…】',
+    mark: '【】',
+  },
+  {
+    key: 'strip_tilde_title',
+    id: 'rename-strip-tilde',
+    label: '去掉 ～…～',
+    mark: '～～',
+  },
+  {
+    key: 'strip_book_title',
+    id: 'rename-strip-book',
+    label: '去掉《…》',
+    mark: '《》',
+  },
 ] as const
 
 const { form, query, saved } = useTaskSettingsForm({
@@ -51,11 +73,12 @@ const { form, query, saved } = useTaskSettingsForm({
 
 const template = computed(() => form.value('template') ?? '')
 const summary = computed(() => {
-  if (!saved.value) return '设置'
-  const marks = STRIPS.filter((strip) => form.value(strip.key)).map((strip) => `移除${strip.mark}`)
+  if (!saved.value)
+    return '设置'
+  const marks = STRIPS.filter(strip => form.value(strip.key)).map(strip => `移除${strip.mark}`)
   return [template.value, ...marks].join(' · ')
 })
-const stripsModified = computed(() => STRIPS.some((strip) => form.modified(strip.key)))
+const stripsModified = computed(() => STRIPS.some(strip => form.modified(strip.key)))
 function undoStrips() {
   for (const strip of STRIPS) form.undo(strip.key)
 }
@@ -107,7 +130,7 @@ function insertPlaceholder(placeholder: string) {
             aria-label="命名模板"
             data-testid="rename-template"
             @input="form.set('template', ($event.target as HTMLInputElement).value)"
-          />
+          >
           <div class="flex flex-wrap gap-1" role="group" aria-label="插入占位符">
             <button
               v-for="placeholder in PLACEHOLDERS"
@@ -139,7 +162,7 @@ function insertPlaceholder(placeholder: string) {
             aria-label="声优分隔符"
             data-testid="rename-actor-separator"
             @input="form.set('voice_actor_separator', ($event.target as HTMLInputElement).value)"
-          />
+          >
         </SettingsField>
         <SettingsField
           id="rename-strips"

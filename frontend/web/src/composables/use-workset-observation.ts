@@ -1,13 +1,14 @@
+import type { QueryClient } from '@tanstack/vue-query'
+import type { CurrentRecordResponse, Library, OperationType, Workset } from '@/lib/api/types'
+import type { TaskTone } from '@/stores/task-toast'
+import { isCancelledError } from '@tanstack/vue-query'
 import { getCurrentInstance } from 'vue'
 import { useRouter } from 'vue-router'
-import { isCancelledError, type QueryClient } from '@tanstack/vue-query'
-import type { OperationType, Workset, Library, CurrentRecordResponse } from '@/lib/api/types'
 import { ApiError } from '@/lib/api/client'
 import { queryKeys } from '@/queries/query-keys'
 import { useTaskResultNotice } from './use-task-toast'
-import type { TaskTone } from '@/stores/task-toast'
 
-export type SessionIdentity = { worksetId: string; operation: OperationType; libraryId: string; libraryName: string }
+export interface SessionIdentity { worksetId: string, operation: OperationType, libraryId: string, libraryName: string }
 // Registry identities survive page mounts and remain consumed for this SPA.
 const registries = new WeakMap<QueryClient, Map<string, Map<string, SessionIdentity>>>()
 const labels = { conversion: '转换', rename: '重命名', metadata_refresh: '获取元数据' }
@@ -28,9 +29,14 @@ export function useWorksetObservation<T extends SessionIdentity>(queryClient: Qu
   const observations = registry as Map<string, T>
   function identity(worksetId: string) {
     const workset = queryClient.getQueryData<Workset>(queryKeys.worksets.detail(worksetId))
-      ?? queryClient.getQueriesData<CurrentRecordResponse>({ queryKey: queryKeys.worksets.currentsPrefix() })
-        .map(([, record]) => record?.workset).find(record => record?.workset_id === worksetId)
-    const known = [...observations.values()].find(entry => entry.worksetId === worksetId)
+      ?? queryClient.getQueriesData<CurrentRecordResponse>({
+        queryKey: queryKeys.worksets.currentsPrefix(),
+      })
+        .map(([, record]) => record?.workset)
+        .find(record => record?.workset_id === worksetId)
+    const known = [
+      ...observations.values(),
+    ].find(entry => entry.worksetId === worksetId)
     const libraryId = workset?.library?.library_id ?? known?.libraryId ?? String(router.currentRoute.value.params.libraryId ?? '')
     const library = queryClient.getQueryData<Library[]>(queryKeys.libraries.list())?.find(item => item.id === libraryId)
     return { libraryId, libraryName: workset?.library?.name ?? library?.name ?? known?.libraryName ?? libraryId }
@@ -38,16 +44,23 @@ export function useWorksetObservation<T extends SessionIdentity>(queryClient: Qu
   // Success and stopped are suppressed on the corresponding page; everything else always shows.
   function notify(entry: SessionIdentity, text: string, tone: TaskTone = 'unknown') {
     notice({
-      libraryId: entry.libraryId, libraryName: entry.libraryName,
-      title: `${entry.libraryName} · ${labels[entry.operation]} · ${phases_[phase]}`, text, tone,
-      target: phase === 'execution' && entry.operation === 'conversion' ? 'conversion-execution' : routes[entry.operation],
-      quietOn: tone === 'success' || tone === 'stopped' ? [routes[entry.operation]] : [],
+      libraryId: entry.libraryId,
+      libraryName: entry.libraryName,
+      title: `${entry.libraryName} · ${labels[entry.operation]} · ${phases_[phase]}`,
+      text,
+      tone,
+      target: phase === 'execution' && entry.operation === 'conversion'
+        ? 'conversion-execution'
+        : routes[entry.operation],
+      quietOn: tone === 'success' || tone === 'stopped'
+        ? [routes[entry.operation]]
+        : [],
     })
   }
   return { observations, identity, notify }
 }
 
-type SessionPollingState = { consumed: boolean; reading: boolean; retryDelay: number; timer?: ReturnType<typeof setTimeout> }
+interface SessionPollingState { consumed: boolean, reading: boolean, retryDelay: number, timer?: ReturnType<typeof setTimeout> }
 
 // Both workset phases recover by reading their original session, with one read
 // or timer per identity and a shared bounded retry policy.
@@ -59,19 +72,23 @@ export function sessionPoller<T extends SessionPollingState, R>(
   recovered?: (entry: T) => void,
 ) {
   return async function poll(entry: T) {
-    if (entry.consumed || entry.reading) return
+    if (entry.consumed || entry.reading)
+      return
     clearTimeout(entry.timer)
     entry.timer = undefined
     entry.reading = true
     let delay = 2000
     try {
       const result = await read(entry)
-      if (entry.consumed) return
+      if (entry.consumed)
+        return
       recovered?.(entry)
       entry.retryDelay = 2000
       observe(entry, result)
-    } catch (error) {
-      if (entry.consumed || isCancelledError(error)) return
+    }
+    catch (error) {
+      if (entry.consumed || isCancelledError(error))
+        return
       if (error instanceof ApiError && [401, 403, 404].includes(error.status)) {
         unavailable(entry)
         return
@@ -79,9 +96,11 @@ export function sessionPoller<T extends SessionPollingState, R>(
       disconnected?.(entry)
       delay = entry.retryDelay
       entry.retryDelay = Math.min(delay * 2, 30000)
-    } finally {
+    }
+    finally {
       entry.reading = false
-      if (!entry.consumed) entry.timer = setTimeout(() => { void poll(entry) }, delay)
+      if (!entry.consumed)
+        entry.timer = setTimeout(() => { void poll(entry) }, delay)
     }
   }
 }

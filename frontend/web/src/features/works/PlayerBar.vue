@@ -17,7 +17,9 @@ const player = usePlayerStore()
 const lyrics = useLyricsWindow()
 
 const active = computed(() => player.rj !== null)
-const playingTitle = computed(() => (active.value ? `${player.title}` : ''))
+const playingTitle = computed(() => (active.value
+  ? `${player.title}`
+  : ''))
 
 function mmss(raw: number): string {
   const seconds = Math.floor(raw)
@@ -26,10 +28,16 @@ function mmss(raw: number): string {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
 }
 
-const elapsed = computed(() => (active.value ? mmss(player.elapsed) : '--:--'))
-const total = computed(() => (active.value && player.duration !== null ? mmss(player.duration) : '—'))
+const elapsed = computed(() => (active.value
+  ? mmss(player.elapsed)
+  : '--:--'))
+const total = computed(() => (active.value && player.duration !== null
+  ? mmss(player.duration)
+  : '—'))
 const progress = computed(() =>
-  active.value && player.duration ? `${Math.min(100, (player.elapsed / player.duration) * 100)}%` : '0%',
+  active.value && player.duration
+    ? `${Math.min(100, (player.elapsed / player.duration) * 100)}%`
+    : '0%',
 )
 
 const seekable = computed(() => active.value && player.duration !== null)
@@ -51,49 +59,63 @@ const MUTED_ICON = 'M6 3.7l.7-.7L8 4.3 9.3 3l.7.7L8.7 5 10 6.3l-.7.7L8 5.7 6.7 7
 
 <template>
   <footer class="baseline substrate-panel" :class="{ paused: player.paused || !active }">
-    <i class="bl-laser" :style="{ width: progress }" aria-hidden="true"></i>
-    <input class="bl-seek" type="range" aria-label="Seek" min="0" step="any"
-      :max="player.duration ?? 0" :value="player.elapsed" :disabled="!seekable" @input="onSeek" />
+    <i class="bl-laser" :style="{ width: progress }" aria-hidden="true" />
+    <input
+      class="bl-seek" type="range" aria-label="Seek" min="0" step="any"
+      :max="player.duration ?? 0" :value="player.elapsed" :disabled="!seekable" @input="onSeek"
+    >
     <div class="bl-left">
-      <span class="bl-dot"></span>
+      <span class="bl-dot" />
       <RouterLink v-if="player.rj" class="bl-rj" :to="`/works/${player.rj}`" :title="`打开 ${player.rj}`">{{ player.rj }}</RouterLink>
       <span class="bl-title">{{ playingTitle }}</span>
     </div>
     <div class="bl-center">
       <span class="t pos">{{ elapsed }}</span>
       <div class="bl-ctrls">
-        <button class="btn btn-icon" type="button" aria-label="Previous track" title="Previous track"
-          :disabled="!player.hasPrev" @click="player.step(-1)">
+        <button
+          class="btn btn-icon" type="button" aria-label="Previous track" title="Previous track"
+          :disabled="!player.hasPrev" @click="player.step(-1)"
+        >
           <svg viewBox="0 0 10 10" aria-hidden="true"><path :d="PREV_ICON" /></svg>
         </button>
-        <button class="btn btn-icon btn-main" type="button"
+        <button
+          class="btn btn-icon btn-main" type="button"
           :aria-label="player.paused ? 'Resume' : 'Pause'" :title="player.paused ? 'Resume' : 'Pause'"
-          :disabled="!active" @click="player.togglePause()">
+          :disabled="!active" @click="player.togglePause()"
+        >
           <svg viewBox="0 0 10 10" aria-hidden="true">
             <path :d="player.paused ? PLAY_ICON : PAUSE_ICON" />
           </svg>
         </button>
-        <button class="btn btn-icon" type="button" aria-label="Next track" title="Next track"
-          :disabled="!player.hasNext" @click="player.step(1)">
+        <button
+          class="btn btn-icon" type="button" aria-label="Next track" title="Next track"
+          :disabled="!player.hasNext" @click="player.step(1)"
+        >
           <svg viewBox="0 0 10 10" aria-hidden="true"><path :d="NEXT_ICON" /></svg>
         </button>
       </div>
       <span class="t">{{ total }}</span>
     </div>
     <div class="bl-right">
-      <button v-if="lyrics?.supported" class="btn btn-icon bl-lyrics" type="button" :aria-pressed="lyrics.open.value"
-        :aria-label="lyrics.locked.value ? 'Unlock lyrics window' : 'Lyrics window'" :title="lyrics.locked.value ? 'Unlock lyrics window (L)' : 'Lyrics window (L)'" :disabled="!lyrics.available.value" @click="lyrics.toggle()">
+      <button
+        v-if="lyrics?.supported" class="btn btn-icon bl-lyrics" type="button" :aria-pressed="lyrics.open.value"
+        :aria-label="lyrics.locked.value ? 'Unlock lyrics window' : 'Lyrics window'" :title="lyrics.locked.value ? 'Unlock lyrics window (L)' : 'Lyrics window (L)'" :disabled="!lyrics.available.value" @click="lyrics.toggle()"
+      >
         <svg viewBox="0 0 10 10" aria-hidden="true"><path :d="LYRICS_ICON" /></svg>
       </button>
       <div class="bl-vol">
-        <button class="btn btn-icon bl-mute" type="button" :aria-pressed="player.muted"
-          aria-label="Mute" title="Mute" @click="player.toggleMute()">
+        <button
+          class="btn btn-icon bl-mute" type="button" :aria-pressed="player.muted"
+          aria-label="Mute" title="Mute" @click="player.toggleMute()"
+        >
           <svg viewBox="0 0 10 10" aria-hidden="true">
             <path :d="SPEAKER_ICON" /><path :d="silent ? MUTED_ICON : WAVES_ICON" />
           </svg>
         </button>
-        <input class="bl-volume" type="range" aria-label="Volume" min="0" max="1" step="0.05"
-          :value="player.muted ? 0 : player.volume" :style="{ '--fill': volumeFill }" @input="onVolume" />
+        <input
+          class="bl-volume" type="range" aria-label="Volume" min="0" max="1" step="0.05"
+          :value="player.muted ? 0 : player.volume" :style="{ '--fill': volumeFill }" @input="onVolume"
+        >
       </div>
       <span class="lbl">{{ (active && player.format) || '—' }}</span>
     </div>

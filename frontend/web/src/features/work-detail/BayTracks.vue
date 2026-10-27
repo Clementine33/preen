@@ -2,8 +2,8 @@
 import { computed, nextTick, ref, watch } from 'vue'
 import { useKeymap } from '@/composables/use-keymap'
 import { fmtT } from '@/features/work-detail/derive'
-import { useWorkDetailStore } from '@/stores/work-detail'
 import { usePlayerStore } from '@/stores/player'
+import { useWorkDetailStore } from '@/stores/work-detail'
 
 // The merged track list keeps its order across format chips. A missing format
 // plays the track's first available format. The 2px bar
@@ -16,7 +16,7 @@ import { usePlayerStore } from '@/stores/player'
 const store = useWorkDetailStore()
 const player = usePlayerStore()
 
-const fileFor = (t: number) => {
+function fileFor(t: number) {
   const track = store.tracks[t]
   return track?.files[store.fmt] ?? track?.files[track.formats[0]]
 }
@@ -24,64 +24,81 @@ const maxDuration = computed(() => Math.max(...store.tracks.map((_, t) => fileFo
 const isPlaying = (t: number): boolean => player.rj === store.rj && player.trackKey === store.tracks[t]?.key
 const missing = (t: number): boolean => store.tracks[t]?.files[store.fmt] === undefined
 
-const barWidth = (t: number): string => {
+function barWidth(t: number): string {
   return `${Math.round(((fileFor(t)?.duration_sec ?? 0) / (maxDuration.value || 1)) * 160)}px`
 }
-const duration = (t: number): string => {
+function duration(t: number): string {
   const seconds = fileFor(t)?.duration_sec
-  return seconds == null ? '—' : fmtT(seconds)
+  return seconds == null
+    ? '—'
+    : fmtT(seconds)
 }
 // A variant header only helps when the work has more than one variant.
-const multiVariant = computed(() => new Set(store.tracks.map((track) => track.variant)).size > 1)
-const showHeader = (t: number): boolean =>
-  multiVariant.value && store.tracks[t].variant !== store.tracks[t - 1]?.variant
+const multiVariant = computed(() => new Set(store.tracks.map(track => track.variant)).size > 1)
+function showHeader(t: number): boolean {
+  return multiVariant.value && store.tracks[t].variant !== store.tracks[t - 1]?.variant
+}
 const hasLrc = (t: number): boolean => store.lrcFor(t) !== null
 const pairedRel = computed(() => store.lrcFor(store.track))
 
 const list = ref<HTMLElement | null>(null)
 const rowCount = computed(() => (store.lrcMode ? store.lrcFiles.length : store.tracks.length))
 const home = computed(() =>
-  Math.max(0, store.lrcMode ? store.lrcFiles.findIndex((lrc) => lrc.rel_path === pairedRel.value) : store.tracks.findIndex((_, t) => isPlaying(t))),
+  Math.max(0, store.lrcMode
+    ? store.lrcFiles.findIndex(lrc => lrc.rel_path === pairedRel.value)
+    : store.tracks.findIndex((_, t) => isPlaying(t))),
 )
 const cursor = ref(home.value)
-watch(home, (to) => (cursor.value = to))
+watch(home, to => (cursor.value = to))
 watch(cursor, () => void nextTick(() => list.value?.querySelector('.cur')?.scrollIntoView?.({ block: 'nearest' })))
 const at = (t: number): boolean => cursor.value === t
 
 useKeymap({
   'detail.cursor': (event) => {
-    cursor.value = Math.min(Math.max(cursor.value + (event.key === 'ArrowDown' ? 1 : -1), 0), rowCount.value - 1)
+    cursor.value = Math.min(Math.max(cursor.value + (event.key === 'ArrowDown'
+      ? 1
+      : -1), 0), rowCount.value - 1)
   },
   'detail.activate': () => {
-    if (!store.lrcMode) return store.tracks[cursor.value] ? store.startTrack(cursor.value) : false
+    if (!store.lrcMode) {
+      return store.tracks[cursor.value]
+        ? store.startTrack(cursor.value)
+        : false
+    }
     const lrc = store.lrcFiles[cursor.value]
-    return lrc ? store.pairLrc(store.track, lrc.rel_path) : false
+    return lrc
+      ? store.pairLrc(store.track, lrc.rel_path)
+      : false
   },
 }, () => store.bayVisible)
 </script>
 
 <template>
   <div v-if="store.lrcMode" ref="list" class="list" lang="ja">
-    <button v-for="(lrc, i) in store.lrcFiles" :key="lrc.rel_path" class="trk" type="button"
+    <button
+      v-for="(lrc, i) in store.lrcFiles" :key="lrc.rel_path" class="trk" type="button"
       :class="{ now: lrc.rel_path === pairedRel, cur: at(i) }" :aria-current="lrc.rel_path === pairedRel ? 'true' : undefined"
-      @click="store.pairLrc(store.track, lrc.rel_path)">
+      @click="store.pairLrc(store.track, lrc.rel_path)"
+    >
       <span class="no lbl">{{ String(i + 1).padStart(2, '0') }}</span>
       <span class="nm-wrap"><span class="nm">{{ lrc.name }}</span></span>
-      <span class="dur lbl">{{ lrc.rel_path === pairedRel ? 'TRACK ' + String(store.track + 1).padStart(2, '0') : '' }}</span>
+      <span class="dur lbl">{{ lrc.rel_path === pairedRel ? `TRACK ${String(store.track + 1).padStart(2, '0')}` : '' }}</span>
     </button>
   </div>
   <div v-else ref="list" class="list" lang="ja">
     <template v-for="(track, t) in store.tracks" :key="track.key">
       <div v-if="showHeader(t)" class="var lbl">{{ track.variant || '/' }}</div>
-      <button class="trk" type="button"
+      <button
+        class="trk" type="button"
         :class="{ missing: missing(t), now: isPlaying(t), cur: at(t) }" :aria-current="isPlaying(t) ? 'true' : undefined"
-        @click="store.startTrack(t)">
+        @click="store.startTrack(t)"
+      >
         <span class="no lbl">{{ String(t + 1).padStart(2, '0') }}</span>
         <span class="nm-wrap">
           <span class="nm">{{ track.stem }}</span>
           <span v-if="missing(t) && track.formats.length === 1" class="only">{{ track.formats[0] }} ONLY</span>
           <span v-if="hasLrc(t)" class="has-lrc" title="有歌词">¶</span>
-          <span class="bar" :style="{ width: barWidth(t) }"></span>
+          <span class="bar" :style="{ width: barWidth(t) }" />
         </span>
         <span class="dur">{{ duration(t) }}</span>
       </button>

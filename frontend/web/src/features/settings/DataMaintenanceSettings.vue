@@ -1,11 +1,11 @@
 <script setup lang="ts">
+import type { CleanupCategory, CleanupPreview, CleanupStatus } from '@/lib/api/types'
 import { computed, ref } from 'vue'
 import { Button } from '@/components/ui/button'
 import Modal from '@/components/ui/modal/Modal.vue'
 import { ApiError } from '@/lib/api/client'
 import { errorDetails } from '@/lib/api/error'
-import type { CleanupCategory, CleanupPreview, CleanupStatus } from '@/lib/api/types'
-import { isCleanupActive, useCancelCleanup, usePreviewCleanup, useCleanupRun, useStartCleanup } from '@/queries/cleanup'
+import { isCleanupActive, useCancelCleanup, useCleanupRun, usePreviewCleanup, useStartCleanup } from '@/queries/cleanup'
 
 /**
  * 数据维护: deployment-wide record cleanup by category. One dialog carries a
@@ -15,7 +15,7 @@ import { isCleanupActive, useCancelCleanup, usePreviewCleanup, useCleanupRun, us
  * live run and never shows an earlier run's result. Nothing here lists,
  * selects or deletes individual records.
  */
-const CATEGORIES: { id: CleanupCategory; label: string }[] = [
+const CATEGORIES: { id: CleanupCategory, label: string }[] = [
   { id: 'scan_sessions', label: '扫描记录' },
   { id: 'plan_generations', label: '规划记录' },
   { id: 'generation_records', label: '无对应文件的生成记录' },
@@ -25,7 +25,7 @@ const CATEGORIES: { id: CleanupCategory; label: string }[] = [
   { id: 'source_voice_actors', label: '无引用的来源声优' },
   { id: 'source_circles', label: '无引用的来源社团' },
 ]
-const LABELS = Object.fromEntries(CATEGORIES.map((c) => [c.id, c.label])) as Record<CleanupCategory, string>
+const LABELS = Object.fromEntries(CATEGORIES.map(c => [c.id, c.label])) as Record<CleanupCategory, string>
 const STATUS_TEXT: Record<CleanupStatus, string> = {
   running: '清理正在运行',
   stopping: '正在停止，当前批次提交后结束',
@@ -45,17 +45,19 @@ const active = computed(() => isCleanupActive(current.value))
 // A failed read keeps the last data, so the run may have moved on unseen.
 const unknown = computed(() => run.isError.value)
 
-const selected = ref<CleanupCategory[]>(CATEGORIES.map((c) => c.id))
+const selected = ref<CleanupCategory[]>(CATEGORIES.map(c => c.id))
 const preview = ref<CleanupPreview | null>(null)
 const previewError = ref('')
 const dialog = ref<'confirm' | 'run' | null>(null)
 const error = ref('')
 // The run started from this dialog; its result is shown once it ends, any other ended run is not.
 const own = ref<string | null>(null)
-const shown = computed(() => (current.value && (active.value || current.value.run_id === own.value) ? current.value : null))
+const shown = computed(() => (current.value && (active.value || current.value.run_id === own.value)
+  ? current.value
+  : null))
 let seq = 0
 
-const ordered = computed(() => CATEGORIES.filter((c) => selected.value.includes(c.id)))
+const ordered = computed(() => CATEGORIES.filter(c => selected.value.includes(c.id)))
 const total = computed(() => ordered.value.reduce((sum, c) => sum + (preview.value?.candidates[c.id] ?? 0), 0))
 
 // The total is an estimate: execution rechecks every record before deleting it.
@@ -67,10 +69,13 @@ async function open(): Promise<void> {
   error.value = ''
   dialog.value = 'confirm'
   try {
-    const result = await previewMutation.mutateAsync(ordered.value.map((c) => c.id))
-    if (mine === seq) preview.value = result
-  } catch (failure) {
-    if (mine === seq) previewError.value = errorDetails(failure).message
+    const result = await previewMutation.mutateAsync(ordered.value.map(c => c.id))
+    if (mine === seq)
+      preview.value = result
+  }
+  catch (failure) {
+    if (mine === seq)
+      previewError.value = errorDetails(failure).message
   }
 }
 function close(): void {
@@ -83,27 +88,33 @@ async function start(): Promise<void> {
   error.value = ''
   own.value = null
   try {
-    own.value = (await startMutation.mutateAsync(ordered.value.map((c) => c.id))).run_id
-  } catch (failure) {
+    own.value = (await startMutation.mutateAsync(ordered.value.map(c => c.id))).run_id
+  }
+  catch (failure) {
     // Never resend: ask the server what is running instead.
     void run.refetch()
-    if (failure instanceof ApiError && failure.code === 'BUSY') error.value = '当前有其他维护、扫描或任务在运行，未开始。'
-    else if (failure instanceof ApiError) error.value = failure.message
+    if (failure instanceof ApiError && failure.code === 'BUSY')
+      error.value = '当前有其他维护、扫描或任务在运行，未开始。'
+    else if (failure instanceof ApiError)
+      error.value = failure.message
     else error.value = '连接中断，无法确认是否已开始。已重新查询状态，请勿重复提交。'
   }
 }
 
 async function stop(): Promise<void> {
-  if (!current.value) return
+  if (!current.value)
+    return
   error.value = ''
   try {
     await cancelMutation.mutateAsync(current.value.run_id)
-  } catch (failure) {
+  }
+  catch (failure) {
     void run.refetch()
-    error.value = failure instanceof ApiError ? failure.message : '连接中断，停止请求状态未知，已重新查询。'
+    error.value = failure instanceof ApiError
+      ? failure.message
+      : '连接中断，停止请求状态未知，已重新查询。'
   }
 }
-
 </script>
 
 <template>
@@ -124,7 +135,7 @@ async function stop(): Promise<void> {
       <fieldset class="space-y-1">
         <legend class="text-xs font-medium">清理类别</legend>
         <label v-for="c in CATEGORIES" :key="c.id" class="flex min-h-11 items-center gap-2 text-xs rail:min-h-7">
-          <input v-model="selected" type="checkbox" :value="c.id" :data-testid="`cleanup-select-${c.id}`" />
+          <input v-model="selected" type="checkbox" :value="c.id" :data-testid="`cleanup-select-${c.id}`">
           <span class="flex-1">{{ c.label }}</span>
         </label>
       </fieldset>

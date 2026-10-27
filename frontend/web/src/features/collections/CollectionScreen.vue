@@ -7,7 +7,7 @@ import { useReducedMotion } from '@/composables/use-motion'
 // down to black, then the odd and even lines are drawn, overlapping, each pass
 // led by a beam with a short phosphor afterglow. No url shows the hatched
 // empty state; `veiled` Gaussian-blurs the picture instead. Reduced motion, or a burst of switching, swaps the cover at once.
-const props = defineProps<{ url: string | null; instant?: boolean; veiled?: boolean }>()
+const props = defineProps<{ url: string | null, instant?: boolean, veiled?: boolean }>()
 defineEmits<{ redraw: [] }>()
 
 const reduce = useReducedMotion()
@@ -22,7 +22,11 @@ const scanning = ref(false)
 const ready = ref(false)
 let timer: ReturnType<typeof setTimeout> | undefined
 
-const css = (url: string | null) => (url ? `url("${url.replace(/"/g, '%22')}")` : 'none')
+function css(url: string | null) {
+  return url
+    ? `url("${url.replace(/"/g, '%22')}")`
+    : 'none'
+}
 
 function settle(url: string | null, veiled: boolean) {
   clearTimeout(timer)
@@ -43,23 +47,26 @@ watch(() => props.url, (url) => {
   // Restart the animations: one frame with the class off, then on.
   requestAnimationFrame(() => {
     scanning.value = true
-    timer = setTimeout(() => settle(url, nextV.value), SETTLE_MS)
+    timer = setTimeout(settle, SETTLE_MS, url, nextV.value)
   })
 }, { immediate: true })
 // The veil toggled on the picture already shown.
 watch(() => props.veiled, (veiled) => {
   nextV.value = veiled === true
   // A url switch in the same tick leaves cur behind: the old picture keeps its own veil.
-  if (next.value === cur.value) curV.value = nextV.value
+  if (next.value === cur.value)
+    curV.value = nextV.value
 })
 
 onBeforeUnmount(() => clearTimeout(timer))
 </script>
 
 <template>
-  <div class="screen" :class="{ scanning, empty: !cur && !scanning }" data-testid="collection-screen"
+  <div
+    class="screen" :class="{ scanning, empty: !cur && !scanning }" data-testid="collection-screen"
     :style="{ '--cur': css(cur), '--new': css(next) }" role="button" tabindex="-1" title="换一张"
-    @click="$emit('redraw')">
+    @click="$emit('redraw')"
+  >
     <div class="scr-base" :class="{ blur: curV }" />
     <div class="scr-pass p1" :class="{ blur: nextV }" />
     <div class="scr-pass p2" :class="{ blur: nextV }" />

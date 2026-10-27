@@ -1,8 +1,9 @@
 <script setup lang="ts">
+import type { RouteLocationRaw } from 'vue-router'
 import { ChevronLeft, PanelLeftClose, PanelLeftOpen } from '@lucide/vue'
 import { DialogContent, DialogDescription, DialogOverlay, DialogPortal, DialogRoot, DialogTitle } from 'reka-ui'
 import { computed, ref, watch } from 'vue'
-import { RouterLink, useRoute, type RouteLocationRaw } from 'vue-router'
+import { RouterLink, useRoute } from 'vue-router'
 import GlobalMenu from '@/components/layout/GlobalMenu.vue'
 import { Button } from '@/components/ui/button'
 import { useContainerTier } from '@/composables/use-container-tier'
@@ -53,14 +54,15 @@ const shell = ref<HTMLElement | null>(null)
 const toggle = ref<InstanceType<typeof Button> | null>(null)
 const { tier } = useContainerTier(shell)
 // Wide containers default to the full 200px sidebar, mid containers to hidden
-//; the user's toggle then wins until the tier changes.
+// ; the user's toggle then wins until the tier changes.
 const expanded = ref(true)
 const drawerOpen = ref(false)
 const narrow = computed(() => tier.value === 'narrow')
 
 watch(tier, (value) => {
   expanded.value = value === 'wide'
-  if (value !== 'narrow') drawerOpen.value = false
+  if (value !== 'narrow')
+    drawerOpen.value = false
 })
 
 // The drawer closes once a page selection succeeded. A navigation the
@@ -74,7 +76,8 @@ watch(
 )
 
 function toggleNav() {
-  if (narrow.value) drawerOpen.value = !drawerOpen.value
+  if (narrow.value)
+    drawerOpen.value = !drawerOpen.value
   else expanded.value = !expanded.value
 }
 
@@ -82,7 +85,8 @@ function toggleNav() {
 function restoreNavFocus(event: Event) {
   event.preventDefault()
   const element = toggle.value?.$el
-  if (element instanceof HTMLElement) element.focus()
+  if (element instanceof HTMLElement)
+    element.focus()
 }
 
 /** A tap on the page you are already on is a selection too, and a
@@ -90,7 +94,8 @@ function restoreNavFocus(event: Event) {
  *  leave. Everything else waits for the route watcher. */
 function onDrawerClick(event: MouseEvent) {
   const link = (event.target as HTMLElement | null)?.closest('a[href]')
-  if (link && link.getAttribute('href') === route.path) drawerOpen.value = false
+  if (link && link.getAttribute('href') === route.path)
+    drawerOpen.value = false
 }
 </script>
 

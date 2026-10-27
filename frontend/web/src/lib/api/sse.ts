@@ -31,36 +31,52 @@ export async function* parseSSEStream<T extends SSEEvent>(
     eventName = 'message'
     dataLines = []
     try {
-      return { type, data: JSON.parse(raw) } as T
-    } catch (error) {
+      return {
+        type,
+        data: JSON.parse(raw),
+      } as T
+    }
+    catch (error) {
       throw new SSEParseError(type, { cause: error })
     }
   }
 
   function processLine(line: string): T | null {
-    if (line.endsWith('\r')) line = line.slice(0, -1)
-    if (line === '') return dispatch()
-    if (line.startsWith(':')) return null
+    if (line.endsWith('\r'))
+      line = line.slice(0, -1)
+    if (line === '')
+      return dispatch()
+    if (line.startsWith(':'))
+      return null
 
     const separator = line.indexOf(':')
-    const field = separator === -1 ? line : line.slice(0, separator)
-    let value = separator === -1 ? '' : line.slice(separator + 1)
-    if (value.startsWith(' ')) value = value.slice(1)
-    if (field === 'event') eventName = value
-    if (field === 'data') dataLines.push(value)
+    const field = separator === -1
+      ? line
+      : line.slice(0, separator)
+    let value = separator === -1
+      ? ''
+      : line.slice(separator + 1)
+    if (value.startsWith(' '))
+      value = value.slice(1)
+    if (field === 'event')
+      eventName = value
+    if (field === 'data')
+      dataLines.push(value)
     return null
   }
 
   try {
     while (true) {
       const { value, done } = await reader.read()
-      if (done) break
+      if (done)
+        break
       buffer += decoder.decode(value, { stream: true })
       let newline = buffer.indexOf('\n')
       while (newline !== -1) {
         const event = processLine(buffer.slice(0, newline))
         buffer = buffer.slice(newline + 1)
-        if (event) yield event
+        if (event)
+          yield event
         newline = buffer.indexOf('\n')
       }
     }
@@ -68,19 +84,23 @@ export async function* parseSSEStream<T extends SSEEvent>(
     buffer += decoder.decode()
     if (buffer.length > 0) {
       const event = processLine(buffer)
-      if (event) yield event
+      if (event)
+        yield event
     }
     const finalEvent = dispatch()
-    if (finalEvent) yield finalEvent
+    if (finalEvent)
+      yield finalEvent
     completed = true
-  } finally {
+  }
+  finally {
     if (!completed) {
       // The consumer stopped iterating before the stream ended: cancel the
       // underlying source (reader.read is abandoned). Loss of cancellation is
       // ignored so the original parser or stream error still propagates.
       try {
         await reader.cancel()
-      } catch {
+      }
+      catch {
         /* preserve the original error */
       }
     }

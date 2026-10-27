@@ -15,7 +15,9 @@ export function useMediaQuery(query: string) {
     matches.value = list?.matches ?? false
   }
   onMounted(() => {
-    list = typeof matchMedia === 'function' ? matchMedia(query) : null
+    list = typeof matchMedia === 'function'
+      ? matchMedia(query)
+      : null
     sync()
     list?.addEventListener('change', sync)
   })

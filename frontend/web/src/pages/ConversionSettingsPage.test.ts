@@ -1,16 +1,23 @@
-import { enableAutoUnmount, flushPromises, mount, type VueWrapper } from '@vue/test-utils'
-import { createPinia } from 'pinia'
-import { h } from 'vue'
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createMemoryHistory, createRouter, RouterView, type Router } from 'vue-router'
-import { ApiError, apiClientKey } from '@/lib/api/client'
+import type { VueWrapper } from '@vue/test-utils'
+import type { Router } from 'vue-router'
 import type { ApiClientContract, ConversionSettings } from '@/lib/api/types'
+import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
+import { createPinia } from 'pinia'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { h } from 'vue'
+import { createMemoryHistory, createRouter, RouterView } from 'vue-router'
+import SettingsSegmented from '@/features/settings/SettingsSegmented.vue'
+import { apiClientKey, ApiError } from '@/lib/api/client'
 import { apiStub } from '@/test/api-stub'
 import { installTestQueryPlugin } from '@/test/query-client'
-import SettingsSegmented from '@/features/settings/SettingsSegmented.vue'
 import ConversionSettingsPage from './ConversionSettingsPage.vue'
 
-const MP3_320 = { encoded: { codec: 'mp3', quality: { kind: 'bitrate' as const, bitrate: 320 } } }
+const MP3_320 = {
+  encoded: {
+    codec: 'mp3',
+    quality: { kind: 'bitrate' as const, bitrate: 320 },
+  },
+}
 
 // The stored settings: not the defaults, so 恢复默认 has something to restore.
 const stored: ConversionSettings = {
@@ -27,25 +34,39 @@ function pageApi(overrides: Partial<ApiClientContract> = {}): ApiClientContract 
     getTaskSettings: vi.fn(async () => ({ settings: stored, etag: '"e1"' })) as never,
     saveTaskSettings: vi.fn(async (_type: string, settings: unknown) => ({ settings, etag: '"e2"' })) as never,
     getCurrentRecord: vi.fn().mockResolvedValue({ workset: null }),
-    listClassifierTags: vi.fn().mockResolvedValue({ default_no_effect_tags: ['SEなし'], default_other_tags: [], custom_tags: [] }),
+    listClassifierTags: vi.fn().mockResolvedValue({
+      default_no_effect_tags: ['SEなし'],
+      default_other_tags: [],
+      custom_tags: [],
+    }),
     ...overrides,
   } as never)
 }
 
-async function mountSettings(overrides: Partial<ApiClientContract> = {}): Promise<{ wrapper: VueWrapper; router: Router; api: ApiClientContract }> {
+async function mountSettings(overrides: Partial<ApiClientContract> = {}): Promise<{ wrapper: VueWrapper, router: Router, api: ApiClientContract }> {
   const router = createRouter({
     history: createMemoryHistory(),
     routes: [
-      { path: '/worksets/:libraryId/conversion', name: 'conversion', component: { template: '<div />' } },
+      {
+        path: '/worksets/:libraryId/conversion',
+        name: 'conversion',
+        component: { template: '<div />' },
+      },
       { path: '/worksets/:libraryId/conversion/settings', name: 'conversion-settings', component: ConversionSettingsPage },
     ],
   })
   await router.push('/worksets/lib-a/conversion/settings')
   await router.isReady()
   const api = pageApi(overrides)
-  const wrapper = mount({ render: () => h(RouterView) }, {
+  const wrapper = mount({
+    render: () => h(RouterView),
+  }, {
     global: {
-      plugins: [createPinia(), router, installTestQueryPlugin()],
+      plugins: [
+        createPinia(),
+        router,
+        installTestQueryPlugin(),
+      ],
       provide: { [apiClientKey as symbol]: api },
     },
   })
@@ -53,8 +74,9 @@ async function mountSettings(overrides: Partial<ApiClientContract> = {}): Promis
   return { wrapper, router, api }
 }
 
-const modeSelect = (wrapper: VueWrapper) =>
-  wrapper.findAllComponents(SettingsSegmented).find((select) => select.vm.$attrs['data-testid'] === 'common-mode')!
+function modeSelect(wrapper: VueWrapper) {
+  return wrapper.findAllComponents(SettingsSegmented).find(select => select.vm.$attrs['data-testid'] === 'common-mode')!
+}
 async function pickMode(wrapper: VueWrapper, value: string) {
   modeSelect(wrapper).vm.$emit('change', value)
   await flushPromises()
@@ -63,7 +85,7 @@ async function pickMode(wrapper: VueWrapper, value: string) {
 enableAutoUnmount(afterEach)
 afterEach(() => vi.restoreAllMocks())
 
-describe('ConversionSettingsPage', () => {
+describe('conversionSettingsPage', () => {
   it('shows the stored settings in a library with no record', async () => {
     const { wrapper, api } = await mountSettings()
     expect(wrapper.text()).not.toContain('加载中')
@@ -154,7 +176,13 @@ describe('ConversionSettingsPage', () => {
   it('reloads the settings after a version conflict so the next apply carries the new ETag', async () => {
     const getTaskSettings = vi.fn()
       .mockResolvedValueOnce({ settings: stored, etag: '"e1"' })
-      .mockResolvedValue({ settings: { ...stored, no_effect_tags: ['B'] }, etag: '"e9"' })
+      .mockResolvedValue({
+        settings: {
+          ...stored,
+          no_effect_tags: ['B'],
+        },
+        etag: '"e9"',
+      })
     const saveTaskSettings = vi.fn()
       .mockRejectedValueOnce(new ApiError(409, 'VERSION_CONFLICT', 'stale'))
       .mockImplementation(async (_type: string, settings: unknown) => ({ settings, etag: '"e10"' }))
@@ -167,7 +195,11 @@ describe('ConversionSettingsPage', () => {
 
     expect(saveTaskSettings).toHaveBeenLastCalledWith(
       'conversion',
-      { ...stored, no_effect_tags: ['B'], mode: 'available_sources' },
+      {
+        ...stored,
+        no_effect_tags: ['B'],
+        mode: 'available_sources',
+      },
       '"e9"',
     )
   })
@@ -190,7 +222,7 @@ describe('ConversionSettingsPage', () => {
   })
 })
 
-describe('ConversionSettingsPage route leave', () => {
+describe('conversionSettingsPage route leave', () => {
   it.each([false, true])('confirms unsaved edits and respects the answer %s', async (accept) => {
     const confirm = vi.spyOn(window, 'confirm').mockReturnValue(accept)
     const { wrapper, router } = await mountSettings()

@@ -39,9 +39,13 @@ const REQUEST_CODE_TEXT: Record<string, string> = {
 export function itemStatusText(item: FileOperationItemResult): string {
   switch (item.status) {
     case 'ok':
-      return item.recovered_path ? `已移入回收目录：${item.recovered_path}` : `已完成：${item.target ?? item.source}`
+      return item.recovered_path
+        ? `已移入回收目录：${item.recovered_path}`
+        : `已完成：${item.target ?? item.source}`
     case 'failed':
-      return item.message ? `${item.message}（${item.code}）` : (ITEM_CODE_TEXT[item.code ?? ''] ?? '失败')
+      return item.message
+        ? `${item.message}（${item.code}）`
+        : (ITEM_CODE_TEXT[item.code ?? ''] ?? '失败')
     case 'skipped':
       return ITEM_CODE_TEXT[item.code ?? ''] ?? '已跳过'
     default:
@@ -51,7 +55,8 @@ export function itemStatusText(item: FileOperationItemResult): string {
 
 /** The refresh verdict, stated as its own fact: the writes already happened. */
 export function refreshText(refresh: RefreshState): string {
-  if (refresh.ok) return '已刷新目录'
+  if (refresh.ok)
+    return '已刷新目录'
   return `${refresh.message ?? '刷新失败'}（文件已修改，刷新失败）`
 }
 

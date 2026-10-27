@@ -1,10 +1,10 @@
 <script setup lang="ts">
+import type { WorkContentDir, WorkContentFile } from '@/lib/api/types'
 import { computed, nextTick, ref, watch } from 'vue'
 import { useKeymap } from '@/composables/use-keymap'
 import { audioInfo, dirCounts, fmtSize, kindGlyph } from '@/features/work-detail/derive'
-import { useWorkDetailStore } from '@/stores/work-detail'
 import { usePlayerStore } from '@/stores/player'
-import type { WorkContentDir, WorkContentFile } from '@/lib/api/types'
+import { useWorkDetailStore } from '@/stores/work-detail'
 
 // The FILES tab (v3): an OpenList browser of the copy's tree — breadcrumbs,
 // kind glyphs, recursive directory counts, no filter (work folders are small).
@@ -18,12 +18,20 @@ const store = useWorkDetailStore()
 const player = usePlayerStore()
 
 const dir = computed(() => store.cwdDir)
-const crumbs = computed(() => (store.copy ? ['/', ...store.cwd] : []))
+const crumbs = computed(() => (store.copy
+  ? ['/', ...store.cwd]
+  : []))
 
 /** Directories first, order kept (v3's stable sort). */
 const entries = computed(() =>
-  [...(dir.value?.children ?? [])].sort((a, b) =>
-    'children' in a === ('children' in b) ? 0 : 'children' in a ? -1 : 1,
+  [
+    ...(dir.value?.children ?? []),
+  ].sort((a, b) =>
+    'children' in a === ('children' in b)
+      ? 0
+      : 'children' in a
+        ? -1
+        : 1,
   ),
 )
 
@@ -35,40 +43,51 @@ const offset = computed(() => (store.cwd.length ? 1 : 0))
 const at = (i: number): boolean => cursor.value === i + offset.value
 const up = (): void => store.selectDir(store.cwd.slice(0, -1))
 function enter(): void {
-  if (cursor.value < offset.value) return up()
+  if (cursor.value < offset.value)
+    return up()
   const entry = entries.value[cursor.value - offset.value]
-  if (!entry) return
-  if ('children' in entry) store.selectDir([...store.cwd, entry.name])
+  if (!entry)
+    return
+  if ('children' in entry)
+    store.selectDir([...store.cwd, entry.name])
   else store.selectFile(entry)
 }
 useKeymap({
   'detail.cursor': (event) => {
-    cursor.value = Math.min(Math.max(cursor.value + (event.key === 'ArrowDown' ? 1 : -1), 0), entries.value.length + offset.value - 1)
+    cursor.value = Math.min(Math.max(cursor.value + (event.key === 'ArrowDown'
+      ? 1
+      : -1), 0), entries.value.length + offset.value - 1)
   },
   'detail.activate': enter,
-  'detail.parent': () => (store.cwd.length ? up() : false),
+  'detail.parent': () => (store.cwd.length
+    ? up()
+    : false),
 }, () => store.bayVisible)
 
-function counts(entry: WorkContentDir): { aud: number; img: number; txt: number; vid: number } {
+function counts(entry: WorkContentDir): { aud: number, img: number, txt: number, vid: number } {
   return dirCounts(entry)
 }
 function info(entry: WorkContentFile): string {
-  if (entry.kind === 'aud') return audioInfo(entry)
-  if (entry.kind === 'img' && entry.width !== null && entry.height !== null) return `${entry.width}×${entry.height}`
+  if (entry.kind === 'aud')
+    return audioInfo(entry)
+  if (entry.kind === 'img' && entry.width !== null && entry.height !== null)
+    return `${entry.width}×${entry.height}`
   return ''
 }
 function sizeOf(entry: WorkContentDir | WorkContentFile): string {
-  return 'children' in entry ? String(entry.children.length) : fmtSize(entry.size)
+  return 'children' in entry
+    ? String(entry.children.length)
+    : fmtSize(entry.size)
 }
 function isPlaying(entry: WorkContentDir | WorkContentFile): boolean {
   return (
-    !('children' in entry) &&
-    entry.kind === 'aud' &&
-    player.rj === store.rj &&
-    store.tracks.some(
-      (track) =>
-        player.trackKey === track.key &&
-        Object.values(track.files).some((f) => f?.rel_path === entry.rel_path),
+    !('children' in entry)
+    && entry.kind === 'aud'
+    && player.rj === store.rj
+    && store.tracks.some(
+      track =>
+        player.trackKey === track.key
+        && Object.values(track.files).some(f => f?.rel_path === entry.rel_path),
     )
   )
 }
@@ -79,20 +98,24 @@ function isPlaying(entry: WorkContentDir | WorkContentFile): boolean {
     <div class="crumbs">
       <template v-for="(crumb, i) in crumbs" :key="i">
         <span v-if="i > 0" class="crumb-sep" aria-hidden="true">›</span>
-        <button class="crumb" type="button" lang="ja" :aria-current="i === crumbs.length - 1 ? 'true' : undefined"
-          @click="store.selectDir(store.cwd.slice(0, i))">{{ crumb }}</button>
+        <button
+          class="crumb" type="button" lang="ja" :aria-current="i === crumbs.length - 1 ? 'true' : undefined"
+          @click="store.selectDir(store.cwd.slice(0, i))"
+        >{{ crumb }}</button>
       </template>
-      <button class="btn btn-s copy-pick" type="button" disabled
-        :title="`读取副本 ${store.activeCopy?.library_id ?? '—'}（多副本切换未实现）`">{{ store.activeCopy?.library_id ?? '—' }} ▾</button>
+      <button
+        class="btn btn-s copy-pick" type="button" disabled
+        :title="`读取副本 ${store.activeCopy?.library_id ?? '—'}（多副本切换未实现）`"
+      >{{ store.activeCopy?.library_id ?? '—' }} ▾</button>
     </div>
-    <div class="list-head"><span></span><span></span><span class="lbl">NAME</span><span class="lbl">INFO</span><span class="lbl">SIZE</span></div>
+    <div class="list-head"><span /><span /><span class="lbl">NAME</span><span class="lbl">INFO</span><span class="lbl">SIZE</span></div>
     <div ref="list" class="list" lang="ja">
       <button v-if="store.cwd.length" class="row dir" :class="{ cur: cursor === 0 }" type="button" @click="up">
-        <span class="mark"></span><span class="glyph">▴</span><span class="name">..</span><span class="info"></span><span class="size"></span>
+        <span class="mark" /><span class="glyph">▴</span><span class="name">..</span><span class="info" /><span class="size" />
       </button>
       <template v-for="(entry, i) in entries" :key="entry.rel_path">
         <button v-if="'children' in entry" class="row dir" :class="{ cur: at(i) }" type="button" @click="store.selectDir([...store.cwd, entry.name])">
-          <span class="mark"></span><span class="glyph">{{ kindGlyph('dir') }}</span><span class="name">{{ entry.name }}</span>
+          <span class="mark" /><span class="glyph">{{ kindGlyph('dir') }}</span><span class="name">{{ entry.name }}</span>
           <span class="info"><span class="counts">
             <template v-if="counts(entry).aud">♪{{ counts(entry).aud }}</template>
             <template v-if="counts(entry).img"> ▢{{ counts(entry).img }}</template>
@@ -101,9 +124,11 @@ function isPlaying(entry: WorkContentDir | WorkContentFile): boolean {
           </span></span>
           <span class="size">{{ sizeOf(entry) }}</span>
         </button>
-        <button v-else class="row" type="button" :class="{ now: isPlaying(entry), cur: at(i) }"
-          :aria-selected="store.sel === entry.rel_path" @click="store.selectFile(entry)">
-          <span class="mark"></span><span class="glyph">{{ kindGlyph(entry.kind) }}</span>
+        <button
+          v-else class="row" type="button" :class="{ now: isPlaying(entry), cur: at(i) }"
+          :aria-selected="store.sel === entry.rel_path" @click="store.selectFile(entry)"
+        >
+          <span class="mark" /><span class="glyph">{{ kindGlyph(entry.kind) }}</span>
           <span class="name">{{ entry.name }}<span v-if="isPlaying(entry)" class="nowtag">NOW</span></span>
           <span class="info">{{ info(entry) }}</span>
           <span class="size">{{ sizeOf(entry) }}</span>

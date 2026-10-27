@@ -27,10 +27,14 @@ const memoryStorage: Storage = {
     store.clear()
   },
   getItem(key: string) {
-    return store.has(key) ? store.get(key)! : null
+    return store.has(key)
+      ? store.get(key)!
+      : null
   },
   key(index: number) {
-    return [...store.keys()][index] ?? null
+    return [
+      ...store.keys(),
+    ][index] ?? null
   },
   removeItem(key: string) {
     store.delete(key)

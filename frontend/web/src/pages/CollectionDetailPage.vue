@@ -1,16 +1,17 @@
 <script setup lang="ts">
+import type { RailOption } from '@/features/works/RailSelect.vue'
+import type { WorksSort } from '@/lib/api/types'
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import Modal from '@/components/ui/modal/Modal.vue'
+import GlobalMenu from '@/components/layout/GlobalMenu.vue'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import Modal from '@/components/ui/modal/Modal.vue'
 import { useToast } from '@/composables/use-toast'
-import GlobalMenu from '@/components/layout/GlobalMenu.vue'
 import CollectionList from '@/features/collections/CollectionList.vue'
 import { useCollectionEdit } from '@/features/collections/use-collection-edit'
 import PlayerBar from '@/features/works/PlayerBar.vue'
-import RailSelect, { type RailOption } from '@/features/works/RailSelect.vue'
-import type { WorksSort } from '@/lib/api/types'
+import RailSelect from '@/features/works/RailSelect.vue'
 import { useCollectionManage, useCollectionPages } from '@/queries/collections'
 
 // One collection's detail page: header, the ordered list, the player baseline.
@@ -33,22 +34,44 @@ const SORT_OPTIONS: RailOption[] = [
   { value: 'collected_at', label: '入库时间' },
   { value: 'rating', label: '个人评分' },
 ]
-const sort = computed(() => SORT_OPTIONS.find((o) => o.value === route.query.sort)?.value as WorksSort | '' ?? '')
-const defaultDirection = (s: string) => (s === '' ? 'asc' : 'desc')
-const direction = computed(() => (route.query.direction === 'asc' || route.query.direction === 'desc' ? route.query.direction : defaultDirection(sort.value)))
+const sort = computed(() => SORT_OPTIONS.find(o => o.value === route.query.sort)?.value as WorksSort | '' ?? '')
+function defaultDirection(s: string) {
+  return s === ''
+    ? 'asc'
+    : 'desc'
+}
+const direction = computed(() => (route.query.direction === 'asc' || route.query.direction === 'desc'
+  ? route.query.direction
+  : defaultDirection(sort.value)))
 
 function show(nextSort: string, nextDirection: string) {
-  void router.replace({ query: {
-    ...(nextSort ? { sort: nextSort } : {}),
-    ...(nextDirection !== defaultDirection(nextSort) ? { direction: nextDirection } : {}),
-  } })
+  void router.replace({
+    query: {
+      ...(nextSort
+        ? { sort: nextSort }
+        : {}),
+      ...(nextDirection !== defaultDirection(nextSort)
+        ? { direction: nextDirection }
+        : {}),
+    },
+  })
 }
-const sortModel = computed({ get: () => sort.value, set: (s: string) => show(s, defaultDirection(s)) })
+const sortModel = computed({
+  get: () => sort.value,
+  set: (s: string) => show(s, defaultDirection(s)),
+})
 
 const { query, name, total, works } = useCollectionPages(id, sort, direction)
 const editing = ref(false)
 watch(id, () => { editing.value = false })
-const edit = useCollectionEdit({ id, sort, direction, name, works, hasMore: () => query.hasNextPage.value })
+const edit = useCollectionEdit({
+  id,
+  sort,
+  direction,
+  name,
+  works,
+  hasMore: () => query.hasNextPage.value,
+})
 
 const manage = useCollectionManage()
 const toast = useToast()
@@ -57,8 +80,10 @@ const draft = ref('')
 const trimmed = computed(() => draft.value.trim())
 function openRename() { draft.value = name.value; dialog.value = 'rename' }
 async function submitRename() {
-  if (!trimmed.value) return
-  try { await manage.rename(id.value, trimmed.value); dialog.value = 'none' } catch (e) { toast.error(e) }
+  if (!trimmed.value)
+    return
+  try { await manage.rename(id.value, trimmed.value); dialog.value = 'none' }
+  catch (e) { toast.error(e) }
 }
 async function submitDelete() {
   const gone = name.value
@@ -67,13 +92,15 @@ async function submitDelete() {
     dialog.value = 'none'
     toast.show({ text: `已删除 ${gone}` })
     await router.push({ name: 'collections' })
-  } catch (e) { toast.error(e) }
+  }
+  catch (e) { toast.error(e) }
 }
 
 // Back to the entry this collection was opened from: that history entry holds
 // the selection to restore. Arriving any other way, the entry opens fresh.
 function backToEntry(): void {
-  if (router.options.history.state.back === '/collections') router.back()
+  if (router.options.history.state.back === '/collections')
+    router.back()
   else void router.push({ name: 'collections' })
 }
 </script>
@@ -99,18 +126,24 @@ function backToEntry(): void {
       </div>
       <div class="header-meta">
         <RailSelect v-model="sortModel" label="SORT" :options="SORT_OPTIONS" />
-        <button class="btn btn-s" type="button" :title="direction === 'asc' ? '升序' : '降序'" data-testid="collection-direction"
-          @click="show(sort, direction === 'asc' ? 'desc' : 'asc')">{{ direction === 'asc' ? '↑' : '↓' }}<span class="word">{{ direction === 'asc' ? ' ASC' : ' DESC' }}</span></button>
+        <button
+          class="btn btn-s" type="button" :title="direction === 'asc' ? '升序' : '降序'" data-testid="collection-direction"
+          @click="show(sort, direction === 'asc' ? 'desc' : 'asc')"
+        >{{ direction === 'asc' ? '↑' : '↓' }}<span class="word">{{ direction === 'asc' ? ' ASC' : ' DESC' }}</span></button>
         <span class="actions" data-testid="collection-actions">
-          <button v-if="total > 0" class="btn btn-s" :class="{ on: editing }" type="button" :aria-pressed="editing"
-            data-testid="collection-edit" @click="editing = !editing">{{ editing ? 'DONE' : 'EDIT' }}</button>
+          <button
+            v-if="total > 0" class="btn btn-s" :class="{ on: editing }" type="button" :aria-pressed="editing"
+            data-testid="collection-edit" @click="editing = !editing"
+          >{{ editing ? 'DONE' : 'EDIT' }}</button>
         </span>
       </div>
     </header>
 
     <main class="main">
-      <CollectionList v-if="total > 0" :works="works" :total="total" :custom="sort === ''" :direction="direction" :editing="editing" @move="edit.move" @remove="edit.remove" @done="editing = false"
-        :has-more="query.hasNextPage.value" @more="!query.isFetchingNextPage.value && query.fetchNextPage()" />
+      <CollectionList
+        v-if="total > 0" :works="works" :total="total" :custom="sort === ''" :direction="direction" :editing="editing" :has-more="query.hasNextPage.value" @move="edit.move" @remove="edit.remove"
+        @done="editing = false" @more="!query.isFetchingNextPage.value && query.fetchNextPage()"
+      />
       <p v-else-if="query.data.value" class="empty" data-testid="collection-empty">
         这个合集还是空的。<RouterLink :to="{ name: 'works' }">去作品墙挑选</RouterLink>
       </p>
@@ -120,8 +153,10 @@ function backToEntry(): void {
 
     <Modal :open="dialog === 'rename'" title="重命名合集" @update:open="dialog = 'none'">
       <form class="grid gap-3" @submit.prevent="submitRename">
-        <input v-model="draft" class="h-9 w-full rounded-md border border-input bg-transparent px-2 text-xs focus-visible:border-[var(--wire-strong)] focus-visible:outline-none"
-          aria-label="合集名称" data-testid="collection-rename-input" />
+        <input
+          v-model="draft" class="h-9 w-full rounded-md border border-input bg-transparent px-2 text-xs focus-visible:border-[var(--wire-strong)] focus-visible:outline-none"
+          aria-label="合集名称" data-testid="collection-rename-input"
+        >
         <p v-if="!trimmed" class="text-[11px] text-[var(--text-muted)]">名称不能为空。</p>
         <div class="flex justify-end gap-2">
           <Button type="button" variant="ghost" size="sm" @click="dialog = 'none'">取消</Button>

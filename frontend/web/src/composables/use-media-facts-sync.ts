@@ -1,11 +1,12 @@
-import { useQueryClient, type QueryClient } from '@tanstack/vue-query'
+import type { QueryClient } from '@tanstack/vue-query'
+import type { ApiClientContract } from '@/lib/api/types'
+import { useQueryClient } from '@tanstack/vue-query'
 import { onBeforeUnmount, onMounted } from 'vue'
 import { ApiError, backOff, useApiClient } from '@/lib/api/client'
-import type { ApiClientContract } from '@/lib/api/types'
-import { useMediaFactsStore } from '@/stores/media-facts'
 import { refreshOrRemoveQueries } from '@/queries/cache-sync'
 import { queryKeys } from '@/queries/query-keys'
 import { sweepWorkCaches } from '@/queries/works'
+import { useMediaFactsStore } from '@/stores/media-facts'
 
 /** A burst of commits reloads once: quiet for this long, or never later than the ceiling. */
 export const WORKS_DEBOUNCE_MS = 1000
@@ -19,19 +20,25 @@ export async function syncMediaFacts(api: ApiClientContract, client: QueryClient
   let firstPendingAt = 0
   const reloadWorks = () => {
     timer = null
-    if (!signal.aborted) void sweepWorkCaches(client)
+    if (!signal.aborted)
+      void sweepWorkCaches(client)
   }
   const scheduleWorks = () => {
     const now = Date.now()
-    if (timer === null) firstPendingAt = now
+    if (timer === null)
+      firstPendingAt = now
     else clearTimeout(timer)
     timer = setTimeout(reloadWorks, Math.min(WORKS_DEBOUNCE_MS, firstPendingAt + WORKS_MAX_WAIT_MS - now))
   }
-  signal.addEventListener('abort', () => { if (timer !== null) clearTimeout(timer) }, { once: true })
+  signal.addEventListener('abort', () => {
+    if (timer !== null)
+      clearTimeout(timer)
+  }, { once: true })
   while (!signal.aborted) {
     try {
       for await (const event of api.streamMediaFactsEvents(signal)) {
-        if (signal.aborted) return
+        if (signal.aborted)
+          return
         if (event.type === 'status') {
           delay = 1
           store.status = event.data
@@ -42,21 +49,26 @@ export async function syncMediaFacts(api: ApiClientContract, client: QueryClient
           scheduleWorks()
           continue
         }
-        if (event.type !== 'changed') continue
+        if (event.type !== 'changed')
+          continue
         delay = 1
         await Promise.all([
           refreshOrRemoveQueries(client, queryKeys.works.contentPrefix()),
           refreshOrRemoveQueries(client, queryKeys.libraries.memberTreesAll()),
         ])
       }
-    } catch (error) {
-      if (error instanceof ApiError && error.status === 401) return
+    }
+    catch (error) {
+      if (error instanceof ApiError && error.status === 401)
+        return
     }
     store.status = null
-    if (signal.aborted) return
+    if (signal.aborted)
+      return
     try {
       await backOff(delay, signal)
-    } catch {
+    }
+    catch {
       return
     }
     delay = Math.min(delay * 2, 30)

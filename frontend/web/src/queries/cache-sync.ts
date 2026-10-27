@@ -1,4 +1,4 @@
-import { type QueryClient, type QueryFilters } from '@tanstack/vue-query'
+import type { QueryClient, QueryFilters } from '@tanstack/vue-query'
 
 // Synchronizes a family of queries under one key prefix after a mutation or
 // scan terminal event:
@@ -19,7 +19,7 @@ export async function refreshOrRemoveQueries(
   const inactive = queryClient
     .getQueryCache()
     .findAll({ ...filters, queryKey: prefix })
-    .filter((query) => query.getObserversCount() === 0)
+    .filter(query => query.getObserversCount() === 0)
   for (const query of inactive) {
     queryClient.removeQueries({ queryKey: query.queryKey })
   }

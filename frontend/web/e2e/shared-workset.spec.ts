@@ -1,7 +1,7 @@
-import { expect, test } from '@playwright/test'
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { expect, test } from '@playwright/test'
 import { readStackState } from './helpers/stack-state.ts'
 
 test('select one batch and reuse its members and independent plans across tasks', async ({ page }) => {
@@ -27,7 +27,8 @@ test('select one batch and reuse its members and independent plans across tasks'
 
     let creations = 0
     page.on('request', (request) => {
-      if (request.method() === 'PUT' && request.url().endsWith('/current')) creations++
+      if (request.method() === 'PUT' && request.url().endsWith('/current'))
+        creations++
     })
     await page.getByTestId('enter-conversion').click()
     await expect(page).toHaveURL(/\/conversion$/)
@@ -64,7 +65,8 @@ test('select one batch and reuse its members and independent plans across tasks'
     expect(after.members).toEqual(batch.members)
     expect(after.operations.find((op: { operation_type: string }) => op.operation_type === 'metadata_refresh').current_revision.plan_id).toBe(metadata.current_revision.plan_id)
     expect(creations).toBe(1)
-  } finally {
+  }
+  finally {
     rmSync(root, { recursive: true, force: true })
   }
 })

@@ -2,10 +2,10 @@ import { isCancelledError, VueQueryPlugin } from '@tanstack/vue-query'
 import { createPinia } from 'pinia'
 import { createApp } from 'vue'
 import App from './App.vue'
-import { router } from './app/router'
 import { redirectToLogin } from './app/auth-navigation'
-import { ApiClient, ApiError, apiClientKey } from './lib/api/client'
+import { router } from './app/router'
 import { useToast } from './composables/use-toast'
+import { ApiClient, apiClientKey, ApiError } from './lib/api/client'
 import { desktopAdapterKey } from './lib/desktop/desktop-adapter'
 import { createDesktopAdapter } from './lib/desktop/host-adapter'
 import { createAppQueryClient } from './queries/query-client'
@@ -23,21 +23,30 @@ import './style.css'
 // message, anything else gets a generic one. Cancellation and an expired
 // session (which navigates to login) are not failures to report.
 function reportUnhandled(error: unknown): void {
-  if (isCancelledError(error) || (error instanceof DOMException && error.name === 'AbortError')) return
-  if (error instanceof ApiError && error.status === 401) return
+  if (isCancelledError(error) || (error instanceof DOMException && error.name === 'AbortError'))
+    return
+  if (error instanceof ApiError && error.status === 401)
+    return
   console.error(error)
-  useToast().show({ text: error instanceof ApiError ? error.message : '发生意外错误，请刷新页面重试' })
+  useToast().show({
+    text: error instanceof ApiError
+      ? error.message
+      : '发生意外错误，请刷新页面重试',
+  })
 }
 
 async function bootstrap() {
   window.addEventListener('unhandledrejection', (event) => { reportUnhandled(event.reason) })
   window.addEventListener('pageshow', (event) => {
-    if (event.persisted) location.reload()
+    if (event.persisted)
+      location.reload()
   })
   const desktopAdapter = await createDesktopAdapter()
   const apiClient = new ApiClient({
     ...await desktopAdapter.resolveApi(),
-    onUnauthorized: desktopAdapter.platform === 'browser' ? redirectToLogin : undefined,
+    onUnauthorized: desktopAdapter.platform === 'browser'
+      ? redirectToLogin
+      : undefined,
   })
   const app = createApp(App)
   app.config.errorHandler = reportUnhandled
@@ -47,13 +56,16 @@ async function bootstrap() {
   app
     .use(createPinia())
     .use(router)
-    .use(VueQueryPlugin, { queryClient: createAppQueryClient() })
+    .use(VueQueryPlugin, {
+      queryClient: createAppQueryClient(),
+    })
     .mount('#app')
 }
 
 // The desktop Lyrics Window is a bare view of its own: no client, store, router or adapter.
 if (location.pathname === '/lyrics-window') {
   void import('./lib/desktop/lyrics-window-entry').then((entry) => { entry.mountLyricsWindow() })
-} else {
+}
+else {
   void bootstrap()
 }

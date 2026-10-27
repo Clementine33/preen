@@ -1,5 +1,5 @@
-import { defineStore } from 'pinia'
 import type { Library, LibraryDir } from '@/lib/api/types'
+import { defineStore } from 'pinia'
 
 /**
  * UI-only store: the active library and the overview's directory selection.
@@ -15,7 +15,8 @@ const VEIL_KEY = 'preen.r18-veil'
 function readVeil(): boolean {
   try {
     return localStorage.getItem(VEIL_KEY) === '1'
-  } catch {
+  }
+  catch {
     return false
   }
 }
@@ -40,7 +41,8 @@ export const useLibraryUiStore = defineStore('library-ui', {
   actions: {
     setActiveLibrary(id: string) {
       this.allLibraries = false
-      if (id === this.activeLibraryId) return
+      if (id === this.activeLibraryId)
+        return
       this.activeLibraryId = id
       // Switching libraries clears the previous library's temporary
       // selection; a scroll offset of another list means nothing here either.
@@ -48,7 +50,8 @@ export const useLibraryUiStore = defineStore('library-ui', {
       this.overviewScroll = 0
     },
     showAllLibraries() {
-      if (this.allLibraries) return
+      if (this.allLibraries)
+        return
       this.allLibraries = true
       this.selectedDirPaths = []
       this.overviewScroll = 0
@@ -57,8 +60,8 @@ export const useLibraryUiStore = defineStore('library-ui', {
     // the current ID when it still exists, otherwise fall back to the first
     // library (or null when there are none).
     reconcileLibraries(libraries: Library[]) {
-      const next =
-        this.activeLibraryId !== null && libraries.some((library) => library.id === this.activeLibraryId)
+      const next
+        = this.activeLibraryId !== null && libraries.some(library => library.id === this.activeLibraryId)
           ? this.activeLibraryId
           : (libraries[0]?.id ?? null)
       if (next !== this.activeLibraryId) {
@@ -70,28 +73,34 @@ export const useLibraryUiStore = defineStore('library-ui', {
     // Listings from another library are ignored, so a late response or a
     // background refetch can never mutate the current selection.
     reconcileDirs(libraryId: string, dirs: LibraryDir[]) {
-      if (libraryId !== this.activeLibraryId) return
-      if (this.selectedDirPaths.length === 0) return
-      const paths = new Set(dirs.map((dir) => dir.rel_path))
-      const next = this.selectedDirPaths.filter((path) => paths.has(path))
-      if (next.length !== this.selectedDirPaths.length) this.selectedDirPaths = next
+      if (libraryId !== this.activeLibraryId)
+        return
+      if (this.selectedDirPaths.length === 0)
+        return
+      const paths = new Set(dirs.map(dir => dir.rel_path))
+      const next = this.selectedDirPaths.filter(path => paths.has(path))
+      if (next.length !== this.selectedDirPaths.length)
+        this.selectedDirPaths = next
     },
     // The optional `dirs` argument restores the existence guard: a click that
     // lands after reconcileDirs dropped a path (a scan-sync refresh removed it
     // right before the event) must not push a stale path into the selection.
     toggleDir(relPath: string, dirs?: LibraryDir[]) {
       if (this.selectedDirPaths.includes(relPath)) {
-        this.selectedDirPaths = this.selectedDirPaths.filter((selected) => selected !== relPath)
-      } else {
-        if (dirs && !dirs.some((dir) => dir.rel_path === relPath)) return
+        this.selectedDirPaths = this.selectedDirPaths.filter(selected => selected !== relPath)
+      }
+      else {
+        if (dirs && !dirs.some(dir => dir.rel_path === relPath))
+          return
         this.selectedDirPaths.push(relPath)
       }
     },
     setDirSelected(relPath: string, selected: boolean, dirs?: LibraryDir[]) {
-      if (selected !== this.selectedDirPaths.includes(relPath)) this.toggleDir(relPath, dirs)
+      if (selected !== this.selectedDirPaths.includes(relPath))
+        this.toggleDir(relPath, dirs)
     },
     selectAllDirs(dirs: LibraryDir[]) {
-      this.selectedDirPaths = dirs.map((dir) => dir.rel_path)
+      this.selectedDirPaths = dirs.map(dir => dir.rel_path)
     },
     clearSelection() {
       this.selectedDirPaths = []
@@ -100,7 +109,8 @@ export const useLibraryUiStore = defineStore('library-ui', {
       this.veil = !this.veil
       try {
         localStorage.setItem(VEIL_KEY, this.veil ? '1' : '0')
-      } catch {
+      }
+      catch {
         // Private mode: the option still holds for this session.
       }
     },

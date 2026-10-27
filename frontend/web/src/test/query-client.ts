@@ -24,5 +24,10 @@ export function createTestQueryClient(): QueryClient {
 
 // Mountable plugin tuple for @vue/test-utils `global.plugins`.
 export function installTestQueryPlugin(): [typeof VueQueryPlugin, { queryClient: QueryClient }] {
-  return [VueQueryPlugin, { queryClient: createTestQueryClient() }]
+  return [
+    VueQueryPlugin,
+    {
+      queryClient: createTestQueryClient(),
+    },
+  ]
 }

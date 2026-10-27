@@ -1,8 +1,8 @@
+import type { ApiClientContract, ScanEvent, ScanMode } from '@/lib/api/types'
 import { defineStore } from 'pinia'
 import { markRaw } from 'vue'
 import { ApiError } from '@/lib/api/client'
 import { errorDetails } from '@/lib/api/error'
-import type { ApiClientContract, ScanEvent, ScanMode } from '@/lib/api/types'
 
 export type ScanStatus = 'idle' | 'scanning' | 'completed' | 'cancelled' | 'error'
 
@@ -39,7 +39,8 @@ export const useScanStore = defineStore('scan', {
   }),
   actions: {
     async start(libraryId: string, client: ApiClientContract, onOutcome?: (outcome: ScanOutcome) => void, mode?: ScanMode): Promise<ScanOutcome | undefined> {
-      if (this.status === 'scanning') return
+      if (this.status === 'scanning')
+        return
       const controller = markRaw(new AbortController())
       this.controller = controller
       this.status = 'scanning'
@@ -57,8 +58,14 @@ export const useScanStore = defineStore('scan', {
       let admissionError = false
       let settledOutcome: ScanOutcome | undefined
       const settle = (): ScanOutcome => {
-        if (settledOutcome) return settledOutcome
-        settledOutcome = { status: this.status, terminal: this.terminal, receivedEvent: this.receivedEvent, admissionError }
+        if (settledOutcome)
+          return settledOutcome
+        settledOutcome = {
+          status: this.status,
+          terminal: this.terminal,
+          receivedEvent: this.receivedEvent,
+          admissionError,
+        }
         onOutcome?.(settledOutcome)
         return settledOutcome
       }
@@ -66,36 +73,48 @@ export const useScanStore = defineStore('scan', {
         for await (const event of client.scanLibrary(libraryId, controller.signal, undefined, mode)) {
           // A reset() or a newer scan superseded this request — never let
           // its events overwrite the current scan state.
-          if (this.controller !== controller) return
+          if (this.controller !== controller)
+            return
           this.applyEvent(event)
-          if (this.terminal === 'event') return settle()
+          if (this.terminal === 'event')
+            return settle()
         }
-        if (this.controller !== controller) return
+        if (this.controller !== controller)
+          return
         if (this.status === 'scanning' && controller.signal.aborted) {
           this.status = 'cancelled'
           this.terminal = 'transport'
           this.message = '扫描停止已请求，结果尚未确认'
-        } else if (this.status === 'scanning') {
+        }
+        else if (this.status === 'scanning') {
           this.status = 'error'
           this.terminal = 'transport'
           this.errorCode = 'STREAM_ENDED'
           this.errorMessage = '扫描连接提前结束，请重试。'
         }
-      } catch (error) {
-        if (settledOutcome) return settledOutcome
-        if (this.controller !== controller) return
+      }
+      catch (error) {
+        if (settledOutcome)
+          return settledOutcome
+        if (this.controller !== controller)
+          return
         this.terminal = 'transport'
         admissionError = !this.receivedEvent && error instanceof ApiError
         if (controller.signal.aborted || (error instanceof DOMException && error.name === 'AbortError')) {
           this.status = 'cancelled'
           this.message = '扫描停止已请求，结果尚未确认'
-        } else {
+        }
+        else {
           this.status = 'error'
-          this.errorCode = error instanceof ApiError ? error.code : 'STREAM_ERROR'
+          this.errorCode = error instanceof ApiError
+            ? error.code
+            : 'STREAM_ERROR'
           this.errorMessage = errorDetails(error, '扫描连接失败，请重试。').message
         }
-      } finally {
-        if (this.controller === controller) this.controller = null
+      }
+      finally {
+        if (this.controller === controller)
+          this.controller = null
       }
       return settle()
     },
@@ -105,20 +124,24 @@ export const useScanStore = defineStore('scan', {
       if (event.type === 'started') {
         this.status = 'scanning'
         this.message = data.message ?? ''
-      } else if (event.type === 'progress') {
+      }
+      else if (event.type === 'progress') {
         this.filesScanned = data.files_scanned ?? this.filesScanned
         this.dirsScanned = data.dirs_scanned ?? this.dirsScanned
-      } else if (event.type === 'completed') {
+      }
+      else if (event.type === 'completed') {
         this.status = 'completed'
         this.terminal = 'event'
         this.filesScanned = data.files_scanned ?? this.filesScanned
         this.scanId = data.scan_id ?? null
         this.rootPath = data.root_path ?? null
-      } else if (event.type === 'cancelled') {
+      }
+      else if (event.type === 'cancelled') {
         this.status = 'cancelled'
         this.terminal = 'event'
         this.message = data.message ?? '扫描已取消'
-      } else if (event.type === 'error') {
+      }
+      else if (event.type === 'error') {
         this.status = 'error'
         this.terminal = 'event'
         this.errorCode = data.code ?? 'SCAN_ERROR'

@@ -1,22 +1,40 @@
 <script setup lang="ts">
-import { ToastAction, ToastClose, ToastDescription, ToastProvider, ToastRoot, ToastTitle, ToastViewport } from 'reka-ui'
-import { useTaskToast } from '@/composables/use-task-toast'
 import type { TaskTone } from '@/stores/task-toast'
+import { ToastAction, ToastClose, ToastDescription, ToastProvider, ToastRoot, ToastTitle, ToastViewport } from 'reka-ui'
 import { Button } from '@/components/ui/button'
+import { useTaskToast } from '@/composables/use-task-toast'
 
 const { current, dismiss } = useTaskToast()
 
 // Severity is spelled out in the tag, never carried by color alone.
-const TAGS: Record<TaskTone, string> = { success: '完成', stopped: '已停止', partial: '部分失败', failed: '失败', interrupted: '中断', unknown: '待确认' }
-const STICKY = new Set<TaskTone>(['partial', 'failed', 'interrupted', 'unknown'])
-const duration = (tone: TaskTone) => STICKY.has(tone) ? Infinity : 8000
+const TAGS: Record<TaskTone, string> = {
+  success: '完成',
+  stopped: '已停止',
+  partial: '部分失败',
+  failed: '失败',
+  interrupted: '中断',
+  unknown: '待确认',
+}
+const STICKY = new Set<TaskTone>([
+  'partial',
+  'failed',
+  'interrupted',
+  'unknown',
+])
+function duration(tone: TaskTone) {
+  return STICKY.has(tone)
+    ? Infinity
+    : 8000
+}
 </script>
 
 <template>
   <ToastProvider swipe-direction="right">
-    <ToastRoot v-for="notice in current ? [current] : []" :key="notice.id" :duration="duration(notice.tone)"
+    <ToastRoot
+      v-for="notice in current ? [current] : []" :key="notice.id" :duration="duration(notice.tone)"
       class="task-toast" :data-tone="notice.tone" :data-sticky="STICKY.has(notice.tone) || undefined" data-testid="task-toast"
-      @update:open="(open: boolean) => { if (!open) dismiss(notice.id) }">
+      @update:open="(open: boolean) => { if (!open) dismiss(notice.id) }"
+    >
       <div class="task-toast-head">
         <span class="task-toast-tag">{{ TAGS[notice.tone] }}</span>
         <ToastTitle class="task-toast-title">{{ notice.title }}</ToastTitle>

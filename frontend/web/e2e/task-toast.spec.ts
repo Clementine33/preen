@@ -3,7 +3,9 @@ import { expect, test } from '@playwright/test'
 for (const mobile of [false, true]) {
   test(mobile ? 'mobile task notices preserve undo and wrap below safe area' : 'desktop task notices preserve undo at upper right', async ({ page }) => {
     test.setTimeout(60_000)
-    await page.setViewportSize(mobile ? { width: 320, height: 640 } : { width: 1440, height: 900 })
+    await page.setViewportSize(mobile
+      ? { width: 320, height: 640 }
+      : { width: 1440, height: 900 })
     await page.emulateMedia({ reducedMotion: 'reduce' })
     await page.route('**/__task-toast', route => route.fulfill({ contentType: 'text/html', body: `
       <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"></head>
@@ -20,15 +22,18 @@ for (const mobile of [false, true]) {
     expect(box.x).toBeGreaterThanOrEqual(16)
     expect(box.x + box.width).toBeLessThanOrEqual(viewport.width - 15)
     expect(box.height).toBeLessThan(viewport.height / 2)
-    if (!mobile) expect(box.x).toBeGreaterThan(viewport.width / 2)
+    if (!mobile)
+      expect(box.x).toBeGreaterThan(viewport.width / 2)
     expect(await task.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true)
     await expect(page.getByTestId('task-toast-action')).toBeVisible()
-    const contrast = await task.evaluate(el => {
+    const contrast = await task.evaluate((el) => {
       const style = getComputedStyle(el)
       const luminance = (color: string) => {
-        const values = color.match(/[\d.]+/g)!.slice(0, 3).map(Number).map(value => {
+        const values = color.match(/[\d.]+/g)!.slice(0, 3).map(Number).map((value) => {
           const channel = value / 255
-          return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4
+          return channel <= 0.04045
+            ? channel / 12.92
+            : ((channel + 0.055) / 1.055) ** 2.4
         })
         return values[0]! * 0.2126 + values[1]! * 0.7152 + values[2]! * 0.0722
       }

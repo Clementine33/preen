@@ -11,7 +11,7 @@ defineProps<{
   applying: boolean
   error: string | null
 }>()
-defineEmits<{ apply: []; discard: [] }>()
+defineEmits<{ apply: [], discard: [] }>()
 </script>
 
 <template>

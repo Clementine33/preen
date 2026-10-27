@@ -28,8 +28,16 @@ export interface DesktopAdapter {
    * Opens the Lyrics Window, reading `frame()` reactively and reporting
    * commands; `onClose` fires when it goes away. Must be called from a user
    * gesture. Resolves to a close function, or null when unsupported or declined.
+   * `onLock` reports the window's click-through lock (desktop only), which
+   * the window itself can no longer undo once set: unlock with `setLyricsLocked`.
    */
-  openLyricsWindow(frame: () => LyricsFrame, onCommand: (command: LyricsCommand) => void, onClose: () => void): Promise<(() => void) | null>
+  openLyricsWindow(
+    frame: () => LyricsFrame,
+    onCommand: (command: LyricsCommand) => void,
+    onClose: () => void,
+    onLock?: (locked: boolean) => void,
+  ): Promise<(() => void) | null>
+  setLyricsLocked(locked: boolean): void
   resolveApi(): Promise<{ baseUrl: string; token: string | null }>
   pickFolder(): Promise<string | null>
 }

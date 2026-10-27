@@ -21,7 +21,7 @@
 | [0013](0013-derived-media-thumbnails-content-and-facts.md) | 派生媒体：缩略图、文件内容分发与后台媒体事实 | Draft |
 | [0014](0014-storage-class-and-concurrency-limits.md) | 存储档与并发上限（扫描统一 32 worker 重叠元数据访问等待） | Draft |
 | [0015](0015-deployment-and-credentials.md) | 部署形态、凭证投递与桌面壳（Wails v3 子进程托管、便携数据位置） | Draft |
-| [0016](0016-lyrics-window-hosting.md) | 歌词窗口的宿主：Document PiP 与桌面壳接缝 | Draft |
+| [0016](0016-lyrics-window-hosting.md) | 歌词窗口的宿主：Document PiP 与桌面壳原生窗口（Windows 透明与锁定穿透，Linux 对齐 PiP） | Draft |
 | [0017](0017-inventory-storage-dirs-and-files.md) | 库存存储：目录表与文件表分离、会话临时暂存、Library 库根互不包含 | Draft |
 | [0018](0018-self-hosted-fonts.md) | 字体：同源自托管的 CJK 无衬线与衬线（Noto Sans SC Variable、Noto Serif SC Variable、IBM Plex Mono） | Draft |
 

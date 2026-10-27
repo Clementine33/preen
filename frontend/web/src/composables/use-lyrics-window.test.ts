@@ -3,7 +3,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import { defineComponent } from 'vue'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { apiClientKey } from '@/lib/api/client'
-import { desktopAdapterKey, type LyricsFrame } from '@/lib/desktop/desktop-adapter'
+import { desktopAdapterKey, type LyricsCommand, type LyricsFrame } from '@/lib/desktop/desktop-adapter'
 import { usePlayerStore } from '@/stores/player'
 import { createLyricsWindow } from './use-lyrics-window'
 
@@ -14,16 +14,19 @@ function setup() {
   const close = vi.fn()
   let frame!: () => LyricsFrame
   let onClose!: () => void
+  let onLock!: (locked: boolean) => void
+  let onCommand!: (command: LyricsCommand) => void
   const adapter = {
     lyricsWindow: true,
-    openLyricsWindow: vi.fn(async (f: () => LyricsFrame, _c: unknown, c: () => void) => ((frame = f), (onClose = c), close)),
+    setLyricsLocked: vi.fn(),
+    openLyricsWindow: vi.fn(async (f: () => LyricsFrame, cmd: typeof onCommand, c: () => void, l: typeof onLock) => ((frame = f), (onCommand = cmd), (onClose = c), (onLock = l), close)),
   }
   const api = { getWorkText: vi.fn().mockResolvedValue('[00:01]first\n[00:05]second') }
   let lw!: ReturnType<typeof createLyricsWindow>
   mount(defineComponent({ setup: () => ((lw = createLyricsWindow()), () => null) }), {
     global: { provide: { [desktopAdapterKey as symbol]: adapter, [apiClientKey as symbol]: api } },
   })
-  return { adapter, close, lw, frame: () => frame(), closed: () => onClose() }
+  return { adapter, close, lw, frame: () => frame(), closed: () => onClose(), lock: (v: boolean) => onLock(v), command: (c: LyricsCommand) => onCommand(c) }
 }
 
 it('is unavailable until the playing track has Timed Lyrics, then follows the player', async () => {
@@ -66,4 +69,26 @@ it('marks only a step to the next line as an advance', async () => {
   expect(frame().line?.advance).toBe(false)
   player.step(1)
   expect(frame().line).toBeNull()
+})
+
+it('routes commands to the player and unlocks a locked window instead of closing it', async () => {
+  const { adapter, close, lw, command, lock, closed } = setup()
+  const player = usePlayerStore()
+  player.play('RJ1', [{ title: 'T', lyrics: { copyId: 'c', relPath: 'a.lrc' } }, { title: 'U' }])
+  await flushPromises()
+  lw.toggle()
+  await flushPromises()
+  command('next')
+  expect(player.trackIndex).toBe(1)
+  lock(true)
+  expect(lw.locked.value).toBe(true)
+  lw.toggle()
+  expect(adapter.setLyricsLocked).toHaveBeenCalledWith(false)
+  expect(close).not.toHaveBeenCalled()
+  lock(false)
+  closed()
+  lock(true)
+  closed()
+  expect(lw.locked.value).toBe(false)
+  expect(lw.open.value).toBe(false)
 })

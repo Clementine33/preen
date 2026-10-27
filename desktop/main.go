@@ -32,6 +32,8 @@ type Desktop struct {
 	ready chan struct{}
 	api   supervisor.API
 	err   error
+
+	lyrics lyricsWindow
 }
 
 func (d *Desktop) ResolveApi(ctx context.Context) (supervisor.API, error) {
@@ -161,6 +163,8 @@ func main() {
 	desktop.app = app
 	windowMu.Lock()
 	window = app.Window.NewWithOptions(application.WebviewWindowOptions{Title: "Preen", Width: 1280, Height: 800, MinWidth: 800, MinHeight: 600, URL: "/"})
+	// Wails quits on the last window closing; with a Lyrics Window open, the main window must still end the app.
+	window.OnWindowEvent(events.Common.WindowClosing, func(*application.WindowEvent) { app.Quit() })
 	windowMu.Unlock()
 	app.Event.OnApplicationEvent(events.Common.ApplicationStarted, func(*application.ApplicationEvent) {
 		start.Do(func() { go func() { defer close(finished); desktop.run(ctx) }() })

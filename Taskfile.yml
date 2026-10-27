@@ -40,7 +40,7 @@ tasks:
       - node scripts/dev-web.mjs
 
   desktop:dev:
-    desc: Build and run the Desktop Shell with isolated development data
+    desc: Build and run the Desktop Shell against the Vite dev server with isolated development data
     cmds:
       - node scripts/build-desktop.mjs --dev
 

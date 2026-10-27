@@ -7,8 +7,12 @@ vi.mock('@wailsio/runtime', () => ({
 
 afterEach(() => vi.unstubAllGlobals())
 
+it('selects the browser host without a native message channel', async () => {
+  expect((await createDesktopAdapter()).platform).toBe('browser')
+})
+
 it('selects the desktop host, preserves folder cancellation and hides the Lyrics Window', async () => {
-  vi.stubGlobal('_wails', {})
+  vi.stubGlobal('webkit', { messageHandlers: { external: { postMessage() {} } } })
   const adapter = await createDesktopAdapter()
   expect(adapter.platform).toBe('desktop')
   expect(await adapter.pickFolder()).toBeNull()

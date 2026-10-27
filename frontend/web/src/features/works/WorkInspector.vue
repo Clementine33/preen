@@ -13,6 +13,9 @@ import { useLibraryUiStore } from '@/stores/library-ui'
 // without scrolling. While cruising the wall the text follows
 // immediately, but the cover/SPEC/TRACKLIST dim to 30% and are swapped only
 // after a 70ms pause, so fast browsing merges updates instead of flickering.
+// The first fill (nothing shown yet, e.g. a restored `?rj=`) has nothing to
+// merge or wipe over: it skips the pause, the title scramble and the wipe,
+// and its cover is fetched at high priority.
 
 const props = defineProps<{
   rj: string | null
@@ -62,11 +65,12 @@ watch(
       dim.value = false
       return
     }
-    if (reducedMotion.value || switching.value) {
+    const first = deferredWork.value === null
+    if (reducedMotion.value || switching.value || first) {
       if (detailTimer !== null) window.clearTimeout(detailTimer)
       deferredWork.value = current
       dim.value = false
-      scramble(current.title ?? '')
+      scramble(current.title ?? '', first)
       return
     }
     dim.value = true
@@ -89,10 +93,10 @@ onBeforeUnmount(() => {
 const GLYPHS = 'アイウエオカキクケコサシスセソタチツテトナニヌネノ'
 const titleEl = ref<HTMLElement | null>(null)
 let scrambleFrame = 0
-function scramble(text: string) {
+function scramble(text: string, instant = false) {
   cancelAnimationFrame(scrambleFrame)
   if (!titleEl.value) return
-  if (reducedMotion.value || switching.value || text === '') {
+  if (instant || reducedMotion.value || switching.value || text === '') {
     titleEl.value.textContent = text
     return
   }
@@ -119,6 +123,8 @@ function scramble(text: string) {
 const coverBack = ref<HTMLElement | null>(null)
 const coverFront = ref<HTMLElement | null>(null)
 let shownCover: string | null = null
+/** Whether any cover has been painted: the first one has nothing to wipe over. */
+let painted = false
 const libraryUi = useLibraryUiStore()
 /** The work whose veiled cover was shown by a click; any other work is hatched again. */
 const shownRj = ref<string | null>(null)
@@ -129,9 +135,10 @@ const { src: realCover, failed: coverFailed, isLocal: coverIsLocal } = useCoverS
 })
 const coverSrc = computed(() => (veiled.value ? null : realCover.value))
 /** A CSS background never reports a load failure, so a local cover is proven loadable first. */
-function probe(url: string): Promise<boolean> {
+function probe(url: string, first: boolean): Promise<boolean> {
   return new Promise((resolve) => {
     const image = new Image()
+    if (first) image.fetchPriority = 'high'
     image.onload = () => resolve(true)
     image.onerror = () => resolve(false)
     image.src = url
@@ -143,7 +150,7 @@ watch(
   () => [coverSrc.value, coverFront.value] as const,
   ([url]) => {
     if (url !== null && coverIsLocal(url) && url !== shownCover) {
-      void probe(url).then((ok) => {
+      void probe(url, !painted).then((ok) => {
         if (url !== coverSrc.value) return
         if (ok) showCover(url)
         else coverFailed(url)
@@ -155,7 +162,9 @@ watch(
 )
 function showCover(url: string | null) {
   if (url === shownCover || !coverBack.value || !coverFront.value) return
-  if (reducedMotion.value || switching.value) {
+  const first = !painted
+  painted = true
+  if (reducedMotion.value || switching.value || first) {
     // No wipe, but the cover still has to be painted.
     shownCover = url
     paintCover(coverFront.value, url)

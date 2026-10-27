@@ -12,7 +12,12 @@ const props = defineProps<{
   work: WorkSummary
   selected: boolean
   playing: boolean
+  /** Position on the page: the first covers load eagerly, the rest lazily. */
+  index: number
 }>()
+
+/** The covers of the first rows are on screen at load, so lazy loading only delays them. */
+const EAGER_COVERS = 12
 
 const libraryUi = useLibraryUiStore()
 const { src: realCover, failed } = useCoverSrc(() => ({
@@ -44,10 +49,12 @@ const release = computed(() =>
 <template>
   <div class="cell" :class="{ active: selected }" role="option" :aria-selected="selected"
     :tabindex="selected ? 0 : -1" :data-rj="work.rj">
-    <!-- Lazy and fill-and-crop: an off-screen cover costs nothing until it nears
-         the viewport, and every cover fills its 4:3 frame the same way. -->
+    <!-- Lazy past the first rows and fill-and-crop: an off-screen cover costs
+         nothing until it nears the viewport, and every cover fills its 4:3 frame
+         the same way. The first cover is the likeliest largest paint. -->
     <div class="cover" :class="[cover ? '' : 'hatch', { veiled }]">
-      <img v-if="cover" :src="cover" alt="" loading="lazy" decoding="async" @error="failed(cover)" />
+      <img v-if="cover" :src="cover" alt="" :loading="index < EAGER_COVERS ? 'eager' : 'lazy'"
+        :fetchpriority="index === 0 ? 'high' : undefined" decoding="async" @error="failed(cover)" />
     </div>
     <i v-if="work.listening.track_index !== null" class="listening-dot" :title="listeningTitle" role="img"
       :aria-label="listeningTitle"></i>

@@ -180,7 +180,7 @@ function onCellClick(work: WorkSummary) {
     }">
       <div class="cursor" :class="{ idle: cursorIdle }" aria-hidden="true"
         :style="{ transform: `translate(${cursorX}px, ${cursorY}px)` }"></div>
-      <WorkCard v-for="work in works" :key="work.rj" :work="work"
+      <WorkCard v-for="(work, index) in works" :key="work.rj" :work="work" :index="index"
         :selected="work.rj === selectedRj" :playing="work.rj === playingRj"
         @click="onCellClick(work)" @dblclick="emit('open', work.rj)" />
     </div>

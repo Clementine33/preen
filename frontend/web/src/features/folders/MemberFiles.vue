@@ -1,17 +1,18 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
-import { useRoute, useRouter } from 'vue-router'
+import type { FileOperation, FileOperationResult, TreeNode } from '@/lib/api/types'
 import { AlertTriangle, FolderInput, Pencil, RefreshCw, Trash2 } from '@lucide/vue'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
+import { computed, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { Button } from '@/components/ui/button'
 import Modal from '@/components/ui/modal/Modal.vue'
+import { itemStatusText, refreshText, requestRefusalText } from '@/features/folders/file-ops'
 import MemberTree from '@/features/folders/MemberTree.vue'
 import MemberWorkCard from '@/features/folders/MemberWorkCard.vue'
 import PlanReviewTree from '@/features/folders/PlanReviewTree.vue'
-import { itemStatusText, refreshText, requestRefusalText } from '@/features/folders/file-ops'
-import { useApiClient } from '@/lib/api/client'
-import { ApiError } from '@/lib/api/client'
+import { ApiError, useApiClient } from '@/lib/api/client'
 import { errorDetails } from '@/lib/api/error'
+import { CONVERSION, MEMBER_ROOT_TARGET } from '@/lib/api/types'
 import { rootPathIdentityKey } from '@/lib/root-path-identity'
 import {
   fileOperationMutationOptions,
@@ -20,7 +21,6 @@ import {
   useLibraryList,
 } from '@/queries/libraries'
 import { currentRecordQueryOptions, operationQueryOptions } from '@/queries/worksets'
-import { CONVERSION, MEMBER_ROOT_TARGET, type FileOperation, type FileOperationResult, type TreeNode } from '@/lib/api/types'
 
 /**
  * The shared current-files page (ADR 0001).
@@ -51,13 +51,17 @@ const recordQuery = useQuery(() => currentRecordQueryOptions(api, libraryId.valu
 const record = computed(() => recordQuery.data.value?.workset ?? null)
 const member = computed(() =>
   memberId.value
-    ? (record.value?.members.find((item) => item.member_id === memberId.value) ?? null)
+    ? (record.value?.members.find(item => item.member_id === memberId.value) ?? null)
     : null,
 )
 const dirId = computed(() =>
-  memberId.value ? (member.value?.dir_id ?? null) : ((route.params.dirId as string) || null),
+  memberId.value
+    ? (member.value?.dir_id ?? null)
+    : ((route.params.dirId as string) || null),
 )
-const worksetId = computed(() => (memberId.value ? (record.value?.workset_id ?? null) : null))
+const worksetId = computed(() => (memberId.value
+  ? (record.value?.workset_id ?? null)
+  : null))
 // A member link that no longer resolves against the current record: it was
 // replaced by another page, and the only honest thing to offer is the way back
 // to the conversion entry.
@@ -70,9 +74,11 @@ const { query: librariesQuery, librariesData } = useLibraryList()
 // The root identity scopes the cache: a genuine root change invalidates the
 // stored trees instead of showing another directory's contents.
 const rootIdentity = computed(() => {
-  const library = librariesData.value.find((item) => item.id === libraryId.value)
-  if (library) return rootPathIdentityKey(library.root_path)
-  if (librariesQuery.isSuccess.value || librariesQuery.error.value) return 'unresolved-root'
+  const library = librariesData.value.find(item => item.id === libraryId.value)
+  if (library)
+    return rootPathIdentityKey(library.root_path)
+  if (librariesQuery.isSuccess.value || librariesQuery.error.value)
+    return 'unresolved-root'
   return null
 })
 
@@ -85,7 +91,9 @@ const workRj = computed(() => treeQuery.data.value?.rj ?? null)
 const treePending = computed(() => treeQuery.isPending.value)
 const treeError = computed(() => {
   const error = treeQuery.error.value
-  return error ? errorDetails(error) : null
+  return error
+    ? errorDetails(error)
+    : null
 })
 /** What the tree's path is: the record's member path, or the one the tree answers with. */
 const memberPath = computed(() => member.value?.rel_path ?? treeQuery.data.value?.member_path ?? null)
@@ -104,7 +112,8 @@ const TREE_ERROR_TEXT: Record<string, string> = {
 }
 const treeErrorText = computed(() => {
   const error = treeError.value
-  if (!error) return null
+  if (!error)
+    return null
   const known = error.code ? TREE_ERROR_TEXT[error.code] : undefined
   return known ?? `${error.code ?? ''} ${error.message}`.trim()
 })
@@ -120,9 +129,12 @@ const hasPlan = computed(() => Boolean(operationQuery.data.value?.current_revisi
 // mode is one of the few parameters a page supports, so a return visit and the
 // browser's back button land where the user left off.
 const mode = computed<'current' | 'plan'>(() => {
-  if (!canReview.value) return 'current'
-  if (route.query.view === 'current') return 'current'
-  if (route.query.view === 'plan') return 'plan'
+  if (!canReview.value)
+    return 'current'
+  if (route.query.view === 'current')
+    return 'current'
+  if (route.query.view === 'plan')
+    return 'plan'
   return hasPlan.value ? 'plan' : 'current'
 })
 const canReview = computed(() => Boolean(worksetId.value))
@@ -131,7 +143,9 @@ function setMode(next: 'current' | 'plan') {
   // Only this page's own parameter is written: an internal jump never forwards
   // whatever the previous address happened to carry. 当前文件 is written down
   // explicitly — the default view would otherwise open the plan again.
-  void router.replace({ query: { view: next } })
+  void router.replace({
+    query: { view: next },
+  })
 }
 
 // ---- refreshing -------------------------------------------------------
@@ -147,11 +161,13 @@ const refreshError = ref<string | null>(null)
 const refreshing = computed(() => refreshMutation.isPending.value)
 
 async function refresh() {
-  if (!dirId.value) return
+  if (!dirId.value)
+    return
   refreshError.value = null
   try {
     await refreshMutation.mutateAsync(dirId.value)
-  } catch (error) {
+  }
+  catch (error) {
     refreshError.value = errorDetails(error, '刷新失败').message
   }
 }
@@ -162,11 +178,17 @@ async function refresh() {
 const viewSettled = computed(() => !canReview.value || operationQuery.isFetched.value)
 
 watch(
-  () => [libraryId.value, dirId.value, mode.value, viewSettled.value] as const,
+  () => [
+    libraryId.value,
+    dirId.value,
+    mode.value,
+    viewSettled.value,
+  ] as const,
   ([, identity, nextMode, settled]) => {
     refreshError.value = null
     // The plan review is a frozen snapshot: it needs no disk read at all.
-    if (identity && nextMode === 'current' && settled) void refresh()
+    if (identity && nextMode === 'current' && settled)
+      void refresh()
   },
   { immediate: true },
 )
@@ -193,9 +215,12 @@ const fileOps = useMutation(() =>
 const busyApplying = computed(() => fileOps.isPending.value)
 const modifyDisabled = computed(() => busyApplying.value || refreshing.value || Boolean(treeError.value))
 const modifyDisabledReason = computed(() => {
-  if (refreshing.value) return '正在刷新该文件夹：刷新完成前不能修改。'
-  if (treeError.value) return '未能读取该文件夹，不能修改。'
-  if (busyApplying.value) return '正在应用上一项修改。'
+  if (refreshing.value)
+    return '正在刷新该文件夹：刷新完成前不能修改。'
+  if (treeError.value)
+    return '未能读取该文件夹，不能修改。'
+  if (busyApplying.value)
+    return '正在应用上一项修改。'
   return ''
 })
 
@@ -205,15 +230,21 @@ const modifyDisabledReason = computed(() => {
  */
 const directories = computed(() => {
   const source = target.value
-  const parent = source.includes('/') ? source.slice(0, source.lastIndexOf('/')) : ''
-  const out: { relPath: string; label: string }[] = []
-  if (!tree.value) return out
-  if (parent !== '') out.push({ relPath: MEMBER_ROOT_TARGET, label: '成员根目录' })
+  const parent = source.includes('/')
+    ? source.slice(0, source.lastIndexOf('/'))
+    : ''
+  const out: { relPath: string, label: string }[] = []
+  if (!tree.value)
+    return out
+  if (parent !== '')
+    out.push({ relPath: MEMBER_ROOT_TARGET, label: '成员根目录' })
   const walk = (node: TreeNode) => {
     for (const child of node.children ?? []) {
-      if (child.type !== 'dir') continue
+      if (child.type !== 'dir')
+        continue
       const inSource = child.rel_path === source || child.rel_path.startsWith(`${source}/`)
-      if (!inSource && child.rel_path !== parent) out.push({ relPath: child.rel_path, label: child.rel_path })
+      if (!inSource && child.rel_path !== parent)
+        out.push({ relPath: child.rel_path, label: child.rel_path })
       walk(child)
     }
   }
@@ -221,10 +252,13 @@ const directories = computed(() => {
   return out
 })
 
-const single = computed(() => (selection.value.length === 1 ? selection.value[0] : null))
+const single = computed(() => (selection.value.length === 1
+  ? selection.value[0]
+  : null))
 
 function openRename() {
-  if (!single.value) return
+  if (!single.value)
+    return
   target.value = single.value
   renameValue.value = single.value.split('/').pop() ?? single.value
   opError.value = null
@@ -232,7 +266,8 @@ function openRename() {
 }
 
 function openMove() {
-  if (!single.value) return
+  if (!single.value)
+    return
   target.value = single.value
   moveDir.value = ''
   opError.value = null
@@ -245,7 +280,7 @@ function openDelete() {
   dialog.value = 'delete'
 }
 
-async function apply(operation: FileOperation, items: { source: string; name?: string; target_dir?: string }[]) {
+async function apply(operation: FileOperation, items: { source: string, name?: string, target_dir?: string }[]) {
   opError.value = null
   result.value = null
   try {
@@ -254,7 +289,8 @@ async function apply(operation: FileOperation, items: { source: string; name?: s
       body: { member_path: memberPath.value ?? '', operation, items },
     })
     dialog.value = 'none'
-  } catch (error) {
+  }
+  catch (error) {
     // The request never became a scope: nothing ran, and it says why.
     if (error instanceof ApiError) {
       opError.value = requestRefusalText(error.code, error.message)
@@ -266,22 +302,27 @@ async function apply(operation: FileOperation, items: { source: string; name?: s
 
 function submitRename() {
   const name = renameValue.value.trim()
-  if (!name) return
-  void apply('rename', [{ source: target.value, name }])
+  if (!name)
+    return
+  void apply('rename', [
+    { source: target.value, name },
+  ])
 }
 
 function submitMove() {
-  if (!moveDir.value) return
-  void apply('move', [{ source: target.value, target_dir: moveDir.value }])
+  if (!moveDir.value)
+    return
+  void apply('move', [
+    { source: target.value, target_dir: moveDir.value },
+  ])
 }
 
 function submitDelete() {
   void apply(
     'soft_delete',
-    deleteItems.value.map((source) => ({ source })),
+    deleteItems.value.map(source => ({ source })),
   )
 }
-
 </script>
 
 <template>
@@ -399,7 +440,6 @@ function submitDelete() {
       @selection-change="selection = $event"
     />
 
-
     <div
       v-else-if="!treeError && dirId"
       class="grid min-h-0 flex-1 place-items-center px-4 text-center text-xs text-muted-foreground"
@@ -465,8 +505,7 @@ function submitDelete() {
       role="status"
     >
       <p class="text-[11px] font-medium">
-        完成 {{ result.succeeded }} 项<template v-if="result.failed">，失败 {{ result.failed }} 项</template
-        ><template v-if="result.untouched">，未处理 {{ result.untouched }} 项</template>
+        完成 {{ result.succeeded }} 项<template v-if="result.failed">，失败 {{ result.failed }} 项</template><template v-if="result.untouched">，未处理 {{ result.untouched }} 项</template>
       </p>
       <p class="mt-0.5 text-[11px]" :class="result.refresh.ok ? 'text-[var(--text-muted)]' : 'text-[var(--danger-ink)]'">
         {{ refreshText(result.refresh) }}
@@ -490,7 +529,7 @@ function submitDelete() {
           v-model="renameValue"
           data-testid="rename-input"
           class="mt-1 h-9 w-full rounded-md border border-input bg-transparent px-2 text-xs focus-visible:border-[var(--wire-strong)] focus-visible:outline-none"
-        />
+        >
       </label>
       <p class="text-[11px] text-[var(--text-muted)]">只能改名称：要换目录请用“移动”。目标已存在时不会覆盖。</p>
       <div class="flex justify-end gap-2">

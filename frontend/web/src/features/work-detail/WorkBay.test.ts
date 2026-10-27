@@ -1,14 +1,14 @@
 import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { sampleWorkContent } from '@/test/work-content-fixture'
-import WorkBay from './WorkBay.vue'
 import { apiClientKey } from '@/lib/api/client'
-import { apiStub } from '@/test/api-stub'
-import { installTestQueryPlugin } from '@/test/query-client'
-import { makeWorkDetail } from '@/test/work-fixture'
 import { usePlayerStore } from '@/stores/player'
 import { useWorkDetailStore } from '@/stores/work-detail'
+import { apiStub } from '@/test/api-stub'
+import { installTestQueryPlugin } from '@/test/query-client'
+import { sampleWorkContent } from '@/test/work-content-fixture'
+import { makeWorkDetail } from '@/test/work-fixture'
+import WorkBay from './WorkBay.vue'
 
 /**
  * The bay's contracts: a tab click lifts, the open tab's
@@ -24,9 +24,17 @@ async function mountBay() {
   setActivePinia(pinia)
   const store = useWorkDetailStore()
   store.bind(RJ, sampleWorkContent(RJ))
-  const api = apiStub({ getWork: vi.fn().mockResolvedValue(makeWorkDetail()) } as never)
+  const api = apiStub({
+    getWork: vi.fn().mockResolvedValue(makeWorkDetail()),
+  } as never)
   const wrapper = mount(WorkBay, {
-    global: { plugins: [pinia, installTestQueryPlugin()], provide: { [apiClientKey as symbol]: api } },
+    global: {
+      plugins: [
+        pinia,
+        installTestQueryPlugin(),
+      ],
+      provide: { [apiClientKey as symbol]: api },
+    },
   })
   await flushPromises()
   return { wrapper, store }
@@ -38,7 +46,7 @@ beforeEach(() => {
 
 enableAutoUnmount(afterEach)
 
-describe('WorkBay', () => {
+describe('workBay', () => {
   it('counts the tabs and lifts on the first tab click, closing on the second', async () => {
     const { wrapper, store } = await mountBay()
     const tabs = wrapper.findAll('.tab')
@@ -78,13 +86,19 @@ describe('WorkBay', () => {
     store.openBayTab('tracks')
     await flushPromises()
     const chips = wrapper.findAll('.chip')
-    const before = wrapper.findAll('.trk').map((row) => [row.get('.no').text(), row.get('.nm').text()])
-    expect(chips.map((chip) => chip.attributes('aria-pressed'))).toEqual(['true', 'false', 'false'])
+    const before = wrapper.findAll('.trk').map(row => [
+      row.get('.no').text(),
+      row.get('.nm').text(),
+    ])
+    expect(chips.map(chip => chip.attributes('aria-pressed'))).toEqual(['true', 'false', 'false'])
     await chips[1].trigger('click')
     expect(store.fmt).toBe('WAV')
     const rows = wrapper.findAll('.trk')
     expect(rows).toHaveLength(8)
-    expect(rows.map((row) => [row.get('.no').text(), row.get('.nm').text()])).toEqual(before)
+    expect(rows.map(row => [
+      row.get('.no').text(),
+      row.get('.nm').text(),
+    ])).toEqual(before)
     expect(rows[7].classes()).not.toContain('missing')
     expect(rows[7].text()).not.toContain('ONLY')
     expect(rows[7].find('.only').exists()).toBe(false)
@@ -93,7 +107,10 @@ describe('WorkBay', () => {
     expect(store.lrcFor(1)).toBe(paired)
     expect(rows[1].attributes('aria-current')).toBe('true')
     await chips[0].trigger('click')
-    expect(wrapper.findAll('.trk').map((row) => [row.get('.no').text(), row.get('.nm').text()])).toEqual(before)
+    expect(wrapper.findAll('.trk').map(row => [
+      row.get('.no').text(),
+      row.get('.nm').text(),
+    ])).toEqual(before)
     expect(wrapper.findAll('.trk')[7].text()).toContain('WAV ONLY')
     expect(store.lrcFor(1)).toBe(paired)
   })
@@ -104,24 +121,57 @@ describe('WorkBay', () => {
     const mp3 = store.tracks[0].files.MP3!
     const lyric = store.lrcFiles[0]
     const content = sampleWorkContent(RJ)
-    store.bind(RJ, { ...content, copies: [{ ...content.copies[0], tree: {
-      ...store.copy!, children: [
-        { ...wav, name: '0.wav', rel_path: '0.wav' },
-        { ...wav, name: '1.wav', rel_path: '1.wav', duration_sec: 120 },
-        { ...wav, name: '2.wav', rel_path: '2.wav', duration_sec: 240 },
-        { name: 'mp3', rel_path: 'mp3', children: [
-          { ...mp3, name: '1.mp3', rel_path: 'mp3/1.mp3', duration_sec: 30 },
-          { ...mp3, name: '2.mp3', rel_path: 'mp3/2.mp3', duration_sec: null },
-        ] },
-        { ...lyric, name: '1.vtt', rel_path: '1.vtt' },
+    store.bind(RJ, {
+      ...content,
+      copies: [
+        {
+          ...content.copies[0],
+          tree: {
+            ...store.copy!,
+            children: [
+              { ...wav, name: '0.wav', rel_path: '0.wav' },
+              {
+                ...wav,
+                name: '1.wav',
+                rel_path: '1.wav',
+                duration_sec: 120,
+              },
+              {
+                ...wav,
+                name: '2.wav',
+                rel_path: '2.wav',
+                duration_sec: 240,
+              },
+              {
+                name: 'mp3',
+                rel_path: 'mp3',
+                children: [
+                  {
+                    ...mp3,
+                    name: '1.mp3',
+                    rel_path: 'mp3/1.mp3',
+                    duration_sec: 30,
+                  },
+                  {
+                    ...mp3,
+                    name: '2.mp3',
+                    rel_path: 'mp3/2.mp3',
+                    duration_sec: null,
+                  },
+                ],
+              },
+              { ...lyric, name: '1.vtt', rel_path: '1.vtt' },
+            ],
+          },
+        },
       ],
-    } }] }, (ref) => `/media/${ref.relPath}`)
+    }, ref => `/media/${ref.relPath}`)
     await flushPromises()
     const rows = wrapper.findAll('.trk')
-    expect(rows.map((row) => row.get('.no').text())).toEqual(['01', '02', '03'])
-    expect(rows.map((row) => row.get('.nm').text())).toEqual(['0', '1', '2'])
-    expect(rows.map((row) => row.get('.dur').text())).toEqual(['04:12', '00:30', '—'])
-    expect(rows.map((row) => row.get('.bar').attributes('style'))).toEqual(['width: 160px;', 'width: 19px;', 'width: 0px;'])
+    expect(rows.map(row => row.get('.no').text())).toEqual(['01', '02', '03'])
+    expect(rows.map(row => row.get('.nm').text())).toEqual(['0', '1', '2'])
+    expect(rows.map(row => row.get('.dur').text())).toEqual(['04:12', '00:30', '—'])
+    expect(rows.map(row => row.get('.bar').attributes('style'))).toEqual(['width: 160px;', 'width: 19px;', 'width: 0px;'])
     expect(wrapper.get('.bay-sum').text()).toContain('00:30')
     await rows[1].trigger('click')
     // Track 0 is WAV only, so the MP3 queue is [1, 2]; the key still names row 1.
@@ -136,7 +186,7 @@ describe('WorkBay', () => {
     await wrapper.findAll('.trk')[0].trigger('click')
     expect(store.pairs[1]).toBe('1.vtt')
     await wrapper.findAll('.chip')[1].trigger('click')
-    expect(wrapper.findAll('.trk').map((row) => row.get('.nm').text())).toEqual(['0', '1', '2'])
+    expect(wrapper.findAll('.trk').map(row => row.get('.nm').text())).toEqual(['0', '1', '2'])
     expect(wrapper.findAll('.trk')[1].get('.dur').text()).toBe('02:00')
     expect(store.playFmt).toBe('MP3')
   })
@@ -148,7 +198,7 @@ describe('WorkBay', () => {
     await flushPromises()
 
     // The browser opens at the copy root; the first directory is 本編.
-    const dirRow = wrapper.findAll('.row.dir').find((row) => row.text().includes('本編'))!
+    const dirRow = wrapper.findAll('.row.dir').find(row => row.text().includes('本編'))!
     await dirRow.trigger('click')
     expect(store.cwd).toEqual(['本編'])
     // The up-row returns.
@@ -156,31 +206,31 @@ describe('WorkBay', () => {
     expect(store.cwd).toEqual([])
 
     // An image row locates its set on the deck: enter 表紙 first.
-    const coverDir = wrapper.findAll('.row.dir').find((row) => row.text().includes('表紙'))!
+    const coverDir = wrapper.findAll('.row.dir').find(row => row.text().includes('表紙'))!
     await coverDir.trigger('click')
-    const imgRow = wrapper.findAll('.row').find((row) => row.text().includes('cover_main.jpg'))!
+    const imgRow = wrapper.findAll('.row').find(row => row.text().includes('cover_main.jpg'))!
     await imgRow.trigger('click')
     expect(store.set).toBe(0)
     expect(store.sel).toBe('表紙/cover_main.jpg')
 
     // Back to the root: a text row opens READ.
     await wrapper.get('.row.dir').trigger('click')
-    const txtRow = wrapper.findAll('.row').find((row) => row.text().includes('はじめにお読みください.txt'))!
+    const txtRow = wrapper.findAll('.row').find(row => row.text().includes('はじめにお読みください.txt'))!
     await txtRow.trigger('click')
     expect(store.leaf).toBe('script')
     expect(store.bayOpen).toBe(false) // the text pick closed the bottom drawer
 
     // An audio row, two levels deep, starts its track.
-    await wrapper.findAll('.row.dir').find((row) => row.text().includes('本編'))!.trigger('click')
-    await wrapper.findAll('.row.dir').find((row) => row.text().includes('mp3'))!.trigger('click')
-    const mp3Row = wrapper.findAll('.row').find((row) => row.text().includes('01_導入'))!
+    await wrapper.findAll('.row.dir').find(row => row.text().includes('本編'))!.trigger('click')
+    await wrapper.findAll('.row.dir').find(row => row.text().includes('mp3'))!.trigger('click')
+    const mp3Row = wrapper.findAll('.row').find(row => row.text().includes('01_導入'))!
     await mp3Row.trigger('click')
     expect(player.trackIndex).toBe(0)
 
     // Lyrics in FILES are read; changing the playback pairing stays under LRC.
     await wrapper.get('.row.dir').trigger('click')
-    await wrapper.findAll('.row.dir').find((row) => row.text().includes('lyrics'))!.trigger('click')
-    const lyricRow = wrapper.findAll('.row').find((row) => row.text().includes('04_おやすみ.lrc'))!
+    await wrapper.findAll('.row.dir').find(row => row.text().includes('lyrics'))!.trigger('click')
+    const lyricRow = wrapper.findAll('.row').find(row => row.text().includes('04_おやすみ.lrc'))!
     await lyricRow.trigger('click')
     expect(store.leaf).toBe('script')
     expect(store.activeTxt).toBe('本編/lyrics/04_おやすみ.lrc')
@@ -194,12 +244,12 @@ describe('WorkBay', () => {
     await flushPromises()
     const before = store.lrcFor(1)
     const chips = wrapper.findAll('.chip')
-    expect(chips.map((chip) => chip.text())).toEqual(['MP3', 'WAV', 'LRC'])
+    expect(chips.map(chip => chip.text())).toEqual(['MP3', 'WAV', 'LRC'])
     await chips[2].trigger('click')
     expect(store.lrcMode).toBe(true)
-    expect(chips.map((chip) => chip.attributes('aria-pressed'))).toEqual(['false', 'false', 'true'])
+    expect(chips.map(chip => chip.attributes('aria-pressed'))).toEqual(['false', 'false', 'true'])
     expect(wrapper.findAll('.trk')).toHaveLength(2)
-    const other = () => wrapper.findAll('.trk').find((row) => row.attributes('aria-current') === undefined)!
+    const other = () => wrapper.findAll('.trk').find(row => row.attributes('aria-current') === undefined)!
 
     await other().trigger('click')
     expect(store.lrcFor(1)).not.toBe(before)
@@ -232,7 +282,7 @@ describe('WorkBay', () => {
       window.dispatchEvent(new KeyboardEvent('keydown', { key }))
       await flushPromises()
     }
-    const cursorOf = (wrapper: ReturnType<typeof mount>, row: string) => wrapper.findAll(row).findIndex((r) => r.classes('cur'))
+    const cursorOf = (wrapper: ReturnType<typeof mount>, row: string) => wrapper.findAll(row).findIndex(r => r.classes('cur'))
 
     it('starts on the playing track and follows it; Enter plays the row', async () => {
       const { wrapper, store } = await mountBay()
@@ -271,7 +321,7 @@ describe('WorkBay', () => {
       store.openBayTab('files')
       await flushPromises()
       const dirs = wrapper.findAll('.row.dir')
-      const target = dirs.findIndex((row) => row.text().includes('表紙'))
+      const target = dirs.findIndex(row => row.text().includes('表紙'))
 
       await press('Backspace') // the root has no parent
       expect(store.cwd).toEqual([])
@@ -289,7 +339,7 @@ describe('WorkBay', () => {
       expect(cursorOf(wrapper, '.row')).toBe(0)
     })
 
-    it('Enter on the ".." row goes up', async () => {
+    it('enter on the ".." row goes up', async () => {
       const { store } = await mountBay()
       store.dock = 'right'
       store.openBayTab('files')

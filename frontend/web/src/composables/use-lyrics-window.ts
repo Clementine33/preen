@@ -1,6 +1,8 @@
-import { computed, inject, provide, ref, type InjectionKey } from 'vue'
+import type { InjectionKey } from 'vue'
+import type { LyricsCommand, LyricsFrame } from '@/lib/desktop/desktop-adapter'
+import { computed, inject, provide, ref } from 'vue'
 import { useTimedLyrics } from '@/composables/use-timed-lyrics'
-import { useDesktopAdapter, type LyricsCommand, type LyricsFrame } from '@/lib/desktop/desktop-adapter'
+import { useDesktopAdapter } from '@/lib/desktop/desktop-adapter'
 import { usePlayerStore } from '@/stores/player'
 
 /**
@@ -14,14 +16,24 @@ import { usePlayerStore } from '@/stores/player'
 export function createLyricsWindow() {
   const adapter = useDesktopAdapter()
   const player = usePlayerStore()
-  const item = computed(() => (player.rj === null ? undefined : player.queue[player.trackIndex]))
-  const source = computed(() => (player.rj !== null && item.value?.lyrics ? { rj: player.rj, ...item.value.lyrics } : null))
+  const item = computed(() => (player.rj === null
+    ? undefined
+    : player.queue[player.trackIndex]))
+  const source = computed(() => (player.rj !== null && item.value?.lyrics
+    ? { rj: player.rj, ...item.value.lyrics }
+    : null))
   const { lines, nowIndex } = useTimedLyrics(source, () => player.elapsed)
 
   // Whether the line on show arrived by stepping to the next one; fixed per line, since frame() runs on every render.
-  let previous = { track: '', index: -1, key: '', advance: false }
+  let previous = {
+    track: '',
+    index: -1,
+    key: '',
+    advance: false,
+  }
   function advanced(track: string, index: number, key: string): boolean {
-    if (key === previous.key) return previous.advance
+    if (key === previous.key)
+      return previous.advance
     const advance = track === previous.track && index === previous.index + 1
     previous = { track, index, key, advance }
     return advance
@@ -30,16 +42,32 @@ export function createLyricsWindow() {
   const frame = (): LyricsFrame => {
     const track = `${player.rj}:${player.trackIndex}`
     // A WebVTT gap keeps the last cue up, dimmed; an LRC line already holds until the next.
-    const last = lines.value.reduce((at, line, i) => (player.elapsed >= line.time ? i : at), -1)
+    const last = lines.value.reduce((at, line, i) => (player.elapsed >= line.time
+      ? i
+      : at), -1)
     const shown = lines.value[last]
-    if (!shown) previous = { track, index: -1, key: '', advance: false }
+    if (!shown) {
+      previous = {
+        track,
+        index: -1,
+        key: '',
+        advance: false,
+      }
+    }
     return {
       rj: player.rj,
       title: player.title,
       paused: player.paused,
       hasPrev: player.hasPrev,
       hasNext: player.hasNext,
-      line: shown ? { key: `${track}:${last}`, text: shown.text, dim: last !== nowIndex.value, advance: advanced(track, last, `${track}:${last}`) } : null,
+      line: shown
+        ? {
+            key: `${track}:${last}`,
+            text: shown.text,
+            dim: last !== nowIndex.value,
+            advance: advanced(track, last, `${track}:${last}`),
+          }
+        : null,
       noLyrics: player.rj !== null && !item.value?.lyrics,
     }
   }
@@ -56,16 +84,20 @@ export function createLyricsWindow() {
 
   /** Open or close; while locked, unlock instead. Opening needs a user gesture and must not await before asking the adapter. */
   function toggle(): void {
-    if (locked.value) return adapter.setLyricsLocked(false)
-    if (close) return close()
-    if (open.value || !item.value?.lyrics) return
+    if (locked.value)
+      return adapter.setLyricsLocked(false)
+    if (close)
+      return close()
+    if (open.value || !item.value?.lyrics)
+      return
     open.value = true
-    void adapter.openLyricsWindow(frame, (command) => commands[command](), () => {
+    void adapter.openLyricsWindow(frame, command => commands[command](), () => {
       open.value = false
       locked.value = false
       close = null
     }, (value) => { locked.value = value }).then((closer) => {
-      if (closer) close = closer
+      if (closer)
+        close = closer
       else open.value = false
     })
   }

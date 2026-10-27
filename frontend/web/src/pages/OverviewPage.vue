@@ -1,34 +1,31 @@
 <script setup lang="ts">
-import { computed, ref, watch, watchEffect } from 'vue'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
-import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
+import type { TaskTarget } from '@/features/libraries/BatchPlanBar.vue'
+import type { LibraryDir, ScanMode, SkippedFolder, SkippedReason, UpdateLibraryInput } from '@/lib/api/types'
 import { AlertTriangle, Pencil, RefreshCw, ScanLine, Square } from '@lucide/vue'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
+import { computed, ref, watch, watchEffect } from 'vue'
+import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
+import WorkbenchShell from '@/components/layout/WorkbenchShell.vue'
 import { Button } from '@/components/ui/button'
 import Modal from '@/components/ui/modal/Modal.vue'
-import WorkbenchShell from '@/components/layout/WorkbenchShell.vue'
-import WorkbenchNav from '@/features/worksets/WorkbenchNav.vue'
-import ScanProgressBar from '@/features/libraries/ScanProgressBar.vue'
+import { useLibraryScan } from '@/composables/use-library-scan'
+import BatchPlanBar from '@/features/libraries/BatchPlanBar.vue'
 import DirList from '@/features/libraries/DirList.vue'
 import LibraryManager from '@/features/libraries/LibraryManager.vue'
-import BatchPlanBar, { type TaskTarget } from '@/features/libraries/BatchPlanBar.vue'
-import { useLibraryScan } from '@/composables/use-library-scan'
+import ScanProgressBar from '@/features/libraries/ScanProgressBar.vue'
+import WorkbenchNav from '@/features/worksets/WorkbenchNav.vue'
 import { useApiClient } from '@/lib/api/client'
 import { errorDetails } from '@/lib/api/error'
+import {
+  CONVERSION,
+
+} from '@/lib/api/types'
 import { rootPathIdentityKey } from '@/lib/root-path-identity'
-import { dirsQueryOptions, useLibraryList } from '@/queries/libraries'
-import { updateLibraryMutationOptions, deleteLibraryMutationOptions } from '@/queries/libraries'
+import { deleteLibraryMutationOptions, dirsQueryOptions, updateLibraryMutationOptions, useLibraryList } from '@/queries/libraries'
 import { createCurrentRecordMutationOptions, currentRecordQueryOptions } from '@/queries/worksets'
 import { useLibraryUiStore } from '@/stores/library-ui'
 import { useMediaFactsStore } from '@/stores/media-facts'
 import { useScanStore } from '@/stores/scan'
-import {
-  CONVERSION,
-  type LibraryDir,
-  type ScanMode,
-  type SkippedFolder,
-  type SkippedReason,
-  type UpdateLibraryInput,
-} from '@/lib/api/types'
 
 /**
  * The workbench overview of one library (ADR 0001).
@@ -52,41 +49,52 @@ const libraryId = computed(() => (route.params.libraryId as string) || '')
 // One quiet line for this library's Media Facts Pass; absent while nothing is unknown.
 const mediaFactsLine = computed(() => {
   const status = mediaFacts.status
-  const counts = status?.libraries.find((item) => item.library_id === libraryId.value)
-  if (!status || !counts) return ''
+  const counts = status?.libraries.find(item => item.library_id === libraryId.value)
+  if (!status || !counts)
+    return ''
   if (counts.pending > 0 && status.state !== 'idle') {
     const left = counts.pending.toLocaleString()
-    return status.state === 'paused' ? `媒体事实 · 已暂停，将自动继续 · 剩 ${left}` : `媒体事实 · 测量中 · 剩 ${left}`
+    return status.state === 'paused'
+      ? `媒体事实 · 已暂停，将自动继续 · 剩 ${left}`
+      : `媒体事实 · 测量中 · 剩 ${left}`
   }
-  return counts.unmeasurable > 0 ? `媒体事实 · ${counts.unmeasurable.toLocaleString()} 个文件无法测量` : ''
+  return counts.unmeasurable > 0
+    ? `媒体事实 · ${counts.unmeasurable.toLocaleString()} 个文件无法测量`
+    : ''
 })
 const filesOpen = computed(() => route.name === 'overview-files')
 
 const { query: librariesQuery, librariesData, activeLibrary } = useLibraryList()
 const rootIdentity = computed(() => {
-  const library = librariesData.value.find((item) => item.id === libraryId.value)
-  if (library) return rootPathIdentityKey(library.root_path)
-  if (librariesQuery.isSuccess.value || librariesQuery.error.value) return 'unresolved-root'
+  const library = librariesData.value.find(item => item.id === libraryId.value)
+  if (library)
+    return rootPathIdentityKey(library.root_path)
+  if (librariesQuery.isSuccess.value || librariesQuery.error.value)
+    return 'unresolved-root'
   return null
 })
 
 watch(
   libraryId,
   (id) => {
-    if (id) ui.setActiveLibrary(id)
+    if (id)
+      ui.setActiveLibrary(id)
   },
   { immediate: true },
 )
 
 const dirsQuery = useQuery(() => dirsQueryOptions(api, libraryId.value, rootIdentity.value))
 watchEffect(() => {
-  if (dirsQuery.data.value) ui.reconcileDirs(libraryId.value, dirsQuery.data.value)
+  if (dirsQuery.data.value)
+    ui.reconcileDirs(libraryId.value, dirsQuery.data.value)
 })
 const dirs = computed(() => dirsQuery.data.value ?? [])
 const dirsPending = computed(() => dirsQuery.isPending.value)
 const dirsError = computed(() => {
   const error = dirsQuery.error.value
-  return error ? errorDetails(error) : null
+  return error
+    ? errorDetails(error)
+    : null
 })
 
 // One folder batch is shared by every task page.
@@ -117,7 +125,7 @@ const SKIP_TEXT: Record<SkippedReason, string> = {
 // ---- search & order ---------------------------------------------------
 
 type DirSort = 'rjid' | 'added'
-const SORTS: { value: DirSort; label: string }[] = [
+const SORTS: { value: DirSort, label: string }[] = [
   { value: 'rjid', label: 'RJ号' },
   { value: 'added', label: '最近添加' },
 ]
@@ -125,44 +133,57 @@ const search = ref('')
 const sort = ref<DirSort>('rjid')
 
 function byPath(a: LibraryDir, b: LibraryDir) {
-  return a.rel_path < b.rel_path ? -1 : a.rel_path > b.rel_path ? 1 : 0
+  return a.rel_path < b.rel_path
+    ? -1
+    : a.rel_path > b.rel_path
+      ? 1
+      : 0
 }
 /** Descending only. A folder with no work code sorts after every coded one. */
 function compareDirs(a: LibraryDir, b: LibraryDir): number {
   if (sort.value === 'rjid') {
     if (a.work_code !== b.work_code) {
-      if (a.work_code === null) return 1
-      if (b.work_code === null) return -1
-      return a.work_code < b.work_code ? 1 : -1
+      if (a.work_code === null)
+        return 1
+      if (b.work_code === null)
+        return -1
+      return a.work_code < b.work_code
+        ? 1
+        : -1
     }
-  } else if (a.added_at !== b.added_at) {
-    return a.added_at < b.added_at ? 1 : -1
+  }
+  else if (a.added_at !== b.added_at) {
+    return a.added_at < b.added_at
+      ? 1
+      : -1
   }
   return byPath(a, b)
 }
 const sortedDirs = computed(() => [...dirs.value].sort(compareDirs))
 const shownDirs = computed(() => {
   const query = search.value.trim().toLowerCase()
-  if (!query) return sortedDirs.value
+  if (!query)
+    return sortedDirs.value
   return sortedDirs.value.filter(
-    (dir) => dir.name.toLowerCase().includes(query) || dir.rel_path.toLowerCase().includes(query),
+    dir => dir.name.toLowerCase().includes(query) || dir.rel_path.toLowerCase().includes(query),
   )
 })
 const allShownSelected = computed(
-  () => shownDirs.value.length > 0 && shownDirs.value.every((dir) => ui.selectedDirPaths.includes(dir.rel_path)),
+  () => shownDirs.value.length > 0 && shownDirs.value.every(dir => ui.selectedDirPaths.includes(dir.rel_path)),
 )
 
 /** The selection as the caller sees it, so the confirmation names it. */
-const selectedDirs = computed(() => dirs.value.filter((dir) => ui.selectedDirPaths.includes(dir.rel_path)))
+const selectedDirs = computed(() => dirs.value.filter(dir => ui.selectedDirPaths.includes(dir.rel_path)))
 /** A directory the conversion will skip: it is selectable, but holds no audio. */
-const selectedWithoutAudio = computed(() => selectedDirs.value.filter((dir) => dir.audio_file_count === 0))
+const selectedWithoutAudio = computed(() => selectedDirs.value.filter(dir => dir.audio_file_count === 0))
 
 /** The task to open once the selection is the batch. */
 let pendingTarget: TaskTarget = 'conversion'
 
 function startEnter(target: TaskTarget) {
   pendingTarget = target
-  if (ui.selectedDirPaths.length === 0) return
+  if (ui.selectedDirPaths.length === 0)
+    return
   skipped.value = []
   createError.value = null
   idempotencyKey = crypto.randomUUID()
@@ -184,8 +205,8 @@ async function submit() {
         // members as stored, so none of them sorts on its own. Taken from the
         // unfiltered list so a search never drops a selected folder.
         folder_paths: sortedDirs.value
-          .filter((dir) => ui.selectedDirPaths.includes(dir.rel_path))
-          .map((dir) => dir.rel_path),
+          .filter(dir => ui.selectedDirPaths.includes(dir.rel_path))
+          .map(dir => dir.rel_path),
         // The record the caller saw as current: a concurrent replace is a
         // conflict, not an overwrite.
         expected_current_id: record.value?.workset_id,
@@ -197,10 +218,14 @@ async function submit() {
     ui.clearSelection()
     // A skipped folder is reported here first; the task can be opened from the card.
     if (response.skipped.length === 0) {
-      await router.push({ name: pendingTarget, params: { libraryId: libraryId.value } })
+      await router.push({
+        name: pendingTarget,
+        params: { libraryId: libraryId.value },
+      })
     }
-  } catch (error) {
-    const apiError = error as { code?: string; message?: string; details?: string[] }
+  }
+  catch (error) {
+    const apiError = error as { code?: string, message?: string, details?: string[] }
     skipped.value = (apiError.details ?? []).map((detail) => {
       const [path, reason] = detail.split(': ')
       return { path, reason: (reason ?? '') as SkippedReason }
@@ -216,16 +241,19 @@ const updateLibraryMutation = useMutation(updateLibraryMutationOptions(api, quer
 const deleteLibraryMutation = useMutation(deleteLibraryMutationOptions(api, queryClient))
 
 async function saveLibrary(input: UpdateLibraryInput) {
-  if (!activeLibrary.value) return
+  if (!activeLibrary.value)
+    return
   savingLibrary.value = true
   try {
     // A root change is refused by the backend while a record exists; the
     // dialog surfaces that refusal as it is.
     await updateLibraryMutation.mutateAsync({ id: activeLibrary.value.id, input })
     managerOpen.value = false
-  } catch {
+  }
+  catch {
     // The mutation error is shown in the dialog.
-  } finally {
+  }
+  finally {
     savingLibrary.value = false
   }
 }
@@ -243,16 +271,20 @@ async function removeLibrary(id: string) {
     await deleteLibraryMutation.mutateAsync(id)
     managerOpen.value = false
     await router.push({ name: 'worksets' })
-  } catch {
+  }
+  catch {
     // Keep the dialog open and expose the mutation error in it.
-  } finally {
+  }
+  finally {
     savingLibrary.value = false
   }
 }
 
 const managementError = computed(() => {
   const error = updateLibraryMutation.error.value ?? deleteLibraryMutation.error.value
-  return error ? errorDetails(error) : null
+  return error
+    ? errorDetails(error)
+    : null
 })
 
 // ---- scanning ---------------------------------------------------------
@@ -260,7 +292,8 @@ const managementError = computed(() => {
 const scanningThisLibrary = computed(() => scan.status === 'scanning' && scan.libraryId === libraryId.value)
 
 async function runScan(mode?: ScanMode) {
-  if (!libraryId.value) return
+  if (!libraryId.value)
+    return
   await libraryScan.start(libraryId.value, mode)
 }
 
@@ -322,161 +355,161 @@ const libraryRoot = computed(() => activeLibrary.value?.root_path ?? '')
 
     <template #main>
       <div class="relative flex min-h-0 flex-1 flex-col">
-      <!-- Files view: a member of this library, addressed by its relative
+        <!-- Files view: a member of this library, addressed by its relative
            path. It covers the list rather than replacing it, so the list keeps
            its layout — and with it the selection, the filters and the scroll
            position. -->
-      <div v-if="filesOpen" class="absolute inset-0 z-10 flex min-h-0 flex-col substrate">
-        <RouterView />
-      </div>
+        <div v-if="filesOpen" class="absolute inset-0 z-10 flex min-h-0 flex-col substrate">
+          <RouterView />
+        </div>
 
-      <section class="flex min-h-0 flex-1 flex-col overflow-y-auto" data-testid="overview">
-        <div class="mx-auto flex w-full max-w-5xl min-h-0 flex-1 flex-col p-4">
-          <!-- Library identity, its scan state and the library-level actions
+        <section class="flex min-h-0 flex-1 flex-col overflow-y-auto" data-testid="overview">
+          <div class="mx-auto flex w-full max-w-5xl min-h-0 flex-1 flex-col p-4">
+            <!-- Library identity, its scan state and the library-level actions
               : management and scanning live here, not in a second page. -->
-          <div class="flex flex-wrap items-start gap-3">
-            <div class="min-w-0">
-              <h1 class="truncate font-heading text-base font-semibold">
-                {{ activeLibrary?.name ?? '…' }}
-              </h1>
-              <p class="truncate font-mono text-[11px] text-[var(--text-muted)]" :title="libraryRoot">
-                {{ libraryRoot }}
-              </p>
-            </div>
-            <div class="ml-auto flex items-center gap-2">
-              <Button
-                v-if="activeLibrary"
-                size="xs"
-                variant="outline"
-                data-testid="scan-button"
-                :disabled="scanningThisLibrary"
-                @click="runScan()"
-              >
-                <ScanLine class="size-3.5" />
-                {{ scanningThisLibrary ? '扫描中…' : '扫描' }}
-              </Button>
-              <Button
-                v-if="activeLibrary"
-                size="xs"
-                variant="outline"
-                data-testid="full-rescan-button"
-                :disabled="scanningThisLibrary"
-                @click="runScan('full')"
-              >
-                完整重扫
-              </Button>
-              <Button v-if="scanningThisLibrary" size="xs" variant="ghost" data-testid="cancel-scan" @click="libraryScan.cancel">
-                <Square class="size-3" />
-                取消
-              </Button>
-              <!-- Library management stays reachable from the workbench:
-                   the entry lives here, not only on the selection page. -->
-              <Button
-                v-if="activeLibrary"
-                size="xs"
-                variant="ghost"
-                data-testid="edit-library"
-                @click="managerOpen = true"
-              >
-                <Pencil class="size-3.5" />
-                媒体库
-              </Button>
-            </div>
-          </div>
-
-          <ScanProgressBar
-            v-if="scan.libraryId === libraryId"
-            class="mt-2"
-            :status="scan.status"
-            :terminal="scan.terminal"
-            :files-scanned="scan.filesScanned"
-            :dirs-scanned="scan.dirsScanned"
-            :error-code="scan.errorCode"
-            :error-message="scan.errorMessage"
-          />
-
-          <p
-            v-if="mediaFactsLine"
-            class="mt-1 text-[11px] text-[var(--text-muted)]"
-            data-testid="media-facts-status"
-          >
-            {{ mediaFactsLine }}
-          </p>
-
-          <p
-            v-if="createError"
-            class="mt-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-[11px] text-destructive"
-            role="alert"
-            data-testid="create-error"
-          >
-            {{ createError }}
-          </p>
-          <ul v-if="skipped.length" class="mt-3 space-y-0.5" data-testid="skipped-report">
-            <li v-for="item in skipped" :key="item.path" class="text-[11px] text-[var(--text-secondary)]">
-              <span class="font-mono">{{ item.path }}</span> — {{ SKIP_TEXT[item.reason] ?? item.reason }}
-            </li>
-          </ul>
-
-          <!-- Members: every direct child directory. Selecting some is what a
-               conversion scope is built from. -->
-          <section class="mt-4 flex min-h-0 flex-1 flex-col">
-            <div class="flex flex-wrap items-center gap-2">
-              <h2 class="text-xs font-semibold text-[var(--text-secondary)]">
-                文件夹（{{ search.trim() ? `${shownDirs.length} / ${dirs.length}` : dirs.length }}）
-              </h2>
-              <input
-                v-model="search"
-                type="search"
-                placeholder="搜索文件夹"
-                aria-label="搜索文件夹"
-                data-testid="dir-search"
-                class="h-7 min-w-0 flex-1 rounded-md border border-[var(--control-border)] bg-background px-2 text-xs focus-visible:border-[var(--wire-strong)] focus-visible:outline-none @[641px]:max-w-xs"
-              />
-              <div class="flex items-center gap-1" role="group" aria-label="排序（降序）">
+            <div class="flex flex-wrap items-start gap-3">
+              <div class="min-w-0">
+                <h1 class="truncate font-heading text-base font-semibold">
+                  {{ activeLibrary?.name ?? '…' }}
+                </h1>
+                <p class="truncate font-mono text-[11px] text-[var(--text-muted)]" :title="libraryRoot">
+                  {{ libraryRoot }}
+                </p>
+              </div>
+              <div class="ml-auto flex items-center gap-2">
                 <Button
-                  v-for="item in SORTS"
-                  :key="item.value"
+                  v-if="activeLibrary"
                   size="xs"
-                  :variant="sort === item.value ? 'secondary' : 'ghost'"
-                  :aria-pressed="sort === item.value"
-                  :data-testid="`sort-${item.value}`"
-                  @click="sort = item.value"
+                  variant="outline"
+                  data-testid="scan-button"
+                  :disabled="scanningThisLibrary"
+                  @click="runScan()"
                 >
-                  {{ item.label }}
+                  <ScanLine class="size-3.5" />
+                  {{ scanningThisLibrary ? '扫描中…' : '扫描' }}
+                </Button>
+                <Button
+                  v-if="activeLibrary"
+                  size="xs"
+                  variant="outline"
+                  data-testid="full-rescan-button"
+                  :disabled="scanningThisLibrary"
+                  @click="runScan('full')"
+                >
+                  完整重扫
+                </Button>
+                <Button v-if="scanningThisLibrary" size="xs" variant="ghost" data-testid="cancel-scan" @click="libraryScan.cancel">
+                  <Square class="size-3" />
+                  取消
+                </Button>
+                <!-- Library management stays reachable from the workbench:
+                   the entry lives here, not only on the selection page. -->
+                <Button
+                  v-if="activeLibrary"
+                  size="xs"
+                  variant="ghost"
+                  data-testid="edit-library"
+                  @click="managerOpen = true"
+                >
+                  <Pencil class="size-3.5" />
+                  媒体库
                 </Button>
               </div>
             </div>
 
-            <p v-if="dirsPending" class="mt-1 text-[11px] text-[var(--text-muted)]">正在读取文件夹…</p>
-            <p v-else-if="dirsError" class="mt-1 flex items-center gap-1.5 text-[11px] text-destructive">
-              <AlertTriangle class="size-3.5" />{{ dirsError.code }} {{ dirsError.message }}
-              <Button size="xs" variant="outline" @click="dirsQuery.refetch()">
-                <RefreshCw class="size-3" />重试
-              </Button>
-            </p>
-            <p v-else-if="dirs.length === 0" class="mt-1 text-[11px] text-[var(--text-muted)]" data-testid="no-dirs">
-              还没有扫描结果。先扫描媒体库，这里会列出根目录下的所有文件夹。
+            <ScanProgressBar
+              v-if="scan.libraryId === libraryId"
+              class="mt-2"
+              :status="scan.status"
+              :terminal="scan.terminal"
+              :files-scanned="scan.filesScanned"
+              :dirs-scanned="scan.dirsScanned"
+              :error-code="scan.errorCode"
+              :error-message="scan.errorMessage"
+            />
+
+            <p
+              v-if="mediaFactsLine"
+              class="mt-1 text-[11px] text-[var(--text-muted)]"
+              data-testid="media-facts-status"
+            >
+              {{ mediaFactsLine }}
             </p>
 
-            <!-- The list owns the rest of the page: it is the thing being read,
+            <p
+              v-if="createError"
+              class="mt-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-[11px] text-destructive"
+              role="alert"
+              data-testid="create-error"
+            >
+              {{ createError }}
+            </p>
+            <ul v-if="skipped.length" class="mt-3 space-y-0.5" data-testid="skipped-report">
+              <li v-for="item in skipped" :key="item.path" class="text-[11px] text-[var(--text-secondary)]">
+                <span class="font-mono">{{ item.path }}</span> — {{ SKIP_TEXT[item.reason] ?? item.reason }}
+              </li>
+            </ul>
+
+            <!-- Members: every direct child directory. Selecting some is what a
+               conversion scope is built from. -->
+            <section class="mt-4 flex min-h-0 flex-1 flex-col">
+              <div class="flex flex-wrap items-center gap-2">
+                <h2 class="text-xs font-semibold text-[var(--text-secondary)]">
+                  文件夹（{{ search.trim() ? `${shownDirs.length} / ${dirs.length}` : dirs.length }}）
+                </h2>
+                <input
+                  v-model="search"
+                  type="search"
+                  placeholder="搜索文件夹"
+                  aria-label="搜索文件夹"
+                  data-testid="dir-search"
+                  class="h-7 min-w-0 flex-1 rounded-md border border-[var(--control-border)] bg-background px-2 text-xs focus-visible:border-[var(--wire-strong)] focus-visible:outline-none @[641px]:max-w-xs"
+                >
+                <div class="flex items-center gap-1" role="group" aria-label="排序（降序）">
+                  <Button
+                    v-for="item in SORTS"
+                    :key="item.value"
+                    size="xs"
+                    :variant="sort === item.value ? 'secondary' : 'ghost'"
+                    :aria-pressed="sort === item.value"
+                    :data-testid="`sort-${item.value}`"
+                    @click="sort = item.value"
+                  >
+                    {{ item.label }}
+                  </Button>
+                </div>
+              </div>
+
+              <p v-if="dirsPending" class="mt-1 text-[11px] text-[var(--text-muted)]">正在读取文件夹…</p>
+              <p v-else-if="dirsError" class="mt-1 flex items-center gap-1.5 text-[11px] text-destructive">
+                <AlertTriangle class="size-3.5" />{{ dirsError.code }} {{ dirsError.message }}
+                <Button size="xs" variant="outline" @click="dirsQuery.refetch()">
+                  <RefreshCw class="size-3" />重试
+                </Button>
+              </p>
+              <p v-else-if="dirs.length === 0" class="mt-1 text-[11px] text-[var(--text-muted)]" data-testid="no-dirs">
+                还没有扫描结果。先扫描媒体库，这里会列出根目录下的所有文件夹。
+              </p>
+
+              <!-- The list owns the rest of the page: it is the thing being read,
                  and it scrolls internally. `min-h-80` is the floor a short
                  viewport keeps; below it the page itself scrolls. -->
-            <div
-              v-else
-              class="mt-1 flex min-h-80 flex-1 flex-col overflow-hidden rounded-lg border border-border bg-card"
-            >
-              <DirList
-                :dirs="shownDirs"
-                :selected-paths="ui.selectedDirPaths"
-                :all-selected="allShownSelected"
-                @select="(relPath, selected) => ui.setDirSelected(relPath, selected, dirs)"
-                @select-all="onSelectAll"
-                @open="openMember"
-              />
-            </div>
-          </section>
-        </div>
-      </section>
+              <div
+                v-else
+                class="mt-1 flex min-h-80 flex-1 flex-col overflow-hidden rounded-lg border border-border bg-card"
+              >
+                <DirList
+                  :dirs="shownDirs"
+                  :selected-paths="ui.selectedDirPaths"
+                  :all-selected="allShownSelected"
+                  @select="(relPath, selected) => ui.setDirSelected(relPath, selected, dirs)"
+                  @select-all="onSelectAll"
+                  @open="openMember"
+                />
+              </div>
+            </section>
+          </div>
+        </section>
       </div>
     </template>
 

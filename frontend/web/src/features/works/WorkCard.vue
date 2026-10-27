@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed } from 'vue'
 import type { WorkSummary } from '@/lib/api/types'
+import { computed } from 'vue'
 import { useLibraryUiStore } from '@/stores/library-ui'
 import { useCoverSrc } from './use-cover-src'
 
@@ -35,29 +35,39 @@ const cover = computed(() => (veiled.value ? null : realCover.value))
  */
 const listeningTitle = computed(() => {
   const { state, track_index: index, track_count: count } = props.work.listening
-  return `${state === 'finished' ? '重听' : '在听'} · ${(index ?? 0) + 1}/${count ?? 0}`
+  return `${state === 'finished'
+    ? '重听'
+    : '在听'} · ${(index ?? 0) + 1}/${count ?? 0}`
 })
 
 const veiled = computed(() => libraryUi.veil && props.work.nsfw === true)
 
 /** `YYYY.MM` from the catalog's `YYYY-MM-DD`, or the empty-state dash. */
 const release = computed(() =>
-  props.work.release_date ? props.work.release_date.slice(0, 7).replace('-', '.') : '—',
+  props.work.release_date
+    ? props.work.release_date.slice(0, 7).replace('-', '.')
+    : '—',
 )
 </script>
 
 <template>
-  <div class="cell" :class="{ active: selected }" role="option" :aria-selected="selected"
-    :tabindex="selected ? 0 : -1" :data-rj="work.rj">
+  <div
+    class="cell" :class="{ active: selected }" role="option" :aria-selected="selected"
+    :tabindex="selected ? 0 : -1" :data-rj="work.rj"
+  >
     <!-- Lazy past the first rows and fill-and-crop: an off-screen cover costs
          nothing until it nears the viewport, and every cover fills its 4:3 frame
          the same way. The first cover is the likeliest largest paint. -->
     <div class="cover" :class="[cover ? '' : 'hatch', { veiled }]">
-      <img v-if="cover" :src="cover" alt="" :loading="index < EAGER_COVERS ? 'eager' : 'lazy'"
-        :fetchpriority="index === 0 ? 'high' : undefined" decoding="async" @error="failed(cover)" />
+      <img
+        v-if="cover" :src="cover" alt="" :loading="index < EAGER_COVERS ? 'eager' : 'lazy'"
+        :fetchpriority="index === 0 ? 'high' : undefined" decoding="async" @error="failed(cover)"
+      >
     </div>
-    <i v-if="work.listening.track_index !== null" class="listening-dot" :title="listeningTitle" role="img"
-      :aria-label="listeningTitle"></i>
+    <i
+      v-if="work.listening.track_index !== null" class="listening-dot" :title="listeningTitle" role="img"
+      :aria-label="listeningTitle"
+    />
     <span v-if="playing" class="playing-tag">▶ NOW</span>
     <div class="cap">
       <div class="cap-meta">

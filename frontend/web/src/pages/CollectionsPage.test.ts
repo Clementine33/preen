@@ -1,14 +1,14 @@
+import type { CollectionDetail, WorkCollection, WorkSummary } from '@/lib/api/types'
 import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { createPinia } from 'pinia'
-import { nextTick } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { nextTick } from 'vue'
 import { createMemoryHistory, createRouter, createWebHistory } from 'vue-router'
 import { apiClientKey } from '@/lib/api/client'
-import type { CollectionDetail, WorkCollection, WorkSummary } from '@/lib/api/types'
-import { apiStub } from '@/test/api-stub'
-import { installTestQueryPlugin } from '@/test/query-client'
 import { useLibraryUiStore } from '@/stores/library-ui'
 import { usePlayerStore } from '@/stores/player'
+import { apiStub } from '@/test/api-stub'
+import { installTestQueryPlugin } from '@/test/query-client'
 import CollectionsPage from './CollectionsPage.vue'
 
 enableAutoUnmount(afterEach)
@@ -16,23 +16,51 @@ enableAutoUnmount(afterEach)
 // The page reads its data from the collection list and two windows of the
 // detail route; these tests pin which windows it asks for and what it shows.
 
-const collection = (id: string, name: string, count: number): WorkCollection => ({
-  id, name, work_count: count, created_at: '', updated_at: '',
-})
-const work = (n: number, patch: Partial<WorkSummary> = {}): WorkSummary => ({
-  rj: `RJ${String(n).padStart(8, '0')}`, title: `作品${n}`, thumbnail_url: `https://img/${n}.jpg`,
-  circle: null, language: null, nsfw: false, age_category: 1, release_date: null, dl_count: null,
-  rating: null, ...patch,
-} as WorkSummary)
+function collection(id: string, name: string, count: number): WorkCollection {
+  return {
+    id,
+    name,
+    work_count: count,
+    created_at: '',
+    updated_at: '',
+  }
+}
+function work(n: number, patch: Partial<WorkSummary> = {}): WorkSummary {
+  return {
+    rj: `RJ${String(n).padStart(8, '0')}`,
+    title: `作品${n}`,
+    thumbnail_url: `https://img/${n}.jpg`,
+    circle: null,
+    language: null,
+    nsfw: false,
+    age_category: 1,
+    release_date: null,
+    dl_count: null,
+    rating: null,
+    ...patch,
+  } as WorkSummary
+}
 
-const COLS = [collection('favorites', 'Favorites', 3), collection('c2', 'Sleep', 0)]
+const COLS = [
+  collection('favorites', 'Favorites', 3),
+  collection('c2', 'Sleep', 0),
+]
 
-function setup(works: WorkSummary[] = [work(3), work(2), work(1)]) {
-  const getCollection = vi.fn(async (id: string, window: { limit?: number; page?: number; direction?: string } = {}) => {
-    const col = COLS.find((c) => c.id === id)!
+function setup(works: WorkSummary[] = [
+  work(3),
+  work(2),
+  work(1),
+]) {
+  const getCollection = vi.fn(async (id: string, window: { limit?: number, page?: number, direction?: string } = {}) => {
+    const col = COLS.find(c => c.id === id)!
     const detail: CollectionDetail = {
-      ...col, total: col.work_count,
-      works: window.limit === 1 ? [works[0]!] : id === 'favorites' ? works : [],
+      ...col,
+      total: col.work_count,
+      works: window.limit === 1
+        ? [works[0]!]
+        : id === 'favorites'
+          ? works
+          : [],
     }
     return detail
   })
@@ -44,11 +72,30 @@ function setup(works: WorkSummary[] = [work(3), work(2), work(1)]) {
 }
 
 async function mountPage(api: ReturnType<typeof apiStub>) {
-  const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/', component: { template: '<i />' } }, { path: '/works/:rj', component: { template: '<i />' } }] })
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [
+      {
+        path: '/',
+        component: { template: '<i />' },
+      },
+      {
+        path: '/works/:rj',
+        component: { template: '<i />' },
+      },
+    ],
+  })
   await router.push('/')
   const wrapper = mount(CollectionsPage, {
     attachTo: document.body.appendChild(document.createElement('div')),
-    global: { plugins: [createPinia(), router, installTestQueryPlugin()], provide: { [apiClientKey as symbol]: api } },
+    global: {
+      plugins: [
+        createPinia(),
+        router,
+        installTestQueryPlugin(),
+      ],
+      provide: { [apiClientKey as symbol]: api },
+    },
   })
   await flushPromises()
   return wrapper
@@ -61,11 +108,11 @@ beforeEach(() => {
   localStorage.clear()
 })
 
-describe('CollectionsPage', () => {
+describe('collectionsPage', () => {
   it('lists the collections and selects the first', async () => {
     const wrapper = await mountPage(setup().api)
     const rows = wrapper.findAll('[data-testid="collection-row"]')
-    expect(rows.map((r) => r.text())).toEqual(['Favorites', 'Sleep'])
+    expect(rows.map(r => r.text())).toEqual(['Favorites', 'Sleep'])
     expect(rows[0]!.attributes('aria-selected')).toBe('true')
     expect(wrapper.get('.deck-strip').text()).toBe('Favorites')
   })
@@ -73,7 +120,13 @@ describe('CollectionsPage', () => {
   it('says what the selection holds, and what plays once the player runs', async () => {
     const wrapper = await mountPage(setup().api)
     expect(wrapper.get('[data-testid="collections-message"]').text()).toContain('Favorites 收录 3 部作品')
-    usePlayerStore().$patch({ rj: 'RJ00000007', title: '作品7', elapsed: 65, duration: null, paused: false })
+    usePlayerStore().$patch({
+      rj: 'RJ00000007',
+      title: '作品7',
+      elapsed: 65,
+      duration: null,
+      paused: false,
+    })
     await nextTick()
     const now = wrapper.get('[data-testid="collections-now-playing"]')
     expect(now.text()).toContain('RJ00000007')
@@ -97,7 +150,10 @@ describe('CollectionsPage', () => {
 
   it('types the newest titles out and cascades the rest, the unprinted part laid out but hidden', async () => {
     const long = '长'.repeat(90)
-    const wrapper = await mountPage(setup([work(1, { title: long }), work(2, { title: long })]).api)
+    const wrapper = await mountPage(setup([
+      work(1, { title: long }),
+      work(2, { title: long }),
+    ]).api)
     const typedOf = (i: number) => wrapper.findAll('.ti')[i]!.get('span').element.firstChild?.textContent?.length ?? 0
     expect(typedOf(0)).toBeLessThan(long.length)
     expect(typedOf(1)).toBe(0) // typed lines print in order
@@ -107,7 +163,9 @@ describe('CollectionsPage', () => {
 
   it('prints instantly once the user switches more than twice in quick succession', async () => {
     const long = '长'.repeat(90)
-    const wrapper = await mountPage(setup([work(1, { title: long })]).api)
+    const wrapper = await mountPage(setup([
+      work(1, { title: long }),
+    ]).api)
     const typedOf = () => wrapper.get('.ti span').element.firstChild?.textContent?.length ?? 0
     expect(typedOf()).toBeLessThan(long.length)
     press('ArrowDown'); press('ArrowUp')
@@ -125,7 +183,9 @@ describe('CollectionsPage', () => {
 
   it('hatches the cover of an R18 work while the veil is on', async () => {
     localStorage.setItem('preen.r18-veil', '1')
-    const { api } = setup([work(3, { nsfw: true })])
+    const { api } = setup([
+      work(3, { nsfw: true }),
+    ])
     const wrapper = await mountPage(api)
     expect(useLibraryUiStore().veil).toBe(true)
     expect(wrapper.get('[data-testid="collection-screen"]').classes()).toContain('empty')
@@ -137,7 +197,7 @@ describe('CollectionsPage', () => {
     press('ArrowDown')
     await nextTick()
     expect(wrapper.findAll('[data-testid="collection-row"]')[1]!.attributes('aria-selected')).toBe('true')
-    await new Promise((r) => setTimeout(r, 200))
+    await new Promise(r => setTimeout(r, 200))
     await flushPromises()
     expect(wrapper.get('.deck-strip').text()).toBe('Sleep')
     // An empty collection has no cover and no titles.
@@ -173,14 +233,24 @@ describe('CollectionsPage', () => {
     async function mountWeb(api: ReturnType<typeof apiStub>, state: object | null = null) {
       window.history.replaceState(state, '', '/collections')
       const stub = { template: '<i />' }
-      const router = createRouter({ history: createWebHistory(), routes: [
-        { path: '/collections', name: 'collections', component: stub },
-        { path: '/collections/:id', name: 'collection-detail', component: stub },
-      ] })
+      const router = createRouter({
+        history: createWebHistory(),
+        routes: [
+          { path: '/collections', name: 'collections', component: stub },
+          { path: '/collections/:id', name: 'collection-detail', component: stub },
+        ],
+      })
       await router.push('/collections')
       const wrapper = mount(CollectionsPage, {
         attachTo: document.body.appendChild(document.createElement('div')),
-        global: { plugins: [createPinia(), router, installTestQueryPlugin()], provide: { [apiClientKey as symbol]: api } },
+        global: {
+          plugins: [
+            createPinia(),
+            router,
+            installTestQueryPlugin(),
+          ],
+          provide: { [apiClientKey as symbol]: api },
+        },
       })
       await flushPromises()
       return { wrapper, router }
@@ -202,7 +272,7 @@ describe('CollectionsPage', () => {
       await flushPromises()
       wrapper.unmount()
       window.history.back()
-      await new Promise((r) => setTimeout(r, 50))
+      await new Promise(r => setTimeout(r, 50))
       expect(window.history.state.collectionReturn).toBe('c2')
       const saved = { ...window.history.state }
 
@@ -217,16 +287,29 @@ describe('CollectionsPage', () => {
   describe('creating', () => {
     it('+ NEW creates 新合集 #N, counting user collections only, and opens it', async () => {
       const stub = { template: '<i />' }
-      const router = createRouter({ history: createMemoryHistory(), routes: [
-        { path: '/', component: stub },
-        { path: '/collections/:id', name: 'collection-detail', component: stub },
-      ] })
+      const router = createRouter({
+        history: createMemoryHistory(),
+        routes: [
+          { path: '/', component: stub },
+          { path: '/collections/:id', name: 'collection-detail', component: stub },
+        ],
+      })
       await router.push('/')
       const createCollection = vi.fn().mockResolvedValue(collection('c9', '新合集 #2', 0))
-      const api = apiStub({ ...setup().api, createCollection })
+      const api = apiStub({
+        ...setup().api,
+        createCollection,
+      })
       const wrapper = mount(CollectionsPage, {
         attachTo: document.body.appendChild(document.createElement('div')),
-        global: { plugins: [createPinia(), router, installTestQueryPlugin()], provide: { [apiClientKey as symbol]: api } },
+        global: {
+          plugins: [
+            createPinia(),
+            router,
+            installTestQueryPlugin(),
+          ],
+          provide: { [apiClientKey as symbol]: api },
+        },
       })
       await flushPromises()
       await wrapper.get('[data-testid="collections-new"]').trigger('click')

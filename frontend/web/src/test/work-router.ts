@@ -1,6 +1,8 @@
 import { createMemoryHistory, createRouter } from 'vue-router'
 
-const stub = { render: () => null }
+const stub = {
+  render: () => null,
+}
 
 /** A ready router with the named routes the work detail's links point at. */
 export async function workDetailTestRouter() {

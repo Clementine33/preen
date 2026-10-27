@@ -1,16 +1,18 @@
-import { enableAutoUnmount, flushPromises, mount, type VueWrapper } from '@vue/test-utils'
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createMemoryHistory, createRouter, type Router } from 'vue-router'
+import type { VueWrapper } from '@vue/test-utils'
+import type { Router } from 'vue-router'
+import type { Library, WorkSummary } from '@/lib/api/types'
+import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { createPinia } from 'pinia'
-import { apiClientKey } from '@/lib/api/client'
-import { mountPlayerKeys } from '@/test/player-keys'
-import { apiStub } from '@/test/api-stub'
-import { installTestQueryPlugin } from '@/test/query-client'
-import WorksPage from './WorksPage.vue'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { createMemoryHistory, createRouter } from 'vue-router'
 import { installAddressHygiene } from '@/app/route-params'
+import { apiClientKey } from '@/lib/api/client'
 import { useLibraryUiStore } from '@/stores/library-ui'
 import { usePlayerStore } from '@/stores/player'
-import type { Library, WorkSummary } from '@/lib/api/types'
+import { apiStub } from '@/test/api-stub'
+import { mountPlayerKeys } from '@/test/player-keys'
+import { installTestQueryPlugin } from '@/test/query-client'
+import WorksPage from './WorksPage.vue'
 
 /**
  * The page-level contracts of the wall: the address owns what
@@ -46,7 +48,12 @@ function makeWorks(base: number, count: number): WorkSummary[] {
     has_note: false,
     collected_at: '2026-01-01T00:00:00Z',
     copy_count: 1,
-    listening: { state: 'none', track_index: null, track_count: null, updated_at: null },
+    listening: {
+      state: 'none',
+      track_index: null,
+      track_count: null,
+      updated_at: null,
+    },
   }))
 }
 
@@ -56,7 +63,7 @@ const LIB_B = 'lib-b'
 // Forty works: two pages at the smallest page size.
 const worksA = makeWorks(100_000, 40)
 const worksB = makeWorks(200_000, 2)
-const [A0, A1, A2, A3] = worksA.map((work) => work.rj)
+const [A0, A1, A2, A3] = worksA.map(work => work.rj)
 
 function library(id: string, name: string, root: string): Library {
   return {
@@ -77,8 +84,16 @@ function routerFor(): Router {
     history: createMemoryHistory(),
     routes: [
       { path: '/works', name: 'works', component: WorksPage },
-      { path: '/works/:rj', name: 'work-detail', component: { template: '<div />' } },
-      { path: '/worksets', name: 'worksets', component: { template: '<div />' } },
+      {
+        path: '/works/:rj',
+        name: 'work-detail',
+        component: { template: '<div />' },
+      },
+      {
+        path: '/worksets',
+        name: 'worksets',
+        component: { template: '<div />' },
+      },
     ],
   })
   installAddressHygiene(router)
@@ -93,53 +108,101 @@ interface Harness {
 }
 
 /** One page of the library's works, the way the listing pages them. */
-function pageOf(params: { library?: string; page?: number; limit?: number }) {
-  const all = params.library === LIB_B ? worksB : worksA
+function pageOf(params: { library?: string, page?: number, limit?: number }) {
+  const all = params.library === LIB_B
+    ? worksB
+    : worksA
   const limit = params.limit ?? 50
   const start = ((params.page ?? 1) - 1) * limit
-  return { works: all.slice(start, start + limit), total: all.length }
+  return {
+    works: all.slice(start, start + limit),
+    total: all.length,
+  }
 }
 
 async function mountWorks(
   initialPath = '/works',
   attach = false,
-  reuse: { router?: Router; listWorks?: ReturnType<typeof vi.fn>; listWorkFacets?: ReturnType<typeof vi.fn> } = {},
+  reuse: { router?: Router, listWorks?: ReturnType<typeof vi.fn>, listWorkFacets?: ReturnType<typeof vi.fn> } = {},
 ): Promise<Harness> {
-  const listWorks = reuse.listWorks ?? vi.fn((params: { library?: string; page?: number; limit?: number }) =>
+  const listWorks = reuse.listWorks ?? vi.fn((params: { library?: string, page?: number, limit?: number }) =>
     Promise.resolve(pageOf(params)))
   const listWorkFacets = reuse.listWorkFacets ?? vi.fn((kind: string) =>
     Promise.resolve(
       kind === 'voice_actor'
-        ? [{ id: 'va-1', name: '伊ヶ崎綾香', work_count: 3 }]
-        : [{ id: 'ci-1', name: 'mete0r', work_count: 2 }],
+        ? [
+            { id: 'va-1', name: '伊ヶ崎綾香', work_count: 3 },
+          ]
+        : [
+            { id: 'ci-1', name: 'mete0r', work_count: 2 },
+          ],
     ),
   )
   const api = apiStub({
-    listLibraries: vi.fn().mockResolvedValue([library(LIB_A, 'Archive', '/music'), library(LIB_B, 'Brazil', '/brazil')]),
+    listLibraries: vi.fn().mockResolvedValue([
+      library(LIB_A, 'Archive', '/music'),
+      library(LIB_B, 'Brazil', '/brazil'),
+    ]),
     listWorks,
     getWork: vi.fn(async (rj: string) => ({
       ...makeWorks(Number(rj.slice(2)), 1)[0]!,
-      source_url: null, cover_url: null, sample_cover_url: null,
-      series_id: null, series_name: null, voice_actors: [], source_tags: [],
-      note: '', language_editions: null, edition_tree: null,
-      relation: { role: null, language: null, original_rj: null, parent_rj: null },
-      copies: [], relation_warnings: [], relation_nodes: [], listening: [],
+      source_url: null,
+      cover_url: null,
+      sample_cover_url: null,
+      series_id: null,
+      series_name: null,
+      voice_actors: [],
+      source_tags: [],
+      note: '',
+      language_editions: null,
+      edition_tree: null,
+      relation: {
+        role: null,
+        language: null,
+        original_rj: null,
+        parent_rj: null,
+      },
+      copies: [],
+      relation_warnings: [],
+      relation_nodes: [],
+      listening: [],
     })),
     listWorkFacets,
     listTagFacets: vi.fn().mockResolvedValue({
-      source_tags: [{ id: 's-asmr', name: 'ASMR', work_count: 4 }],
-      user_tags: [{ id: 'u-asmr', name: 'ASMR', work_count: 1 }],
+      source_tags: [
+        { id: 's-asmr', name: 'ASMR', work_count: 4 },
+      ],
+      user_tags: [
+        { id: 'u-asmr', name: 'ASMR', work_count: 1 },
+      ],
     }),
     // Every work ships two tracks, so P has a real queue to play.
     getWorkContent: vi.fn(async (rj: string) => ({
       rj,
-      copies: [{
-        copy_id: 'c', library_id: LIB_A, dir_id: 'd', online: true,
-        tree: { name: '', rel_path: '', children: ['01.mp3', '02.mp3'].map((name) => ({
-          name, rel_path: name, kind: 'aud', size: 1, format: 'MP3', bitrate: null,
-          width: null, height: null, duration_sec: 120, thumb_v: null,
-        })) },
-      }],
+      copies: [
+        {
+          copy_id: 'c',
+          library_id: LIB_A,
+          dir_id: 'd',
+          online: true,
+          tree: {
+            name: '',
+            rel_path: '',
+            children: ['01.mp3', '02.mp3'].map(name => ({
+              name,
+              rel_path: name,
+              kind: 'aud',
+              size: 1,
+              format: 'MP3',
+              bitrate: null,
+              width: null,
+              height: null,
+              duration_sec: 120,
+              thumb_v: null,
+            })),
+          },
+        },
+      ],
     })),
   } as never)
   const router = reuse.router ?? routerFor()
@@ -148,14 +211,27 @@ async function mountWorks(
     await router.isReady()
   }
   const wrapper = mount(WorksPage, {
-    ...(attach ? { attachTo: document.body.appendChild(document.createElement('div')) } : {}),
+    ...(attach
+      ? {
+          attachTo: document.body.appendChild(document.createElement('div')),
+        }
+      : {}),
     global: {
-      plugins: [createPinia(), router, installTestQueryPlugin()],
+      plugins: [
+        createPinia(),
+        router,
+        installTestQueryPlugin(),
+      ],
       provide: { [apiClientKey as symbol]: api },
     },
   })
   await flushPromises()
-  return { wrapper, router, listWorks, listWorkFacets }
+  return {
+    wrapper,
+    router,
+    listWorks,
+    listWorkFacets,
+  }
 }
 
 /** The page listens on the window, so the keyboard arrives as real events. */
@@ -175,9 +251,9 @@ function lastParams(listWorks: ReturnType<typeof vi.fn>): Record<string, unknown
 
 /** Opens one rail select by its label and picks an option by its text. */
 async function pick(wrapper: VueWrapper, label: string, option: string): Promise<void> {
-  const select = wrapper.findAll('.rs').find((candidate) => candidate.find('.rs-lbl').text() === label)!
+  const select = wrapper.findAll('.rs').find(candidate => candidate.find('.rs-lbl').text() === label)!
   await select.get('.rs-trigger').trigger('click')
-  const item = select.findAll('[role="option"]').find((candidate) => candidate.find('.rs-name').text() === option)!
+  const item = select.findAll('[role="option"]').find(candidate => candidate.find('.rs-name').text() === option)!
   await item.trigger('click')
   await flushPromises()
 }
@@ -188,8 +264,22 @@ const offsetHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'off
 const offsetWidth = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetWidth')!
 beforeAll(() => {
   Object.defineProperties(HTMLElement.prototype, {
-    offsetHeight: { configurable: true, get(this: HTMLElement) { return this.classList.contains('rs-list') ? 320 : 0 } },
-    offsetWidth: { configurable: true, get(this: HTMLElement) { return this.classList.contains('rs-list') ? 280 : 0 } },
+    offsetHeight: {
+      configurable: true,
+      get(this: HTMLElement) {
+        return this.classList.contains('rs-list')
+          ? 320
+          : 0
+      },
+    },
+    offsetWidth: {
+      configurable: true,
+      get(this: HTMLElement) {
+        return this.classList.contains('rs-list')
+          ? 280
+          : 0
+      },
+    },
   })
 })
 afterAll(() => {
@@ -292,11 +382,16 @@ describe('works page', () => {
 
     await wrapper.get('.ti-trigger').trigger('click')
     await flushPromises()
-    const chip = [...document.querySelectorAll<HTMLButtonElement>('.ti-chips .chip')][0]
+    const chip = [
+      ...document.querySelectorAll<HTMLButtonElement>('.ti-chips .chip'),
+    ][0]
     chip.click()
     await flushPromises()
-    ;[...document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')]
-      .find((button) => button.textContent === 'APPLY')!.click()
+    ;[
+      ...document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button'),
+    ]
+      .find(button => button.textContent === 'APPLY')!
+      .click()
     await flushPromises()
     // One name is one group: both vocabularies' ids, either one matches.
     expect(lastParams(listWorks)).toMatchObject({ tag: 's:s-asmr|u:u-asmr', tag_match: 'all' })
@@ -410,7 +505,7 @@ describe('works page', () => {
   it('narrows every other rail to what the wall can still combine with', async () => {
     const { wrapper, listWorkFacets } = await mountWorks('/works')
     const lastScope = (kind: string) =>
-      listWorkFacets.mock.calls.filter((call) => call[0] === kind).at(-1)?.[1] as Record<string, unknown>
+      listWorkFacets.mock.calls.filter(call => call[0] === kind).at(-1)?.[1] as Record<string, unknown>
 
     await pick(wrapper, 'VOICE', '伊ヶ崎綾香')
     await pick(wrapper, 'AGE', 'R18')
@@ -430,18 +525,18 @@ describe('works page', () => {
     listWorkFacets.mockResolvedValue([])
     await pick(wrapper, 'AGE', 'R18')
 
-    const select = wrapper.findAll('.rs').find((candidate) => candidate.find('.rs-lbl').text() === 'VOICE')!
+    const select = wrapper.findAll('.rs').find(candidate => candidate.find('.rs-lbl').text() === 'VOICE')!
     expect(select.get('.rs-value').text()).toBe('伊ヶ崎綾香')
   })
 
   it('narrows a long facet list by name', async () => {
     const { wrapper } = await mountWorks('/works')
-    const select = wrapper.findAll('.rs').find((candidate) => candidate.find('.rs-lbl').text() === 'VOICE')!
+    const select = wrapper.findAll('.rs').find(candidate => candidate.find('.rs-lbl').text() === 'VOICE')!
     await select.get('.rs-trigger').trigger('click')
 
     await select.get('input[type="search"]').setValue('nobody')
     // The empty entry stays reachable, so clearing is still one step.
-    expect(select.findAll('[role="option"]').map((item) => item.find('.rs-name').text())).toEqual(['ALL'])
+    expect(select.findAll('[role="option"]').map(item => item.find('.rs-name').text())).toEqual(['ALL'])
   })
 
   it('drops the voice actor and circle of the previous library', async () => {
@@ -465,7 +560,7 @@ describe('works page', () => {
     expect(player.rj).toBe(A1)
     expect(player.paused).toBe(false)
     // The work's first track, by its address, with the rest queued behind it.
-    expect(player.queue.map((item) => item.source?.src)).toEqual(['/files/01.mp3', '/files/02.mp3'])
+    expect(player.queue.map(item => item.source?.src)).toEqual(['/files/01.mp3', '/files/02.mp3'])
     expect(player.trackIndex).toBe(0)
 
     press('ArrowRight') // browse away from the playing work
@@ -486,7 +581,10 @@ describe('works page', () => {
     const player = usePlayerStore()
     const prev = wrapper.get('[aria-label="Previous track"]')
     const next = wrapper.get('[aria-label="Next track"]')
-    expect([prev.attributes('disabled'), next.attributes('disabled')]).toEqual(['', undefined])
+    expect([
+      prev.attributes('disabled'),
+      next.attributes('disabled'),
+    ]).toEqual(['', undefined])
 
     await next.trigger('click')
     expect(player.trackIndex).toBe(1)
@@ -514,7 +612,10 @@ describe('works page', () => {
 
   it('opens the sole collected translation when FIND submits a parent number', async () => {
     const { wrapper, router, listWorks } = await mountWorks()
-    listWorks.mockResolvedValue({ works: makeWorks(1_526_629, 1), total: 1 })
+    listWorks.mockResolvedValue({
+      works: makeWorks(1_526_629, 1),
+      total: 1,
+    })
     await wrapper.get('.find input').setValue('RJ01526615')
     await wrapper.get('.find input').trigger('keydown', { key: 'Enter' })
     await flushPromises()
@@ -525,7 +626,10 @@ describe('works page', () => {
 
   it('keeps multiple parent matches on the wall', async () => {
     const { wrapper, router, listWorks } = await mountWorks()
-    listWorks.mockResolvedValue({ works: makeWorks(1_526_629, 2), total: 2 })
+    listWorks.mockResolvedValue({
+      works: makeWorks(1_526_629, 2),
+      total: 2,
+    })
     await wrapper.get('.find input').setValue('RJ01526615')
     await wrapper.get('.find input').trigger('keydown', { key: 'Enter' })
     await flushPromises()
@@ -535,13 +639,16 @@ describe('works page', () => {
 
   it('discards a pending jump when the input changes', async () => {
     const { wrapper, router, listWorks } = await mountWorks()
-    let resolve!: (value: { works: WorkSummary[]; total: number }) => void
+    let resolve!: (value: { works: WorkSummary[], total: number }) => void
     listWorks.mockImplementation(() => new Promise((done) => { resolve = done }))
     await wrapper.get('.find input').setValue('RJ01526615')
     await wrapper.get('.find input').trigger('keydown', { key: 'Enter' })
     await flushPromises()
     await wrapper.get('.find input').setValue('another query')
-    resolve({ works: makeWorks(1_526_629, 1), total: 1 })
+    resolve({
+      works: makeWorks(1_526_629, 1),
+      total: 1,
+    })
     await flushPromises()
     expect(router.currentRoute.value.name).toBe('works')
     wrapper.unmount()
@@ -549,7 +656,10 @@ describe('works page', () => {
 
   it('does not submit a composing Enter', async () => {
     const { wrapper, router, listWorks } = await mountWorks()
-    listWorks.mockResolvedValue({ works: makeWorks(1_526_629, 1), total: 1 })
+    listWorks.mockResolvedValue({
+      works: makeWorks(1_526_629, 1),
+      total: 1,
+    })
     await wrapper.get('.find input').setValue('RJ01526615')
     await wrapper.get('.find input').trigger('keydown', { key: 'Enter', isComposing: true })
     await flushPromises()
@@ -609,10 +719,13 @@ describe('works page', () => {
       // A fresh page (new store, new cache) on the same address.
       const reloaded = await mountWorks(address)
       expect(lastParams(reloaded.listWorks)).toMatchObject({
-        library: LIB_A, voice_actor: 'va-1', voice_actor_match: 'any', age_category: 3,
+        library: LIB_A,
+        voice_actor: 'va-1',
+        voice_actor_match: 'any',
+        age_category: 3,
       })
       const tab = (label: string) =>
-        reloaded.wrapper.findAll('.rs').find((candidate) => candidate.find('.rs-lbl').text() === label)!
+        reloaded.wrapper.findAll('.rs').find(candidate => candidate.find('.rs-lbl').text() === label)!
       expect(tab('VOICE').get('.rs-value').text()).toBe('伊ヶ崎綾香')
       expect(tab('AGE').get('.rs-value').text()).toBe('R18')
     })
@@ -626,7 +739,9 @@ describe('works page', () => {
     it('follows a change to its own address made from outside the page', async () => {
       const { router, listWorks } = await mountWorks('/works')
 
-      await router.replace({ query: { ...router.currentRoute.value.query, voice: 'va-1', q: 'moon' } })
+      await router.replace({
+        query: { ...router.currentRoute.value.query, voice: 'va-1', q: 'moon' },
+      })
       await flushPromises()
       expect(lastParams(listWorks)).toMatchObject({ voice_actor: 'va-1', q: 'moon' })
     })
@@ -636,14 +751,17 @@ describe('works page', () => {
       try {
         const { wrapper, router } = await mountWorks('/works')
         await wrapper.get('.find input').setValue('typed')
-        await router.replace({ query: { ...router.currentRoute.value.query, q: 'linked' } })
+        await router.replace({
+          query: { ...router.currentRoute.value.query, q: 'linked' },
+        })
         await flushPromises()
         expect(wrapper.get<HTMLInputElement>('.find input').element.value).toBe('linked')
 
         vi.advanceTimersByTime(500)
         await flushPromises()
         expect(router.currentRoute.value.query.q).toBe('linked')
-      } finally {
+      }
+      finally {
         vi.useRealTimers()
       }
     })
@@ -688,8 +806,10 @@ describe('works page', () => {
 
     it('corrects a page past the end only once the listing has answered', async () => {
       let answer!: (value: ReturnType<typeof pageOf>) => void
-      const listWorks = vi.fn((params: { page?: number; limit?: number }) =>
-        params.page === 9 ? new Promise((done) => { answer = done }) : Promise.resolve(pageOf(params)))
+      const listWorks = vi.fn((params: { page?: number, limit?: number }) =>
+        params.page === 9
+          ? new Promise((done) => { answer = done })
+          : Promise.resolve(pageOf(params)))
       const { router } = await mountWorks('/works?size=36&page=9', false, { listWorks })
 
       // Still waiting: nothing is corrected from what is not yet known.
@@ -806,11 +926,13 @@ describe('works page', () => {
       // With R18 applied no work in scope has this voice actor; the library has.
       const listWorkFacets = vi.fn((kind: string, scope: { age_category?: number }) =>
         Promise.resolve(kind === 'voice_actor' && !scope.age_category
-          ? [{ id: 'va-1', name: '伊ヶ崎綾香', work_count: 3 }]
+          ? [
+              { id: 'va-1', name: '伊ヶ崎綾香', work_count: 3 },
+            ]
           : []))
       const { wrapper, listWorks } = await mountWorks('/works?age=r18&voice=va-1', false, { listWorkFacets })
 
-      const tab = wrapper.findAll('.rs').find((candidate) => candidate.find('.rs-lbl').text() === 'VOICE')!
+      const tab = wrapper.findAll('.rs').find(candidate => candidate.find('.rs-lbl').text() === 'VOICE')!
       expect(tab.get('.rs-value').text()).toBe('伊ヶ崎綾香')
       expect(lastParams(listWorks)).toMatchObject({ voice_actor: 'va-1', age_category: 3 })
       await pick(wrapper, 'VOICE', 'ALL')
@@ -821,9 +943,13 @@ describe('works page', () => {
       const { wrapper, router, listWorkFacets, listWorks } = await mountWorks('/works')
       // One name without a source id, one id per work: 2,000 of them.
       listWorkFacets.mockResolvedValue(Array.from({ length: 2000 }, (_, i) => ({
-        id: `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`, name: '同名', work_count: 1,
+        id: `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`,
+        name: '同名',
+        work_count: 1,
       })))
-      await router.replace({ query: { ...router.currentRoute.value.query, age: 'r15' } })
+      await router.replace({
+        query: { ...router.currentRoute.value.query, age: 'r15' },
+      })
       await flushPromises()
       const calls = listWorks.mock.calls.length
 

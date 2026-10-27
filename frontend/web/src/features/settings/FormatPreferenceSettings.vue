@@ -13,7 +13,7 @@ const CANDIDATES = ['MP3', 'WAV', 'FLAC', 'M4A', 'OPUS'] as const
 const { trackFormats } = usePreferences()
 const save = useSetTrackFormats()
 
-const remaining = computed(() => CANDIDATES.filter((format) => !trackFormats.value.includes(format)))
+const remaining = computed(() => CANDIDATES.filter(format => !trackFormats.value.includes(format)))
 
 function commit(next: string[]): void {
   save.mutate(next)
@@ -45,8 +45,10 @@ function add(format: string): void {
     <p v-else class="text-[11px] text-[var(--text-secondary)]" data-testid="format-empty">未设置：作品显示并播放全部格式。</p>
     <div v-if="remaining.length > 0" class="mt-1.5 flex flex-wrap items-center gap-1" data-testid="format-add">
       <span class="mr-1 text-[11px] text-[var(--text-secondary)]">添加</span>
-      <Button v-for="format in remaining" :key="format" size="xs" variant="outline" class="font-mono"
-        :aria-label="`添加 ${format}`" :data-testid="`format-add-${format}`" @click="add(format)">{{ format }}</Button>
+      <Button
+        v-for="format in remaining" :key="format" size="xs" variant="outline" class="font-mono"
+        :aria-label="`添加 ${format}`" :data-testid="`format-add-${format}`" @click="add(format)"
+      >{{ format }}</Button>
     </div>
   </div>
 </template>

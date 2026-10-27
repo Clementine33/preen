@@ -5,7 +5,7 @@ import ToastHost from './ToastHost.vue'
 
 enableAutoUnmount(afterEach)
 
-describe('ToastHost', () => {
+describe('toastHost', () => {
   it('shows one toast at a time, a new one replacing the old', async () => {
     const wrapper = mount(ToastHost, { attachTo: document.body })
     const toast = useToast()
@@ -13,7 +13,9 @@ describe('ToastHost', () => {
     await flushPromises()
     toast.show({ text: '二' })
     await flushPromises()
-    const texts = [...document.body.querySelectorAll('[data-testid="toast"]')].map((e) => e.textContent)
+    const texts = [
+      ...document.body.querySelectorAll('[data-testid="toast"]'),
+    ].map(e => e.textContent)
     expect(texts).toHaveLength(1)
     expect(texts[0]).toBe('二')
     wrapper.unmount()
@@ -22,7 +24,10 @@ describe('ToastHost', () => {
   it('runs the action and closes', async () => {
     const wrapper = mount(ToastHost, { attachTo: document.body })
     const run = vi.fn()
-    useToast().show({ text: '已移除', action: { label: '撤销', run } })
+    useToast().show({
+      text: '已移除',
+      action: { label: '撤销', run },
+    })
     await flushPromises()
     document.body.querySelector<HTMLElement>('[data-testid="toast-action"]')!.click()
     await flushPromises()

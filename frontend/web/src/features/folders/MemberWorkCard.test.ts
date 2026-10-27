@@ -14,23 +14,33 @@ async function mountCard(detail: ReturnType<typeof makeWorkDetail> | null, veil 
   useLibraryUiStore().veil = veil
   const api = apiStub({
     getWork: vi.fn(async () => {
-      if (!detail) throw new Error('404')
+      if (!detail)
+        throw new Error('404')
       return detail
     }) as never,
     workFileUrl: (() => '/cover.jpg') as never,
   })
   const wrapper = mount(MemberWorkCard, {
     props: { rj: 'RJ01000001' },
-    global: { plugins: [pinia, installTestQueryPlugin()], provide: { [apiClientKey as symbol]: api } },
+    global: {
+      plugins: [
+        pinia,
+        installTestQueryPlugin(),
+      ],
+      provide: { [apiClientKey as symbol]: api },
+    },
   })
   await flushPromises()
   return wrapper
 }
 
-describe('MemberWorkCard', () => {
+describe('memberWorkCard', () => {
   it('shows cover, title, circle and voice actors', async () => {
     const wrapper = await mountCard(
-      makeWorkDetail({ nsfw: false, local_cover: { copy_id: 'c', rel_path: 'cover.jpg', version: '1' } }),
+      makeWorkDetail({
+        nsfw: false,
+        local_cover: { copy_id: 'c', rel_path: 'cover.jpg', version: '1' },
+      }),
     )
     expect(wrapper.get('img').attributes('src')).toBe('/cover.jpg')
     expect(wrapper.get('[data-testid=work-title]').text()).toBe('雨宿りの縁側で、君と眠るまで')
@@ -40,7 +50,10 @@ describe('MemberWorkCard', () => {
 
   it('keeps an R18 cover hatched while the veil is on', async () => {
     const wrapper = await mountCard(
-      makeWorkDetail({ nsfw: true, local_cover: { copy_id: 'c', rel_path: 'cover.jpg', version: '1' } }),
+      makeWorkDetail({
+        nsfw: true,
+        local_cover: { copy_id: 'c', rel_path: 'cover.jpg', version: '1' },
+      }),
       true,
     )
     expect(wrapper.find('img').exists()).toBe(false)

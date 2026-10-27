@@ -1,10 +1,4 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { ChevronRight, Folder } from '@lucide/vue'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { PARTITION_TEXT, keepReasonText } from '@/features/worksets/plan-readers'
-import { sessionFailureText } from '@/features/worksets/session-failure'
 import type {
   ExecutionComponent,
   ExecutionStatus,
@@ -12,6 +6,12 @@ import type {
   FileDecision,
   WorksetMember,
 } from '@/lib/api/types'
+import { ChevronRight, Folder } from '@lucide/vue'
+import { computed } from 'vue'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { keepReasonText, PARTITION_TEXT } from '@/features/worksets/plan-readers'
+import { sessionFailureText } from '@/features/worksets/session-failure'
 
 /**
  * Live progress and the observed result of one execution session. Every
@@ -43,7 +43,7 @@ function keptFiles(component: ExecutionComponent): FileDecision[] {
   return props.kept?.[component.component_id] ?? []
 }
 
-const STATUS: Record<ExecutionStatus, { label: string; tone: 'neutral' | 'brand' | 'success' | 'warning' | 'danger' }> = {
+const STATUS: Record<ExecutionStatus, { label: string, tone: 'neutral' | 'brand' | 'success' | 'warning' | 'danger' }> = {
   queued: { label: '排队中', tone: 'neutral' },
   running: { label: '执行中', tone: 'brand' },
   succeeded: { label: '已完成', tone: 'success' },
@@ -52,7 +52,7 @@ const STATUS: Record<ExecutionStatus, { label: string; tone: 'neutral' | 'brand'
   interrupted: { label: '已中断', tone: 'danger' },
 }
 
-const COMPONENT_STATUS: Record<ExecutionComponent['status'], { label: string; tone: 'neutral' | 'success' | 'danger' | 'warning' }> = {
+const COMPONENT_STATUS: Record<ExecutionComponent['status'], { label: string, tone: 'neutral' | 'success' | 'danger' | 'warning' }> = {
   pending: { label: '未执行', tone: 'neutral' },
   succeeded: { label: '已完成', tone: 'success' },
   failed: { label: '失败', tone: 'danger' },
@@ -71,16 +71,22 @@ const status = computed(() => STATUS[props.view.status])
 const running = computed(() => props.view.status === 'running' || props.view.status === 'queued')
 
 /** The preserved files live under Delete/ in soft mode; hard mode removes them. */
-const removedHint = computed(() => (props.view.options?.delete_mode === 'hard' ? '已硬删除' : '已清理到 Delete/'))
+const removedHint = computed(() => (props.view.options?.delete_mode === 'hard'
+  ? '已硬删除'
+  : '已清理到 Delete/'))
 
 function shortPath(path: string): string {
   const parts = path.split('/')
-  return parts.length <= 2 ? path : `…/${parts.slice(-2).join('/')}`
+  return parts.length <= 2
+    ? path
+    : `…/${parts.slice(-2).join('/')}`
 }
 
 function filePath(path: string, root: string): string {
   const prefix = `${root.replace(/\/$/, '')}/`
-  return path.startsWith(prefix) ? path.slice(prefix.length) : path
+  return path.startsWith(prefix)
+    ? path.slice(prefix.length)
+    : path
 }
 
 /** One folder's components and its own conclusion, in the panel's words. */
@@ -96,7 +102,7 @@ interface FolderCard {
   completedOperations: number
 }
 
-const FOLDER_STATUS: Record<string, { label: string; tone: 'neutral' | 'brand' | 'success' | 'warning' | 'danger' }> = {
+const FOLDER_STATUS: Record<string, { label: string, tone: 'neutral' | 'brand' | 'success' | 'warning' | 'danger' }> = {
   pending: { label: '未执行', tone: 'neutral' },
   running: { label: '执行中', tone: 'brand' },
   succeeded: { label: '已完成', tone: 'success' },
@@ -110,9 +116,12 @@ const FOLDER_STATUS: Record<string, { label: string; tone: 'neutral' | 'brand' |
  * below say which one stopped.
  */
 function folderStatus(components: ExecutionComponent[]): keyof typeof FOLDER_STATUS {
-  if (components.every((component) => component.status === 'succeeded')) return 'succeeded'
-  if (components.some((component) => component.status === 'failed')) return 'failed'
-  if (components.some((component) => component.status === 'canceled')) return 'canceled'
+  if (components.every(component => component.status === 'succeeded'))
+    return 'succeeded'
+  if (components.some(component => component.status === 'failed'))
+    return 'failed'
+  if (components.some(component => component.status === 'canceled'))
+    return 'canceled'
   return 'pending'
 }
 
@@ -120,20 +129,25 @@ function folderStatus(components: ExecutionComponent[]): keyof typeof FOLDER_STA
 const cards = computed<FolderCard[]>(() => {
   const byRoot = new Map<string, ExecutionComponent[]>()
   for (const component of props.view.components) {
-    byRoot.set(component.root_path, [...(byRoot.get(component.root_path) ?? []), component])
+    byRoot.set(component.root_path, [
+      ...(byRoot.get(component.root_path) ?? []),
+      component,
+    ])
   }
   const live = props.view.status === 'running' || props.view.status === 'queued'
   return [...byRoot].map(([rootPath, components]) => {
-    const running =
-      live && components.some((component) => component.component_id === props.view.current_component_id)
+    const running
+      = live && components.some(component => component.component_id === props.view.current_component_id)
     return {
       rootPath,
       name:
-        props.members?.find((member) => member.folder_path === rootPath)?.folder_name ?? shortPath(rootPath),
+        props.members?.find(member => member.folder_path === rootPath)?.folder_name ?? shortPath(rootPath),
       components,
-      status: running ? 'running' : folderStatus(components),
+      status: running
+        ? 'running'
+        : folderStatus(components),
       running,
-      completedComponents: components.filter((component) => component.status === 'succeeded').length,
+      completedComponents: components.filter(component => component.status === 'succeeded').length,
       operations: components.reduce((total, component) => total + component.operations, 0),
       completedOperations: components.reduce((total, component) => total + component.completed_operations, 0),
     }
@@ -153,7 +167,8 @@ function partitionText(partition: string): string {
 const scope = computed(() => {
   const selected = props.view.selected_folders ?? []
   const total = props.members?.length ?? 0
-  if (selected.length === 0 || total === 0 || selected.length >= total) return null
+  if (selected.length === 0 || total === 0 || selected.length >= total)
+    return null
   return { selected: selected.length, total }
 })
 </script>

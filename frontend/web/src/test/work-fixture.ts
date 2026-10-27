@@ -6,13 +6,18 @@ export function findFile(tree: WorkContentDir, relPath: string): WorkContentFile
     for (const child of dir.children) {
       if ('children' in child) {
         const hit = walk(child)
-        if (hit) return hit
-      } else if (child.rel_path === relPath) return child
+        if (hit)
+          return hit
+      }
+      else if (child.rel_path === relPath) {
+        return child
+      }
     }
     return null
   }
   const hit = walk(tree)
-  if (hit === null) throw new Error(`no such file: ${relPath}`)
+  if (hit === null)
+    throw new Error(`no such file: ${relPath}`)
   return hit
 }
 
@@ -30,7 +35,9 @@ export function makeWorkDetail(overrides: Partial<WorkDetail> = {}): WorkDetail 
     dl_count: 12_480,
     rating: 8,
     favorite: true,
-    user_tags: [{ id: 't-1', name: '睡前' }],
+    user_tags: [
+      { id: 't-1', name: '睡前' },
+    ],
     has_note: true,
     collected_at: '2026-01-14T00:00:00Z',
     copy_count: 1,
@@ -39,17 +46,49 @@ export function makeWorkDetail(overrides: Partial<WorkDetail> = {}): WorkDetail 
     sample_cover_url: null,
     series_id: null,
     series_name: '雨宿りシリーズ',
-    voice_actors: [{ id: 'va-1', source: 'dlsite', source_id: '1', name: '伊ヶ崎綾香' }],
-    source_tags: [{ id: 'st-1', source: 'dlsite', source_id: 'tag1', name: '耳かき' }],
+    voice_actors: [
+      {
+        id: 'va-1',
+        source: 'dlsite',
+        source_id: '1',
+        name: '伊ヶ崎綾香',
+      },
+    ],
+    source_tags: [
+      {
+        id: 'st-1',
+        source: 'dlsite',
+        source_id: 'tag1',
+        name: '耳かき',
+      },
+    ],
     note: '',
     language_editions: [
-      { version_root_rj: 'RJ01000001', language: 'ja', label: '日本語', edition_id: 'e-1', display_order: 0 },
+      {
+        version_root_rj: 'RJ01000001',
+        language: 'ja',
+        label: '日本語',
+        edition_id: 'e-1',
+        display_order: 0,
+      },
     ],
     edition_tree: null,
-    relation: { role: null, language: null, original_rj: null, parent_rj: null },
+    relation: {
+      role: null,
+      language: null,
+      original_rj: null,
+      parent_rj: null,
+    },
     relation_warnings: [],
     relation_nodes: [],
-    copies: [{ copy_id: 'copy-a', library_id: 'lib-a', rel_path: 'works/RJ01000001', dir_id: 'dir-a' }],
+    copies: [
+      {
+        copy_id: 'copy-a',
+        library_id: 'lib-a',
+        rel_path: 'works/RJ01000001',
+        dir_id: 'dir-a',
+      },
+    ],
     collection_ids: [],
     listening: [],
     ...overrides,

@@ -1,8 +1,9 @@
+import type { QueueItem } from './player'
+import type { ApiClientContract } from '@/lib/api/types'
 import { flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ApiClientContract } from '@/lib/api/types'
-import { usePlayerStore, type QueueItem } from './player'
+import { usePlayerStore } from './player'
 
 /**
  * The silent path's state machine: the clock only runs while
@@ -23,7 +24,9 @@ describe('player store', () => {
     const store = usePlayerStore()
     expect(store.rj).toBeNull()
 
-    store.play('RJ01113012', [{ title: '双子の妹たちの夜伽メルヘン' }])
+    store.play('RJ01113012', [
+      { title: '双子の妹たちの夜伽メルヘン' },
+    ])
     expect(store.rj).toBe('RJ01113012')
     expect(store.paused).toBe(false)
 
@@ -50,9 +53,13 @@ describe('player store', () => {
 
   it('replaces the now-playing work with a fresh clock, never a second one', () => {
     const store = usePlayerStore()
-    store.play('RJ01113012', [{ title: 'A' }])
+    store.play('RJ01113012', [
+      { title: 'A' },
+    ])
     vi.advanceTimersByTime(2_000)
-    store.play('RJ01098411', [{ title: 'B' }])
+    store.play('RJ01098411', [
+      { title: 'B' },
+    ])
 
     expect(store.rj).toBe('RJ01098411')
     expect(store.title).toBe('B')
@@ -64,7 +71,9 @@ describe('player store', () => {
 
   it('keeps the now-playing work while pausing and resuming', () => {
     const store = usePlayerStore()
-    store.play('RJ01113012', [{ title: 'A' }])
+    store.play('RJ01113012', [
+      { title: 'A' },
+    ])
     store.togglePause()
     expect(store.paused).toBe(true)
     expect(store.rj).toBe('RJ01113012')
@@ -87,15 +96,18 @@ class FakeAudio extends EventTarget {
     super()
     FakeAudio.made.push(this)
   }
+
   play(): Promise<void> {
     this.paused = false
     this.dispatchEvent(new Event('play'))
     return Promise.resolve()
   }
+
   pause(): void {
     this.paused = true
     this.dispatchEvent(new Event('pause'))
   }
+
   load(): void {}
   removeAttribute(): void {
     this.src = ''
@@ -119,7 +131,9 @@ describe('player store, real track', () => {
 
   it('follows the element: position, length, pause, end', () => {
     const store = usePlayerStore()
-    store.play(work.rj, [{ title: work.title, source }])
+    store.play(work.rj, [
+      { title: work.title, source },
+    ])
     const el = FakeAudio.made[0]
     expect(el.src).toBe('/content/a.mp3')
     expect(store.duration).toBe(252) // the scan's fact until the element knows
@@ -146,7 +160,10 @@ describe('player store, real track', () => {
 
   it('steps through the queue and starts the next track when one ends', () => {
     const store = usePlayerStore()
-    const queue = ['a', 'b', 'c'].map((name) => ({ title: name, source: { ...source, src: `/content/${name}.mp3` } }))
+    const queue = ['a', 'b', 'c'].map(name => ({
+      title: name,
+      source: { ...source, src: `/content/${name}.mp3` },
+    }))
     store.play(work.rj, queue)
     expect([store.hasPrev, store.hasNext]).toEqual([false, true])
 
@@ -171,7 +188,10 @@ describe('player store, real track', () => {
     localStorage.clear()
     const store = usePlayerStore()
     expect([store.volume, store.muted]).toEqual([1, false])
-    store.play(work.rj, [{ title: 'a', source }, { title: 'b', source }])
+    store.play(work.rj, [
+      { title: 'a', source },
+      { title: 'b', source },
+    ])
     store.setVolume(0.4)
     store.toggleMute()
     const first = FakeAudio.made[0]
@@ -190,7 +210,9 @@ describe('player store, real track', () => {
 
   it('seeks the element', () => {
     const store = usePlayerStore()
-    store.play(work.rj, [{ title: work.title, source }])
+    store.play(work.rj, [
+      { title: work.title, source },
+    ])
     store.seek(60)
     expect(FakeAudio.made[0].currentTime).toBe(60)
     expect(store.elapsed).toBe(60)
@@ -206,9 +228,17 @@ describe('player store, real track', () => {
         abort = reject
       })
     })
-    store.play(work.rj, [{ title: work.title, source }])
+    store.play(work.rj, [
+      { title: work.title, source },
+    ])
     const first = FakeAudio.made[0]
-    store.play(work.rj, [{ title: 'a', source }, { title: 'b', source: { ...source, src: '/content/b.mp3' } }], 1)
+    store.play(work.rj, [
+      { title: 'a', source },
+      {
+        title: 'b',
+        source: { ...source, src: '/content/b.mp3' },
+      },
+    ], 1)
     abort(new DOMException('replaced', 'AbortError'))
     // Late events from the released element change nothing either.
     first.dispatchEvent(new Event('error'))
@@ -226,14 +256,20 @@ describe('player store, real track', () => {
     const refused = Promise.reject(new DOMException('blocked', 'NotAllowedError'))
     refused.catch(() => {})
     vi.spyOn(FakeAudio.prototype, 'play').mockReturnValue(refused)
-    store.play(work.rj, [{ title: work.title, source }])
+    store.play(work.rj, [
+      { title: work.title, source },
+    ])
     await vi.waitFor(() => expect(store.paused).toBe(true))
   })
 
   it('a silent play releases the element and runs the clock', () => {
     const store = usePlayerStore()
-    store.play(work.rj, [{ title: work.title, source }])
-    store.play('RJ01113012', [{ title: 'wall' }])
+    store.play(work.rj, [
+      { title: work.title, source },
+    ])
+    store.play('RJ01113012', [
+      { title: 'wall' },
+    ])
     expect(FakeAudio.made[0].src).toBe('')
     expect(store.duration).toBeNull()
     expect(store.format).toBeNull()
@@ -252,7 +288,12 @@ describe('player store, Listening Position', () => {
   const source = { src: '/content/a.mp3', durationSec: 252, format: 'MP3' }
   const tracks = (count: number, shown = count): QueueItem[] =>
     Array.from({ length: shown }, (_, index) => ({
-      key: `t${index}`, title: `t${index}`, rendition: '', index, count, source,
+      key: `t${index}`,
+      title: `t${index}`,
+      rendition: '',
+      index,
+      count,
+      source,
     }))
   let put: ReturnType<typeof vi.fn>
   let del: ReturnType<typeof vi.fn>
@@ -298,7 +339,11 @@ describe('player store, Listening Position', () => {
     expect(put).toHaveBeenCalledTimes(1)
     expect(put.mock.calls[0]![0]).toBe(RJ)
     expect(bodies()[0]).toMatchObject({
-      rendition: '', track_key: 't0', position_sec: 201, track_index: 0, track_count: 3,
+      rendition: '',
+      track_key: 't0',
+      position_sec: 201,
+      track_index: 0,
+      track_count: 3,
     })
     expect(typeof bodies()[0].client).toBe('string')
   })
@@ -327,7 +372,10 @@ describe('player store, Listening Position', () => {
     playFor(3, 10)
     store.togglePause()
     await flushPromises()
-    expect(bodies().map((b) => [b.track_key, b.position_sec])).toEqual([['t0', 10], ['t0', 13]])
+    expect(bodies().map(b => [b.track_key, b.position_sec])).toEqual([
+      ['t0', 10],
+      ['t0', 13],
+    ])
 
     store.togglePause()
     playFor(1, 13)
@@ -345,8 +393,18 @@ describe('player store, Listening Position', () => {
   it('never writes for a silent play', async () => {
     const store = usePlayerStore()
     vi.useFakeTimers()
-    store.play(RJ, [{ title: 'wall' }])
-    store.play(RJ, [{ key: 'a', title: 'a', rendition: '', index: 0, count: 1 }]) // no file behind it
+    store.play(RJ, [
+      { title: 'wall' },
+    ])
+    store.play(RJ, [
+      {
+        key: 'a',
+        title: 'a',
+        rendition: '',
+        index: 0,
+        count: 1,
+      },
+    ]) // no file behind it
     vi.advanceTimersByTime(60_000)
     store.togglePause()
     vi.useRealTimers()
@@ -416,10 +474,15 @@ describe('player store, Listening Position', () => {
     FakeAudio.made.at(-1)!.dispatchEvent(new Event('ended')) // t0 -> t1
     FakeAudio.made.at(-1)!.dispatchEvent(new Event('ended')) // t1 -> t2
     await flushPromises()
-    expect(bodies().some((b) => b.finished)).toBe(false)
+    expect(bodies().some(b => b.finished)).toBe(false)
     FakeAudio.made.at(-1)!.dispatchEvent(new Event('ended')) // t2 is the last
     await flushPromises()
-    expect(bodies().at(-1)).toMatchObject({ track_key: 't2', track_index: 2, track_count: 3, finished: true })
+    expect(bodies().at(-1)).toMatchObject({
+      track_key: 't2',
+      track_index: 2,
+      track_count: 3,
+      finished: true,
+    })
 
     // A queue cut short (the format is missing from the last track) is not finished.
     put.mockClear()
@@ -428,7 +491,7 @@ describe('player store, Listening Position', () => {
     FakeAudio.made.at(-1)!.dispatchEvent(new Event('ended'))
     FakeAudio.made.at(-1)!.dispatchEvent(new Event('ended'))
     await flushPromises()
-    expect(bodies().some((b) => b.finished)).toBe(false)
+    expect(bodies().some(b => b.finished)).toBe(false)
   })
 
   it('finishes past the gate when a resume ends the last track within 10 s', async () => {

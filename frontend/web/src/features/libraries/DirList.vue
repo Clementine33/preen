@@ -1,9 +1,23 @@
 <script setup lang="ts">
-import { useVirtualizer } from '@tanstack/vue-virtual'
-import { ChevronRight, Folder } from '@lucide/vue'
-import { computed, ref } from 'vue'
 import type { LibraryDir } from '@/lib/api/types'
+import { ChevronRight, Folder } from '@lucide/vue'
+import { useVirtualizer } from '@tanstack/vue-virtual'
+import { computed, ref } from 'vue'
 
+const props = defineProps<{
+  dirs: LibraryDir[]
+  /** The selected library-relative paths: the identity a record is created from. */
+  selectedPaths: string[]
+  allSelected: boolean
+}>()
+const emit = defineEmits<{
+  select: [relPath: string, selected: boolean]
+  selectAll: [selected: boolean]
+  /** Opening a directory: the identity its page is addressed by. */
+  open: [dirId: string]
+  /** The list's scroll offset: the caller keeps it across a trip away. */
+  scroll: [offset: number]
+}>()
 /**
  * The overview's directory list (ADR 0001).
  *
@@ -24,26 +38,12 @@ import type { LibraryDir } from '@/lib/api/types'
 const ROW_HEIGHT = 56
 const OVERSCAN = 10
 
-const props = defineProps<{
-  dirs: LibraryDir[]
-  /** The selected library-relative paths: the identity a record is created from. */
-  selectedPaths: string[]
-  allSelected: boolean
-}>()
-const emit = defineEmits<{
-  select: [relPath: string, selected: boolean]
-  selectAll: [selected: boolean]
-  /** Opening a directory: the identity its page is addressed by. */
-  open: [dirId: string]
-  /** The list's scroll offset: the caller keeps it across a trip away. */
-  scroll: [offset: number]
-}>()
-
 /** The caller owns the offset: hiding this list collapses the element's own. */
 defineExpose({
   getScrollTop: (): number => scrollEl.value?.scrollTop ?? 0,
   setScrollTop: (offset: number): void => {
-    if (scrollEl.value) scrollEl.value.scrollTop = offset
+    if (scrollEl.value)
+      scrollEl.value.scrollTop = offset
   },
 })
 
@@ -68,7 +68,9 @@ function checkboxValue(event: Event): boolean {
 
 function parentOf(relPath: string): string {
   const slash = relPath.lastIndexOf('/')
-  return slash > 0 ? relPath.slice(0, slash) : ''
+  return slash > 0
+    ? relPath.slice(0, slash)
+    : ''
 }
 
 function dirAt(index: number): LibraryDir {
@@ -91,7 +93,7 @@ function dirAt(index: number): LibraryDir {
           aria-label="选择全部文件夹"
           class="size-4 accent-[var(--ring)] rail:size-3.5"
           @change="emit('selectAll', checkboxValue($event))"
-        />
+        >
       </label>
       <div class="min-w-0 truncate">
         <span class="hidden rail:inline">文件夹</span>
@@ -126,7 +128,7 @@ function dirAt(index: number): LibraryDir {
               :aria-label="`选择 ${dirAt(virtualItem.index).name}`"
               class="size-4 accent-[var(--ring)] rail:size-3.5"
               @change="emit('select', dirAt(virtualItem.index).rel_path, checkboxValue($event))"
-            />
+            >
           </label>
           <label
             :for="`dir-select-${dirAt(virtualItem.index).dir_id}`"

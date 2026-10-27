@@ -1,7 +1,8 @@
-import { computed, ref, shallowRef, watch } from 'vue'
-import { useRoute, useRouter, type LocationQuery } from 'vue-router'
-import { canonicalRj } from '@/app/route-params'
+import type { LocationQuery } from 'vue-router'
 import type { WorksSort } from '@/lib/api/types'
+import { computed, ref, shallowRef, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { canonicalRj } from '@/app/route-params'
 
 // The wall's address: every fact that decides what the wall
 // shows — library, filters, FIND, order, page, page size and the selected work
@@ -35,8 +36,11 @@ type Changes = Record<string, string | undefined>
 function preferredSize(): number {
   try {
     const stored = Number(localStorage.getItem(SIZE_KEY))
-    return (PAGE_SIZES as readonly number[]).includes(stored) ? stored : DEFAULT_SIZE
-  } catch {
+    return (PAGE_SIZES as readonly number[]).includes(stored)
+      ? stored
+      : DEFAULT_SIZE
+  }
+  catch {
     return DEFAULT_SIZE
   }
 }
@@ -44,7 +48,8 @@ function preferredSize(): number {
 function savePreferredSize(size: number): void {
   try {
     localStorage.setItem(SIZE_KEY, String(size))
-  } catch {
+  }
+  catch {
     // A blocked storage only loses the preference; the address keeps the size.
   }
 }
@@ -52,7 +57,8 @@ function savePreferredSize(size: number): void {
 export function queryLength(query: LocationQuery | Changes): number {
   const params = new URLSearchParams()
   for (const [key, value] of Object.entries(query)) {
-    if (typeof value === 'string' && value !== '') params.set(key, value)
+    if (typeof value === 'string' && value !== '')
+      params.set(key, value)
   }
   return params.toString().length
 }
@@ -64,13 +70,18 @@ export function useWallQuery() {
   // The last `/works` query: leaving for a work's page must not read as the
   // wall's filters being cleared while the wall is still mounted.
   const current = shallowRef<LocationQuery>(route.query)
-  watch(() => (route.name === 'works' ? route.query : null), (query) => {
-    if (query) current.value = query
+  watch(() => (route.name === 'works'
+    ? route.query
+    : null), (query) => {
+    if (query)
+      current.value = query
   }, { flush: 'sync' })
 
   const text = (key: string): string => {
     const value = current.value[key]
-    return typeof value === 'string' ? value : ''
+    return typeof value === 'string'
+      ? value
+      : ''
   }
 
   const library = computed(() => text('library') || null)
@@ -81,18 +92,24 @@ export function useWallQuery() {
   const rating = computed(() => text('rating'))
   const listening = computed(() => text('listening'))
   const tag = computed(() => text('tag'))
-  const mode = computed<'all' | 'any'>(() => (text('mode') === 'any' ? 'any' : 'all'))
+  const mode = computed<'all' | 'any'>(() => (text('mode') === 'any'
+    ? 'any'
+    : 'all'))
   const sort = computed<WorksSort>(() => (text('sort') as WorksSort) || DEFAULT_SORT)
   const q = computed(() => text('q'))
   const page = computed(() => {
     const parsed = Number(text('page'))
-    return Number.isInteger(parsed) && parsed >= 1 ? parsed : 1
+    return Number.isInteger(parsed) && parsed >= 1
+      ? parsed
+      : 1
   })
   // A named page with no size is read at the fixed default, never a local
   // preference, so the same link lists the same range everywhere.
   const size = computed(() => {
     const parsed = Number(text('size'))
-    return (PAGE_SIZES as readonly number[]).includes(parsed) ? parsed : DEFAULT_SIZE
+    return (PAGE_SIZES as readonly number[]).includes(parsed)
+      ? parsed
+      : DEFAULT_SIZE
   })
   const rj = computed(() => canonicalRj(text('rj')))
   /** The address itself is past the limit: the wall says so instead of listing. */
@@ -114,13 +131,23 @@ export function useWallQuery() {
     scheduled = chain = chain.then(async () => {
       const batch = pending ?? {}
       pending = null
-      if (route.name !== 'works') return
+      if (route.name !== 'works')
+        return
       const next: Changes = {}
       // Every write names the size in effect, so no later address is left
       // without one for a local preference to reinterpret.
-      const sized = route.query.size ? batch : { size: String(size.value), ...batch }
-      for (const [key, value] of Object.entries({ ...route.query, ...sized })) {
-        if (typeof value === 'string' && value !== '') next[key] = value
+      const sized = route.query.size
+        ? batch
+        : {
+            size: String(size.value),
+            ...batch,
+          }
+      for (const [key, value] of Object.entries({
+        ...route.query,
+        ...sized,
+      })) {
+        if (typeof value === 'string' && value !== '')
+          next[key] = value
       }
       if (queryLength(next) > MAX_QUERY && queryLength(next) > queryLength(route.query)) {
         overflow.value = true
@@ -134,25 +161,65 @@ export function useWallQuery() {
 
   // A fresh visit names neither a page nor a size: the preference decides the
   // size once, and the address carries it from then on.
-  watch(() => (route.name === 'works' ? route.query : null), (query) => {
-    if (query && !query.size && !query.page) void commit({ size: String(preferredSize()) })
+  watch(() => (route.name === 'works'
+    ? route.query
+    : null), (query) => {
+    if (query && !query.size && !query.page) {
+      void commit({
+        size: String(preferredSize()),
+      })
+    }
   }, { immediate: true })
 
   return {
-    library, voice, circle, age, language, rating, listening, tag, mode, sort, q, page, size, rj, tooLong, overflow,
+    library,
+    voice,
+    circle,
+    age,
+    language,
+    rating,
+    listening,
+    tag,
+    mode,
+    sort,
+    q,
+    page,
+    size,
+    rj,
+    tooLong,
+    overflow,
     /** Anything that changes what is listed starts again at the first page. */
     setFilters: (changes: Partial<Record<'voice' | 'circle' | 'age' | 'language' | 'rating' | 'listening' | 'tag' | 'mode' | 'q', string>>) =>
       commit({ ...changes, page: undefined }),
-    setSort: (value: WorksSort) => commit({ sort: value === DEFAULT_SORT ? undefined : value, page: undefined }),
+    setSort: (value: WorksSort) => commit({
+      sort: value === DEFAULT_SORT
+        ? undefined
+        : value,
+      page: undefined,
+    }),
     setSize: (value: number) => {
       savePreferredSize(value)
-      return commit({ size: String(value), page: undefined })
+      return commit({
+        size: String(value),
+        page: undefined,
+      })
     },
     /** A page turn keeps every filter. */
-    setPage: (value: number) => commit({ page: value > 1 ? String(value) : undefined }),
+    setPage: (value: number) => commit({
+      page: value > 1
+        ? String(value)
+        : undefined,
+    }),
     /** The user picked another library: its predecessor's picks mean nothing there. */
     setLibrary: (value: string) =>
-      commit({ library: value, voice: undefined, circle: undefined, tag: undefined, mode: undefined, page: undefined }),
+      commit({
+        library: value,
+        voice: undefined,
+        circle: undefined,
+        tag: undefined,
+        mode: undefined,
+        page: undefined,
+      }),
     /** Names the library without touching anything else (the address had none). */
     fillLibrary: (value: string) => commit({ library: value }),
     select: (value: string | null) => commit({ rj: value ?? undefined }),

@@ -104,7 +104,8 @@ describe('useTheme system preference', () => {
       stub.matches = false
       for (const listener of listeners) listener()
       expect(document.documentElement.classList.contains('dark')).toBe(true)
-    } finally {
+    }
+    finally {
       vi.restoreAllMocks()
     }
   })
@@ -121,7 +122,8 @@ describe('useTheme storage resilience', () => {
       const { theme } = useTheme()
       expect(theme.value).toBe('dark')
       expect(document.documentElement.classList.contains('dark')).toBe(true)
-    } finally {
+    }
+    finally {
       spy.mockRestore()
     }
   })
@@ -136,7 +138,8 @@ describe('useTheme storage resilience', () => {
       theme.value = 'light'
       await nextTick()
       expect(document.documentElement.classList.contains('dark')).toBe(false)
-    } finally {
+    }
+    finally {
       spy.mockRestore()
     }
   })
@@ -149,7 +152,8 @@ describe('useTheme storage resilience', () => {
       const { useTheme } = await freshTheme()
       const { dispose } = useTheme()
       expect(() => dispose()).not.toThrow()
-    } finally {
+    }
+    finally {
       vi.restoreAllMocks()
     }
   })

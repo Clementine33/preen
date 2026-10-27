@@ -1,18 +1,19 @@
+import type { Router } from 'vue-router'
+import { VueQueryPlugin } from '@tanstack/vue-query'
 import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createMemoryHistory, createRouter, createWebHistory, type Router } from 'vue-router'
 import { createPinia } from 'pinia'
-import WorkDetailPage from './WorkDetailPage.vue'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { createMemoryHistory, createRouter, createWebHistory } from 'vue-router'
 import { apiClientKey } from '@/lib/api/client'
-import { sampleWorkContent } from '@/test/work-content-fixture'
-import { apiStub } from '@/test/api-stub'
-import { createTestQueryClient, installTestQueryPlugin } from '@/test/query-client'
-import { makeWorkDetail } from '@/test/work-fixture'
+import { queryKeys } from '@/queries/query-keys'
 import { usePlayerStore } from '@/stores/player'
 import { useWorkDetailStore } from '@/stores/work-detail'
-import { queryKeys } from '@/queries/query-keys'
-import { VueQueryPlugin } from '@tanstack/vue-query'
+import { apiStub } from '@/test/api-stub'
 import { mountPlayerKeys } from '@/test/player-keys'
+import { createTestQueryClient, installTestQueryPlugin } from '@/test/query-client'
+import { sampleWorkContent } from '@/test/work-content-fixture'
+import { makeWorkDetail } from '@/test/work-fixture'
+import WorkDetailPage from './WorkDetailPage.vue'
 
 /**
  * The page-level contracts: the route's work number
@@ -27,15 +28,27 @@ function routerFor(): Router {
   return createRouter({
     history: createMemoryHistory(),
     routes: [
-      { path: '/works', name: 'works', component: { template: '<div />' } },
+      {
+        path: '/works',
+        name: 'works',
+        component: { template: '<div />' },
+      },
       { path: '/works/:rj', name: 'work-detail', component: WorkDetailPage },
-      { path: '/worksets/:libraryId', name: 'workbench-overview', component: { template: '<div />' } },
-      { path: '/worksets/:libraryId/f/:dirId', name: 'overview-files', component: { template: '<div />' } },
+      {
+        path: '/worksets/:libraryId',
+        name: 'workbench-overview',
+        component: { template: '<div />' },
+      },
+      {
+        path: '/worksets/:libraryId/f/:dirId',
+        name: 'overview-files',
+        component: { template: '<div />' },
+      },
     ],
   })
 }
 
-async function mountPage(path = `/works/${RJ}`, attach = false): Promise<{ wrapper: ReturnType<typeof mount>; router: Router }> {
+async function mountPage(path = `/works/${RJ}`, attach = false): Promise<{ wrapper: ReturnType<typeof mount>, router: Router }> {
   const api = apiStub({
     getWork: vi.fn().mockResolvedValue(makeWorkDetail()),
     getWorkContent: vi.fn(async (rj: string) => sampleWorkContent(rj)),
@@ -44,9 +57,17 @@ async function mountPage(path = `/works/${RJ}`, attach = false): Promise<{ wrapp
   await router.push(path)
   await router.isReady()
   const wrapper = mount(WorkDetailPage, {
-    ...(attach ? { attachTo: document.body.appendChild(document.createElement('div')) } : {}),
+    ...(attach
+      ? {
+          attachTo: document.body.appendChild(document.createElement('div')),
+        }
+      : {}),
     global: {
-      plugins: [createPinia(), router, installTestQueryPlugin()],
+      plugins: [
+        createPinia(),
+        router,
+        installTestQueryPlugin(),
+      ],
       provide: { [apiClientKey as symbol]: api },
     },
   })
@@ -76,12 +97,21 @@ describe('work detail page', () => {
 
   it('reads the 6-digit spelling as the canonical work number, with no query of its own', async () => {
     // RJ00100002 is also spelled rj100002; RJ01000001 has no 6-digit form.
-    const api = apiStub({ getWork: vi.fn().mockResolvedValue(makeWorkDetail({ rj: 'RJ00100002' })) } as never)
+    const api = apiStub({
+      getWork: vi.fn().mockResolvedValue(makeWorkDetail({ rj: 'RJ00100002' })),
+    } as never)
     const router = routerFor()
     await router.push('/works/rj100002')
     await router.isReady()
     mount(WorkDetailPage, {
-      global: { plugins: [createPinia(), router, installTestQueryPlugin()], provide: { [apiClientKey as symbol]: api } },
+      global: {
+        plugins: [
+          createPinia(),
+          router,
+          installTestQueryPlugin(),
+        ],
+        provide: { [apiClientKey as symbol]: api },
+      },
     })
     await flushPromises()
     expect(useWorkDetailStore().rj).toBe('RJ00100002')
@@ -147,14 +177,25 @@ describe('work detail page', () => {
     client.setQueryData(queryKeys.works.content(RJ), cached)
     const other = 'RJ01000002'
     client.setQueryData(queryKeys.works.content(other), sampleWorkContent(other))
-    const api = apiStub({ getWork: vi.fn().mockResolvedValue(makeWorkDetail()) })
+    const api = apiStub({
+      getWork: vi.fn().mockResolvedValue(makeWorkDetail()),
+    })
     const router = routerFor()
     await router.push(`/works/${RJ}`)
     await router.isReady()
-    const wrapper = mount(WorkDetailPage, { global: {
-      plugins: [createPinia(), router, [VueQueryPlugin, { queryClient: client }]],
-      provide: { [apiClientKey as symbol]: api },
-    } })
+    const wrapper = mount(WorkDetailPage, {
+      global: {
+        plugins: [
+          createPinia(),
+          router,
+          [
+            VueQueryPlugin,
+            { queryClient: client },
+          ],
+        ],
+        provide: { [apiClientKey as symbol]: api },
+      },
+    })
     await flushPromises()
     const store = useWorkDetailStore()
     expect(store.sets.length).toBeGreaterThan(0)
@@ -174,8 +215,9 @@ describe('work detail page', () => {
     const player = usePlayerStore()
     const play = vi.spyOn(player, 'play')
     const updated = structuredClone(cached)
-    const cover = updated.copies[0].tree!.children.find((entry) => entry.name === '表紙')!
-    if (!('children' in cover)) throw new Error('cover directory missing')
+    const cover = updated.copies[0].tree!.children.find(entry => entry.name === '表紙')!
+    if (!('children' in cover))
+      throw new Error('cover directory missing')
     Object.assign(cover.children[0], { width: 2000, height: 1000 })
     client.setQueryData(queryKeys.works.content(RJ), updated)
     await flushPromises()
@@ -191,24 +233,51 @@ describe('work detail page', () => {
     client.clear()
   })
 
-  it('BACK returns to the collection the work was opened from, else opens the wall on this work', async () => {
+  it('bACK returns to the collection the work was opened from, else opens the wall on this work', async () => {
     window.history.replaceState(null, '', '/')
     const router = createRouter({
       history: createWebHistory(),
       routes: [
-        { path: '/', component: { template: '<div />' } },
-        { path: '/works', name: 'works', component: { template: '<div />' } },
-        { path: '/collections/:id', name: 'collection-detail', component: { template: '<div />' } },
+        {
+          path: '/',
+          component: { template: '<div />' },
+        },
+        {
+          path: '/works',
+          name: 'works',
+          component: { template: '<div />' },
+        },
+        {
+          path: '/collections/:id',
+          name: 'collection-detail',
+          component: { template: '<div />' },
+        },
         { path: '/works/:rj', name: 'work-detail', component: WorkDetailPage },
-        { path: '/worksets/:libraryId/f/:dirId', name: 'overview-files', component: { template: '<div />' } },
+        {
+          path: '/worksets/:libraryId/f/:dirId',
+          name: 'overview-files',
+          component: { template: '<div />' },
+        },
       ],
     })
-    const api = apiStub({ getWork: vi.fn().mockResolvedValue(makeWorkDetail()), getWorkContent: vi.fn(async (rj: string) => sampleWorkContent(rj)) } as never)
+    const api = apiStub({
+      getWork: vi.fn().mockResolvedValue(makeWorkDetail()),
+      getWorkContent: vi.fn(async (rj: string) => sampleWorkContent(rj)),
+    } as never)
     await router.push('/collections/c1?sort=rj')
     await router.push(`/works/${RJ}`)
-    const wrapper = mount(WorkDetailPage, { global: { plugins: [createPinia(), router, installTestQueryPlugin()], provide: { [apiClientKey as symbol]: api } } })
+    const wrapper = mount(WorkDetailPage, {
+      global: {
+        plugins: [
+          createPinia(),
+          router,
+          installTestQueryPlugin(),
+        ],
+        provide: { [apiClientKey as symbol]: api },
+      },
+    })
     await flushPromises()
-    const back = wrapper.findAll('.header-left button').find((b) => b.text() === 'BACK')!
+    const back = wrapper.findAll('.header-left button').find(b => b.text() === 'BACK')!
     expect(back.text()).toBe('BACK')
     await back.trigger('click')
     await vi.waitFor(() => expect(router.currentRoute.value.fullPath).toBe('/collections/c1?sort=rj'))

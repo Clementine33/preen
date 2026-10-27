@@ -1,9 +1,14 @@
 <script setup lang="ts">
+import type { KeyGroup } from '@/composables/use-keymap'
+import type { MotionPreference } from '@/composables/use-motion'
+import type { Theme } from '@/composables/use-theme'
 import { computed, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import GlobalMenu from '@/components/layout/GlobalMenu.vue'
 import { Button } from '@/components/ui/button'
-import { useApiClient } from '@/lib/api/client'
+import { GROUP_LABELS, KEYS } from '@/composables/use-keymap'
+import { MOTION_OPTIONS, useMotion } from '@/composables/use-motion'
+import { THEME_OPTIONS, useTheme } from '@/composables/use-theme'
 import AboutSettings from '@/features/settings/AboutSettings.vue'
 import DataMaintenanceSettings from '@/features/settings/DataMaintenanceSettings.vue'
 import DiagnosticLogExport from '@/features/settings/DiagnosticLogExport.vue'
@@ -12,9 +17,7 @@ import OutboundProxySettings from '@/features/settings/OutboundProxySettings.vue
 import SettingsField from '@/features/settings/SettingsField.vue'
 import SettingsSegmented from '@/features/settings/SettingsSegmented.vue'
 import UserTagSettings from '@/features/settings/UserTagSettings.vue'
-import { GROUP_LABELS, KEYS, type KeyGroup } from '@/composables/use-keymap'
-import { MOTION_OPTIONS, useMotion, type MotionPreference } from '@/composables/use-motion'
-import { THEME_OPTIONS, useTheme, type Theme } from '@/composables/use-theme'
+import { useApiClient } from '@/lib/api/client'
 
 /**
  * 设置 (`/settings/:section?`): what has no other home, one category per
@@ -34,15 +37,16 @@ const SECTIONS = [
 ] as const
 
 /** The shortcut list, generated from the keymap's descriptors (read-only, not a setting). */
-const KEY_ROWS = (Object.keys(GROUP_LABELS) as KeyGroup[]).map((group) => ({
+const KEY_ROWS = (Object.keys(GROUP_LABELS) as KeyGroup[]).map(group => ({
   group,
-  rows: Object.values(KEYS).filter((descriptor) => descriptor.group === group),
+  rows: Object.values(KEYS).filter(descriptor => descriptor.group === group),
 }))
-const keyCap = (combo: string): string =>
-  combo.replace('Arrow', '').replace('Left', '←').replace('Right', '→').replace('Up', '↑').replace('Down', '↓')
+function keyCap(combo: string): string {
+  return combo.replace('Arrow', '').replace('Left', '←').replace('Right', '→').replace('Up', '↑').replace('Down', '↓')
+}
 
 const route = useRoute()
-const section = computed(() => SECTIONS.find((item) => item.id === route.params.section) ?? SECTIONS[0])
+const section = computed(() => SECTIONS.find(item => item.id === route.params.section) ?? SECTIONS[0])
 
 const { theme } = useTheme()
 const { preference, systemReduces } = useMotion()
@@ -51,15 +55,18 @@ const loggingOut = ref(false)
 const logoutError = ref('')
 
 async function logout(): Promise<void> {
-  if (loggingOut.value) return
+  if (loggingOut.value)
+    return
   loggingOut.value = true
   logoutError.value = ''
   try {
     await api.deleteSession()
     location.replace('/login')
-  } catch {
+  }
+  catch {
     logoutError.value = '退出失败，请重试。'
-  } finally {
+  }
+  finally {
     loggingOut.value = false
   }
 }

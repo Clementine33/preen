@@ -27,20 +27,22 @@ export const useWorksetUiStore = defineStore('workset-ui', {
     batchMemberIds: [] as string[],
   }),
   getters: {
-    selectionCount: (state) => state.selectedMemberIds.size,
+    selectionCount: state => state.selectedMemberIds.size,
   },
   actions: {
     toggleMember(id: string) {
       const next = new Set(this.selectedMemberIds)
-      if (next.has(id)) next.delete(id)
+      if (next.has(id))
+        next.delete(id)
       else next.add(id)
       this.selectedMemberIds = markRaw(next)
     },
     toggleAllVisible(ids: string[]) {
-      const all = ids.length > 0 && ids.every((id) => this.selectedMemberIds.has(id))
+      const all = ids.length > 0 && ids.every(id => this.selectedMemberIds.has(id))
       const next = new Set(this.selectedMemberIds)
       for (const id of ids) {
-        if (all) next.delete(id)
+        if (all)
+          next.delete(id)
         else next.add(id)
       }
       this.selectedMemberIds = markRaw(next)

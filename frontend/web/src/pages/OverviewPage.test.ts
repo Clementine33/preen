@@ -1,14 +1,16 @@
-import { enableAutoUnmount, flushPromises, mount, type VueWrapper } from '@vue/test-utils'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createMemoryHistory, createRouter, type Router } from 'vue-router'
+import type { VueWrapper } from '@vue/test-utils'
+import type { Router } from 'vue-router'
+import type { Library, LibraryDir, MediaFactsStatus, Workset } from '@/lib/api/types'
+import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { createPinia } from 'pinia'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { createMemoryHistory, createRouter } from 'vue-router'
 import { apiClientKey } from '@/lib/api/client'
+import { useLibraryUiStore } from '@/stores/library-ui'
+import { useMediaFactsStore } from '@/stores/media-facts'
 import { apiStub } from '@/test/api-stub'
 import { installTestQueryPlugin } from '@/test/query-client'
 import OverviewPage from './OverviewPage.vue'
-import { useLibraryUiStore } from '@/stores/library-ui'
-import { useMediaFactsStore } from '@/stores/media-facts'
-import type { Library, LibraryDir, MediaFactsStatus, Workset } from '@/lib/api/types'
 
 /** The page's selection store, as a row click would drive it. */
 function ui() {
@@ -40,8 +42,26 @@ const library: Library = {
 }
 
 const dirs: LibraryDir[] = [
-  { name: 'albumA', path: '/music/albumA', rel_path: 'albumA', dir_id: 'dir-albumA', audio_file_count: 3, file_count: 4, added_at: '2026-05-01T00:00:00Z', work_code: null },
-  { name: 'docs', path: '/music/docs', rel_path: 'docs', dir_id: 'dir-docs', audio_file_count: 0, file_count: 1, added_at: '2026-05-02T00:00:00Z', work_code: null },
+  {
+    name: 'albumA',
+    path: '/music/albumA',
+    rel_path: 'albumA',
+    dir_id: 'dir-albumA',
+    audio_file_count: 3,
+    file_count: 4,
+    added_at: '2026-05-01T00:00:00Z',
+    work_code: null,
+  },
+  {
+    name: 'docs',
+    path: '/music/docs',
+    rel_path: 'docs',
+    dir_id: 'dir-docs',
+    audio_file_count: 0,
+    file_count: 1,
+    added_at: '2026-05-02T00:00:00Z',
+    work_code: null,
+  },
 ]
 
 const record: Workset = {
@@ -50,7 +70,13 @@ const record: Workset = {
   version: 1,
   library: { library_id: 'lib-1', name: 'Archive', root_path: '/music' },
   members: [
-    { member_id: 'm-1', folder_path: '/music/albumA', folder_name: 'albumA', rel_path: 'albumA', dir_id: 'dir-albumA' },
+    {
+      member_id: 'm-1',
+      folder_path: '/music/albumA',
+      folder_name: 'albumA',
+      rel_path: 'albumA',
+      dir_id: 'dir-albumA',
+    },
   ],
   operations: [],
   updated_at: '',
@@ -62,12 +88,36 @@ function routerFor(): Router {
     history: createMemoryHistory(),
     routes: [
       { path: '/worksets/:libraryId', name: 'workbench-overview', component: OverviewPage },
-      { path: '/worksets/:libraryId/f/:dirId', name: 'overview-files', component: { template: '<div />' } },
-      { path: '/worksets/:libraryId/conversion', name: 'conversion', component: { template: '<div />' } },
-      { path: '/worksets/:libraryId/conversion/settings', name: 'conversion-settings', component: { template: '<div />' } },
-      { path: '/worksets/:libraryId/rename', name: 'rename', component: { template: '<div />' } },
-      { path: '/worksets/:libraryId/metadata', name: 'metadata-refresh', component: { template: '<div />' } },
-      { path: '/worksets', name: 'worksets', component: { template: '<div />' } },
+      {
+        path: '/worksets/:libraryId/f/:dirId',
+        name: 'overview-files',
+        component: { template: '<div />' },
+      },
+      {
+        path: '/worksets/:libraryId/conversion',
+        name: 'conversion',
+        component: { template: '<div />' },
+      },
+      {
+        path: '/worksets/:libraryId/conversion/settings',
+        name: 'conversion-settings',
+        component: { template: '<div />' },
+      },
+      {
+        path: '/worksets/:libraryId/rename',
+        name: 'rename',
+        component: { template: '<div />' },
+      },
+      {
+        path: '/worksets/:libraryId/metadata',
+        name: 'metadata-refresh',
+        component: { template: '<div />' },
+      },
+      {
+        path: '/worksets',
+        name: 'worksets',
+        component: { template: '<div />' },
+      },
     ],
   })
 }
@@ -88,7 +138,14 @@ async function mountOverview(overrides: Partial<Record<string, unknown>> = {}): 
   await router.isReady()
   const wrapper = mount(OverviewPage, {
     attachTo: document.body,
-    global: { plugins: [createPinia(), router, installTestQueryPlugin()], provide: { [apiClientKey as symbol]: api } },
+    global: {
+      plugins: [
+        createPinia(),
+        router,
+        installTestQueryPlugin(),
+      ],
+      provide: { [apiClientKey as symbol]: api },
+    },
   })
   await flushPromises()
   return { wrapper, api, router }
@@ -105,9 +162,15 @@ it.each([
   ['full-rescan-button', 'full'],
 ] as const)('starts a scan through %s', async (entry, mode) => {
   const scanLibrary = vi.fn(async function* () {
-    yield { type: 'started', data: { stage: 'scan' } } as const
+    yield {
+      type: 'started',
+      data: { stage: 'scan' },
+    } as const
     await new Promise<void>((resolve) => { finish = resolve })
-    yield { type: 'completed', data: { stage: 'scan', scan_id: 'scan-1' } } as const
+    yield {
+      type: 'completed',
+      data: { stage: 'scan', scan_id: 'scan-1' },
+    } as const
   })
   let finish = () => {}
   const { wrapper } = await mountOverview({ scanLibrary })
@@ -147,7 +210,12 @@ describe('workbench overview', () => {
   })
 
   it('creates the record from the selected library-relative paths', async () => {
-    const createCurrentRecord = vi.fn().mockResolvedValue({ workset: record, created: true, recorded: 1, skipped: [] })
+    const createCurrentRecord = vi.fn().mockResolvedValue({
+      workset: record,
+      created: true,
+      recorded: 1,
+      skipped: [],
+    })
     const { wrapper, router } = await mountOverview({ createCurrentRecord })
     ui().toggleDir('albumA', dirs)
     await flushPromises()
@@ -163,14 +231,49 @@ describe('workbench overview', () => {
 
   describe('search and order', () => {
     const coded: LibraryDir[] = [
-      { name: 'RJ01000001 a', path: '/music/a', rel_path: 'a', dir_id: 'd-a', audio_file_count: 1, file_count: 1, added_at: '2026-05-03T00:00:00Z', work_code: 'RJ01000001' },
-      { name: 'RJ01000003 c', path: '/music/c', rel_path: 'c', dir_id: 'd-c', audio_file_count: 1, file_count: 1, added_at: '2026-05-01T00:00:00Z', work_code: 'RJ01000003' },
-      { name: 'plain', path: '/music/plain', rel_path: 'plain', dir_id: 'd-p', audio_file_count: 1, file_count: 1, added_at: '2026-05-02T00:00:00Z', work_code: null },
+      {
+        name: 'RJ01000001 a',
+        path: '/music/a',
+        rel_path: 'a',
+        dir_id: 'd-a',
+        audio_file_count: 1,
+        file_count: 1,
+        added_at: '2026-05-03T00:00:00Z',
+        work_code: 'RJ01000001',
+      },
+      {
+        name: 'RJ01000003 c',
+        path: '/music/c',
+        rel_path: 'c',
+        dir_id: 'd-c',
+        audio_file_count: 1,
+        file_count: 1,
+        added_at: '2026-05-01T00:00:00Z',
+        work_code: 'RJ01000003',
+      },
+      {
+        name: 'plain',
+        path: '/music/plain',
+        rel_path: 'plain',
+        dir_id: 'd-p',
+        audio_file_count: 1,
+        file_count: 1,
+        added_at: '2026-05-02T00:00:00Z',
+        work_code: null,
+      },
     ]
 
     async function createWith(sortTestId: string) {
-      const createCurrentRecord = vi.fn().mockResolvedValue({ workset: record, created: true, recorded: 3, skipped: [] })
-      const { wrapper } = await mountOverview({ listDirs: vi.fn().mockResolvedValue(coded), createCurrentRecord })
+      const createCurrentRecord = vi.fn().mockResolvedValue({
+        workset: record,
+        created: true,
+        recorded: 3,
+        skipped: [],
+      })
+      const { wrapper } = await mountOverview({
+        listDirs: vi.fn().mockResolvedValue(coded),
+        createCurrentRecord,
+      })
       await wrapper.get(`[data-testid="${sortTestId}"]`).trigger('click')
       // Click order is the reverse of every sort: it must not leak into the batch.
       for (const rel of ['plain', 'a', 'c']) ui().toggleDir(rel, coded)
@@ -189,7 +292,9 @@ describe('workbench overview', () => {
     })
 
     it('narrows the list by search and counts what is shown', async () => {
-      const { wrapper } = await mountOverview({ listDirs: vi.fn().mockResolvedValue(coded) })
+      const { wrapper } = await mountOverview({
+        listDirs: vi.fn().mockResolvedValue(coded),
+      })
       await wrapper.get('[data-testid="dir-search"]').setValue('rj01000003')
       expect(wrapper.get('[data-testid="dir-list"]').text()).toContain('共 1 个文件夹')
       expect(wrapper.text()).toContain('文件夹（1 / 3）')
@@ -197,7 +302,12 @@ describe('workbench overview', () => {
   })
 
   it('keeps audio-less folders in the shared batch', async () => {
-    const createCurrentRecord = vi.fn().mockResolvedValue({ workset: record, created: true, recorded: 1, skipped: [] })
+    const createCurrentRecord = vi.fn().mockResolvedValue({
+      workset: record,
+      created: true,
+      recorded: 1,
+      skipped: [],
+    })
     const { wrapper, router } = await mountOverview({ createCurrentRecord })
     ui().toggleDir('docs', dirs)
     await flushPromises()
@@ -215,7 +325,9 @@ describe('workbench overview', () => {
       workset: record,
       created: true,
       recorded: 1,
-      skipped: [{ path: 'docs', reason: 'missing' }],
+      skipped: [
+        { path: 'docs', reason: 'missing' },
+      ],
     })
     const { wrapper } = await mountOverview({ createCurrentRecord })
     ui().toggleDir('albumA', dirs)
@@ -229,7 +341,12 @@ describe('workbench overview', () => {
   })
 
   it('asks before replacing an existing record', async () => {
-    const createCurrentRecord = vi.fn().mockResolvedValue({ workset: record, created: true, recorded: 1, skipped: [] })
+    const createCurrentRecord = vi.fn().mockResolvedValue({
+      workset: record,
+      created: true,
+      recorded: 1,
+      skipped: [],
+    })
     const { wrapper } = await mountOverview({
       getCurrentRecord: vi.fn().mockResolvedValue({ workset: record }),
       createCurrentRecord,
@@ -280,23 +397,44 @@ describe('media facts status line', () => {
     useMediaFactsStore().status = status
     await flushPromises()
     const line = wrapper.find('[data-testid="media-facts-status"]')
-    return line.exists() ? line.text() : null
+    return line.exists()
+      ? line.text()
+      : null
   }
-  const counts = (pending: number, unmeasurable: number) => [{ library_id: 'lib-1', pending, unmeasurable }]
+  const counts = (pending: number, unmeasurable: number) => [
+    { library_id: 'lib-1', pending, unmeasurable },
+  ]
 
   it('shows what is left while measuring, and that it will resume when paused', async () => {
-    expect(await lineFor({ state: 'running', libraries: counts(12345, 2) })).toBe('媒体事实 · 测量中 · 剩 12,345')
-    expect(await lineFor({ state: 'paused', libraries: counts(7, 0) })).toBe('媒体事实 · 已暂停，将自动继续 · 剩 7')
+    expect(await lineFor({
+      state: 'running',
+      libraries: counts(12345, 2),
+    })).toBe('媒体事实 · 测量中 · 剩 12,345')
+    expect(await lineFor({
+      state: 'paused',
+      libraries: counts(7, 0),
+    })).toBe('媒体事实 · 已暂停，将自动继续 · 剩 7')
   })
 
   it('reports files that cannot be measured once nothing is pending', async () => {
-    expect(await lineFor({ state: 'idle', libraries: counts(0, 1500) })).toBe('媒体事实 · 1,500 个文件无法测量')
-    expect(await lineFor({ state: 'running', libraries: counts(0, 3) })).toBe('媒体事实 · 3 个文件无法测量')
+    expect(await lineFor({
+      state: 'idle',
+      libraries: counts(0, 1500),
+    })).toBe('媒体事实 · 1,500 个文件无法测量')
+    expect(await lineFor({
+      state: 'running',
+      libraries: counts(0, 3),
+    })).toBe('媒体事实 · 3 个文件无法测量')
   })
 
   it('stays hidden without a status, or when this library has nothing unknown', async () => {
     expect(await lineFor(null)).toBeNull()
     expect(await lineFor({ state: 'running', libraries: [] })).toBeNull()
-    expect(await lineFor({ state: 'running', libraries: [{ library_id: 'other', pending: 5, unmeasurable: 5 }] })).toBeNull()
+    expect(await lineFor({
+      state: 'running',
+      libraries: [
+        { library_id: 'other', pending: 5, unmeasurable: 5 },
+      ],
+    })).toBeNull()
   })
 })

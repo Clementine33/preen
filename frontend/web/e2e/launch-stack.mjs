@@ -62,7 +62,11 @@ const dataDir = mkdtempSync(path.join(os.tmpdir(), 'onsei-e2e-data-'))
 // data dirs get their literal tags from config.json.
 writeFileSync(
   path.join(dataDir, 'config.json'),
-  JSON.stringify({ prune: { no_effect_tags: ['SEなし'] } }),
+  JSON.stringify({
+    prune: {
+      no_effect_tags: ['SEなし'],
+    },
+  }),
 )
 const backend = spawn('go', ['run', './cmd/preen', '--watch-stdin'], {
   cwd: backendDir,
@@ -85,7 +89,14 @@ function launchVite(httpPort) {
   // in practice, leaving vite bound to ::1 only, which the IPv4 readiness
   // probe can never reach). A direct node spawn needs no shell and no shim.
   const viteBin = path.join(webDir, 'node_modules', 'vite', 'bin', 'vite.js')
-  vite = spawn(process.execPath, [viteBin, '--port', process.env.PREEN_E2E_WEB_PORT, '--strictPort', '--host', '127.0.0.1'], {
+  vite = spawn(process.execPath, [
+    viteBin,
+    '--port',
+    process.env.PREEN_E2E_WEB_PORT,
+    '--strictPort',
+    '--host',
+    '127.0.0.1',
+  ], {
     cwd: webDir,
     env: { ...process.env, PREEN_BACKEND_URL: `http://127.0.0.1:${httpPort}` },
     stdio: 'inherit',
@@ -103,7 +114,8 @@ function launchVite(httpPort) {
 function handleLine(line) {
   // PREEN_BACKEND_READY version=v1 http_port=54321
   const match = /^PREEN_BACKEND_READY version=\S+ http_port=(\d+)$/.exec(line.trim())
-  if (!match) return
+  if (!match)
+    return
   const httpPort = Number(match[1])
   writeFileSync(stateFile, JSON.stringify({ fixtureRoot, httpPort }, null, 2))
   console.log(`[e2e] backend ready (http_port=${httpPort})`)
@@ -115,6 +127,7 @@ function handleLine(line) {
 backend.stdout.on('data', (chunk) => {
   lineBuffer += chunk.toString()
   let nl
+  // eslint-disable-next-line no-cond-assign
   while ((nl = lineBuffer.indexOf('\n')) >= 0) {
     handleLine(lineBuffer.slice(0, nl))
     lineBuffer = lineBuffer.slice(nl + 1)
@@ -140,7 +153,8 @@ backend.on('error', (err) => {
 })
 
 function teardown(exitCode = 0) {
-  if (teardownStarted) return
+  if (teardownStarted)
+    return
   teardownStarted = true
   console.error(`[e2e] teardown(${exitCode}) — stopping stack`)
 
@@ -150,7 +164,8 @@ function teardown(exitCode = 0) {
       rmSync(dataDir, { recursive: true, force: true })
       rmSync(stateFile, { force: true })
       console.error('[e2e] teardown complete')
-    } catch {
+    }
+    catch {
       /* best-effort cleanup */
     }
     process.exit(exitCode)
@@ -161,25 +176,34 @@ function teardown(exitCode = 0) {
   // whole tree; cleanup proceeds only after the tree is gone so tmp
   // dirs/state are not removed while children still hold them.
   const stopBackend = () => {
-    if (backend.exitCode !== null) return finish()
+    if (backend.exitCode !== null)
+      return finish()
 
     // Graceful stop: EOF on the pipe we hold makes the backend shut down.
     try {
       backend.stdin?.end()
-    } catch {
+    }
+    catch {
       /* pipe may already be closed */
     }
 
     // EOF is the graceful stop on every platform, including Windows.
     const timeout = setTimeout(() => {
       if (isWin) {
-        const kill = spawn('taskkill', ['/pid', String(backend.pid), '/t', '/f'])
+        const kill = spawn('taskkill', [
+          '/pid',
+          String(backend.pid),
+          '/t',
+          '/f',
+        ])
         kill.on('error', finish)
         kill.on('exit', finish)
-      } else {
+      }
+      else {
         try {
           process.kill(-backend.pid, 'SIGKILL')
-        } catch {
+        }
+        catch {
           backend.kill('SIGKILL')
         }
       }
@@ -189,10 +213,16 @@ function teardown(exitCode = 0) {
 
   if (vite && vite.exitCode === null) {
     if (isWin) {
-      const kill = spawn('taskkill', ['/pid', String(vite.pid), '/t', '/f'])
+      const kill = spawn('taskkill', [
+        '/pid',
+        String(vite.pid),
+        '/t',
+        '/f',
+      ])
       kill.on('error', stopBackend)
       kill.on('exit', stopBackend)
-    } else {
+    }
+    else {
       // Wait for Vite to actually exit before removing the fixture/data dirs,
       // so file watchers and in-flight writes are gone first. The timer is a
       // fallback for a Vite that does not terminate on SIGTERM.
@@ -204,7 +234,8 @@ function teardown(exitCode = 0) {
       vite.kill()
       void viteGone.then(stopBackend)
     }
-  } else {
+  }
+  else {
     stopBackend()
   }
 }

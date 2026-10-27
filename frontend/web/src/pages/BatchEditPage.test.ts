@@ -1,14 +1,16 @@
-import { enableAutoUnmount, flushPromises, mount, type VueWrapper } from '@vue/test-utils'
-import { createPinia } from 'pinia'
-import { h } from 'vue'
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createMemoryHistory, createRouter, RouterView, type Router } from 'vue-router'
-import { apiClientKey } from '@/lib/api/client'
+import type { VueWrapper } from '@vue/test-utils'
+import type { Router } from 'vue-router'
 import type { ApiClientContract, Operation, OperationDraftDocument, Workset } from '@/lib/api/types'
-import { apiStub } from '@/test/api-stub'
-import { installTestQueryPlugin } from '@/test/query-client'
+import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
+import { createPinia } from 'pinia'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { h } from 'vue'
+import { createMemoryHistory, createRouter, RouterView } from 'vue-router'
+import { apiClientKey } from '@/lib/api/client'
 import { useWorksetEditorStore } from '@/stores/workset-editor'
 import { useWorksetUiStore } from '@/stores/workset-ui'
+import { apiStub } from '@/test/api-stub'
+import { installTestQueryPlugin } from '@/test/query-client'
 import BatchEditPage from './BatchEditPage.vue'
 
 /** Batch editing answers an unapplied-edits conflict the same way the member editor does. */
@@ -18,8 +20,20 @@ const workset: Workset = {
   version: 5,
   library: { library_id: 'lib-a', name: 'Lib', root_path: '/music' },
   members: [
-    { member_id: 'm-1', folder_path: '/music/a', folder_name: 'a', rel_path: 'a', dir_id: 'd-a' },
-    { member_id: 'm-2', folder_path: '/music/b', folder_name: 'b', rel_path: 'b', dir_id: 'd-b' },
+    {
+      member_id: 'm-1',
+      folder_path: '/music/a',
+      folder_name: 'a',
+      rel_path: 'a',
+      dir_id: 'd-a',
+    },
+    {
+      member_id: 'm-2',
+      folder_path: '/music/b',
+      folder_name: 'b',
+      rel_path: 'b',
+      dir_id: 'd-b',
+    },
   ],
   operations: [],
   updated_at: '',
@@ -77,24 +91,48 @@ function seedPendingOtherEdit(pinia: ReturnType<typeof createPinia>): void {
   editor.setUnit('mode', { intent: 'set', value: 'available_sources' })
 }
 
-async function mountBatch(seedPending: boolean): Promise<{ wrapper: VueWrapper; router: Router }> {
+async function mountBatch(seedPending: boolean): Promise<{ wrapper: VueWrapper, router: Router }> {
   const pinia = createPinia()
-  if (seedPending) seedPendingOtherEdit(pinia)
+  if (seedPending)
+    seedPendingOtherEdit(pinia)
   const router = createRouter({
     history: createMemoryHistory(),
     routes: [
-      { path: '/worksets/:libraryId/conversion', name: 'conversion', component: { template: '<div />' } },
+      {
+        path: '/worksets/:libraryId/conversion',
+        name: 'conversion',
+        component: { template: '<div />' },
+      },
       { path: '/worksets/:libraryId/conversion/batch-edit', name: 'conversion-batch-edit', component: BatchEditPage },
-      { path: '/worksets/:libraryId/conversion/settings', name: 'conversion-settings', component: { template: '<div />' } },
-      { path: '/worksets/:libraryId/conversion/:memberId/edit', name: 'conversion-member-edit', component: { template: '<div />' } },
+      {
+        path: '/worksets/:libraryId/conversion/settings',
+        name: 'conversion-settings',
+        component: { template: '<div />' },
+      },
+      {
+        path: '/worksets/:libraryId/conversion/:memberId/edit',
+        name: 'conversion-member-edit',
+        component: { template: '<div />' },
+      },
     ],
   })
   await router.push('/worksets/lib-a/conversion/batch-edit')
   await router.isReady()
   const ui = useWorksetUiStore(pinia)
   ui.batchMemberIds = ['m-1', 'm-2']
-  const wrapper = mount({ render: () => h(RouterView) }, {
-    global: { plugins: [pinia, router, installTestQueryPlugin()], provide: { [apiClientKey as symbol]: pageApi() } },
+  const wrapper = mount({
+    render: () => h(RouterView),
+  }, {
+    global: {
+      plugins: [
+        pinia,
+        router,
+        installTestQueryPlugin(),
+      ],
+      provide: {
+        [apiClientKey as symbol]: pageApi(),
+      },
+    },
   })
   await flushPromises()
   return { wrapper, router }
@@ -103,13 +141,16 @@ async function mountBatch(seedPending: boolean): Promise<{ wrapper: VueWrapper; 
 enableAutoUnmount(afterEach)
 afterEach(() => vi.restoreAllMocks())
 
-describe('BatchEditPage pending-edit conflict', () => {
+describe('batchEditPage pending-edit conflict', () => {
   it('drops the other edit and opens the batch when the user accepts', async () => {
     const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
     const { router } = await mountBatch(true)
 
     expect(confirm).toHaveBeenCalledOnce()
-    expect(useWorksetEditorStore().session?.target).toEqual({ kind: 'batch', memberIds: ['m-1', 'm-2'] })
+    expect(useWorksetEditorStore().session?.target).toEqual({
+      kind: 'batch',
+      memberIds: ['m-1', 'm-2'],
+    })
     expect(router.currentRoute.value.name).toBe('conversion-batch-edit')
   })
 
@@ -123,7 +164,7 @@ describe('BatchEditPage pending-edit conflict', () => {
   })
 })
 
-describe('BatchEditPage route leave', () => {
+describe('batchEditPage route leave', () => {
   it.each([false, true])('confirms unsaved edits and respects the answer %s', async (accept) => {
     const confirm = vi.spyOn(window, 'confirm').mockReturnValue(accept)
     const { router } = await mountBatch(false)

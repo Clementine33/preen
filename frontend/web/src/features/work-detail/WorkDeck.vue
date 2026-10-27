@@ -1,14 +1,14 @@
 <script setup lang="ts">
+import type { ContentFileRef, WorkContentFile } from '@/lib/api/types'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { useApiClient } from '@/lib/api/client'
-import { isScrollShape } from '@/features/work-detail/derive'
-import WorkColophon from '@/features/work-detail/WorkColophon.vue'
 import { useMediaQuery, WALL_MOBILE_QUERY } from '@/composables/use-media-query'
 import { useSwitchBurst } from '@/composables/use-motion'
+import { isScrollShape } from '@/features/work-detail/derive'
+import WorkColophon from '@/features/work-detail/WorkColophon.vue'
+import { useApiClient } from '@/lib/api/client'
 import { useWorkDetail } from '@/queries/works'
 import { useLibraryUiStore } from '@/stores/library-ui'
 import { useWorkDetailStore } from '@/stores/work-detail'
-import type { ContentFileRef, WorkContentFile } from '@/lib/api/types'
 
 // The specimen deck (v3): a plate that shrink-wraps the current image's true
 // ratio and never upscales past native width, ghost frames behind it showing
@@ -28,19 +28,28 @@ const file = computed(() => store.currentFile)
 const veiled = computed(() => libraryUi.veil && !store.unveiled && work.value?.nsfw === true)
 
 function refOf(item: WorkContentFile | null): ContentFileRef | null {
-  if (!item || !store.rj || !store.activeCopy) return null
+  if (!item || !store.rj || !store.activeCopy)
+    return null
   return { rj: store.rj, copyId: store.activeCopy.copy_id, relPath: item.rel_path }
 }
 const frontSrc = computed(() => {
   const ref = refOf(file.value)
-  return ref ? api.workFileUrl(ref, file.value?.thumb_v ?? undefined) : ''
+  return ref
+    ? api.workFileUrl(ref, file.value?.thumb_v ?? undefined)
+    : ''
 })
 // Double quotes: encodeURIComponent leaves an apostrophe in a file name as is.
 const frontStyle = computed(() => ({ backgroundImage: `url("${frontSrc.value}")` }))
 
-const mode = computed(() => (store.flipped ? 'REVERSE' : set.value?.cover && store.idx === 0 ? 'PLATE' : 'VIEW'))
+const mode = computed(() => (store.flipped
+  ? 'REVERSE'
+  : set.value?.cover && store.idx === 0
+    ? 'PLATE'
+    : 'VIEW'))
 const count = computed(() =>
-  store.flipped ? 'COLOPHON' : `${String(store.idx + 1).padStart(2, '0')} / ${String(set.value?.files.length ?? 0).padStart(2, '0')}`,
+  store.flipped
+    ? 'COLOPHON'
+    : `${String(store.idx + 1).padStart(2, '0')} / ${String(set.value?.files.length ?? 0).padStart(2, '0')}`,
 )
 
 /** True while READ owns the stage: the deck steps down to a postage stamp (v3). */
@@ -60,10 +69,13 @@ let observer: ResizeObserver | null = null
 
 function layoutPlate(): void {
   const item = file.value
-  if (!item || !slotEl.value) return
+  if (!item || !slotEl.value)
+    return
   // An unmeasured image (null facts, docs/api.md) still gets a plate: a 4:3
   // frame it is contained in, never upscaled past the frame's native guess.
-  const [width, height] = item.width !== null && item.height ? [item.width, item.height] : [1200, 900]
+  const [width, height] = item.width !== null && item.height
+    ? [item.width, item.height]
+    : [1200, 900]
   const rect = slotEl.value.getBoundingClientRect()
   const sw = Math.max(120, rect.width - (isMobile.value ? 72 : 96))
   const sh = Math.max(120, rect.height - 12)
@@ -73,7 +85,8 @@ function layoutPlate(): void {
   if (isScrollShape(width, height)) {
     w = Math.min(sw, 360)
     h = sh
-  } else {
+  }
+  else {
     w = Math.min(sw, sh * ratio, width)
     h = w / ratio
   }
@@ -105,7 +118,8 @@ watch(
   () => [store.set, store.idx] as const,
   async () => {
     note()
-    if (store.flipped || switching.value) return
+    if (store.flipped || switching.value)
+      return
     running.value = false
     entering.value = true
     await nextTick()
@@ -143,9 +157,14 @@ function scheduleThumbs(): void {
   const signal = batch.signal
   const current = set.value
   const ref = refOf(current?.files[0] ?? null)
-  if (!current || !ref || veiled.value) return
+  if (!current || !ref || veiled.value)
+    return
   const queue = current.files
-    .map((item, i) => ({ item, i, key: thumbKey(item) }))
+    .map((item, i) => ({
+      item,
+      i,
+      key: thumbKey(item),
+    }))
     .filter(({ item, key }) => item.thumb_v !== null && !thumbs.value.has(key))
     .sort((a, b) => Math.abs(a.i - store.idx) - Math.abs(b.i - store.idx))
   const height = Math.ceil(THUMB_HEIGHT * (window.devicePixelRatio || 1))
@@ -153,9 +172,11 @@ function scheduleThumbs(): void {
     for (let entry = queue.shift(); entry && !signal.aborted; entry = queue.shift()) {
       try {
         const blob = await api.getWorkThumb({ ...ref, relPath: entry.item.rel_path }, height, entry.item.thumb_v ?? '', signal)
-        if (signal.aborted) return
+        if (signal.aborted)
+          return
         thumbs.value = new Map(thumbs.value).set(entry.key, URL.createObjectURL(blob))
-      } catch {
+      }
+      catch {
         // Aborted, or refused (too large / undecodable): the hatch stays.
       }
     }
@@ -170,14 +191,16 @@ function dropThumbs(): void {
 }
 
 watch(veiled, (now) => {
-  if (!now) scheduleThumbs()
+  if (!now)
+    scheduleThumbs()
 })
 // Another set is another batch: the previous one is aborted, its loaded
 // thumbnails kept for the visit.
 watch(set, () => {
-  const valid = new Set(store.sets.flatMap((entry) => entry.files.map(thumbKey)))
+  const valid = new Set(store.sets.flatMap(entry => entry.files.map(thumbKey)))
   for (const [key, url] of thumbs.value) {
-    if (valid.has(key)) continue
+    if (valid.has(key))
+      continue
     URL.revokeObjectURL(url)
     thumbs.value.delete(key)
   }
@@ -185,8 +208,11 @@ watch(set, () => {
 })
 
 onMounted(() => {
-  observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => layoutPlate())
-  if (slotEl.value && observer) observer.observe(slotEl.value)
+  observer = typeof ResizeObserver === 'undefined'
+    ? null
+    : new ResizeObserver(() => layoutPlate())
+  if (slotEl.value && observer)
+    observer.observe(slotEl.value)
   scheduleThumbs()
 })
 onBeforeUnmount(() => {
@@ -194,7 +220,15 @@ onBeforeUnmount(() => {
   dropThumbs()
 })
 watch(
-  () => [store.rj, store.set, veiled.value, store.flipped, file.value, isMobile.value, store.dock] as const,
+  () => [
+    store.rj,
+    store.set,
+    veiled.value,
+    store.flipped,
+    file.value,
+    isMobile.value,
+    store.dock,
+  ] as const,
   () => layoutPlate(),
 )
 // A new work is a new visit: nothing is pre-loaded.
@@ -206,8 +240,10 @@ watch(
   },
 )
 
-function thumbStyle(item: WorkContentFile): { width: string; backgroundImage?: string } {
-  const ratio = item.width !== null && item.height !== null && item.height > 0 ? item.width / item.height : 1
+function thumbStyle(item: WorkContentFile): { width: string, backgroundImage?: string } {
+  const ratio = item.width !== null && item.height !== null && item.height > 0
+    ? item.width / item.height
+    : 1
   const raw = 40 * ratio
   return {
     width: `${Math.round(Math.max(24, Math.min(110, raw)))}px`,
@@ -216,14 +252,17 @@ function thumbStyle(item: WorkContentFile): { width: string; backgroundImage?: s
       : {}),
   }
 }
-const isCropped = (item: WorkContentFile): boolean => {
-  const ratio = item.width !== null && item.height !== null && item.height > 0 ? item.width / item.height : 1
+function isCropped(item: WorkContentFile): boolean {
+  const ratio = item.width !== null && item.height !== null && item.height > 0
+    ? item.width / item.height
+    : 1
   const raw = 40 * ratio
   return raw !== Math.max(24, Math.min(110, raw))
 }
 
 function openViewer(): void {
-  if (veiled.value || store.flipped) return
+  if (veiled.value || store.flipped)
+    return
   store.openViewer()
 }
 
@@ -237,41 +276,53 @@ const NEXT_ICON = 'M2 0l7 5-7 5z'
       <span class="strip-name lbl">{{ mode }}</span>
       <span v-show="!reading" class="strip-side">
         <span ref="chipsEl" class="chips">
-          <button v-for="(entry, i) in store.sets" :key="entry.path" class="chip" type="button"
+          <button
+            v-for="(entry, i) in store.sets" :key="entry.path" class="chip" type="button"
             :aria-pressed="i === store.set" :title="entry.path || '根目录图片'"
             :aria-label="entry.path ? undefined : `根目录图片，${entry.files.length} 张`"
-            @click="store.showSet(i)"><span class="jp">{{ entry.path ? entry.id : '封面' }}</span>{{ entry.files.length }}</button>
+            @click="store.showSet(i)"
+          ><span class="jp">{{ entry.path ? entry.id : '封面' }}</span>{{ entry.files.length }}</button>
         </span>
         <span class="lbl">{{ count }}</span>
       </span>
     </div>
 
     <div ref="slotEl" class="slot">
-      <div v-if="file" class="plate" :class="{ flipped: store.flipped, 'is-scroll': scrollMode }"
-        :style="{ width: `${plateW}px`, height: `${plateH}px`, boxShadow: ghosts }">
-        <div class="face front" :class="{ enter: entering, run: running, veil: veiled, scroll: scrollMode }"
+      <div
+        v-if="file" class="plate" :class="{ 'flipped': store.flipped, 'is-scroll': scrollMode }"
+        :style="{ width: `${plateW}px`, height: `${plateH}px`, boxShadow: ghosts }"
+      >
+        <div
+          class="face front" :class="{ enter: entering, run: running, veil: veiled, scroll: scrollMode }"
           :style="veiled || scrollMode ? {} : frontStyle"
-          :role="veiled ? 'button' : undefined" :tabindex="veiled ? 0 : undefined" @click="veiled ? store.unveil() : openViewer()">
-          <img v-if="scrollMode && !veiled" :src="frontSrc" :alt="file.name" />
+          :role="veiled ? 'button' : undefined" :tabindex="veiled ? 0 : undefined" @click="veiled ? store.unveil() : openViewer()"
+        >
+          <img v-if="scrollMode && !veiled" :src="frontSrc" :alt="file.name">
         </div>
         <div class="face back"><WorkColophon compact /></div>
-        <div v-if="flipCount > 0" :key="flipCount" class="wipe"></div>
+        <div v-if="flipCount > 0" :key="flipCount" class="wipe" />
         <span class="scroll-tag">SCROLL</span>
-        <i class="tick tl"></i><i class="tick tr"></i><i class="tick bl"></i>
-        <button class="tick br" type="button" title="翻面：奥付" aria-label="翻面：奥付" @click="store.flip()"></button>
+        <i class="tick tl" /><i class="tick tr" /><i class="tick bl" />
+        <button class="tick br" type="button" title="翻面：奥付" aria-label="翻面：奥付" @click="store.flip()" />
         <span class="flip-hint lbl">{{ store.flipped ? 'FRONT' : 'REVERSE' }}</span>
-        <button v-show="!reading && !store.flipped && store.idx > 0" class="btn btn-icon step prev" type="button"
-          aria-label="上一张" @click="store.step(-1)"><svg viewBox="0 0 10 10" aria-hidden="true"><path :d="PREV_ICON" /></svg></button>
-        <button v-show="!reading && !store.flipped && file && store.idx < (set?.files.length ?? 1) - 1"
-          class="btn btn-icon step next" type="button" aria-label="下一张" @click="store.step(1)"><svg viewBox="0 0 10 10" aria-hidden="true"><path :d="NEXT_ICON" /></svg></button>
+        <button
+          v-show="!reading && !store.flipped && store.idx > 0" class="btn btn-icon step prev" type="button"
+          aria-label="上一张" @click="store.step(-1)"
+        ><svg viewBox="0 0 10 10" aria-hidden="true"><path :d="PREV_ICON" /></svg></button>
+        <button
+          v-show="!reading && !store.flipped && file && store.idx < (set?.files.length ?? 1) - 1"
+          class="btn btn-icon step next" type="button" aria-label="下一张" @click="store.step(1)"
+        ><svg viewBox="0 0 10 10" aria-hidden="true"><path :d="NEXT_ICON" /></svg></button>
       </div>
     </div>
 
     <div v-show="!reading" v-if="set && set.files.length >= 2" class="film">
-      <button v-for="(item, i) in set.files" :key="item.rel_path" class="thumb"
+      <button
+        v-for="(item, i) in set.files" :key="item.rel_path" class="thumb"
         :class="{ crop: isCropped(item), pending: !thumbs.has(thumbKey(item)) && !veiled, veiled }" type="button"
         :style="thumbStyle(item)" :aria-current="i === store.idx ? 'true' : undefined" :title="item.name"
-        @click="store.showImg(store.set, i)"></button>
+        @click="store.showImg(store.set, i)"
+      />
     </div>
   </div>
 </template>

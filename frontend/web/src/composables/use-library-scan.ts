@@ -1,15 +1,19 @@
-import { useTaskResultNotice } from './use-task-toast'
+import type { QueryClient } from '@tanstack/vue-query'
 import type { Library, ScanMode } from '@/lib/api/types'
-import { useQueryClient, type QueryClient } from '@tanstack/vue-query'
+import type { ScanOutcome, ScanStatus, ScanTerminal } from '@/stores/scan'
+import { useQueryClient } from '@tanstack/vue-query'
 import { useApiClient } from '@/lib/api/client'
 import { refreshOrRemoveQueries } from '@/queries/cache-sync'
 import { queryKeys } from '@/queries/query-keys'
-import { sweepWorksetCaches } from '@/queries/worksets'
 import { sweepWorkCaches } from '@/queries/works'
-import { useScanStore, type ScanStatus, type ScanTerminal, type ScanOutcome } from '@/stores/scan'
+import { sweepWorksetCaches } from '@/queries/worksets'
+import { useScanStore } from '@/stores/scan'
+import { useTaskResultNotice } from './use-task-toast'
 
 async function refreshLibraries(queryClient: QueryClient): Promise<void> {
-  await queryClient.invalidateQueries({ queryKey: queryKeys.libraries.list() })
+  await queryClient.invalidateQueries({
+    queryKey: queryKeys.libraries.list(),
+  })
 }
 
 async function refreshLibraryDerived(queryClient: QueryClient, libraryId: string): Promise<void> {
@@ -76,25 +80,46 @@ export function useLibraryScan() {
 
   async function start(libraryId: string, mode?: ScanMode): Promise<void> {
     const libraryName = queryClient.getQueryData<Library[]>(queryKeys.libraries.list())
-      ?.find((library) => library.id === libraryId)?.name ?? libraryId
+      ?.find(library => library.id === libraryId)
+      ?.name ?? libraryId
     const outcome = await scan.start(libraryId, api, notify, mode)
     // Refused or superseded requests have no result of their own.
-    if (!outcome) return
+    if (!outcome)
+      return
     await syncAfterScan(queryClient, libraryId, outcome.status, outcome.terminal, outcome.receivedEvent)
 
     function notify({ status, terminal, admissionError }: ScanOutcome) {
-      if (admissionError) return
+      if (admissionError)
+        return
       const localCancel = terminal === 'transport' && status === 'cancelled'
       const unknown = terminal === 'transport' && !localCancel
-      const result = localCancel ? '扫描停止已请求，结果尚未确认'
-        : unknown ? '连接中断，扫描结果尚未确认'
-          : status === 'completed' ? '扫描完成'
-            : status === 'cancelled' ? '扫描已停止' : '扫描失败'
-      const tone = localCancel || unknown ? 'unknown' : status === 'completed' ? 'success' : status === 'cancelled' ? 'stopped' : 'failed'
+      const result = localCancel
+        ? '扫描停止已请求，结果尚未确认'
+        : unknown
+          ? '连接中断，扫描结果尚未确认'
+          : status === 'completed'
+            ? '扫描完成'
+            : status === 'cancelled'
+              ? '扫描已停止'
+              : '扫描失败'
+      const tone = localCancel || unknown
+        ? 'unknown'
+        : status === 'completed'
+          ? 'success'
+          : status === 'cancelled'
+            ? 'stopped'
+            : 'failed'
       notice({
-        libraryId, libraryName, title: `${libraryName} · 扫描`, text: result, tone, target: 'workbench-overview',
+        libraryId,
+        libraryName,
+        title: `${libraryName} · 扫描`,
+        text: result,
+        tone,
+        target: 'workbench-overview',
         // Its own overview shows a settled result, including a cancel still being confirmed.
-        quietOn: status === 'completed' || status === 'cancelled' ? ['workbench-overview', 'overview-files'] : [],
+        quietOn: status === 'completed' || status === 'cancelled'
+          ? ['workbench-overview', 'overview-files']
+          : [],
       })
     }
   }

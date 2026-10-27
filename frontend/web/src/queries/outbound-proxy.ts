@@ -17,6 +17,6 @@ export function useSetOutboundProxy() {
   const client = useQueryClient()
   return useMutation({
     mutationFn: (url: string) => api.putOutboundProxy({ url }),
-    onSuccess: (saved) => client.setQueryData(queryKeys.outboundProxy.detail(), saved),
+    onSuccess: saved => client.setQueryData(queryKeys.outboundProxy.detail(), saved),
   })
 }

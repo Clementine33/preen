@@ -7,18 +7,21 @@ import Sheet from './Sheet.vue'
 afterEach(() => document.body.replaceChildren())
 enableAutoUnmount(afterEach)
 
-describe.each([['Modal', Modal], ['Sheet', Sheet]] as const)('%s accessibility', (_, component) => {
+describe.each([
+  ['Modal', Modal],
+  ['Sheet', Sheet],
+] as const)('%s accessibility', (_, component) => {
   it.each([undefined, 'Dialog instructions'])('labels the dialog with description %s and restores the background on Escape', async (description) => {
     const background = document.body.appendChild(document.createElement('button'))
     background.textContent = 'Background'
     const open = ref(true)
     mount({
       render: () => h(component, {
-        open: open.value,
-        title: 'Dialog title',
+        'open': open.value,
+        'title': 'Dialog title',
         description,
         'onUpdate:open': (value: boolean) => { open.value = value },
-        onClose: () => { open.value = false },
+        'onClose': () => { open.value = false },
       }),
     }, { attachTo: document.body })
     await flushPromises()
@@ -27,7 +30,8 @@ describe.each([['Modal', Modal], ['Sheet', Sheet]] as const)('%s accessibility',
     expect(document.getElementById(dialog.getAttribute('aria-labelledby')!)?.textContent).toBe('Dialog title')
     if (description) {
       expect(document.getElementById(dialog.getAttribute('aria-describedby')!)?.textContent).toBe(description)
-    } else {
+    }
+    else {
       expect(dialog.hasAttribute('aria-describedby')).toBe(false)
     }
     expect(background.getAttribute('aria-hidden')).toBe('true')

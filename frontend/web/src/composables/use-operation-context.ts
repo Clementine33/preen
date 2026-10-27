@@ -1,7 +1,11 @@
-import { computed, ref, watch, type Ref } from 'vue'
+import type { Ref } from 'vue'
+import type { ExecutionComponent, OperationType } from '@/lib/api/types'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
+import { computed, ref, watch } from 'vue'
+import { useWorksetExecution } from '@/composables/use-workset-execution'
+import { useWorksetGeneration } from '@/composables/use-workset-generation'
 import { useApiClient } from '@/lib/api/client'
-import { CONVERSION, type ExecutionComponent, type OperationType } from '@/lib/api/types'
+import { CONVERSION } from '@/lib/api/types'
 import {
   currentRecordQueryOptions,
   executionQueryOptions,
@@ -11,10 +15,8 @@ import {
   saveOperationDraftMutationOptions,
   startGenerationMutationOptions,
   syncAfterDraftConflict,
+  worksetDetailQueryOptions,
 } from '@/queries/worksets'
-import { worksetDetailQueryOptions } from '@/queries/worksets'
-import { useWorksetGeneration } from '@/composables/use-workset-generation'
-import { useWorksetExecution } from '@/composables/use-workset-execution'
 import { useWorksetEditorStore } from '@/stores/workset-editor'
 
 /** How many components one page of a large run reads. */
@@ -78,21 +80,25 @@ export function useOperationContext(
   // Register only active sessions discovered on this visited operation;
   // observation then continues independently of this context's mount.
   watch(() => [worksetId.value, operationView.value?.active_generation?.generation_id] as const, ([id, generationId]) => {
-    if (id && generationId) generation.attach(id, operation, generationId)
+    if (id && generationId)
+      generation.attach(id, operation, generationId)
   }, { immediate: true })
 
   watch(() => [worksetId.value, operationView.value?.active_execution?.execution_id] as const, ([id, executionId]) => {
-    if (id && executionId) execution.attach(id, operation, executionId)
+    if (id && executionId)
+      execution.attach(id, operation, executionId)
   }, { immediate: true })
 
   // The session worth showing: the one currently running for this operation,
   // or the one that ran the revision in view (a revision executes at most
   // once, so its ref is final).
-  const executionRef = computed<{ id: string; active: boolean } | null>(() => {
+  const executionRef = computed<{ id: string, active: boolean } | null>(() => {
     const op = operationQuery.data.value
-    if (op?.active_execution) return { id: op.active_execution.execution_id, active: true }
+    if (op?.active_execution)
+      return { id: op.active_execution.execution_id, active: true }
     const rev = revisionQuery.data.value
-    if (rev?.execution) return { id: rev.execution.execution_id, active: false }
+    if (rev?.execution)
+      return { id: rev.execution.execution_id, active: false }
     return null
   })
   const executionQuery = useQuery(
@@ -115,17 +121,26 @@ export function useOperationContext(
   const executionView = computed(() => {
     const store = execution.store
     const detail = executionQuery.data.value
-    const streamed = store.worksetId === worksetId.value && store.operation === operation && store.executionId === executionRef.value?.id ? store.view : null
-    const base = store.status === 'streaming' && streamed ? streamed : (detail ?? streamed)
-    if (!base) return base
-    const known = new Set(base.components.map((component) => component.component_index))
+    const streamed = store.worksetId === worksetId.value && store.operation === operation && store.executionId === executionRef.value?.id
+      ? store.view
+      : null
+    const base = store.status === 'streaming' && streamed
+      ? streamed
+      : (detail ?? streamed)
+    if (!base)
+      return base
+    const known = new Set(base.components.map(component => component.component_index))
     const missing = extraComponents.value.filter(
-      (component) => !known.has(component.component_index),
+      component => !known.has(component.component_index),
     )
-    if (missing.length === 0) return base
+    if (missing.length === 0)
+      return base
     return {
       ...base,
-      components: [...base.components, ...missing].sort(
+      components: [
+        ...base.components,
+        ...missing,
+      ].sort(
         (a, b) => a.component_index - b.component_index,
       ),
     }
@@ -142,7 +157,8 @@ export function useOperationContext(
    */
   async function loadMoreComponents() {
     const view = executionView.value
-    if (!view || loadingMore.value) return
+    if (!view || loadingMore.value)
+      return
     const from = view.components.reduce(
       (last, component) => Math.max(last, component.component_index + 1),
       0,
@@ -153,8 +169,12 @@ export function useOperationContext(
         from,
         limit: EXECUTION_COMPONENT_PAGE,
       })
-      extraComponents.value = [...extraComponents.value, ...page.components]
-    } finally {
+      extraComponents.value = [
+        ...extraComponents.value,
+        ...page.components,
+      ]
+    }
+    finally {
       loadingMore.value = false
     }
   }
@@ -169,7 +189,8 @@ export function useOperationContext(
   // while a genuinely moved document under unapplied edits stays a conflict the
   // save reports.
   watch(draft, (server) => {
-    if (!server || !worksetId.value) return
+    if (!server || !worksetId.value)
+      return
     editor.syncWithServer({ worksetId: worksetId.value, operation }, server)
   })
 
@@ -177,7 +198,8 @@ export function useOperationContext(
   async function applySession(): Promise<boolean> {
     const session = editor.session
     const document = editor.pendingDocument
-    if (!session || !document) return false
+    if (!session || !document)
+      return false
     editor.startApplying()
     try {
       const view = await saveMutation.mutateAsync({
@@ -188,12 +210,14 @@ export function useOperationContext(
       })
       editor.markApplied(document, view.version)
       return true
-    } catch (error) {
-      const failure = error as { status?: number; code?: string; message?: string }
+    }
+    catch (error) {
+      const failure = error as { status?: number, code?: string, message?: string }
       if (failure.status === 409 && failure.code === 'VERSION_CONFLICT') {
         editor.markStale()
         await syncAfterDraftConflict(queryClient, session.worksetId, session.operation)
-      } else {
+      }
+      else {
         editor.failSave(failure)
       }
       return false
@@ -202,7 +226,8 @@ export function useOperationContext(
 
   async function startGeneration(): Promise<void> {
     const view = operationView.value
-    if (!worksetId.value || !view) return
+    if (!worksetId.value || !view)
+      return
     await generation.start({
       worksetId: worksetId.value,
       operation,
@@ -212,8 +237,19 @@ export function useOperationContext(
   }
 
   return {
-    workspace: { workset, operation: operationView, draft, revision },
-    queries: { worksetQuery, operationQuery, draftQuery, revisionQuery, executionQuery },
+    workspace: {
+      workset,
+      operation: operationView,
+      draft,
+      revision,
+    },
+    queries: {
+      worksetQuery,
+      operationQuery,
+      draftQuery,
+      revisionQuery,
+      executionQuery,
+    },
     mutations: { saveMutation, startMutation },
     generation,
     execution,

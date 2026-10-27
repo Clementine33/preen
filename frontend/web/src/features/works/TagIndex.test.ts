@@ -1,11 +1,12 @@
+import type { TagSelection } from './TagIndex.vue'
+import type { TagFacets } from '@/lib/api/types'
 import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, ref } from 'vue'
 import { apiClientKey } from '@/lib/api/client'
-import type { TagFacets } from '@/lib/api/types'
 import { apiStub } from '@/test/api-stub'
 import { installTestQueryPlugin } from '@/test/query-client'
-import TagIndex, { type TagSelection } from './TagIndex.vue'
+import TagIndex from './TagIndex.vue'
 
 /**
  * The tag index's contracts: source and user tags merge by name,
@@ -30,16 +31,20 @@ async function mountIndex(initial: TagSelection = { groups: [], mode: 'all' }, l
   const selection = ref<TagSelection>(initial)
   const Host = defineComponent(() => () =>
     h(TagIndex, {
-      scope: {},
-      modelValue: selection.value,
+      'scope': {},
+      'modelValue': selection.value,
       'onUpdate:modelValue': (value: TagSelection) => (selection.value = value),
     }),
   )
   const wrapper = mount(Host, {
     attachTo: document.body.appendChild(document.createElement('div')),
     global: {
-      plugins: [installTestQueryPlugin()],
-      provide: { [apiClientKey as symbol]: apiStub({ listTagFacets } as never) },
+      plugins: [
+        installTestQueryPlugin(),
+      ],
+      provide: {
+        [apiClientKey as symbol]: apiStub({ listTagFacets } as never),
+      },
     },
   })
   await flushPromises()
@@ -49,25 +54,38 @@ async function mountIndex(initial: TagSelection = { groups: [], mode: 'all' }, l
 }
 
 const dialog = () => document.querySelector<HTMLElement>('[role="dialog"]')
-const sectionChips = (title: string) =>
-  [...document.querySelectorAll<HTMLElement>('.ti-section')]
-    .find((section) => section.querySelector('.strip-name')?.textContent === title)!
+function sectionChips(title: string) {
+  return [
+    ...document.querySelectorAll<HTMLElement>('.ti-section'),
+  ]
+    .find(section => section.querySelector('.strip-name')?.textContent === title)!
     .querySelectorAll<HTMLButtonElement>('.ti-chips .chip')
-const chip = (title: string, name: string) =>
-  [...sectionChips(title)].find((button) => button.firstChild?.textContent === name)!
-const button = (label: string) =>
-  [...document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')].find((b) => b.textContent === label)!
+}
+function chip(title: string, name: string) {
+  return [
+    ...sectionChips(title),
+  ].find(button => button.firstChild?.textContent === name)!
+}
+function button(label: string) {
+  return [
+    ...document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button'),
+  ].find(b => b.textContent === label)!
+}
 
 afterEach(() => {
   document.body.innerHTML = ''
 })
 
-describe('TagIndex', () => {
+describe('tagIndex', () => {
   it('merges the vocabularies by name and orders each section by its own count', async () => {
     await mountIndex()
 
-    expect([...sectionChips('作品标签')].map((b) => b.textContent)).toEqual(['ASMR9', '掏耳3', '治愈1'])
-    expect([...sectionChips('我的标签')].map((b) => b.textContent)).toEqual(['mine4', 'ASMR1'])
+    expect([
+      ...sectionChips('作品标签'),
+    ].map(b => b.textContent)).toEqual(['ASMR9', '掏耳3', '治愈1'])
+    expect([
+      ...sectionChips('我的标签'),
+    ].map(b => b.textContent)).toEqual(['mine4', 'ASMR1'])
 
     // The same name is one entry: picking it in one section picks it in both.
     chip('作品标签', 'ASMR').click()
@@ -87,12 +105,23 @@ describe('TagIndex', () => {
 
     button('APPLY').click()
     await flushPromises()
-    expect(selection.value).toEqual({ groups: [['s:s-asmr', 'u:u-asmr'], ['s:s-ear']], mode: 'any' })
+    expect(selection.value).toEqual({
+      groups: [
+        ['s:s-asmr', 'u:u-asmr'],
+        ['s:s-ear'],
+      ],
+      mode: 'any',
+    })
     expect(dialog()).toBeNull()
   })
 
   it('discards staged picks when closed without APPLY', async () => {
-    const initial: TagSelection = { groups: [['u:u-mine']], mode: 'all' }
+    const initial: TagSelection = {
+      groups: [
+        ['u:u-mine'],
+      ],
+      mode: 'all',
+    }
     const { wrapper, selection } = await mountIndex(initial)
 
     // Opening starts from the applied selection.
@@ -119,27 +148,43 @@ describe('TagIndex', () => {
     find.dispatchEvent(new Event('input'))
     await flushPromises()
 
-    expect([...sectionChips('作品标签')].map((b) => b.firstChild?.textContent)).toEqual(['ASMR'])
-    expect([...sectionChips('我的标签')].map((b) => b.firstChild?.textContent)).toEqual(['ASMR'])
+    expect([
+      ...sectionChips('作品标签'),
+    ].map(b => b.firstChild?.textContent)).toEqual(['ASMR'])
+    expect([
+      ...sectionChips('我的标签'),
+    ].map(b => b.firstChild?.textContent)).toEqual(['ASMR'])
   })
 
   it('keeps a pick the scoped lists no longer carry, named from the library and removable', async () => {
     // The wall's other filters leave no work with 治愈 in scope; the library has it.
-    const listTagFacets = vi.fn((scope: { library?: string; voice_actor?: string }) =>
-      Promise.resolve(scope.voice_actor ? { source_tags: [], user_tags: [] } : FACETS))
-    const selection = ref<TagSelection>({ groups: [['s:s-rare'], ['s:s-gone']], mode: 'all' })
+    const listTagFacets = vi.fn((scope: { library?: string, voice_actor?: string }) =>
+      Promise.resolve(scope.voice_actor
+        ? { source_tags: [], user_tags: [] }
+        : FACETS))
+    const selection = ref<TagSelection>({
+      groups: [
+        ['s:s-rare'],
+        ['s:s-gone'],
+      ],
+      mode: 'all',
+    })
     const Host = defineComponent(() => () =>
       h(TagIndex, {
-        scope: { library: 'lib-a', voice_actor: 'va-1' },
-        modelValue: selection.value,
+        'scope': { library: 'lib-a', voice_actor: 'va-1' },
+        'modelValue': selection.value,
         'onUpdate:modelValue': (value: TagSelection) => (selection.value = value),
       }),
     )
     const wrapper = mount(Host, {
       attachTo: document.body.appendChild(document.createElement('div')),
       global: {
-        plugins: [installTestQueryPlugin()],
-        provide: { [apiClientKey as symbol]: apiStub({ listTagFacets } as never) },
+        plugins: [
+          installTestQueryPlugin(),
+        ],
+        provide: {
+          [apiClientKey as symbol]: apiStub({ listTagFacets } as never),
+        },
       },
     })
     await flushPromises()
@@ -147,12 +192,17 @@ describe('TagIndex', () => {
     await wrapper.get('.ti-trigger').trigger('click')
     await flushPromises()
 
-    const picked = () => [...document.querySelectorAll<HTMLButtonElement>('.ti-picked .chip')]
-    expect(picked().map((b) => b.firstChild?.textContent)).toEqual(['治愈', '未知标签'])
+    const picked = () => [
+      ...document.querySelectorAll<HTMLButtonElement>('.ti-picked .chip'),
+    ]
+    expect(picked().map(b => b.firstChild?.textContent)).toEqual(['治愈', '未知标签'])
     // APPLY without touching them keeps both; removing one drops only that one.
     button('APPLY').click()
     await flushPromises()
-    expect(selection.value.groups).toEqual([['s:s-rare'], ['s:s-gone']])
+    expect(selection.value.groups).toEqual([
+      ['s:s-rare'],
+      ['s:s-gone'],
+    ])
 
     await wrapper.get('.ti-trigger').trigger('click')
     await flushPromises()
@@ -160,6 +210,8 @@ describe('TagIndex', () => {
     await flushPromises()
     button('APPLY').click()
     await flushPromises()
-    expect(selection.value.groups).toEqual([['s:s-rare']])
+    expect(selection.value.groups).toEqual([
+      ['s:s-rare'],
+    ])
   })
 })

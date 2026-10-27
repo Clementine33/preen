@@ -3,11 +3,11 @@ import { computed, watch } from 'vue'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import OverrideEditor from '@/features/worksets/OverrideEditor.vue'
 import { useCurrentConversion } from '@/composables/use-operation-context'
+import { intentUnitCount } from '@/features/worksets/draft-intents'
+import OverrideEditor from '@/features/worksets/OverrideEditor.vue'
 import { useWorksetEditorStore } from '@/stores/workset-editor'
 import { useWorksetUiStore } from '@/stores/workset-ui'
-import { intentUnitCount } from '@/features/worksets/draft-intents'
 
 /**
  * Fixed-name batch editing. The name list is frozen when the entry point is
@@ -29,7 +29,7 @@ const listRoute = computed(() => ({
 const memberIds = computed(() => ui.batchMemberIds)
 const members = computed(() => {
   const all = workspace.workset.value?.members ?? []
-  return memberIds.value.map((id) => all.find((m) => m.member_id === id)).filter((m) => m !== undefined)
+  return memberIds.value.map(id => all.find(m => m.member_id === id)).filter(m => m !== undefined)
 })
 
 /** Opens the batch session against the draft the page read. */
@@ -37,7 +37,10 @@ function openSession(): boolean {
   return editor.open({
     worksetId: worksetId.value as string,
     operation: 'conversion',
-    target: { kind: 'batch', memberIds: [...memberIds.value] },
+    target: {
+      kind: 'batch',
+      memberIds: [...memberIds.value],
+    },
     baseVersion: draft.value!.version,
     baseDocument: draft.value!.document,
   })
@@ -52,10 +55,13 @@ watch(
       void router.replace(listRoute.value)
       return
     }
-    if (!worksetId.value || !draft.value) return
+    if (!worksetId.value || !draft.value)
+      return
     const current = editor.session
-    if (current && current.worksetId === worksetId.value && current.target.kind === 'batch') return
-    if (openSession()) return
+    if (current && current.worksetId === worksetId.value && current.target.kind === 'batch')
+      return
+    if (openSession())
+      return
     // Another target holds unapplied edits: ask before dropping them;
     // refusing keeps them and returns to the list, where 继续编辑 resumes them.
     if (!window.confirm('另一个范围还有未应用的修改，放弃它才能批量修改这些文件夹。放弃吗？')) {
@@ -70,15 +76,19 @@ watch(
 
 const dirty = computed(() => editor.isDirty)
 const session = computed(() => editor.session)
-const editedUnits = computed(() => (session.value ? intentUnitCount(session.value.intent) : 0))
+const editedUnits = computed(() => (session.value
+  ? intentUnitCount(session.value.intent)
+  : 0))
 const excludedTargets = computed(() => {
   const document = draft.value?.document
-  if (!document) return []
-  return members.value.filter((m) => document.members.find((r) => r.member_id === m.member_id)?.excluded)
+  if (!document)
+    return []
+  return members.value.filter(m => document.members.find(r => r.member_id === m.member_id)?.excluded)
 })
 
 onBeforeRouteLeave(() => {
-  if (!dirty.value || session.value?.worksetId !== worksetId.value || session.value.target.kind !== 'batch') return true
+  if (!dirty.value || session.value?.worksetId !== worksetId.value || session.value.target.kind !== 'batch')
+    return true
   return window.confirm('有未应用的批量修改，确定放弃吗？')
 })
 
@@ -92,7 +102,8 @@ async function apply() {
 }
 
 function cancel() {
-  if (dirty.value && !window.confirm('放弃未应用的修改？')) return
+  if (dirty.value && !window.confirm('放弃未应用的修改？'))
+    return
   editor.close()
   ui.clearBatchList()
   void router.push(listRoute.value)

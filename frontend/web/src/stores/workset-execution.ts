@@ -1,7 +1,3 @@
-import { defineStore } from 'pinia'
-import { markRaw } from 'vue'
-import { ApiError } from '@/lib/api/client'
-import { errorDetails } from '@/lib/api/error'
 import type {
   ApiClientContract,
   ExecutionComponent,
@@ -9,6 +5,10 @@ import type {
   ExecutionView,
   OperationType,
 } from '@/lib/api/types'
+import { defineStore } from 'pinia'
+import { markRaw } from 'vue'
+import { ApiError } from '@/lib/api/client'
+import { errorDetails } from '@/lib/api/error'
 
 /**
  * Replaces one component's entry, or inserts it in component order when the
@@ -20,27 +20,28 @@ function mergeComponent(
   components: ExecutionComponent[],
   entry: ExecutionComponent,
 ): ExecutionComponent[] {
-  const at = components.findIndex((component) => component.component_index === entry.component_index)
+  const at = components.findIndex(component => component.component_index === entry.component_index)
   if (at >= 0) {
     const merged = components.slice()
     merged[at] = entry
     return merged
   }
   const next = components.slice()
-  const after = next.findIndex((component) => component.component_index > entry.component_index)
-  if (after < 0) next.push(entry)
+  const after = next.findIndex(component => component.component_index > entry.component_index)
+  if (after < 0)
+    next.push(entry)
   else next.splice(after, 0, entry)
   return next
 }
 
-export type ExecutionRunStatus =
-  | 'idle'
-  | 'streaming'
-  | 'succeeded'
-  | 'failed'
-  | 'canceled'
-  | 'interrupted'
-  | 'error'
+export type ExecutionRunStatus
+  = | 'idle'
+    | 'streaming'
+    | 'succeeded'
+    | 'failed'
+    | 'canceled'
+    | 'interrupted'
+    | 'error'
 
 // How the terminal was reached. `event` means the backend confirmed the
 // outcome over SSE (files were or were not written); `transport` means the
@@ -82,7 +83,7 @@ export const useWorksetExecutionStore = defineStore('workset-execution', {
   }),
   getters: {
     /** Still waiting for the server to reach a terminal status. */
-    canceling: (state) => state.cancelRequested && state.status === 'streaming',
+    canceling: state => state.cancelRequested && state.status === 'streaming',
   },
   actions: {
     /**
@@ -99,7 +100,8 @@ export const useWorksetExecutionStore = defineStore('workset-execution', {
       client: ApiClientContract,
       observe?: (event: ExecutionEvent) => void,
     ): Promise<boolean> {
-      if (this.status === 'streaming') return false
+      if (this.status === 'streaming')
+        return false
       const controller = markRaw(new AbortController())
       this.controller = controller
       this.status = 'streaming'
@@ -116,13 +118,17 @@ export const useWorksetExecutionStore = defineStore('workset-execution', {
         for await (const event of client.streamExecutionEvents(worksetId, operation, executionId, controller.signal)) {
           // A reset() or a newer session superseded this stream — never let
           // stale events overwrite the current state.
-          if (this.controller !== controller) return true
+          if (this.controller !== controller)
+            return true
           this.applyEvent(event as ExecutionEvent)
           observe?.(event as ExecutionEvent)
-          if (this.controller !== controller) return true
-          if (this.status !== 'streaming') break // terminal event applied
+          if (this.controller !== controller)
+            return true
+          if (this.status !== 'streaming')
+            break // terminal event applied
         }
-        if (this.controller !== controller) return true
+        if (this.controller !== controller)
+          return true
         if (this.status === 'streaming') {
           // Stream ended without a terminal event: the backend outcome is
           // unknown (it may have completed just after the last event).
@@ -131,20 +137,27 @@ export const useWorksetExecutionStore = defineStore('workset-execution', {
           this.errorCode = 'STREAM_ENDED'
           this.errorMessage = '执行连接提前结束，请刷新查看结果。'
         }
-      } catch (error) {
-        if (this.controller !== controller) return true
+      }
+      catch (error) {
+        if (this.controller !== controller)
+          return true
         this.terminal = 'transport'
         if (controller.signal.aborted || (error instanceof DOMException && error.name === 'AbortError')) {
           this.status = 'error'
           this.errorCode = 'STREAM_ABORTED'
           this.errorMessage = '执行进度连接已断开。'
-        } else {
+        }
+        else {
           this.status = 'error'
-          this.errorCode = error instanceof ApiError ? error.code : 'STREAM_ERROR'
+          this.errorCode = error instanceof ApiError
+            ? error.code
+            : 'STREAM_ERROR'
           this.errorMessage = errorDetails(error, '执行进度连接失败。').message
         }
-      } finally {
-        if (this.controller === controller) this.controller = null
+      }
+      finally {
+        if (this.controller === controller)
+          this.controller = null
       }
       return true
     },
@@ -162,7 +175,10 @@ export const useWorksetExecutionStore = defineStore('workset-execution', {
           // list does not know yet (a page the client never fetched) is inserted
           // in component order.
           if (this.view) {
-            this.view = { ...this.view, components: mergeComponent(this.view.components, event.data) }
+            this.view = {
+              ...this.view,
+              components: mergeComponent(this.view.components, event.data),
+            }
           }
           break
         }
@@ -187,7 +203,8 @@ export const useWorksetExecutionStore = defineStore('workset-execution', {
           this.status = 'succeeded'
           this.terminal = 'event'
           this.cancelRequested = false
-          if (this.view) this.view = { ...this.view, status: 'succeeded' }
+          if (this.view)
+            this.view = { ...this.view, status: 'succeeded' }
           break
         }
         case 'failed': {
@@ -210,14 +227,16 @@ export const useWorksetExecutionStore = defineStore('workset-execution', {
           this.status = 'canceled'
           this.terminal = 'event'
           this.cancelRequested = false
-          if (this.view) this.view = { ...this.view, status: 'canceled' }
+          if (this.view)
+            this.view = { ...this.view, status: 'canceled' }
           break
         }
         case 'interrupted': {
           this.status = 'interrupted'
           this.terminal = 'event'
           this.cancelRequested = false
-          if (this.view) this.view = { ...this.view, status: 'interrupted' }
+          if (this.view)
+            this.view = { ...this.view, status: 'interrupted' }
           break
         }
         case 'error': {

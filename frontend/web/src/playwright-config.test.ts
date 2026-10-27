@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-describe('Playwright stack configuration', () => {
+describe('playwright stack configuration', () => {
   afterEach(() => {
     vi.unstubAllEnvs()
     vi.resetModules()

@@ -1,19 +1,27 @@
+import type { KeyId } from './use-keymap'
 import { enableAutoUnmount, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h } from 'vue'
 import { usePlayerStore } from '@/stores/player'
 import { mountPlayerKeys } from '@/test/player-keys'
-import { useKeymap, type KeyId } from './use-keymap'
+import { useKeymap } from './use-keymap'
 
 enableAutoUnmount(afterEach)
 
 /** Mounts a component registering the given handlers, the way a page does. */
 function register(handlers: Parameters<typeof useKeymap>[0], when?: () => boolean) {
-  return mount(defineComponent({ setup: () => (useKeymap(handlers, when), () => h('div')) }))
+  return mount(defineComponent({
+    setup: () => (useKeymap(handlers, when), () => h('div')),
+  }))
 }
 function press(key: string, init: KeyboardEventInit = {}, target: EventTarget = window): KeyboardEvent {
-  const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...init })
+  const event = new KeyboardEvent('keydown', {
+    key,
+    bubbles: true,
+    cancelable: true,
+    ...init,
+  })
   target.dispatchEvent(event)
   return event
 }
@@ -22,8 +30,12 @@ describe('keymap dispatcher', () => {
   it('installs one window listener while anything is registered', () => {
     const add = vi.spyOn(window, 'addEventListener')
     const remove = vi.spyOn(window, 'removeEventListener')
-    const a = register({ 'wall.play': () => {} })
-    const b = register({ 'detail.flip': () => {} })
+    const a = register({
+      'wall.play': () => {},
+    })
+    const b = register({
+      'detail.flip': () => {},
+    })
     expect(add.mock.calls.filter(([type]) => type === 'keydown')).toHaveLength(1)
     a.unmount()
     expect(remove).not.toHaveBeenCalled()
@@ -115,7 +127,10 @@ describe('keymap dispatcher', () => {
 
   it('throws in development when a layer binds one key twice', () => {
     // wall.move and detail.cursor share the arrows, and both are page keys.
-    const handlers: Partial<Record<KeyId, () => void>> = { 'wall.move': () => {}, 'detail.cursor': () => {} }
+    const handlers: Partial<Record<KeyId, () => void>> = {
+      'wall.move': () => {},
+      'detail.cursor': () => {},
+    }
     vi.spyOn(console, 'warn').mockImplementation(() => {})
     expect(() => register(handlers)).toThrow(/ArrowUp/)
     vi.restoreAllMocks()
@@ -128,7 +143,11 @@ describe('player keys', () => {
   })
   const load = () => {
     const player = usePlayerStore()
-    player.play('RJ01000001', [{ title: 'a' }, { title: 'b' }, { title: 'c' }])
+    player.play('RJ01000001', [
+      { title: 'a' },
+      { title: 'b' },
+      { title: 'c' },
+    ])
     return player
   }
 
@@ -202,16 +221,25 @@ describe('media session', () => {
   it('mirrors the track and answers the system handlers', () => {
     setActivePinia(createPinia())
     const handlers: Record<string, (details: MediaSessionActionDetails) => void> = {}
-    const session = { metadata: null as unknown, playbackState: 'none', setActionHandler: (action: string, fn: never) => (handlers[action] = fn) }
+    const session = {
+      metadata: null as unknown,
+      playbackState: 'none',
+      setActionHandler: (action: string, fn: never) => (handlers[action] = fn),
+    }
     Object.defineProperty(navigator, 'mediaSession', { value: session, configurable: true })
     vi.stubGlobal('MediaMetadata', class { init: object; constructor(init: object) { this.init = init } })
     mountPlayerKeys()
     const player = usePlayerStore()
     expect(session.metadata).toBeNull()
 
-    player.play('RJ01000001', [{ title: 'a' }, { title: 'b' }])
+    player.play('RJ01000001', [
+      { title: 'a' },
+      { title: 'b' },
+    ])
     return Promise.resolve().then(() => {
-      expect(session.metadata).toMatchObject({ init: { title: 'a', album: 'RJ01000001' } })
+      expect(session.metadata).toMatchObject({
+        init: { title: 'a', album: 'RJ01000001' },
+      })
       expect(session.playbackState).toBe('playing')
       handlers.pause({ action: 'pause' })
       expect(player.paused).toBe(true)

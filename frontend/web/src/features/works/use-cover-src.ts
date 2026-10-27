@@ -1,6 +1,7 @@
-import { computed, inject, ref, toValue, type MaybeRefOrGetter } from 'vue'
-import { apiClientKey } from '@/lib/api/client'
+import type { MaybeRefOrGetter } from 'vue'
 import type { LocalCover } from '@/lib/api/types'
+import { computed, inject, ref, toValue } from 'vue'
+import { apiClientKey } from '@/lib/api/client'
 import { coverEpoch } from '@/queries/cover-epoch'
 
 interface CoverSource {
@@ -22,18 +23,25 @@ export function useCoverSrc(source: MaybeRefOrGetter<CoverSource | null>) {
   const failures = ref(new Map<string, number>())
   const local = computed(() => {
     const s = toValue(source)
-    if (!s?.local || !api) return null
+    if (!s?.local || !api)
+      return null
     const { copy_id: copyId, rel_path: relPath, version } = s.local
     return api.workFileUrl({ rj: s.rj, copyId, relPath }, version)
   })
   const src = computed(() => {
     const url = local.value
-    if (url !== null && failures.value.get(url) !== coverEpoch.value) return url
+    if (url !== null && failures.value.get(url) !== coverEpoch.value)
+      return url
     return toValue(source)?.remote ?? null
   })
   /** Report that `url` did not load; only the local address is tracked. */
   function failed(url: string): void {
-    if (url === local.value) failures.value = new Map(failures.value).set(url, coverEpoch.value)
+    if (url === local.value)
+      failures.value = new Map(failures.value).set(url, coverEpoch.value)
   }
-  return { src, failed, isLocal: (url: string | null) => url !== null && url === local.value }
+  return {
+    src,
+    failed,
+    isLocal: (url: string | null) => url !== null && url === local.value,
+  }
 }

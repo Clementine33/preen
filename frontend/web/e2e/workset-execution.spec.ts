@@ -1,8 +1,9 @@
-import { expect, test, type Page } from '@playwright/test'
+import type { Page } from '@playwright/test'
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, rmSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { expect, test } from '@playwright/test'
 
 /**
  * UI execution smoke against real media: start a revision, read its live
@@ -36,17 +37,61 @@ function encodeAlbum(root: string, name: string, opts: { m4a?: boolean } = {}): 
   const dir = path.join(root, name)
   mkdirSync(dir, { recursive: true })
   const wav = path.join(dir, '00.wav')
-  run('ffmpeg', ['-nostdin', '-v', 'error', '-y', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=6', '-c:a', 'pcm_s16le', wav])
-  run('ffmpeg', ['-nostdin', '-v', 'error', '-y', '-i', wav, '-b:a', '128k', path.join(dir, '00.mp3')])
+  run('ffmpeg', [
+    '-nostdin',
+    '-v',
+    'error',
+    '-y',
+    '-f',
+    'lavfi',
+    '-i',
+    'sine=frequency=440:duration=6',
+    '-c:a',
+    'pcm_s16le',
+    wav,
+  ])
+  run('ffmpeg', [
+    '-nostdin',
+    '-v',
+    'error',
+    '-y',
+    '-i',
+    wav,
+    '-b:a',
+    '128k',
+    path.join(dir, '00.mp3'),
+  ])
   if (opts.m4a) {
-    run('ffmpeg', ['-nostdin', '-v', 'error', '-y', '-i', wav, '-c:a', 'aac', '-b:a', '128k', path.join(dir, '00.m4a')])
+    run('ffmpeg', [
+      '-nostdin',
+      '-v',
+      'error',
+      '-y',
+      '-i',
+      wav,
+      '-c:a',
+      'aac',
+      '-b:a',
+      '128k',
+      path.join(dir, '00.m4a'),
+    ])
   }
   return dir
 }
 
 function mp3Bitrate(file: string): number {
   // ffprobe takes no -nostdin here (unlike ffmpeg); the Go e2e probes the same way.
-  const raw = run('ffprobe', ['-v', 'error', '-select_streams', 'a:0', '-show_entries', 'stream=bit_rate', '-of', 'json', file])
+  const raw = run('ffprobe', [
+    '-v',
+    'error',
+    '-select_streams',
+    'a:0',
+    '-show_entries',
+    'stream=bit_rate',
+    '-of',
+    'json',
+    file,
+  ])
   const parsed = JSON.parse(raw) as { streams: Array<{ bit_rate: string }> }
   return Number(parsed.streams[0]?.bit_rate ?? 0)
 }
@@ -56,14 +101,17 @@ async function addLibraryAndScan(page: Page, root: string, name: string): Promis
   const emptyState = page.getByTestId('empty-add-library')
   if (await emptyState.isVisible().catch(() => false)) {
     await emptyState.click()
-  } else {
+  }
+  else {
     await page.getByRole('button', { name: '添加媒体库' }).first().click()
   }
   await page.locator('#library-name').fill(name)
   await page.locator('#library-root').fill(root)
   await page.getByRole('button', { name: '保存' }).click()
   // Entering the library opens its workbench, where it is scanned.
-  await page.getByRole('main').getByRole('link', { name: new RegExp(name) }).first().click()
+  await page.getByRole('main').getByRole('link', {
+    name: new RegExp(name),
+  }).first().click()
   await expect(page).toHaveURL(/\/worksets\/[^/]+$/)
   await page.getByTestId('scan-button').click()
   await expect(page.getByText('扫描完成')).toBeVisible({ timeout: 60_000 })
@@ -72,7 +120,7 @@ async function addLibraryAndScan(page: Page, root: string, name: string): Promis
 /** Wait for the draft write itself; applying temporarily disables the button too. */
 async function applyCommonSettings(page: Page): Promise<void> {
   const [response] = await Promise.all([
-    page.waitForResponse((response) => response.request().method() === 'PUT' && response.url().endsWith('/tasks/conversion/settings')),
+    page.waitForResponse(response => response.request().method() === 'PUT' && response.url().endsWith('/tasks/conversion/settings')),
     page.getByTestId('settings-apply').click(),
   ])
   expect(response.ok()).toBe(true)
@@ -88,11 +136,13 @@ async function createWorksetForAllFolders(page: Page): Promise<void> {
   await page.getByTestId('nav-conversion-settings').click()
   await expect(page.getByTestId('common-settings-form')).toBeVisible()
   const restore = page.getByTestId('settings-restore-defaults')
-  if (await restore.isEnabled()) await restore.click()
+  if (await restore.isEnabled())
+    await restore.click()
   // This report scenario explicitly retains WAV to exercise the kept-file row.
   await page.getByTestId('common-unmatched-lossless').getByRole('button', { name: 'WAV', exact: true }).click()
   await page.getByTestId('common-settings-form').getByText('软删除', { exact: true }).click()
-  if (await page.getByTestId('settings-apply').isVisible()) await applyCommonSettings(page)
+  if (await page.getByTestId('settings-apply').isVisible())
+    await applyCommonSettings(page)
   await expect(page.getByTestId('settings-apply-bar')).toBeHidden()
   await page.getByTestId('nav-conversion').click()
 }
@@ -148,5 +198,4 @@ test.describe('workset execution', () => {
     await expect(executeAgain).toBeDisabled()
     await expect(executeAgain).toHaveAttribute('title', /已执行/)
   })
-
 })

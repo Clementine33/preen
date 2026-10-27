@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { sampleWorkContent } from '@/test/work-content-fixture'
 import { findFile } from '@/test/work-fixture'
 import { usePlayerStore } from './player'
@@ -164,7 +164,7 @@ describe('work-detail store', () => {
 
   it('plays the chosen format file by its address, with the scanned length', () => {
     const store = useWorkDetailStore()
-    store.bind(RJ, sampleWorkContent(RJ), (ref) => `/files/${ref.copyId}/${ref.relPath}`)
+    store.bind(RJ, sampleWorkContent(RJ), ref => `/files/${ref.copyId}/${ref.relPath}`)
     const player = usePlayerStore()
     const playing = () => player.queue[player.trackIndex].source?.src
 
@@ -177,8 +177,8 @@ describe('work-detail store', () => {
     expect(playing()).toBe('/files/copy-a/本編/mp3/01_導入 ―縁側にて―.mp3')
     expect(player.format).toBe('MP3')
     // Only the tracks that exist in MP3 queue, so next never leaves MP3.
-    expect(player.queue).toHaveLength(store.tracks.filter((track) => track.files.MP3).length)
-    expect(player.queue.every((item) => item.source?.format === 'MP3')).toBe(true)
+    expect(player.queue).toHaveLength(store.tracks.filter(track => track.files.MP3).length)
+    expect(player.queue.every(item => item.source?.format === 'MP3')).toBe(true)
     expect(player.trackKey).toBe(store.tracks[0].key)
   })
 

@@ -1,4 +1,5 @@
-import { computed, effectScope, onScopeDispose, ref, watch, type ComputedRef, type Ref } from 'vue'
+import type { ComputedRef, Ref } from 'vue'
+import { computed, effectScope, onScopeDispose, ref, watch } from 'vue'
 import { REDUCED_MOTION_QUERY, useMediaQuery } from './use-media-query'
 
 /**
@@ -15,27 +16,32 @@ export type MotionPreference = 'system' | 'reduce'
 export const MOTION_STORAGE_KEY = 'preen-motion'
 export const REDUCE_MOTION_CLASS = 'reduce-motion'
 
-export const MOTION_OPTIONS: readonly { value: MotionPreference; label: string }[] = [
+export const MOTION_OPTIONS: readonly { value: MotionPreference, label: string }[] = [
   { value: 'system', label: '跟随系统' },
   { value: 'reduce', label: '减少动效' },
 ]
 
 function readStored(): MotionPreference {
   try {
-    return localStorage.getItem(MOTION_STORAGE_KEY) === 'reduce' ? 'reduce' : 'system'
-  } catch {
+    return localStorage.getItem(MOTION_STORAGE_KEY) === 'reduce'
+      ? 'reduce'
+      : 'system'
+  }
+  catch {
     return 'system'
   }
 }
 
-let state: { preference: Ref<MotionPreference>; systemReduces: Ref<boolean>; reduced: ComputedRef<boolean> } | null = null
+let state: { preference: Ref<MotionPreference>, systemReduces: Ref<boolean>, reduced: ComputedRef<boolean> } | null = null
 
 export function useMotion() {
   // A detached scope: the first caller is a component, and its unmount must
   // not stop the watchers every later caller relies on.
   state ??= effectScope(true).run(() => {
     const preference = ref(readStored())
-    const media = typeof window.matchMedia === 'function' ? window.matchMedia(REDUCED_MOTION_QUERY) : null
+    const media = typeof window.matchMedia === 'function'
+      ? window.matchMedia(REDUCED_MOTION_QUERY)
+      : null
     const systemReduces = ref(media?.matches ?? false)
     media?.addEventListener('change', () => {
       systemReduces.value = media.matches
@@ -45,11 +51,12 @@ export function useMotion() {
       // Best-effort: blocked storage still keeps the choice for this session.
       try {
         localStorage.setItem(MOTION_STORAGE_KEY, value)
-      } catch {
+      }
+      catch {
         /* storage unavailable */
       }
     })
-    watch(reduced, (value) => document.documentElement.classList.toggle(REDUCE_MOTION_CLASS, value), { immediate: true })
+    watch(reduced, value => document.documentElement.classList.toggle(REDUCE_MOTION_CLASS, value), { immediate: true })
     return { preference, systemReduces, reduced }
   })!
   return state
@@ -72,7 +79,7 @@ export function useReducedMotion(): ComputedRef<boolean> {
  * once while `rapid` is true. It turns false 800ms after the last switch. The
  * layer that issues the switch owns the counter.
  */
-export function useSwitchBurst(gap = 800): { rapid: Readonly<Ref<boolean>>; note: () => void } {
+export function useSwitchBurst(gap = 800): { rapid: Readonly<Ref<boolean>>, note: () => void } {
   const rapid = ref(false)
   let count = 0
   let timer: ReturnType<typeof setTimeout> | undefined

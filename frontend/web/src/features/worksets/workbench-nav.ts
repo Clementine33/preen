@@ -19,53 +19,70 @@ export interface WorkbenchNavItem {
   children?: WorkbenchNavItem[]
 }
 
-/** The workbench's own entries for one workset: one section per operation,
- *  and the settings page nested under 转换 (the only nesting defined). */
+/**
+ * The workbench's own entries for one workset: one section per operation,
+ *  and the settings page nested under 转换 (the only nesting defined).
+ */
 export function workbenchNav(libraryId: string): WorkbenchNavItem[] {
   return [
     {
       id: 'overview',
       label: '概览与成员',
-      to: { name: 'workbench-overview', params: { libraryId } },
+      to: {
+        name: 'workbench-overview',
+        params: { libraryId },
+      },
     },
     {
       id: 'conversion',
       label: '转换',
-      to: { name: 'conversion', params: { libraryId } },
+      to: {
+        name: 'conversion',
+        params: { libraryId },
+      },
       children: [
         {
           id: 'conversion-settings',
           label: '转换全局设置',
-          to: { name: 'conversion-settings', params: { libraryId } },
+          to: {
+            name: 'conversion-settings',
+            params: { libraryId },
+          },
         },
       ],
     },
     {
       id: 'rename',
       label: '重命名',
-      to: { name: 'rename', params: { libraryId } },
+      to: {
+        name: 'rename',
+        params: { libraryId },
+      },
     },
     {
       id: 'metadata-refresh',
       label: '获取元数据',
-      to: { name: 'metadata-refresh', params: { libraryId } },
+      to: {
+        name: 'metadata-refresh',
+        params: { libraryId },
+      },
     },
   ]
 }
 
 /** Route name → position in the workbench navigation. */
-export type WorkbenchRouteName =
-  | 'workbench-overview'
-  | 'overview-files'
-  | 'conversion'
-  | 'conversion-member-files'
-  | 'conversion-settings'
-  | 'conversion-member'
-  | 'conversion-member-edit'
-  | 'conversion-batch-edit'
-  | 'conversion-execution'
-  | 'rename'
-  | 'metadata-refresh'
+export type WorkbenchRouteName
+  = | 'workbench-overview'
+    | 'overview-files'
+    | 'conversion'
+    | 'conversion-member-files'
+    | 'conversion-settings'
+    | 'conversion-member'
+    | 'conversion-member-edit'
+    | 'conversion-batch-edit'
+    | 'conversion-execution'
+    | 'rename'
+    | 'metadata-refresh'
 
 export interface WorkbenchNavPosition {
   /** The entry that IS the current page. */
@@ -80,7 +97,7 @@ export interface WorkbenchNavPosition {
 const POSITION_BY_ROUTE_NAME: Record<WorkbenchRouteName, WorkbenchNavPosition> = {
   'workbench-overview': { current: 'overview' },
   'overview-files': { current: 'overview' },
-  conversion: { current: 'conversion' },
+  'conversion': { current: 'conversion' },
   'conversion-member-files': { current: 'conversion' },
   'conversion-settings': { current: 'conversion-settings', parent: 'conversion' },
   // The detail, batch and execution entries are carriers of the conversion
@@ -90,7 +107,7 @@ const POSITION_BY_ROUTE_NAME: Record<WorkbenchRouteName, WorkbenchNavPosition> =
   'conversion-member-edit': { current: 'conversion' },
   'conversion-batch-edit': { current: 'conversion' },
   'conversion-execution': { current: 'conversion' },
-  rename: { current: 'rename' },
+  'rename': { current: 'rename' },
   'metadata-refresh': { current: 'metadata-refresh' },
 }
 

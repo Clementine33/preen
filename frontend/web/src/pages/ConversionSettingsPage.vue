@@ -1,17 +1,17 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import type { ConversionSettings, DeleteMode, OverrideUnit } from '@/lib/api/types'
 import { useQuery } from '@tanstack/vue-query'
+import { computed } from 'vue'
 import { Button } from '@/components/ui/button'
-import { defaultDraftValues } from '@/features/worksets/draft-defaults'
 import SettingsApplyBar from '@/features/settings/SettingsApplyBar.vue'
 import SettingsField from '@/features/settings/SettingsField.vue'
 import SettingsHead from '@/features/settings/SettingsHead.vue'
 import SettingsOptions from '@/features/settings/SettingsOptions.vue'
 import SettingsSection from '@/features/settings/SettingsSection.vue'
 import { useTaskSettingsForm } from '@/features/settings/use-task-settings-form'
+import { defaultDraftValues } from '@/features/worksets/draft-defaults'
 import UnitFields from '@/features/worksets/UnitFields.vue'
 import { useApiClient } from '@/lib/api/client'
-import type { ConversionSettings, DeleteMode, OverrideUnit } from '@/lib/api/types'
 import { classifierTagLibraryQueryOptions } from '@/queries/worksets'
 
 /**
@@ -49,7 +49,7 @@ const { form, query: settingsQuery, saved } = useTaskSettingsForm({
   }),
 })
 
-const FIELDS: { unit: OverrideUnit; label: string; hint: string }[] = [
+const FIELDS: { unit: OverrideUnit, label: string, hint: string }[] = [
   { unit: 'mode', label: '转换模式', hint: '' },
   { unit: 'no_effect_tags', label: '无音效匹配', hint: '按完整相对路径做字面匹配，不区分大小写' },
   { unit: 'other_tags', label: '其他版本目录', hint: '只匹配目录名称，不区分大小写，留空不隔离。' },
@@ -58,10 +58,16 @@ const FIELDS: { unit: OverrideUnit; label: string; hint: string }[] = [
   { unit: 'other', label: '其他版本目标', hint: '各版本目录中的音频使用的编码组合目标。' },
 ]
 const SECTIONS = [
-  { title: '匹配规则', units: ['mode', 'no_effect_tags', 'other_tags'] as OverrideUnit[] },
-  { title: '目标格式', units: ['matched', 'unmatched', 'other'] as OverrideUnit[] },
+  {
+    title: '匹配规则',
+    units: ['mode', 'no_effect_tags', 'other_tags'] as OverrideUnit[],
+  },
+  {
+    title: '目标格式',
+    units: ['matched', 'unmatched', 'other'] as OverrideUnit[],
+  },
 ]
-const fieldOf = (unit: OverrideUnit) => FIELDS.find((field) => field.unit === unit)!
+const fieldOf = (unit: OverrideUnit) => FIELDS.find(field => field.unit === unit)!
 
 const modeHint = computed(() =>
   form.value('mode') === 'strict'
@@ -69,9 +75,14 @@ const modeHint = computed(() =>
     : '可用源模式按音轨处理；没有合格无损源时保留原轨，并标记目标未满足。',
 )
 
-const DELETE_MODES: { value: DeleteMode; label: string; hint: string; danger?: boolean }[] = [
+const DELETE_MODES: { value: DeleteMode, label: string, hint: string, danger?: boolean }[] = [
   { value: 'soft', label: '软删除', hint: '旧文件移动到库根目录下的 Delete/（保留各文件夹的原相对路径），可手动恢复。' },
-  { value: 'hard', label: '硬删除', hint: '旧文件直接从磁盘移除，本应用无法恢复。', danger: true },
+  {
+    value: 'hard',
+    label: '硬删除',
+    hint: '旧文件直接从磁盘移除，本应用无法恢复。',
+    danger: true,
+  },
 ]
 </script>
 

@@ -1,7 +1,20 @@
 <script setup lang="ts">
+import type { RenameDraftMember, WorksetMember } from '@/lib/api/types'
 import { computed, nextTick, ref } from 'vue'
 import { Button } from '@/components/ui/button'
-import type { RenameDraftMember, WorksetMember } from '@/lib/api/types'
+
+const props = defineProps<{
+  members: WorksetMember[]
+  /** The draft's member records: the names already given. */
+  records: RenameDraftMember[]
+  disabled: boolean
+  saving: boolean
+}>()
+
+const emit = defineEmits<{
+  /** An empty name clears the folder's own name. */
+  save: [memberId: string, name: string]
+}>()
 
 /**
  * Names one folder by hand. A batch is often the whole library, so nothing is
@@ -11,49 +24,47 @@ import type { RenameDraftMember, WorksetMember } from '@/lib/api/types'
  */
 const MAX_MATCHES = 20
 
-const props = defineProps<{
-  members: WorksetMember[]
-  /** The draft's member records: the names already given. */
-  records: RenameDraftMember[]
-  disabled: boolean
-  saving: boolean
-}>()
-const emit = defineEmits<{
-  /** An empty name clears the folder's own name. */
-  save: [memberId: string, name: string]
-}>()
-
 // Filtering is cheap; drawing is not. These are built once per record, so a
 // keystroke is a loop that stops at MAX_MATCHES (or one Map hit for a full
 // work code) and never needs a debounce.
 const index = computed(() => {
-  const haystack = props.members.map((member) => `${member.rel_path}`.toLowerCase())
+  const haystack = props.members.map(member => `${member.rel_path}`.toLowerCase())
   const byCode = new Map<string, WorksetMember[]>()
   for (const member of props.members) {
     const code = codeOf(member.folder_name)
-    if (code) byCode.set(code, [...(byCode.get(code) ?? []), member])
+    if (code) {
+      byCode.set(code, [
+        ...(byCode.get(code) ?? []),
+        member,
+      ])
+    }
   }
-  const byId = new Map(props.members.map((member) => [member.member_id, member]))
+  const byId = new Map(props.members.map(member => [member.member_id, member]))
   return { haystack, byCode, byId }
 })
 
 function codeOf(text: string): string | null {
   const match = /rj(\d{6,8})/i.exec(text)
-  return match ? `RJ${match[1].padStart(8, '0')}` : null
+  return match
+    ? `RJ${match[1].padStart(8, '0')}`
+    : null
 }
 
 const query = ref('')
 const matches = computed(() => {
   const text = query.value.trim().toLowerCase()
-  if (!text) return []
+  if (!text)
+    return []
   if (/^rj\d{6,8}$/.test(text)) {
     const hit = index.value.byCode.get(codeOf(text) ?? '')
-    if (hit) return hit.slice(0, MAX_MATCHES)
+    if (hit)
+      return hit.slice(0, MAX_MATCHES)
   }
   const found: WorksetMember[] = []
   const { haystack } = index.value
   for (let i = 0; i < haystack.length && found.length < MAX_MATCHES; i++) {
-    if (haystack[i].includes(text)) found.push(props.members[i])
+    if (haystack[i].includes(text))
+      found.push(props.members[i])
   }
   return found
 })
@@ -63,32 +74,41 @@ const matches = computed(() => {
 const named = computed(() =>
   props.records.flatMap((record) => {
     const member = index.value.byId.get(record.member_id)
-    return record.name && member && member.folder_name !== record.name ? [{ member, name: record.name }] : []
+    return record.name && member && member.folder_name !== record.name
+      ? [
+          { member, name: record.name },
+        ]
+      : []
   }),
 )
-const nameOf = computed(() => new Map(named.value.map((entry) => [entry.member.member_id, entry.name])))
+const nameOf = computed(() => new Map(named.value.map(entry => [entry.member.member_id, entry.name])))
 
 const editing = ref<string | null>(null)
 const value = ref('')
 const input = ref<HTMLInputElement[] | HTMLInputElement | null>(null)
 
 async function edit(member: WorksetMember) {
-  if (props.disabled) return
+  if (props.disabled)
+    return
   editing.value = member.member_id
   value.value = nameOf.value.get(member.member_id) ?? member.folder_name
   await nextTick()
-  const el = Array.isArray(input.value) ? input.value[0] : input.value
+  const el = Array.isArray(input.value)
+    ? input.value[0]
+    : input.value
   el?.focus()
   el?.select()
 }
 
 function commit(member: WorksetMember) {
-  if (editing.value !== member.member_id) return
+  if (editing.value !== member.member_id)
+    return
   const next = value.value.trim()
   const existing = nameOf.value.get(member.member_id)
   editing.value = null
   // Leaving the current name untouched is not a naming decision.
-  if (next === (existing ?? member.folder_name)) return
+  if (next === (existing ?? member.folder_name))
+    return
   emit('save', member.member_id, next)
 }
 </script>
@@ -102,7 +122,7 @@ function commit(member: WorksetMember) {
       class="h-8 w-full rounded-md border border-border bg-background px-2"
       data-testid="manual-rename-search"
       :disabled="disabled"
-    />
+    >
     <ul v-if="matches.length" class="m-0 list-none divide-y divide-border p-0" data-testid="manual-rename-matches">
       <li v-for="member in matches" :key="member.member_id" class="flex min-h-8 flex-wrap items-center gap-2 py-1">
         <!-- A form, not key handlers: a phone's keyboard submits it with its
@@ -124,7 +144,7 @@ function commit(member: WorksetMember) {
             :aria-label="`${member.folder_name} 的新名称`"
             data-testid="manual-rename-input"
             @keydown.esc.prevent="editing = null"
-          />
+          >
           <Button type="submit" size="xs" data-testid="manual-rename-save">保存</Button>
           <Button type="button" size="xs" variant="ghost" data-testid="manual-rename-cancel" @click="editing = null">取消</Button>
         </form>

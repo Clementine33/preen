@@ -1,17 +1,23 @@
-import { mount, type VueWrapper } from '@vue/test-utils'
+import type { VueWrapper } from '@vue/test-utils'
+import type { OperationDraftDocument } from '@/lib/api/types'
+import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { nextTick, reactive } from 'vue'
-import type { OperationDraftDocument } from '@/lib/api/types'
+import SettingsSegmented from '@/features/settings/SettingsSegmented.vue'
 import { useWorksetEditorStore } from '@/stores/workset-editor'
 import OverrideEditor from './OverrideEditor.vue'
-import SettingsSegmented from '@/features/settings/SettingsSegmented.vue'
 
 const WAV_MP3 = {
   lossless: { codec: 'wav' },
-  encoded: { codec: 'mp3', quality: { kind: 'bitrate', bitrate: 320 } },
+  encoded: {
+    codec: 'mp3',
+    quality: { kind: 'bitrate', bitrate: 320 },
+  },
 }
-const FLAC = { lossless: { codec: 'flac' } }
+const FLAC = {
+  lossless: { codec: 'flac' },
+}
 
 function draft(members: OperationDraftDocument['members'] = []): OperationDraftDocument {
   return reactive({
@@ -26,7 +32,7 @@ function draft(members: OperationDraftDocument['members'] = []): OperationDraftD
 
 function mountEditor(
   harness: OperationDraftDocument,
-  target: { kind: 'member'; memberId: string } | { kind: 'batch'; memberIds: string[] },
+  target: { kind: 'member', memberId: string } | { kind: 'batch', memberIds: string[] },
 ) {
   const store = useWorksetEditorStore()
   store.open({
@@ -36,7 +42,14 @@ function mountEditor(
     baseVersion: 2,
     baseDocument: harness,
   })
-  return mount(OverrideEditor, { props: { draft: harness, target, readOnly: false, participationEditable: true } })
+  return mount(OverrideEditor, {
+    props: {
+      draft: harness,
+      target,
+      readOnly: false,
+      participationEditable: true,
+    },
+  })
 }
 
 function statusText(wrapper: VueWrapper, unit: string): string {
@@ -52,7 +65,7 @@ async function typeTags(wrapper: VueWrapper, testId: string, text: string) {
   }
 }
 
-describe('OverrideEditor', () => {
+describe('overrideEditor', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
   })
@@ -67,7 +80,12 @@ describe('OverrideEditor', () => {
   })
 
   it('shows the current source and matches it to a choice', () => {
-    const wrapper = mountEditor(draft([{ member_id: 'm-1', overrides: { matched: FLAC } }]), {
+    const wrapper = mountEditor(draft([
+      {
+        member_id: 'm-1',
+        overrides: { matched: FLAC },
+      },
+    ]), {
       kind: 'member',
       memberId: 'm-1',
     })
@@ -82,7 +100,12 @@ describe('OverrideEditor', () => {
   })
 
   it('says out loud when an override merely spells the common value', () => {
-    const wrapper = mountEditor(draft([{ member_id: 'm-1', overrides: { matched: WAV_MP3 } }]), {
+    const wrapper = mountEditor(draft([
+      {
+        member_id: 'm-1',
+        overrides: { matched: WAV_MP3 },
+      },
+    ]), {
       kind: 'member',
       memberId: 'm-1',
     })
@@ -91,7 +114,12 @@ describe('OverrideEditor', () => {
   })
 
   it('states what an apply would write or restore', async () => {
-    const wrapper = mountEditor(draft([{ member_id: 'm-1', overrides: { matched: FLAC } }]), {
+    const wrapper = mountEditor(draft([
+      {
+        member_id: 'm-1',
+        overrides: { matched: FLAC },
+      },
+    ]), {
       kind: 'member',
       memberId: 'm-1',
     })
@@ -106,7 +134,12 @@ describe('OverrideEditor', () => {
   })
 
   it('picking 默认 removes the override', async () => {
-    const wrapper = mountEditor(draft([{ member_id: 'm-1', overrides: { matched: FLAC } }]), {
+    const wrapper = mountEditor(draft([
+      {
+        member_id: 'm-1',
+        overrides: { matched: FLAC },
+      },
+    ]), {
       kind: 'member',
       memberId: 'm-1',
     })
@@ -130,21 +163,35 @@ describe('OverrideEditor', () => {
     const wrapper = mountEditor(draft(), { kind: 'member', memberId: 'm-1' })
     await wrapper.get('[data-testid="unit-matched-override"]').trigger('click')
     wrapper.findAllComponents(SettingsSegmented)
-      .find(select => select.vm.$attrs['data-testid'] === 'override-matched-lossless')!.vm.$emit('change', 'flac')
+      .find(select => select.vm.$attrs['data-testid'] === 'override-matched-lossless')!
+      .vm
+      .$emit('change', 'flac')
     await nextTick()
 
     expect(useWorksetEditorStore().session?.intent.units.matched).toEqual({
       intent: 'set',
-      value: { lossless: { codec: 'flac' }, encoded: { codec: 'mp3', quality: { kind: 'bitrate', bitrate: 320 } } },
+      value: {
+        lossless: { codec: 'flac' },
+        encoded: {
+          codec: 'mp3',
+          quality: { kind: 'bitrate', bitrate: 320 },
+        },
+      },
     })
   })
 
   it('reports 多种值 for a batch with disagreeing members and leaves it unset', () => {
     const harness = draft([
-      { member_id: 'm-1', overrides: { matched: FLAC } },
+      {
+        member_id: 'm-1',
+        overrides: { matched: FLAC },
+      },
       { member_id: 'm-2' },
     ])
-    const wrapper = mountEditor(harness, { kind: 'batch', memberIds: ['m-1', 'm-2'] })
+    const wrapper = mountEditor(harness, {
+      kind: 'batch',
+      memberIds: ['m-1', 'm-2'],
+    })
 
     expect(wrapper.get('[data-testid="unit-matched"]').text()).toContain('多种值')
     expect(statusText(wrapper, 'matched')).toBe('当前：多种值')
@@ -156,10 +203,16 @@ describe('OverrideEditor', () => {
 
   it('applies one choice to every member of the batch', async () => {
     const harness = draft([
-      { member_id: 'm-1', overrides: { matched: FLAC } },
+      {
+        member_id: 'm-1',
+        overrides: { matched: FLAC },
+      },
       { member_id: 'm-2' },
     ])
-    const wrapper = mountEditor(harness, { kind: 'batch', memberIds: ['m-1', 'm-2'] })
+    const wrapper = mountEditor(harness, {
+      kind: 'batch',
+      memberIds: ['m-1', 'm-2'],
+    })
 
     await wrapper.get('[data-testid="unit-unmatched-default"]').trigger('click')
     await nextTick()
@@ -176,22 +229,42 @@ describe('OverrideEditor', () => {
       expect(record.overrides?.no_effect_tags).toEqual(['A', 'X', 'Y'])
     }
     // The batch never touches the matched overrides it did not edit.
-    expect(members.find((m) => m.member_id === 'm-1')?.overrides?.matched).toEqual(FLAC)
+    expect(members.find(m => m.member_id === 'm-1')?.overrides?.matched).toEqual(FLAC)
   })
 
   it('keeps overrides when the batch is excluded', async () => {
-    const harness = draft([{ member_id: 'm-1', overrides: { matched: FLAC } }])
-    const wrapper = mountEditor(harness, { kind: 'batch', memberIds: ['m-1'] })
+    const harness = draft([
+      {
+        member_id: 'm-1',
+        overrides: { matched: FLAC },
+      },
+    ])
+    const wrapper = mountEditor(harness, {
+      kind: 'batch',
+      memberIds: ['m-1'],
+    })
 
     await wrapper.get('[data-testid="participation-exclude"]').trigger('click')
     await nextTick()
 
     const members = useWorksetEditorStore().pendingDocument?.members ?? []
-    expect(members).toEqual([{ member_id: 'm-1', excluded: true, overrides: { matched: FLAC } }])
+    expect(members).toEqual([
+      {
+        member_id: 'm-1',
+        excluded: true,
+        overrides: { matched: FLAC },
+      },
+    ])
   })
 
   it('shows participation as a clear binary, with no "keep as is" third state', async () => {
-    const harness = draft([{ member_id: 'm-1', excluded: true, overrides: { matched: FLAC } }])
+    const harness = draft([
+      {
+        member_id: 'm-1',
+        excluded: true,
+        overrides: { matched: FLAC },
+      },
+    ])
     const wrapper = mountEditor(harness, { kind: 'member', memberId: 'm-1' })
 
     // The stored exclusion lights 排除; there is no ambiguous middle button.
@@ -204,28 +277,54 @@ describe('OverrideEditor', () => {
 
     // Bringing it back keeps its overrides; only the exclusion is dropped.
     expect(wrapper.get('[data-testid="participation-include"]').attributes('aria-checked')).toBe('true')
-    expect(useWorksetEditorStore().pendingDocument?.members).toEqual([{ member_id: 'm-1', overrides: { matched: FLAC } }])
+    expect(useWorksetEditorStore().pendingDocument?.members).toEqual([
+      {
+        member_id: 'm-1',
+        overrides: { matched: FLAC },
+      },
+    ])
   })
   it('batch edits other tags without changing no-effect tags or exclusions', async () => {
     const harness = draft([
-      { member_id: 'a', excluded: true, overrides: { other_tags: ['old'], no_effect_tags: [] } },
+      {
+        member_id: 'a',
+        excluded: true,
+        overrides: {
+          other_tags: ['old'],
+          no_effect_tags: [],
+        },
+      },
       { member_id: 'b' },
-      { member_id: 'outside', overrides: { other_tags: ['keep'] } },
+      {
+        member_id: 'outside',
+        overrides: {
+          other_tags: ['keep'],
+        },
+      },
     ])
     harness.other_tags = ['revert']
-    const wrapper = mountEditor(harness, { kind: 'batch', memberIds: ['a', 'b'] })
+    const wrapper = mountEditor(harness, {
+      kind: 'batch',
+      memberIds: ['a', 'b'],
+    })
     await wrapper.get('[data-testid="unit-other_tags-override"]').trigger('click')
     await typeTags(wrapper, 'override-other_tags-input', 'xxx,')
     const pending = useWorksetEditorStore().pendingDocument!
     expect(pending.members.find(m => m.member_id === 'a')).toEqual({
-      member_id: 'a', excluded: true, overrides: { other_tags: ['revert', 'xxx'], no_effect_tags: [] },
+      member_id: 'a',
+      excluded: true,
+      overrides: {
+        other_tags: ['revert', 'xxx'],
+        no_effect_tags: [],
+      },
     })
     expect(pending.members.find(m => m.member_id === 'b')?.overrides?.other_tags).toEqual(['revert', 'xxx'])
     expect(pending.members.find(m => m.member_id === 'outside')?.overrides?.other_tags).toEqual(['keep'])
     await wrapper.get('[data-testid="unit-other_tags-default"]').trigger('click')
     expect(useWorksetEditorStore().pendingDocument!.members.find(m => m.member_id === 'a')).toEqual({
-      member_id: 'a', excluded: true, overrides: { no_effect_tags: [] },
+      member_id: 'a',
+      excluded: true,
+      overrides: { no_effect_tags: [] },
     })
   })
-
 })

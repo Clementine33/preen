@@ -1,8 +1,8 @@
-import { test, expect } from '@playwright/test'
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { expect, test } from '@playwright/test'
 
 // The existing launcher supplies a fresh real backend. Only media fixtures and
 // observation of the browser's native audio are added; no API/audio mocks.
@@ -15,8 +15,18 @@ test('work content updates from background measurement without restarting audio'
   const member = path.join(root, rj)
   mkdirSync(member)
   const encode = (input: string, file: string) => execFileSync('ffmpeg', [
-    '-nostdin', '-v', 'error', '-y', '-f', 'lavfi', '-i', input,
-    ...(file.endsWith('.png') ? ['-frames:v', '1', '-threads', '1'] : []), path.join(member, file),
+    '-nostdin',
+    '-v',
+    'error',
+    '-y',
+    '-f',
+    'lavfi',
+    '-i',
+    input,
+    ...(file.endsWith('.png')
+      ? ['-frames:v', '1', '-threads', '1']
+      : []),
+    path.join(member, file),
   ])
   let libraryId: string | undefined
   try {
@@ -25,8 +35,21 @@ test('work content updates from background measurement without restarting audio'
     encode('sine=frequency=440:duration=90', '01_intro.wav')
     writeFileSync(path.join(member, '01_intro.lrc'), '[00:00.00]こんにちは\n[00:20.00]後半\n')
     // 「こんにちは」 in Shift_JIS, checked through the real byte route.
-    writeFileSync(path.join(member, 'readme.txt'), Buffer.from([0x82, 0xb1, 0x82, 0xf1, 0x82, 0xc9, 0x82, 0xbf, 0x82, 0xcd]))
-    const created = await request.post(`${api}/libraries`, { data: { name: 'Detail acceptance', root_path: root } })
+    writeFileSync(path.join(member, 'readme.txt'), Buffer.from([
+      0x82,
+      0xB1,
+      0x82,
+      0xF1,
+      0x82,
+      0xC9,
+      0x82,
+      0xBF,
+      0x82,
+      0xCD,
+    ]))
+    const created = await request.post(`${api}/libraries`, {
+      data: { name: 'Detail acceptance', root_path: root },
+    })
     expect(created.ok()).toBe(true)
     libraryId = (await created.json()).id
     const scan = async () => {
@@ -40,7 +63,9 @@ test('work content updates from background measurement without restarting audio'
     const manifest = await content.json()
     expect(manifest.copies).toHaveLength(1)
     const copy = manifest.copies[0].copy_id
-    const range = await request.get(`${api}/works/${rj}/content/${copy}/01_intro.wav`, { headers: { Range: 'bytes=0-3' } })
+    const range = await request.get(`${api}/works/${rj}/content/${copy}/01_intro.wav`, {
+      headers: { Range: 'bytes=0-3' },
+    })
     expect(range.status()).toBe(206)
     expect((await range.body()).toString()).toBe('RIFF')
     const text = await request.get(`${api}/works/${rj}/content/${copy}/readme.txt`)
@@ -87,19 +112,21 @@ test('work content updates from background measurement without restarting audio'
     await expect.poll(() => page.locator('.face.front').getAttribute('style')).not.toBe(original)
     await expect.poll(() => page.locator('.thumb[title="cover.png"]').getAttribute('style')).not.toBe(thumbnail)
     expect(await page.evaluate(() => {
-      const state = window as unknown as { e2eAudio: HTMLMediaElement; e2eOriginalAudio: HTMLMediaElement; e2ePlayCalls: number }
+      const state = window as unknown as { e2eAudio: HTMLMediaElement, e2eOriginalAudio: HTMLMediaElement, e2ePlayCalls: number }
       return { same: state.e2eAudio === state.e2eOriginalAudio, time: state.e2eAudio.currentTime, calls: state.e2ePlayCalls }
     })).toMatchObject({ same: true, calls: 1 })
     await expect(page.locator('.baseline .t.pos')).not.toHaveText('00:00')
     await page.locator('.bay-tabs .tab').filter({ hasText: 'FILES' }).click()
     await expect(page.locator('.row').filter({ hasText: 'cover.png' })).toContainText('600×300')
-  } finally {
+  }
+  finally {
     await page.evaluate(() => {
       const audio = (window as unknown as { e2eAudio?: HTMLMediaElement }).e2eAudio
       if (audio) { audio.pause(); audio.removeAttribute('src'); audio.load() }
     }).catch(() => {})
     await page.goto('/works')
-    if (libraryId) await request.delete(`${api}/libraries/${libraryId}`)
+    if (libraryId)
+      await request.delete(`${api}/libraries/${libraryId}`)
     rmSync(root, { recursive: true, force: true })
   }
 })

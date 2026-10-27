@@ -1,7 +1,7 @@
+import type { WorkDetail } from '@/lib/api/types'
 import { useQueryClient } from '@tanstack/vue-query'
 import { watch } from 'vue'
 import { useApiClient } from '@/lib/api/client'
-import type { WorkDetail } from '@/lib/api/types'
 import { refreshOrRemoveQueries } from '@/queries/cache-sync'
 import { queryKeys } from '@/queries/query-keys'
 import { usePlayerStore } from '@/stores/player'
@@ -19,12 +19,19 @@ export function useListeningSync(): void {
   const client = useQueryClient()
   player.bindClient(useApiClient())
   watch(() => player.saved, (saved) => {
-    if (!saved) return
+    if (!saved)
+      return
     const { rj, row } = saved
-    client.setQueryData<WorkDetail>(queryKeys.works.detail(rj), (detail) => detail && {
+    client.setQueryData<WorkDetail>(queryKeys.works.detail(rj), detail => detail && {
       ...detail,
-      listening: row ? [row, ...detail.listening.filter((l) => l.rendition !== row.rendition)] : [],
+      listening: row
+        ? [
+            row,
+            ...detail.listening.filter(l => l.rendition !== row.rendition),
+          ]
+        : [],
     })
-    if (saved.lists) void refreshOrRemoveQueries(client, queryKeys.works.listPrefix())
+    if (saved.lists)
+      void refreshOrRemoveQueries(client, queryKeys.works.listPrefix())
   })
 }

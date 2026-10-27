@@ -1,7 +1,7 @@
+import type { LyricsCommand, LyricsFrame } from './desktop-adapter'
 import { Call, Events, System } from '@wailsio/runtime'
 import { createApp, h, shallowRef } from 'vue'
 import LyricsWindowView from '@/features/lyrics-window/LyricsWindowView.vue'
-import type { LyricsCommand, LyricsFrame } from './desktop-adapter'
 import { LYRICS_EVENTS } from './wails-adapter'
 
 // The desktop Lyrics Window's page (ADR 0016): main.ts routes /lyrics-window
@@ -20,7 +20,8 @@ const CLEAR_CLASS = 'lw-clear'
 function readDark(): boolean {
   try {
     return localStorage.getItem(LYRICS_BACKDROP_STORAGE_KEY) === 'dark'
-  } catch {
+  }
+  catch {
     return false
   }
 }
@@ -30,30 +31,57 @@ function toggleBackdrop(): void {
   // Best-effort: blocked storage still keeps the choice while the window is open.
   try {
     localStorage.setItem(LYRICS_BACKDROP_STORAGE_KEY, dark ? 'dark' : 'clear')
-  } catch {
+  }
+  catch {
     /* storage unavailable */
   }
 }
 
-const blank: LyricsFrame = { rj: null, title: '', paused: true, hasPrev: false, hasNext: false, line: null, noLyrics: false }
+const blank: LyricsFrame = {
+  rj: null,
+  title: '',
+  paused: true,
+  hasPrev: false,
+  hasNext: false,
+  line: null,
+  noLyrics: false,
+}
 
 function hostButton(label: string, path: string, onClick: () => void) {
-  return h('button', { type: 'button', 'aria-label': label, title: label, onClick },
-    h('svg', { viewBox: '0 0 10 10', width: 10, height: 10, fill: 'currentColor', 'aria-hidden': 'true' }, h('path', { d: path, 'fill-rule': 'evenodd' })))
+  return h('button', {
+    'type': 'button',
+    'aria-label': label,
+    'title': label,
+    onClick,
+  }, h('svg', {
+    'viewBox': '0 0 10 10',
+    'width': 10,
+    'height': 10,
+    'fill': 'currentColor',
+    'aria-hidden': 'true',
+  }, h('path', { 'd': path, 'fill-rule': 'evenodd' })))
 }
 
 export function mountLyricsWindow(): void {
   // Dark in every theme, like the Picture-in-Picture window; Windows paints nothing behind the lyrics unless the device chose the dark backdrop.
   document.documentElement.classList.remove('dark')
   const windows = System.IsWindows()
-  if (windows && !readDark()) document.documentElement.classList.add(CLEAR_CLASS)
+  if (windows && !readDark())
+    document.documentElement.classList.add(CLEAR_CLASS)
   const frame = shallowRef(blank)
   Events.On(LYRICS_EVENTS.frame, (event) => { frame.value = JSON.parse(event.data as string) as LyricsFrame })
   const app = createApp({
-    render: () => h(LyricsWindowView, { frame: frame.value, onCommand: (command: LyricsCommand) => void Events.Emit(LYRICS_EVENTS.command, command) }, {
+    render: () => h(LyricsWindowView, {
+      frame: frame.value,
+      onCommand: (command: LyricsCommand) => void Events.Emit(LYRICS_EVENTS.command, command),
+    }, {
       host: () => [
-        windows ? hostButton('切换透明 / 深色背景', BACKDROP_ICON, toggleBackdrop) : null,
-        windows ? hostButton('锁定歌词窗口', LOCK_ICON, () => void Call.ByName('main.Desktop.SetLyricsLocked', true)) : null,
+        windows
+          ? hostButton('切换透明 / 深色背景', BACKDROP_ICON, toggleBackdrop)
+          : null,
+        windows
+          ? hostButton('锁定歌词窗口', LOCK_ICON, () => void Call.ByName('main.Desktop.SetLyricsLocked', true))
+          : null,
         hostButton('关闭歌词窗口', CLOSE_ICON, () => void Call.ByName('main.Desktop.CloseLyricsWindow')),
       ],
     }),

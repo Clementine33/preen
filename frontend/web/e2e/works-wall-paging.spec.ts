@@ -1,7 +1,7 @@
-import { test, expect } from '@playwright/test'
 import { mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { expect, test } from '@playwright/test'
 
 // The wall at a size the dev library never reaches: five numbered
 // pages of works. An empty directory named for a work is already a collected
@@ -17,7 +17,9 @@ test('the works wall pages through a large library and keeps the rendered range 
   for (let i = 0; i < TOTAL; i++) mkdirSync(path.join(root, `RJ0${String(1_100_000 + i)}`))
   let libraryId: string | undefined
   try {
-    const created = await request.post(`${api}/libraries`, { data: { name: 'Wall paging', root_path: root } })
+    const created = await request.post(`${api}/libraries`, {
+      data: { name: 'Wall paging', root_path: root },
+    })
     expect(created.ok()).toBe(true)
     libraryId = (await created.json()).id
     const scan = await request.post(`${api}/libraries/${libraryId}/scans`, { data: {} })
@@ -48,9 +50,11 @@ test('the works wall pages through a large library and keeps the rendered range 
     await page.reload()
     await expect(wall.locator('[data-rj]')).toHaveCount(TOTAL % PAGE)
     await expect(pager.getByRole('button', { name: `Page ${pages}`, exact: true })).toHaveAttribute('aria-current', 'page')
-  } finally {
+  }
+  finally {
     await page.goto('/worksets').catch(() => {})
-    if (libraryId) await request.delete(`${api}/libraries/${libraryId}`)
+    if (libraryId)
+      await request.delete(`${api}/libraries/${libraryId}`)
     rmSync(root, { recursive: true, force: true })
   }
 })

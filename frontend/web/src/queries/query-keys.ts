@@ -12,14 +12,25 @@ export const queryKeys = {
     // identity so a genuine root change invalidates it.
     dirsPrefix: (libraryId: string) => ['libraries', 'dirs', libraryId] as const,
     dirs: (libraryId: string, rootIdentity: string) =>
-      ['libraries', 'dirs', libraryId, rootIdentity] as const,
+      [
+        'libraries',
+        'dirs',
+        libraryId,
+        rootIdentity,
+      ] as const,
     // One member tree, addressed by the member's directory identity: the
     // overview and the conversion entry derive the same identity for the same
     // directory, so they share this entry instead of reading the tree twice.
     memberTreesPrefix: (libraryId: string) => ['libraries', 'member-trees', libraryId] as const,
     memberTreesAll: () => ['libraries', 'member-trees'] as const,
     memberTree: (libraryId: string, rootIdentity: string, dirId: string) =>
-      ['libraries', 'member-trees', libraryId, rootIdentity, dirId] as const,
+      [
+        'libraries',
+        'member-trees',
+        libraryId,
+        rootIdentity,
+        dirId,
+      ] as const,
   },
   plans: {
     lists: () => ['plans', 'list'] as const,
@@ -50,7 +61,13 @@ export const queryKeys = {
     list: () => ['collections', 'list'] as const,
     detail: (id: string, window: CollectionWindow) => ['collections', 'detail', id, window] as const,
     // The detail page's chunked list: one entry per collection and view sort.
-    pages: (id: string, sort: string, direction: string) => ['collections', 'pages', id, sort, direction] as const,
+    pages: (id: string, sort: string, direction: string) => [
+      'collections',
+      'pages',
+      id,
+      sort,
+      direction,
+    ] as const,
   },
   works: {
     all: () => ['works'] as const,
@@ -92,22 +109,67 @@ export const queryKeys = {
     detail: (worksetId: string) => ['worksets', 'detail', worksetId] as const,
     operationPrefix: (worksetId: string) => ['worksets', 'operation', worksetId] as const,
     operation: (worksetId: string, operation: string) =>
-      ['worksets', 'operation', worksetId, operation] as const,
+      [
+        'worksets',
+        'operation',
+        worksetId,
+        operation,
+      ] as const,
     draft: (worksetId: string, operation: string) =>
-      ['worksets', 'draft', worksetId, operation] as const,
+      [
+        'worksets',
+        'draft',
+        worksetId,
+        operation,
+      ] as const,
     revisionsPrefix: (worksetId: string, operation: string) =>
-      ['worksets', 'revisions', worksetId, operation] as const,
+      [
+        'worksets',
+        'revisions',
+        worksetId,
+        operation,
+      ] as const,
     revision: (worksetId: string, operation: string, planId: string) =>
-      ['worksets', 'revisions', worksetId, operation, planId] as const,
+      [
+        'worksets',
+        'revisions',
+        worksetId,
+        operation,
+        planId,
+      ] as const,
     generation: (worksetId: string, operation: string, generationId: string) =>
-      ['worksets', 'planning-sessions', worksetId, operation, generationId] as const,
+      [
+        'worksets',
+        'planning-sessions',
+        worksetId,
+        operation,
+        generationId,
+      ] as const,
     executionsPrefix: (worksetId: string, operation: string) =>
-      ['worksets', 'executions', worksetId, operation] as const,
+      [
+        'worksets',
+        'executions',
+        worksetId,
+        operation,
+      ] as const,
     execution: (worksetId: string, operation: string, executionId: string) =>
-      ['worksets', 'executions', worksetId, operation, executionId] as const,
+      [
+        'worksets',
+        'executions',
+        worksetId,
+        operation,
+        executionId,
+      ] as const,
     // A metadata execution's cover deliveries live under that execution, so
     // the execution sweeps refresh them too.
     covers: (worksetId: string, executionId: string) =>
-      ['worksets', 'executions', worksetId, 'metadata_refresh', executionId, 'covers'] as const,
+      [
+        'worksets',
+        'executions',
+        worksetId,
+        'metadata_refresh',
+        executionId,
+        'covers',
+      ] as const,
   },
 } as const

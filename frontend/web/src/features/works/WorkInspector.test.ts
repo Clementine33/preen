@@ -1,14 +1,14 @@
+import type { QueryClient } from '@tanstack/vue-query'
+import type { WorkDetail } from '@/lib/api/types'
 import { flushPromises, mount } from '@vue/test-utils'
-import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createPinia } from 'pinia'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, ref } from 'vue'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import { apiClientKey } from '@/lib/api/client'
-import type { WorkDetail } from '@/lib/api/types'
-import { apiStub } from '@/test/api-stub'
-import { usePlayerStore } from '@/stores/player'
-import type { QueryClient } from '@tanstack/vue-query'
 import { queryKeys } from '@/queries/query-keys'
+import { usePlayerStore } from '@/stores/player'
+import { apiStub } from '@/test/api-stub'
 import { installTestQueryPlugin } from '@/test/query-client'
 import WorkInspector from './WorkInspector.vue'
 
@@ -42,11 +42,24 @@ function detail(rj: string, voice: string): WorkDetail {
     sample_cover_url: null,
     series_id: null,
     series_name: null,
-    voice_actors: [{ id: `va-${rj}`, source: 'dlsite', source_id: '1', name: voice }],
+    voice_actors: [
+      {
+        id: `va-${rj}`,
+        source: 'dlsite',
+        source_id: '1',
+        name: voice,
+      },
+    ],
     source_tags: [],
     note: '',
-    language_editions: null, edition_tree: null,
-    relation: { role: null, language: null, original_rj: null, parent_rj: null },
+    language_editions: null,
+    edition_tree: null,
+    relation: {
+      role: null,
+      language: null,
+      original_rj: null,
+      parent_rj: null,
+    },
     copies: [],
     collection_ids: [],
     relation_warnings: [],
@@ -75,25 +88,38 @@ let queryClient: QueryClient
 
 async function mountInspector(
   getWork: ReturnType<typeof vi.fn>,
-  props: { rj: string; standalone?: boolean },
+  props: { rj: string, standalone?: boolean },
   getWorkContent?: ReturnType<typeof vi.fn>,
   formatPreference: string[] = [],
 ) {
   const router = createRouter({
     history: createMemoryHistory(),
-    routes: [{ path: '/', component: { template: '<div />' } }],
+    routes: [
+      {
+        path: '/',
+        component: { template: '<div />' },
+      },
+    ],
   })
   const query = installTestQueryPlugin()
   queryClient = query[1].queryClient
   const wrapper = mount(WorkInspector, {
     props,
     global: {
-      plugins: [createPinia(), router, query],
-      provide: { [apiClientKey as symbol]: apiStub({
-        getWork,
-        getPreferences: vi.fn().mockResolvedValue({ track_formats: formatPreference }),
-        ...(getWorkContent ? { getWorkContent } : {}),
-      } as never) },
+      plugins: [
+        createPinia(),
+        router,
+        query,
+      ],
+      provide: {
+        [apiClientKey as symbol]: apiStub({
+          getWork,
+          getPreferences: vi.fn().mockResolvedValue({ track_formats: formatPreference }),
+          ...(getWorkContent
+            ? { getWorkContent }
+            : {}),
+        } as never),
+      },
     },
   })
   await flushPromises()
@@ -102,7 +128,7 @@ async function mountInspector(
 
 /** Let the 70ms deferred swap run. */
 async function settle(): Promise<void> {
-  await new Promise((resolve) => setTimeout(resolve, 100))
+  await new Promise(resolve => setTimeout(resolve, 100))
   await flushPromises()
 }
 
@@ -110,7 +136,7 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-describe('WorkInspector', () => {
+describe('workInspector', () => {
   it('paints a local cover once it is proven loadable, and the remote one when it is not', async () => {
     const outcomes: Array<'load' | 'error'> = ['load', 'error']
     class StubImage {
@@ -118,13 +144,18 @@ describe('WorkInspector', () => {
       onerror: (() => void) | null = null
       set src(_: string) {
         const outcome = outcomes.shift() ?? 'error'
-        queueMicrotask(() => (outcome === 'load' ? this.onload : this.onerror)?.())
+        queueMicrotask(() => (outcome === 'load'
+          ? this.onload
+          : this.onerror)?.())
       }
     }
     vi.stubGlobal('Image', StubImage)
     reducedMotion(true)
     const local = { copy_id: 'c1', rel_path: 'cover.jpg', version: '1-2-3' }
-    const getWork = vi.fn(async (rj: string) => ({ ...detail(rj, 'va'), local_cover: local }))
+    const getWork = vi.fn(async (rj: string) => ({
+      ...detail(rj, 'va'),
+      local_cover: local,
+    }))
     const wrapper = await mountInspector(getWork, { rj: FIRST })
     await settle()
     expect(wrapper.get<HTMLElement>('.cover.front').element.style.backgroundImage).toContain('/files/')
@@ -136,7 +167,7 @@ describe('WorkInspector', () => {
   })
 
   it('fills the first work at once: no pause, no scramble, no wipe, and its cover is fetched at high priority', async () => {
-    const probes: Array<{ priority: string | undefined; url: string }> = []
+    const probes: Array<{ priority: string | undefined, url: string }> = []
     class StubImage {
       onload: (() => void) | null = null
       onerror: (() => void) | null = null
@@ -176,7 +207,9 @@ describe('WorkInspector', () => {
 
   it('keeps the last body, dimmed, while the next work is still loading', async () => {
     const getWork = vi.fn((rj: string) =>
-      rj === FIRST ? Promise.resolve(detail(FIRST, '伊ヶ崎綾香')) : new Promise<WorkDetail>(() => {}),
+      rj === FIRST
+        ? Promise.resolve(detail(FIRST, '伊ヶ崎綾香'))
+        : new Promise<WorkDetail>(() => {}),
     )
     const wrapper = await mountInspector(getWork, { rj: FIRST })
     await settle()
@@ -198,7 +231,9 @@ describe('WorkInspector', () => {
     await vi.waitFor(() => expect(wrapper.get('.insp-title').text()).toBe(`Title ${FIRST}`), { timeout: 5000 })
     const frame = vi.spyOn(window, 'requestAnimationFrame')
     getWork.mockResolvedValueOnce(detail(FIRST, '沢城みゆき'))
-    await queryClient.refetchQueries({ queryKey: queryKeys.works.detail(FIRST) })
+    await queryClient.refetchQueries({
+      queryKey: queryKeys.works.detail(FIRST),
+    })
     await flushPromises()
 
     expect(wrapper.get('.spec').classes()).not.toContain('dim')
@@ -229,16 +264,40 @@ describe('WorkInspector', () => {
   it('lists the tracks of the first online copy', async () => {
     const getWork = vi.fn((rj: string) => Promise.resolve(detail(rj, '沢城みゆき')))
     const aud = (name: string, format: string, duration: number | null) => ({
-      name, rel_path: name, kind: 'aud', size: 1, format, bitrate: null,
-      width: null, height: null, duration_sec: duration, thumb_v: null,
+      name,
+      rel_path: name,
+      kind: 'aud',
+      size: 1,
+      format,
+      bitrate: null,
+      width: null,
+      height: null,
+      duration_sec: duration,
+      thumb_v: null,
     })
     const getWorkContent = vi.fn(async (rj: string) => ({
       rj,
       copies: [
-        { copy_id: 'off', library_id: 'l', dir_id: 'd0', online: false },
         {
-          copy_id: 'on', library_id: 'l', dir_id: 'd1', online: true,
-          tree: { name: '', rel_path: '', children: [aud('01.mp3', 'MP3', 90), aud('01.wav', 'WAV', 90), aud('02.mp3', 'MP3', null)] },
+          copy_id: 'off',
+          library_id: 'l',
+          dir_id: 'd0',
+          online: false,
+        },
+        {
+          copy_id: 'on',
+          library_id: 'l',
+          dir_id: 'd1',
+          online: true,
+          tree: {
+            name: '',
+            rel_path: '',
+            children: [
+              aud('01.mp3', 'MP3', 90),
+              aud('01.wav', 'WAV', 90),
+              aud('02.mp3', 'MP3', null),
+            ],
+          },
         },
       ],
     }))
@@ -246,7 +305,7 @@ describe('WorkInspector', () => {
     await settle()
 
     // One row per track, not per format; an unmeasured duration reads as a dash.
-    const rows = wrapper.findAll('.trk').map((row) => row.text())
+    const rows = wrapper.findAll('.trk').map(row => row.text())
     expect(rows).toEqual(['0101' + '01:30', '0202' + '—'])
     expect(wrapper.text()).toContain('2 · 01:30')
     expect(wrapper.text()).not.toContain('NO TRACK DATA')
@@ -256,31 +315,53 @@ describe('WorkInspector', () => {
     const player = usePlayerStore()
     expect(player.rj).toBe(FIRST)
     expect(player.trackIndex).toBe(1)
-    expect(player.queue.map((item) => item.source?.src)).toEqual(['/files/01.mp3', '/files/02.mp3'])
-    expect(wrapper.findAll('.trk').map((row) => row.classes('now'))).toEqual([false, true])
+    expect(player.queue.map(item => item.source?.src)).toEqual(['/files/01.mp3', '/files/02.mp3'])
+    expect(wrapper.findAll('.trk').map(row => row.classes('now'))).toEqual([false, true])
   })
   it('lists and plays the preferred format, and keeps every format when the work ships none of them', async () => {
     const getWork = vi.fn((rj: string) => Promise.resolve(detail(rj, '沢城みゆき')))
     const aud = (name: string, format: string) => ({
-      name, rel_path: name, kind: 'aud', size: 1, format, bitrate: null,
-      width: null, height: null, duration_sec: 10, thumb_v: null,
+      name,
+      rel_path: name,
+      kind: 'aud',
+      size: 1,
+      format,
+      bitrate: null,
+      width: null,
+      height: null,
+      duration_sec: 10,
+      thumb_v: null,
     })
     const getWorkContent = vi.fn(async (rj: string) => ({
       rj,
-      copies: [{
-        copy_id: 'on', library_id: 'l', dir_id: 'd1', online: true,
-        tree: { name: '', rel_path: '', children: [aud('01.mp3', 'MP3'), aud('02.mp3', 'MP3'), aud('02.wav', 'WAV'), aud('03.wav', 'WAV')] },
-      }],
+      copies: [
+        {
+          copy_id: 'on',
+          library_id: 'l',
+          dir_id: 'd1',
+          online: true,
+          tree: {
+            name: '',
+            rel_path: '',
+            children: [
+              aud('01.mp3', 'MP3'),
+              aud('02.mp3', 'MP3'),
+              aud('02.wav', 'WAV'),
+              aud('03.wav', 'WAV'),
+            ],
+          },
+        },
+      ],
     }))
     const wrapper = await mountInspector(getWork, { rj: FIRST }, getWorkContent, ['FLAC', 'WAV'])
     await settle()
     expect(wrapper.get('[data-testid="tracklist-format"]').text()).toBe('WAV')
-    expect(wrapper.findAll('.trk').map((row) => row.get('.nm').text())).toEqual(['02', '03'])
+    expect(wrapper.findAll('.trk').map(row => row.get('.nm').text())).toEqual(['02', '03'])
 
     await wrapper.findAll('.trk')[0].trigger('click')
     const player = usePlayerStore()
-    expect(player.queue.map((item) => item.source?.src)).toEqual(['/files/02.wav', '/files/03.wav'])
-    expect(wrapper.findAll('.trk').map((row) => row.classes('now'))).toEqual([true, false])
+    expect(player.queue.map(item => item.source?.src)).toEqual(['/files/02.wav', '/files/03.wav'])
+    expect(wrapper.findAll('.trk').map(row => row.classes('now'))).toEqual([true, false])
 
     const other = await mountInspector(getWork, { rj: FIRST }, getWorkContent, ['FLAC'])
     await settle()
@@ -292,12 +373,28 @@ describe('WorkInspector', () => {
     // The wall's layout switch: the same page unmounts and remounts the
     // inspector while the work stays cached.
     const shown = ref(true)
-    const Host = defineComponent(() => () => (shown.value ? h(WorkInspector, { rj: FIRST }) : null))
-    const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/', component: { template: '<div />' } }] })
+    const Host = defineComponent(() => () => (shown.value
+      ? h(WorkInspector, { rj: FIRST })
+      : null))
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        {
+          path: '/',
+          component: { template: '<div />' },
+        },
+      ],
+    })
     const wrapper = mount(Host, {
       global: {
-        plugins: [createPinia(), router, installTestQueryPlugin()],
-        provide: { [apiClientKey as symbol]: apiStub({ getWork } as never) },
+        plugins: [
+          createPinia(),
+          router,
+          installTestQueryPlugin(),
+        ],
+        provide: {
+          [apiClientKey as symbol]: apiStub({ getWork } as never),
+        },
       },
     })
     await flushPromises()

@@ -1,18 +1,27 @@
-import { beforeEach, describe, expect, it } from 'vitest'
-import { createPinia, setActivePinia } from 'pinia'
 import type { OperationDraftDocument } from '@/lib/api/types'
+import { createPinia, setActivePinia } from 'pinia'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { useWorksetEditorStore } from './workset-editor'
 
 const base: OperationDraftDocument = {
   schema_version: 1,
   mode: 'available_sources',
   no_effect_tags: ['A'],
-  matched: { lossless: { codec: 'wav' } },
-  unmatched: { encoded: { codec: 'mp3', quality: { kind: 'bitrate', bitrate: 320 } } },
+  matched: {
+    lossless: { codec: 'wav' },
+  },
+  unmatched: {
+    encoded: {
+      codec: 'mp3',
+      quality: { kind: 'bitrate', bitrate: 320 },
+    },
+  },
   members: [],
 }
 
-const FLAC = { lossless: { codec: 'flac' } }
+const FLAC = {
+  lossless: { codec: 'flac' },
+}
 
 function openMember(store: ReturnType<typeof useWorksetEditorStore>, memberId: string): boolean {
   return store.open({
@@ -34,7 +43,12 @@ describe('editor session', () => {
     openMember(store, 'm-1')
     store.setUnit('matched', { intent: 'set', value: FLAC })
 
-    expect(store.pendingDocument?.members).toEqual([{ member_id: 'm-1', overrides: { matched: FLAC } }])
+    expect(store.pendingDocument?.members).toEqual([
+      {
+        member_id: 'm-1',
+        overrides: { matched: FLAC },
+      },
+    ])
     expect(store.editedUnitCount).toBe(1)
     expect(store.isDirty).toBe(true)
   })
@@ -98,7 +112,12 @@ describe('editor session', () => {
 
     expect(store.session?.error).toContain('放弃本地修改')
     expect(store.session?.applying).toBe(false)
-    expect(store.pendingDocument?.members).toEqual([{ member_id: 'm-1', overrides: { no_effect_tags: [] } }])
+    expect(store.pendingDocument?.members).toEqual([
+      {
+        member_id: 'm-1',
+        overrides: { no_effect_tags: [] },
+      },
+    ])
   })
 
   it('clears the session on explicit discard only', () => {
@@ -127,14 +146,25 @@ describe('server draft reconciliation', () => {
 
     expect(store.session?.baseVersion).toBe(6)
     expect(store.isDirty).toBe(true)
-    expect(store.pendingDocument?.members).toEqual([{ member_id: 'm-1', overrides: { matched: FLAC } }])
+    expect(store.pendingDocument?.members).toEqual([
+      {
+        member_id: 'm-1',
+        overrides: { matched: FLAC },
+      },
+    ])
   })
 
   it('adopts a genuinely moved document while nothing is unapplied', () => {
     const store = useWorksetEditorStore()
     openMember(store, 'm-1')
 
-    store.syncWithServer(scope, { version: 6, document: { ...base, no_effect_tags: ['B'] } })
+    store.syncWithServer(scope, {
+      version: 6,
+      document: {
+        ...base,
+        no_effect_tags: ['B'],
+      },
+    })
 
     expect(store.session?.baseVersion).toBe(6)
     expect(store.session?.baseDocument.no_effect_tags).toEqual(['B'])
@@ -145,7 +175,13 @@ describe('server draft reconciliation', () => {
     openMember(store, 'm-1')
     store.setUnit('matched', { intent: 'set', value: FLAC })
 
-    store.syncWithServer(scope, { version: 6, document: { ...base, no_effect_tags: ['B'] } })
+    store.syncWithServer(scope, {
+      version: 6,
+      document: {
+        ...base,
+        no_effect_tags: ['B'],
+      },
+    })
 
     expect(store.session?.baseVersion).toBe(3)
     expect(store.session?.baseDocument.no_effect_tags).toEqual(['A'])

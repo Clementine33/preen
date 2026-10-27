@@ -1,7 +1,5 @@
-import { useQuery, type QueryClient } from '@tanstack/vue-query'
-import { computed, toValue, watchEffect, type ComputedRef, type MaybeRefOrGetter } from 'vue'
-import { useApiClient } from '@/lib/api/client'
-import { rootPathIdentityKey } from '@/lib/root-path-identity'
+import type { QueryClient } from '@tanstack/vue-query'
+import type { ComputedRef, MaybeRefOrGetter } from 'vue'
 import type {
   ApiClientContract,
   CreateLibraryInput,
@@ -12,6 +10,10 @@ import type {
   MemberTreeResponse,
   UpdateLibraryInput,
 } from '@/lib/api/types'
+import { useQuery } from '@tanstack/vue-query'
+import { computed, toValue, watchEffect } from 'vue'
+import { useApiClient } from '@/lib/api/client'
+import { rootPathIdentityKey } from '@/lib/root-path-identity'
 import { useLibraryUiStore } from '@/stores/library-ui'
 import { refreshOrRemoveQueries } from './cache-sync'
 import { TREE_GC_TIME } from './query-client'
@@ -41,7 +43,8 @@ export function dirsQueryOptions(
     queryKey: queryKeys.libraries.dirs(libraryId ?? '', rootIdentity ?? ''),
     enabled: Boolean(libraryId && rootIdentity),
     queryFn: ({ signal }: { signal?: AbortSignal }) => {
-      if (!libraryId || !rootIdentity) throw new Error('dirs query requires a library and root identity')
+      if (!libraryId || !rootIdentity)
+        throw new Error('dirs query requires a library and root identity')
       return api.listDirs(libraryId, signal)
     },
   }
@@ -111,7 +114,7 @@ export function fileOperationMutationOptions(
   return {
     mutationFn: (input: {
       dirId: string
-      body: { member_path: string; operation: FileOperation; items: FileOperationItem[] }
+      body: { member_path: string, operation: FileOperation, items: FileOperationItem[] }
     }) => api.applyFileOperation(libraryId, input.body),
     onSuccess: (result: FileOperationResult, input: { dirId: string }) => {
       void sweepWorkCaches(queryClient)
@@ -135,8 +138,10 @@ export function createLibraryMutationOptions(api: ApiClientContract, queryClient
     mutationFn: (input: CreateLibraryInput) => api.createLibrary(input),
     onSuccess: (library: Library, _variables: CreateLibraryInput, _context: unknown) => {
       queryClient.setQueryData<Library[]>(queryKeys.libraries.list(), (old) => {
-        if (!old) return [library]
-        if (old.some((item) => item.id === library.id)) return old
+        if (!old)
+          return [library]
+        if (old.some(item => item.id === library.id))
+          return old
         return [...old, library]
       })
     },
@@ -145,18 +150,21 @@ export function createLibraryMutationOptions(api: ApiClientContract, queryClient
 
 export function updateLibraryMutationOptions(api: ApiClientContract, queryClient: QueryClient) {
   return {
-    mutationFn: ({ id, input }: { id: string; input: UpdateLibraryInput }) => api.updateLibrary(id, input),
+    mutationFn: ({ id, input }: { id: string, input: UpdateLibraryInput }) => api.updateLibrary(id, input),
     onSuccess: (
       updated: Library,
-      _variables: { id: string; input: UpdateLibraryInput },
+      _variables: { id: string, input: UpdateLibraryInput },
       _context: unknown,
     ) => {
       const previous = queryClient
         .getQueryData<Library[]>(queryKeys.libraries.list())
-        ?.find((item) => item.id === updated.id)
-      queryClient.setQueryData<Library[]>(queryKeys.libraries.list(), (old) =>
-        old ? old.map((item) => (item.id === updated.id ? updated : item)) : old,
-      )
+        ?.find(item => item.id === updated.id)
+      queryClient.setQueryData<Library[]>(queryKeys.libraries.list(), old =>
+        old
+          ? old.map(item => (item.id === updated.id
+              ? updated
+              : item))
+          : old)
       if (previous && rootPathIdentityKey(previous.root_path) !== rootPathIdentityKey(updated.root_path)) {
         void sweepWorkCaches(queryClient)
         // Genuine root identity change: the backend discarded materialized
@@ -175,9 +183,10 @@ export function deleteLibraryMutationOptions(api: ApiClientContract, queryClient
     mutationFn: (id: string) => api.deleteLibrary(id),
     onSuccess: (_result: void, id: string, _context: unknown) => {
       void sweepWorkCaches(queryClient)
-      queryClient.setQueryData<Library[]>(queryKeys.libraries.list(), (old) =>
-        old ? old.filter((item) => item.id !== id) : old,
-      )
+      queryClient.setQueryData<Library[]>(queryKeys.libraries.list(), old =>
+        old
+          ? old.filter(item => item.id !== id)
+          : old)
       void refreshOrRemoveQueries(queryClient, queryKeys.libraries.dirsPrefix(id))
       void refreshOrRemoveQueries(queryClient, queryKeys.libraries.memberTreesPrefix(id))
       // Deleting a library takes its processing record with it, so every
@@ -199,11 +208,12 @@ export function useLibraryList() {
   const ui = useLibraryUiStore()
   const query = useQuery(libraryListQueryOptions(api))
   watchEffect(() => {
-    if (query.data.value) ui.reconcileLibraries(query.data.value)
+    if (query.data.value)
+      ui.reconcileLibraries(query.data.value)
   })
   const librariesData = computed(() => query.data.value ?? [])
   const activeLibrary = computed(
-    () => librariesData.value.find((library) => library.id === ui.activeLibraryId) ?? null,
+    () => librariesData.value.find(library => library.id === ui.activeLibraryId) ?? null,
   )
   return { query, librariesData, activeLibrary }
 }
@@ -216,6 +226,8 @@ export function useRootIdentity(
 ): ComputedRef<string | null> {
   return computed(() => {
     const lib = toValue(library)
-    return lib ? rootPathIdentityKey(lib.root_path) : null
+    return lib
+      ? rootPathIdentityKey(lib.root_path)
+      : null
   })
 }

@@ -10,8 +10,10 @@ const { current, dismiss } = useToast()
 
 <template>
   <ToastProvider :duration="4000" swipe-direction="down">
-    <ToastRoot v-if="current" :key="current.id" class="app-toast" data-testid="toast"
-      @update:open="(open: boolean) => { if (!open) dismiss(current!.id) }">
+    <ToastRoot
+      v-if="current" :key="current.id" class="app-toast" data-testid="toast"
+      @update:open="(open: boolean) => { if (!open) dismiss(current!.id) }"
+    >
       <ToastDescription class="text">{{ current.text }}</ToastDescription>
       <ToastAction v-if="current.action" as-child :alt-text="current.action.label">
         <button class="btn btn-s" type="button" data-testid="toast-action" @click="current.action.run(); dismiss(current.id)">{{ current.action.label }}</button>

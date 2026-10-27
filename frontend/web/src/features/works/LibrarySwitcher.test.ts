@@ -1,14 +1,16 @@
-import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createMemoryHistory, createRouter, type Router } from 'vue-router'
+import type { VueWrapper } from '@vue/test-utils'
+import type { Router } from 'vue-router'
+import type { Library } from '@/lib/api/types'
+import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia } from 'pinia'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
+import { createMemoryHistory, createRouter } from 'vue-router'
 import { apiClientKey } from '@/lib/api/client'
+import { useLibraryUiStore } from '@/stores/library-ui'
 import { apiStub } from '@/test/api-stub'
 import { installTestQueryPlugin } from '@/test/query-client'
-import { useLibraryUiStore } from '@/stores/library-ui'
 import LibrarySwitcher from './LibrarySwitcher.vue'
-import type { Library } from '@/lib/api/types'
 
 /**
  * The library switcher's contracts: it reuses the one
@@ -31,12 +33,21 @@ function library(id: string, name: string, root: string): Library {
   }
 }
 
-const libraries = [library('lib-a', 'Archive', '/music'), library('lib-b', 'Brazil', '/brazil')]
+const libraries = [
+  library('lib-a', 'Archive', '/music'),
+  library('lib-b', 'Brazil', '/brazil'),
+]
 
 function routerFor(): Router {
   return createRouter({
     history: createMemoryHistory(),
-    routes: [{ path: '/worksets', name: 'worksets', component: { template: '<div />' } }],
+    routes: [
+      {
+        path: '/worksets',
+        name: 'worksets',
+        component: { template: '<div />' },
+      },
+    ],
   })
 }
 
@@ -53,7 +64,11 @@ async function mountSwitcher(): Promise<VueWrapper> {
   const wrapper = mount(LibrarySwitcher, {
     attachTo: container,
     global: {
-      plugins: [createPinia(), router, installTestQueryPlugin()],
+      plugins: [
+        createPinia(),
+        router,
+        installTestQueryPlugin(),
+      ],
       provide: { [apiClientKey as symbol]: api },
     },
   })
@@ -79,7 +94,7 @@ afterEach(() => {
   container = null
 })
 
-describe('LibrarySwitcher', () => {
+describe('librarySwitcher', () => {
   it('shows the active library and opens into a listbox of every root', async () => {
     const wrapper = await mountSwitcher()
 
@@ -91,7 +106,7 @@ describe('LibrarySwitcher', () => {
     const options = wrapper.findAll('[role="option"]')
     // ALL LIBRARIES leads, then every root.
     expect(options).toHaveLength(3)
-    expect(options.map((option) => option.attributes('aria-selected'))).toEqual(['false', 'true', 'false'])
+    expect(options.map(option => option.attributes('aria-selected'))).toEqual(['false', 'true', 'false'])
     // The panel states its scale itself: two roots, no per-library work counts.
     expect(wrapper.get('.lib-menu').text()).toContain('2 ROOTS')
   })
@@ -121,7 +136,7 @@ describe('LibrarySwitcher', () => {
 
     expect(useLibraryUiStore().allLibraries).toBe(true)
     expect(wrapper.get('.lib-name').text()).toBe('ALL')
-    expect(wrapper.findAll('[role="option"]').map((option) => option.attributes('aria-selected')))
+    expect(wrapper.findAll('[role="option"]').map(option => option.attributes('aria-selected')))
       .toEqual(['true', 'false', 'false'])
   })
 

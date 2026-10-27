@@ -1,16 +1,23 @@
+import type { LyricsSource } from './use-timed-lyrics'
 import { flushPromises, mount } from '@vue/test-utils'
-import { defineComponent, ref } from 'vue'
 import { expect, it, vi } from 'vitest'
+import { defineComponent, ref } from 'vue'
 import { apiClientKey } from '@/lib/api/client'
-import { useTimedLyrics, type LyricsSource } from './use-timed-lyrics'
+import { useTimedLyrics } from './use-timed-lyrics'
 
 function setup(text: string, relPath: string) {
-  const api = { getWorkText: vi.fn().mockResolvedValue(text) }
+  const api = {
+    getWorkText: vi.fn().mockResolvedValue(text),
+  }
   const source = ref<LyricsSource | null>({ rj: 'RJ1', copyId: 'c', relPath })
   const clock = ref(0)
   let result!: ReturnType<typeof useTimedLyrics>
-  mount(defineComponent({ setup: () => ((result = useTimedLyrics(source, () => clock.value)), () => null) }), {
-    global: { provide: { [apiClientKey as symbol]: api } },
+  mount(defineComponent({
+    setup: () => ((result = useTimedLyrics(source, () => clock.value)), () => null),
+  }), {
+    global: {
+      provide: { [apiClientKey as symbol]: api },
+    },
   })
   return { api, source, clock, result }
 }

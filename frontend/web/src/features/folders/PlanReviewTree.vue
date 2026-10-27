@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import type { ComponentOutcome } from '@/lib/api/types'
 import { ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, FileAudio, FilePlus2, FileText, Folder } from '@lucide/vue'
+import { computed, ref } from 'vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useOperationContext } from '@/composables/use-operation-context'
 import { decisionGroups, keepReasonText, memberConclusion, resolutionText, revisionComponents } from '@/features/worksets/plan-readers'
-import type { ComponentOutcome } from '@/lib/api/types'
 
 /**
  * The plan's own view of one member (ADR 0001).
@@ -31,17 +31,18 @@ const operation = workspace.operation
 /** The frozen root that corresponds to this member. */
 const root = computed(() => {
   const view = revision.value
-  if (!view) return null
+  if (!view)
+    return null
   return (
-    view.roots.find((candidate) => candidate.root_path.endsWith(`/${props.memberPath}`)) ??
-    view.roots.find((candidate) => candidate.root_path === props.memberPath) ??
-    null
+    view.roots.find(candidate => candidate.root_path.endsWith(`/${props.memberPath}`))
+    ?? view.roots.find(candidate => candidate.root_path === props.memberPath)
+    ?? null
   )
 })
 
 /** The frozen member entry behind this directory, when the plan has one. */
 const frozenMember = computed(
-  () => revision.value?.members.find((candidate) => candidate.folder_path === root.value?.root_path) ?? null,
+  () => revision.value?.members.find(candidate => candidate.folder_path === root.value?.root_path) ?? null,
 )
 
 /**
@@ -64,18 +65,20 @@ const planMissing = computed(() => Boolean(operation.value) && !operation.value?
 /** The frozen proposal stays on screen, with the fact that it is no longer current. */
 const needsPlanning = computed(() => {
   const op = operation.value
-  if (!op?.current_revision) return false
+  if (!op?.current_revision)
+    return false
   return op.planning_state === 'needs_planning' || op.current_revision.validation_state !== 'valid'
 })
 
 const components = computed<ComponentOutcome[]>(() => {
   const view = revision.value
   const rootIndex = root.value?.root_index
-  if (!view || rootIndex === undefined) return []
+  if (!view || rootIndex === undefined)
+    return []
   const owned = new Set(
-    view.component_roots.filter((ref) => ref.root_index === rootIndex).map((ref) => ref.component_id),
+    view.component_roots.filter(ref => ref.root_index === rootIndex).map(ref => ref.component_id),
   )
-  return revisionComponents(view).filter((component) => owned.has(component.component_id))
+  return revisionComponents(view).filter(component => owned.has(component.component_id))
 })
 
 interface Row {
@@ -107,19 +110,30 @@ interface DirRow {
  * depth of the directory it sits in (so the member root's files are depth 0).
  * The template reads both indent and `aria-level` off that one number.
  */
-type VisibleNode =
-  | { kind: 'dir'; key: string; name: string; depth: number }
-  | { kind: 'row'; key: string; row: Row; depth: number }
+type VisibleNode
+  = | { kind: 'dir', key: string, name: string, depth: number }
+    | { kind: 'row', key: string, row: Row, depth: number }
 
 /** The plan's per-file conclusions, grouped into the member's directory shape. */
 const tree = computed<DirRow>(() => {
-  const rootNode: DirRow = { key: '', name: '', depth: 0, rows: [], children: [] }
-  const byPath = new Map<string, DirRow>([['', rootNode]])
+  const rootNode: DirRow = {
+    key: '',
+    name: '',
+    depth: 0,
+    rows: [],
+    children: [],
+  }
+  const byPath = new Map<string, DirRow>([
+    ['', rootNode],
+  ])
 
   function dirNode(dir: string): DirRow {
     const existing = byPath.get(dir)
-    if (existing) return existing
-    const parentPath = dir.includes('/') ? dir.slice(0, dir.lastIndexOf('/')) : ''
+    if (existing)
+      return existing
+    const parentPath = dir.includes('/')
+      ? dir.slice(0, dir.lastIndexOf('/'))
+      : ''
     const parent = dirNode(parentPath)
     const node: DirRow = {
       key: dir,
@@ -152,11 +166,15 @@ const tree = computed<DirRow>(() => {
     // the plan's projected inventory, and they are pending by definition.
     for (const projected of component.projected_inventory ?? []) {
       const rel = relativeTo(projected, root.value?.root_path ?? '')
-      if (rel === '') continue
-      const dir = rel.includes('/') ? rel.slice(0, rel.lastIndexOf('/')) : ''
+      if (rel === '')
+        continue
+      const dir = rel.includes('/')
+        ? rel.slice(0, rel.lastIndexOf('/'))
+        : ''
       const name = rel.slice(rel.lastIndexOf('/') + 1)
       const node = dirNode(dir)
-      if (node.rows.some((row) => row.name === name)) continue
+      if (node.rows.some(row => row.name === name))
+        continue
       node.rows.push({
         key: `${component.component_id}:projected:${rel}`,
         name,
@@ -183,13 +201,19 @@ const tree = computed<DirRow>(() => {
  * says the folder needs no change, which is a conclusion, not an empty page.
  */
 const tally = computed(() => {
-  const counts: Record<string, number> = { keep: 0, delete: 0, encode: 0, pending: 0 }
+  const counts: Record<string, number> = {
+    keep: 0,
+    delete: 0,
+    encode: 0,
+    pending: 0,
+  }
   let rows = 0
   const walk = (node: DirRow): void => {
     for (const row of node.rows) {
       rows += 1
       counts[row.resolution] = (counts[row.resolution] ?? 0) + 1
-      if (row.pending) counts.pending += 1
+      if (row.pending)
+        counts.pending += 1
     }
     node.children.forEach(walk)
   }
@@ -200,7 +224,8 @@ const tally = computed(() => {
 const collapsed = ref<Set<string>>(new Set())
 
 function toggle(key: string) {
-  if (collapsed.value.has(key)) collapsed.value.delete(key)
+  if (collapsed.value.has(key))
+    collapsed.value.delete(key)
   else collapsed.value.add(key)
   collapsed.value = new Set(collapsed.value)
 }
@@ -218,7 +243,9 @@ const dirKeys = computed(() => {
 })
 
 function setAllCollapsed(fold: boolean) {
-  collapsed.value = new Set(fold ? dirKeys.value : [])
+  collapsed.value = new Set(fold
+    ? dirKeys.value
+    : [])
 }
 
 /**
@@ -231,11 +258,22 @@ const visible = computed<VisibleNode[]>(() => {
   const out: VisibleNode[] = []
   const walk = (node: DirRow) => {
     for (const row of node.rows) {
-      out.push({ kind: 'row', key: row.key, row, depth: node.depth })
+      out.push({
+        kind: 'row',
+        key: row.key,
+        row,
+        depth: node.depth,
+      })
     }
     for (const child of node.children) {
-      out.push({ kind: 'dir', key: child.key, name: child.name, depth: child.depth })
-      if (!collapsed.value.has(child.key)) walk(child)
+      out.push({
+        kind: 'dir',
+        key: child.key,
+        name: child.name,
+        depth: child.depth,
+      })
+      if (!collapsed.value.has(child.key))
+        walk(child)
     }
   }
   walk(tree.value)
@@ -243,8 +281,12 @@ const visible = computed<VisibleNode[]>(() => {
 })
 
 function relativeTo(path: string, memberRoot: string): string {
-  const prefix = memberRoot && !memberRoot.endsWith('/') ? `${memberRoot}/` : memberRoot
-  return prefix && path.startsWith(prefix) ? path.slice(prefix.length) : ''
+  const prefix = memberRoot && !memberRoot.endsWith('/')
+    ? `${memberRoot}/`
+    : memberRoot
+  return prefix && path.startsWith(prefix)
+    ? path.slice(prefix.length)
+    : ''
 }
 
 const RESOLUTION_TONES: Record<string, 'neutral' | 'success' | 'danger' | 'warning'> = {
@@ -295,64 +337,64 @@ const RESOLUTION_TONES: Record<string, 'neutral' | 'success' | 'danger' | 'warni
           当前计划没有列出这个文件夹的文件，也不会有文件操作。
         </p>
         <ul v-else role="tree" aria-label="计划文件树">
-        <!-- Every level of the member, at the depth it sits at. Files that sit
+          <!-- Every level of the member, at the depth it sits at. Files that sit
              in the member root itself have no directory row of their own; they
              are the first thing the tree shows. -->
-        <template v-for="node in visible" :key="node.key">
-          <li
-            v-if="node.kind === 'dir'"
-            class="flex min-h-8 items-center gap-1.5"
-            :style="{ paddingLeft: `${node.depth * 16}px` }"
-            role="treeitem"
-            :aria-level="node.depth"
-            :aria-expanded="!collapsed.has(node.key)"
-          >
-            <button
-              type="button"
-              class="grid size-4 place-items-center rounded text-muted-foreground hover:text-foreground"
-              :aria-label="`${collapsed.has(node.key) ? '展开' : '折叠'} ${node.name}`"
-              @click="toggle(node.key)"
+          <template v-for="node in visible" :key="node.key">
+            <li
+              v-if="node.kind === 'dir'"
+              class="flex min-h-8 items-center gap-1.5"
+              :style="{ paddingLeft: `${node.depth * 16}px` }"
+              role="treeitem"
+              :aria-level="node.depth"
+              :aria-expanded="!collapsed.has(node.key)"
             >
-              <ChevronDown v-if="!collapsed.has(node.key)" class="size-3.5" />
-              <ChevronRight v-else class="size-3.5" />
-            </button>
-            <Folder class="size-3.5 text-[var(--brand)]" aria-hidden="true" />
-            <span class="font-heading text-xs font-semibold">{{ node.name }}</span>
-          </li>
-          <li
-            v-else
-            class="flex min-h-8 items-center gap-2"
-            :style="{ paddingLeft: `${(node.depth + 1) * 16 + 8}px` }"
-            :data-resolution="node.row.resolution"
-            :data-pending="node.row.pending ? 'true' : 'false'"
-            role="treeitem"
-            :aria-level="node.depth + 1"
-          >
-            <component
-              :is="node.row.pending ? FilePlus2 : node.row.name.includes('.') ? FileAudio : FileText"
-              class="size-3.5 shrink-0 text-muted-foreground"
-              aria-hidden="true"
-            />
-            <span class="min-w-0 truncate text-xs" :class="node.row.pending ? 'italic' : ''">
-              {{ node.row.name }}
-            </span>
-            <Badge :tone="RESOLUTION_TONES[node.row.resolution] ?? 'neutral'">
-              {{ resolutionText(node.row.resolution) }}
-            </Badge>
-            <span v-if="node.row.pending" class="text-[10px] text-[var(--text-muted)]" data-testid="pending-output">
-              待生成
-            </span>
-            <span v-if="node.row.projected" class="truncate text-[10px] text-[var(--text-muted)]">计划预计产生</span>
-            <!-- Why a file stays is the question worth answering; a generated or
+              <button
+                type="button"
+                class="grid size-4 place-items-center rounded text-muted-foreground hover:text-foreground"
+                :aria-label="`${collapsed.has(node.key) ? '展开' : '折叠'} ${node.name}`"
+                @click="toggle(node.key)"
+              >
+                <ChevronDown v-if="!collapsed.has(node.key)" class="size-3.5" />
+                <ChevronRight v-else class="size-3.5" />
+              </button>
+              <Folder class="size-3.5 text-[var(--brand)]" aria-hidden="true" />
+              <span class="font-heading text-xs font-semibold">{{ node.name }}</span>
+            </li>
+            <li
+              v-else
+              class="flex min-h-8 items-center gap-2"
+              :style="{ paddingLeft: `${(node.depth + 1) * 16 + 8}px` }"
+              :data-resolution="node.row.resolution"
+              :data-pending="node.row.pending ? 'true' : 'false'"
+              role="treeitem"
+              :aria-level="node.depth + 1"
+            >
+              <component
+                :is="node.row.pending ? FilePlus2 : node.row.name.includes('.') ? FileAudio : FileText"
+                class="size-3.5 shrink-0 text-muted-foreground"
+                aria-hidden="true"
+              />
+              <span class="min-w-0 truncate text-xs" :class="node.row.pending ? 'italic' : ''">
+                {{ node.row.name }}
+              </span>
+              <Badge :tone="RESOLUTION_TONES[node.row.resolution] ?? 'neutral'">
+                {{ resolutionText(node.row.resolution) }}
+              </Badge>
+              <span v-if="node.row.pending" class="text-[10px] text-[var(--text-muted)]" data-testid="pending-output">
+                待生成
+              </span>
+              <span v-if="node.row.projected" class="truncate text-[10px] text-[var(--text-muted)]">计划预计产生</span>
+              <!-- Why a file stays is the question worth answering; a generated or
                  removed file speaks for itself — the member review's own rule. -->
-            <span
-              v-else-if="node.row.resolution === 'keep' && node.row.reasonCode"
-              class="truncate text-[10px] text-[var(--text-muted)]"
-            >
-              {{ keepReasonText(node.row.reasonCode) }}
-            </span>
-          </li>
-        </template>
+              <span
+                v-else-if="node.row.resolution === 'keep' && node.row.reasonCode"
+                class="truncate text-[10px] text-[var(--text-muted)]"
+              >
+                {{ keepReasonText(node.row.reasonCode) }}
+              </span>
+            </li>
+          </template>
         </ul>
       </template>
     </div>

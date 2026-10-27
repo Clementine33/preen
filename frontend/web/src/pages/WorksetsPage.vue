@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { useMutation } from '@tanstack/vue-query'
-import { useQueryClient } from '@tanstack/vue-query'
-import { RouterLink } from 'vue-router'
+import type { CreateLibraryInput, StorageClass } from '@/lib/api/types'
 import { AlertTriangle, LibraryBig, Pencil, Plus, RefreshCw } from '@lucide/vue'
+import { useMutation, useQueryClient } from '@tanstack/vue-query'
+import { computed, ref } from 'vue'
+import { RouterLink } from 'vue-router'
+import GlobalMenu from '@/components/layout/GlobalMenu.vue'
 import { Button } from '@/components/ui/button'
 import LibraryManager from '@/features/libraries/LibraryManager.vue'
 import { useApiClient } from '@/lib/api/client'
@@ -15,8 +16,6 @@ import {
   useLibraryList,
 } from '@/queries/libraries'
 import { useLibraryUiStore } from '@/stores/library-ui'
-import type { CreateLibraryInput, StorageClass } from '@/lib/api/types'
-import GlobalMenu from '@/components/layout/GlobalMenu.vue'
 
 /**
  * 工作集 — the media-library selection (`/worksets`, ADR 0001; ADR 0003).
@@ -43,14 +42,18 @@ const updateMutation = useMutation(updateLibraryMutationOptions(api, queryClient
 const deleteMutation = useMutation(deleteLibraryMutationOptions(api, queryClient))
 
 const editingLibrary = computed(() =>
-  editing.value ? (libraries.value.find((library) => library.id === ui.activeLibraryId) ?? null) : null,
+  editing.value
+    ? (libraries.value.find(library => library.id === ui.activeLibraryId) ?? null)
+    : null,
 )
 
 const pageError = computed(() => {
   const queryError = query.error.value
-  if (queryError) return errorDetails(queryError)
+  if (queryError)
+    return errorDetails(queryError)
   for (const mutation of [createMutation, updateMutation, deleteMutation]) {
-    if (mutation.error.value) return errorDetails(mutation.error.value)
+    if (mutation.error.value)
+      return errorDetails(mutation.error.value)
   }
   return null
 })
@@ -70,19 +73,30 @@ async function saveLibrary({ storage_class, ...input }: CreateLibraryInput & { s
   saving.value = true
   try {
     if (editing.value && editingLibrary.value) {
-      await updateMutation.mutateAsync({ id: editingLibrary.value.id, input: { ...input, storage_class } })
-    } else {
+      await updateMutation.mutateAsync({
+        id: editingLibrary.value.id,
+        input: { ...input, storage_class },
+      })
+    }
+    else {
       const created = await createMutation.mutateAsync(input)
       ui.setActiveLibrary(created.id)
       // Create takes no storage class; a new library starts on HDD. Once it
       // exists, a failed follow-up reopens it as an edit rather than a re-create.
       editing.value = true
-      if (storage_class !== 'hdd') await updateMutation.mutateAsync({ id: created.id, input: { storage_class } })
+      if (storage_class !== 'hdd') {
+        await updateMutation.mutateAsync({
+          id: created.id,
+          input: { storage_class },
+        })
+      }
     }
     managerOpen.value = false
-  } catch {
+  }
+  catch {
     // Mutation errors surface in the page banner; the dialog stays open.
-  } finally {
+  }
+  finally {
     saving.value = false
   }
 }
@@ -99,9 +113,11 @@ async function removeLibrary(id: string) {
   try {
     await deleteMutation.mutateAsync(id)
     managerOpen.value = false
-  } catch {
+  }
+  catch {
     // Keep the dialog open and expose the mutation error in the banner.
-  } finally {
+  }
+  finally {
     saving.value = false
   }
 }

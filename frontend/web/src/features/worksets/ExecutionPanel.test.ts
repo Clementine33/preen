@@ -1,6 +1,6 @@
+import type { ExecutionComponent, ExecutionView } from '@/lib/api/types'
 import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
-import type { ExecutionComponent, ExecutionView } from '@/lib/api/types'
 import ExecutionPanel from './ExecutionPanel.vue'
 
 function view(overrides: Partial<ExecutionView> = {}): ExecutionView {
@@ -28,8 +28,8 @@ function view(overrides: Partial<ExecutionView> = {}): ExecutionView {
   }
 }
 
-describe('ExecutionPanel', () => {
-  it("groups the partitions of one folder into that folder's own card", () => {
+describe('executionPanel', () => {
+  it('groups the partitions of one folder into that folder\'s own card', () => {
     const wrapper = mount(ExecutionPanel, {
       props: {
         members: [
@@ -159,14 +159,30 @@ describe('ExecutionPanel', () => {
       inventory_synced: true,
     }
     const members = [
-      { member_id: 'm-1', folder_path: '/music/albumA', folder_name: 'albumA', rel_path: 'albumA', dir_id: 'd-1' },
-      { member_id: 'm-2', folder_path: '/music/albumB', folder_name: 'albumB', rel_path: 'albumB', dir_id: 'd-2' },
+      {
+        member_id: 'm-1',
+        folder_path: '/music/albumA',
+        folder_name: 'albumA',
+        rel_path: 'albumA',
+        dir_id: 'd-1',
+      },
+      {
+        member_id: 'm-2',
+        folder_path: '/music/albumB',
+        folder_name: 'albumB',
+        rel_path: 'albumB',
+        dir_id: 'd-2',
+      },
     ]
 
     const scoped = mount(ExecutionPanel, {
       props: {
         members,
-        view: view({ status: 'succeeded', selected_folders: ['albumA'], components: [component] }),
+        view: view({
+          status: 'succeeded',
+          selected_folders: ['albumA'],
+          components: [component],
+        }),
       },
     })
     const note = scoped.get('[data-testid="execution-scope"]').text()
@@ -178,14 +194,24 @@ describe('ExecutionPanel', () => {
     const whole = mount(ExecutionPanel, {
       props: {
         members,
-        view: view({ status: 'succeeded', selected_folders: ['albumA', 'albumB'], components: [component] }),
+        view: view({
+          status: 'succeeded',
+          selected_folders: ['albumA', 'albumB'],
+          components: [component],
+        }),
       },
     })
     expect(whole.find('[data-testid="execution-scope"]').exists()).toBe(false)
 
     // A session started before the scope existed carries no scope at all.
     const legacy = mount(ExecutionPanel, {
-      props: { members, view: view({ status: 'succeeded', components: [component] }) },
+      props: {
+        members,
+        view: view({
+          status: 'succeeded',
+          components: [component],
+        }),
+      },
     })
     expect(legacy.find('[data-testid="execution-scope"]').exists()).toBe(false)
   })
@@ -206,7 +232,11 @@ describe('ExecutionPanel', () => {
   })
 
   it('reports real counts while running, never a fabricated percentage', () => {
-    const wrapper = mount(ExecutionPanel, { props: { view: view() } })
+    const wrapper = mount(ExecutionPanel, {
+      props: {
+        view: view(),
+      },
+    })
 
     expect(wrapper.get('[data-testid="execution-status"]').text()).toBe('执行中')
     expect(wrapper.get('[data-testid="execution-progress"]').text()).toContain('组件 1/2')
@@ -325,7 +355,7 @@ describe('ExecutionPanel', () => {
     expect(hard.text()).toContain('硬删除')
   })
 
-  it("shows the plan's kept files, not where a run moved files", () => {
+  it('shows the plan\'s kept files, not where a run moved files', () => {
     const wrapper = mount(ExecutionPanel, {
       props: {
         kept: {

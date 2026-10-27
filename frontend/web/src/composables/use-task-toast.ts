@@ -1,9 +1,10 @@
+import type { QueryClient } from '@tanstack/vue-query'
+import type { TaskTone } from '@/stores/task-toast'
 import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
-import type { QueryClient } from '@tanstack/vue-query'
 import { useApiClient } from '@/lib/api/client'
 import { libraryListQueryOptions } from '@/queries/libraries'
-import { useTaskToastStore, type TaskTone } from '@/stores/task-toast'
+import { useTaskToastStore } from '@/stores/task-toast'
 
 export function useTaskToast() {
   const store = useTaskToastStore()
@@ -33,20 +34,42 @@ export function useTaskResultNotice(queryClient: QueryClient) {
   function notify(result: TaskResult): void {
     const route = router.currentRoute.value
     if (route.params.libraryId === result.libraryId
-      && route.matched.some(record => result.quietOn.includes(String(record.name)))) return
-    toast.show({ title: result.title, text: result.text, tone: result.tone,
-      action: { label: '查看结果', run: () => { void viewResults() } } })
+      && route.matched.some(record => result.quietOn.includes(String(record.name)))) {
+      return
+    }
+    toast.show({
+      title: result.title,
+      text: result.text,
+      tone: result.tone,
+      action: {
+        label: '查看结果',
+        run: () => { void viewResults() },
+      },
+    })
     async function viewResults() {
       try {
-        const libraries = await queryClient.fetchQuery({ ...libraryListQueryOptions(api), staleTime: 0 })
+        const libraries = await queryClient.fetchQuery({
+          ...libraryListQueryOptions(api),
+          staleTime: 0,
+        })
         if (libraries.some(library => library.id === result.libraryId)) {
-          await router.push({ name: result.target, params: { libraryId: result.libraryId } })
-        } else {
+          await router.push({
+            name: result.target,
+            params: { libraryId: result.libraryId },
+          })
+        }
+        else {
           await router.push({ name: 'worksets' })
           toast.show({ title: result.libraryName, text: '媒体库已移除，结果不可用', tone: 'unknown' })
         }
-      } catch {
-        notify({ ...result, text: '无法确认媒体库是否可用，请重试', tone: 'unknown', quietOn: [] })
+      }
+      catch {
+        notify({
+          ...result,
+          text: '无法确认媒体库是否可用，请重试',
+          tone: 'unknown',
+          quietOn: [],
+        })
       }
     }
   }

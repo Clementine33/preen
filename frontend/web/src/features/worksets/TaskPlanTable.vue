@@ -1,8 +1,8 @@
 <script setup lang="ts">
+import type { RenameComponent, WorksetMember } from '@/lib/api/types'
 import { computed } from 'vue'
 import { Badge } from '@/components/ui/badge'
 import RowList from '@/features/worksets/RowList.vue'
-import type { RenameComponent, WorksetMember } from '@/lib/api/types'
 
 /**
  * The frozen proposals of a rename plan, as a static two-line table: the old
@@ -13,7 +13,7 @@ import type { RenameComponent, WorksetMember } from '@/lib/api/types'
  * changes the last segment, and the shared prefix shows it stays in place.
  * Review always shows the frozen payload (ADR 0012).
  */
-const props = withDefaults(defineProps<{ components: RenameComponent[]; members?: WorksetMember[]; tab?: PlanTab }>(), {
+const props = withDefaults(defineProps<{ components: RenameComponent[], members?: WorksetMember[], tab?: PlanTab }>(), {
   tab: 'rename',
 })
 
@@ -30,7 +30,7 @@ const REASONS: Record<string, string> = {
   TARGET_COLLISION: '多个文件夹提议同一名称',
   CASE_ONLY_RENAME: '仅大小写不同（Windows 不支持）',
 }
-const ACTIONS: Record<string, { label: string; tone: 'success' | 'neutral' | 'warning' }> = {
+const ACTIONS: Record<string, { label: string, tone: 'success' | 'neutral' | 'warning' }> = {
   rename: { label: '重命名', tone: 'success' },
   noop: { label: '已手动改名', tone: 'neutral' },
   blocked: { label: '跳过', tone: 'warning' },
@@ -39,7 +39,7 @@ const ACTIONS: Record<string, { label: string; tone: 'success' | 'neutral' | 'wa
 /** The tab each proposal is listed under; names that stay as they are belong to none. */
 export type PlanTab = 'rename' | 'blocked' | 'noop'
 const shown = computed(() =>
-  props.components.filter((c) => c.action === props.tab && (c.action !== 'noop' || c.observed_name)),
+  props.components.filter(c => c.action === props.tab && (c.action !== 'noop' || c.observed_name)),
 )
 
 // The parent folder tells apart two folders that share a name; one lookup per
@@ -48,14 +48,17 @@ const parents = computed(() => {
   const map = new Map<string, string>()
   for (const member of props.members ?? []) {
     const slash = member.rel_path.lastIndexOf('/')
-    if (slash > 0) map.set(member.member_id, member.rel_path.slice(0, slash + 1))
+    if (slash > 0)
+      map.set(member.member_id, member.rel_path.slice(0, slash + 1))
   }
   return map
 })
 
 function secondLine(component: RenameComponent): string {
-  if (component.action === 'blocked') return REASONS[component.reason_code ?? ''] ?? component.reason_code ?? ''
-  if (component.action === 'noop') return '名称已是目标名称，仅更新记录'
+  if (component.action === 'blocked')
+    return REASONS[component.reason_code ?? ''] ?? component.reason_code ?? ''
+  if (component.action === 'noop')
+    return '名称已是目标名称，仅更新记录'
   return component.target_name
 }
 </script>

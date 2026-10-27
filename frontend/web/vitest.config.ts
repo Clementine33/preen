@@ -1,11 +1,13 @@
-import { defineConfig, mergeConfig } from 'vitest/config'
 import type { UserConfig } from 'vite'
+import { defineConfig, mergeConfig } from 'vitest/config'
 import viteConfig from './vite.config.ts'
 
 // vite.config.ts uses the command callback form; vitest needs the resolved
 // object, so resolve it as 'serve'.
-const resolvedViteConfig: UserConfig =
-  typeof viteConfig === 'function' ? viteConfig({ command: 'serve', mode: 'test' }) : viteConfig
+const resolvedViteConfig: UserConfig
+  = typeof viteConfig === 'function'
+    ? viteConfig({ command: 'serve', mode: 'test' })
+    : viteConfig
 
 export default mergeConfig(
   resolvedViteConfig,

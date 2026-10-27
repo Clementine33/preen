@@ -1,8 +1,4 @@
-import { flushPromises, mount, enableAutoUnmount, type VueWrapper } from '@vue/test-utils'
-import { createPinia } from 'pinia'
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createMemoryHistory, createRouter } from 'vue-router'
-import { apiClientKey } from '@/lib/api/client'
+import type { VueWrapper } from '@vue/test-utils'
 import type {
   ApiClientContract,
   ExecutionComponent,
@@ -11,9 +7,14 @@ import type {
   RevisionDetailResponse,
   Workset,
 } from '@/lib/api/types'
+import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
+import { createPinia } from 'pinia'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { createMemoryHistory, createRouter } from 'vue-router'
+import { apiClientKey } from '@/lib/api/client'
+import { useWorksetExecutionStore } from '@/stores/workset-execution'
 import { apiStub as sharedApiStub } from '@/test/api-stub'
 import { installTestQueryPlugin } from '@/test/query-client'
-import { useWorksetExecutionStore } from '@/stores/workset-execution'
 import ExecutionDetailPage from './ExecutionDetailPage.vue'
 
 enableAutoUnmount(afterEach)
@@ -63,7 +64,13 @@ function operation(active: boolean): Operation {
       created_at: '2026-09-16T00:00:00Z',
       status: 'ready',
       summary_reason: '',
-      counts: { members: 1, changed: 1, unmet_targets: 0, blocked: 0, unchanged: 0 },
+      counts: {
+        members: 1,
+        changed: 1,
+        unmet_targets: 0,
+        blocked: 0,
+        unchanged: 0,
+      },
       validation_state: 'valid',
       stale: false,
     },
@@ -96,7 +103,13 @@ function revision(execution: RevisionDetailResponse['execution']): RevisionDetai
     root_path: '/music',
     snapshot_token: 'tok',
     status: 'ready',
-    summary: { operation_count: 3, error_count: 0, total_count: 2, actionable_count: 2, summary_reason: '' },
+    summary: {
+      operation_count: 3,
+      error_count: 0,
+      total_count: 2,
+      actionable_count: 2,
+      summary_reason: '',
+    },
     task: {
       kind: 'conversion',
       schema_version: 1,
@@ -104,11 +117,23 @@ function revision(execution: RevisionDetailResponse['execution']): RevisionDetai
         policy: {},
         policy_hash: '',
         classifier: {},
-        summary: { component_count: 2, blocked_count: 0, operation_count: 3, error_count: 0, summary_reason: '' },
+        summary: {
+          component_count: 2,
+          blocked_count: 0,
+          operation_count: 3,
+          error_count: 0,
+          summary_reason: '',
+        },
         components: [],
       },
     },
-    counts: { members: 1, changed: 1, unmet_targets: 0, blocked: 0, unchanged: 0 },
+    counts: {
+      members: 1,
+      changed: 1,
+      unmet_targets: 0,
+      blocked: 0,
+      unchanged: 0,
+    },
     members: [],
     roots: [],
     component_roots: [],
@@ -122,16 +147,27 @@ function pageApi(overrides: Partial<ApiClientContract> = {}): ApiClientContract 
     getWorkset: vi.fn().mockResolvedValue(workset),
     getOperation: vi.fn().mockResolvedValue(operation(true)),
     getOperationDraft: vi.fn().mockResolvedValue({
-      workset_id: 'ws-1', operation_type: 'conversion', version: 5,
-      schema_version: 1, updated_at: '',
-      document: { schema_version: 1, no_effect_tags: [], matched: {}, unmatched: {}, members: [] },
+      workset_id: 'ws-1',
+      operation_type: 'conversion',
+      version: 5,
+      schema_version: 1,
+      updated_at: '',
+      document: {
+        schema_version: 1,
+        no_effect_tags: [],
+        matched: {},
+        unmatched: {},
+        members: [],
+      },
     }),
     getRevision: vi.fn().mockResolvedValue(revision(null)),
     getExecution: vi.fn().mockResolvedValue(executionView),
     // An active detail page now observes its session for the SPA lifetime.
-    streamExecutionEvents: vi.fn((_ws, _op, _id, signal) => ({ async *[Symbol.asyncIterator]() {
-      await new Promise<void>(resolve => signal?.addEventListener('abort', () => resolve(), { once: true }))
-    } })),
+    streamExecutionEvents: vi.fn((_ws, _op, _id, signal) => ({
+      async* [Symbol.asyncIterator]() {
+        await new Promise<void>(resolve => signal?.addEventListener('abort', () => resolve(), { once: true }))
+      },
+    })),
     ...overrides,
   })
 }
@@ -156,7 +192,11 @@ async function mountPage(api: ApiClientContract): Promise<VueWrapper> {
   await router.isReady()
   const wrapper = mount(ExecutionDetailPage, {
     global: {
-      plugins: [createPinia(), router, installTestQueryPlugin()],
+      plugins: [
+        createPinia(),
+        router,
+        installTestQueryPlugin(),
+      ],
       provide: { [apiClientKey as symbol]: api },
     },
     attachTo: document.body,
@@ -165,7 +205,7 @@ async function mountPage(api: ApiClientContract): Promise<VueWrapper> {
   return wrapper
 }
 
-describe('ExecutionDetailPage', () => {
+describe('executionDetailPage', () => {
   it('renders the live report and offers the cancel action while the run is active', async () => {
     const cancelExecution = vi.fn().mockResolvedValue({ ...executionView, status: 'canceled' })
     const api = pageApi({ cancelExecution })
@@ -187,7 +227,12 @@ describe('ExecutionDetailPage', () => {
       getRevision: vi
         .fn()
         .mockResolvedValue(revision({ execution_id: 'exec-1', plan_id: 'plan-1', status: 'succeeded' })),
-      getExecution: vi.fn().mockResolvedValue({ ...executionView, status: 'succeeded', completed_components: 2, completed_operations: 3 }),
+      getExecution: vi.fn().mockResolvedValue({
+        ...executionView,
+        status: 'succeeded',
+        completed_components: 2,
+        completed_operations: 3,
+      }),
     })
     const wrapper = await mountPage(api)
 
@@ -195,7 +240,7 @@ describe('ExecutionDetailPage', () => {
     expect(wrapper.find('[data-testid="execution-cancel"]').exists()).toBe(false)
   })
 
-  it("fills a run's per-component facts in as each component commits", async () => {
+  it('fills a run\'s per-component facts in as each component commits', async () => {
     const report: ExecutionView = {
       ...executionView,
       completed_components: 2,
@@ -275,7 +320,7 @@ describe('ExecutionDetailPage', () => {
   })
 })
 
-describe('ExecutionDetailPage component paging', () => {
+describe('executionDetailPage component paging', () => {
   function component(index: number): ExecutionComponent {
     return {
       component_index: index,
@@ -294,11 +339,20 @@ describe('ExecutionDetailPage component paging', () => {
   }
 
   it('reads the next page of a run too large for one read, and merges it', async () => {
-    const firstPage = [component(0), component(1)]
+    const firstPage = [
+      component(0),
+      component(1),
+    ]
     const getExecution = vi
       .fn()
       .mockResolvedValueOnce({ ...executionView, total_components: 3, components: firstPage })
-      .mockResolvedValueOnce({ ...executionView, total_components: 3, components: [component(2)] })
+      .mockResolvedValueOnce({
+        ...executionView,
+        total_components: 3,
+        components: [
+          component(2),
+        ],
+      })
     const wrapper = await mountPage(pageApi({ getExecution }))
     await flushPromises()
 

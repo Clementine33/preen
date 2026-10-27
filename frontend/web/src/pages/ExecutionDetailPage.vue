@@ -1,11 +1,11 @@
 <script setup lang="ts">
+import type { FileDecision } from '@/lib/api/types'
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { Button } from '@/components/ui/button'
+import { useCurrentConversion } from '@/composables/use-operation-context'
 import ExecutionPanel from '@/features/worksets/ExecutionPanel.vue'
 import { keptDecisions, revisionComponents } from '@/features/worksets/plan-readers'
-import { useCurrentConversion } from '@/composables/use-operation-context'
-import type { FileDecision } from '@/lib/api/types'
 
 /**
  * The execution session of the revision in view
@@ -32,9 +32,13 @@ const {
 /** Each component's kept files, as the executed revision concluded them. */
 const kept = computed<Record<string, FileDecision[]>>(() => {
   const executed = workspace.revision.value
-  if (!executed) return {}
+  if (!executed)
+    return {}
   return Object.fromEntries(
-    revisionComponents(executed).map((component) => [component.component_id, keptDecisions(component)]),
+    revisionComponents(executed).map(component => [
+      component.component_id,
+      keptDecisions(component),
+    ]),
   )
 })
 
@@ -46,7 +50,8 @@ const running = computed(() => {
 
 async function cancel() {
   const view = executionView.value
-  if (!worksetId.value || !view) return
+  if (!worksetId.value || !view)
+    return
   await execution.cancel(worksetId.value, 'conversion', view.execution_id)
 }
 </script>

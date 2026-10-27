@@ -1,4 +1,5 @@
-import { computed, onBeforeUnmount, onMounted, ref, toValue, type MaybeRefOrGetter } from 'vue'
+import type { MaybeRefOrGetter } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, toValue } from 'vue'
 import { onBeforeRouteLeave } from 'vue-router'
 import { sameUnitValue } from '@/features/worksets/draft-intents'
 
@@ -41,7 +42,9 @@ export function useSettingsForm<S extends object>(options: SettingsFormOptions<S
 
   /** The value the field shows: its pending edit, else the saved one. */
   function value<K extends keyof S>(key: K): S[K] {
-    return (key in edits.value ? edits.value[key] : saved()?.[key]) as S[K]
+    return (key in edits.value
+      ? edits.value[key]
+      : saved()?.[key]) as S[K]
   }
 
   function set<K extends keyof S>(key: K, next: S[K]) {
@@ -58,18 +61,22 @@ export function useSettingsForm<S extends object>(options: SettingsFormOptions<S
   const canRestoreDefaults = computed(() => {
     const defaults = toValue(options.defaults)
     return (
-      saved() !== undefined &&
-      defaults !== undefined &&
-      (Object.keys(defaults) as (keyof S)[]).some((key) => !sameUnitValue(value(key), defaults[key]))
+      saved() !== undefined
+      && defaults !== undefined
+      && (Object.keys(defaults) as (keyof S)[]).some(key => !sameUnitValue(value(key), defaults[key]))
     )
   })
 
   /** Every field back to its default, as unsaved edits the apply bar still owns. */
   function restoreDefaults() {
     const defaults = toValue(options.defaults)
-    if (!defaults) return
+    if (!defaults)
+      return
     error.value = null
-    edits.value = { ...edits.value, ...defaults }
+    edits.value = {
+      ...edits.value,
+      ...defaults,
+    }
   }
 
   const dirty = computed(() => (Object.keys(edits.value) as (keyof S)[]).some(modified))
@@ -80,9 +87,10 @@ export function useSettingsForm<S extends object>(options: SettingsFormOptions<S
   }
 
   async function apply(): Promise<boolean> {
-    if (!dirty.value || applying.value) return false
+    if (!dirty.value || applying.value)
+      return false
     const pending = Object.fromEntries(
-      (Object.keys(edits.value) as (keyof S)[]).filter(modified).map((key) => [key, edits.value[key]]),
+      (Object.keys(edits.value) as (keyof S)[]).filter(modified).map(key => [key, edits.value[key]]),
     ) as Partial<S>
     applying.value = true
     error.value = null
@@ -90,11 +98,14 @@ export function useSettingsForm<S extends object>(options: SettingsFormOptions<S
       await options.save(pending)
       edits.value = {}
       return true
-    } catch (failure) {
+    }
+    catch (failure) {
       error.value = describeSaveFailure(failure, options.label)
-      if ((failure as { code?: string }).code === 'VERSION_CONFLICT') options.onConflict?.()
+      if ((failure as { code?: string }).code === 'VERSION_CONFLICT')
+        options.onConflict?.()
       return false
-    } finally {
+    }
+    finally {
       applying.value = false
     }
   }
@@ -103,17 +114,30 @@ export function useSettingsForm<S extends object>(options: SettingsFormOptions<S
   // the tab.
   onBeforeRouteLeave(() => !dirty.value || window.confirm('有未应用的设置修改，确定放弃吗？'))
   const warnBeforeUnload = (event: BeforeUnloadEvent) => {
-    if (dirty.value) event.preventDefault()
+    if (dirty.value)
+      event.preventDefault()
   }
   onMounted(() => window.addEventListener('beforeunload', warnBeforeUnload))
   onBeforeUnmount(() => window.removeEventListener('beforeunload', warnBeforeUnload))
 
-  return { value, set, modified, undo, canRestoreDefaults, restoreDefaults, dirty, discard, apply, applying, error }
+  return {
+    value,
+    set,
+    modified,
+    undo,
+    canRestoreDefaults,
+    restoreDefaults,
+    dirty,
+    discard,
+    apply,
+    applying,
+    error,
+  }
 }
 
 /** Why an apply was refused, in words the apply bar can show next to the button. */
 export function describeSaveFailure(failure: unknown, label: string): string {
-  const { code, message } = failure as { code?: string; message?: string }
+  const { code, message } = failure as { code?: string, message?: string }
   switch (code) {
     case 'COMMON_SETTINGS_BUSY':
       return `另一条${label}记录正在生成或执行：设置未保存，请等它结束后重试`

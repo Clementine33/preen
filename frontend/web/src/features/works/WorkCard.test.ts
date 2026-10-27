@@ -1,9 +1,9 @@
+import type { WorkSummary } from '@/lib/api/types'
 import { mount } from '@vue/test-utils'
 import { createPinia } from 'pinia'
 import { afterEach, describe, expect, it } from 'vitest'
 import { nextTick } from 'vue'
 import { apiClientKey } from '@/lib/api/client'
-import type { WorkSummary } from '@/lib/api/types'
 import { bumpCoverEpoch } from '@/queries/cover-epoch'
 import { apiStub } from '@/test/api-stub'
 import WorkCard from './WorkCard.vue'
@@ -32,29 +32,46 @@ function work(version = '1-5-9'): WorkSummary {
     has_note: false,
     collected_at: '2026-01-01T00:00:00Z',
     copy_count: 1,
-    listening: { state: 'none', track_index: null, track_count: null, updated_at: null },
+    listening: {
+      state: 'none',
+      track_index: null,
+      track_count: null,
+      updated_at: null,
+    },
     local_cover: { copy_id: 'copy-1', rel_path: 'cover.jpg', version },
   }
 }
 
 function mountCard(summary: WorkSummary, index = 0) {
   const api = apiStub({
-    workFileUrl: ((ref: { copyId: string; relPath: string }, version?: string) =>
+    workFileUrl: ((ref: { copyId: string, relPath: string }, version?: string) =>
       `/files/${ref.copyId}/${ref.relPath}?v=${version}`) as never,
   })
   return mount(WorkCard, {
-    props: { work: summary, selected: false, playing: false, index },
-    global: { plugins: [createPinia()], provide: { [apiClientKey as symbol]: api } },
+    props: {
+      work: summary,
+      selected: false,
+      playing: false,
+      index,
+    },
+    global: {
+      plugins: [
+        createPinia(),
+      ],
+      provide: { [apiClientKey as symbol]: api },
+    },
   })
 }
 
 afterEach(() => bumpCoverEpoch())
 
-describe('WorkCard cover', () => {
+describe('workCard cover', () => {
   it('shows the local cover ahead of the remote link, versioned by its address', async () => {
     const wrapper = mountCard(work())
     expect(wrapper.get('img').attributes('src')).toBe('/files/copy-1/cover.jpg?v=1-5-9')
-    await wrapper.setProps({ work: work('2-6-9') })
+    await wrapper.setProps({
+      work: work('2-6-9'),
+    })
     expect(wrapper.get('img').attributes('src')).toBe('/files/copy-1/cover.jpg?v=2-6-9')
   })
 
@@ -84,14 +101,25 @@ describe('WorkCard cover', () => {
   })
 
   it('keeps the remote link for a work without a local cover', () => {
-    const wrapper = mountCard({ ...work(), local_cover: null })
+    const wrapper = mountCard({
+      ...work(),
+      local_cover: null,
+    })
     expect(wrapper.get('img').attributes('src')).toBe(REMOTE)
   })
 })
 
-describe('WorkCard listening', () => {
+describe('workCard listening', () => {
   const listening = (state: WorkSummary['listening']['state'], index: number | null = null, count: number | null = null) =>
-    ({ ...work(), listening: { state, track_index: index, track_count: count, updated_at: null } })
+    ({
+      ...work(),
+      listening: {
+        state,
+        track_index: index,
+        track_count: count,
+        updated_at: null,
+      },
+    })
 
   it('marks a work with a position, naming the track', () => {
     const dot = mountCard(listening('listening', 2, 12)).find('.listening-dot')

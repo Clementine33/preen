@@ -1,6 +1,6 @@
-import { Layers, ListMusic, Settings2, SquareLibrary } from '@lucide/vue'
 import type { Component } from 'vue'
 import type { RouteLocationRaw } from 'vue-router'
+import { Layers, ListMusic, Settings2, SquareLibrary } from '@lucide/vue'
 
 /**
  * The global navigation definition.
@@ -22,12 +22,32 @@ export interface GlobalNavItem {
 }
 
 export const GLOBAL_NAV: readonly GlobalNavItem[] = [
-  { id: 'works', label: '作品库', icon: SquareLibrary, to: '/works' },
-  { id: 'collections', label: '合集', icon: Layers, to: '/collections' },
-  { id: 'worksets', label: '工作集', icon: ListMusic, to: '/worksets' },
+  {
+    id: 'works',
+    label: '作品库',
+    icon: SquareLibrary,
+    to: '/works',
+  },
+  {
+    id: 'collections',
+    label: '合集',
+    icon: Layers,
+    to: '/collections',
+  },
+  {
+    id: 'worksets',
+    label: '工作集',
+    icon: ListMusic,
+    to: '/worksets',
+  },
 ]
 
-export const SETTINGS_NAV: GlobalNavItem = { id: 'settings', label: '设置', icon: Settings2, to: '/settings' }
+export const SETTINGS_NAV: GlobalNavItem = {
+  id: 'settings',
+  label: '设置',
+  icon: Settings2,
+  to: '/settings',
+}
 
 /**
  * Route name → owning global entry. The current item is derived from the
@@ -38,23 +58,23 @@ export const SETTINGS_NAV: GlobalNavItem = { id: 'settings', label: '设置', ic
  * Login lives outside that shell and has no global entry.
  */
 const NAV_OWNER_BY_ROUTE_NAME = {
-  works: 'works',
+  'works': 'works',
   'work-detail': 'works',
-  collections: 'collections',
+  'collections': 'collections',
   'collection-detail': 'collections',
-  worksets: 'worksets',
+  'worksets': 'worksets',
   'workbench-overview': 'worksets',
   'overview-files': 'worksets',
-  conversion: 'worksets',
+  'conversion': 'worksets',
   'conversion-member-files': 'worksets',
   'conversion-settings': 'worksets',
   'conversion-member': 'worksets',
   'conversion-member-edit': 'worksets',
   'conversion-batch-edit': 'worksets',
   'conversion-execution': 'worksets',
-  rename: 'worksets',
+  'rename': 'worksets',
   'metadata-refresh': 'worksets',
-  settings: 'settings',
+  'settings': 'settings',
   // An address that names no page of the workbench is still reached inside the
   // workbench: the entry that offers the way back is 工作集.
   'not-found': 'worksets',

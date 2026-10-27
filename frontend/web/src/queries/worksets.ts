@@ -1,4 +1,4 @@
-import { infiniteQueryOptions, queryOptions, type QueryClient } from '@tanstack/vue-query'
+import type { QueryClient } from '@tanstack/vue-query'
 import type {
   AnyDraftDocument,
   ApiClientContract,
@@ -6,10 +6,10 @@ import type {
   CreateRecordInput,
   CreateRecordResponse,
   ExecutionView,
-  GenerationView,
   GenerationEvent,
-  Operation,
+  GenerationView,
   ListWorksetsParams,
+  Operation,
   OperationType,
   StartExecutionResponse,
   TaskSettings,
@@ -17,6 +17,7 @@ import type {
   Workset,
   WorksetListResponse,
 } from '@/lib/api/types'
+import { infiniteQueryOptions, queryOptions } from '@tanstack/vue-query'
 import { refreshOrRemoveQueries } from './cache-sync'
 import { queryKeys } from './query-keys'
 
@@ -32,12 +33,17 @@ export function worksetListInfiniteQueryOptions(
   params: { libraryId?: string | null } = {},
 ) {
   return infiniteQueryOptions({
-    queryKey: [...queryKeys.worksets.list(params.libraryId ?? null), 'infinite'],
+    queryKey: [
+      ...queryKeys.worksets.list(params.libraryId ?? null),
+      'infinite',
+    ],
     initialPageParam: undefined as string | undefined,
-    queryFn: ({ pageParam, signal }: { pageParam: string | undefined; signal?: AbortSignal }) => {
+    queryFn: ({ pageParam, signal }: { pageParam: string | undefined, signal?: AbortSignal }) => {
       const listParams: ListWorksetsParams = { limit: WORKSET_PAGE_SIZE }
-      if (params.libraryId) listParams.library_id = params.libraryId
-      if (pageParam) listParams.cursor = pageParam
+      if (params.libraryId)
+        listParams.library_id = params.libraryId
+      if (pageParam)
+        listParams.cursor = pageParam
       return api.listWorksets(listParams, signal)
     },
     getNextPageParam: (lastPage: WorksetListResponse) => lastPage.next_cursor || undefined,
@@ -128,7 +134,7 @@ export function createCurrentRecordMutationOptions(
   operation: OperationType,
 ) {
   return {
-    mutationFn: (input: { request: CreateRecordInput; idempotencyKey: string }) =>
+    mutationFn: (input: { request: CreateRecordInput, idempotencyKey: string }) =>
       api.createCurrentRecord(libraryId, operation, input.request, input.idempotencyKey),
     onSuccess: (result: CreateRecordResponse, input: { request: CreateRecordInput }) => {
       queryClient.setQueryData(queryKeys.worksets.current(libraryId, operation), {
@@ -226,7 +232,7 @@ export function saveTaskSettingsMutationOptions<T extends OperationType>(
   operation: T,
 ) {
   return {
-    mutationFn: (input: { settings: TaskSettingsMap[T]; etag: string }) =>
+    mutationFn: (input: { settings: TaskSettingsMap[T], etag: string }) =>
       api.saveTaskSettings(operation, input.settings, input.etag),
     onSuccess: (saved: TaskSettings<T>) => {
       queryClient.setQueryData(queryKeys.taskSettings.detail(operation), saved)
@@ -243,11 +249,12 @@ export function startGenerationMutationOptions(api: ApiClientContract, queryClie
       ifMatchVersion: number
       idempotencyKey: string
     }) => api.startGeneration(input.worksetId, input.operation, input.ifMatchVersion, input.idempotencyKey),
-    onSuccess: (result: { created: boolean }, input: { worksetId: string; operation: OperationType }) => {
+    onSuccess: (result: { created: boolean }, input: { worksetId: string, operation: OperationType }) => {
       if (result.created) {
         // 202: the generation SSE composable owns follow-up sync from here.
         void refreshOrRemoveQueries(queryClient, queryKeys.worksets.operation(input.worksetId, input.operation))
-      } else {
+      }
+      else {
         // created:false replay — input unchanged, current revision stands.
         void Promise.all([
           refreshOrRemoveQueries(queryClient, queryKeys.worksets.operation(input.worksetId, input.operation)),
@@ -270,26 +277,40 @@ export function generationQueryOptions(api: ApiClientContract, worksetId: string
 
 export function syncGenerationSnapshot(queryClient: QueryClient, session: GenerationView) {
   queryClient.setQueryData(queryKeys.worksets.generation(session.workset_id, session.operation_type, session.generation_id), session)
-  queryClient.setQueryData<Operation>(queryKeys.worksets.operation(session.workset_id, session.operation_type), previous => {
-    if (!previous || previous.active_generation?.generation_id !== session.generation_id) return previous
-    return { ...previous, active_generation: session.status === 'queued' || session.status === 'running' ? session : null, latest_generation: session }
+  queryClient.setQueryData<Operation>(queryKeys.worksets.operation(session.workset_id, session.operation_type), (previous) => {
+    if (!previous || previous.active_generation?.generation_id !== session.generation_id)
+      return previous
+    return {
+      ...previous,
+      active_generation: session.status === 'queued' || session.status === 'running'
+        ? session
+        : null,
+      latest_generation: session,
+    }
   })
 }
 
 export function syncGenerationEvent(queryClient: QueryClient, worksetId: string, operation: OperationType, generationId: string, event: GenerationEvent) {
   if (event.type === 'session_snapshot') {
     syncGenerationSnapshot(queryClient, event.data)
-  } else if (event.type !== 'error') {
+  }
+  else if (event.type !== 'error') {
     const previous = queryClient.getQueryData<GenerationView>(queryKeys.worksets.generation(worksetId, operation, generationId))
-    if (previous) syncGenerationSnapshot(queryClient, {
-      ...previous, ...event.data, status: event.type === 'progress' ? previous.status : event.type,
-    })
+    if (previous) {
+      syncGenerationSnapshot(queryClient, {
+        ...previous,
+        ...event.data,
+        status: event.type === 'progress'
+          ? previous.status
+          : event.type,
+      })
+    }
   }
 }
 
 export function cancelGenerationMutationOptions(api: ApiClientContract) {
   return {
-    mutationFn: (input: { worksetId: string; operation: OperationType; generationId: string }) =>
+    mutationFn: (input: { worksetId: string, operation: OperationType, generationId: string }) =>
       api.cancelGeneration(input.worksetId, input.operation, input.generationId),
   }
 }
@@ -320,9 +341,16 @@ export function executionQueryOptions(
 // Exact-session progress is shared by polling and the visited operation cache.
 export function syncExecutionSnapshot(queryClient: QueryClient, session: ExecutionView) {
   queryClient.setQueryData(queryKeys.worksets.execution(session.workset_id, session.operation_type, session.execution_id), session)
-  queryClient.setQueryData<Operation>(queryKeys.worksets.operation(session.workset_id, session.operation_type), previous => {
-    if (!previous || previous.active_execution?.execution_id !== session.execution_id) return previous
-    return { ...previous, active_execution: session.status === 'queued' || session.status === 'running' ? session : null, latest_execution: session }
+  queryClient.setQueryData<Operation>(queryKeys.worksets.operation(session.workset_id, session.operation_type), (previous) => {
+    if (!previous || previous.active_execution?.execution_id !== session.execution_id)
+      return previous
+    return {
+      ...previous,
+      active_execution: session.status === 'queued' || session.status === 'running'
+        ? session
+        : null,
+      latest_execution: session,
+    }
   })
 }
 
@@ -350,7 +378,7 @@ export function startExecutionMutationOptions(api: ApiClientContract, queryClien
       }),
     onSuccess: (
       result: StartExecutionResponse,
-      input: { worksetId: string; operation: OperationType; planId: string },
+      input: { worksetId: string, operation: OperationType, planId: string },
     ) => {
       queryClient.setQueryData(
         queryKeys.worksets.execution(input.worksetId, input.operation, result.execution.execution_id),
@@ -372,7 +400,7 @@ export function startExecutionMutationOptions(api: ApiClientContract, queryClien
 // died still ends on the real state.
 export function cancelExecutionMutationOptions(api: ApiClientContract, queryClient: QueryClient) {
   return {
-    mutationFn: (input: { worksetId: string; operation: OperationType; executionId: string }) =>
+    mutationFn: (input: { worksetId: string, operation: OperationType, executionId: string }) =>
       api.cancelExecution(input.worksetId, input.operation, input.executionId),
     onSuccess: (view: ExecutionView) => {
       queryClient.setQueryData(
@@ -403,9 +431,9 @@ export function executionCoversQueryOptions(
 // Retry or stop the deliveries; the answer is the updated report.
 export function changeExecutionCoversMutationOptions(api: ApiClientContract, queryClient: QueryClient) {
   return {
-    mutationFn: (input: { worksetId: string; executionId: string; action: 'retry' | 'cancel' }) =>
+    mutationFn: (input: { worksetId: string, executionId: string, action: 'retry' | 'cancel' }) =>
       api.changeExecutionCovers(input.worksetId, input.executionId, input.action),
-    onSuccess: (report: CoverReport, input: { worksetId: string; executionId: string }) => {
+    onSuccess: (report: CoverReport, input: { worksetId: string, executionId: string }) => {
       queryClient.setQueryData(queryKeys.worksets.covers(input.worksetId, input.executionId), report)
     },
   }
@@ -422,10 +450,19 @@ export async function syncAfterExecutionTerminal(
 ): Promise<void> {
   const detail = queryClient.getQueryData<Workset>(queryKeys.worksets.detail(worksetId))
   const libraryId = detail?.library?.library_id ?? queryClient
-    .getQueriesData<{ workset: Workset | null }>({ queryKey: queryKeys.worksets.currentsPrefix() })
-    .find(([, record]) => record?.workset?.workset_id === worksetId)?.[1]?.workset?.library?.library_id ?? null
+    .getQueriesData<{ workset: Workset | null }>({
+      queryKey: queryKeys.worksets.currentsPrefix(),
+    })
+    .find(([, record]) => record?.workset?.workset_id === worksetId)?.[1]
+    ?.workset
+    ?.library
+    ?.library_id ?? null
   await Promise.all([
-    ...(operation === 'rename' && libraryId ? [syncRenamedLibrary(queryClient, libraryId, worksetId)] : []),
+    ...(operation === 'rename' && libraryId
+      ? [
+          syncRenamedLibrary(queryClient, libraryId, worksetId),
+        ]
+      : []),
     refreshOrRemoveQueries(queryClient, queryKeys.worksets.listPrefix()),
     refreshOrRemoveQueries(queryClient, queryKeys.worksets.detail(worksetId)),
     refreshOrRemoveQueries(queryClient, queryKeys.worksets.operation(worksetId, operation)),

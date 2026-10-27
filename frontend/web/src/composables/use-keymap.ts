@@ -29,7 +29,12 @@ export const GROUP_LABELS: Record<KeyGroup, string> = {
   collections: '合集',
 }
 
-const ARROWS = ['ArrowLeft', 'ArrowUp', 'ArrowDown', 'ArrowRight']
+const ARROWS = [
+  'ArrowLeft',
+  'ArrowUp',
+  'ArrowDown',
+  'ArrowRight',
+]
 const key = (group: KeyGroup, keys: string[], text: string): KeyDescriptor => ({ group, keys, text })
 
 export const KEYS = {
@@ -70,14 +75,22 @@ interface Registration {
 const registrations: Registration[] = []
 const isPlayer = (id: KeyId): boolean => KEYS[id].group === 'player'
 /** Each key a registration binds, qualified by its layer. */
-const bound = (handlers: Registration['handlers']): string[] =>
-  (Object.keys(handlers) as KeyId[]).flatMap((id) => KEYS[id].keys.map((combo) => `${isPlayer(id) ? 'player' : 'page'}:${combo}`))
+function bound(handlers: Registration['handlers']): string[] {
+  return (Object.keys(handlers) as KeyId[]).flatMap(id => KEYS[id].keys.map(combo => `${isPlayer(id)
+    ? 'player'
+    : 'page'}:${combo}`))
+}
 
 /** Single characters match case-insensitively (shift is in the character); named keys match shift exactly. */
 function matches(combo: string, event: KeyboardEvent): boolean {
   const shift = combo.startsWith('Shift+')
-  const name = shift ? combo.slice(6) : combo === 'Space' ? ' ' : combo
-  if (name.length === 1) return event.key.toLowerCase() === name.toLowerCase()
+  const name = shift
+    ? combo.slice(6)
+    : combo === 'Space'
+      ? ' '
+      : combo
+  if (name.length === 1)
+    return event.key.toLowerCase() === name.toLowerCase()
   return event.key === name && event.shiftKey === shift
 }
 
@@ -87,17 +100,23 @@ function ownsKeys(target: EventTarget | null): boolean {
 }
 
 function onKeydown(event: KeyboardEvent): void {
-  if (ownsKeys(event.target) || event.ctrlKey || event.metaKey || event.altKey || event.isComposing) return
+  if (ownsKeys(event.target) || event.ctrlKey || event.metaKey || event.altKey || event.isComposing)
+    return
   // Enter and Space already mean something on a link or a button.
-  if ((event.key === 'Enter' || event.key === ' ') && event.target instanceof HTMLElement && event.target.closest('a, button')) return
+  if ((event.key === 'Enter' || event.key === ' ') && event.target instanceof HTMLElement && event.target.closest('a, button'))
+    return
   const modal = document.querySelector('dialog[open]') !== null
   for (const player of [false, true]) {
-    if (!player && modal) continue
+    if (!player && modal)
+      continue
     for (const { handlers, when } of registrations) {
-      if (when && !when()) continue
+      if (when && !when())
+        continue
       for (const [id, run] of Object.entries(handlers) as [KeyId, Handler][]) {
-        if (isPlayer(id) !== player || !KEYS[id].keys.some((combo) => matches(combo, event))) continue
-        if (run(event) === false) continue
+        if (isPlayer(id) !== player || !KEYS[id].keys.some(combo => matches(combo, event)))
+          continue
+        if (run(event) === false)
+          continue
         event.preventDefault()
         return
       }
@@ -113,12 +132,15 @@ export function useKeymap(handlers: Registration['handlers'], when?: () => boole
   if (import.meta.env.DEV) {
     const slots = bound(handlers)
     const twice = slots.find((slot, i) => slots.indexOf(slot) !== i)
-    if (twice) throw new Error(`keymap: ${twice} is bound twice in one registration`)
+    if (twice)
+      throw new Error(`keymap: ${twice} is bound twice in one registration`)
   }
   const registration = { handlers, when }
-  if (registrations.push(registration) === 1) window.addEventListener('keydown', onKeydown)
+  if (registrations.push(registration) === 1)
+    window.addEventListener('keydown', onKeydown)
   onScopeDispose(() => {
     registrations.splice(registrations.indexOf(registration), 1)
-    if (registrations.length === 0) window.removeEventListener('keydown', onKeydown)
+    if (registrations.length === 0)
+      window.removeEventListener('keydown', onKeydown)
   })
 }

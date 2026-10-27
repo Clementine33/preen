@@ -32,7 +32,8 @@ const props = withDefaults(
 const emit = defineEmits<{ close: [] }>()
 
 function onOpenChange(value: boolean) {
-  if (!value) emit('close')
+  if (!value)
+    emit('close')
 }
 </script>
 

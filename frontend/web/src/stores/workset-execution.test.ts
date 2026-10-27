@@ -1,11 +1,11 @@
-import { createPinia, setActivePinia } from 'pinia'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type {
   ApiClientContract,
   ExecutionComponent,
   ExecutionEvent,
   ExecutionView,
 } from '@/lib/api/types'
+import { createPinia, setActivePinia } from 'pinia'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { apiStub } from '@/test/api-stub'
 import { useWorksetExecutionStore } from './workset-execution'
 
@@ -44,7 +44,10 @@ function makeEventStream(
 ): ApiClientContract['streamExecutionEvents'] {
   return vi.fn(() =>
     events([
-      { type: 'execution_snapshot', data: view() } as ExecutionEvent,
+      {
+        type: 'execution_snapshot',
+        data: view(),
+      } as ExecutionEvent,
       {
         type: 'progress',
         data: {
@@ -60,13 +63,24 @@ function makeEventStream(
         },
       } as ExecutionEvent,
       terminal === 'succeeded'
-        ? ({ type: 'succeeded', data: { execution_id: 'exec-1', plan_id: 'plan-1', ...extra } } as ExecutionEvent)
+        ? ({
+            type: 'succeeded',
+            data: { execution_id: 'exec-1', plan_id: 'plan-1', ...extra },
+          } as ExecutionEvent)
         : terminal === 'failed'
           ? ({
               type: 'failed',
-              data: { execution_id: 'exec-1', error_code: 'COMPONENT_FAILED', error_message: 'encode failed', ...extra },
+              data: {
+                execution_id: 'exec-1',
+                error_code: 'COMPONENT_FAILED',
+                error_message: 'encode failed',
+                ...extra,
+              },
             } as ExecutionEvent)
-          : ({ type: terminal, data: { execution_id: 'exec-1', ...extra } } as ExecutionEvent),
+          : ({
+              type: terminal,
+              data: { execution_id: 'exec-1', ...extra },
+            } as ExecutionEvent),
     ]),
   ) as ApiClientContract['streamExecutionEvents']
 }
@@ -76,7 +90,9 @@ describe('workset execution store', () => {
 
   it('merges snapshot and progress into the view, then confirms the succeeded terminal', async () => {
     const store = useWorksetExecutionStore()
-    const api = apiStub({ streamExecutionEvents: makeEventStream('succeeded') })
+    const api = apiStub({
+      streamExecutionEvents: makeEventStream('succeeded'),
+    })
 
     await store.attach('ws-1', 'conversion', 'exec-1', api)
 
@@ -91,20 +107,29 @@ describe('workset execution store', () => {
 
   it('tracks failed and canceled terminals distinctly', async () => {
     const failed = useWorksetExecutionStore()
-    await failed.attach('ws-1', 'conversion', 'exec-1', apiStub({ streamExecutionEvents: makeEventStream('failed') }))
+    await failed.attach('ws-1', 'conversion', 'exec-1', apiStub({
+      streamExecutionEvents: makeEventStream('failed'),
+    }))
     expect(failed.status).toBe('failed')
     expect(failed.errorCode).toBe('COMPONENT_FAILED')
     expect(failed.view?.status).toBe('failed')
 
     const canceled = useWorksetExecutionStore()
-    await canceled.attach('ws-1', 'conversion', 'exec-2', apiStub({ streamExecutionEvents: makeEventStream('canceled') }))
+    await canceled.attach('ws-1', 'conversion', 'exec-2', apiStub({
+      streamExecutionEvents: makeEventStream('canceled'),
+    }))
     expect(canceled.status).toBe('canceled')
     expect(canceled.terminal).toBe('event')
   })
 
   it('marks a transport terminal when the stream ends without a terminal event', async () => {
     const streamExecutionEvents = vi.fn(() =>
-      events([{ type: 'execution_snapshot', data: view() } as ExecutionEvent]),
+      events([
+        {
+          type: 'execution_snapshot',
+          data: view(),
+        } as ExecutionEvent,
+      ]),
     )
     const store = useWorksetExecutionStore()
     await store.attach('ws-1', 'conversion', 'exec-1', apiStub({ streamExecutionEvents }))
@@ -118,13 +143,19 @@ describe('workset execution store', () => {
     let pushCanceled: () => void = () => {}
     const streamExecutionEvents = vi.fn(() =>
       (async function* (): AsyncGenerator<ExecutionEvent> {
-        yield { type: 'execution_snapshot', data: view() } as ExecutionEvent
+        yield {
+          type: 'execution_snapshot',
+          data: view(),
+        } as ExecutionEvent
         // The running worker stops at its next safe boundary; only then does
         // the terminal event arrive.
         await new Promise<void>((resolve) => {
           pushCanceled = resolve
         })
-        yield { type: 'canceled', data: { execution_id: 'exec-1' } } as ExecutionEvent
+        yield {
+          type: 'canceled',
+          data: { execution_id: 'exec-1' },
+        } as ExecutionEvent
       })(),
     )
     const store = useWorksetExecutionStore()
@@ -145,7 +176,10 @@ describe('workset execution store', () => {
   it('refuses a second attach while streaming', async () => {
     const streamExecutionEvents = vi.fn((_w: string, _o: string, _e: string, signal: AbortSignal) =>
       (async function* (): AsyncGenerator<ExecutionEvent> {
-        yield { type: 'execution_snapshot', data: view() } as ExecutionEvent
+        yield {
+          type: 'execution_snapshot',
+          data: view(),
+        } as ExecutionEvent
         await new Promise<void>((resolve) => {
           signal.addEventListener('abort', () => resolve(), { once: true })
         })
@@ -177,8 +211,12 @@ describe('component events', () => {
       partition: 'matched',
       status: status as ExecutionComponent['status'],
       operations: 1,
-      completed_operations: status === 'succeeded' ? 1 : 0,
-      committed: status === 'succeeded' ? [`/music/album${index}/00.mp3`] : [],
+      completed_operations: status === 'succeeded'
+        ? 1
+        : 0,
+      committed: status === 'succeeded'
+        ? [`/music/album${index}/00.mp3`]
+        : [],
       removed: [],
       remaining: [],
       recovery: [],
@@ -189,22 +227,36 @@ describe('component events', () => {
   it('replaces the entry the snapshot carried and inserts one it did not', () => {
     const store = useWorksetExecutionStore()
     store.status = 'streaming'
-    store.view = view({ components: [component(0, 'pending'), component(2, 'pending')] })
+    store.view = view({
+      components: [
+        component(0, 'pending'),
+        component(2, 'pending'),
+      ],
+    })
 
-    store.applyEvent({ type: 'component', data: component(0, 'succeeded') })
+    store.applyEvent({
+      type: 'component',
+      data: component(0, 'succeeded'),
+    })
     expect(store.view?.components[0]?.status).toBe('succeeded')
     expect(store.view?.components[0]?.committed).toEqual(['/music/album0/00.mp3'])
 
     // A component beyond the page the snapshot carried arrives out of order:
     // it lands where component order puts it, not at the end.
-    store.applyEvent({ type: 'component', data: component(1, 'succeeded') })
-    expect(store.view?.components.map((entry) => entry.component_index)).toEqual([0, 1, 2])
+    store.applyEvent({
+      type: 'component',
+      data: component(1, 'succeeded'),
+    })
+    expect(store.view?.components.map(entry => entry.component_index)).toEqual([0, 1, 2])
     expect(store.view?.components[1]?.status).toBe('succeeded')
   })
 
   it('ignores a component event before any view exists', () => {
     const store = useWorksetExecutionStore()
-    store.applyEvent({ type: 'component', data: component(0, 'succeeded') })
+    store.applyEvent({
+      type: 'component',
+      data: component(0, 'succeeded'),
+    })
     expect(store.view).toBeNull()
   })
 })

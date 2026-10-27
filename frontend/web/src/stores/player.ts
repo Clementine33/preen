@@ -1,5 +1,5 @@
-import { defineStore } from 'pinia'
 import type { ApiClientContract, PutWorkListeningParams, WorkListening } from '@/lib/api/types'
+import { defineStore } from 'pinia'
 
 /**
  * The bottom baseline's player. A work plays as a queue of its tracks: each
@@ -39,17 +39,20 @@ export interface QueueItem {
   count?: number
   source?: PlaySource
   /** Where the track's Timed Lyrics are, in the copy it plays from. */
-  lyrics?: { copyId: string; relPath: string }
+  lyrics?: { copyId: string, relPath: string }
 }
 
 /** The listener's volume, a per-browser convenience: unreadable storage means full volume. */
 const VOLUME_KEY = 'preen.player.volume'
-function readVolume(): { volume: number; muted: boolean } {
+function readVolume(): { volume: number, muted: boolean } {
   try {
-    const saved = JSON.parse(localStorage.getItem(VOLUME_KEY) ?? 'null') as { volume?: unknown; muted?: unknown } | null
-    const volume = typeof saved?.volume === 'number' ? Math.min(1, Math.max(0, saved.volume)) : 1
+    const saved = JSON.parse(localStorage.getItem(VOLUME_KEY) ?? 'null') as { volume?: unknown, muted?: unknown } | null
+    const volume = typeof saved?.volume === 'number'
+      ? Math.min(1, Math.max(0, saved.volume))
+      : 1
     return { volume, muted: saved?.muted === true }
-  } catch {
+  }
+  catch {
     return { volume: 1, muted: false }
   }
 }
@@ -73,7 +76,7 @@ let seq = 0
 const listened = new Map<string, number>()
 /** Seconds played since the last write. */
 let unsaved = 0
-const pending = new Map<string, { rj: string; body: PutWorkListeningParams }>()
+const pending = new Map<string, { rj: string, body: PutWorkListeningParams }>()
 const acknowledged = new Map<string, string>()
 const chains = new Map<string, Promise<void>>()
 /** Works whose acknowledged writes the wall has already been told about. */
@@ -106,12 +109,14 @@ export const usePlayerStore = defineStore('player', {
      * sync: the row the server now holds (null after a clear), and whether the
      * work's wall state may have changed with it.
      */
-    saved: null as { rj: string; row: WorkListening | null; lists: boolean } | null,
+    saved: null as { rj: string, row: WorkListening | null, lists: boolean } | null,
   }),
   getters: {
-    trackKey: (state): string | null => (state.rj !== null ? (state.queue[state.trackIndex]?.key ?? null) : null),
-    hasPrev: (state) => state.rj !== null && state.trackIndex > 0,
-    hasNext: (state) => state.rj !== null && state.trackIndex < state.queue.length - 1,
+    trackKey: (state): string | null => (state.rj !== null
+      ? (state.queue[state.trackIndex]?.key ?? null)
+      : null),
+    hasPrev: state => state.rj !== null && state.trackIndex > 0,
+    hasNext: state => state.rj !== null && state.trackIndex < state.queue.length - 1,
   },
   actions: {
     /**
@@ -127,7 +132,8 @@ export const usePlayerStore = defineStore('player', {
     /** Prev / next within the queue; past either end nothing changes. */
     step(delta: number) {
       const index = this.trackIndex + delta
-      if (this.rj === null || index < 0 || index >= this.queue.length) return
+      if (this.rj === null || index < 0 || index >= this.queue.length)
+        return
       this.flush()
       this.start(index)
     },
@@ -142,30 +148,37 @@ export const usePlayerStore = defineStore('player', {
       this.release()
       this.duration = source?.durationSec ?? null
       this.format = source?.format ?? null
-      if (source) this.attach(source.src, resumeAt)
+      if (source)
+        this.attach(source.src, resumeAt)
       else this.runClock()
     },
     /** Space pauses and resumes; it never changes what plays. */
     togglePause() {
-      if (this.rj === null) return
+      if (this.rj === null)
+        return
       this.paused = !this.paused
       // The element's own events confirm (or correct) the state set here.
       if (audio) {
-        if (this.paused) audio.pause()
+        if (this.paused)
+          audio.pause()
         else this.resume(audio)
         return
       }
-      this.paused ? this.stopClock() : this.runClock()
+      this.paused
+        ? this.stopClock()
+        : this.runClock()
     },
     /** Jump within the playing track (a lyric line click). */
     seek(seconds: number) {
-      if (audio) audio.currentTime = seconds
+      if (audio)
+        audio.currentTime = seconds
       this.elapsed = seconds
     },
     setVolume(volume: number) {
       this.volume = Math.min(1, Math.max(0, volume))
       // Turning the volume up is the way out of mute.
-      if (this.volume > 0) this.muted = false
+      if (this.volume > 0)
+        this.muted = false
       this.applyVolume()
     },
     toggleMute() {
@@ -179,7 +192,8 @@ export const usePlayerStore = defineStore('player', {
       }
       try {
         localStorage.setItem(VOLUME_KEY, JSON.stringify({ volume: this.volume, muted: this.muted }))
-      } catch {
+      }
+      catch {
         /* storage unavailable: the volume still applies for this visit */
       }
     },
@@ -193,26 +207,34 @@ export const usePlayerStore = defineStore('player', {
       let last = 0
       if (resumeAt > 0) {
         el.addEventListener('canplay', () => {
-          if (current()) el.currentTime = resumeAt
+          if (current())
+            el.currentTime = resumeAt
         }, { once: true })
       }
       el.addEventListener('timeupdate', () => {
-        if (!current()) return
+        if (!current())
+          return
         this.elapsed = el.currentTime
         // A jump (seek, resume) is not playback; only steady progress counts.
         const dt = el.currentTime - last
         last = el.currentTime
-        if (dt > 0 && dt <= 2 && !this.paused) this.tick(dt)
+        if (dt > 0 && dt <= 2 && !this.paused)
+          this.tick(dt)
       })
       el.addEventListener('durationchange', () => {
-        if (current() && Number.isFinite(el.duration)) this.duration = el.duration
+        if (current() && Number.isFinite(el.duration))
+          this.duration = el.duration
       })
       el.addEventListener('play', () => {
-        if (current()) this.paused = false
+        if (current())
+          this.paused = false
       })
       el.addEventListener('ended', () => {
-        if (!current()) return
-        if (this.hasNext) this.step(1)
+        if (!current())
+          return
+        if (this.hasNext) {
+          this.step(1)
+        }
         else {
           this.paused = true
           // Finished is the Rendition's last track ending, not the queue's.
@@ -221,13 +243,16 @@ export const usePlayerStore = defineStore('player', {
         }
       })
       el.addEventListener('pause', () => {
-        if (!current()) return
+        if (!current())
+          return
         this.paused = true
         // The pause that precedes `ended` is not a stopping place.
-        if (!el.ended) this.flush()
+        if (!el.ended)
+          this.flush()
       })
       el.addEventListener('error', () => {
-        if (current()) this.paused = true
+        if (current())
+          this.paused = true
       })
       el.src = src
       this.resume(el)
@@ -237,11 +262,13 @@ export const usePlayerStore = defineStore('player', {
       // failure. Anything else (blocked autoplay, a 401/404 source) pauses —
       // never falling back to the silent clock, which would pretend audio exists.
       Promise.resolve(el.play()).catch((err: unknown) => {
-        if (el === audio && !(err instanceof DOMException && err.name === 'AbortError')) this.paused = true
+        if (el === audio && !(err instanceof DOMException && err.name === 'AbortError'))
+          this.paused = true
       })
     },
     release() {
-      if (!audio) return
+      if (!audio)
+        return
       const el = audio
       audio = null
       el.pause()
@@ -251,33 +278,47 @@ export const usePlayerStore = defineStore('player', {
     /** Binds the API client the Listening Position is written through; a fresh binding is a clean session. */
     bindClient(client: ApiClientContract) {
       api = client
-      for (const state of [listened, pending, acknowledged, chains, announced]) state.clear()
+      for (const state of [
+        listened,
+        pending,
+        acknowledged,
+        chains,
+        announced,
+      ]) state.clear()
       unsaved = 0
-      if (onPageHide) window.removeEventListener('pagehide', onPageHide)
+      if (onPageHide)
+        window.removeEventListener('pagehide', onPageHide)
       onPageHide = () => this.pageHide()
       window.addEventListener('pagehide', onPageHide)
     },
     /** Real playback of the current track: the first write waits for the gate, then one per interval. */
     tick(dt: number) {
       const item = this.queue[this.trackIndex]
-      if (this.rj === null || !item?.source || item.rendition === undefined) return
+      if (this.rj === null || !item?.source || item.rendition === undefined)
+        return
       const key = keyOf(this.rj, item.rendition)
       const before = listened.get(key) ?? 0
       listened.set(key, before + dt)
-      if (before + dt < GATE_SEC) return
+      if (before + dt < GATE_SEC)
+        return
       unsaved += dt
-      if (before < GATE_SEC || unsaved >= WRITE_EVERY_SEC) this.flush()
+      if (before < GATE_SEC || unsaved >= WRITE_EVERY_SEC)
+        this.flush()
     },
     /** Writes the current position (or the Rendition's end) once the gate is open; silent plays never write. */
     flush(finished = false, keepalive = false) {
       const item = this.queue[this.trackIndex]
-      if (!audio || this.rj === null || !item?.source || item.key === undefined) return
-      if (item.rendition === undefined || item.index === undefined || item.count === undefined) return
+      if (!audio || this.rj === null || !item?.source || item.key === undefined)
+        return
+      if (item.rendition === undefined || item.index === undefined || item.count === undefined)
+        return
       // Reaching the end is never noise: a resume with seconds left must still finish.
-      if (!finished && (listened.get(keyOf(this.rj, item.rendition)) ?? 0) < GATE_SEC) return
+      if (!finished && (listened.get(keyOf(this.rj, item.rendition)) ?? 0) < GATE_SEC)
+        return
       // The Rendition's end was reported as Finished; a later flush (work change,
       // pagehide) must not write that end back as a position to resume from.
-      if (!finished && audio.ended && item.index === item.count - 1) return
+      if (!finished && audio.ended && item.index === item.count - 1)
+        return
       unsaved = 0
       this.save(this.rj, {
         rendition: item.rendition,
@@ -285,7 +326,9 @@ export const usePlayerStore = defineStore('player', {
         position_sec: audio.currentTime,
         track_index: item.index,
         track_count: item.count,
-        ...(finished ? { finished: true } : {}),
+        ...(finished
+          ? { finished: true }
+          : {}),
       }, keepalive)
     },
     /**
@@ -294,13 +337,20 @@ export const usePlayerStore = defineStore('player', {
      */
     save(rj: string, snapshot: Snapshot, keepalive = false) {
       const key = keyOf(rj, snapshot.rendition)
-      if (!api) return
-      if (acknowledged.get(key) === signature(snapshot)) pending.delete(key)
+      if (!api)
+        return
+      if (acknowledged.get(key) === signature(snapshot)) {
+        pending.delete(key)
+      }
       else if (!(pending.get(key)?.body.finished && !snapshot.finished)) {
-        pending.set(key, { rj, body: { ...snapshot, client: clientId, seq: ++seq } })
+        pending.set(key, {
+          rj,
+          body: { ...snapshot, client: clientId, seq: ++seq },
+        })
       }
       // Sending also retries whatever else of this work failed before.
-      if (!keepalive) void this.enqueue(rj, () => this.send(rj))
+      if (!keepalive)
+        void this.enqueue(rj, () => this.send(rj))
     },
     /** One work's requests run one after another. */
     enqueue(rj: string, run: () => Promise<void>): Promise<void> {
@@ -311,19 +361,23 @@ export const usePlayerStore = defineStore('player', {
     /** Sends the work's pending snapshots; a failed one stays pending for the next write. */
     async send(rj: string) {
       for (const [key, entry] of [...pending]) {
-        if (entry.rj !== rj || pending.get(key) !== entry) continue
+        if (entry.rj !== rj || pending.get(key) !== entry)
+          continue
         let row: WorkListening | undefined
         try {
           row = await api?.putWorkListening(rj, entry.body)
-        } catch {
+        }
+        catch {
           continue
         }
         // A snapshot replaced or cleared meanwhile is no longer this one's to acknowledge.
-        if (pending.get(key) !== entry) continue
+        if (pending.get(key) !== entry)
+          continue
         pending.delete(key)
         acknowledged.set(key, signature(entry.body))
         // Only a work's first write here and a Finished can move it on the wall.
-        if (row) this.saved = { rj, row, lists: !announced.has(rj) || entry.body.finished === true }
+        if (row)
+          this.saved = { rj, row, lists: !announced.has(rj) || entry.body.finished === true }
         announced.add(rj)
       }
     },
@@ -339,7 +393,12 @@ export const usePlayerStore = defineStore('player', {
     async clearListening(rj: string) {
       const prefix = `${rj}\n`
       for (const state of [pending, acknowledged, listened]) {
-        for (const key of [...state.keys()]) if (key.startsWith(prefix)) state.delete(key)
+        for (const key of [
+          ...state.keys(),
+        ]) {
+          if (key.startsWith(prefix))
+            state.delete(key)
+        }
       }
       unsaved = 0
       await this.enqueue(rj, async () => {

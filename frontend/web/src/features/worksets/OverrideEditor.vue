@@ -1,17 +1,18 @@
 <script setup lang="ts">
+import type { EditTarget } from '@/features/worksets/draft-intents'
+import type { OperationDraftDocument, OverrideUnit } from '@/lib/api/types'
 import { computed } from 'vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
+
   OVERRIDE_UNITS,
   readParticipation,
   readUnit,
   sameUnitValue,
-  type EditTarget,
 } from '@/features/worksets/draft-intents'
 import { unitValueText } from '@/features/worksets/plan-readers'
 import { useWorksetEditorStore } from '@/stores/workset-editor'
-import type { OperationDraftDocument, OverrideUnit } from '@/lib/api/types'
 import UnitFields from './UnitFields.vue'
 
 /**
@@ -50,9 +51,12 @@ function storedSource(unit: OverrideUnit): 'common' | 'member' | 'mixed' {
 
 function choiceOf(unit: OverrideUnit): Choice {
   const pending = editor.session?.intent.units[unit]
-  if (pending?.intent === 'inherit') return 'default'
-  if (pending?.intent === 'set') return 'override'
-  if (pending?.intent === 'keep') return 'unset'
+  if (pending?.intent === 'inherit')
+    return 'default'
+  if (pending?.intent === 'set')
+    return 'override'
+  if (pending?.intent === 'keep')
+    return 'unset'
   return 'unset'
 }
 
@@ -62,7 +66,9 @@ function chooseDefault(unit: OverrideUnit) {
 
 function chooseOverride(unit: OverrideUnit) {
   const stored = readUnit(props.draft, props.target, unit)
-  const seed = stored.value !== undefined ? stored.value : commonFallback(unit)
+  const seed = stored.value !== undefined
+    ? stored.value
+    : commonFallback(unit)
   editor.setUnit(unit, { intent: 'set', value: seed })
 }
 
@@ -73,7 +79,9 @@ function commonFallback(unit: OverrideUnit): unknown {
       return props.draft.mode ?? 'available_sources'
     case 'no_effect_tags':
     case 'other_tags':
-      return [...(props.draft[unit] ?? [])]
+      return [
+        ...(props.draft[unit] ?? []),
+      ]
     case 'matched':
       return props.draft.matched
     case 'other':
@@ -85,9 +93,11 @@ function commonFallback(unit: OverrideUnit): unknown {
 
 function valueOf(unit: OverrideUnit): unknown {
   const pending = editor.session?.intent.units[unit]
-  if (pending?.intent === 'set') return pending.value
+  if (pending?.intent === 'set')
+    return pending.value
   const stored = readUnit(props.draft, props.target, unit)
-  if (stored.value !== undefined) return stored.value
+  if (stored.value !== undefined)
+    return stored.value
   return commonFallback(unit)
 }
 
@@ -110,9 +120,10 @@ function statusLabel(unit: OverrideUnit): string {
  */
 function storedLabel(unit: OverrideUnit): string {
   const stored = readUnit(props.draft, props.target, unit)
-  if (stored.source === 'mixed') return '当前：多种值'
-  const relation =
-    stored.source === 'member'
+  if (stored.source === 'mixed')
+    return '当前：多种值'
+  const relation
+    = stored.source === 'member'
       ? sameUnitValue(stored.value, commonFallback(unit))
         ? '（与全局相同）'
         : '（与全局不同）'
@@ -121,8 +132,10 @@ function storedLabel(unit: OverrideUnit): string {
 }
 
 function sourceText(source: 'common' | 'member' | 'mixed'): string {
-  if (source === 'member') return '独立值'
-  if (source === 'mixed') return '多种值'
+  if (source === 'member')
+    return '独立值'
+  if (source === 'mixed')
+    return '多种值'
   return '默认'
 }
 
@@ -134,7 +147,9 @@ const participationIntent = computed(() => editor.session?.intent.participation 
  * always one of the two buttons, never an ambiguous "no change".
  */
 const participationState = computed<'participate' | 'exclude' | 'mixed'>(() =>
-  participationIntent.value === 'keep' ? participation.value : participationIntent.value,
+  participationIntent.value === 'keep'
+    ? participation.value
+    : participationIntent.value,
 )
 const targetLabel = computed(() => {
   switch (props.target.kind) {

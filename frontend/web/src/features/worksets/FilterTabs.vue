@@ -3,7 +3,7 @@
  * Filter tabs with counts for a results list. The selected tab is inverted,
  * like every other pressed filter in the workbench (DESIGN.md).
  */
-defineProps<{ tabs: { key: string; label: string; count: number }[]; modelValue: string }>()
+defineProps<{ tabs: { key: string, label: string, count: number }[], modelValue: string }>()
 defineEmits<{ 'update:modelValue': [key: string] }>()
 </script>
 

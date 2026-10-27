@@ -6,12 +6,24 @@ describe('workbench navigation definition', () => {
   it('lists one section per operation and nests the settings page under 转换', () => {
     const nav = workbenchNav('lib-1')
 
-    expect(nav.map((item) => item.label)).toEqual(['概览与成员', '转换', '重命名', '获取元数据'])
-    expect(nav[2].to).toEqual({ name: 'rename', params: { libraryId: 'lib-1' } })
-    expect(nav[3].to).toEqual({ name: 'metadata-refresh', params: { libraryId: 'lib-1' } })
-    expect(nav[0].to).toEqual({ name: 'workbench-overview', params: { libraryId: 'lib-1' } })
-    expect(nav[1].to).toEqual({ name: 'conversion', params: { libraryId: 'lib-1' } })
-    expect(nav[1].children?.map((child) => child.label)).toEqual(['转换全局设置'])
+    expect(nav.map(item => item.label)).toEqual(['概览与成员', '转换', '重命名', '获取元数据'])
+    expect(nav[2].to).toEqual({
+      name: 'rename',
+      params: { libraryId: 'lib-1' },
+    })
+    expect(nav[3].to).toEqual({
+      name: 'metadata-refresh',
+      params: { libraryId: 'lib-1' },
+    })
+    expect(nav[0].to).toEqual({
+      name: 'workbench-overview',
+      params: { libraryId: 'lib-1' },
+    })
+    expect(nav[1].to).toEqual({
+      name: 'conversion',
+      params: { libraryId: 'lib-1' },
+    })
+    expect(nav[1].children?.map(child => child.label)).toEqual(['转换全局设置'])
     expect(nav[1].children?.[0].to).toEqual({
       name: 'conversion-settings',
       params: { libraryId: 'lib-1' },
@@ -23,7 +35,7 @@ describe('workbench navigation definition', () => {
   it('assigns every workbench route a local position', () => {
     const workbenchRoutes = router
       .getRoutes()
-      .filter((record) => typeof record.name === 'string' && record.path.startsWith('/worksets/'))
+      .filter(record => typeof record.name === 'string' && record.path.startsWith('/worksets/'))
     expect(workbenchRoutes.length).toBeGreaterThan(0)
     for (const record of workbenchRoutes) {
       expect(workbenchNavPosition(record.name), String(record.name)).not.toBeNull()

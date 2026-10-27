@@ -1,14 +1,33 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { useVirtualizer } from '@tanstack/vue-virtual'
 import type { MemberFilter } from '@/app/route-params'
-import { Eye, FolderOpen } from '@lucide/vue'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { OVERRIDE_UNITS, readUnit, type EditTarget } from '@/features/worksets/draft-intents'
+import type { EditTarget } from '@/features/worksets/draft-intents'
 import type { MemberConclusion } from '@/features/worksets/plan-readers'
 import type { OperationDraftDocument, WorksetMember } from '@/lib/api/types'
+import { Eye, FolderOpen } from '@lucide/vue'
+import { useVirtualizer } from '@tanstack/vue-virtual'
+import { computed, ref } from 'vue'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { OVERRIDE_UNITS, readUnit } from '@/features/worksets/draft-intents'
 
+const props = defineProps<{
+  members: WorksetMember[]
+  draft: OperationDraftDocument
+  selectedIds: Set<string>
+  hiddenSelectedCount: number
+  filter: MemberFilter
+  search: string
+  conclusionFor: (member: WorksetMember) => MemberConclusion
+}>()
+const emit = defineEmits<{
+  /** Opening a member's files: the shared file module, in this workbench. */
+  'files': [memberId: string]
+  'toggle': [memberId: string]
+  'toggleAll': [ids: string[]]
+  'open': [memberId: string]
+  'update:filter': [value: MemberFilter]
+  'update:search': [value: string]
+}>()
 /**
  * The operation's member list.
  *
@@ -24,27 +43,7 @@ import type { OperationDraftDocument, WorksetMember } from '@/lib/api/types'
 const ROW_ESTIMATE = 76
 const OVERSCAN = 8
 
-const props = defineProps<{
-  members: WorksetMember[]
-  draft: OperationDraftDocument
-  selectedIds: Set<string>
-  hiddenSelectedCount: number
-  filter: MemberFilter
-  search: string
-  conclusionFor: (member: WorksetMember) => MemberConclusion
-}>()
-
-const emit = defineEmits<{
-  /** Opening a member's files: the shared file module, in this workbench. */
-  files: [memberId: string]
-  toggle: [memberId: string]
-  toggleAll: [ids: string[]]
-  open: [memberId: string]
-  'update:filter': [value: MemberFilter]
-  'update:search': [value: string]
-}>()
-
-const FILTERS: { value: MemberFilter; label: string }[] = [
+const FILTERS: { value: MemberFilter, label: string }[] = [
   { value: 'all', label: '全部' },
   { value: 'change', label: '有变化' },
   { value: 'warn', label: '未满足' },
@@ -56,7 +55,8 @@ const FILTERS: { value: MemberFilter; label: string }[] = [
 const excluded = computed(() => {
   const set = new Set<string>()
   for (const record of props.draft.members) {
-    if (record.excluded) set.add(record.member_id)
+    if (record.excluded)
+      set.add(record.member_id)
   }
   return set
 })
@@ -101,13 +101,17 @@ function measureRow(el: unknown): void {
 const rows = computed(() =>
   virtualizer.value.getVirtualItems().flatMap((row) => {
     const member = visible.value[row.index]
-    return member ? [{ row, member }] : []
+    return member
+      ? [
+          { row, member },
+        ]
+      : []
   }),
 )
 
-const visibleIds = computed(() => visible.value.map((m) => m.member_id))
+const visibleIds = computed(() => visible.value.map(m => m.member_id))
 const allVisibleSelected = computed(
-  () => visibleIds.value.length > 0 && visibleIds.value.every((id) => props.selectedIds.has(id)),
+  () => visibleIds.value.length > 0 && visibleIds.value.every(id => props.selectedIds.has(id)),
 )
 
 /**
@@ -134,7 +138,7 @@ function hasOverride(member: WorksetMember): boolean {
         aria-label="搜索文件夹"
         class="h-9 w-full rounded-md border border-[var(--control-border)] bg-background px-3 text-sm focus-visible:border-[var(--wire-strong)] focus-visible:outline-none @[641px]:max-w-xs"
         @input="emit('update:search', ($event.target as HTMLInputElement).value)"
-      />
+      >
       <div class="flex flex-wrap items-center gap-1.5" role="group" aria-label="筛选">
         <Button
           v-for="item in FILTERS"
@@ -153,19 +157,19 @@ function hasOverride(member: WorksetMember): boolean {
       </span>
     </div>
 
-      <label
-        class="flex min-h-11 shrink-0 cursor-pointer items-center gap-3 border-b border-[var(--wire-strong)] bg-card px-3 text-xs text-[var(--text-muted)]"
+    <label
+      class="flex min-h-11 shrink-0 cursor-pointer items-center gap-3 border-b border-[var(--wire-strong)] bg-card px-3 text-xs text-[var(--text-muted)]"
+    >
+      <input
+        type="checkbox"
+        class="size-5 shrink-0"
+        aria-label="全选当前筛选结果"
+        :checked="allVisibleSelected"
+        @change="emit('toggleAll', visibleIds)"
       >
-        <input
-          type="checkbox"
-          class="size-5 shrink-0"
-          aria-label="全选当前筛选结果"
-          :checked="allVisibleSelected"
-          @change="emit('toggleAll', visibleIds)"
-        />
-        <span>全选当前筛选结果</span>
-        <span class="ml-auto font-mono">{{ visible.length }} / {{ members.length }}</span>
-      </label>
+      <span>全选当前筛选结果</span>
+      <span class="ml-auto font-mono">{{ visible.length }} / {{ members.length }}</span>
+    </label>
 
     <div ref="scrollEl" class="min-h-0 flex-1 overflow-y-auto overflow-x-hidden" data-testid="member-scroller">
       <ul
@@ -191,7 +195,7 @@ function hasOverride(member: WorksetMember): boolean {
               :checked="selectedIds.has(member.member_id)"
               :aria-label="`选择 ${member.folder_name}`"
               @change="emit('toggle', member.member_id)"
-            />
+            >
           </label>
 
           <div class="col-start-2 row-start-1 min-w-0">

@@ -1,7 +1,7 @@
 <script setup lang="ts">
+import type { WorkFacet, WorksScope } from '@/lib/api/types'
 import { computed, ref } from 'vue'
 import { Modal } from '@/components/ui/modal'
-import type { WorkFacet, WorksScope } from '@/lib/api/types'
 import { useTagFacets } from '@/queries/works'
 
 // The rail's tag index: a tab that opens a dialog, because a
@@ -49,16 +49,23 @@ const props = defineProps<{ scope: WorksScope }>()
 const model = defineModel<TagSelection>({ required: true })
 
 // ADR 0009 keeps same-named entities apart; the index offers the name once.
-function byName(facets: { source_tags: WorkFacet[]; user_tags: WorkFacet[] }): Map<string, Entry> {
+function byName(facets: { source_tags: WorkFacet[], user_tags: WorkFacet[] }): Map<string, Entry> {
   const out = new Map<string, Entry>()
   const fold = (list: WorkFacet[], kind: 's' | 'u') => {
     for (const facet of list) {
-      const entry = out.get(facet.name) ??
-        { name: facet.name, sourceRefs: [], userRefs: [], sourceCount: 0, userCount: 0 }
+      const entry = out.get(facet.name)
+        ?? {
+          name: facet.name,
+          sourceRefs: [],
+          userRefs: [],
+          sourceCount: 0,
+          userCount: 0,
+        }
       if (kind === 's') {
         entry.sourceRefs.push(`s:${facet.id}`)
         entry.sourceCount += facet.work_count
-      } else {
+      }
+      else {
         entry.userRefs.push(`u:${facet.id}`)
         entry.userCount += facet.work_count
       }
@@ -75,7 +82,8 @@ const entries = computed(() => byName(facets.value))
 
 function nameIn(map: Map<string, Entry>, refs: string[]): string | null {
   for (const entry of map.values()) {
-    if (refs.some((ref) => entry.sourceRefs.includes(ref) || entry.userRefs.includes(ref))) return entry.name
+    if (refs.some(ref => entry.sourceRefs.includes(ref) || entry.userRefs.includes(ref)))
+      return entry.name
   }
   return null
 }
@@ -83,9 +91,11 @@ function nameIn(map: Map<string, Entry>, refs: string[]): string | null {
 // A pick the other filters have narrowed away is missing from the scoped
 // lists; its name comes from the library's whole vocabulary, asked for only
 // while such a pick exists.
-const unresolved = computed(() => model.value.groups.some((refs) => nameIn(entries.value, refs) === null))
+const unresolved = computed(() => model.value.groups.some(refs => nameIn(entries.value, refs) === null))
 const { facets: libraryFacets } = useTagFacets(
-  () => (props.scope.library ? { library: props.scope.library } : {}),
+  () => (props.scope.library
+    ? { library: props.scope.library }
+    : {}),
   unresolved,
 )
 const libraryEntries = computed(() => byName(libraryFacets.value))
@@ -100,7 +110,10 @@ const staged = ref<Staged[]>([])
 const stagedMode = ref<TagSelection['mode']>('all')
 
 function openIndex(): void {
-  staged.value = model.value.groups.map((refs) => ({ name: nameOf(refs), refs }))
+  staged.value = model.value.groups.map(refs => ({
+    name: nameOf(refs),
+    refs,
+  }))
   stagedMode.value = model.value.mode
   search.value = ''
   open.value = true
@@ -109,33 +122,55 @@ function openIndex(): void {
 /** Each section by its own vocabulary's count, most first; ties by name. */
 const sections = computed(() => {
   const needle = search.value.trim().toLowerCase()
-  const all = [...entries.value.values()].filter((entry) => entry.name.toLowerCase().includes(needle))
+  const all = [
+    ...entries.value.values(),
+  ].filter(entry => entry.name.toLowerCase().includes(needle))
   const ordered = (count: (entry: Entry) => number) =>
-    all.filter((entry) => count(entry) > 0).sort((a, b) => count(b) - count(a) || a.name.localeCompare(b.name))
+    all.filter(entry => count(entry) > 0).sort((a, b) => count(b) - count(a) || a.name.localeCompare(b.name))
   return [
-    { title: '我的标签', entries: ordered((entry) => entry.userCount), count: (entry: Entry) => entry.userCount },
-    { title: '作品标签', entries: ordered((entry) => entry.sourceCount), count: (entry: Entry) => entry.sourceCount },
+    {
+      title: '我的标签',
+      entries: ordered(entry => entry.userCount),
+      count: (entry: Entry) => entry.userCount,
+    },
+    {
+      title: '作品标签',
+      entries: ordered(entry => entry.sourceCount),
+      count: (entry: Entry) => entry.sourceCount,
+    },
   ]
 })
 
-const isStaged = (name: string) => staged.value.some((pick) => pick.name === name)
+const isStaged = (name: string) => staged.value.some(pick => pick.name === name)
 /** A staged pick the current lists do not carry: kept, and marked as matching nothing here. */
 const unmatched = (pick: Staged) => pick.name === null || !entries.value.has(pick.name)
 
 function toggle(entry: Entry): void {
   staged.value = isStaged(entry.name)
-    ? staged.value.filter((pick) => pick.name !== entry.name)
-    : [...staged.value, { name: entry.name, refs: [...entry.sourceRefs, ...entry.userRefs] }]
+    ? staged.value.filter(pick => pick.name !== entry.name)
+    : [
+        ...staged.value,
+        {
+          name: entry.name,
+          refs: [
+            ...entry.sourceRefs,
+            ...entry.userRefs,
+          ],
+        },
+      ]
 }
 
 function unstage(pick: Staged): void {
-  staged.value = staged.value.filter((candidate) => candidate !== pick)
+  staged.value = staged.value.filter(candidate => candidate !== pick)
 }
 
 function apply(): void {
   // Every staged pick is committed as its refs, so a pick whose name could not
   // be found is kept unless the user removed it.
-  model.value = { groups: staged.value.map((pick) => pick.refs), mode: stagedMode.value }
+  model.value = {
+    groups: staged.value.map(pick => pick.refs),
+    mode: stagedMode.value,
+  }
   open.value = false
 }
 
@@ -153,35 +188,42 @@ const active = computed(() => applied.value > 0)
         <div class="ti-bar">
           <label class="ti-find">
             <span class="lbl">FIND</span>
-            <input v-model="search" type="search" aria-label="Find tag" />
+            <input v-model="search" type="search" aria-label="Find tag">
           </label>
           <div class="ti-mode" role="radiogroup" aria-label="Match mode">
-            <button v-for="mode in (['all', 'any'] as const)" :key="mode" type="button" role="radio"
-              :aria-checked="stagedMode === mode" @click="stagedMode = mode">{{ mode === 'all' ? 'AND' : 'OR' }}</button>
+            <button
+              v-for="mode in (['all', 'any'] as const)" :key="mode" type="button" role="radio"
+              :aria-checked="stagedMode === mode" @click="stagedMode = mode"
+            >{{ mode === 'all' ? 'AND' : 'OR' }}</button>
           </div>
         </div>
 
         <div class="ti-picked" aria-label="Selected tags">
           <span class="lbl">SELECTED</span>
-          <button v-for="pick in staged" :key="pick.refs.join('|')" class="chip on" type="button"
-            :title="`移除 ${pick.name ?? '未知标签'}`" @click="unstage(pick)">{{ pick.name ?? '未知标签' }}<span
-              v-if="unmatched(pick)" class="lbl n" title="当前筛选下无匹配">0</span><span aria-hidden="true">×</span></button>
+          <button
+            v-for="pick in staged" :key="pick.refs.join('|')" class="chip on" type="button"
+            :title="`移除 ${pick.name ?? '未知标签'}`" @click="unstage(pick)"
+          >{{ pick.name ?? '未知标签' }}<span
+            v-if="unmatched(pick)" class="lbl n" title="当前筛选下无匹配"
+          >0</span><span aria-hidden="true">×</span></button>
           <span v-if="staged.length === 0" class="lbl none">NONE</span>
         </div>
 
         <div class="ti-scroll">
-        <section v-for="section in sections" :key="section.title" class="ti-section">
-          <div class="strip">
-            <span class="strip-name lbl">{{ section.title }}</span>
-            <span class="lbl">{{ section.entries.length }}</span>
-          </div>
-          <div class="ti-chips">
-            <button v-for="entry in section.entries" :key="entry.name" class="chip" type="button"
-              :class="{ on: isStaged(entry.name) }" :aria-pressed="isStaged(entry.name)"
-              @click="toggle(entry)">{{ entry.name }}<span class="lbl n">{{ section.count(entry) }}</span></button>
-            <p v-if="section.entries.length === 0" class="lbl none">{{ search ? 'NO MATCH' : 'NO TAGS' }}</p>
-          </div>
-        </section>
+          <section v-for="section in sections" :key="section.title" class="ti-section">
+            <div class="strip">
+              <span class="strip-name lbl">{{ section.title }}</span>
+              <span class="lbl">{{ section.entries.length }}</span>
+            </div>
+            <div class="ti-chips">
+              <button
+                v-for="entry in section.entries" :key="entry.name" class="chip" type="button"
+                :class="{ on: isStaged(entry.name) }" :aria-pressed="isStaged(entry.name)"
+                @click="toggle(entry)"
+              >{{ entry.name }}<span class="lbl n">{{ section.count(entry) }}</span></button>
+              <p v-if="section.entries.length === 0" class="lbl none">{{ search ? 'NO MATCH' : 'NO TAGS' }}</p>
+            </div>
+          </section>
         </div>
 
         <div class="ti-foot">

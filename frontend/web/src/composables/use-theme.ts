@@ -1,11 +1,12 @@
-import { effectScope, ref, watch, type Ref } from 'vue'
+import type { Ref } from 'vue'
+import { effectScope, ref, watch } from 'vue'
 
 export type Theme = 'light' | 'dark' | 'system'
 
 export const THEME_STORAGE_KEY = 'preen-theme'
 
 /** The modes every theme entry offers, in menu order, with the code a trigger shows. */
-export const THEME_OPTIONS: readonly { value: Theme; label: string; code: string }[] = [
+export const THEME_OPTIONS: readonly { value: Theme, label: string, code: string }[] = [
   { value: 'light', label: '浅色', code: 'LIGHT' },
   { value: 'dark', label: '深色', code: 'DARK' },
   { value: 'system', label: '跟随系统', code: 'AUTO' },
@@ -13,8 +14,8 @@ export const THEME_OPTIONS: readonly { value: Theme; label: string; code: string
 
 function systemPrefersDark(): boolean {
   return (
-    typeof window.matchMedia === 'function' &&
-    window.matchMedia('(prefers-color-scheme: dark)').matches
+    typeof window.matchMedia === 'function'
+    && window.matchMedia('(prefers-color-scheme: dark)').matches
   )
 }
 
@@ -24,10 +25,13 @@ function readStored(): Theme {
   let stored: string | null = null
   try {
     stored = localStorage.getItem(THEME_STORAGE_KEY)
-  } catch {
+  }
+  catch {
     stored = null
   }
-  return stored === 'light' || stored === 'dark' || stored === 'system' ? stored : 'dark'
+  return stored === 'light' || stored === 'dark' || stored === 'system'
+    ? stored
+    : 'dark'
 }
 
 function apply(value: Theme): void {
@@ -58,7 +62,8 @@ export function useTheme() {
       // leave the visual theme stuck on the previous value.
       try {
         localStorage.setItem(THEME_STORAGE_KEY, value)
-      } catch {
+      }
+      catch {
         /* storage unavailable; theme still applies below */
       }
       apply(value)
@@ -68,7 +73,8 @@ export function useTheme() {
     if (typeof window.matchMedia === 'function') {
       media = window.matchMedia('(prefers-color-scheme: dark)')
       onSystemChange = () => {
-        if (theme?.value === 'system') apply('system')
+        if (theme?.value === 'system')
+          apply('system')
       }
       media.addEventListener('change', onSystemChange)
     }
@@ -77,7 +83,8 @@ export function useTheme() {
   return {
     theme,
     dispose: () => {
-      if (media && onSystemChange) media.removeEventListener('change', onSystemChange)
+      if (media && onSystemChange)
+        media.removeEventListener('change', onSystemChange)
       media = null
       onSystemChange = null
     },

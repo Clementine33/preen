@@ -2,8 +2,8 @@
 import { computed, watch } from 'vue'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import { Button } from '@/components/ui/button'
-import OverrideEditor from '@/features/worksets/OverrideEditor.vue'
 import { useCurrentConversion } from '@/composables/use-operation-context'
+import OverrideEditor from '@/features/worksets/OverrideEditor.vue'
 import { useWorksetEditorStore } from '@/stores/workset-editor'
 
 /**
@@ -21,11 +21,11 @@ const libraryId = computed(() => (route.params.libraryId as string) || '')
 const { worksetId, workspace, applySession } = useCurrentConversion(libraryId)
 
 const memberId = computed(() => (route.params.memberId as string) || null)
-const member = computed(() => workspace.workset.value?.members.find((m) => m.member_id === memberId.value) ?? null)
+const member = computed(() => workspace.workset.value?.members.find(m => m.member_id === memberId.value) ?? null)
 const draft = workspace.draft
 
 /** Opens the session for this member against the draft the page read. */
-function openSession(target: { kind: 'member'; memberId: string }): boolean {
+function openSession(target: { kind: 'member', memberId: string }): boolean {
   return editor.open({
     worksetId: worksetId.value as string,
     operation: 'conversion',
@@ -38,18 +38,23 @@ function openSession(target: { kind: 'member'; memberId: string }): boolean {
 watch(
   [draft, member, worksetId],
   () => {
-    if (!draft.value || !member.value || !worksetId.value) return
+    if (!draft.value || !member.value || !worksetId.value)
+      return
     const target = { kind: 'member' as const, memberId: member.value.member_id }
     const current = editor.session
     if (current && current.worksetId === worksetId.value && current.target.kind === 'member' && current.target.memberId === target.memberId) {
       return
     }
-    if (openSession(target)) return
+    if (openSession(target))
+      return
     // Another target holds unapplied edits: the switch is a decision, not
     // a silent redirect. Only an explicit discard drops them; refusing keeps
     // them and returns to the list, where 继续编辑 resumes that edit.
     if (!window.confirm('另一个范围还有未应用的修改，放弃它才能修改此文件夹。放弃吗？')) {
-      void router.replace({ name: 'conversion', params: { libraryId: libraryId.value } })
+      void router.replace({
+        name: 'conversion',
+        params: { libraryId: libraryId.value },
+      })
       return
     }
     editor.close()
@@ -63,7 +68,8 @@ const dirty = computed(() => editor.isDirty)
 
 onBeforeRouteLeave(() => {
   const current = session.value
-  if (!dirty.value || current?.worksetId !== worksetId.value || current.target.kind !== 'member' || current.target.memberId !== memberId.value) return true
+  if (!dirty.value || current?.worksetId !== worksetId.value || current.target.kind !== 'member' || current.target.memberId !== memberId.value)
+    return true
   return window.confirm('有未应用的修改，确定放弃吗？')
 })
 
@@ -78,7 +84,8 @@ async function apply() {
 }
 
 function cancel() {
-  if (dirty.value && !window.confirm('放弃未应用的修改？')) return
+  if (dirty.value && !window.confirm('放弃未应用的修改？'))
+    return
   editor.close()
   void router.push({
     name: 'conversion-member',

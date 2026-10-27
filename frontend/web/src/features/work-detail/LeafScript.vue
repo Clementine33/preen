@@ -1,7 +1,8 @@
 <script setup lang="ts">
+import type { ScriptLine } from '@/features/work-detail/derive'
 import { computed, ref, watch } from 'vue'
+import { parseLyrics, parseTxt } from '@/features/work-detail/derive'
 import { useApiClient } from '@/lib/api/client'
-import { parseLyrics, parseTxt, type ScriptLine } from '@/features/work-detail/derive'
 import { useWorkDetailStore } from '@/stores/work-detail'
 
 // READ: horizontal scripts and lyric text, with sound effects under （SE）
@@ -21,15 +22,18 @@ watch(
   txtRel,
   async (rel) => {
     lines.value = []
-    if (!rel || !store.rj || !store.activeCopy) return
+    if (!rel || !store.rj || !store.activeCopy)
+      return
     let text: string
     try {
       text = await api.getWorkText({ rj: store.rj, copyId: store.activeCopy.copy_id, relPath: rel })
-    } catch {
+    }
+    catch {
       // Gone since the scan, or unreachable: the leaf stays empty.
       return
     }
-    if (txtRel.value !== rel) return
+    if (txtRel.value !== rel)
+      return
     lines.value = parseTxt(/\.(?:lrc|vtt)$/i.test(rel)
       ? parseLyrics(text, rel).map(line => line.text).join('\n')
       : text)
@@ -42,14 +46,19 @@ watch(
 /** The speech counter runs across the whole script, like a printed edition. */
 const numbered = computed(() => {
   let n = 0
-  return lines.value.map((line) => (line.kind === 'sp' ? { ...line, no: ++n } : line))
+  return lines.value.map(line => (line.kind === 'sp'
+    ? { ...line, no: ++n }
+    : line))
 })
 
 function trackReading(): void {
   const wrap = wrapEl.value
-  if (!wrap) return
+  if (!wrap)
+    return
   const max = wrap.scrollHeight - wrap.clientHeight
-  const p = max > 0 ? Math.min(1, wrap.scrollTop / max) : 1
+  const p = max > 0
+    ? Math.min(1, wrap.scrollTop / max)
+    : 1
   emit('progress', `${Math.round(p * 100)}%`)
 }
 watch(txtRel, () => {
@@ -63,7 +72,7 @@ watch(txtRel, () => {
       <template v-for="(line, i) in numbered" :key="i">
         <p v-if="line.kind === 'scene'" class="scene">{{ line.text }}</p>
         <p v-else-if="line.kind === 'sfx'" class="sp"><span class="spk">（SE）</span>{{ line.text }}</p>
-        <p v-else><span class="no">{{ line.no }}</span>　{{ line.text }}</p>
+        <p v-else><span class="no">{{ line.no }}</span>&#x3000;{{ line.text }}</p>
       </template>
     </div>
   </div>

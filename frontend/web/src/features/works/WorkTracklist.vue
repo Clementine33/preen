@@ -24,27 +24,36 @@ const player = usePlayerStore()
 const { content, query: contentQuery } = useWorkContent(() => props.rj)
 const allTracks = computed(() => {
   const tree = playableCopy(content.value)?.tree
-  return tree ? deriveTracks(tree) : []
+  return tree
+    ? deriveTracks(tree)
+    : []
 })
 const { trackFormats: preference } = usePreferences()
 const codec = computed(() => pickFormat(trackFormats(allTracks.value), preference.value))
 const tracks = computed(() =>
-  codec.value ? allTracks.value.filter((track) => track.files[codec.value!]) : allTracks.value,
+  codec.value
+    ? allTracks.value.filter(track => track.files[codec.value!])
+    : allTracks.value,
 )
 // A variant header only helps when the work has more than one variant.
-const multiVariant = computed(() => new Set(tracks.value.map((track) => track.variant)).size > 1)
-const showHeader = (t: number): boolean =>
-  multiVariant.value && tracks.value[t].variant !== tracks.value[t - 1]?.variant
+const multiVariant = computed(() => new Set(tracks.value.map(track => track.variant)).size > 1)
+function showHeader(t: number): boolean {
+  return multiVariant.value && tracks.value[t].variant !== tracks.value[t - 1]?.variant
+}
 const tracksSummary = computed(() => {
-  if (tracks.value.length === 0) return '—'
+  if (tracks.value.length === 0)
+    return '—'
   const total = tracks.value.reduce((sum, track) => sum + (track.duration ?? 0), 0)
-  return total > 0 ? `${tracks.value.length} · ${fmtLong(total)}` : String(tracks.value.length)
+  return total > 0
+    ? `${tracks.value.length} · ${fmtLong(total)}`
+    : String(tracks.value.length)
 })
 
 const { playFrom } = usePlayWork()
 const isPlaying = (t: number): boolean => player.rj === props.rj && player.trackKey === tracks.value[t]?.key
 function playTrack(t: number) {
-  if (props.rj === null) return
+  if (props.rj === null)
+    return
   const index = allTracks.value.indexOf(tracks.value[t])
   playFrom({ rj: props.rj, title: props.title }, content.value, index, codec.value ?? '')
 }
@@ -61,8 +70,10 @@ function playTrack(t: number) {
     <div class="tracks" :class="{ dim }" lang="ja">
       <template v-for="(track, t) in tracks" :key="track.key">
         <div v-if="showHeader(t)" class="var lbl">{{ track.variant || '/' }}</div>
-        <button class="trk" :class="{ now: isPlaying(t) }"
-          type="button" :aria-current="isPlaying(t) || undefined" @click="playTrack(t)">
+        <button
+          class="trk" :class="{ now: isPlaying(t) }"
+          type="button" :aria-current="isPlaying(t) || undefined" @click="playTrack(t)"
+        >
           <span class="no lbl">{{ String(t + 1).padStart(2, '0') }}</span>
           <span class="nm">{{ track.stem }}</span>
           <span class="dur">{{ track.duration === null ? '—' : fmtT(track.duration) }}</span>

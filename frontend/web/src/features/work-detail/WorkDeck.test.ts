@@ -1,15 +1,15 @@
 import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { sampleWorkContent } from '@/test/work-content-fixture'
-import WorkDeck from './WorkDeck.vue'
 import { apiClientKey } from '@/lib/api/client'
-import { apiStub } from '@/test/api-stub'
-import { installTestQueryPlugin } from '@/test/query-client'
-import { makeWorkDetail } from '@/test/work-fixture'
-import { workDetailTestRouter } from '@/test/work-router'
 import { useLibraryUiStore } from '@/stores/library-ui'
 import { useWorkDetailStore } from '@/stores/work-detail'
+import { apiStub } from '@/test/api-stub'
+import { installTestQueryPlugin } from '@/test/query-client'
+import { sampleWorkContent } from '@/test/work-content-fixture'
+import { makeWorkDetail } from '@/test/work-fixture'
+import { workDetailTestRouter } from '@/test/work-router'
+import WorkDeck from './WorkDeck.vue'
 
 /**
  * The deck's data-driven contracts: set chips carry
@@ -25,9 +25,18 @@ async function mountDeck() {
   setActivePinia(pinia)
   const store = useWorkDetailStore()
   store.bind(RJ, sampleWorkContent(RJ))
-  const api = apiStub({ getWork: vi.fn().mockResolvedValue(makeWorkDetail({ nsfw: true })) } as never)
+  const api = apiStub({
+    getWork: vi.fn().mockResolvedValue(makeWorkDetail({ nsfw: true })),
+  } as never)
   const wrapper = mount(WorkDeck, {
-    global: { plugins: [pinia, await workDetailTestRouter(), installTestQueryPlugin()], provide: { [apiClientKey as symbol]: api } },
+    global: {
+      plugins: [
+        pinia,
+        await workDetailTestRouter(),
+        installTestQueryPlugin(),
+      ],
+      provide: { [apiClientKey as symbol]: api },
+    },
   })
   await flushPromises()
   return { wrapper, store }
@@ -39,7 +48,7 @@ beforeEach(() => {
 // The filmstrip scheduler keeps timers; unmounting drains them.
 enableAutoUnmount(afterEach)
 
-describe('WorkDeck', () => {
+describe('workDeck', () => {
   it('marks the active set chip and the current thumb', async () => {
     const { wrapper, store } = await mountDeck()
     const chips = wrapper.findAll('.chip')
@@ -117,9 +126,18 @@ describe('WorkDeck', () => {
     store.bind(RJ, sampleWorkContent(RJ))
     useLibraryUiStore().toggleVeil()
     store.showSet(1)
-    const api = apiStub({ getWork: vi.fn().mockResolvedValue(makeWorkDetail({ nsfw: false })) } as never)
+    const api = apiStub({
+      getWork: vi.fn().mockResolvedValue(makeWorkDetail({ nsfw: false })),
+    } as never)
     const wrapper = mount(WorkDeck, {
-      global: { plugins: [pinia, await workDetailTestRouter(), installTestQueryPlugin()], provide: { [apiClientKey as symbol]: api } },
+      global: {
+        plugins: [
+          pinia,
+          await workDetailTestRouter(),
+          installTestQueryPlugin(),
+        ],
+        provide: { [apiClientKey as symbol]: api },
+      },
     })
     await flushPromises()
     expect(wrapper.get('.face.front').classes()).not.toContain('veil')
@@ -139,13 +157,23 @@ describe('WorkDeck', () => {
     setActivePinia(pinia)
     const store = useWorkDetailStore()
     const content = sampleWorkContent(RJ)
-    const cover = content.copies[0].tree!.children.find((node) => node.name === '表紙')
-    if (!cover || !('children' in cover)) throw new Error('fixture has a cover set')
+    const cover = content.copies[0].tree!.children.find(node => node.name === '表紙')
+    if (!cover || !('children' in cover))
+      throw new Error('fixture has a cover set')
     for (const item of cover.children) Object.assign(item, { width: null, height: null })
     store.bind(RJ, content)
-    const api = apiStub({ getWork: vi.fn().mockResolvedValue(makeWorkDetail()) } as never)
+    const api = apiStub({
+      getWork: vi.fn().mockResolvedValue(makeWorkDetail()),
+    } as never)
     const wrapper = mount(WorkDeck, {
-      global: { plugins: [pinia, await workDetailTestRouter(), installTestQueryPlugin()], provide: { [apiClientKey as symbol]: api } },
+      global: {
+        plugins: [
+          pinia,
+          await workDetailTestRouter(),
+          installTestQueryPlugin(),
+        ],
+        provide: { [apiClientKey as symbol]: api },
+      },
     })
     await flushPromises()
     store.step(1)
@@ -167,14 +195,22 @@ describe('WorkDeck', () => {
       workFileUrl: vi.fn((ref, version) => `/content/${ref.copyId}/${ref.relPath}?v=${version}`),
     })
     const wrapper = mount(WorkDeck, {
-      global: { plugins: [pinia, await workDetailTestRouter(), installTestQueryPlugin()], provide: { [apiClientKey as symbol]: api } },
+      global: {
+        plugins: [
+          pinia,
+          await workDetailTestRouter(),
+          installTestQueryPlugin(),
+        ],
+        provide: { [apiClientKey as symbol]: api },
+      },
     })
     await flushPromises()
     const oldThumb = wrapper.get('.thumb').attributes('style')
     expect(oldThumb).toContain('blob:thumb-1')
     const updated = structuredClone(content)
-    const cover = updated.copies[0].tree!.children.find((entry) => entry.name === '表紙')!
-    if (!('children' in cover)) throw new Error('cover directory missing')
+    const cover = updated.copies[0].tree!.children.find(entry => entry.name === '表紙')!
+    if (!('children' in cover))
+      throw new Error('cover directory missing')
     Object.assign(cover.children[0], { thumb_v: 'new', width: 1000, height: 500 })
     store.bind(RJ, updated)
     await flushPromises()
@@ -206,10 +242,20 @@ describe('WorkDeck', () => {
     store.bind(RJ, content)
     const thumbs = vi.fn().mockResolvedValue(new Blob(['new']))
     thumbs.mockImplementationOnce(() => new Promise<Blob>((resolve) => { finish = resolve }))
-    const api = apiStub({ getWork: vi.fn().mockResolvedValue(makeWorkDetail()), getWorkThumb: thumbs })
-    const wrapper = mount(WorkDeck, { global: {
-      plugins: [pinia, await workDetailTestRouter(), installTestQueryPlugin()], provide: { [apiClientKey as symbol]: api },
-    } })
+    const api = apiStub({
+      getWork: vi.fn().mockResolvedValue(makeWorkDetail()),
+      getWorkThumb: thumbs,
+    })
+    const wrapper = mount(WorkDeck, {
+      global: {
+        plugins: [
+          pinia,
+          await workDetailTestRouter(),
+          installTestQueryPlugin(),
+        ],
+        provide: { [apiClientKey as symbol]: api },
+      },
+    })
     await flushPromises()
     // Resolve just before the reactive watcher runs for a new copy: the
     // request's key must still name the old copy even in this narrow interval.
@@ -224,5 +270,4 @@ describe('WorkDeck', () => {
     expect(revoke).toHaveBeenCalledTimes(serial)
     vi.restoreAllMocks()
   })
-
 })

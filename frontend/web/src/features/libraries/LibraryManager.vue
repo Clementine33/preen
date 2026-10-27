@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import type { CreateLibraryInput, Library, StorageClass } from '@/lib/api/types'
 import { FolderOpen } from '@lucide/vue'
+import { ref, watch } from 'vue'
 import { Button } from '@/components/ui/button'
 import Modal from '@/components/ui/modal/Modal.vue'
-import type { CreateLibraryInput, Library, StorageClass } from '@/lib/api/types'
 import { useDesktopAdapter } from '@/lib/desktop/desktop-adapter'
 
 const props = defineProps<{
@@ -25,7 +25,8 @@ const ssd = ref(false)
 watch(
   () => [props.open, props.library] as const,
   () => {
-    if (!props.open) return
+    if (!props.open)
+      return
     name.value = props.library?.name ?? ''
     rootPath.value = props.library?.root_path ?? ''
     ssd.value = props.library?.storage_class === 'ssd'
@@ -35,12 +36,18 @@ watch(
 
 async function pickFolder() {
   const picked = await adapter.pickFolder()
-  if (picked !== null) rootPath.value = picked
+  if (picked !== null)
+    rootPath.value = picked
 }
 
 function submit() {
-  if (!name.value || !rootPath.value) return
-  emit('save', { name: name.value, root_path: rootPath.value, storage_class: ssd.value ? 'ssd' : 'hdd' })
+  if (!name.value || !rootPath.value)
+    return
+  emit('save', {
+    name: name.value,
+    root_path: rootPath.value,
+    storage_class: ssd.value ? 'ssd' : 'hdd',
+  })
 }
 </script>
 
@@ -61,7 +68,7 @@ function submit() {
         autocomplete="off"
         class="mt-1.5 h-11 w-full rounded-md border border-input bg-transparent px-3 text-[16px] focus-visible:border-[var(--wire-strong)] focus-visible:outline-none rail:h-9 rail:text-sm"
         placeholder="例如：无损音乐库"
-      />
+      >
 
       <label class="mt-4 block text-xs font-medium" for="library-root">根目录</label>
       <div class="mt-1.5 flex gap-2">
@@ -73,7 +80,7 @@ function submit() {
           spellcheck="false"
           class="h-11 min-w-0 flex-1 rounded-md border border-input bg-transparent px-3 font-mono text-[16px] focus-visible:border-[var(--wire-strong)] focus-visible:outline-none rail:h-9 rail:text-xs"
           placeholder="/home/me/music 或 D:\Music"
-        />
+        >
         <Button class="h-11 shrink-0 rail:h-8" type="button" variant="outline" @click="pickFolder">
           <FolderOpen class="size-4" />
           选择文件夹
@@ -84,7 +91,7 @@ function submit() {
       </p>
 
       <label class="mt-4 flex min-h-11 cursor-pointer items-start gap-3 rail:min-h-0">
-        <input v-model="ssd" type="checkbox" class="mt-0.5 size-4 shrink-0" data-testid="library-ssd" />
+        <input v-model="ssd" type="checkbox" class="mt-0.5 size-4 shrink-0" data-testid="library-ssd">
         <span>
           <span class="block text-xs font-medium">媒体在 SSD 上</span>
           <span class="mt-0.5 block text-[11px] text-muted-foreground">

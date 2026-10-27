@@ -1,9 +1,9 @@
 <script setup lang="ts">
+import type { Operation, PlanningState, RevisionCounts } from '@/lib/api/types'
 import { computed } from 'vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { sessionFailureText } from '@/features/worksets/session-failure'
-import type { Operation, PlanningState, RevisionCounts } from '@/lib/api/types'
 
 /**
  * Compact operation context: workspace/operation identity, version state and
@@ -32,15 +32,15 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  generate: []
-  cancel: []
-  execute: []
+  'generate': []
+  'cancel': []
+  'execute': []
   'open-execution': []
   'cancel-execution': []
   'restore-current': []
 }>()
 
-const STATE_LABELS: Record<PlanningState, { label: string; tone: 'neutral' | 'brand' | 'success' | 'warning' | 'danger' }> = {
+const STATE_LABELS: Record<PlanningState, { label: string, tone: 'neutral' | 'brand' | 'success' | 'warning' | 'danger' }> = {
   unplanned: { label: '待规划', tone: 'neutral' },
   planning: { label: '规划中', tone: 'brand' },
   planned: { label: '已规划', tone: 'success' },
@@ -49,7 +49,9 @@ const STATE_LABELS: Record<PlanningState, { label: string; tone: 'neutral' | 'br
 }
 
 const state = computed(() =>
-  props.operation ? STATE_LABELS[props.operation.planning_state] : { label: '未建立', tone: 'neutral' as const },
+  props.operation
+    ? STATE_LABELS[props.operation.planning_state]
+    : { label: '未建立', tone: 'neutral' as const },
 )
 
 const cells = computed(() =>
@@ -64,8 +66,10 @@ const cells = computed(() =>
     : [],
 )
 const validationWarning = computed(() => {
-  if (props.validationState === 'stale') return '输入已变化，当前版本需要重新规划后才能执行'
-  if (props.validationState === 'unavailable') return '媒体库不可用，无法校验当前版本'
+  if (props.validationState === 'stale')
+    return '输入已变化，当前版本需要重新规划后才能执行'
+  if (props.validationState === 'unavailable')
+    return '媒体库不可用，无法校验当前版本'
   return null
 })
 </script>

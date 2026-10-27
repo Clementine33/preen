@@ -1,7 +1,9 @@
-import { keepPreviousData, useInfiniteQuery, useQuery, useQueryClient, type QueryClient } from '@tanstack/vue-query'
-import { computed, toValue, type MaybeRefOrGetter } from 'vue'
-import { useApiClient } from '@/lib/api/client'
+import type { QueryClient } from '@tanstack/vue-query'
+import type { MaybeRefOrGetter } from 'vue'
 import type { ApiClientContract, CollectionWindow, WorksSort } from '@/lib/api/types'
+import { keepPreviousData, useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/vue-query'
+import { computed, toValue } from 'vue'
+import { useApiClient } from '@/lib/api/client'
 import { refreshOrRemoveQueries } from './cache-sync'
 import { queryKeys } from './query-keys'
 
@@ -19,7 +21,8 @@ export function collectionDetailQueryOptions(api: ApiClientContract, id: string 
     queryKey: queryKeys.collections.detail(id ?? '', window),
     enabled: id !== null,
     queryFn: ({ signal }: { signal?: AbortSignal }) => {
-      if (id === null) throw new Error('collection detail query requires an id')
+      if (id === null)
+        throw new Error('collection detail query requires an id')
       return api.getCollection(id, window, signal)
     },
   }
@@ -40,10 +43,15 @@ export function useCollections() {
 export function useCollectionTitles(id: MaybeRefOrGetter<string | null>, limit: MaybeRefOrGetter<number | null>) {
   const api = useApiClient()
   const query = useQuery(computed(() => ({
-    ...collectionDetailQueryOptions(api, toValue(limit) === null ? null : toValue(id), { limit: toValue(limit) ?? 1, direction: 'desc' }),
+    ...collectionDetailQueryOptions(api, toValue(limit) === null
+      ? null
+      : toValue(id), { limit: toValue(limit) ?? 1, direction: 'desc' }),
     placeholderData: keepPreviousData,
   })))
-  return { query, titles: computed(() => query.data.value?.works ?? []) }
+  return {
+    query,
+    titles: computed(() => query.data.value?.works ?? []),
+  }
 }
 
 /** Members per chunk of the detail page's list: the API's page maximum. */
@@ -56,18 +64,36 @@ export const COLLECTION_CHUNK = 200
 export function useCollectionPages(id: MaybeRefOrGetter<string>, sort: MaybeRefOrGetter<WorksSort | ''>, direction: MaybeRefOrGetter<'asc' | 'desc'>) {
   const api = useApiClient()
   const query = useInfiniteQuery(computed(() => {
-    const [cid, s, dir] = [toValue(id), toValue(sort), toValue(direction)]
+    const [cid, s, dir] = [
+      toValue(id),
+      toValue(sort),
+      toValue(direction),
+    ]
     return {
       queryKey: queryKeys.collections.pages(cid, s, dir),
       initialPageParam: 1,
-      queryFn: ({ pageParam, signal }: { pageParam: number; signal?: AbortSignal }) =>
-        api.getCollection(cid, { limit: COLLECTION_CHUNK, page: pageParam, direction: dir, ...(s ? { sort: s } : {}) }, signal),
-      getNextPageParam: (last: { total: number }, all: unknown[]) => (all.length * COLLECTION_CHUNK < last.total ? all.length + 1 : undefined),
+      queryFn: ({ pageParam, signal }: { pageParam: number, signal?: AbortSignal }) =>
+        api.getCollection(cid, {
+          limit: COLLECTION_CHUNK,
+          page: pageParam,
+          direction: dir,
+          ...(s
+            ? { sort: s }
+            : {}),
+        }, signal),
+      getNextPageParam: (last: { total: number }, all: unknown[]) => (all.length * COLLECTION_CHUNK < last.total
+        ? all.length + 1
+        : undefined),
     }
   }))
   const first = computed(() => query.data.value?.pages[0] ?? null)
-  const works = computed(() => query.data.value?.pages.flatMap((p) => p.works) ?? [])
-  return { query, name: computed(() => first.value?.name ?? ''), total: computed(() => first.value?.total ?? 0), works }
+  const works = computed(() => query.data.value?.pages.flatMap(p => p.works) ?? [])
+  return {
+    query,
+    name: computed(() => first.value?.name ?? ''),
+    total: computed(() => first.value?.total ?? 0),
+    works,
+  }
 }
 
 /**
@@ -77,7 +103,8 @@ export function useCollectionPages(id: MaybeRefOrGetter<string>, sort: MaybeRefO
  */
 function refreshAfterWrite(client: QueryClient, id: string, rjs: string[]): void {
   void refreshOrRemoveQueries(client, queryKeys.collections.all())
-  if (id === 'favorites') void refreshOrRemoveQueries(client, queryKeys.works.listPrefix())
+  if (id === 'favorites')
+    void refreshOrRemoveQueries(client, queryKeys.works.listPrefix())
   for (const rj of rjs) void refreshOrRemoveQueries(client, queryKeys.works.detail(rj))
 }
 
@@ -86,7 +113,8 @@ export function useCollectionMemberWrites() {
   const api = useApiClient()
   const client = useQueryClient()
   async function write<T>(id: string, rjs: string[], run: () => Promise<T>): Promise<T> {
-    try { return await run() } finally { refreshAfterWrite(client, id, rjs) }
+    try { return await run() }
+    finally { refreshAfterWrite(client, id, rjs) }
   }
   return {
     append: (id: string, rjs: string[]) => write(id, rjs, () => api.appendToCollection(id, rjs)),
@@ -97,7 +125,7 @@ export function useCollectionMemberWrites() {
 
 /** The default name of the next collection: 新合集 #N, N counting the user collections (not Favorites) plus one. */
 export function newCollectionName(collections: { id: string }[]): string {
-  return `新合集 #${collections.filter((c) => c.id !== 'favorites').length + 1}`
+  return `新合集 #${collections.filter(c => c.id !== 'favorites').length + 1}`
 }
 
 /** Create, rename and delete refresh the `['collections']` prefix; a deleted collection's queries are dropped instead, so nothing refetches into a 404. */
@@ -106,15 +134,29 @@ export function useCollectionManage() {
   const client = useQueryClient()
   return {
     create: async (name: string) => {
-      try { return await api.createCollection(name) } finally { void refreshOrRemoveQueries(client, queryKeys.collections.all()) }
+      try { return await api.createCollection(name) }
+      finally { void refreshOrRemoveQueries(client, queryKeys.collections.all()) }
     },
     rename: async (id: string, name: string) => {
-      try { await api.renameCollection(id, name) } finally { void refreshOrRemoveQueries(client, queryKeys.collections.all()) }
+      try { await api.renameCollection(id, name) }
+      finally { void refreshOrRemoveQueries(client, queryKeys.collections.all()) }
     },
     remove: async (id: string) => {
       await api.deleteCollection(id)
-      client.removeQueries({ queryKey: [...queryKeys.collections.all(), 'pages', id] })
-      client.removeQueries({ queryKey: [...queryKeys.collections.all(), 'detail', id] })
+      client.removeQueries({
+        queryKey: [
+          ...queryKeys.collections.all(),
+          'pages',
+          id,
+        ],
+      })
+      client.removeQueries({
+        queryKey: [
+          ...queryKeys.collections.all(),
+          'detail',
+          id,
+        ],
+      })
       void refreshOrRemoveQueries(client, queryKeys.collections.all())
     },
   }

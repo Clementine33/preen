@@ -1,10 +1,10 @@
 <script setup lang="ts">
+import type { WorkDetail } from '@/lib/api/types'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useReducedMotion, useSwitchBurst } from '@/composables/use-motion'
-import type { WorkDetail } from '@/lib/api/types'
-import { usePlayWork } from '@/features/works/use-play-work'
 import { useCoverSrc } from '@/features/works/use-cover-src'
+import { usePlayWork } from '@/features/works/use-play-work'
 import WorkTracklist from '@/features/works/WorkTracklist.vue'
 import { useWorkDetail } from '@/queries/works'
 import { useLibraryUiStore } from '@/stores/library-ui'
@@ -27,7 +27,9 @@ const router = useRouter()
 const { work } = useWorkDetail(() => props.rj)
 
 /** The detail of the work actually being displayed, or null while loading. */
-const workNow = computed(() => (work.value && props.rj !== null && work.value.rj === props.rj ? work.value : null))
+const workNow = computed(() => (work.value && props.rj !== null && work.value.rj === props.rj
+  ? work.value
+  : null))
 
 // ── Deferred body: cover + SPEC + TRACKLIST swap after a 70ms pause. ──
 // Seeded from the cache: a remount (the wall leaving and re-entering the
@@ -53,28 +55,32 @@ watch(
       if (props.rj === null) {
         deferredWork.value = null
         dim.value = false
-      } else if (deferredWork.value !== null) {
+      }
+      else if (deferredWork.value !== null) {
         dim.value = true
       }
       return
     }
     // A refetch of the work on show (a saved position, a rating) is not a switch: swap quietly.
     if (current.rj === deferredWork.value?.rj) {
-      if (detailTimer !== null) window.clearTimeout(detailTimer)
+      if (detailTimer !== null)
+        window.clearTimeout(detailTimer)
       deferredWork.value = current
       dim.value = false
       return
     }
     const first = deferredWork.value === null
     if (reducedMotion.value || switching.value || first) {
-      if (detailTimer !== null) window.clearTimeout(detailTimer)
+      if (detailTimer !== null)
+        window.clearTimeout(detailTimer)
       deferredWork.value = current
       dim.value = false
       scramble(current.title ?? '', first)
       return
     }
     dim.value = true
-    if (detailTimer !== null) window.clearTimeout(detailTimer)
+    if (detailTimer !== null)
+      window.clearTimeout(detailTimer)
     detailTimer = window.setTimeout(() => {
       deferredWork.value = current
       dim.value = false
@@ -84,7 +90,8 @@ watch(
   { flush: 'post' },
 )
 onBeforeUnmount(() => {
-  if (detailTimer !== null) window.clearTimeout(detailTimer)
+  if (detailTimer !== null)
+    window.clearTimeout(detailTimer)
   cancelAnimationFrame(scrambleFrame)
 })
 
@@ -95,7 +102,8 @@ const titleEl = ref<HTMLElement | null>(null)
 let scrambleFrame = 0
 function scramble(text: string, instant = false) {
   cancelAnimationFrame(scrambleFrame)
-  if (!titleEl.value) return
+  if (!titleEl.value)
+    return
   if (instant || reducedMotion.value || switching.value || text === '') {
     titleEl.value.textContent = text
     return
@@ -105,15 +113,19 @@ function scramble(text: string, instant = false) {
   const duration = Math.min(260, 120 + chars.length * 5)
   const started = performance.now()
   const tick = (now: number) => {
-    if (!titleEl.value) return
+    if (!titleEl.value)
+      return
     const progress = Math.min(1, (now - started) / duration)
     const done = Math.floor(chars.length * progress)
     const noise = chars
       .slice(done, done + head)
       .map(() => GLYPHS[(Math.random() * GLYPHS.length) | 0])
       .join('')
-    titleEl.value.textContent = chars.slice(0, done).join('') + (progress < 1 ? noise : '')
-    if (progress < 1) scrambleFrame = requestAnimationFrame(tick)
+    titleEl.value.textContent = chars.slice(0, done).join('') + (progress < 1
+      ? noise
+      : '')
+    if (progress < 1)
+      scrambleFrame = requestAnimationFrame(tick)
   }
   scrambleFrame = requestAnimationFrame(tick)
 }
@@ -131,14 +143,17 @@ const shownRj = ref<string | null>(null)
 const veiled = computed(() => libraryUi.veil && deferredWork.value?.nsfw === true && shownRj.value !== deferredWork.value.rj)
 const { src: realCover, failed: coverFailed, isLocal: coverIsLocal } = useCoverSrc(() => {
   const detail = deferredWork.value
-  return detail ? { rj: detail.rj, local: detail.local_cover, remote: detail.cover_url ?? detail.thumbnail_url } : null
+  return detail
+    ? { rj: detail.rj, local: detail.local_cover, remote: detail.cover_url ?? detail.thumbnail_url }
+    : null
 })
 const coverSrc = computed(() => (veiled.value ? null : realCover.value))
 /** A CSS background never reports a load failure, so a local cover is proven loadable first. */
 function probe(url: string, first: boolean): Promise<boolean> {
   return new Promise((resolve) => {
     const image = new Image()
-    if (first) image.fetchPriority = 'high'
+    if (first)
+      image.fetchPriority = 'high'
     image.onload = () => resolve(true)
     image.onerror = () => resolve(false)
     image.src = url
@@ -151,8 +166,10 @@ watch(
   ([url]) => {
     if (url !== null && coverIsLocal(url) && url !== shownCover) {
       void probe(url, !painted).then((ok) => {
-        if (url !== coverSrc.value) return
-        if (ok) showCover(url)
+        if (url !== coverSrc.value)
+          return
+        if (ok)
+          showCover(url)
         else coverFailed(url)
       })
       return
@@ -161,7 +178,8 @@ watch(
   },
 )
 function showCover(url: string | null) {
-  if (url === shownCover || !coverBack.value || !coverFront.value) return
+  if (url === shownCover || !coverBack.value || !coverFront.value)
+    return
   const first = !painted
   painted = true
   if (reducedMotion.value || switching.value || first) {
@@ -182,23 +200,27 @@ function showCover(url: string | null) {
 }
 function paintCover(el: HTMLElement, url: string | null) {
   el.classList.toggle('hatch', url === null)
-  el.style.backgroundImage = url === null ? '' : `url("${url}")`
+  el.style.backgroundImage = url === null
+    ? ''
+    : `url("${url}")`
 }
 
 /** `YYYY.MM.DD` from the catalog's `YYYY-MM-DD`. */
 function dottedDate(value: string | null): string {
-  return value ? value.replaceAll('-', '.') : '—'
+  return value
+    ? value.replaceAll('-', '.')
+    : '—'
 }
 
 const voice = computed(() =>
   deferredWork.value && deferredWork.value.voice_actors.length > 0
-    ? deferredWork.value.voice_actors.map((actor) => actor.name).join(' / ')
+    ? deferredWork.value.voice_actors.map(actor => actor.name).join(' / ')
     : '—',
 )
 
 const tags = computed(() =>
   deferredWork.value && deferredWork.value.source_tags.length > 0
-    ? deferredWork.value.source_tags.map((tag) => tag.name).join(' / ')
+    ? deferredWork.value.source_tags.map(tag => tag.name).join(' / ')
     : '—',
 )
 
@@ -207,10 +229,16 @@ const { playWork } = usePlayWork()
 // PLAY needs the loaded work: it plays what the inspector shows from track 01.
 const canPlay = computed(() => workNow.value !== null)
 function playNowPlaying() {
-  if (workNow.value) void playWork({ rj: workNow.value.rj, title: workNow.value.title ?? workNow.value.rj })
+  if (workNow.value)
+    void playWork({ rj: workNow.value.rj, title: workNow.value.title ?? workNow.value.rj })
 }
 function openDetail() {
-  if (props.rj !== null) router.push({ name: 'work-detail', params: { rj: props.rj } })
+  if (props.rj !== null) {
+    router.push({
+      name: 'work-detail',
+      params: { rj: props.rj },
+    })
+  }
 }
 
 const arrowIcon = 'M0 4.5h7.2L4.6 1.9l.7-.7L9.1 5 5.3 8.8l-.7-.7 2.6-2.6H0z'
@@ -226,10 +254,10 @@ const playIcon = 'M1 0l9 5-9 5z'
 
     <div class="plate">
       <div class="plate-frame" :class="{ veiled }">
-        <div ref="coverBack" class="cover back"></div>
-        <div ref="coverFront" class="cover front hatch"></div>
+        <div ref="coverBack" class="cover back" />
+        <div ref="coverFront" class="cover front hatch" />
         <button v-if="veiled" class="btn btn-s reveal" type="button" @click="shownRj = deferredWork?.rj ?? null">SHOW</button>
-        <i class="tick tl"></i><i class="tick tr"></i><i class="tick bl"></i><i class="tick br"></i>
+        <i class="tick tl" /><i class="tick tr" /><i class="tick bl" /><i class="tick br" />
       </div>
     </div>
 

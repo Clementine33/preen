@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
 import type { ExecutionView, Operation, Workset } from '@/lib/api/types'
+import { describe, expect, it } from 'vitest'
 import { apiStub } from '@/test/api-stub'
 import { createTestQueryClient } from '@/test/query-client'
 import { queryKeys } from './query-keys'
@@ -25,7 +25,13 @@ const operation: Operation = {
     created_at: '2026-08-30T00:00:00Z',
     status: 'ready',
     summary_reason: 'ACTIONABLE',
-    counts: { members: 2, changed: 1, unmet_targets: 0, blocked: 0, unchanged: 1 },
+    counts: {
+      members: 2,
+      changed: 1,
+      unmet_targets: 0,
+      blocked: 0,
+      unchanged: 1,
+    },
     validation_state: 'valid',
     stale: false,
   },
@@ -48,7 +54,7 @@ const workset: Workset = {
 
 /** One turn of the microtask queue for fire-and-forget refreshes. */
 function flush(): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, 0))
+  return new Promise(resolve => setTimeout(resolve, 0))
 }
 
 const draftDocument = {
@@ -86,8 +92,18 @@ describe('workset mutation cache synchronization', () => {
     const options = createCurrentRecordMutationOptions(apiStub(), client, 'lib-a', 'conversion')
 
     options.onSuccess(
-      { workset, created: true, recorded: 1, skipped: [] },
-      { request: { folder_paths: ['albumA'], expected_current_id: 'ws-old' } },
+      {
+        workset,
+        created: true,
+        recorded: 1,
+        skipped: [],
+      },
+      {
+        request: {
+          folder_paths: ['albumA'],
+          expected_current_id: 'ws-old',
+        },
+      },
     )
     // The prefix refresh runs in a microtask; give it one turn before asserting.
     await flush()

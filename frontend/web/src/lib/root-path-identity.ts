@@ -5,7 +5,8 @@
 // folders the backend deliberately retained.
 export function rootPathIdentityKey(path: string): string {
   let p = path.replace(/\\/g, '/')
-  const isWindowsPath = /^[a-zA-Z]:\//.test(p) || /^\/\/\?/.test(p) || p.startsWith('//')
-  if (isWindowsPath && p.length >= 3 && p[1] === ':') p = p.toLowerCase()
+  const isWindowsPath = /^[a-z]:\//i.test(p) || /^\/\/\?/.test(p) || p.startsWith('//')
+  if (isWindowsPath && p.length >= 3 && p[1] === ':')
+    p = p.toLowerCase()
   return p
 }

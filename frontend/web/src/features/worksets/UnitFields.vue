@@ -1,11 +1,15 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import {
-  TagsInputInput, TagsInputItem, TagsInputItemDelete, TagsInputItemText, TagsInputRoot,
-} from 'reka-ui'
-import { cloneProfile } from '@/features/worksets/plan-readers'
 import type { DesiredProfile, OverrideUnit } from '@/lib/api/types'
+import {
+  TagsInputInput,
+  TagsInputItem,
+  TagsInputItemDelete,
+  TagsInputItemText,
+  TagsInputRoot,
+} from 'reka-ui'
+import { computed } from 'vue'
 import SettingsSegmented from '@/features/settings/SettingsSegmented.vue'
+import { cloneProfile } from '@/features/worksets/plan-readers'
 
 /**
  * The editable value of one setting group. Shared by the common settings form
@@ -50,9 +54,24 @@ const ENCODED_CODECS = [
  * simply lights it up.
  */
 const PRESETS = [
-  { value: 'opus-160', codec: 'opus', bitrate: 160, label: 'Opus 160' },
-  { value: 'aac-256', codec: 'aac', bitrate: 256, label: 'AAC 256' },
-  { value: 'mp3-320', codec: 'mp3', bitrate: 320, label: 'MP3 320' },
+  {
+    value: 'opus-160',
+    codec: 'opus',
+    bitrate: 160,
+    label: 'Opus 160',
+  },
+  {
+    value: 'aac-256',
+    codec: 'aac',
+    bitrate: 256,
+    label: 'AAC 256',
+  },
+  {
+    value: 'mp3-320',
+    codec: 'mp3',
+    bitrate: 320,
+    label: 'MP3 320',
+  },
 ]
 
 const ROW_LABEL = 'flex h-[30px] items-center text-[11px] text-[var(--text-secondary)]'
@@ -71,7 +90,7 @@ function setMode(mode: string) {
 function setTags(next: string[]) {
   emit(
     'change',
-    next.map((tag) => tag.trim()).filter((tag) => tag.length > 0),
+    next.map(tag => tag.trim()).filter(tag => tag.length > 0),
   )
 }
 
@@ -79,8 +98,12 @@ function setCodec(lane: 'lossless' | 'encoded', codec: string) {
   const next = cloneProfile(props.value)
   if (codec === '') {
     delete next[lane]
-  } else {
-    const seeded = { ...(next[lane] ?? { codec: '' }), codec }
+  }
+  else {
+    const seeded = {
+      ...(next[lane] ?? { codec: '' }),
+      codec,
+    }
     // An encoded output is only valid with its bitrate; seeding the displayed
     // one keeps a fresh selection from being saved without quality.
     if (lane === 'encoded' && !seeded.quality) {
@@ -93,8 +116,12 @@ function setCodec(lane: 'lossless' | 'encoded', codec: string) {
 
 function setBitrate(bitrate: number) {
   const next = cloneProfile(props.value)
-  if (!next.encoded) return
-  next.encoded = { ...next.encoded, quality: { kind: 'bitrate', bitrate } }
+  if (!next.encoded)
+    return
+  next.encoded = {
+    ...next.encoded,
+    quality: { kind: 'bitrate', bitrate },
+  }
   emit('change', next)
 }
 
@@ -105,12 +132,15 @@ const bitrate = computed(() => profile.value.encoded?.quality?.bitrate ?? 320)
 /** Which preset the stored pair is, if any: the shortcut lights up, nothing more. */
 const matchedPreset = computed(
   () =>
-    PRESETS.find((preset) => preset.codec === encodedCodec.value && preset.bitrate === bitrate.value)?.value ?? null,
+    PRESETS.find(preset => preset.codec === encodedCodec.value && preset.bitrate === bitrate.value)?.value ?? null,
 )
 
 function applyPreset(preset: (typeof PRESETS)[number]) {
   const next = cloneProfile(props.value)
-  next.encoded = { codec: preset.codec, quality: { kind: 'bitrate', bitrate: preset.bitrate } }
+  next.encoded = {
+    codec: preset.codec,
+    quality: { kind: 'bitrate', bitrate: preset.bitrate },
+  }
   emit('change', next)
 }
 </script>
@@ -184,7 +214,7 @@ function applyPreset(preset: (typeof PRESETS)[number]) {
             :aria-label="`${label} 码率`"
             :data-testid="`${scope}-${unit}-bitrate`"
             @change="setBitrate(Number(($event.target as HTMLInputElement).value))"
-          />
+          >
           kbps
         </label>
       </template>

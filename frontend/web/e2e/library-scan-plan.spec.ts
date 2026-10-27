@@ -1,4 +1,5 @@
-import { expect, test, type Page } from '@playwright/test'
+import type { Page } from '@playwright/test'
+import { expect, test } from '@playwright/test'
 import { readStackState } from './helpers/stack-state.ts'
 
 /** Picks one value of a segmented setting: its buttons carry their labels. */
@@ -9,7 +10,7 @@ async function pickUnitOption(page: Page, testId: string, option: string) {
 /** Applies the common settings through the Task settings endpoint. */
 async function applySettings(page: Page) {
   const [response] = await Promise.all([
-    page.waitForResponse((r) => r.request().method() === 'PUT' && r.url().endsWith('/tasks/conversion/settings')),
+    page.waitForResponse(r => r.request().method() === 'PUT' && r.url().endsWith('/tasks/conversion/settings')),
     page.getByTestId('settings-apply').click(),
   ])
   expect(response.ok()).toBe(true)
@@ -254,7 +255,7 @@ test.describe('workset operation smoke', () => {
 
     // Renaming one file: the request carries the member-relative path, and the
     // result reports both what happened and whether the inventory refreshed
-    //.
+    // .
     await page.getByTestId('file-checkbox-test1.mp3').check()
     await page.getByTestId('rename-selection').click()
     const renameInput = page.getByTestId('rename-input')
@@ -280,7 +281,7 @@ test.describe('workset operation smoke', () => {
     //    to its initial state for the sibling diagnostics spec. The record,
     //    its plan and its execution results go with it; the media on disk does
     //    not.
-    page.on('dialog', (dialog) => void dialog.accept())
+    page.on('dialog', dialog => void dialog.accept())
     // The selection page lists one row per library, each with its own edit
     // entry (the label names the library it edits).
     await page.getByRole('button', { name: /^编辑 / }).first().click()

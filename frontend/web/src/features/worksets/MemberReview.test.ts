@@ -1,6 +1,6 @@
+import type { RevisionDetailResponse, WorksetMember } from '@/lib/api/types'
 import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
-import type { RevisionDetailResponse, WorksetMember } from '@/lib/api/types'
 import MemberReview from './MemberReview.vue'
 
 const member: WorksetMember = {
@@ -23,7 +23,13 @@ const revision: RevisionDetailResponse = {
   root_path: '/music/albumA',
   snapshot_token: 'tok',
   status: 'ready',
-  summary: { operation_count: 1, error_count: 0, total_count: 1, actionable_count: 1, summary_reason: '' },
+  summary: {
+    operation_count: 1,
+    error_count: 0,
+    total_count: 1,
+    actionable_count: 1,
+    summary_reason: '',
+  },
   task: {
     kind: 'conversion',
     schema_version: 1,
@@ -31,7 +37,13 @@ const revision: RevisionDetailResponse = {
       policy: {},
       policy_hash: '',
       classifier: {},
-      summary: { component_count: 1, blocked_count: 0, operation_count: 1, error_count: 0, summary_reason: '' },
+      summary: {
+        component_count: 1,
+        blocked_count: 0,
+        operation_count: 1,
+        error_count: 0,
+        summary_reason: '',
+      },
       components: [
         {
           component_id: 'comp-1',
@@ -77,7 +89,13 @@ const revision: RevisionDetailResponse = {
       ],
     },
   },
-  counts: { members: 1, changed: 1, unmet_targets: 1, blocked: 0, unchanged: 0 },
+  counts: {
+    members: 1,
+    changed: 1,
+    unmet_targets: 1,
+    blocked: 0,
+    unchanged: 0,
+  },
   members: [
     {
       member_id: 'm1',
@@ -100,15 +118,24 @@ const revision: RevisionDetailResponse = {
       entry_count: 1,
     },
   ],
-  component_roots: [{ step_index: 0, component_index: 0, component_id: 'comp-1', root_index: 0 }],
+  component_roots: [
+    {
+      step_index: 0,
+      component_index: 0,
+      component_id: 'comp-1',
+      root_index: 0,
+    },
+  ],
   execution: null,
 }
 
-describe('MemberReview', () => {
-  it("gives every file one row, in the plan's own words", () => {
-    const wrapper = mount(MemberReview, { props: { member, revision, editable: false } })
+describe('memberReview', () => {
+  it('gives every file one row, in the plan\'s own words', () => {
+    const wrapper = mount(MemberReview, {
+      props: { member, revision, editable: false },
+    })
 
-    const rows = wrapper.findAll('[data-testid="component-decision"]').map((row) => row.text())
+    const rows = wrapper.findAll('[data-testid="component-decision"]').map(row => row.text())
     expect(wrapper.text()).toContain('可用源')
     expect(rows).toHaveLength(4)
     expect(rows[0]).toContain('生成')
@@ -122,18 +149,22 @@ describe('MemberReview', () => {
   })
 
   it('keeps the paths whole in the narrow column', () => {
-    const wrapper = mount(MemberReview, { props: { member, revision, editable: false } })
+    const wrapper = mount(MemberReview, {
+      props: { member, revision, editable: false },
+    })
 
     // The member folder is the card's header, so rows carry the member-relative
     // path unabridged instead of a clipped absolute one.
-    const rows = wrapper.findAll('[data-testid="component-decision"]').map((row) => row.text())
+    const rows = wrapper.findAll('[data-testid="component-decision"]').map(row => row.text())
     for (const row of rows) expect(row).not.toContain('/music/albumA/')
     expect(rows[0]).toContain('00.mp3')
     expect(rows[3]).toContain('01.wav')
   })
 
   it('does not repeat the same files as a second operations list', () => {
-    const wrapper = mount(MemberReview, { props: { member, revision, editable: false } })
+    const wrapper = mount(MemberReview, {
+      props: { member, revision, editable: false },
+    })
 
     const body = wrapper.text()
     expect(body).not.toContain('delete_obsolete')
@@ -145,28 +176,50 @@ describe('MemberReview', () => {
   it('offers the editor for an excluded member, so it can be brought back', () => {
     const excluded: RevisionDetailResponse = {
       ...revision,
-      members: [{ ...revision.members[0]!, excluded: true }],
+      members: [
+        { ...revision.members[0]!, excluded: true },
+      ],
     }
 
-    const editable = mount(MemberReview, { props: { member, revision: excluded, editable: true } })
+    const editable = mount(MemberReview, {
+      props: { member, revision: excluded, editable: true },
+    })
     expect(editable.get('[data-testid="member-review-edit"]').text()).toContain('修改此文件夹')
     // A caller that offers no way in hides the edit entry.
-    const withoutEdit = mount(MemberReview, { props: { member, revision: excluded, editable: false } })
+    const withoutEdit = mount(MemberReview, {
+      props: { member, revision: excluded, editable: false },
+    })
     expect(withoutEdit.find('[data-testid="member-review-edit"]').exists()).toBe(false)
   })
 })
 
 it('shows the isolated scope and the actual competing directories', () => {
   const conflicted = structuredClone(revision)
-  conflicted.task.payload.components = [{
-    component_id: 'comp-1', partition: 'unmatched', scope: 'wav/revert', status: 'blocked',
-    reason_code: 'SOURCE_AMBIGUOUS', operations: [], lanes: [], files: [], projected_inventory: [],
-    variant_decisions: [{ stem: '1', decisions: [
-      { path: '/music/albumA/wav/revert/a/1.wav', resolution: 'keep', reason_code: 'SOURCE_AMBIGUOUS' },
-      { path: '/music/albumA/wav/revert/b/1.wav', resolution: 'keep', reason_code: 'SOURCE_AMBIGUOUS' },
-    ] }],
-  }]
-  const wrapper = mount(MemberReview, { props: { member, revision: conflicted, editable: true } })
+  conflicted.task.payload.components = [
+    {
+      component_id: 'comp-1',
+      partition: 'unmatched',
+      scope: 'wav/revert',
+      status: 'blocked',
+      reason_code: 'SOURCE_AMBIGUOUS',
+      operations: [],
+      lanes: [],
+      files: [],
+      projected_inventory: [],
+      variant_decisions: [
+        {
+          stem: '1',
+          decisions: [
+            { path: '/music/albumA/wav/revert/a/1.wav', resolution: 'keep', reason_code: 'SOURCE_AMBIGUOUS' },
+            { path: '/music/albumA/wav/revert/b/1.wav', resolution: 'keep', reason_code: 'SOURCE_AMBIGUOUS' },
+          ],
+        },
+      ],
+    },
+  ]
+  const wrapper = mount(MemberReview, {
+    props: { member, revision: conflicted, editable: true },
+  })
   expect(wrapper.text()).toContain('其他版本')
   expect(wrapper.text()).not.toContain('其他版本 ·')
   expect(wrapper.text()).not.toContain('主版本 ·')

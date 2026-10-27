@@ -1,13 +1,15 @@
-import { enableAutoUnmount, flushPromises, mount, type VueWrapper } from '@vue/test-utils'
-import { createPinia } from 'pinia'
-import { h } from 'vue'
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createMemoryHistory, createRouter, RouterView, type Router } from 'vue-router'
-import { apiClientKey } from '@/lib/api/client'
+import type { VueWrapper } from '@vue/test-utils'
+import type { Router } from 'vue-router'
 import type { ApiClientContract, Operation, OperationDraftDocument, RevisionDetailResponse, Workset } from '@/lib/api/types'
+import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
+import { createPinia } from 'pinia'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { h } from 'vue'
+import { createMemoryHistory, createRouter, RouterView } from 'vue-router'
+import { apiClientKey } from '@/lib/api/client'
+import { useWorksetEditorStore } from '@/stores/workset-editor'
 import { apiStub } from '@/test/api-stub'
 import { installTestQueryPlugin } from '@/test/query-client'
-import { useWorksetEditorStore } from '@/stores/workset-editor'
 import MemberEditPage from './MemberEditPage.vue'
 
 /**
@@ -21,8 +23,20 @@ const workset: Workset = {
   version: 5,
   library: { library_id: 'lib-a', name: 'Lib', root_path: '/music' },
   members: [
-    { member_id: 'm-1', folder_path: '/music/a', folder_name: 'a', rel_path: 'a', dir_id: 'd-a' },
-    { member_id: 'm-2', folder_path: '/music/b', folder_name: 'b', rel_path: 'b', dir_id: 'd-b' },
+    {
+      member_id: 'm-1',
+      folder_path: '/music/a',
+      folder_name: 'a',
+      rel_path: 'a',
+      dir_id: 'd-a',
+    },
+    {
+      member_id: 'm-2',
+      folder_path: '/music/b',
+      folder_name: 'b',
+      rel_path: 'b',
+      dir_id: 'd-b',
+    },
   ],
   operations: [],
   updated_at: '',
@@ -48,9 +62,37 @@ const revision = {
   root_path: '/music',
   snapshot_token: 'tok',
   status: 'ready',
-  summary: { operation_count: 0, error_count: 0, total_count: 0, actionable_count: 0, summary_reason: '' },
-  task: { kind: 'conversion', schema_version: 1, payload: { policy: {}, policy_hash: '', classifier: {}, summary: { component_count: 0, blocked_count: 0, operation_count: 0, error_count: 0, summary_reason: '' }, components: [] } },
-  counts: { members: 2, changed: 0, unmet_targets: 0, blocked: 0, unchanged: 0 },
+  summary: {
+    operation_count: 0,
+    error_count: 0,
+    total_count: 0,
+    actionable_count: 0,
+    summary_reason: '',
+  },
+  task: {
+    kind: 'conversion',
+    schema_version: 1,
+    payload: {
+      policy: {},
+      policy_hash: '',
+      classifier: {},
+      summary: {
+        component_count: 0,
+        blocked_count: 0,
+        operation_count: 0,
+        error_count: 0,
+        summary_reason: '',
+      },
+      components: [],
+    },
+  },
+  counts: {
+    members: 2,
+    changed: 0,
+    unmet_targets: 0,
+    blocked: 0,
+    unchanged: 0,
+  },
   members: [],
   roots: [],
   component_roots: [],
@@ -96,23 +138,51 @@ function seedPendingOtherEdit(pinia: ReturnType<typeof createPinia>): void {
   editor.setUnit('mode', { intent: 'set', value: 'available_sources' })
 }
 
-async function mountEditMember(seedPending: boolean): Promise<{ wrapper: VueWrapper; router: Router }> {
+async function mountEditMember(seedPending: boolean): Promise<{ wrapper: VueWrapper, router: Router }> {
   const pinia = createPinia()
-  if (seedPending) seedPendingOtherEdit(pinia)
+  if (seedPending)
+    seedPendingOtherEdit(pinia)
   const router = createRouter({
     history: createMemoryHistory(),
     routes: [
-      { path: '/worksets/:libraryId/conversion', name: 'conversion', component: { template: '<div />' } },
-      { path: '/worksets/:libraryId/conversion/settings', name: 'conversion-settings', component: { template: '<div />' } },
-      { path: '/worksets/:libraryId/conversion/batch-edit', name: 'conversion-batch-edit', component: { template: '<div />' } },
+      {
+        path: '/worksets/:libraryId/conversion',
+        name: 'conversion',
+        component: { template: '<div />' },
+      },
+      {
+        path: '/worksets/:libraryId/conversion/settings',
+        name: 'conversion-settings',
+        component: { template: '<div />' },
+      },
+      {
+        path: '/worksets/:libraryId/conversion/batch-edit',
+        name: 'conversion-batch-edit',
+        component: { template: '<div />' },
+      },
       { path: '/worksets/:libraryId/conversion/:memberId/edit', name: 'conversion-member-edit', component: MemberEditPage },
-      { path: '/worksets/:libraryId/conversion/:memberId', name: 'conversion-member', component: { template: '<div />' } },
+      {
+        path: '/worksets/:libraryId/conversion/:memberId',
+        name: 'conversion-member',
+        component: { template: '<div />' },
+      },
     ],
   })
   await router.push('/worksets/lib-a/conversion/m-1/edit')
   await router.isReady()
-  const wrapper = mount({ render: () => h(RouterView) }, {
-    global: { plugins: [pinia, router, installTestQueryPlugin()], provide: { [apiClientKey as symbol]: pageApi() } },
+  const wrapper = mount({
+    render: () => h(RouterView),
+  }, {
+    global: {
+      plugins: [
+        pinia,
+        router,
+        installTestQueryPlugin(),
+      ],
+      provide: {
+        [apiClientKey as symbol]: pageApi(),
+      },
+    },
   })
   await flushPromises()
   return { wrapper, router }
@@ -121,7 +191,7 @@ async function mountEditMember(seedPending: boolean): Promise<{ wrapper: VueWrap
 enableAutoUnmount(afterEach)
 afterEach(() => vi.restoreAllMocks())
 
-describe('MemberEditPage pending-edit conflict', () => {
+describe('memberEditPage pending-edit conflict', () => {
   it('opens this member without asking when nothing else is pending', async () => {
     const confirm = vi.spyOn(window, 'confirm')
     const { router } = await mountEditMember(false)
@@ -150,7 +220,7 @@ describe('MemberEditPage pending-edit conflict', () => {
   })
 })
 
-describe('MemberEditPage route leave', () => {
+describe('memberEditPage route leave', () => {
   it.each([false, true])('confirms unsaved edits and respects the answer %s', async (accept) => {
     const confirm = vi.spyOn(window, 'confirm').mockReturnValue(accept)
     const { router } = await mountEditMember(false)

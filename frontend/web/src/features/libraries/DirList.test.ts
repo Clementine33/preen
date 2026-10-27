@@ -1,7 +1,8 @@
-import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
+import type { VueWrapper } from '@vue/test-utils'
+import type { LibraryDir } from '@/lib/api/types'
+import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
-import type { LibraryDir } from '@/lib/api/types'
 import DirList from './DirList.vue'
 
 /**
@@ -12,13 +13,24 @@ import DirList from './DirList.vue'
  */
 function scaffold(dirs: LibraryDir[], props: Record<string, unknown> = {}) {
   const wrapper = mount(DirList, {
-    props: { dirs, selectedPaths: [], allSelected: false, ...props },
+    props: {
+      dirs,
+      selectedPaths: [],
+      allSelected: false,
+      ...props,
+    },
   })
   const scroller = wrapper.find('[data-testid="dir-list-scroller"]').element as HTMLElement
   let top = 0
   Object.defineProperties(scroller, {
-    offsetHeight: { configurable: true, get: () => 560 },
-    offsetWidth: { configurable: true, get: () => 800 },
+    offsetHeight: {
+      configurable: true,
+      get: () => 560,
+    },
+    offsetWidth: {
+      configurable: true,
+      get: () => 800,
+    },
     scrollTop: {
       configurable: true,
       get: () => top,
@@ -59,7 +71,7 @@ function rowOf(wrapper: VueWrapper, testId: string): HTMLElement | null {
   return cell?.closest('li') ?? null
 }
 
-describe('DirList', () => {
+describe('dirList', () => {
   afterEach(() => {
     vi.restoreAllMocks()
   })
@@ -122,7 +134,9 @@ describe('DirList', () => {
   })
 
   it('preserves selection across windowing (selection is store-driven)', async () => {
-    const { wrapper, setScrollTop } = scaffold(makeDirs(100), { selectedPaths: ['f-5', 'f-40'] })
+    const { wrapper, setScrollTop } = scaffold(makeDirs(100), {
+      selectedPaths: ['f-5', 'f-40'],
+    })
     await settle()
 
     expect((wrapper.find('[data-testid="dir-checkbox-f-5"]').element as HTMLInputElement).checked).toBe(true)
@@ -142,10 +156,14 @@ describe('DirList', () => {
     await settle()
 
     await wrapper.find('[data-testid="select-all-dirs"]').setValue(true)
-    expect(wrapper.emitted('selectAll')).toEqual([[true]])
+    expect(wrapper.emitted('selectAll')).toEqual([
+      [true],
+    ])
 
     await wrapper.find('[data-testid="dir-checkbox-f-0"]').setValue(true)
-    expect(wrapper.emitted('select')).toEqual([['f-0', true]])
+    expect(wrapper.emitted('select')).toEqual([
+      ['f-0', true],
+    ])
 
     // The name is a label for the checkbox: it never navigates.
     await wrapper.find('[data-testid="dir-name-f-1"]').trigger('click')
@@ -154,10 +172,15 @@ describe('DirList', () => {
     // Only the button opens the directory's page: the identity it is addressed
     // by, not the name it is displayed under.
     await wrapper.find('[aria-label="打开 Folder 1"]').trigger('click')
-    expect(wrapper.emitted('open')).toEqual([['dir-1']])
+    expect(wrapper.emitted('open')).toEqual([
+      ['dir-1'],
+    ])
 
     await wrapper.find('[aria-label="打开 Folder 2"]').trigger('click')
-    expect(wrapper.emitted('open')).toEqual([['dir-1'], ['dir-2']])
+    expect(wrapper.emitted('open')).toEqual([
+      ['dir-1'],
+      ['dir-2'],
+    ])
   })
 
   it('renders no rows for an empty folder set', async () => {
@@ -173,7 +196,11 @@ describe('DirList', () => {
     // height-collapsed container. The virtualizer renders nothing in that
     // case — no crash, no ghost rows.
     const wrapper = mount(DirList, {
-      props: { dirs: makeDirs(2), selectedPaths: [], allSelected: false },
+      props: {
+        dirs: makeDirs(2),
+        selectedPaths: [],
+        allSelected: false,
+      },
     })
     await settle()
 

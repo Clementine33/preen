@@ -5,7 +5,7 @@
  * its checked state in the danger ink.
  */
 defineProps<{
-  options: { value: string; label: string; hint?: string; danger?: boolean }[]
+  options: { value: string, label: string, hint?: string, danger?: boolean }[]
   value: string
   label: string
   /** The radios' group name; unique on the page. */
@@ -26,7 +26,7 @@ defineEmits<{ change: [value: string] }>()
         :disabled="disabled"
         :data-testid="`${name}-${option.value}`"
         @change="$emit('change', option.value)"
-      />
+      >
       <span class="box" aria-hidden="true" />
       <span>
         <span class="opt-t">{{ option.label }}</span>

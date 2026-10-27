@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
-import { ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, FileAudio, FileText, Folder, Music } from '@lucide/vue'
-import { Button } from '@/components/ui/button'
+import type { TreeModel, TreeModelNode } from './tree-model'
 import type { TreeNode } from '@/lib/api/types'
-import { createTreeModel, type TreeModel, type TreeModelNode } from './tree-model'
+import { ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, FileAudio, FileText, Folder, Music } from '@lucide/vue'
+import { computed, ref, watch } from 'vue'
+import { Button } from '@/components/ui/button'
+import { createTreeModel } from './tree-model'
 
 /**
  * The shared member tree: the same renderer for the workbench overview's file
@@ -43,12 +44,13 @@ watch(
     const before = model.value.selectedPaths()
     model.value = createTreeModel(root, model.value)
     const after = model.value.selectedPaths()
-    if (after.length !== before.length) emit('selectionChange', after)
+    if (after.length !== before.length)
+      emit('selectionChange', after)
   },
 )
 
 const rows = computed(() => model.value.getVisibleNodes())
-const hasDirs = computed(() => model.value.root.children.some((node) => node.type === 'dir'))
+const hasDirs = computed(() => model.value.root.children.some(node => node.type === 'dir'))
 
 function checked(node: TreeModelNode): boolean {
   return model.value.dirSelection(node.relPath) === 'checked'
@@ -64,24 +66,32 @@ function onToggle(node: TreeModelNode, event: Event): void {
 }
 
 function onNameClick(node: TreeModelNode): void {
-  if (props.frozen || model.value.isCovered(node.relPath)) return
+  if (props.frozen || model.value.isCovered(node.relPath))
+    return
   setSelected(node, !model.value.selected.has(node.relPath))
 }
 
 function formatBitrate(bitrate: number | null): string {
-  if (!bitrate || bitrate <= 0) return ''
+  if (!bitrate || bitrate <= 0)
+    return ''
   return `${Math.round(bitrate / 1000)} kbps`
 }
 
 function formatBytes(size: number | null): string {
-  if (size === null || size < 0) return ''
-  if (size >= 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(1)} MB`
-  if (size >= 1024) return `${Math.round(size / 1024)} KB`
+  if (size === null || size < 0)
+    return ''
+  if (size >= 1024 * 1024)
+    return `${(size / (1024 * 1024)).toFixed(1)} MB`
+  if (size >= 1024)
+    return `${Math.round(size / 1024)} KB`
   return `${size} B`
 }
 
 function meta(node: TreeModelNode): string {
-  return [formatBitrate(node.bitrate), formatBytes(node.size)].filter(Boolean).join(' · ')
+  return [
+    formatBitrate(node.bitrate),
+    formatBytes(node.size),
+  ].filter(Boolean).join(' · ')
 }
 </script>
 
@@ -139,7 +149,7 @@ function meta(node: TreeModelNode): string {
             :disabled="frozen || model.isCovered(node.relPath)"
             class="size-4 shrink-0 accent-[var(--ring)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             @change="onToggle(node, $event)"
-          />
+          >
 
           <span
             v-if="node.type === 'dir'"

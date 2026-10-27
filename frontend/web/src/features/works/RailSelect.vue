@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
 import { useVirtualizer } from '@tanstack/vue-virtual'
+import { computed, ref, watch } from 'vue'
 import { useMediaQuery, WALL_MOBILE_QUERY } from '@/composables/use-media-query'
 import { usePopupMenu } from './use-popup-menu'
 
@@ -46,27 +46,37 @@ const coarse = useMediaQuery('(pointer: coarse)')
 // jsdom has no showModal, so tests render the same DOM by the plain open attribute.
 watch(open, (value) => {
   const el = menuEl.value as HTMLDialogElement | null
-  if (!narrow.value || el === null || el.tagName !== 'DIALOG' || el.open === value) return
+  if (!narrow.value || el === null || el.tagName !== 'DIALOG' || el.open === value)
+    return
   if (value) {
-    if (typeof el.showModal === 'function') el.showModal()
+    if (typeof el.showModal === 'function')
+      el.showModal()
     else el.setAttribute('open', '')
-  } else if (typeof el.close === 'function') el.close()
-  else el.removeAttribute('open')
+  }
+  else if (typeof el.close === 'function') {
+    el.close()
+  }
+  else {
+    el.removeAttribute('open')
+  }
 })
 /** A tap on the dialog itself, outside its content, is the backdrop. */
 function onSheetClick(event: MouseEvent): void {
-  if (event.target === menuEl.value) menu.close(true)
+  if (event.target === menuEl.value)
+    menu.close(true)
 }
 
 const search = ref('')
 watch(open, (value) => {
-  if (!value) search.value = ''
+  if (!value)
+    search.value = ''
 })
 const shown = computed(() => {
   const needle = search.value.trim().toLowerCase()
-  if (needle === '') return props.options
+  if (needle === '')
+    return props.options
   // The empty entry stays reachable while narrowing: clearing is one step.
-  return props.options.filter((option) => option.value === '' || option.label.toLowerCase().includes(needle))
+  return props.options.filter(option => option.value === '' || option.label.toLowerCase().includes(needle))
 })
 
 /** One row including its rule, the height `.rs-item` draws: 44px for a finger. */
@@ -91,13 +101,14 @@ watch(row, () => virtualizer.value.measure())
 // Opening shows the current value in place, even when the search box takes
 // the focus: in a thousand rows it would otherwise sit far out of view.
 watch(open, (value) => {
-  const index = shown.value.findIndex((option) => option.value === model.value)
-  if (value && index > 0) virtualizer.value.scrollToIndex(index, { align: 'center' })
+  const index = shown.value.findIndex(option => option.value === model.value)
+  if (value && index > 0)
+    virtualizer.value.scrollToIndex(index, { align: 'center' })
 })
 
 const menu = usePopupMenu({ root, trigger, open })
 
-const current = computed(() => props.options.find((option) => option.value === model.value) ?? null)
+const current = computed(() => props.options.find(option => option.value === model.value) ?? null)
 const active = computed(() => props.marksActive === true && model.value !== '')
 
 function choose(value: string): void {
@@ -110,14 +121,18 @@ const chevron = 'M0 2.5h10L5 8z'
 
 <template>
   <div ref="root" class="rs" :class="{ open, active }" @focusout="menu.onFocusOut">
-    <button ref="trigger" class="rs-trigger" type="button" aria-haspopup="listbox" :aria-expanded="open"
-      @click="menu.setOpen(!open)">
+    <button
+      ref="trigger" class="rs-trigger" type="button" aria-haspopup="listbox" :aria-expanded="open"
+      @click="menu.setOpen(!open)"
+    >
       <span class="lbl rs-lbl">{{ label }}</span>
       <span v-if="current && (current.value !== '' || !marksActive)" class="rs-value">{{ current.label }}</span>
       <svg class="rs-chev" viewBox="0 0 10 10" aria-hidden="true"><path :d="chevron" /></svg>
     </button>
-    <component :is="narrow ? 'dialog' : 'div'" ref="menuEl" class="rs-menu" data-own-keys :aria-label="narrow ? label : undefined"
-      @click="onSheetClick" @close="open = false">
+    <component
+      :is="narrow ? 'dialog' : 'div'" ref="menuEl" class="rs-menu" data-own-keys :aria-label="narrow ? label : undefined"
+      @click="onSheetClick" @close="open = false"
+    >
       <div class="strip">
         <span class="strip-name lbl">{{ label }}</span>
         <span class="lbl">{{ options.length - (options[0]?.value === '' ? 1 : 0) }}</span>
@@ -125,16 +140,18 @@ const chevron = 'M0 2.5h10L5 8z'
       </div>
       <label v-if="searchable" class="rs-search">
         <span class="lbl">FIND</span>
-        <input v-model="search" type="search" :aria-label="`Find ${label.toLowerCase()}`" />
+        <input v-model="search" type="search" :aria-label="`Find ${label.toLowerCase()}`">
       </label>
       <div ref="listEl" class="rs-list" role="listbox" :aria-label="label" :style="narrow ? undefined : { height: listHeight }">
         <div class="rs-rows" :style="{ height: `${virtualizer.getTotalSize()}px` }">
-          <button v-for="row in virtualRows" :key="shown[row.index].value" class="rs-item" type="button"
+          <button
+            v-for="row in virtualRows" :key="shown[row.index].value" class="rs-item" type="button"
             role="option" :data-index="row.index" :aria-selected="shown[row.index].value === model"
             :aria-setsize="shown.length" :aria-posinset="row.index + 1"
-            :style="{ top: `${row.start}px`, '--d': `${Math.min(row.index, 5) * 24 + 30}ms` }"
-            @click="choose(shown[row.index].value)">
-            <span class="rs-mark"></span>
+            :style="{ 'top': `${row.start}px`, '--d': `${Math.min(row.index, 5) * 24 + 30}ms` }"
+            @click="choose(shown[row.index].value)"
+          >
+            <span class="rs-mark" />
             <span class="rs-name">{{ shown[row.index].label }}</span>
             <span v-if="shown[row.index].count !== undefined" class="lbl rs-count">{{ shown[row.index].count }}</span>
           </button>

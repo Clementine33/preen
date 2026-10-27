@@ -1,7 +1,7 @@
+import type { CleanupCategory, CleanupPreview, CleanupRun } from '@/lib/api/types'
 import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { ApiError, apiClientKey } from '@/lib/api/client'
-import type { CleanupCategory, CleanupPreview, CleanupRun } from '@/lib/api/types'
+import { apiClientKey, ApiError } from '@/lib/api/client'
 import { apiStub } from '@/test/api-stub'
 import { installTestQueryPlugin } from '@/test/query-client'
 import DataMaintenanceSettings from './DataMaintenanceSettings.vue'
@@ -9,23 +9,48 @@ import DataMaintenanceSettings from './DataMaintenanceSettings.vue'
 enableAutoUnmount(afterEach)
 
 const ALL: CleanupCategory[] = [
-  'scan_sessions', 'plan_generations', 'generation_records', 'works',
-  'relation_reports', 'source_tags', 'source_voice_actors', 'source_circles',
+  'scan_sessions',
+  'plan_generations',
+  'generation_records',
+  'works',
+  'relation_reports',
+  'source_tags',
+  'source_voice_actors',
+  'source_circles',
 ]
-const preview = (candidates: Partial<Record<CleanupCategory, number>>, categories = ALL): CleanupPreview => ({
-  checked_at: '2026-10-23T04:00:00Z', categories, candidates,
-  rules: {},
-})
-const run = (over: Partial<CleanupRun> = {}): CleanupRun => ({
-  run_id: 'r1', categories: ['scan_sessions'], status: 'running', phase: 'scan_sessions',
-  started_at: '2026-10-23T04:00:00Z', finished_at: null,
-  counts: { scan_sessions: { checked: 5, deleted: 4, skipped: 1 } }, reason: '', ...over,
-})
+function preview(candidates: Partial<Record<CleanupCategory, number>>, categories = ALL): CleanupPreview {
+  return {
+    checked_at: '2026-10-23T04:00:00Z',
+    categories,
+    candidates,
+    rules: {},
+  }
+}
+function run(over: Partial<CleanupRun> = {}): CleanupRun {
+  return {
+    run_id: 'r1',
+    categories: ['scan_sessions'],
+    status: 'running',
+    phase: 'scan_sessions',
+    started_at: '2026-10-23T04:00:00Z',
+    finished_at: null,
+    counts: {
+      scan_sessions: { checked: 5, deleted: 4, skipped: 1 },
+    },
+    reason: '',
+    ...over,
+  }
+}
 
 async function mountIt(api: ReturnType<typeof apiStub>) {
   const wrapper = mount(DataMaintenanceSettings, {
     attachTo: document.body.appendChild(document.createElement('div')),
-    global: { plugins: [installTestQueryPlugin()], provide: { [apiClientKey as symbol]: api } },
+    global: {
+      plugins: [
+        installTestQueryPlugin(),
+      ],
+      provide: { [apiClientKey as symbol]: api },
+    },
   })
   await flushPromises()
   return wrapper
@@ -40,7 +65,7 @@ describe('data maintenance', () => {
     expect(wrapper.text()).toContain('24 小时')
     expect(wrapper.text()).not.toContain('15 分钟')
     expect(wrapper.findAll('input[type="checkbox"]')).toHaveLength(8)
-    expect(wrapper.findAll('input[type="checkbox"]').every((box) => (box.element as HTMLInputElement).checked)).toBe(true)
+    expect(wrapper.findAll('input[type="checkbox"]').every(box => (box.element as HTMLInputElement).checked)).toBe(true)
   })
 
   it('previews the current selection when start is pressed', async () => {
@@ -50,7 +75,7 @@ describe('data maintenance', () => {
     await wrapper.get(tid('cleanup-select-works')).setValue(false)
     await wrapper.get(tid('cleanup-start')).trigger('click')
     await flushPromises()
-    expect(previewCleanup).toHaveBeenCalledWith(ALL.filter((id) => id !== 'works'))
+    expect(previewCleanup).toHaveBeenCalledWith(ALL.filter(id => id !== 'works'))
     expect(document.body.querySelector(tid('cleanup-confirm-total'))!.textContent).toContain('将清理 3 条记录')
   })
 
@@ -61,7 +86,9 @@ describe('data maintenance', () => {
   })
 
   it('reports nothing to clean and keeps confirm disabled', async () => {
-    const wrapper = await mountIt(apiStub({ previewCleanup: vi.fn(async () => preview({})) }))
+    const wrapper = await mountIt(apiStub({
+      previewCleanup: vi.fn(async () => preview({})),
+    }))
     await wrapper.get(tid('cleanup-start')).trigger('click')
     await flushPromises()
     expect(document.body.querySelector(tid('cleanup-none'))!.textContent).toBe('无需清理')
@@ -70,7 +97,10 @@ describe('data maintenance', () => {
 
   it('confirms with the total only, then starts once and shows the live run in the dialog', async () => {
     const startCleanup = vi.fn(async () => run())
-    const wrapper = await mountIt(apiStub({ previewCleanup: vi.fn(async () => preview({ scan_sessions: 3 })), startCleanup }))
+    const wrapper = await mountIt(apiStub({
+      previewCleanup: vi.fn(async () => preview({ scan_sessions: 3 })),
+      startCleanup,
+    }))
     await wrapper.get(tid('cleanup-start')).trigger('click')
     await flushPromises()
     expect(document.body.querySelector(tid('cleanup-confirm-total'))!.textContent).toContain('将清理 3 条记录')
@@ -87,7 +117,10 @@ describe('data maintenance', () => {
 
   it('shows its own run\'s result once it ends', async () => {
     const done = run({ status: 'succeeded', finished_at: '2026-10-23T05:00:00Z' })
-    const wrapper = await mountIt(apiStub({ previewCleanup: vi.fn(async () => preview({ scan_sessions: 3 })), startCleanup: vi.fn(async () => done) }))
+    const wrapper = await mountIt(apiStub({
+      previewCleanup: vi.fn(async () => preview({ scan_sessions: 3 })),
+      startCleanup: vi.fn(async () => done),
+    }))
     await wrapper.get(tid('cleanup-start')).trigger('click')
     await flushPromises()
     body('cleanup-confirm')!.click()
@@ -98,7 +131,10 @@ describe('data maintenance', () => {
 
   it('offers a run found on return and stops it from the dialog', async () => {
     const cancelCleanup = vi.fn(async () => run({ status: 'stopping' }))
-    const wrapper = await mountIt(apiStub({ getCleanup: vi.fn().mockResolvedValue(run()), cancelCleanup }))
+    const wrapper = await mountIt(apiStub({
+      getCleanup: vi.fn().mockResolvedValue(run()),
+      cancelCleanup,
+    }))
     expect(wrapper.get(tid('cleanup-active')).text()).toContain('清理正在运行')
     expect(wrapper.find(tid('cleanup-start')).exists()).toBe(false)
     await wrapper.get(tid('cleanup-show')).trigger('click')
@@ -111,9 +147,14 @@ describe('data maintenance', () => {
   })
 
   it.each([
-    ['stopped'], ['succeeded'], ['failed'], ['interrupted'],
+    ['stopped'],
+    ['succeeded'],
+    ['failed'],
+    ['interrupted'],
   ] as const)('never shows an earlier %s run on the page', async (status) => {
-    const wrapper = await mountIt(apiStub({ getCleanup: vi.fn().mockResolvedValue(run({ status, finished_at: '2026-10-23T05:00:00Z' })) }))
+    const wrapper = await mountIt(apiStub({
+      getCleanup: vi.fn().mockResolvedValue(run({ status, finished_at: '2026-10-23T05:00:00Z' })),
+    }))
     expect(document.body.querySelector(tid('cleanup-status'))).toBeNull()
     expect(document.body.querySelector(tid('cleanup-run'))).toBeNull()
     expect(wrapper.get(tid('cleanup-start')).attributes('disabled')).toBeUndefined()
@@ -122,7 +163,11 @@ describe('data maintenance', () => {
   it('on BUSY reads the global run instead of resending, without claiming it is ours', async () => {
     const startCleanup = vi.fn().mockRejectedValue(new ApiError(409, 'BUSY', 'busy'))
     const getCleanup = vi.fn().mockResolvedValueOnce(null).mockResolvedValue(run())
-    const wrapper = await mountIt(apiStub({ previewCleanup: vi.fn(async () => preview({ works: 1 })), startCleanup, getCleanup }))
+    const wrapper = await mountIt(apiStub({
+      previewCleanup: vi.fn(async () => preview({ works: 1 })),
+      startCleanup,
+      getCleanup,
+    }))
     await wrapper.get(tid('cleanup-start')).trigger('click')
     await flushPromises()
     ;(document.body.querySelector(tid('cleanup-confirm')) as HTMLElement).click()
@@ -135,7 +180,11 @@ describe('data maintenance', () => {
   it('treats a lost start response as unknown and only queries status', async () => {
     const startCleanup = vi.fn().mockRejectedValue(new TypeError('network'))
     const getCleanup = vi.fn().mockResolvedValue(null)
-    const wrapper = await mountIt(apiStub({ previewCleanup: vi.fn(async () => preview({ works: 1 })), startCleanup, getCleanup }))
+    const wrapper = await mountIt(apiStub({
+      previewCleanup: vi.fn(async () => preview({ works: 1 })),
+      startCleanup,
+      getCleanup,
+    }))
     await wrapper.get(tid('cleanup-start')).trigger('click')
     await flushPromises()
     ;(document.body.querySelector(tid('cleanup-confirm')) as HTMLElement).click()
@@ -146,7 +195,9 @@ describe('data maintenance', () => {
   })
 
   it('marks the state unknown when the status read fails', async () => {
-    const wrapper = await mountIt(apiStub({ getCleanup: vi.fn().mockRejectedValue(new TypeError('offline')) }))
+    const wrapper = await mountIt(apiStub({
+      getCleanup: vi.fn().mockRejectedValue(new TypeError('offline')),
+    }))
     expect(wrapper.get(tid('cleanup-unknown')).text()).toContain('状态未知')
   })
 })

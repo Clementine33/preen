@@ -1,12 +1,19 @@
-import { nextTick } from 'vue'
 import { beforeEach, expect, it, vi } from 'vitest'
+import { nextTick } from 'vue'
 import { LYRICS_BACKDROP_STORAGE_KEY, mountLyricsWindow } from './lyrics-window-entry'
 
 const windows = vi.fn(() => true)
 vi.mock('@wailsio/runtime', () => ({
-  Call: { ByName: vi.fn(async () => null) },
-  Events: { On: vi.fn(() => () => {}), Emit: vi.fn() },
-  System: { IsWindows: () => windows() },
+  Call: {
+    ByName: vi.fn(async () => null),
+  },
+  Events: {
+    On: vi.fn(() => () => {}),
+    Emit: vi.fn(),
+  },
+  System: {
+    IsWindows: () => windows(),
+  },
 }))
 
 const root = document.documentElement

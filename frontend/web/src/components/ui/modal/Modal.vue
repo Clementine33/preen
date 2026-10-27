@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { HTMLAttributes } from 'vue'
-import { computed } from 'vue'
 import { X } from '@lucide/vue'
 import {
   DialogClose,
@@ -11,6 +10,7 @@ import {
   DialogRoot,
   DialogTitle,
 } from 'reka-ui'
+import { computed } from 'vue'
 import { cn } from '@/lib/utils'
 
 /**
@@ -27,6 +27,8 @@ const props = defineProps<{
   class?: HTMLAttributes['class']
 }>()
 
+const emit = defineEmits<{ 'update:open': [boolean], 'close': [] }>()
+
 const contentClass = computed(() =>
   cn(
     'fixed top-1/2 left-1/2 z-50 grid w-[min(32rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 gap-3 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0 data-[state=open]:zoom-in-[0.97] data-[state=closed]:zoom-out-[0.97] duration-(--motion-fast) ease-(--motion-ease)',
@@ -35,11 +37,10 @@ const contentClass = computed(() =>
   ),
 )
 
-const emit = defineEmits<{ 'update:open': [boolean]; close: [] }>()
-
 function onOpenChange(value: boolean) {
   emit('update:open', value)
-  if (!value) emit('close')
+  if (!value)
+    emit('close')
 }
 </script>
 

@@ -1,4 +1,5 @@
-import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
+import type { VueWrapper } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 // The menu derives the current entry from the router's own route name, so the
 // test drives the real route table, as the AppShell test does.
@@ -9,7 +10,9 @@ async function openAt(path: string): Promise<VueWrapper> {
   await router.push(path)
   await router.isReady()
   const wrapper = mount(GlobalMenu, {
-    global: { plugins: [router] },
+    global: {
+      plugins: [router],
+    },
     attachTo: document.body.appendChild(document.createElement('div')),
   })
   await wrapper.get('[data-testid="global-menu"]').trigger('keydown', { key: 'Enter' })
@@ -18,7 +21,9 @@ async function openAt(path: string): Promise<VueWrapper> {
 }
 
 function radios(): HTMLElement[] {
-  return [...document.body.querySelectorAll<HTMLElement>('[role="menuitemradio"]')]
+  return [
+    ...document.body.querySelectorAll<HTMLElement>('[role="menuitemradio"]'),
+  ]
 }
 
 beforeEach(() => {
@@ -26,7 +31,7 @@ beforeEach(() => {
   document.body.innerHTML = ''
 })
 
-describe('GlobalMenu', () => {
+describe('globalMenu', () => {
   it('exists only below the rail breakpoint', async () => {
     const wrapper = await openAt('/worksets')
 
@@ -37,8 +42,8 @@ describe('GlobalMenu', () => {
     const wrapper = await openAt('/worksets/lib-a/conversion/settings')
 
     expect(wrapper.get('[data-testid="global-menu"]').attributes('aria-label')).toBe('全局导航（当前：工作集）')
-    expect(radios().map((item) => item.textContent?.trim())).toEqual(['作品库', '合集', '工作集', '设置'])
-    expect(radios().map((item) => item.getAttribute('aria-checked'))).toEqual(['false', 'false', 'true', 'false'])
+    expect(radios().map(item => item.textContent?.trim())).toEqual(['作品库', '合集', '工作集', '设置'])
+    expect(radios().map(item => item.getAttribute('aria-checked'))).toEqual(['false', 'false', 'true', 'false'])
   })
 
   it('navigates to the chosen entry', async () => {

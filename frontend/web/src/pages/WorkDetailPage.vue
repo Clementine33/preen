@@ -1,16 +1,16 @@
 <script setup lang="ts">
-import { useApiClient } from '@/lib/api/client'
 import { computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { canonicalRj } from '@/app/route-params'
-import { useKeymap } from '@/composables/use-keymap'
 import GlobalMenu from '@/components/layout/GlobalMenu.vue'
-import PlayerBar from '@/features/works/PlayerBar.vue'
+import { useKeymap } from '@/composables/use-keymap'
 import WorkBay from '@/features/work-detail/WorkBay.vue'
 import WorkDeck from '@/features/work-detail/WorkDeck.vue'
 import WorkLeaf from '@/features/work-detail/WorkLeaf.vue'
 import WorkVideo from '@/features/work-detail/WorkVideo.vue'
 import WorkViewer from '@/features/work-detail/WorkViewer.vue'
+import PlayerBar from '@/features/works/PlayerBar.vue'
+import { useApiClient } from '@/lib/api/client'
 import { usePreferences } from '@/queries/preferences'
 import { useWorkContent, useWorkDetail } from '@/queries/works'
 import { usePlayerStore } from '@/stores/player'
@@ -30,7 +30,9 @@ const player = usePlayerStore()
 /** The work number, canonical: the route may carry the 6-digit spelling. */
 const rj = computed(() => {
   const raw = route.params.rj
-  return typeof raw === 'string' && raw !== '' ? canonicalRj(raw) : null
+  return typeof raw === 'string' && raw !== ''
+    ? canonicalRj(raw)
+    : null
 })
 
 const api = useApiClient()
@@ -41,18 +43,25 @@ const { content } = useWorkContent(rj)
 // the manifest of the new work rehydrates when it lands.
 // Binding waits for the Format Preference to settle, so it can pick the opening chip.
 const { query: preferencesQuery, trackFormats: preference } = usePreferences()
-watch([rj, content, () => preferencesQuery.isPending.value], ([id, now, pending]) => {
-  if (store.rj !== id) store.newVisit()
+watch([
+  rj,
+  content,
+  () => preferencesQuery.isPending.value,
+], ([id, now, pending]) => {
+  if (store.rj !== id)
+    store.newVisit()
   if (!pending && now !== null && id !== null && now.rj === id) {
-    store.bind(id, now, (ref) => api.workFileUrl(ref), preference.value)
+    store.bind(id, now, ref => api.workFileUrl(ref), preference.value)
   }
 }, { immediate: true })
 
 // Prev/next and a track's end move the player on; the bay and the leaf follow.
 watch(() => player.trackKey, (key) => {
-  if (key === null || player.rj !== store.rj) return
-  const track = store.tracks.findIndex((t) => t.key === key)
-  if (track >= 0 && track !== store.track) store.followTrack(track)
+  if (key === null || player.rj !== store.rj)
+    return
+  const track = store.tracks.findIndex(t => t.key === key)
+  if (track >= 0 && track !== store.track)
+    store.followTrack(track)
 })
 
 // Back to the wall (or collection) this work was opened from: that history
@@ -60,20 +69,29 @@ watch(() => player.trackKey, (key) => {
 // restores both. Arriving any other way, the wall opens on this work's number alone.
 function backToWall(): void {
   const back = router.options.history.state.back
-  if (typeof back === 'string' && /^\/(works|collections\/[^/]+)$/.test(back.split('?')[0]!)) {
+  if (typeof back === 'string' && /^\/(?:works|collections\/[^/]+)$/.test(back.split('?')[0]!)) {
     router.back()
     return
   }
-  void router.push({ name: 'works', query: rj.value !== null ? { rj: rj.value } : {} })
+  void router.push({
+    name: 'works',
+    query: rj.value !== null
+      ? { rj: rj.value }
+      : {},
+  })
 }
 
 // ── Keyboard: I flips, the arrows step (the viewer shares the same set/idx),
 //    Esc closes the bay's drawer; Space is the player's. ──
 useKeymap({
-  'detail.step': (event) => store.step(event.key === 'ArrowRight' ? 1 : -1),
+  'detail.step': event => store.step(event.key === 'ArrowRight'
+    ? 1
+    : -1),
   'detail.flip': () => store.flip(),
   // The viewer is a native dialog: the browser closes it on Esc.
-  'detail.close': () => (store.dock === 'bottom' && store.bayOpen && !store.viewerOpen ? store.closeBay() : undefined),
+  'detail.close': () => (store.dock === 'bottom' && store.bayOpen && !store.viewerOpen
+    ? store.closeBay()
+    : undefined),
 })
 </script>
 

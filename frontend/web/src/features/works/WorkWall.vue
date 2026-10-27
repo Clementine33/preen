@@ -1,8 +1,8 @@
 <script setup lang="ts">
+import type { WorkSummary } from '@/lib/api/types'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useMediaQuery, WALL_MOBILE_QUERY } from '@/composables/use-media-query'
 import { useSwitchBurst } from '@/composables/use-motion'
-import type { WorkSummary } from '@/lib/api/types'
 import WorkCard from './WorkCard.vue'
 
 // The wall: one page of works as a plain grid, with roving focus and one
@@ -56,7 +56,9 @@ onBeforeUnmount(() => {
 // known, the count a browser would pick is deterministic, so we compute it.
 // Mobile is pinned to the prototype's 2 columns.
 const columns = computed(() =>
-  isMobile.value ? 2 : Math.max(1, Math.floor((gridWidth.value + GAP_X) / (MIN_COL + GAP_X))),
+  isMobile.value
+    ? 2
+    : Math.max(1, Math.floor((gridWidth.value + GAP_X) / (MIN_COL + GAP_X))),
 )
 const gapX = computed(() => (isMobile.value ? MOBILE_GAP_X : GAP_X))
 const colWidth = computed(
@@ -66,7 +68,9 @@ const coverHeight = computed(() => (colWidth.value * 3) / 4)
 const rowHeight = computed(() => coverHeight.value + CAP_HEIGHT + GAP_Y)
 
 const selectedIndex = computed(() =>
-  props.selectedRj === null ? -1 : props.works.findIndex((work) => work.rj === props.selectedRj),
+  props.selectedRj === null
+    ? -1
+    : props.works.findIndex(work => work.rj === props.selectedRj),
 )
 
 // Set by a keyboard move: only then does the new selection take focus. Any
@@ -80,14 +84,20 @@ let focusOnSelect = false
  * ±1 move past either end asks the page for the neighbouring page instead.
  */
 function move(delta: number): void {
-  if (props.works.length === 0) return
-  const raw = selectedIndex.value < 0 ? 0 : selectedIndex.value + delta
+  if (props.works.length === 0)
+    return
+  const raw = selectedIndex.value < 0
+    ? 0
+    : selectedIndex.value + delta
   if (selectedIndex.value >= 0 && Math.abs(delta) === 1 && (raw < 0 || raw >= props.works.length)) {
-    emit('edge', raw < 0 ? -1 : 1)
+    emit('edge', raw < 0
+      ? -1
+      : 1)
     return
   }
   const next = Math.min(props.works.length - 1, Math.max(0, raw))
-  if (next === selectedIndex.value) return
+  if (next === selectedIndex.value)
+    return
   focusOnSelect = true
   emit('select', props.works[next].rj)
 }
@@ -121,8 +131,10 @@ let idleTimer: number | null = null
 
 function placeCursor() {
   cursorIdle.value = false
-  if (idleTimer !== null) window.clearTimeout(idleTimer)
-  if (selectedIndex.value < 0) return
+  if (idleTimer !== null)
+    window.clearTimeout(idleTimer)
+  if (selectedIndex.value < 0)
+    return
   const rowIndex = Math.floor(selectedIndex.value / columns.value)
   const inRow = selectedIndex.value % columns.value
   // Every row is the same height, so the cursor is placed by arithmetic rather
@@ -136,23 +148,31 @@ function placeCursor() {
 
 // A new page starts at its top; the selection then scrolls itself into view.
 watch(() => props.works, () => {
-  if (wallEl.value) wallEl.value.scrollTop = 0
+  if (wallEl.value)
+    wallEl.value.scrollTop = 0
 })
 
 // Keep the selected work in view; focus its cell only after a keyboard move.
 let mounted = false
 const { rapid: switching, note } = useSwitchBurst()
 // The work and its index both count: a page turn can land on the same index.
-watch([() => props.selectedRj, selectedIndex], async () => {
+watch([
+  () => props.selectedRj,
+  selectedIndex,
+], async () => {
   note()
   placeCursor()
-  if (!mounted || selectedIndex.value < 0) return
+  if (!mounted || selectedIndex.value < 0)
+    return
   const claim = focusOnSelect
   focusOnSelect = false
   await nextTick()
-  const cell = props.selectedRj === null ? null : cellFor(props.selectedRj)
+  const cell = props.selectedRj === null
+    ? null
+    : cellFor(props.selectedRj)
   cell?.scrollIntoView?.({ block: 'nearest' })
-  if (claim) cell?.focus({ preventScroll: true })
+  if (claim)
+    cell?.focus({ preventScroll: true })
 }, { flush: 'post' })
 watch([columns, colWidth], () => placeCursor())
 onMounted(() => {
@@ -173,16 +193,22 @@ function onCellClick(work: WorkSummary) {
 
 <template>
   <section ref="wallEl" class="wall" data-testid="work-wall">
-    <div ref="gridEl" class="grid" :class="{ 'wall-rapid': switching }" role="listbox" aria-label="Works" :style="{
-      gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
-      columnGap: `${gapX}px`,
-      rowGap: `${GAP_Y}px`,
-    }">
-      <div class="cursor" :class="{ idle: cursorIdle }" aria-hidden="true"
-        :style="{ transform: `translate(${cursorX}px, ${cursorY}px)` }"></div>
-      <WorkCard v-for="(work, index) in works" :key="work.rj" :work="work" :index="index"
+    <div
+      ref="gridEl" class="grid" :class="{ 'wall-rapid': switching }" role="listbox" aria-label="Works" :style="{
+        gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
+        columnGap: `${gapX}px`,
+        rowGap: `${GAP_Y}px`,
+      }"
+    >
+      <div
+        class="cursor" :class="{ idle: cursorIdle }" aria-hidden="true"
+        :style="{ transform: `translate(${cursorX}px, ${cursorY}px)` }"
+      />
+      <WorkCard
+        v-for="(work, index) in works" :key="work.rj" :work="work" :index="index"
         :selected="work.rj === selectedRj" :playing="work.rj === playingRj"
-        @click="onCellClick(work)" @dblclick="emit('open', work.rj)" />
+        @click="onCellClick(work)" @dblclick="emit('open', work.rj)"
+      />
     </div>
   </section>
 </template>

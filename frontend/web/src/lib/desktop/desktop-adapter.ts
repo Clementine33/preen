@@ -13,7 +13,7 @@ export interface LyricsFrame {
    * next one; `advance` marks a step to the next line of the same track (the
    * only change that scrolls).
    */
-  line: { key: string; text: string; dim?: boolean; advance?: boolean } | null
+  line: { key: string, text: string, dim?: boolean, advance?: boolean } | null
   /** The playing track has no Timed Lyrics. */
   noLyrics: boolean
 }
@@ -31,21 +31,22 @@ export interface DesktopAdapter {
    * `onLock` reports the window's click-through lock (desktop only), which
    * the window itself can no longer undo once set: unlock with `setLyricsLocked`.
    */
-  openLyricsWindow(
+  openLyricsWindow: (
     frame: () => LyricsFrame,
     onCommand: (command: LyricsCommand) => void,
     onClose: () => void,
     onLock?: (locked: boolean) => void,
-  ): Promise<(() => void) | null>
-  setLyricsLocked(locked: boolean): void
-  resolveApi(): Promise<{ baseUrl: string; token: string | null }>
-  pickFolder(): Promise<string | null>
+  ) => Promise<(() => void) | null>
+  setLyricsLocked: (locked: boolean) => void
+  resolveApi: () => Promise<{ baseUrl: string, token: string | null }>
+  pickFolder: () => Promise<string | null>
 }
 
 export const desktopAdapterKey: InjectionKey<DesktopAdapter> = Symbol('desktop-adapter')
 
 export function useDesktopAdapter(): DesktopAdapter {
   const adapter = inject(desktopAdapterKey)
-  if (!adapter) throw new Error('DesktopAdapter was not provided')
+  if (!adapter)
+    throw new Error('DesktopAdapter was not provided')
   return adapter
 }

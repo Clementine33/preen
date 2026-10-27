@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_GC_TIME, TREE_GC_TIME, createAppQueryClient } from './query-client'
+import { createAppQueryClient, DEFAULT_GC_TIME, TREE_GC_TIME } from './query-client'
 
 describe('createAppQueryClient', () => {
   it('applies the explicit-sync defaults', () => {

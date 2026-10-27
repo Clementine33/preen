@@ -18,7 +18,13 @@ describe('queryKeys', () => {
 
   it('isolates member trees by library, root identity and member path', () => {
     const key = queryKeys.libraries.memberTree('lib-a', 'root-a', 'albumA')
-    expect(key).toEqual(['libraries', 'member-trees', 'lib-a', 'root-a', 'albumA'])
+    expect(key).toEqual([
+      'libraries',
+      'member-trees',
+      'lib-a',
+      'root-a',
+      'albumA',
+    ])
     expect(queryKeys.libraries.memberTree('lib-a', 'root-a', 'albumB')).not.toEqual(key)
     expect(queryKeys.libraries.memberTree('lib-a', 'root-b', 'albumA')).not.toEqual(key)
     expect(queryKeys.libraries.memberTree('lib-b', 'root-a', 'albumA')).not.toEqual(key)

@@ -7,7 +7,11 @@ import { expect, test } from '@playwright/test'
  */
 for (const isMobile of [false, true]) {
   test.describe(isMobile ? 'mobile emulation' : 'desktop', () => {
-    test.use({ isMobile, hasTouch: isMobile, deviceScaleFactor: isMobile ? 3 : 1 })
+    test.use({
+      isMobile,
+      hasTouch: isMobile,
+      deviceScaleFactor: isMobile ? 3 : 1,
+    })
 
     test('segmented conversion fields pick in place and keep their rows aligned', async ({ page }, testInfo) => {
       await page.route('**/__unit-fields', route => route.fulfill({
@@ -24,12 +28,15 @@ for (const isMobile of [false, true]) {
             }))) }).mount('#app');
         </script></body></html>`,
       }))
-      await page.setViewportSize(isMobile ? { width: 393, height: 852 } : { width: 1440, height: 900 })
+      await page.setViewportSize(isMobile
+        ? { width: 393, height: 852 }
+        : { width: 1440, height: 900 })
       await page.goto('/__unit-fields')
 
       const pick = async (testId: string, name: string) => {
         const button = page.getByTestId(testId).getByRole('button', { name, exact: true })
-        if (isMobile) await button.tap()
+        if (isMobile)
+          await button.tap()
         else await button.click()
         await expect(button).toHaveAttribute('aria-pressed', 'true')
       }
@@ -43,12 +50,18 @@ for (const isMobile of [false, true]) {
       await expect(page.getByTestId('test-matched-encoded').getByRole('button', { name: 'Opus' })).toHaveAttribute('aria-pressed', 'true')
 
       // Each row label shares its control's centre line.
-      for (const [label, testId] of [['无损', 'test-matched-lossless'], ['编码', 'test-matched-encoded'], ['码率', 'test-matched-bitrate']]) {
+      for (const [label, testId] of [
+        ['无损', 'test-matched-lossless'],
+        ['编码', 'test-matched-encoded'],
+        ['码率', 'test-matched-bitrate'],
+      ]) {
         const row = await page.getByText(label, { exact: true }).boundingBox()
         const control = await page.getByTestId(testId).boundingBox()
         expect(Math.abs(row!.y + row!.height / 2 - (control!.y + control!.height / 2))).toBeLessThan(2)
       }
-      await page.screenshot({ path: testInfo.outputPath(isMobile ? 'mobile-fields.png' : 'desktop-fields.png') })
+      await page.screenshot({
+        path: testInfo.outputPath(isMobile ? 'mobile-fields.png' : 'desktop-fields.png'),
+      })
     })
   })
 }

@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import type { MetadataSettings } from '@/lib/api/types'
 import { computed } from 'vue'
+import { Button } from '@/components/ui/button'
 import SettingsApplyBar from '@/features/settings/SettingsApplyBar.vue'
 import SettingsColumn from '@/features/settings/SettingsColumn.vue'
 import SettingsField from '@/features/settings/SettingsField.vue'
@@ -8,8 +10,6 @@ import SettingsOptions from '@/features/settings/SettingsOptions.vue'
 import SettingsSegmented from '@/features/settings/SettingsSegmented.vue'
 import SettingsSwitch from '@/features/settings/SettingsSwitch.vue'
 import { useTaskSettingsForm } from '@/features/settings/use-task-settings-form'
-import { Button } from '@/components/ui/button'
-import type { MetadataSettings } from '@/lib/api/types'
 
 /**
  * The deployment-wide metadata refresh settings (ADR 0008), edited and applied
@@ -40,14 +40,17 @@ const { form, query, saved } = useTaskSettingsForm({
 // shown off and says why.
 const coverLocked = computed(() => form.value('mode') === 'refresh_dynamic')
 const summary = computed(() => {
-  if (!saved.value) return '设置'
-  const label = (options: { value: string; label: string }[], value: string) =>
-    options.find((option) => option.value === value)?.label ?? value
+  if (!saved.value)
+    return '设置'
+  const label = (options: { value: string, label: string }[], value: string) =>
+    options.find(option => option.value === value)?.label ?? value
   const mode = form.value('mode')
   return [
     label(MODES, mode),
     label(LOCALES, form.value('locale')),
-    ...(form.value('download_cover') && !coverLocked.value ? ['封面'] : []),
+    ...(form.value('download_cover') && !coverLocked.value
+      ? ['封面']
+      : []),
   ].join(' · ')
 })
 </script>

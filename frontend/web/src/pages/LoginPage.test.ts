@@ -9,9 +9,24 @@ enableAutoUnmount(afterEach)
 afterEach(() => vi.unstubAllGlobals())
 
 async function mountLogin(createSession: (token: string) => Promise<void>, target = '/collections') {
-  const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/login', name: 'login', component: LoginPage }] })
-  await router.push({ name: 'login', query: { redirect: target } })
-  return mount(LoginPage, { global: { plugins: [router], provide: { [apiClientKey as symbol]: apiStub({ createSession }) } } })
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [
+      { path: '/login', name: 'login', component: LoginPage },
+    ],
+  })
+  await router.push({
+    name: 'login',
+    query: { redirect: target },
+  })
+  return mount(LoginPage, {
+    global: {
+      plugins: [router],
+      provide: {
+        [apiClientKey as symbol]: apiStub({ createSession }),
+      },
+    },
+  })
 }
 
 describe('browser login', () => {

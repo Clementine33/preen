@@ -1,20 +1,27 @@
-import { mount, type VueWrapper } from '@vue/test-utils'
+import type { VueWrapper } from '@vue/test-utils'
+import { mount } from '@vue/test-utils'
 import { createPinia } from 'pinia'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { apiClientKey } from '@/lib/api/client'
-import { apiStub } from '@/test/api-stub'
-import { installTestQueryPlugin } from '@/test/query-client'
 // The shell derives the current entry from the router's own route name,
 // so the test drives the real route table. The slot stands in for the page:
 // AppShell renders no RouterView, so no page component is mounted here.
 import { router } from '@/app/router'
+import { apiClientKey } from '@/lib/api/client'
+import { apiStub } from '@/test/api-stub'
+import { installTestQueryPlugin } from '@/test/query-client'
 import AppShell from './AppShell.vue'
 
 function mountShell(): VueWrapper {
   return mount(AppShell, {
     global: {
-      plugins: [createPinia(), router, installTestQueryPlugin()],
-      provide: { [apiClientKey as symbol]: apiStub() },
+      plugins: [
+        createPinia(),
+        router,
+        installTestQueryPlugin(),
+      ],
+      provide: {
+        [apiClientKey as symbol]: apiStub(),
+      },
     },
     slots: { default: '<div data-testid="page">page</div>' },
   })
@@ -29,13 +36,13 @@ beforeEach(() => {
   localStorage.clear()
 })
 
-describe('AppShell global navigation', () => {
+describe('appShell global navigation', () => {
   it('renders the entries on the rail, in order and with their targets', async () => {
     await at('/worksets')
     const links = mountShell().get('[data-testid="global-rail"] nav').findAll('a')
 
-    expect(links.map((link) => link.text())).toEqual(['作品库', '合集', '工作集'])
-    expect(links.map((link) => link.attributes('href'))).toEqual(['/works', '/collections', '/worksets'])
+    expect(links.map(link => link.text())).toEqual(['作品库', '合集', '工作集'])
+    expect(links.map(link => link.attributes('href'))).toEqual(['/works', '/collections', '/worksets'])
   })
 
   it('shows the rail in CSS from the shared 641px breakpoint and leaves the phone to the page', async () => {
@@ -79,24 +86,24 @@ describe('AppShell global navigation', () => {
   it('marks the matching entry current and only that one, per route', async () => {
     await at('/worksets')
     let links = mountShell().get('[data-testid="global-rail"] nav').findAll('a')
-    expect(links.map((link) => link.attributes('aria-current'))).toEqual([undefined, undefined, 'page'])
+    expect(links.map(link => link.attributes('aria-current'))).toEqual([undefined, undefined, 'page'])
 
     await at('/works')
     links = mountShell().get('[data-testid="global-rail"] nav').findAll('a')
-    expect(links.map((link) => link.attributes('aria-current'))).toEqual(['page', undefined, undefined])
+    expect(links.map(link => link.attributes('aria-current'))).toEqual(['page', undefined, undefined])
   })
 
   it('keeps 工作集 current inside a library workbench', async () => {
     await at('/worksets/lib-a')
     const links = mountShell().get('[data-testid="global-rail"] nav').findAll('a')
 
-    expect(links.map((link) => link.attributes('aria-current'))).toEqual([undefined, undefined, 'page'])
+    expect(links.map(link => link.attributes('aria-current'))).toEqual([undefined, undefined, 'page'])
   })
 
   it('keeps 工作集 current on a workbench child route', async () => {
     await at('/worksets/lib-a/conversion/settings')
     const links = mountShell().get('[data-testid="global-rail"] nav').findAll('a')
 
-    expect(links.map((link) => link.attributes('aria-current'))).toEqual([undefined, undefined, 'page'])
+    expect(links.map(link => link.attributes('aria-current'))).toEqual([undefined, undefined, 'page'])
   })
 })

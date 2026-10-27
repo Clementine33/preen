@@ -1,18 +1,19 @@
+import type { ApiClientContract } from '@/lib/api/types'
 import { QueryObserver } from '@tanstack/vue-query'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { ApiError, apiClientKey } from '@/lib/api/client'
-import type { ApiClientContract } from '@/lib/api/types'
-import { useMediaFactsStore } from '@/stores/media-facts'
+import { apiClientKey, ApiError } from '@/lib/api/client'
 import { queryKeys } from '@/queries/query-keys'
+import { useMediaFactsStore } from '@/stores/media-facts'
 import { apiStub } from '@/test/api-stub'
 import { createTestQueryClient, installTestQueryPlugin } from '@/test/query-client'
 import { syncMediaFacts, useMediaFactsSync } from './use-media-facts-sync'
 
 function untilAbort(signal: AbortSignal): Promise<void> {
   return new Promise((resolve) => {
-    if (signal.aborted) resolve()
+    if (signal.aborted)
+      resolve()
     else signal.addEventListener('abort', () => resolve(), { once: true })
   })
 }
@@ -28,14 +29,26 @@ describe('media facts synchronization', () => {
     const tree = queryKeys.libraries.memberTree('lib', 'root', 'dir')
     const oldTree = queryKeys.libraries.memberTree('lib', 'root', 'inactive')
     const detail = queryKeys.works.detail('RJ01000001')
-    for (const key of [active, inactive, tree, oldTree, detail]) client.setQueryData(key, 'old')
-    const contentObserver = new QueryObserver(client, { queryKey: active, queryFn: async () => 'measured' })
-    const treeObserver = new QueryObserver(client, { queryKey: tree, queryFn: async () => 'measured tree' })
+    for (const key of [
+      active,
+      inactive,
+      tree,
+      oldTree,
+      detail,
+    ]) client.setQueryData(key, 'old')
+    const contentObserver = new QueryObserver(client, {
+      queryKey: active,
+      queryFn: async () => 'measured',
+    })
+    const treeObserver = new QueryObserver(client, {
+      queryKey: tree,
+      queryFn: async () => 'measured tree',
+    })
     const stopContent = contentObserver.subscribe(() => {})
     const stopTree = treeObserver.subscribe(() => {})
     const controller = new AbortController()
     const api = apiStub({
-      streamMediaFactsEvents: async function* (signal) {
+      async* streamMediaFactsEvents(signal) {
         yield { type: 'changed', data: {} }
         await untilAbort(signal)
       },
@@ -64,10 +77,12 @@ describe('media facts synchronization', () => {
     const observer = new QueryObserver(client, { queryKey: key, queryFn })
     const stop = observer.subscribe(() => {})
     const controller = new AbortController()
-    const api = apiStub({ streamMediaFactsEvents: async function* (signal) {
-      yield { type: 'changed', data: {} }
-      await untilAbort(signal)
-    } })
+    const api = apiStub({
+      async* streamMediaFactsEvents(signal) {
+        yield { type: 'changed', data: {} }
+        await untilAbort(signal)
+      },
+    })
     const run = syncMediaFacts(api, client, controller.signal)
     await flushPromises()
     staleReply('stale facts')
@@ -81,7 +96,9 @@ describe('media facts synchronization', () => {
 
   it('backs off through 1, 2, 4 seconds up to 30 and cancels the pending wait', async () => {
     vi.useFakeTimers()
-    const api = apiStub({ streamMediaFactsEvents: vi.fn(async function* () { throw new Error('offline') }) })
+    const api = apiStub({
+      streamMediaFactsEvents: vi.fn(async function* () { throw new Error('offline') }),
+    })
     const client = createTestQueryClient()
     const controller = new AbortController()
     const run = syncMediaFacts(api, client, controller.signal)
@@ -121,7 +138,9 @@ describe('media facts synchronization', () => {
 
   it('stops on 401 instead of reconnecting', async () => {
     vi.useFakeTimers()
-    const api = apiStub({ streamMediaFactsEvents: vi.fn(async function* () { throw new ApiError(401, 'UNAUTHORIZED', 'unauthorized') }) })
+    const api = apiStub({
+      streamMediaFactsEvents: vi.fn(async function* () { throw new ApiError(401, 'UNAUTHORIZED', 'unauthorized') }),
+    })
     const client = createTestQueryClient()
     await syncMediaFacts(api, client, new AbortController().signal)
     expect(api.streamMediaFactsEvents).toHaveBeenCalledTimes(1)
@@ -132,12 +151,22 @@ describe('media facts synchronization', () => {
   it('uses one root connection and closes it on unmount', async () => {
     let signal!: AbortSignal
     let closed = false
-    const api = apiStub({ streamMediaFactsEvents: vi.fn(async function* (value) {
-      signal = value
-      try { await untilAbort(value) } finally { closed = true }
-    }) })
-    const wrapper = mount({ setup() { useMediaFactsSync(); return () => null } }, {
-      global: { plugins: [installTestQueryPlugin()], provide: { [apiClientKey as symbol]: api } },
+    const api = apiStub({
+      streamMediaFactsEvents: vi.fn(async function* (value) {
+        signal = value
+        try { await untilAbort(value) }
+        finally { closed = true }
+      }),
+    })
+    const wrapper = mount({
+      setup() { useMediaFactsSync(); return () => null },
+    }, {
+      global: {
+        plugins: [
+          installTestQueryPlugin(),
+        ],
+        provide: { [apiClientKey as symbol]: api },
+      },
     })
     await flushPromises()
     expect(api.streamMediaFactsEvents).toHaveBeenCalledTimes(1)
@@ -164,11 +193,12 @@ describe('works_changed', () => {
     const controller = new AbortController()
     let emit!: () => void
     const api = apiStub({
-      streamMediaFactsEvents: async function* (signal) {
+      async* streamMediaFactsEvents(signal) {
         yield { type: 'works_changed', data: {} }
         for (;;) {
           await new Promise<void>((resolve) => { emit = resolve })
-          if (signal.aborted) return
+          if (signal.aborted)
+            return
           yield { type: 'works_changed', data: {} }
         }
       },
@@ -186,7 +216,7 @@ describe('works_changed', () => {
     emit()
     await vi.advanceTimersByTimeAsync(0)
     await run
-    stops.forEach((stop) => stop())
+    stops.forEach(stop => stop())
     client.clear()
   })
 })
@@ -198,16 +228,37 @@ describe('status', () => {
     const controller = new AbortController()
     let drop!: () => void
     const api = apiStub({
-      streamMediaFactsEvents: async function* () {
-        yield { type: 'status', data: { state: 'running', libraries: [{ library_id: 'lib', pending: 3, unmeasurable: 0 }] } }
-        yield { type: 'status', data: { state: 'idle', libraries: [{ library_id: 'lib', pending: 0, unmeasurable: 1 }] } }
+      async* streamMediaFactsEvents() {
+        yield {
+          type: 'status',
+          data: {
+            state: 'running',
+            libraries: [
+              { library_id: 'lib', pending: 3, unmeasurable: 0 },
+            ],
+          },
+        }
+        yield {
+          type: 'status',
+          data: {
+            state: 'idle',
+            libraries: [
+              { library_id: 'lib', pending: 0, unmeasurable: 1 },
+            ],
+          },
+        }
         await new Promise<void>((resolve) => { drop = resolve })
         throw new Error('connection lost')
       },
     })
     const run = syncMediaFacts(api, client, controller.signal)
     await flushPromises()
-    expect(store.status).toEqual({ state: 'idle', libraries: [{ library_id: 'lib', pending: 0, unmeasurable: 1 }] })
+    expect(store.status).toEqual({
+      state: 'idle',
+      libraries: [
+        { library_id: 'lib', pending: 0, unmeasurable: 1 },
+      ],
+    })
     drop()
     await flushPromises()
     expect(store.status).toBeNull()

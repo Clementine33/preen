@@ -1,23 +1,27 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch, type Ref } from 'vue'
-import { useRouter } from 'vue-router'
+import type { Ref } from 'vue'
+import type { RailOption } from '@/features/works/RailSelect.vue'
+import type { TagSelection } from '@/features/works/TagIndex.vue'
+import type { WallHandle } from '@/features/works/use-wall-restore'
+import type { ListWorksParams, WorkFacet, WorksScope, WorksSort } from '@/lib/api/types'
 import { useQueryClient } from '@tanstack/vue-query'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { canonicalRj } from '@/app/route-params'
+import GlobalMenu from '@/components/layout/GlobalMenu.vue'
 import { useKeymap } from '@/composables/use-keymap'
 import { useMediaQuery, WALL_MOBILE_QUERY } from '@/composables/use-media-query'
-import { useApiClient } from '@/lib/api/client'
-import type { ListWorksParams, WorkFacet, WorksScope, WorksSort } from '@/lib/api/types'
-import GlobalMenu from '@/components/layout/GlobalMenu.vue'
 import LibrarySwitcher from '@/features/works/LibrarySwitcher.vue'
-import TagIndex, { type TagSelection } from '@/features/works/TagIndex.vue'
+import PlayerBar from '@/features/works/PlayerBar.vue'
+import RailSelect from '@/features/works/RailSelect.vue'
+import TagIndex from '@/features/works/TagIndex.vue'
 import { usePlayWork } from '@/features/works/use-play-work'
 import { PAGE_SIZES, useWallQuery } from '@/features/works/use-wall-query'
-import { useRecordWallReturn, useWallRestore, type WallHandle } from '@/features/works/use-wall-restore'
-import PlayerBar from '@/features/works/PlayerBar.vue'
-import RailSelect, { type RailOption } from '@/features/works/RailSelect.vue'
+import { useRecordWallReturn, useWallRestore } from '@/features/works/use-wall-restore'
 import WorkInspector from '@/features/works/WorkInspector.vue'
 import WorkPager from '@/features/works/WorkPager.vue'
 import WorkWall from '@/features/works/WorkWall.vue'
+import { useApiClient } from '@/lib/api/client'
 import { useLibraryList } from '@/queries/libraries'
 import { useWorkFacets, useWorksList, worksListQueryOptions } from '@/queries/works'
 import { useLibraryUiStore } from '@/stores/library-ui'
@@ -49,41 +53,73 @@ const wq = useWallQuery()
 // drops the previous library's picks. ──
 const { librariesData } = useLibraryList()
 watch(wq.library, (library) => {
-  if (library === 'all') libraryUi.showAllLibraries()
-  else if (library) libraryUi.setActiveLibrary(library)
+  if (library === 'all')
+    libraryUi.showAllLibraries()
+  else if (library)
+    libraryUi.setActiveLibrary(library)
 }, { immediate: true })
 const storeLibrary = computed(() => (libraryUi.allLibraries ? 'all' : libraryUi.activeLibraryId))
 watch(storeLibrary, (library) => {
-  if (library === null || library === wq.library.value) return
-  if (wq.library.value === null) void wq.fillLibrary(library)
+  if (library === null || library === wq.library.value)
+    return
+  if (wq.library.value === null)
+    void wq.fillLibrary(library)
   else void wq.setLibrary(library)
 }, { immediate: true })
 // `all` is the aggregate wall: every library's id, so the listing, the facets
 // and FIND share one copy-scoped filter and a work held twice is listed once.
 const libraryScope = computed(() =>
   libraryUi.allLibraries
-    ? (librariesData.value.map((library) => library.id).join(',') || null)
+    ? (librariesData.value.map(library => library.id).join(',') || null)
     : libraryUi.activeLibraryId,
 )
 
 // ── Filter rail: each select reads the address and writes through an action.
 // '' = no constraint. ──
-const voiceActor = computed({ get: () => wq.voice.value, set: (value) => void wq.setFilters({ voice: value }) })
-const circle = computed({ get: () => wq.circle.value, set: (value) => void wq.setFilters({ circle: value }) })
-const age = computed({ get: () => wq.age.value, set: (value) => void wq.setFilters({ age: value }) })
-const language = computed({ get: () => wq.language.value, set: (value) => void wq.setFilters({ language: value }) })
-const rating = computed({ get: () => wq.rating.value, set: (value) => void wq.setFilters({ rating: value }) })
-const listening = computed({ get: () => wq.listening.value, set: (value) => void wq.setFilters({ listening: value }) })
-const sort = computed<WorksSort>({ get: () => wq.sort.value, set: (value) => void wq.setSort(value) })
-const size = computed({ get: () => String(wq.size.value), set: (value) => void wq.setSize(Number(value)) })
+const voiceActor = computed({
+  get: () => wq.voice.value,
+  set: value => void wq.setFilters({ voice: value }),
+})
+const circle = computed({
+  get: () => wq.circle.value,
+  set: value => void wq.setFilters({ circle: value }),
+})
+const age = computed({
+  get: () => wq.age.value,
+  set: value => void wq.setFilters({ age: value }),
+})
+const language = computed({
+  get: () => wq.language.value,
+  set: value => void wq.setFilters({ language: value }),
+})
+const rating = computed({
+  get: () => wq.rating.value,
+  set: value => void wq.setFilters({ rating: value }),
+})
+const listening = computed({
+  get: () => wq.listening.value,
+  set: value => void wq.setFilters({ listening: value }),
+})
+const sort = computed<WorksSort>({
+  get: () => wq.sort.value,
+  set: value => void wq.setSort(value),
+})
+const size = computed({
+  get: () => String(wq.size.value),
+  set: value => void wq.setSize(Number(value)),
+})
 const tags = computed<TagSelection>({
   get: () => ({
-    groups: wq.tag.value ? wq.tag.value.split(',').map((group) => group.split('|')) : [],
+    groups: wq.tag.value
+      ? wq.tag.value.split(',').map(group => group.split('|'))
+      : [],
     mode: wq.mode.value,
   }),
-  set: (value) => void wq.setFilters({
-    tag: value.groups.map((group) => group.join('|')).join(','),
-    mode: value.groups.length > 0 && value.mode === 'any' ? 'any' : '',
+  set: value => void wq.setFilters({
+    tag: value.groups.map(group => group.join('|')).join(','),
+    mode: value.groups.length > 0 && value.mode === 'any'
+      ? 'any'
+      : '',
   }),
 })
 
@@ -115,9 +151,15 @@ const RATING_OPTIONS: RailOption[] = [
 ]
 /** An address value outside the options constrains nothing, like an unknown AGE. */
 function ratingParam(value: string): Pick<ListWorksParams, 'rating_from' | 'unrated'> {
-  if (value === 'none') return { unrated: true }
-  if (value === 'rated') return { rating_from: 1 }
-  return /^(10|[5789])$/.test(value) ? { rating_from: Number(value) } : {}
+  if (value === 'none')
+    return { unrated: true }
+  if (value === 'rated')
+    return { rating_from: 1 }
+  return /^(?:10|[5789])$/.test(value)
+    ? {
+        rating_from: Number(value),
+      }
+    : {}
 }
 // Listening state of the work: one pick of listening / finished / none.
 const LISTENING_OPTIONS: RailOption[] = [
@@ -137,21 +179,38 @@ const SORT_OPTIONS: RailOption[] = [
   { value: 'rating', label: '个人评分' },
   { value: 'listened_at', label: '最近收听' },
 ]
-const SIZE_OPTIONS: RailOption[] = PAGE_SIZES.map((value) => ({ value: String(value), label: String(value) }))
+const SIZE_OPTIONS: RailOption[] = PAGE_SIZES.map(value => ({
+  value: String(value),
+  label: String(value),
+}))
 
 // The set of works on the wall; the order and the page only arrange it.
 const scope = computed<WorksScope>(() => ({
-  ...(libraryScope.value ? { library: libraryScope.value } : {}),
-  ...(wq.voice.value ? { voice_actor: wq.voice.value, voice_actor_match: 'any' as const } : {}),
-  ...(wq.circle.value ? { circle: wq.circle.value } : {}),
-  ...(wq.language.value ? { language: wq.language.value } : {}),
-  ...(wq.age.value ? { age_category: AGE_PARAM[wq.age.value] } : {}),
+  ...(libraryScope.value
+    ? { library: libraryScope.value }
+    : {}),
+  ...(wq.voice.value
+    ? { voice_actor: wq.voice.value, voice_actor_match: 'any' as const }
+    : {}),
+  ...(wq.circle.value
+    ? { circle: wq.circle.value }
+    : {}),
+  ...(wq.language.value
+    ? { language: wq.language.value }
+    : {}),
+  ...(wq.age.value
+    ? { age_category: AGE_PARAM[wq.age.value] }
+    : {}),
   ...ratingParam(wq.rating.value),
-  ...(LISTENING_OPTIONS.some((option) => option.value && option.value === wq.listening.value)
+  ...(LISTENING_OPTIONS.some(option => option.value && option.value === wq.listening.value)
     ? { listening: wq.listening.value }
     : {}),
-  ...(wq.tag.value ? { tag: wq.tag.value, tag_match: wq.mode.value } : {}),
-  ...(wq.q.value ? { q: wq.q.value } : {}),
+  ...(wq.tag.value
+    ? { tag: wq.tag.value, tag_match: wq.mode.value }
+    : {}),
+  ...(wq.q.value
+    ? { q: wq.q.value }
+    : {}),
 }))
 const filters = computed<ListWorksParams>(() => ({
   ...scope.value,
@@ -173,17 +232,19 @@ function scopeWithout(...keys: (keyof WorksScope)[]) {
     return rest
   })
 }
-const libraryOnly = computed<WorksScope>(() => (libraryScope.value ? { library: libraryScope.value } : {}))
+const libraryOnly = computed<WorksScope>(() => (libraryScope.value
+  ? { library: libraryScope.value }
+  : {}))
 /** Whether a pick has no entity left in its narrowed list, so its name must be looked up. */
-const unnamed = (picked: string, facets: WorkFacet[]) => {
-  if (picked === '') return false
+function unnamed(picked: string, facets: WorkFacet[]) {
+  if (picked === '')
+    return false
   const ids = picked.split(',')
-  return !facets.some((facet) => ids.includes(facet.id))
+  return !facets.some(facet => ids.includes(facet.id))
 }
 const { facets: voiceActorFacets } = useWorkFacets('voice_actor', scopeWithout('voice_actor', 'voice_actor_match'), listable)
 const { facets: circleFacets } = useWorkFacets('circle', scopeWithout('circle'), listable)
-const { facets: voiceActorNames } = useWorkFacets('voice_actor', libraryOnly,
-  () => unnamed(wq.voice.value, voiceActorFacets.value))
+const { facets: voiceActorNames } = useWorkFacets('voice_actor', libraryOnly, () => unnamed(wq.voice.value, voiceActorFacets.value))
 const { facets: circleNames } = useWorkFacets('circle', libraryOnly, () => unnamed(wq.circle.value, circleFacets.value))
 const tagScope = scopeWithout('tag', 'tag_match')
 
@@ -194,20 +255,30 @@ const tagScope = scopeWithout('tag', 'tag_match')
 // library's whole list, or as unknown when even that lacks it — so the tab
 // still says what the wall is filtered by and ALL still clears it.
 function facetOptions(facets: WorkFacet[], picked: string, names: WorkFacet[]): RailOption[] {
-  const byName = new Map<string, { ids: string[]; count: number }>()
+  const byName = new Map<string, { ids: string[], count: number }>()
   for (const facet of facets) {
     const entry = byName.get(facet.name) ?? { ids: [], count: 0 }
     entry.ids.push(facet.id)
     entry.count += facet.work_count
     byName.set(facet.name, entry)
   }
-  const options = [...byName].map(([name, entry]) => ({ value: entry.ids.join(','), label: name, count: entry.count }))
-  if (picked !== '' && !options.some((option) => option.value === picked)) {
+  const options = [...byName].map(([name, entry]) => ({
+    value: entry.ids.join(','),
+    label: name,
+    count: entry.count,
+  }))
+  if (picked !== '' && !options.some(option => option.value === picked)) {
     const ids = picked.split(',')
-    const name = [...facets, ...names].find((facet) => ids.includes(facet.id))?.name
+    const name = [
+      ...facets,
+      ...names,
+    ].find(facet => ids.includes(facet.id))?.name
     options.push({ value: picked, label: name ?? `未知 ×${ids.length}`, count: 0 })
   }
-  return [{ value: '', label: 'ALL' }, ...options]
+  return [
+    { value: '', label: 'ALL' },
+    ...options,
+  ]
 }
 const voiceActorOptions = computed(() => facetOptions(voiceActorFacets.value, wq.voice.value, voiceActorNames.value))
 const circleOptions = computed(() => facetOptions(circleFacets.value, wq.circle.value, circleNames.value))
@@ -222,31 +293,42 @@ const selectedRj = computed(() => wq.rj.value)
 /** Which end of the next page a page turn lands on: a move back off the first work lands on the last. */
 let landOn: 'first' | 'last' = 'first'
 
-watch([settled, () => query.data.value, wq.rj], () => {
+watch([
+  settled,
+  () => query.data.value,
+  wq.rj,
+], () => {
   const data = query.data.value
-  if (!settled.value || !data) return
+  if (!settled.value || !data)
+    return
   const last = Math.max(1, Math.ceil(data.total / wq.size.value))
   if (wq.page.value > last) {
     void wq.setPage(last)
     return
   }
   if (data.works.length === 0) {
-    if (wq.rj.value !== null) void wq.select(null)
+    if (wq.rj.value !== null)
+      void wq.select(null)
     return
   }
   // The selection stays on the page it is shown on. A work that is not here —
   // deleted, moved off the page by an order or a concurrent change, or named
   // by a link to another page — falls back to this page, without a lookup.
-  if (wq.rj.value !== null && data.works.some((work) => work.rj === wq.rj.value)) return
-  const target = landOn === 'last' ? data.works[data.works.length - 1] : data.works[0]
+  if (wq.rj.value !== null && data.works.some(work => work.rj === wq.rj.value))
+    return
+  const target = landOn === 'last'
+    ? data.works[data.works.length - 1]
+    : data.works[0]
   landOn = 'first'
   void wq.select(target.rj)
 }, { immediate: true })
 
 function turnPage(to: number, land: 'first' | 'last' = 'first', claimFocus = false): void {
-  if (to < 1 || to > pageCount.value || to === wq.page.value) return
+  if (to < 1 || to > pageCount.value || to === wq.page.value)
+    return
   landOn = land
-  if (claimFocus) wall.value?.claimFocus()
+  if (claimFocus)
+    wall.value?.claimFocus()
   void wq.setPage(to)
 }
 
@@ -257,29 +339,36 @@ let findTimer: number | null = null
 let findSubmission = 0
 function cancelFind(): void {
   findSubmission++
-  if (findTimer !== null) window.clearTimeout(findTimer)
+  if (findTimer !== null)
+    window.clearTimeout(findTimer)
   findTimer = null
 }
 watch(findText, (value) => {
   cancelFind()
-  if (value.trim() === wq.q.value) return
+  if (value.trim() === wq.q.value)
+    return
   findTimer = window.setTimeout(() => {
     findTimer = null
-    void wq.setFilters({ q: value.trim() })
+    void wq.setFilters({
+      q: value.trim(),
+    })
   }, 200)
 })
 watch(wq.q, (q) => {
-  if (q === findText.value.trim()) return
+  if (q === findText.value.trim())
+    return
   cancelFind()
   findText.value = q
 })
 onBeforeUnmount(cancelFind)
 
 async function submitFind(event: KeyboardEvent): Promise<void> {
-  if (event.isComposing || event.keyCode === 229) return
+  if (event.isComposing || event.keyCode === 229)
+    return
   const text = findText.value.trim()
   const code = canonicalRj(text)
-  if (!code) return
+  if (!code)
+    return
   event.preventDefault()
   cancelFind()
   const submission = findSubmission
@@ -288,15 +377,19 @@ async function submitFind(event: KeyboardEvent): Promise<void> {
   let data
   try {
     data = await queryClient.fetchQuery(worksListQueryOptions(api, filters.value))
-  } catch {
+  }
+  catch {
     // ponytail: the failed listing surfaces through the wall's own query.
     return
   }
-  if (submission !== findSubmission) return
-  const collected = data.works.filter((candidate) => candidate.copy_count > 0)
-  const exact = collected.find((candidate) => candidate.rj === code)
-  if (exact) await openWork(exact.rj)
-  else if (data.total === data.works.length && collected.length === 1) await openWork(collected[0].rj)
+  if (submission !== findSubmission)
+    return
+  const collected = data.works.filter(candidate => candidate.copy_count > 0)
+  const exact = collected.find(candidate => candidate.rj === code)
+  if (exact)
+    await openWork(exact.rj)
+  else if (data.total === data.works.length && collected.length === 1)
+    await openWork(collected[0].rj)
 }
 
 // ── Opening a work: every entry (click, tap, Enter, FIND) commits the work to
@@ -306,7 +399,10 @@ const recordReturn = useRecordWallReturn()
 async function openWork(rj: string): Promise<void> {
   await wq.select(rj)
   recordReturn({ scrollTop: wall.value?.scroller?.scrollTop ?? 0, focusRj: rj })
-  await router.push({ name: 'work-detail', params: { rj } })
+  await router.push({
+    name: 'work-detail',
+    params: { rj },
+  })
 }
 
 useWallRestore({
@@ -318,21 +414,31 @@ useWallRestore({
 // ── Keyboard: the wall's shortcuts register with the keymap. ──
 const { playWork } = usePlayWork()
 function playSelected(): void {
-  const work = works.value.find((candidate) => candidate.rj === selectedRj.value)
-  if (work) void playWork({ rj: work.rj, title: work.title ?? work.rj })
+  const work = works.value.find(candidate => candidate.rj === selectedRj.value)
+  if (work)
+    void playWork({ rj: work.rj, title: work.title ?? work.rj })
 }
 
 // defineExpose unwraps the computed, so the instance carries the number.
 useKeymap({
   'wall.move': (event) => {
     const cols = wall.value?.columns ?? 1
-    const moves: Record<string, number> = { ArrowRight: 1, ArrowLeft: -1, ArrowDown: cols, ArrowUp: -cols }
+    const moves: Record<string, number> = {
+      ArrowRight: 1,
+      ArrowLeft: -1,
+      ArrowDown: cols,
+      ArrowUp: -cols,
+    }
     wall.value?.move(moves[event.key])
   },
-  'wall.page': (event) => void turnPage(wq.page.value + (event.key === 'PageDown' ? 1 : -1), 'first', true),
+  'wall.page': event => void turnPage(wq.page.value + (event.key === 'PageDown'
+    ? 1
+    : -1), 'first', true),
   'wall.play': playSelected,
   // Space is the player's: browsing never interrupts playback.
-  'wall.open': () => (selectedRj.value === null ? false : void openWork(selectedRj.value)),
+  'wall.open': () => (selectedRj.value === null
+    ? false
+    : void openWork(selectedRj.value)),
 })
 </script>
 
@@ -344,9 +450,11 @@ useKeymap({
         <LibrarySwitcher />
       </div>
       <div class="header-meta">
-        <button class="btn btn-s" type="button" :aria-pressed="libraryUi.veil"
+        <button
+          class="btn btn-s" type="button" :aria-pressed="libraryUi.veil"
           title="观看者选项：R18 作品的封面与插画先以排线遮盖"
-          @click="libraryUi.toggleVeil()">R18<span class="veil-state">{{ libraryUi.veil ? ' VEIL ON' : ' VEIL OFF' }}</span></button>
+          @click="libraryUi.toggleVeil()"
+        >R18<span class="veil-state">{{ libraryUi.veil ? ' VEIL ON' : ' VEIL OFF' }}</span></button>
         <span class="lbl count">WORKS<b>{{ total }}</b></span>
       </div>
     </header>
@@ -367,7 +475,7 @@ useKeymap({
         <RailSelect v-model="size" class="size" label="SIZE" :options="SIZE_OPTIONS" />
         <label class="find">
           <span class="lbl">FIND</span>
-          <input v-model="findText" type="text" placeholder="RJ / TITLE" @keydown.enter="submitFind" />
+          <input v-model="findText" type="text" placeholder="RJ / TITLE" @keydown.enter="submitFind">
         </label>
       </div>
     </div>
@@ -378,9 +486,11 @@ useKeymap({
           <p v-if="!listable" class="lbl notice" role="alert">地址中的筛选条件过长，未列出作品；请在筛选栏清除部分条件。</p>
           <p v-else-if="settled && total === 0" class="lbl notice">没有作品</p>
         </div>
-        <WorkWall ref="wall" :works="works" :selected-rj="selectedRj" :playing-rj="player.rj"
+        <WorkWall
+          ref="wall" :works="works" :selected-rj="selectedRj" :playing-rj="player.rj"
           @select="wq.select($event)" @open="openWork"
-          @edge="(direction) => turnPage(wq.page.value + direction, direction < 0 ? 'last' : 'first', true)" />
+          @edge="(direction) => turnPage(wq.page.value + direction, direction < 0 ? 'last' : 'first', true)"
+        />
         <WorkPager :page="wq.page.value" :page-count="pageCount" @go="turnPage" />
       </div>
       <!-- A phone has no inspector: a tap routes to the detail page instead. -->

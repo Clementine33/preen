@@ -64,13 +64,12 @@ describe('WorkColophon', () => {
     expect(lines).toEqual([
       '日语原作 RJ01287230HELD',
       '简中页面 RJ01289610→翻译 RJ01289611HELD·翻译 RJ01289700',
-      '繁中页面 RJ01291590外部',
+      '繁中页面 RJ01291590',
     ])
     const links = wrapper.findAll('.ed a').map((a) => [a.attributes('href'), a.attributes('target')])
-    // Collected works open locally (not the work itself); the external node opens its source page.
+    // Collected works open locally (not the work itself); the external node is plain text.
     expect(links).toEqual([
       ['/works/RJ01287230', undefined], ['/works/RJ01289610', undefined], ['/works/RJ01289700', undefined],
-      ['https://www.dlsite.com/maniax/work/=/product_id/RJ01291590.html', '_blank'],
     ])
     expect(wrapper.text()).not.toContain('关系')
   })
@@ -105,7 +104,7 @@ describe('WorkColophon', () => {
     expect(wrapper.findAll('.ed-line').map((line) => line.text())).toEqual([
       '日语原作 RJ01287230HELD',
       '简中页面 RJ01289610→翻译 RJ01289611HELD',
-      '繁中页面 RJ01291590外部',
+      '繁中页面 RJ01291590',
     ])
   })
 

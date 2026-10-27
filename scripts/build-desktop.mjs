@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /** Build the shared web assets and both desktop binaries in their installed layout. */
-import { spawnSync } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -36,11 +36,17 @@ function build() {
   const output = path.join(root, 'dist', dev ? 'desktop-dev' : 'desktop', `${goos}-${goarch}`)
   const shell = path.join(output, goos === 'windows' ? 'preen-desktop.exe' : 'bin/preen-desktop')
   const backend = path.join(output, goos === 'windows' ? 'bin/preen.exe' : 'lib/preen/preen')
-  run('pnpm', ['--dir', 'frontend/web', 'build'])
-  const assets = path.join(root, 'desktop/assets')
-  rmSync(assets, { recursive: true, force: true })
-  cpSync(path.join(root, 'frontend/web/dist'), assets, { recursive: true })
-  writeFileSync(path.join(assets, '.gitkeep'), '')
+  // Development serves the web app from Vite through Wails, so edits reload in place.
+  const webDir = path.join(root, 'frontend/web')
+  const vite = dev && spawn(process.execPath, [path.join(webDir, 'node_modules/vite/bin/vite.js'), '--host', '127.0.0.1', '--port', '5174', '--strictPort'], { cwd: webDir, env: { ...process.env, PREEN_VUE_DEVTOOLS: '0' }, stdio: 'inherit' })
+  process.on('exit', () => vite && vite.kill())
+  if (!dev) {
+    run('pnpm', ['--dir', webDir, 'build'])
+    const assets = path.join(root, 'desktop/assets')
+    rmSync(assets, { recursive: true, force: true })
+    cpSync(path.join(root, 'frontend/web/dist'), assets, { recursive: true })
+    writeFileSync(path.join(assets, '.gitkeep'), '')
+  }
   rmSync(output, { recursive: true, force: true })
   mkdirSync(path.dirname(backend), { recursive: true })
   mkdirSync(path.dirname(shell), { recursive: true })
@@ -49,7 +55,7 @@ function build() {
   run('go', ['build', '-trimpath', ...(dev ? [] : ['-tags', 'production']), '-ldflags', `${goos === 'windows' ? '-H windowsgui ' : ''}-X main.version=${version}`, '-o', shell, '.'], path.join(root, 'desktop'), env)
   console.log(`Desktop ${version}: ${output}`)
   if (dev) {
-    run(shell, [], root, { ...process.env, XDG_DATA_HOME: path.join(root, '.dev_data/desktop') })
+    run(shell, [], root, { ...process.env, XDG_DATA_HOME: path.join(root, '.dev_data/desktop'), FRONTEND_DEVSERVER_URL: 'http://127.0.0.1:5174' })
   }
 }
 

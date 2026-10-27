@@ -7,7 +7,9 @@ import VueDevTools from 'vite-plugin-vue-devtools'
 
 // https://vite.dev/config/
 export default defineConfig(() => ({
-  plugins: [vue(), tailwindcss(), VueDevTools()],
+  // The Desktop Shell's dev mode drops the in-page Vue devtools, which slow
+  // WebKitGTK markedly; the WebKit inspector remains.
+  plugins: [vue(), tailwindcss(), ...(process.env.PREEN_VUE_DEVTOOLS === '0' ? [] : [VueDevTools()])],
   server: {
     proxy: process.env.PREEN_BACKEND_URL
       ? {

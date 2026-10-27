@@ -5,9 +5,13 @@ import (
 	"context"
 	"embed"
 	"fmt"
+	"io/fs"
 	"log"
+	"net/http"
+	"net/url"
 	"os"
 	"runtime"
+	"strings"
 	"sync"
 
 	"github.com/Clementine33/preen/desktop/supervisor"
@@ -57,6 +61,23 @@ func (d *Desktop) fail(err error) {
 	dialog.Show()
 }
 
+// spaAssets serves index.html for any missing file, like the service's web
+// middleware, so reloading a client route keeps the page. A Vite dev server
+// behind FRONTEND_DEVSERVER_URL does its own fallback.
+func spaAssets(files fs.FS) http.Handler {
+	handler := application.BundledAssetFileServer(files)
+	if os.Getenv("FRONTEND_DEVSERVER_URL") != "" {
+		return handler
+	}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		name := strings.TrimPrefix(r.URL.Path, "/")
+		if _, err := fs.Stat(files, "assets/"+name); err != nil && !strings.HasPrefix(name, "wails/") {
+			r.URL.Path = "/"
+		}
+		handler.ServeHTTP(w, r)
+	})
+}
+
 func startService(ctx context.Context) (*supervisor.Process, error) {
 	executable, err := os.Executable()
 	if err != nil {
@@ -69,6 +90,10 @@ func startService(ctx context.Context) (*supervisor.Process, error) {
 	origin := "wails://localhost"
 	if runtime.GOOS == "windows" {
 		origin = "http://wails.localhost"
+	}
+	// Wails moves the page onto the dev server's port.
+	if dev, err := url.Parse(os.Getenv("FRONTEND_DEVSERVER_URL")); err == nil && dev.Port() != "" {
+		origin += ":" + dev.Port()
 	}
 	plan, err := supervisor.Prepare(supervisor.Options{Executable: executable, GOOS: runtime.GOOS, Environ: os.Environ(), HomeDir: home, Origin: origin, Version: version})
 	if err != nil {
@@ -116,7 +141,7 @@ func main() {
 	app := application.New(application.Options{
 		Name:     "Preen",
 		Services: []application.Service{application.NewService(desktop)},
-		Assets:   application.AssetOptions{Handler: application.BundledAssetFileServer(assets)},
+		Assets:   application.AssetOptions{Handler: spaAssets(assets)},
 		SingleInstance: &application.SingleInstanceOptions{
 			UniqueID: "io.github.Clementine33.preen",
 			OnSecondInstanceLaunch: func(application.SecondInstanceData) {

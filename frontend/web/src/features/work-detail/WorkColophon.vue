@@ -196,9 +196,7 @@ function copyTo(copy: { copy_id: string; library_id: string; dir_id: string }) {
               <span class="tag" :aria-current="node.rj === work?.rj ? 'true' : undefined">
                 {{ ROLE_NAMES[node.role] }}
                 <RouterLink v-if="node.is_work && node.rj !== work?.rj" class="mono" :to="{ name: 'work-detail', params: { rj: node.rj } }">{{ node.rj }}</RouterLink>
-                <a v-else-if="!node.is_work && node.source_url" class="mono" :href="node.source_url" target="_blank" rel="noreferrer noopener">{{ node.rj }}</a>
                 <span v-else class="mono">{{ node.rj }}</span>
-                <span v-if="!node.is_work" class="lbl">外部</span>
                 <span v-if="node.held" class="lbl">HELD</span>
               </span>
             </template>

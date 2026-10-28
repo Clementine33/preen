@@ -124,6 +124,7 @@ func TestExecutionPoolEmptySessionSucceeds(t *testing.T) {
 func TestExecutionPoolProgressMovesToTheNextUnitBeforeItBlocks(t *testing.T) {
 	f, obs := poolFixture(t, 1, poolUnit(1), poolUnit(1))
 	obs.gate("u1")
+	defer obs.release("u1")
 	f.seedRevision("plan-progress", poolComponent("u0", "albumA"), poolComponent("u1", "albumB"))
 
 	started := f.mustStart("plan-progress", "k-progress")
@@ -131,6 +132,7 @@ func TestExecutionPoolProgressMovesToTheNextUnitBeforeItBlocks(t *testing.T) {
 	if view := f.waitCurrentComponent(t, started.ExecutionID, "u1"); view.Status != workset.ExecStatusRunning {
 		t.Fatalf("the session must still be running while u1 encodes: %+v", view)
 	}
+	obs.waitEncode(t, "u1")
 	events := obs.snapshot()
 	if indexOf(events, "encode u1#0") < 0 || indexOf(events, "return u1#0") >= 0 {
 		t.Fatalf("u1 must be encoding, not finished: %v", events)

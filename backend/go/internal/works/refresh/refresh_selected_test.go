@@ -17,6 +17,7 @@ func TestMetadataWorkersAutomaticallyRefreshOnlyExecutedScope(t *testing.T) {
 			return nil
 		},
 	)
+	enableCoverDownload(t, svc)
 	record, err := svc.CreateCurrentWorkset(t.Context(), workset.CreateCurrentRequest{
 		LibraryID: libID, OperationType: refresh.Kind, FolderPaths: names,
 	})

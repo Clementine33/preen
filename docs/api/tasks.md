@@ -139,7 +139,7 @@ required. The draft payload defaults to:
 ```json
 {
   "schema_version": 1,
-  "common": { "mode": "fill_missing", "locale": "ja-jp", "download_cover": true },
+  "common": { "mode": "fill_missing", "locale": "ja-jp", "download_cover": false },
   "members": []
 }
 ```

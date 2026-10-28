@@ -35,6 +35,7 @@ func (t worksetTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 }
 func TestWorksetRefreshCommitsMetadataAndQueuesCoversWithoutWaitingForCDN(t *testing.T) {
 	svc, cover, cat, root, names, libID, statics := worksetFixture(t)
+	enableCoverDownload(t, svc)
 	record, err := svc.CreateCurrentWorkset(
 		t.Context(),
 		workset.CreateCurrentRequest{LibraryID: libID, OperationType: refresh.Kind, FolderPaths: names},
@@ -370,6 +371,20 @@ func TestMetadataSSEIncludesResultsThatFinishOutOfOrder(t *testing.T) {
 	)
 	if err != nil || len(seen) != 2 || !terminal {
 		t.Fatalf("out-of-order component omitted: %v %v", seen, err)
+	}
+}
+
+// enableCoverDownload saves Task settings that download covers (off by
+// default), so a record created afterwards seeds its draft with them.
+func enableCoverDownload(t *testing.T, svc workset.Service) {
+	t.Helper()
+	current, err := svc.GetTaskSettings(t.Context(), refresh.Kind)
+	if err != nil {
+		t.Fatal(err)
+	}
+	payload := `{"mode":"fill_missing","locale":"ja-jp","download_cover":true}`
+	if _, err = svc.SaveTaskSettings(t.Context(), refresh.Kind, []byte(payload), current.ETag); err != nil {
+		t.Fatal(err)
 	}
 }
 

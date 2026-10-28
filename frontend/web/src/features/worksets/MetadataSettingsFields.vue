@@ -27,7 +27,7 @@ const LOCALES = [
   { value: 'zh-cn', label: '简体中文' },
   { value: 'zh-tw', label: '繁體中文' },
 ]
-const DEFAULTS: Required<MetadataSettings> = { mode: 'fill_missing', locale: 'ja-jp', download_cover: true }
+const DEFAULTS: Required<MetadataSettings> = { mode: 'fill_missing', locale: 'ja-jp', download_cover: false }
 
 const { form, query, saved } = useTaskSettingsForm({
   operation: 'metadata_refresh',

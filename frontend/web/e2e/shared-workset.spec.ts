@@ -11,7 +11,7 @@ test('select one batch and reuse its members and independent plans across tasks'
   try {
     for (const folder of folders) mkdirSync(path.join(root, folder))
     writeFileSync(path.join(root, folders[0], 'track.mp3'), 'dummy audio')
-    await page.goto('/')
+    await page.goto('/worksets')
     await page.getByRole('button', { name: '添加媒体库', exact: true }).first().click()
     await page.locator('#library-name').fill('Shared batch')
     await page.locator('#library-root').fill(root)

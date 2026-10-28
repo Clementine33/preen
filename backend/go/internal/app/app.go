@@ -89,6 +89,12 @@ func Run(ctx context.Context, cfg Config) {
 		fatal("sqlite temp directory", tempErr)
 	}
 
+	// A crash can leave capability-check scratch files behind; nothing in tmp
+	// outlives its process.
+	if rmErr := os.RemoveAll(filepath.Join(cfg.DataDir, "tmp")); rmErr != nil {
+		slog.Warn("clear scratch directory", "err", rmErr)
+	}
+
 	openRepository := sqlite.NewRepository
 	if IsDevelopmentVersion(cfg.Version) {
 		openRepository = sqlite.NewDevelopmentRepository
@@ -265,7 +271,7 @@ func buildServices(repo *sqlite.Repository, configDir, dataDir string) services 
 			conversion.New(
 				repo,
 				appconfig.NewReader(configDir),
-				func() execute.Encoder { return ffmpeg.New(ffmpeg.ToolsConfig{}) },
+				func() execute.Encoder { return ffmpeg.New(ffmpeg.ToolsConfig{TempDir: filepath.Join(dataDir, "tmp")}) },
 				media.ProbeBitrate,
 				filesystem.Recover,
 				filesystem.IsResolvedWithinRoot,

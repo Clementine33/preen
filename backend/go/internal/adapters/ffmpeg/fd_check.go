@@ -14,7 +14,12 @@ import (
 // CheckFD proves this configured binary pair can seek, encode, probe and fully
 // decode the real session's containers over regular-file standard handles.
 func (f Encoder) CheckFD(ctx context.Context, specs []reconcile.AudioOutputSpec) (failure error) {
-	dir, err := os.MkdirTemp("", "conversion-fd-")
+	if f.tempDir != "" {
+		if err := os.MkdirAll(f.tempDir, 0o700); err != nil {
+			return err
+		}
+	}
+	dir, err := os.MkdirTemp(f.tempDir, "conversion-fd-")
 	if err != nil {
 		return err
 	}

@@ -24,18 +24,21 @@ import (
 type Encoder struct {
 	path      string
 	probePath string
+	tempDir   string
 }
 
 // ToolsConfig supplies executable paths from process assembly, never config.json.
-// Empty paths use PATH.
+// Empty paths use PATH. TempDir holds the capability check's scratch files and
+// is created on demand; empty uses the system temporary directory.
 type ToolsConfig struct {
 	FFmpegPath  string
 	FFprobePath string
+	TempDir     string
 }
 
 // New builds the encoder over one pair of tool paths.
 func New(cfg ToolsConfig) execute.Encoder {
-	return Encoder{path: cfg.FFmpegPath, probePath: cfg.FFprobePath}
+	return Encoder{path: cfg.FFmpegPath, probePath: cfg.FFprobePath, tempDir: cfg.TempDir}
 }
 
 func (f Encoder) paths() (string, string) {

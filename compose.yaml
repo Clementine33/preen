@@ -1,6 +1,6 @@
 services:
   preen:
-    image: ghcr.io/clementine33/preen:0.2.0
+    image: ghcr.io/clementine33/preen:${PREEN_VERSION:?Set PREEN_VERSION in .env to a published release}
     platform: linux/amd64
     user: "1000:1000"
     ports:
@@ -12,8 +12,6 @@ services:
       - ./data:/data
       - /srv/media/audio:/media/audio
     read_only: true
-    tmpfs:
-      - /tmp:rw,nosuid,nodev,size=512m,mode=1777
     cap_drop:
       - ALL
     security_opt:

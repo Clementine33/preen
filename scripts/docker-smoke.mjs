@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
@@ -29,7 +29,7 @@ function volume(suffix) {
 function create(suffix, data, extra = [], authenticated = true) {
   const name = `${prefix}-${suffix}`
   const args = ['create', '--name', name, '--read-only', '--user', '1000:1000', '--cap-drop=ALL',
-    '--security-opt=no-new-privileges', '--tmpfs', '/tmp:rw,nosuid,nodev,size=536870912,mode=1777',
+    '--security-opt=no-new-privileges',
     '-v', `${data}:/data`, '-p', '127.0.0.1::8765', ...extra]
   if (authenticated) args.push('-e', 'PREEN_TOKEN')
   command([...args, image], authenticated ? { PREEN_TOKEN: token } : {})
@@ -89,19 +89,19 @@ function checkMediaFormats(name) {
     { ext: 'm4a', encoder: 'aac', muxer: 'ipod', codec: 'aac' },
     { ext: 'opus', encoder: 'libopus', muxer: 'opus', codec: 'opus' },
   ]
-  command(['exec', name, 'mkdir', '-p', '/tmp/formats'])
+  command(['exec', name, 'mkdir', '-p', '/data/formats'])
   for (const source of [...targets, { ext: 'aac', encoder: 'aac', muxer: 'adts', codec: 'aac' }]) {
     const path = join(scratch, `source.${source.ext}`)
     const picture = source.ext === 'mp3' ? jpeg : source.ext === 'm4a' ? cover : null
     if (source.ext !== 'wav') fixture(['-i', wav, ...(picture ? ['-i', picture, '-map', '0:a:0', '-map', '1:v:0', '-c:v', 'copy', '-disposition:v', 'attached_pic'] : []),
       '-c:a', source.encoder, '-f', source.muxer, path])
-    const input = `/tmp/formats/source.${source.ext}`
+    const input = `/data/formats/source.${source.ext}`
     command(['cp', path, `${name}:${input}`])
     const probed = JSON.parse(command(['exec', name, 'sh', '-ec', 'ffprobe -v error -show_streams -of json -fd 0 -i fd: < "$1"', 'sh', input]))
     assert.equal(probed.streams.find(stream => stream.codec_type === 'audio')?.codec_name, source.codec, `probe ${source.ext}`)
     if (picture) assert(probed.streams.some(stream => stream.disposition?.attached_pic === 1), `${source.ext} cover stream`)
     for (const target of targets) {
-      const output = `/tmp/formats/output.${target.ext}`
+      const output = `/data/formats/output.${target.ext}`
       const bitrate = ['mp3', 'm4a', 'opus'].includes(target.ext) ? '-b:a 192k' : ''
       const result = JSON.parse(command(['exec', name, 'sh', '-ec', `
         ffmpeg -nostdin -v error -xerror -fd 0 -i fd: -map 0:a:0 -map_metadata 0 -map_chapters -1 -vn \
@@ -185,13 +185,17 @@ try {
   command(['start', missing])
   assert.notEqual(command(['wait', missing]), '0', 'LAN startup without a key must fail')
   assert(!command(['logs', missing]).includes('PREEN_BACKEND_READY'))
-  // A real prior release database exercises backup and fail-closed startup in the container.
-  for (const scenario of ['upgrade', 'backup-failure', 'migration-failure']) {
+  // A prior-release database exercises backup and fail-closed startup in the container.
+  // shortcut: no release has shipped goose migrations, so the baseline stands in for the previous
+  // release at version 7 and a successful 'upgrade' cannot be built; restore it with the first real migration.
+  const migrations = new URL('../backend/go/internal/adapters/sqlite/migrations/', import.meta.url)
+  const baseline = readdirSync(migrations).find(file => file.endsWith('_initial.sql'))
+  for (const scenario of ['backup-failure', 'migration-failure']) {
     const path = join(scratch, `${scenario}.db`)
     const db = new DatabaseSync(path)
-    db.exec(readFileSync(new URL('../backend/go/internal/adapters/sqlite/migrations/00001_initial.sql', import.meta.url), 'utf8'))
+    db.exec(readFileSync(new URL(baseline, migrations), 'utf8'))
     db.exec(`CREATE TABLE goose_db_version (id INTEGER PRIMARY KEY AUTOINCREMENT, version_id INTEGER NOT NULL, is_applied INTEGER NOT NULL, tstamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
-      INSERT INTO goose_db_version(version_id,is_applied) VALUES (0,1),(1,1);`)
+      INSERT INTO goose_db_version(version_id,is_applied) VALUES (0,1),(7,1);`)
     if (scenario === 'migration-failure') db.exec('CREATE TABLE cover_candidates (conflict TEXT)')
     db.close()
     const migrationData = volume(scenario)

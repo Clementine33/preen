@@ -13,8 +13,9 @@ permissions:
 
 # Only main saves caches: PR and tag caches are invisible to other refs.
 # Conda FFmpeg adds ~350MB to each mise cache; only jobs that run it install it.
+# gopls is editor-only; CI does not need its source build or dependency downloads.
 env:
-  MISE_DISABLE_TOOLS: ffmpeg
+  MISE_DISABLE_TOOLS: ffmpeg,go:golang.org/x/tools/gopls
 
 # A new PR commit supersedes its older run. Keep main's result for shipped code.
 concurrency:
@@ -101,7 +102,7 @@ jobs:
     if: ${{ !cancelled() && needs.prepare.result == 'success' && needs.prepare.outputs.duplicate != 'true' && (github.event_name != 'pull_request' || needs.prepare.outputs.go == 'true') }}
     runs-on: ubuntu-latest
     env:
-      MISE_DISABLE_TOOLS: ''
+      MISE_DISABLE_TOOLS: go:golang.org/x/tools/gopls
     steps:
       - uses: actions/checkout@v7
       - uses: jdx/mise-action@v5
@@ -247,7 +248,7 @@ jobs:
     if: ${{ !cancelled() && github.event_name != 'pull_request' && needs.prepare.outputs.duplicate != 'true' && needs.go-test.result == 'success' }}
     runs-on: ubuntu-latest
     env:
-      MISE_DISABLE_TOOLS: ''
+      MISE_DISABLE_TOOLS: go:golang.org/x/tools/gopls
     steps:
       - uses: actions/checkout@v7
       - uses: jdx/mise-action@v5
@@ -287,7 +288,7 @@ jobs:
     if: ${{ !cancelled() && github.event_name != 'pull_request' && needs.prepare.outputs.duplicate != 'true' && needs.go-test.result == 'success' }}
     runs-on: windows-latest
     env:
-      MISE_DISABLE_TOOLS: ''
+      MISE_DISABLE_TOOLS: go:golang.org/x/tools/gopls
     steps:
       - uses: actions/checkout@v7
       - uses: jdx/mise-action@v5
@@ -315,7 +316,7 @@ jobs:
     if: ${{ !cancelled() && github.event_name != 'pull_request' && needs.prepare.outputs.duplicate != 'true' && needs.go-test.result == 'success' && needs.web-quality.result == 'success' }}
     runs-on: ubuntu-latest
     env:
-      MISE_DISABLE_TOOLS: ''
+      MISE_DISABLE_TOOLS: go:golang.org/x/tools/gopls
     steps:
       - uses: actions/checkout@v7
       - uses: jdx/mise-action@v5

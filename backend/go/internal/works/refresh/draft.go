@@ -27,7 +27,7 @@ type Draft struct {
 }
 
 func defaults() Common {
-	return Common{Mode: FillMissing, Locale: "ja-jp", DownloadCover: true}
+	return Common{Mode: FillMissing, Locale: "ja-jp", DownloadCover: false}
 }
 func validateCommon(c Common) error {
 	if c.Mode != FillMissing && c.Mode != RefreshAll && c.Mode != RefreshDynamic {

@@ -15,7 +15,12 @@ func TestFrozenFactsToleranceAndUnspecifiedFields(t *testing.T) {
 	if err := os.WriteFile(file, []byte("audio"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	for _, delta := range []time.Duration{-time.Second - time.Nanosecond, -time.Second, -time.Second + time.Nanosecond, 0, time.Second - time.Nanosecond, time.Second, time.Second + time.Nanosecond} {
+	// Windows FILETIME stores timestamps in 100ns units.
+	const step = 100 * time.Nanosecond
+	for _, delta := range []time.Duration{
+		-time.Second - step, -time.Second, -time.Second + step,
+		0, time.Second - step, time.Second, time.Second + step,
+	} {
 		mtime := time.Unix(1700000000, 0).Add(delta)
 		if err := os.Chtimes(file, mtime, mtime); err != nil {
 			t.Fatal(err)

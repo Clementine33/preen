@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	"golang.org/x/sync/errgroup"
 
@@ -110,9 +111,14 @@ func walkEntries(
 			continue
 		}
 		var info fs.FileInfo
-		if dirEntryInfoFunc != nil {
+		switch {
+		case dirEntryInfoFunc != nil:
 			info, err = dirEntryInfoFunc(d)
-		} else {
+		case runtime.GOOS == "windows" && d.IsDir():
+			// Windows enumeration can retain an old directory mtime after its
+			// children change. Reuse must compare a fresh object observation.
+			info, err = os.Lstat(entryPath)
+		default:
 			info, err = d.Info()
 		}
 		if err != nil {

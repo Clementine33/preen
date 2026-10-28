@@ -57,6 +57,7 @@ func TestSeedInventoryKeepsPOSIXRootForms(t *testing.T) {
 		{"C:/", "C:/work/disc", "C:/work/disc/cover.png"},
 		{"//server/share", "//server/share/work/disc", "//server/share/work/disc/cover.png"},
 		{"/music", "/music/work/disc", "/music/work/disc/cover.png"},
+		{filepath.FromSlash("C:/music"), "C:/music/work/disc", "C:/music/work/disc/cover.png"},
 	} {
 		t.Run(tc.root, func(t *testing.T) {
 			repo, err := sqlite.NewDevelopmentRepository(filepath.Join(t.TempDir(), "inventory.db"))

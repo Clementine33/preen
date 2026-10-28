@@ -4,6 +4,7 @@ package inventoryfixture
 import (
 	"database/sql"
 	"path"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -30,6 +31,8 @@ func SeedInventory(t testing.TB, repo interface{ DB() *sql.DB }, rows ...Row) {
 	}
 	defer tx.Rollback()
 	for _, row := range rows {
+		row.Path = filepath.ToSlash(row.Path)
+		row.RootPath = filepath.ToSlash(row.RootPath)
 		parent, name := split(row.Path)
 		if row.RootPath == "" {
 			row.RootPath = parent

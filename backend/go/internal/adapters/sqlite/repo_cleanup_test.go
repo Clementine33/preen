@@ -35,7 +35,7 @@ func TestCleanupBatchCommitsDeletionAndCountTogether(t *testing.T) {
 		Status:     "running",
 		Categories: []cleanup.Category{cleanup.ScanSessions},
 		StartedAt:  now,
-		Counts:     map[cleanup.Category]cleanup.Count{},
+		Counts:     make(map[cleanup.Category]cleanup.Count),
 	}
 	if createErr := repo.CreateCleanupRun(ctx, run); createErr != nil {
 		t.Fatal(createErr)
@@ -78,7 +78,7 @@ func TestCleanupBatchCommitsDeletionAndCountTogether(t *testing.T) {
 func TestCleanupStopCannotBeOverwrittenAndRecoveryInterrupts(t *testing.T) {
 	repo := newTestRepository(t)
 	ctx := context.Background()
-	run := cleanup.Run{ID: "run", Status: "running", Counts: map[cleanup.Category]cleanup.Count{}}
+	run := cleanup.Run{ID: "run", Status: "running", Counts: make(map[cleanup.Category]cleanup.Count)}
 	if createErr := repo.CreateCleanupRun(ctx, run); createErr != nil {
 		t.Fatal(createErr)
 	}
@@ -131,7 +131,7 @@ func TestManualCleanupIgnoresRetentionWhileAutomaticKeepsIt(t *testing.T) {
 	run := cleanup.Run{
 		ID: "manual", Status: "running",
 		Categories: []cleanup.Category{cleanup.ScanSessions, cleanup.PlanGenerations},
-		Counts:     map[cleanup.Category]cleanup.Count{},
+		Counts:     make(map[cleanup.Category]cleanup.Count),
 	}
 	if createErr := repo.CreateCleanupRun(ctx, run); createErr != nil {
 		t.Fatal(createErr)
@@ -165,7 +165,7 @@ func TestCanceledCleanupBatchRollsBackWithoutProgress(t *testing.T) {
 	); err != nil {
 		t.Fatal(err)
 	}
-	run := cleanup.Run{ID: "run", Status: "running", Counts: map[cleanup.Category]cleanup.Count{}}
+	run := cleanup.Run{ID: "run", Status: "running", Counts: make(map[cleanup.Category]cleanup.Count)}
 	if err := repo.CreateCleanupRun(ctx, run); err != nil {
 		t.Fatal(err)
 	}
@@ -214,7 +214,7 @@ func TestGenerationRecordCleanupKeepsRecordsWithAnEntry(t *testing.T) {
 	}
 	// A scan finds one file again before the batch: the recheck keeps its record.
 	inventoryfixture.SeedInventory(t, repo, inventoryfixture.Row{Path: "/music/back.m4a", RootPath: "/music"})
-	run := cleanup.Run{ID: "run", Status: "running", Counts: map[cleanup.Category]cleanup.Count{}}
+	run := cleanup.Run{ID: "run", Status: "running", Counts: make(map[cleanup.Category]cleanup.Count)}
 	if createErr := repo.CreateCleanupRun(ctx, run); createErr != nil {
 		t.Fatal(createErr)
 	}

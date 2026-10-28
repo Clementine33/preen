@@ -14,8 +14,8 @@ func (s *Service) Preview(ctx context.Context, categories []Category) (Preview, 
 	result := Preview{
 		CheckedAt:  now,
 		Categories: categories,
-		Candidates: map[Category]int64{},
-		Rules:      map[Category]Rule{},
+		Candidates: make(map[Category]int64),
+		Rules:      make(map[Category]Rule),
 	}
 	for _, category := range categories {
 		ids, err := s.store.CleanupCandidates(ctx, category, now, categories)

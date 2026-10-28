@@ -295,10 +295,13 @@ func startBackendBinary(t *testing.T, binPath, dataDir, token string, args ...st
 		_ = stdinW.Close()
 		_ = cmd.Process.Signal(os.Interrupt)
 		select {
-		case <-done:
+		case err := <-done:
+			if err != nil {
+				t.Errorf("backend shutdown: %v", err)
+			}
 		case <-time.After(5 * time.Second):
 			_ = cmd.Process.Kill()
-			<-done
+			t.Logf("forced backend shutdown: %v", <-done)
 		}
 	})
 	return proc

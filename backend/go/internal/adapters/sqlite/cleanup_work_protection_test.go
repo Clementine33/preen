@@ -12,7 +12,7 @@ func startCatalogRun(t *testing.T, repo *sqlite.Repository) {
 	t.Helper()
 	if err := repo.CreateCleanupRun(
 		t.Context(),
-		cleanup.Run{ID: "catalog", Status: "running", Counts: map[cleanup.Category]cleanup.Count{}},
+		cleanup.Run{ID: "catalog", Status: "running", Counts: make(map[cleanup.Category]cleanup.Count)},
 	); err != nil {
 		t.Fatal(err)
 	}

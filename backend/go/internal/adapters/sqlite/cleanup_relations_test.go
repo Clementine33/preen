@@ -140,7 +140,7 @@ func TestCleanupRelationsFixedPointConflictsAndEveryCommit(t *testing.T) {
 	}
 	if createErr := repo.CreateCleanupRun(
 		t.Context(),
-		cleanup.Run{ID: "reports", Status: "running", Counts: map[cleanup.Category]cleanup.Count{}},
+		cleanup.Run{ID: "reports", Status: "running", Counts: make(map[cleanup.Category]cleanup.Count)},
 	); createErr != nil {
 		t.Fatal(createErr)
 	}

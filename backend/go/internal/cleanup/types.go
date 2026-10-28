@@ -83,7 +83,7 @@ type Gate interface {
 }
 
 func Normalize(categories []Category) ([]Category, error) {
-	selected := map[Category]bool{}
+	selected := make(map[Category]bool)
 	for _, category := range categories {
 		if !slices.Contains(supportedCategories, category) {
 			return nil, ErrInvalidCategories

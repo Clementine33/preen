@@ -172,7 +172,7 @@ func availableGroups(data works.ImportRequest) []works.DataGroup {
 }
 
 func wanted(mode Mode, states map[works.DataGroup]works.SourceState) map[works.DataGroup]bool {
-	out := map[works.DataGroup]bool{}
+	out := make(map[works.DataGroup]bool)
 	for _, group := range []works.DataGroup{works.GroupCore, works.GroupStatistics, works.GroupRelations, works.GroupEditions} {
 		_, present := states[group]
 		out[group] = mode == RefreshAll ||
@@ -199,7 +199,7 @@ func retain(data works.ImportRequest, want map[works.DataGroup]bool) works.Impor
 }
 
 func missingGroups(data works.ImportRequest, want map[works.DataGroup]bool) map[works.DataGroup]bool {
-	out := map[works.DataGroup]bool{}
+	out := make(map[works.DataGroup]bool)
 	for group, needed := range want {
 		if needed {
 			out[group] = true

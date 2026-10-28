@@ -60,7 +60,7 @@ func TestCleanupReportsRechecksCurrentRootsAndEvidence(t *testing.T) {
 			}
 			if createErr := repo.CreateCleanupRun(
 				t.Context(),
-				cleanup.Run{ID: "reports", Status: "running", Counts: map[cleanup.Category]cleanup.Count{}},
+				cleanup.Run{ID: "reports", Status: "running", Counts: make(map[cleanup.Category]cleanup.Count)},
 			); createErr != nil {
 				t.Fatal(createErr)
 			}
@@ -112,7 +112,7 @@ func TestCleanupReportFailureAndCancellationRollBack(t *testing.T) {
 			)
 			if createErr := repo.CreateCleanupRun(
 				t.Context(),
-				cleanup.Run{ID: "reports", Status: "running", Counts: map[cleanup.Category]cleanup.Count{}},
+				cleanup.Run{ID: "reports", Status: "running", Counts: make(map[cleanup.Category]cleanup.Count)},
 			); createErr != nil {
 				t.Fatal(createErr)
 			}
@@ -173,7 +173,7 @@ func TestCleanupReportsWaitsForConcurrentProtectionCommit(t *testing.T) {
 			}
 			if createErr := repo.CreateCleanupRun(
 				t.Context(),
-				cleanup.Run{ID: "reports", Status: "running", Counts: map[cleanup.Category]cleanup.Count{}},
+				cleanup.Run{ID: "reports", Status: "running", Counts: make(map[cleanup.Category]cleanup.Count)},
 			); createErr != nil {
 				t.Fatal(createErr)
 			}
@@ -225,7 +225,7 @@ func TestCleanupReportCancellationInsideDeleteRollsBackGroup(t *testing.T) {
 	)
 	if err := repo.CreateCleanupRun(
 		t.Context(),
-		cleanup.Run{ID: "reports", Status: "running", Counts: map[cleanup.Category]cleanup.Count{}},
+		cleanup.Run{ID: "reports", Status: "running", Counts: make(map[cleanup.Category]cleanup.Count)},
 	); err != nil {
 		t.Fatal(err)
 	}

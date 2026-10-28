@@ -30,7 +30,7 @@ func (s *Service) Start(ctx context.Context, categories []Category) (*Run, error
 		Status:     "running",
 		Phase:      categories[0],
 		StartedAt:  time.Now().UTC(),
-		Counts:     map[Category]Count{},
+		Counts:     make(map[Category]Count),
 	}
 	for _, category := range categories {
 		run.Counts[category] = Count{}

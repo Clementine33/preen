@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -87,7 +88,7 @@ func TestComponentCapturesFinalizedStageFacts(t *testing.T) {
 			req.Files = files
 			result, err := execute.RunComponent(t.Context(), req)
 			if !files.reopened {
-				t.Fatal("staged facts were captured before writable handle closure")
+				t.Fatalf("stage was not reopened after writable handle closure: %+v, %v", result, err)
 			}
 			if replace {
 				requireStage(t, err, execute.ComponentStageMaterialize)
@@ -120,7 +121,8 @@ func (f *finalizingStageHandles) CreateStage(root, stage string) (*os.File, erro
 
 func (f *finalizingStageHandles) OpenSource(root, source string) (*os.File, error) {
 	if source == f.stage {
-		if _, err := f.writer.Stat(); !errors.Is(err, os.ErrClosed) {
+		// Stat on a closed Windows file returns a native invalid-handle error.
+		if _, err := f.writer.Seek(0, io.SeekCurrent); !errors.Is(err, os.ErrClosed) {
 			return nil, errors.New("writer still open at final-facts capture")
 		}
 		f.reopened = true

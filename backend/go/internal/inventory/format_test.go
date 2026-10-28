@@ -8,6 +8,10 @@ func TestDetectFormatGivesSidecarsNoMediaType(t *testing.T) {
 		"/lib/RJ1/._Track1.mp3":    "",
 		"/lib/RJ1/art/._cover.jpg": "",
 		"/lib/RJ1/art/cover.jpg":   "image/jpeg",
+		"/lib/RJ1/art/cover.JPEG":  "image/jpeg",
+		"/lib/RJ1/art/cover.png":   "image/png",
+		"/lib/RJ1/art/cover.gif":   "image/gif",
+		"/lib/RJ1/art/cover.webp":  "image/webp",
 	} {
 		if got := DetectFormatFromPath(path, false); got != want {
 			t.Errorf("DetectFormatFromPath(%q) = %q, want %q", path, got, want)

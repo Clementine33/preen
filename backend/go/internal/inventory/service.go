@@ -181,13 +181,7 @@ func DetectFormatFromPath(path string, isDir bool) string {
 	if ext == "" {
 		return ""
 	}
-	if mt := mime.TypeByExtension(ext); mt != "" {
-		if before, _, ok := strings.Cut(mt, ";"); ok {
-			return strings.TrimSpace(before)
-		}
-		return mt
-	}
-	// Fallbacks for common audio extensions not always present in MIME db.
+	// Supported media types must not depend on host MIME databases or registry aliases.
 	switch ext {
 	case ".mp3":
 		return "audio/mpeg"
@@ -203,9 +197,22 @@ func DetectFormatFromPath(path string, isDir bool) string {
 		return "audio/ogg"
 	case ".opus":
 		return "audio/opus"
-	default:
-		return ""
+	case ".jpg", ".jpeg":
+		return "image/jpeg"
+	case ".png":
+		return "image/png"
+	case ".gif":
+		return "image/gif"
+	case ".webp":
+		return "image/webp"
 	}
+	if mt := mime.TypeByExtension(ext); mt != "" {
+		if before, _, ok := strings.Cut(mt, ";"); ok {
+			return strings.TrimSpace(before)
+		}
+		return mt
+	}
+	return ""
 }
 
 // Pipeline runs one scan: it walks a root (or one member directory) through

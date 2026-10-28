@@ -1,3 +1,4 @@
+import type { OutboundProxy } from '@/lib/api/types'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { useApiClient } from '@/lib/api/client'
 import { queryKeys } from './query-keys'
@@ -11,12 +12,12 @@ export function useOutboundProxy() {
   })
 }
 
-/** Saves the URL; the cache takes the server's trimmed answer. */
+/** Saves the mode and URL; the cache takes the server's trimmed answer. */
 export function useSetOutboundProxy() {
   const api = useApiClient()
   const client = useQueryClient()
   return useMutation({
-    mutationFn: (url: string) => api.putOutboundProxy({ url }),
+    mutationFn: (input: OutboundProxy) => api.putOutboundProxy(input),
     onSuccess: saved => client.setQueryData(queryKeys.outboundProxy.detail(), saved),
   })
 }

@@ -135,11 +135,11 @@ type Store interface {
 	// SaveTrackFormats replaces the stored Format Preference.
 	SaveTrackFormats(formats []string, now time.Time) error
 
-	// OutboundProxy reads the stored Outbound Proxy URL; "" when never saved
-	// or direct.
-	OutboundProxy() (string, error)
-	// SaveOutboundProxy replaces the stored Outbound Proxy URL.
-	SaveOutboundProxy(url string, now time.Time) error
+	// OutboundProxy reads the stored Outbound Proxy; system mode when never
+	// saved.
+	OutboundProxy() (OutboundProxy, error)
+	// SaveOutboundProxy replaces the stored Outbound Proxy.
+	SaveOutboundProxy(proxy OutboundProxy, now time.Time) error
 
 	// DeleteWork permanently removes a work. It returns a WORK_IN_USE refusal
 	// when a copy, personal data or collection holds it.

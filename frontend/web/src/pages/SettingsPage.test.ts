@@ -1,3 +1,4 @@
+import type { OutboundProxy } from '@/lib/api/types'
 import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { createPinia } from 'pinia'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -147,29 +148,43 @@ describe('settings: format preference', () => {
 })
 
 describe('settings: outbound proxy', () => {
-  it('loads the stored URL, saves it, and keeps a refused value beside the field', async () => {
-    const putOutboundProxy = vi.fn(async (input: { url: string }) => ({
+  it('saves a picked mode at once, a typed URL on demand, and keeps a refused value beside the field', async () => {
+    const putOutboundProxy = vi.fn(async (input: OutboundProxy) => ({
+      ...input,
       url: input.url.trim(),
     }))
     const wrapper = await mountPage(apiStub({
-      getOutboundProxy: vi.fn().mockResolvedValue({ url: 'socks5://127.0.0.1:7890' }),
+      getOutboundProxy: vi.fn().mockResolvedValue({ mode: 'manual', url: 'socks5://127.0.0.1:7890' }),
       putOutboundProxy,
     }), '/settings/network')
-    const input = wrapper.get<HTMLInputElement>('[data-testid="outbound-proxy-url"]')
-    expect(input.element.value).toBe('socks5://127.0.0.1:7890')
+    const input = () => wrapper.get<HTMLInputElement>('[data-testid="outbound-proxy-url"]')
+    const pick = (mode: string) => wrapper.get(`[data-testid="outbound-proxy-settings"] [data-value="${mode}"]`).trigger('click')
+    expect(input().element.value).toBe('socks5://127.0.0.1:7890')
 
-    await input.setValue(' http://proxy:8080 ')
+    await input().setValue(' http://proxy:8080 ')
     await wrapper.get('[data-testid="outbound-proxy"]').trigger('submit')
     await flushPromises()
-    expect(putOutboundProxy).toHaveBeenLastCalledWith({ url: ' http://proxy:8080 ' })
-    expect(input.element.value).toBe('http://proxy:8080')
+    expect(putOutboundProxy).toHaveBeenLastCalledWith({ mode: 'manual', url: ' http://proxy:8080 ' })
+    expect(input().element.value).toBe('http://proxy:8080')
 
     putOutboundProxy.mockRejectedValueOnce(new ApiError(400, 'INVALID_OUTBOUND_PROXY', 'scheme must be http'))
-    await input.setValue('ftp://x')
+    await input().setValue('ftp://x')
     await wrapper.get('[data-testid="outbound-proxy"]').trigger('submit')
     await flushPromises()
     expect(wrapper.get('[data-testid="outbound-proxy-error"]').text()).toContain('scheme must be http')
-    expect(input.element.value).toBe('ftp://x')
+    expect(input().element.value).toBe('ftp://x')
+
+    // Following the system saves on the click, keeping the stored URL, and hides the field.
+    await pick('system')
+    await flushPromises()
+    expect(putOutboundProxy).toHaveBeenLastCalledWith({ mode: 'system', url: 'http://proxy:8080' })
+    expect(wrapper.find('[data-testid="outbound-proxy-url"]').exists()).toBe(false)
+
+    // Manual only reveals the field; nothing is saved until it is submitted.
+    const calls = putOutboundProxy.mock.calls.length
+    await pick('manual')
+    expect(input().element.value).toBe('http://proxy:8080')
+    expect(putOutboundProxy.mock.calls.length).toBe(calls)
   })
 })
 

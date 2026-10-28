@@ -33,7 +33,7 @@ func TestProxiedDownloadKeepsAllowlistAndSkipsDialCheck(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	client := coverhttp.NewProxied(func() (*url.URL, error) { return proxy, nil })
+	client := coverhttp.NewProxied(func(*url.URL) (*url.URL, error) { return proxy, nil })
 
 	if _, err = client.Download(ctx, "https://example.com/a.webp"); err == nil ||
 		coverdelivery.Code(err) != "UNSUPPORTED_CDN" || hits.Load() != 0 {
@@ -48,7 +48,7 @@ func TestProxiedDownloadKeepsAllowlistAndSkipsDialCheck(t *testing.T) {
 func TestProxiedDownloadFailsClosedWhenSettingIsUnreadable(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Millisecond)
 	defer cancel()
-	client := coverhttp.NewProxied(func() (*url.URL, error) { return nil, errors.New("setting unreadable") })
+	client := coverhttp.NewProxied(func(*url.URL) (*url.URL, error) { return nil, errors.New("setting unreadable") })
 	if _, err := client.Download(ctx, "https://img.dlsite.jp/a.webp"); err == nil {
 		t.Fatal("download succeeded with an unreadable proxy setting")
 	}

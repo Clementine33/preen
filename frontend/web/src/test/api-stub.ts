@@ -50,7 +50,7 @@ export function apiStub(overrides: Partial<ApiClientContract> = {}): ApiClientCo
     replaceWorkUserTags: vi.fn().mockResolvedValue([]),
     getPreferences: vi.fn().mockResolvedValue({ track_formats: [] }),
     putPreferences: vi.fn(async input => input),
-    getOutboundProxy: vi.fn().mockResolvedValue({ url: '' }),
+    getOutboundProxy: vi.fn().mockResolvedValue({ mode: 'system', url: '' }),
     putOutboundProxy: vi.fn(async input => input),
     downloadDiagnosticLog: vi.fn(),
     previewCleanup: vi.fn(),

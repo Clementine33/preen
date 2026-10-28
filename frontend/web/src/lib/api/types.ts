@@ -235,8 +235,9 @@ export interface CleanupRun {
   reason: string
 }
 
-/** The Outbound Proxy; empty means a direct connection (docs/api/outbound-proxy.md). */
+/** The Outbound Proxy; `url` applies in manual mode only (docs/api/outbound-proxy.md). */
 export interface OutboundProxy {
+  mode: 'system' | 'manual' | 'direct'
   url: string
 }
 

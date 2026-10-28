@@ -33,13 +33,14 @@ func (s *Server) putOutboundProxy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		URL *string `json:"url"`
+		Mode string  `json:"mode"`
+		URL  *string `json:"url"`
 	}
 	if decodeErr := decodeJSON(w, r, &req); decodeErr != nil {
 		writeDecodeError(w, decodeErr, "invalid outbound proxy payload")
 		return
 	}
-	proxy, refusal := service.SaveOutboundProxy(req.URL)
+	proxy, refusal := service.SaveOutboundProxy(req.Mode, req.URL)
 	if refusal != nil {
 		writeWorksError(w, refusal)
 		return

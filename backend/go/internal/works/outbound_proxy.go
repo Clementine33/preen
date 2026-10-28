@@ -5,10 +5,21 @@ import (
 	"strings"
 )
 
+// Outbound Proxy modes. System follows the operating system's proxy settings
+// for each upstream request, so a Desktop Shell's backend connects the way
+// its WebView does (ADR 0019); it is what a never-saved setting reads as.
+const (
+	ProxySystem = "system"
+	ProxyManual = "manual"
+	ProxyDirect = "direct"
+)
+
 // OutboundProxy is the deployment-wide outbound proxy for metadata sources and
-// the cover CDN. An empty URL means a direct connection.
+// the cover CDN. URL is used only in manual mode and is kept otherwise, so
+// switching back restores it.
 type OutboundProxy struct {
-	URL string `json:"url"`
+	Mode string `json:"mode"`
+	URL  string `json:"url"`
 }
 
 // outboundProxySchemes are the proxy protocols net/http speaks natively.
@@ -36,27 +47,34 @@ func ValidateOutboundProxy(raw string) (string, *Error) {
 	return raw, nil
 }
 
-// OutboundProxy reads the stored proxy; never saved reads as direct.
+// OutboundProxy reads the stored proxy.
 func (s *Service) OutboundProxy() (OutboundProxy, *Error) {
-	raw, err := s.store.OutboundProxy()
+	proxy, err := s.store.OutboundProxy()
 	if err != nil {
 		return OutboundProxy{}, asInternal(err)
 	}
-	return OutboundProxy{URL: raw}, nil
+	return proxy, nil
 }
 
-// SaveOutboundProxy replaces the stored proxy (last write wins). A missing url
-// is refused; nothing is stored on refusal.
-func (s *Service) SaveOutboundProxy(raw *string) (OutboundProxy, *Error) {
-	if raw == nil {
-		return OutboundProxy{}, Invalid(CodeInvalidOutboundProxy, "url is required")
+// SaveOutboundProxy replaces the stored proxy (last write wins). Manual mode
+// needs a url; nothing is stored on refusal.
+func (s *Service) SaveOutboundProxy(mode string, raw *string) (OutboundProxy, *Error) {
+	if mode != ProxySystem && mode != ProxyManual && mode != ProxyDirect {
+		return OutboundProxy{}, Invalid(CodeInvalidOutboundProxy, "mode must be system, manual or direct")
 	}
-	normalized, refusal := ValidateOutboundProxy(*raw)
-	if refusal != nil {
-		return OutboundProxy{}, refusal
+	proxy := OutboundProxy{Mode: mode}
+	if raw != nil {
+		normalized, refusal := ValidateOutboundProxy(*raw)
+		if refusal != nil {
+			return OutboundProxy{}, refusal
+		}
+		proxy.URL = normalized
 	}
-	if err := s.store.SaveOutboundProxy(normalized, s.now()); err != nil {
+	if mode == ProxyManual && proxy.URL == "" {
+		return OutboundProxy{}, Invalid(CodeInvalidOutboundProxy, "manual mode needs a url")
+	}
+	if err := s.store.SaveOutboundProxy(proxy, s.now()); err != nil {
 		return OutboundProxy{}, asInternal(err)
 	}
-	return OutboundProxy{URL: normalized}, nil
+	return proxy, nil
 }

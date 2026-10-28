@@ -41,7 +41,7 @@ func TestProxiedRequestsFollowTheCurrentProxyAndFailClosed(t *testing.T) {
 
 	current := proxyA
 	var failure error
-	client := scraper.NewProxied(func() (*url.URL, error) { return current, failure })
+	client := scraper.NewProxied(func(*url.URL) (*url.URL, error) { return current, failure })
 
 	if _, err := client.FetchStatic(ctx, "RJ00000001", "ja_JP"); err == nil {
 		t.Fatal("refused CONNECT succeeded")

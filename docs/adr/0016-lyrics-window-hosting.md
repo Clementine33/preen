@@ -1,4 +1,4 @@
-Status: Draft — 2026-10-27
+Status: Accepted — 2026-10-28
 
 # 0016 歌词窗口的宿主：Document PiP 与桌面壳原生窗口
 

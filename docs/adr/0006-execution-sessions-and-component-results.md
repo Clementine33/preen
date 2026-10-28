@@ -1,4 +1,4 @@
-Status: Draft — 2026-10-10
+Status: Accepted — 2026-10-28
 
 # 0006 执行会话、编码池、只读校验与安全发布
 
@@ -34,4 +34,4 @@ Status: Draft — 2026-10-10
 ## 后果
 
 - 遇到环境故障时可能留下部分成功的组件，用户需要根据返回的权威明细在下一轮规划中收敛。
-- 详细执行状态机、进度 SSE 事件及组件结果结构见 [executions.md](../api/executions.md)。性能评测数据见 [adr-performance-evidence.md](../issues/adr-performance-evidence.md#执行调度)。
+- 详细执行状态机、进度 SSE 事件及组件结果结构见 [executions.md](../api/executions.md)。性能评测数据见 [adr-performance-evidence.md](../issues/adr-performance-evidence.md#1-音频编码调度与并发收益)。

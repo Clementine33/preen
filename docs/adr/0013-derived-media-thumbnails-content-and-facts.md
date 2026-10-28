@@ -1,4 +1,4 @@
-Status: Draft — 2026-10-10
+Status: Accepted — 2026-10-28
 
 # 0013 派生媒体：缩略图、文件内容分发与后台媒体事实
 
@@ -31,4 +31,4 @@ Status: Draft — 2026-10-10
 ## 后果
 
 - 新导入作品的列表或详情页在初次打开的几秒内，可能暂时显示未知的时长或图片尺寸，后台补测提交后随通知刷新。
-- 详细 ETag 规则、Range 支持、SSE 广播及缩略图 URL 规范见 [works.md](../api/works.md#work-content-manifest)。性能对比测量见 [adr-performance-evidence.md](../issues/adr-performance-evidence.md#媒体事实补测)。
+- 详细 ETag 规则、Range 支持、SSE 广播及缩略图 URL 规范见 [works.md](../api/works.md#work-content-manifest)。性能对比测量见 [adr-performance-evidence.md](../issues/adr-performance-evidence.md#3-媒体事实分析与探测策略)。

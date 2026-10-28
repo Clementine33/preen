@@ -1,6 +1,6 @@
 # SQLite 写竞争测量
 
-日期：2026-10-11。基线：`b70dca6` 加本次关停修复；Linux/amd64、Go 1.27.1、modernc SQLite 1.59.0。
+日期：2026-10-11。测试环境：Linux/amd64、Go 1.27.1、modernc SQLite 1.59.0。
 
 ## 范围与口径
 

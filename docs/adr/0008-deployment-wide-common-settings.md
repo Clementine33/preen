@@ -1,4 +1,4 @@
-Status: Draft — 2026-10-16
+Status: Accepted — 2026-10-28
 
 # 0008 部署级公共设置
 

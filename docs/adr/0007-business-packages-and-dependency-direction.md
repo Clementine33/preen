@@ -1,4 +1,4 @@
-Status: Draft — 2026-10-10
+Status: Accepted — 2026-10-28
 
 # 0007 业务分包与依赖方向
 

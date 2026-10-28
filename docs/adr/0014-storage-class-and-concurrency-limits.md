@@ -1,4 +1,4 @@
-Status: Draft — 2026-10-18
+Status: Accepted — 2026-10-28
 
 # 0014 存储档与并发上限
 
@@ -31,5 +31,5 @@ Status: Draft — 2026-10-18
 - 媒体库存储档及按档推导已接入后端。编码会话在 worker 开始处理时、预检之前固定宽度；排队期间的档位修改会被尚未开始处理的会话读取。
 - 旧 `scan.workers`、`execute.max_io_workers` 与 `workset.generation_concurrency` 配置读取已移除；配置文件中遗留这些键会被忽略。
 - 未测前台响应性：CPU 余量比例只在 6 核 12 线程机器上验证过，后台任务是否需要更大余量待测；无超线程、大小核等拓扑未测。
-- 扫描保持作品间并发、作品内顺序遍历。在 [Btrfs 直连 HDD 冷缓存测量](../issues/archive/library-rescan/evidence-20261025.md)中，1 / 16 / 32 worker 分别约需 119 / 61 / 57 秒，读盘量均约 440 MiB：32 worker 以相近读盘量缩短等待，也给系统与磁盘提供更多请求调度机会。保留这一收益，后续是否降低并发主要看同盘交互响应性。跨文件系统表现、混合负载及具体调度机制仍待验证。
+- 扫描保持作品间并发、作品内顺序遍历。在 Btrfs 直连 HDD 冷缓存探针测量中，1 / 16 / 32 worker 分别约需 119 / 61 / 57 秒，读盘量均约 440 MiB：32 worker 以相近读盘量缩短等待，也给系统与磁盘提供更多请求调度机会。保留这一收益，后续是否降低并发主要看同盘交互响应性。跨文件系统表现、混合负载及具体调度机制仍待验证。
 - 测量数据与初始常量依据参见 [ssd-concurrency-measurement.md](../issues/ssd-concurrency-measurement.md)、[library-rescan-measurement.md](../issues/library-rescan-measurement.md) 与 [adr-performance-evidence.md](../issues/adr-performance-evidence.md)。

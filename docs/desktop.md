@@ -4,7 +4,7 @@ The Desktop Shell opens Preen in a native window and runs the same backend used 
 
 ## Windows portable zip
 
-Download the `preen-windows-portable` artifact from the manual **Windows portable desktop** workflow and extract the entire zip to a directory your user can write, such as `C:\Users\you\Apps\Preen`. Run `preen-desktop.exe` from there. Keep its `bin` directory beside it; `bin` contains the backend and bundled FFmpeg/FFprobe.
+Download `preen-<version>-windows-amd64.zip` and `SHA256SUMS` from the corresponding GitHub Release. Verify the ZIP's SHA-256 against `SHA256SUMS` (for example with PowerShell `Get-FileHash -Algorithm SHA256 <zip>`), then extract the entire ZIP to a directory your user can write, such as `C:\Users\you\Apps\Preen`. Run `preen-desktop.exe` from there. Keep its `bin` directory beside it; `bin` contains the backend and bundled FFmpeg/FFprobe.
 
 Install [Microsoft Edge WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/) if it is missing. The zip contains neither the runtime nor its installer; Preen displays the download address and exits when it cannot find the runtime. The executable is unsigned, so Windows SmartScreen may warn when you first run it.
 
@@ -13,6 +13,8 @@ Preen creates `data` beside `preen-desktop.exe`. If that directory cannot be cre
 To upgrade, close Preen, back up the complete `data` directory, and extract the new zip over the old program files, **preserving `data`**. Replace the shell and everything in `bin` together; mismatched shell and backend versions refuse to start. A fresh zip contains no user data. Release database migrations run at startup and keep pre-migration database backups under `data/backups`; a backup or migration failure stops startup. Back up media separately, since a database backup cannot undo media changes.
 
 ## Arch Linux package
+
+Arch packages are built locally and are not published as tag release assets.
 
 Install a locally built pacman package, for example:
 
@@ -84,7 +86,7 @@ On KDE Plasma under Wayland, keep it on top with a window rule: **System Setting
 
 ## Build artifacts locally
 
-Use the pinned tools in [mise.toml](../mise.toml), including nFPM 2.48.0, and install frontend dependencies with `pnpm install --frozen-lockfile`. Linux shell compilation also needs GTK4 and WebKitGTK 6.0 development libraries. Release tasks require an explicit SemVer `RAW_TAG`; missing/invalid versions and a `dev` prerelease identifier are rejected. Both binaries receive the same version.
+Use the pinned tools in [mise.toml](../mise.toml), including nFPM 2.48.0, and install frontend dependencies with `pnpm install --frozen-lockfile`. Linux shell compilation also needs GTK4 and WebKitGTK 6.0 development libraries. Release tasks require `RAW_TAG=vX.Y.Z` or `RAW_TAG=vX.Y.Z-rc.N`; development versions, other prerelease channels and build metadata are rejected. Both binaries receive the same version.
 
 On Arch Linux:
 
@@ -94,4 +96,6 @@ task desktop:package:arch RAW_TAG=v0.2.0
 
 This uses [desktop/nfpm.yaml](../desktop/nfpm.yaml) and produces `dist/preen-0.2.0-1-x86_64.pkg.tar.zst` on x86_64. `task desktop:build RAW_TAG=v0.2.0` builds without packaging, with Linux binaries at `dist/desktop/linux-amd64/bin/preen-desktop` and `dist/desktop/linux-amd64/lib/preen/preen` on amd64. `task desktop:dev` builds and runs a development version with Linux data isolated under `.dev_data/desktop/preen`.
 
-For Windows delivery, manually run [.github/workflows/desktop-windows.yml](../.github/workflows/desktop-windows.yml) with a release version such as `v0.2.0`. It builds audio tools on Ubuntu, then the shell/backend and zip on Windows; it uploads artifacts and does not create a tag or publish a Release. The underlying tasks are `desktop:ffmpeg` (requires Docker; exports `dist/desktop-ffmpeg/{bin,THIRD_PARTY_NOTICES.txt}`), `desktop:build` on Windows, then `desktop:package:windows` with the same `RAW_TAG`. The packager is [scripts/package-windows.mjs](../scripts/package-windows.mjs), and its output is `dist/preen-0.2.0-windows-amd64.zip` for this example.
+Windows delivery is automatic from a version tag through [.github/workflows/ci.yml](../.github/workflows/ci.yml). It builds audio tools on Ubuntu, then the shell/backend and ZIP on Windows, reusing the frontend quality job's production assets. The ZIP and its checksum are attached to the same GitHub Release as the container reference after all checks pass; see [release publication](docker.md#publish-a-release-maintainers) for the procedure.
+
+For local Windows packaging, run `desktop:ffmpeg` (requires Docker; exports `dist/desktop-ffmpeg/{bin,THIRD_PARTY_NOTICES.txt}`), `desktop:build` on Windows, then `desktop:package:windows` with the same `RAW_TAG`. The packager is [scripts/package-windows.mjs](../scripts/package-windows.mjs), and its output is `dist/preen-0.2.0-windows-amd64.zip` for `RAW_TAG=v0.2.0`.

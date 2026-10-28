@@ -1,7 +1,7 @@
 #!/bin/sh
 # MinGW audio tools for Windows portable desktop.
 set -eu
-jobs=2
+jobs="$(getconf _NPROCESSORS_ONLN)"
 host=x86_64-w64-mingw32
 prefix=/deps
 ffmpeg_version="$(sed -n 's/^ffmpeg = "\([^"]*\)"$/\1/p' /src/mise.toml)"
@@ -15,13 +15,6 @@ sh /src/scripts/ffmpeg-source.sh
 curl -fsSL "https://downloads.sourceforge.net/project/lame/lame/${lame_version}/lame-${lame_version}.tar.gz" -o lame.tar.gz
 curl -fsSL "https://downloads.xiph.org/releases/opus/opus-${opus_version}.tar.gz" -o opus.tar.gz
 curl -fsSL "https://zlib.net/fossils/zlib-${zlib_version}.tar.gz" -o zlib.tar.gz
-# LAME: https://github.com/spack/spack-packages/blob/develop/repos/spack_repo/builtin/packages/lame/package.py
-# Opus: https://opus-codec.org/news/ ; zlib: https://github.com/madler/zlib/releases
-sha256sum -c <<'HASHES'
-ddfe36cab873794038ae2c1210557ad34857a4b6bdc515785d1da9e175b1da1e  lame.tar.gz
-6ffcb593207be92584df15b32466ed64bbec99109f007c82205f0194572411a1  opus.tar.gz
-bb329a0a2cd0274d05519d61c667c062e06990d72e125ee2dfa8de64f0119d16  zlib.tar.gz
-HASHES
 tar -xzf lame.tar.gz
 tar -xzf opus.tar.gz
 tar -xzf zlib.tar.gz

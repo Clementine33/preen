@@ -29,7 +29,29 @@ jobs:
       go: ${{ steps.paths.outcome != 'success' || steps.paths.outputs.go == 'true' }}
       web: ${{ steps.paths.outcome != 'success' || steps.paths.outputs.web == 'true' }}
       desktop: ${{ steps.paths.outcome != 'success' || steps.paths.outputs.desktop == 'true' }}
+      version: ${{ steps.version.outputs.version }}
     steps:
+      - uses: actions/checkout@v7
+        if: github.ref_type == 'tag'
+      - uses: jdx/mise-action@v4
+        if: github.ref_type == 'tag'
+        with:
+          minimum_release_age: 7d
+          cache: true
+          cache_key_prefix: mise-release
+      - name: Validate release tag before starting checks
+        id: version
+        if: github.ref_type == 'tag'
+        env:
+          RAW_TAG: ${{ github.ref_name }}
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict'
+          import { appendFileSync } from 'node:fs'
+          import { releaseVersion } from './scripts/release-version.mjs'
+          assert(process.env.RAW_TAG.startsWith('v'), 'Release tags must start with v')
+          appendFileSync(process.env.GITHUB_OUTPUT, `version=${releaseVersion(process.env.RAW_TAG)}\n`)
+          NODE
       - id: duplicate
         if: github.event_name == 'push' && github.ref_type == 'branch'
         continue-on-error: true
@@ -44,7 +66,7 @@ jobs:
               - 'backend/go/**'
               - 'mise.toml'
               - 'Taskfile.yml'
-              - '.github/workflows/ci.yml'
+              - '.github/workflows/**'
             web:
               - 'frontend/web/**'
               - 'scripts/**'
@@ -53,21 +75,20 @@ jobs:
               - 'pnpm-workspace.yaml'
               - 'mise.toml'
               - 'Taskfile.yml'
-              - '.github/workflows/ci.yml'
+              - '.github/workflows/**'
             desktop:
               - 'desktop/**'
               - 'backend/go/**'
               - 'frontend/web/**'
-              - 'scripts/build-desktop*.mjs'
-              - 'scripts/package-windows*.mjs'
-              - 'scripts/zip-directory*.go'
+              - 'scripts/**'
+              - 'Dockerfile'
+              - '.dockerignore'
               - 'package.json'
               - 'pnpm-lock.yaml'
               - 'pnpm-workspace.yaml'
               - 'mise.toml'
               - 'Taskfile.yml'
-              - '.github/workflows/ci.yml'
-              - '.github/workflows/desktop-windows.yml'
+              - '.github/workflows/**'
 
   go-test:
     needs: prepare
@@ -119,6 +140,14 @@ jobs:
       - run: pnpm typecheck:web
       - run: pnpm test:web
       - run: pnpm build:web
+      - uses: actions/upload-artifact@v7
+        if: github.ref_type == 'tag'
+        with:
+          name: release-web
+          overwrite: true
+          path: frontend/web/dist
+          if-no-files-found: error
+          retention-days: 30
       - run: pnpm -C frontend/web exec playwright install chromium --with-deps
       - run: task test:web:browser
 
@@ -171,11 +200,10 @@ jobs:
         working-directory: desktop
         run: go build -trimpath -tags production -ldflags "-X main.version=0.2.0 ${{ runner.os == 'Windows' && '-H windowsgui' || '' }}" -o "${{ runner.temp }}/preen-desktop${{ runner.os == 'Windows' && '.exe' || '' }}" .
 
-  # Expensive checks start only after both fast suites pass. Main and manual
-  # runs are full; pull requests get the path-filtered fast suites above.
+  # Backend-only checks can start as soon as the Go suite passes.
   go-race:
-    needs: [prepare, go-test, web-quality]
-    if: ${{ !cancelled() && github.event_name != 'pull_request' && needs.prepare.outputs.duplicate != 'true' && needs.go-test.result == 'success' && needs.web-quality.result == 'success' }}
+    needs: [prepare, go-test]
+    if: ${{ !cancelled() && github.event_name != 'pull_request' && needs.prepare.outputs.duplicate != 'true' && needs.go-test.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -200,8 +228,8 @@ jobs:
         run: go test ./internal/... -race -count=1
 
   windows-smoke:
-    needs: [prepare, go-test, web-quality]
-    if: ${{ !cancelled() && github.event_name != 'pull_request' && needs.prepare.outputs.duplicate != 'true' && needs.go-test.result == 'success' && needs.web-quality.result == 'success' }}
+    needs: [prepare, go-test]
+    if: ${{ !cancelled() && github.event_name != 'pull_request' && needs.prepare.outputs.duplicate != 'true' && needs.go-test.result == 'success' }}
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7
@@ -248,13 +276,13 @@ jobs:
       - run: task e2e:web
 
   # Advisory data changes without source changes, so this never uses duplicate
-  # results. It waits for fast checks to avoid work on an already broken build.
+  # results. It waits for Go checks to avoid work on an already broken backend.
   go-vuln:
-    needs: [prepare, go-test, web-quality]
+    needs: [prepare, go-test]
     if: >-
       ${{ !cancelled() && github.event_name != 'pull_request' &&
           (needs.prepare.outputs.duplicate == 'true' ||
-           (needs.go-test.result == 'success' && needs.web-quality.result == 'success')) }}
+           needs.go-test.result == 'success') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -304,13 +332,98 @@ jobs:
           fi
 
 
-  image:
-    needs: result
-    if: github.event_name == 'push' && github.ref_type == 'tag'
+  windows-ffmpeg:
+    needs: prepare
+    if: github.ref_type == 'tag'
     runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.version.outputs.version }}
-      stable: ${{ steps.version.outputs.stable }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          target: desktop-ffmpeg
+          platforms: linux/amd64
+          outputs: type=local,dest=dist/desktop-ffmpeg
+          cache-from: type=gha,scope=preen-desktop-ffmpeg
+          cache-to: type=gha,scope=preen-desktop-ffmpeg,mode=max
+      - uses: actions/upload-artifact@v7
+        with:
+          name: windows-audio-tools
+          overwrite: true
+          path: dist/desktop-ffmpeg
+          if-no-files-found: error
+          retention-days: 30
+
+  windows-portable:
+    needs: [prepare, windows-ffmpeg, web-quality]
+    if: github.ref_type == 'tag'
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    env:
+      RAW_TAG: ${{ github.ref_name }}
+      GOARCH: amd64
+      CGO_ENABLED: '0'
+    steps:
+      - uses: actions/checkout@v7
+      - uses: jdx/mise-action@v4
+        with:
+          minimum_release_age: 7d
+          cache: true
+          cache_key_prefix: mise-desktop-portable
+      - name: Find Go cache paths
+        id: go-cache
+        run: |
+          echo "modules=$(go env GOMODCACHE)" >> "$GITHUB_OUTPUT"
+          echo "build=$(go env GOCACHE)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ${{ steps.go-cache.outputs.modules }}
+            ${{ steps.go-cache.outputs.build }}
+          key: go-${{ runner.os }}-${{ runner.arch }}-portable-${{ hashFiles('mise.toml', 'backend/go/go.sum', 'desktop/go.sum') }}-${{ github.sha }}
+          restore-keys: go-${{ runner.os }}-${{ runner.arch }}-desktop-${{ hashFiles('mise.toml', 'backend/go/go.sum', 'desktop/go.sum') }}-
+      - uses: actions/download-artifact@v8
+        with:
+          name: windows-audio-tools
+          path: dist/desktop-ffmpeg
+      - uses: actions/download-artifact@v8
+        with:
+          name: release-web
+          path: frontend/web/dist
+      - run: node scripts/build-desktop.mjs --prebuilt-web
+      - name: Verify all shared whitelist encoders are available
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict'
+          import { readFileSync } from 'node:fs'
+          import { execFileSync } from 'node:child_process'
+          const configure = readFileSync('scripts/ffmpeg-configure.sh', 'utf8')
+          const encoders = configure.match(/--enable-encoder=([^\s]+)/)[1].split(',')
+          assert.equal(encoders.length, 9)
+          const listing = execFileSync('dist/desktop-ffmpeg/bin/ffmpeg.exe', ['-hide_banner', '-encoders'], { encoding: 'utf8' })
+          const available = new Set(listing.split('\n').map(line => line.trim().split(/\s+/)[1]))
+          for (const encoder of encoders) assert(available.has(encoder), `Missing encoder: ${encoder}`)
+          NODE
+      - run: task desktop:package:windows
+      - uses: actions/upload-artifact@v7
+        with:
+          name: preen-windows-portable
+          overwrite: true
+          path: dist/preen-*-windows-amd64.zip
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
+
+  publish:
+    needs: [prepare, result, web-quality, windows-portable]
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
     steps:
       - uses: actions/checkout@v7
       - uses: jdx/mise-action@v4
@@ -318,86 +431,67 @@ jobs:
           minimum_release_age: 7d
           cache: true
           cache_key_prefix: mise-container
-      - name: Validate release tag
-        id: version
-        env:
-          RELEASE_TAG: ${{ github.ref_name }}
-        run: |
-          node --input-type=module <<'NODE'
-          import assert from 'node:assert/strict'
-          import { appendFileSync } from 'node:fs'
-          const tag = process.env.RELEASE_TAG
-          const match = /^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/.exec(tag)
-          assert(match, 'Expected vMAJOR.MINOR.PATCH with optional SemVer prerelease')
-          assert(!match[4]?.split('.').some(id => /^[0-9]+$/.test(id) && id.length > 1 && id.startsWith('0')), 'Numeric prerelease identifiers must not have leading zeros')
-          const version = tag.slice(1)
-          assert(version.length <= 128 && !match[4]?.split('.').includes('dev'), 'Invalid release image version')
-          appendFileSync(process.env.GITHUB_OUTPUT, `version=${version}\nstable=${!match[4]}\n`)
-          NODE
-      - name: Build release image without registry credentials
-        env:
-          VERSION: ${{ steps.version.outputs.version }}
-        run: |
-          docker build --platform linux/amd64 --build-arg "VERSION=$VERSION" \
-            --label "org.opencontainers.image.source=https://github.com/${GITHUB_REPOSITORY}" \
-            --label "org.opencontainers.image.revision=$GITHUB_SHA" \
-            --label "org.opencontainers.image.version=$VERSION" \
-            -t preen:release .
-      - name: Smoke test the image that will be published
-        run: node scripts/docker-smoke.mjs preen:release
-      - name: Export tested image
-        run: docker save -o /tmp/preen-image.tar preen:release
-      - uses: actions/upload-artifact@v7
-        with:
-          name: preen-image
-          path: /tmp/preen-image.tar
-          compression-level: 0
-          retention-days: 1
-
-  publish:
-    needs: image
-    runs-on: ubuntu-latest
-    permissions:
-      packages: write
-    # Serialize all versions: the existence check and latest update share a lock.
-    concurrency:
-      group: ghcr-preen-publish
-      queue: max
-      cancel-in-progress: false
-    steps:
       - uses: actions/download-artifact@v8
         with:
-          name: preen-image
-          path: /tmp
-      - run: docker load -i /tmp/preen-image.tar
-      - name: Refuse existing versions and publish tested image
+          name: release-web
+          path: frontend/web/dist
+      - uses: actions/download-artifact@v8
+        with:
+          name: preen-windows-portable
+          path: dist/release
+      - uses: docker/setup-buildx-action@v4
+      - name: Build release image without registry credentials
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: linux/amd64
+          build-contexts: web=./frontend/web/dist
+          build-args: VERSION=${{ needs.prepare.outputs.version }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ needs.prepare.outputs.version }}
+          tags: preen:release
+          load: true
+          provenance: false
+          cache-from: |
+            type=gha,scope=preen-media
+            type=gha,scope=preen-image
+          cache-to: type=gha,scope=preen-image,mode=max
+      - name: Smoke test the image that will be published
+        run: node scripts/docker-smoke.mjs preen:release
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Push tested image and create GitHub Release
         env:
-          VERSION: ${{ needs.image.outputs.version }}
-          STABLE: ${{ needs.image.outputs.stable }}
-          GHCR_USER: ${{ github.actor }}
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RAW_TAG: ${{ github.ref_name }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+        working-directory: dist/release
         run: |
-          set -euo pipefail
           image=ghcr.io/clementine33/preen
-          auth=$(curl --fail-with-body --silent --show-error \
-            --user "$GHCR_USER:$GHCR_TOKEN" \
-            'https://ghcr.io/token?service=ghcr.io&scope=repository:clementine33/preen:pull,push')
-          token=$(jq -er '.token | select(type == "string" and length > 0)' <<< "$auth")
-          echo "::add-mask::$token"
-          status=$(curl --silent --show-error --output /tmp/manifest-response --write-out '%{http_code}' \
-            --header "Authorization: Bearer $token" \
-            --header 'Accept: application/vnd.oci.image.index.v1+json, application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.docker.distribution.manifest.v2+json' \
-            "https://ghcr.io/v2/clementine33/preen/manifests/$VERSION")
-          case "$status" in
-            404) ;;
-            200) echo "Version $VERSION already exists; refusing to overwrite" >&2; exit 1 ;;
-            *) echo "Cannot verify version availability (HTTP $status); refusing to publish" >&2; exit 1 ;;
-          esac
-          trap 'docker logout ghcr.io' EXIT
-          printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GHCR_USER" --password-stdin
+          flags=()
+          latest=true
+          if [[ "$VERSION" == *-rc.* ]]; then
+            flags=(--prerelease)
+            latest=false
+          fi
+          gh release view "$RAW_TAG" >/dev/null 2>&1 && { echo "Release $RAW_TAG already exists" >&2; exit 1; }
           docker tag preen:release "$image:$VERSION"
           docker push "$image:$VERSION"
-          if [ "$STABLE" = true ]; then
+          if [ "$latest" = true ]; then
             docker tag preen:release "$image:latest"
             docker push "$image:latest"
           fi
+          reference=$(docker image inspect --format '{{index .RepoDigests 0}}' "$image:$VERSION")
+          sha256sum "preen-$VERSION-windows-amd64.zip" > SHA256SUMS
+          notes=$(printf 'Commit: `%s`\n\nContainer linux/amd64: `%s:%s`\nImage digest: `%s`\n\nWindows amd64: unsigned portable ZIP; verify with SHA256SUMS.\n' "$GITHUB_SHA" "$image" "$VERSION" "$reference")
+          gh release create "$RAW_TAG" "preen-$VERSION-windows-amd64.zip" SHA256SUMS \
+            --verify-tag \
+            --title "Preen $RAW_TAG" \
+            --latest="$latest" \
+            "${flags[@]}" \
+            --notes "$notes"

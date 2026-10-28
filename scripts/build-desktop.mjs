@@ -4,20 +4,11 @@ import { spawn, spawnSync } from 'node:child_process'
 import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { releaseVersion } from './release-version.mjs'
+
+export { releaseVersion } from './release-version.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-
-export function releaseVersion(raw) {
-  const version = raw?.replace(/^v/, '') ?? ''
-  const number = '(0|[1-9][0-9]*)'
-  const identifier = '(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)'
-  const semver = new RegExp(`^${number}\\.${number}\\.${number}(?:-${identifier}(?:\\.${identifier})*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$`)
-  const prerelease = version.split('+')[0].split('-').slice(1).join('-')
-  if (!semver.test(version) || prerelease.split('.').includes('dev')) {
-    throw new Error('RAW_TAG must be an explicit SemVer release (for example v1.2.3), without a dev prerelease identifier')
-  }
-  return version
-}
 
 function run(command, args, cwd = root, env = process.env) {
   const result = spawnSync(command, args, { cwd, env, stdio: 'inherit', shell: process.platform === 'win32' && command === 'pnpm' })
@@ -41,7 +32,9 @@ function build() {
   const vite = dev && spawn(process.execPath, [path.join(webDir, 'node_modules/vite/bin/vite.js'), '--host', '127.0.0.1', '--port', '5174', '--strictPort'], { cwd: webDir, env: { ...process.env, PREEN_VUE_DEVTOOLS: '0' }, stdio: 'inherit' })
   process.on('exit', () => vite && vite.kill())
   if (!dev) {
-    run('pnpm', ['--dir', webDir, 'build'])
+    // Tag CI supplies the assets already built and checked by web-quality.
+    if (!process.argv.includes('--prebuilt-web')) run('pnpm', ['--dir', webDir, 'build'])
+    readFileSync(path.join(webDir, 'dist/index.html'))
     const assets = path.join(root, 'desktop/assets')
     rmSync(assets, { recursive: true, force: true })
     cpSync(path.join(root, 'frontend/web/dist'), assets, { recursive: true })

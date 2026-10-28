@@ -52,6 +52,10 @@ watch([
     store.newVisit()
   if (!pending && now !== null && id !== null && now.rj === id) {
     store.bind(id, now, ref => api.workFileUrl(ref), preference.value)
+    // Arriving while this work's track plays: the page starts on that track, so LISTEN can follow it.
+    const playing = store.tracks.findIndex(t => t.key === player.trackKey)
+    if (player.rj === id && playing >= 0)
+      store.track = playing
   }
 }, { immediate: true })
 

@@ -154,7 +154,7 @@ func (completeCatalog) MetadataStates(
 	_ context.Context,
 	ids []works.WorkCode,
 ) (map[works.WorkCode]map[works.DataGroup]works.SourceState, error) {
-	full := map[works.DataGroup]works.SourceState{}
+	full := make(map[works.DataGroup]works.SourceState)
 	for _, g := range []works.DataGroup{works.GroupCore, works.GroupStatistics, works.GroupRelations, works.GroupEditions} {
 		full[g] = works.SourceState{Source: "dlsite"}
 	}

@@ -31,6 +31,14 @@ function scaffold(dirs: LibraryDir[], props: Record<string, unknown> = {}) {
       configurable: true,
       get: () => 800,
     },
+    clientHeight: {
+      configurable: true,
+      get: () => 560,
+    },
+    clientWidth: {
+      configurable: true,
+      get: () => 800,
+    },
     scrollTop: {
       configurable: true,
       get: () => top,

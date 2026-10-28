@@ -259,11 +259,21 @@ async function pick(wrapper: VueWrapper, label: string, option: string): Promise
 }
 
 // jsdom has no layout: the rail's virtualized option lists measure their
-// scroller through offsetWidth/offsetHeight, so those report the panel's size.
+// scroller's outer or client dimensions, so both report the panel's size.
 const offsetHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetHeight')!
 const offsetWidth = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetWidth')!
+const clientHeight = Object.getOwnPropertyDescriptor(Element.prototype, 'clientHeight')!
+const clientWidth = Object.getOwnPropertyDescriptor(Element.prototype, 'clientWidth')!
 beforeAll(() => {
   Object.defineProperties(HTMLElement.prototype, {
+    clientHeight: {
+      configurable: true,
+      get(this: HTMLElement) { return this.offsetHeight },
+    },
+    clientWidth: {
+      configurable: true,
+      get(this: HTMLElement) { return this.offsetWidth },
+    },
     offsetHeight: {
       configurable: true,
       get(this: HTMLElement) {
@@ -283,7 +293,12 @@ beforeAll(() => {
   })
 })
 afterAll(() => {
-  Object.defineProperties(HTMLElement.prototype, { offsetHeight, offsetWidth })
+  Object.defineProperties(HTMLElement.prototype, {
+    offsetHeight,
+    offsetWidth,
+    clientHeight,
+    clientWidth,
+  })
 })
 
 beforeEach(() => {

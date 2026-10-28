@@ -16,6 +16,14 @@ async function giveHeight(wrapper: VueWrapper): Promise<void> {
       configurable: true,
       get: () => 800,
     },
+    clientHeight: {
+      configurable: true,
+      get: () => 600,
+    },
+    clientWidth: {
+      configurable: true,
+      get: () => 800,
+    },
   })
   await flushPromises()
 }

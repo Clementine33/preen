@@ -21,7 +21,7 @@ func executionRequirements(
 	}
 	moves := []execute.MoveRequirement{}
 	specs := []reconcile.AudioOutputSpec{}
-	containers := map[reconcile.Codec]bool{}
+	containers := make(map[reconcile.Codec]bool)
 	for _, unit := range in.Units {
 		var outcome reconcile.ComponentOutcome
 		if err := json.Unmarshal(in.Outcomes[unit.Index], &outcome); err != nil {

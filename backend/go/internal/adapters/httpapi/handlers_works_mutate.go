@@ -182,12 +182,12 @@ func toWorkDetail(detail *works.WorkDetail, dirID func(works.Copy) string) workD
 			DisplayOrder:  edition.DisplayOrder,
 		})
 	}
-	for _, copy := range detail.Copies {
+	for _, workCopy := range detail.Copies {
 		out.Copies = append(out.Copies, copyResponse{
-			CopyID:    copy.ID,
-			LibraryID: copy.LibraryID,
-			RelPath:   copy.RelPath,
-			DirID:     dirID(copy),
+			CopyID:    workCopy.ID,
+			LibraryID: workCopy.LibraryID,
+			RelPath:   workCopy.RelPath,
+			DirID:     dirID(workCopy),
 		})
 	}
 	return out

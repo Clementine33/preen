@@ -77,7 +77,7 @@ func loadSourceStates(tx *sql.Tx, id works.WorkCode) (map[works.DataGroup]works.
 		return nil, err
 	}
 	defer rows.Close()
-	states := map[works.DataGroup]works.SourceState{}
+	states := make(map[works.DataGroup]works.SourceState)
 	for rows.Next() {
 		var (
 			group   string

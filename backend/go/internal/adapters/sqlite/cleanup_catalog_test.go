@@ -66,7 +66,7 @@ func TestCleanupPreviewProjectsOnlySelectedWorksAndExcludesOwnedSources(t *testi
 	}
 	notifications := 0
 	repo.OnCatalogChanged = func() { notifications++ }
-	run := cleanup.Run{ID: "catalog", Status: "running", Counts: map[cleanup.Category]cleanup.Count{}}
+	run := cleanup.Run{ID: "catalog", Status: "running", Counts: make(map[cleanup.Category]cleanup.Count)}
 	if createErr := repo.CreateCleanupRun(t.Context(), run); createErr != nil {
 		t.Fatal(createErr)
 	}

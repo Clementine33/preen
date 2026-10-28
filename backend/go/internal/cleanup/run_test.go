@@ -229,7 +229,7 @@ func TestStartupRecoveryInterruptsPersistedRunWithoutResuming(t *testing.T) {
 		ID:         "old",
 		Status:     "stopping",
 		Categories: []cleanup.Category{cleanup.ScanSessions},
-		Counts:     map[cleanup.Category]cleanup.Count{},
+		Counts:     make(map[cleanup.Category]cleanup.Count),
 	}
 	saved.Counts[cleanup.ScanSessions] = cleanup.Count{Checked: 5, Deleted: 4, Skipped: 1}
 	if createErr := repo.CreateCleanupRun(t.Context(), saved); createErr != nil {

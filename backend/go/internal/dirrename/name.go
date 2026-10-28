@@ -87,15 +87,7 @@ func planName(
 		for _, key := range fields {
 			value := work.field(key, common)
 			if key == "title" {
-				if common.StripBracketedTitle {
-					value = bracketedTitle.ReplaceAllString(value, "")
-				}
-				if common.StripTildeTitle {
-					value = tildeTitle.ReplaceAllString(value, "")
-				}
-				if common.StripBookTitle {
-					value = bookTitle.ReplaceAllString(value, "")
-				}
+				value = stripTitle(value, common)
 			}
 			if strings.TrimSpace(value) == "" {
 				o.ReasonCode = "METADATA_MISSING"
@@ -148,6 +140,20 @@ func planName(
 	o.Action = "rename"
 	return o
 }
+
+func stripTitle(value string, common Common) string {
+	if common.StripBracketedTitle {
+		value = bracketedTitle.ReplaceAllString(value, "")
+	}
+	if common.StripTildeTitle {
+		value = tildeTitle.ReplaceAllString(value, "")
+	}
+	if common.StripBookTitle {
+		value = bookTitle.ReplaceAllString(value, "")
+	}
+	return value
+}
+
 func reserved(name string) bool {
 	if name == "" || name == "." || name == ".." {
 		return true

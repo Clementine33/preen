@@ -2,6 +2,7 @@ package sqlite
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 
 	"github.com/Clementine33/preen/backend/internal/librarypath"
@@ -24,8 +25,8 @@ func (r *Repository) MoveInventoryPath(ctx context.Context, root, source, target
 		return err
 	}
 	defer tx.Rollback()
-	parent, name := splitInventoryPath(source)
 	if target == "" {
+		parent, name := splitInventoryPath(source)
 		from, to := subtree(source)
 		if _, err = tx.ExecContext(
 			ctx,
@@ -66,42 +67,8 @@ func (r *Repository) MoveInventoryPath(ctx context.Context, root, source, target
 			if err = relocateCredentials(ctx, tx, source, target); err != nil {
 				return err
 			}
-		} else {
-			dir, newName := splitInventoryPath(target)
-			if parent != dir && name != newName {
-				return fmt.Errorf("inventory move changes both directory and filename")
-			}
-			if err = ensureInventoryDirectory(tx, dir, root); err != nil {
-				return err
-			}
-			if parent == dir {
-				_, err = tx.ExecContext(
-					ctx,
-					`UPDATE inventory_files SET name=? WHERE dir_ref=(SELECT id FROM inventory_dirs WHERE path=?) AND name=?`,
-					newName,
-					parent,
-					name,
-				)
-			} else {
-				_, err = tx.ExecContext(
-					ctx,
-					`UPDATE inventory_files SET dir_ref=(SELECT id FROM inventory_dirs WHERE path=?) WHERE dir_ref=(SELECT id FROM inventory_dirs WHERE path=?) AND name=?`,
-					dir,
-					parent,
-					name,
-				)
-			}
-			if err != nil {
-				return err
-			}
-			if _, err = tx.ExecContext(
-				ctx,
-				`UPDATE generation_records SET path=? WHERE path=?`,
-				target,
-				source,
-			); err != nil {
-				return err
-			}
+		} else if err = relocateInventoryFile(ctx, tx, root, source, target); err != nil {
+			return err
 		}
 	}
 	if err = tx.Commit(); err != nil {
@@ -109,4 +76,38 @@ func (r *Repository) MoveInventoryPath(ctx context.Context, root, source, target
 	}
 	r.catalogChanged()
 	return nil
+}
+
+func relocateInventoryFile(ctx context.Context, tx *sql.Tx, root, source, target string) error {
+	parent, name := splitInventoryPath(source)
+	dir, newName := splitInventoryPath(target)
+	if parent != dir && name != newName {
+		return fmt.Errorf("inventory move changes both directory and filename")
+	}
+	if err := ensureInventoryDirectory(tx, dir, root); err != nil {
+		return err
+	}
+	var err error
+	if parent == dir {
+		_, err = tx.ExecContext(
+			ctx,
+			`UPDATE inventory_files SET name=? WHERE dir_ref=(SELECT id FROM inventory_dirs WHERE path=?) AND name=?`,
+			newName,
+			parent,
+			name,
+		)
+	} else {
+		_, err = tx.ExecContext(
+			ctx,
+			`UPDATE inventory_files SET dir_ref=(SELECT id FROM inventory_dirs WHERE path=?) WHERE dir_ref=(SELECT id FROM inventory_dirs WHERE path=?) AND name=?`,
+			dir,
+			parent,
+			name,
+		)
+	}
+	if err != nil {
+		return err
+	}
+	_, err = tx.ExecContext(ctx, `UPDATE generation_records SET path=? WHERE path=?`, target, source)
+	return err
 }

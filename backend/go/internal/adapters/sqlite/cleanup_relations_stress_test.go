@@ -53,7 +53,7 @@ func TestCleanupReportGroupPerformance(t *testing.T) {
 			}
 			if createErr := repo.CreateCleanupRun(
 				t.Context(),
-				cleanup.Run{ID: "stress", Status: "running", Counts: map[cleanup.Category]cleanup.Count{}},
+				cleanup.Run{ID: "stress", Status: "running", Counts: make(map[cleanup.Category]cleanup.Count)},
 			); createErr != nil {
 				t.Fatal(createErr)
 			}

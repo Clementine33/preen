@@ -3,6 +3,7 @@
 !scripts/ffmpeg-source.sh
 !scripts/ffmpeg-configure.sh
 !scripts/build-windows-ffmpeg.sh
+!scripts/release-version.mjs
 !Dockerfile
 !mise.toml
 !package.json

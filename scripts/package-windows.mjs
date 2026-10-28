@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process'
 import { cpSync, mkdirSync, renameSync, rmSync, statSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { releaseVersion } from './build-desktop.mjs'
+import { releaseVersion } from './release-version.mjs'
 
 const repository = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 

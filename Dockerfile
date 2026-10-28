@@ -4,20 +4,24 @@ WORKDIR /src
 COPY mise.toml ./
 RUN mise trust && mise install node pnpm go
 
-FROM tools AS web
+FROM tools AS web-build
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY frontend/web/package.json frontend/web/package.json
 RUN mise exec node pnpm -- pnpm install --frozen-lockfile
 COPY frontend/web frontend/web
 RUN mise exec node pnpm -- pnpm -C frontend/web build
 
+# CI overrides this stage with the web-quality artifact as a named build context.
+FROM scratch AS web
+COPY --from=web-build /src/frontend/web/dist /
+
 FROM tools AS backend
 ARG VERSION
+COPY scripts/release-version.mjs /src/scripts/release-version.mjs
 COPY backend/go backend/go
 WORKDIR /src/backend/go
-RUN printf '%s\n' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$' \
-    && prerelease="" && case "$VERSION" in *-*) prerelease="${VERSION#*-}";; esac \
-    && case ".$prerelease." in *.dev.*) exit 1;; esac \
+RUN VERSION="$VERSION" mise exec node -- node --input-type=module -e \
+    'import { releaseVersion } from "/src/scripts/release-version.mjs"; releaseVersion(process.env.VERSION)' \
     && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 mise exec go -- go build -trimpath -ldflags "-s -w -X main.version=$VERSION" -o /out/preen ./cmd/preen
 
 FROM alpine:3.24 AS media
@@ -53,7 +57,7 @@ FROM alpine:3.24
 RUN apk add --no-cache ca-certificates opus \
     && mkdir -p /data /app/web && chown 1000:1000 /data
 COPY --from=backend /out/preen /usr/local/bin/preen
-COPY --from=web /src/frontend/web/dist /app/web
+COPY --from=web / /app/web
 COPY --from=media /out/bin /opt/ffmpeg/bin
 ENV PATH="/opt/ffmpeg/bin:$PATH" PREEN_DATA_DIR=/data
 USER 1000:1000

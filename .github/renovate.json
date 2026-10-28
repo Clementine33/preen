@@ -5,6 +5,25 @@
   "schedule": ["* * 1-7 * 6"],
   "ignoreDeps": ["go"],
   "prConcurrentLimit": 3,
+  "customManagers": [
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^mise\\.toml$/"],
+      "matchStrings": ["^ffmpeg = \"(?<currentValue>[^\"]+)\"\\r?$"],
+      "depNameTemplate": "FFmpeg/FFmpeg",
+      "datasourceTemplate": "github-tags",
+      "extractVersionTemplate": "^n(?<version>\\d+\\.\\d+(?:\\.\\d+)?)$"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^mise\\.toml$/"],
+      "matchStrings": ["^(?<depName>lame|opus|zlib) = \"(?<currentValue>[^\"]+)\"\\r?$"],
+      "depNameTemplate": "alpine_3_24/{{depName}}",
+      "datasourceTemplate": "repology",
+      "extractVersionTemplate": "^(?<version>[^-]+)-r\\d+$",
+      "versioningTemplate": "loose"
+    }
+  ],
   "packageRules": [
     {
       "matchManagers": ["github-actions"],

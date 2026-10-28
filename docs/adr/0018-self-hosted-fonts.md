@@ -1,4 +1,4 @@
-Status: Draft — 2026-10-26
+Status: Accepted — 2026-10-28
 
 # 0018 字体：同源自托管的 CJK 无衬线与衬线
 

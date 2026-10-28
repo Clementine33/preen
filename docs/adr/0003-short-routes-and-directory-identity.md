@@ -1,4 +1,4 @@
-Status: Draft — 2026-10-10
+Status: Accepted — 2026-10-28
 
 # 0003 短路由与不透明目录身份
 

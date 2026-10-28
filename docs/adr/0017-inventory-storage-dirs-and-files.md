@@ -1,4 +1,4 @@
-Status: Draft — 2026-10-25
+Status: Accepted — 2026-10-28
 
 # 0017 库存存储：目录表与文件表分离
 

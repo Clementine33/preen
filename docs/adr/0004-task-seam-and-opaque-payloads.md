@@ -1,4 +1,4 @@
-Status: Draft — 2026-10-17
+Status: Accepted — 2026-10-28
 
 # 0004 Task 接缝、不透明载荷与工作集共享批次
 

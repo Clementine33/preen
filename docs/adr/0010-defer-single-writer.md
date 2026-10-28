@@ -1,4 +1,4 @@
-Status: Draft — 2026-10-10
+Status: Accepted — 2026-10-28
 
 # 0010 暂不引入全局单写入口
 

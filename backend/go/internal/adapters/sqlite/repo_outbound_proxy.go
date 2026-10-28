@@ -3,33 +3,39 @@ package sqlite
 import (
 	"encoding/json"
 	"time"
+
+	"github.com/Clementine33/preen/backend/internal/works"
 )
 
-// outboundProxyKey is the common_settings row holding the Outbound Proxy URL.
+// outboundProxyKey is the common_settings row holding the Outbound Proxy.
 // Like preferences it is not a Task kind.
 const outboundProxyKey = "outbound_proxy"
 
-type storedOutboundProxy struct {
-	URL string `json:"url"`
-}
-
-// OutboundProxy returns the stored Outbound Proxy URL, "" when never saved. A
-// row that cannot be decoded is an error: callers must not treat it as direct.
-func (r *Repository) OutboundProxy() (string, error) {
+// OutboundProxy returns the stored Outbound Proxy, system mode when never
+// saved. A row written before modes existed reads as manual when it holds a
+// URL and direct otherwise. A row that cannot be decoded is an error: callers
+// must not treat it as direct.
+func (r *Repository) OutboundProxy() (works.OutboundProxy, error) {
 	row, err := r.GetCommonSettings(outboundProxyKey)
 	if err != nil || row == nil {
-		return "", err
+		return works.OutboundProxy{Mode: works.ProxySystem}, err
 	}
-	var stored storedOutboundProxy
+	var stored works.OutboundProxy
 	if err := json.Unmarshal([]byte(row.Settings), &stored); err != nil {
-		return "", err
+		return works.OutboundProxy{}, err
 	}
-	return stored.URL, nil
+	if stored.Mode == "" {
+		stored.Mode = works.ProxyDirect
+		if stored.URL != "" {
+			stored.Mode = works.ProxyManual
+		}
+	}
+	return stored, nil
 }
 
-// SaveOutboundProxy upserts the Outbound Proxy URL; the last write wins.
-func (r *Repository) SaveOutboundProxy(url string, now time.Time) error {
-	payload, err := json.Marshal(storedOutboundProxy{URL: url})
+// SaveOutboundProxy upserts the Outbound Proxy; the last write wins.
+func (r *Repository) SaveOutboundProxy(proxy works.OutboundProxy, now time.Time) error {
+	payload, err := json.Marshal(proxy)
 	if err != nil {
 		return err
 	}

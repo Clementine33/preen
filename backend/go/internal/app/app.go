@@ -26,6 +26,7 @@ import (
 	"github.com/Clementine33/preen/backend/internal/adapters/scraper"
 	appconfig "github.com/Clementine33/preen/backend/internal/adapters/settings"
 	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
+	"github.com/Clementine33/preen/backend/internal/adapters/sysproxy"
 	"github.com/Clementine33/preen/backend/internal/admission"
 	"github.com/Clementine33/preen/backend/internal/cleanup"
 	"github.com/Clementine33/preen/backend/internal/collections"
@@ -229,7 +230,7 @@ func buildServices(repo *sqlite.Repository, configDir, dataDir string) services 
 	// Generation refreshes inventory; conversion execution checks disk facts
 	// without writing inventory. Rename also reads current
 	// catalog metadata and immediate directory occupancy.
-	outboundProxy := newOutboundProxy(repo)
+	outboundProxy := newOutboundProxy(repo, sysproxy.Lookup)
 	worksSvc := works.NewService(
 		outboundProxy, repo, filesystem.ResolveMember, filesystem.ResolveMemberFile, media.ThumbEngineVersion,
 	)

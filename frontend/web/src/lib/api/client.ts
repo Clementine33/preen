@@ -527,7 +527,7 @@ export class ApiClient implements ApiClientContract {
     return this.request('/preferences', { method: 'PUT', body: input })
   }
 
-  // Last write wins; the answer is the trimmed URL (docs/api/outbound-proxy.md).
+  // Last write wins; the answer is the stored mode and trimmed URL (docs/api/outbound-proxy.md).
   getOutboundProxy(signal?: AbortSignal): Promise<OutboundProxy> {
     return this.request('/outbound-proxy', { signal })
   }

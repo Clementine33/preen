@@ -52,12 +52,12 @@ func New(client *http.Client) *Client {
 	return &Client{http: &copyClient, dlsite: newSourceGate(8, time.Second/10), asmr: newSourceGate(2, time.Second/3)}
 }
 
-// NewProxied connects through the proxy that proxy reports for each request;
-// a nil URL means direct. An error fails the request: an unreadable setting
-// must never fall back to a direct connection.
-func NewProxied(proxy func() (*url.URL, error)) *Client {
+// NewProxied connects through the proxy that proxy reports for each request's
+// target; a nil URL means direct. An error fails the request: an unreadable
+// setting must never fall back to a direct connection.
+func NewProxied(proxy func(target *url.URL) (*url.URL, error)) *Client {
 	tr := directTransport()
-	tr.Proxy = func(*http.Request) (*url.URL, error) { return proxy() }
+	tr.Proxy = func(r *http.Request) (*url.URL, error) { return proxy(r.URL) }
 	return New(&http.Client{Transport: tr})
 }
 

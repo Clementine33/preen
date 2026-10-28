@@ -24,6 +24,7 @@
 | [0016](0016-lyrics-window-hosting.md) | 歌词窗口的宿主：Document PiP 与桌面壳原生窗口（Windows 透明与锁定穿透，Linux 对齐 PiP） | Draft |
 | [0017](0017-inventory-storage-dirs-and-files.md) | 库存存储：目录表与文件表分离、会话临时暂存、Library 库根互不包含 | Draft |
 | [0018](0018-self-hosted-fonts.md) | 字体：同源自托管的 CJK 无衬线与衬线（Noto Sans SC Variable、Noto Serif SC Variable、IBM Plex Mono） | Draft |
+| [0019](0019-outbound-proxy-follows-the-system.md) | 出站代理：跟随系统、手动或直连（Windows WinHTTP 含 PAC；Linux KDE／GNOME／环境变量） | Draft |
 
 ## 历史编号映射表
 

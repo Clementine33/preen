@@ -298,7 +298,7 @@ An execution's request to deliver a Main Cover to one selected Copy. It can be s
 _Avoid_: Extending a metadata Execution Session until its covers finish.
 
 **Outbound Proxy**:
-The single deployment-wide outbound proxy through which the server reaches metadata sources and the cover CDN. It is edited by the user and takes effect for the next upstream request; without one, the server connects directly.
+The single deployment-wide setting for how the server reaches metadata sources and the cover CDN: following the system proxy of the computer the server runs on (the default), through one user-entered proxy URL, or directly. It takes effect for the next upstream request.
 _Avoid_: Upstream Proxy (upstream names the metadata sources themselves, not the direction this server connects); Proxy alone; the development `/api` proxy and the HTTPS reverse proxy in front of a deployment are different things.
 
 **Obsolete Audio Handling**:

@@ -2,9 +2,9 @@
 //
 // The host allowlist and redirect checks always apply. Direct connections also
 // refuse non-public addresses (dialPublic). Through the Outbound Proxy that
-// dial check is skipped, since the administrator-chosen proxy may sit on
-// loopback or the LAN and resolves the CDN host itself; the proxy comes only
-// from the user setting, never from HTTP(S)_PROXY in the environment.
+// dial check is skipped, since the chosen proxy may sit on loopback or the LAN
+// and resolves the CDN host itself; which proxy applies is decided per request
+// by the Outbound Proxy setting.
 package coverhttp
 
 import (
@@ -48,12 +48,12 @@ func New(client *http.Client) *Client {
 }
 
 // NewProxied sends requests through the proxy that proxy reports for each
-// request, direct when it reports nil. An error fails the request, never a
+// request's target, direct when it reports nil. An error fails the request, never a
 // direct fallback. The host allowlist and redirect checks apply either way;
 // the public-address dial check applies only to direct connections, because
 // the proxy address is chosen by the administrator and may be on loopback or
 // the LAN, and the proxy, not this process, then resolves the CDN host.
-func NewProxied(proxy func() (*url.URL, error)) *Client {
+func NewProxied(proxy func(target *url.URL) (*url.URL, error)) *Client {
 	direct := (&http.Transport{ForceAttemptHTTP2: true}).Clone()
 	direct.DialContext = dialPublic
 	proxied := (&http.Transport{ForceAttemptHTTP2: true}).Clone()
@@ -70,12 +70,12 @@ type proxyKey struct{}
 // transport, so a setting changed mid-request cannot pair a proxy with the
 // direct-dial check or the reverse.
 type routed struct {
-	proxy           func() (*url.URL, error)
+	proxy           func(target *url.URL) (*url.URL, error)
 	direct, proxied *http.Transport
 }
 
 func (t routed) RoundTrip(r *http.Request) (*http.Response, error) {
-	u, err := t.proxy()
+	u, err := t.proxy(r.URL)
 	if err != nil {
 		return nil, err
 	}

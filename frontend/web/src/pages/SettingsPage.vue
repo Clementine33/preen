@@ -134,7 +134,7 @@ async function logout(): Promise<void> {
           </template>
 
           <template v-else-if="section.id === 'network'">
-            <SettingsField id="outbound-proxy" label="代理服务器">
+            <SettingsField id="outbound-proxy" label="代理服务器" hint="元数据与封面下载所用；跟随系统时读取后端所在电脑的代理设置">
               <OutboundProxySettings />
             </SettingsField>
           </template>

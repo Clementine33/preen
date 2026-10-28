@@ -25,15 +25,10 @@ export class WailsDesktopAdapter implements DesktopAdapter {
     return await Call.ByName('main.Desktop.PickFolder') || null
   }
 
-  setLyricsLocked(locked: boolean): void {
-    void Call.ByName('main.Desktop.SetLyricsLocked', locked)
-  }
-
   async openLyricsWindow(
     frame: () => LyricsFrame,
     onCommand: (command: LyricsCommand) => void,
     onClose: () => void,
-    onLock?: (locked: boolean) => void,
   ): Promise<(() => void) | null> {
     if (this.closeLyrics)
       return this.closeLyrics
@@ -44,7 +39,6 @@ export class WailsDesktopAdapter implements DesktopAdapter {
       // A freshly mounted window asks for the current frame, which may not change again for a while.
       Events.On(LYRICS_EVENTS.ready, () => push(JSON.stringify(frame()))),
       Events.On(LYRICS_EVENTS.command, event => onCommand(event.data as LyricsCommand)),
-      Events.On(LYRICS_EVENTS.locked, event => onLock?.(event.data as boolean)),
       Events.On(LYRICS_EVENTS.closed, () => {
         release()
         onClose()

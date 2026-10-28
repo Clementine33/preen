@@ -1,7 +1,9 @@
 import type { LyricsFrame } from '@/lib/desktop/desktop-adapter'
 import { mount } from '@vue/test-utils'
 import { expect, it } from 'vitest'
+import { compileStyle, parse } from 'vue/compiler-sfc'
 import LyricsWindowView from './LyricsWindowView.vue'
+import source from './LyricsWindowView.vue?raw'
 
 function frame(over: Partial<LyricsFrame> = {}): LyricsFrame {
   return {
@@ -70,4 +72,37 @@ it('renders host-supplied buttons in the bar and leaves it with the three comman
   const wrapper = show({}, { host: '<button type="button" class="host">x</button>' })
   expect(wrapper.findAll('.bar button')).toHaveLength(4)
   expect(wrapper.find('.bar .host').exists()).toBe(true)
+})
+
+it('lets a transparent window clear the lyrics background, not only the page', () => {
+  const { descriptor } = parse(source)
+  const { code, errors } = compileStyle({
+    source: descriptor.styles[0].content,
+    filename: 'LyricsWindowView.vue',
+    id: 'data-v-test',
+    scoped: true,
+  })
+  expect(errors).toEqual([])
+  // Scoped compilation once dropped the trailing `.lw`, leaving the dark background on.
+  expect(code).toMatch(/html\.lw-clear \.lw[^{]*\{[^}]*background:\s*transparent/)
+})
+
+it('hides the control bar while locked, whatever the pointer or focus state', () => {
+  expect(show({}, {}).find('.lw').classes()).not.toContain('locked')
+  const wrapper = mount(LyricsWindowView, {
+    props: {
+      frame: frame(),
+      locked: true,
+    },
+  })
+  expect(wrapper.find('.lw').classes()).toContain('locked')
+  const { descriptor } = parse(source)
+  const { code } = compileStyle({
+    source: descriptor.styles[0].content,
+    filename: 'LyricsWindowView.vue',
+    id: 'data-v-test',
+    scoped: true,
+  })
+  expect(code).toMatch(/\.lw:not\(\.locked\):hover[^{]*\.bar/)
+  expect(code).not.toMatch(/\.bar:focus-within/)
 })

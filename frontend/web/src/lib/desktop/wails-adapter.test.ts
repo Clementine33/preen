@@ -47,16 +47,14 @@ async function open() {
   }))
   const onCommand = vi.fn()
   const onClose = vi.fn()
-  const onLock = vi.fn()
   const adapter = new WailsDesktopAdapter()
-  const close = await adapter.openLyricsWindow(() => (elapsed.value, frame()), onCommand, onClose, onLock)
+  const close = await adapter.openLyricsWindow(() => (elapsed.value, frame()), onCommand, onClose)
   return {
     adapter,
     close,
     elapsed,
     onCommand,
     onClose,
-    onLock,
   }
 }
 
@@ -74,13 +72,11 @@ it('pushes the frame only when its serialized value changes, and resends it when
   expect(JSON.parse(emit.mock.calls[1][1])).toMatchObject({ title: 'U' })
 })
 
-it('routes commands and lock changes, and reports the window closing', async () => {
-  const { close, onCommand, onClose, onLock } = await open()
+it('routes commands and reports the window closing', async () => {
+  const { close, onCommand, onClose } = await open()
   expect(call).toHaveBeenCalledWith('main.Desktop.OpenLyricsWindow')
   handlers.get('lyrics:command')!({ data: 'next' })
   expect(onCommand).toHaveBeenCalledWith('next')
-  handlers.get('lyrics:locked')!({ data: true })
-  expect(onLock).toHaveBeenCalledWith(true)
   close!()
   expect(call).toHaveBeenCalledWith('main.Desktop.CloseLyricsWindow')
   handlers.get('lyrics:closed')!({})
@@ -88,11 +84,9 @@ it('routes commands and lock changes, and reports the window closing', async () 
   expect(handlers.size).toBe(0)
 })
 
-it('opens once at a time, can unlock, and gives up when the shell refuses', async () => {
+it('opens once at a time and gives up when the shell refuses', async () => {
   const { adapter, close } = await open()
   expect(await adapter.openLyricsWindow(() => base, vi.fn(), vi.fn())).toBe(close)
-  adapter.setLyricsLocked(false)
-  expect(call).toHaveBeenCalledWith('main.Desktop.SetLyricsLocked', false)
   handlers.get('lyrics:closed')!({})
   call.mockRejectedValueOnce(new Error('no'))
   expect(await adapter.openLyricsWindow(() => base, vi.fn(), vi.fn())).toBeNull()

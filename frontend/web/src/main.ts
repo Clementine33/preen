@@ -62,9 +62,12 @@ async function bootstrap() {
     .mount('#app')
 }
 
-// The desktop Lyrics Window is a bare view of its own: no client, store, router or adapter.
+// The desktop Lyrics Window and its unlock chip are bare views of their own: no client, store, router or adapter.
 if (location.pathname === '/lyrics-window') {
   void import('./lib/desktop/lyrics-window-entry').then((entry) => { entry.mountLyricsWindow() })
+}
+else if (location.pathname === '/lyrics-unlock') {
+  void import('./lib/desktop/lyrics-unlock-entry').then((entry) => { entry.mountLyricsUnlock() })
 }
 else {
   void bootstrap()

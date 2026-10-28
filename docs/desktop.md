@@ -78,7 +78,7 @@ This disables the DMA-BUF renderer, which makes rendering slower and can make CS
 
 ## Lyrics Window
 
-The Lyrics Window opens from the player bar as its own window titled `Preen 歌词` and closes from its hover bar or with the main window. On Windows it has a transparent background and stays on top; its backdrop button switches to a dark background and back, remembered on this device; its lock button makes it click-through, and the player bar's lyrics button unlocks it again. On Linux it keeps a dark background and asks to stay on top, which only X11 honours: Wayland has no protocol for it.
+The Lyrics Window opens from the player bar as its own window titled `Preen 歌词` and closes from its hover bar or with the main window. On Windows it has a transparent background and stays on top; its backdrop button switches to a dark background and back, remembered on this device; its lock button makes it click-through and floats a small unlock button over its top edge, which unlocks it again (the player bar's lyrics button and `L` only open and close the window, locked or not). On Linux it keeps a dark background and asks to stay on top, which only X11 honours: Wayland has no protocol for it.
 
 On KDE Plasma under Wayland, keep it on top with a window rule: **System Settings → Window Management → Window Rules → Add New**, set **Window title** to `Preen 歌词` (Exact Match), then add **Keep above other windows**, set to **Force** and **Yes**. Other compositors offer equivalent rules matched on the window title.
 

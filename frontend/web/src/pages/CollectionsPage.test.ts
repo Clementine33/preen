@@ -181,7 +181,7 @@ describe('collectionsPage', () => {
     expect(wrapper.get('[data-testid="collection-screen"]').attributes('style')).toContain('https://img/3.jpg')
   })
 
-  it('hatches the cover of an R18 work while the veil is on', async () => {
+  it('blanks the cover of an R18 work while the veil is on', async () => {
     localStorage.setItem('preen.r18-veil', '1')
     const { api } = setup([
       work(3, { nsfw: true }),

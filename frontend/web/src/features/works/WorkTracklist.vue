@@ -94,7 +94,8 @@ function playTrack(t: number) {
   width: 100%; height: 28px; padding: 0 var(--sp-2); border-bottom: 1px solid var(--wire-fine);
   text-align: left; color: var(--fg-base); font-family: inherit; cursor: pointer;
 }
-.var { padding: var(--sp-2) var(--sp-2) var(--sp-1); font-size: var(--fs-xs); color: var(--fg-meta); border-bottom: 1px solid var(--wire-fine); }
+/* A variant is a folder name, usually Japanese: the mono face has no CJK, so it reads in the UI face. */
+.var { padding: var(--sp-2) var(--sp-2) var(--sp-1); font-family: var(--font-ui); letter-spacing: 0; font-size: var(--fs-xs); color: var(--fg-meta); border-bottom: 1px solid var(--wire-fine); }
 .trk:hover { background: var(--bg-subtle); }
 .trk:focus-visible { outline: 1px solid var(--wire-strong); outline-offset: -1px; }
 .trk .lbl { letter-spacing: .04em; }

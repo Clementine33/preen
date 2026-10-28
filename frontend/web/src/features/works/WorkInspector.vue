@@ -337,7 +337,7 @@ const playIcon = 'M1 0l9 5-9 5z'
    widening the panel — a cast or tag list is as long as the work says. */
 .spec-row {
   display: grid; grid-template-columns: 64px minmax(0, 1fr); align-items: baseline; gap: var(--sp-2);
-  min-height: 28px; padding: 8px 0 6px; border-bottom: 1px solid var(--wire-fine);
+  min-height: 28px; padding: 8px 0 6px;
 }
 .spec-row dd { font-size: var(--fs-s); line-height: var(--lh-s); font-weight: 500; overflow-wrap: anywhere; }
 /* A tag list is open-ended: two lines, the rest on hover. */

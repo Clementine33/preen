@@ -112,7 +112,8 @@ useKeymap({
 /* The duration bar is the track's weight in the whole work; the right dock and
    the phone drop it (v3). */
 .trk { display: grid; grid-template-columns: 28px minmax(0, 1fr) 48px; align-items: center; gap: var(--sp-3); height: 28px; padding: 0 var(--sp-6) 0 var(--sp-5); border-bottom: 1px solid var(--wire-fine); cursor: pointer; width: 100%; text-align: left; background: none; color: var(--fg-base); border-left: none; border-right: none; border-top: none; font-family: inherit; }
-.var { padding: var(--sp-2) var(--sp-6) var(--sp-1) var(--sp-5); font-size: var(--fs-xs); color: var(--fg-meta); border-bottom: 1px solid var(--wire-fine); }
+/* A variant is a folder name, usually Japanese: the mono face has no CJK, so it reads in the UI face. */
+.var { padding: var(--sp-2) var(--sp-6) var(--sp-1) var(--sp-5); font-family: var(--font-ui); letter-spacing: 0; font-size: var(--fs-xs); color: var(--fg-meta); border-bottom: 1px solid var(--wire-fine); }
 .trk:hover { background: var(--bg-subtle); }
 .trk.cur { outline: 1px solid var(--wire-strong); outline-offset: -1px; }
 .trk .lbl { letter-spacing: .04em; }

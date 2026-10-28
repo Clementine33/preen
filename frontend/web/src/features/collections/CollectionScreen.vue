@@ -5,8 +5,8 @@ import { useReducedMotion } from '@/composables/use-motion'
 // The picture box of the collections page: a cover rebuilt by an interlaced
 // raster scan, done in CSS (clip-path plus a line mask). The old frame powers
 // down to black, then the odd and even lines are drawn, overlapping, each pass
-// led by a beam with a short phosphor afterglow. No url shows the hatched
-// empty state; `veiled` Gaussian-blurs the picture instead. Reduced motion, or a burst of switching, swaps the cover at once.
+// led by a beam with a short phosphor afterglow. No url shows a blank
+// panel; `veiled` Gaussian-blurs the picture instead. Reduced motion, or a burst of switching, swaps the cover at once.
 const props = defineProps<{ url: string | null, instant?: boolean, veiled?: boolean }>()
 defineEmits<{ redraw: [] }>()
 
@@ -87,8 +87,8 @@ onBeforeUnmount(() => clearTimeout(timer))
 .scr-base, .scr-pass { --blur: blur(0); --zoom: 1; filter: var(--blur); transform: scale(var(--zoom)); }
 .blur { --blur: blur(28px); --zoom: 1.15; } /* the zoom hides the blur's faded edge */
 .scr-base { background: var(--cur) center / cover no-repeat; }
-/* The wall's empty/veiled cover: the same 45° hatch on the panel colour, not the dark device. */
-.screen.empty { background: linear-gradient(-45deg, transparent calc(50% - .5px), var(--wire-mid) calc(50% - .5px) calc(50% + .5px), transparent calc(50% + .5px)) 0 0 / 8px 8px, var(--bg-panel); }
+/* No cover: the bare panel colour, not the dark device. */
+.screen.empty { background: var(--bg-panel); }
 .screen.empty .scr-base { display: none; }
 .scr-pass { background: var(--new) center / cover no-repeat; clip-path: inset(0 0 100% 0); }
 .scr-pass.p1 { mask: repeating-linear-gradient(to bottom, #000 0 2px, transparent 2px 4px); }

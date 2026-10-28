@@ -67,6 +67,8 @@ function pin(): void {
         class="btn btn-s pin" type="button" :title="store.dock === 'right' ? '机库停靠底部' : '机库钉在右侧'"
         @click="pin"
       >{{ store.dock === 'right' ? 'DOCK BOTTOM' : 'PIN RIGHT' }}</button>
+      <!-- A phone has no Esc and no pin: the open drawer says how to put it away. -->
+      <button v-if="store.bayOpen && store.dock === 'bottom'" class="btn btn-s shut" type="button" @click="store.closeBay()">CLOSE</button>
     </div>
     <div class="bay-body">
       <div class="bay-inner">
@@ -110,10 +112,14 @@ function pin(): void {
 .chip:hover { border-color: var(--wire-mid); color: var(--fg-base); }
 .chip[aria-pressed='true'] { background: var(--invert-bg); color: var(--invert-fg); border-color: var(--invert-bg); font-weight: 700; }
 
+@media (min-width: 769px) {
+  .shut { display: none; }
+}
+/* dvh, as the shell is: 60vh of the large viewport outgrew a phone's visible page and left the stage no height. */
 @media (max-width: 768px) {
   .bay-tabs { padding: 0 var(--sp-4); }
   .pin, .bay-sum { display: none; }
-  [data-dock='bottom'] .bay-inner { height: 60vh; }
-  [data-dock='bottom'] .bay.open .bay-body { max-height: 60vh; }
+  [data-dock='bottom'] .bay-inner { height: 50dvh; }
+  [data-dock='bottom'] .bay.open .bay-body { max-height: 50dvh; }
 }
 </style>

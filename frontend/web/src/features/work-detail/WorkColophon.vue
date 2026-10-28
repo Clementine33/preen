@@ -325,7 +325,6 @@ function copyTo(copy: { copy_id: string, library_id: string, dir_id: string }) {
     </dl>
 
     <div class="colo-foot">
-      <span class="lbl">PREEN ARCHIVE</span>
       <span class="lbl">{{ props.compact ? 'FLIP BACK ◢' : '' }}</span>
     </div>
   </div>
@@ -339,10 +338,10 @@ function copyTo(copy: { copy_id: string, library_id: string, dir_id: string }) {
 .colo-head .strip-name::before { display: none; }
 .strip-name .jp { font-family: var(--font-ui); letter-spacing: 0; }
 .colo-title { font-family: var(--font-mincho); font-size: var(--fs-l); line-height: var(--lh-l); font-weight: 700; letter-spacing: 0; }
-.colo-box { border-top: 2px solid var(--wire-strong); border-bottom: 1px solid var(--wire-strong); }
-.colo-row { display: grid; grid-template-columns: 72px 1fr; gap: var(--sp-3); align-items: baseline; padding: 7px 0 6px; border-bottom: 1px solid var(--wire-fine); }
-.colo-row:last-child { border-bottom: none; }
-.colo-row dt { font-size: var(--fs-s); color: var(--fg-muted); letter-spacing: .3em; white-space: nowrap; }
+/* A printed 奥付: one thin rule under the title, unruled rows, labels justified to a common width. */
+.colo-title + .colo-box { border-top: 1px solid var(--wire-mid); padding-top: var(--sp-3); }
+.colo-row { display: grid; grid-template-columns: 3em 1fr; gap: var(--sp-4); align-items: baseline; padding: 5px 0; }
+.colo-row dt { font-size: var(--fs-s); color: var(--fg-muted); text-align-last: justify; white-space: nowrap; }
 .colo-row dd { font-size: var(--fs-s); font-weight: 500; min-width: 0; position: relative; }
 .mono { font-family: var(--font-mono); font-size: var(--fs-xs); letter-spacing: .06em; }
 .colo-row dd a { color: inherit; text-decoration: underline; text-decoration-color: var(--wire-mid); text-underline-offset: 3px; font-family: var(--font-mono); font-size: var(--fs-xs); word-break: break-all; }

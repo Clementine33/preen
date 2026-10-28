@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { useVirtualizer } from '@tanstack/vue-virtual'
+import type { Rect, Virtualizer } from '@tanstack/vue-virtual'
+import { observeElementRect, useVirtualizer } from '@tanstack/vue-virtual'
 import { computed, ref, watch } from 'vue'
 import { useMediaQuery, WALL_MOBILE_QUERY } from '@/composables/use-media-query'
 import { usePopupMenu } from './use-popup-menu'
@@ -80,24 +81,40 @@ const shown = computed(() => {
 })
 
 /** One row including its rule, the height `.rs-item` draws: 44px for a finger. */
-const row = computed(() => (coarse.value ? 44 : 32))
+const rowHeight = computed(() => (coarse.value ? 44 : 32))
 const LIST_MAX = 320
 const virtualizer = useVirtualizer(
   computed(() => ({
     count: shown.value.length,
     getScrollElement: () => listEl.value,
-    estimateSize: () => row.value,
+    estimateSize: () => rowHeight.value,
     overscan: 6,
     // The panel is laid out while hidden, but jsdom has no layout at all.
     initialRect: { width: 280, height: LIST_MAX },
+    // The library's own observer measures on mount, forcing a layout of the
+    // whole page as it first renders; a ResizeObserver reports after layout.
+    observeElementRect: (instance: Virtualizer<HTMLElement, Element>, report: (rect: Rect) => void) => {
+      const el = instance.scrollElement
+      if (!el || typeof ResizeObserver !== 'function')
+        return observeElementRect(instance, report)
+      const observer = new ResizeObserver(([entry]) => {
+        const box = entry.borderBoxSize[0]
+        report({
+          width: Math.round(box.inlineSize),
+          height: Math.round(box.blockSize),
+        })
+      })
+      observer.observe(el)
+      return () => observer.disconnect()
+    },
   })),
 )
 const virtualRows = computed(() => virtualizer.value.getVirtualItems())
-const listHeight = computed(() => `${Math.min(LIST_MAX, shown.value.length * row.value)}px`)
+const listHeight = computed(() => `${Math.min(LIST_MAX, shown.value.length * rowHeight.value)}px`)
 // A narrower list starts from its top, not from wherever the last one was.
 watch(search, () => virtualizer.value.scrollToOffset(0))
 // Cached row measurements are of the old height.
-watch(row, () => virtualizer.value.measure())
+watch(rowHeight, () => virtualizer.value.measure())
 // Opening shows the current value in place, even when the search box takes
 // the focus: in a thousand rows it would otherwise sit far out of view.
 watch(open, (value) => {
@@ -261,7 +278,7 @@ const chevron = 'M0 2.5h10L5 8z'
 .rs-item[aria-selected='true'] .lbl { color: var(--invert-fg); }
 .rs-empty { padding: var(--sp-3) var(--sp-2); }
 
-/* A finger needs 44px: the trigger and the rows (the virtualizer's `row`). */
+/* A finger needs 44px: the trigger and the rows (the virtualizer's `rowHeight`). */
 @media (pointer: coarse) {
   .rs-trigger { height: auto; min-height: 44px; }
   .rs-item { height: 44px; }

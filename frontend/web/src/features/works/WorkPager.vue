@@ -140,10 +140,14 @@ function travel(el: HTMLElement, fromX: number): void {
 }
 
 watch(() => [props.page, props.pageCount] as const, ([to], [from]) => {
+  // A count alone changes the row's width, which the observer below follows;
+  // measuring here would force a layout of the whole freshly rendered page.
+  if (to === from)
+    return
   const before = markX.value
   place()
   const el = row.value
-  if (to === from || !el || reduced())
+  if (!el || reduced())
     return
   // Measured in the new row where possible: the window may have shifted under
   // the pair, and the motion should go from the old number to the new one.
@@ -173,13 +177,15 @@ watch(() => [props.page, props.pageCount] as const, ([to], [from]) => {
 
 // The row appears once there is a second page, often after the first fetch.
 // From then on, a narrower window or any reflow moves the current number, so
-// the pair follows the row's size.
+// the pair follows the row's size. The observer's first report comes after
+// layout, so placing there reads it for free.
 watch(row, (el, _, onCleanup) => {
   if (!el)
     return
-  place()
-  if (typeof ResizeObserver !== 'function')
+  if (typeof ResizeObserver !== 'function') {
+    place()
     return
+  }
   const observer = new ResizeObserver(place)
   observer.observe(el)
   onCleanup(() => observer.disconnect())

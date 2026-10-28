@@ -170,9 +170,11 @@ watch([
   const cell = props.selectedRj === null
     ? null
     : cellFor(props.selectedRj)
-  cell?.scrollIntoView?.({ block: 'nearest' })
   if (claim)
     cell?.focus({ preventScroll: true })
+  // Scrolling reads layout; in the next frame that read is the frame's own
+  // layout rather than an extra one in the middle of the page's first render.
+  requestAnimationFrame(() => cell?.scrollIntoView?.({ block: 'nearest' }))
 }, { flush: 'post' })
 watch([columns, colWidth], () => placeCursor())
 onMounted(() => {

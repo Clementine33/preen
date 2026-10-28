@@ -127,7 +127,7 @@ func (d *Desktop) run(ctx context.Context) {
 		err = process.Wait()
 	}
 	if err != nil && ctx.Err() == nil {
-		d.fail(fmt.Errorf("Preen 服务无法继续运行：%w", err))
+		d.fail(fmt.Errorf("Preen 服务无法继续运行：%w", err)) //nolint:staticcheck // shown as is in the error dialog
 	}
 }
 

@@ -292,9 +292,9 @@ const scope = computed(() => {
                 <div v-if="keptFiles(component).length">
                   <dt class="mb-1 text-muted-foreground">保留文件</dt>
                   <dd class="space-y-2" data-testid="execution-kept">
-                    <div v-for="kept in keptFiles(component)" :key="kept.path">
-                      <span class="block break-all font-mono leading-relaxed" :title="kept.path">{{ filePath(kept.path, component.root_path) }}</span>
-                      <span class="text-[10px] text-muted-foreground">{{ keepReasonText(kept.reason_code) }}</span>
+                    <div v-for="file in keptFiles(component)" :key="file.path">
+                      <span class="block break-all font-mono leading-relaxed" :title="file.path">{{ filePath(file.path, component.root_path) }}</span>
+                      <span class="text-[10px] text-muted-foreground">{{ keepReasonText(file.reason_code) }}</span>
                     </div>
                   </dd>
                 </div>

@@ -26,7 +26,7 @@ func checkWebView2() bool {
 		if err != nil {
 			return ""
 		}
-		defer key.Close()
+		defer func() { _ = key.Close() }()
 		value, _, _ := key.GetStringValue("pv")
 		return value
 	})

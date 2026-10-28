@@ -105,7 +105,7 @@ func (p *Process) ResolveAPI(ctx context.Context) (API, error) {
 	}
 	if api.BaseURL == "" {
 		if result == nil {
-			result = errors.New("Preen service stopped before readiness")
+			result = errors.New("the Preen service stopped before readiness")
 		}
 		return API{}, result
 	}
@@ -139,7 +139,7 @@ func (p *Process) Stop() error {
 		select {
 		case <-p.done:
 		case <-timer.C:
-			p.stopErr = errors.Join(errors.New("Preen service did not stop within 10 seconds; forced termination"), p.cmd.Process.Kill())
+			p.stopErr = errors.Join(errors.New("the Preen service did not stop within 10 seconds; forced termination"), p.cmd.Process.Kill())
 			<-p.done
 		}
 	})
@@ -204,7 +204,7 @@ func (p *Process) handshake(line string) {
 		p.mu.Lock()
 		version := strings.TrimPrefix(fields[1], "version=")
 		if version != p.version {
-			p.readyErr = fmt.Errorf("Preen service version %q does not match Desktop Shell version %q", version, p.version)
+			p.readyErr = fmt.Errorf("the Preen service version %q does not match Desktop Shell version %q", version, p.version)
 		} else {
 			p.api = API{BaseURL: fmt.Sprintf("http://127.0.0.1:%d/api/v1", port), Token: p.token}
 		}

@@ -27,9 +27,9 @@ func TestHelperProcess(t *testing.T) {
 		os.Exit(0)
 	}
 	if mode == "long" {
-		fmt.Fprintln(os.Stdout, strings.Repeat("x", 100000))
+		_, _ = fmt.Fprintln(os.Stdout, strings.Repeat("x", 100000))
 	}
-	fmt.Fprintln(os.Stdout, "PREEN_BACKEND_READY version=0.2.0 http_port=43210")
+	_, _ = fmt.Fprintln(os.Stdout, "PREEN_BACKEND_READY version=0.2.0 http_port=43210")
 	if mode == "crash" {
 		fmt.Fprintln(os.Stderr, "crash reason")
 		os.Exit(7)

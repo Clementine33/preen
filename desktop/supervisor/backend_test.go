@@ -206,7 +206,7 @@ func assertBearer(t *testing.T, api supervisor.API, token string, want int) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 	if response.StatusCode != want {
 		t.Fatalf("Bearer request status %d, want %d", response.StatusCode, want)
 	}

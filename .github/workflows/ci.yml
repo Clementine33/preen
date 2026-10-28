@@ -11,6 +11,11 @@ on:
 permissions:
   contents: read
 
+# Only main saves caches: PR and tag caches are invisible to other refs.
+# Conda FFmpeg adds ~350MB to each mise cache; only jobs that run it install it.
+env:
+  MISE_DISABLE_TOOLS: ffmpeg
+
 # A new PR commit supersedes its older run. Keep main's result for shipped code.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -38,7 +43,8 @@ jobs:
         with:
           minimum_release_age: 7d
           cache: true
-          cache_key_prefix: mise-release
+          cache_save: ${{ github.ref == 'refs/heads/main' }}
+          cache_key_prefix: mise
       - name: Validate release tag before starting checks
         id: version
         if: github.ref_type == 'tag'
@@ -94,27 +100,41 @@ jobs:
     needs: prepare
     if: ${{ !cancelled() && needs.prepare.result == 'success' && needs.prepare.outputs.duplicate != 'true' && (github.event_name != 'pull_request' || needs.prepare.outputs.go == 'true') }}
     runs-on: ubuntu-latest
+    env:
+      MISE_DISABLE_TOOLS: ''
     steps:
       - uses: actions/checkout@v7
       - uses: jdx/mise-action@v4
         with:
           minimum_release_age: 7d
           cache: true
-          cache_key_prefix: mise-go
+          cache_save: ${{ github.ref == 'refs/heads/main' }}
+          cache_key_prefix: mise-ffmpeg
       - name: Find Go cache paths
         id: go-cache
         run: |
           echo "modules=$(go env GOMODCACHE)" >> "$GITHUB_OUTPUT"
           echo "build=$(go env GOCACHE)" >> "$GITHUB_OUTPUT"
-      - uses: actions/cache@v6
+          echo "version=$(go env GOVERSION)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache/restore@v6
+        id: go-restore
         with:
           path: |
             ${{ steps.go-cache.outputs.modules }}
             ${{ steps.go-cache.outputs.build }}
-          key: go-${{ runner.os }}-${{ runner.arch }}-normal-${{ hashFiles('mise.toml', 'backend/go/go.sum') }}-${{ github.sha }}
-          restore-keys: go-${{ runner.os }}-${{ runner.arch }}-normal-${{ hashFiles('mise.toml', 'backend/go/go.sum') }}-
+          key: go-${{ runner.os }}-${{ runner.arch }}-normal-${{ steps.go-cache.outputs.version }}-${{ hashFiles('backend/go/go.sum') }}-${{ github.sha }}
+          restore-keys: |
+            go-${{ runner.os }}-${{ runner.arch }}-normal-${{ steps.go-cache.outputs.version }}-${{ hashFiles('backend/go/go.sum') }}-
+            go-${{ runner.os }}-${{ runner.arch }}-normal-${{ steps.go-cache.outputs.version }}-
       - run: task test:go
       - run: task lint:go
+      - uses: actions/cache/save@v6
+        if: github.ref == 'refs/heads/main' && steps.go-restore.outputs.cache-hit != 'true'
+        with:
+          path: |
+            ${{ steps.go-cache.outputs.modules }}
+            ${{ steps.go-cache.outputs.build }}
+          key: ${{ steps.go-restore.outputs.cache-primary-key }}
 
   web-quality:
     needs: prepare
@@ -126,16 +146,25 @@ jobs:
         with:
           minimum_release_age: 7d
           cache: true
-          cache_key_prefix: mise-web
+          cache_save: ${{ github.ref == 'refs/heads/main' }}
+          cache_key_prefix: mise
       - name: Find pnpm store
         id: pnpm-cache
-        run: echo "path=$(pnpm store path)" >> "$GITHUB_OUTPUT"
-      - uses: actions/cache@v6
+        run: |
+          echo "path=$(pnpm store path)" >> "$GITHUB_OUTPUT"
+          echo "version=$(pnpm --version)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache/restore@v6
+        id: pnpm-restore
         with:
           path: ${{ steps.pnpm-cache.outputs.path }}
-          key: pnpm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('mise.toml') }}-${{ hashFiles('pnpm-lock.yaml') }}
-          restore-keys: pnpm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('mise.toml') }}-
+          key: pnpm-${{ runner.os }}-${{ runner.arch }}-${{ steps.pnpm-cache.outputs.version }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: pnpm-${{ runner.os }}-${{ runner.arch }}-${{ steps.pnpm-cache.outputs.version }}-
       - run: pnpm install --frozen-lockfile
+      - uses: actions/cache/save@v6
+        if: github.ref == 'refs/heads/main' && steps.pnpm-restore.outputs.cache-hit != 'true'
+        with:
+          path: ${{ steps.pnpm-cache.outputs.path }}
+          key: ${{ steps.pnpm-restore.outputs.cache-primary-key }}
       - run: pnpm lint:web
       - run: pnpm typecheck:web
       - run: pnpm test:web
@@ -170,19 +199,24 @@ jobs:
         with:
           minimum_release_age: 7d
           cache: true
-          cache_key_prefix: mise-desktop
+          cache_save: ${{ github.ref == 'refs/heads/main' }}
+          cache_key_prefix: mise
       - name: Find Go cache paths
         id: go-cache
         run: |
           echo "modules=$(go env GOMODCACHE)" >> "$GITHUB_OUTPUT"
           echo "build=$(go env GOCACHE)" >> "$GITHUB_OUTPUT"
-      - uses: actions/cache@v6
+          echo "version=$(go env GOVERSION)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache/restore@v6
+        id: go-restore
         with:
           path: |
             ${{ steps.go-cache.outputs.modules }}
             ${{ steps.go-cache.outputs.build }}
-          key: go-${{ runner.os }}-${{ runner.arch }}-desktop-${{ hashFiles('mise.toml', 'backend/go/go.sum', 'desktop/go.sum') }}-${{ github.sha }}
-          restore-keys: go-${{ runner.os }}-${{ runner.arch }}-desktop-${{ hashFiles('mise.toml', 'backend/go/go.sum', 'desktop/go.sum') }}-
+          key: go-${{ runner.os }}-${{ runner.arch }}-desktop-${{ steps.go-cache.outputs.version }}-${{ hashFiles('backend/go/go.sum', 'desktop/go.sum') }}-${{ github.sha }}
+          restore-keys: |
+            go-${{ runner.os }}-${{ runner.arch }}-desktop-${{ steps.go-cache.outputs.version }}-${{ hashFiles('backend/go/go.sum', 'desktop/go.sum') }}-
+            go-${{ runner.os }}-${{ runner.arch }}-desktop-${{ steps.go-cache.outputs.version }}-
       - name: Install Linux WebView build dependencies
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libgtk-4-dev libwebkitgtk-6.0-dev pkg-config
@@ -199,45 +233,69 @@ jobs:
       - name: Compile production desktop shell
         working-directory: desktop
         run: go build -trimpath -tags production -ldflags "-X main.version=0.2.0 ${{ runner.os == 'Windows' && '-H windowsgui' || '' }}" -o "${{ runner.temp }}/preen-desktop${{ runner.os == 'Windows' && '.exe' || '' }}" .
+      - uses: actions/cache/save@v6
+        if: github.ref == 'refs/heads/main' && steps.go-restore.outputs.cache-hit != 'true'
+        with:
+          path: |
+            ${{ steps.go-cache.outputs.modules }}
+            ${{ steps.go-cache.outputs.build }}
+          key: ${{ steps.go-restore.outputs.cache-primary-key }}
 
   # Backend-only checks can start as soon as the Go suite passes.
   go-race:
     needs: [prepare, go-test]
     if: ${{ !cancelled() && github.event_name != 'pull_request' && needs.prepare.outputs.duplicate != 'true' && needs.go-test.result == 'success' }}
     runs-on: ubuntu-latest
+    env:
+      MISE_DISABLE_TOOLS: ''
     steps:
       - uses: actions/checkout@v7
       - uses: jdx/mise-action@v4
         with:
           minimum_release_age: 7d
           cache: true
-          cache_key_prefix: mise-go-race
+          cache_save: ${{ github.ref == 'refs/heads/main' }}
+          cache_key_prefix: mise-ffmpeg
       - name: Find Go cache paths
         id: go-cache
         run: |
           echo "modules=$(go env GOMODCACHE)" >> "$GITHUB_OUTPUT"
           echo "build=$(go env GOCACHE)" >> "$GITHUB_OUTPUT"
-      - uses: actions/cache@v6
+          echo "version=$(go env GOVERSION)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache/restore@v6
+        id: go-restore
         with:
           path: |
             ${{ steps.go-cache.outputs.modules }}
             ${{ steps.go-cache.outputs.build }}
-          key: go-${{ runner.os }}-${{ runner.arch }}-race-${{ hashFiles('mise.toml', 'backend/go/go.sum') }}-${{ github.sha }}
-          restore-keys: go-${{ runner.os }}-${{ runner.arch }}-race-${{ hashFiles('mise.toml', 'backend/go/go.sum') }}-
+          key: go-${{ runner.os }}-${{ runner.arch }}-race-${{ steps.go-cache.outputs.version }}-${{ hashFiles('backend/go/go.sum') }}-${{ github.sha }}
+          restore-keys: |
+            go-${{ runner.os }}-${{ runner.arch }}-race-${{ steps.go-cache.outputs.version }}-${{ hashFiles('backend/go/go.sum') }}-
+            go-${{ runner.os }}-${{ runner.arch }}-race-${{ steps.go-cache.outputs.version }}-
       - working-directory: backend/go
         run: go test ./internal/... -race -count=1
+      - uses: actions/cache/save@v6
+        if: github.ref == 'refs/heads/main' && steps.go-restore.outputs.cache-hit != 'true'
+        with:
+          path: |
+            ${{ steps.go-cache.outputs.modules }}
+            ${{ steps.go-cache.outputs.build }}
+          key: ${{ steps.go-restore.outputs.cache-primary-key }}
 
   windows-smoke:
     needs: [prepare, go-test]
     if: ${{ !cancelled() && github.event_name != 'pull_request' && needs.prepare.outputs.duplicate != 'true' && needs.go-test.result == 'success' }}
     runs-on: windows-latest
+    env:
+      MISE_DISABLE_TOOLS: ''
     steps:
       - uses: actions/checkout@v7
       - uses: jdx/mise-action@v4
         with:
           minimum_release_age: 7d
           cache: true
-          cache_key_prefix: mise-windows
+          cache_save: ${{ github.ref == 'refs/heads/main' }}
+          cache_key_prefix: mise-ffmpeg
       - run: task build:go:windows-x64
       - name: Check external tools create no console windows on Windows
         working-directory: backend/go
@@ -256,22 +314,33 @@ jobs:
     needs: [prepare, go-test, web-quality]
     if: ${{ !cancelled() && github.event_name != 'pull_request' && needs.prepare.outputs.duplicate != 'true' && needs.go-test.result == 'success' && needs.web-quality.result == 'success' }}
     runs-on: ubuntu-latest
+    env:
+      MISE_DISABLE_TOOLS: ''
     steps:
       - uses: actions/checkout@v7
       - uses: jdx/mise-action@v4
         with:
           minimum_release_age: 7d
           cache: true
-          cache_key_prefix: mise-e2e
+          cache_save: ${{ github.ref == 'refs/heads/main' }}
+          cache_key_prefix: mise-ffmpeg
       - name: Find pnpm store
         id: pnpm-cache
-        run: echo "path=$(pnpm store path)" >> "$GITHUB_OUTPUT"
-      - uses: actions/cache@v6
+        run: |
+          echo "path=$(pnpm store path)" >> "$GITHUB_OUTPUT"
+          echo "version=$(pnpm --version)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache/restore@v6
+        id: pnpm-restore
         with:
           path: ${{ steps.pnpm-cache.outputs.path }}
-          key: pnpm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('mise.toml') }}-${{ hashFiles('pnpm-lock.yaml') }}
-          restore-keys: pnpm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('mise.toml') }}-
+          key: pnpm-${{ runner.os }}-${{ runner.arch }}-${{ steps.pnpm-cache.outputs.version }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: pnpm-${{ runner.os }}-${{ runner.arch }}-${{ steps.pnpm-cache.outputs.version }}-
       - run: pnpm install --frozen-lockfile
+      - uses: actions/cache/save@v6
+        if: github.ref == 'refs/heads/main' && steps.pnpm-restore.outputs.cache-hit != 'true'
+        with:
+          path: ${{ steps.pnpm-cache.outputs.path }}
+          key: ${{ steps.pnpm-restore.outputs.cache-primary-key }}
       - run: pnpm -C frontend/web exec playwright install chromium --with-deps
       - run: task e2e:web
 
@@ -290,7 +359,8 @@ jobs:
         with:
           minimum_release_age: 7d
           cache: true
-          cache_key_prefix: mise-vuln
+          cache_save: ${{ github.ref == 'refs/heads/main' }}
+          cache_key_prefix: mise
       - run: task vuln:go
 
   # Stable required status: skipped jobs are valid only when paths or a prior
@@ -372,19 +442,24 @@ jobs:
         with:
           minimum_release_age: 7d
           cache: true
-          cache_key_prefix: mise-desktop-portable
+          cache_save: ${{ github.ref == 'refs/heads/main' }}
+          cache_key_prefix: mise
       - name: Find Go cache paths
         id: go-cache
         run: |
           echo "modules=$(go env GOMODCACHE)" >> "$GITHUB_OUTPUT"
           echo "build=$(go env GOCACHE)" >> "$GITHUB_OUTPUT"
-      - uses: actions/cache@v6
+          echo "version=$(go env GOVERSION)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache/restore@v6
+        id: go-restore
         with:
           path: |
             ${{ steps.go-cache.outputs.modules }}
             ${{ steps.go-cache.outputs.build }}
-          key: go-${{ runner.os }}-${{ runner.arch }}-portable-${{ hashFiles('mise.toml', 'backend/go/go.sum', 'desktop/go.sum') }}-${{ github.sha }}
-          restore-keys: go-${{ runner.os }}-${{ runner.arch }}-desktop-${{ hashFiles('mise.toml', 'backend/go/go.sum', 'desktop/go.sum') }}-
+          key: go-${{ runner.os }}-${{ runner.arch }}-portable-${{ steps.go-cache.outputs.version }}-${{ hashFiles('backend/go/go.sum', 'desktop/go.sum') }}-${{ github.sha }}
+          restore-keys: |
+            go-${{ runner.os }}-${{ runner.arch }}-desktop-${{ steps.go-cache.outputs.version }}-${{ hashFiles('backend/go/go.sum', 'desktop/go.sum') }}-
+            go-${{ runner.os }}-${{ runner.arch }}-desktop-${{ steps.go-cache.outputs.version }}-
       - uses: actions/download-artifact@v8
         with:
           name: windows-audio-tools
@@ -430,7 +505,8 @@ jobs:
         with:
           minimum_release_age: 7d
           cache: true
-          cache_key_prefix: mise-container
+          cache_save: ${{ github.ref == 'refs/heads/main' }}
+          cache_key_prefix: mise
       - uses: actions/download-artifact@v8
         with:
           name: release-web
@@ -454,9 +530,7 @@ jobs:
           tags: preen:release
           load: true
           provenance: false
-          cache-from: |
-            type=gha,scope=preen-media
-            type=gha,scope=preen-image
+          cache-from: type=gha,scope=preen-image
           cache-to: type=gha,scope=preen-image,mode=max
       - name: Smoke test the image that will be published
         run: node scripts/docker-smoke.mjs preen:release

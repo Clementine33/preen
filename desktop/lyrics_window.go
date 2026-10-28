@@ -116,7 +116,7 @@ func (d *Desktop) newUnlockWindow(lyrics *application.WebviewWindow) *applicatio
 		InitialPosition:  application.WindowXY, X: x + (width-unlockWidth)/2, Y: y,
 		BackgroundType:   application.BackgroundTypeTransparent,
 		BackgroundColour: application.NewRGBA(0, 0, 0, 0),
-		Windows:          application.WindowsWindow{HiddenOnTaskbar: true},
+		Windows:          application.WindowsWindow{HiddenOnTaskbar: true, DisableFramelessWindowDecorations: true},
 	})
 	window.OnWindowEvent(events.Common.WindowClosing, func(*application.WindowEvent) {
 		d.lyrics.mu.Lock()

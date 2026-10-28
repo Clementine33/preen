@@ -4,5 +4,6 @@ packages:
 allowBuilds:
   vue-demi: true
 
+minimumReleaseAge: 1440
 minimumReleaseAgeExclude:
   - '@wailsio/runtime@3.0.0'

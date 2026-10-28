@@ -150,7 +150,12 @@ func sqliteSpills(t *testing.T, directory string) []string {
 			if err != nil {
 				continue
 			}
-			if strings.Contains(filepath.Base(target), "etilqs") {
+			// SQLite may unlink named spills or use O_TMPFILE for anonymous spills.
+			if strings.HasSuffix(target, " (deleted)") {
+				info, statErr := os.Stat("/proc/self/fd/" + fd.Name())
+				if statErr != nil || !info.Mode().IsRegular() {
+					continue
+				}
 				if filepath.Dir(target) != directory {
 					t.Fatalf("SQLite spill outside data directory: %s", target)
 				}

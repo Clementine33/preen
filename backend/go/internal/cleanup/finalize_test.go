@@ -3,6 +3,7 @@ package cleanup_test
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -66,15 +67,14 @@ func testCleanupFinalizationWriter(t *testing.T, mode string) {
 	if _, writeErr := tx.ExecContext(t.Context(), "UPDATE cleanup_run SET summary=summary"); writeErr != nil {
 		t.Fatal(writeErr)
 	}
-	blockedAt := time.Now()
 	close(store.proceed)
 	select {
-	case <-store.failed:
+	case failure := <-store.failed:
+		if !errors.Is(failure, context.DeadlineExceeded) {
+			t.Fatalf("expected finalization deadline, got %v", failure)
+		}
 	case <-time.After(8 * time.Second):
 		t.Fatal("expected contention to cross finalization deadline")
-	}
-	if time.Since(blockedAt) < 3*time.Second {
-		t.Fatal("writer did not cross the original finalization timeout")
 	}
 	var shutdownDone chan struct{}
 	if shutdown {

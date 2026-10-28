@@ -4,7 +4,7 @@ The Desktop Shell opens Preen in a native window and runs the same backend used 
 
 ## Windows portable zip
 
-Download the `preen-windows-portable` artifact from the manual **Windows portable desktop** workflow and extract the entire zip to a directory your user can write, such as `C:\Users\you\Apps\Preen`. Run `preen-desktop.exe` from there. Keep its `bin` and `licenses` directories beside it; `bin` contains the backend and bundled FFmpeg/FFprobe.
+Download the `preen-windows-portable` artifact from the manual **Windows portable desktop** workflow and extract the entire zip to a directory your user can write, such as `C:\Users\you\Apps\Preen`. Run `preen-desktop.exe` from there. Keep its `bin` directory beside it; `bin` contains the backend and bundled FFmpeg/FFprobe.
 
 Install [Microsoft Edge WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/) if it is missing. The zip contains neither the runtime nor its installer; Preen displays the download address and exits when it cannot find the runtime. The executable is unsigned, so Windows SmartScreen may warn when you first run it.
 
@@ -82,12 +82,6 @@ The Lyrics Window opens from the player bar as its own window titled `Preen 歌�
 
 On KDE Plasma under Wayland, keep it on top with a window rule: **System Settings → Window Management → Window Rules → Add New**, set **Window title** to `Preen 歌词` (Exact Match), then add **Keep above other windows**, set to **Force** and **Yes**. Other compositors offer equivalent rules matched on the window title.
 
-## Licenses and corresponding sources
-
-Windows archives include `licenses/Preen-GPL-3.0.txt` and `licenses/Preen-README.txt`. The latter identifies the exact Preen build commit, its source URL and the workflow run. `licenses/README.txt` records the bundled FFmpeg, LAME, Opus and zlib versions, their licenses and rebuild instructions. The directory also includes full licenses, copyright notices, FFmpeg configure options and compiler/runtime notices, including the GCC Runtime Library Exception. FFmpeg and its dependencies are statically linked; only Windows system DLLs are imported.
-
-From the **same workflow run** as the zip, download `corresponding-sources`: it contains the Preen source archive for that commit and the audio tools' upstream source archives, verification material, Dockerfile, version pins and build scripts. `windows-audio-tools` contains the executables and their notices. Redistributing the zip requires providing its matching source artifacts alongside it; do not substitute sources from another run or version. For Linux, Preen's license is installed at `/usr/share/licenses/preen/LICENSE`; the system packages supply the media tools and their notices.
-
 ## Build artifacts locally
 
 Use the pinned tools in [mise.toml](../mise.toml), including nFPM 2.48.0, and install frontend dependencies with `pnpm install --frozen-lockfile`. Linux shell compilation also needs GTK4 and WebKitGTK 6.0 development libraries. Release tasks require an explicit SemVer `RAW_TAG`; missing/invalid versions and a `dev` prerelease identifier are rejected. Both binaries receive the same version.
@@ -100,4 +94,4 @@ task desktop:package:arch RAW_TAG=v0.2.0
 
 This uses [desktop/nfpm.yaml](../desktop/nfpm.yaml) and produces `dist/preen-0.2.0-1-x86_64.pkg.tar.zst` on x86_64. `task desktop:build RAW_TAG=v0.2.0` builds without packaging, with Linux binaries at `dist/desktop/linux-amd64/bin/preen-desktop` and `dist/desktop/linux-amd64/lib/preen/preen` on amd64. `task desktop:dev` builds and runs a development version with Linux data isolated under `.dev_data/desktop/preen`.
 
-For Windows delivery, manually run [.github/workflows/desktop-windows.yml](../.github/workflows/desktop-windows.yml) with a release version such as `v0.2.0`. It builds audio tools on Ubuntu, then the shell/backend and zip on Windows; it uploads artifacts and does not create a tag or publish a Release. The underlying tasks are `desktop:ffmpeg` (requires Docker; exports `dist/desktop-ffmpeg/{bin,licenses,sources}`), `desktop:build` on Windows, then `desktop:package:windows` with the same `RAW_TAG`. The packager is [scripts/package-windows.mjs](../scripts/package-windows.mjs), and its output is `dist/preen-0.2.0-windows-amd64.zip` for this example.
+For Windows delivery, manually run [.github/workflows/desktop-windows.yml](../.github/workflows/desktop-windows.yml) with a release version such as `v0.2.0`. It builds audio tools on Ubuntu, then the shell/backend and zip on Windows; it uploads artifacts and does not create a tag or publish a Release. The underlying tasks are `desktop:ffmpeg` (requires Docker; exports `dist/desktop-ffmpeg/{bin,THIRD_PARTY_NOTICES.txt}`), `desktop:build` on Windows, then `desktop:package:windows` with the same `RAW_TAG`. The packager is [scripts/package-windows.mjs](../scripts/package-windows.mjs), and its output is `dist/preen-0.2.0-windows-amd64.zip` for this example.

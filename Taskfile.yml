@@ -52,7 +52,7 @@ tasks:
       - node scripts/build-desktop.mjs
 
   desktop:ffmpeg:
-    desc: Export Windows audio tools, licenses and corresponding sources to dist/desktop-ffmpeg
+    desc: Export Windows audio tools to dist/desktop-ffmpeg
     cmds:
       - docker build --platform linux/amd64 --target desktop-ffmpeg --output type=local,dest=dist/desktop-ffmpeg .
 

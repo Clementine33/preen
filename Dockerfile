@@ -42,7 +42,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential mingw-w64 pkg-config nasm curl ca-certificates xz-utils gnupg \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /build
-COPY mise.toml Dockerfile /src/
+COPY mise.toml /src/mise.toml
 COPY scripts/ffmpeg-source.sh scripts/ffmpeg-configure.sh scripts/build-windows-ffmpeg.sh /src/scripts/
 RUN sh /src/scripts/build-windows-ffmpeg.sh
 

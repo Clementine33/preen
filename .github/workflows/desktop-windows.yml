@@ -33,16 +33,7 @@ jobs:
           name: windows-audio-tools
           path: |
             dist/desktop-ffmpeg/bin
-            dist/desktop-ffmpeg/licenses
-          if-no-files-found: error
-      - name: Archive corresponding Preen source
-        run: git archive --format=tar.gz --output="dist/preen-source-$GITHUB_SHA.tar.gz" HEAD
-      - uses: actions/upload-artifact@v7
-        with:
-          name: corresponding-sources
-          path: |
-            dist/desktop-ffmpeg/sources
-            dist/preen-source-*.tar.gz
+            dist/desktop-ffmpeg/THIRD_PARTY_NOTICES.txt
           if-no-files-found: error
 
   portable:

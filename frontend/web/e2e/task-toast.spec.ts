@@ -2,7 +2,6 @@ import { expect, test } from '@playwright/test'
 
 for (const mobile of [false, true]) {
   test(mobile ? 'mobile task notices preserve undo and wrap below safe area' : 'desktop task notices preserve undo at upper right', async ({ page }) => {
-    test.setTimeout(60_000)
     await page.setViewportSize(mobile
       ? { width: 320, height: 640 }
       : { width: 1440, height: 900 })
@@ -10,6 +9,8 @@ for (const mobile of [false, true]) {
     await page.route('**/__task-toast', route => route.fulfill({ contentType: 'text/html', body: `
       <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"></head>
       <body><div id="app"></div><script type="module" src="/e2e/task-toast-harness.js"></script></body></html>` }))
+    // A fake clock: the auto-dismiss windows below are jumped, not waited out.
+    await page.clock.install()
     await page.goto('/__task-toast')
     await expect(page.locator('#enqueue')).toBeVisible()
     await page.locator('#enqueue').click()
@@ -46,17 +47,17 @@ for (const mobile of [false, true]) {
     await expect(page.locator('#undo-result')).toHaveText('restored')
     await expect(task).toContainText('扫描完成')
     await task.hover()
-    await page.waitForTimeout(8500)
+    await page.clock.fastForward(8500)
     await expect(task).toContainText('扫描完成')
     await page.getByTestId('task-toast-action').focus()
     await page.mouse.move(0, 500)
-    await page.waitForTimeout(8500)
+    await page.clock.fastForward(8500)
     await expect(task).toContainText('扫描完成')
     await page.keyboard.press('Escape')
     await expect(task).toContainText('规划失败')
     // Failures stay until dismissed.
     await page.locator('#enqueue').focus()
-    await page.waitForTimeout(9000)
+    await page.clock.fastForward(9000)
     await expect(task).toContainText('规划失败')
     await page.getByRole('button', { name: '关闭通知' }).click()
     await expect(task).toBeHidden()

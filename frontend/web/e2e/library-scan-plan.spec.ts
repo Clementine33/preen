@@ -47,8 +47,8 @@ test.describe('workset operation smoke', () => {
     const { fixtureRoot } = readStackState()
     const fixturePosix = fixtureRoot.replaceAll('\\', '/')
 
-    // Empty data dir → the library selection, which is the product entry.
-    await page.goto('/')
+    // Empty data dir → 工作集 opens on the library selection.
+    await page.goto('/worksets')
     await expect(page.getByTestId('libraries-empty')).toBeVisible()
 
     // The global shell exists before any page content: at the default desktop

@@ -1,6 +1,6 @@
 import type { QueryClient } from '@tanstack/vue-query'
 import type { WorkDetail } from '@/lib/api/types'
-import { flushPromises, mount } from '@vue/test-utils'
+import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { createPinia } from 'pinia'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, ref } from 'vue'
@@ -132,6 +132,8 @@ async function settle(): Promise<void> {
   await flushPromises()
 }
 
+// A switch's title scramble runs on frames past its test; unmounting stops it.
+enableAutoUnmount(afterEach)
 afterEach(() => {
   vi.restoreAllMocks()
 })

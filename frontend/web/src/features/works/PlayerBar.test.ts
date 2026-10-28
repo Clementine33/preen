@@ -24,7 +24,6 @@ it('hides the Lyrics Window button when the host cannot show one', () => {
   expect(render({
     supported: false,
     open: ref(false),
-    locked: ref(false),
     available: ref(true),
     toggle: vi.fn(),
   }).find('.bl-lyrics').exists()).toBe(false)
@@ -36,7 +35,6 @@ it('disables the button without Timed Lyrics and toggles otherwise', async () =>
   const wrapper = render({
     supported: true,
     open: ref(false),
-    locked: ref(false),
     available,
     toggle,
   })
@@ -45,15 +43,4 @@ it('disables the button without Timed Lyrics and toggles otherwise', async () =>
   await wrapper.vm.$nextTick()
   await wrapper.get('.bl-lyrics').trigger('click')
   expect(toggle).toHaveBeenCalled()
-})
-
-it('turns the button into an unlock while the window is locked', () => {
-  const wrapper = render({
-    supported: true,
-    open: ref(true),
-    locked: ref(true),
-    available: ref(true),
-    toggle: vi.fn(),
-  })
-  expect(wrapper.get('.bl-lyrics').attributes('aria-label')).toBe('Unlock lyrics window')
 })

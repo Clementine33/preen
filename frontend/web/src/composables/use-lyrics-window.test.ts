@@ -15,12 +15,10 @@ function setup() {
   const close = vi.fn()
   let frame!: () => LyricsFrame
   let onClose!: () => void
-  let onLock!: (locked: boolean) => void
   let onCommand!: (command: LyricsCommand) => void
   const adapter = {
     lyricsWindow: true,
-    setLyricsLocked: vi.fn(),
-    openLyricsWindow: vi.fn(async (f: () => LyricsFrame, cmd: typeof onCommand, c: () => void, l: typeof onLock) => ((frame = f), (onCommand = cmd), (onClose = c), (onLock = l), close)),
+    openLyricsWindow: vi.fn(async (f: () => LyricsFrame, cmd: typeof onCommand, c: () => void) => ((frame = f), (onCommand = cmd), (onClose = c), close)),
   }
   const api = {
     getWorkText: vi.fn().mockResolvedValue('[00:01]first\n[00:05]second'),
@@ -39,7 +37,6 @@ function setup() {
     lw,
     frame: () => frame(),
     closed: () => onClose(),
-    lock: (v: boolean) => onLock(v),
     command: (c: LyricsCommand) => onCommand(c),
   }
 }
@@ -103,8 +100,8 @@ it('marks only a step to the next line as an advance', async () => {
   expect(frame().line).toBeNull()
 })
 
-it('routes commands to the player and unlocks a locked window instead of closing it', async () => {
-  const { adapter, close, lw, command, lock, closed } = setup()
+it('routes commands to the player and resets when the window closes', async () => {
+  const { lw, command, closed } = setup()
   const player = usePlayerStore()
   player.play('RJ1', [
     {
@@ -118,15 +115,6 @@ it('routes commands to the player and unlocks a locked window instead of closing
   await flushPromises()
   command('next')
   expect(player.trackIndex).toBe(1)
-  lock(true)
-  expect(lw.locked.value).toBe(true)
-  lw.toggle()
-  expect(adapter.setLyricsLocked).toHaveBeenCalledWith(false)
-  expect(close).not.toHaveBeenCalled()
-  lock(false)
   closed()
-  lock(true)
-  closed()
-  expect(lw.locked.value).toBe(false)
   expect(lw.open.value).toBe(false)
 })

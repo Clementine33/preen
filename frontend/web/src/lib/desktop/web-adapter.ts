@@ -47,8 +47,6 @@ export class WebDesktopAdapter implements DesktopAdapter {
     return null
   }
 
-  setLyricsLocked(): void {}
-
   async openLyricsWindow(frame: () => LyricsFrame, onCommand: (command: LyricsCommand) => void, onClose: () => void): Promise<(() => void) | null> {
     const pip = documentPip()
     if (!pip)

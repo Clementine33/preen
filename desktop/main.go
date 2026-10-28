@@ -24,6 +24,11 @@ import (
 //go:embed all:assets
 var assets embed.FS
 
+// The window and taskbar icon; the exe's own icon is the embedded resource in rsrc_windows_amd64.syso.
+//
+//go:embed build/appicon.png
+var appIcon []byte
+
 var version = "0.2.0-dev"
 
 // Desktop exposes only the native host operations; all media operations use HTTP.
@@ -144,6 +149,7 @@ func main() {
 	}
 	app := application.New(application.Options{
 		Name:     "Preen",
+		Icon:     appIcon,
 		Services: []application.Service{application.NewService(desktop)},
 		Assets:   application.AssetOptions{Handler: spaAssets(assets)},
 		SingleInstance: &application.SingleInstanceOptions{
@@ -164,7 +170,10 @@ func main() {
 	windowMu.Lock()
 	window = app.Window.NewWithOptions(application.WebviewWindowOptions{Title: "Preen", Width: 1280, Height: 800, MinWidth: 800, MinHeight: 600, URL: "/"})
 	// Wails quits on the last window closing; with a Lyrics Window open, the main window must still end the app.
-	window.OnWindowEvent(events.Common.WindowClosing, func(*application.WindowEvent) { app.Quit() })
+	window.OnWindowEvent(events.Common.WindowClosing, func(*application.WindowEvent) {
+		desktop.CloseLyricsWindow() // takes a lock's unlock window with it
+		app.Quit()
+	})
 	windowMu.Unlock()
 	app.Event.OnApplicationEvent(events.Common.ApplicationStarted, func(*application.ApplicationEvent) {
 		start.Do(func() { go func() { defer close(finished); desktop.run(ctx) }() })

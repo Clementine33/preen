@@ -12,7 +12,7 @@ import { NEXT_ICON, PAUSE_ICON, PLAY_ICON, PREV_ICON } from '@/features/works/pl
 // can act on (close and lock in the desktop window; Picture-in-Picture has the
 // system close button and leaves it empty).
 
-const props = defineProps<{ frame: LyricsFrame }>()
+const props = withDefaults(defineProps<{ frame: LyricsFrame, locked?: boolean }>(), { locked: false })
 defineEmits<{ command: [LyricsCommand] }>()
 
 /** What the stage shows: the line, else the title; a second text line is the translation. */
@@ -21,7 +21,7 @@ const rows = computed(() => shown.value.text.split('\n').slice(0, 2))
 </script>
 
 <template>
-  <div class="lw" lang="ja" :class="{ paused: frame.paused }">
+  <div class="lw" lang="ja" :class="{ paused: frame.paused, locked }">
     <div class="bar">
       <button type="button" aria-label="Previous track" :disabled="!frame.hasPrev" @click="$emit('command', 'prev')">
         <svg viewBox="0 0 10 10" aria-hidden="true"><path :d="PREV_ICON" /></svg>
@@ -53,7 +53,7 @@ const rows = computed(() => shown.value.text.split('\n').slice(0, 2))
   text-shadow: 0 0 2px #000, 0 1px 6px #000a;
 }
 /* The desktop entry marks a transparent window: nothing paints behind the lyrics. */
-:global(html.lw-clear), :global(html.lw-clear body), :global(html.lw-clear) .lw { background: transparent; }
+:global(html.lw-clear), :global(html.lw-clear body), :global(html.lw-clear .lw) { background: transparent; }
 .stage { container-type: size; position: relative; flex: 1; min-height: 0; overflow: hidden; transition: opacity var(--dur-in) linear; }
 .paused .stage { opacity: .7; }
 .line, .none { position: absolute; left: 0; right: 0; margin: 0; padding: 0 var(--sp-4); text-align: center; }
@@ -70,7 +70,7 @@ const rows = computed(() => shown.value.text.split('\n').slice(0, 2))
 
 /* Desktop-lyrics convention: the controls float over the top edge only while the pointer (or focus) is in the window. */
 .bar { position: absolute; top: 0; left: 0; right: 0; z-index: 1; display: flex; justify-content: center; gap: var(--sp-2); padding: var(--sp-2); background: linear-gradient(color-mix(in srgb, var(--invert-bg) 80%, transparent) 60%, transparent); --wails-draggable: drag; opacity: 0; transition: opacity var(--dur-in) linear; }
-.lw:hover .bar, .bar:focus-within { opacity: 1; }
+.lw:not(.locked):hover .bar, .lw:not(.locked) .bar:has(:focus-visible) { opacity: 1; }
 .bar button, .bar :slotted(button) { --wails-draggable: no-drag; width: 36px; height: 28px; display: grid; place-items: center; color: inherit; background: none; border: 1px solid color-mix(in srgb, currentColor 40%, transparent); }
 .bar button:hover:not(:disabled), .bar :slotted(button:hover:not(:disabled)) { background: var(--invert-fg); color: var(--invert-bg); }
 .bar button:focus-visible, .bar :slotted(button:focus-visible) { outline: 1px solid currentColor; outline-offset: 2px; }

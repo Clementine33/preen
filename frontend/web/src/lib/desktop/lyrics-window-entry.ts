@@ -1,16 +1,17 @@
 import type { LyricsCommand, LyricsFrame } from './desktop-adapter'
 import { Call, Events, System } from '@wailsio/runtime'
 import { createApp, h, shallowRef } from 'vue'
+import { LOCK_ICON } from '@/features/lyrics-window/lyrics-icons'
 import LyricsWindowView from '@/features/lyrics-window/LyricsWindowView.vue'
 import { LYRICS_EVENTS } from './wails-adapter'
 
 // The desktop Lyrics Window's page (ADR 0016): main.ts routes /lyrics-window
 // here before any application bootstrap. It mounts the shared view over the
 // frames the main window pushes and sends commands back; closing and locking
-// are host actions that go to the shell, not player commands.
+// are host actions that go to the shell, not player commands. Unlocking is the
+// shell's separate unlock chip (lyrics-unlock-entry.ts).
 
 const CLOSE_ICON = 'M1 0l4 4 4-4 1 1-4 4 4 4-1 1-4-4-4 4-1-1 4-4-4-4z'
-const LOCK_ICON = 'M3 4V3a2 2 0 0 1 4 0v1h1v5H2V4zm1 0h2V3a1 1 0 0 0-2 0z'
 const BACKDROP_ICON = 'M5 0a5 5 0 1 0 0 10A5 5 0 0 0 5 0zm0 1a4 4 0 0 1 0 8z'
 
 /** Windows only: whether the transparent window paints the dark backdrop anyway; this device's choice, transparent by default. */
@@ -69,10 +70,13 @@ export function mountLyricsWindow(): void {
   if (windows && !readDark())
     document.documentElement.classList.add(CLEAR_CLASS)
   const frame = shallowRef(blank)
+  const locked = shallowRef(false)
   Events.On(LYRICS_EVENTS.frame, (event) => { frame.value = JSON.parse(event.data as string) as LyricsFrame })
+  Events.On(LYRICS_EVENTS.locked, (event) => { locked.value = event.data as boolean })
   const app = createApp({
     render: () => h(LyricsWindowView, {
       frame: frame.value,
+      locked: locked.value,
       onCommand: (command: LyricsCommand) => void Events.Emit(LYRICS_EVENTS.command, command),
     }, {
       host: () => [

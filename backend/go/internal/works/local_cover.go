@@ -11,6 +11,11 @@ type LocalCover struct {
 	RelPath string
 	// Version changes whenever the inventory observes new bytes at the path.
 	Version string
+	// Size, Mtime and ContentRev are the file facts its thumbnail version
+	// keys on (Service.CoverThumbV).
+	Size       int64
+	Mtime      int64
+	ContentRev int
 }
 
 // LocalCovers answers, per work, the winning copy's cover; works without one

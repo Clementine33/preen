@@ -38,7 +38,12 @@ function work(version = '1-5-9'): WorkSummary {
       track_count: null,
       updated_at: null,
     },
-    local_cover: { copy_id: 'copy-1', rel_path: 'cover.jpg', version },
+    local_cover: {
+      copy_id: 'copy-1',
+      rel_path: 'cover.jpg',
+      version,
+      thumb_v: 't',
+    },
   }
 }
 

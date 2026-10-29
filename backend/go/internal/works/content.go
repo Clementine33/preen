@@ -165,10 +165,20 @@ type ContentFileLocation struct {
 // inventory rewrites when the bytes change, plus the engine that renders it.
 // A change to either yields a new address, so an old one is never reused.
 func thumbVersion(e *inventory.Entry, engine string) string {
-	key := strconv.FormatInt(e.Size, 10) + ":" + strconv.FormatInt(e.Mtime, 10) + ":" +
-		strconv.Itoa(e.ContentRev) + ":" + engine
+	return thumbVersionOf(e.Size, e.Mtime, e.ContentRev, engine)
+}
+
+func thumbVersionOf(size, mtime int64, contentRev int, engine string) string {
+	key := strconv.FormatInt(size, 10) + ":" + strconv.FormatInt(mtime, 10) + ":" +
+		strconv.Itoa(contentRev) + ":" + engine
 	sum := sha256.Sum256([]byte(key))
 	return hex.EncodeToString(sum[:8])
+}
+
+// CoverThumbV is a local cover's thumbnail version: the thumb_v the manifest
+// gives the same file, so a list can address its thumbnail directly.
+func (s *Service) CoverThumbV(c LocalCover) string {
+	return thumbVersionOf(c.Size, c.Mtime, c.ContentRev, s.thumbEngine)
 }
 
 // classifyContentKind names a file's kind from its extension and stored

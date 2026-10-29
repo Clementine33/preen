@@ -289,7 +289,8 @@ clear the highlight during gaps; clicking a line seeks only its matching track.
 `GET /api/v1/works/{rj}/thumbs/{copyId}/{path...}?h=…&v=…` serves one
 manifest image scaled to a height (ADR 0013). The source goes through the
 same copy binding, containment and whitelist as the file route; a non-image
-path is `NOT_AN_IMAGE` (404). Read-only, no admission slot.
+path is `NOT_AN_IMAGE` (404). Read-only, no admission slot. Like the file
+route it accepts the `access_token` query parameter, so an `<img>` can load it.
 
 - `h` (required, positive) snaps up to a served height: 120, 240, 480 or 960.
   A source shorter than that is never upscaled.
@@ -462,12 +463,14 @@ are reused when a later scan creates the Work.
 ## Listing filters, ordering and paging
 
 Each work in a list or detail response carries `local_cover`: `null`, or
-`{"copy_id", "rel_path", "version"}` naming a `cover.{webp,jpg,jpeg,png,gif}`
+`{"copy_id", "rel_path", "version", "thumb_v"}` naming a `cover.{webp,jpg,jpeg,png,gif}`
 the stored inventory holds in one of the work's copies (the first copy by
 library and `rel_path`, then by name). Its bytes are served by the content route;
 `version` is `<content_rev>-<mtime>-<size>`, so the address changes when the
-inventory observes new bytes. Clients show it ahead of `thumbnail_url` and fall
-back to `thumbnail_url` when the image fails to load.
+inventory observes new bytes. `thumb_v` is the file's manifest `thumb_v`, so a
+client showing it small loads it from the thumbnail route at its current
+version instead. Clients show it ahead of `thumbnail_url` and fall back to
+`thumbnail_url` when the image fails to load.
 
 `thumbnail_url` is derived from `cover_url` when rendering a response and is
 neither stored nor accepted in a core import. DLsite main-image paths use the

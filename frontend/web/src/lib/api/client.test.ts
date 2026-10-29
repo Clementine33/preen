@@ -391,6 +391,17 @@ describe('work content routes', () => {
     expect(createClient().workFileUrl(ref)).not.toContain('access_token')
   })
 
+  it('addresses a thumbnail by height and version, the token in the address', () => {
+    const url = new URL(createClient({ token: 'secret' }).workThumbUrl(ref, 120, 'v&2'))
+    expect(url.pathname).toBe('/api/v1/works/RJ01000001/thumbs/c-1/%E8%A1%A8%E7%B4%99/cover%20main.jpg')
+    expect([...url.searchParams]).toEqual([
+      ['h', '120'],
+      ['v', 'v&2'],
+      ['access_token', 'secret'],
+    ])
+    expect(createClient().workThumbUrl(ref, 120, 'v')).not.toContain('access_token')
+  })
+
   it('versions original images without changing the file route or token', () => {
     const url = new URL(createClient({ token: 'secret' }).workFileUrl(ref, 'v&2'))
     expect(url.searchParams.get('v')).toBe('v&2')

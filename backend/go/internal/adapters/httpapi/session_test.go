@@ -138,6 +138,7 @@ func TestBrowserCredentialPrecedence(t *testing.T) {
 		{"media query", "/api/v1/works/RJ00000001/content/copy/file.mp3?access_token=secret", "", "", true},
 		{"cookie beats query", "/api/v1/works/RJ00000001/content/copy/file.mp3?access_token=wrong", "", "c2VjcmV0", true},
 		{"bad cookie blocks query", "/api/v1/works/RJ00000001/content/copy/file.mp3?access_token=secret", "", "d3Jvbmc", false},
+		{"thumbnail query", "/api/v1/works/RJ00000001/thumbs/copy/cover.jpg?h=120&access_token=secret", "", "", true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			req := httptest.NewRequest(http.MethodGet, tc.path, nil)

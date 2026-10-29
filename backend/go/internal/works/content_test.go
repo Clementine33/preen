@@ -260,6 +260,9 @@ func TestContentFileLocatesManifestPaths(t *testing.T) {
 	if loc.ThumbV == "" {
 		t.Error("an image location must carry its current thumbnail version")
 	}
+	if v := service.CoverThumbV(works.LocalCover{Size: 4096, Mtime: 1759000000, ContentRev: 3}); v != loc.ThumbV {
+		t.Errorf("a local cover's thumb_v = %q, want the manifest's %q", v, loc.ThumbV)
+	}
 
 	// A path the inventory does not hold is not served, whatever the disk has.
 	if _, refusal = service.ContentFile(rj, "c-1", "not-in-manifest.bin"); refusal == nil ||

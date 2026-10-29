@@ -42,6 +42,7 @@ export function apiStub(overrides: Partial<ApiClientContract> = {}): ApiClientCo
     workFileUrl: vi.fn((ref: { relPath: string }) => `/files/${ref.relPath}`),
     getWorkText: vi.fn().mockResolvedValue(''),
     getWorkThumb: vi.fn(() => new Promise<Blob>(() => {})),
+    workThumbUrl: vi.fn((ref: { relPath: string }, height: number) => `/thumbs/${height}/${ref.relPath}`),
     listWorkFacets: vi.fn().mockResolvedValue([]),
     listTagFacets: vi.fn().mockResolvedValue({ source_tags: [], user_tags: [] }),
     updateWorkUserData: vi.fn(),

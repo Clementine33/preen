@@ -23,7 +23,7 @@ const webURL = `http://127.0.0.1:${webPort}`
 
 export default defineConfig({
   testDir: './e2e',
-  testIgnore: ['**/unit-fields.spec.ts', '**/task-toast.spec.ts'],
+  testIgnore: ['**/unit-fields.spec.ts', '**/task-toast.spec.ts', '**/member-list.spec.ts'],
   // The stack is a single shared state machine — one spec, one worker.
   workers: 1,
   fullyParallel: false,

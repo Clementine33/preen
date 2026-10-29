@@ -197,7 +197,7 @@ it('shows a long folder name in full and keeps its actions reachable', async () 
 it('draws only a window of a large member set', async () => {
   // jsdom measures every element at 0px, which would put all rows in the window.
   const heightOf = vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(76)
-  const members = Array.from({ length: 2000 }, (_, i) => ({
+  const members = Array.from({ length: 5000 }, (_, i) => ({
     member_id: `m-${i}`,
     folder_name: `Folder ${i}`,
     folder_path: `/lib/${i}`,
@@ -232,7 +232,7 @@ it('draws only a window of a large member set', async () => {
   expect(drawn).toBeLessThan(30)
   // Select-all still addresses every visible member, drawn or not.
   await wrapper.get('input[aria-label="全选当前筛选结果"]').trigger('change')
-  expect((wrapper.emitted('toggleAll')![0]![0] as string[]).length).toBe(2000)
+  expect((wrapper.emitted('toggleAll')![0]![0] as string[]).length).toBe(5000)
   heightOf.mockRestore()
   wrapper.unmount()
 })

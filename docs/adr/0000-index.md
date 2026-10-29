@@ -6,7 +6,7 @@
 
 | 记录 | 主题 | 状态 |
 |---|---|---|
-| [0001](0001-library-workbench-and-processing-record.md) | 媒体库即工作台、计划与执行所有权、规划回放与活动约束、数据库自清理与留存、手动运行准入（历史、作品、关系报告与共享来源实体清理 API 已实现；网页入口待实现） | Accepted |
+| [0001](0001-library-workbench-and-processing-record.md) | 媒体库即工作台、计划分块暂存与原子提升、退役清理、规划回放与活动约束、数据库自清理与留存、手动运行准入（历史、作品、关系报告与共享来源实体清理 API 已实现；网页入口待实现） | Draft |
 | [0002](0002-direct-file-management-and-admission.md) | 直接文件管理、全局准入互斥与作品同级回收目录 | Accepted |
 | [0003](0003-short-routes-and-directory-identity.md) | 短路由与不透明目录身份 | Accepted |
 | [0004](0004-task-seam-and-opaque-payloads.md) | Task 接缝、不透明载荷与工作集共享批次 | Accepted |

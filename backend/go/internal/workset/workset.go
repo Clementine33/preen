@@ -19,7 +19,7 @@ import (
 )
 
 // MaxMembers caps the ordered album folders in one workset.
-const MaxMembers = 500
+const MaxMembers = 2000
 
 // idemRetentionWindow is the guaranteed replay window for workset creation and
 // generation idempotency keys, and the terminal-generation retention horizon.

@@ -36,7 +36,11 @@ for (const width of [393, 1440]) {
     const checkbox = rows.filter({ hasText: name }).getByRole('checkbox')
     await checkbox.check()
     const offset = await scroller.evaluate(el => el.scrollTop)
+    await page.clock.install()
     await open.click()
+    // A queued scroll notification can settle after the drill-down hides the list.
+    await scroller.dispatchEvent('scroll')
+    await page.clock.runFor(200)
     await page.getByRole('button', { name: '返回列表' }).click()
     await expect(rows.filter({ hasText: name }).getByRole('checkbox')).toBeChecked()
     await expect.poll(async () => Math.abs(await scroller.evaluate(el => el.scrollTop) - offset)).toBeLessThan(2)

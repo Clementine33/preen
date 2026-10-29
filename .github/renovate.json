@@ -28,6 +28,11 @@
   ],
   "packageRules": [
     {
+      "description": "modernc.org/sqlite requires the exact libc it pins; libc moves only with sqlite upgrades",
+      "matchPackageNames": ["modernc.org/libc", "modernc.org/libc/v2"],
+      "enabled": false
+    },
+    {
       "matchManagers": ["github-actions"],
       "matchUpdateTypes": ["minor", "patch"],
       "groupName": "GitHub Actions non-major",

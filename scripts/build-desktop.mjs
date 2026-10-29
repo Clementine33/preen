@@ -32,7 +32,7 @@ function build() {
   const vite = dev && spawn(process.execPath, [path.join(webDir, 'node_modules/vite/bin/vite.js'), '--host', '127.0.0.1', '--port', '5174', '--strictPort'], { cwd: webDir, env: { ...process.env, PREEN_VUE_DEVTOOLS: '0' }, stdio: 'inherit' })
   process.on('exit', () => vite && vite.kill())
   if (!dev) {
-    // Tag CI supplies the assets already built and checked by web-quality.
+    // The Release workflow supplies assets from its shared frontend build.
     if (!process.argv.includes('--prebuilt-web')) run('pnpm', ['--dir', webDir, 'build'])
     readFileSync(path.join(webDir, 'dist/index.html'))
     const assets = path.join(root, 'desktop/assets')

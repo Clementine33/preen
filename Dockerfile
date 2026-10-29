@@ -11,7 +11,7 @@ RUN mise exec node pnpm -- pnpm install --frozen-lockfile
 COPY frontend/web frontend/web
 RUN mise exec node pnpm -- pnpm -C frontend/web build
 
-# CI overrides this stage with the web-quality artifact as a named build context.
+# Release overrides this stage with its frontend artifact as a named build context.
 FROM scratch AS web
 COPY --from=web-build /src/frontend/web/dist /
 

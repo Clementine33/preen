@@ -178,13 +178,8 @@ func TestReplaceCurrentWorksetIdempotency(t *testing.T) {
 	}
 }
 
-// TestReplaceCurrentWorksetCascadesToChildren pins the foreign-key cascade the
-// replacement depends on: the replaced record's members, operations, drafts,
-// generations and executions go with the record row. A single-connection test
-// cannot observe the connection-scoped part of that (the pool hands back the
-// connection the pragma ran on); TestConnectionPragmasAreAppliedToEveryConnection
-// covers that half.
-func TestReplaceCurrentWorksetCascadesToChildren(t *testing.T) {
+// TestReplaceCurrentWorksetCleansUpChildren pins eventual removal after retirement.
+func TestReplaceCurrentWorksetCleansUpChildren(t *testing.T) {
 	repo := newTestRepository(t)
 	insertLibrary(t, repo, "lib-1")
 
@@ -227,6 +222,16 @@ func TestReplaceCurrentWorksetCascadesToChildren(t *testing.T) {
 		replaced.ID,
 	); err != nil {
 		t.Fatalf("ReplaceCurrentWorkset(replacement): %v", err)
+	}
+
+	for {
+		n, err := repo.DeleteRetiredPlanBatch(t.Context(), 1000)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if n == 0 {
+			break
+		}
 	}
 
 	for _, table := range []string{
@@ -395,36 +400,46 @@ func TestOperationRevisionLifecycle(t *testing.T) {
 		t.Fatalf("CreateGeneration: %v", err)
 	}
 
-	err := repo.PersistOperationRevision(g.GenerationID, w.ID, "conversion", now, workset.OperationRevisionPersist{
-		PlanID:           "plan-1",
-		RootPath:         "/music/albumA + /music/albumB",
-		SnapshotToken:    "snap-1",
-		LibraryID:        "lib-1",
-		DraftHash:        "hash-1",
-		MemberHash:       "members-1",
-		OperationVersion: 1,
-		ExcludedScope:    "m-test-b-rev",
-		DraftSnapshot:    `{"schema_version":1}`,
-		Steps: []workset.PlanStepRecord{{
-			StepIndex: 0, StepType: "reconcile_audio_outputs", Status: "ok",
-		}},
-		Roots: []workset.PlanRootRecord{
-			{
-				RootIndex:            0,
-				RootPath:             "/music/albumA",
-				RootIdentity:         "albumA",
-				InventoryFingerprint: "fp-a",
-				EntryCount:           2,
-			},
-			{
-				RootIndex:            1,
-				RootPath:             "/music/albumB",
-				RootIdentity:         "albumB",
-				InventoryFingerprint: "fp-b",
-				EntryCount:           1,
+	if _, claimErr := repo.NextQueuedGeneration(nil); claimErr != nil {
+		t.Fatal(claimErr)
+	}
+	err := repo.PersistOperationRevision(
+		t.Context(),
+		g.GenerationID,
+		w.ID,
+		"conversion",
+		now,
+		workset.OperationRevisionPersist{
+			PlanID:           "plan-1",
+			RootPath:         "/music/albumA + /music/albumB",
+			SnapshotToken:    "snap-1",
+			LibraryID:        "lib-1",
+			DraftHash:        "hash-1",
+			MemberHash:       "members-1",
+			OperationVersion: 1,
+			ExcludedScope:    "m-test-b-rev",
+			DraftSnapshot:    `{"schema_version":1}`,
+			Steps: []workset.PlanStepRecord{{
+				StepIndex: 0, StepType: "reconcile_audio_outputs", Status: "ok",
+			}},
+			Roots: []workset.PlanRootRecord{
+				{
+					RootIndex:            0,
+					RootPath:             "/music/albumA",
+					RootIdentity:         "albumA",
+					InventoryFingerprint: "fp-a",
+					EntryCount:           2,
+				},
+				{
+					RootIndex:            1,
+					RootPath:             "/music/albumB",
+					RootIdentity:         "albumB",
+					InventoryFingerprint: "fp-b",
+					EntryCount:           1,
+				},
 			},
 		},
-	})
+	)
 	if err != nil {
 		t.Fatalf("PersistOperationRevision: %v", err)
 	}
@@ -472,7 +487,10 @@ func TestOperationRevisionLifecycle(t *testing.T) {
 	if createErr := repo.CreateGeneration(g2); createErr != nil {
 		t.Fatalf("CreateGeneration 2: %v", createErr)
 	}
-	if persistErr := repo.PersistOperationRevision(
+	if _, claimErr := repo.NextQueuedGeneration(nil); claimErr != nil {
+		t.Fatal(claimErr)
+	}
+	if persistErr := repo.PersistOperationRevision(t.Context(),
 		g2.GenerationID,
 		w.ID,
 		"conversion",
@@ -547,9 +565,19 @@ func TestPersistOperationRevisionRetiresTheReplacedExecution(t *testing.T) {
 	}
 	now := time.Now()
 	seedGeneration(t, repo, "gen-r1", w.ID)
-	if err := repo.PersistOperationRevision("gen-r1", w.ID, "conversion", now, workset.OperationRevisionPersist{
-		PlanID: "plan-r1", RootPath: "/music", SnapshotToken: "snap-r1", LibraryID: "lib-1",
-	}); err != nil {
+	if _, claimErr := repo.NextQueuedGeneration(nil); claimErr != nil {
+		t.Fatal(claimErr)
+	}
+	if err := repo.PersistOperationRevision(
+		t.Context(),
+		"gen-r1",
+		w.ID,
+		"conversion",
+		now,
+		workset.OperationRevisionPersist{
+			PlanID: "plan-r1", RootPath: "/music", SnapshotToken: "snap-r1", LibraryID: "lib-1",
+		},
+	); err != nil {
 		t.Fatalf("PersistOperationRevision(plan-r1): %v", err)
 	}
 	if err := repo.CreateExecutionGuarded(&workset.PlanExecution{
@@ -590,7 +618,10 @@ func TestPersistOperationRevisionRetiresTheReplacedExecution(t *testing.T) {
 	}
 
 	seedGeneration(t, repo, "gen-r2", w.ID)
-	if err := repo.PersistOperationRevision(
+	if _, claimErr := repo.NextQueuedGeneration(nil); claimErr != nil {
+		t.Fatal(claimErr)
+	}
+	if err := repo.PersistOperationRevision(t.Context(),
 		"gen-r2",
 		w.ID,
 		"conversion",
@@ -604,9 +635,10 @@ func TestPersistOperationRevisionRetiresTheReplacedExecution(t *testing.T) {
 	if _, err := repo.GetExecution("exec-r1"); !errors.Is(err, workset.ErrExecutionNotFound) {
 		t.Fatalf("the replaced plan's execution must be gone, got %v", err)
 	}
-	if err := repo.db.QueryRow(`SELECT COUNT(*) FROM cover_deliveries WHERE execution_id='exec-r1'`).
-		Scan(&covers); err != nil || covers != 0 {
-		t.Fatalf("retired execution kept cover demand: %d %v", covers, err)
+	if err := repo.db.QueryRow(`SELECT COUNT(*) FROM cover_deliveries WHERE execution_id='exec-r1' AND status='canceled'`).
+		Scan(&covers); err != nil ||
+		covers != 1 {
+		t.Fatalf("retired execution demand was not canceled: %d %v", covers, err)
 	}
 }
 

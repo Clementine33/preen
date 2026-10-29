@@ -6,7 +6,7 @@
 
 | 记录 | 主题 | 状态 |
 |---|---|---|
-| [0001](0001-library-workbench-and-processing-record.md) | 媒体库即工作台、计划与执行所有权、规划回放与活动约束、数据库自清理与留存、手动运行准入（历史、作品、关系报告与共享来源实体清理 API 已实现；网页入口待实现） | Accepted |
+| [0001](0001-library-workbench-and-processing-record.md) | 媒体库即工作台、计划分块暂存与原子提升、退役清理、规划回放与活动约束、数据库自清理与留存、手动运行准入（历史、作品、关系报告与共享来源实体清理 API 已实现；网页入口待实现） | Draft |
 | [0002](0002-direct-file-management-and-admission.md) | 直接文件管理、全局准入互斥与作品同级回收目录 | Accepted |
 | [0003](0003-short-routes-and-directory-identity.md) | 短路由与不透明目录身份 | Accepted |
 | [0004](0004-task-seam-and-opaque-payloads.md) | Task 接缝、不透明载荷与工作集共享批次 | Accepted |
@@ -16,7 +16,7 @@
 | [0008](0008-deployment-wide-common-settings.md) | 部署级公共设置与唯一写入口（移除独立策略模板） | Accepted |
 | [0009](0009-work-catalog.md) | 作品目录身份、外部关系报告、库存扫描与用户资料保护（独立报告、完整观察与目录直属文件沿用、确定关系、详情快照与作品／报告／来源清理已实现；收录时间与封面地址去重） | Accepted |
 | [0010](0010-defer-single-writer.md) | 暂不引入全局单写入口 | Accepted |
-| [0011](0011-development-schema-and-release-migrations.md) | 开发 schema、当前未发布基线与旧发布库边界 | Accepted |
+| [0011](0011-development-schema-and-release-migrations.md) | 开发 schema、当前未发布基线与旧发布库边界 | Draft |
 | [0012](0012-metadata-refresh-and-directory-rename-planning.md) | 元数据刷新、外部父链报告、目录重命名与修复、封面投递、需求生命周期及下载回收（有效父链报告补抓已实现） | Accepted |
 | [0013](0013-derived-media-thumbnails-content-and-facts.md) | 派生媒体：缩略图、文件内容分发与后台媒体事实 | Accepted |
 | [0014](0014-storage-class-and-concurrency-limits.md) | 存储档与并发上限（扫描统一 32 worker 重叠元数据访问等待） | Accepted |

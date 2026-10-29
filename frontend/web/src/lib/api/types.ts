@@ -23,6 +23,8 @@ export type MediaFactsEvent
 export interface HealthResponse {
   ok: boolean
   version: string
+  /** Absent when connected to a server that does not advertise the limit. */
+  workset_max_members?: number
 }
 
 export interface Library {

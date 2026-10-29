@@ -1,6 +1,7 @@
 package sqlite
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -38,7 +39,7 @@ func scanOperation(scanner interface{ Scan(...any) error }) (*workset.Operation,
 // workset: callers load the workset first when they need to distinguish.
 func (r *Repository) GetOperation(worksetID, operationType string) (*workset.Operation, error) {
 	row := r.db.QueryRow(
-		`SELECT `+operationColumns+` FROM workset_operations WHERE workset_id = ? AND operation_type = ?`,
+		`SELECT `+operationColumns+` FROM workset_operations WHERE workset_id = ? AND operation_type = ? AND workset_id IN (SELECT id FROM worksets WHERE retired = 0)`,
 		worksetID,
 		operationType,
 	)
@@ -55,7 +56,7 @@ func (r *Repository) GetOperation(worksetID, operationType string) (*workset.Ope
 // ListOperations returns a workset's operations in creation order.
 func (r *Repository) ListOperations(worksetID string) ([]*workset.Operation, error) {
 	rows, err := r.db.Query(
-		`SELECT `+operationColumns+` FROM workset_operations WHERE workset_id = ? ORDER BY created_at, operation_type`,
+		`SELECT `+operationColumns+` FROM workset_operations WHERE workset_id = ? AND workset_id IN (SELECT id FROM worksets WHERE retired = 0) ORDER BY created_at, operation_type`,
 		worksetID,
 	)
 	if err != nil {
@@ -94,7 +95,7 @@ func (r *Repository) GetOperationDraft(worksetID, operationType string) (*workse
 	var updatedAt string
 	err := r.db.QueryRow(`
 		SELECT workset_id, operation_type, schema_version, draft_json, draft_hash, updated_at
-		FROM workset_operation_drafts WHERE workset_id = ? AND operation_type = ?
+		FROM workset_operation_drafts WHERE workset_id = ? AND operation_type = ? AND workset_id IN (SELECT id FROM worksets WHERE retired = 0)
 	`, worksetID, operationType).Scan(
 		&d.WorksetID,
 		&d.OperationType,
@@ -149,7 +150,7 @@ func (r *Repository) SaveOperationDraft(
 func writeOperationDraftTx(tx *sql.Tx, d workset.OperationDraft, expectedVersion int) error {
 	result, err := tx.Exec(`
 		UPDATE workset_operations SET version = version + 1, updated_at = ?
-		WHERE workset_id = ? AND operation_type = ? AND version = ?
+		WHERE workset_id = ? AND operation_type = ? AND version = ? AND workset_id IN (SELECT id FROM worksets WHERE retired = 0)
 	`, d.UpdatedAt.Format(timeFormat), d.WorksetID, d.OperationType, expectedVersion)
 	if err != nil {
 		return err
@@ -180,8 +181,9 @@ func upsertOperationDraft(tx *sql.Tx, d workset.OperationDraft) error {
 func operationVersionGuardResult(tx *sql.Tx, worksetID, operationType string) error {
 	var n int
 	if err := tx.QueryRow(
-		"SELECT COUNT(*) FROM workset_operations WHERE workset_id = ? AND operation_type = ?",
-		worksetID, operationType,
+		"SELECT COUNT(*) FROM workset_operations WHERE workset_id = ? AND operation_type = ? AND workset_id IN (SELECT id FROM worksets WHERE retired = 0)",
+		worksetID,
+		operationType,
 	).Scan(&n); err != nil {
 		return err
 	}
@@ -201,6 +203,7 @@ func (r *Repository) GetOperationRevision(worksetID, operationType, planID strin
 		SELECT plan_id, workset_id, operation_type, revision_index, draft_hash, member_hash,
 		       operation_version, excluded_scope, draft_snapshot, created_at
 		FROM workset_operation_revisions WHERE workset_id = ? AND operation_type = ? AND plan_id = ?
+		AND plan_id IN (SELECT plan_id FROM plans WHERE status NOT IN ('staging','retired'))
 	`, worksetID, operationType, planID).Scan(
 		&rev.PlanID,
 		&rev.WorksetID,
@@ -223,52 +226,51 @@ func (r *Repository) GetOperationRevision(worksetID, operationType, planID strin
 	return &rev, nil
 }
 
-// PersistOperationRevision atomically writes a completed generation: the plan
-// snapshot, its revision association (revision_index = MAX+1 within the
-// operation), the operation's current-revision promotion with the operation
-// version bump, and the generation terminal state. A partial revision is never
-// visible.
-//
-// Publishing the new plan also retires the plan it replaced: the old plan, its
-// roots, units and revision row, and every execution session recorded for it
-// are deleted in the same transaction. A record keeps exactly one plan — the
-// current one — so a failed, canceled or interrupted generation leaves the
-// previous plan untouched and a successful one leaves nothing behind.
+// PersistOperationRevision stages bounded payload batches before publishing the
+// complete snapshot. Only promotion takes the cover publication guard: the old
+// plan remains current throughout staging and on any failure.
 func (r *Repository) PersistOperationRevision(
+	ctx context.Context,
 	genID, worksetID, operationType string,
 	now time.Time,
 	p workset.OperationRevisionPersist,
 ) error {
-	tx, err := r.db.Begin()
+	if err := r.stageOperationRevision(ctx, genID, worksetID, operationType, p); err != nil {
+		return err
+	}
+	write := func() error { return r.promoteOperationRevision(ctx, genID, worksetID, operationType, now, p) }
+	if r.PlanRetirementGuard != nil {
+		return r.PlanRetirementGuard(write)
+	}
+	return write()
+}
+
+func (r *Repository) promoteOperationRevision(
+	ctx context.Context,
+	genID, worksetID, operationType string, now time.Time, p workset.OperationRevisionPersist,
+) error {
+	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("begin revision persist tx: %w", err)
+		return fmt.Errorf("begin revision promotion tx: %w", err)
 	}
 	defer tx.Rollback()
 
 	var replacedPlanID sql.NullString
 	if readErr := tx.QueryRow(
-		"SELECT current_revision_id FROM workset_operations WHERE workset_id = ? AND operation_type = ?",
+		"SELECT current_revision_id FROM workset_operations WHERE workset_id = ? AND operation_type = ? AND workset_id IN (SELECT id FROM worksets WHERE retired = 0)",
 		worksetID,
 		operationType,
 	).Scan(&replacedPlanID); readErr != nil && !errors.Is(readErr, sql.ErrNoRows) {
 		return fmt.Errorf("read current revision: %w", readErr)
 	}
 
-	taskKind := operationType
-	if insertErr := InsertPlanTx(
-		tx,
-		p.PlanID,
-		taskKind,
-		p.TaskSchemaVersion,
-		p.RootPath,
-		p.SnapshotToken,
-		p.LibraryID,
-		worksetID,
-		p.Steps,
-		p.Roots,
-		p.Components,
-	); insertErr != nil {
-		return insertErr
+	if guardErr := guardStagingPlan(tx, genID, worksetID, operationType, p.PlanID); guardErr != nil {
+		return guardErr
+	}
+	if _, readyErr := tx.Exec(
+		`UPDATE plans SET status='ready' WHERE plan_id=? AND status='staging'`, p.PlanID,
+	); readyErr != nil {
+		return readyErr
 	}
 
 	var next int
@@ -293,7 +295,7 @@ func (r *Repository) PersistOperationRevision(
 	}
 	result, err := tx.Exec(`
 		UPDATE plan_generations SET status = 'completed', revision_id = ?, finished_at = ?, updated_at = ?
-		WHERE generation_id = ? AND status IN ('queued','running')
+		WHERE generation_id = ? AND status = 'running' AND cancel_requested = 0
 	`, p.PlanID, now.Format(timeFormat), now.Format(timeFormat), genID)
 	if err != nil {
 		return fmt.Errorf("complete generation: %w", err)
@@ -301,18 +303,39 @@ func (r *Repository) PersistOperationRevision(
 	if affected, _ := result.RowsAffected(); affected == 0 {
 		return workset.ErrGenerationNotFound
 	}
-	if replacedPlanID.Valid && replacedPlanID.String != "" && replacedPlanID.String != p.PlanID {
-		if cleanupErr := deletePlanDataTx(tx, replacedPlanID.String); cleanupErr != nil {
+	retired := replacedPlanID.Valid && replacedPlanID.String != "" && replacedPlanID.String != p.PlanID
+	if retired {
+		if cleanupErr := retirePlanTx(tx, replacedPlanID.String); cleanupErr != nil {
 			return cleanupErr
 		}
 	}
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	if retired && r.OnPlansRetired != nil {
+		r.OnPlansRetired()
+	}
+	return nil
 }
 
-// deletePlanDataTx removes one retired plan; payload and executions cascade.
-func deletePlanDataTx(tx *sql.Tx, planID string) error {
-	if _, err := tx.Exec(`DELETE FROM plans WHERE plan_id = ?`, planID); err != nil {
-		return fmt.Errorf("delete plan: %w", err)
+// retirePlanTx revokes demand while the caller holds the publication guard.
+func retirePlanTx(tx *sql.Tx, planID string) error {
+	if _, err := tx.Exec(`UPDATE plans SET status = 'retired' WHERE plan_id = ?`, planID); err != nil {
+		return fmt.Errorf("retire plan: %w", err)
+	}
+	// The hidden execution no longer owns an execution replay key. Release the
+	// unique reservation now, just as synchronous deletion previously did.
+	if _, err := tx.Exec(`UPDATE plan_executions SET idempotency_key='' WHERE plan_id=?`, planID); err != nil {
+		return fmt.Errorf("release retired execution key: %w", err)
+	}
+	if _, err := tx.Exec(`UPDATE cover_deliveries SET status='canceled',error_code='CANCELED'
+		WHERE execution_id IN (SELECT execution_id FROM plan_executions WHERE plan_id=?)
+		AND status IN ('pending','running')`, planID); err != nil {
+		return fmt.Errorf("cancel retired cover demand: %w", err)
+	}
+	// Keep the completed session and its replay key, without exposing its old plan.
+	if _, err := tx.Exec(`UPDATE plan_generations SET revision_id=NULL WHERE revision_id=?`, planID); err != nil {
+		return fmt.Errorf("clear retired generation revision: %w", err)
 	}
 	return nil
 }

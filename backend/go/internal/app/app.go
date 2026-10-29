@@ -256,6 +256,9 @@ func buildServices(repo *sqlite.Repository, configDir, dataDir string) services 
 	if err != nil {
 		fatal("cover delivery", err)
 	}
+	repo.PlanRetirementGuard = func(write func() error) error {
+		return coverSvc.WithPublication(context.Background(), write)
+	}
 	metadataExecutor := refresh.Executor{Metadata: metadataSvc, Covers: coverSvc}
 	renameTask := dirrename.New(repo, filesystem.ReadRenameDirectory, dirrename.ExecutionIO{
 		ResolveDirectory: filesystem.ResolveMember,
@@ -385,6 +388,7 @@ func runServer(
 	// Startup recovery: any session left queued/running by a previous process
 	// is marked interrupted before the dispatcher starts from an empty queue.
 	interruptStaleSessions(repo)
+	retired, retiredDone := startRetiredPlans(ctx, repo)
 	for _, err := range services.rename.RecoverInterrupted(ctx, repo) {
 		slog.Error("rename startup repair failed", "err", err)
 	}
@@ -395,6 +399,7 @@ func runServer(
 	maintenanceOptions := Options{
 		ScanRetention:       scanRetention,
 		GenerationRetention: generationRetention,
+		RetiredCleanup:      retired.kick,
 	}
 	maintenanceLoop := NewMaintenanceLoop(repo, services.gate.BeginMaintenance, maintenanceOptions)
 	cleanupService := cleanup.NewService(ctx, repo, services.gate, cleanup.Options{
@@ -475,6 +480,7 @@ func runServer(
 	slog.Info("shutting down")
 	shutdownBackend(httpSrv, handlers, services.workset.DispatcherHandle(), map[string]<-chan struct{}{
 		"cleanup": cleanupDone, "maintenance": maintenanceDone, "media facts": mediaFactsDone, "covers": coversDone,
+		"retired plans": retiredDone,
 	}, repo.Close, os.Exit)
 }
 

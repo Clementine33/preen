@@ -81,10 +81,11 @@ func (s concurrencyStore) UpdateEntryBitrates(updates []inventory.BitrateUpdate,
 }
 
 func (s concurrencyStore) PersistOperationRevision(
+	ctx context.Context,
 	generation, id, kind string, now time.Time, revision workset.OperationRevisionPersist,
 ) error {
 	defer s.m.start("persist")()
-	return s.Repository.PersistOperationRevision(generation, id, kind, now, revision)
+	return s.Repository.PersistOperationRevision(ctx, generation, id, kind, now, revision)
 }
 
 type concurrencyStaging struct {

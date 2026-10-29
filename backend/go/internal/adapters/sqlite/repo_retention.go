@@ -53,9 +53,9 @@ func deleteScanSessionsBatchTx(
 // finished_at is older than cutoff. finished_at IS NOT NULL is the terminal
 // test: a queued or running session has none yet.
 //
-// revision_id is ON DELETE SET NULL in the other direction - dropping a plan
-// clears the session's reference to it - so purging a session never reaches the
-// plan it planned.
+// Staging retains its terminal owner until bounded plan cleanup finishes.
+// Purging a session only detaches ready plans through generation_id SET NULL;
+// it never removes their payload or changes their execution eligibility.
 func deletePlanGenerationsBatchTx(
 	ctx context.Context,
 	tx *sql.Tx,
@@ -152,7 +152,8 @@ func (r *Repository) RunRetentionCleanupBatch(
 }
 
 const scanRetentionPredicate = "status IN ('completed','failed','canceled','interrupted') AND julianday(COALESCE(finished_at, started_at)) < julianday(?)"
-const generationRetentionPredicate = "finished_at IS NOT NULL AND julianday(finished_at) < julianday(?)"
+
+const generationRetentionPredicate = "finished_at IS NOT NULL AND julianday(finished_at) < julianday(?) AND NOT EXISTS (SELECT 1 FROM plans WHERE plans.generation_id=plan_generations.generation_id AND plans.status='staging')"
 
 // Materialize inventory paths once, rather than scan inventory for each credential.
 var generationRecordRetentionPredicate = `g.path NOT IN (

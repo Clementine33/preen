@@ -196,7 +196,7 @@ _Avoid_: Treating it as a repair for anything other than in-place rewrites.
 A Work Root of a Library, including its descendants. It is listed whether or not it holds audio, and each selected root is an independent boundary for classification, association and planning.
 
 **Workset (shared folder batch)**:
-The current, fixed, ordered set of 1–500 member directories selected in one Library. At most one exists per Library; conversion, metadata refresh and directory rename reuse the same members, including directories without audio. Replacing the batch replaces every activity's settings, current plan and execution results. The product entry keeps the name 工作集.
+The current, fixed, ordered set of member directories selected in one Library, bounded by a limit the API states. At most one exists per Library; conversion, metadata refresh and directory rename reuse the same members, including directories without audio. Replacing the batch replaces every activity's settings, current plan and execution results. The product entry keeps the name 工作集.
 _Avoid_: One batch per Task; multiple named collections per Library; permanent per-record history.
 
 **Member / Member ID**:

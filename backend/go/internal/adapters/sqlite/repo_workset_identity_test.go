@@ -76,7 +76,7 @@ func TestMemberIdentityIsStableAcrossReopens(t *testing.T) {
 
 // TestReplaceCurrentWorksetIsTheOnlyRecordForALibrary pins the storage-level
 // uniqueness of one record per library: the second write for the
-// same library must replace the first, not add another row.
+// same library must replace the first, leaving exactly one visible row.
 func TestReplaceCurrentWorksetIsTheOnlyRecordForALibrary(t *testing.T) {
 	repo := newTestRepository(t)
 	insertLibrary(t, repo, "lib-1")
@@ -116,7 +116,7 @@ func TestReplaceCurrentWorksetIsTheOnlyRecordForALibrary(t *testing.T) {
 	}
 	var rows int
 	if countErr := repo.DB().QueryRow(
-		"SELECT COUNT(*) FROM worksets WHERE library_id = 'lib-1'",
+		"SELECT COUNT(*) FROM worksets WHERE library_id = 'lib-1' AND retired = 0",
 	).Scan(&rows); countErr != nil {
 		t.Fatalf("count records: %v", countErr)
 	}

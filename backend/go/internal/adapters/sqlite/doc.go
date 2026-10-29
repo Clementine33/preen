@@ -16,5 +16,7 @@
 // development-schema initialization, release migrations, backups and database
 // maintenance. Retention purges terminal session ledgers and unreferenced done
 // cover downloads in bounded batches; cover delivery reports and files remain
-// owned by their respective records and filesystem adapters.
+// owned by their respective records and filesystem adapters. Generated plans
+// stage in guarded batches and publish atomically; invisible retired plans and
+// staging left by terminal generations are deleted in single-table batches.
 package sqlite

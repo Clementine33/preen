@@ -164,13 +164,10 @@ func (d *dispatcher) execute(gen *PlanGeneration) {
 		return
 	}
 
-	if ctx.Err() != nil {
-		d.finishGenerationCancellation(ctx, gen.GenerationID)
-		return
-	}
 	steps, roots, components := toRevisionRecords(snap)
 	now := time.Now()
 	if persistErr := d.svc.repo.PersistOperationRevision(
+		ctx,
 		gen.GenerationID,
 		gen.WorksetID,
 		gen.OperationType,
@@ -191,6 +188,11 @@ func (d *dispatcher) execute(gen *PlanGeneration) {
 			Components:        components,
 		},
 	); persistErr != nil {
+		checkCancel()
+		if sessionCanceled(ctx, persistErr) {
+			d.finishGenerationCancellation(ctx, gen.GenerationID)
+			return
+		}
 		d.fail(gen, "PERSIST_FAILED", "failed to persist revision")
 		return
 	}

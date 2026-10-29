@@ -159,6 +159,8 @@ func TestCreateCurrentValidation(t *testing.T) {
 	noFolders.FolderPaths = nil
 	if _, err := f.svc.CreateCurrentWorkset(ctx, noFolders); err == nil {
 		t.Fatal("an empty selection should fail")
+	} else if werr, ok := workset.AsError(err); !ok || werr.Code != "INVALID_FOLDER_COUNT" {
+		t.Fatalf("empty selection error = %v, want INVALID_FOLDER_COUNT", err)
 	}
 	tooMany := base()
 	tooMany.FolderPaths = make([]string, workset.MaxMembers+1)
@@ -167,6 +169,8 @@ func TestCreateCurrentValidation(t *testing.T) {
 	}
 	if _, err := f.svc.CreateCurrentWorkset(ctx, tooMany); err == nil {
 		t.Fatal("more than the member cap should fail, not truncate")
+	} else if werr, ok := workset.AsError(err); !ok || werr.Code != "INVALID_FOLDER_COUNT" {
+		t.Fatalf("over-limit selection error = %v, want INVALID_FOLDER_COUNT", err)
 	}
 	unknownOp := base()
 	unknownOp.OperationType = "rename"
@@ -181,8 +185,7 @@ func TestCreateCurrentValidation(t *testing.T) {
 }
 
 // TestCreateCurrentReplacesTheRecordTheCallerSaw covers the replacement rule:
-// the old record, its plan and its sessions go in the same transaction that
-// publishes the new one.
+// the old record, its plan and its sessions become invisible when the new one publishes.
 func TestCreateCurrentReplacesTheRecordTheCallerSaw(t *testing.T) {
 	f := newFixture(t)
 	ids := f.standardLibrary("albumA", "albumB")
@@ -209,7 +212,7 @@ func TestCreateCurrentReplacesTheRecordTheCallerSaw(t *testing.T) {
 		t.Fatal("the replaced record's plan must be gone")
 	}
 	var leftovers int
-	f.queryInt(&leftovers, "SELECT COUNT(*) FROM plans WHERE workset_id = ?", first.WorksetID)
+	f.queryInt(&leftovers, "SELECT COUNT(*) FROM plans WHERE workset_id = ? AND status <> 'retired'", first.WorksetID)
 	if leftovers != 0 {
 		t.Fatalf("replaced plans left behind: %d", leftovers)
 	}

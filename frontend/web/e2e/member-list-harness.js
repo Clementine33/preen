@@ -2,7 +2,9 @@ import { createApp, h, reactive } from 'vue'
 import MemberList from '../src/features/worksets/MemberList.vue'
 import '../src/style.css'
 
-const members = Array.from({ length: 5000 }, (_, index) => ({
+// The opt-in capacity measurement reuses this fixture at each candidate tier.
+const memberCount = Number(new URLSearchParams(location.search).get('members') || 5000)
+const members = Array.from({ length: memberCount }, (_, index) => ({
   member_id: `m-${index}`,
   folder_name: `Folder ${index} ${index % 7 === 0
     ? '長いフォルダ名'.repeat(15)

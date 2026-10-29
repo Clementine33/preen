@@ -157,7 +157,7 @@ func commonSettingsTargetsTx(tx *sql.Tx, operationType string) ([]commonSettings
 		JOIN worksets w ON w.id = o.workset_id
 		LEFT JOIN workset_operation_drafts d
 			ON d.workset_id = o.workset_id AND d.operation_type = o.operation_type
-		WHERE o.operation_type = ? AND w.library_id IS NOT NULL
+		WHERE o.operation_type = ? AND w.library_id IS NOT NULL AND w.retired = 0
 		ORDER BY w.id
 	`, operationType)
 	if err != nil {

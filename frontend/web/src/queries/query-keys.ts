@@ -4,6 +4,7 @@
 import type { CollectionWindow, ListWorksParams, WorkFacetKind, WorksScope } from '@/lib/api/types'
 
 export const queryKeys = {
+  health: () => ['health'] as const,
   libraries: {
     all: () => ['libraries'] as const,
     list: () => ['libraries', 'list'] as const,

@@ -36,6 +36,10 @@ const (
 
 // Options configures a Loop.
 type Options struct {
+	// RetiredCleanup wakes the independent invisible-data worker each pass,
+	// including passes refused by file-management admission.
+	RetiredCleanup func()
+
 	// ScanRetention and GenerationRetention are the windows the pass derives
 	// its cutoffs from, recomputed every pass so a long-running process never
 	// deletes against a stale cutoff. There is no default: they are policy, and

@@ -3,7 +3,24 @@ package coverdelivery
 import (
 	"context"
 	"fmt"
+	"log/slog"
 )
+
+// WithPublication runs a storage write before or after a whole publication,
+// never between its demand recheck and file publish. The write must open and
+// finish its own transaction here, after the publication lock is acquired.
+func (s *Service) WithPublication(ctx context.Context, write func() error) error {
+	s.publication.Lock()
+	err := write()
+	s.publication.Unlock()
+	if err == nil {
+		if stopErr := s.stopUnneeded(ctx); stopErr != nil {
+			// The write has committed. deliver still rechecks demand before publishing.
+			slog.Error("stop retired cover downloads failed", "err", stopErr)
+		}
+	}
+	return err
+}
 
 func (s *Service) Enqueue(ctx context.Context, r Request) error {
 	if r.ExecutionID == "" || r.WorkCode == "" {

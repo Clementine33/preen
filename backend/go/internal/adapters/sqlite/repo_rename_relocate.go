@@ -187,7 +187,7 @@ func relocateCopies(ctx context.Context, tx *sql.Tx, libraryID, source, target s
 // relocateMembers moves the workset members at or below the source, reading
 // them by range first for the same reason as relocateCopies.
 func relocateMembers(ctx context.Context, tx *sql.Tx, rootKey, source, target, sourceRel, targetRel string) error {
-	ids, err := tx.QueryContext(ctx, `SELECT id FROM worksets WHERE root_path_key=?`, rootKey)
+	ids, err := tx.QueryContext(ctx, `SELECT id FROM worksets WHERE root_path_key=? AND retired = 0`, rootKey)
 	if err != nil {
 		return fmt.Errorf("relocate members: %w", err)
 	}

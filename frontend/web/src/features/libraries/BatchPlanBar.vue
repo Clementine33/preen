@@ -10,6 +10,7 @@ export type TaskTarget = (typeof TASKS)[number]['target']
 
 <script setup lang="ts">
 import { X } from '@lucide/vue'
+import { computed } from 'vue'
 import { Button } from '@/components/ui/button'
 
 /**
@@ -22,8 +23,9 @@ import { Button } from '@/components/ui/button'
  * at every container tier — a phone has no room for a second column and the
  * scope is chosen on the very page the folders are listed on.
  */
-defineProps<{
+const props = defineProps<{
   selectedCount: number
+  memberLimit?: number
   loading: boolean
   /** Replacing the batch clears the state of every task. */
   replacing: boolean
@@ -34,6 +36,7 @@ const emit = defineEmits<{
   clear: []
   enter: [target: TaskTarget]
 }>()
+const overLimit = computed(() => props.memberLimit !== undefined && props.selectedCount > props.memberLimit)
 </script>
 
 <template>
@@ -43,7 +46,10 @@ const emit = defineEmits<{
     <div class="h-5 w-1 shrink-0 bg-[var(--ring)]" aria-hidden="true" />
     <div class="min-w-0">
       <p class="font-heading text-xs font-semibold">处理范围</p>
-      <p class="font-mono text-[11px] text-muted-foreground">已选择 {{ selectedCount }} 个文件夹</p>
+      <p class="font-mono text-[11px] text-muted-foreground">已选择 {{ selectedCount }}<template v-if="memberLimit !== undefined"> / {{ memberLimit }}</template> 个文件夹</p>
+      <p v-if="overLimit" id="member-limit-note" class="text-[11px] text-destructive">
+        超过上限 {{ memberLimit }} 个文件夹，请减少选择后再进入
+      </p>
       <p v-if="audioLessCount > 0" class="text-[10px] text-[var(--warning-ink,var(--text-secondary))]" data-testid="audio-less-note">
         其中 {{ audioLessCount }} 个没有音频，转换会跳过
       </p>
@@ -67,7 +73,8 @@ const emit = defineEmits<{
         class="h-11 rail:h-7"
         size="sm"
         :variant="task.target === 'conversion' ? 'default' : 'outline'"
-        :disabled="loading"
+        :disabled="loading || overLimit"
+        :aria-describedby="overLimit ? 'member-limit-note' : undefined"
         :title="replacing ? '将替换当前工作集批次' : '设为工作集批次'"
         @click="emit('enter', task.target)"
       >

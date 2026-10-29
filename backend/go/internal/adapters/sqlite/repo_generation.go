@@ -58,13 +58,15 @@ const generationColumns = `generation_id, workset_id, operation_type, status, id
 	started_at, finished_at, created_at, updated_at`
 
 // CreateGeneration inserts a queued planning session and identifies which
-// operation-scoped uniqueness rule rejected it.
+// operation-scoped uniqueness rule rejected it. Retirement and admission
+// serialize on this write, so a request cannot enqueue into a hidden record.
 func (r *Repository) CreateGeneration(g *workset.PlanGeneration) error {
-	_, err := r.db.Exec(`
+	result, err := r.db.Exec(`
 		INSERT INTO plan_generations (generation_id, workset_id, operation_type, status, idempotency_key, request_hash, expected_draft_version, request_json,
 			total_roots, completed_roots, current_root, error_count, cancel_requested, created_at, updated_at)
-		VALUES (?, ?, ?, 'queued', ?, ?, ?, ?, ?, 0, '', 0, 0, ?, ?)
-	`, g.GenerationID, g.WorksetID, g.OperationType, g.IdempotencyKey, g.RequestHash, g.ExpectedDraftVersion, g.RequestJSON, g.TotalRoots, g.CreatedAt.Format(timeFormat), g.CreatedAt.Format(timeFormat))
+		SELECT ?, ?, ?, 'queued', ?, ?, ?, ?, ?, 0, '', 0, 0, ?, ?
+		WHERE EXISTS(SELECT 1 FROM worksets WHERE id=? AND retired=0)
+	`, g.GenerationID, g.WorksetID, g.OperationType, g.IdempotencyKey, g.RequestHash, g.ExpectedDraftVersion, g.RequestJSON, g.TotalRoots, g.CreatedAt.Format(timeFormat), g.CreatedAt.Format(timeFormat), g.WorksetID)
 	if err != nil {
 		if isUniqueConstraintError(err) {
 			message := err.Error()
@@ -85,6 +87,9 @@ func (r *Repository) CreateGeneration(g *workset.PlanGeneration) error {
 		}
 		return fmt.Errorf("insert generation: %w", err)
 	}
+	if affected, _ := result.RowsAffected(); affected == 0 {
+		return workset.ErrWorksetNotFound
+	}
 	return nil
 }
 
@@ -95,7 +100,7 @@ func (r *Repository) GetGenerationByOperationKey(
 ) (*workset.PlanGeneration, error) {
 	row := r.db.QueryRow(
 		`SELECT `+generationColumns+` FROM plan_generations
-			 WHERE workset_id = ? AND operation_type = ? AND idempotency_key = ?
+			 WHERE workset_id = ? AND operation_type = ? AND workset_id IN (SELECT id FROM worksets WHERE retired = 0) AND idempotency_key = ?
 			   AND status IN ('queued', 'running', 'completed')`,
 		worksetID,
 		operationType,
@@ -113,7 +118,10 @@ func (r *Repository) GetGenerationByOperationKey(
 
 // GetGeneration retrieves a planning session by id.
 func (r *Repository) GetGeneration(generationID string) (*workset.PlanGeneration, error) {
-	row := r.db.QueryRow(`SELECT `+generationColumns+` FROM plan_generations WHERE generation_id = ?`, generationID)
+	row := r.db.QueryRow(
+		`SELECT `+generationColumns+` FROM plan_generations WHERE generation_id = ? AND workset_id IN (SELECT id FROM worksets WHERE retired = 0)`,
+		generationID,
+	)
 	g, err := scanGeneration(row)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -129,7 +137,7 @@ func (r *Repository) GetGeneration(generationID string) (*workset.PlanGeneration
 func (r *Repository) GetActiveGenerationForOperation(worksetID, operationType string) (*workset.PlanGeneration, error) {
 	row := r.db.QueryRow(`
 		SELECT `+generationColumns+` FROM plan_generations
-		WHERE workset_id = ? AND operation_type = ? AND status IN ('queued','running')
+		WHERE workset_id = ? AND operation_type = ? AND workset_id IN (SELECT id FROM worksets WHERE retired = 0) AND status IN ('queued','running')
 		ORDER BY julianday(created_at) DESC, generation_id DESC LIMIT 1
 	`, worksetID, operationType)
 	g, err := scanGeneration(row)
@@ -147,7 +155,7 @@ func (r *Repository) GetActiveGenerationForOperation(worksetID, operationType st
 func (r *Repository) LatestGenerationForOperation(worksetID, operationType string) (*workset.PlanGeneration, error) {
 	row := r.db.QueryRow(`
 		SELECT `+generationColumns+` FROM plan_generations
-		WHERE workset_id = ? AND operation_type = ?
+		WHERE workset_id = ? AND operation_type = ? AND workset_id IN (SELECT id FROM worksets WHERE retired = 0)
 		ORDER BY julianday(created_at) DESC, generation_id DESC LIMIT 1
 	`, worksetID, operationType)
 	g, err := scanGeneration(row)
@@ -270,6 +278,9 @@ func (r *Repository) MarkGenerationFailed(generationID, code, message string) er
 		UPDATE plan_generations SET status = 'failed', error_code = ?, error_message = ?, finished_at = ?, updated_at = ?
 		WHERE generation_id = ? AND status IN ('queued','running')
 	`, code, message, time.Now().Format(timeFormat), time.Now().Format(timeFormat), generationID)
+	if err == nil && r.OnPlansRetired != nil {
+		r.OnPlansRetired()
+	}
 	return err
 }
 
@@ -280,6 +291,9 @@ func (r *Repository) MarkGenerationInterrupted(generationID string) error {
 		UPDATE plan_generations SET status = 'interrupted', error_code = '', finished_at = ?, updated_at = ?
 		WHERE generation_id = ? AND status = 'running'
 	`, time.Now().Format(timeFormat), time.Now().Format(timeFormat), generationID)
+	if err == nil && r.OnPlansRetired != nil {
+		r.OnPlansRetired()
+	}
 	return err
 }
 
@@ -291,6 +305,9 @@ func (r *Repository) CompleteGenerationCanceled(generationID string) error {
 		UPDATE plan_generations SET status = 'canceled', error_code = 'CANCELED', finished_at = ?, updated_at = ?
 		WHERE generation_id = ? AND status = 'running'
 	`, time.Now().Format(timeFormat), time.Now().Format(timeFormat), generationID)
+	if err == nil && r.OnPlansRetired != nil {
+		r.OnPlansRetired()
+	}
 	return err
 }
 
@@ -302,6 +319,9 @@ func (r *Repository) InterruptStaleGenerations() error {
 		UPDATE plan_generations SET status = 'interrupted', finished_at = ?, updated_at = ?
 		WHERE status IN ('queued','running')
 	`, time.Now().Format(timeFormat), time.Now().Format(timeFormat))
+	if err == nil && r.OnPlansRetired != nil {
+		r.OnPlansRetired()
+	}
 	return err
 }
 

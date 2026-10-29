@@ -67,9 +67,10 @@ CREATE TABLE schema_meta (
 -- Persisted plans: one immutable snapshot of the current plan of one
 -- processing record. Everything task-specific is opaque here: task_kind names
 -- the Task that owns the payload and task_schema_version is that payload's
--- schema version. Only the current plan of a record is kept: publishing a new
--- one deletes the plan it replaced and that plan's execution rows in the same
--- transaction.
+-- schema version. Publishing retires the replaced plan and revokes its cover
+-- demand atomically. Retired payload and executions are deleted in bounded
+-- background batches; they are never visible through read interfaces. Staging
+-- plans belong to their generation and become visible only after promotion.
 CREATE TABLE plans (
     plan_id TEXT PRIMARY KEY,
     root_path TEXT NOT NULL,
@@ -77,11 +78,16 @@ CREATE TABLE plans (
     library_id TEXT REFERENCES libraries(id) ON DELETE SET NULL,
     snapshot_token TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'ready',
+    generation_id TEXT REFERENCES plan_generations(generation_id) ON DELETE SET NULL,
     task_kind TEXT NOT NULL DEFAULT '',
     task_schema_version INTEGER NOT NULL DEFAULT 0,
     workset_id TEXT NOT NULL REFERENCES worksets(id) ON DELETE CASCADE,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE INDEX idx_plans_generation ON plans(generation_id);
+CREATE INDEX idx_plans_staging ON plans(plan_id) WHERE status = 'staging';
+CREATE INDEX idx_plans_retired ON plans(plan_id) WHERE status = 'retired';
 
 -- Task payload rows of one plan (owned by the task named in plans.task_kind;
 -- the conversion task stores its resolved policy/classifier snapshots here).
@@ -152,10 +158,11 @@ CREATE UNIQUE INDEX idx_libraries_root_path ON libraries(root_path);
 CREATE UNIQUE INDEX idx_libraries_root_path_key ON libraries(root_path_key);
 
 -- Worksets: the shared current folder batch of one library. At
--- most one row per library — the unique index below is the storage-level
--- guarantee, not an application check. library_id is only NULL for a record
--- whose library row vanished outside the delete path; the delete path removes
--- the record instead of orphaning it. title duplicates are allowed. version is
+-- most one live row per library — the unique index below is the storage-level
+-- guarantee, not an application check. A live row with a NULL library_id is
+-- orphaned; retired rows stay invisible even after their library is removed.
+-- Retirement cleanup removes retained data in bounded batches.
+-- Title duplicates are allowed. version is
 -- the metadata concurrency counter (rename only); drafts and generations
 -- advance their operation's own version (workset_operations.version).
 -- creation_idem_key enables replay of a creation request for up to 30 days;
@@ -168,6 +175,7 @@ CREATE TABLE worksets (
     root_path TEXT NOT NULL DEFAULT '',
     root_path_key TEXT NOT NULL DEFAULT '',
     version INTEGER NOT NULL DEFAULT 1,
+    retired INTEGER NOT NULL DEFAULT 0 CHECK (retired IN (0, 1)),
     creation_idem_key TEXT,
     creation_request_hash TEXT NOT NULL DEFAULT '',
     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
@@ -176,7 +184,7 @@ CREATE TABLE worksets (
 
 CREATE UNIQUE INDEX idx_worksets_idem ON worksets(creation_idem_key) WHERE creation_idem_key IS NOT NULL;
 CREATE UNIQUE INDEX idx_worksets_library
-    ON worksets(library_id) WHERE library_id IS NOT NULL;
+    ON worksets(library_id) WHERE library_id IS NOT NULL AND retired = 0;
 CREATE INDEX idx_worksets_library_updated ON worksets(library_id, updated_at);
 CREATE INDEX idx_worksets_updated ON worksets(updated_at);
 

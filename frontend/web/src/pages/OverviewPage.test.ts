@@ -229,6 +229,89 @@ describe('workbench overview', () => {
     expect(router.currentRoute.value.name).toBe('conversion')
   })
 
+  it('shows the selected count below and exactly at the server member limit', async () => {
+    const createCurrentRecord = vi.fn().mockResolvedValue({
+      workset: record,
+      created: true,
+      recorded: 2,
+      skipped: [],
+    })
+    const { wrapper, router } = await mountOverview({
+      getHealth: vi.fn().mockResolvedValue({ ok: true, version: 'test', workset_max_members: 2 }),
+      createCurrentRecord,
+    })
+    ui().toggleDir('albumA', dirs)
+    await flushPromises()
+    expect(wrapper.text()).toContain('已选择 1 / 2 个文件夹')
+    expect(wrapper.get('[data-testid="enter-conversion"]').attributes('disabled')).toBeUndefined()
+
+    ui().toggleDir('docs', dirs)
+    await flushPromises()
+    expect(wrapper.text()).toContain('已选择 2 / 2 个文件夹')
+    for (const target of ['conversion', 'rename', 'metadata-refresh']) {
+      expect(wrapper.get(`[data-testid="enter-${target}"]`).attributes('disabled')).toBeUndefined()
+    }
+    await wrapper.get('[data-testid="enter-conversion"]').trigger('click')
+    await flushPromises()
+    expect(createCurrentRecord).toHaveBeenCalled()
+    expect(router.currentRoute.value.name).toBe('conversion')
+  })
+
+  it('disables every task entry and explains an over-limit selection', async () => {
+    const { wrapper, api } = await mountOverview({
+      getHealth: vi.fn().mockResolvedValue({ ok: true, version: 'test', workset_max_members: 1 }),
+    })
+    for (const dir of dirs) ui().toggleDir(dir.rel_path, dirs)
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('已选择 2 / 1 个文件夹')
+    expect(wrapper.text()).toContain('超过上限 1 个文件夹，请减少选择后再进入')
+    for (const target of ['conversion', 'rename', 'metadata-refresh']) {
+      const entry = wrapper.get(`[data-testid="enter-${target}"]`)
+      expect(entry.attributes('disabled')).toBeDefined()
+      await entry.trigger('click')
+    }
+    expect(api.createCurrentRecord).not.toHaveBeenCalled()
+    expect(wrapper.get('[data-testid="clear-selection"]').attributes('disabled')).toBeUndefined()
+  })
+
+  it.each([
+    [
+      'loading',
+      () => new Promise(() => {}),
+    ],
+    [
+      'failed',
+      () => Promise.reject(new Error('offline')),
+    ],
+    [
+      'missing',
+      () => Promise.resolve({ ok: true, version: 'older' }),
+    ],
+  ] as const)('allows creation when the member limit is %s', async (_state, getHealth) => {
+    const createCurrentRecord = vi.fn().mockResolvedValue({
+      workset: record,
+      created: true,
+      recorded: 2,
+      skipped: [],
+    })
+    const { wrapper, router } = await mountOverview({
+      getHealth: vi.fn(getHealth),
+      createCurrentRecord,
+    })
+    for (const dir of dirs) ui().toggleDir(dir.rel_path, dirs)
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('已选择 2 个文件夹')
+    for (const target of ['conversion', 'rename', 'metadata-refresh']) {
+      expect(wrapper.get(`[data-testid="enter-${target}"]`).attributes('disabled')).toBeUndefined()
+    }
+    await wrapper.get('[data-testid="enter-conversion"]').trigger('click')
+    await flushPromises()
+    expect(createCurrentRecord).toHaveBeenCalled()
+    expect(router.currentRoute.value.name).toBe('conversion')
+  })
+
   describe('search and order', () => {
     const coded: LibraryDir[] = [
       {

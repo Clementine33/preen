@@ -187,7 +187,7 @@ func TestListAndUpdateAndDeleteLibrary(t *testing.T) {
 	}
 
 	// A processing record (with its members, operation, draft and plan) is
-	// deleted with the library: no orphaned record survives its library.
+	// hidden with the library, then removed by bounded cleanup.
 	if err := seedRecordWithPlan(t, repo, lib1.ID, "ws-1", "plan-1"); err != nil {
 		t.Fatalf("seed record: %v", err)
 	}
@@ -198,6 +198,8 @@ func TestListAndUpdateAndDeleteLibrary(t *testing.T) {
 	if _, err := repo.GetLibrary(lib1.ID); !errors.Is(err, library.ErrLibraryNotFound) {
 		t.Errorf("expected library.ErrLibraryNotFound after delete, got %v", err)
 	}
+
+	drainDeletedLibrary(t, repo)
 
 	for _, query := range []struct {
 		name string
@@ -249,6 +251,10 @@ func TestDeleteLibraryRetiresExecutionCoverDemands(t *testing.T) {
 	if err := repo.DeleteLibrary(lib.ID); err != nil {
 		t.Fatal(err)
 	}
+	if job, err := repo.ClaimCover(t.Context()); err != nil || job != nil {
+		t.Fatalf("retired cover claimed: %+v, %v", job, err)
+	}
+	drainDeletedLibrary(t, repo)
 	for _, table := range []string{"worksets", "plans", "plan_executions", "cover_deliveries"} {
 		var count int
 		if err := repo.DB().QueryRow("SELECT COUNT(*) FROM " + table).Scan(&count); err != nil || count != 0 {
@@ -519,4 +525,18 @@ func TestLibraryCountsSearchDirectoryPathRanges(t *testing.T) {
 			t.Fatalf("library counts must visit only each work subtree: %s", plan)
 		}
 	}
+}
+
+func drainDeletedLibrary(t *testing.T, repo *Repository) {
+	t.Helper()
+	for range 50 {
+		n, err := repo.DeleteRetiredPlanBatch(t.Context(), 1000)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if n == 0 {
+			return
+		}
+	}
+	t.Fatal("cleanup did not finish")
 }

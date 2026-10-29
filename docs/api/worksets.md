@@ -3,7 +3,7 @@
 [API reference](../api.md) · [Common conventions](common.md)
 
 A **workset** is the library's shared current folder batch: a fixed, ordered
-set of 1–500 selected Work Roots, including roots without audio. Each library
+set of 1–2,000 selected Work Roots, including roots without audio. Each library
 has at most one workset, enforced by a storage-level unique index.
 `conversion`, `rename` and `metadata_refresh` reuse the same members and each
 retain independent drafts, versions, planning sessions, current plans and
@@ -11,9 +11,9 @@ execution results. Decision: [ADR 0004](../adr/0004-task-seam-and-opaque-payload
 
 **Status: implemented and machine-checked.** The Go handler, repository and
 e2e tests are the reference for the shapes below. There is no revision-history
-route: each operation keeps exactly one plan, the current one, and publishing a new
-plan retires the one it replaced — with its payload, roots, units, execution
-sessions and pending cover demands — in the same transaction. A failed generation
+route: each operation exposes exactly one current plan, and publishing a new
+plan makes the one it replaced — with its payload, roots, units and execution
+sessions — inaccessible and cancels unfinished cover demands in the same transaction. A failed generation
 keeps the current plan, execution and pending cover demands. The pre-operation
 workset routes (`/worksets/{id}/draft`, `/worksets/{id}/revisions`,
 `/worksets/{id}/planning-sessions/*`) and the old record-creation route
@@ -41,8 +41,13 @@ directory that did not become a member instead of dropping it silently:
 
 A selection whose every entry is unusable creates nothing and answers
 `NO_MEMBERS` (400), with the skipped paths in `details`. Batch membership does
-not depend on the entry-point Task or on audio count. More than 500
+not depend on the entry-point Task or on audio count. More than 2,000
 selected paths is `INVALID_FOLDER_COUNT` (400) — never a silent truncation.
+The current limit is advertised as `workset_max_members` by
+[`GET /api/v1/health`](common.md#health-endpoint). The overview shows selected
+count / limit and disables task entry above that limit, with an explanation.
+While the limit is unavailable, entry remains enabled and the server's count
+validation remains authoritative.
 `expected_current_id` is the record the caller saw as current (absent when it
 saw none): a mismatch is `RECORD_REPLACED` (409) instead of an overwrite, and a
 record with a queued or running session is `RECORD_BUSY` (409) instead of being
@@ -71,7 +76,7 @@ All routes require auth and use the [standard error envelope](common.md#error-en
 | Method | Path | Behavior |
 | --- | --- | --- |
 | GET | `/api/v1/libraries/{id}/operations/{type}/current` | The library's shared current batch (the same for every registered type), or `{"workset": null}` with 200 when it has none. A library that does not exist is 404. |
-| PUT | `/api/v1/libraries/{id}/operations/{type}/current` | Create or replace. Body `{"folder_paths":[...],"expected_current_id":"…","title":"…"}` (title optional; the library's name is the default), `Idempotency-Key` optional (`INVALID_IDEMPOTENCY_KEY` when malformed, and an absent key means the call is never a replay). 201 `{"workset":…,"created":true,"recorded":N,"skipped":[{"path","reason"}]}`; 200 for an idempotent replay. The new record and the removal of the one it replaces — members and every operation, draft, plan and session — are one transaction. |
+| PUT | `/api/v1/libraries/{id}/operations/{type}/current` | Create or replace. Body `{"folder_paths":[...],"expected_current_id":"…","title":"…"}` (title optional; the library's name is the default), `Idempotency-Key` optional (`INVALID_IDEMPOTENCY_KEY` when malformed, and an absent key means the call is never a replay). 201 `{"workset":…,"created":true,"recorded":N,"skipped":[{"path","reason"}]}`; 200 for an idempotent replay. The new record and the disappearance of the one it replaces — members and every operation, draft, plan and session — are atomic. Unfinished cover demands are canceled at the same boundary; stored payload is removed in background batches. |
 | GET | `/api/v1/worksets` | Keyset list (`limit`, `cursor` → `next_cursor`, `library_id`, `status=active` excludes orphaned). |
 | GET | `/api/v1/worksets/{id}` | Metadata view: `workset_id`, `title`, `version`, `library`, `members[]`, `operations[]`. Member coverage and planning state belong to an operation, never to the member or the workset. |
 | PATCH | `/api/v1/worksets/{id}` | Rename only. `If-Match` = workset metadata version (`VERSION_REQUIRED` without it, `VERSION_CONFLICT` when stale, `ORPHANED_WORKSET` when the library is gone). |

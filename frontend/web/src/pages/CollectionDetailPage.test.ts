@@ -385,6 +385,34 @@ describe('collectionDetailPage', () => {
       expect(wrapper.findAll('[data-testid="collection-play"]')).toHaveLength(4)
     })
 
+    it('mounts one row menu at a time, on its first press, already open', async () => {
+      const { api } = edited()
+      const { wrapper } = await mountEditing(api)
+      const triggers = () => wrapper.findAll('[data-testid="collection-more"][aria-expanded]')
+      expect(triggers()).toHaveLength(0)
+      // jsdom has no PointerEvent; the handler reads only button and ctrlKey.
+      const pressMore = (row: number, button: number) => rows(wrapper)[row]!.get('[data-testid="collection-more"]').element.dispatchEvent(new MouseEvent('pointerdown', { button, bubbles: true, cancelable: true }))
+      // Escape goes to the menu, as a real key does from its focus; at the page it would end the edit.
+      const closeMenu = () => document.body.querySelector('[role="menu"]')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+      pressMore(2, 0)
+      await flushPromises()
+      expect(document.body.querySelector('[data-testid="collection-move-top"]')).not.toBeNull()
+      expect(triggers().map(t => t.element.closest('.row')?.getAttribute('data-rj'))).toEqual(['RJ00000003'])
+      // A secondary press mounts nothing; as a press outside, it closes the open menu.
+      pressMore(1, 2)
+      await flushPromises()
+      expect(triggers()).toHaveLength(1)
+      expect(document.body.querySelector('[role="menu"]')).toBeNull()
+      pressMore(0, 0)
+      await flushPromises()
+      expect(triggers().map(t => t.element.closest('.row')?.getAttribute('data-rj'))).toEqual(['RJ00000001'])
+      closeMenu()
+      await flushPromises()
+      await wrapper.get('[data-testid="collection-edit"]').trigger('click')
+      await wrapper.get('[data-testid="collection-edit"]').trigger('click')
+      expect(triggers()).toHaveLength(0)
+    })
+
     it('drops a row before the row under the gap in ascending order, the bottom meaning the end', async () => {
       const { api, moveCollectionMember } = edited()
       const { wrapper } = await mountEditing(api)

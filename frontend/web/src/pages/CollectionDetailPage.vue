@@ -181,7 +181,9 @@ function backToEntry(): void {
 .header-left { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
 .header-meta { display: flex; align-items: center; gap: var(--sp-2); flex-shrink: 0; }
 .h-title { font-size: var(--fs-m); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-.main { display: grid; min-height: 0; min-width: 0; }
+/* A definite row: in an implicit auto row the list's height depends on its
+   rows, so any change to one row re-laid out every loaded row. */
+.main { display: grid; grid-template-rows: minmax(0, 1fr); min-height: 0; min-width: 0; }
 .actions { display: inline-flex; gap: var(--sp-2); }
 .more { width: 28px; padding: 0; justify-content: center; }
 .actions .btn.on { background: var(--invert-bg); color: var(--invert-fg); }

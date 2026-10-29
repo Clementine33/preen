@@ -196,10 +196,10 @@ func (r *Repository) UpdateLibrary(
 	return r.GetLibrary(id)
 }
 
-// DeleteLibrary removes a library together with every processing record it
-// owns, in one transaction: the records' plans, executions, members, drafts and
-// sessions go with them, so no orphaned record survives its library. Media
-// files and recovery directories on disk are never touched.
+// DeleteLibrary removes a library and retires its current record atomically.
+// Retired payload is hidden immediately and removed by bounded cleanup; no
+// orphaned record survives its library. Inventory and copy bindings are deleted
+// synchronously. Media files and recovery directories are never touched.
 //
 // It fails with ErrGenerationInProgress while a record has a queued or running
 // planning session and with ErrExecutionInProgress while one has a queued or
@@ -209,6 +209,14 @@ func (r *Repository) UpdateLibrary(
 // writer, so a delete that commits cannot race a session that would start
 // against the deleted library.
 func (r *Repository) DeleteLibrary(id string) error {
+	write := func() error { return r.deleteLibrary(id) }
+	if r.PlanRetirementGuard != nil {
+		return r.PlanRetirementGuard(write)
+	}
+	return write()
+}
+
+func (r *Repository) deleteLibrary(id string) error {
 	tx, err := r.db.Begin()
 	if err != nil {
 		return err
@@ -246,27 +254,12 @@ func (r *Repository) DeleteLibrary(id string) error {
 		return library.ErrExecutionInProgress
 	}
 
-	rows, err := tx.Query("SELECT id FROM worksets WHERE library_id = ? AND retired = 0", id)
+	current, err := currentWorksetTx(tx, id)
 	if err != nil {
 		return err
 	}
-	var recordIDs []string
-	for rows.Next() {
-		var recordID string
-		if scanErr := rows.Scan(&recordID); scanErr != nil {
-			rows.Close()
-			return scanErr
-		}
-		recordIDs = append(recordIDs, recordID)
-	}
-	if err := rows.Err(); err != nil {
-		rows.Close()
-		return err
-	}
-	rows.Close()
-
-	for _, recordID := range recordIDs {
-		if _, err := tx.Exec("DELETE FROM worksets WHERE id = ?", recordID); err != nil {
+	if current != nil {
+		if err := retireWorksetTx(tx, current.ID); err != nil {
 			return err
 		}
 	}
@@ -290,6 +283,9 @@ func (r *Repository) DeleteLibrary(id string) error {
 	}
 	if err := tx.Commit(); err != nil {
 		return err
+	}
+	if current != nil && r.OnPlansRetired != nil {
+		r.OnPlansRetired()
 	}
 	r.catalogChanged()
 	return nil

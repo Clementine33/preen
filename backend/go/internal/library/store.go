@@ -14,7 +14,7 @@ type Store interface {
 	GetLibrary(id string) (*Library, error)
 	// UpdateLibrary applies partial fields and atomically rejects a root change that overlaps another library.
 	UpdateLibrary(id string, name, rootPath *string, storageClass *StorageClass) (*Library, error)
-	// DeleteLibrary removes the library together with its record and sessions.
+	// DeleteLibrary removes the library and hides its record and sessions atomically.
 	DeleteLibrary(id string) error
 	// UpdateLibraryScanState records the outcome of a scan of this library.
 	UpdateLibraryScanState(libraryID, status, message string, at time.Time) error

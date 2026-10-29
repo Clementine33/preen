@@ -50,9 +50,13 @@ func (m *worksetSQLMeasurement) report(t *testing.T) {
 	t.Log("sql_path samples failures max_begin_ms max_held_ms max_autocommit_ms")
 	for _, path := range keys {
 		s := m.paths[path]
-		if strings.HasSuffix(path, "/autocommit") {
+		switch {
+		case strings.Contains(path, "/phase/"):
+			t.Logf("sql_phase %s %d %d elapsed_ms=%.3f",
+				path, s.count, s.failures, float64(s.held)/float64(time.Millisecond))
+		case strings.HasSuffix(path, "/autocommit"):
 			t.Logf("sql %s %d %d n/a n/a %.3f", path, s.count, s.failures, float64(s.held)/float64(time.Millisecond))
-		} else {
+		default:
 			t.Logf("sql %s %d %d %.3f %.3f n/a", path, s.count, s.failures,
 				float64(s.begin)/float64(time.Millisecond), float64(s.held)/float64(time.Millisecond))
 		}
@@ -146,6 +150,22 @@ func (c *worksetMeasuredConn) ExecContext(
 	}
 	result, err := executor.ExecContext(ctx, query, args)
 	elapsed := time.Since(started)
+	if c.transaction != nil && c.transaction.path == "(*Repository).deleteLibrary" &&
+		command != "COMMIT" && command != "ROLLBACK" {
+		phase := "record_retirement"
+		switch {
+		case strings.HasPrefix(command, "DELETE FROM WORK_COPIES"):
+			phase = "copy_unbinding"
+		case strings.HasPrefix(command, "DELETE FROM INVENTORY_DIRS"):
+			phase = "inventory_deletion"
+		case strings.HasPrefix(command, "DELETE FROM LIBRARIES"):
+			phase = "library_deletion"
+		}
+		if c.transaction.phases == nil {
+			c.transaction.phases = map[string]time.Duration{}
+		}
+		c.transaction.phases[phase] += elapsed
+	}
 	switch {
 	case strings.HasPrefix(command, "BEGIN"):
 		if strings.Contains(command, "DEFERRED") {
@@ -200,11 +220,15 @@ type worksetMeasuredTx struct {
 	begin    time.Duration
 	started  time.Time
 	readOnly bool
+	phases   map[string]time.Duration
 }
 
 func (tx *worksetMeasuredTx) finish(err error) {
 	if !tx.readOnly {
 		tx.conn.measurement.record(tx.path, tx.begin, time.Since(tx.started), err)
+		for phase, elapsed := range tx.phases {
+			tx.conn.measurement.record(tx.path+"/phase/"+phase, 0, elapsed, err)
+		}
 	}
 	tx.conn.transaction = nil
 }

@@ -196,3 +196,22 @@ func recordReplacement(t *testing.T, svc *coverdelivery.Service, repo *sqlite.Re
 		)
 	}
 }
+
+func TestLibraryDeletionBlocksClaimedCoverAtPublicationRecheck(t *testing.T) {
+	testRetirementBlocksClaimedCover(t, libraryDeletion)
+}
+
+func TestLibraryDeletionWaitsForPublicationThatPassedDemandRecheck(t *testing.T) {
+	testRetirementWaitsForPublication(t, libraryDeletion)
+}
+
+func libraryDeletion(t *testing.T, svc *coverdelivery.Service, repo *sqlite.Repository) func() error {
+	t.Helper()
+	if _, err := repo.DB().Exec(`INSERT INTO libraries(id,name,root_path) VALUES('deleted-lib','Library','/music');
+ UPDATE worksets SET library_id='deleted-lib' WHERE id='set';
+ UPDATE plan_executions SET status='succeeded' WHERE execution_id='exec'`); err != nil {
+		t.Fatal(err)
+	}
+	repo.PlanRetirementGuard = func(write func() error) error { return svc.WithPublication(t.Context(), write) }
+	return func() error { return repo.DeleteLibrary("deleted-lib") }
+}

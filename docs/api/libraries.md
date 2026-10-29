@@ -71,9 +71,13 @@ Both a root change and a deletion take the direct-file-management slot, so
 neither interleaves with file management (ADR 0002).
 
 `DELETE /api/v1/libraries/:id` removes the library **together with its
-processing record**: the record's members, operation, draft, current plan and
-execution results go in the same transaction, so no orphaned record survives
-its library. The stored inventory of the library root goes as well. Pending cover demands owned by removed executions go with them. Media files, published covers
+processing record**: the record, its members, operations, drafts, plans and
+execution results become inaccessible in the same transaction, so no orphaned
+record survives its library. Their stored payload is then removed in background
+batches. The stored inventory and copy bindings of the library root are removed
+synchronously. Retirement cancels pending and running cover demands under the
+cover publication guard, so a cover publishes before deletion commits or is
+blocked at the final demand check. Media files, published covers
 and all `Delete/` recovery directories on
 disk are never touched. Deletion is blocked by active operation generation
 (`GENERATION_IN_PROGRESS`) and by an active execution session

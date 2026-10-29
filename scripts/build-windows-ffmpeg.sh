@@ -11,10 +11,12 @@ zlib_version="$(sed -n 's/^zlib = "\([^"]*\)"$/\1/p' /src/mise.toml)"
 test -n "$ffmpeg_version" && test -n "$lame_version" && test -n "$opus_version" && test -n "$zlib_version"
 mkdir -p /out/bin
 
+get() { curl -fsSL --http1.1 --connect-timeout 15 --retry 3 --retry-all-errors "$@"; }
+
 sh /src/scripts/ffmpeg-source.sh
-curl -fsSL "https://downloads.sourceforge.net/project/lame/lame/${lame_version}/lame-${lame_version}.tar.gz" -o lame.tar.gz
-curl -fsSL "https://downloads.xiph.org/releases/opus/opus-${opus_version}.tar.gz" -o opus.tar.gz
-curl -fsSL "https://zlib.net/fossils/zlib-${zlib_version}.tar.gz" -o zlib.tar.gz
+get "https://downloads.sourceforge.net/project/lame/lame/${lame_version}/lame-${lame_version}.tar.gz" -o lame.tar.gz
+get "https://downloads.xiph.org/releases/opus/opus-${opus_version}.tar.gz" -o opus.tar.gz
+get "https://zlib.net/fossils/zlib-${zlib_version}.tar.gz" -o zlib.tar.gz
 tar -xzf lame.tar.gz
 tar -xzf opus.tar.gz
 tar -xzf zlib.tar.gz

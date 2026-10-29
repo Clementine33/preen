@@ -80,7 +80,7 @@ tasks:
   test:desktop:packaging:
     desc: Check release CI gate, version validation and portable archive assembly
     cmds:
-      - node --test scripts/build-desktop.test.mjs scripts/package-windows.test.mjs scripts/wait-for-ci.test.mjs
+      - node --test scripts/build-desktop.test.mjs scripts/package-windows.test.mjs scripts/wait-for-ci.test.mjs scripts/ffmpeg-source.test.mjs
       - go test scripts/zip-directory.go scripts/zip-directory_test.go
 
   db:rebuild:dev:

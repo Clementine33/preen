@@ -28,6 +28,7 @@ import RowList from '@/features/worksets/RowList.vue'
 import TaskPlanTable from '@/features/worksets/TaskPlanTable.vue'
 import WorkbenchNav from '@/features/worksets/WorkbenchNav.vue'
 import { useApiClient } from '@/lib/api/client'
+import { newIdempotencyKey } from '@/lib/utils'
 import {
   currentRecordQueryOptions,
   executionCoversQueryOptions,
@@ -175,7 +176,7 @@ async function generate() {
       worksetId: worksetId.value,
       operation: operation.value,
       ifMatchVersion: op.value.version,
-      idempotencyKey: crypto.randomUUID(),
+      idempotencyKey: newIdempotencyKey(),
     })
   }
   catch (error) {
@@ -377,7 +378,7 @@ async function execute() {
       operation: operation.value,
       planId: planId.value,
       ifMatchVersion: op.value.version,
-      idempotencyKey: crypto.randomUUID(),
+      idempotencyKey: newIdempotencyKey(),
     })
   }
   catch (error) {

@@ -6,6 +6,7 @@ import { useWorksetExecution } from '@/composables/use-workset-execution'
 import { useWorksetGeneration } from '@/composables/use-workset-generation'
 import { useApiClient } from '@/lib/api/client'
 import { CONVERSION } from '@/lib/api/types'
+import { newIdempotencyKey } from '@/lib/utils'
 import {
   currentRecordQueryOptions,
   executionQueryOptions,
@@ -232,7 +233,7 @@ export function useOperationContext(
       worksetId: worksetId.value,
       operation,
       ifMatchVersion: view.version,
-      idempotencyKey: crypto.randomUUID(),
+      idempotencyKey: newIdempotencyKey(),
     })
   }
 

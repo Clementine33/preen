@@ -22,6 +22,7 @@ import {
 } from '@/lib/api/types'
 import { rootPathIdentityKey } from '@/lib/root-path-identity'
 import { newIdempotencyKey } from '@/lib/utils'
+import { healthQueryOptions } from '@/queries/health'
 import { deleteLibraryMutationOptions, dirsQueryOptions, updateLibraryMutationOptions, useLibraryList } from '@/queries/libraries'
 import { createCurrentRecordMutationOptions, currentRecordQueryOptions } from '@/queries/worksets'
 import { useLibraryUiStore } from '@/stores/library-ui'
@@ -39,6 +40,8 @@ import { useScanStore } from '@/stores/scan'
 const route = useRoute()
 const router = useRouter()
 const api = useApiClient()
+const health = useQuery(healthQueryOptions(api))
+const memberLimit = computed(() => health.data.value?.workset_max_members)
 const queryClient = useQueryClient()
 const ui = useLibraryUiStore()
 const scan = useScanStore()
@@ -520,6 +523,7 @@ const libraryRoot = computed(() => activeLibrary.value?.root_path ?? '')
       <BatchPlanBar
         v-if="!filesOpen && ui.selectedDirPaths.length > 0"
         :selected-count="ui.selectedDirPaths.length"
+        :member-limit="memberLimit"
         :loading="creating"
         :replacing="Boolean(record)"
         :audio-less-count="selectedWithoutAudio.length"

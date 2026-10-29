@@ -138,13 +138,14 @@ func (r *Repository) CreateExecutionGuarded(e *workset.PlanExecution, g workset.
 		)
 		SELECT ?, ?, ?, ?, 'queued', ?, ?, ?, ?, ?, ?, ?, ?
 		WHERE EXISTS (
-			SELECT 1 FROM worksets w WHERE w.id = ? AND w.library_id IS NOT NULL
+			SELECT 1 FROM worksets w WHERE w.id = ? AND w.library_id IS NOT NULL AND w.retired = 0
 		)
 		AND EXISTS (
 			SELECT 1 FROM workset_operations o
 			WHERE o.workset_id = ? AND o.operation_type = ?
 			  AND o.version = ? AND o.current_revision_id = ?
 		)
+		AND EXISTS (SELECT 1 FROM plans WHERE plan_id = ? AND status NOT IN ('staging','retired'))
 		AND EXISTS (
 			SELECT 1 FROM workset_operation_drafts d
 			WHERE d.workset_id = ? AND d.operation_type = ? AND d.draft_hash = ?
@@ -158,6 +159,7 @@ func (r *Repository) CreateExecutionGuarded(e *workset.PlanExecution, g workset.
 		e.TotalComponents, e.TotalOperations, now, now,
 		e.WorksetID,
 		e.WorksetID, e.OperationType, g.ExpectedOperationVersion, e.PlanID,
+		e.PlanID,
 		e.WorksetID, e.OperationType, g.ExpectedDraftHash,
 		e.WorksetID, e.OperationType)
 	if err != nil {
@@ -178,7 +180,7 @@ func (r *Repository) CreateExecutionGuarded(e *workset.PlanExecution, g workset.
 // workset.ErrExecutionNotEligible.
 func (r *Repository) classifyExecutionGuards(e *workset.PlanExecution, g workset.ExecutionGuards) error {
 	var libraryID sql.NullString
-	err := r.db.QueryRow("SELECT library_id FROM worksets WHERE id = ?", e.WorksetID).Scan(&libraryID)
+	err := r.db.QueryRow("SELECT library_id FROM worksets WHERE id = ? AND retired = 0", e.WorksetID).Scan(&libraryID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return workset.ErrWorksetNotFound
 	}
@@ -247,7 +249,10 @@ func (r *Repository) classifyExecutionGuards(e *workset.PlanExecution, g workset
 
 // GetExecution retrieves an execution session by id.
 func (r *Repository) GetExecution(executionID string) (*workset.PlanExecution, error) {
-	row := r.db.QueryRow(`SELECT `+executionColumns+` FROM plan_executions WHERE execution_id = ?`, executionID)
+	row := r.db.QueryRow(
+		`SELECT `+executionColumns+` FROM plan_executions WHERE plan_id IN (SELECT plan_id FROM plans WHERE status NOT IN ('staging','retired')) AND execution_id = ?`,
+		executionID,
+	)
 	e, err := scanExecution(row)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -267,7 +272,7 @@ func (r *Repository) GetExecutionByOperationKey(worksetID, operationType, key st
 	}
 	row := r.db.QueryRow(
 		`SELECT `+executionColumns+` FROM plan_executions
-		 WHERE workset_id = ? AND operation_type = ? AND idempotency_key = ?`,
+		 WHERE plan_id IN (SELECT plan_id FROM plans WHERE status NOT IN ('staging','retired')) AND workset_id = ? AND operation_type = ? AND idempotency_key = ?`,
 		worksetID, operationType, key,
 	)
 	e, err := scanExecution(row)
@@ -286,7 +291,7 @@ func (r *Repository) GetExecutionByOperationKey(worksetID, operationType, key st
 func (r *Repository) GetExecutionForRevision(planID string) (*workset.PlanExecution, error) {
 	row := r.db.QueryRow(
 		`SELECT `+executionColumns+` FROM plan_executions
-		 WHERE plan_id = ? ORDER BY julianday(created_at) DESC, execution_id DESC LIMIT 1`,
+		 WHERE plan_id IN (SELECT plan_id FROM plans WHERE status NOT IN ('staging','retired')) AND plan_id = ? ORDER BY julianday(created_at) DESC, execution_id DESC LIMIT 1`,
 		planID,
 	)
 	e, err := scanExecution(row)
@@ -304,7 +309,7 @@ func (r *Repository) GetExecutionForRevision(planID string) (*workset.PlanExecut
 func (r *Repository) GetActiveExecutionForOperation(worksetID, operationType string) (*workset.PlanExecution, error) {
 	row := r.db.QueryRow(
 		`SELECT `+executionColumns+` FROM plan_executions
-		 WHERE workset_id = ? AND operation_type = ? AND status IN ('queued','running')
+		 WHERE plan_id IN (SELECT plan_id FROM plans WHERE status NOT IN ('staging','retired')) AND workset_id = ? AND operation_type = ? AND status IN ('queued','running')
 		 ORDER BY julianday(created_at) DESC, execution_id DESC LIMIT 1`,
 		worksetID, operationType,
 	)
@@ -323,7 +328,7 @@ func (r *Repository) GetActiveExecutionForOperation(worksetID, operationType str
 func (r *Repository) LatestExecutionForOperation(worksetID, operationType string) (*workset.PlanExecution, error) {
 	row := r.db.QueryRow(
 		`SELECT `+executionColumns+` FROM plan_executions
-		 WHERE workset_id = ? AND operation_type = ?
+		 WHERE plan_id IN (SELECT plan_id FROM plans WHERE status NOT IN ('staging','retired')) AND workset_id = ? AND operation_type = ?
 		 ORDER BY julianday(created_at) DESC, execution_id DESC LIMIT 1`,
 		worksetID, operationType,
 	)
@@ -349,7 +354,7 @@ func (r *Repository) NextQueuedExecution() (*workset.PlanExecution, error) {
 
 	rows, err := tx.Query(`
 		SELECT ` + executionColumns + ` FROM plan_executions
-		WHERE status = 'queued'
+		WHERE plan_id IN (SELECT plan_id FROM plans WHERE status NOT IN ('staging','retired')) AND status = 'queued'
 		ORDER BY julianday(created_at) ASC, execution_id ASC LIMIT 1
 	`)
 	if err != nil {
@@ -469,6 +474,7 @@ func (r *Repository) ListExecutionComponentResults(
 		SELECT component_index, status, completed_operations, result_json, updated_at
 		FROM execution_component_results
 		WHERE execution_id = ? AND component_index >= ?
+		AND execution_id IN (SELECT execution_id FROM plan_executions WHERE plan_id IN (SELECT plan_id FROM plans WHERE status NOT IN ('staging','retired')))
 		ORDER BY component_index
 	`
 	args := []any{executionID, fromIndex}
@@ -505,7 +511,7 @@ func (r *Repository) ListExecutionComponentResults(
 // event stream poll. It returns workset.ErrExecutionNotFound for an unknown session.
 func (r *Repository) GetExecutionProgress(executionID string) (*workset.PlanExecution, error) {
 	row := r.db.QueryRow(
-		`SELECT `+executionProgressColumns+` FROM plan_executions WHERE execution_id = ?`,
+		`SELECT `+executionProgressColumns+` FROM plan_executions WHERE plan_id IN (SELECT plan_id FROM plans WHERE status NOT IN ('staging','retired')) AND execution_id = ?`,
 		executionID,
 	)
 	e, err := scanExecutionProgress(row)
@@ -583,7 +589,7 @@ func (r *Repository) HasActiveExecutionForRoot(rootPath string) (bool, error) {
 	err := r.db.QueryRow(`
 		SELECT COUNT(*) FROM plan_executions e
 		JOIN worksets w ON w.id = e.workset_id
-		WHERE w.root_path = ? AND e.status IN ('queued','running')
+		WHERE w.root_path = ? AND e.status IN ('queued','running') AND e.plan_id IN (SELECT plan_id FROM plans WHERE status NOT IN ('staging','retired'))
 	`, rootPath).Scan(&n)
 	if err != nil {
 		return false, err

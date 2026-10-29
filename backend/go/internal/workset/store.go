@@ -1,6 +1,7 @@
 package workset
 
 import (
+	"context"
 	"time"
 
 	"github.com/Clementine33/preen/backend/internal/inventory"
@@ -16,7 +17,8 @@ import (
 // execution session under its guards, syncing observed inventory beside the
 // credentials of what was generated, and pushing one deployment-wide common
 // setting across every editable record — because each of them is one
-// transaction whose invariants the caller cannot re-establish from outside.
+// atomic publication or guarded workflow whose invariants the caller cannot
+// re-establish from outside. Revision payloads stage in bounded transactions.
 type Store interface {
 	HasActiveGenerationForRoot(string) (bool, error)
 	HasActiveExecutionForRootKinds(string, []string) (bool, error)
@@ -98,8 +100,14 @@ type Store interface {
 	NextQueuedExecution() (*PlanExecution, error)
 	// NextQueuedGeneration claims FIFO among kinds; nil allows all, empty allows none.
 	NextQueuedGeneration(kinds []string) (*PlanGeneration, error)
-	// PersistOperationRevision is one operation of the lifecycle.
-	PersistOperationRevision(genID, worksetID, operationType string, now time.Time, p OperationRevisionPersist) error
+	// PersistOperationRevision stages guarded batches, checking ctx between them,
+	// then atomically publishes the revision and completes its running generation.
+	PersistOperationRevision(
+		ctx context.Context,
+		genID, worksetID, operationType string,
+		now time.Time,
+		p OperationRevisionPersist,
+	) error
 	// RenameWorkset is one operation of the lifecycle.
 	RenameWorkset(id, title string, expectedVersion int, now time.Time) error
 	// ReplaceCurrentWorkset is one operation of the lifecycle.

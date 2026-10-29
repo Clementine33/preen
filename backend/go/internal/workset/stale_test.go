@@ -203,7 +203,7 @@ func TestOnlyTheCurrentPlanSurvivesTheNextGeneration(t *testing.T) {
 		t.Fatal("the replaced plan must not be readable")
 	}
 	var plans int
-	f.queryInt(&plans, "SELECT COUNT(*) FROM plans WHERE workset_id = ?", ws.WorksetID)
+	f.queryInt(&plans, "SELECT COUNT(*) FROM plans WHERE workset_id = ? AND status <> 'retired'", ws.WorksetID)
 	if plans != 1 {
 		t.Fatalf("a record must keep exactly one plan, found %d", plans)
 	}

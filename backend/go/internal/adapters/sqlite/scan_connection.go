@@ -3,6 +3,7 @@ package sqlite
 import (
 	"context"
 	"database/sql"
+	"database/sql/driver"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -27,10 +28,8 @@ func (r *Repository) scanConnection(id, root string) (*scanConnection, error) {
 	if r.dbPath == ":memory:" {
 		return nil, fmt.Errorf("scan staging requires a file database")
 	}
-	db, err := sql.Open("sqlite", r.dbPath+connectionPragmas)
-	if err != nil {
-		return nil, err
-	}
+	// Keep private scan pools on the repository's driver and connection policy.
+	db := sql.OpenDB(repositoryConnector{driver: r.db.Driver(), dsn: r.dbPath + connectionPragmas})
 	db.SetMaxOpenConns(1)
 	conn, err := db.Conn(context.Background())
 	if err != nil {
@@ -49,6 +48,16 @@ func (r *Repository) scanConnection(id, root string) (*scanConnection, error) {
 	r.staging[id] = s
 	return s, nil
 }
+
+type repositoryConnector struct {
+	driver driver.Driver
+	dsn    string
+}
+
+func (c repositoryConnector) Connect(context.Context) (driver.Conn, error) {
+	return c.driver.Open(c.dsn)
+}
+func (c repositoryConnector) Driver() driver.Driver { return c.driver }
 
 func (r *Repository) closeStagingSession(id string) error {
 	r.stagingMu.Lock()

@@ -2,17 +2,14 @@
 import { useQuery } from '@tanstack/vue-query'
 import { Button } from '@/components/ui/button'
 import { useApiClient } from '@/lib/api/client'
+import { healthQueryOptions } from '@/queries/health'
 import SettingsField from './SettingsField.vue'
 
 const REPO_URL = 'https://github.com/Clementine33/preen'
 
 /** 关于: the product name, the server's build version (`GET /health`), the repository link and the licence. */
 const api = useApiClient()
-const health = useQuery({
-  queryKey: ['health'],
-  queryFn: ({ signal }: { signal?: AbortSignal }) => api.getHealth(signal),
-  retry: false,
-})
+const health = useQuery(healthQueryOptions(api))
 </script>
 
 <template>

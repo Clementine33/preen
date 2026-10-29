@@ -7,3 +7,9 @@ import "io/fs"
 func OpenReleaseWithMigrations(dbPath string, migrations fs.FS) (*Repository, error) {
 	return openRepository(dbPath, false, migrations)
 }
+
+// PauseAfterFirstStagingChunk exposes a driver checkpoint after the first root
+// batch commits, without replacing the public persistence workflow.
+func PauseAfterFirstStagingChunk(repo *Repository, checkpoint func()) error {
+	return pauseAfterFirstStagingChunk(repo, checkpoint)
+}

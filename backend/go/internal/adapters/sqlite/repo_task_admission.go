@@ -29,7 +29,7 @@ func (r *Repository) HasActiveExecutionForRootKinds(root string, kinds []string)
 		args = append(args, k)
 	}
 	var active bool
-	err := r.db.QueryRow(`SELECT EXISTS(SELECT 1 FROM plan_executions e JOIN worksets w ON w.id=e.workset_id WHERE w.root_path_key=? AND e.status IN ('queued','running') AND e.operation_type IN (`+strings.Join(marks, ",")+`))`, args...).
+	err := r.db.QueryRow(`SELECT EXISTS(SELECT 1 FROM plan_executions e JOIN worksets w ON w.id=e.workset_id WHERE w.root_path_key=? AND e.status IN ('queued','running') AND e.plan_id IN (SELECT plan_id FROM plans WHERE status NOT IN ('staging','retired')) AND e.operation_type IN (`+strings.Join(marks, ",")+`))`, args...).
 		Scan(&active)
 	return active, err
 }

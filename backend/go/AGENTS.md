@@ -28,10 +28,10 @@
 - Coverage is a diagnostic signal, not a KPI. Test deletion and production refactors never land in the same commit.
 
 ## Database changes
-- Development databases and release databases have separate lifecycles and are not converted into one another. `X.Y.Z-dev` uses the development schema; release versions and external RCs use goose. Build metadata does not select the mode, and program versions are not migration numbers.
+- Development databases and release databases have separate lifecycles and are not converted into one another. `X.Y.Z-dev` uses the development schema; release versions and RCs, published or not, use goose. Build metadata does not select the mode, and program versions are not migration numbers.
 - During development, edit `internal/adapters/sqlite/schema.sql` or local tables freely and commit the final structure in `schema.sql`; existing development databases are not automatically repaired.
 - Unreleased SQL migrations may be edited, merged, deleted or renumbered; retain only the final changes needed between releases.
-- Once distributed, including an external RC, migration filenames, numbers and contents are immutable. Append a migration for subsequent changes; release startup uses goose only, so schema repairs belong in migrations.
+- Once the first public version carrying them ships (an RC or a release), migration filenames, numbers and contents are immutable. An unpublished RC does not freeze them; its databases are rebuilt, not upgraded. Append a migration for subsequent changes; release startup uses goose only, so schema repairs belong in migrations.
 - Before release, add SQL from the previous release to the final schema in `internal/adapters/sqlite/migrations/`, starting with `-- +goose Up`; add a migration only when the schema changes. Verify fresh initialization, successive and cross-version upgrades, data preservation, and matching structure and read/write behavior between development schema and release migrations; run backend tests and lint.
 - The default development version lives in `cmd/preen/main.go`. For a release build, use `task -d backend/go build RAW_TAG=v0.2.0` from the repository root (or set `RAW_TAG` in the environment).
 

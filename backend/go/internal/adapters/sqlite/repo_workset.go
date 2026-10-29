@@ -46,7 +46,7 @@ func scanWorkset(scanner interface{ Scan(...any) error }) (*workset.Workset, err
 // library, or nil when it has none.
 func (r *Repository) GetCurrentWorkset(libraryID string) (*workset.Workset, error) {
 	row := r.db.QueryRow(
-		`SELECT `+worksetColumns+` FROM worksets WHERE library_id = ?`,
+		`SELECT `+worksetColumns+` FROM worksets WHERE library_id = ? AND retired = 0`,
 		libraryID,
 	)
 	w, err := scanWorkset(row)
@@ -61,7 +61,7 @@ func (r *Repository) GetCurrentWorkset(libraryID string) (*workset.Workset, erro
 
 // GetWorkset retrieves a workset by id.
 func (r *Repository) GetWorkset(id string) (*workset.Workset, error) {
-	row := r.db.QueryRow(`SELECT `+worksetColumns+` FROM worksets WHERE id = ?`, id)
+	row := r.db.QueryRow(`SELECT `+worksetColumns+` FROM worksets WHERE id = ? AND retired = 0`, id)
 	w, err := scanWorkset(row)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -75,7 +75,7 @@ func (r *Repository) GetWorkset(id string) (*workset.Workset, error) {
 // GetWorksetByCreationIdemKey retrieves the workset owned by a creation
 // idempotency key. Returns nil when no key match exists.
 func (r *Repository) GetWorksetByCreationIdemKey(key string) (*workset.Workset, error) {
-	row := r.db.QueryRow(`SELECT `+worksetColumns+` FROM worksets WHERE creation_idem_key = ?`, key)
+	row := r.db.QueryRow(`SELECT `+worksetColumns+` FROM worksets WHERE creation_idem_key = ? AND retired = 0`, key)
 	w, err := scanWorkset(row)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -104,7 +104,7 @@ func (r *Repository) ClearExpiredWorksetIdemKey(id string, cutoff time.Time) err
 func (r *Repository) HasActiveSession() (bool, error) {
 	for _, query := range []string{
 		`SELECT COUNT(*) FROM plan_generations WHERE status IN ('queued','running')`,
-		`SELECT COUNT(*) FROM plan_executions WHERE status IN ('queued','running')`,
+		`SELECT COUNT(*) FROM plan_executions WHERE status IN ('queued','running') AND plan_id IN (SELECT plan_id FROM plans WHERE status NOT IN ('staging','retired'))`,
 	} {
 		var n int
 		if err := r.db.QueryRow(query).Scan(&n); err != nil {
@@ -117,9 +117,8 @@ func (r *Repository) HasActiveSession() (bool, error) {
 	return false, nil
 }
 
-// ReplaceCurrentWorkset creates the library's new shared current batch and removes the record it replaces, all in one transaction:
-// members, operations, drafts, plan snapshots, revisions and sessions of the
-// old record are gone exactly when the new record becomes visible.
+// ReplaceCurrentWorkset atomically retires the old record and installs its replacement.
+// Retired state is immediately invisible; bounded cleanup removes its payload later.
 //
 // expectedCurrentID is the record the caller saw as current ("" when it saw
 // none). A mismatch is workset.ErrCurrentRecordChanged. A replaced record holding a
@@ -132,6 +131,17 @@ func (r *Repository) ReplaceCurrentWorkset(
 	operations []workset.Operation,
 	drafts []workset.OperationDraft,
 	expectedCurrentID string,
+) error {
+	write := func() error { return r.replaceCurrentWorkset(w, members, operations, drafts, expectedCurrentID) }
+	if r.PlanRetirementGuard != nil {
+		return r.PlanRetirementGuard(write)
+	}
+	return write()
+}
+
+func (r *Repository) replaceCurrentWorkset(
+	w *workset.Workset, members []workset.WorksetMember, operations []workset.Operation,
+	drafts []workset.OperationDraft, expectedCurrentID string,
 ) error {
 	tx, err := r.db.Begin()
 	if err != nil {
@@ -158,7 +168,7 @@ func (r *Repository) ReplaceCurrentWorkset(
 		if busy {
 			return workset.ErrRecordBusy
 		}
-		if err := deleteWorksetDataTx(tx, current.ID); err != nil {
+		if err := retireWorksetTx(tx, current.ID); err != nil {
 			return err
 		}
 	}
@@ -176,14 +186,20 @@ func (r *Repository) ReplaceCurrentWorkset(
 			return err
 		}
 	}
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	if current != nil && r.OnPlansRetired != nil {
+		r.OnPlansRetired()
+	}
+	return nil
 }
 
 // currentWorksetTx reads the current record of a library
 // inside a transaction; nil when there is none.
 func currentWorksetTx(tx *sql.Tx, libraryID string) (*workset.Workset, error) {
 	w, err := scanWorkset(tx.QueryRow(
-		`SELECT `+worksetColumns+` FROM worksets WHERE library_id = ?`,
+		`SELECT `+worksetColumns+` FROM worksets WHERE library_id = ? AND retired = 0`,
 		libraryID,
 	))
 	if err != nil {
@@ -217,7 +233,7 @@ func recordActiveSessionTx(tx *sql.Tx, worksetID string) (string, error) {
 		},
 		{
 			workset.RefusalExecuting,
-			`SELECT COUNT(*) FROM plan_executions WHERE workset_id = ? AND status IN ('queued','running')`,
+			`SELECT COUNT(*) FROM plan_executions WHERE workset_id = ? AND status IN ('queued','running') AND plan_id IN (SELECT plan_id FROM plans WHERE status NOT IN ('staging','retired'))`,
 		},
 	} {
 		var n int
@@ -229,19 +245,6 @@ func recordActiveSessionTx(tx *sql.Tx, worksetID string) (string, error) {
 		}
 	}
 	return "", nil
-}
-
-// deleteWorksetDataTx removes one record and everything it owns. Plans and
-// Plans, executions and their payload rows cascade from the workset row.
-func deleteWorksetDataTx(tx *sql.Tx, worksetID string) error {
-	result, err := tx.Exec(`DELETE FROM worksets WHERE id = ?`, worksetID)
-	if err != nil {
-		return fmt.Errorf("delete record: %w", err)
-	}
-	if affected, _ := result.RowsAffected(); affected != 1 {
-		return workset.ErrWorksetNotFound
-	}
-	return nil
 }
 
 // InsertWorksetTx is the transaction-scoped form of the workset insert
@@ -295,7 +298,7 @@ func (r *Repository) ListWorksets(
 	}
 	query := `SELECT ` + worksetColumns + ` FROM worksets`
 	var args []any
-	var conds []string
+	conds := []string{"retired = 0"}
 	if libraryID != "" {
 		conds = append(conds, "library_id = ?")
 		args = append(args, libraryID)
@@ -346,7 +349,7 @@ func joinConds(conds []string) string {
 func (r *Repository) ListWorksetMembers(worksetID string) ([]*workset.WorksetMember, error) {
 	rows, err := r.db.Query(`
 		SELECT workset_id, member_id, member_index, rel_path, folder_path, folder_name
-		FROM workset_members WHERE workset_id = ? ORDER BY member_index
+		FROM workset_members WHERE workset_id = ? AND workset_id IN (SELECT id FROM worksets WHERE retired = 0) ORDER BY member_index
 	`, worksetID)
 	if err != nil {
 		return nil, err
@@ -377,7 +380,7 @@ func (r *Repository) ListWorksetMembers(worksetID string) ([]*workset.WorksetMem
 func (r *Repository) RenameWorkset(id, title string, expectedVersion int, now time.Time) error {
 	result, err := r.db.Exec(`
 		UPDATE worksets SET title = ?, version = version + 1, updated_at = ?
-		WHERE id = ? AND version = ?
+		WHERE id = ? AND version = ? AND retired = 0
 	`, title, now.Format(timeFormat), id, expectedVersion)
 	if err != nil {
 		return err
@@ -393,7 +396,7 @@ func (r *Repository) RenameWorkset(id, title string, expectedVersion int, now ti
 // workset.
 func (r *Repository) worksetVersionGuardResult(id string) error {
 	var n int
-	if err := r.db.QueryRow("SELECT COUNT(*) FROM worksets WHERE id = ?", id).Scan(&n); err != nil {
+	if err := r.db.QueryRow("SELECT COUNT(*) FROM worksets WHERE id = ? AND retired = 0", id).Scan(&n); err != nil {
 		return err
 	}
 	if n == 0 {
@@ -407,7 +410,7 @@ func (r *Repository) worksetVersionGuardResult(id string) error {
 // CountWorksetsForLibrary returns the number of worksets linked to a library.
 func (r *Repository) CountWorksetsForLibrary(libraryID string) (int, error) {
 	var n int
-	err := r.db.QueryRow("SELECT COUNT(*) FROM worksets WHERE library_id = ?", libraryID).Scan(&n)
+	err := r.db.QueryRow("SELECT COUNT(*) FROM worksets WHERE library_id = ? AND retired = 0", libraryID).Scan(&n)
 	return n, err
 }
 

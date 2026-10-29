@@ -258,5 +258,5 @@ func (s *Server) handleHealth(w http.ResponseWriter, _ *http.Request) {
 	if version == "" {
 		version = "dev"
 	}
-	writeJSON(w, http.StatusOK, healthResponse{OK: true, Version: version})
+	writeJSON(w, http.StatusOK, healthResponse{OK: true, Version: version, WorksetMaxMembers: workset.MaxMembers})
 }

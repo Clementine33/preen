@@ -19,7 +19,7 @@ import (
 )
 
 // MaxMembers caps the ordered album folders in one workset.
-const MaxMembers = 500
+const MaxMembers = 2000
 
 // idemRetentionWindow is the guaranteed replay window for workset creation and
 // generation idempotency keys, and the terminal-generation retention horizon.
@@ -182,7 +182,7 @@ func (s *serviceImpl) replayCreate(
 	}, true, nil
 }
 
-// persistCurrentWorkset writes the new record and removes the one it replaces
+// persistCurrentWorkset writes the new record and retires the one it replaces
 // in one transaction.
 func (s *serviceImpl) persistCurrentWorkset(
 	ctx context.Context,

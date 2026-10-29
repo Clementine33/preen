@@ -12,6 +12,8 @@
 // identical files.
 // Delivery uses frozen paths and synchronizes observed cover inventory deltas,
 // retaining publication journals until inventory acknowledgment succeeds.
+// Owners retire demand through WithPublication so their transaction cannot
+// commit between the final demand check and file publication.
 // After a metadata batch and its own delivery demands finish, it repairs only
 // targets whose inventory synchronization failed, in one selected-range scan.
 // Successful deliveries need no scan or file-operation admission. Follow-ups

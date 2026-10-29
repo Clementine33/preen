@@ -16,6 +16,9 @@ import (
 // error - is retried on the next tick instead of waiting out the interval, so a
 // application that is busy every time still gets its cleanup.
 func (l *Loop) pass(ctx context.Context) bool {
+	if l.opts.RetiredCleanup != nil {
+		l.opts.RetiredCleanup()
+	}
 	s := &slot{acquire: l.acquire}
 	defer s.drop()
 

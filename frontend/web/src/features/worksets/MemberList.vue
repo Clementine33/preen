@@ -183,6 +183,8 @@ function hasOverride(member: WorksetMember): boolean {
           :key="member.member_id"
           :ref="measureRow"
           :data-index="row.index"
+          :aria-posinset="row.index + 1"
+          :aria-setsize="visible.length"
           :style="{ transform: `translateY(${row.start}px)` }"
           class="absolute top-0 left-0 w-full grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 border-b border-border/60 px-3 py-2.5 hover:bg-accent/40 @[641px]:grid-cols-[auto_minmax(0,1fr)_auto_auto]"
           :class="{ 'bg-accent/30': selectedIds.has(member.member_id) }"

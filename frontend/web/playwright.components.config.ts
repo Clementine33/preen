@@ -6,7 +6,7 @@ const baseURL = selectTestURL || 'http://127.0.0.1:5174'
 
 export default defineConfig({
   testDir: './e2e',
-  testMatch: ['unit-fields.spec.ts', 'task-toast.spec.ts'],
+  testMatch: ['unit-fields.spec.ts', 'task-toast.spec.ts', 'member-list.spec.ts'],
   workers: 1,
   timeout: 60_000,
   expect: { timeout: 15_000 },

@@ -1,10 +1,11 @@
 <script setup lang="ts">
+import type { Virtualizer } from '@tanstack/vue-virtual'
 import type { MemberFilter } from '@/app/route-params'
 import type { EditTarget } from '@/features/worksets/draft-intents'
 import type { MemberConclusion } from '@/features/worksets/plan-readers'
 import type { OperationDraftDocument, WorksetMember } from '@/lib/api/types'
 import { Eye, FolderOpen } from '@lucide/vue'
-import { useVirtualizer } from '@tanstack/vue-virtual'
+import { observeElementOffset, useVirtualizer } from '@tanstack/vue-virtual'
 import { computed, ref } from 'vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -88,6 +89,13 @@ const virtualizer = useVirtualizer(
     getScrollElement: () => scrollEl.value,
     estimateSize: () => ROW_ESTIMATE,
     overscan: OVERSCAN,
+    // A mounted list is hidden behind narrow member details. The library's
+    // scroll-settle timer can then read scrollTop=0 from display:none, losing
+    // the return position. Keep the last visible offset while it has no layout.
+    observeElementOffset: (instance: Virtualizer<HTMLElement, Element>, report) => observeElementOffset(instance, (offset, scrolling) => {
+      if (instance.scrollElement?.offsetHeight)
+        report(offset, scrolling)
+    }),
     getItemKey: (index: number) => visible.value[index]?.member_id ?? index,
   })),
 )

@@ -26,7 +26,7 @@ RUN VERSION="$VERSION" mise exec node -- node --input-type=module -e \
 
 FROM alpine:3.24 AS media
 # Link LAME and zlib from their static archives; Opus stays a runtime package.
-RUN apk add --no-cache build-base pkgconf nasm curl xz gnupg lame-dev opus-dev zlib-dev zlib-static \
+RUN apk add --no-cache build-base pkgconf nasm curl xz gnupg coreutils lame-dev opus-dev zlib-dev zlib-static \
     && rm /usr/lib/libmp3lame.so /usr/lib/libz.so
 WORKDIR /build
 COPY mise.toml /src/mise.toml

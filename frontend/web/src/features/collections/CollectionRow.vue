@@ -24,13 +24,17 @@ const props = defineProps<{
   editing: boolean
   /** Edit mode in custom order: the row can be dragged and moved. */
   movable: boolean
+  /** Edit mode: this row's `⋯` menu is mounted; the list mounts one at a time, on its first press. */
+  menu: boolean
   /** The top row (cannot move up), and the very last member (cannot move down). */
   first: boolean
   last: boolean
   /** The insertion line of a drag over the list: above or below this row. */
   drop: 'above' | 'below' | null
 }>()
-defineEmits<{
+const emit = defineEmits<{
+  /** The `⋯` placeholder was pressed: mount this row's menu, already open. */
+  menu: []
   select: []
   open: []
   play: []
@@ -40,6 +44,18 @@ defineEmits<{
   move: [to: 'top' | 'up' | 'down' | 'bottom']
   remove: []
 }>()
+
+// A menu per row made entering edit mode on a long list take seconds, so until
+// its menu is mounted the row shows a placeholder answering the trigger's own press and keys.
+function pressMore(e: PointerEvent | KeyboardEvent) {
+  if (e instanceof KeyboardEvent
+    ? !['Enter', ' ', 'ArrowDown'].includes(e.key)
+    : e.button !== 0 || e.ctrlKey) {
+    return
+  }
+  e.preventDefault()
+  emit('menu')
+}
 
 const libraryUi = useLibraryUiStore()
 const { src, failed } = useCoverSrc(() => ({ rj: props.work.rj, local: props.work.local_cover, remote: props.work.thumbnail_url ?? null }))
@@ -77,7 +93,11 @@ const cover = computed(() => (libraryUi.veil && props.work.nsfw === true
           v-if="!editing" class="play" type="button" aria-label="播放" title="播放" data-testid="collection-play"
           @click.stop="$emit('play')" @dblclick.stop
         >▶</button>
-        <DropdownMenu v-if="editing">
+        <button
+          v-if="editing && !menu" class="more" type="button" aria-label="更多" title="更多" aria-haspopup="menu" data-testid="collection-more"
+          @pointerdown="pressMore" @keydown="pressMore" @click.stop @dblclick.stop
+        >⋯</button>
+        <DropdownMenu v-else-if="editing" default-open>
           <DropdownMenuTrigger as-child>
             <button class="more" type="button" aria-label="更多" title="更多" data-testid="collection-more" @click.stop @dblclick.stop>⋯</button>
           </DropdownMenuTrigger>

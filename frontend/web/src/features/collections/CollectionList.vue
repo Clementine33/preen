@@ -210,8 +210,12 @@ function dropMark(i: number) {
       : null
 }
 
+// The one row whose `⋯` menu is mounted (see CollectionRow); each edit starts with none.
+const menuRow = ref<string | null>(null)
+
 // Entering edit mode folds the open row; leaving it unfolds the selected one again.
 watch(() => props.editing, (on) => {
+  menuRow.value = null
   fold()
   const rj = props.works[sel.value]?.rj
   if (!on && rj)
@@ -271,8 +275,8 @@ const active = computed(() => props.works[sel.value]?.rj)
     <CollectionRow
       v-for="(w, i) in works" :key="w.rj" :work="w" :position="position(i)" :selected="i === sel"
       :expanded="unfolded === w.rj" :playing="player.rj === w.rj"
-      :editing="editing" :movable="editing && custom" :first="i === 0" :last="i === works.length - 1 && !hasMore" :drop="dropMark(i)"
-      @select="click(i)" @open="open(w)" @play="play(w)" @unfolded="reveal(w.rj)"
+      :editing="editing" :movable="editing && custom" :menu="menuRow === w.rj" :first="i === 0" :last="i === works.length - 1 && !hasMore" :drop="dropMark(i)"
+      @menu="menuRow = w.rj" @select="click(i)" @open="open(w)" @play="play(w)" @unfolded="reveal(w.rj)"
       @dragstart="dragStart($event, w.rj)" @dragend="dragEnd" @move="menuMove(i, $event)" @remove="removeAt(i)"
     />
     <div ref="sentinel" class="sentinel" aria-hidden="true" />

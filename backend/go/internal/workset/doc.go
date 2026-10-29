@@ -7,7 +7,9 @@
 // and joins their child work before the application closes storage.
 //
 // Tasks provide operation-specific policy and opaque payloads through Task and
-// the execution seams; workset does not depend on a concrete task kind. Store
+// the execution and member-conclusion seams. Workset owns member input health
+// and component ownership while task conclusions stay opaque; workset does not
+// depend on a concrete task kind. Store
 // expresses the atomic persistence operations this lifecycle needs, while
 // inventory refresh and process admission are supplied by the caller.
 package workset

@@ -118,6 +118,20 @@ continue to show their directories. `counts` reports independent facts
 (`members`, `changed`, `unmet_targets`, `blocked`, `unchanged`) that may
 overlap; no exclusive status label is derived from them.
 
+Every revision member also carries a server-computed `conclusion` (see
+[Member Conclusion](worksets.md#routes)). Its conversion
+`task` payload contains `status`, `matched` (无音效), and `unmatched` (有音效).
+Each partition contains independent boolean facts `applicable`, `blocked`,
+`unmet`, and `changes`, so an unmet target can coexist with changes.
+The status is the first matching result in this order: `blocked` (a blocker
+other than source ambiguity), `source_ambiguous`, `partially_unmet` / `unmet`,
+`changed`, `not_applicable` (no components), `unchanged`. Unmet classification
+counts this member's components, including multiple components in the same
+partition: one unmet component is `unmet`; an unmet component plus an unchanged
+component is `partially_unmet`. Excluded, no-input, and missing-input member
+states take precedence over this task status. The browser maps these results
+to labels, filters, and explanations without deriving them from components.
+
 Conversion modes (policy `mode`, applies to both partitions): `strict` (the
 historical rules; missing mode = strict) and `available_sources` (relaxed per
 Variant Group). A partition's declared profile is its final audio set in either

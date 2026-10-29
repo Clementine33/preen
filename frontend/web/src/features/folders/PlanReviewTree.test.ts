@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import { apiClientKey } from '@/lib/api/client'
 import { apiStub } from '@/test/api-stub'
+import { frozenConclusion } from '@/test/member-conclusion'
 import { installTestQueryPlugin } from '@/test/query-client'
 import PlanReviewTree from './PlanReviewTree.vue'
 
@@ -70,6 +71,9 @@ function component(): ComponentOutcome {
   }
 }
 
+const changedConclusion = frozenConclusion('changed')
+changedConclusion.task!.matched.changes = true
+
 const revision: RevisionDetailResponse = {
   plan_id: 'plan-1',
   revision_index: 1,
@@ -110,7 +114,17 @@ const revision: RevisionDetailResponse = {
     blocked: 0,
     unchanged: 0,
   },
-  members: [],
+  members: [
+    {
+      member_id: 'm1',
+      member_name: 'albumA',
+      folder_path: '/music/albumA',
+      excluded: false,
+      effective: { schema_version: 1 },
+      sources: {},
+      conclusion: changedConclusion,
+    },
+  ],
   roots: [
     {
       root_index: 0,

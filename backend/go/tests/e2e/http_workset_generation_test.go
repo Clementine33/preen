@@ -307,8 +307,22 @@ func TestHTTPWorksetGenerationLoop(t *testing.T) {
 
 	// Review the nested immutable revision.
 	var rev struct {
-		PlanID string `json:"plan_id"`
-		Roots  []struct {
+		PlanID  string `json:"plan_id"`
+		Members []struct {
+			MemberID   string `json:"member_id"`
+			Conclusion struct {
+				MemberID      string `json:"member_id"`
+				Excluded      bool   `json:"excluded"`
+				Input         string `json:"input"`
+				HasComponents bool   `json:"has_components"`
+				Task          struct {
+					Status    string          `json:"status"`
+					Matched   map[string]bool `json:"matched"`
+					Unmatched map[string]bool `json:"unmatched"`
+				} `json:"task"`
+			} `json:"conclusion"`
+		} `json:"members"`
+		Roots []struct {
 			RootIndex int    `json:"root_index"`
 			RootPath  string `json:"root_path"`
 		} `json:"roots"`
@@ -343,6 +357,19 @@ func TestHTTPWorksetGenerationLoop(t *testing.T) {
 	if rev.Task.Kind != "conversion" || len(rev.Task.Payload) == 0 {
 		t.Fatalf("revision missing task payload: %+v", rev)
 	}
+	if len(rev.Members) != 1 {
+		t.Fatalf("revision members = %+v", rev.Members)
+	}
+	conclusion := rev.Members[0].Conclusion
+	if conclusion.MemberID != rev.Members[0].MemberID || conclusion.Excluded || conclusion.Input != "valid" ||
+		!conclusion.HasComponents ||
+		conclusion.Task.Status == "" {
+		t.Fatalf("revision member conclusion = %+v", conclusion)
+	}
+	if len(conclusion.Task.Matched) != 4 || len(conclusion.Task.Unmatched) != 4 {
+		t.Fatalf("missing partition facts: %+v", conclusion.Task)
+	}
+
 	// Every component must map to a valid planning root (stable ownership for
 	// batch grouping; albumA is root 0).
 	if len(rev.ComponentRoots) == 0 {

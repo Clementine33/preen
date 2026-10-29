@@ -159,10 +159,12 @@ func (s *serviceImpl) GetRevision(
 	}
 	staleRoots := map[int]bool{}
 	if w.LibraryID != "" {
-		if health, healthErr := s.revisionHealth(ctx, operationType, detail); healthErr == nil {
-			for _, idx := range health.StaleRoots {
-				staleRoots[idx] = true
-			}
+		health, healthErr := s.revisionHealth(ctx, operationType, detail)
+		if healthErr != nil {
+			return nil, NewError(ErrKindInternal, "INTERNAL", "failed to validate revision inputs", healthErr)
+		}
+		for _, idx := range health.StaleRoots {
+			staleRoots[idx] = true
 		}
 	}
 
@@ -185,6 +187,10 @@ func (s *serviceImpl) GetRevision(
 		memberFacts = nil
 	}
 	out.Members = revisionMembers(memberFacts, members, rev.ExcludedScope)
+	task, _ := s.requireTask(operationType)
+	if err := concludeRevisionMembers(out.Members, detail, staleRoots, task); err != nil {
+		return nil, NewError(ErrKindInternal, "INTERNAL", "failed to conclude revision members", err)
+	}
 
 	roots := make([]RootValidation, 0, len(detail.Roots))
 	for _, r := range detail.Roots {

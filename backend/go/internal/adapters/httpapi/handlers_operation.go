@@ -62,12 +62,13 @@ type draftResponse struct {
 // settings plus, per unit, whether they came from the member or the common
 // settings. Equal values with different sources stay distinguishable.
 type revisionMemberResponse struct {
-	MemberID   string            `json:"member_id"`
-	MemberName string            `json:"member_name"`
-	FolderPath string            `json:"folder_path"`
-	Excluded   bool              `json:"excluded"`
-	Effective  json.RawMessage   `json:"effective"`
-	Sources    map[string]string `json:"sources"`
+	MemberID   string                   `json:"member_id"`
+	MemberName string                   `json:"member_name"`
+	FolderPath string                   `json:"folder_path"`
+	Excluded   bool                     `json:"excluded"`
+	Effective  json.RawMessage          `json:"effective"`
+	Sources    map[string]string        `json:"sources"`
+	Conclusion workset.MemberConclusion `json:"conclusion"`
 }
 
 func toDraftResponse(d *workset.Draft) draftResponse {
@@ -206,6 +207,7 @@ func (s *Server) getRevision(w http.ResponseWriter, r *http.Request) {
 			Excluded:   m.Excluded,
 			Effective:  m.Payload,
 			Sources:    m.Sources,
+			Conclusion: m.Conclusion,
 		})
 	}
 	writeJSON(w, http.StatusOK, struct {

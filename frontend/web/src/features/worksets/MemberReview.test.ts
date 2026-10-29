@@ -1,6 +1,7 @@
 import type { RevisionDetailResponse, WorksetMember } from '@/lib/api/types'
 import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
+import { frozenConclusion } from '@/test/member-conclusion'
 import MemberReview from './MemberReview.vue'
 
 const member: WorksetMember = {
@@ -99,6 +100,7 @@ const revision: RevisionDetailResponse = {
   members: [
     {
       member_id: 'm1',
+      conclusion: frozenConclusion('unmet'),
       member_name: 'albumA',
       folder_path: '/music/albumA',
       excluded: false,

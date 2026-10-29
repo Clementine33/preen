@@ -295,6 +295,17 @@ type RevisionMember struct {
 	Excluded   bool
 	Payload    json.RawMessage // task payload: the effective config
 	Sources    map[string]string
+	Conclusion MemberConclusion
+}
+
+// MemberConclusion combines workset input facts with the task's opaque conclusion.
+// Input validation may change while the frozen plan and task facts stay fixed.
+type MemberConclusion struct {
+	MemberID      string          `json:"member_id"`
+	Excluded      bool            `json:"excluded"`
+	Input         string          `json:"input"`
+	HasComponents bool            `json:"has_components"`
+	Task          json.RawMessage `json:"task,omitempty"`
 }
 
 // RevisionPlan is the reviewable plan snapshot of one revision, rebuilt from

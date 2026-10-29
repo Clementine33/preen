@@ -103,6 +103,12 @@ type Task interface {
 	ReviewRevision(in RevisionFacts) (PlanReview, error)
 }
 
+// MemberConclusionTask supplies a task-owned conclusion for one member's frozen
+// component payloads. Workset resolves membership and passes only owned units.
+type MemberConclusionTask interface {
+	MemberConclusion(components []json.RawMessage) (json.RawMessage, error)
+}
+
 // PreparedUnit is one frozen unit that passed its business precheck and wrote
 // nothing yet. The session drives it in three steps: every encode task is
 // delivered exactly once — possibly concurrently with other units' tasks —

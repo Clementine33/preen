@@ -1,8 +1,10 @@
 import type {
   AudioOutputSpec,
   ComponentOutcome,
+  ConversionPartitionConclusion,
   DesiredProfile,
   FileDecision,
+  MemberConclusion as FrozenMemberConclusion,
   OverrideUnit,
   RevisionDetailResponse,
   VariantDecision,
@@ -165,58 +167,14 @@ export function resolutionText(resolution: string): string {
 }
 
 /** One partition's independent facts within a member's planned components. */
-export interface PartitionFacts {
-  /** A component exists for this partition: there are files to review at all. */
-  applicable: boolean
-  blocked: boolean
-  unmet: boolean
-  /** The plan carries executable operations for this partition. */
-  changes: boolean
-}
-
 export interface MemberFacts {
-  matched: PartitionFacts
-  unmatched: PartitionFacts
+  matched: ConversionPartitionConclusion
+  unmatched: ConversionPartitionConclusion
 }
 
 export const PARTITION_TEXT: Record<keyof MemberFacts, string> = {
   matched: '无音效',
   unmatched: '有音效',
-}
-
-/**
- * Per-partition facts of one member's components. The three axes stay
- * independent: a partition can change and still carry an unmet target (the
- * relaxed mode converts what it can and keeps what it cannot).
- */
-export function partitionFacts(components: ComponentOutcome[]): MemberFacts {
-  const facts: MemberFacts = {
-    matched: {
-      applicable: false,
-      blocked: false,
-      unmet: false,
-      changes: false,
-    },
-    unmatched: {
-      applicable: false,
-      blocked: false,
-      unmet: false,
-      changes: false,
-    },
-  }
-  for (const component of components) {
-    const side = facts[component.partition === 'matched'
-      ? 'matched'
-      : 'unmatched']
-    side.applicable = true
-    if (component.status === 'blocked')
-      side.blocked = true
-    if (componentHasUnmetTarget(component))
-      side.unmet = true
-    if (componentOperationCount(component) > 0)
-      side.changes = true
-  }
-  return facts
 }
 
 export interface MemberConclusion {
@@ -229,13 +187,8 @@ export interface MemberConclusion {
   detail: string
 }
 
-/** One member's main status and matching filter from the frozen plan. */
-export function memberConclusion(input: {
-  excluded: boolean
-  hasRoot: boolean
-  rootMissing: boolean
-  components: ComponentOutcome[]
-}): MemberConclusion {
+/** Wording only: status and independent partition facts come from the server. */
+export function memberConclusion(input: FrozenMemberConclusion): MemberConclusion {
   if (input.excluded) {
     return {
       tone: 'neutral',
@@ -244,7 +197,7 @@ export function memberConclusion(input: {
       filter: null,
     }
   }
-  if (!input.hasRoot) {
+  if (input.input === 'none') {
     return {
       tone: 'neutral',
       label: '未参与',
@@ -252,7 +205,7 @@ export function memberConclusion(input: {
       filter: null,
     }
   }
-  if (input.rootMissing) {
+  if (input.input === 'missing') {
     return {
       tone: 'danger',
       label: '输入缺失',
@@ -260,67 +213,70 @@ export function memberConclusion(input: {
       filter: 'blocked',
     }
   }
-  const components = input.components
-  const unmetCount = components.filter(componentHasUnmetTarget).length
-  const detail = detailText(partitionFacts(components))
-  if (components.some(component => component.status === 'blocked' && component.reason_code !== 'SOURCE_AMBIGUOUS')) {
+  const task = input.task
+  if (!task) {
     return {
+      tone: 'neutral',
+      label: '未参与',
+      detail: '该文件夹在此版本中没有规划输入。',
+      filter: null,
+    }
+  }
+  const detail = detailText(task)
+  switch (task.status) {
+    case 'blocked': return {
       tone: 'danger',
       label: '阻塞',
       detail,
       filter: 'blocked',
     }
-  }
-  if (components.some(component => component.reason_code === 'SOURCE_AMBIGUOUS')) {
-    return {
+    case 'source_ambiguous': return {
       tone: 'danger',
       label: '源竞争',
       detail: `存在多个同优先级无损源，无法唯一选源。${detail}`,
       filter: 'source_conflict',
     }
-  }
-  if (unmetCount > 0) {
-    return {
+    case 'partially_unmet': return {
       tone: 'warning',
-      label: unmetCount < components.length
-        ? '部分未满足'
-        : '未满足',
+      label: '部分未满足',
       detail,
       filter: 'warn',
     }
-  }
-  if (components.some(component => componentOperationCount(component) > 0)) {
-    return {
+    case 'unmet': return {
+      tone: 'warning',
+      label: '未满足',
+      detail,
+      filter: 'warn',
+    }
+    case 'changed': return {
       tone: 'success',
       label: '有变化',
       detail,
       filter: 'change',
     }
-  }
-  if (components.length === 0) {
-    return {
+    case 'not_applicable': return {
       tone: 'neutral',
       label: '无适用',
       detail,
       filter: null,
     }
-  }
-  return {
-    tone: 'neutral',
-    label: '无需转换',
-    detail,
-    filter: null,
+    case 'unchanged': return {
+      tone: 'neutral',
+      label: '无需转换',
+      detail,
+      filter: null,
+    }
   }
 }
 
 /** One line per partition: what it does, or why it does nothing. */
 function detailText(facts: MemberFacts): string {
-  return (Object.keys(facts) as (keyof MemberFacts)[])
+  return (['matched', 'unmatched'] as const)
     .map(key => `${PARTITION_TEXT[key]}：${sideText(facts[key])}`)
     .join('；')
 }
 
-function sideText(side: PartitionFacts): string {
+function sideText(side: ConversionPartitionConclusion): string {
   if (side.blocked)
     return '阻塞'
   if (side.unmet)
@@ -422,8 +378,8 @@ export function unitValueText(unit: OverrideUnit, value: unknown): string {
 /**
  * The conclusion of every member of a record, keyed by member id. The list asks
  * for each member several times (rows, status filters) and a full-library
- * record holds thousands of members and components, so the plan is indexed once
- * here rather than scanned per member. A record without a plan has no entries.
+ * record holds thousands of members and components, so the server conclusions are indexed once
+ * here by member identity. A record without a plan has no entries.
  */
 export function memberConclusions(
   view: RevisionDetailResponse | null | undefined,
@@ -432,40 +388,11 @@ export function memberConclusions(
   const out = new Map<string, MemberConclusion>()
   if (!view)
     return out
-  const frozen = new Map(view.members.map(m => [m.member_id, m]))
-  const rootByPath = new Map<string, (typeof view.roots)[number]>()
-  for (const root of view.roots) {
-    if (!rootByPath.has(root.root_path))
-      rootByPath.set(root.root_path, root)
-  }
-  const rootsOf = new Map<string, Set<number>>()
-  for (const ref of view.component_roots ?? []) {
-    const roots = rootsOf.get(ref.component_id) ?? new Set<number>()
-    roots.add(ref.root_index)
-    rootsOf.set(ref.component_id, roots)
-  }
-  // Components keep plan order inside each root.
-  const byRoot = new Map<number, ComponentOutcome[]>()
-  for (const component of revisionComponents(view)) {
-    for (const index of rootsOf.get(component.component_id) ?? []) {
-      const list = byRoot.get(index) ?? []
-      list.push(component)
-      byRoot.set(index, list)
-    }
-  }
+  const frozen = new Map(view.members.map(m => [m.member_id, m.conclusion]))
   for (const member of members) {
-    const root = rootByPath.get(member.folder_path)
-    out.set(
-      member.member_id,
-      memberConclusion({
-        excluded: frozen.get(member.member_id)?.excluded ?? false,
-        hasRoot: Boolean(root),
-        rootMissing: root?.root_status === 'missing',
-        components: root
-          ? (byRoot.get(root.root_index) ?? [])
-          : [],
-      }),
-    )
+    const conclusion = frozen.get(member.member_id)
+    if (conclusion)
+      out.set(member.member_id, memberConclusion(conclusion))
   }
   return out
 }

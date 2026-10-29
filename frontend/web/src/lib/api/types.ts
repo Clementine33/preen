@@ -1221,8 +1221,32 @@ export interface CoverReport {
   counts: Record<CoverStatus, number>
 }
 
+/** Facts of one conversion partition, computed from frozen components. */
+export interface ConversionPartitionConclusion {
+  applicable: boolean
+  blocked: boolean
+  unmet: boolean
+  changes: boolean
+}
+
+export interface ConversionMemberConclusion {
+  status: 'blocked' | 'source_ambiguous' | 'partially_unmet' | 'unmet' | 'changed' | 'not_applicable' | 'unchanged'
+  matched: ConversionPartitionConclusion
+  unmatched: ConversionPartitionConclusion
+}
+
+/** Workset input facts with an opaque task-owned conclusion. */
+export interface MemberConclusion<T = ConversionMemberConclusion> {
+  member_id: string
+  excluded: boolean
+  input: 'none' | 'valid' | 'stale' | 'missing'
+  has_components: boolean
+  task?: T
+}
+
 /** One member of a frozen revision: effective settings plus unit provenance. */
 export interface RevisionMember {
+  conclusion: MemberConclusion
   member_id: string
   member_name: string
   folder_path: string

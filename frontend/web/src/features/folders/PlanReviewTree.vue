@@ -51,11 +51,11 @@ const frozenMember = computed(
  * folder with nothing to list still says why (已排除 / 未参与 / 无需转换).
  */
 const conclusion = computed(() =>
-  memberConclusion({
-    excluded: frozenMember.value?.excluded ?? false,
-    hasRoot: Boolean(root.value),
-    rootMissing: root.value?.root_status === 'missing',
-    components: components.value,
+  memberConclusion(frozenMember.value?.conclusion ?? {
+    member_id: '',
+    excluded: false,
+    input: 'none',
+    has_components: false,
   }),
 )
 

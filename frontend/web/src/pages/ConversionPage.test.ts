@@ -64,6 +64,17 @@ function revision(selectedStale = false) {
       schema_version: 1,
       payload: { components: [], summary: {} },
     },
+    members: ['a', 'b'].map(name => ({
+      member_id: name,
+      conclusion: {
+        member_id: name,
+        excluded: false,
+        input: name === 'b' || selectedStale
+          ? 'stale'
+          : 'valid',
+        has_components: true,
+      },
+    })),
     roots: ['a', 'b'].map((name, index) => ({
       root_index: index,
       root_path: `/music/${name}`,
@@ -146,6 +157,8 @@ describe('selected conversion execution', () => {
       [false, 1],
     ] as const) {
       const detail = revision(stale)
+      detail.roots = []
+      detail.component_roots = []
       detail.counts = { ...counts, blocked }
       const wrapper = await page(vi.fn().mockResolvedValue(detail), blocked)
       expect(wrapper.get('[data-testid="execute-selected"]').attributes('disabled')).toBeDefined()

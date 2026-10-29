@@ -315,7 +315,7 @@ const selectedFolderPaths = computed(() =>
   members.value.filter(member => ui.selectedMemberIds.has(member.member_id)).map(member => member.rel_path),
 )
 
-/** Selected execution checks only roots owned by selected frozen units. */
+/** Selected execution checks the server input facts of selected members. */
 const selectedExecuteBlocked = computed(() => {
   const global = executionBlocked(true)
   if (global)
@@ -323,9 +323,9 @@ const selectedExecuteBlocked = computed(() => {
   const view = revision.value
   if (!view || view.plan_id !== operation.value?.current_revision?.plan_id)
     return '计划详情加载中…'
-  const selected = new Set(members.value.filter(m => ui.selectedMemberIds.has(m.member_id)).map(m => m.folder_path))
-  const owned = new Set(view.component_roots.map(c => c.root_index))
-  if (view.roots.some(r => selected.has(r.root_path) && owned.has(r.root_index) && (r.stale || r.root_status === 'missing'))) {
+  if (view.members.some(member => ui.selectedMemberIds.has(member.member_id)
+    && member.conclusion.has_components
+    && (member.conclusion.input === 'stale' || member.conclusion.input === 'missing'))) {
     return '选中文件夹输入已变化，需重新生成计划版本'
   }
   return null

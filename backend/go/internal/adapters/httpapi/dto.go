@@ -51,8 +51,9 @@ func writeErrorDetails(w http.ResponseWriter, status int, code, message string, 
 
 // healthResponse is the payload of GET /api/v1/health.
 type healthResponse struct {
-	OK      bool   `json:"ok"`
-	Version string `json:"version"`
+	OK                bool   `json:"ok"`
+	Version           string `json:"version"`
+	WorksetMaxMembers int    `json:"workset_max_members"`
 }
 
 // libraryResponse mirrors the repo Library type with snake_case JSON.

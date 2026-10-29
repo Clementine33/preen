@@ -159,6 +159,8 @@ func TestCreateCurrentValidation(t *testing.T) {
 	noFolders.FolderPaths = nil
 	if _, err := f.svc.CreateCurrentWorkset(ctx, noFolders); err == nil {
 		t.Fatal("an empty selection should fail")
+	} else if werr, ok := workset.AsError(err); !ok || werr.Code != "INVALID_FOLDER_COUNT" {
+		t.Fatalf("empty selection error = %v, want INVALID_FOLDER_COUNT", err)
 	}
 	tooMany := base()
 	tooMany.FolderPaths = make([]string, workset.MaxMembers+1)
@@ -167,6 +169,8 @@ func TestCreateCurrentValidation(t *testing.T) {
 	}
 	if _, err := f.svc.CreateCurrentWorkset(ctx, tooMany); err == nil {
 		t.Fatal("more than the member cap should fail, not truncate")
+	} else if werr, ok := workset.AsError(err); !ok || werr.Code != "INVALID_FOLDER_COUNT" {
+		t.Fatalf("over-limit selection error = %v, want INVALID_FOLDER_COUNT", err)
 	}
 	unknownOp := base()
 	unknownOp.OperationType = "rename"

@@ -43,6 +43,11 @@ A selection whose every entry is unusable creates nothing and answers
 `NO_MEMBERS` (400), with the skipped paths in `details`. Batch membership does
 not depend on the entry-point Task or on audio count. More than 500
 selected paths is `INVALID_FOLDER_COUNT` (400) — never a silent truncation.
+The current limit is advertised as `workset_max_members` by
+[`GET /api/v1/health`](common.md#health-endpoint). The overview shows selected
+count / limit and disables task entry above that limit, with an explanation.
+While the limit is unavailable, entry remains enabled and the server's count
+validation remains authoritative.
 `expected_current_id` is the record the caller saw as current (absent when it
 saw none): a mismatch is `RECORD_REPLACED` (409) instead of an overwrite, and a
 record with a queued or running session is `RECORD_BUSY` (409) instead of being

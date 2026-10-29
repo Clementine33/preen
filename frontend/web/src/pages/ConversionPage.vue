@@ -19,6 +19,7 @@ import {
 } from '@/features/worksets/plan-readers'
 import WorkbenchNav from '@/features/worksets/WorkbenchNav.vue'
 import { useApiClient } from '@/lib/api/client'
+import { newIdempotencyKey } from '@/lib/utils'
 import { currentRecordQueryOptions } from '@/queries/worksets'
 import { useWorksetEditorStore } from '@/stores/workset-editor'
 import { useWorksetUiStore } from '@/stores/workset-ui'
@@ -289,7 +290,7 @@ async function startExecution(folderPaths?: string[]) {
       operation: 'conversion',
       planId,
       ifMatchVersion: op.version,
-      idempotencyKey: crypto.randomUUID(),
+      idempotencyKey: newIdempotencyKey(),
       folderPaths,
     })
     await openExecution()

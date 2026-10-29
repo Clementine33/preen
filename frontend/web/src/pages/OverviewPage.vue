@@ -21,6 +21,7 @@ import {
 
 } from '@/lib/api/types'
 import { rootPathIdentityKey } from '@/lib/root-path-identity'
+import { newIdempotencyKey } from '@/lib/utils'
 import { deleteLibraryMutationOptions, dirsQueryOptions, updateLibraryMutationOptions, useLibraryList } from '@/queries/libraries'
 import { createCurrentRecordMutationOptions, currentRecordQueryOptions } from '@/queries/worksets'
 import { useLibraryUiStore } from '@/stores/library-ui'
@@ -186,7 +187,7 @@ function startEnter(target: TaskTarget) {
     return
   skipped.value = []
   createError.value = null
-  idempotencyKey = crypto.randomUUID()
+  idempotencyKey = newIdempotencyKey()
   if (record.value) {
     // Replacing deletes member edits, plan and execution results; common
     // settings remain available to seed the new record.

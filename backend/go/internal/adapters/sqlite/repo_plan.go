@@ -161,6 +161,17 @@ func scanPlanRow(
 // GetPlanDetail reconstructs a plan's persisted review payload without
 // consulting live task state.
 func (r *Repository) GetPlanDetail(planID string) (*workset.PlanDetail, error) {
+	return r.getPlanDetail(planID, nil)
+}
+
+// GetMemberPlanDetail reads the first frozen root at this member path, in
+// root_index order, and only its component outcomes. This is the same ownership
+// rule as workset member conclusions. An empty path selects no inputs.
+func (r *Repository) GetMemberPlanDetail(planID, rootPath string) (*workset.PlanDetail, error) {
+	return r.getPlanDetail(planID, &rootPath)
+}
+
+func (r *Repository) getPlanDetail(planID string, memberRoot *string) (*workset.PlanDetail, error) {
 	var p workset.Plan
 	var createdAt string
 	var libraryID sql.NullString
@@ -186,13 +197,13 @@ func (r *Repository) GetPlanDetail(planID string) (*workset.PlanDetail, error) {
 	}
 	detail.Steps = steps
 
-	roots, err := loadPlanRoots(r.db, planID)
+	roots, err := loadPlanRoots(r.db, planID, memberRoot)
 	if err != nil {
 		return nil, err
 	}
 	detail.Roots = roots
 
-	components, err := loadPlanComponents(r.db, planID)
+	components, err := loadPlanComponents(r.db, planID, memberRoot)
 	if err != nil {
 		return nil, err
 	}
@@ -232,11 +243,17 @@ func loadPlanSteps(db *sql.DB, planID string) ([]workset.PlanStepRecord, error) 
 	return steps, stepRows.Err()
 }
 
-func loadPlanRoots(db *sql.DB, planID string) ([]workset.PlanRootRecord, error) {
+func loadPlanRoots(db *sql.DB, planID string, memberRoot *string) ([]workset.PlanRootRecord, error) {
+	filter, limit := "", ""
+	args := []any{planID}
+	if memberRoot != nil {
+		filter = " AND root_path = ?"
+		limit = " LIMIT 1"
+		args = append(args, *memberRoot)
+	}
 	rootRows, err := db.Query(`
 		SELECT root_index, root_path, root_identity, inventory_fingerprint, entry_count, root_status, root_error_code, root_error_message
-		FROM plan_roots WHERE plan_id = ? AND plan_id IN (`+visiblePlanIDs+`) ORDER BY root_index
-	`, planID)
+		FROM plan_roots WHERE plan_id = ? AND plan_id IN (`+visiblePlanIDs+`)`+filter+` ORDER BY root_index`+limit, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -261,11 +278,18 @@ func loadPlanRoots(db *sql.DB, planID string) ([]workset.PlanRootRecord, error) 
 	return roots, rootRows.Err()
 }
 
-func loadPlanComponents(db *sql.DB, planID string) ([]workset.PlanComponentRecord, error) {
+func loadPlanComponents(db *sql.DB, planID string, memberRoot *string) ([]workset.PlanComponentRecord, error) {
+	filter := ""
+	args := []any{planID}
+	if memberRoot != nil {
+		// Match the first frozen root, the same ownership rule used by member conclusions.
+		filter = " AND root_index = (SELECT root_index FROM plan_roots WHERE plan_id = ? AND root_path = ? ORDER BY root_index LIMIT 1)"
+		args = append(args, planID, *memberRoot)
+	}
 	compRows, err := db.Query(`
 		SELECT step_index, component_index, component_id, root_index, partition, status, reason_code, outcome_json
-		FROM conversion_components WHERE plan_id = ? ORDER BY component_index
-	`, planID)
+		FROM conversion_components WHERE plan_id = ?`+filter+` ORDER BY component_index
+	`, args...)
 	if err != nil {
 		return nil, err
 	}

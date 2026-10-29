@@ -18,6 +18,7 @@ import type {
   WorksetListResponse,
 } from '@/lib/api/types'
 import { infiniteQueryOptions, queryOptions } from '@tanstack/vue-query'
+import { errorDetails } from '@/lib/api/error'
 import { refreshOrRemoveQueries } from './cache-sync'
 import { queryKeys } from './query-keys'
 
@@ -170,6 +171,40 @@ export function operationRevisionDetailQueryOptions(
     staleTime: 60_000,
     queryFn: ({ signal }: { signal?: AbortSignal }) =>
       api.getRevision(worksetId as string, operation, planId as string, signal),
+  })
+}
+
+// Member input validity is live even while its frozen plan id stays unchanged.
+export function operationMemberReviewQueryOptions(
+  api: ApiClientContract,
+  queryClient: QueryClient,
+  worksetId: string | null | undefined,
+  operation: OperationType,
+  planId: string | null | undefined,
+  memberId: string | null | undefined,
+) {
+  return queryOptions({
+    queryKey: queryKeys.worksets.memberReview(worksetId ?? '', operation, planId ?? '', memberId ?? ''),
+    enabled: Boolean(worksetId && planId && memberId),
+    staleTime: 60_000,
+    refetchOnMount: true,
+    retry: false,
+    queryFn: async ({ signal }: { signal?: AbortSignal }) => {
+      try {
+        return await api.getMemberReview(worksetId as string, operation, planId as string, memberId as string, signal)
+      }
+      catch (error) {
+        if (errorDetails(error).code === 'REVISION_NOT_FOUND') {
+          // Publication replaced this plan between the operation and member reads.
+          // Its observers follow the refreshed operation's current plan id.
+          await queryClient.invalidateQueries({
+            queryKey: queryKeys.worksets.operation(worksetId as string, operation),
+            exact: true,
+          })
+        }
+        throw error
+      }
+    },
   })
 }
 

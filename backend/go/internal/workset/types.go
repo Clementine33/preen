@@ -350,6 +350,14 @@ type RevisionView struct {
 	Execution *ExecutionRef
 }
 
+// MemberReview is one member's frozen settings and owned plan inputs.
+type MemberReview struct {
+	PlanID string
+	Member RevisionMember
+	Roots  []RootValidation
+	Plan   RevisionPlan
+}
+
 // ComponentRootRef is the stable component-to-root ownership of a revision.
 type ComponentRootRef struct {
 	StepIndex      int    `json:"step_index"`
@@ -412,6 +420,7 @@ type Service interface {
 		emit func(event string, data any) error,
 	) error
 	GetRevision(ctx context.Context, worksetID, operationType, planID string) (*RevisionView, error)
+	GetMemberReview(ctx context.Context, worksetID, operationType, planID, memberID string) (*MemberReview, error)
 	StartExecution(
 		ctx context.Context,
 		worksetID, operationType, planID string,

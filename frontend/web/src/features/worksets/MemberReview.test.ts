@@ -1,4 +1,4 @@
-import type { RevisionDetailResponse, WorksetMember } from '@/lib/api/types'
+import type { MemberReviewResponse, WorksetMember } from '@/lib/api/types'
 import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
 import { frozenConclusion } from '@/test/member-conclusion'
@@ -17,20 +17,8 @@ const member: WorksetMember = {
  * because the declared lossless target is already satisfied, another because
  * nothing could satisfy its target.
  */
-const revision: RevisionDetailResponse = {
+const revision: MemberReviewResponse = {
   plan_id: 'plan-1',
-  revision_index: 1,
-  created_at: '2026-09-18T00:00:00Z',
-  root_path: '/music/albumA',
-  snapshot_token: 'tok',
-  status: 'ready',
-  summary: {
-    operation_count: 1,
-    error_count: 0,
-    total_count: 1,
-    actionable_count: 1,
-    summary_reason: '',
-  },
   task: {
     kind: 'conversion',
     schema_version: 1,
@@ -90,24 +78,13 @@ const revision: RevisionDetailResponse = {
       ],
     },
   },
-  counts: {
-    members: 1,
-    changed: 1,
-    unmet_targets: 1,
-    blocked: 0,
-    unchanged: 0,
-  },
-  members: [
-    {
-      member_id: 'm1',
-      conclusion: frozenConclusion('unmet'),
-      member_name: 'albumA',
-      folder_path: '/music/albumA',
-      excluded: false,
-      effective: { schema_version: 1, mode: 'available_sources' },
-      sources: {},
-    },
-  ],
+  member_id: 'm1',
+  conclusion: frozenConclusion('unmet'),
+  member_name: 'albumA',
+  folder_path: '/music/albumA',
+  excluded: false,
+  effective: { schema_version: 1, mode: 'available_sources' },
+  sources: {},
   roots: [
     {
       root_index: 0,
@@ -120,21 +97,13 @@ const revision: RevisionDetailResponse = {
       entry_count: 1,
     },
   ],
-  component_roots: [
-    {
-      step_index: 0,
-      component_index: 0,
-      component_id: 'comp-1',
-      root_index: 0,
-    },
-  ],
-  execution: null,
+
 }
 
 describe('memberReview', () => {
   it('gives every file one row, in the plan\'s own words', () => {
     const wrapper = mount(MemberReview, {
-      props: { member, revision, editable: false },
+      props: { member, review: revision, editable: false },
     })
 
     const rows = wrapper.findAll('[data-testid="component-decision"]').map(row => row.text())
@@ -152,7 +121,7 @@ describe('memberReview', () => {
 
   it('keeps the paths whole in the narrow column', () => {
     const wrapper = mount(MemberReview, {
-      props: { member, revision, editable: false },
+      props: { member, review: revision, editable: false },
     })
 
     // The member folder is the card's header, so rows carry the member-relative
@@ -165,7 +134,7 @@ describe('memberReview', () => {
 
   it('does not repeat the same files as a second operations list', () => {
     const wrapper = mount(MemberReview, {
-      props: { member, revision, editable: false },
+      props: { member, review: revision, editable: false },
     })
 
     const body = wrapper.text()
@@ -176,20 +145,18 @@ describe('memberReview', () => {
   })
 
   it('offers the editor for an excluded member, so it can be brought back', () => {
-    const excluded: RevisionDetailResponse = {
+    const excluded: MemberReviewResponse = {
       ...revision,
-      members: [
-        { ...revision.members[0]!, excluded: true },
-      ],
+      excluded: true,
     }
 
     const editable = mount(MemberReview, {
-      props: { member, revision: excluded, editable: true },
+      props: { member, review: excluded, editable: true },
     })
     expect(editable.get('[data-testid="member-review-edit"]').text()).toContain('修改此文件夹')
     // A caller that offers no way in hides the edit entry.
     const withoutEdit = mount(MemberReview, {
-      props: { member, revision: excluded, editable: false },
+      props: { member, review: excluded, editable: false },
     })
     expect(withoutEdit.find('[data-testid="member-review-edit"]').exists()).toBe(false)
   })
@@ -220,7 +187,7 @@ it('shows the isolated scope and the actual competing directories', () => {
     },
   ]
   const wrapper = mount(MemberReview, {
-    props: { member, revision: conflicted, editable: true },
+    props: { member, review: conflicted, editable: true },
   })
   expect(wrapper.text()).toContain('其他版本')
   expect(wrapper.text()).not.toContain('其他版本 ·')

@@ -1264,6 +1264,13 @@ export interface RevisionMember {
   sources: Record<string, string>
 }
 
+/** A single member's frozen review; roots and components belong only to it. */
+export interface MemberReviewResponse<P = ConversionPlanPayload> extends RevisionMember {
+  plan_id: string
+  roots: RootValidation[]
+  task: TaskEnvelope<P>
+}
+
 export interface RevisionDetailResponse<P = ConversionPlanPayload> {
   plan_id: string
   revision_index: number
@@ -1390,6 +1397,13 @@ export interface ApiClientContract {
     generationId: string,
     signal: AbortSignal,
   ) => AsyncIterable<GenerationEvent>
+  getMemberReview: (
+    worksetId: string,
+    operation: OperationType,
+    planId: string,
+    memberId: string,
+    signal?: AbortSignal,
+  ) => Promise<MemberReviewResponse>
   getRevision: (
     worksetId: string,
     operation: OperationType,

@@ -71,6 +71,7 @@ export function apiStub(overrides: Partial<ApiClientContract> = {}): ApiClientCo
     getGeneration: vi.fn(),
     cancelGeneration: vi.fn(),
     streamGenerationEvents: vi.fn(),
+    getMemberReview: vi.fn(),
     getRevision: vi.fn(),
     startExecution: vi.fn(),
     getExecution: vi.fn(),

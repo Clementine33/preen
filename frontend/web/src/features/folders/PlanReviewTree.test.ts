@@ -1,5 +1,5 @@
 import type { VueWrapper } from '@vue/test-utils'
-import type { ComponentOutcome, RevisionDetailResponse, Workset } from '@/lib/api/types'
+import type { ComponentOutcome, MemberReviewResponse, Workset } from '@/lib/api/types'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -74,20 +74,8 @@ function component(): ComponentOutcome {
 const changedConclusion = frozenConclusion('changed')
 changedConclusion.task!.matched.changes = true
 
-const revision: RevisionDetailResponse = {
+const revision: MemberReviewResponse = {
   plan_id: 'plan-1',
-  revision_index: 1,
-  created_at: '',
-  root_path: '/music',
-  snapshot_token: 'snap',
-  status: 'ready',
-  summary: {
-    operation_count: 1,
-    error_count: 0,
-    total_count: 1,
-    actionable_count: 1,
-    summary_reason: 'ACTIONABLE',
-  },
   task: {
     kind: 'conversion',
     schema_version: 1,
@@ -107,24 +95,13 @@ const revision: RevisionDetailResponse = {
       ],
     },
   },
-  counts: {
-    members: 1,
-    changed: 1,
-    unmet_targets: 0,
-    blocked: 0,
-    unchanged: 0,
-  },
-  members: [
-    {
-      member_id: 'm1',
-      member_name: 'albumA',
-      folder_path: '/music/albumA',
-      excluded: false,
-      effective: { schema_version: 1 },
-      sources: {},
-      conclusion: changedConclusion,
-    },
-  ],
+  member_id: 'm-1',
+  member_name: 'albumA',
+  folder_path: '/music/albumA',
+  excluded: false,
+  effective: { schema_version: 1 },
+  sources: {},
+  conclusion: changedConclusion,
   roots: [
     {
       root_index: 0,
@@ -137,22 +114,14 @@ const revision: RevisionDetailResponse = {
       entry_count: 3,
     },
   ],
-  component_roots: [
-    {
-      step_index: 0,
-      component_index: 0,
-      component_id: 'c-1',
-      root_index: 0,
-    },
-  ],
-  execution: null,
+
 }
 
 /**
  * A plan whose files sit two directories deep, plus a projected output inside
  *  the deepest one: a member is a folder shape, not a flat list.
  */
-function nestedRevision(): Partial<RevisionDetailResponse> {
+function nestedRevision(): Partial<MemberReviewResponse> {
   return {
     task: {
       kind: 'conversion',
@@ -195,8 +164,8 @@ function nestedRevision(): Partial<RevisionDetailResponse> {
 
 async function mountTree(
   overrides: {
-    memberPath?: string
-    revision?: Partial<RevisionDetailResponse>
+    memberId?: string
+    revision?: Partial<MemberReviewResponse>
     operation?: Record<string, unknown>
   } = {},
 ) {
@@ -209,7 +178,7 @@ async function mountTree(
         operation_type: 'conversion',
         version: 2,
         planning_state: 'planned',
-        current_revision: { plan_id: 'plan-1', revision_index: 1, counts: revision.counts },
+        current_revision: { plan_id: 'plan-1', revision_index: 1, validation_state: 'valid' },
         active_generation: null,
         latest_generation: null,
         active_execution: null,
@@ -220,13 +189,30 @@ async function mountTree(
       version: 2,
       document: { members: [] },
     }),
-    getRevision: vi.fn().mockResolvedValue({
+    getMemberReview: vi.fn().mockResolvedValue({
       ...revision,
+      ...(overrides.memberId === 'm-2'
+        ? {
+            member_id: 'm-2',
+            folder_path: '/music/albumB',
+            roots: [],
+            conclusion: {
+              member_id: 'm-2',
+              excluded: false,
+              input: 'none',
+              has_components: false,
+            },
+            task: {
+              ...revision.task,
+              payload: { ...revision.task.payload, components: [] },
+            },
+          }
+        : {}),
       ...overrides.revision,
     }),
   } as never)
   const wrapper = mount(PlanReviewTree, {
-    props: { worksetId: 'ws-1', memberPath: overrides.memberPath ?? 'albumA' },
+    props: { worksetId: 'ws-1', memberId: overrides.memberId ?? 'm-1' },
     global: {
       plugins: [
         createPinia(),
@@ -245,6 +231,9 @@ async function mountTree(
     },
   })
   await flushPromises()
+  expect(api.getMemberReview).toHaveBeenCalledExactlyOnceWith('ws-1', 'conversion', 'plan-1', overrides.memberId ?? 'm-1', expect.any(AbortSignal))
+  expect(api.getRevision).not.toHaveBeenCalled()
+  expect(api.getMemberTree).not.toHaveBeenCalled()
   return wrapper
 }
 
@@ -308,7 +297,7 @@ describe('plan review tree', () => {
   })
 
   it('says why a folder the plan does not cover has nothing to list', async () => {
-    const wrapper = await mountTree({ memberPath: 'albumB' })
+    const wrapper = await mountTree({ memberId: 'm-2' })
 
     expect(wrapper.get('[data-testid="plan-summary"]').text()).toContain('未参与')
     expect(wrapper.get('[data-testid="plan-empty"]').text()).toContain('没有列出这个文件夹的文件')
@@ -356,7 +345,7 @@ describe('plan review tree', () => {
       }),
     } as never)
     const wrapper = mount(PlanReviewTree, {
-      props: { worksetId: 'ws-1', memberPath: 'albumA' },
+      props: { worksetId: 'ws-1', memberId: 'm-1' },
       global: {
         plugins: [
           createPinia(),

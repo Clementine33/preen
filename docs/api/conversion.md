@@ -118,6 +118,16 @@ continue to show their directories. `counts` reports independent facts
 (`members`, `changed`, `unmet_targets`, `blocked`, `unchanged`) that may
 overlap; no exclusive status label is derived from them.
 
+Member review uses `GET .../revisions/{planId}/members/{memberId}`. It returns
+only that member's frozen `effective`, `sources`, `conclusion`, input `roots[]`,
+and full task components, including file decisions. The database selects the
+member's roots before loading component outcomes; the browser does not receive
+or filter other members' components. Excluded and no-input members are valid
+reviews with empty components. A replaced plan returns `REVISION_NOT_FOUND`;
+clients refresh the operation and follow its new current plan. Member review
+caches use both plan and member identity with finite freshness because input
+validation can change while the plan remains the same.
+
 Every revision member also carries a server-computed `conclusion` (see
 [Member Conclusion](worksets.md#routes)). Its conversion
 `task` payload contains `status`, `matched` (无音效), and `unmatched` (有音效).

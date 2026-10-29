@@ -123,6 +123,9 @@ CREATE TABLE plan_roots (
     FOREIGN KEY (plan_id) REFERENCES plans(plan_id) ON DELETE CASCADE
 );
 
+-- Member reviews select roots by their frozen member path.
+CREATE INDEX idx_plan_roots_path ON plan_roots(plan_id, root_path, root_index);
+
 -- Component outcomes (lanes, decisions, operations, projected inventory)
 -- persisted as deterministic JSON snapshots.
 CREATE TABLE conversion_components (
@@ -138,6 +141,9 @@ CREATE TABLE conversion_components (
     PRIMARY KEY (plan_id, component_index),
     FOREIGN KEY (plan_id) REFERENCES plans(plan_id) ON DELETE CASCADE
 );
+
+-- Member review loads complete outcomes only for the selected planning root.
+CREATE INDEX idx_conversion_components_root ON conversion_components(plan_id, root_index, component_index);
 
 -- Libraries (web library views)
 CREATE TABLE libraries (

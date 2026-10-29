@@ -70,6 +70,9 @@ type Store interface {
 	GetOperationRevision(worksetID, operationType, planID string) (*OperationRevision, error)
 	// GetPlanDetail is one operation of the lifecycle.
 	GetPlanDetail(planID string) (*PlanDetail, error)
+	// GetMemberPlanDetail reads only the first frozen root at rootPath (root_index
+	// order), matching member conclusion ownership, and only that root's outcomes.
+	GetMemberPlanDetail(planID, rootPath string) (*PlanDetail, error)
 	// GetWorkset is one operation of the lifecycle.
 	GetWorkset(id string) (*Workset, error)
 	// GetWorksetByCreationIdemKey is one operation of the lifecycle.

@@ -58,7 +58,14 @@ function pressMore(e: PointerEvent | KeyboardEvent) {
 }
 
 const libraryUi = useLibraryUiStore()
-const { src, failed } = useCoverSrc(() => ({ rj: props.work.rj, local: props.work.local_cover, remote: props.work.thumbnail_url ?? null }))
+// The 42px cover cell at 2×, snapped up to a served thumbnail height.
+const COVER_HEIGHT = 120
+const { src, failed } = useCoverSrc(() => ({
+  rj: props.work.rj,
+  local: props.work.local_cover,
+  remote: props.work.thumbnail_url ?? null,
+  thumbHeight: COVER_HEIGHT,
+}))
 // An R18 work's cover stays hatched while the veil is on.
 const cover = computed(() => (libraryUi.veil && props.work.nsfw === true
   ? null

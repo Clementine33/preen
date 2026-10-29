@@ -96,6 +96,16 @@ type localCoverResponse struct {
 	CopyID  string `json:"copy_id"`
 	RelPath string `json:"rel_path"`
 	Version string `json:"version"`
+	ThumbV  string `json:"thumb_v"`
+}
+
+// localCover answers one cover with the thumb_v its thumbnail address takes.
+func (s *Server) localCover(c works.LocalCover) *localCoverResponse {
+	out := &localCoverResponse{CopyID: c.CopyID, RelPath: c.RelPath, Version: c.Version}
+	if s.deps.Works != nil {
+		out.ThumbV = s.deps.Works.CoverThumbV(c)
+	}
+	return out
 }
 
 // attachLocalCovers adds the page's covers with one lookup. A failed lookup
@@ -114,7 +124,7 @@ func (s *Server) attachLocalCovers(r *http.Request, rows ...*workSummaryResponse
 	}
 	for _, row := range rows {
 		if c, ok := covers[works.WorkCode(row.RJ)]; ok {
-			row.LocalCover = &localCoverResponse{CopyID: c.CopyID, RelPath: c.RelPath, Version: c.Version}
+			row.LocalCover = s.localCover(c)
 		}
 	}
 }

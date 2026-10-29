@@ -164,9 +164,6 @@ func toWorkDetail(detail *works.WorkDetail, dirID func(works.Copy) string) workD
 		CollectionIDs:       append([]string{}, detail.CollectionIDs...),
 		Listening:           make([]listeningResponse, 0, len(detail.Listening)),
 	}
-	if cover := detail.LocalCover; cover != nil {
-		out.LocalCover = &localCoverResponse{CopyID: cover.CopyID, RelPath: cover.RelPath, Version: cover.Version}
-	}
 	for _, node := range detail.RelationNodes {
 		out.RelationNodes = append(out.RelationNodes, toTreeNode(node))
 	}
@@ -214,6 +211,9 @@ func (s *Server) getWork(w http.ResponseWriter, r *http.Request) {
 		}
 		return library.DirID(c.LibraryID, c.LibraryRoot, c.RelPath)
 	})
+	if cover := detail.LocalCover; cover != nil {
+		out.LocalCover = s.localCover(*cover)
+	}
 	writeJSON(w, http.StatusOK, out)
 }
 

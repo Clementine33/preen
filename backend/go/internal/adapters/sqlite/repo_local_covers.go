@@ -84,23 +84,23 @@ func loadLocalCovers(
 		return nil, err
 	}
 	defer files.Close()
-	versions := map[string]string{}
+	found := map[string]works.LocalCover{}
 	for files.Next() {
 		var dir, name string
-		var size, mtime, rev int64
-		if err = files.Scan(&dir, &name, &size, &mtime, &rev); err != nil {
+		var f works.LocalCover
+		if err = files.Scan(&dir, &name, &f.Size, &f.Mtime, &f.ContentRev); err != nil {
 			return nil, err
 		}
-		versions[joinInventoryPath(dir, name)] = strconv.FormatInt(
-			rev,
+		f.Version = strconv.Itoa(
+			f.ContentRev,
+		) + "-" + strconv.FormatInt(
+			f.Mtime,
 			10,
 		) + "-" + strconv.FormatInt(
-			mtime,
-			10,
-		) + "-" + strconv.FormatInt(
-			size,
+			f.Size,
 			10,
 		)
+		found[joinInventoryPath(dir, name)] = f
 	}
 	if err = files.Err(); err != nil {
 		return nil, err
@@ -110,8 +110,9 @@ func loadLocalCovers(
 			continue
 		}
 		for _, name := range coverFileNames {
-			if v, ok := versions[c.member+"/"+name]; ok {
-				out[works.WorkCode(c.work)] = works.LocalCover{CopyID: c.id, RelPath: name, Version: v}
+			if f, ok := found[c.member+"/"+name]; ok {
+				f.CopyID, f.RelPath = c.id, name
+				out[works.WorkCode(c.work)] = f
 				break
 			}
 		}

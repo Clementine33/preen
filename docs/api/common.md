@@ -80,8 +80,8 @@ credential is refused rather than falling back:
 
 1. `Authorization: Bearer <token>` (desktop and script callers).
 2. `preen_token` HttpOnly cookie (same-origin browser callers).
-3. `access_token` query parameter, only on Work file-content routes used by
-   `<img>` and `<audio>`; other routes never accept query credentials.
+3. `access_token` query parameter, only on the Work file-content and thumbnail
+   routes used by `<img>` and `<audio>`; other routes never accept query credentials.
 
 The cookie contains the shared key encoded with unpadded base64url; malformed
 encoding is invalid. The decoded key is compared in constant time. The effective

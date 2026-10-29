@@ -454,9 +454,8 @@ export class ApiClient implements ApiClientContract {
   }
 
   /**
-   * One image's thumbnail (ADR 0013): fetched with the bearer header so
-   * the immutable address carries no token; a full render queue answers 503
-   * and the request backs off by Retry-After until it is admitted or aborted.
+   * One image's thumbnail (ADR 0013), fetched so that a full render queue's
+   * 503 backs off by Retry-After until it is admitted or aborted.
    */
   async getWorkThumb(ref: ContentFileRef, height: number, version: string, signal?: AbortSignal): Promise<Blob> {
     const path = `${contentPath('thumbs', ref)}?h=${height}&v=${encodeURIComponent(version)}`
@@ -473,6 +472,21 @@ export class ApiClient implements ApiClientContract {
         throw await this.toApiError(response)
       return response.blob()
     }
+  }
+
+  /**
+   * One image's thumbnail address for an element that loads it itself: a
+   * long list's <img> would otherwise hold every cover at full size, so like
+   * workFileUrl the token rides in the address (ADR 0013).
+   */
+  workThumbUrl(ref: ContentFileRef, height: number, version: string): string {
+    const params = new URLSearchParams({
+      h: String(height),
+      v: version,
+    })
+    if (this.token)
+      params.set('access_token', this.token)
+    return this.url(`${contentPath('thumbs', ref)}?${params}`)
   }
 
   // The circles or voice actors the works of one listing scope carry; each id

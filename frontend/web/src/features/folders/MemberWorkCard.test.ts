@@ -39,7 +39,12 @@ describe('memberWorkCard', () => {
     const wrapper = await mountCard(
       makeWorkDetail({
         nsfw: false,
-        local_cover: { copy_id: 'c', rel_path: 'cover.jpg', version: '1' },
+        local_cover: {
+          copy_id: 'c',
+          rel_path: 'cover.jpg',
+          version: '1',
+          thumb_v: 't',
+        },
       }),
     )
     expect(wrapper.get('img').attributes('src')).toBe('/cover.jpg')
@@ -52,7 +57,12 @@ describe('memberWorkCard', () => {
     const wrapper = await mountCard(
       makeWorkDetail({
         nsfw: true,
-        local_cover: { copy_id: 'c', rel_path: 'cover.jpg', version: '1' },
+        local_cover: {
+          copy_id: 'c',
+          rel_path: 'cover.jpg',
+          version: '1',
+          thumb_v: 't',
+        },
       }),
       true,
     )

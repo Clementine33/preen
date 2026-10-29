@@ -9,6 +9,8 @@ interface CoverSource {
   local?: LocalCover | null
   /** The scraped remote link: the fallback while the local file cannot be read. */
   remote: string | null
+  /** Load a local cover from the thumbnails route at this height instead of the file itself. */
+  thumbHeight?: number
 }
 
 /**
@@ -25,8 +27,10 @@ export function useCoverSrc(source: MaybeRefOrGetter<CoverSource | null>) {
     const s = toValue(source)
     if (!s?.local || !api)
       return null
-    const { copy_id: copyId, rel_path: relPath, version } = s.local
-    return api.workFileUrl({ rj: s.rj, copyId, relPath }, version)
+    const { copy_id: copyId, rel_path: relPath, version, thumb_v: thumbV } = s.local
+    return s.thumbHeight
+      ? api.workThumbUrl({ rj: s.rj, copyId, relPath }, s.thumbHeight, thumbV)
+      : api.workFileUrl({ rj: s.rj, copyId, relPath }, version)
   })
   const src = computed(() => {
     const url = local.value

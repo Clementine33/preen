@@ -204,7 +204,8 @@ func TestLocalCoverReadUsesCandidateFilesAndStableVersions(t *testing.T) {
 		inventoryfixture.Row{Path: "/music/RJ000001 a/not-cover.jpg", RootPath: "/music"},
 	)
 	covers, err := repo.LocalCovers(t.Context(), ids)
-	if err != nil || len(covers) != 1 || covers[ids[0]].RelPath != "cover.png" || covers[ids[0]].Version != "2-7-11" {
+	if err != nil || len(covers) != 1 || covers[ids[0]].RelPath != "cover.png" || covers[ids[0]].Version != "2-7-11" ||
+		covers[ids[0]].Size != 11 || covers[ids[0]].Mtime != 7 || covers[ids[0]].ContentRev != 2 {
 		t.Fatalf("cover candidates=%+v err=%v", covers, err)
 	}
 	first := covers[ids[0]]

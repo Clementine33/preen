@@ -117,10 +117,11 @@ func NewServer(deps Dependencies) http.Handler {
 		"GET /api/v1/works/{rj}/content/{copy}/{path...}",
 		mediaAuthMiddleware(deps.Token)(http.HandlerFunc(s.getWorkContentFile)),
 	)
-	// One manifest image's thumbnail at a served height (ADR 0013).
+	// One manifest image's thumbnail at a served height (ADR 0013); a list's
+	// <img> loads it by address too.
 	mux.Handle(
 		"GET /api/v1/works/{rj}/thumbs/{copy}/{path...}",
-		protect(http.HandlerFunc(s.getWorkThumb)),
+		mediaAuthMiddleware(deps.Token)(http.HandlerFunc(s.getWorkThumb)),
 	)
 	mux.Handle("PUT /api/v1/works/{rj}/metadata", protect(http.HandlerFunc(s.putWorkMetadata)))
 	mux.Handle("PATCH /api/v1/works/{rj}/user-data", protect(http.HandlerFunc(s.patchWorkUserData)))

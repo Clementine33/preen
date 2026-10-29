@@ -153,7 +153,12 @@ describe('workInspector', () => {
     }
     vi.stubGlobal('Image', StubImage)
     reducedMotion(true)
-    const local = { copy_id: 'c1', rel_path: 'cover.jpg', version: '1-2-3' }
+    const local = {
+      copy_id: 'c1',
+      rel_path: 'cover.jpg',
+      version: '1-2-3',
+      thumb_v: 't',
+    }
     const getWork = vi.fn(async (rj: string) => ({
       ...detail(rj, 'va'),
       local_cover: local,
@@ -182,7 +187,12 @@ describe('workInspector', () => {
     vi.stubGlobal('Image', StubImage)
     const getWork = vi.fn(async (rj: string) => ({
       ...detail(rj, 'va'),
-      local_cover: { copy_id: 'c1', rel_path: `${rj}.jpg`, version: '1-2-3' },
+      local_cover: {
+        copy_id: 'c1',
+        rel_path: `${rj}.jpg`,
+        version: '1-2-3',
+        thumb_v: 't',
+      },
     }))
     const frame = vi.spyOn(window, 'requestAnimationFrame')
     const wrapper = await mountInspector(getWork, { rj: FIRST })

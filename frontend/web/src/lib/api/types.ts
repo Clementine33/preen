@@ -252,6 +252,8 @@ export interface LocalCover {
   copy_id: string
   rel_path: string
   version: string
+  /** The thumbnail version its thumbs address takes, the manifest's thumb_v for the file. */
+  thumb_v: string
 }
 
 export interface WorkSummary {
@@ -1309,6 +1311,7 @@ export interface ApiClientContract {
   workFileUrl: (ref: ContentFileRef, version?: string) => string
   getWorkText: (ref: ContentFileRef, signal?: AbortSignal) => Promise<string>
   getWorkThumb: (ref: ContentFileRef, height: number, version: string, signal?: AbortSignal) => Promise<Blob>
+  workThumbUrl: (ref: ContentFileRef, height: number, version: string) => string
   listWorkFacets: (kind: WorkFacetKind, scope?: WorksScope, signal?: AbortSignal) => Promise<WorkFacet[]>
   listTagFacets: (scope?: WorksScope, signal?: AbortSignal) => Promise<TagFacets>
   updateWorkUserData: (rj: string, input: PatchWorkUserDataParams) => Promise<WorkUserData>

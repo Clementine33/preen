@@ -100,6 +100,34 @@ describe('collectionDetailPage', () => {
     expect(rows(wrapper).map(r => r.get('.pos').text())).toEqual(['1', '2', '3'])
   })
 
+  it('loads a local cover from its 120px thumbnail, not the file', async () => {
+    const local_cover = {
+      copy_id: 'c',
+      rel_path: 'cover.jpg',
+      version: '1',
+      thumb_v: 't',
+    }
+    const api = apiStub({
+      getCollection: vi.fn(async () => ({
+        id: 'c1',
+        name: 'Sleep',
+        work_count: 1,
+        created_at: '',
+        updated_at: '',
+        total: 1,
+        works: [
+          {
+            ...work(1),
+            local_cover,
+          },
+        ],
+      }) as CollectionDetail),
+    })
+    const { wrapper } = await mountPage(api)
+    expect(wrapper.get('[data-testid="collection-work"] img').attributes('src')).toBe('/thumbs/120/cover.jpg')
+    expect(api.workThumbUrl).toHaveBeenCalledWith({ rj: 'RJ00000001', copyId: 'c', relPath: 'cover.jpg' }, 120, 't')
+  })
+
   it('numbers a descending custom order from the end, and other sorts by row', async () => {
     const { api } = setup(3)
     const desc = await mountPage(api, '/collections/c1?direction=desc')

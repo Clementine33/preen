@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"sync"
 	"testing"
 	"time"
 
@@ -139,5 +140,68 @@ func TestCommittedCancellationRejectsNextStagingChunkAndPromotion(t *testing.T) 
 				}
 			}
 		})
+	}
+}
+
+func TestCleanupBetweenCommittedStagingChunksPreservesCompleteRevision(t *testing.T) {
+	repo, _ := retiredPlanFixture(t, "conversion")
+	stagedGeneration(t, repo, "second", "conversion")
+	paused, resume := make(chan struct{}), make(chan struct{})
+	release := sync.OnceFunc(func() { close(resume) })
+	if err := sqlite.PauseAfterFirstStagingChunk(repo, func() { close(paused); <-resume }); err != nil {
+		t.Fatal(err)
+	}
+	finished := make(chan struct{})
+	var persistErr error
+	go func() {
+		defer close(finished)
+		persistErr = repo.PersistOperationRevision(
+			t.Context(),
+			"second",
+			"set",
+			"conversion",
+			time.Now(),
+			stagedPayload("new"),
+		)
+	}()
+	// Unblock and join persistence even when an assertion fails while it is paused.
+	t.Cleanup(func() { release(); <-finished })
+	select {
+	case <-paused:
+	case <-finished:
+		t.Fatalf("persistence exited before checkpoint: %v", persistErr)
+	case <-t.Context().Done():
+		t.Fatal("persistence did not reach the committed chunk checkpoint")
+	}
+	var roots, components int
+	if err := repo.DB().QueryRow(`SELECT (SELECT COUNT(*) FROM plan_roots WHERE plan_id='new'),
+  (SELECT COUNT(*) FROM conversion_components WHERE plan_id='new')`).Scan(&roots, &components); err != nil || roots <= 0 || roots >= 251 || components != 0 {
+		t.Fatalf("checkpoint must precede remaining payload: roots=%d components=%d err=%v", roots, components, err)
+	}
+	gen, err := repo.GetGeneration("second")
+	if err != nil || gen.Status != workset.GenStatusRunning || gen.CancelRequested {
+		t.Fatalf("staging owner is not active: %+v %v", gen, err)
+	}
+	if n, deleteErr := repo.DeleteRetiredPlanBatch(t.Context(), 1000); deleteErr != nil || n != 0 {
+		t.Fatalf("cleanup deleted active staging between chunks: %d %v", n, deleteErr)
+	}
+	if _, err = repo.GetPlanDetail("new"); !errors.Is(err, workset.ErrPlanNotFound) {
+		t.Fatalf("partial plan visible: %v", err)
+	}
+	if _, err = repo.GetPlanDetail("old"); err != nil {
+		t.Fatalf("old plan unavailable during staging: %v", err)
+	}
+	release()
+	<-finished
+	if persistErr != nil {
+		t.Fatal(persistErr)
+	}
+	detail, err := repo.GetPlanDetail("new")
+	if err != nil || len(detail.Roots) != 251 || len(detail.Components) != 251 || len(detail.Steps) != 1 {
+		t.Fatalf("published revision incomplete: %+v %v", detail, err)
+	}
+	op, err := repo.GetOperation("set", "conversion")
+	if err != nil || op.CurrentRevisionID != "new" {
+		t.Fatalf("complete revision not promoted: %+v %v", op, err)
 	}
 }

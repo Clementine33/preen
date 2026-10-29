@@ -63,6 +63,7 @@ func newWorksetMeasurement(t *testing.T, members, audio int) *worksetMeasurement
 	if err != nil {
 		t.Fatal(err)
 	}
+	repo.PlanRetirementGuard = func(write func() error) error { return covers.WithPublication(t.Context(), write) }
 	tasks := worksetMeasurementTasks(repo, dir, pipeline)
 	executor := refresh.Executor{Metadata: metadata, Covers: covers}
 	svc := workset.NewService(

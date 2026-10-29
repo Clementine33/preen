@@ -178,13 +178,8 @@ func TestReplaceCurrentWorksetIdempotency(t *testing.T) {
 	}
 }
 
-// TestReplaceCurrentWorksetCascadesToChildren pins the foreign-key cascade the
-// replacement depends on: the replaced record's members, operations, drafts,
-// generations and executions go with the record row. A single-connection test
-// cannot observe the connection-scoped part of that (the pool hands back the
-// connection the pragma ran on); TestConnectionPragmasAreAppliedToEveryConnection
-// covers that half.
-func TestReplaceCurrentWorksetCascadesToChildren(t *testing.T) {
+// TestReplaceCurrentWorksetCleansUpChildren pins eventual removal after retirement.
+func TestReplaceCurrentWorksetCleansUpChildren(t *testing.T) {
 	repo := newTestRepository(t)
 	insertLibrary(t, repo, "lib-1")
 
@@ -227,6 +222,16 @@ func TestReplaceCurrentWorksetCascadesToChildren(t *testing.T) {
 		replaced.ID,
 	); err != nil {
 		t.Fatalf("ReplaceCurrentWorkset(replacement): %v", err)
+	}
+
+	for {
+		n, err := repo.DeleteRetiredPlanBatch(t.Context(), 1000)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if n == 0 {
+			break
+		}
 	}
 
 	for _, table := range []string{

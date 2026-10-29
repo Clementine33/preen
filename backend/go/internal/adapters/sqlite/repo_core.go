@@ -60,12 +60,12 @@ type Repository struct {
 	// changed files. Like OnCatalogChanged, it must be quick and never call back in.
 	OnMediaFactsNeeded func()
 
-	// PlanRetirementGuard serializes revision promotion with cover publication.
+	// PlanRetirementGuard serializes plan and record retirement with cover publication.
 	// Acquire publication before calling write (which opens its own transaction),
 	// then release publication before stopping unneeded downloads. Configure it
 	// before workers start; nil is for processes without cover delivery.
 	PlanRetirementGuard func(write func() error) error
-	// OnPlansRetired wakes bounded cleanup after retirement or a terminal
+	// OnPlansRetired wakes bounded plan and record cleanup after retirement or a terminal
 	// generation commit that may leave abandoned staging.
 	// It must be quick and never call back into the repository.
 	OnPlansRetired func()

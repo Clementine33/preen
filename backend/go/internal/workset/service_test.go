@@ -181,8 +181,7 @@ func TestCreateCurrentValidation(t *testing.T) {
 }
 
 // TestCreateCurrentReplacesTheRecordTheCallerSaw covers the replacement rule:
-// the old record, its plan and its sessions go in the same transaction that
-// publishes the new one.
+// the old record, its plan and its sessions become invisible when the new one publishes.
 func TestCreateCurrentReplacesTheRecordTheCallerSaw(t *testing.T) {
 	f := newFixture(t)
 	ids := f.standardLibrary("albumA", "albumB")
@@ -209,7 +208,7 @@ func TestCreateCurrentReplacesTheRecordTheCallerSaw(t *testing.T) {
 		t.Fatal("the replaced record's plan must be gone")
 	}
 	var leftovers int
-	f.queryInt(&leftovers, "SELECT COUNT(*) FROM plans WHERE workset_id = ?", first.WorksetID)
+	f.queryInt(&leftovers, "SELECT COUNT(*) FROM plans WHERE workset_id = ? AND status <> 'retired'", first.WorksetID)
 	if leftovers != 0 {
 		t.Fatalf("replaced plans left behind: %d", leftovers)
 	}

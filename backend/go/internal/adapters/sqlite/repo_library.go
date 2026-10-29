@@ -148,7 +148,8 @@ func (r *Repository) UpdateLibrary(
 	rootChanged := librarypath.RootPathKey(currentRoot) != rootPathKey
 	if rootChanged {
 		var n int
-		if err := tx.QueryRow("SELECT COUNT(*) FROM worksets WHERE library_id = ?", id).Scan(&n); err != nil {
+		if err := tx.QueryRow("SELECT COUNT(*) FROM worksets WHERE library_id = ? AND retired = 0", id).
+			Scan(&n); err != nil {
 			return nil, err
 		}
 		if n > 0 {
@@ -245,7 +246,7 @@ func (r *Repository) DeleteLibrary(id string) error {
 		return library.ErrExecutionInProgress
 	}
 
-	rows, err := tx.Query("SELECT id FROM worksets WHERE library_id = ?", id)
+	rows, err := tx.Query("SELECT id FROM worksets WHERE library_id = ? AND retired = 0", id)
 	if err != nil {
 		return err
 	}

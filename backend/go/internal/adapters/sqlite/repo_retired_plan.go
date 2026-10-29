@@ -10,6 +10,7 @@ import (
 // DeleteRetiredPlanBatch removes at most limit rows from one table in its own
 // transaction. Eligibility is read after acquiring the write lock. Children
 // are emptied before their parent, so no delete starts an unbounded cascade.
+// After plans are empty it also drains retired records, one child table per batch.
 // No admission slot is needed: retired and abandoned staging data is invisible.
 func (r *Repository) DeleteRetiredPlanBatch(ctx context.Context, limit int) (int64, error) {
 	if limit <= 0 {
@@ -24,7 +25,7 @@ func (r *Repository) DeleteRetiredPlanBatch(ctx context.Context, limit int) (int
 	err = tx.QueryRowContext(ctx, `SELECT plan_id FROM plans WHERE `+deletablePlanPredicate+` ORDER BY plan_id LIMIT 1`).
 		Scan(&planID)
 	if errors.Is(err, sql.ErrNoRows) {
-		return 0, nil
+		return deleteRetiredWorksetBatchTx(ctx, tx, limit)
 	}
 	if err != nil {
 		return 0, err

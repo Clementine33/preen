@@ -182,7 +182,7 @@ func (s *serviceImpl) replayCreate(
 	}, true, nil
 }
 
-// persistCurrentWorkset writes the new record and removes the one it replaces
+// persistCurrentWorkset writes the new record and retires the one it replaces
 // in one transaction.
 func (s *serviceImpl) persistCurrentWorkset(
 	ctx context.Context,

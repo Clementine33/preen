@@ -39,7 +39,7 @@ func scanOperation(scanner interface{ Scan(...any) error }) (*workset.Operation,
 // workset: callers load the workset first when they need to distinguish.
 func (r *Repository) GetOperation(worksetID, operationType string) (*workset.Operation, error) {
 	row := r.db.QueryRow(
-		`SELECT `+operationColumns+` FROM workset_operations WHERE workset_id = ? AND operation_type = ?`,
+		`SELECT `+operationColumns+` FROM workset_operations WHERE workset_id = ? AND operation_type = ? AND workset_id IN (SELECT id FROM worksets WHERE retired = 0)`,
 		worksetID,
 		operationType,
 	)
@@ -56,7 +56,7 @@ func (r *Repository) GetOperation(worksetID, operationType string) (*workset.Ope
 // ListOperations returns a workset's operations in creation order.
 func (r *Repository) ListOperations(worksetID string) ([]*workset.Operation, error) {
 	rows, err := r.db.Query(
-		`SELECT `+operationColumns+` FROM workset_operations WHERE workset_id = ? ORDER BY created_at, operation_type`,
+		`SELECT `+operationColumns+` FROM workset_operations WHERE workset_id = ? AND workset_id IN (SELECT id FROM worksets WHERE retired = 0) ORDER BY created_at, operation_type`,
 		worksetID,
 	)
 	if err != nil {
@@ -95,7 +95,7 @@ func (r *Repository) GetOperationDraft(worksetID, operationType string) (*workse
 	var updatedAt string
 	err := r.db.QueryRow(`
 		SELECT workset_id, operation_type, schema_version, draft_json, draft_hash, updated_at
-		FROM workset_operation_drafts WHERE workset_id = ? AND operation_type = ?
+		FROM workset_operation_drafts WHERE workset_id = ? AND operation_type = ? AND workset_id IN (SELECT id FROM worksets WHERE retired = 0)
 	`, worksetID, operationType).Scan(
 		&d.WorksetID,
 		&d.OperationType,
@@ -150,7 +150,7 @@ func (r *Repository) SaveOperationDraft(
 func writeOperationDraftTx(tx *sql.Tx, d workset.OperationDraft, expectedVersion int) error {
 	result, err := tx.Exec(`
 		UPDATE workset_operations SET version = version + 1, updated_at = ?
-		WHERE workset_id = ? AND operation_type = ? AND version = ?
+		WHERE workset_id = ? AND operation_type = ? AND version = ? AND workset_id IN (SELECT id FROM worksets WHERE retired = 0)
 	`, d.UpdatedAt.Format(timeFormat), d.WorksetID, d.OperationType, expectedVersion)
 	if err != nil {
 		return err
@@ -181,8 +181,9 @@ func upsertOperationDraft(tx *sql.Tx, d workset.OperationDraft) error {
 func operationVersionGuardResult(tx *sql.Tx, worksetID, operationType string) error {
 	var n int
 	if err := tx.QueryRow(
-		"SELECT COUNT(*) FROM workset_operations WHERE workset_id = ? AND operation_type = ?",
-		worksetID, operationType,
+		"SELECT COUNT(*) FROM workset_operations WHERE workset_id = ? AND operation_type = ? AND workset_id IN (SELECT id FROM worksets WHERE retired = 0)",
+		worksetID,
+		operationType,
 	).Scan(&n); err != nil {
 		return err
 	}
@@ -256,7 +257,7 @@ func (r *Repository) promoteOperationRevision(
 
 	var replacedPlanID sql.NullString
 	if readErr := tx.QueryRow(
-		"SELECT current_revision_id FROM workset_operations WHERE workset_id = ? AND operation_type = ?",
+		"SELECT current_revision_id FROM workset_operations WHERE workset_id = ? AND operation_type = ? AND workset_id IN (SELECT id FROM worksets WHERE retired = 0)",
 		worksetID,
 		operationType,
 	).Scan(&replacedPlanID); readErr != nil && !errors.Is(readErr, sql.ErrNoRows) {

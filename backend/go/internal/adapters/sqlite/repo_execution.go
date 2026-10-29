@@ -138,7 +138,7 @@ func (r *Repository) CreateExecutionGuarded(e *workset.PlanExecution, g workset.
 		)
 		SELECT ?, ?, ?, ?, 'queued', ?, ?, ?, ?, ?, ?, ?, ?
 		WHERE EXISTS (
-			SELECT 1 FROM worksets w WHERE w.id = ? AND w.library_id IS NOT NULL
+			SELECT 1 FROM worksets w WHERE w.id = ? AND w.library_id IS NOT NULL AND w.retired = 0
 		)
 		AND EXISTS (
 			SELECT 1 FROM workset_operations o
@@ -180,7 +180,7 @@ func (r *Repository) CreateExecutionGuarded(e *workset.PlanExecution, g workset.
 // workset.ErrExecutionNotEligible.
 func (r *Repository) classifyExecutionGuards(e *workset.PlanExecution, g workset.ExecutionGuards) error {
 	var libraryID sql.NullString
-	err := r.db.QueryRow("SELECT library_id FROM worksets WHERE id = ?", e.WorksetID).Scan(&libraryID)
+	err := r.db.QueryRow("SELECT library_id FROM worksets WHERE id = ? AND retired = 0", e.WorksetID).Scan(&libraryID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return workset.ErrWorksetNotFound
 	}

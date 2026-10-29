@@ -44,6 +44,18 @@ func replacement(t *testing.T, svc *coverdelivery.Service, repo *sqlite.Reposito
 }
 
 func TestRetirementBlocksClaimedCoverAtPublicationRecheck(t *testing.T) {
+	testRetirementBlocksClaimedCover(t, replacement)
+}
+
+func TestRecordRetirementBlocksClaimedCoverAtPublicationRecheck(t *testing.T) {
+	testRetirementBlocksClaimedCover(t, recordReplacement)
+}
+
+func testRetirementBlocksClaimedCover(
+	t *testing.T,
+	replace func(*testing.T, *coverdelivery.Service, *sqlite.Repository) func() error,
+) {
+	t.Helper()
 	_, repo, dl, req, folders := deliveryFixture(t)
 	// Retire at file admission, just before deliver acquires publication and
 	// rechecks current demand. No active-download cancellation is needed to stop it.
@@ -58,7 +70,7 @@ func TestRetirementBlocksClaimedCoverAtPublicationRecheck(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	retire = sync.OnceValue(replacement(t, svc, repo))
+	retire = sync.OnceValue(replace(t, svc, repo))
 	if err = svc.Enqueue(t.Context(), req); err != nil {
 		t.Fatal(err)
 	}
@@ -96,6 +108,18 @@ func (f *heldPublication) Publish(
 }
 
 func TestRetirementWaitsForPublicationThatPassedDemandRecheck(t *testing.T) {
+	testRetirementWaitsForPublication(t, replacement)
+}
+
+func TestRecordRetirementWaitsForPublicationThatPassedDemandRecheck(t *testing.T) {
+	testRetirementWaitsForPublication(t, recordReplacement)
+}
+
+func testRetirementWaitsForPublication(
+	t *testing.T,
+	replace func(*testing.T, *coverdelivery.Service, *sqlite.Repository) func() error,
+) {
+	t.Helper()
 	_, repo, dl, req, _ := deliveryFixture(t)
 	files := &heldPublication{started: make(chan struct{}), release: make(chan struct{})}
 	svc, err := coverdelivery.New(coverdelivery.Dependencies{
@@ -104,7 +128,7 @@ func TestRetirementWaitsForPublicationThatPassedDemandRecheck(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	retire := replacement(t, svc, repo)
+	retire := replace(t, svc, repo)
 	attempted := make(chan struct{})
 	repo.PlanRetirementGuard = func(write func() error) error {
 		close(attempted)
@@ -144,5 +168,31 @@ func TestRetirementWaitsForPublicationThatPassedDemandRecheck(t *testing.T) {
 	}
 	if job, claimErr := repo.ClaimCover(t.Context()); claimErr != nil || job != nil {
 		t.Fatalf("retired demand remained claimable: %+v, %v", job, claimErr)
+	}
+}
+
+func recordReplacement(t *testing.T, svc *coverdelivery.Service, repo *sqlite.Repository) func() error {
+	t.Helper()
+	if _, err := repo.DB().Exec(`INSERT INTO libraries(id,name,root_path) VALUES('replacement-lib','Library','/music');
+ UPDATE worksets SET library_id='replacement-lib' WHERE id='set';
+ UPDATE plan_executions SET status='succeeded' WHERE execution_id='exec'`); err != nil {
+		t.Fatal(err)
+	}
+	repo.PlanRetirementGuard = func(write func() error) error { return svc.WithPublication(t.Context(), write) }
+	return func() error {
+		now := time.Now()
+		return repo.ReplaceCurrentWorkset(
+			&workset.Workset{
+				ID:        "replacement-set",
+				LibraryID: "replacement-lib",
+				Version:   1,
+				CreatedAt: now,
+				UpdatedAt: now,
+			},
+			nil,
+			nil,
+			nil,
+			"set",
+		)
 	}
 }

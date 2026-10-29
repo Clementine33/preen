@@ -73,6 +73,21 @@ func TestMeasureWorksetLifecycle(t *testing.T) {
 		current.WorksetID != replacement {
 		t.Fatalf("replacement current=%+v err=%v", current, err)
 	}
+	// Drain independently, as the process worker does; driver timing reports each batch.
+	var batches int
+	var deleted int64
+	for {
+		n, err := f.repo.DeleteRetiredPlanBatch(t.Context(), 1000)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if n == 0 {
+			break
+		}
+		batches++
+		deleted += n
+	}
+	t.Logf("retired cleanup batches=%d rows=%d", batches, deleted)
 }
 
 func worksetMeasurementInt(t *testing.T, key string, fallback int) int {

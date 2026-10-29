@@ -10,7 +10,7 @@ import (
 
 const retiredPlanBatchRows = 1000
 
-// retiredPlans owns the single process worker for invisible plan data. It
+// retiredPlans owns the single process worker for invisible plan and record data. It
 // resumes from persisted retirement markers; no in-memory cursor survives a
 // batch or needs recovery. It never acquires file-management admission.
 type retiredPlans struct {
@@ -43,7 +43,7 @@ func (c *retiredPlans) drain(ctx context.Context) {
 		rows, err := c.repo.DeleteRetiredPlanBatch(ctx, retiredPlanBatchRows)
 		if err != nil {
 			if ctx.Err() == nil {
-				slog.Error("retired plan cleanup failed", "err", err)
+				slog.Error("retired data cleanup failed", "err", err)
 			}
 			return
 		}

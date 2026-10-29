@@ -69,7 +69,8 @@ CREATE TABLE schema_meta (
 -- the Task that owns the payload and task_schema_version is that payload's
 -- schema version. Publishing retires the replaced plan and revokes its cover
 -- demand atomically. Retired payload and executions are deleted in bounded
--- background batches; they are never visible through read interfaces.
+-- background batches; they are never visible through read interfaces. Staging
+-- plans belong to their generation and become visible only after promotion.
 CREATE TABLE plans (
     plan_id TEXT PRIMARY KEY,
     root_path TEXT NOT NULL,
@@ -77,12 +78,15 @@ CREATE TABLE plans (
     library_id TEXT REFERENCES libraries(id) ON DELETE SET NULL,
     snapshot_token TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'ready',
+    generation_id TEXT REFERENCES plan_generations(generation_id) ON DELETE SET NULL,
     task_kind TEXT NOT NULL DEFAULT '',
     task_schema_version INTEGER NOT NULL DEFAULT 0,
     workset_id TEXT NOT NULL REFERENCES worksets(id) ON DELETE CASCADE,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE INDEX idx_plans_generation ON plans(generation_id);
+CREATE INDEX idx_plans_staging ON plans(plan_id) WHERE status = 'staging';
 CREATE INDEX idx_plans_retired ON plans(plan_id) WHERE status = 'retired';
 
 -- Task payload rows of one plan (owned by the task named in plans.task_kind;

@@ -270,6 +270,9 @@ func (r *Repository) MarkGenerationFailed(generationID, code, message string) er
 		UPDATE plan_generations SET status = 'failed', error_code = ?, error_message = ?, finished_at = ?, updated_at = ?
 		WHERE generation_id = ? AND status IN ('queued','running')
 	`, code, message, time.Now().Format(timeFormat), time.Now().Format(timeFormat), generationID)
+	if err == nil && r.OnPlansRetired != nil {
+		r.OnPlansRetired()
+	}
 	return err
 }
 
@@ -280,6 +283,9 @@ func (r *Repository) MarkGenerationInterrupted(generationID string) error {
 		UPDATE plan_generations SET status = 'interrupted', error_code = '', finished_at = ?, updated_at = ?
 		WHERE generation_id = ? AND status = 'running'
 	`, time.Now().Format(timeFormat), time.Now().Format(timeFormat), generationID)
+	if err == nil && r.OnPlansRetired != nil {
+		r.OnPlansRetired()
+	}
 	return err
 }
 
@@ -291,6 +297,9 @@ func (r *Repository) CompleteGenerationCanceled(generationID string) error {
 		UPDATE plan_generations SET status = 'canceled', error_code = 'CANCELED', finished_at = ?, updated_at = ?
 		WHERE generation_id = ? AND status = 'running'
 	`, time.Now().Format(timeFormat), time.Now().Format(timeFormat), generationID)
+	if err == nil && r.OnPlansRetired != nil {
+		r.OnPlansRetired()
+	}
 	return err
 }
 
@@ -302,6 +311,9 @@ func (r *Repository) InterruptStaleGenerations() error {
 		UPDATE plan_generations SET status = 'interrupted', finished_at = ?, updated_at = ?
 		WHERE status IN ('queued','running')
 	`, time.Now().Format(timeFormat), time.Now().Format(timeFormat))
+	if err == nil && r.OnPlansRetired != nil {
+		r.OnPlansRetired()
+	}
 	return err
 }
 

@@ -395,36 +395,46 @@ func TestOperationRevisionLifecycle(t *testing.T) {
 		t.Fatalf("CreateGeneration: %v", err)
 	}
 
-	err := repo.PersistOperationRevision(g.GenerationID, w.ID, "conversion", now, workset.OperationRevisionPersist{
-		PlanID:           "plan-1",
-		RootPath:         "/music/albumA + /music/albumB",
-		SnapshotToken:    "snap-1",
-		LibraryID:        "lib-1",
-		DraftHash:        "hash-1",
-		MemberHash:       "members-1",
-		OperationVersion: 1,
-		ExcludedScope:    "m-test-b-rev",
-		DraftSnapshot:    `{"schema_version":1}`,
-		Steps: []workset.PlanStepRecord{{
-			StepIndex: 0, StepType: "reconcile_audio_outputs", Status: "ok",
-		}},
-		Roots: []workset.PlanRootRecord{
-			{
-				RootIndex:            0,
-				RootPath:             "/music/albumA",
-				RootIdentity:         "albumA",
-				InventoryFingerprint: "fp-a",
-				EntryCount:           2,
-			},
-			{
-				RootIndex:            1,
-				RootPath:             "/music/albumB",
-				RootIdentity:         "albumB",
-				InventoryFingerprint: "fp-b",
-				EntryCount:           1,
+	if _, claimErr := repo.NextQueuedGeneration(nil); claimErr != nil {
+		t.Fatal(claimErr)
+	}
+	err := repo.PersistOperationRevision(
+		t.Context(),
+		g.GenerationID,
+		w.ID,
+		"conversion",
+		now,
+		workset.OperationRevisionPersist{
+			PlanID:           "plan-1",
+			RootPath:         "/music/albumA + /music/albumB",
+			SnapshotToken:    "snap-1",
+			LibraryID:        "lib-1",
+			DraftHash:        "hash-1",
+			MemberHash:       "members-1",
+			OperationVersion: 1,
+			ExcludedScope:    "m-test-b-rev",
+			DraftSnapshot:    `{"schema_version":1}`,
+			Steps: []workset.PlanStepRecord{{
+				StepIndex: 0, StepType: "reconcile_audio_outputs", Status: "ok",
+			}},
+			Roots: []workset.PlanRootRecord{
+				{
+					RootIndex:            0,
+					RootPath:             "/music/albumA",
+					RootIdentity:         "albumA",
+					InventoryFingerprint: "fp-a",
+					EntryCount:           2,
+				},
+				{
+					RootIndex:            1,
+					RootPath:             "/music/albumB",
+					RootIdentity:         "albumB",
+					InventoryFingerprint: "fp-b",
+					EntryCount:           1,
+				},
 			},
 		},
-	})
+	)
 	if err != nil {
 		t.Fatalf("PersistOperationRevision: %v", err)
 	}
@@ -472,7 +482,10 @@ func TestOperationRevisionLifecycle(t *testing.T) {
 	if createErr := repo.CreateGeneration(g2); createErr != nil {
 		t.Fatalf("CreateGeneration 2: %v", createErr)
 	}
-	if persistErr := repo.PersistOperationRevision(
+	if _, claimErr := repo.NextQueuedGeneration(nil); claimErr != nil {
+		t.Fatal(claimErr)
+	}
+	if persistErr := repo.PersistOperationRevision(t.Context(),
 		g2.GenerationID,
 		w.ID,
 		"conversion",
@@ -547,9 +560,19 @@ func TestPersistOperationRevisionRetiresTheReplacedExecution(t *testing.T) {
 	}
 	now := time.Now()
 	seedGeneration(t, repo, "gen-r1", w.ID)
-	if err := repo.PersistOperationRevision("gen-r1", w.ID, "conversion", now, workset.OperationRevisionPersist{
-		PlanID: "plan-r1", RootPath: "/music", SnapshotToken: "snap-r1", LibraryID: "lib-1",
-	}); err != nil {
+	if _, claimErr := repo.NextQueuedGeneration(nil); claimErr != nil {
+		t.Fatal(claimErr)
+	}
+	if err := repo.PersistOperationRevision(
+		t.Context(),
+		"gen-r1",
+		w.ID,
+		"conversion",
+		now,
+		workset.OperationRevisionPersist{
+			PlanID: "plan-r1", RootPath: "/music", SnapshotToken: "snap-r1", LibraryID: "lib-1",
+		},
+	); err != nil {
 		t.Fatalf("PersistOperationRevision(plan-r1): %v", err)
 	}
 	if err := repo.CreateExecutionGuarded(&workset.PlanExecution{
@@ -590,7 +613,10 @@ func TestPersistOperationRevisionRetiresTheReplacedExecution(t *testing.T) {
 	}
 
 	seedGeneration(t, repo, "gen-r2", w.ID)
-	if err := repo.PersistOperationRevision(
+	if _, claimErr := repo.NextQueuedGeneration(nil); claimErr != nil {
+		t.Fatal(claimErr)
+	}
+	if err := repo.PersistOperationRevision(t.Context(),
 		"gen-r2",
 		w.ID,
 		"conversion",

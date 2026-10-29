@@ -13,11 +13,8 @@ import (
 
 const planColumns = `plan_id, root_path, scan_root_path, library_id, snapshot_token, status, task_kind, task_schema_version, created_at`
 
-// CreatePlanTx persists one plan and all of its payload, root and unit
-// snapshots in one transaction so a partial plan is never visible. worksetID
-// is the record that owns the plan: plans are linked to their record by that
-// column alone (there is no foreign key), so every cleanup path deletes them
-// explicitly and every insert has to fill it in.
+// CreatePlanTx persists a complete ready snapshot in one transaction. Workset
+// generation uses guarded staging batches through PersistOperationRevision.
 func CreatePlanTx(
 	db *sql.DB,
 	planID string,
@@ -58,11 +55,7 @@ func CreatePlanTx(
 	return nil
 }
 
-// InsertPlanTx is the transaction-scoped form of
-// CreatePlanTx for callers that must persist the plan snapshot inside
-// a larger atomic transaction (the workset generation completion path writes
-// the plan, its revision association, and the current-revision promotion in
-// one commit).
+// InsertPlanTx writes a ready snapshot inside the caller's transaction.
 func InsertPlanTx(
 	tx *sql.Tx,
 	planID string,
@@ -88,6 +81,12 @@ func InsertPlanTx(
 		return fmt.Errorf("insert plan: %w", err)
 	}
 
+	return insertPlanRecords(tx, planID, steps, roots, components)
+}
+
+// insertPlanRecords appends immutable payload rows inside a guarded transaction.
+func insertPlanRecords(tx *sql.Tx, planID string, steps []workset.PlanStepRecord,
+	roots []workset.PlanRootRecord, components []workset.PlanComponentRecord) error {
 	for _, s := range steps {
 		if _, err := tx.Exec(
 			`
@@ -163,7 +162,7 @@ func (r *Repository) GetPlanDetail(planID string) (*workset.PlanDetail, error) {
 	var taskSchemaVersion int
 	err := r.db.QueryRow(`
 		SELECT `+planColumns+`
-		FROM plans WHERE plan_id = ? AND status <> 'retired'
+		FROM plans WHERE plan_id = ? AND status NOT IN ('staging','retired')
 	`, planID).Scan(&p.PlanID, &p.RootPath, &p.ScanRootPath, &libraryID, &p.SnapshotToken, &p.Status, &taskKind, &taskSchemaVersion, &createdAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -230,7 +229,7 @@ func loadPlanSteps(db *sql.DB, planID string) ([]workset.PlanStepRecord, error) 
 func loadPlanRoots(db *sql.DB, planID string) ([]workset.PlanRootRecord, error) {
 	rootRows, err := db.Query(`
 		SELECT root_index, root_path, root_identity, inventory_fingerprint, entry_count, root_status, root_error_code, root_error_message
-		FROM plan_roots WHERE plan_id = ? AND plan_id IN (SELECT plan_id FROM plans WHERE status <> 'retired') ORDER BY root_index
+		FROM plan_roots WHERE plan_id = ? AND plan_id IN (SELECT plan_id FROM plans WHERE status NOT IN ('staging','retired')) ORDER BY root_index
 	`, planID)
 	if err != nil {
 		return nil, err
@@ -290,7 +289,7 @@ func loadPlanComponents(db *sql.DB, planID string) ([]workset.PlanComponentRecor
 func (r *Repository) GetPlanRoots(planID string) ([]workset.PlanRootRecord, error) {
 	rows, err := r.db.Query(`
 		SELECT root_index, root_path, root_identity, inventory_fingerprint, entry_count, root_status, root_error_code, root_error_message
-		FROM plan_roots WHERE plan_id = ? AND plan_id IN (SELECT plan_id FROM plans WHERE status <> 'retired') ORDER BY root_index
+		FROM plan_roots WHERE plan_id = ? AND plan_id IN (SELECT plan_id FROM plans WHERE status NOT IN ('staging','retired')) ORDER BY root_index
 	`, planID)
 	if err != nil {
 		return nil, err

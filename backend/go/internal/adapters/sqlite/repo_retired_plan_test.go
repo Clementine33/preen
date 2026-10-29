@@ -287,9 +287,19 @@ func retireFixturePlan(t *testing.T, repo *sqlite.Repository, kind string) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if err := repo.PersistOperationRevision("second", "set", kind, time.Now(), workset.OperationRevisionPersist{
-		PlanID: "new", RootPath: "/music", SnapshotToken: "snapshot-new",
-	}); err != nil {
+	if _, err := repo.NextQueuedGeneration(nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.PersistOperationRevision(
+		t.Context(),
+		"second",
+		"set",
+		kind,
+		time.Now(),
+		workset.OperationRevisionPersist{
+			PlanID: "new", RootPath: "/music", SnapshotToken: "snapshot-new",
+		},
+	); err != nil {
 		t.Fatal(err)
 	}
 }

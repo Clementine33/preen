@@ -26,9 +26,12 @@ func replacement(t *testing.T, svc *coverdelivery.Service, repo *sqlite.Reposito
 	}); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := repo.NextQueuedGeneration(nil); err != nil {
+		t.Fatal(err)
+	}
 	repo.PlanRetirementGuard = func(write func() error) error { return svc.WithPublication(t.Context(), write) }
 	return func() error {
-		return repo.PersistOperationRevision(
+		return repo.PersistOperationRevision(t.Context(),
 			"replacement",
 			"set",
 			"metadata_refresh",

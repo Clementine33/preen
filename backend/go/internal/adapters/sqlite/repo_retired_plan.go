@@ -10,7 +10,7 @@ import (
 // DeleteRetiredPlanBatch removes at most limit rows from one table in its own
 // transaction. Eligibility is read after acquiring the write lock. Children
 // are emptied before their parent, so no delete starts an unbounded cascade.
-// No admission slot is needed: retired data is already invisible to clients.
+// No admission slot is needed: retired and abandoned staging data is invisible.
 func (r *Repository) DeleteRetiredPlanBatch(ctx context.Context, limit int) (int64, error) {
 	if limit <= 0 {
 		return 0, fmt.Errorf("retired plan batch limit must be positive")
@@ -21,7 +21,7 @@ func (r *Repository) DeleteRetiredPlanBatch(ctx context.Context, limit int) (int
 	}
 	defer tx.Rollback()
 	var planID string
-	err = tx.QueryRowContext(ctx, `SELECT plan_id FROM plans WHERE status='retired' ORDER BY plan_id LIMIT 1`).
+	err = tx.QueryRowContext(ctx, `SELECT plan_id FROM plans WHERE `+deletablePlanPredicate+` ORDER BY plan_id LIMIT 1`).
 		Scan(&planID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return 0, nil
@@ -37,7 +37,7 @@ func (r *Repository) DeleteRetiredPlanBatch(ctx context.Context, limit int) (int
 		{"plan_roots", "plan_id=?"},
 		{"conversion_steps", "plan_id=?"},
 		{"workset_operation_revisions", "plan_id=?"},
-		{"plans", "plan_id=? AND status='retired'"},
+		{"plans", "plan_id=?"},
 	} {
 		var exists bool
 		if err = tx.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM "+child.table+" WHERE "+child.predicate+")", planID).
@@ -49,9 +49,10 @@ func (r *Repository) DeleteRetiredPlanBatch(ctx context.Context, limit int) (int
 		}
 		result, deleteErr := tx.ExecContext(
 			ctx,
-			"DELETE FROM "+child.table+" WHERE rowid IN (SELECT rowid FROM "+child.table+" WHERE "+child.predicate+" LIMIT ?)",
+			"DELETE FROM "+child.table+" WHERE rowid IN (SELECT rowid FROM "+child.table+" WHERE "+child.predicate+" LIMIT ?) AND EXISTS (SELECT 1 FROM plans WHERE plan_id=? AND "+deletablePlanPredicate+")",
 			planID,
 			limit,
+			planID,
 		)
 		if deleteErr != nil {
 			return 0, deleteErr
@@ -64,3 +65,9 @@ func (r *Repository) DeleteRetiredPlanBatch(ctx context.Context, limit int) (int
 	}
 	return 0, nil
 }
+
+// A completed generation retaining staging indicates promotion never committed.
+// Running and queued owners are never cleanup candidates, even when canceled.
+const deletablePlanPredicate = `(status='retired' OR (status='staging' AND EXISTS (
+ SELECT 1 FROM plan_generations g WHERE g.generation_id=plans.generation_id
+ AND g.status IN ('failed','canceled','interrupted','completed'))))`

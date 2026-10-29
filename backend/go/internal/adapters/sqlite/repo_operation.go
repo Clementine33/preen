@@ -1,6 +1,7 @@
 package sqlite
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -201,7 +202,7 @@ func (r *Repository) GetOperationRevision(worksetID, operationType, planID strin
 		SELECT plan_id, workset_id, operation_type, revision_index, draft_hash, member_hash,
 		       operation_version, excluded_scope, draft_snapshot, created_at
 		FROM workset_operation_revisions WHERE workset_id = ? AND operation_type = ? AND plan_id = ?
-		AND plan_id IN (SELECT plan_id FROM plans WHERE status <> 'retired')
+		AND plan_id IN (SELECT plan_id FROM plans WHERE status NOT IN ('staging','retired'))
 	`, worksetID, operationType, planID).Scan(
 		&rev.PlanID,
 		&rev.WorksetID,
@@ -224,33 +225,32 @@ func (r *Repository) GetOperationRevision(worksetID, operationType, planID strin
 	return &rev, nil
 }
 
-// PersistOperationRevision atomically writes a completed generation: the plan
-// snapshot, its revision association (revision_index = MAX+1 within the
-// operation), the operation's current-revision promotion with the operation
-// version bump, and the generation terminal state. A partial revision is never
-// visible.
-//
-// Publishing retires the previous plan and cancels its cover demand in the
-// same transaction. Retired data becomes unreadable immediately; the process
-// cleanup worker deletes its payload and executions in bounded transactions.
+// PersistOperationRevision stages bounded payload batches before publishing the
+// complete snapshot. Only promotion takes the cover publication guard: the old
+// plan remains current throughout staging and on any failure.
 func (r *Repository) PersistOperationRevision(
+	ctx context.Context,
 	genID, worksetID, operationType string,
 	now time.Time,
 	p workset.OperationRevisionPersist,
 ) error {
-	write := func() error { return r.persistOperationRevision(genID, worksetID, operationType, now, p) }
+	if err := r.stageOperationRevision(ctx, genID, worksetID, operationType, p); err != nil {
+		return err
+	}
+	write := func() error { return r.promoteOperationRevision(ctx, genID, worksetID, operationType, now, p) }
 	if r.PlanRetirementGuard != nil {
 		return r.PlanRetirementGuard(write)
 	}
 	return write()
 }
 
-func (r *Repository) persistOperationRevision(
+func (r *Repository) promoteOperationRevision(
+	ctx context.Context,
 	genID, worksetID, operationType string, now time.Time, p workset.OperationRevisionPersist,
 ) error {
-	tx, err := r.db.Begin()
+	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("begin revision persist tx: %w", err)
+		return fmt.Errorf("begin revision promotion tx: %w", err)
 	}
 	defer tx.Rollback()
 
@@ -263,21 +263,13 @@ func (r *Repository) persistOperationRevision(
 		return fmt.Errorf("read current revision: %w", readErr)
 	}
 
-	taskKind := operationType
-	if insertErr := InsertPlanTx(
-		tx,
-		p.PlanID,
-		taskKind,
-		p.TaskSchemaVersion,
-		p.RootPath,
-		p.SnapshotToken,
-		p.LibraryID,
-		worksetID,
-		p.Steps,
-		p.Roots,
-		p.Components,
-	); insertErr != nil {
-		return insertErr
+	if guardErr := guardStagingPlan(tx, genID, worksetID, operationType, p.PlanID); guardErr != nil {
+		return guardErr
+	}
+	if _, readyErr := tx.Exec(
+		`UPDATE plans SET status='ready' WHERE plan_id=? AND status='staging'`, p.PlanID,
+	); readyErr != nil {
+		return readyErr
 	}
 
 	var next int
@@ -302,7 +294,7 @@ func (r *Repository) persistOperationRevision(
 	}
 	result, err := tx.Exec(`
 		UPDATE plan_generations SET status = 'completed', revision_id = ?, finished_at = ?, updated_at = ?
-		WHERE generation_id = ? AND status IN ('queued','running')
+		WHERE generation_id = ? AND status = 'running' AND cancel_requested = 0
 	`, p.PlanID, now.Format(timeFormat), now.Format(timeFormat), genID)
 	if err != nil {
 		return fmt.Errorf("complete generation: %w", err)

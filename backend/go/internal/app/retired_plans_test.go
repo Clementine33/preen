@@ -33,9 +33,19 @@ func TestRetiredPlanWorkerStartupCommitAndMaintenanceTriggers(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if err = repo.PersistOperationRevision("gen", "set", "conversion", time.Now(), workset.OperationRevisionPersist{
-		PlanID: "new", RootPath: "/music", SnapshotToken: "s-new",
-	}); err != nil {
+	if _, claimErr := repo.NextQueuedGeneration(nil); claimErr != nil {
+		t.Fatal(claimErr)
+	}
+	if err = repo.PersistOperationRevision(
+		t.Context(),
+		"gen",
+		"set",
+		"conversion",
+		time.Now(),
+		workset.OperationRevisionPersist{
+			PlanID: "new", RootPath: "/music", SnapshotToken: "s-new",
+		},
+	); err != nil {
 		t.Fatal(err)
 	}
 	waitForPlanDeletion(t, repo, "old") // commit wakes the worker without a timer
@@ -79,5 +89,39 @@ func assertPlanRows(t *testing.T, repo *sqlite.Repository, id string, want int) 
 		Scan(&rows); err != nil ||
 		rows != want {
 		t.Fatalf("plan %s rows=%d want=%d err=%v", id, rows, want, err)
+	}
+}
+
+func TestTerminalGenerationCommitsWakeStagingCleanup(t *testing.T) {
+	for _, outcome := range []string{"failed", "canceled", "interrupted"} {
+		t.Run(outcome, func(t *testing.T) {
+			repo, err := sqlite.NewDevelopmentRepository(filepath.Join(t.TempDir(), "cache.db"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer repo.Close()
+			if _, err = repo.DB().Exec(`INSERT INTO worksets(id) VALUES('set');
+    INSERT INTO workset_operations(workset_id,operation_type) VALUES('set','conversion');
+    INSERT INTO plan_generations(generation_id,workset_id,operation_type,status) VALUES('gen','set','conversion','running');
+    INSERT INTO plans(plan_id,root_path,snapshot_token,workset_id,status,generation_id) VALUES('staged','/music','s','set','staging','gen')`); err != nil {
+				t.Fatal(err)
+			}
+			ctx, cancel := context.WithCancel(t.Context())
+			_, done := app.StartRetiredPlanCleanup(ctx, repo)
+			defer func() { cancel(); <-done }()
+			assertPlanRows(t, repo, "staged", 1)
+			switch outcome {
+			case "failed":
+				err = repo.MarkGenerationFailed("gen", "TEST", "injected")
+			case "canceled":
+				err = repo.CompleteGenerationCanceled("gen")
+			case "interrupted":
+				err = repo.MarkGenerationInterrupted("gen")
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			waitForPlanDeletion(t, repo, "staged")
+		})
 	}
 }

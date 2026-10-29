@@ -201,6 +201,7 @@ func (r *Repository) GetOperationRevision(worksetID, operationType, planID strin
 		SELECT plan_id, workset_id, operation_type, revision_index, draft_hash, member_hash,
 		       operation_version, excluded_scope, draft_snapshot, created_at
 		FROM workset_operation_revisions WHERE workset_id = ? AND operation_type = ? AND plan_id = ?
+		AND plan_id IN (SELECT plan_id FROM plans WHERE status <> 'retired')
 	`, worksetID, operationType, planID).Scan(
 		&rev.PlanID,
 		&rev.WorksetID,
@@ -229,15 +230,23 @@ func (r *Repository) GetOperationRevision(worksetID, operationType, planID strin
 // version bump, and the generation terminal state. A partial revision is never
 // visible.
 //
-// Publishing the new plan also retires the plan it replaced: the old plan, its
-// roots, units and revision row, and every execution session recorded for it
-// are deleted in the same transaction. A record keeps exactly one plan — the
-// current one — so a failed, canceled or interrupted generation leaves the
-// previous plan untouched and a successful one leaves nothing behind.
+// Publishing retires the previous plan and cancels its cover demand in the
+// same transaction. Retired data becomes unreadable immediately; the process
+// cleanup worker deletes its payload and executions in bounded transactions.
 func (r *Repository) PersistOperationRevision(
 	genID, worksetID, operationType string,
 	now time.Time,
 	p workset.OperationRevisionPersist,
+) error {
+	write := func() error { return r.persistOperationRevision(genID, worksetID, operationType, now, p) }
+	if r.PlanRetirementGuard != nil {
+		return r.PlanRetirementGuard(write)
+	}
+	return write()
+}
+
+func (r *Repository) persistOperationRevision(
+	genID, worksetID, operationType string, now time.Time, p workset.OperationRevisionPersist,
 ) error {
 	tx, err := r.db.Begin()
 	if err != nil {
@@ -301,18 +310,39 @@ func (r *Repository) PersistOperationRevision(
 	if affected, _ := result.RowsAffected(); affected == 0 {
 		return workset.ErrGenerationNotFound
 	}
-	if replacedPlanID.Valid && replacedPlanID.String != "" && replacedPlanID.String != p.PlanID {
-		if cleanupErr := deletePlanDataTx(tx, replacedPlanID.String); cleanupErr != nil {
+	retired := replacedPlanID.Valid && replacedPlanID.String != "" && replacedPlanID.String != p.PlanID
+	if retired {
+		if cleanupErr := retirePlanTx(tx, replacedPlanID.String); cleanupErr != nil {
 			return cleanupErr
 		}
 	}
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	if retired && r.OnPlansRetired != nil {
+		r.OnPlansRetired()
+	}
+	return nil
 }
 
-// deletePlanDataTx removes one retired plan; payload and executions cascade.
-func deletePlanDataTx(tx *sql.Tx, planID string) error {
-	if _, err := tx.Exec(`DELETE FROM plans WHERE plan_id = ?`, planID); err != nil {
-		return fmt.Errorf("delete plan: %w", err)
+// retirePlanTx revokes demand while the caller holds the publication guard.
+func retirePlanTx(tx *sql.Tx, planID string) error {
+	if _, err := tx.Exec(`UPDATE plans SET status = 'retired' WHERE plan_id = ?`, planID); err != nil {
+		return fmt.Errorf("retire plan: %w", err)
+	}
+	// The hidden execution no longer owns an execution replay key. Release the
+	// unique reservation now, just as synchronous deletion previously did.
+	if _, err := tx.Exec(`UPDATE plan_executions SET idempotency_key='' WHERE plan_id=?`, planID); err != nil {
+		return fmt.Errorf("release retired execution key: %w", err)
+	}
+	if _, err := tx.Exec(`UPDATE cover_deliveries SET status='canceled',error_code='CANCELED'
+		WHERE execution_id IN (SELECT execution_id FROM plan_executions WHERE plan_id=?)
+		AND status IN ('pending','running')`, planID); err != nil {
+		return fmt.Errorf("cancel retired cover demand: %w", err)
+	}
+	// Keep the completed session and its replay key, without exposing its old plan.
+	if _, err := tx.Exec(`UPDATE plan_generations SET revision_id=NULL WHERE revision_id=?`, planID); err != nil {
+		return fmt.Errorf("clear retired generation revision: %w", err)
 	}
 	return nil
 }

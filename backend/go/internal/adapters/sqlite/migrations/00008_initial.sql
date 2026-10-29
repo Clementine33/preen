@@ -67,9 +67,9 @@ CREATE TABLE schema_meta (
 -- Persisted plans: one immutable snapshot of the current plan of one
 -- processing record. Everything task-specific is opaque here: task_kind names
 -- the Task that owns the payload and task_schema_version is that payload's
--- schema version. Only the current plan of a record is kept: publishing a new
--- one deletes the plan it replaced and that plan's execution rows in the same
--- transaction.
+-- schema version. Publishing retires the replaced plan and revokes its cover
+-- demand atomically. Retired payload and executions are deleted in bounded
+-- background batches; they are never visible through read interfaces.
 CREATE TABLE plans (
     plan_id TEXT PRIMARY KEY,
     root_path TEXT NOT NULL,
@@ -82,6 +82,8 @@ CREATE TABLE plans (
     workset_id TEXT NOT NULL REFERENCES worksets(id) ON DELETE CASCADE,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE INDEX idx_plans_retired ON plans(plan_id) WHERE status = 'retired';
 
 -- Task payload rows of one plan (owned by the task named in plans.task_kind;
 -- the conversion task stores its resolved policy/classifier snapshots here).

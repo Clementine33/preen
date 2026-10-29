@@ -59,6 +59,15 @@ type Repository struct {
 	// OnMediaFactsNeeded wakes measurement after exact sync commits new or
 	// changed files. Like OnCatalogChanged, it must be quick and never call back in.
 	OnMediaFactsNeeded func()
+
+	// PlanRetirementGuard serializes revision writes with cover publication.
+	// Acquire publication before calling write (which opens its own transaction),
+	// then release publication before stopping unneeded downloads. Configure it
+	// before workers start; nil is for processes without cover delivery.
+	PlanRetirementGuard func(write func() error) error
+	// OnPlansRetired wakes bounded cleanup after a retirement commit.
+	// It must be quick and never call back into the repository.
+	OnPlansRetired func()
 }
 
 func (r *Repository) catalogChanged() {

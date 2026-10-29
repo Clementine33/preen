@@ -604,9 +604,10 @@ func TestPersistOperationRevisionRetiresTheReplacedExecution(t *testing.T) {
 	if _, err := repo.GetExecution("exec-r1"); !errors.Is(err, workset.ErrExecutionNotFound) {
 		t.Fatalf("the replaced plan's execution must be gone, got %v", err)
 	}
-	if err := repo.db.QueryRow(`SELECT COUNT(*) FROM cover_deliveries WHERE execution_id='exec-r1'`).
-		Scan(&covers); err != nil || covers != 0 {
-		t.Fatalf("retired execution kept cover demand: %d %v", covers, err)
+	if err := repo.db.QueryRow(`SELECT COUNT(*) FROM cover_deliveries WHERE execution_id='exec-r1' AND status='canceled'`).
+		Scan(&covers); err != nil ||
+		covers != 1 {
+		t.Fatalf("retired execution demand was not canceled: %d %v", covers, err)
 	}
 }
 

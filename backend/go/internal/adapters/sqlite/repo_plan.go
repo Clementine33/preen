@@ -163,7 +163,7 @@ func (r *Repository) GetPlanDetail(planID string) (*workset.PlanDetail, error) {
 	var taskSchemaVersion int
 	err := r.db.QueryRow(`
 		SELECT `+planColumns+`
-		FROM plans WHERE plan_id = ?
+		FROM plans WHERE plan_id = ? AND status <> 'retired'
 	`, planID).Scan(&p.PlanID, &p.RootPath, &p.ScanRootPath, &libraryID, &p.SnapshotToken, &p.Status, &taskKind, &taskSchemaVersion, &createdAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -230,7 +230,7 @@ func loadPlanSteps(db *sql.DB, planID string) ([]workset.PlanStepRecord, error) 
 func loadPlanRoots(db *sql.DB, planID string) ([]workset.PlanRootRecord, error) {
 	rootRows, err := db.Query(`
 		SELECT root_index, root_path, root_identity, inventory_fingerprint, entry_count, root_status, root_error_code, root_error_message
-		FROM plan_roots WHERE plan_id = ? ORDER BY root_index
+		FROM plan_roots WHERE plan_id = ? AND plan_id IN (SELECT plan_id FROM plans WHERE status <> 'retired') ORDER BY root_index
 	`, planID)
 	if err != nil {
 		return nil, err
@@ -290,7 +290,7 @@ func loadPlanComponents(db *sql.DB, planID string) ([]workset.PlanComponentRecor
 func (r *Repository) GetPlanRoots(planID string) ([]workset.PlanRootRecord, error) {
 	rows, err := r.db.Query(`
 		SELECT root_index, root_path, root_identity, inventory_fingerprint, entry_count, root_status, root_error_code, root_error_message
-		FROM plan_roots WHERE plan_id = ? ORDER BY root_index
+		FROM plan_roots WHERE plan_id = ? AND plan_id IN (SELECT plan_id FROM plans WHERE status <> 'retired') ORDER BY root_index
 	`, planID)
 	if err != nil {
 		return nil, err

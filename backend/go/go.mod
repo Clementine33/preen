@@ -10,8 +10,7 @@ require (
 	golang.org/x/sync v0.24.0
 	golang.org/x/sys v0.49.0
 	golang.org/x/text v0.43.0
-	modernc.org/libc v1.79.1
-	modernc.org/libc/v2 v2.1.30
+	modernc.org/libc v1.79.0
 	modernc.org/sqlite v1.61.0
 )
 

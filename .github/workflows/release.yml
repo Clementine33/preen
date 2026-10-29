@@ -176,6 +176,9 @@ jobs:
     permissions:
       contents: write
       packages: write
+    env:
+      # The image smoke test generates fixtures with host FFmpeg.
+      MISE_DISABLE_TOOLS: go:golang.org/x/tools/gopls
     steps:
       - uses: actions/checkout@v7
       - uses: jdx/mise-action@v5
@@ -183,7 +186,7 @@ jobs:
           minimum_release_age: 7d
           cache: true
           cache_save: false
-          cache_key_prefix: mise
+          cache_key_prefix: mise-ffmpeg
       - uses: actions/download-artifact@v8
         with:
           name: release-web

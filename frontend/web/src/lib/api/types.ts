@@ -967,6 +967,8 @@ export interface ExecutionProgress {
  * files an operator may need to look at.
  */
 export interface ExecutionComponent {
+  /** Frozen plan conclusions, present in every component delivery. */
+  kept_decisions: FileDecision[]
   component_index: number
   component_id: string
   root_path: string

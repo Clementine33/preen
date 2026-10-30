@@ -49,7 +49,7 @@ const recordQuery = useQuery(() => currentRecordQueryOptions(api, libraryId.valu
 const record = computed(() => recordQuery.data.value?.workset ?? null)
 const worksetId = computed(() => record.value?.workset_id ?? null)
 const { workspace, generation, execution, executionView, applySession, startGeneration }
-  = useOperationContext(worksetId, 'conversion')
+  = useOperationContext(worksetId, 'conversion', undefined, computed(() => route.name !== 'conversion-execution'))
 
 const workset = workspace.workset
 const operation = workspace.operation
@@ -246,7 +246,9 @@ function executionBlocked(selected = false): string | null {
     return null
   // The terminal fact outranks the derived ones: once a revision ran, that is
   // the reason it cannot run again, whatever else moved since.
-  const ran = revision.value?.execution
+  const ran = op.latest_execution?.plan_id === op.current_revision.plan_id
+    ? op.latest_execution
+    : null
   if (ran)
     return `该版本已执行（${EXECUTION_STATES[ran.status] ?? ran.status}），需重新生成新版本`
   if (op.planning_state === 'orphaned')

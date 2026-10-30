@@ -65,7 +65,7 @@ func mergeStagingEntries(tx *sql.Tx, scanID, libraryID, rootPath string) (invent
 			return inventory.MergeOutcome{}, err
 		}
 	}
-	if err := mergeObservedEntries(tx, cleanupRoot); err != nil {
+	if err := mergeObservedEntries(tx, cleanupRoot, ""); err != nil {
 		return inventory.MergeOutcome{}, fmt.Errorf("failed to merge staging entries: %w", err)
 	}
 	if cleanupRoot != "" {

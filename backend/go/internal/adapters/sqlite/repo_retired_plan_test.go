@@ -249,7 +249,7 @@ func TestRetiredPlanCleanupBoundsEachTableAndResumesAfterReopen(t *testing.T) {
 func retirementTableCounts(t *testing.T, repo *sqlite.Repository) map[string]int {
 	t.Helper()
 	counts := map[string]int{}
-	for _, table := range []string{"cover_deliveries", "execution_component_results", "plan_executions", "conversion_components", "plan_member_conclusions", "plan_roots", "conversion_steps", "workset_operation_revisions", "plans"} {
+	for _, table := range []string{"cover_deliveries", "execution_component_results", "plan_execution_requests", "plan_executions", "conversion_components", "plan_member_conclusions", "plan_roots", "conversion_steps", "workset_operation_revisions", "plans"} {
 		var count int
 		if err := repo.DB().QueryRow("SELECT COUNT(*) FROM " + table).Scan(&count); err != nil {
 			t.Fatal(err)
@@ -274,6 +274,7 @@ func retiredPlanFixture(t *testing.T, kind string) (*sqlite.Repository, string) 
 		fmt.Sprintf(`INSERT INTO workset_operation_revisions(plan_id,workset_id,operation_type,revision_index) VALUES('old','set','%s',1)`, kind),
 		fmt.Sprintf(`INSERT INTO plan_generations(generation_id,workset_id,operation_type,status,revision_id,idempotency_key) VALUES('first','set','%s','completed','old','first-key')`, kind),
 		fmt.Sprintf(`INSERT INTO plan_executions(execution_id,workset_id,operation_type,plan_id,status,idempotency_key) VALUES('exec','set','%s','old','succeeded','exec-key')`, kind),
+		`INSERT INTO plan_execution_requests(execution_id,request_json) VALUES('exec','{}')`,
 	} {
 		if _, err = repo.DB().Exec(statement); err != nil {
 			t.Fatal(err)

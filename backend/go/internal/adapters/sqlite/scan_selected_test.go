@@ -2,6 +2,7 @@ package sqlite_test
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -272,5 +273,146 @@ func TestSelectedMergeValidatesAllRangesBeforeWriting(t *testing.T) {
 				t.Fatalf("inventory rows = %d, want %d: %v", len(stored), want, readErr)
 			}
 		})
+	}
+}
+
+// staleFilesPerFolder prices each emptied folder above half the merge budget, so
+// every folder takes a batch of its own.
+const staleFilesPerFolder = 1001
+
+// seedEmptiedFolders seeds folders whose stale files the next scan removes.
+func seedEmptiedFolders(t *testing.T, repo *sqlite.Repository, root string, n int) []string {
+	t.Helper()
+	folders := make([]string, n)
+	for i := range folders {
+		folders[i] = root + "/f" + strconv.Itoa(i)
+		if err := os.MkdirAll(filepath.FromSlash(folders[i]), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		rows := []inventoryfixture.Row{{Path: folders[i], RootPath: root, IsDir: true}}
+		for j := range staleFilesPerFolder {
+			rows = append(rows, inventoryfixture.Row{
+				Path: folders[i] + "/gone" + strconv.Itoa(j) + ".mp3", RootPath: root, Size: 1,
+			})
+		}
+		inventoryfixture.SeedInventory(t, repo, rows...)
+	}
+	return folders
+}
+
+func countInventoryFiles(t *testing.T, repo *sqlite.Repository) int {
+	t.Helper()
+	var n int
+	if err := repo.DB().QueryRow("SELECT COUNT(*) FROM inventory_files").Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	return n
+}
+
+func TestSelectedMergeEmptiedFoldersAcrossBatchesNotifiesOnce(t *testing.T) {
+	repo, err := sqlite.NewRepository(filepath.Join(t.TempDir(), "cache.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer repo.Close()
+	root := filepath.ToSlash(t.TempDir())
+	folders := seedEmptiedFolders(t, repo, root, 3)
+	commits := 0
+	repo.OnCatalogChanged = func() { commits++ }
+	pipeline := inventory.NewPipeline(
+		sqlite.NewScanStaging(repo), filesystem.WalkRootEntriesParallel, filesystem.WalkFolderEntries, nil)
+	if _, scanErr := pipeline.ScanFoldersCtx(t.Context(), folders, root, 2); scanErr != nil {
+		t.Fatal(scanErr)
+	}
+	if got := countInventoryFiles(t, repo); got != 0 {
+		t.Fatalf("stale files left: %d", got)
+	}
+	if commits != 1 {
+		t.Fatalf("catalog notifications = %d, want 1 per merge", commits)
+	}
+}
+
+func TestSelectedMergeFailureKeepsCommittedBatchesAndRescanConverges(t *testing.T) {
+	repo, err := sqlite.NewRepository(filepath.Join(t.TempDir(), "cache.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer repo.Close()
+	root := filepath.ToSlash(t.TempDir())
+	folders := seedEmptiedFolders(t, repo, root, 3)
+	catalog, merged := 0, 0
+	repo.OnCatalogChanged = func() { catalog++ }
+	pipeline := inventory.NewPipeline(
+		sqlite.NewScanStaging(repo), filesystem.WalkRootEntriesParallel, filesystem.WalkFolderEntries,
+		func() { merged++ })
+	// Each folder is its own batch: f1 fails, f0 is already committed.
+	if _, execErr := repo.DB().Exec(`CREATE TRIGGER fail_second_batch BEFORE DELETE ON inventory_files
+		WHEN OLD.dir_ref = (SELECT id FROM inventory_dirs WHERE path = '` + folders[1] + `')
+		BEGIN SELECT RAISE(ABORT, 'injected'); END`); execErr != nil {
+		t.Fatal(execErr)
+	}
+	if _, scanErr := pipeline.ScanFoldersCtx(t.Context(), folders, root, 2); scanErr == nil {
+		t.Fatal("merge failure ignored")
+	}
+	if got := countInventoryFiles(t, repo); got != 2*staleFilesPerFolder {
+		t.Fatalf("files after failed merge = %d, want the two uncommitted folders' %d", got, 2*staleFilesPerFolder)
+	}
+	var status, code string
+	if rowErr := repo.DB().
+		QueryRow("SELECT status, error_code FROM scan_sessions").Scan(&status, &code); rowErr != nil ||
+		status != "failed" || code != "MERGE_FAILED" {
+		t.Fatalf("session = %s/%s, %v", status, code, rowErr)
+	}
+	if catalog != 1 || merged != 1 {
+		t.Fatalf("catalog=%d merged=%d, want 1 and 1 after a partial merge", catalog, merged)
+	}
+	if _, execErr := repo.DB().Exec("DROP TRIGGER fail_second_batch"); execErr != nil {
+		t.Fatal(execErr)
+	}
+	if _, scanErr := pipeline.ScanFoldersCtx(t.Context(), folders, root, 2); scanErr != nil {
+		t.Fatal(scanErr)
+	}
+	if got := countInventoryFiles(t, repo); got != 0 {
+		t.Fatalf("rescan did not converge: %d files", got)
+	}
+}
+
+func TestSelectedMergeCancelAfterBatchKeepsCommittedAndRescanConverges(t *testing.T) {
+	repo, err := sqlite.NewRepository(filepath.Join(t.TempDir(), "cache.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer repo.Close()
+	root := filepath.ToSlash(t.TempDir())
+	folders := seedEmptiedFolders(t, repo, root, 3)
+	catalog, merged := 0, 0
+	repo.OnCatalogChanged = func() { catalog++ }
+	pipeline := inventory.NewPipeline(
+		sqlite.NewScanStaging(repo), filesystem.WalkRootEntriesParallel, filesystem.WalkFolderEntries,
+		func() { merged++ })
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	sqlite.SetAfterMergeBatch(repo, cancel)
+	if _, scanErr := pipeline.ScanFoldersCtx(ctx, folders, root, 2); !errors.Is(scanErr, context.Canceled) {
+		t.Fatalf("scan error = %v, want context canceled", scanErr)
+	}
+	if got := countInventoryFiles(t, repo); got != 2*staleFilesPerFolder {
+		t.Fatalf("files after cancel = %d, want the two later folders' %d", got, 2*staleFilesPerFolder)
+	}
+	var status, code string
+	if rowErr := repo.DB().
+		QueryRow("SELECT status, error_code FROM scan_sessions").Scan(&status, &code); rowErr != nil ||
+		status != "canceled" || code != "SCAN_CANCELLED" {
+		t.Fatalf("session = %s/%s, %v", status, code, rowErr)
+	}
+	if catalog != 1 || merged != 1 {
+		t.Fatalf("catalog=%d merged=%d, want 1 and 1 after a partial merge", catalog, merged)
+	}
+	sqlite.SetAfterMergeBatch(repo, nil)
+	if _, scanErr := pipeline.ScanFoldersCtx(t.Context(), folders, root, 2); scanErr != nil {
+		t.Fatal(scanErr)
+	}
+	if got := countInventoryFiles(t, repo); got != 0 {
+		t.Fatalf("rescan did not converge: %d files", got)
 	}
 }

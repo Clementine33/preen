@@ -17,9 +17,12 @@ type selectedStaging interface {
 	MergeSelectedStaging(context.Context, string, string, []string) (MergeOutcome, error)
 }
 
-// ScanFoldersCtx shares one bounded queue, writer and selected-range transaction.
-// Folder walks may overlap; staging writes and the merge never do. Existing full
-// and single-member scans keep their original pipeline and binding rules.
+// ScanFoldersCtx shares one bounded queue, writer and selected-range merge.
+// Folder walks may overlap; staging writes and the merge never do. The merge
+// commits in several transactions, so a failed or canceled one may leave earlier
+// folders merged; the listener is notified whenever a merge was attempted.
+// Existing full and single-member scans keep their original pipeline and
+// binding rules.
 func (s *Pipeline) ScanFoldersCtx(
 	ctx context.Context,
 	folders []string,
@@ -62,15 +65,16 @@ func (s *Pipeline) ScanFoldersCtx(
 	if err := s.repo.UpdateScanSessionStatus(id, "merging", "", ""); err != nil {
 		return "", err
 	}
-	if _, err := store.MergeSelectedStaging(ctx, id, root, scopes); err != nil {
+	_, mergeErr := store.MergeSelectedStaging(ctx, id, root, scopes)
+	s.notifyMerged()
+	if mergeErr != nil {
 		status, code := "failed", "MERGE_FAILED"
 		if ctx.Err() != nil {
 			status, code = "canceled", "SCAN_CANCELLED"
 		}
-		_ = s.repo.UpdateScanSessionStatus(id, status, code, err.Error())
-		return "", err
+		_ = s.repo.UpdateScanSessionStatus(id, status, code, mergeErr.Error())
+		return "", mergeErr
 	}
-	s.notifyMerged()
 	if err := s.repo.UpdateScanSessionStatus(id, "completed", "", ""); err != nil {
 		return "", err
 	}

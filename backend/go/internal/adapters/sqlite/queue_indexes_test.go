@@ -136,5 +136,10 @@ func seedSessionQueues(t *testing.T, db *sql.DB) {
 		); err != nil {
 			t.Fatal(err)
 		}
+		if _, err := db.Exec(
+			`INSERT INTO plan_execution_requests (execution_id, request_json) VALUES (?, '{}')`, "e-"+row.id,
+		); err != nil {
+			t.Fatal(err)
+		}
 	}
 }

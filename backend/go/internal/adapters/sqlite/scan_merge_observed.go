@@ -6,27 +6,35 @@ import (
 
 // mergeObservedEntries preserves directory references and unchanged measured facts.
 // Type replacements happen before inserts so a new file always starts at revision 1.
-func mergeObservedEntries(tx *sql.Tx, root string) error {
+// scopes is a JSON array of selected folders limiting which staged rows are
+// merged; empty merges the whole staging table.
+func mergeObservedEntries(tx *sql.Tx, root, scopes string) error {
+	in, inArgs := "1", []any(nil)
+	if scopes != "" {
+		in = `s.path IN (SELECT covered.path FROM json_each(?) scope CROSS JOIN temp.entries_staging covered
+   WHERE ` + subtreeIncludingRootSQL("covered.path", "scope.value") + `)`
+		inArgs = []any{scopes}
+	}
 	if _, err := tx.Exec(`DELETE FROM inventory_files WHERE (dir_ref,name) IN (
   SELECT d.id,s.name FROM temp.entries_staging s JOIN inventory_dirs d ON d.path=s.parent_path
-  WHERE s.is_dir=1)`); err != nil {
+  WHERE s.is_dir=1 AND `+in+`)`, inArgs...); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(`DELETE FROM inventory_dirs WHERE path IN (
-  SELECT path FROM temp.entries_staging WHERE is_dir=0)`); err != nil {
+  SELECT s.path FROM temp.entries_staging s WHERE s.is_dir=0 AND `+in+`)`, inArgs...); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(`INSERT INTO inventory_dirs(path,root_path,mtime,is_work_root)
-  SELECT path,?,mtime,is_work_root FROM temp.entries_staging WHERE is_dir=1
+  SELECT s.path,?,s.mtime,s.is_work_root FROM temp.entries_staging s WHERE s.is_dir=1 AND `+in+`
   ON CONFLICT(path) DO UPDATE SET root_path=excluded.root_path,mtime=excluded.mtime,is_work_root=excluded.is_work_root
   WHERE inventory_dirs.root_path IS NOT excluded.root_path OR inventory_dirs.mtime IS NOT excluded.mtime
-   OR inventory_dirs.is_work_root IS NOT excluded.is_work_root`, root); err != nil {
+   OR inventory_dirs.is_work_root IS NOT excluded.is_work_root`, append([]any{root}, inArgs...)...); err != nil {
 		return err
 	}
 	// Scoped walks omit their root; file-only staging still needs its owning directory.
 	if _, err := tx.Exec(`INSERT INTO inventory_dirs(path,root_path)
- SELECT parent_path,? FROM temp.entries_staging WHERE is_dir=0 AND parent_path<>''
- ON CONFLICT(path) DO NOTHING`, root); err != nil {
+ SELECT s.parent_path,? FROM temp.entries_staging s WHERE s.is_dir=0 AND s.parent_path<>'' AND `+in+`
+ ON CONFLICT(path) DO NOTHING`, append([]any{root}, inArgs...)...); err != nil {
 		return err
 	}
 	if root != "" {
@@ -34,7 +42,7 @@ func mergeObservedEntries(tx *sql.Tx, root string) error {
 			return err
 		}
 	}
-	_, err := tx.Exec(mergeObservedFilesSQL)
+	_, err := tx.Exec(mergeObservedFilesSQL(in), inArgs...)
 	return err
 }
 
@@ -52,12 +60,13 @@ func ensureInventoryDirectory(tx *sql.Tx, path, root string) error {
 }
 
 // Unchanged observations do not rewrite files or their measured facts.
-const mergeObservedFilesSQL = `
+func mergeObservedFilesSQL(in string) string {
+	return `
  INSERT INTO inventory_files(dir_ref,name,size,mtime,format)
  SELECT d.id,s.name,s.size,s.mtime,NULLIF(s.format,'')
  FROM temp.entries_staging s JOIN inventory_dirs d ON d.path=s.parent_path
- WHERE s.is_dir=0
-` + observedFileUpsertSQL
+ WHERE s.is_dir=0 AND ` + in + observedFileUpsertSQL
+}
 
 // Scans and exact synchronization share the same revision and measured-fact rules.
 const observedFileUpsertSQL = `

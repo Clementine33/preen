@@ -13,3 +13,7 @@ func OpenReleaseWithMigrations(dbPath string, migrations fs.FS) (*Repository, er
 func PauseAfterFirstStagingChunk(repo *Repository, checkpoint func()) error {
 	return pauseAfterFirstStagingChunk(repo, checkpoint)
 }
+
+// SetAfterMergeBatch runs checkpoint after each selected-merge batch commits, so
+// tests can interrupt a merge between batches.
+func SetAfterMergeBatch(repo *Repository, checkpoint func()) { repo.afterMergeBatch = checkpoint }

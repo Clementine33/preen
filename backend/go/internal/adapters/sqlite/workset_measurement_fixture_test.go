@@ -40,7 +40,7 @@ func newWorksetMeasurement(t *testing.T, members, audio int) *worksetMeasurement
 	root := filepath.Join(dir, "media")
 	libraryID, names := worksetMeasurementLibrary(t, repo, root, members, audio)
 	pipeline := inventory.NewPipeline(
-		NewScanStaging(repo),
+		worksetMeasuredStaging{ScanStaging: NewScanStaging(repo), measurement: stats},
 		filesystem.WalkRootEntriesParallel,
 		filesystem.WalkFolderEntries,
 		nil,
@@ -98,9 +98,7 @@ func newWorksetMeasurement(t *testing.T, members, audio int) *worksetMeasurement
 		}
 	})
 	// Discard setup samples; all following samples belong to the lifecycle.
-	stats.mu.Lock()
-	stats.paths = map[string]worksetSQLSample{}
-	stats.mu.Unlock()
+	stats.reset()
 	return &worksetMeasurement{
 		repo:      repo,
 		svc:       svc,
@@ -193,4 +191,22 @@ func worksetMeasurementTasks(repo *Repository, dir string, pipeline *inventory.P
 		dirrename.New(repo, filesystem.ReadRenameDirectory),
 		refresh.NewTask(repo, filesystem.CheckWorkDirectory),
 	}
+}
+
+// worksetMeasuredStaging times each selected merge as one invocation.
+type worksetMeasuredStaging struct {
+	*ScanStaging
+
+	measurement *worksetSQLMeasurement
+}
+
+func (s worksetMeasuredStaging) MergeSelectedStaging(
+	ctx context.Context,
+	id, root string,
+	scopes []string,
+) (inventory.MergeOutcome, error) {
+	started := time.Now()
+	outcome, err := s.ScanStaging.MergeSelectedStaging(ctx, id, root, scopes)
+	s.measurement.recordMerge(started, time.Now())
+	return outcome, err
 }

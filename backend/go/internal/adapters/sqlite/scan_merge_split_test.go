@@ -435,3 +435,12 @@ func TestSplitMergePreservesFilesAtPOSIXRoots(t *testing.T) {
 		})
 	}
 }
+
+func TestPackScopesNeverSplitsAndIsolatesOverBudgetScopes(t *testing.T) {
+	scopes := []string{"a", "b", "c", "d", "e"}
+	got := packScopes(scopes, []int{3, 3, 50, 1, 5}, 7)
+	want := [][]string{{"a", "b"}, {"c"}, {"d", "e"}}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("batches = %v, want %v", got, want)
+	}
+}

@@ -280,7 +280,16 @@ func (f *worksetMeasurement) execute(t *testing.T, id, kind, plan string, round 
 		}
 		return true
 	})
-	t.Logf("execution kind=%s round=%d id=%s status=succeeded", kind, round, result.Execution.ExecutionID)
+	var requestBytes, components int
+	if scanErr := f.repo.DB().QueryRow(
+		`SELECT length(q.request_json), e.total_components FROM plan_executions e
+		 JOIN plan_execution_requests q ON q.execution_id = e.execution_id WHERE e.execution_id = ?`,
+		result.Execution.ExecutionID,
+	).Scan(&requestBytes, &components); scanErr != nil {
+		t.Fatal(scanErr)
+	}
+	t.Logf("execution kind=%s round=%d id=%s status=succeeded request_bytes=%d components=%d",
+		kind, round, result.Execution.ExecutionID, requestBytes, components)
 	return result.Execution.ExecutionID
 }
 

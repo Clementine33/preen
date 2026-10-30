@@ -1,11 +1,10 @@
 <script setup lang="ts">
-import type { ComponentOutcome } from '@/lib/api/types'
 import { ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, FileAudio, FilePlus2, FileText, Folder } from '@lucide/vue'
 import { computed, ref } from 'vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { useOperationContext } from '@/composables/use-operation-context'
-import { decisionGroups, keepReasonText, memberConclusion, resolutionText, revisionComponents } from '@/features/worksets/plan-readers'
+import { useMemberReview } from '@/composables/use-member-review'
+import { decisionGroups, keepReasonText, memberConclusion, resolutionText } from '@/features/worksets/plan-readers'
 
 /**
  * The plan's own view of one member (ADR 0001).
@@ -20,30 +19,15 @@ import { decisionGroups, keepReasonText, memberConclusion, resolutionText, revis
  */
 const props = defineProps<{
   worksetId: string
-  /** The member's library-relative path, as the current-files view knows it. */
-  memberPath: string
+  memberId: string
 }>()
 
-const { workspace } = useOperationContext(computed(() => props.worksetId), 'conversion')
-const revision = workspace.revision
-const operation = workspace.operation
-
-/** The frozen root that corresponds to this member. */
-const root = computed(() => {
-  const view = revision.value
-  if (!view)
-    return null
-  return (
-    view.roots.find(candidate => candidate.root_path.endsWith(`/${props.memberPath}`))
-    ?? view.roots.find(candidate => candidate.root_path === props.memberPath)
-    ?? null
-  )
-})
-
-/** The frozen member entry behind this directory, when the plan has one. */
-const frozenMember = computed(
-  () => revision.value?.members.find(candidate => candidate.folder_path === root.value?.root_path) ?? null,
+const { review: revision, operation } = useMemberReview(
+  computed(() => props.worksetId || null),
+  computed(() => props.memberId || null),
 )
+const root = computed(() => revision.value?.roots[0] ?? null)
+const frozenMember = revision
 
 /**
  * What the plan concludes for this folder, read with the same reader the row
@@ -51,11 +35,11 @@ const frozenMember = computed(
  * folder with nothing to list still says why (已排除 / 未参与 / 无需转换).
  */
 const conclusion = computed(() =>
-  memberConclusion({
-    excluded: frozenMember.value?.excluded ?? false,
-    hasRoot: Boolean(root.value),
-    rootMissing: root.value?.root_status === 'missing',
-    components: components.value,
+  memberConclusion(frozenMember.value?.conclusion ?? {
+    member_id: '',
+    excluded: false,
+    input: 'none',
+    has_components: false,
   }),
 )
 
@@ -70,16 +54,7 @@ const needsPlanning = computed(() => {
   return op.planning_state === 'needs_planning' || op.current_revision.validation_state !== 'valid'
 })
 
-const components = computed<ComponentOutcome[]>(() => {
-  const view = revision.value
-  const rootIndex = root.value?.root_index
-  if (!view || rootIndex === undefined)
-    return []
-  const owned = new Set(
-    view.component_roots.filter(ref => ref.root_index === rootIndex).map(ref => ref.component_id),
-  )
-  return revisionComponents(view).filter(component => owned.has(component.component_id))
-})
+const components = computed(() => revision.value?.task.payload.components ?? [])
 
 interface Row {
   key: string

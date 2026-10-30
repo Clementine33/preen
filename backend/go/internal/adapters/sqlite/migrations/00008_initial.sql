@@ -111,6 +111,7 @@ CREATE TABLE conversion_steps (
 -- 'ok' for planned roots and 'missing' for members whose subtree no longer
 -- exists at planning time; error_code/message carry the stable root outcome.
 CREATE TABLE plan_roots (
+    member_id TEXT NOT NULL DEFAULT '',
     plan_id TEXT NOT NULL,
     root_index INTEGER NOT NULL,
     root_path TEXT NOT NULL,
@@ -123,6 +124,9 @@ CREATE TABLE plan_roots (
     PRIMARY KEY (plan_id, root_index),
     FOREIGN KEY (plan_id) REFERENCES plans(plan_id) ON DELETE CASCADE
 );
+
+-- Stable member ownership survives later directory relocations.
+CREATE INDEX idx_plan_roots_member ON plan_roots(plan_id, member_id, root_index);
 
 -- Component outcomes (lanes, decisions, operations, projected inventory)
 -- persisted as deterministic JSON snapshots.
@@ -139,6 +143,9 @@ CREATE TABLE conversion_components (
     PRIMARY KEY (plan_id, component_index),
     FOREIGN KEY (plan_id) REFERENCES plans(plan_id) ON DELETE CASCADE
 );
+
+-- Member review loads complete outcomes only for the selected planning root.
+CREATE INDEX idx_conversion_components_root ON conversion_components(plan_id, root_index, component_index);
 
 -- Libraries (web library views)
 CREATE TABLE libraries (

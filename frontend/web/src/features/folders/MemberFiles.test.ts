@@ -157,20 +157,20 @@ async function mountFiles(
         members: [],
       },
     }),
-    getRevision: vi.fn().mockResolvedValue({
-      plan_id: 'plan-1',
-      revision_index: 1,
-      created_at: '',
-      root_path: '/music',
-      snapshot_token: 'tok',
-      status: 'ready',
-      summary: {
-        operation_count: 0,
-        error_count: 0,
-        total_count: 0,
-        actionable_count: 0,
-        summary_reason: '',
+    getMemberReview: vi.fn().mockResolvedValue({
+      member_id: 'm-1',
+      member_name: 'albumA',
+      folder_path: '/music/albumA',
+      excluded: false,
+      effective: {},
+      sources: {},
+      conclusion: {
+        member_id: 'm-1',
+        excluded: false,
+        input: 'none',
+        has_components: false,
       },
+      plan_id: 'plan-1',
       task: {
         kind: 'conversion',
         schema_version: 1,
@@ -188,17 +188,7 @@ async function mountFiles(
           },
         },
       },
-      counts: {
-        members: 1,
-        changed: 0,
-        unmet_targets: 0,
-        blocked: 0,
-        unchanged: 0,
-      },
-      members: [],
       roots: [],
-      component_roots: [],
-      execution: null,
     }),
     getMemberTree: vi.fn().mockResolvedValue(memberTreeResponse),
     refreshMemberTree: vi.fn().mockResolvedValue({ ...memberTreeResponse, refreshed: true }),
@@ -535,6 +525,8 @@ describe('shared member files', () => {
     // A frozen plan needs no directory read: the member is not refreshed for a
     // view nobody opened.
     expect(api.refreshMemberTree).not.toHaveBeenCalled()
+    expect(api.getMemberReview).toHaveBeenCalledExactlyOnceWith('ws-1', 'conversion', 'plan-1', 'm-1', expect.any(AbortSignal))
+    expect(api.getRevision).not.toHaveBeenCalled()
 
     // 当前文件 is the view the user has to name, because it is no longer the
     // default here; naming it is what starts the refresh.

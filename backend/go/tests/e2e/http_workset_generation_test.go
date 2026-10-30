@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -307,15 +308,18 @@ func TestHTTPWorksetGenerationLoop(t *testing.T) {
 
 	// Review the nested immutable revision.
 	var rev struct {
-		PlanID string `json:"plan_id"`
-		Roots  []struct {
-			RootIndex int    `json:"root_index"`
-			RootPath  string `json:"root_path"`
-		} `json:"roots"`
-		ComponentRoots []struct {
-			ComponentID string `json:"component_id"`
-			RootIndex   int    `json:"root_index"`
-		} `json:"component_roots"`
+		PlanID  string `json:"plan_id"`
+		Members []struct {
+			MemberID      string `json:"member_id"`
+			Excluded      bool   `json:"excluded"`
+			Input         string `json:"input"`
+			HasComponents bool   `json:"has_components"`
+			Task          struct {
+				Status    string          `json:"status"`
+				Matched   map[string]bool `json:"matched"`
+				Unmatched map[string]bool `json:"unmatched"`
+			} `json:"task"`
+		} `json:"members"`
 		Summary struct {
 			SummaryReason string `json:"summary_reason"`
 		} `json:"summary"`
@@ -343,21 +347,52 @@ func TestHTTPWorksetGenerationLoop(t *testing.T) {
 	if rev.Task.Kind != "conversion" || len(rev.Task.Payload) == 0 {
 		t.Fatalf("revision missing task payload: %+v", rev)
 	}
-	// Every component must map to a valid planning root (stable ownership for
-	// batch grouping; albumA is root 0).
-	if len(rev.ComponentRoots) == 0 {
-		t.Fatalf("revision missing component_roots: %+v", rev)
+	if len(rev.Members) != 1 {
+		t.Fatalf("revision members = %+v", rev.Members)
 	}
-	rootIndexes := map[int]string{}
-	for _, r := range rev.Roots {
-		rootIndexes[r.RootIndex] = r.RootPath
+	conclusion := rev.Members[0]
+	if conclusion.MemberID == "" || conclusion.Excluded || conclusion.Input != "valid" ||
+		!conclusion.HasComponents ||
+		conclusion.Task.Status == "" {
+		t.Fatalf("revision member conclusion = %+v", conclusion)
 	}
-	for _, cr := range rev.ComponentRoots {
-		if _, ok := rootIndexes[cr.RootIndex]; !ok {
-			t.Fatalf("component %s maps to unknown root %d: %+v", cr.ComponentID, cr.RootIndex, rev.Roots)
-		}
-		if cr.ComponentID == "" {
-			t.Fatalf("component_roots contains empty component_id: %+v", rev.ComponentRoots)
+	if len(conclusion.Task.Matched) != 4 || len(conclusion.Task.Unmatched) != 4 {
+		t.Fatalf("missing partition facts: %+v", conclusion.Task)
+	}
+
+	// Member review resolves ownership and returns only albumA's complete inputs.
+	var review struct {
+		Roots []struct {
+			RootPath string `json:"root_path"`
+		} `json:"roots"`
+		Task struct {
+			Payload struct {
+				Components []struct {
+					ComponentID string `json:"component_id"`
+				} `json:"components"`
+			} `json:"payload"`
+		} `json:"task"`
+	}
+	if code := doJSON(
+		t,
+		client,
+		ctx,
+		base,
+		http.MethodGet,
+		opPath+"/revisions/"+genDetail.RevisionID+"/members/"+conclusion.MemberID,
+		token,
+		nil,
+		&review,
+	); code != http.StatusOK {
+		t.Fatalf("member review: %d", code)
+	}
+	if len(review.Roots) != 1 || !strings.HasSuffix(review.Roots[0].RootPath, "/RJ000001 albumA") ||
+		len(review.Task.Payload.Components) == 0 {
+		t.Fatalf("member ownership: %+v", review)
+	}
+	for _, component := range review.Task.Payload.Components {
+		if component.ComponentID == "" {
+			t.Fatal("member component has no identity")
 		}
 	}
 

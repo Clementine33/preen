@@ -676,6 +676,7 @@ describe.each(['metadata_refresh', 'rename'] as const)('%s execution notices', (
       components: [
         {
           component_index: 0,
+          kept_decisions: [],
           component_id: 'unit',
           root_path: 'RJ01',
           partition: 'matched',
@@ -747,6 +748,7 @@ describe.each(['metadata_refresh', 'rename'] as const)('%s execution notices', (
       components: [
         {
           component_index: 0,
+          kept_decisions: [],
           component_id: 'skip',
           root_path: 'RJ01',
           partition: 'matched' as const,
@@ -769,6 +771,7 @@ describe.each(['metadata_refresh', 'rename'] as const)('%s execution notices', (
         },
         {
           component_index: 1,
+          kept_decisions: [],
           component_id: 'noop',
           root_path: 'RJ02',
           partition: 'matched' as const,

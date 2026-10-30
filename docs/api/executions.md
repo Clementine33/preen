@@ -153,7 +153,8 @@ ran the whole revision), `error_code`, `error_message`, `started_at`,
 
 `components[]` carries the run's scope: the frozen worklist in component order,
 with each component's own result folded in. A component with no recorded result
-at all is `pending` with empty lists — nothing has run for it yet. The list is
+at all is `pending` with empty result lists — nothing has run for it yet. Its
+frozen `kept_decisions` may already contain files. The list is
 ordered by `component_index` and may be paged through the detail route's
 `components_from`/`components_limit`.
 
@@ -164,7 +165,21 @@ Each `components[]` entry: `component_index`, `component_id`, `root_path`,
 `remaining[]` (operations not completed, in frozen order), `recovery[]`
 (preserved files needing operator attention: soft-delete destinations,
 replaced-old copies, leftover temporaries), `error_code`, `error_message`,
-`inventory_synced`, `inventory_sync_error`, optional task-owned `task_result`.
+`inventory_synced`, `inventory_sync_error`, optional task-owned `task_result`,
+`kept_decisions[]` (the frozen plan's file decisions whose `resolution` is
+`keep`, in plan order).
+
+`kept_decisions` is always an array, including `[]` for components with no kept
+files and tasks without file decisions. Each decision has `path`, `resolution`
+(`keep`), and optional `reason_code`, `message`, `target_path`, matching the
+conversion plan's file-decision shape. These are plan conclusions, including
+unmet targets, rather than observed execution results: pending, failed and
+canceled components carry them too. The server joins the requested components
+to their frozen plan; clients do not need a revision read. Every component
+entry carries this field: detail pages (`components_from`/`components_limit`),
+initial and reconnect `execution_snapshot` events, incremental `component`
+events, and start (including idempotent replay) and cancel session responses.
+Clients may replace an entire component entry when applying an event.
 
 Conversion component failure codes (the payload shape is unchanged):
 

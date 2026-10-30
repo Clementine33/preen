@@ -47,6 +47,7 @@ describe('executionPanel', () => {
           components: [
             {
               component_index: 1,
+              kept_decisions: [],
               component_id: 'comp-a1',
               root_path: '/music/albumA',
               partition: 'matched',
@@ -61,6 +62,7 @@ describe('executionPanel', () => {
             },
             {
               component_index: 2,
+              kept_decisions: [],
               component_id: 'comp-a2',
               root_path: '/music/albumA',
               partition: 'unmatched',
@@ -104,6 +106,7 @@ describe('executionPanel', () => {
           components: [
             {
               component_index: 1,
+              kept_decisions: [],
               component_id: 'comp-a',
               root_path: '/music/albumA',
               partition: 'matched',
@@ -118,6 +121,7 @@ describe('executionPanel', () => {
             },
             {
               component_index: 2,
+              kept_decisions: [],
               component_id: 'comp-b',
               root_path: '/music/albumB',
               partition: 'matched',
@@ -146,6 +150,7 @@ describe('executionPanel', () => {
   it('says which folders a scoped run covered, and what is left for the next plan', () => {
     const component: ExecutionComponent = {
       component_index: 1,
+      kept_decisions: [],
       component_id: 'comp-a',
       root_path: '/music/albumA',
       partition: 'matched',
@@ -254,6 +259,7 @@ describe('executionPanel', () => {
           components: [
             {
               component_index: 1,
+              kept_decisions: [],
               component_id: 'comp-b',
               root_path: '/music/albumB',
               partition: 'matched',
@@ -272,6 +278,7 @@ describe('executionPanel', () => {
             },
             {
               component_index: 2,
+              kept_decisions: [],
               component_id: 'comp-c',
               root_path: '/music/albumC',
               partition: 'matched',
@@ -309,6 +316,7 @@ describe('executionPanel', () => {
           components: [
             {
               component_index: 1,
+              kept_decisions: [],
               component_id: 'comp-a',
               root_path: '/music/albumA',
               partition: 'matched',
@@ -335,6 +343,7 @@ describe('executionPanel', () => {
           components: [
             {
               component_index: 1,
+              kept_decisions: [],
               component_id: 'comp-a',
               root_path: '/music/albumA',
               partition: 'matched',
@@ -358,17 +367,15 @@ describe('executionPanel', () => {
   it('shows the plan\'s kept files, not where a run moved files', () => {
     const wrapper = mount(ExecutionPanel, {
       props: {
-        kept: {
-          'comp-a': [
-            { path: '/music/albumA/disc1/00.wav', resolution: 'keep', reason_code: 'UNMET_TARGET' },
-            { path: '/music/albumA/01.mp3', resolution: 'keep', reason_code: 'KEEP_ENCODED_SATISFIED' },
-          ],
-        },
         view: view({
           status: 'succeeded',
           components: [
             {
               component_index: 1,
+              kept_decisions: [
+                { path: '/music/albumA/disc1/00.wav', resolution: 'keep', reason_code: 'UNMET_TARGET' },
+                { path: '/music/albumA/01.mp3', resolution: 'keep', reason_code: 'KEEP_ENCODED_SATISFIED' },
+              ],
               component_id: 'comp-a',
               root_path: '/music/albumA',
               partition: 'matched',
@@ -407,6 +414,7 @@ describe('executionPanel', () => {
           components: [
             {
               component_index: 2,
+              kept_decisions: [],
               component_id: 'comp-b',
               root_path: '/music/albumB',
               partition: 'matched',

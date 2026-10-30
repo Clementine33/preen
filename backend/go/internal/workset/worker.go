@@ -2,6 +2,7 @@ package workset
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"strings"
 	"time"
@@ -164,29 +165,13 @@ func (d *dispatcher) execute(gen *PlanGeneration) {
 		return
 	}
 
-	steps, roots, components := toRevisionRecords(snap)
-	now := time.Now()
+	revision, freezeErr := freezeRevision(snap, members, gen, req, w.LibraryID)
+	if freezeErr != nil {
+		d.fail(gen, "PERSIST_FAILED", freezeErr.Error())
+		return
+	}
 	if persistErr := d.svc.repo.PersistOperationRevision(
-		ctx,
-		gen.GenerationID,
-		gen.WorksetID,
-		gen.OperationType,
-		now,
-		OperationRevisionPersist{
-			PlanID:            "plan-" + genIDNano(gen.GenerationID),
-			RootPath:          snap.RootPath,
-			SnapshotToken:     "snapshot-" + genIDNano(gen.GenerationID),
-			LibraryID:         w.LibraryID,
-			DraftHash:         req.DraftHash,
-			MemberHash:        req.MemberHash,
-			OperationVersion:  gen.ExpectedDraftVersion,
-			ExcludedScope:     snap.ExcludedScope,
-			DraftSnapshot:     string(req.Draft),
-			TaskSchemaVersion: snap.PayloadSchemaVersion,
-			Steps:             steps,
-			Roots:             roots,
-			Components:        components,
-		},
+		ctx, gen.GenerationID, gen.WorksetID, gen.OperationType, time.Now(), *revision,
 	); persistErr != nil {
 		checkCancel()
 		if sessionCanceled(ctx, persistErr) {
@@ -202,18 +187,16 @@ func (d *dispatcher) execute(gen *PlanGeneration) {
 // conversion revision. The step vocabulary retires with the snapshot tables.
 const reconcileAudioStepType = "reconcile_audio_outputs"
 
-// toRevisionRecords freezes a task plan snapshot into the repository's
-// revision records (the storage adapter's shape).
-func toRevisionRecords(snap *PlanSnapshot) (
-	steps []PlanStepRecord,
-	roots []PlanRootRecord,
-	components []PlanComponentRecord,
-) {
+// freezeRevision freezes the generation's stable membership and task snapshot
+// into the records published atomically as the operation's current revision.
+func freezeRevision(snap *PlanSnapshot, members []*WorksetMember, gen *PlanGeneration,
+	req *generationRequest, libraryID string,
+) (*OperationRevisionPersist, error) {
 	stepType := snap.StepType
 	if stepType == "" {
 		stepType = reconcileAudioStepType
 	}
-	steps = []PlanStepRecord{{
+	steps := []PlanStepRecord{{
 		StepIndex:           0,
 		StepType:            stepType,
 		Status:              snap.Status,
@@ -224,9 +207,20 @@ func toRevisionRecords(snap *PlanSnapshot) (
 		ClassifierHash:      snap.TagsHash,
 		StepSummaryJSON:     string(snap.Summary),
 	}}
-	roots = make([]PlanRootRecord, 0, len(snap.Roots))
+	// Resolve membership while these are still the generation's paths. A later
+	// rename relocates live members but never changes this frozen ownership.
+	owners := make(map[string]string, len(members))
+	for _, member := range members {
+		owners[member.FolderPath] = member.MemberID
+	}
+	roots := make([]PlanRootRecord, 0, len(snap.Roots))
 	for _, r := range snap.Roots {
+		memberID := owners[r.Path]
+		if memberID == "" {
+			return nil, errors.New("planned root has no member")
+		}
 		roots = append(roots, PlanRootRecord{
+			MemberID:             memberID,
 			RootIndex:            r.Index,
 			RootPath:             r.Path,
 			RootIdentity:         r.Identity,
@@ -237,7 +231,7 @@ func toRevisionRecords(snap *PlanSnapshot) (
 			RootErrorMessage:     r.ErrorMessage,
 		})
 	}
-	components = make([]PlanComponentRecord, 0, len(snap.Units))
+	components := make([]PlanComponentRecord, 0, len(snap.Units))
 	for _, u := range snap.Units {
 		components = append(components, PlanComponentRecord{
 			StepIndex:      0,
@@ -250,7 +244,21 @@ func toRevisionRecords(snap *PlanSnapshot) (
 			OutcomeJSON:    string(u.Payload),
 		})
 	}
-	return steps, roots, components
+	return &OperationRevisionPersist{
+		PlanID:            "plan-" + genIDNano(gen.GenerationID),
+		RootPath:          snap.RootPath,
+		SnapshotToken:     "snapshot-" + genIDNano(gen.GenerationID),
+		LibraryID:         libraryID,
+		DraftHash:         req.DraftHash,
+		MemberHash:        req.MemberHash,
+		OperationVersion:  gen.ExpectedDraftVersion,
+		ExcludedScope:     snap.ExcludedScope,
+		DraftSnapshot:     string(req.Draft),
+		TaskSchemaVersion: snap.PayloadSchemaVersion,
+		Steps:             steps,
+		Roots:             roots,
+		Components:        components,
+	}, nil
 }
 
 // fail records a stable system failure on the session row.

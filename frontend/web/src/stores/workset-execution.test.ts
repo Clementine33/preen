@@ -206,6 +206,9 @@ describe('component events', () => {
   function component(index: number, status: string): ExecutionComponent {
     return {
       component_index: index,
+      kept_decisions: [
+        { path: `/music/album${index}/kept.mp3`, resolution: 'keep', reason_code: 'KEEP_ENCODED_SATISFIED' },
+      ],
       component_id: `comp-${index}`,
       root_path: `/music/album${index}`,
       partition: 'matched',
@@ -229,7 +232,10 @@ describe('component events', () => {
     store.status = 'streaming'
     store.view = view({
       components: [
-        component(0, 'pending'),
+        {
+          ...component(0, 'pending'),
+          kept_decisions: [],
+        },
         component(2, 'pending'),
       ],
     })
@@ -239,7 +245,7 @@ describe('component events', () => {
       data: component(0, 'succeeded'),
     })
     expect(store.view?.components[0]?.status).toBe('succeeded')
-    expect(store.view?.components[0]?.committed).toEqual(['/music/album0/00.mp3'])
+    expect(store.view?.components[0]).toEqual(component(0, 'succeeded'))
 
     // A component beyond the page the snapshot carried arrives out of order:
     // it lands where component order puts it, not at the end.
@@ -248,7 +254,7 @@ describe('component events', () => {
       data: component(1, 'succeeded'),
     })
     expect(store.view?.components.map(entry => entry.component_index)).toEqual([0, 1, 2])
-    expect(store.view?.components[1]?.status).toBe('succeeded')
+    expect(store.view?.components[1]).toEqual(component(1, 'succeeded'))
   })
 
   it('ignores a component event before any view exists', () => {

@@ -128,10 +128,8 @@ func revisionCounts(detail *PlanDetail, review PlanReview) RevisionCounts {
 	}
 }
 
-// GetRevision returns the immutable nested review detail. Members are resolved
-// from the revision's frozen sparse draft, so a historical revision shows the
-// configuration and inheritance sources it was planned with — never the
-// current common values.
+// GetRevision returns the current plan summary and per-member conclusions.
+// Frozen settings and complete component outcomes are read through GetMemberReview.
 func (s *serviceImpl) GetRevision(
 	ctx context.Context,
 	worksetID, operationType, planID string,
@@ -159,10 +157,12 @@ func (s *serviceImpl) GetRevision(
 	}
 	staleRoots := map[int]bool{}
 	if w.LibraryID != "" {
-		if health, healthErr := s.revisionHealth(ctx, operationType, detail); healthErr == nil {
-			for _, idx := range health.StaleRoots {
-				staleRoots[idx] = true
-			}
+		health, healthErr := s.revisionHealth(ctx, operationType, detail)
+		if healthErr != nil {
+			return nil, NewError(ErrKindInternal, "INTERNAL", "failed to validate revision inputs", healthErr)
+		}
+		for _, idx := range health.StaleRoots {
+			staleRoots[idx] = true
 		}
 	}
 
@@ -180,35 +180,23 @@ func (s *serviceImpl) GetRevision(
 	if mErr != nil {
 		return nil, NewError(ErrKindInternal, "INTERNAL", "failed to load members", mErr)
 	}
-	memberFacts, mfErr := s.revisionMemberFacts(operationType, rev.DraftSnapshot, members)
-	if mfErr != nil {
-		memberFacts = nil
-	}
-	out.Members = revisionMembers(memberFacts, members, rev.ExcludedScope)
-
-	roots := make([]RootValidation, 0, len(detail.Roots))
-	for _, r := range detail.Roots {
-		roots = append(roots, RootValidation{
-			RootIndex:            r.RootIndex,
-			RootPath:             r.RootPath,
-			RootStatus:           r.RootStatus,
-			RootErrorCode:        r.RootErrorCode,
-			RootErrorMessage:     r.RootErrorMessage,
-			Stale:                staleRoots[r.RootIndex],
-			InventoryFingerprint: r.InventoryFingerprint,
-			EntryCount:           r.EntryCount,
+	excluded := excludedSet(rev.ExcludedScope)
+	concluded := make([]RevisionMember, 0, len(members))
+	for _, member := range members {
+		concluded = append(concluded, RevisionMember{
+			MemberID: member.MemberID, FolderPath: member.FolderPath, Excluded: excluded[member.MemberID],
 		})
 	}
-	out.Roots = roots
-	for _, c := range detail.Components {
-		out.ComponentRoots = append(out.ComponentRoots, ComponentRootRef{
-			StepIndex:      c.StepIndex,
-			ComponentIndex: c.ComponentIndex,
-			ComponentID:    c.ComponentID,
-			RootIndex:      c.RootIndex,
-		})
+	task, _ := s.requireTask(operationType)
+	if err := concludeRevisionMembers(concluded, detail, staleRoots, task); err != nil {
+		return nil, NewError(ErrKindInternal, "INTERNAL", "failed to conclude revision members", err)
 	}
-	out.Plan = s.planView(operationType, detail)
+	out.Members = make([]MemberConclusion, 0, len(concluded))
+	for _, member := range concluded {
+		out.Members = append(out.Members, member.Conclusion)
+	}
+	review.Units = nil
+	out.Plan = revisionPlan(detail, review)
 	executed, execErr := s.repo.GetExecutionForRevision(planID)
 	if execErr != nil {
 		return nil, NewError(ErrKindInternal, "INTERNAL", "failed to load revision execution", execErr)
@@ -280,6 +268,14 @@ func excludedSet(scope string) map[string]bool {
 // plan, so the persisted single step flattens into it; the payload decode
 // belongs to the operation's task.
 func (s *serviceImpl) planView(operationType string, detail *PlanDetail) RevisionPlan {
+	review, err := s.revisionReview(operationType, detail)
+	if err != nil {
+		review = PlanReview{}
+	}
+	return revisionPlan(detail, review)
+}
+
+func revisionPlan(detail *PlanDetail, review PlanReview) RevisionPlan {
 	out := RevisionPlan{
 		PlanID:            detail.Plan.PlanID,
 		SnapshotToken:     detail.Plan.SnapshotToken,
@@ -294,13 +290,11 @@ func (s *serviceImpl) planView(operationType string, detail *PlanDetail) Revisio
 		out.PolicyHash = st.PolicyHash
 		out.StepSummary = json.RawMessage(st.StepSummaryJSON)
 	}
-	if review, err := s.revisionReview(operationType, detail); err == nil {
-		out.Payload = review.Payload
-		out.ClassifierTags = review.Tags
-		out.ClassifierHash = review.TagHash
-		for _, u := range review.Units {
-			out.Units = append(out.Units, u.Payload)
-		}
+	out.Payload = review.Payload
+	out.ClassifierTags = review.Tags
+	out.ClassifierHash = review.TagHash
+	for _, u := range review.Units {
+		out.Units = append(out.Units, u.Payload)
 	}
 	return out
 }

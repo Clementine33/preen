@@ -3,7 +3,6 @@ import type {
   ExecutionComponent,
   ExecutionStatus,
   ExecutionView,
-  FileDecision,
   WorksetMember,
 } from '@/lib/api/types'
 import { ChevronRight, Folder } from '@lucide/vue'
@@ -24,12 +23,10 @@ import { sessionFailureText } from '@/features/worksets/session-failure'
  * listed inside its own card, and the card reports the folder's own state.
  *
  * 保留文件 is the plan's conclusion, not the run's bookkeeping: the files the
- * revision kept untouched, read from that revision and joined by component id.
+ * revision kept untouched, carried by each execution component.
  */
 const props = defineProps<{
   view: ExecutionView
-  /** Kept files per component id, as the executed revision concluded them. */
-  kept?: Record<string, FileDecision[]>
   /** The record's members, to name a folder the way the user chose it. */
   members?: WorksetMember[]
   /** Whether the session holds components this panel has not read yet. */
@@ -38,10 +35,6 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{ loadMore: [] }>()
-
-function keptFiles(component: ExecutionComponent): FileDecision[] {
-  return props.kept?.[component.component_id] ?? []
-}
 
 const STATUS: Record<ExecutionStatus, { label: string, tone: 'neutral' | 'brand' | 'success' | 'warning' | 'danger' }> = {
   queued: { label: '排队中', tone: 'neutral' },
@@ -260,7 +253,7 @@ const scope = computed(() => {
             </p>
 
             <details
-              v-if="component.committed.length || component.removed.length || component.remaining.length || keptFiles(component).length"
+              v-if="component.committed.length || component.removed.length || component.remaining.length || component.kept_decisions.length"
               class="group mt-2 border border-[var(--wire-fine)] text-[11px]"
             >
               <summary class="flex cursor-pointer list-none flex-wrap items-center gap-x-2 gap-y-1 rounded-md px-2 py-1.5 text-muted-foreground hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
@@ -269,7 +262,7 @@ const scope = computed(() => {
                 <span v-if="component.committed.length">写入 {{ component.committed.length }}</span>
                 <span v-if="component.removed.length">清理 {{ component.removed.length }}</span>
                 <span v-if="component.remaining.length">未执行 {{ component.remaining.length }}</span>
-                <span v-if="keptFiles(component).length">保留 {{ keptFiles(component).length }}</span>
+                <span v-if="component.kept_decisions.length">保留 {{ component.kept_decisions.length }}</span>
               </summary>
               <dl class="space-y-3 border-t border-border/50 px-2 py-2">
                 <template
@@ -289,10 +282,10 @@ const scope = computed(() => {
                     </dd>
                   </div>
                 </template>
-                <div v-if="keptFiles(component).length">
+                <div v-if="component.kept_decisions.length">
                   <dt class="mb-1 text-muted-foreground">保留文件</dt>
                   <dd class="space-y-2" data-testid="execution-kept">
-                    <div v-for="file in keptFiles(component)" :key="file.path">
+                    <div v-for="file in component.kept_decisions" :key="file.path">
                       <span class="block break-all font-mono leading-relaxed" :title="file.path">{{ filePath(file.path, component.root_path) }}</span>
                       <span class="text-[10px] text-muted-foreground">{{ keepReasonText(file.reason_code) }}</span>
                     </div>

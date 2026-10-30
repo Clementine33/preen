@@ -30,6 +30,14 @@ func TestStaleValidationIgnoresNonAudioChanges(t *testing.T) {
 		t.Fatalf("expected a valid, non-stale revision, got state=%q stale=%v", rev.ValidationState, rev.Stale)
 	}
 
+	detail, revisionErr := f.svc.GetRevision(f.ctx, ws.WorksetID, "conversion", rev.PlanID)
+	if revisionErr != nil {
+		t.Fatal(revisionErr)
+	}
+	if detail.Members[0].Input != "valid" || !detail.Members[0].HasComponents {
+		t.Fatalf("initial member conclusion: %+v", detail.Members[0])
+	}
+
 	// Non-audio churn must not invalidate the plan.
 	entry500, found500, err500 := f.repo.EntryByPath("/music/albumA/cover.jpg")
 	if err500 != nil || !found500 {
@@ -65,6 +73,13 @@ func TestStaleValidationIgnoresNonAudioChanges(t *testing.T) {
 	afterAudio := f.operation(ws.WorksetID).CurrentRevision
 	if afterAudio.ValidationState != workset.ValidationStale || !*afterAudio.Stale {
 		t.Fatalf("audio change must mark the revision stale: state=%q", afterAudio.ValidationState)
+	}
+	detail, revisionErr = f.svc.GetRevision(f.ctx, ws.WorksetID, "conversion", rev.PlanID)
+	if revisionErr != nil {
+		t.Fatal(revisionErr)
+	}
+	if detail.Members[0].Input != "stale" {
+		t.Fatalf("member input = %q, want stale", detail.Members[0].Input)
 	}
 }
 
@@ -140,8 +155,8 @@ func TestMissingRootIsBlockedButNotStaleUntilAudioAppears(t *testing.T) {
 	for _, row := range rows {
 		removed = append(removed, row.Path)
 	}
-	if err := f.repo.SyncObservedInventory("/music", removed, nil, nil); err != nil {
-		t.Fatal(err)
+	if syncErr := f.repo.SyncObservedInventory("/music", removed, nil, nil); syncErr != nil {
+		t.Fatal(syncErr)
 	}
 
 	gen := f.runGeneration(ws.WorksetID, f.operation(ws.WorksetID).Version)
@@ -151,6 +166,13 @@ func TestMissingRootIsBlockedButNotStaleUntilAudioAppears(t *testing.T) {
 	rev := f.operation(ws.WorksetID).CurrentRevision
 	if rev == nil {
 		t.Fatal("expected a current revision")
+	}
+	detail, err := f.svc.GetRevision(f.ctx, ws.WorksetID, "conversion", rev.PlanID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if detail.Members[0].Input != "missing" {
+		t.Fatalf("member input = %q, want missing", detail.Members[0].Input)
 	}
 	if rev.Counts.Blocked == 0 {
 		t.Fatalf("missing root must count as blocked: %+v", rev.Counts)

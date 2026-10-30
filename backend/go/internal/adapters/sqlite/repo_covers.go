@@ -23,7 +23,7 @@ func (r *Repository) EnqueueCovers(ctx context.Context, req coverdelivery.Reques
 	defer tx.Rollback()
 	var eligible bool
 	if err = tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM plan_executions e
-		JOIN plans p ON p.plan_id=e.plan_id WHERE e.execution_id=? AND p.status NOT IN ('staging','retired'))`, req.ExecutionID).Scan(&eligible); err != nil {
+		JOIN plans p ON p.plan_id=e.plan_id WHERE e.execution_id=? AND p.`+visiblePlanStatus+`)`, req.ExecutionID).Scan(&eligible); err != nil {
 		return err
 	}
 	if !eligible {
@@ -146,7 +146,7 @@ func (r *Repository) CoverReport(ctx context.Context, id string) (coverdelivery.
 	}
 	rows, err := r.db.QueryContext(
 		ctx,
-		`SELECT `+coverDestinationColumns+` FROM cover_deliveries WHERE execution_id=? AND execution_id IN (SELECT e.execution_id FROM plan_executions e JOIN plans p ON p.plan_id=e.plan_id WHERE p.status NOT IN ('staging','retired')) ORDER BY rowid`,
+		`SELECT `+coverDestinationColumns+` FROM cover_deliveries WHERE execution_id=? AND execution_id IN (SELECT e.execution_id FROM plan_executions e JOIN plans p ON p.plan_id=e.plan_id WHERE p.`+visiblePlanStatus+`) ORDER BY rowid`,
 		id,
 	)
 	if err != nil {
@@ -167,7 +167,7 @@ func (r *Repository) CoverReport(ctx context.Context, id string) (coverdelivery.
 func (r *Repository) ChangeCoverRequests(ctx context.Context, id string, retry bool) error {
 	query := `UPDATE cover_deliveries SET status='canceled',error_code='CANCELED' WHERE execution_id=? AND status IN('pending','running')`
 	if retry {
-		query = `UPDATE cover_deliveries SET status='pending',error_code='',error_message='' WHERE execution_id=? AND status IN('failed','canceled') AND execution_id IN (SELECT e.execution_id FROM plan_executions e JOIN plans p ON p.plan_id=e.plan_id WHERE p.status NOT IN ('staging','retired'))`
+		query = `UPDATE cover_deliveries SET status='pending',error_code='',error_message='' WHERE execution_id=? AND status IN('failed','canceled') AND execution_id IN (SELECT e.execution_id FROM plan_executions e JOIN plans p ON p.plan_id=e.plan_id WHERE p.` + visiblePlanStatus + `)`
 	}
 	_, err := r.db.ExecContext(ctx, query, id)
 	return err

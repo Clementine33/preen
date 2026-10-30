@@ -1,7 +1,7 @@
 import { QueryClient } from '@tanstack/vue-query'
 
-// Cached data has no time-based refresh: freshness changes only through
-// explicit mutation/scan synchronization in the domain query modules.
+// Cached data defaults to explicit mutation/scan synchronization. Resources
+// with live validation override freshness and refetch-on-mount in their queries.
 export const REFETCH_ON_MOUNT = false
 export const REFETCH_ON_WINDOW_FOCUS = false
 export const REFETCH_ON_RECONNECT = false

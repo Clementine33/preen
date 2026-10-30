@@ -295,6 +295,17 @@ type RevisionMember struct {
 	Excluded   bool
 	Payload    json.RawMessage // task payload: the effective config
 	Sources    map[string]string
+	Conclusion MemberConclusion
+}
+
+// MemberConclusion combines workset input facts with the task's opaque conclusion.
+// Input validation may change while the frozen plan and task facts stay fixed.
+type MemberConclusion struct {
+	MemberID      string          `json:"member_id"`
+	Excluded      bool            `json:"excluded"`
+	Input         string          `json:"input"`
+	HasComponents bool            `json:"has_components"`
+	Task          json.RawMessage `json:"task,omitempty"`
 }
 
 // RevisionPlan is the reviewable plan snapshot of one revision, rebuilt from
@@ -317,20 +328,14 @@ type RevisionPlan struct {
 	Units             []json.RawMessage // per-unit payloads in component order
 }
 
-// RevisionView is the nested immutable revision detail.
+// RevisionView is the lightweight current plan detail.
 type RevisionView struct {
 	PlanID        string
 	RevisionIndex int
 	CreatedAt     time.Time
 	Plan          RevisionPlan
-	Roots         []RootValidation
-	// ComponentRoots maps each persisted component to its planning root. The
-	// reconcile ComponentOutcome JSON intentionally carries no root identity,
-	// so the HTTP layer exposes this ownership table for batch grouping.
-	ComponentRoots []ComponentRootRef
-	// Members is the frozen per-member effective configuration and inheritance
-	// sources resolved from the revision's draft snapshot.
-	Members []RevisionMember
+	// Members contains live input facts and task conclusions for the frozen plan.
+	Members []MemberConclusion
 	// Counts are the independent plan facts of this revision.
 	Counts RevisionCounts
 	// Execution is the newest execution session of this revision (any status).
@@ -339,12 +344,12 @@ type RevisionView struct {
 	Execution *ExecutionRef
 }
 
-// ComponentRootRef is the stable component-to-root ownership of a revision.
-type ComponentRootRef struct {
-	StepIndex      int    `json:"step_index"`
-	ComponentIndex int    `json:"component_index"`
-	ComponentID    string `json:"component_id"`
-	RootIndex      int    `json:"root_index"`
+// MemberReview is one member's frozen settings and owned plan inputs.
+type MemberReview struct {
+	PlanID string
+	Member RevisionMember
+	Roots  []RootValidation
+	Plan   RevisionPlan
 }
 
 // RootValidation is per-root validation of a revision snapshot.
@@ -401,6 +406,7 @@ type Service interface {
 		emit func(event string, data any) error,
 	) error
 	GetRevision(ctx context.Context, worksetID, operationType, planID string) (*RevisionView, error)
+	GetMemberReview(ctx context.Context, worksetID, operationType, planID, memberID string) (*MemberReview, error)
 	StartExecution(
 		ctx context.Context,
 		worksetID, operationType, planID string,

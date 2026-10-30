@@ -104,7 +104,7 @@ func (r *Repository) ClearExpiredWorksetIdemKey(id string, cutoff time.Time) err
 func (r *Repository) HasActiveSession() (bool, error) {
 	for _, query := range []string{
 		`SELECT COUNT(*) FROM plan_generations WHERE status IN ('queued','running')`,
-		`SELECT COUNT(*) FROM plan_executions WHERE status IN ('queued','running') AND plan_id IN (SELECT plan_id FROM plans WHERE status NOT IN ('staging','retired'))`,
+		`SELECT COUNT(*) FROM plan_executions WHERE status IN ('queued','running') AND plan_id IN (` + visiblePlanIDs + `)`,
 	} {
 		var n int
 		if err := r.db.QueryRow(query).Scan(&n); err != nil {
@@ -233,7 +233,7 @@ func recordActiveSessionTx(tx *sql.Tx, worksetID string) (string, error) {
 		},
 		{
 			workset.RefusalExecuting,
-			`SELECT COUNT(*) FROM plan_executions WHERE workset_id = ? AND status IN ('queued','running') AND plan_id IN (SELECT plan_id FROM plans WHERE status NOT IN ('staging','retired'))`,
+			`SELECT COUNT(*) FROM plan_executions WHERE workset_id = ? AND status IN ('queued','running') AND plan_id IN (` + visiblePlanIDs + `)`,
 		},
 	} {
 		var n int

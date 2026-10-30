@@ -12,7 +12,7 @@ func (r *Repository) InterruptedRenames(ctx context.Context) ([]dirrename.Interr
 		ctx,
 		`SELECT e.execution_id,w.root_path,e.request_json FROM plan_executions e JOIN worksets w ON w.id=e.workset_id
 		WHERE e.operation_type='rename' AND e.status='interrupted'
-		AND e.plan_id IN (SELECT plan_id FROM plans WHERE status NOT IN ('staging','retired')) ORDER BY e.created_at,e.execution_id`,
+		AND e.plan_id IN (`+visiblePlanIDs+`) ORDER BY e.created_at,e.execution_id`,
 	)
 	if err != nil {
 		return nil, err

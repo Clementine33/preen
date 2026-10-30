@@ -246,7 +246,7 @@ func (r *Repository) deleteLibrary(id string) error {
 	if countErr := tx.QueryRow(`
 		SELECT COUNT(*) FROM plan_executions e
 		JOIN worksets w ON w.id = e.workset_id
-		WHERE w.library_id = ? AND e.status IN ('queued','running') AND e.plan_id IN (SELECT plan_id FROM plans WHERE status NOT IN ('staging','retired'))
+		WHERE w.library_id = ? AND e.status IN ('queued','running') AND e.plan_id IN (`+visiblePlanIDs+`)
 	`, id).Scan(&active); countErr != nil {
 		return countErr
 	}

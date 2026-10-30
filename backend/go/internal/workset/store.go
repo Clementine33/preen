@@ -2,6 +2,7 @@ package workset
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"github.com/Clementine33/preen/backend/internal/inventory"
@@ -68,8 +69,13 @@ type Store interface {
 	GetOperationDraft(worksetID, operationType string) (*OperationDraft, error)
 	// GetOperationRevision is one operation of the lifecycle.
 	GetOperationRevision(worksetID, operationType, planID string) (*OperationRevision, error)
+	// GetPlanComponentOutcomes reads only the requested frozen component payloads.
+	GetPlanComponentOutcomes(planID string, indexes []int) (map[int]json.RawMessage, error)
 	// GetPlanDetail is one operation of the lifecycle.
 	GetPlanDetail(planID string) (*PlanDetail, error)
+	// GetMemberPlanDetail reads only the first frozen root owned by memberID
+	// (root_index order) and only that root's outcomes. Empty IDs own no inputs.
+	GetMemberPlanDetail(planID, memberID string) (*PlanDetail, error)
 	// GetWorkset is one operation of the lifecycle.
 	GetWorkset(id string) (*Workset, error)
 	// GetWorksetByCreationIdemKey is one operation of the lifecycle.

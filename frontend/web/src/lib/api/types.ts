@@ -967,6 +967,8 @@ export interface ExecutionProgress {
  * files an operator may need to look at.
  */
 export interface ExecutionComponent {
+  /** Frozen plan conclusions, present in every component delivery. */
+  kept_decisions: FileDecision[]
   component_index: number
   component_id: string
   root_path: string
@@ -1064,13 +1066,6 @@ export interface RootValidation {
   stale: boolean
   inventory_fingerprint: string
   entry_count: number
-}
-
-export interface ComponentRootRef {
-  step_index: number
-  component_index: number
-  component_id: string
-  root_index: number
 }
 
 export interface FileDecision {
@@ -1185,11 +1180,6 @@ export interface MetadataComponent {
   reason_code?: string
 }
 
-/** The plan payload of rename and metadata refresh: one component per member. */
-export interface TaskPlanPayload<C> {
-  components: C[]
-}
-
 export interface MetadataIssue {
   group?: string
   source?: string
@@ -1221,8 +1211,32 @@ export interface CoverReport {
   counts: Record<CoverStatus, number>
 }
 
+/** Facts of one conversion partition, computed from frozen components. */
+export interface ConversionPartitionConclusion {
+  applicable: boolean
+  blocked: boolean
+  unmet: boolean
+  changes: boolean
+}
+
+export interface ConversionMemberConclusion {
+  status: 'blocked' | 'source_ambiguous' | 'partially_unmet' | 'unmet' | 'changed' | 'not_applicable' | 'unchanged'
+  matched: ConversionPartitionConclusion
+  unmatched: ConversionPartitionConclusion
+}
+
+/** Workset input facts with an opaque task-owned conclusion. */
+export interface MemberConclusion<T = ConversionMemberConclusion> {
+  member_id: string
+  excluded: boolean
+  input: 'none' | 'valid' | 'stale' | 'missing'
+  has_components: boolean
+  task?: T
+}
+
 /** One member of a frozen revision: effective settings plus unit provenance. */
-export interface RevisionMember {
+export interface RevisionMember<T = ConversionMemberConclusion> {
+  conclusion: MemberConclusion<T>
   member_id: string
   member_name: string
   folder_path: string
@@ -1240,7 +1254,14 @@ export interface RevisionMember {
   sources: Record<string, string>
 }
 
-export interface RevisionDetailResponse<P = ConversionPlanPayload> {
+/** A single member's frozen review; roots and components belong only to it. */
+export interface MemberReviewResponse<P = ConversionPlanPayload, T = ConversionMemberConclusion> extends RevisionMember<T> {
+  plan_id: string
+  roots: RootValidation[]
+  task: TaskEnvelope<P>
+}
+
+export interface RevisionDetailResponse<P = Omit<ConversionPlanPayload, 'components'>, T = ConversionMemberConclusion> {
   plan_id: string
   revision_index: number
   created_at: string
@@ -1257,10 +1278,8 @@ export interface RevisionDetailResponse<P = ConversionPlanPayload> {
   /** The plan snapshot, wrapped in its task envelope. */
   task: TaskEnvelope<P>
   counts: RevisionCounts
-  /** Frozen per-member effective settings and inheritance sources. */
-  members: RevisionMember[]
-  roots: RootValidation[]
-  component_roots: ComponentRootRef[]
+  /** Server conclusions; full frozen inputs belong to member review. */
+  members: MemberConclusion<T>[]
   /** The session that ran this revision, if any (a revision runs at most once). */
   execution: ExecutionRef | null
 }
@@ -1366,6 +1385,13 @@ export interface ApiClientContract {
     generationId: string,
     signal: AbortSignal,
   ) => AsyncIterable<GenerationEvent>
+  getMemberReview: (
+    worksetId: string,
+    operation: OperationType,
+    planId: string,
+    memberId: string,
+    signal?: AbortSignal,
+  ) => Promise<MemberReviewResponse>
   getRevision: (
     worksetId: string,
     operation: OperationType,

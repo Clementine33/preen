@@ -1245,8 +1245,8 @@ export interface MemberConclusion<T = ConversionMemberConclusion> {
 }
 
 /** One member of a frozen revision: effective settings plus unit provenance. */
-export interface RevisionMember {
-  conclusion: MemberConclusion
+export interface RevisionMember<T = ConversionMemberConclusion> {
+  conclusion: MemberConclusion<T>
   member_id: string
   member_name: string
   folder_path: string
@@ -1265,13 +1265,13 @@ export interface RevisionMember {
 }
 
 /** A single member's frozen review; roots and components belong only to it. */
-export interface MemberReviewResponse<P = ConversionPlanPayload> extends RevisionMember {
+export interface MemberReviewResponse<P = ConversionPlanPayload, T = ConversionMemberConclusion> extends RevisionMember<T> {
   plan_id: string
   roots: RootValidation[]
   task: TaskEnvelope<P>
 }
 
-export interface RevisionDetailResponse<P = ConversionPlanPayload> {
+export interface RevisionDetailResponse<P = ConversionPlanPayload, T = ConversionMemberConclusion> {
   plan_id: string
   revision_index: number
   created_at: string
@@ -1289,7 +1289,7 @@ export interface RevisionDetailResponse<P = ConversionPlanPayload> {
   task: TaskEnvelope<P>
   counts: RevisionCounts
   /** Frozen per-member effective settings and inheritance sources. */
-  members: RevisionMember[]
+  members: RevisionMember<T>[]
   roots: RootValidation[]
   component_roots: ComponentRootRef[]
   /** The session that ran this revision, if any (a revision runs at most once). */

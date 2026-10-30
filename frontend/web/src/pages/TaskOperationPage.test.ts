@@ -1,6 +1,6 @@
 import type { VueWrapper } from '@vue/test-utils'
 import type { Router } from 'vue-router'
-import type { ApiClientContract, ExecutionView, Operation, OperationType, Workset } from '@/lib/api/types'
+import type { ApiClientContract, ExecutionView, MemberConclusion, MetadataComponent, Operation, OperationType, RenameComponent, Workset } from '@/lib/api/types'
 import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { createPinia } from 'pinia'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -84,7 +84,7 @@ const COMMON = {
   rename: { template: '[{rj}] {title}' },
   metadata_refresh: { mode: 'fill_missing', locale: 'ja-jp', download_cover: true },
 }
-const COMPONENTS = {
+const COMPONENTS: { rename: RenameComponent[], metadata_refresh: MetadataComponent[] } = {
   rename: [
     {
       member_id: 'm-1',
@@ -110,6 +110,18 @@ const COMPONENTS = {
   ],
 }
 
+function revisionMembers(components: (RenameComponent | MetadataComponent)[]) {
+  return components.map(task => ({
+    conclusion: {
+      member_id: task.member_id,
+      excluded: false,
+      input: 'valid',
+      has_components: true,
+      task,
+    } satisfies MemberConclusion<RenameComponent | MetadataComponent>,
+  }))
+}
+
 function pageApi(overrides: Partial<ApiClientContract> = {}): ApiClientContract {
   return apiStub({
     getCurrentRecord: vi.fn().mockResolvedValue({ workset }),
@@ -128,8 +140,9 @@ function pageApi(overrides: Partial<ApiClientContract> = {}): ApiClientContract 
       task: {
         kind: type,
         schema_version: 1,
-        payload: { components: COMPONENTS[type as 'rename'] },
+        payload: {},
       },
+      members: revisionMembers(COMPONENTS[type as 'rename']),
       execution: null,
     })) as never,
     getTaskSettings: vi.fn(async (type: OperationType) => ({ settings: COMMON[type as 'rename'], etag: '"e1"' })) as never,
@@ -392,29 +405,38 @@ describe('task operation page', () => {
         task: {
           kind: 'rename',
           schema_version: 1,
-          payload: {
-            components: [
-              ...COMPONENTS.rename,
-              {
-                member_id: 'm-2',
-                source_name: 'b',
-                work_code: 'RJ02',
-                raw_name: '',
-                target_name: '',
-                action: 'blocked',
-                reason_code: 'TARGET_EXISTS',
-              },
-              {
-                member_id: 'm-3',
-                source_name: 'c',
-                work_code: 'RJ03',
-                raw_name: '',
-                target_name: 'c',
-                action: 'noop',
-              },
-            ],
-          },
+          payload: {},
         },
+        members: [
+          ...revisionMembers([
+            ...COMPONENTS.rename,
+            {
+              member_id: 'm-2',
+              source_name: 'b',
+              work_code: 'RJ02',
+              raw_name: '',
+              target_name: '',
+              action: 'blocked',
+              reason_code: 'TARGET_EXISTS',
+            },
+            {
+              member_id: 'm-3',
+              source_name: 'c',
+              work_code: 'RJ03',
+              raw_name: '',
+              target_name: 'c',
+              action: 'noop',
+            },
+          ]),
+          {
+            conclusion: {
+              member_id: 'excluded',
+              excluded: true,
+              input: 'none',
+              has_components: false,
+            },
+          },
+        ],
       })) as never,
     })
     expect(wrapper.text()).not.toContain('排除阻塞项后重新生成')
@@ -484,7 +506,7 @@ describe('task operation page', () => {
         task: {
           kind: 'rename',
           schema_version: 1,
-          payload: { components: COMPONENTS.rename },
+          payload: {},
         },
         execution: { execution_id: 'e-1' },
       })) as never,
@@ -518,9 +540,34 @@ describe('task operation page', () => {
   })
 
   it('summarizes the metadata plan as a count', async () => {
-    const { wrapper } = await mountPage('/worksets/lib-1/metadata')
+    const { wrapper } = await mountPage('/worksets/lib-1/metadata', {
+      getRevision: vi.fn().mockResolvedValue({
+        plan_id: 'p-1',
+        task: { kind: 'metadata_refresh', schema_version: 1, payload: {} },
+        members: [
+          ...revisionMembers([
+            ...COMPONENTS.metadata_refresh,
+            { ...COMPONENTS.metadata_refresh[0], member_id: 'covered', action: 'cover' },
+            {
+              ...COMPONENTS.metadata_refresh[0],
+              member_id: 'unbound',
+              action: 'skip',
+              reason_code: 'NO_WORK_BINDING',
+            },
+          ]),
+          {
+            conclusion: {
+              member_id: 'excluded',
+              excluded: true,
+              input: 'none',
+              has_components: false,
+            },
+          },
+        ],
+      }),
+    })
 
-    expect(wrapper.get('[data-testid="metadata-plan-count"]').text()).toBe('标签语言 日本語 · 将刷新 1 个 · 跳过 0 个')
+    expect(wrapper.get('[data-testid="metadata-plan-count"]').text()).toBe('标签语言 日本語 · 将刷新 1 个 · 跳过 2 个')
     expect(wrapper.find('[data-testid="task-plan-table"]').exists()).toBe(false)
   })
 
@@ -542,7 +589,7 @@ describe('task operation page', () => {
         task: {
           kind: 'metadata_refresh',
           schema_version: 1,
-          payload: { components: COMPONENTS.metadata_refresh },
+          payload: {},
         },
         execution: { execution_id: 'e-1' },
       })) as never,
@@ -655,7 +702,7 @@ it('keeps failed cover retries visible inline without a fictional task result', 
       task: {
         kind: 'metadata_refresh',
         schema_version: 1,
-        payload: { components: [] },
+        payload: {},
       },
       execution: view,
     }),

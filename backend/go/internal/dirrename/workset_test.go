@@ -1,6 +1,7 @@
 package dirrename_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"net/http"
@@ -107,18 +108,22 @@ func verifyHTTPReviewAndExecution(t *testing.T, svc workset.Service, id, revisio
 		Task struct {
 			Kind    string `json:"kind"`
 			Payload struct {
-				Components []struct {
-					TargetName string `json:"target_name"`
-				} `json:"components"`
+				Components []json.RawMessage `json:"components"`
 			} `json:"payload"`
 		} `json:"task"`
+		Members []struct {
+			Conclusion workset.MemberConclusion `json:"conclusion"`
+		} `json:"members"`
 	}
 	if decodeErr := json.Unmarshal(reviewResponse.Body.Bytes(), &wire); decodeErr != nil {
 		t.Fatal(decodeErr)
 	}
 	if wire.Task.Kind != "rename" || len(wire.Task.Payload.Components) != 1 ||
-		wire.Task.Payload.Components[0].TargetName != "[RJ00000001] title" {
+		!bytes.Contains(wire.Task.Payload.Components[0], []byte(`"target_name":"[RJ00000001] title"`)) {
 		t.Fatalf("review payload: %s", reviewResponse.Body.String())
+	}
+	if len(wire.Members) != 1 || !bytes.Equal(wire.Members[0].Conclusion.Task, wire.Task.Payload.Components[0]) {
+		t.Fatalf("member conclusion differs from frozen component: %s", reviewResponse.Body.String())
 	}
 	op, err := svc.GetOperation(t.Context(), id, "rename")
 	if err != nil {

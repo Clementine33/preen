@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"sort"
 
 	"github.com/Clementine33/preen/backend/internal/librarypath"
@@ -125,8 +126,8 @@ func scanObservedAudio(rows *sql.Rows, lead ...any) (inventory.ObservedAudio, er
 	var e inventory.ObservedAudio
 	var codec, mode sql.NullString
 	var bitrateKbps, recordSize, recordMtime sql.NullInt64
-	dest := append(lead, &e.Path, &e.Size, &e.Mtime, &e.Bitrate, &e.Format,
-		&codec, &bitrateKbps, &mode, &recordSize, &recordMtime)
+	dest := slices.Concat(lead, []any{&e.Path, &e.Size, &e.Mtime, &e.Bitrate, &e.Format,
+		&codec, &bitrateKbps, &mode, &recordSize, &recordMtime})
 	if err := rows.Scan(dest...); err != nil {
 		return e, err
 	}

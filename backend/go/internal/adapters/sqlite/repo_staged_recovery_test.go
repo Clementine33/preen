@@ -25,7 +25,9 @@ func failStagingMidway(t *testing.T, repo *sqlite.Repository, genID, planID stri
 	t.Helper()
 	if _, err := repo.DB().Exec(fmt.Sprintf(
 		`CREATE TRIGGER fail_staging BEFORE INSERT ON %s WHEN %s BEGIN SELECT RAISE(ABORT,'injected staging failure'); END`,
-		fail.table, fail.when)); err != nil {
+		fail.table,
+		fail.when,
+	)); err != nil {
 		t.Fatal(err)
 	}
 	if err := repo.PersistOperationRevision(

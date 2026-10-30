@@ -1,4 +1,4 @@
-package sqlite //nolint:testpackage // reads the unexported batched query to check its plan
+package sqlite
 
 import (
 	"strings"

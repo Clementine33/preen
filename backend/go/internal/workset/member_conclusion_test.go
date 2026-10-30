@@ -185,7 +185,7 @@ func TestStoredConclusionsMatchReloadedPlan(t *testing.T) {
 	for _, row := range gone {
 		removed = append(removed, row.Path)
 	}
-	if err := f.repo.SyncObservedInventory("/music", removed, nil, nil); err != nil {
+	if err = f.repo.SyncObservedInventory("/music", removed, nil, nil); err != nil {
 		t.Fatal(err)
 	}
 	doc := draftDoc()
@@ -201,7 +201,7 @@ func TestStoredConclusionsMatchReloadedPlan(t *testing.T) {
 		var task struct {
 			Status string `json:"status"`
 		}
-		if err := json.Unmarshal(stored[id].Task, &task); err != nil {
+		if err = json.Unmarshal(stored[id].Task, &task); err != nil {
 			t.Fatal(err)
 		}
 		return task.Status

@@ -5,6 +5,7 @@ package conclusionfixture
 import (
 	"bytes"
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/Clementine33/preen/backend/internal/workset"
@@ -46,7 +47,7 @@ func AssertStored(
 		if !ok {
 			t.Fatalf("member %s has no stored conclusion", member.MemberID)
 		}
-		excluded := bytes.Contains([]byte("\x00"+rev.ExcludedScope+"\x00"), []byte("\x00"+member.MemberID+"\x00"))
+		excluded := strings.Contains("\x00"+rev.ExcludedScope+"\x00", "\x00"+member.MemberID+"\x00")
 		var owned []json.RawMessage
 		if !excluded {
 			for _, root := range detail.Roots {
@@ -67,7 +68,8 @@ func AssertStored(
 				t.Fatal(err)
 			}
 		}
-		if got.Excluded != excluded || got.HasComponents != (len(owned) > 0) || !bytes.Equal(got.Task, payload) || got.Input != "" {
+		if got.Excluded != excluded || got.HasComponents != (len(owned) > 0) || !bytes.Equal(got.Task, payload) ||
+			got.Input != "" {
 			t.Fatalf("member %s stored %+v, derived excluded=%v components=%d task=%s",
 				member.MemberID, got, excluded, len(owned), payload)
 		}

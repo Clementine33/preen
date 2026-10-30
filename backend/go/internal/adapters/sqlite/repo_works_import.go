@@ -15,11 +15,29 @@ import (
 // external, and affected derived relations are recomputed. Any refusal rolls back, so
 // a submission never leaves some groups written and others not.
 func (r *Repository) ImportMetadata(in *works.ValidatedImport, now time.Time) (works.ImportOutcome, error) {
+	outcome, err := r.importMetadataLocked(in, now)
+	if err != nil {
+		return works.ImportOutcome{}, err
+	}
+	r.catalogChanged()
+	return outcome, nil
+}
+
+// importMetadataLocked holds importMu for the whole transaction; the deferred
+// unlock is registered first, so rollback runs before it on every exit.
+func (r *Repository) importMetadataLocked(in *works.ValidatedImport, now time.Time) (works.ImportOutcome, error) {
+	queued := time.Now()
+	r.importMu.Lock()
+	defer r.importMu.Unlock()
+	locked := time.Now()
 	tx, err := r.db.Begin()
 	if err != nil {
 		return works.ImportOutcome{}, err
 	}
 	defer tx.Rollback()
+	if r.importBeginWait != nil {
+		r.importBeginWait(locked.Sub(queued), time.Since(locked))
+	}
 
 	// A submission describes a work the catalog already knows. A work becomes
 	// known by being found on disk; an import is not a second way to create one,
@@ -63,7 +81,6 @@ func (r *Repository) ImportMetadata(in *works.ValidatedImport, now time.Time) (w
 	if err := tx.Commit(); err != nil {
 		return works.ImportOutcome{}, err
 	}
-	r.catalogChanged()
 	return outcome, nil
 }
 

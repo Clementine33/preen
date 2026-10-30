@@ -70,6 +70,17 @@ type Repository struct {
 	// It must be quick and never call back into the repository.
 	OnPlansRetired func()
 
+	// importMu serializes ImportMetadata transactions in this process, so refresh
+	// workers queue in Go instead of contending among themselves for the SQLite
+	// write lock. It is local concurrency control (ADR 0010), not a global single
+	// writer: other writers are unaffected, and sync.Mutex is neither strictly
+	// FIFO nor cancellable.
+	importMu sync.Mutex
+
+	// importBeginWait is a test hook receiving, per ImportMetadata call, the Go
+	// queue time and the db.Begin time (queue+begin is the whole wait).
+	importBeginWait func(queue, begin time.Duration)
+
 	// afterMergeBatch is a test checkpoint after each selected-merge batch commits.
 	afterMergeBatch func()
 }

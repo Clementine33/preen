@@ -1,6 +1,9 @@
 package sqlite
 
-import "io/fs"
+import (
+	"io/fs"
+	"time"
+)
 
 // OpenReleaseWithMigrations exposes only the migration source seam, so tests
 // can model multiple published binaries against the public repository behavior.
@@ -17,3 +20,9 @@ func PauseAfterFirstStagingChunk(repo *Repository, checkpoint func()) error {
 // SetAfterMergeBatch runs checkpoint after each selected-merge batch commits, so
 // tests can interrupt a merge between batches.
 func SetAfterMergeBatch(repo *Repository, checkpoint func()) { repo.afterMergeBatch = checkpoint }
+
+// SetImportBeginWait records, per ImportMetadata call, the Go queue time and
+// the db.Begin time, so measurements can report the combined wait.
+func SetImportBeginWait(repo *Repository, record func(queue, begin time.Duration)) {
+	repo.importBeginWait = record
+}

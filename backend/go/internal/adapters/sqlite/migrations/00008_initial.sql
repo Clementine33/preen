@@ -554,6 +554,11 @@ CREATE TABLE relation_declared_children (
     PRIMARY KEY (declaring_rj, child_rj)
 ) STRICT;
 
+-- Relation families are walked from either end of every edge.
+CREATE INDEX idx_relation_reports_parent ON relation_reports(parent_rj);
+CREATE INDEX idx_relation_reports_original ON relation_reports(original_rj);
+CREATE INDEX idx_relation_declared_children_child ON relation_declared_children(child_rj);
+
 -- Only catalog works own derived rows. Original and parent targets are external
 -- numbers: removing their catalog entries does not erase accepted knowledge.
 CREATE TABLE work_translations (
@@ -654,6 +659,7 @@ CREATE TABLE cover_deliveries (
  published TEXT NOT NULL DEFAULT '', digest TEXT NOT NULL DEFAULT '', UNIQUE(execution_id,copy_id)
 ) STRICT;
 CREATE INDEX cover_deliveries_pending ON cover_deliveries(work_code) WHERE status='pending';
+CREATE INDEX idx_cover_deliveries_execution_work ON cover_deliveries(execution_id, work_code);
 
 CREATE INDEX idx_inventory_dirs_work_roots ON inventory_dirs(root_path, path) WHERE is_work_root = 1;
 

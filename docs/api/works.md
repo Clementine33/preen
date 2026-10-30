@@ -393,6 +393,10 @@ save an uncollected subject without creating a Work; it is not a new HTTP route.
 Every accepted report saves evidence, validates structure, updates affected
 catalog relations and creates warnings in one transaction. Failure rolls it all
 back; the existing `works_changed` notification follows successful commit.
+Structural validation covers the relation families the submission touches: the
+subject's family before and after the write, following parent, original and
+declared-child edges in both directions. A violation already stored in an
+unrelated family does not refuse the submission.
 
 The body carries up to four **independent** groups; a group that is absent is
 left exactly as it was, and a group that is present is a complete snapshot of

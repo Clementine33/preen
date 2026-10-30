@@ -25,6 +25,7 @@ type worksetSQLMeasurement struct {
 	waits      []worksetInterval // BEGIN waits
 	statements []worksetInterval // autocommit statement windows: lock wait and write are not separable
 	merges     []worksetMerge
+	imports    []worksetImportWait // per ImportMetadata call: Go queue + BEGIN
 	readActive atomic.Bool
 	readNanos  atomic.Int64
 }
@@ -48,6 +49,25 @@ type worksetStmtStat struct {
 type worksetInterval struct {
 	path       string
 	start, end time.Time
+}
+
+// worksetImportWait is one ImportMetadata call's wait from starting to acquire
+// the Go lock until db.Begin returned; the BEGIN part is [end-begin, end].
+type worksetImportWait struct {
+	end          time.Time
+	queue, begin time.Duration
+}
+
+func (w worksetImportWait) total() time.Duration { return w.queue + w.begin }
+
+func (w worksetImportWait) beginWindow() worksetInterval {
+	return worksetInterval{path: "ImportMetadata/begin", start: w.end.Add(-w.begin), end: w.end}
+}
+
+func (m *worksetSQLMeasurement) recordImportWait(queue, begin time.Duration) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.imports = append(m.imports, worksetImportWait{end: time.Now(), queue: queue, begin: begin})
 }
 
 // worksetMerge is one MergeSelectedStaging invocation.
@@ -199,6 +219,7 @@ func (m *worksetSQLMeasurement) report(t *testing.T) {
 		t.Logf("sql_begin_p99 %s count=%d p99_ms=%.3f over_1s=%d", path, len(d),
 			milliseconds(d[(len(d)*99+99)/100-1]), over)
 	}
+	m.reportImportWaits(t)
 	for i, merge := range m.merges {
 		t.Logf("sql_merge #%d wall_ms=%.3f batches=%d held_ms=%.3f",
 			i+1, milliseconds(merge.wall), merge.batches, milliseconds(merge.held))
@@ -220,6 +241,59 @@ func (m *worksetSQLMeasurement) report(t *testing.T) {
 				if overlap[path] > 0 {
 					t.Logf("%s %s overlap_ms=%.3f", windows.label, path, milliseconds(overlap[path]))
 				}
+			}
+		}
+	}
+}
+
+func worksetPercentile99(d []time.Duration) time.Duration {
+	sorted := slices.Sorted(slices.Values(d))
+	return sorted[(len(sorted)*99+99)/100-1]
+}
+
+// reportImportWaits reports the combined ImportMetadata wait (Go queue plus
+// BEGIN, computed per call), then queue and BEGIN separately for diagnosis. For
+// the longest totals it splits queue from BEGIN and lists the other write paths
+// holding the database during the BEGIN part.
+func (m *worksetSQLMeasurement) reportImportWaits(t *testing.T) {
+	t.Helper()
+	if len(m.imports) == 0 {
+		return
+	}
+	var totals, queues, begins []time.Duration
+	over := 0
+	for _, w := range m.imports {
+		totals = append(totals, w.total())
+		queues = append(queues, w.queue)
+		begins = append(begins, w.begin)
+		if w.total() > time.Second {
+			over++
+		}
+	}
+	t.Logf("import_wait_total count=%d max_ms=%.3f p99_ms=%.3f over_1s=%d", len(totals),
+		milliseconds(slices.Max(totals)), milliseconds(worksetPercentile99(totals)), over)
+	t.Logf("import_wait_queue max_ms=%.3f p99_ms=%.3f", milliseconds(slices.Max(queues)),
+		milliseconds(worksetPercentile99(queues)))
+	t.Logf("import_wait_begin max_ms=%.3f p99_ms=%.3f", milliseconds(slices.Max(begins)),
+		milliseconds(worksetPercentile99(begins)))
+	longest := slices.SortedFunc(slices.Values(m.imports), func(a, b worksetImportWait) int {
+		return int(b.total() - a.total())
+	})
+	n := over
+	if n == 0 {
+		n = min(3, len(longest))
+	}
+	for _, w := range longest[:n] {
+		t.Logf("import_wait_long total_ms=%.3f queue_ms=%.3f begin_ms=%.3f", milliseconds(w.total()),
+			milliseconds(w.queue), milliseconds(w.begin))
+		window := w.beginWindow()
+		overlap := map[string]time.Duration{}
+		for _, hold := range m.holds {
+			overlap[hold.path] += window.overlap(hold)
+		}
+		for _, path := range slices.Sorted(maps.Keys(overlap)) {
+			if overlap[path] > 0 {
+				t.Logf("import_wait_long_begin_hold %s overlap_ms=%.3f", path, milliseconds(overlap[path]))
 			}
 		}
 	}
@@ -271,7 +345,12 @@ func worksetSQLPath() string {
 		if strings.Contains(frame.Function, "/adapters/sqlite.") &&
 			!strings.Contains(frame.File, "workset_measurement") &&
 			!strings.HasSuffix(frame.File, "scan_connection.go") {
-			return strings.Split(frame.Function, "/adapters/sqlite.")[1]
+			path := strings.Split(frame.Function, "/adapters/sqlite.")[1]
+			// Keep the path name stable across the locking helper split.
+			if path == "(*Repository).importMetadataLocked" {
+				return "(*Repository).ImportMetadata"
+			}
+			return path
 		}
 		if !more {
 			return "fixture"

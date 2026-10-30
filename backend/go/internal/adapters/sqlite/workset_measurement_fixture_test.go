@@ -127,6 +127,7 @@ func worksetMeasurementRepository(t *testing.T, dir string) (*Repository, *works
 	}
 	stats := &worksetSQLMeasurement{paths: map[string]worksetSQLSample{}}
 	measured := worksetMeasuredDriver{Driver: repo.db.Driver(), measurement: stats}
+	repo.importBeginWait = stats.recordImportWait
 	original := repo.db
 	repo.db = sql.OpenDB(repositoryConnector{driver: measured, dsn: repo.dbPath + connectionPragmas})
 	if err = original.Close(); err != nil {

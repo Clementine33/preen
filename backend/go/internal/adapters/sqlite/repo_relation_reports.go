@@ -53,10 +53,16 @@ func applyRelationsGroup(
 		return nil, nil
 	}
 
-	before, err := loadEvidence(tx)
+	// The rules only follow relation edges, so the evidence is loaded per
+	// relation family: the target's before the write, and after it the union
+	// of that family and the target's new one. A work the write cut loose
+	// from the target is still in the union, so it is recomputed from its own
+	// evidence instead of being mistaken for one with no relation.
+	beforeFamily, err := loadRelationFamily(tx, []works.WorkCode{target})
 	if err != nil {
 		return nil, err
 	}
+	before := beforeFamily.evidence
 
 	if _, execErr := tx.Exec("DELETE FROM relation_reports WHERE subject_rj = ?", string(target)); execErr != nil {
 		return nil, execErr
@@ -80,13 +86,19 @@ func applyRelationsGroup(
 		}
 	}
 
-	after, err := loadEvidence(tx)
+	seeds := []works.WorkCode{target}
+	for member := range beforeFamily.members {
+		seeds = append(seeds, member)
+	}
+	afterFamily, err := loadRelationFamily(tx, seeds)
 	if err != nil {
 		return nil, err
 	}
-	// The structural rules run against the catalog this submission leaves
-	// behind, so a relation that only becomes illegal in combination with the
+	after := afterFamily.evidence
+	// The structural rules run against the relation families this submission
+	// touches, so a relation that only becomes illegal in combination with the
 	// stored evidence is still refused - and the whole submission goes with it.
+	// A violation in a family the submission does not touch is not its concern.
 	resolution := works.Resolve(after)
 	if violation := works.ValidateResolvedRelations(after, resolution); violation != nil {
 		return nil, works.Invalid(violation.Code, violation.Message)

@@ -21,23 +21,26 @@ func (r *Repository) stageOperationRevision(
 	if err := r.beginStagingPlan(ctx, genID, worksetID, kind, p); err != nil {
 		return err
 	}
+	appendChunk := func(rec planRecords) error {
+		return r.appendStagingPlan(ctx, genID, worksetID, kind, p.PlanID, rec)
+	}
 	for chunk := range slices.Chunk(p.Steps, planStageBatchRows) {
-		if err := r.appendStagingPlan(ctx, genID, worksetID, kind, p.PlanID, planRecords{steps: chunk}); err != nil {
+		if err := appendChunk(planRecords{steps: chunk}); err != nil {
 			return err
 		}
 	}
 	for chunk := range slices.Chunk(p.Roots, planStageBatchRows) {
-		if err := r.appendStagingPlan(ctx, genID, worksetID, kind, p.PlanID, planRecords{roots: chunk}); err != nil {
+		if err := appendChunk(planRecords{roots: chunk}); err != nil {
 			return err
 		}
 	}
 	for chunk := range slices.Chunk(p.Components, planStageBatchRows) {
-		if err := r.appendStagingPlan(ctx, genID, worksetID, kind, p.PlanID, planRecords{components: chunk}); err != nil {
+		if err := appendChunk(planRecords{components: chunk}); err != nil {
 			return err
 		}
 	}
 	for chunk := range slices.Chunk(p.Conclusions, planStageBatchRows) {
-		if err := r.appendStagingPlan(ctx, genID, worksetID, kind, p.PlanID, planRecords{conclusions: chunk}); err != nil {
+		if err := appendChunk(planRecords{conclusions: chunk}); err != nil {
 			return err
 		}
 	}
@@ -88,7 +91,11 @@ func (r *Repository) beginStagingPlan(
 	return tx.Commit()
 }
 
-func (r *Repository) appendStagingPlan(ctx context.Context, genID, worksetID, kind, planID string, rec planRecords) error {
+func (r *Repository) appendStagingPlan(
+	ctx context.Context,
+	genID, worksetID, kind, planID string,
+	rec planRecords,
+) error {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err

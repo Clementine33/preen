@@ -240,6 +240,7 @@ func TestOnlyTheCurrentPlanSurvivesTheNextGeneration(t *testing.T) {
 // spyPlanReads counts which plan reads a service performs.
 type spyPlanReads struct {
 	*sqlite.Repository
+
 	details, frames int
 }
 
@@ -296,7 +297,7 @@ func TestBatchedInputValidationMatchesPerRootEvaluation(t *testing.T) {
 
 	spy := &spyPlanReads{Repository: f.repo}
 	svc := workset.NewService(spy, 1, 1, []workset.Task{task}, nil, nil)
-	if _, err := svc.GetOperation(f.ctx, ws.WorksetID, workset.OperationTypeConversion); err != nil {
+	if _, err = svc.GetOperation(f.ctx, ws.WorksetID, workset.OperationTypeConversion); err != nil {
 		t.Fatal(err)
 	}
 	view, err := svc.GetRevision(f.ctx, ws.WorksetID, workset.OperationTypeConversion, planID)

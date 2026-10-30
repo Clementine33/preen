@@ -25,9 +25,14 @@ func stagedGeneration(t *testing.T, repo *sqlite.Repository, id, kind string) {
 }
 
 func stagedPayload(id string) workset.OperationRevisionPersist {
-	p := workset.OperationRevisionPersist{PlanID: id, RootPath: "/music", SnapshotToken: id,
-		SummaryReason: "blocked", Counts: workset.RevisionCounts{Members: 251, Changed: 1, UnmetTargets: 2, Blocked: 3, Unchanged: 4},
-		Steps: []workset.PlanStepRecord{{StepIndex: 0, StepType: "test"}}}
+	p := workset.OperationRevisionPersist{
+		PlanID:        id,
+		RootPath:      "/music",
+		SnapshotToken: id,
+		SummaryReason: "blocked",
+		Counts:        workset.RevisionCounts{Members: 251, Changed: 1, UnmetTargets: 2, Blocked: 3, Unchanged: 4},
+		Steps:         []workset.PlanStepRecord{{StepIndex: 0, StepType: "test"}},
+	}
 	for i := range 251 {
 		p.Roots = append(p.Roots, workset.PlanRootRecord{RootIndex: i, RootPath: fmt.Sprintf("/music/%d", i)})
 		p.Components = append(

@@ -57,7 +57,7 @@ func (s *serviceImpl) listPage(
 	}
 	views := make([]*WorksetView, 0, len(rows))
 	for _, w := range rows {
-		v, err := s.view(ctx, w)
+		v, err := s.view(w)
 		if err != nil {
 			return nil, "", err
 		}
@@ -75,12 +75,12 @@ func (s *serviceImpl) GetWorkset(ctx context.Context, id string) (*WorksetView, 
 	if err != nil {
 		return nil, err
 	}
-	return s.view(ctx, w)
+	return s.view(w)
 }
 
-// view assembles the workset metadata view: identity, library, fixed members
-// and one entry per established operation.
-func (s *serviceImpl) view(ctx context.Context, w *Workset) (*WorksetView, error) {
+// view assembles the workset metadata view: identity, library and fixed
+// members. Planning state belongs to the operation view.
+func (s *serviceImpl) view(w *Workset) (*WorksetView, error) {
 	out := &WorksetView{
 		WorksetID: w.ID,
 		Title:     w.Title,
@@ -105,17 +105,6 @@ func (s *serviceImpl) view(ctx context.Context, w *Workset) (*WorksetView, error
 			FolderName: m.FolderName,
 			RelPath:    m.RelPath,
 		})
-	}
-	ops, err := s.repo.ListOperations(w.ID)
-	if err != nil {
-		return nil, NewError(ErrKindInternal, "INTERNAL", "failed to load operations", err)
-	}
-	for _, op := range ops {
-		view, opErr := s.operationView(ctx, op)
-		if opErr != nil {
-			return nil, opErr
-		}
-		out.Operations = append(out.Operations, view)
 	}
 	return out, nil
 }

@@ -125,10 +125,6 @@ func TestWorksetCRUD(t *testing.T) {
 	if gotDraft.DraftHash != "hash-1" {
 		t.Fatalf("draft: %+v", gotDraft)
 	}
-	ops, err := repo.ListOperations(w.ID)
-	if err != nil || len(ops) != 1 {
-		t.Fatalf("ListOperations: %+v err=%v", ops, err)
-	}
 
 	if _, err := repo.GetOperation(w.ID, "rename"); !errors.Is(err, workset.ErrOperationNotFound) {
 		t.Fatalf("unknown operation type must be not-found, got %v", err)

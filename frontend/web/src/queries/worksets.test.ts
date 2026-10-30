@@ -48,7 +48,6 @@ const workset: Workset = {
   version: 2,
   library: { library_id: 'lib-a', name: 'Lib', root_path: 'D:\\Music' },
   members: [],
-  operations: [operation],
   updated_at: '2026-08-30T00:00:00Z',
   created_at: '2026-08-30T00:00:00Z',
 }

@@ -167,8 +167,13 @@ func TestTasksReuseTheSameBatch(t *testing.T) {
 	f.standardLibrary("albumA")
 	f.insertDir("/music", "emptyDir", false)
 	ws := f.createCurrentOperation("lib-1", "rename", "albumA", "emptyDir")
-	if len(ws.Operations) != 2 || len(ws.Members) != 2 {
+	if len(ws.Members) != 2 {
 		t.Fatalf("shared batch = %+v", ws)
+	}
+	for _, kind := range []string{workset.OperationTypeConversion, "rename"} {
+		if _, err := f.svc.GetOperation(f.ctx, ws.WorksetID, kind); err != nil {
+			t.Fatalf("GetOperation %s: %v", kind, err)
+		}
 	}
 	for _, kind := range []string{workset.OperationTypeConversion, "rename"} {
 		current, err := f.svc.GetCurrentWorkset(f.ctx, "lib-1", kind)

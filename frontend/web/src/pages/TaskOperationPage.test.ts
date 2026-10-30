@@ -46,7 +46,6 @@ const workset: Workset = {
       dir_id: 'd-a',
     },
   ],
-  operations: [],
   updated_at: '',
   created_at: '',
 }

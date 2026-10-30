@@ -258,18 +258,13 @@ func TestWorksetHTTPLifecycle(t *testing.T) {
 	wsPath := "/api/v1/worksets/" + createResp.Workset.WorksetID
 	opPath := wsPath + "/operations/conversion"
 
-	// The workset view carries its operations; planning state is operation-scoped.
+	// The workset view has no operations; planning state is operation-scoped.
 	w = req(t, h, http.MethodGet, wsPath, testToken, nil)
 	if w.Code != http.StatusOK {
 		t.Fatalf("detail status = %d", w.Code)
 	}
 	var detail struct {
-		Members    []map[string]any `json:"members"`
-		Operations []struct {
-			OperationType string `json:"operation_type"`
-			PlanningState string `json:"planning_state"`
-			Version       int    `json:"version"`
-		} `json:"operations"`
+		Members []map[string]any `json:"members"`
 	}
 	if err := json.Unmarshal(w.Body.Bytes(), &detail); err != nil {
 		t.Fatalf("decode detail: %v", err)
@@ -277,9 +272,12 @@ func TestWorksetHTTPLifecycle(t *testing.T) {
 	if len(detail.Members) != 1 {
 		t.Fatalf("detail members: %+v", detail.Members)
 	}
-	if len(detail.Operations) != 1 || detail.Operations[0].OperationType != "conversion" ||
-		detail.Operations[0].PlanningState != "unplanned" || detail.Operations[0].Version != 1 {
-		t.Fatalf("detail operations: %+v", detail.Operations)
+	var keys map[string]json.RawMessage
+	if err := json.Unmarshal(w.Body.Bytes(), &keys); err != nil {
+		t.Fatalf("decode detail keys: %v", err)
+	}
+	if _, has := keys["operations"]; has {
+		t.Fatalf("workset view must not carry operations: %s", w.Body.String())
 	}
 	if _, leaked := detail.Members[0]["state"]; leaked {
 		t.Fatal("member coverage is operation state, not member state")

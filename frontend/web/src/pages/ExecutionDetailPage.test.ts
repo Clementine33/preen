@@ -15,6 +15,7 @@ import { apiClientKey } from '@/lib/api/client'
 import { useWorksetExecutionStore } from '@/stores/workset-execution'
 import { apiStub as sharedApiStub } from '@/test/api-stub'
 import { installTestQueryPlugin } from '@/test/query-client'
+import ConversionPage from './ConversionPage.vue'
 import ExecutionDetailPage from './ExecutionDetailPage.vue'
 
 enableAutoUnmount(afterEach)
@@ -124,7 +125,6 @@ function revision(execution: RevisionDetailResponse['execution']): RevisionDetai
           error_count: 0,
           summary_reason: '',
         },
-        components: [],
       },
     },
     counts: {
@@ -135,8 +135,6 @@ function revision(execution: RevisionDetailResponse['execution']): RevisionDetai
       unchanged: 0,
     },
     members: [],
-    roots: [],
-    component_roots: [],
     execution,
   }
 }
@@ -179,18 +177,21 @@ async function mountPage(api: ApiClientContract): Promise<VueWrapper> {
       {
         path: '/worksets/:libraryId/conversion',
         name: 'conversion',
-        component: { template: '<div />' },
-      },
-      {
-        path: '/worksets/:libraryId/conversion/execution',
-        name: 'conversion-execution',
-        component: ExecutionDetailPage,
+        component: ConversionPage,
+        children: [
+          {
+            path: 'execution',
+            name: 'conversion-execution',
+            component: ExecutionDetailPage,
+            meta: { carrier: true },
+          },
+        ],
       },
     ],
   })
   await router.push('/worksets/lib-a/conversion/execution')
   await router.isReady()
-  const wrapper = mount(ExecutionDetailPage, {
+  const wrapper = mount({ template: '<RouterView />' }, {
     global: {
       plugins: [
         createPinia(),
@@ -198,6 +199,10 @@ async function mountPage(api: ApiClientContract): Promise<VueWrapper> {
         installTestQueryPlugin(),
       ],
       provide: { [apiClientKey as symbol]: api },
+      stubs: {
+        WorkbenchShell: { template: '<div><slot name="main" tier="wide" /><slot name="detail" /></div>' },
+        WorkbenchNav: true,
+      },
     },
     attachTo: document.body,
   })
@@ -211,6 +216,7 @@ describe('executionDetailPage', () => {
     const api = pageApi({ cancelExecution })
     const wrapper = await mountPage(api)
 
+    expect(api.getRevision).not.toHaveBeenCalled()
     expect(wrapper.get('[data-testid="execution-panel"]').text()).toContain('执行中')
     expect(wrapper.get('[data-testid="execution-progress"]').text()).toContain('组件 1/2')
 
@@ -223,10 +229,10 @@ describe('executionDetailPage', () => {
   it('shows the finished report of the revision that ran, without a cancel action', async () => {
     const api = pageApi({
       getCurrentRecord: vi.fn().mockResolvedValue({ workset }),
-      getOperation: vi.fn().mockResolvedValue(operation(false)),
-      getRevision: vi
-        .fn()
-        .mockResolvedValue(revision({ execution_id: 'exec-1', plan_id: 'plan-1', status: 'succeeded' })),
+      getOperation: vi.fn().mockResolvedValue({
+        ...operation(false),
+        latest_execution: { execution_id: 'exec-1', plan_id: 'plan-1', status: 'succeeded' },
+      }),
       getExecution: vi.fn().mockResolvedValue({
         ...executionView,
         status: 'succeeded',
@@ -257,6 +263,9 @@ describe('executionDetailPage', () => {
           operations: 2,
           completed_operations: 2,
           committed: ['/music/albumA/00.mp3'],
+          kept_decisions: [
+            { path: '/music/albumA/keep.mp3', resolution: 'keep', reason_code: 'KEEP_ENCODED_SATISFIED' },
+          ],
           removed: [],
           remaining: [],
           recovery: [],
@@ -305,12 +314,25 @@ describe('executionDetailPage', () => {
     // The committed file of the component that just finished is on screen while
     // the run is still going.
     expect(card.text()).toContain('00.mp3')
+    expect(card.get('summary').text()).toContain('保留 1')
+    expect(card.get('[data-testid="execution-kept"]').text()).toContain('keep.mp3')
+
+    store.applyEvent({
+      type: 'execution_snapshot',
+      data: { ...report, status: 'running' },
+    })
+    await flushPromises()
+    expect(wrapper.get('[data-testid="execution-kept"]').text()).toContain('keep.mp3')
+    expect(wrapper.get('[data-testid="execution-folder"] summary').text()).toContain('保留 1')
   })
 
   it('states the absence of a session instead of pretending one exists', async () => {
     const api = pageApi({
       getCurrentRecord: vi.fn().mockResolvedValue({ workset }),
-      getOperation: vi.fn().mockResolvedValue(operation(false)),
+      getOperation: vi.fn().mockResolvedValue({
+        ...operation(false),
+        latest_execution: { execution_id: 'old-exec', plan_id: 'old-plan', status: 'succeeded' },
+      }),
       getRevision: vi.fn().mockResolvedValue(revision(null)),
     })
     const wrapper = await mountPage(api)
@@ -331,6 +353,9 @@ describe('executionDetailPage component paging', () => {
       operations: 1,
       completed_operations: 0,
       committed: [],
+      kept_decisions: [
+        { path: `/music/albumA/keep-${index}.mp3`, resolution: 'keep', reason_code: 'UNMET_TARGET' },
+      ],
       removed: [],
       remaining: [],
       recovery: [],
@@ -371,5 +396,15 @@ describe('executionDetailPage component paging', () => {
       limit: 200,
     })
     expect(wrapper.find('[data-testid="execution-load-more"]').exists()).toBe(false)
+    expect(wrapper.findAll('[data-testid="execution-kept"]').map(row => row.text())).toEqual([
+      expect.stringContaining('keep-0.mp3'),
+      expect.stringContaining('keep-1.mp3'),
+      expect.stringContaining('keep-2.mp3'),
+    ])
+    expect(wrapper.findAll('summary').map(row => row.text())).toEqual([
+      expect.stringContaining('保留 1'),
+      expect.stringContaining('保留 1'),
+      expect.stringContaining('保留 1'),
+    ])
   })
 })

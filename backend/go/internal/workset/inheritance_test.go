@@ -43,7 +43,18 @@ func (f *fixture) resolvedFrom(ws *workset.WorksetView, planID string) map[strin
 		rel[m.MemberID] = m.RelPath
 	}
 	out := map[string]resolvedMember{}
-	for _, m := range rev.Members {
+	for _, conclusion := range rev.Members {
+		review, err := f.svc.GetMemberReview(
+			f.ctx,
+			ws.WorksetID,
+			workset.OperationTypeConversion,
+			planID,
+			conclusion.MemberID,
+		)
+		if err != nil {
+			f.t.Fatalf("GetMemberReview: %v", err)
+		}
+		m := review.Member
 		var policy reconcile.Policy
 		if err := json.Unmarshal(m.Payload, &policy); err != nil {
 			f.t.Fatalf("decode member payload: %v", err)

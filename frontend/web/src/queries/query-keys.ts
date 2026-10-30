@@ -138,6 +138,16 @@ export const queryKeys = {
         operation,
         planId,
       ] as const,
+    memberReview: (worksetId: string, operation: string, planId: string, memberId: string) =>
+      [
+        'worksets',
+        'revisions',
+        worksetId,
+        operation,
+        planId,
+        'members',
+        memberId,
+      ] as const,
     generation: (worksetId: string, operation: string, generationId: string) =>
       [
         'worksets',

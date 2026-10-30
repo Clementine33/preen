@@ -470,3 +470,21 @@ func TestExcludedMissingMemberIsOmittedAndSourceLossStalesPlan(t *testing.T) {
 		t.Fatalf("missing source: %+v, %v", health, err)
 	}
 }
+
+func TestMemberConclusionPreservesFrozenComponent(t *testing.T) {
+	provider, ok := any(&dirrename.Task{}).(workset.MemberConclusionTask)
+	if !ok {
+		t.Fatal("task does not supply member conclusions")
+	}
+	raw := json.RawMessage(
+		`{"member_id":"one","source_name":"old","work_code":"RJ01","raw_name":"new","target_name":"new","action":"noop","custom_name":"new","observed_name":"new","rebind_to":"RJ02","future_field":{"preserved":true}}`,
+	)
+	got, err := provider.MemberConclusion([]json.RawMessage{raw})
+	if err != nil || string(got) != string(raw) {
+		t.Fatalf("conclusion = %s, %v; want original %s", got, err, raw)
+	}
+	got, err = provider.MemberConclusion(nil)
+	if err != nil || len(got) != 0 {
+		t.Fatalf("member without components = %s, %v; want absent task conclusion", got, err)
+	}
+}

@@ -83,7 +83,6 @@ const revision = {
         error_count: 0,
         summary_reason: '',
       },
-      components: [],
     },
   },
   counts: {
@@ -94,8 +93,6 @@ const revision = {
     unchanged: 0,
   },
   members: [],
-  roots: [],
-  component_roots: [],
   execution: null,
 } as unknown as RevisionDetailResponse
 

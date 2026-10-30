@@ -48,9 +48,9 @@ func TestMeasureWorksetLifecycle(t *testing.T) {
 	// too, so replacing the record also removes nonempty execution/cover results.
 	for round := range 2 {
 		f.source.version.Store(uint32(round + 1))
-		conversionPlan := f.generate(t, id, workset.OperationTypeConversion, round)
-		f.read(t, "revision/conversion", "/api/v1/worksets/"+id+"/operations/conversion/revisions/"+conversionPlan)
-		f.execute(t, id, workset.OperationTypeConversion, conversionPlan, round)
+		if f.measureConversionRound(t, id, round) {
+			return
+		}
 		metadataPlan := f.generate(t, id, refresh.Kind, round)
 		f.execute(t, id, refresh.Kind, metadataPlan, round)
 		f.deliver(t, id, round)
@@ -228,7 +228,7 @@ func (f *worksetMeasurement) generate(t *testing.T, id, kind string, round int) 
 	return revision
 }
 
-func (f *worksetMeasurement) execute(t *testing.T, id, kind, plan string, round int) {
+func (f *worksetMeasurement) execute(t *testing.T, id, kind, plan string, round int) string {
 	t.Helper()
 	op, err := f.svc.GetOperation(t.Context(), id, kind)
 	if err != nil {
@@ -261,6 +261,7 @@ func (f *worksetMeasurement) execute(t *testing.T, id, kind, plan string, round 
 		return true
 	})
 	t.Logf("execution kind=%s round=%d id=%s status=succeeded", kind, round, result.Execution.ExecutionID)
+	return result.Execution.ExecutionID
 }
 
 func (f *worksetMeasurement) deliver(t *testing.T, id string, round int) {

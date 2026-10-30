@@ -49,7 +49,7 @@ const recordQuery = useQuery(() => currentRecordQueryOptions(api, libraryId.valu
 const record = computed(() => recordQuery.data.value?.workset ?? null)
 const worksetId = computed(() => record.value?.workset_id ?? null)
 const { workspace, generation, execution, executionView, applySession, startGeneration }
-  = useOperationContext(worksetId, 'conversion')
+  = useOperationContext(worksetId, 'conversion', undefined, computed(() => route.name !== 'conversion-execution'))
 
 const workset = workspace.workset
 const operation = workspace.operation
@@ -246,7 +246,9 @@ function executionBlocked(selected = false): string | null {
     return null
   // The terminal fact outranks the derived ones: once a revision ran, that is
   // the reason it cannot run again, whatever else moved since.
-  const ran = revision.value?.execution
+  const ran = op.latest_execution?.plan_id === op.current_revision.plan_id
+    ? op.latest_execution
+    : null
   if (ran)
     return `该版本已执行（${EXECUTION_STATES[ran.status] ?? ran.status}），需重新生成新版本`
   if (op.planning_state === 'orphaned')
@@ -315,7 +317,7 @@ const selectedFolderPaths = computed(() =>
   members.value.filter(member => ui.selectedMemberIds.has(member.member_id)).map(member => member.rel_path),
 )
 
-/** Selected execution checks only roots owned by selected frozen units. */
+/** Selected execution checks the server input facts of selected members. */
 const selectedExecuteBlocked = computed(() => {
   const global = executionBlocked(true)
   if (global)
@@ -323,9 +325,9 @@ const selectedExecuteBlocked = computed(() => {
   const view = revision.value
   if (!view || view.plan_id !== operation.value?.current_revision?.plan_id)
     return '计划详情加载中…'
-  const selected = new Set(members.value.filter(m => ui.selectedMemberIds.has(m.member_id)).map(m => m.folder_path))
-  const owned = new Set(view.component_roots.map(c => c.root_index))
-  if (view.roots.some(r => selected.has(r.root_path) && owned.has(r.root_index) && (r.stale || r.root_status === 'missing'))) {
+  if (view.members.some(member => ui.selectedMemberIds.has(member.member_id)
+    && member.has_components
+    && (member.input === 'stale' || member.input === 'missing'))) {
     return '选中文件夹输入已变化，需重新生成计划版本'
   }
   return null

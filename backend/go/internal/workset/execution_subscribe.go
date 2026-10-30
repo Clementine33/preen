@@ -51,11 +51,7 @@ func (s *serviceImpl) SubscribeExecution(
 
 	// The frozen worklist never changes. Audio commits advance a cursor; batch
 	// results can arrive in any order, so those streams track delivered indices.
-	req, err := parseExecutionRequest(e.RequestJSON)
-	if err != nil {
-		return NewError(ErrKindInternal, "REQUEST_LOAD_FAILED", "failed to load the frozen request", err)
-	}
-	identity := initialComponentReport(req.Units)
+	identity := snapshot.Components
 	at := make(map[int]int, len(identity))
 	for i := range identity {
 		at[identity[i].ComponentIndex] = i

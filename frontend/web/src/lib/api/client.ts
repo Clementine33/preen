@@ -34,6 +34,7 @@ import type {
   ListWorksetsParams,
   ListWorksParams,
   MediaFactsEvent,
+  MemberReviewResponse,
   MemberTreeResponse,
   Operation,
   OperationType,
@@ -730,6 +731,19 @@ export class ApiClient implements ApiClientContract {
     return this.request(
       `${this.operationPath(worksetId, operation)}/planning-sessions/${encodeURIComponent(generationId)}/cancel`,
       { method: 'POST', body: {} },
+    )
+  }
+
+  getMemberReview(
+    worksetId: string,
+    operation: OperationType,
+    planId: string,
+    memberId: string,
+    signal?: AbortSignal,
+  ): Promise<MemberReviewResponse> {
+    return this.request(
+      `${this.operationPath(worksetId, operation)}/revisions/${encodeURIComponent(planId)}/members/${encodeURIComponent(memberId)}`,
+      { signal },
     )
   }
 

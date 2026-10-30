@@ -1,10 +1,11 @@
 import type { ExecutionView, Operation, Workset } from '@/lib/api/types'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { apiStub } from '@/test/api-stub'
 import { createTestQueryClient } from '@/test/query-client'
 import { queryKeys } from './query-keys'
 import {
   createCurrentRecordMutationOptions,
+  operationMemberReviewQueryOptions,
   saveOperationDraftMutationOptions,
   startExecutionMutationOptions,
   startGenerationMutationOptions,
@@ -279,4 +280,31 @@ describe('execution cache synchronization', () => {
 
     for (const key of keys) expect(client.getQueryData(key)).toBeUndefined()
   })
+})
+
+it('caches member review by plan and member, and refreshes live input after its freshness window', async () => {
+  const client = createTestQueryClient()
+  const api = apiStub({
+    getMemberReview: vi.fn().mockResolvedValue({
+      conclusion: { input: 'valid' },
+    }),
+  } as never)
+  const read = (planId: string, memberId: string) => operationMemberReviewQueryOptions(api, client, 'ws-1', 'conversion', planId, memberId)
+  await client.fetchQuery(read('p1', 'm1'))
+  await client.fetchQuery(read('p1', 'm1'))
+  expect(api.getMemberReview).toHaveBeenCalledTimes(1)
+  await client.fetchQuery(read('p1', 'm2'))
+  await client.fetchQuery(read('p2', 'm1'))
+  expect(api.getMemberReview).toHaveBeenCalledTimes(3)
+  client.setQueryData(queryKeys.worksets.memberReview('ws-1', 'conversion', 'p1', 'm1'), {
+    conclusion: { input: 'valid' },
+  }, { updatedAt: Date.now() - 60_001 })
+  vi.mocked(api.getMemberReview).mockResolvedValueOnce({
+    conclusion: { input: 'stale' },
+  } as never)
+  expect(await client.fetchQuery(read('p1', 'm1'))).toEqual({
+    conclusion: { input: 'stale' },
+  })
+  expect(api.getMemberReview).toHaveBeenCalledTimes(4)
+  expect(api.getRevision).not.toHaveBeenCalled()
 })

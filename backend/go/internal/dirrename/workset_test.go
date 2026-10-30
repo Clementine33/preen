@@ -1,6 +1,7 @@
 package dirrename_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"net/http"
@@ -103,22 +104,46 @@ func verifyHTTPReviewAndExecution(t *testing.T, svc workset.Service, id, revisio
 	if reviewResponse.Code != http.StatusOK {
 		t.Fatalf("review HTTP: %d, %s", reviewResponse.Code, reviewResponse.Body.String())
 	}
+	for _, field := range []string{"components", "roots", "component_roots", "effective", "sources", "conclusion"} {
+		if bytes.Contains(reviewResponse.Body.Bytes(), []byte(`"`+field+`":`)) {
+			t.Fatalf("light revision contains %s", field)
+		}
+	}
 	var wire struct {
 		Task struct {
 			Kind    string `json:"kind"`
 			Payload struct {
-				Components []struct {
-					TargetName string `json:"target_name"`
-				} `json:"components"`
+				Components []json.RawMessage `json:"components"`
 			} `json:"payload"`
 		} `json:"task"`
+		Members []workset.MemberConclusion `json:"members"`
 	}
 	if decodeErr := json.Unmarshal(reviewResponse.Body.Bytes(), &wire); decodeErr != nil {
 		t.Fatal(decodeErr)
 	}
-	if wire.Task.Kind != "rename" || len(wire.Task.Payload.Components) != 1 ||
-		wire.Task.Payload.Components[0].TargetName != "[RJ00000001] title" {
-		t.Fatalf("review payload: %s", reviewResponse.Body.String())
+	if wire.Task.Kind != "rename" || wire.Task.Payload.Components != nil || len(wire.Members) != 1 ||
+		!bytes.Contains(wire.Members[0].Task, []byte(`"target_name":"[RJ00000001] title"`)) {
+		t.Fatalf("light revision payload: %s", reviewResponse.Body.String())
+	}
+	memberRequest := httptest.NewRequest(
+		http.MethodGet,
+		reviewRequest.URL.Path+"/members/"+wire.Members[0].MemberID,
+		nil,
+	)
+	memberRequest.Header.Set("Authorization", "Bearer test-token")
+	memberResponse := httptest.NewRecorder()
+	handler.ServeHTTP(memberResponse, memberRequest)
+	var memberWire struct {
+		Task struct {
+			Payload struct {
+				Components []json.RawMessage `json:"components"`
+			} `json:"payload"`
+		} `json:"task"`
+	}
+	if memberResponse.Code != http.StatusOK || json.Unmarshal(memberResponse.Body.Bytes(), &memberWire) != nil ||
+		len(memberWire.Task.Payload.Components) != 1 ||
+		!bytes.Equal(wire.Members[0].Task, memberWire.Task.Payload.Components[0]) {
+		t.Fatalf("member conclusion differs from frozen component: %s", memberResponse.Body.String())
 	}
 	op, err := svc.GetOperation(t.Context(), id, "rename")
 	if err != nil {

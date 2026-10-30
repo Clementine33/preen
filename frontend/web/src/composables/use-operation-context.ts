@@ -31,12 +31,12 @@ const EXECUTION_COMPONENT_PAGE = 200
  * is looked up here, and every carrier therefore follows the same identity the
  * workbench does.
  */
-export function useCurrentConversion(libraryId: Ref<string>) {
+export function useCurrentConversion(libraryId: Ref<string>, readRevision: Ref<boolean> = computed(() => true)) {
   const api = useApiClient()
   const recordQuery = useQuery(() => currentRecordQueryOptions(api, libraryId.value, CONVERSION))
   const record = computed(() => recordQuery.data.value?.workset ?? null)
   const worksetId = computed(() => record.value?.workset_id ?? null)
-  const context = useOperationContext(worksetId, CONVERSION)
+  const context = useOperationContext(worksetId, CONVERSION, undefined, readRevision)
   return { record, worksetId, ...context }
 }
 
@@ -53,6 +53,7 @@ export function useOperationContext(
   worksetId: Ref<string | null>,
   operation: OperationType = CONVERSION,
   revisionPlanId: Ref<string | null> = computed(() => null),
+  readRevision: Ref<boolean> = computed(() => true),
 ) {
   const api = useApiClient()
   const queryClient = useQueryClient()
@@ -70,7 +71,7 @@ export function useOperationContext(
     () => revisionPlanId.value ?? operationQuery.data.value?.current_revision?.plan_id ?? null,
   )
   const revisionQuery = useQuery(
-    computed(() => operationRevisionDetailQueryOptions(api, worksetId.value, operation, reviewedPlanId.value)),
+    computed(() => operationRevisionDetailQueryOptions(api, worksetId.value, operation, readRevision.value ? reviewedPlanId.value : null)),
   )
 
   const workset = computed(() => worksetQuery.data.value ?? null)
@@ -91,15 +92,15 @@ export function useOperationContext(
   }, { immediate: true })
 
   // The session worth showing: the one currently running for this operation,
-  // or the one that ran the revision in view (a revision executes at most
-  // once, so its ref is final).
+  // or the latest session when it belongs to the current revision. A revision
+  // executes at most once; the operation already carries the needed identity.
   const executionRef = computed<{ id: string, active: boolean } | null>(() => {
     const op = operationQuery.data.value
     if (op?.active_execution)
       return { id: op.active_execution.execution_id, active: true }
-    const rev = revisionQuery.data.value
-    if (rev?.execution)
-      return { id: rev.execution.execution_id, active: false }
+    const ran = op?.latest_execution
+    if (ran && ran.plan_id === op?.current_revision?.plan_id)
+      return { id: ran.execution_id, active: false }
     return null
   })
   const executionQuery = useQuery(

@@ -1,14 +1,16 @@
 import type { EditTarget } from '@/features/worksets/draft-intents'
 import type { Operation, Workset } from '@/lib/api/types'
+import { VueQueryPlugin } from '@tanstack/vue-query'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia } from 'pinia'
 import { describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import { apiClientKey } from '@/lib/api/client'
+import { queryKeys } from '@/queries/query-keys'
 import { useWorksetEditorStore } from '@/stores/workset-editor'
 import { useWorksetUiStore } from '@/stores/workset-ui'
 import { apiStub } from '@/test/api-stub'
-import { installTestQueryPlugin } from '@/test/query-client'
+import { createTestQueryClient } from '@/test/query-client'
 import ConversionPage from './ConversionPage.vue'
 
 const counts = {
@@ -62,18 +64,19 @@ function revision(selectedStale = false) {
     task: {
       kind: 'conversion',
       schema_version: 1,
-      payload: { components: [], summary: {} },
+      payload: { summary: {} },
     },
-    roots: ['a', 'b'].map((name, index) => ({
-      root_index: index,
-      root_path: `/music/${name}`,
-      root_status: 'ok',
-      stale: name === 'b' || selectedStale,
+    members: ['a', 'b'].map(name => ({
+      member_id: name,
+      excluded: false,
+      input: name === 'b' || selectedStale
+        ? 'stale'
+        : 'valid',
+      has_components: true,
     })),
-    component_roots: [0, 1].map(index => ({ component_index: index, component_id: `${index}`, root_index: index })),
   }
 }
-async function page(getRevision = vi.fn().mockResolvedValue(revision()), blocked = 0) {
+async function page(getRevision = vi.fn().mockResolvedValue(revision()), blocked = 0, queryClient = createTestQueryClient()) {
   const router = createRouter({
     history: createMemoryHistory(),
     routes: [
@@ -114,7 +117,10 @@ async function page(getRevision = vi.fn().mockResolvedValue(revision()), blocked
       plugins: [
         createPinia(),
         router,
-        installTestQueryPlugin(),
+        [
+          VueQueryPlugin,
+          { queryClient },
+        ],
       ],
       provide: { [apiClientKey as symbol]: api },
       stubs: {
@@ -150,6 +156,29 @@ describe('selected conversion execution', () => {
       const wrapper = await page(vi.fn().mockResolvedValue(detail), blocked)
       expect(wrapper.get('[data-testid="execute-selected"]').attributes('disabled')).toBeDefined()
       wrapper.unmount()
+    }
+  })
+  it('refreshes same-plan member input and selected execution after returning past the TTL', async () => {
+    vi.useFakeTimers({
+      toFake: ['Date'],
+    })
+    try {
+      const client = createTestQueryClient()
+      const getRevision = vi.fn().mockResolvedValue(revision())
+      const first = await page(getRevision, 0, client)
+      expect(first.get('[data-testid="execute-selected"]').attributes('disabled')).toBeUndefined()
+      first.unmount()
+      vi.advanceTimersByTime(60_001)
+      getRevision.mockResolvedValue(revision(true))
+      const returned = await page(getRevision, 0, client)
+      expect(getRevision).toHaveBeenCalledTimes(2)
+      expect(client.getQueryData<{ members: { input: string }[] }>(queryKeys.worksets.revision('ws', 'conversion', 'plan'))?.members[0]?.input).toBe('stale')
+      expect(returned.get('[data-testid="execute-selected"]').attributes('disabled')).toBeDefined()
+      expect(returned.get('[data-testid="execute-selected"]').attributes('title')).toContain('输入已变化')
+      returned.unmount()
+    }
+    finally {
+      vi.useRealTimers()
     }
   })
   it('waits for revision detail instead of guessing from the summary', async () => {

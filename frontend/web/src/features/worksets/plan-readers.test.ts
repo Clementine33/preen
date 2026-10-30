@@ -1,14 +1,12 @@
 import type { ComponentOutcome, RevisionDetailResponse, WorksetMember } from '@/lib/api/types'
 import { describe, expect, it } from 'vitest'
+import { frozenConclusion } from '@/test/member-conclusion'
 import {
-  componentHasUnmetTarget,
   componentOperationCount,
   decisionGroups,
   keepReasonText,
-  keptDecisions,
   memberConclusion,
   memberConclusions,
-  partitionFacts,
   readComponent,
   resolutionText,
 } from './plan-readers'
@@ -35,7 +33,7 @@ describe('plan snapshot readers', () => {
     expect(component.files).toEqual([])
     expect(component.operations).toEqual([])
     expect(componentOperationCount(component)).toBe(0)
-    expect(componentHasUnmetTarget(component)).toBe(false)
+    expect(component.variant_decisions).toEqual([])
   })
 
   it('normalizes a nested variant with no decisions', () => {
@@ -80,165 +78,53 @@ describe('plan snapshot readers', () => {
     } as unknown as ComponentOutcome)
 
     expect(componentOperationCount(component)).toBe(1)
-    expect(componentHasUnmetTarget(component)).toBe(true)
+    expect(component.variant_decisions[0].decisions[0].reason_code).toBe('UNMET_TARGET')
     expect(component.lanes).toHaveLength(1)
   })
 })
 
 describe('member conclusion', () => {
-  const base = { excluded: false, hasRoot: true, rootMissing: false }
-  const component = (overrides: Partial<ComponentOutcome> = {}) =>
-    readComponent({
-      component_id: 'cmp',
-      partition: 'matched',
-      status: 'ok',
-      ...overrides,
-    } as ComponentOutcome)
-  const changing = component({
-    operations: [
-      { kind: 'encode' },
-    ] as ComponentOutcome['operations'],
-  })
-  const unmet = component({
-    variant_decisions: [
-      {
-        stem: 'track',
-        decisions: [
-          { path: '/a.mp3', resolution: 'keep', reason_code: 'UNMET_TARGET' },
-        ],
-      },
-    ],
-  })
-  const source = component({ status: 'blocked', reason_code: 'SOURCE_AMBIGUOUS' })
-  const blocked = component({ status: 'blocked', reason_code: 'SOURCE_MISSING' })
-
   it('uses a short change badge and keeps conversion scope in the detail', () => {
-    const result = memberConclusion({
-      ...base,
-      components: [
-        changing,
-        component({ partition: 'unmatched' }),
-      ],
-    })
-    expect(result.label).toBe('有变化')
-    expect(result.tone).toBe('success')
-    expect(result.detail).toContain('无音效：将转换')
-    expect(result.detail).toContain('有音效：无需改动')
-    expect(result.filter).toBe('change')
+    const input = frozenConclusion('changed')
+    input.task!.matched.changes = true
+    input.task!.unmatched.applicable = true
+    expect(memberConclusion(input)).toMatchObject({ label: '有变化', tone: 'success', filter: 'change' })
+    expect(memberConclusion(input).detail).toBe('无音效：将转换；有音效：无需改动')
   })
 
   it('distinguishes partial unmet components within the same partition', () => {
-    for (const other of [
-      changing,
-      component(),
-    ]) {
-      const result = memberConclusion({
-        ...base,
-        components: [unmet, other],
-      })
-      expect(result.label).toBe('部分未满足')
-      expect(result.tone).toBe('warning')
-      expect(result.filter).toBe('warn')
-    }
-    expect(memberConclusion({
-      ...base,
-      components: [unmet, changing],
-    }).filter).toBe('warn')
+    expect(memberConclusion(frozenConclusion('partially_unmet'))).toMatchObject({ label: '部分未满足', tone: 'warning', filter: 'warn' })
   })
 
   it('reports unmet when every component contains an unmet target, even with operations', () => {
-    const result = memberConclusion({
-      ...base,
-      components: [
-        unmet,
-        { ...unmet, operations: changing.operations },
-      ],
-    })
-    expect(result.label).toBe('未满足')
-    expect(result.tone).toBe('warning')
-    expect(result.filter).toBe('warn')
+    expect(memberConclusion(frozenConclusion('unmet'))).toMatchObject({ label: '未满足', tone: 'warning', filter: 'warn' })
   })
 
   it('uses source competition or other blockers as the primary filter above warnings', () => {
-    const competition = memberConclusion({
-      ...base,
-      components: [source, unmet],
-    })
-    expect(competition.label).toBe('源竞争')
-    expect(competition.tone).toBe('danger')
-    expect(competition.detail).toContain('无法唯一选源')
-    expect(competition.filter).toBe('source_conflict')
-
-    const mixed = memberConclusion({
-      ...base,
-      components: [source, blocked, unmet],
-    })
-    expect(mixed.label).toBe('阻塞')
-    expect(mixed.filter).toBe('blocked')
+    expect(memberConclusion(frozenConclusion('source_ambiguous'))).toMatchObject({ label: '源竞争', tone: 'danger', filter: 'source_conflict' })
+    expect(memberConclusion(frozenConclusion('source_ambiguous')).detail).toContain('无法唯一选源')
+    expect(memberConclusion(frozenConclusion('blocked'))).toMatchObject({ label: '阻塞', filter: 'blocked' })
   })
 
   it('preserves inactive and missing-input states', () => {
-    expect(memberConclusion({
-      ...base,
-      components: [
-        component(),
-      ],
-    }).label).toBe('无需转换')
-    expect(memberConclusion({ ...base, components: [] }).label).toBe('无适用')
-    expect(memberConclusion({
-      ...base,
-      components: [source],
-      excluded: true,
-    })).toMatchObject({ label: '已排除', filter: null })
-    expect(memberConclusion({ ...base, components: [], hasRoot: false })).toMatchObject({ label: '未参与', filter: null })
-    expect(memberConclusion({ ...base, components: [], rootMissing: true })).toMatchObject({ label: '输入缺失', filter: 'blocked' })
+    expect(memberConclusion(frozenConclusion()).label).toBe('无需转换')
+    expect(memberConclusion(frozenConclusion('not_applicable')).label).toBe('无适用')
+    expect(memberConclusion(frozenConclusion('blocked', { excluded: true, input: 'missing' }))).toMatchObject({ label: '已排除', filter: null })
+    expect(memberConclusion(frozenConclusion('blocked', { input: 'none' }))).toMatchObject({ label: '未参与', filter: null })
+    expect(memberConclusion(frozenConclusion('blocked', { input: 'missing' }))).toMatchObject({ label: '输入缺失', filter: 'blocked' })
+    expect(memberConclusion(frozenConclusion('changed', { input: 'stale' })).label).toBe('有变化')
   })
 })
 
 describe('partition facts', () => {
-  function component(overrides: Partial<ComponentOutcome>): ComponentOutcome {
-    return readComponent({
-      component_id: 'cmp',
-      partition: 'matched',
-      status: 'ok',
-      ...overrides,
-    } as ComponentOutcome)
-  }
-
-  it('accumulates independent facts per partition', () => {
-    const facts = partitionFacts([
-      component({
-        operations: [
-          { kind: 'encode' },
-        ] as ComponentOutcome['operations'],
-      }),
-      component({
-        component_id: 'cmp-2',
-        status: 'blocked',
-        variant_decisions: [
-          {
-            stem: 'track',
-            decisions: [
-              { path: '/a.mp3', resolution: 'keep', reason_code: 'UNMET_TARGET' },
-            ],
-          },
-        ],
-      }),
-    ])
-
-    expect(facts.matched).toEqual({
-      applicable: true,
-      blocked: true,
-      unmet: true,
-      changes: true,
-    })
-    // The partition with no component holds none of those facts.
-    expect(facts.unmatched).toEqual({
-      applicable: false,
-      blocked: false,
-      unmet: false,
-      changes: false,
-    })
+  it('explains independent partition facts supplied by the server', () => {
+    const input = frozenConclusion('unmet')
+    input.task!.matched.unmet = true
+    expect(memberConclusion(input).detail).toContain('无音效：目标未满足，现有文件按可用源保留')
+    input.task!.matched.changes = true
+    expect(memberConclusion(input).detail).toContain('无音效：目标未满足，其余按可用源转换')
+    input.task!.matched.blocked = true
+    expect(memberConclusion(input).detail).toBe('无音效：阻塞；有音效：无适用文件')
   })
 })
 
@@ -271,9 +157,9 @@ describe('kept files', () => {
   } as ComponentOutcome)
 
   it('reads only the keep conclusions, never the operations', () => {
-    expect(keptDecisions(component).map(decision => decision.path)).toEqual([
-      '/album/track.wav',
-      '/album/other.mp3',
+    expect(decisionGroups(component, '/album').flatMap(group => group.rows).filter(row => row.resolution === 'keep').map(row => row.name)).toEqual([
+      'track.wav',
+      'other.mp3',
     ])
   })
 
@@ -367,7 +253,6 @@ describe('decision rows', () => {
 })
 
 describe('memberConclusions', () => {
-  const op = { kind: 'encode' }
   function record(count: number) {
     const members = Array.from({ length: count }, (_, i) => ({
       member_id: `m-${i}`,
@@ -376,75 +261,33 @@ describe('memberConclusions', () => {
       rel_path: `f${i}`,
       dir_id: `m-${i}`,
     })) as WorksetMember[]
-    // f0 has a change, f1 is blocked, f2 is excluded, f3 has no root, the rest are missing roots or unchanged.
-    const components = [
-      {
-        component_id: 'c0',
-        partition: 'matched',
-        status: 'ok',
-        operations: [op],
-      },
-      {
-        component_id: 'c1',
-        partition: 'matched',
-        status: 'blocked',
-        reason_code: 'SOURCE_MISSING',
-      },
-      {
-        component_id: 'c4',
-        partition: 'matched',
-        status: 'ok',
-        operations: [],
-      },
-    ] as unknown as ComponentOutcome[]
     const view = {
-      members: members.map((m, i) => ({ member_id: m.member_id, excluded: i === 2 })),
-      roots: members
-        .map((m, i) => ({
-          root_path: m.folder_path,
-          root_index: i,
-          root_status: i === 5
+      members: members.map((m, i) => frozenConclusion(i === 0
+        ? 'changed'
+        : i === 1
+          ? 'blocked'
+          : 'unchanged', {
+        member_id: m.member_id,
+        excluded: i === 2,
+        input: i === 3
+          ? 'none'
+          : i === 5
             ? 'missing'
-            : 'ok',
-        }))
-        .filter((_, i) => i !== 3),
-      component_roots: [
-        { component_id: 'c0', root_index: 0 },
-        { component_id: 'c1', root_index: 1 },
-        { component_id: 'c4', root_index: 4 },
-        { component_id: 'c4', root_index: 4 },
-      ],
-      task: {
-        payload: { components },
-      },
+            : 'valid',
+      })),
     } as unknown as RevisionDetailResponse
     return { members, view }
   }
 
-  it('gives each member the conclusion of its own root, excluded and rootless ones included', () => {
+  it('reads each member conclusion without roots or component payloads', () => {
     const { members, view } = record(6)
     const out = memberConclusions(view, members)
     expect(out.get('m-0')?.filter).toBe('change')
     expect(out.get('m-1')?.filter).toBe('blocked')
     expect(out.get('m-2')?.label).toBe('已排除')
     expect(out.get('m-3')?.label).toBe('未参与')
-    expect(out.get('m-5')).toEqual(memberConclusion({
-      excluded: false,
-      hasRoot: true,
-      rootMissing: true,
-      components: [],
-    }))
-    // A component listed twice for one root counts once.
-    expect(out.get('m-4')).toEqual(
-      memberConclusion({
-        excluded: false,
-        hasRoot: true,
-        rootMissing: false,
-        components: [
-          readComponent(view.task!.payload!.components![2]!),
-        ],
-      }),
-    )
+    expect(out.get('m-5')).toEqual(memberConclusion(frozenConclusion('unchanged', { input: 'missing' })))
+    expect(out.get('m-4')).toEqual(memberConclusion(frozenConclusion()))
   })
 
   it('has no entries without a plan, and covers every member of a large record', () => {

@@ -203,7 +203,7 @@ func (r *Repository) GetOperationRevision(worksetID, operationType, planID strin
 		SELECT plan_id, workset_id, operation_type, revision_index, draft_hash, member_hash,
 		       operation_version, excluded_scope, draft_snapshot, created_at
 		FROM workset_operation_revisions WHERE workset_id = ? AND operation_type = ? AND plan_id = ?
-		AND plan_id IN (SELECT plan_id FROM plans WHERE status NOT IN ('staging','retired'))
+		AND plan_id IN (`+visiblePlanIDs+`)
 	`, worksetID, operationType, planID).Scan(
 		&rev.PlanID,
 		&rev.WorksetID,

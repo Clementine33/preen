@@ -193,3 +193,21 @@ func TestFillMissingPlansACompleteWorkAsCoverOnlyOrSkip(t *testing.T) {
 		}
 	}
 }
+
+func TestMemberConclusionPreservesFrozenComponent(t *testing.T) {
+	provider, ok := any(&refresh.Task{}).(workset.MemberConclusionTask)
+	if !ok {
+		t.Fatal("task does not supply member conclusions")
+	}
+	raw := json.RawMessage(
+		`{"member_id":"one","target":{"copy_id":"copy","rj":"RJ01","library_root":"/music","rel_path":"one","identity":"legacy"},"action":"skip","reason_code":"ALREADY_COMPLETE","future_field":{"preserved":true}}`,
+	)
+	got, err := provider.MemberConclusion([]json.RawMessage{raw})
+	if err != nil || string(got) != string(raw) {
+		t.Fatalf("conclusion = %s, %v; want original %s", got, err, raw)
+	}
+	got, err = provider.MemberConclusion(nil)
+	if err != nil || len(got) != 0 {
+		t.Fatalf("member without components = %s, %v; want absent task conclusion", got, err)
+	}
+}

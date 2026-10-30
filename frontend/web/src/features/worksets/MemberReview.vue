@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { ComponentOutcome, RevisionDetailResponse, RevisionMember, WorksetMember } from '@/lib/api/types'
+import type { ComponentOutcome, MemberReviewResponse, WorksetMember } from '@/lib/api/types'
 import { computed } from 'vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -10,7 +10,6 @@ import {
   modeText,
   profileText,
   resolutionText,
-  revisionComponents,
 } from '@/features/worksets/plan-readers'
 
 /**
@@ -21,16 +20,14 @@ import {
  */
 const props = defineProps<{
   member: WorksetMember
-  revision: RevisionDetailResponse
+  review: MemberReviewResponse
   /** Whether this review offers the way into the editor at all. */
   editable: boolean
 }>()
 
 const emit = defineEmits<{ edit: [] }>()
 
-const frozen = computed<RevisionMember | null>(
-  () => props.revision.members.find(m => m.member_id === props.member.member_id) ?? null,
-)
+const frozen = computed(() => props.review)
 
 const UNIT_LABELS: Record<string, string> = {
   mode: '转换模式',
@@ -41,20 +38,8 @@ const UNIT_LABELS: Record<string, string> = {
   other: '其他版本目标',
 }
 
-const rootIndex = computed(
-  () => props.revision.roots.find(r => r.root_path === props.member.folder_path)?.root_index ?? null,
-)
-
-const components = computed<ComponentOutcome[]>(() => {
-  if (rootIndex.value === null)
-    return []
-  const owned = new Set(
-    props.revision.component_roots.filter(ref => ref.root_index === rootIndex.value).map(ref => ref.component_id),
-  )
-  return revisionComponents(props.revision).filter(component => owned.has(component.component_id))
-})
-
-const inputStatus = computed(() => props.revision.roots.find(r => r.root_path === props.member.folder_path) ?? null)
+const components = computed(() => props.review.task.payload.components)
+const inputStatus = computed(() => props.review.roots[0] ?? null)
 
 /** Only the member's own settings are called out; inheriting is the default. */
 function isOverride(unit: string): boolean {

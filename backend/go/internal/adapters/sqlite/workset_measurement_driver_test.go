@@ -11,13 +11,16 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
 
 type worksetSQLMeasurement struct {
-	mu    sync.Mutex
-	paths map[string]worksetSQLSample
+	mu         sync.Mutex
+	paths      map[string]worksetSQLSample
+	readActive atomic.Bool
+	readNanos  atomic.Int64
 }
 
 type worksetSQLSample struct {
@@ -199,6 +202,12 @@ func (c *worksetMeasuredConn) QueryContext(
 	}
 	started := time.Now()
 	rows, err := querier.QueryContext(ctx, query, args)
+	if c.measurement.readActive.Load() {
+		c.measurement.readNanos.Add(int64(time.Since(started)))
+		if rows != nil {
+			return &worksetReadTimedRows{Rows: rows, elapsed: &c.measurement.readNanos}, err
+		}
+	}
 	command := strings.ToUpper(strings.TrimSpace(query))
 	if c.transaction == nil &&
 		(strings.HasPrefix(command, "UPDATE") || strings.HasPrefix(command, "INSERT") || strings.HasPrefix(command, "DELETE")) {

@@ -1,9 +1,9 @@
 import type { VueWrapper } from '@vue/test-utils'
-import type { ComponentOutcome } from '@/lib/api/types'
 import { flushPromises, mount } from '@vue/test-utils'
 import { expect, it, vi } from 'vitest'
+import { frozenConclusion } from '@/test/member-conclusion'
 import MemberList from './MemberList.vue'
-import { memberConclusion, readComponent } from './plan-readers'
+import { memberConclusion } from './plan-readers'
 
 /** jsdom has no layout: give the scroller a height so the virtualizer draws a window. */
 async function giveHeight(wrapper: VueWrapper): Promise<void> {
@@ -29,56 +29,14 @@ async function giveHeight(wrapper: VueWrapper): Promise<void> {
 }
 
 it('filters strictly by the displayed status, including folders with overlapping component facts', async () => {
-  const plans: Record<string, ComponentOutcome[]> = {
-    source: [
-      readComponent({
-        component_id: 'source',
-        partition: 'matched',
-        status: 'blocked',
-        reason_code: 'SOURCE_AMBIGUOUS',
-      } as ComponentOutcome),
-    ],
-    missing: [
-      readComponent({
-        component_id: 'missing',
-        partition: 'matched',
-        status: 'blocked',
-        reason_code: 'SOURCE_MISSING',
-      } as ComponentOutcome),
-    ],
-    partial: [
-      readComponent({
-        component_id: 'change',
-        partition: 'matched',
-        status: 'ok',
-        operations: [
-          { kind: 'encode' },
-        ],
-      } as ComponentOutcome),
-    ],
+  const conclusions = {
+    source: frozenConclusion('source_ambiguous'),
+    missing: frozenConclusion('blocked'),
+    partial: frozenConclusion('partially_unmet'),
+    changed: frozenConclusion('changed'),
+    mixed: frozenConclusion('blocked'),
   }
-  const unmet = readComponent({
-    component_id: 'unmet',
-    partition: 'matched',
-    status: 'ok',
-    variant_decisions: [
-      {
-        stem: 'track',
-        decisions: [
-          { path: '/a.mp3', resolution: 'keep', reason_code: 'UNMET_TARGET' },
-        ],
-      },
-    ],
-  } as ComponentOutcome)
-  plans.changed = [...plans.partial!]
-  plans.source!.push(...plans.partial!)
-  plans.partial!.push(unmet)
-  plans.mixed = [
-    ...plans.source!,
-    ...plans.missing!,
-    unmet,
-  ]
-  const members = Object.keys(plans).map(id => ({
+  const members = Object.keys(conclusions).map(id => ({
     member_id: id,
     folder_name: id,
     folder_path: id,
@@ -99,12 +57,7 @@ it('filters strictly by the displayed status, including folders with overlapping
       hiddenSelectedCount: 0,
       filter: 'all',
       search: '',
-      conclusionFor: member => memberConclusion({
-        excluded: false,
-        hasRoot: true,
-        rootMissing: false,
-        components: plans[member.member_id]!,
-      }),
+      conclusionFor: member => memberConclusion(conclusions[member.member_id as keyof typeof conclusions]),
     },
   })
   await giveHeight(wrapper)
@@ -161,12 +114,7 @@ it('shows a long folder name in full and keeps its actions reachable', async () 
       hiddenSelectedCount: 0,
       filter: 'all',
       search: '',
-      conclusionFor: () => memberConclusion({
-        excluded: false,
-        hasRoot: true,
-        rootMissing: false,
-        components: [],
-      }),
+      conclusionFor: () => memberConclusion(frozenConclusion('not_applicable')),
     },
   })
   await giveHeight(wrapper)
@@ -218,12 +166,7 @@ it('draws only a window of a large member set', async () => {
       hiddenSelectedCount: 0,
       filter: 'all',
       search: '',
-      conclusionFor: () => memberConclusion({
-        excluded: false,
-        hasRoot: true,
-        rootMissing: false,
-        components: [],
-      }),
+      conclusionFor: () => memberConclusion(frozenConclusion('not_applicable')),
     },
   })
   await giveHeight(wrapper)

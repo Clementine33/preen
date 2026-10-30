@@ -1,16 +1,17 @@
 package workset_test
 
 import (
+	"encoding/json"
+	"reflect"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/Clementine33/preen/backend/internal/testutil/inventoryfixture"
 )
 
-// TestRevisionComponentRootOwnership covers the stable component→root
-// ownership contract through the operation-scoped revision detail: every
-// component maps to the plan root it was discovered under, and a re-read
-// returns the identical ownership table.
+// TestRevisionComponentRootOwnership reads each member's complete frozen inputs
+// through member review and checks stable, disjoint component ownership.
 func TestRevisionComponentRootOwnership(t *testing.T) {
 	f := newFixture(t)
 	ids := f.standardLibrary("albumA", "albumB")
@@ -30,52 +31,41 @@ func TestRevisionComponentRootOwnership(t *testing.T) {
 		t.Fatalf("generation did not complete: %+v", gen)
 	}
 
-	rev, err := f.svc.GetRevision(f.ctx, ws.WorksetID, "conversion", gen.RevisionID)
-	if err != nil {
-		t.Fatalf("GetRevision: %v", err)
-	}
-	if len(rev.Roots) != 2 {
-		t.Fatalf("roots = %d, want 2", len(rev.Roots))
-	}
-	if rev.Roots[0].RootPath != "/music/albumA" || rev.Roots[1].RootPath != "/music/albumB" {
-		t.Fatalf("root order mismatch: %+v", rev.Roots)
-	}
-	if len(rev.ComponentRoots) == 0 {
-		t.Fatal("component_roots missing")
-	}
-	byRoot := map[int]int{}
-	for _, cr := range rev.ComponentRoots {
-		if cr.ComponentID == "" {
-			t.Fatalf("empty component_id in ownership table: %+v", rev.ComponentRoots)
+	seen := map[string]bool{}
+	for _, member := range ws.Members {
+		review, err := f.svc.GetMemberReview(f.ctx, ws.WorksetID, "conversion", gen.RevisionID, member.MemberID)
+		if err != nil {
+			t.Fatal(err)
 		}
-		if cr.RootIndex < 0 || cr.RootIndex > 1 {
-			t.Fatalf("component %s maps to unknown root %d", cr.ComponentID, cr.RootIndex)
+		if len(review.Roots) != 1 || review.Roots[0].RootPath != member.FolderPath || len(review.Plan.Units) == 0 {
+			t.Fatalf("wrong member inputs: %+v", review)
 		}
-		byRoot[cr.RootIndex]++
-	}
-	if byRoot[0] == 0 || byRoot[1] == 0 {
-		t.Fatalf("expected components under both roots, got %+v", byRoot)
-	}
-
-	// Re-read returns the identical immutable snapshot.
-	again, err := f.svc.GetRevision(f.ctx, ws.WorksetID, "conversion", gen.RevisionID)
-	if err != nil {
-		t.Fatalf("GetRevision again: %v", err)
-	}
-	if len(again.ComponentRoots) != len(rev.ComponentRoots) {
-		t.Fatalf(
-			"ownership table length changed on re-read: %d vs %d",
-			len(again.ComponentRoots),
-			len(rev.ComponentRoots),
-		)
-	}
-	for i := range rev.ComponentRoots {
-		if again.ComponentRoots[i] != rev.ComponentRoots[i] {
-			t.Fatalf("ownership row %d changed: %+v vs %+v", i, again.ComponentRoots[i], rev.ComponentRoots[i])
+		for _, raw := range review.Plan.Units {
+			var component struct {
+				ComponentID string `json:"component_id"`
+			}
+			if decodeErr := json.Unmarshal(raw, &component); decodeErr != nil {
+				t.Fatal(decodeErr)
+			}
+			if component.ComponentID == "" || seen[component.ComponentID] {
+				t.Fatalf("invalid ownership: %s", raw)
+			}
+			seen[component.ComponentID] = true
+			other := "/music/albumA"
+			if member.FolderPath == other {
+				other = "/music/albumB"
+			}
+			if strings.Contains(string(raw), other) {
+				t.Fatalf("foreign component in member review: %s", raw)
+			}
 		}
-	}
-	if len(again.Members) != len(rev.Members) {
-		t.Fatalf("frozen member table changed on re-read: %d vs %d", len(again.Members), len(rev.Members))
+		again, err := f.svc.GetMemberReview(f.ctx, ws.WorksetID, "conversion", gen.RevisionID, member.MemberID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(review, again) {
+			t.Fatal("frozen member review changed on re-read")
+		}
 	}
 }
 

@@ -420,7 +420,7 @@ function submitDelete() {
       v-else-if="mode === 'plan' && canReview"
       class="min-h-0 flex-1"
       :workset-id="worksetId ?? ''"
-      :member-path="memberPath ?? ''"
+      :member-id="memberId ?? ''"
     />
 
     <div

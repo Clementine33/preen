@@ -85,6 +85,7 @@ type PlanStepRecord struct {
 // folders whose subtree no longer exists; RootErrorCode/Message carry the
 // stable machine outcome for missing roots (SOURCE_MISSING).
 type PlanRootRecord struct {
+	MemberID             string // frozen owner; independent of mutable member paths
 	RootIndex            int
 	RootPath             string
 	RootIdentity         string

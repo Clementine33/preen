@@ -1,11 +1,9 @@
 <script setup lang="ts">
-import type { FileDecision } from '@/lib/api/types'
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { Button } from '@/components/ui/button'
 import { useCurrentConversion } from '@/composables/use-operation-context'
 import ExecutionPanel from '@/features/worksets/ExecutionPanel.vue'
-import { keptDecisions, revisionComponents } from '@/features/worksets/plan-readers'
 
 /**
  * The execution session of the revision in view
@@ -27,22 +25,9 @@ const {
   loadingMoreComponents,
   queries,
   workspace,
-} = useCurrentConversion(libraryId)
+} = useCurrentConversion(libraryId, computed(() => false))
 
-/** Each component's kept files, as the executed revision concluded them. */
-const kept = computed<Record<string, FileDecision[]>>(() => {
-  const executed = workspace.revision.value
-  if (!executed)
-    return {}
-  return Object.fromEntries(
-    revisionComponents(executed).map(component => [
-      component.component_id,
-      keptDecisions(component),
-    ]),
-  )
-})
-
-const loading = computed(() => queries.operationQuery.isPending.value || queries.revisionQuery.isPending.value)
+const loading = computed(() => queries.operationQuery.isPending.value || queries.executionQuery.isLoading.value)
 const running = computed(() => {
   const status = executionView.value?.status
   return status === 'queued' || status === 'running'
@@ -69,7 +54,6 @@ async function cancel() {
     <template v-else>
       <ExecutionPanel
         :view="executionView"
-        :kept="kept"
         :members="workspace.workset.value?.members ?? []"
         :has-more="hasMoreComponents"
         :loading-more="loadingMoreComponents"

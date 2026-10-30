@@ -153,3 +153,12 @@ func (*Task) ReviewRevision(in workset.RevisionFacts) (workset.PlanReview, error
 	}
 	return out, nil
 }
+
+// MemberConclusion preserves this member's sole frozen component, including
+// optional fields. Excluded members and members without input have no component.
+func (*Task) MemberConclusion(components []json.RawMessage) (json.RawMessage, error) {
+	if len(components) == 0 {
+		return nil, nil
+	}
+	return components[0], nil
+}

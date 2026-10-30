@@ -54,10 +54,11 @@ type StartExecutionResult struct {
 
 // ExecutionComponentView is one component's frozen work and observed outcome:
 // the wire shape of a `components[]` entry and of one `component` event. The
-// frozen half comes from the session's worklist, the observed half from the
-// component's own result row (ADR 0006).
+// frozen half comes from the session's worklist and joined plan decisions;
+// the observed half comes from the component's own result row (ADR 0006).
 type ExecutionComponentView struct {
 	TaskResult         json.RawMessage `json:"task_result,omitempty"`
+	KeptDecisions      json.RawMessage `json:"kept_decisions"`
 	ComponentIndex     int             `json:"component_index"`
 	ComponentID        string          `json:"component_id"`
 	RootPath           string          `json:"root_path"`
@@ -567,6 +568,7 @@ func initialComponentReport(units []ExecutionUnit) []ExecutionComponentView {
 	report := make([]ExecutionComponentView, 0, len(units))
 	for _, u := range units {
 		report = append(report, ExecutionComponentView{
+			KeptDecisions:  json.RawMessage(`[]`),
 			ComponentIndex: u.Index,
 			ComponentID:    u.ID,
 			RootPath:       u.RootPath,
@@ -686,6 +688,10 @@ func (s *serviceImpl) executionViewOf(e *PlanExecution, page ExecutionPage) (*Ex
 		return nil, NewError(ErrKindInternal, "REQUEST_LOAD_FAILED", "failed to load the frozen request", err)
 	}
 	units := pageUnits(req.Units, page)
+	components, err := s.executionComponents(e.PlanID, e.OperationType, units)
+	if err != nil {
+		return nil, err
+	}
 	view := &ExecutionView{
 		ExecutionID:         e.ExecutionID,
 		WorksetID:           e.WorksetID,
@@ -705,7 +711,7 @@ func (s *serviceImpl) executionViewOf(e *PlanExecution, page ExecutionPage) (*Ex
 		StartedAt:           formatTime(e.StartedAt),
 		FinishedAt:          formatTime(e.FinishedAt),
 		CreatedAt:           formatTime(e.CreatedAt),
-		Components:          initialComponentReport(units),
+		Components:          components,
 		SelectedFolders:     req.Folders,
 	}
 	results, err := s.repo.ListExecutionComponentResults(e.ExecutionID, page.FromIndex, page.Limit)

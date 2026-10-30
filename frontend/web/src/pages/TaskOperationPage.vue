@@ -9,7 +9,6 @@ import type {
   RenameDraftDocument,
   RenameTaskResult,
   RevisionDetailResponse,
-  TaskPlanPayload,
 } from '@/lib/api/types'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { computed, ref, watch } from 'vue'
@@ -82,13 +81,17 @@ const revisionQuery = useQuery(() => operationRevisionDetailQueryOptions(api, wo
 const draftDocument = computed(
   () => (draftQuery.data.value?.document ?? null) as unknown as RenameDraftDocument | MetadataDraftDocument | null,
 )
+type TaskComponent = RenameComponent | MetadataComponent
 const revision = computed(
   () =>
-    (revisionQuery.data.value ?? null) as unknown as RevisionDetailResponse<
-      TaskPlanPayload<RenameComponent | MetadataComponent>
-    > | null,
+    (revisionQuery.data.value ?? null) as unknown as RevisionDetailResponse<unknown, TaskComponent> | null,
 )
-const components = computed(() => revision.value?.task.payload.components ?? [])
+// Each participating member's task conclusion is its sole frozen component.
+const components = computed(() => (revision.value?.members ?? []).flatMap(conclusion =>
+  conclusion.task
+    ? [conclusion.task]
+    : [],
+))
 
 // ---- settings -----------------------------------------------------------
 

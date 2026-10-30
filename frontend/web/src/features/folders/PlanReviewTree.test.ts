@@ -33,7 +33,6 @@ const workset: Workset = {
       dir_id: 'dir-albumA',
     },
   ],
-  operations: [],
   updated_at: '',
   created_at: '',
 }

@@ -378,7 +378,7 @@ func (s *serviceImpl) GetCurrentWorkset(
 	if w == nil {
 		return nil, nil
 	}
-	return s.view(ctx, w)
+	return s.view(w)
 }
 
 func validateTitle(title string) error {

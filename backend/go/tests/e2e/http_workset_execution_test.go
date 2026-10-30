@@ -85,20 +85,18 @@ func waitForLatestRevision(
 	t *testing.T,
 	client *http.Client,
 	ctx context.Context,
-	base, token, wsPath, opPath string,
+	base, token, opPath string,
 ) string {
 	t.Helper()
 	deadline := time.Now().Add(30 * time.Second)
 	for {
-		var wsDetail struct {
-			Operations []struct {
-				LatestGeneration *struct {
-					GenerationID string `json:"generation_id"`
-				} `json:"latest_generation"`
-			} `json:"operations"`
+		var opDetail struct {
+			LatestGeneration *struct {
+				GenerationID string `json:"generation_id"`
+			} `json:"latest_generation"`
 		}
-		_ = doJSON(t, client, ctx, base, http.MethodGet, wsPath, token, nil, &wsDetail)
-		if len(wsDetail.Operations) == 3 && wsDetail.Operations[0].LatestGeneration != nil {
+		_ = doJSON(t, client, ctx, base, http.MethodGet, opPath, token, nil, &opDetail)
+		if opDetail.LatestGeneration != nil {
 			var genDetail struct {
 				Status     string `json:"status"`
 				RevisionID string `json:"revision_id"`
@@ -106,7 +104,7 @@ func waitForLatestRevision(
 			}
 			if code := doJSON(
 				t, client, ctx, base, http.MethodGet,
-				opPath+"/planning-sessions/"+wsDetail.Operations[0].LatestGeneration.GenerationID,
+				opPath+"/planning-sessions/"+opDetail.LatestGeneration.GenerationID,
 				token, nil, &genDetail,
 			); code == http.StatusOK {
 				if genDetail.Status == "completed" {
@@ -265,7 +263,7 @@ func setupScannedWorkset(
 	); code != http.StatusAccepted {
 		t.Fatalf("start generation: %d", code)
 	}
-	revisionID := waitForLatestRevision(t, client, ctx, base, token, wsPath, opPath)
+	revisionID := waitForLatestRevision(t, client, ctx, base, token, opPath)
 	return &execFixtureHTTP{
 		base: base, client: client, ctx: ctx, token: token, libID: lib.ID,
 		rootPath: rootPath, wsPath: wsPath, opPath: opPath, revision: revisionID,
@@ -538,7 +536,7 @@ func TestHTTPWorksetExecutionLoop(t *testing.T) {
 	); code != http.StatusAccepted {
 		t.Fatalf("second generation: %d", code)
 	}
-	secondRevision := waitForLatestRevision(t, f.client, f.ctx, f.base, f.token, f.wsPath, f.opPath)
+	secondRevision := waitForLatestRevision(t, f.client, f.ctx, f.base, f.token, f.opPath)
 	if secondRevision == f.revision {
 		t.Fatal("the second generation must produce a new revision")
 	}

@@ -93,14 +93,13 @@ type operationResponse struct {
 
 // worksetResponse is the workset metadata view.
 type worksetResponse struct {
-	WorksetID  string              `json:"workset_id"`
-	Title      string              `json:"title"`
-	Version    int                 `json:"version"`
-	Library    *libraryRefResponse `json:"library"`
-	Members    []memberResponse    `json:"members"`
-	Operations []operationResponse `json:"operations"`
-	UpdatedAt  string              `json:"updated_at"`
-	CreatedAt  string              `json:"created_at"`
+	WorksetID string              `json:"workset_id"`
+	Title     string              `json:"title"`
+	Version   int                 `json:"version"`
+	Library   *libraryRefResponse `json:"library"`
+	Members   []memberResponse    `json:"members"`
+	UpdatedAt string              `json:"updated_at"`
+	CreatedAt string              `json:"created_at"`
 }
 
 // worksetListResponse is the list payload.
@@ -145,13 +144,12 @@ func toOperationResponse(v *workset.OperationView) operationResponse {
 
 func toWorksetResponse(v *workset.WorksetView) worksetResponse {
 	out := worksetResponse{
-		WorksetID:  v.WorksetID,
-		Title:      v.Title,
-		Version:    v.Version,
-		UpdatedAt:  v.UpdatedAt.UTC().Format(timeFormatJSON),
-		CreatedAt:  v.CreatedAt.UTC().Format(timeFormatJSON),
-		Members:    make([]memberResponse, 0, len(v.Members)),
-		Operations: make([]operationResponse, 0, len(v.Operations)),
+		WorksetID: v.WorksetID,
+		Title:     v.Title,
+		Version:   v.Version,
+		UpdatedAt: v.UpdatedAt.UTC().Format(timeFormatJSON),
+		CreatedAt: v.CreatedAt.UTC().Format(timeFormatJSON),
+		Members:   make([]memberResponse, 0, len(v.Members)),
 	}
 	if v.Library != nil {
 		out.Library = &libraryRefResponse{
@@ -172,9 +170,6 @@ func toWorksetResponse(v *workset.WorksetView) worksetResponse {
 			RelPath:    m.RelPath,
 			DirID:      dirIdentity,
 		})
-	}
-	for _, op := range v.Operations {
-		out.Operations = append(out.Operations, toOperationResponse(op))
 	}
 	return out
 }

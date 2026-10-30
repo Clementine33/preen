@@ -99,7 +99,7 @@ func TestDesignExampleInheritance(t *testing.T) {
 		{MemberID: yi, Overrides: &conversion.OverrideSet{Matched: &flac}},
 		{MemberID: bing, Overrides: &conversion.OverrideSet{NoEffectTags: &[]string{"A"}}},
 	}
-	f.saveDraft(ws.WorksetID, doc, ws.Operations[0].Version)
+	f.saveDraft(ws.WorksetID, doc, f.operation(ws.WorksetID).Version)
 
 	// Step 1: batch-set unmatched=WAV for 甲 and 乙. Only the unmatched unit
 	// gains an override; 乙's matched=FLAC survives untouched.
@@ -255,7 +255,7 @@ func TestSparseOverridesSurviveRoundTrip(t *testing.T) {
 		// A participating member with no override is not stored at all.
 		{MemberID: second},
 	}
-	f.saveDraft(ws.WorksetID, doc, ws.Operations[0].Version)
+	f.saveDraft(ws.WorksetID, doc, f.operation(ws.WorksetID).Version)
 
 	stored := f.draft(ws.WorksetID)
 	if len(mustDraft(t, stored).Members) != 1 || mustDraft(t, stored).Members[0].MemberID != first {
@@ -283,7 +283,7 @@ func TestExplicitEmptyTagsAreNotAbsence(t *testing.T) {
 	doc.Members = []conversion.DraftMember{
 		{MemberID: byPath["clear"], Overrides: &conversion.OverrideSet{NoEffectTags: &empty}},
 	}
-	f.saveDraft(ws.WorksetID, doc, ws.Operations[0].Version)
+	f.saveDraft(ws.WorksetID, doc, f.operation(ws.WorksetID).Version)
 
 	stored := f.draft(ws.WorksetID)
 	if len(mustDraft(t, stored).Members) != 1 {
@@ -310,7 +310,7 @@ func TestEqualValueDifferentSource(t *testing.T) {
 	doc.Members = []conversion.DraftMember{
 		{MemberID: byPath["explicit"], Overrides: &conversion.OverrideSet{NoEffectTags: &same}},
 	}
-	f.saveDraft(ws.WorksetID, doc, ws.Operations[0].Version)
+	f.saveDraft(ws.WorksetID, doc, f.operation(ws.WorksetID).Version)
 
 	eff := f.resolve(ws)
 	if eff["inherit"].sources[conversion.UnitNoEffectTags] != conversion.SourceCommon {
@@ -342,7 +342,7 @@ func TestExcludingEveryMemberBlocksGeneration(t *testing.T) {
 	ws := f.createCurrent("全排除", ids...)
 	doc := draftDoc()
 	doc.Members = []conversion.DraftMember{{MemberID: ws.Members[0].MemberID, Excluded: true}}
-	view := f.saveDraft(ws.WorksetID, doc, ws.Operations[0].Version)
+	view := f.saveDraft(ws.WorksetID, doc, f.operation(ws.WorksetID).Version)
 
 	_, err := f.svc.StartGeneration(
 		f.ctx,
@@ -374,7 +374,7 @@ func TestHistoricalRevisionKeepsItsFrozenValues(t *testing.T) {
 	doc.Members = []conversion.DraftMember{
 		{MemberID: byPath, Overrides: &conversion.OverrideSet{NoEffectTags: &tags}},
 	}
-	f.saveDraft(ws.WorksetID, doc, ws.Operations[0].Version)
+	f.saveDraft(ws.WorksetID, doc, f.operation(ws.WorksetID).Version)
 
 	first := f.runGeneration(ws.WorksetID, f.operation(ws.WorksetID).Version)
 	if first.Status != "completed" {

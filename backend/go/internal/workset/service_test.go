@@ -30,10 +30,7 @@ func TestCreateEstablishesConversionOperation(t *testing.T) {
 	if len(ws.Members) != 2 {
 		t.Fatalf("members = %+v", ws.Members)
 	}
-	if len(ws.Operations) != 1 || ws.Operations[0].OperationType != workset.OperationTypeConversion {
-		t.Fatalf("operations = %+v", ws.Operations)
-	}
-	op := ws.Operations[0]
+	op := f.operation(ws.WorksetID)
 	if op.PlanningState != workset.PlanningUnplanned {
 		t.Fatalf("planning_state = %q, want unplanned", op.PlanningState)
 	}
@@ -414,12 +411,11 @@ func TestOrphanedWorksetIsReadOnly(t *testing.T) {
 	ws := f.createCurrent("孤儿", ids...)
 	f.exec("UPDATE worksets SET library_id = NULL WHERE id = ?", ws.WorksetID)
 
-	view, err := f.svc.GetWorkset(f.ctx, ws.WorksetID)
-	if err != nil {
+	if _, err := f.svc.GetWorkset(f.ctx, ws.WorksetID); err != nil {
 		t.Fatalf("GetWorkset orphaned: %v", err)
 	}
-	if len(view.Operations) != 1 || view.Operations[0].PlanningState != workset.PlanningOrphaned {
-		t.Fatalf("orphaned operations = %+v", view.Operations)
+	if op := f.operation(ws.WorksetID); op.PlanningState != workset.PlanningOrphaned {
+		t.Fatalf("orphaned operation = %+v", op)
 	}
 	if _, err := f.svc.RenameWorkset(f.ctx, ws.WorksetID, workset.RenameRequest{
 		Title: "x", IfMatchVersion: ws.Version,

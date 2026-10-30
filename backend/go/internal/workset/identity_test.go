@@ -29,7 +29,7 @@ func TestCreateReturnsStableMemberIdentities(t *testing.T) {
 	}
 
 	// Draft save, rename and re-read must not change any member identity.
-	f.saveDraft(ws.WorksetID, draftDoc(), ws.Operations[0].Version)
+	f.saveDraft(ws.WorksetID, draftDoc(), f.operation(ws.WorksetID).Version)
 	if _, err := f.svc.RenameWorkset(f.ctx, ws.WorksetID, workset.RenameRequest{
 		Title: "新名字", IfMatchVersion: ws.Version,
 	}); err != nil {

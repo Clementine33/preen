@@ -26,7 +26,6 @@ const workset: Workset = {
   version: 1,
   library: { library_id: 'lib-a', name: 'Lib', root_path: '/music' },
   members: [],
-  operations: [],
   updated_at: '2026-09-16T00:00:00Z',
   created_at: '2026-09-16T00:00:00Z',
 }

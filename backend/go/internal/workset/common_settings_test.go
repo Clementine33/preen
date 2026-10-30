@@ -147,11 +147,12 @@ func TestCommonSettingsSaveReachesEveryRecord(t *testing.T) {
 		Excluded:  true,
 		Overrides: &conversion.OverrideSet{Mode: &strict, OtherTags: &emptyOther},
 	}}
-	before := f.saveDraft(second.WorksetID, other, second.Operations[0].Version)
+	firstVersion := f.operation(first.WorksetID).Version
+	before := f.saveDraft(second.WorksetID, other, f.operation(second.WorksetID).Version)
 
 	f.saveSettings(elsewhere("SEあり", "反転"))
-	if got := f.operation(first.WorksetID).Version; got != first.Operations[0].Version+1 {
-		t.Fatalf("first record version = %d, want %d", got, first.Operations[0].Version+1)
+	if got := f.operation(first.WorksetID).Version; got != firstVersion+1 {
+		t.Fatalf("first record version = %d, want %d", got, firstVersion+1)
 	}
 
 	synced := mustDraft(t, f.draft(second.WorksetID))
@@ -195,7 +196,9 @@ func TestCommonSettingsSaveLeavesGeneratedPlansAndNeedsReplanning(t *testing.T) 
 	_, second := f.twoLibraries(t)
 	f.insertAudioEntry("/music2/albumC/01.mp3", "/music2/albumC", 1024, 1000)
 
-	planned := f.saveDraft(second.WorksetID, mustDraft(t, f.draft(second.WorksetID)), second.Operations[0].Version)
+	planned := f.saveDraft(
+		second.WorksetID, mustDraft(t, f.draft(second.WorksetID)), f.operation(second.WorksetID).Version,
+	)
 	gen := f.runGeneration(second.WorksetID, planned.Version)
 	if gen.Status != workset.GenStatusCompleted || gen.RevisionID == "" {
 		t.Fatalf("generation = %+v", gen)
@@ -248,9 +251,10 @@ func TestMemberOnlySaveStaysInsideItsRecord(t *testing.T) {
 		MemberID:  first.Members[0].MemberID,
 		Overrides: &conversion.OverrideSet{NoEffectTags: &tags},
 	}}
-	saved := f.saveDraft(first.WorksetID, doc, first.Operations[0].Version)
+	ownVersion := f.operation(first.WorksetID).Version
+	saved := f.saveDraft(first.WorksetID, doc, ownVersion)
 
-	if saved.Version != first.Operations[0].Version+1 {
+	if saved.Version != ownVersion+1 {
 		t.Fatalf("own operation version = %d", saved.Version)
 	}
 	if after := f.operation(second.WorksetID); after.Version != before.Version {
@@ -523,7 +527,7 @@ func TestCommonSettingsSaveRefusedOnAnUnreadableDraft(t *testing.T) {
 func TestDraftSaveRefusesADifferingCommonSection(t *testing.T) {
 	f := newFixture(t)
 	first, _ := f.twoLibraries(t)
-	version := first.Operations[0].Version
+	version := f.operation(first.WorksetID).Version
 	differs := func() error {
 		_, err := f.svc.SaveDraft(f.ctx, first.WorksetID, workset.OperationTypeConversion,
 			workset.SaveDraftRequest{Document: draftJSON(t, elsewhere("反転")), IfMatchVersion: version})

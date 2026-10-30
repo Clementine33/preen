@@ -76,9 +76,6 @@ func assertDeletedLibraryRecordHidden(t *testing.T, repo *sqlite.Repository, kin
 	if members, err := repo.ListWorksetMembers("set"); err != nil || len(members) != 0 {
 		t.Fatalf("deleted members: %+v, %v", members, err)
 	}
-	if ops, err := repo.ListOperations("set"); err != nil || len(ops) != 0 {
-		t.Fatalf("deleted operations: %+v, %v", ops, err)
-	}
 	if _, err := repo.GetOperation("set", kind); !errors.Is(err, workset.ErrOperationNotFound) {
 		t.Fatalf("deleted operation: %v", err)
 	}

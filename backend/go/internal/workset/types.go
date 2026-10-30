@@ -163,16 +163,15 @@ type OperationView struct {
 }
 
 // WorksetView is the workset metadata view: identity, library, fixed members
-// and the operation entries the UI navigates to.
+// and timestamps. Planning state is read from the operation view.
 type WorksetView struct {
-	WorksetID  string
-	Title      string
-	Version    int
-	Library    *LibraryRef
-	Members    []MemberView
-	Operations []*OperationView
-	CreatedAt  time.Time
-	UpdatedAt  time.Time
+	WorksetID string
+	Title     string
+	Version   int
+	Library   *LibraryRef
+	Members   []MemberView
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 // CreateCurrentRequest is the create-or-replace payload of the current record

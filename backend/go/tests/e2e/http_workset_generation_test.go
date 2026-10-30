@@ -253,25 +253,19 @@ func TestHTTPWorksetGenerationLoop(t *testing.T) {
 	}
 	deadline := time.Now().Add(30 * time.Second)
 	for {
-		var wsDetail struct {
-			Operations []struct {
-				OperationType    string `json:"operation_type"`
-				ActiveGeneration *struct {
-					GenerationID string `json:"generation_id"`
-				} `json:"active_generation"`
-				LatestGeneration *struct {
-					GenerationID string `json:"generation_id"`
-				} `json:"latest_generation"`
-			} `json:"operations"`
+		var opDetail struct {
+			ActiveGeneration *struct {
+				GenerationID string `json:"generation_id"`
+			} `json:"active_generation"`
+			LatestGeneration *struct {
+				GenerationID string `json:"generation_id"`
+			} `json:"latest_generation"`
 		}
-		_ = doJSON(t, client, ctx, base, http.MethodGet, wsPath, token, nil, &wsDetail)
-		if len(wsDetail.Operations) != 3 || wsDetail.Operations[0].OperationType != "conversion" {
-			t.Fatalf("workset operations: %+v", wsDetail.Operations)
-		}
-		if wsDetail.Operations[0].ActiveGeneration != nil {
-			lastGenID = wsDetail.Operations[0].ActiveGeneration.GenerationID
-		} else if wsDetail.Operations[0].LatestGeneration != nil {
-			lastGenID = wsDetail.Operations[0].LatestGeneration.GenerationID
+		_ = doJSON(t, client, ctx, base, http.MethodGet, opPath, token, nil, &opDetail)
+		if opDetail.ActiveGeneration != nil {
+			lastGenID = opDetail.ActiveGeneration.GenerationID
+		} else if opDetail.LatestGeneration != nil {
+			lastGenID = opDetail.LatestGeneration.GenerationID
 		}
 		if lastGenID == "" {
 			if time.Now().After(deadline) {

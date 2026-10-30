@@ -16,9 +16,10 @@ func TestDraftSaveAdvancesOperationVersion(t *testing.T) {
 	ids := f.standardLibrary("albumA")
 	ws := f.createCurrent("版本", ids...)
 
-	saved := f.saveDraft(ws.WorksetID, mustDraft(t, f.draft(ws.WorksetID)), ws.Operations[0].Version)
-	if saved.Version != ws.Operations[0].Version+1 {
-		t.Fatalf("operation version = %d, want %d", saved.Version, ws.Operations[0].Version+1)
+	start := f.operation(ws.WorksetID).Version
+	saved := f.saveDraft(ws.WorksetID, mustDraft(t, f.draft(ws.WorksetID)), start)
+	if saved.Version != start+1 {
+		t.Fatalf("operation version = %d, want %d", saved.Version, start+1)
 	}
 	if saved.PlanningState != workset.PlanningUnplanned {
 		t.Fatalf("planning state = %q", saved.PlanningState)
@@ -28,7 +29,7 @@ func TestDraftSaveAdvancesOperationVersion(t *testing.T) {
 		ws.WorksetID,
 		workset.OperationTypeConversion,
 		workset.SaveDraftRequest{
-			Document: draftJSON(t, mustDraft(t, f.draft(ws.WorksetID))), IfMatchVersion: ws.Operations[0].Version,
+			Document: draftJSON(t, mustDraft(t, f.draft(ws.WorksetID))), IfMatchVersion: start,
 		},
 	); err == nil {
 		t.Fatal("stale If-Match must be refused")
@@ -57,7 +58,7 @@ func TestDraftSaveAllowsIncompleteButGenerationRejects(t *testing.T) {
 
 	doc := draftDoc()
 	doc.NoEffectTags = []string{} // no classifier tag: saveable, not plannable
-	view := f.saveDraft(ws.WorksetID, doc, ws.Operations[0].Version)
+	view := f.saveDraft(ws.WorksetID, doc, f.operation(ws.WorksetID).Version)
 
 	_, err := f.svc.StartGeneration(
 		f.ctx,
@@ -81,7 +82,7 @@ func TestDraftRejectsUnknownAndDuplicateMembers(t *testing.T) {
 	f := newFixture(t)
 	ids := f.standardLibrary("albumA")
 	ws := f.createCurrent("成员校验", ids...)
-	version := ws.Operations[0].Version
+	version := f.operation(ws.WorksetID).Version
 
 	unknown := draftDoc()
 	unknown.Members = []conversion.DraftMember{{MemberID: "m-not-here"}}
@@ -133,7 +134,7 @@ func TestDraftRejectsUnknownCodecAndMode(t *testing.T) {
 	f := newFixture(t)
 	ids := f.standardLibrary("albumA")
 	ws := f.createCurrent("字段校验", ids...)
-	version := ws.Operations[0].Version
+	version := f.operation(ws.WorksetID).Version
 
 	badMode := draftDoc()
 	badMode.Mode = "yolo"

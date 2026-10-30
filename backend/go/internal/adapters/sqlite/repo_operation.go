@@ -53,27 +53,6 @@ func (r *Repository) GetOperation(worksetID, operationType string) (*workset.Ope
 	return o, nil
 }
 
-// ListOperations returns a workset's operations in creation order.
-func (r *Repository) ListOperations(worksetID string) ([]*workset.Operation, error) {
-	rows, err := r.db.Query(
-		`SELECT `+operationColumns+` FROM workset_operations WHERE workset_id = ? AND workset_id IN (SELECT id FROM worksets WHERE retired = 0) ORDER BY created_at, operation_type`,
-		worksetID,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var out []*workset.Operation
-	for rows.Next() {
-		o, scanErr := scanOperation(rows)
-		if scanErr != nil {
-			return nil, scanErr
-		}
-		out = append(out, o)
-	}
-	return out, rows.Err()
-}
-
 func insertOperation(tx *sql.Tx, o workset.Operation) error {
 	var currentRevision any
 	if o.CurrentRevisionID != "" {

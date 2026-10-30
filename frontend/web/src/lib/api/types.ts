@@ -693,7 +693,6 @@ export interface Workset {
   version: number
   library: LibraryRef | null
   members: WorksetMember[]
-  operations: Operation[]
   updated_at: string
   created_at: string
 }

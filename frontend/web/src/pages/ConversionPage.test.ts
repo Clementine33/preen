@@ -52,7 +52,6 @@ const workset: Workset = {
     rel_path: name,
     dir_id: name,
   })),
-  operations: [],
   created_at: '',
   updated_at: '',
 }

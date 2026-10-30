@@ -68,7 +68,6 @@ const record: Workset = {
       dir_id: DIR_ID,
     },
   ],
-  operations: [],
   updated_at: '',
   created_at: '',
 }

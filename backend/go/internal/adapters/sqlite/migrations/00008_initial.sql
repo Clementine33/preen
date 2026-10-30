@@ -349,7 +349,6 @@ CREATE TABLE plan_executions (
     idempotency_key TEXT NOT NULL DEFAULT '',
     request_hash TEXT NOT NULL DEFAULT '',
     expected_operation_version INTEGER NOT NULL DEFAULT 0,
-    request_json TEXT NOT NULL DEFAULT '',
     total_components INTEGER NOT NULL DEFAULT 0,
     completed_components INTEGER NOT NULL DEFAULT 0,
     total_operations INTEGER NOT NULL DEFAULT 0,
@@ -377,6 +376,14 @@ CREATE INDEX idx_plan_executions_op_status
 -- Match the execution worker's instant and id tie-break ordering.
 CREATE INDEX idx_plan_executions_queue
     ON plan_executions(status, julianday(created_at), execution_id);
+
+-- The session's frozen request, kept apart from plan_executions so the
+-- progress counters updated per component never rewrite a payload that grows
+-- with the worklist. Written with the session row and never updated.
+CREATE TABLE plan_execution_requests (
+    execution_id TEXT PRIMARY KEY REFERENCES plan_executions(execution_id) ON DELETE CASCADE,
+    request_json TEXT NOT NULL
+);
 
 -- One component's observed result, written in the boundary transaction that
 -- moves the session past it. The parts a component cannot observe for itself —

@@ -15,11 +15,15 @@ import (
 // ErrExecutionInProgress is returned when an operation that must wait for an
 // active execution (library deletion) is attempted.
 
-const executionColumns = `execution_id, workset_id, operation_type, plan_id, status,
-	idempotency_key, request_hash, expected_operation_version, request_json,
+const executionColumns = `e.execution_id, workset_id, operation_type, plan_id, status,
+	idempotency_key, request_hash, expected_operation_version, q.request_json,
 	total_components, completed_components, total_operations, completed_operations,
 	current_root, current_component_id, current_component_index, current_phase,
 	cancel_requested, error_code, error_message, started_at, finished_at, created_at, updated_at`
+
+// executionSource joins the frozen request, which lives apart from the session
+// row so progress updates never rewrite it.
+const executionSource = `plan_executions e JOIN plan_execution_requests q ON q.execution_id = e.execution_id`
 
 // executionProgressColumns is the control-only projection the cancel watchdog
 // and the event stream poll: no request payload, no per-component result.
@@ -130,13 +134,18 @@ func scanExecutionProgress(scanner interface{ Scan(...any) error }) (*workset.Pl
 // workset.ErrWorksetNotFound, workset.ErrOperationNotFound.
 func (r *Repository) CreateExecutionGuarded(e *workset.PlanExecution, g workset.ExecutionGuards) error {
 	now := e.CreatedAt.Format(timeFormat)
-	result, err := r.db.Exec(`
+	tx, err := r.db.Begin()
+	if err != nil {
+		return fmt.Errorf("begin insert execution: %w", err)
+	}
+	defer tx.Rollback()
+	result, err := tx.Exec(`
 		INSERT INTO plan_executions (
 			execution_id, workset_id, operation_type, plan_id, status,
-			idempotency_key, request_hash, expected_operation_version, request_json,
+			idempotency_key, request_hash, expected_operation_version,
 			total_components, total_operations, created_at, updated_at
 		)
-		SELECT ?, ?, ?, ?, 'queued', ?, ?, ?, ?, ?, ?, ?, ?
+		SELECT ?, ?, ?, ?, 'queued', ?, ?, ?, ?, ?, ?, ?
 		WHERE EXISTS (
 			SELECT 1 FROM worksets w WHERE w.id = ? AND w.library_id IS NOT NULL AND w.retired = 0
 		)
@@ -155,7 +164,7 @@ func (r *Repository) CreateExecutionGuarded(e *workset.PlanExecution, g workset.
 			WHERE gen.workset_id = ? AND gen.operation_type = ? AND gen.status IN ('queued','running')
 		)
 	`, e.ExecutionID, e.WorksetID, e.OperationType, e.PlanID,
-		e.IdempotencyKey, e.RequestHash, e.ExpectedOperationVersion, e.RequestJSON,
+		e.IdempotencyKey, e.RequestHash, e.ExpectedOperationVersion,
 		e.TotalComponents, e.TotalOperations, now, now,
 		e.WorksetID,
 		e.WorksetID, e.OperationType, g.ExpectedOperationVersion, e.PlanID,
@@ -169,7 +178,17 @@ func (r *Repository) CreateExecutionGuarded(e *workset.PlanExecution, g workset.
 		return fmt.Errorf("insert execution: %w", err)
 	}
 	if affected, _ := result.RowsAffected(); affected == 0 {
+		_ = tx.Rollback()
 		return r.classifyExecutionGuards(e, g)
+	}
+	if _, err = tx.Exec(
+		`INSERT INTO plan_execution_requests (execution_id, request_json) VALUES (?, ?)`,
+		e.ExecutionID, e.RequestJSON,
+	); err != nil {
+		return fmt.Errorf("insert execution request: %w", err)
+	}
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("commit insert execution: %w", err)
 	}
 	return nil
 }
@@ -250,7 +269,7 @@ func (r *Repository) classifyExecutionGuards(e *workset.PlanExecution, g workset
 // GetExecution retrieves an execution session by id.
 func (r *Repository) GetExecution(executionID string) (*workset.PlanExecution, error) {
 	row := r.db.QueryRow(
-		`SELECT `+executionColumns+` FROM plan_executions WHERE plan_id IN (`+visiblePlanIDs+`) AND execution_id = ?`,
+		`SELECT `+executionColumns+` FROM `+executionSource+` WHERE plan_id IN (`+visiblePlanIDs+`) AND e.execution_id = ?`,
 		executionID,
 	)
 	e, err := scanExecution(row)
@@ -271,7 +290,7 @@ func (r *Repository) GetExecutionByOperationKey(worksetID, operationType, key st
 		return nil, nil
 	}
 	row := r.db.QueryRow(
-		`SELECT `+executionColumns+` FROM plan_executions
+		`SELECT `+executionColumns+` FROM `+executionSource+`
 		 WHERE plan_id IN (`+visiblePlanIDs+`) AND workset_id = ? AND operation_type = ? AND idempotency_key = ?`,
 		worksetID, operationType, key,
 	)
@@ -290,8 +309,8 @@ func (r *Repository) GetExecutionByOperationKey(worksetID, operationType, key st
 // the newest row is the only row.
 func (r *Repository) GetExecutionForRevision(planID string) (*workset.PlanExecution, error) {
 	row := r.db.QueryRow(
-		`SELECT `+executionColumns+` FROM plan_executions
-		 WHERE plan_id IN (`+visiblePlanIDs+`) AND plan_id = ? ORDER BY julianday(created_at) DESC, execution_id DESC LIMIT 1`,
+		`SELECT `+executionColumns+` FROM `+executionSource+`
+		 WHERE plan_id IN (`+visiblePlanIDs+`) AND plan_id = ? ORDER BY julianday(created_at) DESC, e.execution_id DESC LIMIT 1`,
 		planID,
 	)
 	e, err := scanExecution(row)
@@ -308,9 +327,9 @@ func (r *Repository) GetExecutionForRevision(planID string) (*workset.PlanExecut
 // operation, newest first. Returns nil when none is active.
 func (r *Repository) GetActiveExecutionForOperation(worksetID, operationType string) (*workset.PlanExecution, error) {
 	row := r.db.QueryRow(
-		`SELECT `+executionColumns+` FROM plan_executions
+		`SELECT `+executionColumns+` FROM `+executionSource+`
 		 WHERE plan_id IN (`+visiblePlanIDs+`) AND workset_id = ? AND operation_type = ? AND status IN ('queued','running')
-		 ORDER BY julianday(created_at) DESC, execution_id DESC LIMIT 1`,
+		 ORDER BY julianday(created_at) DESC, e.execution_id DESC LIMIT 1`,
 		worksetID, operationType,
 	)
 	e, err := scanExecution(row)
@@ -327,9 +346,9 @@ func (r *Repository) GetActiveExecutionForOperation(worksetID, operationType str
 // operation (any status), or nil.
 func (r *Repository) LatestExecutionForOperation(worksetID, operationType string) (*workset.PlanExecution, error) {
 	row := r.db.QueryRow(
-		`SELECT `+executionColumns+` FROM plan_executions
+		`SELECT `+executionColumns+` FROM `+executionSource+`
 		 WHERE plan_id IN (`+visiblePlanIDs+`) AND workset_id = ? AND operation_type = ?
-		 ORDER BY julianday(created_at) DESC, execution_id DESC LIMIT 1`,
+		 ORDER BY julianday(created_at) DESC, e.execution_id DESC LIMIT 1`,
 		worksetID, operationType,
 	)
 	e, err := scanExecution(row)
@@ -353,9 +372,9 @@ func (r *Repository) NextQueuedExecution() (*workset.PlanExecution, error) {
 	defer tx.Rollback()
 
 	rows, err := tx.Query(`
-		SELECT ` + executionColumns + ` FROM plan_executions
+		SELECT ` + executionColumns + ` FROM ` + executionSource + `
 		WHERE plan_id IN (` + visiblePlanIDs + `) AND status = 'queued'
-		ORDER BY julianday(created_at) ASC, execution_id ASC LIMIT 1
+		ORDER BY julianday(created_at) ASC, e.execution_id ASC LIMIT 1
 	`)
 	if err != nil {
 		return nil, err
@@ -411,11 +430,15 @@ func (r *Repository) UpdateExecutionPosition(executionID string, p workset.Execu
 }
 
 // SaveExecutionComponentResult writes one component's result and moves the
-// session's position in a single transaction. The counters are recomputed from
-// the result rows rather than adjusted, so replaying this call after a failed
-// commit cannot double-count; the result row itself is replaced wholesale, which
-// is what makes the replay idempotent. p is the position the run moves to —
-// the next component to work on — and is left empty for the last one.
+// session's position in a single transaction. The counters are adjusted by the
+// difference between the stored row and the new one (a missing row counts as
+// zero, and a component counts once its status is not 'pending'), so the cost
+// does not grow with the run. Replays stay exact: the result row is replaced
+// wholesale and the delta is read from the stored row inside the transaction, so
+// saving the same result again adds nothing, and a failed commit rolls the
+// counters back with the row. This is the only writer of both. p is the
+// position the run moves to — the next component to work on — and is left empty
+// for the last one.
 func (r *Repository) SaveExecutionComponentResult(
 	executionID string,
 	res workset.ExecutionComponentResult,
@@ -427,7 +450,18 @@ func (r *Repository) SaveExecutionComponentResult(
 	}
 	defer tx.Rollback()
 
-	if _, err := tx.Exec(`
+	var oldStatus string
+	var oldOperations int
+	err = tx.QueryRow(`
+		SELECT status, completed_operations FROM execution_component_results
+		WHERE execution_id = ? AND component_index = ?
+	`, executionID, res.ComponentIndex).Scan(&oldStatus, &oldOperations)
+	existed := err == nil
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return fmt.Errorf("read component result: %w", err)
+	}
+
+	if _, err = tx.Exec(`
 		INSERT INTO execution_component_results (
 			execution_id, component_index, status, completed_operations, result_json, updated_at
 		)
@@ -442,20 +476,24 @@ func (r *Repository) SaveExecutionComponentResult(
 		return fmt.Errorf("save component result: %w", err)
 	}
 
-	if _, err := tx.Exec(`
+	components, operations := 0, res.CompletedOperations
+	if res.Status != "pending" {
+		components++
+	}
+	if existed {
+		operations -= oldOperations
+		if oldStatus != "pending" {
+			components--
+		}
+	}
+	if _, err = tx.Exec(`
 		UPDATE plan_executions SET
-			completed_components = (
-				SELECT COUNT(*) FROM execution_component_results
-				WHERE execution_id = ? AND status <> 'pending'
-			),
-			completed_operations = (
-				SELECT COALESCE(SUM(completed_operations), 0) FROM execution_component_results
-				WHERE execution_id = ?
-			),
+			completed_components = completed_components + ?,
+			completed_operations = completed_operations + ?,
 			current_root = ?, current_component_id = ?, current_component_index = ?,
 			current_phase = ?, updated_at = ?
 		WHERE execution_id = ?
-	`, executionID, executionID, p.CurrentRoot, p.CurrentComponentID, p.CurrentComponentIndex,
+	`, components, operations, p.CurrentRoot, p.CurrentComponentID, p.CurrentComponentIndex,
 		p.CurrentPhase, time.Now().Format(timeFormat), executionID); err != nil {
 		return fmt.Errorf("update execution position: %w", err)
 	}

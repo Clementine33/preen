@@ -33,6 +33,7 @@ func (r *Repository) DeleteRetiredPlanBatch(ctx context.Context, limit int) (int
 	for _, child := range []struct{ table, predicate string }{
 		{"cover_deliveries", "execution_id IN (SELECT execution_id FROM plan_executions WHERE plan_id=?)"},
 		{"execution_component_results", "execution_id IN (SELECT execution_id FROM plan_executions WHERE plan_id=?)"},
+		{"plan_execution_requests", "execution_id IN (SELECT execution_id FROM plan_executions WHERE plan_id=?)"},
 		{"plan_executions", "plan_id=?"},
 		{"conversion_components", "plan_id=?"},
 		{"plan_member_conclusions", "plan_id=?"},

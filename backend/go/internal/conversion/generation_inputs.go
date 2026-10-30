@@ -5,7 +5,8 @@ import (
 	"time"
 )
 
-// SelectedScan refreshes explicit participating scopes with one writer/merge;
+// SelectedScan refreshes explicit participating scopes with one writer and one merge
+// that commits folder by folder, so a failure may leave some folders refreshed;
 // its callback checks cancellation during the refresh and while waiting for it.
 type SelectedScan func(context.Context, []string, string, func()) error
 

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"runtime"
 	"slices"
 	"strings"
@@ -19,6 +20,11 @@ import (
 type worksetSQLMeasurement struct {
 	mu         sync.Mutex
 	paths      map[string]worksetSQLSample
+	stmts      map[worksetStmtKey]worksetStmtStat
+	holds      []worksetInterval // main-db transaction holds, after BEGIN returned
+	waits      []worksetInterval // BEGIN waits
+	statements []worksetInterval // autocommit statement windows: lock wait and write are not separable
+	merges     []worksetMerge
 	readActive atomic.Bool
 	readNanos  atomic.Int64
 }
@@ -26,11 +32,52 @@ type worksetSQLMeasurement struct {
 type worksetSQLSample struct {
 	count, failures int
 	begin, held     time.Duration
+	totalHeld       time.Duration
 }
 
-func (m *worksetSQLMeasurement) record(path string, begin, held time.Duration, err error) {
+// worksetStmtKey names a statement kind within a transaction path. COMMIT is
+// the commit itself.
+type worksetStmtKey struct{ path, kind string }
+
+type worksetStmtStat struct {
+	count      int
+	max, total time.Duration
+}
+
+// worksetInterval is a held or waited span; the path is the waiting or holding one.
+type worksetInterval struct {
+	path       string
+	start, end time.Time
+}
+
+// worksetMerge is one MergeSelectedStaging invocation.
+type worksetMerge struct {
+	wall, held time.Duration
+	batches    int
+}
+
+func (a worksetInterval) overlap(b worksetInterval) time.Duration {
+	latest := a.start
+	if b.start.After(latest) {
+		latest = b.start
+	}
+	earliest := a.end
+	if b.end.Before(earliest) {
+		earliest = b.end
+	}
+	return max(0, earliest.Sub(latest))
+}
+
+func (m *worksetSQLMeasurement) reset() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	m.paths = map[string]worksetSQLSample{}
+	m.stmts = nil
+	m.holds, m.waits, m.statements, m.merges = nil, nil, nil, nil
+}
+
+// sample accumulates one path's totals; the caller holds m.mu.
+func (m *worksetSQLMeasurement) sample(path string, begin, held time.Duration, err error) {
 	s := m.paths[path]
 	s.count++
 	if err != nil {
@@ -38,8 +85,72 @@ func (m *worksetSQLMeasurement) record(path string, begin, held time.Duration, e
 	}
 	s.begin = max(s.begin, begin)
 	s.held = max(s.held, held)
+	s.totalHeld += held
 	m.paths[path] = s
 }
+
+// recordTransaction takes the boundary timestamps observed at the operation
+// sites: beginStart before BEGIN, holdStart after BEGIN returned, end after
+// COMMIT/ROLLBACK returned. TEMP-only transactions never hold the main writer.
+func (m *worksetSQLMeasurement) recordTransaction(path string, beginStart, holdStart, end time.Time, err error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.sample(path, holdStart.Sub(beginStart), end.Sub(holdStart), err)
+	if strings.HasSuffix(path, "/temp") {
+		return
+	}
+	m.waits = append(m.waits, worksetInterval{path, beginStart, holdStart})
+	if end.After(holdStart) {
+		m.holds = append(m.holds, worksetInterval{path, holdStart, end})
+	}
+}
+
+// recordStatement records an autocommit write. Its window includes lock
+// acquisition, so it is kept apart from definite holds.
+func (m *worksetSQLMeasurement) recordStatement(path string, start, end time.Time, err error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.sample(path, 0, end.Sub(start), err)
+	m.statements = append(m.statements, worksetInterval{path, start, end})
+}
+
+func (m *worksetSQLMeasurement) recordPhase(path string, elapsed time.Duration, err error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.sample(path, 0, elapsed, err)
+}
+
+func (m *worksetSQLMeasurement) recordStatements(path string, stats map[string]*worksetStmtStat) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.stmts == nil {
+		m.stmts = map[worksetStmtKey]worksetStmtStat{}
+	}
+	for kind, stat := range stats {
+		total := m.stmts[worksetStmtKey{path, kind}]
+		total.count += stat.count
+		total.max = max(total.max, stat.max)
+		total.total += stat.total
+		m.stmts[worksetStmtKey{path, kind}] = total
+	}
+}
+
+// recordMerge reports one MergeSelectedStaging call and the batch transactions
+// that ran inside its window.
+func (m *worksetSQLMeasurement) recordMerge(start, end time.Time) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	merge := worksetMerge{wall: end.Sub(start)}
+	for _, hold := range m.holds {
+		if hold.path == "mergeScopeBatch" && !hold.start.Before(start) && !hold.end.After(end) {
+			merge.batches++
+			merge.held += hold.end.Sub(hold.start)
+		}
+	}
+	m.merges = append(m.merges, merge)
+}
+
+func milliseconds(d time.Duration) float64 { return float64(d) / float64(time.Millisecond) }
 
 func (m *worksetSQLMeasurement) report(t *testing.T) {
 	t.Helper()
@@ -50,20 +161,81 @@ func (m *worksetSQLMeasurement) report(t *testing.T) {
 		keys = append(keys, path)
 	}
 	slices.Sort(keys)
-	t.Log("sql_path samples failures max_begin_ms max_held_ms max_autocommit_ms")
+	t.Log("sql_path samples failures max_begin_ms max_held_ms max_autocommit_ms total_held_ms")
 	for _, path := range keys {
 		s := m.paths[path]
 		switch {
 		case strings.Contains(path, "/phase/"):
-			t.Logf("sql_phase %s %d %d elapsed_ms=%.3f",
-				path, s.count, s.failures, float64(s.held)/float64(time.Millisecond))
+			t.Logf("sql_phase %s %d %d elapsed_ms=%.3f", path, s.count, s.failures, milliseconds(s.held))
 		case strings.HasSuffix(path, "/autocommit"):
-			t.Logf("sql %s %d %d n/a n/a %.3f", path, s.count, s.failures, float64(s.held)/float64(time.Millisecond))
+			t.Logf("sql %s %d %d n/a n/a %.3f", path, s.count, s.failures, milliseconds(s.held))
 		default:
-			t.Logf("sql %s %d %d %.3f %.3f n/a", path, s.count, s.failures,
-				float64(s.begin)/float64(time.Millisecond), float64(s.held)/float64(time.Millisecond))
+			t.Logf("sql %s %d %d %.3f %.3f n/a %.3f", path, s.count, s.failures,
+				milliseconds(s.begin), milliseconds(s.held), milliseconds(s.totalHeld))
 		}
 	}
+	stmtKeys := slices.SortedFunc(maps.Keys(m.stmts), func(a, b worksetStmtKey) int {
+		return strings.Compare(a.path+"\x00"+a.kind, b.path+"\x00"+b.kind)
+	})
+	for _, key := range stmtKeys {
+		stat := m.stmts[key]
+		if key.kind == worksetCommitKind || key.kind == worksetRollbackKind {
+			t.Logf("sql_%s %s count=%d max_ms=%.3f total_ms=%.3f", strings.ToLower(key.kind),
+				key.path, stat.count, milliseconds(stat.max), milliseconds(stat.total))
+		} else {
+			t.Logf("sql_stmt %s %q count=%d max_ms=%.3f total_ms=%.3f",
+				key.path, key.kind, stat.count, milliseconds(stat.max), milliseconds(stat.total))
+		}
+	}
+	byPath := map[string][]time.Duration{}
+	for _, wait := range m.waits {
+		byPath[wait.path] = append(byPath[wait.path], wait.end.Sub(wait.start))
+	}
+	for _, path := range slices.Sorted(maps.Keys(byPath)) {
+		d := byPath[path]
+		slices.Sort(d)
+		over, _ := slices.BinarySearch(d, time.Second+1)
+		over = len(d) - over
+		t.Logf("sql_begin_p99 %s count=%d p99_ms=%.3f over_1s=%d", path, len(d),
+			milliseconds(d[(len(d)*99+99)/100-1]), over)
+	}
+	for i, merge := range m.merges {
+		t.Logf("sql_merge #%d wall_ms=%.3f batches=%d held_ms=%.3f",
+			i+1, milliseconds(merge.wall), merge.batches, milliseconds(merge.held))
+	}
+	for _, wait := range m.waits {
+		if wait.end.Sub(wait.start) <= time.Second {
+			continue
+		}
+		t.Logf("sql_wait %s waited_ms=%.3f", wait.path, milliseconds(wait.end.Sub(wait.start)))
+		for _, windows := range []struct {
+			label     string
+			intervals []worksetInterval
+		}{{"sql_wait_hold", m.holds}, {"sql_wait_stmt", m.statements}} {
+			overlap := map[string]time.Duration{}
+			for _, interval := range windows.intervals {
+				overlap[interval.path] += wait.overlap(interval)
+			}
+			for _, path := range slices.Sorted(maps.Keys(overlap)) {
+				if overlap[path] > 0 {
+					t.Logf("%s %s overlap_ms=%.3f", windows.label, path, milliseconds(overlap[path]))
+				}
+			}
+		}
+	}
+}
+
+// worksetCommitKind and worksetRollbackKind key how a transaction ended among
+// its statements, so early-return rollbacks stay out of the commit timings.
+const (
+	worksetCommitKind   = "COMMIT"
+	worksetRollbackKind = "ROLLBACK"
+)
+
+// worksetStatementKind is the first 30 characters of the whitespace-normalized SQL.
+func worksetStatementKind(query string) string {
+	kind := strings.Join(strings.Fields(query), " ")
+	return kind[:min(len(kind), 30)]
 }
 
 // Driver timings exclude database/sql pool waiting. BEGIN includes SQLite's lock
@@ -113,24 +285,24 @@ func (c *worksetMeasuredConn) Begin() (driver.Tx, error) {
 
 func (c *worksetMeasuredConn) BeginTx(ctx context.Context, options driver.TxOptions) (driver.Tx, error) {
 	path := worksetSQLPath()
-	started := time.Now()
+	beginStart := time.Now()
 	beginner, ok := c.Conn.(driver.ConnBeginTx)
 	if !ok {
 		return nil, fmt.Errorf("measurement driver requires ConnBeginTx")
 	}
 	tx, err := beginner.BeginTx(ctx, options)
-	wait := time.Since(started)
+	holdStart := time.Now()
 	if err != nil {
-		c.measurement.record(path, wait, 0, err)
+		c.measurement.recordTransaction(path, beginStart, holdStart, holdStart, err)
 		return nil, err
 	}
 	measured := &worksetMeasuredTx{
-		Tx:       tx,
-		conn:     c,
-		path:     path,
-		begin:    wait,
-		started:  time.Now(),
-		readOnly: options.ReadOnly,
+		Tx:         tx,
+		conn:       c,
+		path:       path,
+		beginStart: beginStart,
+		holdStart:  holdStart,
+		readOnly:   options.ReadOnly,
 	}
 	c.transaction = measured
 	return measured, nil
@@ -152,22 +324,10 @@ func (c *worksetMeasuredConn) ExecContext(
 		return nil, fmt.Errorf("measurement driver requires ExecerContext")
 	}
 	result, err := executor.ExecContext(ctx, query, args)
-	elapsed := time.Since(started)
-	if c.transaction != nil && c.transaction.path == "(*Repository).deleteLibrary" &&
-		command != "COMMIT" && command != "ROLLBACK" {
-		phase := "record_retirement"
-		switch {
-		case strings.HasPrefix(command, "DELETE FROM WORK_COPIES"):
-			phase = "copy_unbinding"
-		case strings.HasPrefix(command, "DELETE FROM INVENTORY_DIRS"):
-			phase = "inventory_deletion"
-		case strings.HasPrefix(command, "DELETE FROM LIBRARIES"):
-			phase = "library_deletion"
-		}
-		if c.transaction.phases == nil {
-			c.transaction.phases = map[string]time.Duration{}
-		}
-		c.transaction.phases[phase] += elapsed
+	finished := time.Now()
+	elapsed := finished.Sub(started)
+	if c.transaction != nil && command != "COMMIT" && command != "ROLLBACK" {
+		c.transaction.statement(query, command, elapsed)
 	}
 	switch {
 	case strings.HasPrefix(command, "BEGIN"):
@@ -175,18 +335,18 @@ func (c *worksetMeasuredConn) ExecContext(
 			path += "/temp"
 		}
 		if err != nil {
-			c.measurement.record(path, elapsed, 0, err)
+			c.measurement.recordTransaction(path, started, finished, finished, err)
 		} else {
-			c.transaction = &worksetMeasuredTx{conn: c, path: path, begin: elapsed, started: time.Now()}
+			c.transaction = &worksetMeasuredTx{conn: c, path: path, beginStart: started, holdStart: finished}
 		}
 	case command == "COMMIT" || command == "ROLLBACK":
 		if c.transaction != nil {
-			c.transaction.finish(err)
+			c.transaction.finish(command, started, finished, err)
 		}
 	case c.transaction == nil && (strings.HasPrefix(command, "INSERT") || strings.HasPrefix(command, "UPDATE") || strings.HasPrefix(command, "DELETE")):
 		// Autocommit combines lock acquisition and writing: it has no separately
-		// observable BEGIN. Report its whole duration under its own path suffix.
-		c.measurement.record(path+"/autocommit", 0, elapsed, err)
+		// observable BEGIN, so its window is not a definite hold.
+		c.measurement.recordStatement(path+"/autocommit", started, finished, err)
 	}
 	return result, err
 }
@@ -202,18 +362,25 @@ func (c *worksetMeasuredConn) QueryContext(
 	}
 	started := time.Now()
 	rows, err := querier.QueryContext(ctx, query, args)
+	finished := time.Now()
 	if c.measurement.readActive.Load() {
-		c.measurement.readNanos.Add(int64(time.Since(started)))
+		c.measurement.readNanos.Add(int64(finished.Sub(started)))
 		if rows != nil {
 			return &worksetReadTimedRows{Rows: rows, elapsed: &c.measurement.readNanos}, err
 		}
 	}
 	command := strings.ToUpper(strings.TrimSpace(query))
-	if c.transaction == nil &&
-		(strings.HasPrefix(command, "UPDATE") || strings.HasPrefix(command, "INSERT") || strings.HasPrefix(command, "DELETE")) {
+	if c.transaction != nil {
+		if err != nil {
+			c.transaction.statement(query, command, finished.Sub(started))
+			return rows, err
+		}
+		// Fetching rows is part of the statement's time inside the transaction.
+		return &worksetTxRows{Rows: rows, tx: c.transaction, query: query, command: command, started: started}, nil
+	} else if strings.HasPrefix(command, "UPDATE") || strings.HasPrefix(command, "INSERT") || strings.HasPrefix(command, "DELETE") {
 		path := worksetSQLPath() + "/autocommit"
 		if err != nil {
-			c.measurement.record(path, 0, time.Since(started), err)
+			c.measurement.recordStatement(path, started, finished, err)
 		} else {
 			return &worksetMeasuredRows{Rows: rows, measurement: c.measurement, path: path, started: started}, nil
 		}
@@ -224,25 +391,75 @@ func (c *worksetMeasuredConn) QueryContext(
 type worksetMeasuredTx struct {
 	driver.Tx
 
-	conn     *worksetMeasuredConn
-	path     string
-	begin    time.Duration
-	started  time.Time
-	readOnly bool
-	phases   map[string]time.Duration
+	conn       *worksetMeasuredConn
+	path       string
+	beginStart time.Time
+	holdStart  time.Time
+	readOnly   bool
+	phases     map[string]time.Duration
+	stmts      map[string]*worksetStmtStat
 }
 
-func (tx *worksetMeasuredTx) finish(err error) {
-	if !tx.readOnly {
-		tx.conn.measurement.record(tx.path, tx.begin, time.Since(tx.started), err)
-		for phase, elapsed := range tx.phases {
-			tx.conn.measurement.record(tx.path+"/phase/"+phase, 0, elapsed, err)
+// statement times one statement inside the transaction, by kind.
+func (tx *worksetMeasuredTx) statement(query, command string, elapsed time.Duration) {
+	if tx.path == "(*Repository).deleteLibrary" {
+		phase := "record_retirement"
+		switch {
+		case strings.HasPrefix(command, "DELETE FROM WORK_COPIES"):
+			phase = "copy_unbinding"
+		case strings.HasPrefix(command, "DELETE FROM INVENTORY_DIRS"):
+			phase = "inventory_deletion"
+		case strings.HasPrefix(command, "DELETE FROM LIBRARIES"):
+			phase = "library_deletion"
 		}
+		if tx.phases == nil {
+			tx.phases = map[string]time.Duration{}
+		}
+		tx.phases[phase] += elapsed
+	}
+	kind := worksetStatementKind(query)
+	if tx.stmts == nil {
+		tx.stmts = map[string]*worksetStmtStat{}
+	}
+	stat := tx.stmts[kind]
+	if stat == nil {
+		stat = &worksetStmtStat{}
+		tx.stmts[kind] = stat
+	}
+	stat.count++
+	stat.max = max(stat.max, elapsed)
+	stat.total += elapsed
+}
+
+func (tx *worksetMeasuredTx) finish(kind string, endStart, end time.Time, err error) {
+	if !tx.readOnly {
+		m := tx.conn.measurement
+		m.recordTransaction(tx.path, tx.beginStart, tx.holdStart, end, err)
+		for phase, elapsed := range tx.phases {
+			m.recordPhase(tx.path+"/phase/"+phase, elapsed, err)
+		}
+		if tx.stmts == nil {
+			tx.stmts = map[string]*worksetStmtStat{}
+		}
+		tx.stmts[kind] = &worksetStmtStat{count: 1, max: end.Sub(endStart), total: end.Sub(endStart)}
+		m.recordStatements(tx.path, tx.stmts)
 	}
 	tx.conn.transaction = nil
 }
-func (tx *worksetMeasuredTx) Commit() error   { err := tx.Tx.Commit(); tx.finish(err); return err }
-func (tx *worksetMeasuredTx) Rollback() error { err := tx.Tx.Rollback(); tx.finish(err); return err }
+
+func (tx *worksetMeasuredTx) Commit() error {
+	started := time.Now()
+	err := tx.Tx.Commit()
+	tx.finish(worksetCommitKind, started, time.Now(), err)
+	return err
+}
+
+func (tx *worksetMeasuredTx) Rollback() error {
+	started := time.Now()
+	err := tx.Tx.Rollback()
+	tx.finish(worksetRollbackKind, started, time.Now(), err)
+	return err
+}
 
 // RETURNING keeps an autocommit write open until its rows are closed.
 type worksetMeasuredRows struct {
@@ -263,6 +480,21 @@ func (r *worksetMeasuredRows) Next(values []driver.Value) error {
 }
 func (r *worksetMeasuredRows) Close() error {
 	err := r.Rows.Close()
-	r.measurement.record(r.path, 0, time.Since(r.started), errors.Join(r.failure, err))
+	r.measurement.recordStatement(r.path, r.started, time.Now(), errors.Join(r.failure, err))
+	return err
+}
+
+// worksetTxRows times a query inside a transaction until its rows are closed.
+type worksetTxRows struct {
+	driver.Rows
+
+	tx             *worksetMeasuredTx
+	query, command string
+	started        time.Time
+}
+
+func (r *worksetTxRows) Close() error {
+	err := r.Rows.Close()
+	r.tx.statement(r.query, r.command, time.Since(r.started))
 	return err
 }

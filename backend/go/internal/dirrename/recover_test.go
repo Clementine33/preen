@@ -134,7 +134,11 @@ func TestStartupRepairOnlyTouchesFirstMissingResultAndPersistsIt(t *testing.T) {
 			req.Units = append(req.Units, later)
 			raw, _ := json.Marshal(req)
 			if _, writeErr := f.repo.DB().
-				Exec(`UPDATE plan_executions SET request_json=?,total_components=2,total_operations=2 WHERE execution_id=?`, string(raw), ex.ExecutionID); writeErr != nil {
+				Exec(`UPDATE plan_executions SET total_components=2,total_operations=2 WHERE execution_id=?`, ex.ExecutionID); writeErr != nil {
+				t.Fatal(writeErr)
+			}
+			if _, writeErr := f.repo.DB().
+				Exec(`UPDATE plan_execution_requests SET request_json=? WHERE execution_id=?`, string(raw), ex.ExecutionID); writeErr != nil {
 				t.Fatal(writeErr)
 			}
 			if err := filesystem.RenameNoReplace(f.member.FolderPath, target); err != nil {
@@ -161,7 +165,7 @@ func TestStartupRepairOnlyTouchesFirstMissingResultAndPersistsIt(t *testing.T) {
 			req.Units = req.Units[:1]
 			raw, _ = json.Marshal(req)
 			if _, writeErr := f.repo.DB().
-				Exec(`UPDATE plan_executions SET request_json=? WHERE execution_id=?`, string(raw), ex.ExecutionID); writeErr != nil {
+				Exec(`UPDATE plan_execution_requests SET request_json=? WHERE execution_id=?`, string(raw), ex.ExecutionID); writeErr != nil {
 				t.Fatal(writeErr)
 			}
 			if errs := f.task.RecoverInterrupted(t.Context(), f.repo); len(errs) > 0 {

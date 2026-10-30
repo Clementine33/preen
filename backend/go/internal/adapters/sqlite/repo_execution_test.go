@@ -72,13 +72,19 @@ func insertExecutionRow(t *testing.T, repo *sqlite.Repository, e *workset.PlanEx
 	if _, err := repo.DB().Exec(`
 		INSERT INTO plan_executions (
 			execution_id, workset_id, operation_type, plan_id, status,
-			idempotency_key, request_hash, expected_operation_version, request_json,
+			idempotency_key, request_hash, expected_operation_version,
 			total_components, total_operations, created_at, updated_at
 		)
-		VALUES (?, ?, ?, ?, 'queued', ?, ?, 0, ?, 0, 0, ?, ?)
+		VALUES (?, ?, ?, ?, 'queued', ?, ?, 0, 0, 0, ?, ?)
 	`, e.ExecutionID, e.WorksetID, e.OperationType, e.PlanID,
-		e.IdempotencyKey, e.RequestHash, e.RequestJSON, now, now); err != nil {
+		e.IdempotencyKey, e.RequestHash, now, now); err != nil {
 		t.Fatalf("insert execution row %s: %v", e.ExecutionID, err)
+	}
+	if _, err := repo.DB().Exec(
+		`INSERT INTO plan_execution_requests(execution_id, request_json) VALUES (?, ?)`,
+		e.ExecutionID, e.RequestJSON,
+	); err != nil {
+		t.Fatalf("insert execution request %s: %v", e.ExecutionID, err)
 	}
 }
 
@@ -508,8 +514,8 @@ func assertGenerationRecords(t *testing.T, repo *sqlite.Repository) {
 
 // TestSaveExecutionComponentResultIsReplaySafe pins the two properties the
 // boundary write leans on: a result asked for twice is stored once, and the
-// session's counters are recomputed from the stored results rather than
-// incremented, so a replay after an uncertain commit cannot double-count.
+// session's counters move by the difference from the stored row, so a replay
+// after an uncertain commit cannot double-count.
 func TestSaveExecutionComponentResultIsReplaySafe(t *testing.T) {
 	repo := newExecutionRepo(t)
 	seedExecutionWorkset(t, repo, "ws-1", "/music")
@@ -574,6 +580,59 @@ func TestSaveExecutionComponentResultIsReplaySafe(t *testing.T) {
 	}
 }
 
+// TestSaveExecutionComponentResultCountersMatchRecount pins the incremental
+// counters against a fresh COUNT/SUM over the stored rows after first saves,
+// identical repeats and overwrites that change status and operations.
+func TestSaveExecutionComponentResultCountersMatchRecount(t *testing.T) {
+	repo := newExecutionRepo(t)
+	seedExecutionWorkset(t, repo, "ws-1", "/music")
+	if err := createExecution(t, repo, newExecution("exec-1", "ws-1", "plan-1", "key-1"), "plan-1"); err != nil {
+		t.Fatalf("CreateExecution: %v", err)
+	}
+	for _, step := range []struct {
+		name       string
+		index      int
+		status     string
+		operations int
+		components int
+		total      int
+	}{
+		{"first save", 0, "succeeded", 3, 1, 3},
+		{"identical repeat", 0, "succeeded", 3, 1, 3},
+		{"new pending", 1, "pending", 2, 1, 5},
+		{"pending to done with other ops", 1, "succeeded", 4, 2, 7},
+		{"ops change only", 0, "succeeded", 1, 2, 5},
+		{"done back to pending", 0, "pending", 0, 1, 4},
+	} {
+		if err := repo.SaveExecutionComponentResult("exec-1", workset.ExecutionComponentResult{
+			ComponentIndex:      step.index,
+			Status:              step.status,
+			CompletedOperations: step.operations,
+			ResultJSON:          `{}`,
+		}, workset.ExecutionPosition{}); err != nil {
+			t.Fatalf("%s: %v", step.name, err)
+		}
+		row, err := repo.GetExecution("exec-1")
+		if err != nil {
+			t.Fatalf("%s: GetExecution: %v", step.name, err)
+		}
+		if row.CompletedComponents != step.components || row.CompletedOperations != step.total {
+			t.Fatalf("%s: counters = %d/%d, want %d/%d", step.name,
+				row.CompletedComponents, row.CompletedOperations, step.components, step.total)
+		}
+		var components, operations int
+		if err = repo.DB().QueryRow(`SELECT COUNT(*) FILTER (WHERE status <> 'pending'),
+			COALESCE(SUM(completed_operations), 0) FROM execution_component_results
+			WHERE execution_id = 'exec-1'`).Scan(&components, &operations); err != nil {
+			t.Fatalf("%s: recount: %v", step.name, err)
+		}
+		if components != row.CompletedComponents || operations != row.CompletedOperations {
+			t.Fatalf("%s: counters %d/%d drifted from recount %d/%d", step.name,
+				row.CompletedComponents, row.CompletedOperations, components, operations)
+		}
+	}
+}
+
 // TestExecutionComponentResultsGoWithTheirSession pins the cleanup path: the
 // child rows are removed with the session they belong to, so a retired plan
 // cannot leave them behind.
@@ -599,6 +658,34 @@ func TestExecutionComponentResultsGoWithTheirSession(t *testing.T) {
 	}
 	if len(results) != 0 {
 		t.Fatalf("component results outlived their session: %+v", results)
+	}
+}
+
+func TestExecutionRequestIsStoredApartAndGoesWithItsSession(t *testing.T) {
+	repo := newExecutionRepo(t)
+	seedExecutionWorkset(t, repo, "ws-1", "/music")
+	e := newExecution("exec-1", "ws-1", "plan-1", "key-1")
+	e.RequestJSON = `{"units":[1,2,3]}`
+	if err := createExecution(t, repo, e, "plan-1"); err != nil {
+		t.Fatalf("CreateExecution: %v", err)
+	}
+	got, err := repo.GetExecution("exec-1")
+	if err != nil || got.RequestJSON != e.RequestJSON {
+		t.Fatalf("GetExecution request = %q, %v", got.RequestJSON, err)
+	}
+	replay, err := repo.GetExecutionByOperationKey("ws-1", "conversion", "key-1")
+	if err != nil || replay == nil || replay.RequestJSON != e.RequestJSON {
+		t.Fatalf("replay = %+v, %v", replay, err)
+	}
+	if _, err = repo.DB().Exec("DELETE FROM plan_executions WHERE plan_id = 'plan-1'"); err != nil {
+		t.Fatalf("delete session: %v", err)
+	}
+	var orphans int
+	if err = repo.DB().
+		QueryRow("SELECT COUNT(*) FROM plan_execution_requests").
+		Scan(&orphans); err != nil ||
+		orphans != 0 {
+		t.Fatalf("request rows outlived their session: %d, %v", orphans, err)
 	}
 }
 
@@ -649,10 +736,15 @@ func BenchmarkExecutionComponentResults(b *testing.B) {
 		if _, err := repo.DB().Exec(`
 			INSERT INTO plan_executions (
 				execution_id, workset_id, operation_type, plan_id, status,
-				request_json, total_components, created_at, updated_at
-			) VALUES (?, 'ws-bench', 'conversion', ?, 'running', '{}', ?, '', '')
+				total_components, created_at, updated_at
+			) VALUES (?, 'ws-bench', 'conversion', ?, 'running', ?, '', '')
 		`, executionID, "plan-bench-"+strconv.Itoa(i), components); err != nil {
 			b.Fatalf("seed session: %v", err)
+		}
+		if _, err := repo.DB().Exec(
+			`INSERT INTO plan_execution_requests(execution_id, request_json) VALUES (?, '{}')`, executionID,
+		); err != nil {
+			b.Fatalf("seed request: %v", err)
 		}
 		before := fileSize(b, dbPath+"-wal")
 		for c := range components {

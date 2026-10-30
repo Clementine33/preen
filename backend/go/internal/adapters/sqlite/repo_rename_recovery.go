@@ -10,7 +10,7 @@ import (
 func (r *Repository) InterruptedRenames(ctx context.Context) ([]dirrename.InterruptedExecution, error) {
 	rows, err := r.db.QueryContext(
 		ctx,
-		`SELECT e.execution_id,w.root_path,e.request_json FROM plan_executions e JOIN worksets w ON w.id=e.workset_id
+		`SELECT e.execution_id,w.root_path,q.request_json FROM plan_executions e JOIN plan_execution_requests q ON q.execution_id=e.execution_id JOIN worksets w ON w.id=e.workset_id
 		WHERE e.operation_type='rename' AND e.status='interrupted'
 		AND e.plan_id IN (`+visiblePlanIDs+`) ORDER BY e.created_at,e.execution_id`,
 	)

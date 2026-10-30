@@ -269,7 +269,7 @@ func TestStartupRepairMovesRecordsOfAFollowedFolderFromTheirRecordedPath(t *test
 	req.Units[0].Payload, _ = json.Marshal(o)
 	raw, _ := json.Marshal(req)
 	if _, err := f.repo.DB().
-		Exec(`UPDATE plan_executions SET request_json=? WHERE execution_id=?`, string(raw), ex.ExecutionID); err != nil {
+		Exec(`UPDATE plan_execution_requests SET request_json=? WHERE execution_id=?`, string(raw), ex.ExecutionID); err != nil {
 		t.Fatal(err)
 	}
 	// The disk got as far as the final name; the records never left the old path.

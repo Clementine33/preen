@@ -69,6 +69,9 @@ type Repository struct {
 	// generation commit that may leave abandoned staging.
 	// It must be quick and never call back into the repository.
 	OnPlansRetired func()
+
+	// afterMergeBatch is a test checkpoint after each selected-merge batch commits.
+	afterMergeBatch func()
 }
 
 func (r *Repository) catalogChanged() {

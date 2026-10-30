@@ -9,7 +9,8 @@ import (
 )
 
 // Metadata's final reconciliation shares bounded folder walks, one staging
-// writer and one selected-range merge. It runs under coverdelivery's admission.
+// writer and one selected-range merge, which commits folder by folder. It runs
+// under coverdelivery's admission.
 func metadataInventoryRefresh(
 	pipeline *inventory.Pipeline,
 ) func(context.Context, string, []string) error {

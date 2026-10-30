@@ -26,6 +26,7 @@ const (
 const (
 	ExecutionEventSnapshot    = "execution_snapshot"
 	ExecutionEventComponent   = "component"
+	ExecutionEventMember      = "member"
 	ExecutionEventProgress    = "progress"
 	ExecutionEventSucceeded   = "succeeded"
 	ExecutionEventFailed      = "failed"
@@ -95,6 +96,10 @@ type ExecutionView struct {
 	CurrentComponentID  string                   `json:"current_component_id"`
 	CurrentPhase        string                   `json:"current_phase"`
 	Components          []ExecutionComponentView `json:"components"`
+	// Members is the summary of a view=members read, which carries no
+	// components; Member is the one member of a member_id read.
+	Members *ExecutionMembers `json:"members,omitempty"`
+	Member  *MemberSummary    `json:"member,omitempty"`
 	// SelectedFolders is the scope this session ran: the record's relative
 	// paths, empty when it ran the whole revision.
 	SelectedFolders []string `json:"selected_folders,omitempty"`
@@ -103,6 +108,20 @@ type ExecutionView struct {
 	StartedAt       string   `json:"started_at"`
 	FinishedAt      string   `json:"finished_at"`
 	CreatedAt       string   `json:"created_at"`
+}
+
+// MarshalJSON leaves `components` out of a members view; every other view keeps
+// it, empty or not.
+func (v ExecutionView) MarshalJSON() ([]byte, error) {
+	type plain ExecutionView
+	if v.Members == nil {
+		return json.Marshal(plain(v))
+	}
+	return json.Marshal(struct {
+		plain
+
+		Components []ExecutionComponentView `json:"components,omitempty"`
+	}{plain: plain(v)})
 }
 
 // ExecutionRef is the compact session reference attached to the operation and
@@ -293,7 +312,7 @@ func (s *serviceImpl) replayExecution(
 			nil,
 		)
 	}
-	view, err := s.executionViewOf(existing, ExecutionPage{})
+	view, err := s.executionViewOf(existing, ExecutionRead{})
 	if err != nil {
 		return nil, false, err
 	}
@@ -506,7 +525,7 @@ func (s *serviceImpl) persistExecution(
 			existing, loadErr := s.repo.GetExecutionByOperationKey(op.WorksetID, op.OperationType, key)
 			if loadErr == nil && existing != nil {
 				if existing.RequestHash == requestHash {
-					view, viewErr := s.executionViewOf(existing, ExecutionPage{})
+					view, viewErr := s.executionViewOf(existing, ExecutionRead{})
 					if viewErr != nil {
 						return nil, viewErr
 					}
@@ -554,7 +573,7 @@ func (s *serviceImpl) persistExecution(
 		return nil, NewError(ErrKindInternal, "INTERNAL", "failed to start execution", err)
 	}
 	s.dispatcher.wakeExecution()
-	view, err := s.executionViewOf(exec, ExecutionPage{})
+	view, err := s.executionViewOf(exec, ExecutionRead{})
 	if err != nil {
 		return nil, err
 	}
@@ -584,41 +603,20 @@ func initialComponentReport(units []ExecutionUnit) []ExecutionComponentView {
 	return report
 }
 
-// ExecutionPage selects which components a detail read carries. The frozen
-// worklist is ordered by component index, so FromIndex is where the page starts
-// (inclusive — the zero page is the whole run) and Limit of zero means "to the
-// end". A client showing a large run pages through it with the index after the
-// last component it holds, while the event stream keeps it current on the
-// components that finish afterwards.
-type ExecutionPage struct {
-	FromIndex int
-	Limit     int
+// ExecutionRead selects the shape of a detail read. The zero value is the full
+// view: every component. Members drops the components for per-member summaries;
+// MemberID narrows the view to that member's components. They are exclusive.
+type ExecutionRead struct {
+	Members  bool
+	MemberID string
 }
 
-// pageUnits applies the page to the frozen worklist.
-func pageUnits(units []ExecutionUnit, page ExecutionPage) []ExecutionUnit {
-	if page.FromIndex <= 0 && page.Limit <= 0 {
-		return units
-	}
-	paged := make([]ExecutionUnit, 0, len(units))
-	for _, u := range units {
-		if u.Index < page.FromIndex {
-			continue
-		}
-		if page.Limit > 0 && len(paged) >= page.Limit {
-			break
-		}
-		paged = append(paged, u)
-	}
-	return paged
-}
-
-// GetExecution returns the session view scoped to a workset operation. page
-// selects which components the view carries; the zero page carries all of them.
+// GetExecution returns the session view scoped to a workset operation; read
+// selects its shape (see ExecutionRead).
 func (s *serviceImpl) GetExecution(
 	ctx context.Context,
 	worksetID, operationType, executionID string,
-	page ExecutionPage,
+	read ExecutionRead,
 ) (*ExecutionView, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -627,7 +625,7 @@ func (s *serviceImpl) GetExecution(
 	if err != nil {
 		return nil, err
 	}
-	return s.executionViewOf(e, page)
+	return s.executionViewOf(e, read)
 }
 
 // CancelExecution cancels a session. It is idempotent: terminal rows keep their
@@ -651,7 +649,7 @@ func (s *serviceImpl) CancelExecution(
 			s.dispatcher.wakeExecution()
 		}
 	}
-	return s.GetExecution(ctx, worksetID, operationType, executionID, ExecutionPage{})
+	return s.GetExecution(ctx, worksetID, operationType, executionID, ExecutionRead{})
 }
 
 // loadExecution loads a session and checks its operation ownership: a session
@@ -679,18 +677,13 @@ func notExecutable(reasons []string) error {
 }
 
 // executionViewOf assembles the session view: the row's own fields, the frozen
-// worklist it carries, and the result rows that exist for the requested page.
+// worklist it carries, and the result rows that exist for the requested shape.
 // The worklist says what the session could run and in which order; a component
 // without a result row is pending, because nothing has happened for it yet.
-func (s *serviceImpl) executionViewOf(e *PlanExecution, page ExecutionPage) (*ExecutionView, error) {
+func (s *serviceImpl) executionViewOf(e *PlanExecution, read ExecutionRead) (*ExecutionView, error) {
 	req, err := parseExecutionRequest(e.RequestJSON)
 	if err != nil {
 		return nil, NewError(ErrKindInternal, "REQUEST_LOAD_FAILED", "failed to load the frozen request", err)
-	}
-	units := pageUnits(req.Units, page)
-	components, err := s.executionComponents(e.PlanID, e.OperationType, units)
-	if err != nil {
-		return nil, err
 	}
 	view := &ExecutionView{
 		ExecutionID:         e.ExecutionID,
@@ -711,10 +704,38 @@ func (s *serviceImpl) executionViewOf(e *PlanExecution, page ExecutionPage) (*Ex
 		StartedAt:           formatTime(e.StartedAt),
 		FinishedAt:          formatTime(e.FinishedAt),
 		CreatedAt:           formatTime(e.CreatedAt),
-		Components:          components,
 		SelectedFolders:     req.Folders,
 	}
-	results, err := s.repo.ListExecutionComponentResults(e.ExecutionID, page.FromIndex, page.Limit)
+	units, from, limit := req.Units, 0, 0
+	switch {
+	case read.Members:
+		fold, foldErr := s.newMemberFold(e, req.Units)
+		if foldErr != nil {
+			return nil, foldErr
+		}
+		view.Members = fold.view()
+		return view, nil
+	case read.MemberID != "":
+		fold, foldErr := s.newMemberFold(e, req.Units)
+		if foldErr != nil {
+			return nil, foldErr
+		}
+		pos, ok := fold.byMember[read.MemberID]
+		if !ok {
+			return nil, NewError(
+				ErrKindNotFound, "MEMBER_NOT_IN_EXECUTION", "member is not part of this execution", nil,
+			)
+		}
+		summary := fold.sums[pos]
+		view.Member = &summary
+		units, from, limit = fold.memberUnits(pos, req.Units)
+	}
+	components, err := s.executionComponents(e.PlanID, e.OperationType, units)
+	if err != nil {
+		return nil, err
+	}
+	view.Components = components
+	results, err := s.repo.ListExecutionComponentResults(e.ExecutionID, from, limit)
 	if err != nil {
 		return nil, NewError(ErrKindInternal, "INTERNAL", "failed to load component results", err)
 	}
@@ -725,7 +746,7 @@ func (s *serviceImpl) executionViewOf(e *PlanExecution, page ExecutionPage) (*Ex
 	for _, res := range results {
 		at, ok := byIndex[res.ComponentIndex]
 		if !ok {
-			continue // a result outside the requested page
+			continue // a result outside the requested member
 		}
 		applyComponentResult(&view.Components[at], res)
 		if len(view.Components[at].TaskResult) > 0 {

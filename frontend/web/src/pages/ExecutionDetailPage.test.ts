@@ -3,6 +3,7 @@ import type {
   ApiClientContract,
   ExecutionComponent,
   ExecutionView,
+  MemberSummary,
   Operation,
   RevisionDetailResponse,
   Workset,
@@ -17,6 +18,7 @@ import { apiStub as sharedApiStub } from '@/test/api-stub'
 import { installTestQueryPlugin } from '@/test/query-client'
 import ConversionPage from './ConversionPage.vue'
 import ExecutionDetailPage from './ExecutionDetailPage.vue'
+import ExecutionMemberPage from './ExecutionMemberPage.vue'
 
 enableAutoUnmount(afterEach)
 
@@ -44,12 +46,37 @@ const executionView: ExecutionView = {
   current_root: '/music/albumB',
   current_component_id: 'comp-b',
   current_phase: 'component',
-  components: [],
+  members: {
+    counts: {
+      succeeded: 0,
+      failed: 0,
+      canceled: 0,
+      running: 1,
+      pending: 1,
+    },
+    attention: [],
+    attention_total: 0,
+  },
   error_code: '',
   error_message: '',
   started_at: '',
   finished_at: '',
   created_at: '',
+}
+
+function summary(id: string, status: MemberSummary['status'], overrides: Partial<MemberSummary> = {}): MemberSummary {
+  return {
+    member_id: id,
+    root_path: `/music/${id}`,
+    status,
+    total_components: 2,
+    completed_components: 1,
+    total_operations: 4,
+    completed_operations: 2,
+    error_message: '',
+    inventory_sync_error: '',
+    ...overrides,
+  }
 }
 
 function operation(active: boolean): Operation {
@@ -169,7 +196,7 @@ function pageApi(overrides: Partial<ApiClientContract> = {}): ApiClientContract 
   })
 }
 
-async function mountPage(api: ApiClientContract): Promise<VueWrapper> {
+async function mountPage(api: ApiClientContract, path = '/worksets/lib-a/conversion/execution'): Promise<VueWrapper> {
   const router = createRouter({
     history: createMemoryHistory(),
     routes: [
@@ -184,11 +211,17 @@ async function mountPage(api: ApiClientContract): Promise<VueWrapper> {
             component: ExecutionDetailPage,
             meta: { carrier: true },
           },
+          {
+            path: ':memberId/execution',
+            name: 'conversion-member-execution',
+            component: ExecutionMemberPage,
+            meta: { carrier: true },
+          },
         ],
       },
     ],
   })
-  await router.push('/worksets/lib-a/conversion/execution')
+  await router.push(path)
   await router.isReady()
   const wrapper = mount({ template: '<RouterView />' }, {
     global: {
@@ -215,7 +248,9 @@ describe('executionDetailPage', () => {
     const api = pageApi({ cancelExecution })
     const wrapper = await mountPage(api)
 
-    expect(api.getRevision).not.toHaveBeenCalled()
+    // The member list beside the carrier keeps its conclusions: the page reads
+    // the light revision even though the panel itself does not need it.
+    expect(api.getRevision).toHaveBeenCalled()
     expect(wrapper.get('[data-testid="execution-panel"]').text()).toContain('执行中')
     expect(wrapper.get('[data-testid="execution-progress"]').text()).toContain('组件 1/2')
 
@@ -245,84 +280,89 @@ describe('executionDetailPage', () => {
     expect(wrapper.find('[data-testid="execution-cancel"]').exists()).toBe(false)
   })
 
-  it('fills a run\'s per-component facts in as each component commits', async () => {
-    const report: ExecutionView = {
-      ...executionView,
-      completed_components: 2,
-      completed_operations: 2,
-      current_root: '',
-      current_component_id: '',
-      components: [
-        {
-          component_index: 1,
-          component_id: 'comp-a',
-          root_path: '/music/albumA',
-          partition: 'matched',
-          status: 'succeeded',
-          operations: 2,
-          completed_operations: 2,
-          committed: ['/music/albumA/00.mp3'],
-          kept_decisions: [
-            { path: '/music/albumA/keep.mp3', resolution: 'keep', reason_code: 'KEEP_ENCODED_SATISFIED' },
-          ],
-          removed: [],
-          remaining: [],
-          recovery: [],
-          inventory_synced: true,
-        },
-      ],
-    }
-    // The read the page opens with is the session as it stood then.
-    const getExecution = vi
-      .fn()
-      .mockResolvedValue({ ...executionView, completed_components: 0, components: [] })
+  it('reads the summary shape and follows member events: counts, add, update, remove', async () => {
+    const getExecution = vi.fn().mockResolvedValue(executionView)
     const wrapper = await mountPage(pageApi({ getExecution }))
+    expect(getExecution).toHaveBeenCalledWith('ws-1', 'conversion', 'exec-1', expect.anything(), { view: 'members' })
 
-    // Attaching the stream: the snapshot reports the counts it had when it was
-    // read, and no component has been read into the view yet.
     const store = useWorksetExecutionStore()
     store.status = 'streaming'
-    store.view = { ...executionView, completed_components: 0, components: [] }
+    store.view = { ...executionView }
+    store.executionId = 'exec-1'
+    store.worksetId = 'ws-1'
+    store.operation = 'conversion'
     await flushPromises()
-    expect(wrapper.find('[data-testid="execution-folder"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="execution-attention-item"]').exists()).toBe(false)
 
-    // The wire pushes the component's own result, then the progress that moved
-    // the position onto it: the panel fills in from those events alone, without
-    // asking for the session again.
-    store.applyEvent({ type: 'component', data: report.components[0]! })
+    const counts = (failed: number) => ({
+      succeeded: 0,
+      failed,
+      canceled: 0,
+      running: 1,
+      pending: 0,
+    })
     store.applyEvent({
-      type: 'progress',
+      type: 'member',
       data: {
-        execution_id: 'exec-1',
-        status: 'running',
-        total_components: 2,
-        completed_components: 1,
-        total_operations: 3,
-        completed_operations: 2,
-        current_root: '/music/albumA',
-        current_component_id: 'comp-a',
-        current_phase: 'component',
+        member: summary('m-1', 'failed', { error_message: 'boom' }),
+        counts: counts(1),
+        attention_total: 1,
+      },
+    })
+    store.applyEvent({
+      type: 'member',
+      data: {
+        member: summary('m-2', 'running'),
+        counts: counts(1),
+        attention_total: 2,
       },
     })
     await flushPromises()
+    expect(wrapper.findAll('[data-testid="execution-attention-item"]').map(i => i.attributes('data-member-status'))).toEqual(['failed', 'running'])
+    expect(wrapper.get('[data-testid="execution-count-failed"]').text()).toBe('1')
+    expect(wrapper.text()).toContain('boom')
+    // The session page renders no per-component rows.
+    expect(wrapper.find('[data-testid="execution-component"]').exists()).toBe(false)
 
-    expect(getExecution).toHaveBeenCalledTimes(1)
-    const card = wrapper.get('[data-testid="execution-folder"]')
-    expect(card.get('[data-testid="execution-folder-name"]').text()).toContain('albumA')
-    expect(card.get('[data-testid="execution-folder-status"]').text()).toBe('执行中')
-    // The committed file of the component that just finished is on screen while
-    // the run is still going.
-    expect(card.text()).toContain('00.mp3')
-    expect(card.get('summary').text()).toContain('保留 1')
-    expect(card.get('[data-testid="execution-kept"]').text()).toContain('keep.mp3')
-
+    // m-2 finishes cleanly: it leaves the list; m-1 keeps its place.
     store.applyEvent({
-      type: 'execution_snapshot',
-      data: { ...report, status: 'running' },
+      type: 'member',
+      data: {
+        member: summary('m-2', 'succeeded'),
+        counts: counts(1),
+        attention_total: 1,
+      },
     })
     await flushPromises()
-    expect(wrapper.get('[data-testid="execution-kept"]').text()).toContain('keep.mp3')
-    expect(wrapper.get('[data-testid="execution-folder"] summary').text()).toContain('保留 1')
+    expect(wrapper.findAll('[data-testid="execution-attention-item"]')).toHaveLength(1)
+
+    // A replace keeps the entry's place and updates its facts.
+    store.applyEvent({
+      type: 'member',
+      data: {
+        member: summary('m-1', 'failed', { error_message: 'again' }),
+        counts: counts(1),
+        attention_total: 1,
+      },
+    })
+    await flushPromises()
+    expect(wrapper.text()).toContain('again')
+    expect(wrapper.findAll('[data-testid="execution-attention-item"]')).toHaveLength(1)
+  })
+
+  it('says how many exceptions beyond the server cap exist', async () => {
+    const getExecution = vi.fn().mockResolvedValue({
+      ...executionView,
+      members: {
+        counts: executionView.members!.counts,
+        attention: [
+          summary('m-1', 'failed'),
+        ],
+        attention_total: 4,
+      },
+    })
+    const wrapper = await mountPage(pageApi({ getExecution }))
+    expect(wrapper.get('[data-testid="execution-attention-more"]').text()).toBe('另有 3 个')
   })
 
   it('states the absence of a session instead of pretending one exists', async () => {
@@ -341,69 +381,118 @@ describe('executionDetailPage', () => {
   })
 })
 
-describe('executionDetailPage component paging', () => {
-  function component(index: number): ExecutionComponent {
+describe('executionMemberPage', () => {
+  function memberComponent(keep: string): ExecutionComponent {
     return {
-      component_index: index,
-      component_id: `comp-${index}`,
+      component_index: 0,
+      component_id: 'comp-0',
       root_path: '/music/albumA',
       partition: 'matched',
-      status: 'pending',
+      status: 'succeeded',
       operations: 1,
-      completed_operations: 0,
+      completed_operations: 1,
       committed: [],
       kept_decisions: [
-        { path: `/music/albumA/keep-${index}.mp3`, resolution: 'keep', reason_code: 'UNMET_TARGET' },
+        { path: `/music/albumA/${keep}`, resolution: 'keep', reason_code: 'UNMET_TARGET' },
       ],
       removed: [],
       remaining: [],
       recovery: [],
-      inventory_synced: false,
+      inventory_synced: true,
     }
   }
-
-  it('reads the next page of a run too large for one read, and merges it', async () => {
-    const firstPage = [
-      component(0),
-      component(1),
-    ]
-    const getExecution = vi
-      .fn()
-      .mockResolvedValueOnce({ ...executionView, total_components: 3, components: firstPage })
-      .mockResolvedValueOnce({
-        ...executionView,
-        total_components: 3,
-        components: [
-          component(2),
-        ],
-      })
-    const wrapper = await mountPage(pageApi({ getExecution }))
-    await flushPromises()
-
-    // The read carried two of the three components: the panel offers the rest
-    // rather than pretending the run is smaller than it is.
-    expect(wrapper.get('[data-testid="execution-progress"]').text()).toContain('组件 1/3')
-    const more = wrapper.get('[data-testid="execution-load-more"]')
-    expect(more.text()).toContain('加载更多组件')
-
-    await more.trigger('click')
-    await flushPromises()
-
-    // The second read starts after the last component held and asks for a page.
-    expect(getExecution).toHaveBeenLastCalledWith('ws-1', 'conversion', 'exec-1', undefined, {
-      from: 2,
-      limit: 200,
+  function memberView(keep: string): ExecutionView {
+    return {
+      ...executionView,
+      members: undefined,
+      member: summary('m-1', 'running'),
+      components: [
+        memberComponent(keep),
+      ],
+    }
+  }
+  const named: Workset = {
+    ...workset,
+    members: [
+      {
+        member_id: 'm-1',
+        folder_path: '/music/albumA',
+        folder_name: '专辑 A',
+        rel_path: '专辑 A',
+        dir_id: 'd-1',
+      },
+    ],
+  }
+  function api(getMember: (read: unknown) => Promise<ExecutionView>) {
+    return pageApi({
+      getWorkset: vi.fn().mockResolvedValue(named),
+      getExecution: vi.fn((_ws, _op, _id, _signal, read) => read?.memberId
+        ? getMember(read)
+        : Promise.resolve(executionView)),
     })
-    expect(wrapper.find('[data-testid="execution-load-more"]').exists()).toBe(false)
-    expect(wrapper.findAll('[data-testid="execution-kept"]').map(row => row.text())).toEqual([
-      expect.stringContaining('keep-0.mp3'),
-      expect.stringContaining('keep-1.mp3'),
-      expect.stringContaining('keep-2.mp3'),
-    ])
-    expect(wrapper.findAll('summary').map(row => row.text())).toEqual([
-      expect.stringContaining('保留 1'),
-      expect.stringContaining('保留 1'),
-      expect.stringContaining('保留 1'),
-    ])
+  }
+  const path = '/worksets/lib-a/conversion/m-1/execution'
+
+  it('shows the member header and its kept files on the first read', async () => {
+    const getMember = vi.fn().mockResolvedValue(memberView('keep-1.mp3'))
+    const wrapper = await mountPage(api(getMember), path)
+
+    expect(getMember).toHaveBeenCalledWith({ memberId: 'm-1' })
+    expect(wrapper.get('[data-testid="execution-member-title"]').text()).toBe('专辑 A')
+    expect(wrapper.get('[data-testid="execution-member-status"]').text()).toBe('执行中')
+    expect(wrapper.get('[data-testid="execution-member-progress"]').text()).toContain('组件 1/2')
+    expect(wrapper.get('[data-testid="execution-member-back"]').attributes('href')).toBe('/worksets/lib-a/conversion/execution')
+    expect(wrapper.get('summary').text()).toContain('保留 1')
+    expect(wrapper.get('[data-testid="execution-kept"]').text()).toContain('keep-1.mp3')
+  })
+
+  it('re-reads on a member event for this member and on a reconnect snapshot, not for another member', async () => {
+    const getMember = vi.fn().mockResolvedValue(memberView('keep-1.mp3'))
+    const wrapper = await mountPage(api(getMember), path)
+    expect(getMember).toHaveBeenCalledTimes(1)
+    const store = useWorksetExecutionStore()
+    store.status = 'streaming'
+    store.view = { ...executionView }
+    const counts = executionView.members!.counts
+
+    store.applyEvent({
+      type: 'member',
+      data: {
+        member: summary('m-9', 'failed'),
+        counts,
+        attention_total: 1,
+      },
+    })
+    await flushPromises()
+    expect(getMember).toHaveBeenCalledTimes(1)
+
+    getMember.mockResolvedValue(memberView('keep-2.mp3'))
+    store.applyEvent({
+      type: 'member',
+      data: {
+        member: summary('m-1', 'succeeded'),
+        counts,
+        attention_total: 0,
+      },
+    })
+    await flushPromises()
+    expect(getMember).toHaveBeenCalledTimes(2)
+    expect(wrapper.get('[data-testid="execution-kept"]').text()).toContain('keep-2.mp3')
+
+    getMember.mockResolvedValue(memberView('keep-3.mp3'))
+    store.applyEvent({
+      type: 'execution_snapshot',
+      data: { ...executionView },
+    })
+    await flushPromises()
+    expect(getMember).toHaveBeenCalledTimes(3)
+    expect(wrapper.get('[data-testid="execution-kept"]').text()).toContain('keep-3.mp3')
+  })
+
+  it('says so when the member is not in the execution', async () => {
+    const getMember = vi.fn().mockRejectedValue(Object.assign(new Error('nope'), { status: 404, code: 'MEMBER_NOT_IN_EXECUTION' }))
+    const wrapper = await mountPage(api(getMember), path)
+
+    expect(wrapper.get('[data-testid="execution-member-empty"]').text()).toContain('没有这个文件夹的结果')
   })
 })

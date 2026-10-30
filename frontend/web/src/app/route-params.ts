@@ -104,6 +104,7 @@ const CONVERSION_SUBTREE = [
   'conversion-member-edit',
   'conversion-settings',
   'conversion-execution',
+  'conversion-member-execution',
   'conversion-batch-edit',
 ]
 

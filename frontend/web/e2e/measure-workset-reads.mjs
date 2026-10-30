@@ -7,7 +7,8 @@ import { createServer } from 'vite'
 
 async function main() {
   const [phase, backend, library, workset, plan, member, execution] = process.argv.slice(2)
-  assert(['revision', 'execution'].includes(phase), 'expected revision or execution phase')
+  assert(['revision', 'execution', 'execution-stream'].includes(phase), 'expected revision, execution or execution-stream phase')
+  const streaming = phase === 'execution-stream'
   process.env.PREEN_BACKEND_URL = backend
   process.env.PREEN_VUE_DEVTOOLS = '0'
   const root = fileURLToPath(new URL('..', import.meta.url))
@@ -59,6 +60,7 @@ async function main() {
               bytes: new TextEncoder().encode(text).length,
               handler: response.headers.get('server-timing'),
               components: body.task?.payload?.components?.length,
+              status: body.status,
             })
             return body
           }
@@ -67,7 +69,7 @@ async function main() {
       })
       // Warm code/font delivery once, then start a fresh document/query cache.
       // The timed API reads below still execute against the live handler.
-      const executionPage = phase === 'execution' && process.env.PREEN_MEASURE_SNAPSHOT_LIST !== '1'
+      const executionPage = phase.startsWith('execution') && process.env.PREEN_MEASURE_SNAPSHOT_LIST !== '1'
       const listURL = `http://127.0.0.1:5189/worksets/${library}/conversion${executionPage ? '/execution' : ''}`
       await page.goto(listURL)
       await page.getByTestId(executionPage ? 'execution-panel' : 'member-row').first().waitFor()
@@ -146,6 +148,61 @@ async function main() {
       }
       else {
         await page.getByTestId(executionPage ? 'execution-panel' : 'member-row').first().waitFor()
+        if (executionPage) {
+          // Slim execution page and member page, each reloaded from a fresh Vue
+          // Query cache. Streaming means the session is still running before and
+          // after each sample; the member is in scope and has frozen keep decisions.
+          const executionPath = `${operation}/executions/${execution}`
+          const sessionStatus = async () => {
+            const body = await (await fetch(`${backend}${executionPath}?view=members`)).json()
+            return `${body.status} ${body.completed_components}/${body.total_components}`
+          }
+          const sample = async (kind, path, ready, statusTestId) => {
+            const url = `http://127.0.0.1:5189${path}`
+            await page.goto(url)
+            await page.locator(ready).first().waitFor()
+            await page.evaluate(() => document.fonts.ready)
+            const before = await sessionStatus()
+            await page.reload()
+            await page.locator(ready).first().waitFor()
+            const visible = await page.evaluate(() => performance.now())
+            const after = await sessionStatus()
+            const ui = await page.getByTestId(statusTestId).first().textContent()
+            const reads = await page.evaluate(() => window.measureReads)
+            let kept
+            if (kind === 'member') {
+              const body = await (await fetch(`${backend}${executionPath}?member_id=${member}`)).json()
+              kept = body.components.reduce((sum, component) => sum + component.kept_decisions.length, 0)
+              assert(kept > 0, 'the sampled member must have real keep decisions')
+            }
+            if (streaming)
+              assert(before.startsWith('running') && after.startsWith('running'), `${kind}: session must be running around the sample (${before}/${after})`)
+            console.log(JSON.stringify({
+              phase,
+              width,
+              kind,
+              visible_ms: visible,
+              session_before: before,
+              session_after: after,
+              ui_status: ui.trim(),
+              kept,
+              requests: reads.map(({ url, bytes, handler, parse_ms, status }) => ({
+                url,
+                bytes,
+                handler,
+                parse_ms,
+                status,
+              })),
+            }))
+          }
+          await sample('panel', `/worksets/${library}/conversion/execution`, '[data-testid="execution-count-pending"]', 'execution-status')
+          await sample('member', `/worksets/${library}/conversion/${member}/execution`, '[data-testid="execution-component"]', 'execution-member-status')
+          if (streaming) {
+            assert.deepEqual(errors, [])
+            await page.close()
+            continue
+          }
+        }
         // Two separate real SSE connections to the same persisted execution;
         // reconnect deliberately sends no replay id, matching production semantics.
         console.log(JSON.stringify({
@@ -200,13 +257,11 @@ async function main() {
               fetch_ms: received - start,
               parse_ms: parsed - parseStart,
               total_ms: parsed - start,
-              components: body.components.length,
-              kept: body.components.reduce((sum, component) => sum + component.kept_decisions.length, 0),
+              members: Object.values(body.members.counts).reduce((sum, n) => sum + n, 0),
+              attention: body.members.attention.length,
               heap_bytes: performance.memory.usedJSHeapSize,
             }
-          }, `${operation}/executions/${execution}/events`)
-          if (process.env.PREEN_MEASURE_KEPT_SNAPSHOT === '1')
-            assert(snapshot.kept > 0, 'the retained-decision sample must contain real keep decisions')
+          }, `${operation}/executions/${execution}/events?view=members`)
           console.log(JSON.stringify({ phase, width, connection, snapshot }))
         }
       }

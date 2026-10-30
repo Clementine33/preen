@@ -18,6 +18,7 @@ import type {
   WorksetListResponse,
 } from '@/lib/api/types'
 import { infiniteQueryOptions, queryOptions } from '@tanstack/vue-query'
+import { executionViewFor } from '@/lib/api/client'
 import { errorDetails } from '@/lib/api/error'
 import { refreshOrRemoveQueries } from './cache-sync'
 import { queryKeys } from './query-keys'
@@ -353,10 +354,10 @@ export function cancelGenerationMutationOptions(api: ApiClientContract) {
 // ==================== Execution sessions ====================
 
 // One session's authoritative detail. The SSE stream seeds this same entry with
-// its snapshot and keeps the open panel current through component events; the
-// GET stays the fallback (a missed terminal event, a reconnect) and the way to
-// read components the stream never sent — it is also the only source for the
-// pages beyond the ones the client holds.
+// its snapshot and keeps the open panel current through component (or member)
+// events; the GET stays the fallback (a missed terminal event, a reconnect).
+// Conversion reads the per-member summary shape; rename and metadata keep the
+// full one.
 export function executionQueryOptions(
   api: ApiClientContract,
   worksetId: string | null | undefined,
@@ -368,8 +369,37 @@ export function executionQueryOptions(
     enabled: Boolean(worksetId && executionId),
     staleTime: 0,
     retry: false,
+    queryFn: ({ signal }: { signal?: AbortSignal }) => {
+      const view = executionViewFor(operation)
+      return view
+        ? api.getExecution(worksetId as string, operation, executionId as string, signal, { view })
+        : api.getExecution(worksetId as string, operation, executionId as string, signal)
+    },
+  })
+}
+
+/**
+ * One member's Member Result (its components in full). Keyed under the session
+ * so the terminal sweep of the executions prefix re-reads it once.
+ */
+export function executionMemberQueryOptions(
+  api: ApiClientContract,
+  worksetId: string | null | undefined,
+  operation: OperationType,
+  executionId: string | null | undefined,
+  memberId: string | null | undefined,
+) {
+  return queryOptions({
+    queryKey: [
+      ...queryKeys.worksets.execution(worksetId ?? '', operation, executionId ?? ''),
+      'member',
+      memberId ?? '',
+    ] as const,
+    enabled: Boolean(worksetId && executionId && memberId),
+    staleTime: 0,
+    retry: false,
     queryFn: ({ signal }: { signal?: AbortSignal }) =>
-      api.getExecution(worksetId as string, operation, executionId as string, signal),
+      api.getExecution(worksetId as string, operation, executionId as string, signal, { memberId: memberId as string }),
   })
 }
 

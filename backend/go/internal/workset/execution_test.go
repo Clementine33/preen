@@ -438,7 +438,7 @@ func (f *execFixture) waitTerminal(executionID string) *workset.ExecutionView {
 	for time.Now().Before(deadline) {
 		view, err := f.svc.GetExecution(
 			f.t.Context(), f.worksetID, workset.OperationTypeConversion, executionID,
-			workset.ExecutionPage{},
+			workset.ExecutionRead{},
 		)
 		if err != nil {
 			f.t.Fatalf("GetExecution: %v", err)
@@ -1087,53 +1087,6 @@ func TestARootWithATrailingSlashStillOwnsItsSubtree(t *testing.T) {
 	started := f.mustStart("plan-slash", "k-slash")
 	if done := f.waitTerminal(started.ExecutionID); done.Status != "succeeded" {
 		t.Fatalf("status = %s (%s: %s)", done.Status, done.ErrorCode, done.ErrorMessage)
-	}
-}
-
-// TestExecutionDetailPagesTheComponentList covers the paging contract of the
-// detail read: the component list is ordered by component index, the page
-// starts where the caller says, and the counters describe the whole session
-// rather than the page, so a client can tell how much is left.
-func TestExecutionDetailPagesTheComponentList(t *testing.T) {
-	f, _ := poolFixture(t, 1, poolUnit(0), poolUnit(0), poolUnit(0))
-	f.seedRevision(
-		"plan-page",
-		poolComponent("u0", "albumA"),
-		poolComponent("u1", "albumB"),
-		poolComponent("u2", "albumA"),
-	)
-	started := f.mustStart("plan-page", "k-page")
-	done := f.waitTerminal(started.ExecutionID)
-	if done.Status != "succeeded" {
-		t.Fatalf("status = %s (%s: %s)", done.Status, done.ErrorCode, done.ErrorMessage)
-	}
-
-	firstPage, err := f.svc.GetExecution(
-		f.t.Context(), f.worksetID, workset.OperationTypeConversion, started.ExecutionID,
-		workset.ExecutionPage{Limit: 2},
-	)
-	if err != nil {
-		t.Fatalf("GetExecution(page 1): %v", err)
-	}
-	if len(firstPage.Components) != 2 || firstPage.Components[0].ComponentIndex != 0 ||
-		firstPage.Components[1].ComponentIndex != 1 {
-		t.Fatalf("page 1 components = %+v", firstPage.Components)
-	}
-	if firstPage.TotalComponents != 3 || firstPage.CompletedComponents != 3 {
-		t.Fatalf("page 1 counters = %+v", firstPage)
-	}
-	secondPage, err := f.svc.GetExecution(
-		f.t.Context(), f.worksetID, workset.OperationTypeConversion, started.ExecutionID,
-		workset.ExecutionPage{FromIndex: 2},
-	)
-	if err != nil {
-		t.Fatalf("GetExecution(page 2): %v", err)
-	}
-	if len(secondPage.Components) != 1 || secondPage.Components[0].ComponentIndex != 2 {
-		t.Fatalf("page 2 components = %+v", secondPage.Components)
-	}
-	if secondPage.Components[0].Status != workset.ExecComponentSucceeded {
-		t.Fatalf("page 2 component status = %s", secondPage.Components[0].Status)
 	}
 }
 

@@ -49,7 +49,7 @@ const recordQuery = useQuery(() => currentRecordQueryOptions(api, libraryId.valu
 const record = computed(() => recordQuery.data.value?.workset ?? null)
 const worksetId = computed(() => record.value?.workset_id ?? null)
 const { workspace, generation, execution, executionView, applySession, startGeneration }
-  = useOperationContext(worksetId, 'conversion', undefined, computed(() => route.name !== 'conversion-execution'))
+  = useOperationContext(worksetId, 'conversion')
 
 const workset = workspace.workset
 const operation = workspace.operation
@@ -129,6 +129,15 @@ async function openMember(memberId: string) {
 async function openMemberFiles(memberId: string) {
   await router.push({
     name: 'conversion-member-files',
+    params: { libraryId: libraryId.value, memberId },
+    query: listQuery.value,
+  })
+}
+
+/** A member's Member Result in the current execution session. */
+async function openMemberExecution(memberId: string) {
+  await router.push({
+    name: 'conversion-member-execution',
     params: { libraryId: libraryId.value, memberId },
     query: listQuery.value,
   })
@@ -564,9 +573,11 @@ const parentLink = computed(() => {
               :filter="filter"
               :search="ui.search"
               :conclusion-for="conclusionFor"
+              :execution-scope="executionView ? (executionView.selected_folders ?? []) : null"
               @toggle="ui.toggleMember($event)"
               @toggle-all="ui.toggleAllVisible($event)"
               @open="openMember($event)"
+              @open-execution="openMemberExecution($event)"
               @files="openMemberFiles($event)"
               @update:filter="setFilter"
               @update:search="ui.setSearch($event)"

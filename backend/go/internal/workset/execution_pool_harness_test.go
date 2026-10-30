@@ -332,7 +332,7 @@ func (f *execFixture) waitCurrentComponent(
 	for time.Now().Before(deadline) {
 		view, err := f.svc.GetExecution(
 			f.t.Context(), f.worksetID, workset.OperationTypeConversion, executionID,
-			workset.ExecutionPage{},
+			workset.ExecutionRead{},
 		)
 		if err != nil {
 			t.Fatalf("GetExecution: %v", err)

@@ -798,3 +798,33 @@ func fileSize(b *testing.B, path string) int64 {
 	}
 	return info.Size()
 }
+
+func TestListExecutionResultDigestsProjectsStatusFacts(t *testing.T) {
+	repo := newExecutionRepo(t)
+	seedExecutionWorkset(t, repo, "ws-1", "/music")
+	insertExecutionRow(t, repo, newExecution("exec-d", "ws-1", "plan-1", "key-d"))
+	for i, res := range []workset.ExecutionComponentResult{
+		{Status: "failed", CompletedOperations: 1, ResultJSON: `{"error_code":"E","error_message":"m","inventory_sync_error":"s","committed":["/a"]}`},
+		{Status: "succeeded", ResultJSON: `{}`},
+		{Status: "failed", ResultJSON: `not json`},
+	} {
+		res.ComponentIndex = i
+		if err := repo.SaveExecutionComponentResult("exec-d", res, workset.ExecutionPosition{}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got, err := repo.ListExecutionResultDigests("exec-d", 1)
+	if err != nil || len(got) != 2 || got[0].ComponentIndex != 1 || got[0].ErrorCode != "" || !got[1].Unreadable {
+		t.Fatalf("digests from 1 = %+v, %v", got, err)
+	}
+	all, err := repo.ListExecutionResultDigests("exec-d", 0)
+	if err != nil || len(all) != 3 {
+		t.Fatalf("digests = %+v, %v", all, err)
+	}
+	want := workset.ExecutionResultDigest{
+		Status: "failed", CompletedOperations: 1, ErrorCode: "E", ErrorMessage: "m", InventorySyncError: "s",
+	}
+	if all[0] != want {
+		t.Fatalf("digest 0 = %+v", all[0])
+	}
+}

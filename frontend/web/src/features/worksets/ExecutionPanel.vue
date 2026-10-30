@@ -1,40 +1,27 @@
 <script setup lang="ts">
-import type {
-  ExecutionComponent,
-  ExecutionStatus,
-  ExecutionView,
-  WorksetMember,
-} from '@/lib/api/types'
-import { ChevronRight, Folder } from '@lucide/vue'
+import type { ExecutionStatus, ExecutionView, WorksetMember } from '@/lib/api/types'
+import { Folder } from '@lucide/vue'
 import { computed } from 'vue'
+import { RouterLink } from 'vue-router'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { keepReasonText, PARTITION_TEXT } from '@/features/worksets/plan-readers'
+import { MEMBER_COUNT_ORDER, MEMBER_STATUS } from '@/features/worksets/execution-labels'
 import { sessionFailureText } from '@/features/worksets/session-failure'
 
 /**
- * Live progress and the observed result of one execution session. Every
- * number here is a count that actually happened — no estimated percentage —
- * and a failure keeps its partial facts: completed components, the operations
- * that never ran, and the files preserved for an operator.
- *
- * One card per folder, because that is the unit the user chose and the unit a
- * result is judged by: a folder's components (its classifier partitions) are
- * listed inside its own card, and the card reports the folder's own state.
- *
- * 保留文件 is the plan's conclusion, not the run's bookkeeping: the files the
- * revision kept untouched, carried by each execution component.
+ * Live progress and the observed result of one execution session, read as
+ * Member Results (the `view=members` shape): the session's progress, how many
+ * members ended in each state, and only the exceptions — failed, canceled,
+ * running or with an inventory warning — capped at what the server sent. A
+ * member's own components and files live on its own page, linked from here, so
+ * this panel's size does not depend on how many members ran.
  */
 const props = defineProps<{
   view: ExecutionView
   /** The record's members, to name a folder the way the user chose it. */
   members?: WorksetMember[]
-  /** Whether the session holds components this panel has not read yet. */
-  hasMore?: boolean
-  loadingMore?: boolean
+  /** Builds the member execution page's link; absent renders plain text. */
+  memberRoute?: (memberId: string) => object
 }>()
-
-const emit = defineEmits<{ loadMore: [] }>()
 
 const STATUS: Record<ExecutionStatus, { label: string, tone: 'neutral' | 'brand' | 'success' | 'warning' | 'danger' }> = {
   queued: { label: '排队中', tone: 'neutral' },
@@ -45,28 +32,8 @@ const STATUS: Record<ExecutionStatus, { label: string, tone: 'neutral' | 'brand'
   interrupted: { label: '已中断', tone: 'danger' },
 }
 
-const COMPONENT_STATUS: Record<ExecutionComponent['status'], { label: string, tone: 'neutral' | 'success' | 'danger' | 'warning' }> = {
-  pending: { label: '未执行', tone: 'neutral' },
-  succeeded: { label: '已完成', tone: 'success' },
-  failed: { label: '失败', tone: 'danger' },
-  canceled: { label: '已取消', tone: 'warning' },
-}
-
-const STAGE_LABELS: Record<string, string> = {
-  precheck: '预检',
-  materialize: '生成输出',
-  validate: '校验输出',
-  commit: '提交',
-  remove: '清理旧音频',
-}
-
 const status = computed(() => STATUS[props.view.status])
 const running = computed(() => props.view.status === 'running' || props.view.status === 'queued')
-
-/** The preserved files live under Delete/ in soft mode; hard mode removes them. */
-const removedHint = computed(() => (props.view.options?.delete_mode === 'hard'
-  ? '已硬删除'
-  : '已清理到 Delete/'))
 
 function shortPath(path: string): string {
   const parts = path.split('/')
@@ -75,81 +42,13 @@ function shortPath(path: string): string {
     : `…/${parts.slice(-2).join('/')}`
 }
 
-function filePath(path: string, root: string): string {
-  const prefix = `${root.replace(/\/$/, '')}/`
-  return path.startsWith(prefix)
-    ? path.slice(prefix.length)
-    : path
+const names = computed(() => new Map((props.members ?? []).map(member => [member.member_id, member.folder_name])))
+function memberName(memberId: string, rootPath: string): string {
+  return names.value.get(memberId) ?? shortPath(rootPath)
 }
 
-/** One folder's components and its own conclusion, in the panel's words. */
-interface FolderCard {
-  rootPath: string
-  name: string
-  components: ExecutionComponent[]
-  status: keyof typeof FOLDER_STATUS
-  /** The component the run is inside right now, if it is this folder's. */
-  running: boolean
-  completedComponents: number
-  operations: number
-  completedOperations: number
-}
-
-const FOLDER_STATUS: Record<string, { label: string, tone: 'neutral' | 'brand' | 'success' | 'warning' | 'danger' }> = {
-  pending: { label: '未执行', tone: 'neutral' },
-  running: { label: '执行中', tone: 'brand' },
-  succeeded: { label: '已完成', tone: 'success' },
-  failed: { label: '失败', tone: 'danger' },
-  canceled: { label: '已取消', tone: 'warning' },
-}
-
-/**
- * A folder's own state: done only when all of its partitions are, and a failure
- * or a cancellation anywhere in it is the folder's headline — the components
- * below say which one stopped.
- */
-function folderStatus(components: ExecutionComponent[]): keyof typeof FOLDER_STATUS {
-  if (components.every(component => component.status === 'succeeded'))
-    return 'succeeded'
-  if (components.some(component => component.status === 'failed'))
-    return 'failed'
-  if (components.some(component => component.status === 'canceled'))
-    return 'canceled'
-  return 'pending'
-}
-
-/** The report grouped into the folders the user selected, in frozen order. */
-const cards = computed<FolderCard[]>(() => {
-  const byRoot = new Map<string, ExecutionComponent[]>()
-  for (const component of props.view.components) {
-    byRoot.set(component.root_path, [
-      ...(byRoot.get(component.root_path) ?? []),
-      component,
-    ])
-  }
-  const live = props.view.status === 'running' || props.view.status === 'queued'
-  return [...byRoot].map(([rootPath, components]) => {
-    const running
-      = live && components.some(component => component.component_id === props.view.current_component_id)
-    return {
-      rootPath,
-      name:
-        props.members?.find(member => member.folder_path === rootPath)?.folder_name ?? shortPath(rootPath),
-      components,
-      status: running
-        ? 'running'
-        : folderStatus(components),
-      running,
-      completedComponents: components.filter(component => component.status === 'succeeded').length,
-      operations: components.reduce((total, component) => total + component.operations, 0),
-      completedOperations: components.reduce((total, component) => total + component.completed_operations, 0),
-    }
-  })
-})
-
-function partitionText(partition: string): string {
-  return PARTITION_TEXT[partition as keyof typeof PARTITION_TEXT] ?? partition
-}
+const memberBlock = computed(() => props.view.members ?? null)
+const hiddenAttention = computed(() => Math.max(0, (memberBlock.value?.attention_total ?? 0) - (memberBlock.value?.attention.length ?? 0)))
 
 /**
  * What this session covered, when it was scoped. A revision still runs once, so
@@ -199,114 +98,51 @@ const scope = computed(() => {
       本次只执行了选中的 {{ scope.selected }} 个文件夹（记录共 {{ scope.total }} 个）；其余文件夹需重新生成计划后执行。
     </p>
 
-    <ul v-if="cards.length > 0" class="mt-3 space-y-3">
-      <li
-        v-for="card in cards"
-        :key="card.rootPath"
-        class="overflow-hidden border border-[var(--wire-mid)]"
-        :class="card.running ? 'border-[var(--brand-border)]' : ''"
-        data-testid="execution-folder"
-        :data-folder-status="card.status"
-      >
-        <!-- The folder is the card's headline: what the user selected, and what
-             a result is judged by. -->
-        <div class="border-b border-[var(--wire-strong)] bg-[var(--bg-subtle)] px-3 py-3">
+    <template v-if="memberBlock">
+      <ul class="mt-3 flex flex-wrap gap-1.5" aria-label="成员执行状态" data-testid="execution-member-counts">
+        <li v-for="key in MEMBER_COUNT_ORDER" :key="key" class="flex items-center gap-1">
+          <Badge :tone="MEMBER_STATUS[key].tone">{{ MEMBER_STATUS[key].label }}</Badge>
+          <span class="font-mono text-[11px] tabular-nums" :data-testid="`execution-count-${key}`">{{ memberBlock.counts[key] }}</span>
+        </li>
+      </ul>
+
+      <ul v-if="memberBlock.attention.length > 0" class="mt-3 border border-[var(--wire-mid)]" data-testid="execution-attention">
+        <li
+          v-for="member in memberBlock.attention"
+          :key="member.member_id"
+          class="border-b border-border/60 px-3 py-2.5 last:border-b-0"
+          data-testid="execution-attention-item"
+          :data-member-status="member.status"
+        >
           <div class="flex items-start gap-2.5">
             <Folder class="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-            <span
+            <component
+              :is="memberRoute ? RouterLink : 'span'"
+              :to="memberRoute?.(member.member_id)"
               class="min-w-0 flex-1 line-clamp-2 break-words font-heading text-xs font-semibold leading-relaxed"
-              :title="card.rootPath"
-              data-testid="execution-folder-name"
+              :class="memberRoute ? 'hover:underline' : ''"
+              :title="member.root_path"
+              data-testid="execution-member-name"
             >
-              {{ card.name }}
-            </span>
-            <Badge :tone="FOLDER_STATUS[card.status]!.tone" class="shrink-0" data-testid="execution-folder-status">
-              {{ FOLDER_STATUS[card.status]!.label }}
+              {{ memberName(member.member_id, member.root_path) }}
+            </component>
+            <Badge :tone="MEMBER_STATUS[member.status].tone" class="shrink-0" data-testid="execution-member-status">
+              {{ MEMBER_STATUS[member.status].label }}
             </Badge>
           </div>
-          <div class="mt-2 pl-6.5 text-[11px] tabular-nums text-muted-foreground" data-testid="execution-folder-counts">
-            组件 {{ card.completedComponents }}/{{ card.components.length }} · 操作
-            {{ card.completedOperations }}/{{ card.operations }}
+          <div class="mt-1 pl-6.5 text-[11px] tabular-nums text-muted-foreground" data-testid="execution-member-counts">
+            组件 {{ member.completed_components }}/{{ member.total_components }} · 操作
+            {{ member.completed_operations }}/{{ member.total_operations }}
           </div>
-        </div>
-
-        <ul>
-          <li
-            v-for="component in card.components"
-            :key="component.component_id"
-            class="border-b border-border/60 px-3 py-2.5 last:border-b-0"
-            data-testid="execution-component"
-          >
-            <div class="flex flex-wrap items-center gap-1.5">
-              <span class="text-[11px] font-medium">{{ partitionText(component.partition) }}</span>
-              <Badge :tone="COMPONENT_STATUS[component.status].tone">{{ COMPONENT_STATUS[component.status].label }}</Badge>
-              <span class="ml-auto text-[11px] tabular-nums text-muted-foreground">
-                操作 {{ component.completed_operations }}/{{ component.operations }}
-              </span>
-              <span v-if="component.stage" class="text-[10px] text-[var(--danger-ink)]">
-                停在{{ STAGE_LABELS[component.stage] ?? component.stage }}
-              </span>
-            </div>
-
-            <p v-if="component.error_code" class="mt-1 text-[11px] text-[var(--danger-ink)]">
-              {{ component.error_message || component.error_code }}
-            </p>
-
-            <details
-              v-if="component.committed.length || component.removed.length || component.remaining.length || component.kept_decisions.length"
-              class="group mt-2 border border-[var(--wire-fine)] text-[11px]"
-            >
-              <summary class="flex cursor-pointer list-none flex-wrap items-center gap-x-2 gap-y-1 rounded-md px-2 py-1.5 text-muted-foreground hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
-                <ChevronRight class="size-3 shrink-0 transition-transform group-open:rotate-90" aria-hidden="true" />
-                <span>文件明细</span>
-                <span v-if="component.committed.length">写入 {{ component.committed.length }}</span>
-                <span v-if="component.removed.length">清理 {{ component.removed.length }}</span>
-                <span v-if="component.remaining.length">未执行 {{ component.remaining.length }}</span>
-                <span v-if="component.kept_decisions.length">保留 {{ component.kept_decisions.length }}</span>
-              </summary>
-              <dl class="space-y-3 border-t border-border/50 px-2 py-2">
-                <template
-                  v-for="group in [
-                    { label: '已写入', paths: component.committed, testId: 'execution-committed' },
-                    { label: removedHint, paths: component.removed, testId: 'execution-removed' },
-                    { label: '未执行', paths: component.remaining, testId: 'execution-remaining' },
-                  ]"
-                  :key="group.testId"
-                >
-                  <div v-if="group.paths.length">
-                    <dt class="mb-1 text-muted-foreground">{{ group.label }}</dt>
-                    <dd class="space-y-1" :data-testid="group.testId">
-                      <span v-for="path in group.paths" :key="path" class="block break-all font-mono leading-relaxed" :title="path">
-                        {{ filePath(path, component.root_path) }}
-                      </span>
-                    </dd>
-                  </div>
-                </template>
-                <div v-if="component.kept_decisions.length">
-                  <dt class="mb-1 text-muted-foreground">保留文件</dt>
-                  <dd class="space-y-2" data-testid="execution-kept">
-                    <div v-for="file in component.kept_decisions" :key="file.path">
-                      <span class="block break-all font-mono leading-relaxed" :title="file.path">{{ filePath(file.path, component.root_path) }}</span>
-                      <span class="text-[10px] text-muted-foreground">{{ keepReasonText(file.reason_code) }}</span>
-                    </div>
-                  </dd>
-                </div>
-              </dl>
-            </details>
-            <p v-if="component.inventory_sync_error" class="mt-1 text-[10px] text-[var(--warning-ink)]" data-testid="execution-inventory-warning">
-              磁盘结果与媒体库索引未完全同步：{{ component.inventory_sync_error }}
-            </p>
-          </li>
-        </ul>
-      </li>
-    </ul>
-    <div v-if="props.hasMore" class="flex items-center gap-2 px-3 pb-2">
-      <Button variant="outline" size="sm" :disabled="props.loadingMore" data-testid="execution-load-more" @click="emit('loadMore')">
-        {{ props.loadingMore ? '加载中…' : '加载更多组件' }}
-      </Button>
-      <span class="text-[11px] text-[var(--text-secondary)]">
-        已显示 {{ props.view.components.length }} / {{ props.view.total_components }} 个组件
-      </span>
-    </div>
+          <p v-if="member.error_message" class="mt-1 pl-6.5 text-[11px] text-[var(--danger-ink)]">{{ member.error_message }}</p>
+          <p v-if="member.inventory_sync_error" class="mt-1 pl-6.5 text-[10px] text-[var(--warning-ink)]" data-testid="execution-inventory-warning">
+            磁盘结果与媒体库索引未完全同步：{{ member.inventory_sync_error }}
+          </p>
+        </li>
+      </ul>
+      <p v-if="hiddenAttention > 0" class="mt-2 px-1 text-[11px] text-[var(--text-secondary)]" data-testid="execution-attention-more">
+        另有 {{ hiddenAttention }} 个
+      </p>
+    </template>
   </section>
 </template>

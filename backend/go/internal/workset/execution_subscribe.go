@@ -38,7 +38,7 @@ func (s *serviceImpl) SubscribeExecution(
 	if err != nil {
 		return err
 	}
-	snapshot, err := s.executionViewOf(e, ExecutionPage{})
+	snapshot, err := s.executionViewOf(e, ExecutionRead{})
 	if err != nil {
 		return err
 	}

@@ -285,6 +285,10 @@ _Avoid_: Snapshot token, ETag.
 The asynchronous, durable run of one Plan Revision, across the whole revision or the members selected for this run. It is cooperatively cancelable, retains each committed result across interruption and does not resume automatically. Audio execution commits its frozen file decisions; metadata execution refreshes each distinct Work and records any cover demands for the selected Copies. Directory rename execution applies frozen basenames while retaining the Copies and recorded media outcomes.
 _Avoid_: Treating a cover delivery's later failure as a change to the execution's final result.
 
+**Member Result**:
+What one Execution Session did to one member: the outcome of each of the member's components, the files it wrote, cleaned up or left unexecuted, the files the plan kept, and why a component stopped. A member outside the session's scope has none. The session's own progress is the sum over its members; a successful member is read on demand rather than listed.
+_Avoid_: 作品 or 批次 for this — a Work is a metadata identity and the Workset is the batch; per-component file lists as the session page's content.
+
 **Metadata Refresh**:
 An independent activity that fills missing source groups, refreshes dynamic groups or refreshes all groups for the Works bound to selected member directories. Copies of the same Work share one metadata result; an unbound member is skipped.
 _Avoid_: Making a directory scan depend on an upstream metadata request.

@@ -23,6 +23,7 @@ const DOCUMENTED: Array<[path: string, name: string]> = [
   ['/worksets/lib-1/conversion/settings', 'conversion-settings'],
   ['/worksets/lib-1/conversion/batch-edit', 'conversion-batch-edit'],
   ['/worksets/lib-1/conversion/execution', 'conversion-execution'],
+  ['/worksets/lib-1/conversion/m-1/execution', 'conversion-member-execution'],
 ]
 
 describe('workbench route table', () => {

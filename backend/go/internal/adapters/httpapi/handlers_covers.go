@@ -73,7 +73,7 @@ func (s *Server) ownedCoverExecution(w http.ResponseWriter, r *http.Request) boo
 		r.PathValue("id"),
 		r.PathValue("type"),
 		r.PathValue("executionId"),
-		workset.ExecutionPage{Limit: 1},
+		workset.ExecutionRead{Members: true},
 	)
 	if err != nil {
 		writeWorksetError(w, err)

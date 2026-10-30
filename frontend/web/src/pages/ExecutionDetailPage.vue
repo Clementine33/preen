@@ -20,9 +20,6 @@ const {
   worksetId,
   execution,
   executionView,
-  hasMoreComponents,
-  loadMoreComponents,
-  loadingMoreComponents,
   queries,
   workspace,
 } = useCurrentConversion(libraryId, computed(() => false))
@@ -55,9 +52,7 @@ async function cancel() {
       <ExecutionPanel
         :view="executionView"
         :members="workspace.workset.value?.members ?? []"
-        :has-more="hasMoreComponents"
-        :loading-more="loadingMoreComponents"
-        @load-more="loadMoreComponents()"
+        :member-route="memberId => ({ name: 'conversion-member-execution', params: { libraryId, memberId }, query: route.query })"
       />
       <div v-if="running" class="flex flex-wrap items-center gap-2 px-3 py-2">
         <Button

@@ -174,11 +174,17 @@ func (r *worksetReadTimedRows) Close() error {
 func (f *worksetMeasurement) keptSnapshot(t *testing.T, id, member string) {
 	t.Helper()
 	plan := f.generate(t, id, workset.OperationTypeConversion, 1)
-	execution := f.execute(t, id, workset.OperationTypeConversion, plan, 1)
+	delayMS := worksetMeasurementInt(t, "PREEN_MEASURE_SAVE_DELAY_MS", 40)
+	f.sql.saveDelay.Store(int64(time.Duration(delayMS) * time.Millisecond))
+	execution := f.startExecution(t, id, workset.OperationTypeConversion, plan, 1)
+	// The browser samples the running session first; the script asserts it was running.
+	f.browser(t, "execution-stream", id, plan, member, execution)
+	f.sql.saveDelay.Store(0)
+	f.awaitExecution(t, workset.OperationTypeConversion, 1, execution)
 	f.read(
 		t,
 		"execution/conversion/kept-first-page",
-		"/api/v1/worksets/"+id+"/operations/conversion/executions/"+execution+"?components_from=0&components_limit=200",
+		"/api/v1/worksets/"+id+"/operations/conversion/executions/"+execution+"?view=members",
 	)
 	f.browser(t, "execution", id, plan, member, execution)
 }
@@ -202,7 +208,7 @@ func (f *worksetMeasurement) measureConversionRound(t *testing.T, id string, rou
 	f.read(
 		t,
 		"execution/conversion/first-page",
-		"/api/v1/worksets/"+id+"/operations/conversion/executions/"+executionID+"?components_from=0&components_limit=200",
+		"/api/v1/worksets/"+id+"/operations/conversion/executions/"+executionID+"?view=members",
 	)
 	if os.Getenv("PREEN_MEASURE_KEPT_SNAPSHOT") == "1" {
 		f.keptSnapshot(t, id, memberID)

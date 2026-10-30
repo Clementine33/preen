@@ -250,6 +250,11 @@ func (f *worksetMeasurement) generate(t *testing.T, id, kind string, round int) 
 
 func (f *worksetMeasurement) execute(t *testing.T, id, kind, plan string, round int) string {
 	t.Helper()
+	return f.awaitExecution(t, kind, round, f.startExecution(t, id, kind, plan, round))
+}
+
+func (f *worksetMeasurement) startExecution(t *testing.T, id, kind, plan string, round int) string {
+	t.Helper()
 	op, err := f.svc.GetOperation(t.Context(), id, kind)
 	if err != nil {
 		t.Fatal(err)
@@ -267,8 +272,13 @@ func (f *worksetMeasurement) execute(t *testing.T, id, kind, plan string, round 
 	if err != nil {
 		t.Fatal(err)
 	}
+	return result.Execution.ExecutionID
+}
+
+func (f *worksetMeasurement) awaitExecution(t *testing.T, kind string, round int, executionID string) string {
+	t.Helper()
 	worksetMeasurementWait(t, func() bool {
-		view, err := f.repo.GetExecution(result.Execution.ExecutionID)
+		view, err := f.repo.GetExecution(executionID)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -284,13 +294,13 @@ func (f *worksetMeasurement) execute(t *testing.T, id, kind, plan string, round 
 	if scanErr := f.repo.DB().QueryRow(
 		`SELECT length(q.request_json), e.total_components FROM plan_executions e
 		 JOIN plan_execution_requests q ON q.execution_id = e.execution_id WHERE e.execution_id = ?`,
-		result.Execution.ExecutionID,
+		executionID,
 	).Scan(&requestBytes, &components); scanErr != nil {
 		t.Fatal(scanErr)
 	}
 	t.Logf("execution kind=%s round=%d id=%s status=succeeded request_bytes=%d components=%d",
-		kind, round, result.Execution.ExecutionID, requestBytes, components)
-	return result.Execution.ExecutionID
+		kind, round, executionID, requestBytes, components)
+	return executionID
 }
 
 func (f *worksetMeasurement) deliver(t *testing.T, id string, round int) {

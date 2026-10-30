@@ -809,3 +809,83 @@ PREEN_MEASURE_WORKSET=1 PREEN_MEASURE_MEMBERS=5000 PREEN_MEASURE_AUDIO=12 \
 ### 结论
 
 门槛为 3 次运行逐次合计等待（Go 排队 + `BEGIN`）最大都 ≤ 1,000 ms。结果：43.9 / 47.9 / 44.2 ms，超过 1,000 ms 的次数 0 / 0 / 0，**达标**（3 次中 3 次满足）；无 `SQLITE_BUSY`，全部完成，其他写路径没有出现变差。最长的合计等待几乎全是 Go 排队（约 38–48 ms），`BEGIN` 部分最大约 13–19 ms。本节只表明互斥后的合计等待远低于门槛，不对第 13 节超标窗口的具体机制作进一步断言。
+
+## 15. 执行页按成员摘要改造后的 5,000 × 12 复测
+
+本节在执行页改为 `view=members` 摘要、单成员页读取 `member_id` 之后采集，验收见[执行详情页读取与渲染](workset-execution-page-spec.md)。第 7 节“生产执行详情页面的另一项阻碍”中的 16053.8 / 17032.6 ms（393 / 1440）是本节的基线。环境同第 7 节：WSL2 磁盘运行（非 tmpfs），Go 1.27.3，Chromium 156.0.8078.4，Vite 开发构建，5,000 成员 × 12 音频；第二轮真实转换执行由 5,000 个组件构成，每组件 12 个非空保留决定（采样的成员实测 12 个）。**每个视口 / 页面 / 状态只有一个正式样本**，不是 p99，不用于声称稳定低于阈值。
+
+### 复现
+
+在 `backend/go` 执行（命令与第 7 节非空保留模式相同，不需新开关；约 82 s）：
+
+```sh
+GOCACHE=/tmp/preen-go-cache PREEN_MEASURE_WORKSET=1 \
+  PREEN_MEASURE_MEMBERS=5000 PREEN_MEASURE_AUDIO=12 PREEN_MEASURE_BROWSER=1 \
+  PREEN_MEASURE_KEPT_SNAPSHOT=1 \
+  go test ./internal/adapters/sqlite -run '^TestMeasureWorksetLifecycle$' -count=1 -v -timeout=30m
+```
+
+### 口径与相对第 7 节的变化
+
+- 夹具在第二轮执行开始后（不等待完成）先调用 `measure-workset-reads.mjs` 的 `execution-stream` 阶段，执行完成后再调用原 `execution` 阶段（空闲）。流式阶段的页面采样前后，脚本用 Node 直接读取同一 execution（`view=members`），两次状态都必须为 `running`，否则脚本断言失败；表中记录前 / 后的完成组件数。
+- 为让会话在采样窗口内保持 running，Go 夹具在该阶段给每次 `SaveExecutionComponentResult` 的事务开始前加 40 ms 延迟（`PREEN_MEASURE_SAVE_DELAY_MS`，浏览器阶段结束后归零）。延迟只作用于测量驱动，不改生产代码；它让执行变慢，因此流式页面读取时的 SQLite 写入竞争与不加延迟的真实执行不同，仅作“会话确实在运行”的证明。
+- 计时：每个页面先 `goto` 加载并等字体，再 reload（清空 Vue Query 缓存）；计到就绪元素可见时的 `performance.now()`。执行页的就绪元素是成员计数 `execution-count-pending`（不是 panel 外壳）；成员页的就绪元素是第一个 `execution-component` 行。所测成员为 5,000 个成员中的第一个（`m0`），12 个保留决定均非空。
+- 记录项：请求体字节为未压缩 UTF-8 body，handler 为生产 handler 第一次 socket 写入前的 `Server-Timing`，SSE 为空闲阶段独立打开的 `events?view=members` 首帧（首次与无 replay id 重连各一次）。
+- 与第 7 节不同：第 7 节的 snapshot-only 表读取的是全量组件快照；本节同一模式的快照已是成员摘要。
+
+### 验收结果
+
+阈值：单项 reload 至可见 ≤ 2000 ms。
+
+| 视口 | 状态 | 页面 | reload 至可见 / ms | 采样前 → 后完成组件 / 5000 | 页面显示状态 | 达标 |
+| --- | --- | --- | ---: | --- | --- | --- |
+| 393 | 空闲 | 执行页 | 907.3 | 5000 → 5000（succeeded） | 已完成 | 是 |
+| 393 | 流式 | 执行页 | 891.2 | 98 → 120（running） | 执行中 | 是 |
+| 393 | 空闲 | 成员页 | 886.6 | 5000 → 5000（succeeded） | 已完成 | 是 |
+| 393 | 流式 | 成员页 | 881.8 | 143 → 165（running） | 已完成（`m0` 已落地） | 是 |
+| 1440 | 空闲 | 执行页 | 899.4 | 5000 → 5000（succeeded） | 已完成 | 是 |
+| 1440 | 流式 | 执行页 | 925.8 | 241 → 264（running） | 执行中 | 是 |
+| 1440 | 空闲 | 成员页 | 937.3 | 5000 → 5000（succeeded） | 已完成 | 是 |
+| 1440 | 流式 | 成员页 | 957.1 | 288 → 313（running） | 已完成（`m0` 已落地） | 是 |
+
+相对基线（执行页 16053.8 / 17032.6 ms），空闲执行页降为 907.3 / 899.4 ms。
+
+### 读取字节与 handler
+
+页面自身的请求，每个样本一次（ms / B；流式列为 running 会话，空闲列为 succeeded）：
+
+| 请求 | 流式 B | 流式 handler / ms | 空闲 B | 空闲 handler / ms |
+| --- | ---: | --- | ---: | --- |
+| execution GET `view=members`（393 执行页） | 1,080 | 17.115 | 691 | 28.954 |
+| execution GET `view=members`（1440 执行页） | 1,080 | 16.378 | 691 | 28.499 |
+| execution GET `member_id=`（393 成员页） | 3,104 | 15.541 | 3,004 | 29.991 |
+| execution GET `member_id=`（1440 成员页） | 3,104 | 16.045 | 3,004 | 31.159 |
+
+成员页同时发出 `view=members` 请求（页头 / 状态），393 空闲为 691 B / 29.916 ms，1440 流式为 1,080 B / 17.092 ms。JSON.parse 均 ≤ 0.1 ms。
+
+SSE `view=members` 首帧（空闲，已完成会话）：payload 691 B，SSE 帧 725 B，reader 收到 848 B；服务生成 61.116 / 55.625 ms（393 首次 / 重连），54.985 / 55.678 ms（1440），首帧取完 57.1–63.3 ms，`counts` 合计 5,000，`attention` 0。流式状态下页面自己打开的 SSE 首帧字节未单独记录；同一时刻 execution GET `view=members` 为 1,080 B（含 running 成员的例外条目）。第 7 节同一入口的全量快照为 10,699,474 B。
+
+### 边界
+
+- 单样本，且每个视口各自 reload 一次；没有重复运行，不给出分布。
+- 流式样本的“成员页”所选 `m0` 在采样时已经完成（组件在该会话最早的 100 个内落地），因此成员页的流式样本证明的是“会话运行中进入成员页的读取与渲染”，未覆盖“正在运行的成员收到 `member` 事件后重读”的路径；该路径的正确性由单元测试覆盖，本节不测其耗时。
+- 页面请求中的 `libraries/.../current`、`worksets/{id}` 各 1.21 MB（handler 约 13–25 ms）和转换 `operation`（流式 handler 354–374 ms，空闲 352–367 ms）仍在页面入口前置，约 0.5 s 的页面入口有一半在 `operation` 读取之后才发出 execution 请求；此次未调查，也不在本票范围。
+- 40 ms 保存延迟只用于保持会话运行；空闲 execution GET 的 handler（约 29 ms）反而高于流式（约 16 ms），原因未调查，两者都远低于 2 s 的阈值。
+- 开发构建、OS 页缓存、保留代码与字体缓存，loopback 无广域网延迟，没有其它并发 worker，结论条件同第 7 节。
+
+### 结论
+
+8 项（2 视口 × 执行页 / 成员页 × 空闲 / 流式）全部 ≤ 2000 ms，最大 957.1 ms，**达标**；未触发诊断拆分。
+
+### 补测：执行页恢复读取 revision 后
+
+上表采样时，`ConversionPage` 在执行页与成员执行页路由上跳过 revision 读取，旁边的 `MemberList` 因此没有成员结论、全部显示默认徽标（缺陷）。修复为这两个路由也读取轻量 revision 后，同一命令复测一次（72.4 s，通过）。revision 与 execution 读取并行发出，流式时 revision 为 1,810,138 B、handler 373–378 ms、JSON.parse 2.7–3.1 ms：
+
+| 视口 | 状态 | 执行页 / ms | 成员页 / ms |
+| --- | --- | ---: | ---: |
+| 393 | 空闲 | 844.9 | 847.1 |
+| 393 | 流式 | 890.9 | 935.2 |
+| 1440 | 空闲 | 879.9 | 981.7 |
+| 1440 | 流式 | 987.8 | 957.7 |
+
+8 项最大 987.8 ms，仍全部 ≤ 2000 ms。单样本，口径与边界同上。

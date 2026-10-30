@@ -161,6 +161,18 @@ async function startExecution(page: Page): Promise<void> {
   await expect(page.getByTestId('execution-panel')).toBeVisible({ timeout: 15_000 })
 }
 
+/** File facts of the finished member: written, soft-deleted, kept (not listed: Delete/ destinations). */
+async function expectMemberFacts(page: Page): Promise<void> {
+  const member = page.getByTestId('execution-member-page')
+  await expect(member.getByTestId('execution-component').first()).toBeVisible({ timeout: 30_000 })
+  await expect(member).toContainText('已写入')
+  await expect(member).toContainText('已清理到 Delete/')
+  // 保留文件 is the plan's conclusion, not the run's bookkeeping: the declared
+  // lossless target was already satisfied, so it stayed untouched.
+  await expect(member.getByTestId('execution-kept')).toContainText('00.wav')
+  await expect(member).not.toContainText('Delete/RJ000001 soft-album')
+}
+
 test.describe('workset execution', () => {
   test.skip(!e2eEnabled, 'execution e2e runs only with BROWSER_E2E=1')
 
@@ -176,13 +188,18 @@ test.describe('workset execution', () => {
     await expect(page.getByTestId('execution-status')).toHaveText('已完成', { timeout: 90_000 })
     // The report lives in the detail carrier, not in the middle of the list.
     await expect(page.getByTestId('workbench-detail-inline').getByTestId('execution-panel')).toBeVisible()
-    await expect(page.getByTestId('execution-panel')).toContainText('已写入')
-    await expect(page.getByTestId('execution-panel')).toContainText('已清理到 Delete/')
-    // 保留文件 is the plan's conclusion, not the run's bookkeeping: the declared
-    // lossless target was already satisfied, so it stayed untouched — and the
-    // Delete/ destinations the run moved files to are not listed at all.
-    await expect(page.getByTestId('execution-kept')).toContainText('00.wav')
-    await expect(page.getByTestId('execution-panel')).not.toContainText('Delete/RJ000001 soft-album')
+    // The panel only carries the session total and per-member counts; file
+    // facts live on the member page.
+    await expect(page.getByTestId('execution-count-succeeded')).toHaveText('1')
+    await expect(page.getByTestId('execution-count-failed')).toHaveText('0')
+    await expect(page.getByTestId('execution-attention')).toBeHidden()
+    await expect(page.getByTestId('execution-panel')).not.toContainText('00.wav')
+
+    // A user reaches the member's result from its list row.
+    await page.getByTestId('nav-conversion').click()
+    await page.getByTestId('member-execution').first().click()
+    await expect(page).toHaveURL(/\/conversion\/[^/]+\/execution$/)
+    await expectMemberFacts(page)
 
     // One disk smoke: the UI-triggered session really rebuilt its output.
     expect(mp3Bitrate(path.join(album, '00.mp3'))).toBeGreaterThanOrEqual(319_000)
@@ -191,6 +208,8 @@ test.describe('workset execution', () => {
     // survives it) on the same report page, and the revision can never run
     // again.
     await page.reload()
+    await expectMemberFacts(page)
+    await page.getByTestId('execution-member-back').click()
     await expect(page).toHaveURL(/\/conversion\/execution$/)
     await expect(page.getByTestId('execution-status')).toHaveText('已完成', { timeout: 30_000 })
     const executeAgain = page.getByTestId('start-execution')

@@ -93,6 +93,8 @@ type Store interface {
 	LatestGenerationForOperation(worksetID, operationType string) (*PlanGeneration, error)
 	// ListExecutionComponentResults is one operation of the lifecycle.
 	ListExecutionComponentResults(executionID string, fromIndex, limit int) ([]ExecutionComponentResult, error)
+	// ListExecutionResultDigests is one operation of the lifecycle.
+	ListExecutionResultDigests(executionID string, fromIndex int) ([]ExecutionResultDigest, error)
 	// ListWorksetMembers is one operation of the lifecycle.
 	ListWorksetMembers(worksetID string) ([]*WorksetMember, error)
 	// ListWorksets is one operation of the lifecycle.

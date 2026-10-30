@@ -155,8 +155,40 @@ ran the whole revision), `error_code`, `error_message`, `started_at`,
 with each component's own result folded in. A component with no recorded result
 at all is `pending` with empty result lists — nothing has run for it yet. Its
 frozen `kept_decisions` may already contain files. The list is
-ordered by `component_index` and may be paged through the detail route's
-`components_from`/`components_limit`.
+ordered by `component_index`. There is no paging: large runs read the members
+views below instead.
+
+**Members views (opt-in).** `GET …/executions/{executionId}?view=members` and
+`GET …/events?view=members` replace the component list with per-member
+summaries; without a parameter the shapes above are unchanged. `view` accepts
+only `members`; any other value, or `view` together with `member_id`, is 400
+`INVALID_VIEW`.
+
+A session's members are the members in its scope that own at least one frozen
+component (a component belongs to the member whose `folder_path` equals its
+`root_path`), ordered by their first component's `component_index`. A
+`MemberSummary` is `member_id`, `root_path`, `status`, `total_components`,
+`completed_components` (components that are not `pending`), `total_operations`,
+`completed_operations`, `error_message` (the first failed component's
+`error_message`, else its `error_code`, else `""`) and `inventory_sync_error`
+(the first non-empty one, else `""`). Member `status` is defined here only:
+`running` while the session is `queued`/`running` and the member holds
+`current_component_id`; otherwise `succeeded` when all its components
+succeeded, `failed` if any failed, `canceled` if any was canceled, else
+`pending`.
+
+The members detail keeps every scalar field and omits `components`, adding
+`members`: `counts` (`succeeded`, `failed`, `canceled`, `running`, `pending`
+member counts), `attention[]` (members that are `failed`, `canceled`, `running`
+or have a non-empty `inventory_sync_error`, in member order, at most 50) and
+`attention_total` (the uncapped count). The summary is read from result
+statuses only; it never joins `kept_decisions`.
+
+`GET …/executions/{executionId}?member_id=<id>` keeps every scalar field, limits
+`components[]` to that member's components (full entries, including
+`kept_decisions`) and adds `member: MemberSummary`. A member that is not in the
+workset, outside the session's scope, or without components in it is 404
+`MEMBER_NOT_IN_EXECUTION`.
 
 Each `components[]` entry: `component_index`, `component_id`, `root_path`,
 `partition`, `status` (`pending` | `succeeded` | `failed` | `canceled`),
@@ -176,7 +208,7 @@ conversion plan's file-decision shape. These are plan conclusions, including
 unmet targets, rather than observed execution results: pending, failed and
 canceled components carry them too. The server joins the requested components
 to their frozen plan; clients do not need a revision read. Every component
-entry carries this field: detail pages (`components_from`/`components_limit`),
+entry carries this field: detail pages (default and `member_id` reads),
 initial and reconnect `execution_snapshot` events, incremental `component`
 events, and start (including idempotent replay) and cancel session responses.
 Clients may replace an entire component entry when applying an event.
@@ -251,9 +283,17 @@ result and the final persisted progress are emitted before the terminal event,
 so a client that watches a run to its end has seen every component it ran and
 the final counts, including partial counts after failure or cancellation.
 A connection to an already-terminal session gets those counts in its initial
-snapshot. There is no event-log
-replay: a client that missed events — or attached late, or holds only the first
-page of a large run — re-reads the detail route, and the terminal event's
+snapshot.
+
+With `view=members` the snapshot is the members detail and `component` is
+replaced by `member`: `{"member": MemberSummary, "counts": {…},
+"attention_total": n}`, sent whenever a member's summary changes — a component
+result landing, or `current_component_id` moving (the member left and the
+member entered each get one). Within one poll tick the `member` events come
+first, then `progress`, and the terminal event is last; `progress` and the
+terminal events are unchanged. Calibration after the terminal event re-reads
+the detail with `view=members`. There is no event-log
+replay: a client that missed events — or attached late — re-reads the detail route, and the terminal event's
 calibration read closes any gap left by a result written outside component
 order. Disconnecting never cancels the session — only `POST …/cancel` or the
 process lifecycle does.

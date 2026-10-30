@@ -72,6 +72,7 @@ const NAV_OWNER_BY_ROUTE_NAME = {
   'conversion-member-edit': 'worksets',
   'conversion-batch-edit': 'worksets',
   'conversion-execution': 'worksets',
+  'conversion-member-execution': 'worksets',
   'rename': 'worksets',
   'metadata-refresh': 'worksets',
   'settings': 'settings',

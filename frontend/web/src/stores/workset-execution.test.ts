@@ -3,6 +3,7 @@ import type {
   ExecutionComponent,
   ExecutionEvent,
   ExecutionView,
+  MemberSummary,
 } from '@/lib/api/types'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -244,8 +245,8 @@ describe('component events', () => {
       type: 'component',
       data: component(0, 'succeeded'),
     })
-    expect(store.view?.components[0]?.status).toBe('succeeded')
-    expect(store.view?.components[0]).toEqual(component(0, 'succeeded'))
+    expect(store.view?.components?.[0]?.status).toBe('succeeded')
+    expect(store.view?.components?.[0]).toEqual(component(0, 'succeeded'))
 
     // A component beyond the page the snapshot carried arrives out of order:
     // it lands where component order puts it, not at the end.
@@ -253,8 +254,8 @@ describe('component events', () => {
       type: 'component',
       data: component(1, 'succeeded'),
     })
-    expect(store.view?.components.map(entry => entry.component_index)).toEqual([0, 1, 2])
-    expect(store.view?.components[1]).toEqual(component(1, 'succeeded'))
+    expect(store.view?.components?.map(entry => entry.component_index)).toEqual([0, 1, 2])
+    expect(store.view?.components?.[1]).toEqual(component(1, 'succeeded'))
   })
 
   it('ignores a component event before any view exists', () => {
@@ -264,5 +265,121 @@ describe('component events', () => {
       data: component(0, 'succeeded'),
     })
     expect(store.view).toBeNull()
+  })
+
+  describe('member events (view=members)', () => {
+    const none = {
+      succeeded: 0,
+      failed: 0,
+      canceled: 0,
+      running: 0,
+      pending: 0,
+    }
+    function member(id: string, status: MemberSummary['status'], sync = ''): MemberSummary {
+      return {
+        member_id: id,
+        root_path: `/music/${id}`,
+        status,
+        total_components: 1,
+        completed_components: 0,
+        total_operations: 1,
+        completed_operations: 0,
+        error_message: '',
+        inventory_sync_error: sync,
+      }
+    }
+    function seeded(attention: MemberSummary[] = [], total = attention.length) {
+      const store = useWorksetExecutionStore()
+      store.status = 'streaming'
+      store.view = view({
+        components: undefined,
+        members: { counts: none, attention, attention_total: total },
+      })
+      return store
+    }
+    const ids = (store: ReturnType<typeof seeded>) => store.view?.members?.attention.map(m => m.member_id)
+
+    it('adds, replaces and removes the entry and takes counts from the event', () => {
+      const store = seeded()
+      const counts = { ...none, failed: 1 }
+      store.applyEvent({
+        type: 'member',
+        data: {
+          member: member('a', 'failed'),
+          counts,
+          attention_total: 1,
+        },
+      })
+      store.applyEvent({
+        type: 'member',
+        data: {
+          member: member('b', 'running'),
+          counts,
+          attention_total: 2,
+        },
+      })
+      expect(ids(store)).toEqual(['a', 'b'])
+      expect(store.view?.members?.counts).toEqual(counts)
+      expect(store.view?.members?.attention_total).toBe(2)
+      expect(store.view?.components).toBeUndefined()
+
+      store.applyEvent({
+        type: 'member',
+        data: {
+          member: member('a', 'canceled'),
+          counts,
+          attention_total: 2,
+        },
+      })
+      expect(store.view?.members?.attention[0]?.status).toBe('canceled')
+
+      // Succeeded without a warning no longer qualifies; a warning keeps it.
+      store.applyEvent({
+        type: 'member',
+        data: {
+          member: member('b', 'succeeded'),
+          counts,
+          attention_total: 1,
+        },
+      })
+      expect(ids(store)).toEqual(['a'])
+      store.applyEvent({
+        type: 'member',
+        data: {
+          member: member('a', 'succeeded', 'locked'),
+          counts,
+          attention_total: 1,
+        },
+      })
+      expect(ids(store)).toEqual(['a'])
+    })
+
+    it('never grows the list past the server cap', () => {
+      const held = Array.from({ length: 50 }, (_, i) => member(`m-${i}`, 'failed'))
+      const store = seeded(held, 50)
+      store.applyEvent({
+        type: 'member',
+        data: {
+          member: member('late', 'failed'),
+          counts: none,
+          attention_total: 51,
+        },
+      })
+      expect(store.view?.members?.attention).toHaveLength(50)
+      expect(store.view?.members?.attention_total).toBe(51)
+    })
+
+    it('asks for the summary shape per operation: conversion yes, rename and metadata no', async () => {
+      for (const [operation, expected] of [
+        ['conversion', 'members'],
+        ['rename', undefined],
+        ['metadata_refresh', undefined],
+      ] as const) {
+        setActivePinia(createPinia())
+        const stream = vi.fn(() => events([]))
+        await useWorksetExecutionStore().attach('ws-1', operation, 'exec-1', apiStub({ streamExecutionEvents: stream }))
+        expect(stream).toHaveBeenCalledWith('ws-1', operation, 'exec-1', expect.any(AbortSignal), expected)
+      }
+    })
   })
 })

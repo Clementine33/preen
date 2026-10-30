@@ -2,9 +2,8 @@ package httpapi
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"net/http"
-	"strconv"
 
 	"github.com/Clementine33/preen/backend/internal/workset"
 )
@@ -69,20 +68,19 @@ func (s *Server) startExecution(w http.ResponseWriter, r *http.Request) {
 }
 
 // getExecution handles GET
-// /api/v1/worksets/{id}/operations/{type}/executions/{executionId}. The
-// optional components_from/components_limit parameters page a large run: the
-// component list is ordered by component index, so a client walks it from the
-// index after the last one it holds. Without them the response carries every
-// component, as it always has.
+// /api/v1/worksets/{id}/operations/{type}/executions/{executionId}. Without
+// parameters the response carries every component. `view=members` swaps the
+// components for per-member summaries; `member_id=<id>` narrows the components
+// to one member and adds that member's summary. The two do not combine.
 func (s *Server) getExecution(w http.ResponseWriter, r *http.Request) {
 	svc, err := s.worksetService()
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "INTERNAL", "workset service not configured")
 		return
 	}
-	page, err := executionPageOf(r)
+	read, err := executionReadOf(r)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "INVALID_PAGE", err.Error())
+		writeError(w, http.StatusBadRequest, "INVALID_VIEW", err.Error())
 		return
 	}
 	view, err := svc.GetExecution(
@@ -90,7 +88,7 @@ func (s *Server) getExecution(w http.ResponseWriter, r *http.Request) {
 		r.PathValue("id"),
 		r.PathValue("type"),
 		r.PathValue("executionId"),
-		page,
+		read,
 	)
 	if err != nil {
 		writeWorksetError(w, err)
@@ -99,24 +97,17 @@ func (s *Server) getExecution(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, view)
 }
 
-// executionPageOf reads the optional paging parameters of a detail request.
-func executionPageOf(r *http.Request) (workset.ExecutionPage, error) {
-	var page workset.ExecutionPage
-	for name, target := range map[string]*int{
-		"components_from":  &page.FromIndex,
-		"components_limit": &page.Limit,
-	} {
-		raw := r.URL.Query().Get(name)
-		if raw == "" {
-			continue
-		}
-		value, err := strconv.Atoi(raw)
-		if err != nil || value < 0 {
-			return workset.ExecutionPage{}, fmt.Errorf("%s must be a non-negative integer", name)
-		}
-		*target = value
+// executionReadOf reads the optional shape parameters of a detail request.
+func executionReadOf(r *http.Request) (workset.ExecutionRead, error) {
+	query := r.URL.Query()
+	view, memberID := query.Get("view"), query.Get("member_id")
+	switch {
+	case view != "" && memberID != "":
+		return workset.ExecutionRead{}, errors.New("view and member_id cannot be combined")
+	case view != "" && view != "members":
+		return workset.ExecutionRead{}, errors.New("view must be members")
 	}
-	return page, nil
+	return workset.ExecutionRead{Members: view == "members", MemberID: memberID}, nil
 }
 
 // cancelExecution handles POST
@@ -138,13 +129,23 @@ func (s *Server) cancelExecution(w http.ResponseWriter, r *http.Request) {
 // executionEvents handles GET
 // /api/v1/worksets/{id}/operations/{type}/executions/{executionId}/events
 // (SSE): an authoritative snapshot first, then progress and a terminal event.
+// `view=members` streams the members summary and `member` events instead of
+// components and `component` events.
 func (s *Server) executionEvents(w http.ResponseWriter, r *http.Request) {
 	svc, err := s.worksetService()
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "INTERNAL", "workset service not configured")
 		return
 	}
+	subscribe := svc.SubscribeExecution
+	if view := r.URL.Query().Get("view"); view != "" {
+		if view != "members" {
+			writeError(w, http.StatusBadRequest, "INVALID_VIEW", "view must be members")
+			return
+		}
+		subscribe = svc.SubscribeExecutionMembers
+	}
 	streamSessionEvents(w, r, "EXECUTION_NOT_FOUND", func(ctx context.Context, emit func(string, any) error) error {
-		return svc.SubscribeExecution(ctx, r.PathValue("id"), r.PathValue("type"), r.PathValue("executionId"), emit)
+		return subscribe(ctx, r.PathValue("id"), r.PathValue("type"), r.PathValue("executionId"), emit)
 	})
 }

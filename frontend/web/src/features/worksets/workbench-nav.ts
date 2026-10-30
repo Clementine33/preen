@@ -81,6 +81,7 @@ export type WorkbenchRouteName
     | 'conversion-member-edit'
     | 'conversion-batch-edit'
     | 'conversion-execution'
+    | 'conversion-member-execution'
     | 'rename'
     | 'metadata-refresh'
 
@@ -107,6 +108,7 @@ const POSITION_BY_ROUTE_NAME: Record<WorkbenchRouteName, WorkbenchNavPosition> =
   'conversion-member-edit': { current: 'conversion' },
   'conversion-batch-edit': { current: 'conversion' },
   'conversion-execution': { current: 'conversion' },
+  'conversion-member-execution': { current: 'conversion' },
   'rename': { current: 'rename' },
   'metadata-refresh': { current: 'metadata-refresh' },
 }

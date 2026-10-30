@@ -1,7 +1,7 @@
 import type { Ref } from 'vue'
-import type { ExecutionComponent, OperationType } from '@/lib/api/types'
+import type { OperationType } from '@/lib/api/types'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
-import { computed, ref, watch } from 'vue'
+import { computed, watch } from 'vue'
 import { useWorksetExecution } from '@/composables/use-workset-execution'
 import { useWorksetGeneration } from '@/composables/use-workset-generation'
 import { useApiClient } from '@/lib/api/client'
@@ -19,9 +19,6 @@ import {
   worksetDetailQueryOptions,
 } from '@/queries/worksets'
 import { useWorksetEditorStore } from '@/stores/workset-editor'
-
-/** How many components one page of a large run reads. */
-const EXECUTION_COMPONENT_PAGE = 200
 
 /**
  * The library's current conversion record and its operation context.
@@ -106,80 +103,20 @@ export function useOperationContext(
   const executionQuery = useQuery(
     computed(() => executionQueryOptions(api, worksetId.value, operation, executionRef.value?.id ?? null)),
   )
-  // A large run is read a page at a time: these are the components the client
-  // asked for on top of the ones the read or the stream carried.
-  const extraComponents = ref<ExecutionComponent[]>([])
-  const loadingMore = ref(false)
-  watch(executionRef, () => {
-    extraComponents.value = []
-  })
-
   // While the stream is live its view is the freshest truth — the snapshot,
-  // then each component result as it lands. A component the stream never sent
-  // (attached late, or beyond the components read so far) is taken from the
-  // detail query, which the snapshot seeds; once the stream has ended that
-  // query owns everything. Components fetched by index are merged on top of
-  // whichever of the two is current.
+  // then each component or member result as it lands. A view the stream never
+  // sent (attached late) is taken from the detail query, which the snapshot
+  // seeds; once the stream has ended that query owns everything.
   const executionView = computed(() => {
     const store = execution.store
     const detail = executionQuery.data.value
     const streamed = store.worksetId === worksetId.value && store.operation === operation && store.executionId === executionRef.value?.id
       ? store.view
       : null
-    const base = store.status === 'streaming' && streamed
+    return store.status === 'streaming' && streamed
       ? streamed
       : (detail ?? streamed)
-    if (!base)
-      return base
-    const known = new Set(base.components.map(component => component.component_index))
-    const missing = extraComponents.value.filter(
-      component => !known.has(component.component_index),
-    )
-    if (missing.length === 0)
-      return base
-    return {
-      ...base,
-      components: [
-        ...base.components,
-        ...missing,
-      ].sort(
-        (a, b) => a.component_index - b.component_index,
-      ),
-    }
   })
-
-  const hasMoreComponents = computed(
-    () => (executionView.value?.components.length ?? 0) < (executionView.value?.total_components ?? 0),
-  )
-
-  /**
-   * Reads the components after the last one held, for a run too large to render
-   * in one read. The stream keeps filling in components that commit next; this
-   * only reaches back for what a bounded read left out.
-   */
-  async function loadMoreComponents() {
-    const view = executionView.value
-    if (!view || loadingMore.value)
-      return
-    const from = view.components.reduce(
-      (last, component) => Math.max(last, component.component_index + 1),
-      0,
-    )
-    loadingMore.value = true
-    try {
-      const page = await api.getExecution(worksetId.value ?? '', operation, view.execution_id, undefined, {
-        from,
-        limit: EXECUTION_COMPONENT_PAGE,
-      })
-      extraComponents.value = [
-        ...extraComponents.value,
-        ...page.components,
-      ]
-    }
-    finally {
-      loadingMore.value = false
-    }
-  }
 
   const saveMutation = useMutation(saveOperationDraftMutationOptions(api, queryClient))
   const startMutation = useMutation(startGenerationMutationOptions(api, queryClient))
@@ -256,9 +193,6 @@ export function useOperationContext(
     generation,
     execution,
     executionView,
-    hasMoreComponents,
-    loadMoreComponents,
-    loadingMoreComponents: loadingMore,
     editor,
     applySession,
     startGeneration,

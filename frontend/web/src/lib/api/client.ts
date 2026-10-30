@@ -23,6 +23,7 @@ import type {
   DraftResponse,
   ExecutionEvent,
   ExecutionView,
+  ExecutionViewMode,
   FileOperation,
   FileOperationItem,
   FileOperationResult,
@@ -800,18 +801,23 @@ export class ApiClient implements ApiClientContract {
   }
 
   /**
-   * Session detail. `page` reads a slice of the component list, which is
-   *  ordered by component index; without it the whole list comes back.
+   * Session detail. `view: 'members'` is the summary shape (no components);
+   * `memberId` reads one member's components. Neither: the full shape.
    */
   getExecution(
     worksetId: string,
     operation: OperationType,
     executionId: string,
     signal?: AbortSignal,
-    page?: { from: number, limit: number },
+    read?: { view?: ExecutionViewMode, memberId?: string },
   ): Promise<ExecutionView> {
-    const query = page
-      ? `?components_from=${page.from}&components_limit=${page.limit}`
+    const params = new URLSearchParams()
+    if (read?.view)
+      params.set('view', read.view)
+    if (read?.memberId)
+      params.set('member_id', read.memberId)
+    const query = params.size
+      ? `?${params}`
       : ''
     return this.request(
       `${this.operationPath(worksetId, operation)}/executions/${encodeURIComponent(executionId)}${query}`,
@@ -872,9 +878,12 @@ export class ApiClient implements ApiClientContract {
     operation: OperationType,
     executionId: string,
     signal: AbortSignal,
+    view?: ExecutionViewMode,
   ): AsyncGenerator<ExecutionEvent> {
     return this.streamEvents<ExecutionEvent>(
-      `${this.operationPath(worksetId, operation)}/executions/${encodeURIComponent(executionId)}/events`,
+      `${this.operationPath(worksetId, operation)}/executions/${encodeURIComponent(executionId)}/events${view
+        ? `?view=${view}`
+        : ''}`,
       signal,
       'Execution events',
     )
@@ -1026,4 +1035,11 @@ export function useApiClient(): ApiClientContract {
   if (!client)
     throw new Error('ApiClient was not provided')
   return client
+}
+
+/** Conversion reads sessions as per-member summaries; rename and metadata keep the full shape. */
+export function executionViewFor(operation: OperationType): ExecutionViewMode | undefined {
+  return operation === 'conversion'
+    ? 'members'
+    : undefined
 }

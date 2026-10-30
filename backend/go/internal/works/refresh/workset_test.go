@@ -119,7 +119,7 @@ func waitExecution(t *testing.T, svc workset.Service, id, execution string) *wor
 	t.Helper()
 	deadline := time.Now().Add(10 * time.Second)
 	for time.Now().Before(deadline) {
-		v, err := svc.GetExecution(context.Background(), id, refresh.Kind, execution, workset.ExecutionPage{})
+		v, err := svc.GetExecution(context.Background(), id, refresh.Kind, execution, workset.ExecutionRead{})
 		if err != nil {
 			t.Fatal(err)
 		}

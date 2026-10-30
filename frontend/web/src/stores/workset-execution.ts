@@ -3,11 +3,12 @@ import type {
   ExecutionComponent,
   ExecutionEvent,
   ExecutionView,
+  MemberSummary,
   OperationType,
 } from '@/lib/api/types'
 import { defineStore } from 'pinia'
 import { markRaw } from 'vue'
-import { ApiError } from '@/lib/api/client'
+import { ApiError, executionViewFor } from '@/lib/api/client'
 import { errorDetails } from '@/lib/api/error'
 
 /**
@@ -32,6 +33,14 @@ function mergeComponent(
     next.push(entry)
   else next.splice(after, 0, entry)
   return next
+}
+
+/** The server caps `members.attention`; the store never grows it past that. */
+const ATTENTION_CAP = 50
+
+/** Whether a member belongs in the exception list (same rule as the server's). */
+function needsAttention(member: MemberSummary): boolean {
+  return member.status === 'failed' || member.status === 'canceled' || member.status === 'running' || member.inventory_sync_error !== ''
 }
 
 export type ExecutionRunStatus
@@ -79,6 +88,9 @@ export const useWorksetExecutionStore = defineStore('workset-execution', {
     // event means the stream never really started; caches must not be swept as
     // if the backend had done anything.
     receivedEvent: false,
+    // Bumped by every snapshot and member event so a page reading one member
+    // can re-read when it is that member (or any, for a snapshot: memberId null).
+    memberTick: { seq: 0, memberId: null as string | null },
     controller: null as AbortController | null,
   }),
   getters: {
@@ -115,7 +127,7 @@ export const useWorksetExecutionStore = defineStore('workset-execution', {
       this.receivedEvent = false
 
       try {
-        for await (const event of client.streamExecutionEvents(worksetId, operation, executionId, controller.signal)) {
+        for await (const event of client.streamExecutionEvents(worksetId, operation, executionId, controller.signal, executionViewFor(operation))) {
           // A reset() or a newer session superseded this stream — never let
           // stale events overwrite the current state.
           if (this.controller !== controller)
@@ -166,6 +178,39 @@ export const useWorksetExecutionStore = defineStore('workset-execution', {
       switch (event.type) {
         case 'execution_snapshot': {
           this.view = event.data
+          this.memberTick = { seq: this.memberTick.seq + 1, memberId: null }
+          break
+        }
+        case 'member': {
+          // Counts and the exception list follow the member's latest summary.
+          // The wire carries no frozen position, so a member that newly
+          // qualifies is appended in arrival order (and not at all once the
+          // list holds the server's cap; attention_total still says how many
+          // there are). The terminal calibration read restores frozen order.
+          const { member, counts, attention_total } = event.data
+          if (this.view?.members) {
+            const held = this.view.members.attention
+            const at = held.findIndex(entry => entry.member_id === member.member_id)
+            let attention = held
+            if (!needsAttention(member)) {
+              attention = at >= 0
+                ? held.filter((_, i) => i !== at)
+                : held
+            }
+            else if (at >= 0) {
+              attention = held.map((entry, i) => (i === at
+                ? member
+                : entry))
+            }
+            else if (held.length < ATTENTION_CAP) {
+              attention = [...held, member]
+            }
+            this.view = {
+              ...this.view,
+              members: { counts, attention, attention_total },
+            }
+          }
+          this.memberTick = { seq: this.memberTick.seq + 1, memberId: member.member_id }
           break
         }
         case 'component': {
@@ -177,7 +222,7 @@ export const useWorksetExecutionStore = defineStore('workset-execution', {
           if (this.view) {
             this.view = {
               ...this.view,
-              components: mergeComponent(this.view.components, event.data),
+              components: mergeComponent(this.view.components ?? [], event.data),
             }
           }
           break

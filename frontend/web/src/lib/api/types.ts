@@ -988,6 +988,32 @@ export interface ExecutionComponent {
   task_result?: unknown
 }
 
+export type MemberStatus = 'pending' | 'running' | 'succeeded' | 'failed' | 'canceled'
+export type MemberCounts = Record<MemberStatus, number>
+
+/** One member's Member Result, folded by the server (the only status rule). */
+export interface MemberSummary {
+  member_id: string
+  root_path: string
+  status: MemberStatus
+  total_components: number
+  completed_components: number
+  total_operations: number
+  completed_operations: number
+  error_message: string
+  inventory_sync_error: string
+}
+
+export interface ExecutionMembers {
+  counts: MemberCounts
+  /** Exception members (failed / canceled / running / sync warning), frozen order, capped by the server. */
+  attention: MemberSummary[]
+  attention_total: number
+}
+
+/** `view` query value: the summary shape conversion reads. */
+export type ExecutionViewMode = 'members'
+
 /** The session detail payload; also the SSE snapshot. */
 export interface ExecutionView {
   execution_id: string
@@ -1003,7 +1029,12 @@ export interface ExecutionView {
   current_root: string
   current_component_id: string
   current_phase: string
-  components: ExecutionComponent[]
+  /** Absent under `view=members`; under `member_id` only that member's components. */
+  components?: ExecutionComponent[]
+  /** `view=members`: the session's Member Result counts and exception list. */
+  members?: ExecutionMembers
+  /** `member_id=`: the member this read is about. */
+  member?: MemberSummary
   /**
    * The scope this session ran: record-relative paths, absent for a whole
    *  revision. The folders it left out are the next plan's work.
@@ -1041,6 +1072,8 @@ export type ExecutionEvent
    *  result lands; the next terminal event always follows the results.
    */
     | { type: 'component', data: ExecutionComponent }
+  /** `view=members`: one member's latest summary with the session's counts. */
+    | { type: 'member', data: { member: MemberSummary, counts: MemberCounts, attention_total: number } }
     | { type: 'progress', data: ExecutionProgressEvent }
     | { type: 'succeeded', data: { execution_id: string, plan_id: string } }
     | { type: 'failed', data: { execution_id: string, error_code: string, error_message: string } }
@@ -1408,7 +1441,7 @@ export interface ApiClientContract {
     operation: OperationType,
     executionId: string,
     signal?: AbortSignal,
-    page?: { from: number, limit: number },
+    read?: { view?: ExecutionViewMode, memberId?: string },
   ) => Promise<ExecutionView>
   cancelExecution: (
     worksetId: string,
@@ -1420,6 +1453,7 @@ export interface ApiClientContract {
     operation: OperationType,
     executionId: string,
     signal: AbortSignal,
+    view?: ExecutionViewMode,
   ) => AsyncIterable<ExecutionEvent>
   getExecutionCovers: (worksetId: string, executionId: string, signal?: AbortSignal) => Promise<CoverReport>
   changeExecutionCovers: (worksetId: string, executionId: string, action: 'retry' | 'cancel') => Promise<CoverReport>

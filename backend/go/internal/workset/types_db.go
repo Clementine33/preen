@@ -240,6 +240,19 @@ type ExecutionComponentResult struct {
 	UpdatedAt           time.Time
 }
 
+// ExecutionResultDigest is the status-only projection of a component result:
+// what a member summary reads without the result payload. Unreadable marks a
+// stored result that is not valid JSON.
+type ExecutionResultDigest struct {
+	ComponentIndex      int
+	Status              string
+	CompletedOperations int
+	Unreadable          bool
+	ErrorCode           string
+	ErrorMessage        string
+	InventorySyncError  string
+}
+
 // ErrExecutionNotFound is returned when an execution session cannot be found.
 var ErrExecutionNotFound = errors.New("execution not found")
 

@@ -28,6 +28,9 @@ type worksetSQLMeasurement struct {
 	imports    []worksetImportWait // per ImportMetadata call: Go queue + BEGIN
 	readActive atomic.Bool
 	readNanos  atomic.Int64
+	// saveDelay slows each execution result save so a sampled session stays
+	// running while the browser measures it (zero outside that window).
+	saveDelay atomic.Int64
 }
 
 type worksetSQLSample struct {
@@ -364,6 +367,9 @@ func (c *worksetMeasuredConn) Begin() (driver.Tx, error) {
 
 func (c *worksetMeasuredConn) BeginTx(ctx context.Context, options driver.TxOptions) (driver.Tx, error) {
 	path := worksetSQLPath()
+	if delay := c.measurement.saveDelay.Load(); delay > 0 && path == "(*Repository).SaveExecutionComponentResult" {
+		time.Sleep(time.Duration(delay))
+	}
 	beginStart := time.Now()
 	beginner, ok := c.Conn.(driver.ConnBeginTx)
 	if !ok {

@@ -414,13 +414,19 @@ type Service interface {
 	GetExecution(
 		ctx context.Context,
 		worksetID, operationType, executionID string,
-		page ExecutionPage,
+		read ExecutionRead,
 	) (*ExecutionView, error)
 	CancelExecution(
 		ctx context.Context,
 		worksetID, operationType, executionID string,
 	) (*ExecutionView, error)
 	SubscribeExecution(
+		ctx context.Context,
+		worksetID, operationType, executionID string,
+		emit func(event string, data any) error,
+	) error
+	// SubscribeExecutionMembers is SubscribeExecution in the members view.
+	SubscribeExecutionMembers(
 		ctx context.Context,
 		worksetID, operationType, executionID string,
 		emit func(event string, data any) error,

@@ -544,6 +544,47 @@ func (r *Repository) ListExecutionComponentResults(
 	return results, nil
 }
 
+// ListExecutionResultDigests returns the status projection of one session's
+// results in component order from fromIndex (inclusive): the counters and the
+// few error facts a member summary needs, extracted in SQL so no result payload
+// (task results, file lists) is read back into Go.
+func (r *Repository) ListExecutionResultDigests(
+	executionID string,
+	fromIndex int,
+) ([]workset.ExecutionResultDigest, error) {
+	rows, err := r.db.Query(`
+		SELECT component_index, status, completed_operations,
+			NOT json_valid(result_json),
+			CASE WHEN json_valid(result_json) THEN COALESCE(json_extract(result_json, '$.error_code'), '') ELSE '' END,
+			CASE WHEN json_valid(result_json) THEN COALESCE(json_extract(result_json, '$.error_message'), '') ELSE '' END,
+			CASE WHEN json_valid(result_json) THEN COALESCE(json_extract(result_json, '$.inventory_sync_error'), '') ELSE '' END
+		FROM execution_component_results
+		WHERE execution_id = ? AND component_index >= ?
+		AND execution_id IN (SELECT execution_id FROM plan_executions WHERE plan_id IN (`+visiblePlanIDs+`))
+		ORDER BY component_index
+	`, executionID, fromIndex)
+	if err != nil {
+		return nil, fmt.Errorf("list result digests: %w", err)
+	}
+	defer rows.Close()
+
+	digests := make([]workset.ExecutionResultDigest, 0)
+	for rows.Next() {
+		var d workset.ExecutionResultDigest
+		if err := rows.Scan(
+			&d.ComponentIndex, &d.Status, &d.CompletedOperations, &d.Unreadable,
+			&d.ErrorCode, &d.ErrorMessage, &d.InventorySyncError,
+		); err != nil {
+			return nil, fmt.Errorf("scan result digest: %w", err)
+		}
+		digests = append(digests, d)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate result digests: %w", err)
+	}
+	return digests, nil
+}
+
 // GetExecutionProgress reads the control fields of one session without its
 // frozen request or any component result: what the cancel watchdog and the
 // event stream poll. It returns workset.ErrExecutionNotFound for an unknown session.

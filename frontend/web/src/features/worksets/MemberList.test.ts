@@ -179,3 +179,51 @@ it('draws only a window of a large member set', async () => {
   heightOf.mockRestore()
   wrapper.unmount()
 })
+
+it('offers 执行结果 only for members inside the current execution session', async () => {
+  const members = ['a', 'b'].map(id => ({
+    member_id: id,
+    folder_name: id,
+    folder_path: id,
+    rel_path: id,
+    dir_id: id,
+  }))
+  async function buttons(executionScope?: string[] | null) {
+    const wrapper = mount(MemberList, {
+      props: {
+        members,
+        draft: {
+          schema_version: 1,
+          no_effect_tags: [],
+          matched: {},
+          unmatched: {},
+          members: [],
+        },
+        selectedIds: new Set<string>(),
+        hiddenSelectedCount: 0,
+        filter: 'all',
+        search: '',
+        conclusionFor: () => memberConclusion(frozenConclusion('changed')),
+        executionScope,
+      },
+    })
+    await giveHeight(wrapper)
+    return wrapper
+  }
+
+  // No session for the revision: no button.
+  expect((await buttons(null)).findAll('[data-testid="member-execution"]')).toHaveLength(0)
+  expect((await buttons(undefined)).findAll('[data-testid="member-execution"]')).toHaveLength(0)
+  // A whole-revision run (empty scope) covers every member.
+  const whole = await buttons([])
+  expect(whole.findAll('[data-testid="member-execution"]')).toHaveLength(2)
+  // A scoped run covers only its folders (record-relative paths).
+  const scoped = await buttons(['b'])
+  const only = scoped.findAll('[data-testid="member-execution"]')
+  expect(only).toHaveLength(1)
+  expect(only[0]!.attributes('aria-label')).toBe('查看 b 的执行结果')
+  await only[0]!.trigger('click')
+  expect(scoped.emitted('openExecution')).toEqual([
+    ['b'],
+  ])
+})

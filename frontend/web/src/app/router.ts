@@ -13,6 +13,7 @@ const MemberDetailPage = () => import('@/pages/MemberDetailPage.vue')
 const MemberEditPage = () => import('@/pages/MemberEditPage.vue')
 const BatchEditPage = () => import('@/pages/BatchEditPage.vue')
 const ExecutionDetailPage = () => import('@/pages/ExecutionDetailPage.vue')
+const ExecutionMemberPage = () => import('@/pages/ExecutionMemberPage.vue')
 const TaskOperationPage = () => import('@/pages/TaskOperationPage.vue')
 const SettingsPage = () => import('@/pages/SettingsPage.vue')
 const NotFoundPage = () => import('@/pages/NotFoundPage.vue')
@@ -101,6 +102,12 @@ export const router = createRouter({
           name: 'conversion-execution',
           component: ExecutionDetailPage,
           meta: { carrier: true, title: '执行结果' },
+        },
+        {
+          path: ':memberId/execution',
+          name: 'conversion-member-execution',
+          component: ExecutionMemberPage,
+          meta: { carrier: true, title: '成员执行结果' },
         },
         {
           path: 'batch-edit',

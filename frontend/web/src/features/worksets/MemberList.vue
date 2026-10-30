@@ -4,7 +4,7 @@ import type { MemberFilter } from '@/app/route-params'
 import type { EditTarget } from '@/features/worksets/draft-intents'
 import type { MemberConclusion } from '@/features/worksets/plan-readers'
 import type { OperationDraftDocument, WorksetMember } from '@/lib/api/types'
-import { Eye, FolderOpen } from '@lucide/vue'
+import { Eye, FolderOpen, ListChecks } from '@lucide/vue'
 import { observeElementOffset, useVirtualizer } from '@tanstack/vue-virtual'
 import { computed, ref } from 'vue'
 import { Badge } from '@/components/ui/badge'
@@ -19,6 +19,12 @@ const props = defineProps<{
   filter: MemberFilter
   search: string
   conclusionFor: (member: WorksetMember) => MemberConclusion
+  /**
+   * The current revision's execution scope: `null` when it has no execution
+   * session, `[]` for a whole-revision run, else the record-relative paths of
+   * the folders it covered. Only members in scope offer 执行结果.
+   */
+  executionScope?: string[] | null
 }>()
 const emit = defineEmits<{
   /** Opening a member's files: the shared file module, in this workbench. */
@@ -26,6 +32,7 @@ const emit = defineEmits<{
   'toggle': [memberId: string]
   'toggleAll': [ids: string[]]
   'open': [memberId: string]
+  'openExecution': [memberId: string]
   'update:filter': [value: MemberFilter]
   'update:search': [value: string]
 }>()
@@ -52,6 +59,13 @@ const FILTERS: { value: MemberFilter, label: string }[] = [
   { value: 'source_conflict', label: '源竞争' },
   { value: 'excluded', label: '已排除' },
 ]
+
+const scopeSet = computed(() => (props.executionScope?.length
+  ? new Set(props.executionScope)
+  : null))
+function hasExecutionResult(member: WorksetMember): boolean {
+  return props.executionScope != null && (scopeSet.value === null || scopeSet.value.has(member.rel_path))
+}
 
 const excluded = computed(() => {
   const set = new Set<string>()
@@ -220,7 +234,7 @@ function hasOverride(member: WorksetMember): boolean {
             </button>
             <span
               v-if="member.rel_path.lastIndexOf('/') > 0"
-              class="mt-0.5 block font-mono text-[11px] leading-4 text-[var(--text-muted)] [overflow-wrap:anywhere]"
+              class="mt-0.5 block truncate font-mono text-[11px] leading-4 text-[var(--text-muted)]"
               :title="member.folder_path"
             >
               {{ member.rel_path.slice(0, member.rel_path.lastIndexOf('/')) }}
@@ -263,6 +277,18 @@ function hasOverride(member: WorksetMember): boolean {
               @click="emit('open', member.member_id)"
             >
               <Eye class="size-5" />
+            </Button>
+            <Button
+              v-if="hasExecutionResult(member)"
+              variant="ghost"
+              size="icon"
+              class="size-10"
+              :aria-label="`查看 ${member.folder_name} 的执行结果`"
+              title="执行结果"
+              data-testid="member-execution"
+              @click="emit('openExecution', member.member_id)"
+            >
+              <ListChecks class="size-5" />
             </Button>
           </div>
         </li>

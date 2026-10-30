@@ -182,32 +182,13 @@ func TestExecutionAtScaleRecordsEveryComponentOnce(t *testing.T) {
 		}
 	}
 
-	// One row per component, and a page of the component list is the same
-	// components the unpaged read carries, in the same order.
+	// One row per component.
 	rows, err := f.repo.ListExecutionComponentResults(started.ExecutionID, 0, 0)
 	if err != nil {
 		t.Fatalf("list results: %v", err)
 	}
 	if len(rows) != components {
 		t.Fatalf("%d result rows for %d components", len(rows), components)
-	}
-	page, err := f.svc.GetExecution(
-		f.t.Context(), f.worksetID, workset.OperationTypeConversion, started.ExecutionID,
-		workset.ExecutionPage{FromIndex: 200, Limit: 200},
-	)
-	if err != nil {
-		t.Fatalf("GetExecution(page): %v", err)
-	}
-	if len(page.Components) != 200 || page.Components[0].ComponentIndex != 200 ||
-		page.Components[199].ComponentIndex != 399 {
-		t.Fatalf("page = %d components, first %d, last %d", len(page.Components),
-			page.Components[0].ComponentIndex, page.Components[len(page.Components)-1].ComponentIndex)
-	}
-	for i, component := range page.Components {
-		if component.ComponentID != done.Components[200+i].ComponentID {
-			t.Fatalf("page component %d = %s, want %s", i, component.ComponentID,
-				done.Components[200+i].ComponentID)
-		}
 	}
 }
 
@@ -225,7 +206,7 @@ func TestReadyComponentPersistsWhileLaterComponentIsStillEncoding(t *testing.T) 
 			f.worksetID,
 			"conversion",
 			started.ExecutionID,
-			workset.ExecutionPage{},
+			workset.ExecutionRead{},
 		)
 		if err != nil {
 			t.Fatal(err)
@@ -262,7 +243,7 @@ func TestExecutionPoolReadyHeadBypassesDeliveryBackpressure(t *testing.T) {
 			f.worksetID,
 			"conversion",
 			started.ExecutionID,
-			workset.ExecutionPage{},
+			workset.ExecutionRead{},
 		)
 		if err != nil {
 			t.Fatal(err)

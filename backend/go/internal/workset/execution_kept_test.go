@@ -106,7 +106,7 @@ func TestExecutionHTTPIncludesFrozenKeptDecisions(t *testing.T) {
 	for _, page := range []struct {
 		query string
 		empty bool
-	}{{"?components_from=0&components_limit=1", false}, {"?components_from=1&components_limit=1", true}} {
+	}{{"?member_id=" + f.members["albumA"].MemberID, false}, {"?member_id=" + f.members["albumB"].MemberID, true}} {
 		detail := request(http.MethodGet, detailPath+page.query, http.StatusOK)
 		var components []map[string]json.RawMessage
 		if err := json.Unmarshal(detail["components"], &components); err != nil {

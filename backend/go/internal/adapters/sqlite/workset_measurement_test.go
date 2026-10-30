@@ -48,7 +48,8 @@ func TestMeasureWorksetLifecycle(t *testing.T) {
 	// too, so replacing the record also removes nonempty execution/cover results.
 	for round := range 2 {
 		f.source.version.Store(uint32(round + 1))
-		if f.measureConversionRound(t, id, round) {
+		conversionPlan, done := f.measureConversionRound(t, id, round)
+		if done {
 			return
 		}
 		metadataPlan := f.generate(t, id, refresh.Kind, round)
@@ -59,7 +60,22 @@ func TestMeasureWorksetLifecycle(t *testing.T) {
 			"revision/metadata_refresh",
 			"/api/v1/worksets/"+id+"/operations/metadata_refresh/revisions/"+metadataPlan,
 		)
+		// Rename is only planned: its current plan makes all three operations
+		// carry one when the shared records are read.
+		renamePlan := f.generate(t, id, "rename", round)
+		f.read(t, "revision/rename", "/api/v1/worksets/"+id+"/operations/rename/revisions/"+renamePlan)
 		f.read(t, "current", "/api/v1/libraries/"+f.libraryID+"/operations/conversion/current")
+		f.read(t, "operation", "/api/v1/worksets/"+id+"/operations/conversion")
+		f.read(t, "workset", "/api/v1/worksets/"+id)
+		f.read(
+			t,
+			"revision/conversion/three_plans",
+			"/api/v1/worksets/"+id+"/operations/conversion/revisions/"+conversionPlan,
+		)
+		// Same navigation as the single-plan sample, now with all three plans current.
+		if round == 0 && os.Getenv("PREEN_MEASURE_KEPT_SNAPSHOT") != "1" {
+			f.browser(t, "revision", id, conversionPlan, f.readLargestMember(t, id, conversionPlan), "")
+		}
 	}
 	replacement := f.create(t, id)
 	if replacement == id {
@@ -198,6 +214,10 @@ func (f *worksetMeasurement) generate(t *testing.T, id, kind string, round int) 
 	)
 	if err != nil {
 		t.Fatal(err)
+	}
+	// An unexecuted rename plan with unchanged inputs is replayed, not replaced.
+	if !result.Created && kind == "rename" && result.Revision != nil {
+		return result.Revision.PlanID
 	}
 	if !result.Created || result.Generation == nil {
 		t.Fatalf("generation reused instead of replacing executed plan: %+v", result)

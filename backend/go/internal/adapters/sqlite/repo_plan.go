@@ -2,6 +2,7 @@ package sqlite
 
 import (
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -11,7 +12,8 @@ import (
 
 // ==================== plan persistence ====================
 
-const planColumns = `plan_id, root_path, scan_root_path, library_id, snapshot_token, status, task_kind, task_schema_version, created_at`
+const planColumns = `plan_id, root_path, scan_root_path, library_id, snapshot_token, status, task_kind, task_schema_version, created_at,
+	summary_reason, count_members, count_changed, count_unmet_targets, count_blocked, count_unchanged`
 
 // visiblePlanStatus admits the plans readers and executors may see: a staging
 // plan is not yet promoted and a retired one only awaits cleanup.
@@ -87,13 +89,20 @@ func InsertPlanTx(
 		return fmt.Errorf("insert plan: %w", err)
 	}
 
-	return insertPlanRecords(tx, planID, steps, roots, components)
+	return insertPlanRecords(tx, planID, planRecords{steps: steps, roots: roots, components: components})
+}
+
+// planRecords is one batch of immutable plan child rows.
+type planRecords struct {
+	steps       []workset.PlanStepRecord
+	roots       []workset.PlanRootRecord
+	components  []workset.PlanComponentRecord
+	conclusions []workset.MemberConclusion
 }
 
 // insertPlanRecords appends immutable payload rows inside a guarded transaction.
-func insertPlanRecords(tx *sql.Tx, planID string, steps []workset.PlanStepRecord,
-	roots []workset.PlanRootRecord, components []workset.PlanComponentRecord) error {
-	for _, s := range steps {
+func insertPlanRecords(tx *sql.Tx, planID string, rec planRecords) error {
+	for _, s := range rec.steps {
 		if _, err := tx.Exec(
 			`
 			INSERT INTO conversion_steps
@@ -116,7 +125,7 @@ func insertPlanRecords(tx *sql.Tx, planID string, steps []workset.PlanStepRecord
 		}
 	}
 
-	for _, r := range roots {
+	for _, r := range rec.roots {
 		rootStatus := r.RootStatus
 		if rootStatus == "" {
 			rootStatus = "ok"
@@ -129,7 +138,7 @@ func insertPlanRecords(tx *sql.Tx, planID string, steps []workset.PlanStepRecord
 		}
 	}
 
-	for _, c := range components {
+	for _, c := range rec.components {
 		if _, err := tx.Exec(`
 			INSERT INTO conversion_components
 			(plan_id, step_index, component_index, component_id, root_index, partition, status, reason_code, outcome_json)
@@ -139,7 +148,44 @@ func insertPlanRecords(tx *sql.Tx, planID string, steps []workset.PlanStepRecord
 		}
 	}
 
+	for _, c := range rec.conclusions {
+		if _, err := tx.Exec(`
+			INSERT INTO plan_member_conclusions (plan_id, member_id, excluded, has_components, task_json)
+			VALUES (?, ?, ?, ?, ?)
+		`, planID, c.MemberID, c.Excluded, c.HasComponents, string(c.Task)); err != nil {
+			return fmt.Errorf("insert member conclusion: %w", err)
+		}
+	}
+
 	return nil
+}
+
+// ListMemberConclusions reads the frozen conclusions stored at generation.
+func (r *Repository) ListMemberConclusions(planID string, memberID *string) ([]workset.MemberConclusion, error) {
+	filter, args := "", []any{planID}
+	if memberID != nil {
+		filter, args = " AND member_id = ?", append(args, *memberID)
+	}
+	rows, err := r.db.Query(`
+		SELECT member_id, excluded, has_components, task_json
+		FROM plan_member_conclusions WHERE plan_id = ? AND plan_id IN (`+visiblePlanIDs+`)`+filter+` ORDER BY member_id`, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []workset.MemberConclusion
+	for rows.Next() {
+		var c workset.MemberConclusion
+		var task string
+		if err := rows.Scan(&c.MemberID, &c.Excluded, &c.HasComponents, &task); err != nil {
+			return nil, err
+		}
+		if task != "" {
+			c.Task = json.RawMessage(task)
+		}
+		out = append(out, c)
+	}
+	return out, rows.Err()
 }
 
 // scanPlanRow scans one plan row (planColumns order).
@@ -161,17 +207,23 @@ func scanPlanRow(
 // GetPlanDetail reconstructs a plan's persisted review payload without
 // consulting live task state.
 func (r *Repository) GetPlanDetail(planID string) (*workset.PlanDetail, error) {
-	return r.getPlanDetail(planID, nil)
+	return r.getPlanDetail(planID, nil, true)
+}
+
+// GetPlanFrame reads the plan row, steps and roots, leaving out the component
+// payloads that summary reads do not need.
+func (r *Repository) GetPlanFrame(planID string) (*workset.PlanDetail, error) {
+	return r.getPlanDetail(planID, nil, false)
 }
 
 // GetMemberPlanDetail reads the first frozen root owned by this stable member
 // ID, in root_index order, and only its component outcomes. An empty ID selects
 // no inputs, including standalone plan roots without workset membership.
 func (r *Repository) GetMemberPlanDetail(planID, memberID string) (*workset.PlanDetail, error) {
-	return r.getPlanDetail(planID, &memberID)
+	return r.getPlanDetail(planID, &memberID, true)
 }
 
-func (r *Repository) getPlanDetail(planID string, memberID *string) (*workset.PlanDetail, error) {
+func (r *Repository) getPlanDetail(planID string, memberID *string, withComponents bool) (*workset.PlanDetail, error) {
 	var p workset.Plan
 	var createdAt string
 	var libraryID sql.NullString
@@ -180,7 +232,8 @@ func (r *Repository) getPlanDetail(planID string, memberID *string) (*workset.Pl
 	err := r.db.QueryRow(`
 		SELECT `+planColumns+`
 		FROM plans WHERE plan_id = ? AND `+visiblePlanStatus+`
-	`, planID).Scan(&p.PlanID, &p.RootPath, &p.ScanRootPath, &libraryID, &p.SnapshotToken, &p.Status, &taskKind, &taskSchemaVersion, &createdAt)
+	`, planID).Scan(&p.PlanID, &p.RootPath, &p.ScanRootPath, &libraryID, &p.SnapshotToken, &p.Status, &taskKind, &taskSchemaVersion, &createdAt,
+		&p.SummaryReason, &p.Counts.Members, &p.Counts.Changed, &p.Counts.UnmetTargets, &p.Counts.Blocked, &p.Counts.Unchanged)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, workset.ErrPlanNotFound
@@ -203,6 +256,9 @@ func (r *Repository) getPlanDetail(planID string, memberID *string) (*workset.Pl
 	}
 	detail.Roots = roots
 
+	if !withComponents {
+		return detail, nil
+	}
 	components, err := loadPlanComponents(r.db, planID, memberID)
 	if err != nil {
 		return nil, err

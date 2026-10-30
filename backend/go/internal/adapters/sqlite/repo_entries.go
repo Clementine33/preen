@@ -2,6 +2,7 @@ package sqlite
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"sort"
 
@@ -41,23 +42,9 @@ func (r *Repository) ObservedAudioEntries(rootPath string) ([]inventory.Observed
 
 	entries := make([]inventory.ObservedAudio, 0)
 	for rows.Next() {
-		var e inventory.ObservedAudio
-		var codec, mode sql.NullString
-		var bitrateKbps, recordSize, recordMtime sql.NullInt64
-		if err := rows.Scan(
-			&e.Path, &e.Size, &e.Mtime, &e.Bitrate, &e.Format,
-			&codec, &bitrateKbps, &mode, &recordSize, &recordMtime,
-		); err != nil {
+		e, err := scanObservedAudio(rows)
+		if err != nil {
 			return nil, err
-		}
-		if codec.Valid {
-			e.Generated = &inventory.GeneratedCredential{
-				Codec:       codec.String,
-				BitrateKbps: int(bitrateKbps.Int64),
-				Mode:        mode.String,
-				Size:        recordSize.Int64,
-				Mtime:       recordMtime.Int64,
-			}
 		}
 		entries = append(entries, e)
 	}
@@ -65,6 +52,94 @@ func (r *Repository) ObservedAudioEntries(rootPath string) ([]inventory.Observed
 		return nil, err
 	}
 	return entries, nil
+}
+
+var observedAudioPathSQL = joinInventoryPathSQL("f.dir_path", "f.name")
+
+// observedAudioByRootSQL is ObservedAudioEntries for many roots at once: the
+// roots arrive as one JSON array and each leg stays a path-index range search
+// per root, so no root reads the rest of the library.
+var observedAudioByRootSQL = `
+	WITH roots AS (
+		SELECT json_extract(value, '$.key') AS key, json_extract(value, '$.root') AS root,
+		       json_extract(value, '$.from') AS lo, json_extract(value, '$.to') AS hi,
+		       json_extract(value, '$.parent') AS parent, json_extract(value, '$.name') AS name
+		FROM json_each(?)
+	), scoped_files AS (
+		SELECT r.key, d.path AS dir_path, f.name, f.size, f.mtime, f.bitrate, f.format
+		FROM roots r JOIN inventory_dirs d ON d.path = r.root
+		JOIN inventory_files f ON f.dir_ref = d.id
+		UNION ALL
+		SELECT r.key, d.path, f.name, f.size, f.mtime, f.bitrate, f.format
+		FROM roots r JOIN inventory_dirs d ON d.path >= r.lo AND d.path < r.hi
+		JOIN inventory_files f ON f.dir_ref = d.id
+		UNION ALL
+		SELECT r.key, d.path, f.name, f.size, f.mtime, f.bitrate, f.format
+		FROM roots r JOIN inventory_dirs d ON d.path = r.parent
+		JOIN inventory_files f ON f.dir_ref = d.id AND f.name = r.name
+	)
+	SELECT f.key, ` + observedAudioPathSQL + `, f.size, f.mtime, COALESCE(f.bitrate, 0), COALESCE(f.format, ''),
+	       g.codec, g.bitrate_kbps, g.mode, g.size, g.mtime
+	FROM scoped_files f LEFT JOIN generation_records g ON g.path = ` + observedAudioPathSQL + `
+	ORDER BY 2
+`
+
+// ObservedAudioEntriesByRoot reads the observed audio under every given root
+// in one query, keyed by the root as passed, each list ordered by path. A root
+// with no entries has no key.
+func (r *Repository) ObservedAudioEntriesByRoot(roots []string) (map[string][]inventory.ObservedAudio, error) {
+	args := make([]map[string]string, 0, len(roots))
+	for _, key := range roots {
+		root := librarypath.CleanRootPath(key)
+		from, to := subtree(root)
+		parent, name := splitInventoryPath(root)
+		args = append(args, map[string]string{
+			"key": key, "root": root, "from": from, "to": to, "parent": parent, "name": name,
+		})
+	}
+	payload, err := json.Marshal(args)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := r.db.Query(observedAudioByRootSQL, string(payload))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := make(map[string][]inventory.ObservedAudio, len(roots))
+	for rows.Next() {
+		var key string
+		e, err := scanObservedAudio(rows, &key)
+		if err != nil {
+			return nil, err
+		}
+		out[key] = append(out[key], e)
+	}
+	return out, rows.Err()
+}
+
+// scanObservedAudio scans one observed-audio row, after any leading columns
+// the caller selected in front of it.
+func scanObservedAudio(rows *sql.Rows, lead ...any) (inventory.ObservedAudio, error) {
+	var e inventory.ObservedAudio
+	var codec, mode sql.NullString
+	var bitrateKbps, recordSize, recordMtime sql.NullInt64
+	dest := append(lead, &e.Path, &e.Size, &e.Mtime, &e.Bitrate, &e.Format,
+		&codec, &bitrateKbps, &mode, &recordSize, &recordMtime)
+	if err := rows.Scan(dest...); err != nil {
+		return e, err
+	}
+	if codec.Valid {
+		e.Generated = &inventory.GeneratedCredential{
+			Codec:       codec.String,
+			BitrateKbps: int(bitrateKbps.Int64),
+			Mode:        mode.String,
+			Size:        recordSize.Int64,
+			Mtime:       recordMtime.Int64,
+		}
+	}
+	return e, nil
 }
 
 // RootExistsInInventory reports whether the planning root itself is present in

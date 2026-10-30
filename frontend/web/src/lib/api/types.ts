@@ -1229,7 +1229,7 @@ export interface ConversionMemberConclusion {
 export interface MemberConclusion<T = ConversionMemberConclusion> {
   member_id: string
   excluded: boolean
-  input: 'none' | 'valid' | 'stale' | 'missing'
+  input: 'none' | 'valid' | 'stale' | 'missing' | 'unavailable'
   has_components: boolean
   task?: T
 }

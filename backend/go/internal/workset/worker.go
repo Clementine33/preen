@@ -170,6 +170,14 @@ func (d *dispatcher) execute(gen *PlanGeneration) {
 		d.fail(gen, "PERSIST_FAILED", freezeErr.Error())
 		return
 	}
+	if stampErr := d.svc.stampRevisionSummary(gen.OperationType, revision); stampErr != nil {
+		d.fail(gen, "PERSIST_FAILED", stampErr.Error())
+		return
+	}
+	if concludeErr := d.svc.stampMemberConclusions(gen.OperationType, members, revision); concludeErr != nil {
+		d.fail(gen, "PERSIST_FAILED", concludeErr.Error())
+		return
+	}
 	if persistErr := d.svc.repo.PersistOperationRevision(
 		ctx, gen.GenerationID, gen.WorksetID, gen.OperationType, time.Now(), *revision,
 	); persistErr != nil {

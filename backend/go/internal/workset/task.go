@@ -109,6 +109,15 @@ type MemberConclusionTask interface {
 	MemberConclusion(components []json.RawMessage) (json.RawMessage, error)
 }
 
+// InputValidationTask declares that a read's Member Input freshness needs only
+// the frozen roots, so summary reads skip the component payloads. It reports
+// only the roots whose live inputs moved, never an execution verdict such as
+// blocked units; admission and replay keep calling EvaluateRevision on the
+// complete plan.
+type InputValidationTask interface {
+	StaleInputRoots(ctx context.Context, roots []PlanRootRecord) ([]int, error)
+}
+
 // ExecutionDecisionTask projects the frozen file decisions shown on execution
 // entries. Workset forwards this task-owned array without interpreting it.
 type ExecutionDecisionTask interface {

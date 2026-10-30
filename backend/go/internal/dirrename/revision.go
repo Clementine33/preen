@@ -98,7 +98,7 @@ func (t *Task) EvaluateRevision(ctx context.Context, in workset.RevisionFacts) (
 	if err != nil {
 		return health, err
 	}
-	directories, readErrors := t.readParentDirectories(ctx, paths)
+	directories, occupants, readErrors := t.readParentDirectories(ctx, paths)
 	for _, err := range readErrors {
 		if err != nil && !errors.Is(err, fs.ErrNotExist) {
 			return health, err
@@ -149,7 +149,7 @@ func (t *Task) EvaluateRevision(ctx context.Context, in workset.RevisionFacts) (
 		o := outcomes[r.RootIndex]
 		live := planName(common, &workset.WorksetMember{
 			MemberID: o.MemberID, FolderPath: r.RootPath,
-		}, works[r.RootPath], directory, parent, naming{Custom: o.CustomName, Observed: o.ObservedName})
+		}, works[r.RootPath], directory, occupants[parent], parent, naming{Custom: o.CustomName, Observed: o.ObservedName})
 		// Batch collisions are frozen globally; a per-root read cannot recreate
 		// that reason. Comparing proposals also supports older mtime fingerprints.
 		if o.ReasonCode == "TARGET_COLLISION" && live.ReasonCode == "" {

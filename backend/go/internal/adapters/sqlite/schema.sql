@@ -70,6 +70,8 @@ CREATE TABLE schema_meta (
 -- demand atomically. Retired payload and executions are deleted in bounded
 -- background batches; they are never visible through read interfaces. Staging
 -- plans belong to their generation and become visible only after promotion.
+-- summary_reason and count_* are derived once from the frozen plan at
+-- generation (ADR 0001).
 CREATE TABLE plans (
     plan_id TEXT PRIMARY KEY,
     root_path TEXT NOT NULL,
@@ -81,6 +83,12 @@ CREATE TABLE plans (
     task_kind TEXT NOT NULL DEFAULT '',
     task_schema_version INTEGER NOT NULL DEFAULT 0,
     workset_id TEXT NOT NULL REFERENCES worksets(id) ON DELETE CASCADE,
+    summary_reason TEXT NOT NULL DEFAULT '',
+    count_members INTEGER NOT NULL DEFAULT 0,
+    count_changed INTEGER NOT NULL DEFAULT 0,
+    count_unmet_targets INTEGER NOT NULL DEFAULT 0,
+    count_blocked INTEGER NOT NULL DEFAULT 0,
+    count_unchanged INTEGER NOT NULL DEFAULT 0,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -145,6 +153,19 @@ CREATE TABLE conversion_components (
 
 -- Member review loads complete outcomes only for the selected planning root.
 CREATE INDEX idx_conversion_components_root ON conversion_components(plan_id, root_index, component_index);
+
+-- Frozen Member Conclusion minus Member Input: one row per record member,
+-- computed at generation from the complete plan (ADR 0001). Excluded and
+-- zero-component members have rows too; task_json is the task's opaque payload.
+CREATE TABLE plan_member_conclusions (
+    plan_id TEXT NOT NULL,
+    member_id TEXT NOT NULL,
+    excluded INTEGER NOT NULL DEFAULT 0,
+    has_components INTEGER NOT NULL DEFAULT 0,
+    task_json TEXT NOT NULL DEFAULT '',
+    PRIMARY KEY (plan_id, member_id),
+    FOREIGN KEY (plan_id) REFERENCES plans(plan_id) ON DELETE CASCADE
+);
 
 -- Libraries (web library views)
 CREATE TABLE libraries (

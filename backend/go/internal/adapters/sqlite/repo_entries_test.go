@@ -169,6 +169,44 @@ func checkInventoryReadPaths(t *testing.T, root string) {
 	}
 }
 
+func TestObservedAudioEntriesByRootMatchesPerRootReads(t *testing.T) {
+	repo, err := sqlite.NewDevelopmentRepository(filepath.Join(t.TempDir(), "cache.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer repo.Close()
+	inventoryfixture.SeedInventory(t, repo,
+		inventoryfixture.Row{Path: "/m/a", RootPath: "/m", IsDir: true},
+		inventoryfixture.Row{Path: "/m/a/disc/1.mp3", RootPath: "/m", Size: 1, Mtime: 2, Format: "mp3"},
+		inventoryfixture.Row{Path: "/m/a/0.mp3", RootPath: "/m", Size: 1, Mtime: 2, Format: "mp3"},
+		inventoryfixture.Row{Path: "/m/a b/1.mp3", RootPath: "/m", Size: 1, Mtime: 2, Format: "mp3"},
+		inventoryfixture.Row{Path: "/m/100%_x/1.mp3", RootPath: "/m", Size: 1, Mtime: 2, Format: "mp3"},
+		inventoryfixture.Row{Path: "/m/single.mp3", RootPath: "/m", Size: 1, Mtime: 2, Format: "mp3"},
+	)
+	if _, err = repo.DB().Exec(`INSERT INTO generation_records
+    (path,codec,encoder,encoder_version,bitrate_kbps,mode,size,mtime,content_sha256,created_at)
+    VALUES('/m/a/0.mp3','mp3','e','1',320,'cbr',1,2,'h','2026-01-01')`); err != nil {
+		t.Fatal(err)
+	}
+	roots := []string{"/m/a", "/m/a b", "/m/100%_x", "/m/single.mp3", "/m/gone", "/m/a/disc"}
+	batched, err := repo.ObservedAudioEntriesByRoot(roots)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, root := range roots {
+		want, err := repo.ObservedAudioEntries(root)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(want) == 0 {
+			want = nil
+		}
+		if !reflect.DeepEqual(batched[root], want) {
+			t.Fatalf("%s: batched %+v, per-root %+v", root, batched[root], want)
+		}
+	}
+}
+
 func TestLocalCoverReadUsesCandidateFilesAndStableVersions(t *testing.T) {
 	repo, err := sqlite.NewDevelopmentRepository(filepath.Join(t.TempDir(), "cache.db"))
 	if err != nil {

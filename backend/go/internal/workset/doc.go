@@ -8,7 +8,9 @@
 //
 // Tasks provide operation-specific policy and opaque payloads through Task and
 // the execution and member-conclusion seams. Workset owns member input health
-// and component ownership while task conclusions stay opaque; workset does not
+// and component ownership while task conclusions stay opaque; a task may declare
+// that read-time input freshness needs only the frozen roots (InputValidationTask),
+// so summary reads skip component payloads; workset does not
 // depend on a concrete task kind. Store
 // expresses the atomic persistence operations this lifecycle needs, while
 // inventory refresh and process admission are supplied by the caller.

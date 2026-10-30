@@ -183,16 +183,17 @@ func (f *worksetMeasurement) keptSnapshot(t *testing.T, id, member string) {
 	f.browser(t, "execution", id, plan, member, execution)
 }
 
-// measureConversionRound returns true when an explicitly shortened diagnostic
-// or retained-snapshot run has completed instead of the full lifecycle.
-func (f *worksetMeasurement) measureConversionRound(t *testing.T, id string, round int) bool {
+// measureConversionRound returns the conversion plan, and true when an
+// explicitly shortened diagnostic or retained-snapshot run has completed
+// instead of the full lifecycle.
+func (f *worksetMeasurement) measureConversionRound(t *testing.T, id string, round int) (string, bool) {
 	t.Helper()
 	conversionPlan := f.generate(t, id, workset.OperationTypeConversion, round)
 	f.read(t, "revision/conversion", "/api/v1/worksets/"+id+"/operations/conversion/revisions/"+conversionPlan)
 	memberID := f.readLargestMember(t, id, conversionPlan)
 	if os.Getenv("PREEN_MEASURE_READ_BREAKDOWN") == "1" {
 		f.readRevisionBreakdown(t, id, conversionPlan)
-		return true
+		return conversionPlan, true
 	}
 	if round == 0 && os.Getenv("PREEN_MEASURE_KEPT_SNAPSHOT") != "1" {
 		f.browser(t, "revision", id, conversionPlan, memberID, "")
@@ -205,8 +206,8 @@ func (f *worksetMeasurement) measureConversionRound(t *testing.T, id string, rou
 	)
 	if os.Getenv("PREEN_MEASURE_KEPT_SNAPSHOT") == "1" {
 		f.keptSnapshot(t, id, memberID)
-		return true
+		return conversionPlan, true
 	}
 	f.browser(t, "execution", id, conversionPlan, memberID, executionID)
-	return false
+	return conversionPlan, false
 }

@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/Clementine33/preen/backend/internal/adapters/httpapi"
+	"github.com/Clementine33/preen/backend/internal/testutil/conclusionfixture"
 	"github.com/Clementine33/preen/backend/internal/workset"
 )
 
@@ -234,6 +235,16 @@ func TestMissingSourceIsReportedOnceInReview(t *testing.T) {
 	}
 	if review.Counts.Blocked != 1 || review.Counts.Unchanged != 0 {
 		t.Fatalf("one missing member counted twice: %+v", review.Counts)
+	}
+	detail, err := repo.GetPlanDetail(finished.RevisionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if detail.Plan.Counts != review.Counts || review.Counts.Members != 1 {
+		t.Fatalf("stored %+v, service %+v", detail.Plan.Counts, review.Counts)
+	}
+	if stored := conclusionfixture.AssertStored(t, repo, task, id, "rename", finished.RevisionID); len(stored) != 1 {
+		t.Fatalf("stored conclusions: %+v", stored)
 	}
 }
 

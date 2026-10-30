@@ -25,7 +25,7 @@ PREEN_MEASURE_WORKSET=1 PREEN_MEASURE_MEMBERS=5000 PREEN_MEASURE_SELECTED=20 PRE
 
 - **媒体规模**：每个成员目录包含 12 个 15 字节的合成 FLAC 文件；500 / 1,000 / 2,000 / 5,000 成员分别对应 6,000 / 12,000 / 24,000 / 60,000 个音频文件。
 - **模拟与真实边界**：网络请求、音频编码与媒体探测在依赖端口模拟，不注入人工延迟；编码过程仍执行真实文件句柄读写、`fsync`、文件发布、生成凭据校验及库存同步；封面为有效 PNG 字节，第二轮使用不同图像字节。
-- **服务与数据库配置**：SQLite（WAL、`foreign_keys`、`busy_timeout=5000`、`IMMEDIATE` 写事务）、库存扫描、准入门、`conversion` 与 `metadata_refresh` 任务、调度器、执行器、封面投递及 HTTP handler 均使用生产实现（夹具未装配 `rename` 任务）。规划并发为 1，编码并发为 4，连接池不设额外连接数上限。
+- **服务与数据库配置**：SQLite（WAL、`foreign_keys`、`busy_timeout=5000`、`IMMEDIATE` 写事务）、库存扫描、准入门、`conversion` 与 `metadata_refresh` 任务、调度器、执行器、封面投递及 HTTP handler 均使用生产实现（第 1–7 节夹具未装配 `rename` 任务；第 8 节起已装配）。规划并发为 1，编码并发为 4，连接池不设额外连接数上限。
 - **准入绕过说明**：各档位测量执行时的生产成员上限常量为 500；超过 500 成员的运行仅在测试夹具中调用生产 `ReplaceCurrentWorkset` 写入全量成员与种子草稿以绕过创建数量检查，其余规划、执行、投递、读取、删除与清理均走生产服务路径。
 
 ### 计时与统计定义
@@ -364,3 +364,148 @@ GOCACHE=/tmp/preen-go-cache PREEN_MEASURE_WORKSET=1 \
 | 5,000 × 12，停止 dispatcher 后的重读 | 760.206 | 1432.783 | 6.961 | 2199.950 | 1,795,039 |
 
 同一个独立诊断运行在停止 dispatcher 前的普通 revision handler 读取为 2376.014 ms，成员审阅 32.439 ms / 28,211 B；不能仅保留前一运行的 1866.139 ms 来宣称稳定通过。约 65% 为视图、35% 为 driver 查询，适配与编码不足 1%。这与当前服务仍读取全量组件、做全根活校验、转换 review 及成员结论仍解码冻结负载的路径一致；这里没有进一步把视图拆成各函数耗时，也没有据此改生产实现。
+
+---
+
+## 8. 三任务当前计划下的 5,000 × 12 基线（读取成本改造前）
+
+本节是读取成本改造的对照基线：测量夹具补装 `rename` 任务，生命周期内每轮在转换与元数据刷新之后为重命名生成当前计划（只规划不执行），三个 operation 都有当前计划后再采样 `current`、`operation`、`workset` 与 revision。生产代码未改动；成员上限仍为 2,000，5,000 成员仅经夹具的仓储写入绕过准入。
+
+### 复现与环境
+
+在 `backend/go` 执行（不开浏览器；未设 `PREEN_MEASURE_BROWSER`）：
+
+```sh
+PREEN_MEASURE_WORKSET=1 PREEN_MEASURE_MEMBERS=5000 PREEN_MEASURE_AUDIO=12 \
+  go test ./internal/adapters/sqlite -run '^TestMeasureWorksetLifecycle$' -count=1 -v -timeout=30m
+```
+
+- 运行环境：x86_64 原生 Linux（非 WSL2），Go 1.27.3，GOMAXPROCS 取默认值；数据库与媒体文件位于 tmpfs（内存文件系统）挂载的临时目录，因此 `fsync` 与磁盘读写开销不同于第 4、7 节的磁盘运行，不能与其绝对值直接对比，后续各票须在同一环境重测后再比较。
+- 口径：每个接口每轮只请求一次，每档只有这一个样本，不是 p99；其余口径同第 1 节。本次运行无 SQL 尝试失败，测试总耗时 416.31 s。
+- 第 1 轮生成重命名计划用时 28,770.112 ms。第 2 轮的重命名输入与第 1 轮未变，生成请求回放第 1 轮的未执行计划（`Created=false`），因此第 2 轮读取的是同一份计划，没有新的生成耗时。
+- “首轮”为第 1 轮三个 operation 均有计划后的采样，“再生成后”为第 2 轮（转换与元数据已重新生成并执行，重命名计划为回放）。
+
+### HTTP 读取（三个 operation 均有当前计划）
+
+| 接口 | 首轮 / ms | 首轮 / B | 再生成后 / ms | 再生成后 / B |
+| --- | ---: | ---: | ---: | ---: |
+| `current`（`/libraries/{id}/operations/conversion/current`） | 10,471.985 | 1,216,532 | 9,067.651 | 1,216,533 |
+| `workset`（`/worksets/{id}`） | 10,360.896 | 1,216,520 | 8,948.045 | 1,216,521 |
+| `operation`（`/worksets/{id}/operations/conversion`） | 1,502.707 | 818 | 859.107 | 817 |
+| `revision/conversion`（轻量，三任务计划后） | 1,862.279 | 1,795,201 | 1,016.572 | 1,810,187 |
+| `revision/rename` | 9,079.185 | 1,573,582 | 8,198.746 | 1,573,582 |
+
+同一轮内更早、仅转换与（或）元数据有计划时的采样：`revision/conversion` 1,682.000 ms（1,795,039 B）/ 1,039.332 ms（1,810,025 B），`revision/metadata_refresh` 64.892 ms（1,863,802 B）/ 52.388 ms（1,863,804 B），组件最多成员的 `revision/conversion/member` 28.330 ms（28,211 B）/ 17.533 ms（6,692 B）。与第 4 节（无重命名计划）的 `current` 2,055.337 / 1,244.446 ms 相比，补入重命名计划后 `current` 约增至 5–7 倍；`workset` 与 `current` 响应体积近似（约 1.2 MB），`operation` 仅 818 B 但耗时仍达 0.86–1.5 s。
+
+### 写事务持锁与退役清理
+
+| 写事务路径 | 样本数 | BEGIN 最大 / ms | 持锁最大 / ms |
+| --- | ---: | ---: | ---: |
+| `beginStagingPlan` | 5 | 0.049 | 2.052 |
+| `appendStagingPlan` | 505 | 0.062 | 12.583 |
+| `promoteOperationRevision` | 5 | 0.027 | 9.984 |
+| `replaceCurrentWorkset` | 2 | 0.020 | 63.759 |
+| `DeleteRetiredPlanBatch` | 109 | 0.012 | 4.563 |
+
+- **退役清理**：108 个非空批次（样本数另含末次空候选事务），累计删除 85,031 行。
+- 各生成端到端耗时（ms）：转换 7,434.442 / 9,204.601，元数据刷新 486.753 / 496.960，重命名 28,770.112 / 回放。
+
+### 批量输入校验的查询计划
+
+转换的读取时校验用一条查询（`ObservedAudioEntriesByRoot`，成员根以 JSON 数组经 `json_each` 联结）；`EXPLAIN QUERY PLAN` 显示三段（根自身、子树区间、单文件根）都按 `inventory_dirs` 的路径唯一索引搜索，没有扫描 `inventory_dirs` 或 `inventory_files`：
+
+```text
+SCAN json_each VIRTUAL TABLE INDEX 1:
+SEARCH d USING COVERING INDEX sqlite_autoindex_inventory_dirs_1 (path=?)
+SEARCH f USING PRIMARY KEY (dir_ref=?)
+SEARCH g USING INDEX sqlite_autoindex_generation_records_1 (path=?) LEFT-JOIN
+USE TEMP B-TREE FOR ORDER BY
+-- 子树段：SEARCH d USING COVERING INDEX sqlite_autoindex_inventory_dirs_1 (path>? AND path<?)
+-- 单文件根段：SEARCH f USING PRIMARY KEY (dir_ref=? AND name=?)
+```
+
+`TestObservedAudioByRootSearchesThePathIndexPerRoot` 固定该计划。
+
+---
+
+## 9. 读取成本改造后的 5,000 × 12 终测
+
+本节在第 8 节基线之后的改造（落库 counts 与成员结论、转换批量输入校验、摘要读取只加载计划框架、重命名父目录一次索引）全部落地后，用同一夹具、同一机器重测，与第 8 节逐项对照。成员上限仍为 2,000，5,000 成员仅经夹具的仓储写入绕过准入。
+
+### 复现与环境
+
+服务端（与第 8 节同一命令，在 `backend/go` 执行）：
+
+```sh
+PREEN_MEASURE_WORKSET=1 PREEN_MEASURE_MEMBERS=5000 PREEN_MEASURE_AUDIO=12 \
+  go test ./internal/adapters/sqlite -run '^TestMeasureWorksetLifecycle$' -count=1 -v -timeout=30m
+```
+
+浏览器（第 7 节命令，去掉 `PREEN_MEASURE_SNAPSHOT_LIST`）：
+
+```sh
+PREEN_MEASURE_WORKSET=1 PREEN_MEASURE_MEMBERS=5000 PREEN_MEASURE_AUDIO=12 PREEN_MEASURE_BROWSER=1 \
+  go test ./internal/adapters/sqlite -run '^TestMeasureWorksetLifecycle$' -count=1 -v -timeout=30m
+```
+
+- 运行环境同第 8 节：x86_64 原生 Linux，Go 1.27.3，数据库与媒体位于 tmpfs。浏览器为 `@playwright/test` 1.64.1 匹配的 Playwright Chromium headless shell 156.0.8078.4。
+- 口径：每个接口每轮一个样本，不是 p99，不用于声称稳定低于阈值。服务端运行一次（316.82 s，无 SQL 尝试失败）；浏览器运行另跑一次，其 HTTP 读取同样记录在下面“第二样本”列，可见同一接口样本间约 ±5% 的波动。
+- 浏览器计时方式同第 7 节：Vite 开发构建，先加载页面再 reload 以清空 Vue Query 缓存；两个视口 393×852、1440×852；整页导航为 reload 后文档时间原点至转换列表显示服务端成员结论（含 health / libraries / current / draft / operation / workset 全部前置请求与渲染）。浏览器采样时只有转换一个 operation 的计划之外，元数据与重命名计划尚未生成，但 `current` 与 `workset` 响应已按三个 operation 的形状返回（约 1.2 MB，随成员数而非计划数增长）；此处的 `current` 耗时因此低于下表三计划后的 `current`，不能互相替代。
+
+### HTTP 读取对照（三个 operation 均有当前计划）
+
+| 接口 | 第 8 节 首轮 / ms | 本节 首轮 / ms | 第二样本 首轮 / ms | 第 8 节 再生成后 / ms | 本节 再生成后 / ms | 第二样本 再生成后 / ms | 响应 / B（本节首轮） |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `current` | 10,471.985 | 556.560 | 522.541 | 9,067.651 | 545.753 | 540.816 | 1,211,533 |
+| `workset` | 10,360.896 | 546.542 | 535.503 | 8,948.045 | 549.168 | 535.485 | 1,211,521 |
+| `operation` | 1,502.707 | 404.901 | 367.077 | 859.107 | 396.158 | 380.428 | 818 |
+| `revision/conversion`（三任务计划后） | 1,862.279 | 435.139 | 407.662 | 1,016.572 | 414.768 | 412.898 | 1,790,201 |
+| `revision/rename` | 9,079.185 | 138.200 | 124.482 | 8,198.746 | 126.136 | 128.171 | 1,573,581 |
+
+同一轮其余读取：`revision/conversion`（仅转换有计划）293.834 / 419.514 ms，`revision/metadata_refresh` 55.443 / 48.670 ms，成员审阅 16.867 / 25.153 ms（响应 27,969 / 6,654 B）。
+
+结论：`operation` 与轻量 revision 达到 ≤ 500 ms；`revision/rename` 由 8–9 s 降到约 130 ms；`current` 与 `workset` 由 9–10 s 降到约 520–560 ms，**仍高于 500 ms 约 5–12%**（见下“诊断”）。
+
+### 浏览器整页导航（reload 至转换列表显示成员结论）
+
+| 视口宽度 | 整页导航 / ms | 第 7 节 / ms | revision 请求到结论渲染 / ms | current handler / ms | operation / workset handler / ms | revision handler / ms | 打开成员审阅 / ms |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 393 | 1295.4 | 6133.4 | 370.4 | 299.4 | 410.7 / 418.8 | 298.7 | 101.6 |
+| 1440 | 1226.2 | 5744.6 | 401.3 | 313.7 | 376.4 / 389.4 | 306.8 | 159.2 |
+
+两个视口均 ≤ 2 s，因此**不改前端前置链路**（current 之后仍并行 operation / workset，再串行 revision）。上表是转换单计划状态下的值；三个 operation 都有计划时的实测见下一小节。
+
+#### 三个 operation 均有当前计划时的整页导航（实测）
+
+夹具在第 0 轮重命名计划生成之后，对同一转换 revision 以同一指标再采样一次（reload 至转换列表显示成员结论；转换计划此时已执行，元数据刷新已执行并交付，重命名只生成计划）。同一次浏览器运行中，单计划样本为 393：1280.9 ms、1440：1239.2 ms（与上表同口径，仅为同命令另一次样本，二者差异在运行间波动内）。
+
+| 视口宽度 | 整页导航 / ms | revision 请求到结论渲染 / ms | current handler / ms | operation / workset handler / ms | revision handler / ms | 打开成员审阅 / ms |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 393 | 1779.4 | 565.8 | 554.9 | 517.6 / 685.6 | 436.5 | 84.7 |
+| 1440 | 1901.2 | 654.0 | 614.5 | 493.2 / 652.9 | 435.1 | 139.5 |
+
+两个视口均仍 ≤ 2 s（1440 为 1901.2 ms，余量仅约 100 ms），单样本，不是 p99。较单计划多出约 500–660 ms，来自 `current` / `workset` / `revision` 三者三计划后的读取成本；`workset` handler 在浏览器并发请求下达到 650–690 ms，高于上表串行采样的约 550 ms。
+
+### 写事务持锁与退役清理
+
+| 写事务路径 | 第 8 节 样本数 | 第 8 节 持锁最大 / ms | 本节 样本数 | 本节 持锁最大 / ms |
+| --- | ---: | ---: | ---: | ---: |
+| `beginStagingPlan` | 5 | 2.052 | 5 | 1.275 |
+| `appendStagingPlan` | 505 | 12.583 | 755 | 6.014 |
+| `promoteOperationRevision` | 5 | 9.984 | 5 | 9.516 |
+| `replaceCurrentWorkset` | 2 | 63.759 | 2 | 72.127 |
+| `DeleteRetiredPlanBatch` | 109 | 4.563 | 134 | 6.549 |
+
+- `appendStagingPlan` 的样本数增加 250（每个计划多出结论序列的暂存块），单次持锁最大值未上升；`promoteOperationRevision` 仍只改元数据，持锁无变化。
+- 退役清理：133 个非空批次，累计删除 110,031 行（第 8 节 108 个批次、85,031 行）。多出的 25,000 行是 5 份计划 × 5,000 条成员结论行，由显式子表列表分批排空，每批仍受限额约束。
+- 本次运行无 SQL 尝试失败。
+
+### 诊断：`current` / `workset` 略高于 500 ms
+
+三个 operation 的读取时代价各自独立相加：`current` ≈ 转换 `operation`（370–405 ms）+ 元数据刷新（约 50–60 ms）+ 重命名（约 125–140 ms 中的摘要部分）的量级，与实测 520–560 ms 吻合；`operation` 的响应仅 818 B，不存在视图/编码代价。转换这一项占大头，用 `PREEN_MEASURE_READ_BREAKDOWN=1`（第 7 节同一诊断入口）对转换 revision 拆分：
+
+| 诊断样本 | 查询 / ms | 视图 / ms | 适配与编码 / ms | 合计 / ms |
+| --- | ---: | ---: | ---: | ---: |
+| 5,000 × 12，停止 dispatcher 后的 `revision/conversion` | 231.777 | 76.365 | 4.805 | 312.947 |
+
+时间主要在 SQL 查询（成员根下 60,000 个音频条目的批量读取与 5,000 条结论读取），而非 Go 视图计算；批量校验查询已按路径索引搜索（第 8 节查询计划）。进一步降低须评估库存变更计数短路等方案，属于新的优化，**本票不做**，记入 spec 未达项。CPU profile 在该短运行中被生成与暂存合并主导，没有可靠地拆出读取路径，故未引用。

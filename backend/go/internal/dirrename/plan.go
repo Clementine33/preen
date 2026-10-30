@@ -46,7 +46,7 @@ func (t *Task) PlanSession(ctx context.Context, in workset.PlanSessionInput) (*w
 	if err != nil {
 		return nil, err
 	}
-	directories, readErrors := t.readParentDirectories(ctx, paths)
+	directories, occupants, readErrors := t.readParentDirectories(ctx, paths)
 	for _, folder := range paths {
 		parent := filepath.ToSlash(filepath.Dir(filepath.FromSlash(folder)))
 		if readErr := readErrors[parent]; readErr != nil && !errors.Is(readErr, fs.ErrNotExist) {
@@ -66,7 +66,7 @@ func (t *Task) PlanSession(ctx context.Context, in workset.PlanSessionInput) (*w
 	snapshot.Payload, _ = json.Marshal(d.Common)
 	snapshot.PayloadHash = workset.CanonicalJSONHash(snapshot.Payload)
 	summary := workset.PlanSummary{SummaryReason: "ok"}
-	outcomes, targets := planNames(d, in.Members, excluded, works, directories, observed)
+	outcomes, targets := planNames(d, in.Members, excluded, works, directories, occupants, observed)
 	for _, m := range in.Members {
 		if err := ctx.Err(); err != nil {
 			return nil, err
@@ -102,7 +102,9 @@ func (t *Task) PlanSession(ctx context.Context, in workset.PlanSessionInput) (*w
 				Payload:    payload,
 			},
 		)
-		facts := freezeRoot(index, m, d.Common, outcome, works[m.FolderPath], directories[parent], parent)
+		facts := freezeRoot(
+			index, m, d.Common, outcome, works[m.FolderPath], directories[parent], occupants[parent], parent,
+		)
 		snapshot.Roots = append(snapshot.Roots, facts)
 		if facts.Status == "missing" {
 			summary.ErrorCount++
@@ -128,6 +130,7 @@ func planNames(
 	excluded map[string]bool,
 	works map[string]Work,
 	directories map[string]Directory,
+	occupants map[string]map[string][]string,
 	observed map[string]string,
 ) (map[string]Outcome, map[string]int) {
 	custom := map[string]string{}
@@ -143,7 +146,7 @@ func planNames(
 			continue
 		}
 		parent := filepath.ToSlash(filepath.Dir(filepath.FromSlash(m.FolderPath)))
-		o := planName(d.Common, m, works[m.FolderPath], directories[parent], parent,
+		o := planName(d.Common, m, works[m.FolderPath], directories[parent], occupants[parent], parent,
 			naming{Custom: custom[m.MemberID], Observed: observed[m.MemberID]})
 		outcomes[m.MemberID] = o
 		if o.ReasonCode == "" {
@@ -153,7 +156,9 @@ func planNames(
 	return outcomes, targets
 }
 
-func fingerprint(common Common, o Outcome, work Work, entries Directory, root string) string {
+func fingerprint(
+	common Common, o Outcome, work Work, entries Directory, occupants map[string][]string, root string,
+) string {
 	values := map[string]string{"rj": work.Code}
 	fields, _ := tokens(common.Template)
 	for _, key := range fields {
@@ -167,17 +172,7 @@ func fingerprint(common Common, o Outcome, work Work, entries Directory, root st
 	}
 	source, exists := entries[disk]
 	source.Modified = 0 // Directory mtime describes child changes, not a rename input.
-	occupied := false
-	for name := range entries {
-		if librarypath.RootPathKey(
-			filepath.ToSlash(filepath.Join(root, name)),
-		) == librarypath.RootPathKey(
-			filepath.ToSlash(filepath.Join(root, o.TargetName)),
-		) {
-			occupied = true
-			break
-		}
-	}
+	occupied := len(occupants[librarypath.RootPathKey(filepath.ToSlash(filepath.Join(root, o.TargetName)))]) > 0
 	// Include only the target's occupancy, not unrelated library entries.
 	b, _ := json.Marshal(struct {
 		Code     string
@@ -227,13 +222,14 @@ func freezeRoot(
 	outcome Outcome,
 	work Work,
 	directory Directory,
+	occupants map[string][]string,
 	root string,
 ) workset.PlanRootFacts {
 	facts := workset.PlanRootFacts{
 		Index:                index,
 		Path:                 m.FolderPath,
 		Identity:             librarypath.RootPathKey(m.FolderPath),
-		InventoryFingerprint: fingerprint(common, outcome, work, directory, root),
+		InventoryFingerprint: fingerprint(common, outcome, work, directory, occupants, root),
 		Count:                1,
 		Status:               "ok",
 	}
@@ -246,9 +242,14 @@ func freezeRoot(
 	return facts
 }
 
-// readParentDirectories snapshots occupancy once for each participating parent.
-func (t *Task) readParentDirectories(ctx context.Context, paths []string) (map[string]Directory, map[string]error) {
+// readParentDirectories snapshots occupancy once for each participating parent,
+// also indexing each parent's entries by root path key so a target's occupants
+// are one lookup rather than a scan of the parent per member.
+func (t *Task) readParentDirectories(
+	ctx context.Context, paths []string,
+) (map[string]Directory, map[string]map[string][]string, map[string]error) {
 	directories := map[string]Directory{}
+	occupants := map[string]map[string][]string{}
 	readErrors := map[string]error{}
 	for _, folder := range paths {
 		parent := filepath.ToSlash(filepath.Dir(filepath.FromSlash(folder)))
@@ -256,8 +257,14 @@ func (t *Task) readParentDirectories(ctx context.Context, paths []string) (map[s
 			continue
 		}
 		directories[parent], readErrors[parent] = t.readDirectory(ctx, parent)
+		keys := make(map[string][]string, len(directories[parent]))
+		for name := range directories[parent] {
+			key := librarypath.RootPathKey(filepath.ToSlash(filepath.Join(parent, name)))
+			keys[key] = append(keys[key], name)
+		}
+		occupants[parent] = keys
 	}
-	return directories, readErrors
+	return directories, occupants, readErrors
 }
 
 // followHandRenames finds, for each participating member whose recorded folder

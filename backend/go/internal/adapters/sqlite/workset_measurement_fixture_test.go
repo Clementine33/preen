@@ -17,6 +17,7 @@ import (
 	"github.com/Clementine33/preen/backend/internal/admission"
 	"github.com/Clementine33/preen/backend/internal/conversion"
 	"github.com/Clementine33/preen/backend/internal/conversion/execute"
+	"github.com/Clementine33/preen/backend/internal/dirrename"
 	"github.com/Clementine33/preen/backend/internal/inventory"
 	"github.com/Clementine33/preen/backend/internal/library"
 	"github.com/Clementine33/preen/backend/internal/works"
@@ -189,6 +190,7 @@ func worksetMeasurementTasks(repo *Repository, dir string, pipeline *inventory.P
 				},
 			},
 		),
+		dirrename.New(repo, filesystem.ReadRenameDirectory),
 		refresh.NewTask(repo, filesystem.CheckWorkDirectory),
 	}
 }

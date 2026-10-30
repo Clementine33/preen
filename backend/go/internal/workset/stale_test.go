@@ -1,8 +1,11 @@
 package workset_test
 
 import (
+	"slices"
 	"testing"
 
+	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
+	"github.com/Clementine33/preen/backend/internal/conversion"
 	"github.com/Clementine33/preen/backend/internal/inventory"
 
 	"github.com/Clementine33/preen/backend/internal/workset"
@@ -177,6 +180,9 @@ func TestMissingRootIsBlockedButNotStaleUntilAudioAppears(t *testing.T) {
 	if rev.Counts.Blocked == 0 {
 		t.Fatalf("missing root must count as blocked: %+v", rev.Counts)
 	}
+	if got := f.assertStoredSummary(rev.PlanID); got.Blocked != 1 || got != rev.Counts {
+		t.Fatalf("missing root counted once: stored %+v, recomputed %+v", rev.Counts, got)
+	}
 	if rev.ValidationState != workset.ValidationValid || *rev.Stale {
 		t.Fatalf("missing root with unchanged inventory must not be stale: state=%q", rev.ValidationState)
 	}
@@ -229,4 +235,90 @@ func TestOnlyTheCurrentPlanSurvivesTheNextGeneration(t *testing.T) {
 	if plans != 1 {
 		t.Fatalf("a record must keep exactly one plan, found %d", plans)
 	}
+}
+
+// spyPlanReads counts which plan reads a service performs.
+type spyPlanReads struct {
+	*sqlite.Repository
+	details, frames int
+}
+
+func (s *spyPlanReads) GetPlanDetail(planID string) (*workset.PlanDetail, error) {
+	s.details++
+	return s.Repository.GetPlanDetail(planID)
+}
+
+func (s *spyPlanReads) GetPlanFrame(planID string) (*workset.PlanDetail, error) {
+	s.frames++
+	return s.Repository.GetPlanFrame(planID)
+}
+
+// TestBatchedInputValidationMatchesPerRootEvaluation drives the roots-only
+// validation next to the complete EvaluateRevision across unchanged, changed,
+// missing and generated-file roots, and checks summary reads load no components.
+func TestBatchedInputValidationMatchesPerRootEvaluation(t *testing.T) {
+	f := newFixture(t)
+	ids := f.standardLibrary("same", "changed", "gone", "generated")
+	f.insertAudioEntry("/music/same/01.mp3", "/music/same", 1024, 1000)
+	f.insertAudioEntry("/music/changed/01.mp3", "/music/changed", 1024, 1000)
+	f.insertAudioEntry("/music/generated/01.mp3", "/music/generated", 1024, 1000)
+	ws := f.createCurrent("批量校验", ids...)
+	f.runGeneration(ws.WorksetID, f.operation(ws.WorksetID).Version)
+	planID := f.operation(ws.WorksetID).CurrentRevision.PlanID
+
+	if err := f.repo.SyncObservedInventory("/music", nil,
+		[]inventory.InventoryFile{{Path: "/music/changed/01.mp3", Size: 1024, Mtime: 1100}}, nil); err != nil {
+		t.Fatal(err)
+	}
+	f.insertAudioEntry("/music/gone/01.mp3", "/music/gone", 1024, 1000)
+	if _, err := f.repo.DB().Exec(`INSERT INTO generation_records
+		(path,codec,encoder,encoder_version,bitrate_kbps,mode,size,mtime,content_sha256,created_at)
+		VALUES('/music/generated/01.mp3','mp3','e','1',320,'cbr',1024,1000,'h','2026-01-01')`); err != nil {
+		t.Fatal(err)
+	}
+
+	task := conversion.New(f.repo, nil, nil, nil, nil, nil)
+	detail, err := f.repo.GetPlanDetail(planID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	health, err := task.EvaluateRevision(f.ctx, workset.RevisionFacts{Detail: detail})
+	if err != nil {
+		t.Fatal(err)
+	}
+	stale, err := task.StaleInputRoots(f.ctx, detail.Roots)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(stale, health.StaleRoots) || len(stale) < 2 {
+		t.Fatalf("batched stale roots %v, per-root %v", stale, health.StaleRoots)
+	}
+
+	spy := &spyPlanReads{Repository: f.repo}
+	svc := workset.NewService(spy, 1, 1, []workset.Task{task}, nil, nil)
+	if _, err := svc.GetOperation(f.ctx, ws.WorksetID, workset.OperationTypeConversion); err != nil {
+		t.Fatal(err)
+	}
+	view, err := svc.GetRevision(f.ctx, ws.WorksetID, workset.OperationTypeConversion, planID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if spy.details != 0 || spy.frames == 0 {
+		t.Fatalf("summary reads loaded components: details=%d frames=%d", spy.details, spy.frames)
+	}
+	for _, m := range view.Members {
+		wantStale := slices.Contains(health.StaleRoots, rootIndexOf(detail, m.MemberID))
+		if (m.Input == "stale") != wantStale {
+			t.Fatalf("member %s input %q, per-root stale=%v", m.MemberID, m.Input, wantStale)
+		}
+	}
+}
+
+func rootIndexOf(detail *workset.PlanDetail, memberID string) int {
+	for _, r := range detail.Roots {
+		if r.MemberID == memberID {
+			return r.RootIndex
+		}
+	}
+	return -1
 }

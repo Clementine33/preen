@@ -10,3 +10,9 @@ func RegisterTasksForTest(svc Service, tasks []Task) {
 	}
 	s.tasks = tasks
 }
+
+// SummarizeRevisionForTest exposes the read-time summary rule so the harness
+// can check that the counts stored at generation equal it.
+func SummarizeRevisionForTest(task Task, detail *PlanDetail) (RevisionCounts, string, error) {
+	return summarizeRevision(task, detail)
+}

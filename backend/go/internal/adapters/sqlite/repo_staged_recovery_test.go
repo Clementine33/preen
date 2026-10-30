@@ -13,10 +13,19 @@ import (
 	"github.com/Clementine33/preen/backend/internal/workset"
 )
 
-func failStagingMidway(t *testing.T, repo *sqlite.Repository, genID, planID string) {
+// stagingFailure names the staged table and row whose insert is made to fail.
+type stagingFailure struct{ table, when string }
+
+var (
+	failInRoots       = stagingFailure{"plan_roots", "NEW.root_index=150"}
+	failInConclusions = stagingFailure{"plan_member_conclusions", "NEW.member_id='m150'"}
+)
+
+func failStagingMidway(t *testing.T, repo *sqlite.Repository, genID, planID string, fail stagingFailure) {
 	t.Helper()
-	if _, err := repo.DB().
-		Exec(`CREATE TRIGGER fail_staging BEFORE INSERT ON plan_roots WHEN NEW.root_index=150 BEGIN SELECT RAISE(ABORT,'injected staging failure'); END`); err != nil {
+	if _, err := repo.DB().Exec(fmt.Sprintf(
+		`CREATE TRIGGER fail_staging BEFORE INSERT ON %s WHEN %s BEGIN SELECT RAISE(ABORT,'injected staging failure'); END`,
+		fail.table, fail.when)); err != nil {
 		t.Fatal(err)
 	}
 	if err := repo.PersistOperationRevision(
@@ -62,9 +71,19 @@ func drainStagedPlans(t *testing.T, repo *sqlite.Repository) {
 }
 
 func TestFailedStagingCanBeCleanedDuringImmediateRetry(t *testing.T) {
+	for name, fail := range map[string]stagingFailure{"roots": failInRoots, "conclusions": failInConclusions} {
+		t.Run(name, func(t *testing.T) { failedStagingRetry(t, fail) })
+	}
+}
+
+func failedStagingRetry(t *testing.T, fail stagingFailure) {
+	t.Helper()
 	repo, _ := retiredPlanFixture(t, "conversion")
 	stagedGeneration(t, repo, "second", "conversion")
-	failStagingMidway(t, repo, "second", "abandoned")
+	failStagingMidway(t, repo, "second", "abandoned", fail)
+	if n := retirementTableCounts(t, repo)[fail.table]; n != 100 {
+		t.Fatalf("expected the first chunk to remain staged, got %d", n)
+	}
 	if n, err := repo.DeleteRetiredPlanBatch(t.Context(), 50); err != nil || n != 0 {
 		t.Fatalf("running staging deleted: %d %v", n, err)
 	}
@@ -86,7 +105,9 @@ func TestFailedStagingCanBeCleanedDuringImmediateRetry(t *testing.T) {
 		drainStagedPlans(t, repo)
 		var n int
 		if err := repo.DB().
-			QueryRow(`SELECT COUNT(*) FROM plans WHERE plan_id='abandoned'`).
+			QueryRow(`SELECT (SELECT COUNT(*) FROM plans WHERE plan_id='abandoned')
+  + (SELECT COUNT(*) FROM plan_roots WHERE plan_id='abandoned')
+  + (SELECT COUNT(*) FROM plan_member_conclusions WHERE plan_id='abandoned')`).
 			Scan(&n); err != nil ||
 			n != 0 {
 			t.Fatalf("abandoned staging retained: %d %v", n, err)
@@ -106,6 +127,9 @@ func TestFailedStagingCanBeCleanedDuringImmediateRetry(t *testing.T) {
 	if detail, err := repo.GetPlanDetail("retry-plan"); err != nil || len(detail.Roots) != 251 {
 		t.Fatalf("retry damaged: %+v %v", detail, err)
 	}
+	if stored, err := repo.ListMemberConclusions("retry-plan", nil); err != nil || len(stored) != 251 {
+		t.Fatalf("stored conclusions: %d %v", len(stored), err)
+	}
 }
 
 func TestStagingProcessCrashRecovery(t *testing.T) {
@@ -115,7 +139,7 @@ func TestStagingProcessCrashRecovery(t *testing.T) {
 			t.Fatal(err)
 		}
 		stagedGeneration(t, repo, "second", "conversion")
-		failStagingMidway(t, repo, "second", "abandoned")
+		failStagingMidway(t, repo, "second", "abandoned", failInConclusions)
 		fmt.Fprintln(os.Stdout, "staging persisted")
 		for {
 			time.Sleep(time.Hour)
@@ -185,7 +209,7 @@ func TestUnsuccessfulStagingPreservesOldExecutionEligibility(t *testing.T) {
 				t.Fatal(err)
 			}
 			stagedGeneration(t, repo, "second", "conversion")
-			failStagingMidway(t, repo, "second", "abandoned")
+			failStagingMidway(t, repo, "second", "abandoned", failInConclusions)
 			execution := &workset.PlanExecution{
 				ExecutionID:   "old-execution",
 				WorksetID:     "set",

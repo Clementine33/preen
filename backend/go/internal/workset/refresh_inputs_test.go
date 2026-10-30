@@ -44,6 +44,9 @@ func TestGenerationRefreshesInputsBeforePlanning(t *testing.T) {
 	if rev.Counts.UnmetTargets != 1 || rev.Counts.Blocked != 0 {
 		t.Fatalf("counts = %+v, want one unmet target and no blocked root", rev.Counts)
 	}
+	if got := f.assertStoredSummary(rev.PlanID); got != rev.Counts {
+		t.Fatalf("summary counts = %+v, recomputed %+v", rev.Counts, got)
+	}
 }
 
 // TestSessionFailsWhenTheRefreshFails covers the other half of the contract:

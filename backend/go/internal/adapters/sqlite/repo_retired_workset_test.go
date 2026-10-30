@@ -133,6 +133,9 @@ func TestRetiredRecordCleanupBoundsEachTableAndPreservesCurrentRecord(t *testing
 	}
 	defer tx.Rollback()
 	for i := range 1003 {
+		if _, err = tx.Exec(`INSERT INTO plan_member_conclusions(plan_id,member_id) VALUES('old',?)`, i); err != nil {
+			t.Fatal(err)
+		}
 		if _, err = tx.Exec(
 			`INSERT INTO workset_members(workset_id,member_index,rel_path) VALUES('set',?,?)`,
 			i,

@@ -1068,13 +1068,6 @@ export interface RootValidation {
   entry_count: number
 }
 
-export interface ComponentRootRef {
-  step_index: number
-  component_index: number
-  component_id: string
-  root_index: number
-}
-
 export interface FileDecision {
   path: string
   resolution: string
@@ -1187,11 +1180,6 @@ export interface MetadataComponent {
   reason_code?: string
 }
 
-/** The plan payload of rename and metadata refresh: one component per member. */
-export interface TaskPlanPayload<C> {
-  components: C[]
-}
-
 export interface MetadataIssue {
   group?: string
   source?: string
@@ -1273,7 +1261,7 @@ export interface MemberReviewResponse<P = ConversionPlanPayload, T = ConversionM
   task: TaskEnvelope<P>
 }
 
-export interface RevisionDetailResponse<P = ConversionPlanPayload, T = ConversionMemberConclusion> {
+export interface RevisionDetailResponse<P = Omit<ConversionPlanPayload, 'components'>, T = ConversionMemberConclusion> {
   plan_id: string
   revision_index: number
   created_at: string
@@ -1290,10 +1278,8 @@ export interface RevisionDetailResponse<P = ConversionPlanPayload, T = Conversio
   /** The plan snapshot, wrapped in its task envelope. */
   task: TaskEnvelope<P>
   counts: RevisionCounts
-  /** Frozen per-member effective settings and inheritance sources. */
-  members: RevisionMember<T>[]
-  roots: RootValidation[]
-  component_roots: ComponentRootRef[]
+  /** Server conclusions; full frozen inputs belong to member review. */
+  members: MemberConclusion<T>[]
   /** The session that ran this revision, if any (a revision runs at most once). */
   execution: ExecutionRef | null
 }

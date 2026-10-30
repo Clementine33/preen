@@ -112,14 +112,12 @@ const COMPONENTS: { rename: RenameComponent[], metadata_refresh: MetadataCompone
 
 function revisionMembers(components: (RenameComponent | MetadataComponent)[]) {
   return components.map(task => ({
-    conclusion: {
-      member_id: task.member_id,
-      excluded: false,
-      input: 'valid',
-      has_components: true,
-      task,
-    } satisfies MemberConclusion<RenameComponent | MetadataComponent>,
-  }))
+    member_id: task.member_id,
+    excluded: false,
+    input: 'valid',
+    has_components: true,
+    task,
+  } satisfies MemberConclusion<RenameComponent | MetadataComponent>))
 }
 
 function pageApi(overrides: Partial<ApiClientContract> = {}): ApiClientContract {
@@ -429,12 +427,10 @@ describe('task operation page', () => {
             },
           ]),
           {
-            conclusion: {
-              member_id: 'excluded',
-              excluded: true,
-              input: 'none',
-              has_components: false,
-            },
+            member_id: 'excluded',
+            excluded: true,
+            input: 'none',
+            has_components: false,
           },
         ],
       })) as never,
@@ -556,12 +552,10 @@ describe('task operation page', () => {
             },
           ]),
           {
-            conclusion: {
-              member_id: 'excluded',
-              excluded: true,
-              input: 'none',
-              has_components: false,
-            },
+            member_id: 'excluded',
+            excluded: true,
+            input: 'none',
+            has_components: false,
           },
         ],
       }),

@@ -192,38 +192,20 @@ func (s *Server) getRevision(w http.ResponseWriter, r *http.Request) {
 		writeWorksetError(w, err)
 		return
 	}
-	// A revision over zero components would otherwise marshal as null; the
-	// frontend contract is always an array.
-	componentRoots := rv.ComponentRoots
-	if componentRoots == nil {
-		componentRoots = []workset.ComponentRootRef{}
-	}
-	members := make([]revisionMemberResponse, 0, len(rv.Members))
-	for _, m := range rv.Members {
-		members = append(members, revisionMemberResponse{
-			MemberID:   m.MemberID,
-			MemberName: m.MemberName,
-			FolderPath: m.FolderPath,
-			Excluded:   m.Excluded,
-			Effective:  m.Payload,
-			Sources:    m.Sources,
-			Conclusion: m.Conclusion,
-		})
-	}
+	task := toTaskEnvelope(rv.Plan)
+	task.Payload.Components = nil
 	writeJSON(w, http.StatusOK, struct {
-		PlanID         string                     `json:"plan_id"`
-		RevisionIndex  int                        `json:"revision_index"`
-		CreatedAt      string                     `json:"created_at"`
-		RootPath       string                     `json:"root_path"`
-		SnapshotToken  string                     `json:"snapshot_token"`
-		Status         string                     `json:"status"`
-		Summary        planSummaryResponse        `json:"summary"`
-		Task           taskEnvelopeResponse       `json:"task"`
-		Counts         revisionCountsResponse     `json:"counts"`
-		Members        []revisionMemberResponse   `json:"members"`
-		Roots          []rootValidationResponse   `json:"roots"`
-		ComponentRoots []workset.ComponentRootRef `json:"component_roots"`
-		Execution      *workset.ExecutionRef      `json:"execution"`
+		PlanID        string                     `json:"plan_id"`
+		RevisionIndex int                        `json:"revision_index"`
+		CreatedAt     string                     `json:"created_at"`
+		RootPath      string                     `json:"root_path"`
+		SnapshotToken string                     `json:"snapshot_token"`
+		Status        string                     `json:"status"`
+		Summary       planSummaryResponse        `json:"summary"`
+		Task          taskEnvelopeResponse       `json:"task"`
+		Counts        revisionCountsResponse     `json:"counts"`
+		Members       []workset.MemberConclusion `json:"members"`
+		Execution     *workset.ExecutionRef      `json:"execution"`
 	}{
 		PlanID:        rv.PlanID,
 		RevisionIndex: rv.RevisionIndex,
@@ -243,10 +225,8 @@ func (s *Server) getRevision(w http.ResponseWriter, r *http.Request) {
 			ErrorCount:     rv.Plan.Summary.ErrorCount,
 			SummaryReason:  rv.Plan.Summary.SummaryReason,
 		},
-		Task:           toTaskEnvelope(rv.Plan),
-		Members:        members,
-		Roots:          toRoots(rv.Roots),
-		ComponentRoots: componentRoots,
-		Execution:      rv.Execution,
+		Task:      task,
+		Members:   rv.Members,
+		Execution: rv.Execution,
 	})
 }

@@ -328,20 +328,14 @@ type RevisionPlan struct {
 	Units             []json.RawMessage // per-unit payloads in component order
 }
 
-// RevisionView is the nested immutable revision detail.
+// RevisionView is the lightweight current plan detail.
 type RevisionView struct {
 	PlanID        string
 	RevisionIndex int
 	CreatedAt     time.Time
 	Plan          RevisionPlan
-	Roots         []RootValidation
-	// ComponentRoots maps each persisted component to its planning root. The
-	// reconcile ComponentOutcome JSON intentionally carries no root identity,
-	// so the HTTP layer exposes this ownership table for batch grouping.
-	ComponentRoots []ComponentRootRef
-	// Members is the frozen per-member effective configuration and inheritance
-	// sources resolved from the revision's draft snapshot.
-	Members []RevisionMember
+	// Members contains live input facts and task conclusions for the frozen plan.
+	Members []MemberConclusion
 	// Counts are the independent plan facts of this revision.
 	Counts RevisionCounts
 	// Execution is the newest execution session of this revision (any status).
@@ -356,14 +350,6 @@ type MemberReview struct {
 	Member RevisionMember
 	Roots  []RootValidation
 	Plan   RevisionPlan
-}
-
-// ComponentRootRef is the stable component-to-root ownership of a revision.
-type ComponentRootRef struct {
-	StepIndex      int    `json:"step_index"`
-	ComponentIndex int    `json:"component_index"`
-	ComponentID    string `json:"component_id"`
-	RootIndex      int    `json:"root_index"`
 }
 
 // RootValidation is per-root validation of a revision snapshot.

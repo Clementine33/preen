@@ -112,11 +112,11 @@ type planSummaryResponse struct {
 // taskPayloadResponse is one task's reviewable plan payload (the conversion
 // task fills it with its policy, classifier, summary and unit outcomes).
 type taskPayloadResponse struct {
-	Policy     json.RawMessage   `json:"policy"`
-	PolicyHash string            `json:"policy_hash"`
-	Classifier json.RawMessage   `json:"classifier"`
-	Summary    json.RawMessage   `json:"summary"`
-	Components []json.RawMessage `json:"components"`
+	Policy     json.RawMessage    `json:"policy"`
+	PolicyHash string             `json:"policy_hash"`
+	Classifier json.RawMessage    `json:"classifier"`
+	Summary    json.RawMessage    `json:"summary"`
+	Components *[]json.RawMessage `json:"components,omitempty"`
 }
 
 // taskEnvelopeResponse is the opaque task envelope of a revision payload: the
@@ -144,7 +144,7 @@ func toTaskEnvelope(plan workset.RevisionPlan) taskEnvelopeResponse {
 				Hash string   `json:"hash"`
 			}{plan.ClassifierTags, plan.ClassifierHash}),
 			Summary:    plan.StepSummary,
-			Components: components,
+			Components: &components,
 		},
 	}
 }

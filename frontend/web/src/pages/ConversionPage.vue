@@ -326,8 +326,8 @@ const selectedExecuteBlocked = computed(() => {
   if (!view || view.plan_id !== operation.value?.current_revision?.plan_id)
     return '计划详情加载中…'
   if (view.members.some(member => ui.selectedMemberIds.has(member.member_id)
-    && member.conclusion.has_components
-    && (member.conclusion.input === 'stale' || member.conclusion.input === 'missing'))) {
+    && member.has_components
+    && (member.input === 'stale' || member.input === 'missing'))) {
     return '选中文件夹输入已变化，需重新生成计划版本'
   }
   return null

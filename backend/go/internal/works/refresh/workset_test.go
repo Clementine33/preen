@@ -517,25 +517,41 @@ func verifyMemberConclusionsHTTP(t *testing.T, svc workset.Service, id, planID s
 	if response.Code != http.StatusOK {
 		t.Fatalf("revision HTTP: %d %s", response.Code, response.Body.String())
 	}
+	for _, field := range []string{"components", "roots", "component_roots", "effective", "sources", "conclusion"} {
+		if bytes.Contains(response.Body.Bytes(), []byte(`"`+field+`":`)) {
+			t.Fatalf("light revision contains %s", field)
+		}
+	}
 	var wire struct {
 		Task struct {
 			Payload struct {
 				Components []json.RawMessage `json:"components"`
 			} `json:"payload"`
 		} `json:"task"`
-		Members []struct {
-			Conclusion workset.MemberConclusion `json:"conclusion"`
-		} `json:"members"`
+		Members []workset.MemberConclusion `json:"members"`
 	}
 	if err := json.Unmarshal(response.Body.Bytes(), &wire); err != nil {
 		t.Fatal(err)
 	}
-	if len(wire.Members) != 2 || len(wire.Task.Payload.Components) != 2 {
+	if len(wire.Members) != 2 || wire.Task.Payload.Components != nil {
 		t.Fatalf("revision: %s", response.Body.String())
 	}
-	for i, member := range wire.Members {
-		if !bytes.Equal(member.Conclusion.Task, wire.Task.Payload.Components[i]) {
-			t.Fatalf("member conclusion differs from frozen component: %s", response.Body.String())
+	for _, member := range wire.Members {
+		memberRequest := httptest.NewRequest(http.MethodGet, request.URL.Path+"/members/"+member.MemberID, nil)
+		memberRequest.Header.Set("Authorization", "Bearer secret")
+		memberResponse := httptest.NewRecorder()
+		handler.ServeHTTP(memberResponse, memberRequest)
+		var memberWire struct {
+			Task struct {
+				Payload struct {
+					Components []json.RawMessage `json:"components"`
+				} `json:"payload"`
+			} `json:"task"`
+		}
+		if memberResponse.Code != http.StatusOK || json.Unmarshal(memberResponse.Body.Bytes(), &memberWire) != nil ||
+			len(memberWire.Task.Payload.Components) != 1 ||
+			!bytes.Equal(member.Task, memberWire.Task.Payload.Components[0]) {
+			t.Fatalf("member conclusion differs from frozen component: %s", memberResponse.Body.String())
 		}
 	}
 }

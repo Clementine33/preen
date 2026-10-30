@@ -34,8 +34,8 @@ func TestStaleValidationIgnoresNonAudioChanges(t *testing.T) {
 	if revisionErr != nil {
 		t.Fatal(revisionErr)
 	}
-	if detail.Members[0].Conclusion.Input != "valid" || !detail.Members[0].Conclusion.HasComponents {
-		t.Fatalf("initial member conclusion: %+v", detail.Members[0].Conclusion)
+	if detail.Members[0].Input != "valid" || !detail.Members[0].HasComponents {
+		t.Fatalf("initial member conclusion: %+v", detail.Members[0])
 	}
 
 	// Non-audio churn must not invalidate the plan.
@@ -78,8 +78,8 @@ func TestStaleValidationIgnoresNonAudioChanges(t *testing.T) {
 	if revisionErr != nil {
 		t.Fatal(revisionErr)
 	}
-	if detail.Members[0].Conclusion.Input != "stale" {
-		t.Fatalf("member input = %q, want stale", detail.Members[0].Conclusion.Input)
+	if detail.Members[0].Input != "stale" {
+		t.Fatalf("member input = %q, want stale", detail.Members[0].Input)
 	}
 }
 
@@ -171,8 +171,8 @@ func TestMissingRootIsBlockedButNotStaleUntilAudioAppears(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if detail.Members[0].Conclusion.Input != "missing" {
-		t.Fatalf("member input = %q, want missing", detail.Members[0].Conclusion.Input)
+	if detail.Members[0].Input != "missing" {
+		t.Fatalf("member input = %q, want missing", detail.Members[0].Input)
 	}
 	if rev.Counts.Blocked == 0 {
 		t.Fatalf("missing root must count as blocked: %+v", rev.Counts)

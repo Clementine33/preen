@@ -108,27 +108,32 @@ changes its hash. Effective member settings and their sources use the new keys.
 
 ## Frozen revisions
 
-`GET .../revisions/{planId}` resolves the revision's frozen draft snapshot into
-per-member effective settings and per-unit sources (`common` | `member`), so a
-historical revision always reports the configuration it was planned with —
-equal values with different provenance stay distinguishable, and later common
-changes never rewrite history. In member review, main components show only
-有音效 or 无音效; isolated components show only 其他版本, while the file rows
-continue to show their directories. `counts` reports independent facts
-(`members`, `changed`, `unmet_targets`, `blocked`, `unchanged`) that may
-overlap; no exclusive status label is derived from them.
+`GET .../revisions/{planId}` returns lightweight current-plan detail: identity,
+creation time, root path, snapshot token, status, summary, counts, execution,
+and the frozen task policy, policy hash, classifier and step summary. Its
+`members[]` are Member Conclusions directly; it contains no task components,
+root validation or ownership tables, member settings or sources. `counts`
+reports independent facts (`members`, `changed`, `unmet_targets`, `blocked`,
+`unchanged`) that may overlap; no exclusive status label is derived from them.
+The plan id is a cache key, but input validation and execution are live: the
+query has finite freshness and refreshes on re-entry after expiry.
 
 Member review uses `GET .../revisions/{planId}/members/{memberId}`. It returns
 only that member's frozen `effective`, `sources`, `conclusion`, input `roots[]`,
 and full task components, including file decisions. The database selects the
 member's roots before loading component outcomes; the browser does not receive
 or filter other members' components. Excluded and no-input members are valid
-reviews with empty components. A replaced plan returns `REVISION_NOT_FOUND`;
+reviews with empty components. Settings and per-unit sources (`common` |
+`member`) come from the revision's frozen draft: equal values with different
+provenance stay distinguishable, and later common changes never rewrite it.
+In member review, main components show only 有音效 or 无音效; isolated
+components show only 其他版本, while file rows show their directories.
+A replaced plan returns `REVISION_NOT_FOUND`;
 clients refresh the operation and follow its new current plan. Member review
 caches use both plan and member identity with finite freshness because input
 validation can change while the plan remains the same.
 
-Every revision member also carries a server-computed `conclusion` (see
+Every revision member is a server-computed Member Conclusion (see
 [Member Conclusion](worksets.md#routes)). Its conversion
 `task` payload contains `status`, `matched` (无音效), and `unmatched` (有音效).
 Each partition contains independent boolean facts `applicable`, `blocked`,

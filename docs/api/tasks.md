@@ -77,13 +77,13 @@ compatible.
 
 Each participating member produces one frozen component without modifying disk
 or bindings. `task.payload.policy` holds the template and filters;
-`task.payload.components[]` contains `member_id`, `source_name`, `work_code`,
+the member review's `task.payload.components[]` contains `member_id`, `source_name`, `work_code`,
 `raw_name`, `target_name`, `action` (`rename`, `noop`, `blocked`) and optional
 `reason_code`, `custom_name`, `observed_name` and `rebind_to`. The classifier has empty tags. In revision details, each
-`members[].conclusion.task` is that member's single frozen component, unchanged
+`members[].task` is that member's single frozen component, unchanged
 (including every optional field). Excluded members and members without planning
 input omit `task`; the workset-owned `member_id`, `excluded`, `input` and
-`has_components` remain in `conclusion`. The rename plan table and its tab counts
+`has_components` remain directly on each member conclusion. The rename plan table and its tab counts
 read these member conclusions. Used metadata must be nonempty.
 Illegal filename characters become `_`; outer whitespace and trailing dots/spaces
 are removed. The result must still identify exactly the bound Work. Names over
@@ -160,7 +160,7 @@ without scanning its contents or the classification directories. Each participat
 member produces a frozen component with `member_id`, `target` (`copy_id`, `rj`,
 `library_root`, `rel_path`, `identity`), `action` (`refresh`, `cover` or `skip`) and an
 optional `reason_code`. In revision details, each
-`members[].conclusion.task` is that member's single frozen component with all
+`members[].task` is that member's single frozen component with all
 fields preserved, including the entire `target` and any optional `reason_code`.
 Excluded members and members without planning input omit `task`. Plan counts
 come from these conclusions: `refresh` runs; `cover` and `skip` count as skipped

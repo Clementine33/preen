@@ -19,14 +19,6 @@ import type {
  * contract promises arrays, and opening such a revision must not crash the
  * workbench. Normalizing once on read keeps every downstream render simple.
  */
-/**
- * Normalized components of one revision's plan snapshot (the conversion task
- * payload inside the task envelope).
- */
-export function revisionComponents(revision: RevisionDetailResponse): ComponentOutcome[] {
-  return (revision.task?.payload?.components ?? []).map(readComponent)
-}
-
 export function readComponent(component: ComponentOutcome): ComponentOutcome {
   return {
     ...component,
@@ -43,25 +35,8 @@ export function readVariant(variant: VariantDecision): VariantDecision {
   return { ...variant, decisions: variant.decisions ?? [] }
 }
 
-/** Plan facts of one component, as independent observations. */
-export function componentHasUnmetTarget(component: ComponentOutcome): boolean {
-  return (component.variant_decisions ?? []).some(variant =>
-    (variant.decisions ?? []).some(decision => decision.reason_code === 'UNMET_TARGET'),
-  )
-}
-
 export function componentOperationCount(component: ComponentOutcome): number {
   return (component.operations ?? []).length
-}
-
-/**
- * The files the plan left untouched: KEEP decisions are conclusions, never
- * executable operations. They are what a run shows as 保留文件 — a file stays
- * because it already satisfies the declared target, or because nothing could
- * satisfy it (UNMET_TARGET keeps the stem instead of a silently satisfied one).
- */
-export function keptDecisions(component: ComponentOutcome): FileDecision[] {
-  return decisionsOf(component).filter(decision => decision.resolution === 'keep')
 }
 
 function decisionsOf(component: ComponentOutcome): FileDecision[] {
@@ -388,7 +363,7 @@ export function memberConclusions(
   const out = new Map<string, MemberConclusion>()
   if (!view)
     return out
-  const frozen = new Map(view.members.map(m => [m.member_id, m.conclusion]))
+  const frozen = new Map(view.members.map(m => [m.member_id, m]))
   for (const member of members) {
     const conclusion = frozen.get(member.member_id)
     if (conclusion)

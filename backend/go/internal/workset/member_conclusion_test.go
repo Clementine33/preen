@@ -31,7 +31,7 @@ func TestRevisionConclusionExcludedMembers(t *testing.T) {
 		t.Fatalf("members = %d, want 2", len(detail.Members))
 	}
 	for _, member := range detail.Members {
-		conclusion := member.Conclusion
+		conclusion := member
 		if conclusion.MemberID != member.MemberID {
 			t.Fatalf("member identity lost: %+v", conclusion)
 		}

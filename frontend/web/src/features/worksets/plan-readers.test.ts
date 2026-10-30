@@ -2,11 +2,9 @@ import type { ComponentOutcome, RevisionDetailResponse, WorksetMember } from '@/
 import { describe, expect, it } from 'vitest'
 import { frozenConclusion } from '@/test/member-conclusion'
 import {
-  componentHasUnmetTarget,
   componentOperationCount,
   decisionGroups,
   keepReasonText,
-  keptDecisions,
   memberConclusion,
   memberConclusions,
   readComponent,
@@ -35,7 +33,7 @@ describe('plan snapshot readers', () => {
     expect(component.files).toEqual([])
     expect(component.operations).toEqual([])
     expect(componentOperationCount(component)).toBe(0)
-    expect(componentHasUnmetTarget(component)).toBe(false)
+    expect(component.variant_decisions).toEqual([])
   })
 
   it('normalizes a nested variant with no decisions', () => {
@@ -80,7 +78,7 @@ describe('plan snapshot readers', () => {
     } as unknown as ComponentOutcome)
 
     expect(componentOperationCount(component)).toBe(1)
-    expect(componentHasUnmetTarget(component)).toBe(true)
+    expect(component.variant_decisions[0].decisions[0].reason_code).toBe('UNMET_TARGET')
     expect(component.lanes).toHaveLength(1)
   })
 })
@@ -159,9 +157,9 @@ describe('kept files', () => {
   } as ComponentOutcome)
 
   it('reads only the keep conclusions, never the operations', () => {
-    expect(keptDecisions(component).map(decision => decision.path)).toEqual([
-      '/album/track.wav',
-      '/album/other.mp3',
+    expect(decisionGroups(component, '/album').flatMap(group => group.rows).filter(row => row.resolution === 'keep').map(row => row.name)).toEqual([
+      'track.wav',
+      'other.mp3',
     ])
   })
 
@@ -264,21 +262,18 @@ describe('memberConclusions', () => {
       dir_id: `m-${i}`,
     })) as WorksetMember[]
     const view = {
-      members: members.map((m, i) => ({
+      members: members.map((m, i) => frozenConclusion(i === 0
+        ? 'changed'
+        : i === 1
+          ? 'blocked'
+          : 'unchanged', {
         member_id: m.member_id,
-        conclusion: frozenConclusion(i === 0
-          ? 'changed'
-          : i === 1
-            ? 'blocked'
-            : 'unchanged', {
-          member_id: m.member_id,
-          excluded: i === 2,
-          input: i === 3
-            ? 'none'
-            : i === 5
-              ? 'missing'
-              : 'valid',
-        }),
+        excluded: i === 2,
+        input: i === 3
+          ? 'none'
+          : i === 5
+            ? 'missing'
+            : 'valid',
       })),
     } as unknown as RevisionDetailResponse
     return { members, view }

@@ -125,7 +125,6 @@ function revision(execution: RevisionDetailResponse['execution']): RevisionDetai
           error_count: 0,
           summary_reason: '',
         },
-        components: [],
       },
     },
     counts: {
@@ -136,8 +135,6 @@ function revision(execution: RevisionDetailResponse['execution']): RevisionDetai
       unchanged: 0,
     },
     members: [],
-    roots: [],
-    component_roots: [],
     execution,
   }
 }

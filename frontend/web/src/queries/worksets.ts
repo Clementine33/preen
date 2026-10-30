@@ -156,9 +156,8 @@ export function createCurrentRecordMutationOptions(
   }
 }
 
-// Immutable revision detail (frozen members with sources, roots, component
-// ownership). staleTime is finite: validation is derived at read
-// time from the live inventory, so a revisit should see fresher state.
+// Frozen plan summary with live member input facts. Revisit stale input even
+// when the plan id is unchanged and the global mount policy disables refresh.
 export function operationRevisionDetailQueryOptions(
   api: ApiClientContract,
   worksetId: string | null | undefined,
@@ -169,6 +168,7 @@ export function operationRevisionDetailQueryOptions(
     queryKey: queryKeys.worksets.revision(worksetId ?? '', operation, planId ?? ''),
     enabled: Boolean(worksetId && planId),
     staleTime: 60_000,
+    refetchOnMount: true,
     queryFn: ({ signal }: { signal?: AbortSignal }) =>
       api.getRevision(worksetId as string, operation, planId as string, signal),
   })

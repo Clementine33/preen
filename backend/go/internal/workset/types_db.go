@@ -322,9 +322,16 @@ type OperationRevisionPersist struct {
 	// TaskSchemaVersion is the plan payload's schema version, stored on the
 	// plan row so the review envelope can name it.
 	TaskSchemaVersion int
-	Steps             []PlanStepRecord
-	Roots             []PlanRootRecord
-	Components        []PlanComponentRecord
+	// SummaryReason and Counts are computed from the complete frozen snapshot
+	// before staging; staging only persists them.
+	SummaryReason string
+	Counts        RevisionCounts
+	// Conclusions holds one frozen conclusion (without Member Input) per record
+	// member, including excluded and zero-component members.
+	Conclusions []MemberConclusion
+	Steps       []PlanStepRecord
+	Roots       []PlanRootRecord
+	Components  []PlanComponentRecord
 }
 
 // CanonicalJSONHash hashes JSON canonically: objects are recursively
@@ -359,7 +366,11 @@ type Plan struct {
 	Status            string // ready, executed, stale, canceled, failed
 	TaskKind          string // the Task that owns the payload
 	TaskSchemaVersion int    // >0 once the payload schema is known
-	CreatedAt         time.Time
+	// SummaryReason and Counts are derived once from the frozen plan at
+	// generation and stored on the plan row (ADR 0001).
+	SummaryReason string
+	Counts        RevisionCounts
+	CreatedAt     time.Time
 }
 
 // ErrRevisionNotFound is returned when an operation revision cannot be found.

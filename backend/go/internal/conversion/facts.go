@@ -1,9 +1,11 @@
 package conversion
 
 import (
+	"context"
 	"sort"
 
 	"github.com/Clementine33/preen/backend/internal/conversion/reconcile"
+	"github.com/Clementine33/preen/backend/internal/inventory"
 	"github.com/Clementine33/preen/backend/internal/workset"
 )
 
@@ -20,9 +22,43 @@ func rootIsStale(inv Inventory, r workset.PlanRootRecord) bool {
 	if err != nil {
 		return true
 	}
+	return fingerprintMoved(entries, r)
+}
+
+// fingerprintMoved compares a root's frozen fingerprint with its live entries.
+func fingerprintMoved(entries []reconcile.AudioEntry, r workset.PlanRootRecord) bool {
 	audio := reconcile.AudioEntries(entries)
 	digest, count := reconcile.InventoryFingerprint(audio)
 	return digest != r.InventoryFingerprint || count != r.EntryCount
+}
+
+// StaleInputRoots implements workset.InputValidationTask: one batched read of
+// only the audio under the frozen roots, judged by the same fingerprint rule as
+// rootIsStale. A failed read fails closed toward stale for every root.
+func (t *Task) StaleInputRoots(ctx context.Context, roots []workset.PlanRootRecord) ([]int, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	paths := make([]string, 0, len(roots))
+	for _, r := range roots {
+		if r.RootPath != "" {
+			paths = append(paths, normalizeScopePath(r.RootPath))
+		}
+	}
+	stale := []int{}
+	if len(paths) == 0 {
+		return stale, nil
+	}
+	observed, err := t.inventory.ObservedAudioEntriesByRoot(paths)
+	for _, r := range roots {
+		if r.RootPath == "" {
+			continue
+		}
+		if err != nil || fingerprintMoved(audioEntriesOf(observed[normalizeScopePath(r.RootPath)]), r) {
+			stale = append(stale, r.RootIndex)
+		}
+	}
+	return stale, nil
 }
 
 // collectRootEntries loads recognized audio entries under a planning root with
@@ -38,7 +74,11 @@ func collectRootEntries(inv Inventory, root string) ([]reconcile.AudioEntry, err
 	if err != nil {
 		return nil, err
 	}
+	return audioEntriesOf(observed), nil
+}
 
+// audioEntriesOf maps observed rows onto planning facts, ordered by path.
+func audioEntriesOf(observed []inventory.ObservedAudio) []reconcile.AudioEntry {
 	entries := make([]reconcile.AudioEntry, 0, len(observed))
 	seen := map[string]struct{}{}
 	for _, o := range observed {
@@ -65,7 +105,7 @@ func collectRootEntries(inv Inventory, root string) ([]reconcile.AudioEntry, err
 		entries = append(entries, entry)
 	}
 	sort.Slice(entries, func(i, j int) bool { return entries[i].PathPosix < entries[j].PathPosix })
-	return entries, nil
+	return entries
 }
 
 // defaultProfile seeds MP3@320 with no lossless output.

@@ -23,6 +23,14 @@ func (r *recordingInventory) ObservedAudioEntries(string) ([]inventory.ObservedA
 	return r.observed, r.readErr
 }
 
+func (r *recordingInventory) ObservedAudioEntriesByRoot(roots []string) (map[string][]inventory.ObservedAudio, error) {
+	out := map[string][]inventory.ObservedAudio{}
+	for _, root := range roots {
+		out[root] = r.observed
+	}
+	return out, r.readErr
+}
+
 func (r *recordingInventory) RootExistsInInventory(string) (bool, error) { return true, nil }
 
 func (r *recordingInventory) UpdateEntryBitrates(updates []inventory.BitrateUpdate, batch bool) error {

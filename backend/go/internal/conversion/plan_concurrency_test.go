@@ -29,6 +29,9 @@ func (h *heldInventory) ObservedAudioEntries(string) ([]inventory.ObservedAudio,
 	<-h.release
 	return nil, nil
 }
+func (*heldInventory) ObservedAudioEntriesByRoot([]string) (map[string][]inventory.ObservedAudio, error) {
+	return nil, nil
+}
 func (*heldInventory) RootExistsInInventory(string) (bool, error)                { return true, nil }
 func (*heldInventory) UpdateEntryBitrates([]inventory.BitrateUpdate, bool) error { return nil }
 

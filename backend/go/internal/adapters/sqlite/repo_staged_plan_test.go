@@ -26,6 +26,7 @@ func stagedGeneration(t *testing.T, repo *sqlite.Repository, id, kind string) {
 
 func stagedPayload(id string) workset.OperationRevisionPersist {
 	p := workset.OperationRevisionPersist{PlanID: id, RootPath: "/music", SnapshotToken: id,
+		SummaryReason: "blocked", Counts: workset.RevisionCounts{Members: 251, Changed: 1, UnmetTargets: 2, Blocked: 3, Unchanged: 4},
 		Steps: []workset.PlanStepRecord{{StepIndex: 0, StepType: "test"}}}
 	for i := range 251 {
 		p.Roots = append(p.Roots, workset.PlanRootRecord{RootIndex: i, RootPath: fmt.Sprintf("/music/%d", i)})
@@ -33,6 +34,7 @@ func stagedPayload(id string) workset.OperationRevisionPersist {
 			p.Components,
 			workset.PlanComponentRecord{ComponentIndex: i, ComponentID: strconv.Itoa(i), RootIndex: i},
 		)
+		p.Conclusions = append(p.Conclusions, workset.MemberConclusion{MemberID: "m" + strconv.Itoa(i)})
 	}
 	return p
 }
@@ -89,6 +91,9 @@ func TestStagingIsHiddenAndCleanupCannotDeleteRunningGeneration(t *testing.T) {
 			); err != nil || len(detail.Components) != 251 ||
 				len(detail.Roots) != 251 {
 				t.Fatalf("published plan incomplete: %+v %v", detail, err)
+			} else if detail.Plan.SummaryReason != "blocked" ||
+				detail.Plan.Counts != (workset.RevisionCounts{Members: 251, Changed: 1, UnmetTargets: 2, Blocked: 3, Unchanged: 4}) {
+				t.Fatalf("stored summary not round-tripped: %+v", detail.Plan)
 			}
 		})
 	}

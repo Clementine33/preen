@@ -148,6 +148,7 @@ func TestGenerationPublishesRevisionAndReplays(t *testing.T) {
 	if op.CurrentRevision.Counts.Members != 1 {
 		t.Fatalf("counts = %+v", op.CurrentRevision.Counts)
 	}
+	f.assertStoredSummary(op.CurrentRevision.PlanID)
 
 	// Same draft, same members, same live inventory: reuse the current version.
 	replay, err := f.svc.StartGeneration(

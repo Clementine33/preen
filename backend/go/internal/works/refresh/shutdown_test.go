@@ -30,7 +30,7 @@ func TestMetadataShutdownKeepsInterruptionAndFailureDistinct(t *testing.T) {
 				}
 				return ctx.Err()
 			}
-			svc, _, _, _, names, libraryID, _ := worksetFixture(t, run)
+			svc, _, _, _, names, libraryID, _, _ := worksetFixture(t, run)
 			record, err := svc.CreateCurrentWorkset(t.Context(), workset.CreateCurrentRequest{
 				LibraryID: libraryID, OperationType: refresh.Kind, FolderPaths: names,
 			})

@@ -182,6 +182,7 @@ func TestRetiredPlanCleanupBoundsEachTableAndResumesAfterReopen(t *testing.T) {
 		for _, statement := range []string{
 			`INSERT INTO execution_component_results(execution_id,component_index) VALUES('exec',?)`,
 			`INSERT INTO conversion_components(plan_id,component_index,step_index,component_id) VALUES('old',?,0,'component')`,
+			`INSERT INTO plan_member_conclusions(plan_id,member_id) VALUES('old',?)`,
 			`INSERT INTO plan_roots(plan_id,root_index,root_path) VALUES('old',?,'/music')`,
 			`INSERT INTO conversion_steps(plan_id,step_index,step_type) VALUES('old',?,'test')`,
 		} {
@@ -209,7 +210,8 @@ func TestRetiredPlanCleanupBoundsEachTableAndResumesAfterReopen(t *testing.T) {
 			}
 		}
 		if rows == 0 {
-			if changed != 0 || after["plans"] != 1 || after["workset_operation_revisions"] != 1 {
+			if changed != 0 || after["plans"] != 1 || after["workset_operation_revisions"] != 1 ||
+				after["plan_member_conclusions"] != 0 {
 				t.Fatalf("cleanup incomplete: %+v", after)
 			}
 			break
@@ -247,7 +249,7 @@ func TestRetiredPlanCleanupBoundsEachTableAndResumesAfterReopen(t *testing.T) {
 func retirementTableCounts(t *testing.T, repo *sqlite.Repository) map[string]int {
 	t.Helper()
 	counts := map[string]int{}
-	for _, table := range []string{"cover_deliveries", "execution_component_results", "plan_executions", "conversion_components", "plan_roots", "conversion_steps", "workset_operation_revisions", "plans"} {
+	for _, table := range []string{"cover_deliveries", "execution_component_results", "plan_executions", "conversion_components", "plan_member_conclusions", "plan_roots", "conversion_steps", "workset_operation_revisions", "plans"} {
 		var count int
 		if err := repo.DB().QueryRow("SELECT COUNT(*) FROM " + table).Scan(&count); err != nil {
 			t.Fatal(err)

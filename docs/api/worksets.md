@@ -95,11 +95,13 @@ All routes require auth and use the [standard error envelope](common.md#error-en
 | POST | `/api/v1/worksets/{id}/operations/{type}/executions/{executionId}/cancel` | Cooperative cancel; idempotent on terminal sessions (200 with the session either way). |
 
 Each revision member's `conclusion` contains `member_id`, `excluded`,
-`input` (`none` | `valid` | `stale` | `missing`), `has_components`, and an
-optional task-owned `task` payload. Workset resolves root ownership on the
-server. `none` means no frozen planning input; `missing` means the frozen
-planning root was missing; `stale` means live inventory no longer matches the
-frozen input. Exclusion and missing input take precedence over task status in
+`input` (`none` | `valid` | `stale` | `missing` | `unavailable`),
+`has_components`, and an optional task-owned `task` payload. Workset resolves
+root ownership on the server. `none` means no frozen planning input; `missing`
+means the frozen planning root was missing; `unavailable` means the record has
+no library to validate against; `stale` means live inventory no longer matches
+the frozen input. Frozen facts take precedence: `none`, `missing`,
+`unavailable`, `stale`, then `valid`. Exclusion and missing input take precedence over task status in
 the UI. The conversion list reads these conclusions, including selected-run
 input checks, without matching paths or inspecting component payloads.
 Input validity is evaluated on every read; clients use a finite cache lifetime

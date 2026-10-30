@@ -83,9 +83,12 @@ func (s *serviceImpl) GetMemberReview(
 			staleRoots[index] = true
 		}
 	}
-	task, _ := s.requireTask(operationType)
+	stored, err := s.repo.ListMemberConclusions(planID, &memberID)
+	if err != nil {
+		return nil, NewError(ErrKindInternal, "INTERNAL", "failed to load member conclusion", err)
+	}
 	owned := []RevisionMember{member}
-	if err := concludeRevisionMembers(owned, detail, staleRoots, task); err != nil {
+	if err := concludeRevisionMembers(owned, stored, detail.Roots, w.LibraryID == "", staleRoots); err != nil {
 		return nil, NewError(ErrKindInternal, "INTERNAL", "failed to conclude member", err)
 	}
 	review := &MemberReview{PlanID: planID, Member: owned[0], Plan: s.planView(operationType, detail)}

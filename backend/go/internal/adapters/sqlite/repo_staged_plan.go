@@ -22,17 +22,22 @@ func (r *Repository) stageOperationRevision(
 		return err
 	}
 	for chunk := range slices.Chunk(p.Steps, planStageBatchRows) {
-		if err := r.appendStagingPlan(ctx, genID, worksetID, kind, p.PlanID, chunk, nil, nil); err != nil {
+		if err := r.appendStagingPlan(ctx, genID, worksetID, kind, p.PlanID, planRecords{steps: chunk}); err != nil {
 			return err
 		}
 	}
 	for chunk := range slices.Chunk(p.Roots, planStageBatchRows) {
-		if err := r.appendStagingPlan(ctx, genID, worksetID, kind, p.PlanID, nil, chunk, nil); err != nil {
+		if err := r.appendStagingPlan(ctx, genID, worksetID, kind, p.PlanID, planRecords{roots: chunk}); err != nil {
 			return err
 		}
 	}
 	for chunk := range slices.Chunk(p.Components, planStageBatchRows) {
-		if err := r.appendStagingPlan(ctx, genID, worksetID, kind, p.PlanID, nil, nil, chunk); err != nil {
+		if err := r.appendStagingPlan(ctx, genID, worksetID, kind, p.PlanID, planRecords{components: chunk}); err != nil {
+			return err
+		}
+	}
+	for chunk := range slices.Chunk(p.Conclusions, planStageBatchRows) {
+		if err := r.appendStagingPlan(ctx, genID, worksetID, kind, p.PlanID, planRecords{conclusions: chunk}); err != nil {
 			return err
 		}
 	}
@@ -52,8 +57,9 @@ func (r *Repository) beginStagingPlan(
 
 	result, err := tx.Exec(
 		`INSERT INTO plans
- (plan_id,root_path,scan_root_path,library_id,snapshot_token,status,generation_id,task_kind,task_schema_version,workset_id)
- SELECT ?,?,?,NULLIF(?,''),?,'staging',generation_id,?,?,workset_id FROM plan_generations
+ (plan_id,root_path,scan_root_path,library_id,snapshot_token,status,generation_id,task_kind,task_schema_version,workset_id,
+  summary_reason,count_members,count_changed,count_unmet_targets,count_blocked,count_unchanged)
+ SELECT ?,?,?,NULLIF(?,''),?,'staging',generation_id,?,?,workset_id,?,?,?,?,?,? FROM plan_generations
  WHERE generation_id=? AND workset_id=? AND operation_type=? AND status='running' AND cancel_requested=0`,
 		p.PlanID,
 		p.RootPath,
@@ -62,6 +68,12 @@ func (r *Repository) beginStagingPlan(
 		p.SnapshotToken,
 		kind,
 		p.TaskSchemaVersion,
+		p.SummaryReason,
+		p.Counts.Members,
+		p.Counts.Changed,
+		p.Counts.UnmetTargets,
+		p.Counts.Blocked,
+		p.Counts.Unchanged,
 		genID,
 		worksetID,
 		kind,
@@ -76,8 +88,7 @@ func (r *Repository) beginStagingPlan(
 	return tx.Commit()
 }
 
-func (r *Repository) appendStagingPlan(ctx context.Context, genID, worksetID, kind, planID string,
-	steps []workset.PlanStepRecord, roots []workset.PlanRootRecord, components []workset.PlanComponentRecord) error {
+func (r *Repository) appendStagingPlan(ctx context.Context, genID, worksetID, kind, planID string, rec planRecords) error {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -86,7 +97,7 @@ func (r *Repository) appendStagingPlan(ctx context.Context, genID, worksetID, ki
 	if err := guardStagingPlan(tx, genID, worksetID, kind, planID); err != nil {
 		return err
 	}
-	if err := insertPlanRecords(tx, planID, steps, roots, components); err != nil {
+	if err := insertPlanRecords(tx, planID, rec); err != nil {
 		return err
 	}
 	return tx.Commit()

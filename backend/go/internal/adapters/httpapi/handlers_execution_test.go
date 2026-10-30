@@ -50,6 +50,12 @@ func seedRevision(
 	); err != nil {
 		t.Fatalf("CreatePlanTx: %v", err)
 	}
+	if _, err := repo.DB().Exec(
+		`INSERT INTO plan_member_conclusions (plan_id, member_id) SELECT ?, member_id FROM workset_members WHERE workset_id = ?`,
+		planID, worksetID,
+	); err != nil {
+		t.Fatalf("seed member conclusions: %v", err)
+	}
 	now := time.Now().Format(time.RFC3339Nano)
 	if _, err := repo.DB().Exec(`
 		INSERT INTO workset_operation_revisions

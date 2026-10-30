@@ -11,7 +11,7 @@ import (
 
 func TestMetadataWorkersAutomaticallyRefreshOnlyExecutedScope(t *testing.T) {
 	var calls atomic.Int32
-	svc, covers, _, _, names, libID, _ := worksetFixtureWithRefresh(
+	svc, covers, _, _, names, libID, _, _ := worksetFixtureWithRefresh(
 		t, func(context.Context, string, []string) error {
 			calls.Add(1)
 			return nil

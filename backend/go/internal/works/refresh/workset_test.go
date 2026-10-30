@@ -19,6 +19,7 @@ import (
 	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
 	"github.com/Clementine33/preen/backend/internal/admission"
 	"github.com/Clementine33/preen/backend/internal/inventory"
+	"github.com/Clementine33/preen/backend/internal/testutil/conclusionfixture"
 	"github.com/Clementine33/preen/backend/internal/works/coverdelivery"
 	"github.com/Clementine33/preen/backend/internal/works/refresh"
 
@@ -35,7 +36,7 @@ func (t worksetTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 	return t.server.Client().Transport.RoundTrip(clone)
 }
 func TestWorksetRefreshCommitsMetadataAndQueuesCoversWithoutWaitingForCDN(t *testing.T) {
-	svc, cover, cat, root, names, libID, statics := worksetFixture(t)
+	svc, cover, cat, root, names, libID, statics, repo := worksetFixture(t)
 	enableCoverDownload(t, svc)
 	record, err := svc.CreateCurrentWorkset(
 		t.Context(),
@@ -61,6 +62,7 @@ func TestWorksetRefreshCommitsMetadataAndQueuesCoversWithoutWaitingForCDN(t *tes
 		t.Fatal("plan performed upstream work")
 	}
 	verifyMemberConclusionsHTTP(t, svc, id, generation.RevisionID)
+	assertStoredSummary(t, repo, svc, id, generation.RevisionID)
 	op, err := svc.GetOperation(t.Context(), id, refresh.Kind)
 	if err != nil {
 		t.Fatal(err)
@@ -185,7 +187,7 @@ func verifyCoverHTTP(t *testing.T, svc workset.Service, cover *coverdelivery.Ser
 func worksetFixture(
 	t *testing.T,
 	override ...workset.BatchExecutor,
-) (workset.Service, *coverdelivery.Service, *works.Service, string, []string, string, *atomic.Int32) {
+) (workset.Service, *coverdelivery.Service, *works.Service, string, []string, string, *atomic.Int32, *sqlite.Repository) {
 	t.Helper()
 	return worksetFixtureWithRefresh(t, nil, override...)
 }
@@ -194,7 +196,7 @@ func worksetFixtureWithRefresh(
 	t *testing.T,
 	onRefresh func(context.Context, string, []string) error,
 	override ...workset.BatchExecutor,
-) (workset.Service, *coverdelivery.Service, *works.Service, string, []string, string, *atomic.Int32) {
+) (workset.Service, *coverdelivery.Service, *works.Service, string, []string, string, *atomic.Int32, *sqlite.Repository) {
 	t.Helper()
 	repo, err := sqlite.NewDevelopmentRepository(filepath.Join(t.TempDir(), "cache.db"))
 	if err != nil {
@@ -253,7 +255,7 @@ func worksetFixtureWithRefresh(
 		gate.Enqueue,
 		map[string]workset.BatchExecutor{refresh.Kind: run},
 	)
-	return svc, cover, cat, root, names, lib.ID, statics
+	return svc, cover, cat, root, names, lib.ID, statics, repo
 }
 
 func worksetSource(t *testing.T) (*scraper.Client, *atomic.Int32) {
@@ -300,7 +302,7 @@ func TestMetadataSSEIncludesResultsThatFinishOutOfOrder(t *testing.T) {
 			TaskResult: []byte(`{"rj":"first"}`), CompletedOperations: &completed,
 		})
 	}
-	svc, _, _, _, names, libID, _ := worksetFixture(t, run)
+	svc, _, _, _, names, libID, _, _ := worksetFixture(t, run)
 	record, err := svc.CreateCurrentWorkset(
 		t.Context(),
 		workset.CreateCurrentRequest{LibraryID: libID, OperationType: refresh.Kind, FolderPaths: names},
@@ -413,7 +415,7 @@ func publishCommon(t *testing.T, svc workset.Service, worksetID string, common r
 }
 
 func TestRefreshAllCanRunAgainWithoutChangingSettingsOrFolders(t *testing.T) {
-	svc, _, _, _, names, libID, statics := worksetFixture(t)
+	svc, _, _, _, names, libID, statics, _ := worksetFixture(t)
 	record, err := svc.CreateCurrentWorkset(t.Context(), workset.CreateCurrentRequest{
 		LibraryID: libID, OperationType: refresh.Kind, FolderPaths: names,
 	})
@@ -553,5 +555,23 @@ func verifyMemberConclusionsHTTP(t *testing.T, svc workset.Service, id, planID s
 			!bytes.Equal(member.Task, memberWire.Task.Payload.Components[0]) {
 			t.Fatalf("member conclusion differs from frozen component: %s", memberResponse.Body.String())
 		}
+	}
+}
+
+// assertStoredSummary checks the counts stored at generation against what the
+// service reports for the revision.
+func assertStoredSummary(t *testing.T, repo *sqlite.Repository, svc workset.Service, id, planID string) {
+	t.Helper()
+	detail, err := repo.GetPlanDetail(planID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	conclusionfixture.AssertStored(t, repo, &refresh.Task{}, id, refresh.Kind, planID)
+	view, err := svc.GetRevision(t.Context(), id, refresh.Kind, planID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if detail.Plan.Counts != view.Counts || view.Counts.Members != 2 {
+		t.Fatalf("stored %+v, view %+v", detail.Plan.Counts, view.Counts)
 	}
 }

@@ -308,6 +308,14 @@ _Avoid_: Delete mode as a per-run option.
 **Input Validity**:
 Whether a revision's recorded inputs still agree with the current observed inventory: valid, stale or unavailable.
 
+**Member Input**:
+One member's planning input in the current plan: none (excluded, or it gave the plan no input), missing (its folder was absent when the plan froze), stale (its observed inventory no longer matches the frozen one), unavailable (the record has lost its library, so nothing can be validated) or valid. It is the per-member counterpart of Input Validity.
+_Avoid_: Reusing Input Validity's values for one member.
+
+**Member Conclusion**:
+What the current plan concludes for one member: whether it is excluded, its Member Input, whether it owns plan units, and the task's own verdict for it. Everything except the Member Input is fixed by the frozen plan. Member lists show it without reading any member's plan units.
+_Avoid_: Deriving it in the browser from the whole plan.
+
 **Deleted Library**:
 A Library entry the user removed: its processing record, plan and execution results are deleted with it, while the media files and the `Delete/` recovery directory on disk stay untouched. There are no orphaned records left behind to review.
 

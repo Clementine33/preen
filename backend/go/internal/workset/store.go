@@ -73,9 +73,14 @@ type Store interface {
 	GetPlanComponentOutcomes(planID string, indexes []int) (map[int]json.RawMessage, error)
 	// GetPlanDetail is one operation of the lifecycle.
 	GetPlanDetail(planID string) (*PlanDetail, error)
+	// GetPlanFrame reads the plan row, steps and roots without component payloads.
+	GetPlanFrame(planID string) (*PlanDetail, error)
 	// GetMemberPlanDetail reads only the first frozen root owned by memberID
 	// (root_index order) and only that root's outcomes. Empty IDs own no inputs.
 	GetMemberPlanDetail(planID, memberID string) (*PlanDetail, error)
+	// ListMemberConclusions reads the frozen conclusions stored at generation,
+	// all members' or only memberID's when it is non-nil.
+	ListMemberConclusions(planID string, memberID *string) ([]MemberConclusion, error)
 	// GetWorkset is one operation of the lifecycle.
 	GetWorkset(id string) (*Workset, error)
 	// GetWorksetByCreationIdemKey is one operation of the lifecycle.

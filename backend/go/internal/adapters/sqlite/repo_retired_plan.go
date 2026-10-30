@@ -35,6 +35,7 @@ func (r *Repository) DeleteRetiredPlanBatch(ctx context.Context, limit int) (int
 		{"execution_component_results", "execution_id IN (SELECT execution_id FROM plan_executions WHERE plan_id=?)"},
 		{"plan_executions", "plan_id=?"},
 		{"conversion_components", "plan_id=?"},
+		{"plan_member_conclusions", "plan_id=?"},
 		{"plan_roots", "plan_id=?"},
 		{"conversion_steps", "plan_id=?"},
 		{"workset_operation_revisions", "plan_id=?"},

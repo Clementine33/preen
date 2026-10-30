@@ -19,13 +19,41 @@ func (s *serviceImpl) validateRevision(
 	if orphaned {
 		return nil, ValidationUnavailable
 	}
-	health, err := s.revisionHealth(ctx, operationType, detail)
-	if err != nil || len(health.StaleRoots) > 0 {
+	stale, err := s.staleInputRoots(ctx, operationType, detail)
+	if err != nil || len(stale) > 0 {
 		t := true
 		return &t, ValidationStale
 	}
 	f := false
 	return &f, ValidationValid
+}
+
+// readDetail loads what a summary read needs: the plan frame when the task
+// validates inputs from frozen roots alone, otherwise the complete plan.
+func (s *serviceImpl) readDetail(operationType, planID string) (*PlanDetail, error) {
+	if task, err := s.requireTask(operationType); err == nil {
+		if _, ok := task.(InputValidationTask); ok {
+			return s.repo.GetPlanFrame(planID)
+		}
+	}
+	return s.repo.GetPlanDetail(planID)
+}
+
+// staleInputRoots reports the roots whose live inputs moved. Tasks that declare
+// InputValidationTask answer from the roots alone; the rest evaluate the
+// complete plan.
+func (s *serviceImpl) staleInputRoots(
+	ctx context.Context, operationType string, detail *PlanDetail,
+) ([]int, error) {
+	task, err := s.requireTask(operationType)
+	if err != nil {
+		return nil, err
+	}
+	if v, ok := task.(InputValidationTask); ok {
+		return v.StaleInputRoots(ctx, detail.Roots)
+	}
+	health, err := s.revisionHealth(ctx, operationType, detail)
+	return health.StaleRoots, err
 }
 
 // loadCurrentRevision builds the compact immutable conclusion of an operation's
@@ -37,7 +65,7 @@ func (s *serviceImpl) loadCurrentRevision(
 	if err != nil {
 		return nil, nil, NewError(ErrKindInternal, "INTERNAL", "failed to load current revision", err)
 	}
-	detail, err := s.repo.GetPlanDetail(op.CurrentRevisionID)
+	detail, err := s.readDetail(op.OperationType, op.CurrentRevisionID)
 	if err != nil {
 		return nil, nil, NewError(ErrKindInternal, "INTERNAL", "failed to load revision plan", err)
 	}
@@ -46,17 +74,13 @@ func (s *serviceImpl) loadCurrentRevision(
 		return nil, nil, NewError(ErrKindInternal, "INTERNAL", "failed to load workset", err)
 	}
 	stale, validation := s.validateRevision(ctx, op.OperationType, w.LibraryID == "", detail)
-	review, reviewErr := s.revisionReview(op.OperationType, detail)
-	if reviewErr != nil {
-		return nil, nil, reviewErr
-	}
 	return &RevisionSummary{
 		PlanID:          detail.Plan.PlanID,
 		RevisionIndex:   rev.RevisionIndex,
 		CreatedAt:       detail.Plan.CreatedAt,
 		Status:          detail.Plan.Status,
-		SummaryReason:   revisionSummaryReason(detail),
-		Counts:          revisionCounts(detail, review),
+		SummaryReason:   detail.Plan.SummaryReason,
+		Counts:          detail.Plan.Counts,
 		ValidationState: validation,
 		Stale:           stale,
 	}, detail.Roots, nil
@@ -85,8 +109,54 @@ func planSummaryOf(detail *PlanDetail) PlanSummary {
 	return summary
 }
 
-func revisionSummaryReason(detail *PlanDetail) string {
-	return planSummaryOf(detail).SummaryReason
+// stampRevisionSummary derives the revision's counts and summary reason from
+// the complete in-memory frozen snapshot, before it is staged.
+func (s *serviceImpl) stampRevisionSummary(operationType string, p *OperationRevisionPersist) error {
+	task, err := s.requireTask(operationType)
+	if err != nil {
+		return err
+	}
+	counts, reason, err := summarizeRevision(task, &PlanDetail{
+		Plan:       Plan{TaskSchemaVersion: p.TaskSchemaVersion},
+		Steps:      p.Steps,
+		Roots:      p.Roots,
+		Components: p.Components,
+	})
+	if err != nil {
+		return err
+	}
+	p.Counts, p.SummaryReason = counts, reason
+	return nil
+}
+
+// stampMemberConclusions derives the frozen part of every record member's
+// conclusion from the same complete in-memory snapshot, before staging.
+func (s *serviceImpl) stampMemberConclusions(
+	operationType string, members []*WorksetMember, p *OperationRevisionPersist,
+) error {
+	task, err := s.requireTask(operationType)
+	if err != nil {
+		return err
+	}
+	excluded := excludedSet(p.ExcludedScope)
+	revisionMembers := make([]RevisionMember, 0, len(members))
+	for _, member := range members {
+		revisionMembers = append(revisionMembers, RevisionMember{
+			MemberID: member.MemberID, Excluded: excluded[member.MemberID],
+		})
+	}
+	p.Conclusions, err = freezeMemberConclusions(revisionMembers, p.Roots, p.Components, task)
+	return err
+}
+
+// summarizeRevision is the one rule behind a revision's counts and summary
+// reason; it depends only on the frozen plan and the task's review of it.
+func summarizeRevision(task Task, detail *PlanDetail) (RevisionCounts, string, error) {
+	review, err := task.ReviewRevision(RevisionFacts{Detail: detail})
+	if err != nil {
+		return RevisionCounts{}, "", err
+	}
+	return revisionCounts(detail, review), planSummaryOf(detail).SummaryReason, nil
 }
 
 // revisionCounts derives the four independent plan facts from the frozen
@@ -147,7 +217,7 @@ func (s *serviceImpl) GetRevision(
 		}
 		return nil, NewError(ErrKindInternal, "INTERNAL", "failed to load revision", err)
 	}
-	detail, err := s.repo.GetPlanDetail(planID)
+	detail, err := s.readDetail(operationType, planID)
 	if err != nil {
 		return nil, NewError(ErrKindNotFound, "REVISION_NOT_FOUND", "revision not found", nil)
 	}
@@ -157,16 +227,20 @@ func (s *serviceImpl) GetRevision(
 	}
 	staleRoots := map[int]bool{}
 	if w.LibraryID != "" {
-		health, healthErr := s.revisionHealth(ctx, operationType, detail)
+		stale, healthErr := s.staleInputRoots(ctx, operationType, detail)
 		if healthErr != nil {
 			return nil, NewError(ErrKindInternal, "INTERNAL", "failed to validate revision inputs", healthErr)
 		}
-		for _, idx := range health.StaleRoots {
+		for _, idx := range stale {
 			staleRoots[idx] = true
 		}
 	}
 
-	review, reviewErr := s.revisionReview(operationType, detail)
+	// The response carries only the plan-level payload and tags, which the
+	// steps own; unit outcomes are read through GetMemberReview.
+	frame := *detail
+	frame.Components = nil
+	review, reviewErr := s.revisionReview(operationType, &frame)
 	if reviewErr != nil {
 		return nil, reviewErr
 	}
@@ -174,21 +248,21 @@ func (s *serviceImpl) GetRevision(
 		PlanID:        planID,
 		RevisionIndex: rev.RevisionIndex,
 		CreatedAt:     rev.CreatedAt,
-		Counts:        revisionCounts(detail, review),
+		Counts:        detail.Plan.Counts,
 	}
 	members, mErr := s.repo.ListWorksetMembers(worksetID)
 	if mErr != nil {
 		return nil, NewError(ErrKindInternal, "INTERNAL", "failed to load members", mErr)
 	}
-	excluded := excludedSet(rev.ExcludedScope)
+	stored, sErr := s.repo.ListMemberConclusions(planID, nil)
+	if sErr != nil {
+		return nil, NewError(ErrKindInternal, "INTERNAL", "failed to load member conclusions", sErr)
+	}
 	concluded := make([]RevisionMember, 0, len(members))
 	for _, member := range members {
-		concluded = append(concluded, RevisionMember{
-			MemberID: member.MemberID, FolderPath: member.FolderPath, Excluded: excluded[member.MemberID],
-		})
+		concluded = append(concluded, RevisionMember{MemberID: member.MemberID, FolderPath: member.FolderPath})
 	}
-	task, _ := s.requireTask(operationType)
-	if err := concludeRevisionMembers(concluded, detail, staleRoots, task); err != nil {
+	if err := concludeRevisionMembers(concluded, stored, detail.Roots, w.LibraryID == "", staleRoots); err != nil {
 		return nil, NewError(ErrKindInternal, "INTERNAL", "failed to conclude revision members", err)
 	}
 	out.Members = make([]MemberConclusion, 0, len(concluded))

@@ -487,3 +487,22 @@ func draftDoc() *conversion.DraftDoc {
 		Unmatched:     profile(),
 	}
 }
+
+// assertStoredSummary reloads a promoted plan and checks that the counts and
+// summary reason stored at generation equal the rule recomputed from what
+// persistence returns.
+func (f *fixture) assertStoredSummary(planID string) workset.RevisionCounts {
+	f.t.Helper()
+	detail, err := f.repo.GetPlanDetail(planID)
+	if err != nil {
+		f.t.Fatal(err)
+	}
+	counts, reason, err := workset.SummarizeRevisionForTest(&conversion.Task{}, detail)
+	if err != nil {
+		f.t.Fatal(err)
+	}
+	if detail.Plan.Counts != counts || detail.Plan.SummaryReason != reason {
+		f.t.Fatalf("stored %+v %q, recomputed %+v %q", detail.Plan.Counts, detail.Plan.SummaryReason, counts, reason)
+	}
+	return counts
+}

@@ -51,7 +51,8 @@ func followed(recorded string, entries Directory, taken map[string]bool) string 
 }
 
 func planName(
-	common Common, m *workset.WorksetMember, work Work, entries Directory, root string, n naming,
+	common Common, m *workset.WorksetMember, work Work,
+	entries Directory, occupants map[string][]string, root string, n naming,
 ) Outcome {
 	template := common.Template
 	o := Outcome{
@@ -127,15 +128,13 @@ func planName(
 		o.Action = "noop"
 		return o
 	}
-	targetKey := librarypath.RootPathKey(filepath.ToSlash(filepath.Join(root, o.TargetName)))
-	for name := range entries {
-		if librarypath.RootPathKey(filepath.ToSlash(filepath.Join(root, name))) == targetKey {
-			o.ReasonCode = "TARGET_EXISTS"
-			if name == disk {
-				o.ReasonCode = "CASE_ONLY_RENAME"
-			}
-			return o
+	names := occupants[librarypath.RootPathKey(filepath.ToSlash(filepath.Join(root, o.TargetName)))]
+	if len(names) > 0 {
+		o.ReasonCode = "TARGET_EXISTS"
+		if len(names) == 1 && names[0] == disk {
+			o.ReasonCode = "CASE_ONLY_RENAME"
 		}
+		return o
 	}
 	o.Action = "rename"
 	return o

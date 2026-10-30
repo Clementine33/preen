@@ -24,7 +24,7 @@ func TestSelectedMetadataExecutionIgnoresMissingOtherRootAndDoesNotRecheck(t *te
 		done := 1
 		return in.Progress(in.Units[0].Index, workset.UnitResult{CompletedOperations: &done})
 	}
-	svc, _, _, root, names, libID, _ := worksetFixture(t, run)
+	svc, _, _, root, names, libID, _, _ := worksetFixture(t, run)
 	record, err := svc.CreateCurrentWorkset(
 		t.Context(),
 		workset.CreateCurrentRequest{LibraryID: libID, OperationType: refresh.Kind, FolderPaths: names},

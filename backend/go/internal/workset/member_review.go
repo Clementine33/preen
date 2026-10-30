@@ -58,11 +58,11 @@ func (s *serviceImpl) GetMemberReview(
 			break
 		}
 	}
-	rootPath := member.FolderPath
+	ownerID := member.MemberID
 	if member.Excluded {
-		rootPath = ""
+		ownerID = ""
 	}
-	detail, err := s.repo.GetMemberPlanDetail(planID, rootPath)
+	detail, err := s.repo.GetMemberPlanDetail(planID, ownerID)
 	if err != nil {
 		if errors.Is(err, ErrPlanNotFound) {
 			return nil, NewError(ErrKindNotFound, "REVISION_NOT_FOUND", "revision not found", nil)

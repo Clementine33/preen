@@ -7,8 +7,11 @@ import "encoding/json"
 func concludeRevisionMembers(members []RevisionMember, detail *PlanDetail, staleRoots map[int]bool, task Task) error {
 	roots := make(map[string]PlanRootRecord, len(detail.Roots))
 	for _, root := range detail.Roots {
-		if _, exists := roots[root.RootPath]; !exists {
-			roots[root.RootPath] = root
+		if root.MemberID == "" {
+			continue
+		}
+		if _, exists := roots[root.MemberID]; !exists {
+			roots[root.MemberID] = root
 		}
 	}
 	components := make(map[int][]json.RawMessage)
@@ -22,7 +25,7 @@ func concludeRevisionMembers(members []RevisionMember, detail *PlanDetail, stale
 	for i := range members {
 		member := &members[i]
 		conclusion := MemberConclusion{MemberID: member.MemberID, Excluded: member.Excluded, Input: "none"}
-		root, exists := roots[member.FolderPath]
+		root, exists := roots[member.MemberID]
 		var owned []json.RawMessage
 		if exists && !member.Excluded {
 			owned = components[root.RootIndex]

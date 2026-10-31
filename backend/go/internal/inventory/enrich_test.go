@@ -368,7 +368,10 @@ func TestMediaFactsKickWhilePausedRestartsThePass(t *testing.T) {
 		}
 
 		time.Sleep(time.Minute)
-		if _, ok := store.written["/lib/a/0001"]; !ok {
+		store.mu.Lock()
+		_, ok := store.written["/lib/a/0001"]
+		store.mu.Unlock()
+		if !ok {
 			t.Error("the file added while paused was never measured")
 		}
 		want := inventory.LibraryMediaCounts{LibraryID: "lib", Unmeasurable: 1}
@@ -399,11 +402,13 @@ func TestMediaFactsKickPendingAtTheEndContinuesWithoutIdle(t *testing.T) {
 			t.Errorf("probes = %d, want 11 (one pass plus the restart)", asked)
 		}
 		idles := 0
+		store.mu.Lock()
 		for _, after := range store.counted {
 			if after == "\U0010FFFF" {
 				idles++
 			}
 		}
+		store.mu.Unlock()
 		if idles != 1 {
 			t.Errorf("idle published %d times, want once at the very end", idles)
 		}

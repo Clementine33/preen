@@ -220,9 +220,13 @@ A file neither entry accepts is **unconfirmed**, never silently adequate — and
 measured rate is evidence of quality either, since a low-bitrate file re-encoded
 to a high target would not regain what it never had. Where a qualified lossless
 source exists the target is regenerated once and recorded; where none exists the
-file is kept as it is and the stem counts as `UNMET_TARGETS` (relaxed mode marks
-that kept file `CONFORMANCE_UNCONFIRMED`; strict mode blocks the component with
-the same code and zero operations). Lossless targets carry no record: a lossless
+file is kept as it is and the stem counts as `UNMET_TARGETS`. Relaxed mode marks
+that kept file `UNMET_TARGET` when its own rate proves the miss (any measured MP3,
+AAC at a target the encoder honours or above the band's ceiling — a 192k MP3
+under a 320k target is simply unmet), and `CONFORMANCE_UNCONFIRMED` only when
+the rate cannot judge it (unknown, Opus below target, saturated AAC below its
+floor). Strict mode blocks the component with `SOURCE_MISSING` or
+`CONFORMANCE_UNCONFIRMED` respectively, and zero operations. Lossless targets carry no record: a lossless
 file is accepted on its codec.
 
 `StepSummary.unmet_targets` counts kept-but-unsatisfied stems; `summary_reason`

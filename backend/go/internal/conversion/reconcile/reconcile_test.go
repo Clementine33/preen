@@ -359,6 +359,15 @@ func TestReconcile_TargetPathAmbiguous(t *testing.T) {
 	}
 }
 
+func TestReconcile_MeasuredBelowTargetIsAMissingSource(t *testing.T) {
+	// A 192k MP3 under a 320k target is measured short of it: no generation
+	// record is asked about, so without a source the block names the source.
+	res := reconcileRJ(t, []AudioEntry{rjEntry("SEなし/mp3/00.mp3", 20, 192000)}, mp3OnlyProfile())
+	if len(res.Components) != 1 || res.Components[0].ReasonCode != ReasonSourceMissing {
+		t.Fatalf("want one SOURCE_MISSING block: %+v", res.Components)
+	}
+}
+
 func TestReconcile_UnknownBitrate(t *testing.T) {
 	// mp3 bitrate 0 with a lossless source -> rebuild; without a source -> blocked.
 	// Remove only SEなし/wav/00.wav so the matched component has an

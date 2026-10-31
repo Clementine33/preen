@@ -3,6 +3,7 @@ package reconcile
 import (
 	"fmt"
 	"path"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -96,6 +97,32 @@ func satisfiedEncoded(f GroupedFile, spec *AudioOutputSpec) bool {
 		return false
 	}
 	return f.Generated.Matches(*spec, f.Size, f.Mtime)
+}
+
+// measuredMiss reports whether a file's own measured rate already proves it
+// misses the target, so no generation record could change the answer: MP3 is
+// judged by its rate alone, and AAC lands exactly on targets the encoder can
+// honour and never above the band's ceiling. An unknown rate, Opus below its
+// target and saturated AAC below its floor prove nothing.
+func measuredMiss(bitrate int64, spec *AudioOutputSpec) bool {
+	if bitrate <= 0 || spec.Quality == nil || spec.Quality.Bitrate <= 0 ||
+		measuredBitrateSatisfies(bitrate, spec) {
+		return false
+	}
+	switch spec.Codec {
+	case CodecMp3:
+		return true
+	case CodecAac:
+		target := int64(spec.Quality.Bitrate) * 1000
+		return target <= aacExactAbove || bitrate > target*aacCeiling/100
+	}
+	return false
+}
+
+// unconfirmed reports whether a file of the declared codec is neither accepted
+// nor measured short of the target: only a generation record could settle it.
+func unconfirmed(f GroupedFile, spec *AudioOutputSpec) bool {
+	return f.Codec == spec.Codec && !satisfiedEncoded(f, spec) && !measuredMiss(f.Bitrate, spec)
 }
 
 // sameStemPath derives a target path beside the given source path, preserving
@@ -386,12 +413,15 @@ func reconcileComponent(
 					break
 				}
 				if p.source == "" {
-					// A candidate of the declared codec that no credential confirms
-					// is a different fact from a stem holding nothing to build from,
-					// and it is the one the review can act on: without a lossless
-					// source there is nothing to regenerate it from, and re-encoding
-					// a lossy file would not restore what it lost.
-					if p.encodedNeedsRebuild && len(p.encodedTarget) > 0 {
+					// A candidate of the declared codec that only a credential could
+					// confirm is a different fact from a stem holding nothing to build
+					// from, and it is the one the review can act on: without a
+					// lossless source there is nothing to regenerate it from, and
+					// re-encoding a lossy file would not restore what it lost. A file
+					// measured short of the target is just a missing source.
+					if slices.ContainsFunc(p.encodedTarget, func(f GroupedFile) bool {
+						return unconfirmed(f, profile.Encoded)
+					}) {
 						block(
 							ReasonConformanceUnconfirmed,
 							"stem %s holds an unconfirmed %s target and no lossless source to regenerate it from",

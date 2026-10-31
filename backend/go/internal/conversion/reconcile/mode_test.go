@@ -171,7 +171,7 @@ func TestLenientDesignMatrix(t *testing.T) {
 		}
 	})
 
-	t.Run("MP3 only, no credential and no source: kept, conformance unconfirmed", func(t *testing.T) {
+	t.Run("MP3 measured below target, no source: kept, unmet", func(t *testing.T) {
 		res, err := Reconcile(ReconcileInput{
 			RootPath: rjRoot,
 			Entries:  []AudioEntry{rjEntry("SEなし/mp3/00.mp3", 1, 128000)},
@@ -187,15 +187,15 @@ func TestLenientDesignMatrix(t *testing.T) {
 		if opCount(c, OpKindEncode) != 0 || opCount(c, OpKindRemoveObsolete) != 0 {
 			t.Fatalf("missing source must not plan ops: %+v", c.Operations)
 		}
-		// The file is already the declared shape: what is missing is the proof
-		// that it was written for this target, which no re-encode could supply
-		// (a lossy file is never upgraded) — so it stays, named as unconfirmed.
+		// MP3 is judged by its rate alone: a 128k file under a 320k target is
+		// measured short of it, whatever wrote it — no record is asked about,
+		// so the file is unmet, not unconfirmed (a lossy file is never upgraded).
 		d, ok := findDecision(c, rjRoot+"/SEなし/mp3/00.mp3")
-		if !ok || d.Resolution != ResolutionKeep || d.ReasonCode != ReasonConformanceUnconfirmed {
+		if !ok || d.Resolution != ResolutionKeep || d.ReasonCode != ReasonUnmetTarget {
 			t.Fatalf("mp3 decision: %+v ok=%v", d, ok)
 		}
 		if res.Summary.UnmetTargets == 0 {
-			t.Fatal("an unconfirmed target must still be counted as unmet")
+			t.Fatal("a target measured short must be counted as unmet")
 		}
 	})
 
@@ -554,7 +554,8 @@ func TestEncodedTargetIsAcceptedOnItsCredential(t *testing.T) {
 // toolchain's encoder actually writes (measured: exactly on target up to 192k,
 // ~0.86x for a 256k target and ~0.65x for 320k, because ffmpeg's native AAC
 // saturates near 222 kbps for stereo 44.1 kHz). A file the band does not accept
-// is unconfirmed — here it has no record and no source, so it stays as it is.
+// has no record and no source here, so it stays as it is: unmet where its rate
+// proves the miss, unconfirmed where only a record could judge it.
 func TestAACAcceptanceBand(t *testing.T) {
 	cases := []struct {
 		name     string
@@ -563,11 +564,11 @@ func TestAACAcceptanceBand(t *testing.T) {
 		want     string
 	}{
 		{"on target while the encoder can reach it", 192, 192155, ReasonKeepEncodedSatisfied},
-		{"below a reachable target its own rate does not accept", 192, 150000, ReasonConformanceUnconfirmed},
+		{"below a reachable target its rate proves the miss", 192, 150000, ReasonUnmetTarget},
 		{"what the encoder writes for 256k is accepted", 256, 220685, ReasonKeepEncodedSatisfied},
 		{"what the encoder writes for 320k is accepted", 320, 203623, ReasonKeepEncodedSatisfied},
 		{"a target the encoder cannot reach still rejects 128k material", 320, 128000, ReasonConformanceUnconfirmed},
-		{"well above the declared shape is replaced too", 192, 320000, ReasonConformanceUnconfirmed},
+		{"well above the declared shape misses it too", 192, 320000, ReasonUnmetTarget},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

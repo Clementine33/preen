@@ -115,9 +115,10 @@ const KEEP_REASON_TEXT: Record<string, string> = {
   UNMET_TARGET: '目标未满足',
   KEEP_LOSSLESS_TARGET: '已满足无损目标',
   KEEP_ENCODED_SATISFIED: '已满足编码目标',
-  // A file of the declared codec that no generation record proves this app wrote
-  // for the target: kept as it is, since re-encoding a lossy file would not give
-  // it the quality it never had.
+  // A file of the declared codec whose measured rate cannot judge it and no
+  // generation record accepts: kept as it is, since re-encoding a lossy file
+  // would not give it the quality it never had. One measured short of the
+  // target is UNMET_TARGET instead.
   CONFORMANCE_UNCONFIRMED: '目标符合性未确认',
   // Legacy: what CONFORMANCE_UNCONFIRMED was called before generation records
   // existed. Kept so revisions planned by an older build still read in words.

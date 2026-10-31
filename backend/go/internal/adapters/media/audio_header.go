@@ -375,19 +375,24 @@ func trackBitrate(r io.ReaderAt, trak mp4Box, sampleBytes int64) int64 {
 }
 
 // mp4Times reads a movie or media header (mvhd and mdhd share the layout up to
-// the duration): version 1 has 64-bit times. An all-ones duration means
-// unknown.
+// the duration): version 1 has 64-bit times. Only the bytes through the
+// duration are required - 20 in version 0, 32 in version 1 - since a version 0
+// mdhd is 24 bytes in all. An all-ones duration means unknown.
 func mp4Times(r io.ReaderAt, b mp4Box) (uint32, uint64, error) {
-	if b.end-b.body < 32 {
+	n := min(b.end-b.body, 32)
+	if n < 20 {
 		return 0, 0, errNotNative
 	}
 	var h [32]byte
-	if _, err := r.ReadAt(h[:], b.body); err != nil {
+	if _, err := r.ReadAt(h[:n], b.body); err != nil {
 		return 0, 0, errNotNative
 	}
 	var timescale uint32
 	var duration uint64
 	if h[0] == 1 {
+		if n < 32 {
+			return 0, 0, errNotNative
+		}
 		timescale, duration = binary.BigEndian.Uint32(h[20:24]), binary.BigEndian.Uint64(h[24:32])
 		if duration == math.MaxUint64 {
 			return 0, 0, errNotNative

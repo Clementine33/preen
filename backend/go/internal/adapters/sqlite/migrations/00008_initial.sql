@@ -22,7 +22,7 @@ CREATE TABLE inventory_files (
     height INTEGER,
     duration_sec REAL,
     format TEXT,
-    is_audio INTEGER GENERATED ALWAYS AS (lower(name) LIKE '%.mp3' OR lower(name) LIKE '%.flac' OR lower(name) LIKE '%.wav' OR lower(name) LIKE '%.m4a' OR lower(name) LIKE '%.aac' OR lower(name) LIKE '%.ogg') STORED,
+    is_audio INTEGER GENERATED ALWAYS AS (lower(name) LIKE '%.mp3' OR lower(name) LIKE '%.flac' OR lower(name) LIKE '%.wav' OR lower(name) LIKE '%.m4a' OR lower(name) LIKE '%.aac' OR lower(name) LIKE '%.ogg' OR lower(name) LIKE '%.opus') STORED,
     PRIMARY KEY (dir_ref, name)
 ) WITHOUT ROWID;
 

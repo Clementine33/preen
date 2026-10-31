@@ -3,6 +3,7 @@ package sqlite_test
 import (
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 
 	"testing"
@@ -182,6 +183,8 @@ func TestObservedAudioEntriesByRootMatchesPerRootReads(t *testing.T) {
 		inventoryfixture.Row{Path: "/m/a b/1.mp3", RootPath: "/m", Size: 1, Mtime: 2, Format: "mp3"},
 		inventoryfixture.Row{Path: "/m/100%_x/1.mp3", RootPath: "/m", Size: 1, Mtime: 2, Format: "mp3"},
 		inventoryfixture.Row{Path: "/m/single.mp3", RootPath: "/m", Size: 1, Mtime: 2, Format: "mp3"},
+		inventoryfixture.Row{Path: "/m/a/2.OPUS", RootPath: "/m", Size: 1, Mtime: 2},
+		inventoryfixture.Row{Path: "/m/a/cover.jpg", RootPath: "/m", Size: 1, Mtime: 2},
 	)
 	if _, err = repo.DB().Exec(`INSERT INTO generation_records
     (path,codec,encoder,encoder_version,bitrate_kbps,mode,size,mtime,content_sha256,created_at)
@@ -198,6 +201,10 @@ func TestObservedAudioEntriesByRootMatchesPerRootReads(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		// The batched read leaves the non-audio files in the database.
+		want = slices.DeleteFunc(want, func(e inventory.ObservedAudio) bool {
+			return strings.HasSuffix(e.Path, ".jpg")
+		})
 		if len(want) == 0 {
 			want = nil
 		}

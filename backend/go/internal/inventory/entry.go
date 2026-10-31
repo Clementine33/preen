@@ -91,6 +91,8 @@ type Store interface {
 	// CheckScanRoot rejects overlapping library roots before traversal or admission.
 	CheckScanRoot(rootPath string) error
 	HasActiveExecutionForRoot(rootPath string) (bool, error)
+	HasActiveGenerationForRoot(rootPath string) (bool, error)
+	HasActiveScanForRoot(rootPath string) (bool, error)
 	HasActiveRenameExecutionForRoot(rootPath string) (bool, error)
 }
 
@@ -150,9 +152,38 @@ func (s *service) beginScan(check func() error) (func(), error) {
 	return s.gate.BeginScanChecked(check)
 }
 
-// AdmitLibraryScan excludes every execution of this library.
+// AdmitLibraryScan excludes every execution, queued or running planning and
+// other scan session of this library, in that order.
+//
+// ponytail: the scan session row is written after the gate registers the scan,
+// so two scans of one library can still both pass the session check within
+// that window; register scans per rootPathKey in the gate to close it.
 func (s *service) AdmitLibraryScan(rootPath string) (func(), error) {
-	return s.beginScan(func() error { return s.checkExecution(s.store.HasActiveExecutionForRoot, rootPath) })
+	return s.beginScan(func() error {
+		if err := s.checkExecution(s.store.HasActiveExecutionForRoot, rootPath); err != nil {
+			return err
+		}
+		if err := s.checkActive(
+			s.store.HasActiveGenerationForRoot, rootPath, "GENERATION_IN_PROGRESS",
+			"wait for the library's planning to finish before scanning",
+		); err != nil {
+			return err
+		}
+		return s.checkActive(
+			s.store.HasActiveScanForRoot, rootPath, "SCAN_IN_PROGRESS", "the library is already being scanned",
+		)
+	})
+}
+
+func (s *service) checkActive(check func(string) (bool, error), root, code, message string) error {
+	active, err := check(root)
+	if err != nil {
+		return NewError(ErrKindInternal, "INTERNAL", "failed to check active tasks", err)
+	}
+	if active {
+		return NewError(ErrKindConflict, code, message, nil)
+	}
+	return nil
 }
 
 // AdmitMemberRefresh excludes directory rename, leaving other tasks unchanged.

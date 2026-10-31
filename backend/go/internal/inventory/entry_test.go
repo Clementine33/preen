@@ -19,6 +19,8 @@ import (
 // allowed for these non-rename execution fixtures.
 type fakeScanStore struct {
 	executing bool
+	planning  map[string]bool // roots with queued/running planning
+	scanning  map[string]bool // roots with an active scan session
 	err       error
 	asked     []string
 }
@@ -28,6 +30,14 @@ func (*fakeScanStore) CheckScanRoot(string) error { return nil }
 func (f *fakeScanStore) HasActiveExecutionForRoot(rootPath string) (bool, error) {
 	f.asked = append(f.asked, rootPath)
 	return f.executing, f.err
+}
+
+func (f *fakeScanStore) HasActiveGenerationForRoot(rootPath string) (bool, error) {
+	return f.planning[rootPath], nil
+}
+
+func (f *fakeScanStore) HasActiveScanForRoot(rootPath string) (bool, error) {
+	return f.scanning[rootPath], nil
 }
 
 func (f *fakeScanStore) HasActiveRenameExecutionForRoot(rootPath string) (bool, error) {
@@ -320,4 +330,27 @@ func TestScanForwardsTheLibraryToTheBindingMerge(t *testing.T) {
 	if page.Works[0].CopyCount != 1 {
 		t.Errorf("copy_count = %d, want 1", page.Works[0].CopyCount)
 	}
+}
+
+// TestLibraryScanAdmissionRefusesOnlySameLibraryPlanningAndScans pins the two
+// same-root refusals and that another library's tasks never block.
+func TestLibraryScanAdmissionRefusesOnlySameLibraryPlanningAndScans(t *testing.T) {
+	store := &fakeScanStore{
+		planning: map[string]bool{"/music": true},
+		scanning: map[string]bool{"/books": true},
+	}
+	svc, _, _ := newEntry(t, store)
+
+	for root, code := range map[string]string{"/music": "GENERATION_IN_PROGRESS", "/books": "SCAN_IN_PROGRESS"} {
+		_, err := svc.AdmitLibraryScan(root)
+		scanErr, ok := inventory.AsError(err)
+		if !ok || scanErr.Kind != inventory.ErrKindConflict || scanErr.Code != code {
+			t.Errorf("admission of %s = %v, want conflict %s", root, err, code)
+		}
+	}
+	release, err := svc.AdmitLibraryScan("/games")
+	if err != nil {
+		t.Fatalf("another library's planning or scan must not block: %v", err)
+	}
+	release()
 }

@@ -76,7 +76,8 @@ func NewMediaEnricher(store MediaFactsStore, prober MediaProber, begin BeginBack
 }
 
 // Kick asks for a pass. It never blocks: a kick that arrives while a pass is
-// running is kept, and starts one more pass from the beginning once it ends.
+// running is kept, and makes that pass start over from the beginning at its
+// next admission attempt (see pass).
 func (e *MediaEnricher) Kick() {
 	select {
 	case e.kick <- struct{}{}:
@@ -97,11 +98,22 @@ func (e *MediaEnricher) Run(ctx context.Context) {
 }
 
 // pass walks every candidate once, in (directory path, filename) order, resuming after each refusal
-// or preemption from the last batch it finished.
+// or preemption from the last batch it finished. A kick that arrived meanwhile
+// sends it back to the beginning before its next admission attempt, and one
+// pending at the end keeps it running instead of publishing idle, so files
+// before the cursor are always ones measured since the latest kick.
 func (e *MediaEnricher) pass(ctx context.Context) {
 	after := ""
 	for {
+		select {
+		case <-e.kick:
+			after = ""
+		default:
+		}
 		if e.admitted(ctx, &after) {
+			if len(e.kick) > 0 {
+				continue
+			}
 			e.settle(ctx, MediaFactsIdle, pastEveryPath)
 			return
 		}

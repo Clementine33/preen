@@ -10,7 +10,7 @@ import (
 
 func TestCreateCurrentAcceptsMeasuredMemberLimit(t *testing.T) {
 	f := newFixture(t)
-	paths := make([]string, 2000)
+	paths := make([]string, workset.MaxMembers)
 	for i := range paths {
 		paths[i] = "album-" + strconv.Itoa(i)
 	}
@@ -21,7 +21,8 @@ func TestCreateCurrentAcceptsMeasuredMemberLimit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.Recorded != 2000 || len(result.Workset.Members) != 2000 || len(result.Skipped) != 0 {
+	limit := workset.MaxMembers
+	if result.Recorded != limit || len(result.Workset.Members) != limit || len(result.Skipped) != 0 {
 		t.Fatalf("recorded=%d members=%d skipped=%v", result.Recorded, len(result.Workset.Members), result.Skipped)
 	}
 	// Members follow the inventory's path order, not the order they were created in.

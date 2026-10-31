@@ -3,7 +3,7 @@
 [API reference](../api.md) · [Common conventions](common.md)
 
 A **workset** is the library's shared current folder batch: a fixed, ordered
-set of 1–2,000 selected Work Roots, including roots without audio. Each library
+set of 1–10,000 selected Work Roots, including roots without audio. Each library
 has at most one workset, enforced by a storage-level unique index.
 `conversion`, `rename` and `metadata_refresh` reuse the same members and each
 retain independent drafts, versions, planning sessions, current plans and
@@ -55,8 +55,8 @@ become a member is reported instead of dropped silently:
 
 A selection whose every entry is unusable creates nothing and answers
 `NO_MEMBERS` (400), with the skipped ids in `details`. Batch membership does
-not depend on the entry-point Task or on audio count. More than 2,000
-resolved members, or more than 2,000 listed `dir_ids`, is
+not depend on the entry-point Task or on audio count. More than 10,000
+resolved members, or more than 10,000 listed `dir_ids`, is
 `INVALID_FOLDER_COUNT` (400) — never a silent truncation.
 The current limit is advertised as `workset_max_members` by
 [`GET /api/v1/health`](common.md#health-endpoint). The overview shows selected

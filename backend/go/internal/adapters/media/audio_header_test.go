@@ -198,7 +198,9 @@ func box(typ string, body ...[]byte) []byte {
 }
 
 // timesBox is a movie (mvhd) or media (mdhd) header, which share their layout
-// up to the duration: version 0 has 32-bit times, version 1 64-bit ones.
+// up to the duration: version 0 has 32-bit times, version 1 64-bit ones. What
+// follows the duration keeps the real sizes - a media header's language and
+// pre-defined field are only 4 bytes, so a version 0 mdhd is 24 bytes long.
 func timesBox(typ string, version byte, timescale uint32, duration uint64) []byte {
 	b := []byte{version, 0, 0, 0}
 	if version == 1 {
@@ -210,7 +212,11 @@ func timesBox(typ string, version byte, timescale uint32, duration uint64) []byt
 		b = binary.BigEndian.AppendUint32(b, timescale)
 		b = binary.BigEndian.AppendUint32(b, uint32(duration)) //nolint:gosec // test values fit
 	}
-	return box(typ, append(b, make([]byte, 80)...))
+	tail := 80 // rate, volume, matrix, next track id
+	if typ == "mdhd" {
+		tail = 4
+	}
+	return box(typ, append(b, make([]byte, tail)...))
 }
 
 // trak is one track: its media header, then sample tables the parser must

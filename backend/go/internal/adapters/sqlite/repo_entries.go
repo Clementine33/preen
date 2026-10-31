@@ -57,9 +57,13 @@ func (r *Repository) ObservedAudioEntries(rootPath string) ([]inventory.Observed
 
 var observedAudioPathSQL = joinInventoryPathSQL("f.dir_path", "f.name")
 
-// observedAudioByRootSQL is ObservedAudioEntries for many roots at once: the
-// roots arrive as one JSON array and each leg stays a path-index range search
-// per root, so no root reads the rest of the library.
+// observedAudioByRootSQL is ObservedAudioEntries for many roots at once, but
+// only the is_audio files - a superset of the planner's audio extensions, so
+// the caller's exact filter still decides while sidecars stay in the database.
+// The roots arrive as one JSON array and each leg stays a path-index range
+// search per root, so no root reads the rest of the library: CROSS JOIN pins
+// that loop order, which the is_audio term would otherwise tempt the planner
+// into inverting as a scan of every file.
 var observedAudioByRootSQL = `
 	WITH roots AS (
 		SELECT json_extract(value, '$.key') AS key, json_extract(value, '$.root') AS root,
@@ -68,16 +72,16 @@ var observedAudioByRootSQL = `
 		FROM json_each(?)
 	), scoped_files AS (
 		SELECT r.key, d.path AS dir_path, f.name, f.size, f.mtime, f.bitrate, f.format
-		FROM roots r JOIN inventory_dirs d ON d.path = r.root
-		JOIN inventory_files f ON f.dir_ref = d.id
+		FROM roots r CROSS JOIN inventory_dirs d ON d.path = r.root
+		CROSS JOIN inventory_files f ON f.dir_ref = d.id AND f.is_audio = 1
 		UNION ALL
 		SELECT r.key, d.path, f.name, f.size, f.mtime, f.bitrate, f.format
-		FROM roots r JOIN inventory_dirs d ON d.path >= r.lo AND d.path < r.hi
-		JOIN inventory_files f ON f.dir_ref = d.id
+		FROM roots r CROSS JOIN inventory_dirs d ON d.path >= r.lo AND d.path < r.hi
+		CROSS JOIN inventory_files f ON f.dir_ref = d.id AND f.is_audio = 1
 		UNION ALL
 		SELECT r.key, d.path, f.name, f.size, f.mtime, f.bitrate, f.format
-		FROM roots r JOIN inventory_dirs d ON d.path = r.parent
-		JOIN inventory_files f ON f.dir_ref = d.id AND f.name = r.name
+		FROM roots r CROSS JOIN inventory_dirs d ON d.path = r.parent
+		CROSS JOIN inventory_files f ON f.dir_ref = d.id AND f.name = r.name AND f.is_audio = 1
 	)
 	SELECT f.key, ` + observedAudioPathSQL + `, f.size, f.mtime, COALESCE(f.bitrate, 0), COALESCE(f.format, ''),
 	       g.codec, g.bitrate_kbps, g.mode, g.size, g.mtime
@@ -85,9 +89,9 @@ var observedAudioByRootSQL = `
 	ORDER BY 2
 `
 
-// ObservedAudioEntriesByRoot reads the observed audio under every given root
-// in one query, keyed by the root as passed, each list ordered by path. A root
-// with no entries has no key.
+// ObservedAudioEntriesByRoot reads the observed audio candidates under every
+// given root in one query, keyed by the root as passed, each list ordered by
+// path. A root with no entries has no key.
 func (r *Repository) ObservedAudioEntriesByRoot(roots []string) (map[string][]inventory.ObservedAudio, error) {
 	args := make([]map[string]string, 0, len(roots))
 	for _, key := range roots {

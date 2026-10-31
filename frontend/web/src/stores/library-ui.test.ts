@@ -99,6 +99,15 @@ describe('library-ui store', () => {
     expect(store.selectedDirPaths).toEqual([])
   })
 
+  it('adds dirs to the selection without dropping ones not in the list', () => {
+    const store = useLibraryUiStore()
+    store.toggleDir('Hidden')
+    store.toggleDir('Beta')
+    store.addDirs(dirs)
+    expect(store.selectedDirPaths).toEqual(['Hidden', 'Beta', 'Alpha'])
+    expect([...store.selectedDirSet]).toEqual(['Hidden', 'Beta', 'Alpha'])
+  })
+
   it('reconciles the directory selection only against the active library', () => {
     const store = useLibraryUiStore()
     store.setActiveLibrary('lib-a')

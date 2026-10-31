@@ -38,6 +38,10 @@ export const useLibraryUiStore = defineStore('library-ui', {
     /** The R18 viewer option, off by default; kept in localStorage, set on the wall, read by the wall and the detail page. */
     veil: readVeil(),
   }),
+  getters: {
+    /** Membership view of the ordered `selectedDirPaths`. */
+    selectedDirSet: state => new Set(state.selectedDirPaths),
+  },
   actions: {
     setActiveLibrary(id: string) {
       this.allLibraries = false
@@ -101,6 +105,18 @@ export const useLibraryUiStore = defineStore('library-ui', {
     },
     selectAllDirs(dirs: LibraryDir[]) {
       this.selectedDirPaths = dirs.map(dir => dir.rel_path)
+    },
+    // Adds the given dirs to the selection in one assignment; a selection the
+    // list does not show (a search filter hides it) stays.
+    addDirs(dirs: LibraryDir[]) {
+      const have = this.selectedDirSet
+      const added = dirs.map(dir => dir.rel_path).filter(path => !have.has(path))
+      if (added.length > 0) {
+        this.selectedDirPaths = [
+          ...this.selectedDirPaths,
+          ...added,
+        ]
+      }
     },
     clearSelection() {
       this.selectedDirPaths = []

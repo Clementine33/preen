@@ -1,4 +1,4 @@
-import type { EditIntent } from './draft-intents'
+import type { EditIntent, EditTarget } from './draft-intents'
 import type { OperationDraftDocument } from '@/lib/api/types'
 import { describe, expect, it } from 'vitest'
 import {
@@ -179,6 +179,44 @@ describe('applyIntent', () => {
     }
     const next = applyIntent(withEmpty, { kind: 'member', memberId: 'm-yi' }, EMPTY_INTENT)
     expect(next.members.map(m => m.member_id)).toEqual(['m-yi', 'm-bing'])
+  })
+})
+
+describe('batch targets over many members', () => {
+  const ids = Array.from({ length: 50 }, (_, i) => `b-${i}`)
+  const target: EditTarget = { kind: 'batch', memberIds: ids }
+
+  it('creates records for every member across several units', () => {
+    const next = applyIntent(base, target, intent({
+      mode: { intent: 'set', value: 'strict' },
+      no_effect_tags: {
+        intent: 'set',
+        value: ['Z'],
+      },
+    }, 'exclude'))
+    expect(next.members).toHaveLength(2 + ids.length)
+    for (const id of ids) {
+      const record = next.members.filter(m => m.member_id === id)
+      expect(record).toHaveLength(1)
+      expect(record[0]).toMatchObject({
+        excluded: true,
+        overrides: {
+          mode: 'strict',
+          no_effect_tags: ['Z'],
+        },
+      })
+    }
+    expect(readUnit(next, target, 'mode')).toMatchObject({ source: 'member', value: 'strict', overridden: 50 })
+    expect(readParticipation(next, target)).toBe('exclude')
+  })
+
+  it('reads a mixed batch and a uniform common batch', () => {
+    expect(readUnit(base, target, 'matched')).toMatchObject({ source: 'common', overridden: 0, value: WAV })
+    const mixed: EditTarget = {
+      kind: 'batch',
+      memberIds: ['m-yi', ...ids],
+    }
+    expect(readUnit(base, mixed, 'matched')).toMatchObject({ source: 'mixed', overridden: 1, value: undefined })
   })
 })
 

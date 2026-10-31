@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { Virtualizer } from '@tanstack/vue-virtual'
 import type { MemberFilter } from '@/app/route-params'
-import type { EditTarget } from '@/features/worksets/draft-intents'
 import type { MemberConclusion } from '@/features/worksets/plan-readers'
 import type { OperationDraftDocument, WorksetMember } from '@/lib/api/types'
 import { Eye, FolderOpen, ListChecks } from '@lucide/vue'
@@ -9,7 +8,7 @@ import { observeElementOffset, useVirtualizer } from '@tanstack/vue-virtual'
 import { computed, ref } from 'vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { OVERRIDE_UNITS, readUnit } from '@/features/worksets/draft-intents'
+import { OVERRIDE_UNITS } from '@/features/worksets/draft-intents'
 
 const props = defineProps<{
   members: WorksetMember[]
@@ -71,6 +70,16 @@ const excluded = computed(() => {
   const set = new Set<string>()
   for (const record of props.draft.members) {
     if (record.excluded)
+      set.add(record.member_id)
+  }
+  return set
+})
+
+// A single member reads `member` from readUnit exactly when one unit's override is defined.
+const overridden = computed(() => {
+  const set = new Set<string>()
+  for (const record of props.draft.members) {
+    if (OVERRIDE_UNITS.some(unit => record.overrides?.[unit] !== undefined))
       set.add(record.member_id)
   }
   return set
@@ -142,10 +151,7 @@ const allVisibleSelected = computed(
  * the user needs to know without five unreadable per-unit tags.
  */
 function hasOverride(member: WorksetMember): boolean {
-  return OVERRIDE_UNITS.some((unit) => {
-    const value = readUnit(props.draft, { kind: 'member', memberId: member.member_id } as EditTarget, unit)
-    return value.source === 'member'
-  })
+  return overridden.value.has(member.member_id)
 }
 </script>
 

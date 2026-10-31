@@ -389,11 +389,11 @@ describe('component events', () => {
       expect(store.view?.members?.attention_total).toBe(51)
     })
 
-    it('asks for the summary shape per operation: conversion yes, rename and metadata no', async () => {
+    it('asks for the summary shape for every operation', async () => {
       for (const [operation, expected] of [
         ['conversion', 'members'],
-        ['rename', undefined],
-        ['metadata_refresh', undefined],
+        ['rename', 'members'],
+        ['metadata_refresh', 'members'],
       ] as const) {
         setActivePinia(createPinia())
         const stream = vi.fn(() => events([]))

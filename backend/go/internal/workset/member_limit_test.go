@@ -1,6 +1,7 @@
 package workset_test
 
 import (
+	"slices"
 	"strconv"
 	"testing"
 
@@ -15,7 +16,7 @@ func TestCreateCurrentAcceptsMeasuredMemberLimit(t *testing.T) {
 	}
 	f.standardLibrary(paths...)
 	result, err := f.svc.CreateCurrentWorkset(f.ctx, workset.CreateCurrentRequest{
-		LibraryID: "lib-1", OperationType: workset.OperationTypeConversion, FolderPaths: paths,
+		LibraryID: "lib-1", OperationType: workset.OperationTypeConversion, Selection: workset.Selection{All: true},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -23,9 +24,11 @@ func TestCreateCurrentAcceptsMeasuredMemberLimit(t *testing.T) {
 	if result.Recorded != 2000 || len(result.Workset.Members) != 2000 || len(result.Skipped) != 0 {
 		t.Fatalf("recorded=%d members=%d skipped=%v", result.Recorded, len(result.Workset.Members), result.Skipped)
 	}
+	// Members follow the inventory's path order, not the order they were created in.
+	sorted := slices.Sorted(slices.Values(paths))
 	for i, member := range result.Workset.Members {
-		if member.RelPath != paths[i] {
-			t.Fatalf("member %d path=%q, want %q", i, member.RelPath, paths[i])
+		if member.RelPath != sorted[i] {
+			t.Fatalf("member %d path=%q, want %q", i, member.RelPath, sorted[i])
 		}
 	}
 }

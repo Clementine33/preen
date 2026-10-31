@@ -175,8 +175,12 @@ func TestStoredConclusionsMatchReloadedPlan(t *testing.T) {
 	)
 	inventoryfixture.SeedInventory(t, f.repo, rows...)
 	ws := f.createCurrent("冻结结论", ids...)
-	bigID, mixedID, excludedID, emptyID, goneID := ws.Members[0].MemberID, ws.Members[1].MemberID,
-		ws.Members[2].MemberID, ws.Members[3].MemberID, ws.Members[4].MemberID
+	// Members follow inventory path order, so look them up by name.
+	idOf := map[string]string{}
+	for _, m := range ws.Members {
+		idOf[m.RelPath] = m.MemberID
+	}
+	bigID, mixedID, excludedID, emptyID, goneID := idOf["big"], idOf["mixed"], idOf["excluded"], idOf["empty"], idOf["gone"]
 	gone, err := f.repo.ListEntriesUnderPath("/music/gone")
 	if err != nil {
 		t.Fatal(err)

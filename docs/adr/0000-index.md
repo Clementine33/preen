@@ -8,8 +8,8 @@
 |---|---|---|
 | [0001](0001-library-workbench-and-processing-record.md) | 媒体库即工作台、计划分块暂存与原子提升、冻结计划事实生成时落库、退役清理、规划回放与活动约束、数据库自清理与留存、手动运行准入（历史、作品、关系报告与共享来源实体清理 API 已实现；网页入口待实现） | Draft |
 | [0002](0002-direct-file-management-and-admission.md) | 直接文件管理、全局准入互斥与作品同级回收目录 | Accepted |
-| [0003](0003-short-routes-and-directory-identity.md) | 短路由与不透明目录身份 | Accepted |
-| [0004](0004-task-seam-and-opaque-payloads.md) | Task 接缝、不透明载荷与工作集共享批次 | Accepted |
+| [0003](0003-short-routes-and-directory-identity.md) | 短路由与不透明目录身份 | Draft |
+| [0004](0004-task-seam-and-opaque-payloads.md) | Task 接缝、不透明载荷与工作集共享批次 | Draft |
 | [0005](0005-declarative-audio-planning.md) | 声明式规划、稀疏继承、无音效匹配与子树隔离 | Accepted |
 | [0006](0006-execution-sessions-and-component-results.md) | 执行会话、编码池、只读校验与安全发布 | Accepted |
 | [0007](0007-business-packages-and-dependency-direction.md) | 业务分包与依赖方向 | Accepted |

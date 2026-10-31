@@ -22,7 +22,7 @@ func TestRenamePreservesFrozenMemberOwnershipAcrossOperations(t *testing.T) {
 		t.Fatal(err)
 	}
 	created, err := svc.CreateCurrentWorkset(t.Context(), workset.CreateCurrentRequest{
-		LibraryID: libs[0].ID, OperationType: "rename", FolderPaths: []string{original.RelPath},
+		LibraryID: libs[0].ID, OperationType: "rename", Selection: workset.Selection{All: true},
 	})
 	if err != nil {
 		t.Fatal(err)

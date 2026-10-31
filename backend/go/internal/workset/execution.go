@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"sort"
 	"strings"
 	"time"
 
@@ -41,10 +40,12 @@ const (
 type StartExecutionRequest struct {
 	IfMatchVersion int
 	IdempotencyKey string
-	// FolderPaths scopes the session to these members, named by their
-	// library-relative paths as the record holds them. Empty means every member,
-	// which is what an execution was before the scope existed.
-	FolderPaths []string
+	// MemberIDs scopes the session to these members of the record;
+	// AllExceptMemberIDs scopes it to every member but these. Neither (or an
+	// empty MemberIDs) means every member, which is what an execution was before
+	// the scope existed. The two do not combine.
+	MemberIDs          []string
+	AllExceptMemberIDs []string
 }
 
 // StartExecutionResult distinguishes a fresh session from an idempotent replay.
@@ -99,14 +100,14 @@ type ExecutionView struct {
 	// components; Member is the one member of a member_id read.
 	Members *ExecutionMembers `json:"members,omitempty"`
 	Member  *MemberSummary    `json:"member,omitempty"`
-	// SelectedFolders is the scope this session ran: the record's relative
-	// paths, empty when it ran the whole revision.
-	SelectedFolders []string `json:"selected_folders,omitempty"`
-	ErrorCode       string   `json:"error_code"`
-	ErrorMessage    string   `json:"error_message"`
-	StartedAt       string   `json:"started_at"`
-	FinishedAt      string   `json:"finished_at"`
-	CreatedAt       string   `json:"created_at"`
+	// SelectedMemberIDs is the expanded scope this session ran, empty when it
+	// ran the whole revision.
+	SelectedMemberIDs []string `json:"selected_member_ids,omitempty"`
+	ErrorCode         string   `json:"error_code"`
+	ErrorMessage      string   `json:"error_message"`
+	StartedAt         string   `json:"started_at"`
+	FinishedAt        string   `json:"finished_at"`
+	CreatedAt         string   `json:"created_at"`
 }
 
 // MarshalJSON leaves `components` out of a members view; every other view keeps
@@ -158,7 +159,7 @@ type ExecutionProgress struct {
 type executionRequest struct {
 	Options json.RawMessage `json:"options,omitempty"`
 	Units   []ExecutionUnit `json:"units"`
-	Folders []string        `json:"folders,omitempty"`
+	Members []string        `json:"members,omitempty"`
 }
 
 // StartExecution enqueues one execution of the operation's current revision,
@@ -186,9 +187,12 @@ func (s *serviceImpl) StartExecution(
 	}
 	// Replays answer before the version and eligibility gates: a retried request
 	// must observe what it already asked for. The request is its revision and
-	// the folders it scoped the run to — the same key with another scope is
+	// the members it scoped the run to — the same key with another scope is
 	// another request, never a replay.
-	selection := normalizeSelection(req.FolderPaths)
+	selection, expandErr := s.expandExecutionScope(op.WorksetID, req)
+	if expandErr != nil {
+		return nil, expandErr
+	}
 	requestHash := executionRequestHash(planID, selection)
 	if result, replayed, replayErr := s.replayExecution(
 		op,
@@ -216,31 +220,13 @@ func (s *serviceImpl) StartExecution(
 	return s.persistExecution(op, planID, req.IdempotencyKey, requestHash, rev.DraftHash, scoped, selection)
 }
 
-// normalizeSelection is the scope as it gets frozen: no blanks, no duplicates,
-// and one order — so the same set of folders is the same request however it was
-// listed.
-func normalizeSelection(paths []string) []string {
-	seen := make(map[string]bool, len(paths))
-	out := make([]string, 0, len(paths))
-	for _, path := range paths {
-		trimmed := strings.TrimSpace(path)
-		if trimmed == "" || seen[trimmed] {
-			continue
-		}
-		seen[trimmed] = true
-		out = append(out, trimmed)
-	}
-	sort.Strings(out)
-	return out
-}
-
 // executionRequestHash covers everything the caller asked for.
 func executionRequestHash(planID string, selection []string) string {
 	return hashJSON([]byte(planID + "|" + strings.Join(selection, "\x1f")))
 }
 
-// scopeExecution narrows a frozen session to the folders the caller selected.
-// A path the record does not hold is refused outright: quietly running fewer
+// scopeExecution narrows a frozen session to the members the caller selected.
+// A member the record does not hold is refused outright: quietly running fewer
 // folders than were asked for would be a scope change nobody approved. A
 // selected folder that the plan found nothing to do in simply contributes no
 // units — that is a conclusion about the folder, not a refusal.
@@ -256,20 +242,15 @@ func (s *serviceImpl) scopeExecution(
 	if err != nil {
 		return FrozenExecution{}, NewError(ErrKindInternal, "INTERNAL", "failed to load members", err)
 	}
-	byRelPath := make(map[string]string, len(members))
+	byID := make(map[string]string, len(members))
 	for _, member := range members {
-		byRelPath[member.RelPath] = member.FolderPath
+		byID[member.MemberID] = member.FolderPath
 	}
 	selected := make(map[string]bool, len(selection))
-	for _, relPath := range selection {
-		folderPath, ok := byRelPath[relPath]
+	for _, id := range selection {
+		folderPath, ok := byID[id]
 		if !ok {
-			return FrozenExecution{}, NewError(
-				ErrKindInvalidArgument,
-				"FOLDER_NOT_IN_RECORD",
-				"not a folder of this record: "+relPath,
-				nil,
-			)
+			return FrozenExecution{}, errMemberNotInRecord(id)
 		}
 		selected[folderPath] = true
 	}
@@ -499,7 +480,7 @@ func (s *serviceImpl) persistExecution(
 		RequestJSON: mustJSON(executionRequest{
 			Options: frozen.Options,
 			Units:   frozen.Units,
-			Folders: selection,
+			Members: selection,
 		}),
 		TotalComponents: len(frozen.Units),
 		TotalOperations: frozen.TotalOperations,
@@ -703,7 +684,7 @@ func (s *serviceImpl) executionViewOf(e *PlanExecution, read ExecutionRead) (*Ex
 		StartedAt:           formatTime(e.StartedAt),
 		FinishedAt:          formatTime(e.FinishedAt),
 		CreatedAt:           formatTime(e.CreatedAt),
-		SelectedFolders:     req.Folders,
+		SelectedMemberIDs:   req.Members,
 	}
 	units, from, limit := req.Units, 0, 0
 	switch {

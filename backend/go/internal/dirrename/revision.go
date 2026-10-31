@@ -171,3 +171,22 @@ func (*Task) MemberConclusion(components []json.RawMessage) (json.RawMessage, er
 	}
 	return components[0], nil
 }
+
+// MemberCategory files a member by its sole component: rename, blocked, noop
+// (renamed by hand: the folder's observed name is set) or unchanged.
+func (*Task) MemberCategory(components []json.RawMessage) string {
+	if len(components) == 0 {
+		return ""
+	}
+	var o Outcome
+	if json.Unmarshal(components[0], &o) != nil {
+		return ""
+	}
+	if o.Action == "noop" {
+		if o.ObservedName != "" {
+			return "noop"
+		}
+		return "unchanged"
+	}
+	return o.Action
+}

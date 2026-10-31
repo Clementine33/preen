@@ -175,35 +175,39 @@ type WorksetView struct {
 }
 
 // CreateCurrentRequest is the create-or-replace payload of the current record
-// of one library, shared by all tasks. FolderPaths are library-relative member
-// directory paths — never scan-scoped ids — and ExpectedCurrentID is the
-// record the caller saw as current ("" when it saw none), which is what makes
-// a concurrent replace a conflict instead of an overwrite.
+// of one library, shared by all tasks. Selection names the members by rule
+// over directory ids (ADR 0003), and ExpectedCurrentID is the record the caller
+// saw as current ("" when it saw none), which is what makes a concurrent
+// replace a conflict instead of an overwrite.
 type CreateCurrentRequest struct {
 	LibraryID         string
 	OperationType     string // task entry point only; membership is shared
 	Title             string
-	FolderPaths       []string
+	Selection         Selection
 	ExpectedCurrentID string
 	IdempotencyKey    string
 }
 
-// Skipped folder reasons: a selected directory that did not become a member,
-// reported so the created scope is never silently wider or narrower than what
-// the caller asked for.
+// Selection is the members a record is built from: either every scanned work
+// root but ExceptDirIDs (All), or exactly DirIDs. The two forms do not combine.
+type Selection struct {
+	All          bool
+	ExceptDirIDs []string
+	DirIDs       []string
+}
+
+// Skipped selection reasons: a selected directory id that did not become a
+// member, reported so the created scope is never silently wider or narrower
+// than what the caller asked for.
 const (
-	SkipNoAudio       = "no_audio"
-	SkipMissing       = "missing"
-	SkipRecoveryDir   = "recovery_dir"
-	SkipDuplicate     = "duplicate"
-	SkipInvalidPath   = "invalid_path"
-	SkipNotWorkRoot   = "not_work_root"
-	SkipOutsideMember = "outside_member"
+	SkipUnknownDir = "unknown_dir"
+	SkipDuplicate  = "duplicate"
+	SkipAmbiguous  = "ambiguous"
 )
 
-// SkippedFolder is one selected directory left out of the record.
+// SkippedFolder is one selected directory id left out of the record.
 type SkippedFolder struct {
-	Path   string `json:"path"`
+	DirID  string `json:"dir_id"`
 	Reason string `json:"reason"`
 }
 
@@ -305,6 +309,9 @@ type MemberConclusion struct {
 	Input         string          `json:"input"`
 	HasComponents bool            `json:"has_components"`
 	Task          json.RawMessage `json:"task,omitempty"`
+	// Category is the task-defined filing frozen at generation; empty when the
+	// task declares none.
+	Category string `json:"category,omitempty"`
 }
 
 // RevisionPlan is the reviewable plan snapshot of one revision, rebuilt from
@@ -335,6 +342,12 @@ type RevisionView struct {
 	Plan          RevisionPlan
 	// Members contains live input facts and task conclusions for the frozen plan.
 	Members []MemberConclusion
+	// CategoryCounts counts the frozen member conclusions per category.
+	CategoryCounts map[string]int
+	// Category and CategoryTotal are set only for a category read: Members then
+	// holds that category's first conclusions and CategoryTotal its full size.
+	Category      string
+	CategoryTotal int
 	// Counts are the independent plan facts of this revision.
 	Counts RevisionCounts
 	// Execution is the newest execution session of this revision (any status).
@@ -405,6 +418,13 @@ type Service interface {
 		emit func(event string, data any) error,
 	) error
 	GetRevision(ctx context.Context, worksetID, operationType, planID string) (*RevisionView, error)
+	// GetRevisionCategory is GetRevision limited to the first limit member
+	// conclusions of one category, in frozen member order.
+	GetRevisionCategory(
+		ctx context.Context,
+		worksetID, operationType, planID, category string,
+		limit int,
+	) (*RevisionView, error)
 	GetMemberReview(ctx context.Context, worksetID, operationType, planID, memberID string) (*MemberReview, error)
 	StartExecution(
 		ctx context.Context,

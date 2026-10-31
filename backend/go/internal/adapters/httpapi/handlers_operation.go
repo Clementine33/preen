@@ -3,6 +3,7 @@ package httpapi
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 
 	"github.com/Clementine33/preen/backend/internal/conversion/reconcile"
 	"github.com/Clementine33/preen/backend/internal/workset"
@@ -187,25 +188,51 @@ func (s *Server) getRevision(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "INTERNAL", "workset service not configured")
 		return
 	}
-	rv, err := svc.GetRevision(r.Context(), r.PathValue("id"), r.PathValue("type"), r.PathValue("planId"))
+	query := r.URL.Query()
+	category, limit := query.Get("category"), 0
+	if query.Has("category") != query.Has("limit") || query.Has("category") && category == "" {
+		writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", "category and limit must be given together")
+		return
+	}
+	if query.Has("limit") {
+		var parseErr error
+		if limit, parseErr = strconv.Atoi(query.Get("limit")); parseErr != nil || limit < 1 {
+			writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", "limit must be a positive integer")
+			return
+		}
+	}
+	var rv *workset.RevisionView
+	if category != "" {
+		rv, err = svc.GetRevisionCategory(
+			r.Context(), r.PathValue("id"), r.PathValue("type"), r.PathValue("planId"), category, limit)
+	} else {
+		rv, err = svc.GetRevision(r.Context(), r.PathValue("id"), r.PathValue("type"), r.PathValue("planId"))
+	}
 	if err != nil {
 		writeWorksetError(w, err)
 		return
 	}
 	task := toTaskEnvelope(rv.Plan)
 	task.Payload.Components = nil
+	var categoryTotal *int
+	if category != "" {
+		categoryTotal = &rv.CategoryTotal
+	}
 	writeJSON(w, http.StatusOK, struct {
-		PlanID        string                     `json:"plan_id"`
-		RevisionIndex int                        `json:"revision_index"`
-		CreatedAt     string                     `json:"created_at"`
-		RootPath      string                     `json:"root_path"`
-		SnapshotToken string                     `json:"snapshot_token"`
-		Status        string                     `json:"status"`
-		Summary       planSummaryResponse        `json:"summary"`
-		Task          taskEnvelopeResponse       `json:"task"`
-		Counts        revisionCountsResponse     `json:"counts"`
-		Members       []workset.MemberConclusion `json:"members"`
-		Execution     *workset.ExecutionRef      `json:"execution"`
+		PlanID        string                 `json:"plan_id"`
+		RevisionIndex int                    `json:"revision_index"`
+		CreatedAt     string                 `json:"created_at"`
+		RootPath      string                 `json:"root_path"`
+		SnapshotToken string                 `json:"snapshot_token"`
+		Status        string                 `json:"status"`
+		Summary       planSummaryResponse    `json:"summary"`
+		Task          taskEnvelopeResponse   `json:"task"`
+		Counts        revisionCountsResponse `json:"counts"`
+		// CategoryTotal is set only on a category read.
+		CategoryCounts map[string]int             `json:"category_counts"`
+		CategoryTotal  *int                       `json:"category_total,omitempty"`
+		Members        []workset.MemberConclusion `json:"members"`
+		Execution      *workset.ExecutionRef      `json:"execution"`
 	}{
 		PlanID:        rv.PlanID,
 		RevisionIndex: rv.RevisionIndex,
@@ -225,8 +252,10 @@ func (s *Server) getRevision(w http.ResponseWriter, r *http.Request) {
 			ErrorCount:     rv.Plan.Summary.ErrorCount,
 			SummaryReason:  rv.Plan.Summary.SummaryReason,
 		},
-		Task:      task,
-		Members:   rv.Members,
-		Execution: rv.Execution,
+		Task:           task,
+		CategoryCounts: rv.CategoryCounts,
+		CategoryTotal:  categoryTotal,
+		Members:        rv.Members,
+		Execution:      rv.Execution,
 	})
 }

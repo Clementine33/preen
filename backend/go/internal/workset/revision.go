@@ -204,6 +204,23 @@ func (s *serviceImpl) GetRevision(
 	ctx context.Context,
 	worksetID, operationType, planID string,
 ) (*RevisionView, error) {
+	return s.readRevision(ctx, worksetID, operationType, planID, "", 0)
+}
+
+// GetRevisionCategory is GetRevision with Members narrowed to one category.
+func (s *serviceImpl) GetRevisionCategory(
+	ctx context.Context,
+	worksetID, operationType, planID, category string,
+	limit int,
+) (*RevisionView, error) {
+	return s.readRevision(ctx, worksetID, operationType, planID, category, limit)
+}
+
+func (s *serviceImpl) readRevision(
+	ctx context.Context,
+	worksetID, operationType, planID, category string,
+	limit int,
+) (*RevisionView, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -266,9 +283,20 @@ func (s *serviceImpl) GetRevision(
 		return nil, NewError(ErrKindInternal, "INTERNAL", "failed to conclude revision members", err)
 	}
 	out.Members = make([]MemberConclusion, 0, len(concluded))
+	out.CategoryCounts = map[string]int{}
 	for _, member := range concluded {
-		out.Members = append(out.Members, member.Conclusion)
+		if c := member.Conclusion.Category; c != "" {
+			out.CategoryCounts[c]++
+		}
+		if category != "" && member.Conclusion.Category != category {
+			continue
+		}
+		out.CategoryTotal++
+		if category == "" || len(out.Members) < limit {
+			out.Members = append(out.Members, member.Conclusion)
+		}
 	}
+	out.Category = category
 	review.Units = nil
 	out.Plan = revisionPlan(detail, review)
 	executed, execErr := s.repo.GetExecutionForRevision(planID)

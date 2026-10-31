@@ -1,13 +1,12 @@
 <script setup lang="ts">
+import type { ComputedRef } from 'vue'
 import type { PlanTab } from '@/features/worksets/TaskPlanTable.vue'
 import type {
   MetadataComponent,
   MetadataDraftDocument,
-  MetadataTaskResult,
   OperationType,
   RenameComponent,
   RenameDraftDocument,
-  RenameTaskResult,
   RevisionDetailResponse,
 } from '@/lib/api/types'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
@@ -19,11 +18,12 @@ import { Button } from '@/components/ui/button'
 import { useWorksetExecution } from '@/composables/use-workset-execution'
 import { useWorksetGeneration } from '@/composables/use-workset-generation'
 import SettingsSection from '@/features/settings/SettingsSection.vue'
+import { MEMBER_COUNT_ORDER, MEMBER_STATUS } from '@/features/worksets/execution-labels'
 import FilterTabs from '@/features/worksets/FilterTabs.vue'
 import ManualRename from '@/features/worksets/ManualRename.vue'
 import MetadataSettingsFields from '@/features/worksets/MetadataSettingsFields.vue'
 import RenameSettingsFields from '@/features/worksets/RenameSettingsFields.vue'
-import RowList from '@/features/worksets/RowList.vue'
+import TaskMemberResult from '@/features/worksets/TaskMemberResult.vue'
 import TaskPlanTable from '@/features/worksets/TaskPlanTable.vue'
 import WorkbenchNav from '@/features/worksets/WorkbenchNav.vue'
 import { useApiClient } from '@/lib/api/client'
@@ -34,7 +34,7 @@ import {
   executionQueryOptions,
   operationDraftQueryOptions,
   operationQueryOptions,
-  operationRevisionDetailQueryOptions,
+  operationRevisionCategoryQueryOptions,
   saveOperationDraftMutationOptions,
   syncAfterDraftConflict,
 } from '@/queries/worksets'
@@ -74,7 +74,32 @@ const operationQuery = useQuery(() => operationQueryOptions(api, worksetId.value
 const draftQuery = useQuery(() => operationDraftQueryOptions(api, worksetId.value, operation.value))
 const op = computed(() => operationQuery.data.value ?? null)
 const planId = computed(() => op.value?.current_revision?.plan_id ?? null)
-const revisionQuery = useQuery(() => operationRevisionDetailQueryOptions(api, worksetId.value, operation.value, planId.value))
+
+// The plan page reads the revision by category, never every member conclusion:
+// `category_counts` give the tab counts, and one category is listed at a time.
+// A blocked (skipped) list is shown whole; the others stop at PLAN_LIST_CAP.
+const PLAN_LIST_CAP = 200
+const BLOCKED_LIST_LIMIT = 10_000
+const chosenPlanTab = ref<PlanTab | null>(null)
+const readCategory = computed<{ category: string, limit: number }>(() => {
+  if (isMetadata.value)
+    return { category: 'refresh', limit: 1 }
+  const category = chosenPlanTab.value ?? 'blocked'
+  return {
+    category,
+    limit: category === 'blocked'
+      ? BLOCKED_LIST_LIMIT
+      : PLAN_LIST_CAP,
+  }
+})
+const revisionQuery = useQuery(() => operationRevisionCategoryQueryOptions(
+  api,
+  worksetId.value,
+  operation.value,
+  planId.value,
+  readCategory.value.category,
+  readCategory.value.limit,
+))
 
 // The draft and plan payloads belong to their task (ADR 0004): read once here
 // in the shapes docs/api.md gives for this operation.
@@ -82,16 +107,17 @@ const draftDocument = computed(
   () => (draftQuery.data.value?.document ?? null) as unknown as RenameDraftDocument | MetadataDraftDocument | null,
 )
 type TaskComponent = RenameComponent | MetadataComponent
-const revision = computed(
+const revision: ComputedRef<RevisionDetailResponse<unknown, TaskComponent> | null> = computed(
   () =>
     (revisionQuery.data.value ?? null) as unknown as RevisionDetailResponse<unknown, TaskComponent> | null,
 )
-// Each participating member's task conclusion is its sole frozen component.
+// Each listed member's task conclusion is its sole frozen component.
 const components = computed(() => (revision.value?.members ?? []).flatMap(conclusion =>
   conclusion.task
     ? [conclusion.task]
     : [],
 ))
+const counts: ComputedRef<Record<string, number> | null> = computed(() => revision.value?.category_counts ?? null)
 
 // ---- settings -----------------------------------------------------------
 
@@ -209,8 +235,8 @@ const metadataLocaleLabel = computed(() => {
     : '—'
 })
 const metadataPlanCounts = computed(() => {
-  const skip = (components.value as MetadataComponent[]).filter(c => c.action !== 'refresh').length
-  return { run: components.value.length - skip, skip }
+  const run = counts.value?.refresh ?? 0
+  return { run, skip: (counts.value?.cover ?? 0) + (counts.value?.skip ?? 0) }
 })
 
 const planNote = computed(() => {
@@ -250,111 +276,49 @@ const executionView = computed(() => {
     ? streamed
     : (executionQuery.data.value ?? streamed)
 })
-// Every member is a bound work, so the outcome worth listing is the works whose
-// fetch failed; non-fatal source issues of a refreshed work are not shown.
-const FAILURES: Record<string, string> = {
-  METADATA_UNAVAILABLE: '元数据获取失败',
-  COVER_QUEUE_FAILED: '封面排队失败',
+// The session is read as Member Results: counts per status and the exception
+// list the server caps; one member's own result is read when the reader opens it.
+const memberBlock = computed(() => executionView.value?.members ?? null)
+const hiddenAttention = computed(() => Math.max(0, (memberBlock.value?.attention_total ?? 0) - (memberBlock.value?.attention.length ?? 0)))
+const memberNames = computed(() => new Map((record.value?.members ?? []).map(member => [member.member_id, member.folder_name])))
+const openMembers = ref(new Set<string>())
+function toggleMember(memberId: string) {
+  const next = new Set(openMembers.value)
+  if (!next.delete(memberId))
+    next.add(memberId)
+  openMembers.value = next
 }
-const metadataRows = computed(() =>
-  (executionView.value?.components ?? []).flatMap((component) => {
-    const failed = component.status === 'failed'
-    if (!failed && component.status !== 'succeeded')
-      return []
-    const result = component.task_result as MetadataTaskResult | undefined
-    if (!failed && ['skip', 'cover'].includes((result as { action?: string } | undefined)?.action ?? ''))
-      return []
-    return [
-      {
-        key: component.component_id,
-        rj: result?.rj ?? component.root_path,
-        failed,
-        reason: failed
-          ? (FAILURES[component.error_code ?? ''] ?? component.error_code ?? '')
-          : '已刷新',
-        message: component.error_message ?? '',
-      },
-    ]
-  }),
-)
-
-// A plan of thousands of folders mostly succeeds: successes sit behind their
-// own tab, and the failures tab opens first.
-const renameResults = computed(() =>
-  (executionView.value?.components ?? []).flatMap((component) => {
-    const facts = component.task_result as RenameTaskResult | undefined
-    if (facts?.skipped)
-      return []
-    const failed = component.status === 'failed'
-    if (!failed && component.status !== 'succeeded')
-      return []
-    const status = failed
-      ? facts?.rolled_back
-        ? '失败（已恢复原名称）'
-        : facts?.renamed ? '失败（目录已改名）' : '失败'
-      : facts?.recovered ? '已改名（启动恢复）' : '已改名'
-    return [
-      {
-        key: component.component_id,
-        source: facts?.source_path ?? component.root_path,
-        target: facts?.target_path ?? '',
-        failed,
-        status,
-        message: component.error_message ?? '',
-      },
-    ]
-  }),
-)
-const resultRows = computed(() => (isMetadata.value ? metadataRows.value : renameResults.value))
-const resultTabs = computed(() => [
-  { key: 'failed', label: '失败', count: resultRows.value.filter(row => row.failed).length },
-  { key: 'succeeded', label: '成功', count: resultRows.value.filter(row => !row.failed).length },
-])
-const shownResultRows = computed(() => resultRows.value.filter(row => row.failed === (resultTab.value === 'failed')))
-const shownMetadataRows = computed(() => shownResultRows.value as typeof metadataRows.value)
-const shownRenameRows = computed(() => shownResultRows.value as typeof renameResults.value)
-const renameSkipped = computed(
-  () => (executionView.value?.components ?? []).filter(c => (c.task_result as RenameTaskResult | undefined)?.skipped).length,
-)
-const metadataSkipped = computed(
-  () => (executionView.value?.components ?? []).filter(c => ['skip', 'cover'].includes((c.task_result as { action?: string } | undefined)?.action ?? '')).length,
-)
 
 // ---- the results pane --------------------------------------------------
 
 // Plan tabs list what needs a look: skipped folders first. After a run the
 // failures come first. Both reset when a new plan or run replaces the list.
-const chosenPlanTab = ref<PlanTab | null>(null)
-const resultTab = ref<'failed' | 'succeeded'>('failed')
 watch([planId, executionId], () => {
   chosenPlanTab.value = null
-  resultTab.value = 'failed'
+  openMembers.value = new Set()
 })
 const renameComponents = computed(() => (isMetadata.value
   ? []
   : (components.value as RenameComponent[])))
-const planCounts = computed(() => {
-  const count = {
-    rename: 0,
-    blocked: 0,
-    noop: 0,
-    unchanged: 0,
-  }
-  for (const c of renameComponents.value) {
-    if (c.action !== 'noop')
-      count[c.action]++
-    else if (c.observed_name)
-      count.noop++
-    else count.unchanged++
-  }
-  return count
-})
+const planCounts = computed(() => ({
+  rename: counts.value?.rename ?? 0,
+  blocked: counts.value?.blocked ?? 0,
+  noop: counts.value?.noop ?? 0,
+  unchanged: counts.value?.unchanged ?? 0,
+}))
 // Opens on the skipped folders; a plan with none opens on the renames instead
 // of an empty tab.
 const planTab = computed({
   get: (): PlanTab => chosenPlanTab.value ?? (planCounts.value.blocked ? 'blocked' : 'rename'),
   set: (tab: PlanTab) => (chosenPlanTab.value = tab),
 })
+// The first read is the skipped folders; a plan with none moves on to its renames.
+watch(counts, (read) => {
+  if (read && chosenPlanTab.value === null && !read.blocked)
+    chosenPlanTab.value = 'rename'
+})
+const planHidden = computed(() => Math.max(0, planCounts.value[planTab.value] - renameComponents.value.length))
+const planCountTotal = computed(() => Object.values(planCounts.value).reduce((sum, n) => sum + n, 0))
 const planTabs = computed(() => [
   { key: 'rename', label: '重命名', count: planCounts.value.rename },
   { key: 'blocked', label: '跳过', count: planCounts.value.blocked },
@@ -495,8 +459,7 @@ watch(
                carries only the list's state, its filters and its actions. -->
           <header class="sticky top-0 z-10 space-y-1.5 border-b border-[var(--wire-strong)] bg-background px-3 py-2">
             <div class="flex min-h-7 flex-wrap items-center gap-2">
-              <FilterTabs v-if="executionView" v-model="resultTab" :tabs="resultTabs" />
-              <FilterTabs v-else-if="!isMetadata && components.length" v-model="planTab" :tabs="planTabs" />
+              <FilterTabs v-if="!executionView && !isMetadata && planCountTotal" v-model="planTab" :tabs="planTabs" />
               <span class="font-mono text-[11px] text-[var(--text-secondary)]" data-testid="folder-count">
                 {{ record?.members.length ?? 0 }} 个文件夹
               </span>
@@ -504,9 +467,6 @@ watch(
               <template v-if="executionView">
                 <Badge tone="neutral">{{ EXECUTION_STATES[executionView.status] ?? executionView.status }}</Badge>
                 <span class="font-mono text-[11px]">{{ executionView.completed_components }}/{{ executionView.total_components }}</span>
-                <Badge v-if="(isMetadata ? metadataSkipped : renameSkipped) > 0" tone="warning">
-                  跳过 {{ isMetadata ? metadataSkipped : renameSkipped }} 个
-                </Badge>
               </template>
               <div class="ml-auto flex items-center gap-2">
                 <template v-if="generationProgress">
@@ -544,23 +504,47 @@ watch(
 
           <div class="px-3 pb-4" :data-testid="executionView ? 'execution' : 'plan'">
             <template v-if="executionView">
-              <p v-if="!shownResultRows.length" class="px-2 py-3 text-xs text-[var(--text-secondary)]">
-                {{ resultTab === 'failed' ? '没有失败项。' : '还没有成功项。' }}
-              </p>
-              <RowList v-else-if="isMetadata" :items="shownMetadataRows" :item-key="(row) => row.key" testid="execution-failures">
-                <template #default="{ item }">
-                  <span class="font-mono">{{ item.rj }}</span>
-                  <span class="truncate text-[var(--text-secondary)]" :title="item.message">{{ item.message }}</span>
-                  <span class="text-[11px]" :class="item.failed ? 'text-[var(--danger-ink)]' : 'text-[var(--text-secondary)]'">{{ item.reason }}</span>
-                </template>
-              </RowList>
-              <RowList v-else :items="shownRenameRows" :item-key="(row) => row.key" testid="rename-results">
-                <template #default="{ item }">
-                  <span class="truncate" :title="item.source">{{ item.source }}</span>
-                  <span class="truncate" :title="item.target">{{ item.target }}</span>
-                  <span class="text-[11px]" :title="item.message">{{ item.status }}<span v-if="item.message" class="block text-[var(--danger-ink)]">{{ item.message }}</span></span>
-                </template>
-              </RowList>
+              <template v-if="memberBlock">
+                <ul class="mt-3 flex flex-wrap gap-1.5" aria-label="成员执行状态" data-testid="execution-member-counts">
+                  <li v-for="key in MEMBER_COUNT_ORDER" :key="key" class="flex items-center gap-1">
+                    <Badge :tone="MEMBER_STATUS[key].tone">{{ MEMBER_STATUS[key].label }}</Badge>
+                    <span class="font-mono text-[11px] tabular-nums" :data-testid="`execution-count-${key}`">{{ memberBlock.counts[key] }}</span>
+                  </li>
+                </ul>
+                <ul v-if="memberBlock.attention.length > 0" class="mt-3 border border-[var(--wire-mid)]" data-testid="execution-attention">
+                  <li
+                    v-for="member in memberBlock.attention"
+                    :key="member.member_id"
+                    class="border-b border-border/60 px-3 py-2 text-xs last:border-b-0"
+                    data-testid="execution-attention-item"
+                    :data-member-status="member.status"
+                  >
+                    <div class="flex items-center gap-2">
+                      <span class="min-w-0 flex-1 truncate font-heading font-semibold" :title="member.root_path">
+                        {{ memberNames.get(member.member_id) ?? member.root_path }}
+                      </span>
+                      <Badge :tone="MEMBER_STATUS[member.status].tone" class="shrink-0">{{ MEMBER_STATUS[member.status].label }}</Badge>
+                      <Button size="xs" variant="ghost" data-testid="execution-member-open" @click="toggleMember(member.member_id)">
+                        {{ openMembers.has(member.member_id) ? '收起' : '详情' }}
+                      </Button>
+                    </div>
+                    <p v-if="member.error_message" class="mt-1 text-[11px] text-[var(--danger-ink)]">{{ member.error_message }}</p>
+                    <p v-if="member.inventory_sync_error" class="mt-1 text-[10px] text-[var(--warning-ink)]">
+                      磁盘结果与媒体库索引未完全同步：{{ member.inventory_sync_error }}
+                    </p>
+                    <TaskMemberResult
+                      v-if="openMembers.has(member.member_id) && worksetId && executionView"
+                      :workset-id="worksetId"
+                      :operation="operation"
+                      :execution-id="executionView.execution_id"
+                      :member-id="member.member_id"
+                    />
+                  </li>
+                </ul>
+                <p v-if="hiddenAttention > 0" class="mt-2 px-1 text-[11px] text-[var(--text-secondary)]" data-testid="execution-attention-more">
+                  另有 {{ hiddenAttention }} 个
+                </p>
+              </template>
               <div v-if="isMetadata && coversQuery.data.value" class="mt-3 flex flex-wrap items-center gap-2 text-[11px]" data-testid="covers">
                 <span class="font-semibold text-[var(--text-secondary)]">封面</span>
                 <span>完成 {{ coversQuery.data.value.counts.succeeded }}</span>
@@ -594,7 +578,7 @@ watch(
               <p v-else-if="isMetadata" class="py-3 text-xs text-[var(--text-secondary)]" data-testid="metadata-plan-count">
                 标签语言 {{ metadataLocaleLabel }} · 将刷新 {{ metadataPlanCounts.run }} 个 · 跳过 {{ metadataPlanCounts.skip }} 个
               </p>
-              <TaskPlanTable v-else-if="components.length" :components="renameComponents" :members="record?.members" :tab="planTab" />
+              <TaskPlanTable v-else-if="planCountTotal" :components="renameComponents" :members="record?.members" :tab="planTab" :hidden="planHidden" />
             </template>
           </div>
         </div>

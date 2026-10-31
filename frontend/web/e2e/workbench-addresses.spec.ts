@@ -90,7 +90,7 @@ test.describe('workbench addresses', () => {
     await page.locator('[data-testid="dir-list-spacer"] li').nth(12).getByRole('button', { name: /^打开 / }).click()
     await expect(page.getByTestId('member-tree')).toBeVisible()
     await page.getByTestId('overview-breadcrumb').getByRole('link').last().click()
-    await expect(page.getByText('已选择 1 个文件夹')).toBeVisible()
+    await expect(page.getByText(/已选择 1 \/ \d+ 个文件夹/)).toBeVisible()
     await expect.poll(() => scroller.evaluate(el => Math.abs(el.scrollTop - 600))).toBeLessThan(5)
     expect(offset).toBe(600)
     await scroller.evaluate((el) => { el.scrollTop = 0 })

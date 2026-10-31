@@ -5,6 +5,7 @@ import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { createPinia } from 'pinia'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
+import { useToast } from '@/composables/use-toast'
 import { apiClientKey } from '@/lib/api/client'
 import { useLibraryUiStore } from '@/stores/library-ui'
 import { useMediaFactsStore } from '@/stores/media-facts'
@@ -208,7 +209,7 @@ describe('workbench overview', () => {
     expect(wrapper.find('[data-testid="enter-metadata-refresh"]').exists()).toBe(true)
   })
 
-  it('creates the record from the selected library-relative paths', async () => {
+  it('creates the record from the selected directory ids', async () => {
     const createCurrentRecord = vi.fn().mockResolvedValue({
       workset: record,
       created: true,
@@ -221,10 +222,12 @@ describe('workbench overview', () => {
     await wrapper.get('[data-testid="enter-conversion"]').trigger('click')
     await flushPromises()
 
-    const request = createCurrentRecord.mock.calls[0] as unknown as [string, string, { folder_paths: string[] }]
+    const request = createCurrentRecord.mock.calls[0] as unknown as [string, string, { selection: unknown }]
     expect(request[0]).toBe('lib-1')
     expect(request[1]).toBe('conversion')
-    expect(request[2].folder_paths).toEqual(['albumA'])
+    expect(request[2].selection).toEqual({
+      dir_ids: ['dir-albumA'],
+    })
     expect(router.currentRoute.value.name).toBe('conversion')
   })
 
@@ -345,32 +348,39 @@ describe('workbench overview', () => {
       },
     ]
 
-    async function createWith(sortTestId: string) {
+    async function createWith(...selectedRels: string[]) {
       const createCurrentRecord = vi.fn().mockResolvedValue({
         workset: record,
         created: true,
-        recorded: 3,
+        recorded: selectedRels.length,
         skipped: [],
       })
       const { wrapper } = await mountOverview({
         listDirs: vi.fn().mockResolvedValue(coded),
         createCurrentRecord,
       })
-      await wrapper.get(`[data-testid="${sortTestId}"]`).trigger('click')
-      // Click order is the reverse of every sort: it must not leak into the batch.
-      for (const rel of ['plain', 'a', 'c']) ui().toggleDir(rel, coded)
+      for (const rel of selectedRels) ui().toggleDir(rel, coded)
       await flushPromises()
       await wrapper.get('[data-testid="enter-conversion"]').trigger('click')
       await flushPromises()
-      return (createCurrentRecord.mock.calls[0] as unknown as [string, string, { folder_paths: string[] }])[2].folder_paths
+      return (createCurrentRecord.mock.calls[0] as unknown as [string, string, { selection: unknown }])[2].selection
     }
 
-    it('freezes the RJ-descending order, codeless folders last, into the batch', async () => {
-      expect(await createWith('sort-rjid')).toEqual(['c', 'a', 'plain'])
+    it('lists the selected ids when at most half of the folders are selected', async () => {
+      expect(await createWith('a')).toEqual({
+        dir_ids: ['d-a'],
+      })
     })
 
-    it('freezes the most-recently-added order into the batch', async () => {
-      expect(await createWith('sort-added')).toEqual(['a', 'plain', 'c'])
+    it('sends all with the unselected as exceptions when most are selected, however it was clicked', async () => {
+      expect(await createWith('plain', 'a')).toEqual({
+        all: true,
+        except_dir_ids: ['d-c'],
+      })
+    })
+
+    it('sends all with no exceptions for the whole library', async () => {
+      expect(await createWith('c', 'a', 'plain')).toEqual({ all: true, except_dir_ids: [] })
     })
 
     it('narrows the list by search and counts what is shown', async () => {
@@ -396,9 +406,11 @@ describe('workbench overview', () => {
     await wrapper.get('[data-testid="enter-conversion"]').trigger('click')
     await flushPromises()
 
-    const request = createCurrentRecord.mock.calls[0] as unknown as [string, string, { folder_paths: string[] }]
+    const request = createCurrentRecord.mock.calls[0] as unknown as [string, string, { selection: unknown }]
     expect(request[1]).toBe('conversion')
-    expect(request[2].folder_paths).toEqual(['docs'])
+    expect(request[2].selection).toEqual({
+      dir_ids: ['dir-docs'],
+    })
     expect(router.currentRoute.value.name).toBe('conversion')
   })
 
@@ -408,7 +420,7 @@ describe('workbench overview', () => {
       created: true,
       recorded: 1,
       skipped: [
-        { path: 'docs', reason: 'missing' },
+        { dir_id: 'dir-docs', reason: 'unknown_dir' },
       ],
     })
     const { wrapper } = await mountOverview({ createCurrentRecord })
@@ -420,6 +432,22 @@ describe('workbench overview', () => {
     // Staying on the overview is what lets the skipped folders be read.
     expect(wrapper.get('[data-testid="skipped-report"]').text()).toContain('docs')
     expect(wrapper.get('[data-testid="skipped-report"]').text()).toContain('目录不存在')
+  })
+
+  it('tells the user once when the record holds another count than they selected', async () => {
+    const createCurrentRecord = vi.fn().mockResolvedValue({
+      workset: record,
+      created: true,
+      recorded: 3,
+      skipped: [],
+    })
+    const { wrapper } = await mountOverview({ createCurrentRecord })
+    ui().toggleDir('albumA', dirs)
+    await flushPromises()
+    await wrapper.get('[data-testid="enter-conversion"]').trigger('click')
+    await flushPromises()
+
+    expect(useToast().current.value?.text).toContain('实际记录了 3 个文件夹，与选择的 1 个不同')
   })
 
   it('asks before replacing an existing record', async () => {
@@ -460,7 +488,7 @@ describe('workbench overview', () => {
     const createCurrentRecord = vi
       .fn()
       .mockRejectedValue(
-        new ApiError(400, 'NO_MEMBERS', 'none of the selected folders can join', ['docs: missing']),
+        new ApiError(400, 'NO_MEMBERS', 'none of the selected folders can join', ['dir-docs: unknown_dir']),
       )
     const { wrapper } = await mountOverview({ createCurrentRecord })
     ui().toggleDir('albumA', dirs)

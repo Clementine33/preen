@@ -164,7 +164,7 @@ try {
   assert.equal(deleted.succeeded, 1)
   assert.equal(deleted.items[0].recovered_path, 'Delete/RJ000001 smoke/sub/note.txt')
   command(['exec', name, 'test', '-f', '/media/audio/Delete/RJ000001 smoke/sub/note.txt'])
-  const record = await api(base, `/libraries/${lib.id}/operations/conversion/current`, { folder_paths: ['RJ000001 smoke'] }, 'PUT', { 'Idempotency-Key': 'smoke-record' })
+  const record = await api(base, `/libraries/${lib.id}/operations/conversion/current`, { selection: { all: true } }, 'PUT', { 'Idempotency-Key': 'smoke-record' })
   const operation = `/worksets/${record.workset.workset_id}/operations/conversion`
   const draft = await api(base, `${operation}/draft`)
   const generation = await api(base, `${operation}/revisions`, undefined, 'POST', { 'If-Match': String(draft.version), 'Idempotency-Key': 'smoke-plan' })

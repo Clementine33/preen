@@ -164,6 +164,7 @@ CREATE TABLE plan_member_conclusions (
     excluded INTEGER NOT NULL DEFAULT 0,
     has_components INTEGER NOT NULL DEFAULT 0,
     task_json TEXT NOT NULL DEFAULT '',
+    category TEXT NOT NULL DEFAULT '',
     PRIMARY KEY (plan_id, member_id),
     FOREIGN KEY (plan_id) REFERENCES plans(plan_id) ON DELETE CASCADE
 );

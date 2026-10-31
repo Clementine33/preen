@@ -47,7 +47,11 @@ func newRenameRun(t *testing.T) renameRun {
 	}
 	created, err := svc.CreateCurrentWorkset(
 		t.Context(),
-		workset.CreateCurrentRequest{LibraryID: libs[0].ID, OperationType: "rename", FolderPaths: []string{m.RelPath}},
+		workset.CreateCurrentRequest{
+			LibraryID:     libs[0].ID,
+			OperationType: "rename",
+			Selection:     workset.Selection{All: true},
+		},
 	)
 	if err != nil {
 		t.Fatal(err)

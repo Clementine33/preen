@@ -5,6 +5,7 @@ import type {
   CoverReport,
   CreateRecordInput,
   CreateRecordResponse,
+  ExecutionScope,
   ExecutionView,
   GenerationEvent,
   GenerationView,
@@ -172,6 +173,39 @@ export function operationRevisionDetailQueryOptions(
     refetchOnMount: true,
     queryFn: ({ signal }: { signal?: AbortSignal }) =>
       api.getRevision(worksetId as string, operation, planId as string, signal),
+  })
+}
+
+/**
+ * One Task-defined category of a revision's member conclusions, the first
+ * `limit` in frozen order; every read also carries `category_counts` and the
+ * session ref, so a page that needs only those reads a one-member category.
+ * Keyed under the revision so its invalidation covers these reads. Keeps the
+ * previous read of the same plan while another category loads.
+ */
+export function operationRevisionCategoryQueryOptions(
+  api: ApiClientContract,
+  worksetId: string | null | undefined,
+  operation: OperationType,
+  planId: string | null | undefined,
+  category: string,
+  limit: number,
+) {
+  return queryOptions({
+    queryKey: [
+      ...queryKeys.worksets.revision(worksetId ?? '', operation, planId ?? ''),
+      'category',
+      category,
+      limit,
+    ] as const,
+    enabled: Boolean(worksetId && planId),
+    staleTime: 60_000,
+    refetchOnMount: true,
+    placeholderData: previous => (previous?.plan_id === planId
+      ? previous
+      : undefined),
+    queryFn: ({ signal }: { signal?: AbortSignal }) =>
+      api.getRevision(worksetId as string, operation, planId as string, signal, { category, limit }),
   })
 }
 
@@ -356,8 +390,7 @@ export function cancelGenerationMutationOptions(api: ApiClientContract) {
 // One session's authoritative detail. The SSE stream seeds this same entry with
 // its snapshot and keeps the open panel current through component (or member)
 // events; the GET stays the fallback (a missed terminal event, a reconnect).
-// Conversion reads the per-member summary shape; rename and metadata keep the
-// full one.
+// Every operation reads the per-member summary shape.
 export function executionQueryOptions(
   api: ApiClientContract,
   worksetId: string | null | undefined,
@@ -369,12 +402,10 @@ export function executionQueryOptions(
     enabled: Boolean(worksetId && executionId),
     staleTime: 0,
     retry: false,
-    queryFn: ({ signal }: { signal?: AbortSignal }) => {
-      const view = executionViewFor(operation)
-      return view
-        ? api.getExecution(worksetId as string, operation, executionId as string, signal, { view })
-        : api.getExecution(worksetId as string, operation, executionId as string, signal)
-    },
+    queryFn: ({ signal }: { signal?: AbortSignal }) =>
+      api.getExecution(worksetId as string, operation, executionId as string, signal, {
+        view: executionViewFor(operation),
+      }),
   })
 }
 
@@ -433,13 +464,13 @@ export function startExecutionMutationOptions(api: ApiClientContract, queryClien
       planId: string
       ifMatchVersion: number
       idempotencyKey: string
-      /** The selected member folders; empty (or absent) runs the whole revision. */
-      folderPaths?: string[]
+      /** The selected members; absent runs the whole revision. */
+      scope?: ExecutionScope
     }) =>
       api.startExecution(input.worksetId, input.operation, input.planId, {
         ifMatchVersion: input.ifMatchVersion,
         idempotencyKey: input.idempotencyKey,
-        folderPaths: input.folderPaths,
+        scope: input.scope,
       }),
     onSuccess: (
       result: StartExecutionResponse,

@@ -15,7 +15,7 @@ func TestCreateEstablishesConversionOperation(t *testing.T) {
 	ids := f.standardLibrary("albumA", "albumB")
 	res, err := f.svc.CreateCurrentWorkset(f.ctx, workset.CreateCurrentRequest{
 		LibraryID: "lib-1", Title: "夏季整理", OperationType: workset.OperationTypeConversion,
-		FolderPaths: ids, IdempotencyKey: "idem-1",
+		Selection: f.selection("lib-1", ids), IdempotencyKey: "idem-1",
 	})
 	if err != nil {
 		t.Fatalf("CreateCurrentWorkset: %v", err)
@@ -53,7 +53,7 @@ func TestCreateEstablishesConversionOperation(t *testing.T) {
 	// A replay returns the same record rather than a second one.
 	replay, err := f.svc.CreateCurrentWorkset(f.ctx, workset.CreateCurrentRequest{
 		LibraryID: "lib-1", Title: "夏季整理", OperationType: workset.OperationTypeConversion,
-		FolderPaths: ids, IdempotencyKey: "idem-1",
+		Selection: f.selection("lib-1", ids), IdempotencyKey: "idem-1",
 	})
 	if err != nil {
 		t.Fatalf("replay: %v", err)
@@ -73,44 +73,43 @@ func TestCreateEstablishesConversionOperation(t *testing.T) {
 	}
 }
 
-// TestCreateCurrentSkipsUnusableFolders covers the scope reporting: a
-// directory that cannot join is left out with its reason instead of being
-// silently dropped or silently kept, and a selection with nothing usable
-// creates no record at all.
+// TestCreateCurrentSkipsUnusableFolders covers the scope reporting: an id
+// that cannot join is left out with its reason instead of being silently
+// dropped or silently kept, and a selection with nothing usable creates no
+// record at all.
 func TestCreateCurrentSkipsUnusableFolders(t *testing.T) {
 	f := newFixture(t)
 	f.standardLibrary("albumA")
-	f.insertDir("/music", "emptyDir", false)
 	f.insertDir("/music", "nested/child", true)
+	albumA := f.selection("lib-1", []string{"albumA"}).DirIDs[0]
+	nested := f.selection("lib-1", []string{"nested/child"}).DirIDs[0]
 
 	res, err := f.svc.CreateCurrentWorkset(f.ctx, workset.CreateCurrentRequest{
 		LibraryID:      "lib-1",
 		OperationType:  workset.OperationTypeConversion,
-		FolderPaths:    []string{"albumA", "../escape", "emptyDir", "albumA", "nope", "nested/child"},
+		Selection:      workset.Selection{DirIDs: []string{albumA, "nope", albumA, nested}},
 		IdempotencyKey: "idem-skip",
 	})
 	if err != nil {
 		t.Fatalf("CreateCurrentWorkset: %v", err)
 	}
-	if res.Recorded != 2 || res.Created != true {
+	if res.Recorded != 1 || !res.Created {
 		t.Fatalf("recorded=%d created=%v", res.Recorded, res.Created)
 	}
-	if len(res.Workset.Members) != 2 || res.Workset.Members[0].RelPath != "albumA" {
+	if len(res.Workset.Members) != 1 || res.Workset.Members[0].RelPath != "albumA" {
 		t.Fatalf("members = %+v", res.Workset.Members)
 	}
-	reasons := map[string]string{}
-	for _, skipped := range res.Skipped {
-		reasons[skipped.Path] = skipped.Reason
-	}
 	want := map[string]string{
-		"../escape":    workset.SkipInvalidPath,
-		"albumA":       workset.SkipDuplicate,
-		"nope":         workset.SkipMissing,
-		"nested/child": workset.SkipNotWorkRoot,
+		albumA: workset.SkipDuplicate,
+		"nope": workset.SkipUnknownDir,
+		nested: workset.SkipUnknownDir, // not a work root
 	}
-	for path, reason := range want {
-		if reasons[path] != reason {
-			t.Errorf("skipped[%q] = %q, want %q (all: %+v)", path, reasons[path], reason, res.Skipped)
+	if len(res.Skipped) != len(want) {
+		t.Fatalf("skipped = %+v, want %v", res.Skipped, want)
+	}
+	for _, skipped := range res.Skipped {
+		if want[skipped.DirID] != skipped.Reason {
+			t.Errorf("skipped[%q] = %q, want %q", skipped.DirID, skipped.Reason, want[skipped.DirID])
 		}
 	}
 
@@ -118,7 +117,7 @@ func TestCreateCurrentSkipsUnusableFolders(t *testing.T) {
 	_, err = f.svc.CreateCurrentWorkset(f.ctx, workset.CreateCurrentRequest{
 		LibraryID:      "lib-1",
 		OperationType:  workset.OperationTypeConversion,
-		FolderPaths:    []string{"nope"},
+		Selection:      workset.Selection{DirIDs: []string{"nope"}},
 		IdempotencyKey: "idem-none",
 	})
 	if err == nil {
@@ -128,13 +127,129 @@ func TestCreateCurrentSkipsUnusableFolders(t *testing.T) {
 	if !ok || werr.Code != "NO_MEMBERS" {
 		t.Fatalf("want NO_MEMBERS, got %v", err)
 	}
-	if len(werr.Details) == 0 {
-		t.Fatal("the refusal must name the folders it could not use")
+	if len(werr.Details) != 1 || werr.Details[0] != "nope: unknown_dir" {
+		t.Fatalf("the refusal must name the ids it could not use: %v", werr.Details)
 	}
 	// The refusal left the record that was already there untouched.
 	after, _ := f.svc.GetCurrentWorkset(f.ctx, "lib-1", workset.OperationTypeConversion)
-	if after == nil || after.WorksetID != res.Workset.WorksetID || len(after.Members) != 2 {
+	if after == nil || after.WorksetID != res.Workset.WorksetID || len(after.Members) != 1 {
 		t.Fatalf("a refused creation changed the current record: %+v", after)
+	}
+}
+
+// TestCreateCurrentAllExceptResolvesByRule covers `all`: every scanned work
+// root but the excluded ones, in inventory order, with unknown excluded ids
+// ignored, and `recorded` reporting what the inventory held at the time.
+func TestCreateCurrentAllExceptResolvesByRule(t *testing.T) {
+	f := newFixture(t)
+	f.standardLibrary("albumC", "albumA", "albumB")
+	ids := func(rels ...string) []string { return f.selection("lib-1", rels).DirIDs }
+	create := func(key string, sel workset.Selection) *workset.CreateCurrentResult {
+		t.Helper()
+		f.ensurePlaceholders()
+		res, err := f.svc.CreateCurrentWorkset(f.ctx, workset.CreateCurrentRequest{
+			LibraryID: "lib-1", OperationType: workset.OperationTypeConversion,
+			Selection: sel, IdempotencyKey: key, ExpectedCurrentID: f.currentID("lib-1"),
+		})
+		if err != nil {
+			t.Fatalf("CreateCurrentWorkset: %v", err)
+		}
+		f.clearPlaceholders()
+		return res
+	}
+	paths := func(res *workset.CreateCurrentResult) []string {
+		out := make([]string, 0, len(res.Workset.Members))
+		for _, m := range res.Workset.Members {
+			out = append(out, m.RelPath)
+		}
+		return out
+	}
+
+	res := create("all-1", workset.Selection{All: true, ExceptDirIDs: append(ids("albumB"), "nope")})
+	if got := paths(
+		res,
+	); len(got) != 2 || got[0] != "albumA" || got[1] != "albumC" || res.Recorded != 2 ||
+		len(res.Skipped) != 0 {
+		t.Fatalf("members=%v recorded=%d skipped=%+v", got, res.Recorded, res.Skipped)
+	}
+
+	// Inventory drift between what the caller saw and the request: a fourth
+	// directory appeared, and `recorded` reports it instead of failing.
+	f.insertDir("/music", "albumD", true)
+	res = create("all-2", workset.Selection{All: true, ExceptDirIDs: ids("albumB")})
+	if got := paths(res); len(got) != 3 || res.Recorded != 3 || got[2] != "albumD" {
+		t.Fatalf("members=%v recorded=%d, want the drifted three", got, res.Recorded)
+	}
+
+	// Without exceptions every work root joins.
+	res = create("all-3", workset.Selection{All: true})
+	if res.Recorded != 4 {
+		t.Fatalf("recorded=%d, want 4", res.Recorded)
+	}
+}
+
+// ambiguousRoots is a store whose inventory lists albumA twice, which is the
+// state two directories claiming one id would be in: the API cannot reach it
+// with real hashes, so the seam is faked.
+type ambiguousRoots struct{ workset.Store }
+
+func (a ambiguousRoots) ListLibraryWorkRoots(rootPath string) ([]string, error) {
+	roots, err := a.Store.ListLibraryWorkRoots(rootPath)
+	return append(roots, "albumA"), err
+}
+
+// TestCreateCurrentRefusesAnAmbiguousID covers ADR 0003: an id two directories
+// claim is reported as ambiguous, never resolved to either, in both forms.
+func TestCreateCurrentRefusesAnAmbiguousID(t *testing.T) {
+	f := newFixture(t)
+	rels := f.standardLibrary("albumA", "albumB")
+	f.svc = workset.NewService(ambiguousRoots{f.repo}, 1, 1, []workset.Task{
+		stubTask{kind: workset.OperationTypeConversion, seed: `{"schema_version":1}`},
+	}, nil, nil)
+	ids := f.selection("lib-1", rels).DirIDs
+	for name, sel := range map[string]workset.Selection{
+		"dir_ids": {DirIDs: ids},
+		"all":     {All: true},
+	} {
+		f.ensurePlaceholders()
+		res, err := f.svc.CreateCurrentWorkset(f.ctx, workset.CreateCurrentRequest{
+			LibraryID: "lib-1", OperationType: workset.OperationTypeConversion,
+			Selection: sel, IdempotencyKey: "amb-" + name, ExpectedCurrentID: f.currentID("lib-1"),
+		})
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if res.Recorded != 1 || res.Workset.Members[0].RelPath != "albumB" ||
+			len(res.Skipped) != 1 || res.Skipped[0].DirID != ids[0] || res.Skipped[0].Reason != workset.SkipAmbiguous {
+			t.Fatalf("%s: recorded=%d skipped=%+v", name, res.Recorded, res.Skipped)
+		}
+	}
+}
+
+// TestCreateCurrentReplaysTheSameSelection covers idempotency over the
+// canonical selection: the order ids were listed in is not part of the request,
+// a different selection under the same key is a conflict.
+func TestCreateCurrentReplaysTheSameSelection(t *testing.T) {
+	f := newFixture(t)
+	rels := f.standardLibrary("albumA", "albumB")
+	ids := f.selection("lib-1", rels).DirIDs
+	create := func(sel workset.Selection) (*workset.CreateCurrentResult, error) {
+		return f.svc.CreateCurrentWorkset(f.ctx, workset.CreateCurrentRequest{
+			LibraryID: "lib-1", OperationType: workset.OperationTypeConversion,
+			Selection: sel, IdempotencyKey: "replay-sel",
+		})
+	}
+	first, err := create(workset.Selection{DirIDs: ids})
+	if err != nil {
+		t.Fatal(err)
+	}
+	again, err := create(workset.Selection{DirIDs: []string{ids[1], ids[0]}})
+	if err != nil || again.Created || again.Workset.WorksetID != first.Workset.WorksetID {
+		t.Fatalf("reordered replay = %+v, %v", again, err)
+	}
+	_, err = create(workset.Selection{All: true})
+	if werr, ok := workset.AsError(err); !ok || werr.Code != "IDEMPOTENCY_KEY_REUSED" {
+		t.Fatalf("all under a dir_ids key: want IDEMPOTENCY_KEY_REUSED, got %v", err)
 	}
 }
 
@@ -147,27 +262,39 @@ func TestCreateCurrentValidation(t *testing.T) {
 		return workset.CreateCurrentRequest{
 			LibraryID:      "lib-1",
 			OperationType:  workset.OperationTypeConversion,
-			FolderPaths:    []string{"albumA"},
+			Selection:      f.selection("lib-1", []string{"albumA"}),
 			IdempotencyKey: "idem-validate",
 		}
 	}
+	code := func(err error) string {
+		if werr, ok := workset.AsError(err); ok {
+			return werr.Code
+		}
+		return ""
+	}
 
 	noFolders := base()
-	noFolders.FolderPaths = nil
-	if _, err := f.svc.CreateCurrentWorkset(ctx, noFolders); err == nil {
-		t.Fatal("an empty selection should fail")
-	} else if werr, ok := workset.AsError(err); !ok || werr.Code != "INVALID_FOLDER_COUNT" {
+	noFolders.Selection = workset.Selection{}
+	if _, err := f.svc.CreateCurrentWorkset(ctx, noFolders); code(err) != "INVALID_FOLDER_COUNT" {
 		t.Fatalf("empty selection error = %v, want INVALID_FOLDER_COUNT", err)
 	}
 	tooMany := base()
-	tooMany.FolderPaths = make([]string, workset.MaxMembers+1)
-	for i := range tooMany.FolderPaths {
-		tooMany.FolderPaths[i] = "f" + strconv.Itoa(i)
+	tooMany.Selection = workset.Selection{DirIDs: make([]string, workset.MaxMembers+1)}
+	for i := range tooMany.Selection.DirIDs {
+		tooMany.Selection.DirIDs[i] = "f" + strconv.Itoa(i)
 	}
-	if _, err := f.svc.CreateCurrentWorkset(ctx, tooMany); err == nil {
-		t.Fatal("more than the member cap should fail, not truncate")
-	} else if werr, ok := workset.AsError(err); !ok || werr.Code != "INVALID_FOLDER_COUNT" {
+	if _, err := f.svc.CreateCurrentWorkset(ctx, tooMany); code(err) != "INVALID_FOLDER_COUNT" {
 		t.Fatalf("over-limit selection error = %v, want INVALID_FOLDER_COUNT", err)
+	}
+	mixed := base()
+	mixed.Selection = workset.Selection{All: true, DirIDs: []string{"x"}}
+	if _, err := f.svc.CreateCurrentWorkset(ctx, mixed); code(err) != "INVALID_SELECTION" {
+		t.Fatalf("all with dir_ids error = %v, want INVALID_SELECTION", err)
+	}
+	stray := base()
+	stray.Selection = workset.Selection{DirIDs: []string{"x"}, ExceptDirIDs: []string{"y"}}
+	if _, err := f.svc.CreateCurrentWorkset(ctx, stray); code(err) != "INVALID_SELECTION" {
+		t.Fatalf("except without all error = %v, want INVALID_SELECTION", err)
 	}
 	unknownOp := base()
 	unknownOp.OperationType = "rename"
@@ -227,7 +354,7 @@ func TestCreateCurrentRefusesAStaleExpectation(t *testing.T) {
 	_, err := f.svc.CreateCurrentWorkset(f.ctx, workset.CreateCurrentRequest{
 		LibraryID:      "lib-1",
 		OperationType:  workset.OperationTypeConversion,
-		FolderPaths:    []string{"albumB"},
+		Selection:      f.selection("lib-1", []string{"albumB"}),
 		IdempotencyKey: "idem-stale",
 	})
 	if err == nil {
@@ -252,7 +379,7 @@ func TestCreateCurrentRefusesAStaleExpectation(t *testing.T) {
 	_, err = f.svc.CreateCurrentWorkset(f.ctx, workset.CreateCurrentRequest{
 		LibraryID:         "lib-1",
 		OperationType:     workset.OperationTypeConversion,
-		FolderPaths:       []string{"albumA"},
+		Selection:         f.selection("lib-1", []string{"albumA"}),
 		ExpectedCurrentID: first.WorksetID,
 		IdempotencyKey:    "idem-deleted-current",
 	})
@@ -283,7 +410,7 @@ func TestCreateCurrentRefusesABusyRecord(t *testing.T) {
 	_, err := f.svc.CreateCurrentWorkset(f.ctx, workset.CreateCurrentRequest{
 		LibraryID:         "lib-1",
 		OperationType:     workset.OperationTypeConversion,
-		FolderPaths:       []string{"albumB"},
+		Selection:         f.selection("lib-1", []string{"albumB"}),
 		ExpectedCurrentID: first.WorksetID,
 		IdempotencyKey:    "idem-busy",
 	})
@@ -310,7 +437,7 @@ func TestCreateCurrentRejectsAReusedKeyWithAnotherRequest(t *testing.T) {
 	_, err := f.svc.CreateCurrentWorkset(f.ctx, workset.CreateCurrentRequest{
 		LibraryID:      "lib-1",
 		OperationType:  workset.OperationTypeConversion,
-		FolderPaths:    []string{"albumB"},
+		Selection:      f.selection("lib-1", []string{"albumB"}),
 		IdempotencyKey: "create-キー",
 	})
 	if err == nil {

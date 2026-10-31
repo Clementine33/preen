@@ -83,8 +83,11 @@ the member review's `task.payload.components[]` contains `member_id`, `source_na
 `members[].task` is that member's single frozen component, unchanged
 (including every optional field). Excluded members and members without planning
 input omit `task`; the workset-owned `member_id`, `excluded`, `input` and
-`has_components` remain directly on each member conclusion. The rename plan table and its tab counts
-read these member conclusions. Used metadata must be nonempty.
+`has_components` remain directly on each member conclusion. Each conclusion also carries a frozen
+`category`: `rename`, `blocked`, `noop` (a `noop` with `observed_name`: renamed by hand)
+or `unchanged` (a `noop` without it). The rename plan page takes its tab counts from the
+revision's `category_counts` and lists one category at a time through
+`?category=…&limit=…` (all skipped folders, the first 200 of the others). Used metadata must be nonempty.
 Illegal filename characters become `_`; outer whitespace and trailing dots/spaces
 are removed. The result must still identify exactly the bound Work. Names over
 255 UTF-8 bytes are blocked without truncation or automatic suffixes.
@@ -162,7 +165,9 @@ member produces a frozen component with `member_id`, `target` (`copy_id`, `rj`,
 optional `reason_code`. In revision details, each
 `members[].task` is that member's single frozen component with all
 fields preserved, including the entire `target` and any optional `reason_code`.
-Excluded members and members without planning input omit `task`. Plan counts
+Excluded members and members without planning input omit `task`. Each conclusion's
+frozen `category` is its `action` (`refresh`, `cover`, `skip`); the metadata plan page reads
+only the revision's `category_counts`, never the member list. Plan counts
 come from these conclusions: `refresh` runs; `cover` and `skip` count as skipped
 metadata fetches. An unbound directory skips with `NO_WORK_BINDING`; in
 `fill_missing` mode a work whose four data groups are all stored (in any tag

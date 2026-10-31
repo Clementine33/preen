@@ -150,7 +150,7 @@ func createAndScanLibrary(
 		t, client, ctx, base, http.MethodPut,
 		"/api/v1/libraries/"+lib.ID+"/operations/conversion/current", token,
 		map[string]string{"Idempotency-Key": "create-" + dir},
-		map[string]any{"folder_paths": []string{"RJ000001 albumA"}}, &created,
+		map[string]any{"selection": map[string]any{"all": true}}, &created,
 	); code != http.StatusCreated {
 		t.Fatalf("create record for %s: %d", name, code)
 	}

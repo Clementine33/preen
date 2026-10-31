@@ -11,7 +11,7 @@ import (
 
 func TestMetadataWorkersAutomaticallyRefreshOnlyExecutedScope(t *testing.T) {
 	var calls atomic.Int32
-	svc, covers, _, _, names, libID, _, _ := worksetFixtureWithRefresh(
+	svc, covers, _, _, _, libID, _, _ := worksetFixtureWithRefresh(
 		t, func(context.Context, string, []string) error {
 			calls.Add(1)
 			return nil
@@ -19,7 +19,7 @@ func TestMetadataWorkersAutomaticallyRefreshOnlyExecutedScope(t *testing.T) {
 	)
 	enableCoverDownload(t, svc)
 	record, err := svc.CreateCurrentWorkset(t.Context(), workset.CreateCurrentRequest{
-		LibraryID: libID, OperationType: refresh.Kind, FolderPaths: names,
+		LibraryID: libID, OperationType: refresh.Kind, Selection: workset.Selection{All: true},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -37,8 +37,17 @@ func TestMetadataWorkersAutomaticallyRefreshOnlyExecutedScope(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	started, err := svc.StartExecution(t.Context(), id, refresh.Kind, plan.RevisionID,
-		workset.StartExecutionRequest{IfMatchVersion: op.Version, IdempotencyKey: "run", FolderPaths: names[:1]})
+	started, err := svc.StartExecution(
+		t.Context(),
+		id,
+		refresh.Kind,
+		plan.RevisionID,
+		workset.StartExecutionRequest{
+			IfMatchVersion: op.Version,
+			IdempotencyKey: "run",
+			MemberIDs:      []string{record.Workset.Members[0].MemberID},
+		},
+	)
 	if err != nil {
 		t.Fatal(err)
 	}

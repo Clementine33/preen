@@ -129,7 +129,7 @@ func TestExecutionMemberReadScopesComponents(t *testing.T) {
 
 func TestExecutionMemberReadOutsideScopeIsNotFound(t *testing.T) {
 	f := keptExecutionFixture(t)
-	res, err := f.startExecution("plan-kept", "m4", f.members["albumA"].RelPath)
+	res, err := f.startExecution("plan-kept", "m4", "albumA")
 	if err != nil {
 		t.Fatal(err)
 	}

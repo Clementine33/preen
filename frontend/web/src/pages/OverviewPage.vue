@@ -9,6 +9,7 @@ import WorkbenchShell from '@/components/layout/WorkbenchShell.vue'
 import { Button } from '@/components/ui/button'
 import Modal from '@/components/ui/modal/Modal.vue'
 import { useLibraryScan } from '@/composables/use-library-scan'
+import { useToast } from '@/composables/use-toast'
 import BatchPlanBar from '@/features/libraries/BatchPlanBar.vue'
 import DirList from '@/features/libraries/DirList.vue'
 import LibraryManager from '@/features/libraries/LibraryManager.vue'
@@ -16,6 +17,7 @@ import ScanProgressBar from '@/features/libraries/ScanProgressBar.vue'
 import WorkbenchNav from '@/features/worksets/WorkbenchNav.vue'
 import { useApiClient } from '@/lib/api/client'
 import { errorDetails } from '@/lib/api/error'
+import { shorterIdSelection } from '@/lib/api/id-selection'
 import {
   CONVERSION,
 
@@ -117,13 +119,12 @@ let idempotencyKey = ''
 const createMutation = useMutation(() => createCurrentRecordMutationOptions(api, queryClient, libraryId.value, CONVERSION))
 const creating = computed(() => createMutation.isPending.value)
 
+const toast = useToast()
+
 const SKIP_TEXT: Record<SkippedReason, string> = {
-  no_audio: '没有音频，将跳过',
-  missing: '目录不存在',
-  recovery_dir: '回收目录不作为成员',
+  unknown_dir: '目录不存在，或不是扫描识别的作品根目录',
   duplicate: '重复选择',
-  invalid_path: '路径不合法',
-  not_work_root: '不是扫描识别的作品根目录',
+  ambiguous: '多个目录对应同一标识，已拒绝',
 }
 
 // ---- search & order ---------------------------------------------------
@@ -176,6 +177,8 @@ const allShownSelected = computed(
   () => shownDirs.value.length > 0 && shownDirs.value.every(dir => ui.selectedDirSet.has(dir.rel_path)),
 )
 
+const dirPathOf = computed(() => new Map(dirs.value.map(dir => [dir.dir_id, dir.rel_path])))
+
 /** The selection as the caller sees it, so the confirmation names it. */
 const selectedDirs = computed(() => dirs.value.filter(dir => ui.selectedDirSet.has(dir.rel_path)))
 /** A directory the conversion will skip: it is selectable, but holds no audio. */
@@ -202,15 +205,16 @@ function startEnter(target: TaskTarget) {
 
 async function submit() {
   createError.value = null
+  // Taken from the unfiltered list so a search never drops a selected folder;
+  // the server orders the members by inventory path.
+  const picked = new Set(selectedDirs.value.map(dir => dir.dir_id))
+  const { all, ids } = shorterIdSelection(picked, dirs.value.map(dir => dir.dir_id))
   try {
     const response = await createMutation.mutateAsync({
       request: {
-        // The order on screen is the batch's order: every task lists its
-        // members as stored, so none of them sorts on its own. Taken from the
-        // unfiltered list so a search never drops a selected folder.
-        folder_paths: sortedDirs.value
-          .filter(dir => ui.selectedDirSet.has(dir.rel_path))
-          .map(dir => dir.rel_path),
+        selection: all
+          ? { all: true, except_dir_ids: ids }
+          : { dir_ids: ids },
         // The record the caller saw as current: a concurrent replace is a
         // conflict, not an overwrite.
         expected_current_id: record.value?.workset_id,
@@ -218,6 +222,8 @@ async function submit() {
       idempotencyKey,
     })
     skipped.value = response.skipped
+    if (response.recorded !== picked.size)
+      toast.show({ text: `实际记录了 ${response.recorded} 个文件夹，与选择的 ${picked.size} 个不同（库存在此期间有变动）` })
     confirmOpen.value = false
     ui.clearSelection()
     // A skipped folder is reported here first; the task can be opened from the card.
@@ -231,8 +237,8 @@ async function submit() {
   catch (error) {
     const apiError = error as { code?: string, message?: string, details?: string[] }
     skipped.value = (apiError.details ?? []).map((detail) => {
-      const [path, reason] = detail.split(': ')
-      return { path, reason: (reason ?? '') as SkippedReason }
+      const [dirId, reason] = detail.split(': ')
+      return { dir_id: dirId, reason: (reason ?? '') as SkippedReason }
     })
     createError.value = apiError.message ?? '无法创建处理记录'
     confirmOpen.value = false
@@ -449,8 +455,8 @@ const libraryRoot = computed(() => activeLibrary.value?.root_path ?? '')
               {{ createError }}
             </p>
             <ul v-if="skipped.length" class="mt-3 space-y-0.5" data-testid="skipped-report">
-              <li v-for="item in skipped" :key="item.path" class="text-[11px] text-[var(--text-secondary)]">
-                <span class="font-mono">{{ item.path }}</span> — {{ SKIP_TEXT[item.reason] ?? item.reason }}
+              <li v-for="item in skipped" :key="item.dir_id" class="text-[11px] text-[var(--text-secondary)]">
+                <span class="font-mono">{{ dirPathOf.get(item.dir_id) ?? item.dir_id }}</span> — {{ SKIP_TEXT[item.reason] ?? item.reason }}
               </li>
             </ul>
 

@@ -33,6 +33,7 @@ func freezeMemberConclusions(
 		byRoot[component.RootIndex] = append(byRoot[component.RootIndex], json.RawMessage(component.OutcomeJSON))
 	}
 	provider, provides := task.(MemberConclusionTask)
+	categorizer, categorizes := task.(MemberCategoryTask)
 	out := make([]MemberConclusion, 0, len(members))
 	for _, member := range members {
 		conclusion := MemberConclusion{MemberID: member.MemberID, Excluded: member.Excluded}
@@ -47,6 +48,9 @@ func freezeMemberConclusions(
 				return nil, err
 			}
 			conclusion.Task = payload
+		}
+		if categorizes && !member.Excluded {
+			conclusion.Category = categorizer.MemberCategory(owned)
 		}
 		out = append(out, conclusion)
 	}

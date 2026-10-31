@@ -862,7 +862,7 @@ describe.each(['metadata_refresh', 'rename'] as const)('%s execution notices', (
     await vi.advanceTimersByTimeAsync(2000)
     await flushPromises()
     expect(notice()).toContain('执行已中断，请查看已提交结果')
-    expect(app.api.getExecution).toHaveBeenLastCalledWith('ws1', operation, 'e1', expect.any(AbortSignal))
+    expect(app.api.getExecution).toHaveBeenLastCalledWith('ws1', operation, 'e1', expect.any(AbortSignal), { view: 'members' })
     app.execution.attach('ws1', operation, 'e1')
     dismiss()
     await vi.advanceTimersByTimeAsync(60000)

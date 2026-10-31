@@ -111,7 +111,7 @@ func TestHTTPWorksetGenerationLoop(t *testing.T) {
 	}
 
 	// Create the library's current conversion record.
-	wsReq := map[string]any{"folder_paths": []string{albumRel}}
+	wsReq := map[string]any{"selection": map[string]any{"dir_ids": []string{albumDirID}}}
 	var wsResp struct {
 		Workset struct {
 			WorksetID string `json:"workset_id"`

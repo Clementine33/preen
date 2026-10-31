@@ -303,9 +303,30 @@ describe('apiClient', () => {
     )
     await client.startGeneration('ws-1', 'conversion', 3, 'key-1')
     await client.createCurrentRecord('lib-1', 'conversion', {
-      folder_paths: ['albumA'],
+      selection: {
+        dir_ids: ['dir-a'],
+      },
     }, 'create-key')
     expect(fetchMock).toHaveBeenCalledTimes(3)
+  })
+
+  it('sends the execution scope as given, and an empty body for the whole revision', async () => {
+    const fetchMock = mockFetch(async () => okJson({ created: true, execution: {} }, {}, 202))
+    const client = createClient()
+    const input = { ifMatchVersion: 1, idempotencyKey: 'k' }
+
+    await client.startExecution('ws-1', 'conversion', 'plan-1', {
+      ...input,
+      scope: {
+        all_except_member_ids: ['m-1'],
+      },
+    })
+    await client.startExecution('ws-1', 'conversion', 'plan-1', input)
+
+    expect(JSON.parse(fetchMock.mock.calls[0][1]?.body as string)).toEqual({
+      all_except_member_ids: ['m-1'],
+    })
+    expect(JSON.parse(fetchMock.mock.calls[1][1]?.body as string)).toEqual({})
   })
 
   it('always applies a management signal even when none is provided', async () => {

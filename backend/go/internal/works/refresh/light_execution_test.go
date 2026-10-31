@@ -27,7 +27,11 @@ func TestSelectedMetadataExecutionIgnoresMissingOtherRootAndDoesNotRecheck(t *te
 	svc, _, _, root, names, libID, _, _ := worksetFixture(t, run)
 	record, err := svc.CreateCurrentWorkset(
 		t.Context(),
-		workset.CreateCurrentRequest{LibraryID: libID, OperationType: refresh.Kind, FolderPaths: names},
+		workset.CreateCurrentRequest{
+			LibraryID:     libID,
+			OperationType: refresh.Kind,
+			Selection:     workset.Selection{All: true},
+		},
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -67,7 +71,11 @@ func TestSelectedMetadataExecutionIgnoresMissingOtherRootAndDoesNotRecheck(t *te
 		id,
 		refresh.Kind,
 		plan.RevisionID,
-		workset.StartExecutionRequest{IfMatchVersion: op.Version, IdempotencyKey: "selected", FolderPaths: names[:1]},
+		workset.StartExecutionRequest{
+			IfMatchVersion: op.Version,
+			IdempotencyKey: "selected",
+			MemberIDs:      []string{record.Workset.Members[0].MemberID},
+		},
 	)
 	if err != nil {
 		t.Fatal(err)

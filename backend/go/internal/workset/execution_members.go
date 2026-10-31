@@ -116,6 +116,19 @@ func (s *serviceImpl) newMemberFold(e *PlanExecution, units []ExecutionUnit) (*m
 	if err != nil {
 		return nil, NewError(ErrKindInternal, "INTERNAL", "failed to load component results", err)
 	}
+	// Ownership is the frozen plan root's member: a rename moves the member's
+	// folder path while its session runs, so a live path match alone would lose
+	// it. The live path still places units whose root the plan does not own.
+	frame, err := s.repo.GetPlanFrame(e.PlanID)
+	if err != nil {
+		return nil, NewError(ErrKindInternal, "INTERNAL", "failed to load plan roots", err)
+	}
+	ownerOfRoot := make(map[int]string, len(frame.Roots))
+	for _, r := range frame.Roots {
+		if r.MemberID != "" {
+			ownerOfRoot[r.RootIndex] = r.MemberID
+		}
+	}
 	byRoot := make(map[string]*WorksetMember, len(members))
 	for _, m := range members {
 		byRoot[m.FolderPath] = m
@@ -128,15 +141,19 @@ func (s *serviceImpl) newMemberFold(e *PlanExecution, units []ExecutionUnit) (*m
 		running:  -1,
 	}
 	for _, u := range units {
-		m := byRoot[u.RootPath]
-		if m == nil {
-			continue
+		memberID, owned := ownerOfRoot[u.RootIndex]
+		if !owned {
+			m := byRoot[u.RootPath]
+			if m == nil {
+				continue
+			}
+			memberID = m.MemberID
 		}
-		pos, ok := f.byMember[m.MemberID]
+		pos, ok := f.byMember[memberID]
 		if !ok {
 			pos = len(f.recs)
-			f.byMember[m.MemberID] = pos
-			f.recs = append(f.recs, memberRec{id: m.MemberID, root: m.FolderPath})
+			f.byMember[memberID] = pos
+			f.recs = append(f.recs, memberRec{id: memberID, root: u.RootPath})
 		}
 		f.recs[pos].idx = append(f.recs[pos].idx, u.Index)
 		f.recs[pos].ops += u.Operations

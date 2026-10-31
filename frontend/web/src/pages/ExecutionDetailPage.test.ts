@@ -125,6 +125,7 @@ function operation(active: boolean): Operation {
 function revision(execution: RevisionDetailResponse['execution']): RevisionDetailResponse {
   return {
     plan_id: 'plan-1',
+    category_counts: {},
     revision_index: 1,
     created_at: '2026-09-16T00:00:00Z',
     root_path: '/music',

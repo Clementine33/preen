@@ -100,7 +100,9 @@ describe('workset mutation cache synchronization', () => {
       },
       {
         request: {
-          folder_paths: ['albumA'],
+          selection: {
+            dir_ids: ['dir-a'],
+          },
           expected_current_id: 'ws-old',
         },
       },
@@ -230,12 +232,16 @@ describe('execution cache synchronization', () => {
       planId: 'plan-1',
       ifMatchVersion: 3,
       idempotencyKey: 'key-1',
-      folderPaths: ['albumB'],
+      scope: {
+        member_ids: ['m-b'],
+      },
     })
     expect(api.startExecution).toHaveBeenLastCalledWith('ws-1', 'conversion', 'plan-1', {
       ifMatchVersion: 3,
       idempotencyKey: 'key-1',
-      folderPaths: ['albumB'],
+      scope: {
+        member_ids: ['m-b'],
+      },
     })
 
     await options.mutationFn({
@@ -248,7 +254,7 @@ describe('execution cache synchronization', () => {
     expect(api.startExecution).toHaveBeenLastCalledWith('ws-1', 'conversion', 'plan-1', {
       ifMatchVersion: 3,
       idempotencyKey: 'key-2',
-      folderPaths: undefined,
+      scope: undefined,
     })
   })
 

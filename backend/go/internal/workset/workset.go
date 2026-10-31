@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"path"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -57,13 +58,8 @@ func (s *serviceImpl) CreateCurrentWorkset(
 	if _, err := s.requireTask(req.OperationType); err != nil {
 		return nil, err
 	}
-	if len(req.FolderPaths) == 0 || len(req.FolderPaths) > MaxMembers {
-		return nil, NewError(
-			ErrKindInvalidArgument,
-			"INVALID_FOLDER_COUNT",
-			fmt.Sprintf("a record requires between 1 and %d member folders", MaxMembers),
-			nil,
-		)
+	if err := validateSelection(req.Selection); err != nil {
+		return nil, err
 	}
 	if idemErr := validateIdemKey(req.IdempotencyKey); idemErr != nil {
 		return nil, idemErr
@@ -76,7 +72,7 @@ func (s *serviceImpl) CreateCurrentWorkset(
 		return nil, NewError(ErrKindInternal, "INTERNAL", "failed to load library", err)
 	}
 
-	members, skipped, err := s.resolveSelectedMembers(lib, req.FolderPaths)
+	members, skipped, err := s.resolveSelectedMembers(lib, req.Selection)
 	if err != nil {
 		return nil, err
 	}
@@ -261,60 +257,96 @@ func (s *serviceImpl) persistCurrentWorkset(
 	return &CreateCurrentResult{Workset: view, Created: true, Recorded: len(rows), Skipped: skipped}, nil
 }
 
-// resolveSelectedMembers turns selected library-relative paths into ordered
-// members. Every path that cannot join is reported with its reason rather than
-// dropped in silence, and a path is only accepted when the scanned inventory
-// marks it as a work root of the library. Membership is independent of task kind.
+// validateSelection checks the shape of the selection and the explicit id
+// count; the resolved member count is checked after resolution.
+func validateSelection(sel Selection) error {
+	if sel.All && len(sel.DirIDs) > 0 || !sel.All && len(sel.ExceptDirIDs) > 0 {
+		return NewError(
+			ErrKindInvalidArgument,
+			"INVALID_SELECTION",
+			"a selection is either all with except_dir_ids, or dir_ids",
+			nil,
+		)
+	}
+	if !sel.All && (len(sel.DirIDs) == 0 || len(sel.DirIDs) > MaxMembers) {
+		return NewError(
+			ErrKindInvalidArgument,
+			"INVALID_FOLDER_COUNT",
+			fmt.Sprintf("a record requires between 1 and %d member folders", MaxMembers),
+			nil,
+		)
+	}
+	return nil
+}
+
+// resolveSelectedMembers turns the selection into ordered members in O(N): the
+// directory id of every scanned work root is derived once into a lookup, then
+// each selected id is a map read. Every id that cannot join is reported with
+// its reason rather than dropped in silence; `all` is whatever the inventory
+// holds when the request is read. Members follow inventory path order, and
+// membership is independent of task kind.
 func (s *serviceImpl) resolveSelectedMembers(
 	lib *library.Library,
-	relPaths []string,
+	sel Selection,
 ) ([]WorksetMember, []SkippedFolder, error) {
-	clean := make([]string, 0, len(relPaths))
-	skipped := make([]SkippedFolder, 0)
-	seen := make(map[string]struct{}, len(relPaths))
-	for _, raw := range relPaths {
-		rel, ok := librarypath.RelPath(raw)
-		if !ok {
-			skipped = append(skipped, SkippedFolder{Path: raw, Reason: SkipInvalidPath})
-			continue
-		}
-		if _, dup := seen[rel]; dup {
-			skipped = append(skipped, SkippedFolder{Path: rel, Reason: SkipDuplicate})
-			continue
-		}
-		if librarypath.IsRecoveryRelPath(lib.RootPath, rel) {
-			skipped = append(skipped, SkippedFolder{Path: rel, Reason: SkipRecoveryDir})
-			continue
-		}
-		seen[rel] = struct{}{}
-		clean = append(clean, rel)
-	}
-
-	counts, err := s.repo.DirAudioCounts(lib.RootPath, clean)
-	if err != nil {
-		return nil, nil, NewError(ErrKindInternal, "INTERNAL", "failed to read the scanned inventory", err)
-	}
 	roots, err := s.repo.ListLibraryWorkRoots(lib.RootPath)
 	if err != nil {
 		return nil, nil, NewError(ErrKindInternal, "INTERNAL", "failed to read work roots", err)
 	}
-	workRoots := make(map[string]bool, len(roots))
-	for _, rel := range roots {
-		workRoots[rel] = true
+	ids := make([]string, len(roots))
+	index := make(map[string]int, len(roots))
+	ambiguous := make(map[string]bool)
+	for i, rel := range roots {
+		id := library.DirID(lib.ID, lib.RootPath, rel)
+		ids[i] = id
+		if _, dup := index[id]; dup {
+			ambiguous[id] = true
+			continue
+		}
+		index[id] = i
 	}
-	out := make([]WorksetMember, 0, len(clean))
-	for _, rel := range clean {
-		_, known := counts[rel]
-		if !known {
-			// Not a directory of the last scan: it never existed, was removed
-			// on disk, or is a file. Either way it cannot be a member.
-			skipped = append(skipped, SkippedFolder{Path: rel, Reason: SkipMissing})
-			continue
+
+	skipped := make([]SkippedFolder, 0)
+	picked := make([]int, 0, len(roots))
+	if sel.All {
+		except := make(map[string]bool, len(sel.ExceptDirIDs))
+		for _, id := range sel.ExceptDirIDs {
+			except[id] = true
 		}
-		if !workRoots[rel] {
-			skipped = append(skipped, SkippedFolder{Path: rel, Reason: SkipNotWorkRoot})
-			continue
+		reported := make(map[string]bool)
+		for i, id := range ids {
+			switch {
+			case except[id]:
+			case ambiguous[id]:
+				if !reported[id] {
+					reported[id] = true
+					skipped = append(skipped, SkippedFolder{DirID: id, Reason: SkipAmbiguous})
+				}
+			default:
+				picked = append(picked, i)
+			}
 		}
+	} else {
+		seen := make(map[string]bool, len(sel.DirIDs))
+		for _, id := range sel.DirIDs {
+			i, known := index[id]
+			switch {
+			case seen[id]:
+				skipped = append(skipped, SkippedFolder{DirID: id, Reason: SkipDuplicate})
+			case ambiguous[id]:
+				skipped = append(skipped, SkippedFolder{DirID: id, Reason: SkipAmbiguous})
+			case !known:
+				skipped = append(skipped, SkippedFolder{DirID: id, Reason: SkipUnknownDir})
+			default:
+				picked = append(picked, i)
+			}
+			seen[id] = true
+		}
+		sort.Ints(picked)
+	}
+	out := make([]WorksetMember, 0, len(picked))
+	for _, i := range picked {
+		rel := roots[i]
 		out = append(out, WorksetMember{
 			RelPath:    rel,
 			FolderPath: librarypath.JoinRel(lib.RootPath, rel),
@@ -324,35 +356,34 @@ func (s *serviceImpl) resolveSelectedMembers(
 	return out, skipped, nil
 }
 
-// skipPaths lists the skipped paths as error details, so a refused creation
+// skipPaths lists the skipped ids as error details, so a refused creation
 // still names what it could not use.
 func skipPaths(skipped []SkippedFolder) []string {
 	out := make([]string, 0, len(skipped))
 	for _, s := range skipped {
-		out = append(out, s.Path+": "+s.Reason)
+		out = append(out, s.DirID+": "+s.Reason)
 	}
 	return out
 }
 
 // createRequestHash is the canonical identity of one creation request. The
-// member selection hashes as a set: the order the caller selected in is not
-// part of the request, so a retry that reorders the same selection still
-// replays instead of conflicting.
+// ids hash as a set: the order the caller selected in is not part of the
+// request, so a retry that reorders the same selection still replays instead
+// of conflicting.
 func createRequestHash(req CreateCurrentRequest) string {
-	paths := make([]string, 0, len(req.FolderPaths))
-	for _, p := range req.FolderPaths {
-		if rel, ok := librarypath.RelPath(p); ok {
-			paths = append(paths, rel)
-		} else {
-			paths = append(paths, p)
-		}
+	sel := req.Selection
+	listed := sel.DirIDs
+	if sel.All {
+		listed = sel.ExceptDirIDs
 	}
-	sort.Strings(paths)
+	ids := slices.Clone(listed)
+	slices.Sort(ids)
 	raw, err := json.Marshal(struct {
 		LibraryID         string   `json:"library_id"`
-		FolderPaths       []string `json:"folder_paths"`
+		All               bool     `json:"all"`
+		DirIDs            []string `json:"dir_ids"`
 		ExpectedCurrentID string   `json:"expected_current_id"`
-	}{req.LibraryID, paths, req.ExpectedCurrentID})
+	}{req.LibraryID, sel.All, slices.Compact(ids), req.ExpectedCurrentID})
 	if err != nil {
 		return ""
 	}

@@ -144,7 +144,11 @@ validation before traversing media.
 
 A scan is refused with `EXECUTION_IN_PROGRESS` (409) while any record of the
 library has a queued/running execution: an execution validates the inventory
-the scan would rewrite. It is also refused with `BUSY` (409) while direct file
+the scan would rewrite. It is refused with `GENERATION_IN_PROGRESS` (409) while
+the library has a queued/running planning, which refreshes the same inventory
+itself, and with `SCAN_IN_PROGRESS` (409) while another scan of the library is
+queued, running or merging. Other libraries' planning and scans do not matter.
+It is also refused with `BUSY` (409) while direct file
 management holds the admission slot, and it takes the scanning side of that
 slot itself, so a file operation refuses a running scan in turn (ADR 0002).
 

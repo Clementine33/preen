@@ -60,13 +60,13 @@ func countUnmetTargets(c ComponentOutcome) int {
 }
 
 // unmetReason names why one file of an unreachable stem stays. Everything keeps
-// the stem-level reason except a file that already is the declared encoded
-// shape and cannot be confirmed: for that one the shape is not out of reach,
-// only its provenance is unproven, and nothing here could settle it — the tool
-// never upgrades a lossy file.
+// the stem-level reason except a file of the declared encoded codec whose own
+// rate cannot judge it and no credential accepts: for that one the shape may
+// not be out of reach, only unproven, and nothing here could settle it — the
+// tool never upgrades a lossy file. A file measured short of the target, such
+// as a 192k MP3 under a 320k target, is simply unmet.
 func unmetReason(f GroupedFile, profile DesiredProfile) string {
-	if profile.Encoded != nil && !f.Lossless && f.Codec == profile.Encoded.Codec &&
-		!satisfiedEncoded(f, profile.Encoded) {
+	if profile.Encoded != nil && !f.Lossless && unconfirmed(f, profile.Encoded) {
 		return ReasonConformanceUnconfirmed
 	}
 	return ReasonUnmetTarget
@@ -87,7 +87,8 @@ func unmetReason(f GroupedFile, profile DesiredProfile) string {
 //     the target, or — for the codecs a measurement cannot judge — when a
 //     generation credential proves this app wrote it for exactly that target. A
 //     file neither entry accepts is regenerated from the stem's source where one
-//     exists and kept as CONFORMANCE_UNCONFIRMED where none does.
+//     exists; where none does it is kept as UNMET_TARGET when its rate proves
+//     the miss, and as CONFORMANCE_UNCONFIRMED when only a credential could.
 //  4. No fake upgrades: lossless is never generated from lossy media, and a
 //     codec change is never a lossy-to-lossy re-encode.
 //  5. Source ambiguity and target-path conflicts still block the affected

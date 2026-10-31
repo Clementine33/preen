@@ -236,7 +236,9 @@ const (
 	ReasonTargetPathAmbiguous = "TARGET_PATH_AMBIGUOUS"
 	ReasonTargetPathConflict  = "TARGET_PATH_CONFLICT"
 	// ReasonConformanceUnconfirmed is an observed file of the declared codec
-	// that no generation credential proves was written for this target. It
+	// whose own measured rate cannot judge it (unknown, Opus below target,
+	// saturated AAC below its floor) and that no generation credential accepts.
+	// A file measured short of the target is not unconfirmed but unmet. It
 	// replaced QUALITY_UNKNOWN, which said the same thing about a bitrate no
 	// probe could establish.
 	ReasonConformanceUnconfirmed = "CONFORMANCE_UNCONFIRMED"

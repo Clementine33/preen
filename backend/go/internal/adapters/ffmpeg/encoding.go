@@ -67,8 +67,10 @@ func encodedTarget(codec reconcile.Codec, quality *reconcile.Quality) (encodedAu
 	return encodedArgs(codec, strconv.Itoa(quality.Bitrate)+"k")
 }
 
-// audioEncodingArgs preserves sample rate and channel count; float-to-FLAC
-// quantizes to 24-bit integers, while other lossless targets preserve PCM precision.
+// audioEncodingArgs preserves sample rate and channel count. Lossless targets
+// keep the source's own precision: FLAC carries up to 32 bits per sample, so a
+// 32-bit integer source stays 32-bit and a floating-point source is quantized to
+// 32-bit integers, while a WAV target keeps a floating-point source floating.
 // Unsupported lossless representations fail before ffmpeg creates output.
 func audioEncodingArgs(input execute.AudioStream, spec reconcile.AudioOutputSpec) (encodedAudio, error) {
 	bits, _ := strconv.Atoi(input.RawBits)
@@ -99,16 +101,16 @@ func audioEncodingArgs(input execute.AudioStream, spec reconcile.AudioOutputSpec
 		}
 		return encodedAudio{Codec: codec, Args: []string{"-c:a", codec, "-f", "wav"}}, nil
 	case reconcile.CodecFlac:
-		if !floating && bits > 24 {
-			return encodedAudio{}, fmt.Errorf("FLAC target cannot preserve source precision")
-		}
 		format := "s16"
 		if floating || bits > 16 {
 			format = "s32"
 		}
 		args := []string{"-c:a", "flac", "-sample_fmt", format}
-		if floating {
-			args = append(args, "-bits_per_raw_sample", "24")
+		if floating || bits > 24 {
+			// Above 24 bits per sample flac is still experimental: without this
+			// the encoder writes 24 and only logs a warning, so a source wider
+			// than that asks for its own precision explicitly.
+			args = append(args, "-strict", "experimental")
 		}
 		return encodedAudio{Codec: "flac", Args: append(args, "-f", "flac")}, nil
 	case reconcile.CodecMp3, reconcile.CodecAac, reconcile.CodecOpus:

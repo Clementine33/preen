@@ -98,8 +98,10 @@ func cleanupInventoryScope(tx *sql.Tx, root, scope string) error {
 		from, to := subtree(scope)
 		dirRange += " AND path >= ? AND path < ? AND path <> ?"
 		dirArgs = append(dirArgs, from, to, scope)
-		fileRange += " AND (d.path = ? OR (d.path >= ? AND d.path < ?))"
-		fileArgs = append(fileArgs, scope, from, to)
+		// Outer bounds keep the root_path/path index range; without them the OR
+		// leaves only root_path=? and every scope scans the whole library.
+		fileRange += " AND d.path >= ? AND d.path < ? AND (d.path = ? OR (d.path >= ? AND d.path < ?))"
+		fileArgs = append(fileArgs, scope, to, scope, from, to)
 	}
 	if _, err := tx.Exec(`DELETE FROM inventory_dirs WHERE `+dirRange+` AND NOT EXISTS (
   SELECT 1 FROM temp.entries_staging s WHERE s.is_dir=1 AND s.path=inventory_dirs.path)

@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"io"
-	"mime"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -20,6 +19,7 @@ import (
 	"golang.org/x/text/encoding/unicode"
 	"golang.org/x/text/transform"
 
+	"github.com/Clementine33/preen/backend/internal/inventory"
 	"github.com/Clementine33/preen/backend/internal/works"
 )
 
@@ -103,10 +103,21 @@ func setWorkFileContentType(h http.Header, file *os.File, kind works.ContentFile
 			return err
 		}
 		contentType := http.DetectContentType(sample)
+		if kind == works.KindAudio && contentType == "audio/mpeg" {
+			flac, err := flacBehindID3(file, sample)
+			if err != nil {
+				return err
+			}
+			if flac {
+				contentType = "audio/flac"
+			}
+		}
 		if kind == works.KindImage && !strings.HasPrefix(contentType, "image/") {
 			contentType = "application/octet-stream"
 		} else if kind == works.KindAudio && !strings.HasPrefix(contentType, "audio/") {
-			contentType = mime.TypeByExtension(filepath.Ext(file.Name()))
+			// Go's sniffer misses FLAC, ADTS AAC and m4a (sniffed as video); name them from the
+			// same table the scan uses, never the host MIME database.
+			contentType = inventory.DetectFormatFromPath(file.Name(), false)
 			if contentType == "" {
 				contentType = "application/octet-stream"
 			}
@@ -150,6 +161,27 @@ func readSample(file *os.File, n int) ([]byte, bool, error) {
 		return nil, false, err
 	}
 	return sample[:min(read, n)], read <= n, nil
+}
+
+// flacBehindID3 reports whether an ID3v2 tag, which Go's sniffer takes for
+// MP3, wraps a FLAC stream. The tag's syncsafe size says where the stream
+// starts, which may lie beyond the sample; ReadAt leaves the offset alone.
+func flacBehindID3(file *os.File, sample []byte) (bool, error) {
+	if len(sample) < 10 || !bytes.HasPrefix(sample, []byte("ID3")) {
+		return false, nil
+	}
+	offset := 10 + (int64(sample[6]&0x7f)<<21 | int64(sample[7]&0x7f)<<14 | int64(sample[8]&0x7f)<<7 | int64(sample[9]&0x7f))
+	if sample[5]&0x10 != 0 { // a footer follows the tag
+		offset += 10
+	}
+	magic := make([]byte, 4)
+	if _, err := file.ReadAt(magic, offset); err != nil {
+		if errors.Is(err, io.EOF) {
+			return false, nil
+		}
+		return false, err
+	}
+	return string(magic) == "fLaC", nil
 }
 
 // sniffTextCharset names the character set a text body is in, by decoding a

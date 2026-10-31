@@ -171,12 +171,20 @@ continues to hash its partition and observed files; scope adds no hash salt.
 
 ### FLAC sample representation
 
-Floating-point WAV sources (32-bit or 64-bit) are converted by FFmpeg to 24-bit
-integer FLAC, preserving sample rate and channel count. This quantizes the source
-samples: no dithering, normalization or peak pre-scan is applied, and samples
-outside the integer full-scale range are hard-clipped. The lossless target class
-names the codec family, not a guarantee of sample-exact preservation of floating
-point sources. Integer sources above 24 bits remain unsupported for FLAC targets.
+A FLAC target keeps the source's own precision: a 16- or 24-bit integer WAV
+becomes 16- or 24-bit FLAC and a 32-bit integer WAV becomes 32-bit FLAC sample
+for sample, always preserving sample rate and channel count. A floating-point WAV
+becomes 32-bit integer FLAC: no dithering, normalization or peak pre-scan is
+applied, and samples outside the integer full-scale range are hard-clipped. The
+lossless target class names the codec family, not a guarantee of sample-exact
+preservation of floating point sources — quantizing a 64-bit float source loses
+precision, while the same loss on a 32-bit one stays below the format's own
+resolution.
+
+32-bit FLAC is decodable only by libFLAC 1.4 or newer, which FFmpeg 6.0 first
+reaches; an older decoder rejects the file instead of misplaying it. An existing
+lossless output of the target codec is kept whatever its bit depth, so a FLAC
+written under another precision isn't re-encoded when the target is reached.
 
 After successful validation and publication, obsolete source WAV files follow the
 frozen soft/hard handling setting like other source files: soft moves them to the

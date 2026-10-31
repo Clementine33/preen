@@ -156,13 +156,15 @@ CREATE INDEX idx_conversion_components_root ON conversion_components(plan_id, ro
 
 -- Frozen Member Conclusion minus Member Input: one row per record member,
 -- computed at generation from the complete plan (ADR 0001). Excluded and
--- zero-component members have rows too; task_json is the task's opaque payload.
+-- zero-component members have rows too; task_json is the task's opaque payload
+-- and category its optional task-defined filing.
 CREATE TABLE plan_member_conclusions (
     plan_id TEXT NOT NULL,
     member_id TEXT NOT NULL,
     excluded INTEGER NOT NULL DEFAULT 0,
     has_components INTEGER NOT NULL DEFAULT 0,
     task_json TEXT NOT NULL DEFAULT '',
+    category TEXT NOT NULL DEFAULT '',
     PRIMARY KEY (plan_id, member_id),
     FOREIGN KEY (plan_id) REFERENCES plans(plan_id) ON DELETE CASCADE
 );

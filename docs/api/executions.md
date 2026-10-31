@@ -28,16 +28,19 @@ the plan's own facts, re-read at execution time:
 | `VERSION_CONFLICT` | stale `If-Match`; re-read the operation |
 | `IDEMPOTENCY_KEY_REUSED` | the key was used for another revision |
 | `ORPHANED_WORKSET` | the library is gone; orphaned worksets are read-only |
-| `FOLDER_NOT_IN_RECORD` (400) | `folder_paths` names something that is not a member of this record |
+| `MEMBER_NOT_IN_RECORD` (400) | `member_ids` or `all_except_member_ids` names something that is not a member of this record |
+| `INVALID_SCOPE` (400) | both scope fields were given, or the scope selects no member |
 
-**Scope.** A session covers the whole revision unless `folder_paths` names
-some of its members. A path the record does not hold is refused with
-`FOLDER_NOT_IN_RECORD` (400) rather than skipped — running fewer folders than
+**Scope.** A session covers the whole revision unless `member_ids` names
+some of its members, or `all_except_member_ids` names the ones to leave out
+(the shorter form is the client's choice; both expand to the same scope). An id
+the record does not hold is refused with
+`MEMBER_NOT_IN_RECORD` (400) rather than skipped — running fewer folders than
 were asked for would be a scope change nobody approved; a selected folder the
 plan found nothing to do in simply contributes no components, which is the
 plan's conclusion about that folder, not a refusal. The session's own
 `total_components`, the component list and SSE progress cover the scope alone, and
-`selected_folders` (the record-relative paths) says what that scope was, so a
+`selected_member_ids` (the expanded member ids) says what that scope was, so a
 client that did not start the run can tell it was partial.
 
 **One session per revision.** The storage enforces it (a unique index on the
@@ -46,7 +49,7 @@ revision): a retry with the same `Idempotency-Key` returns its own session
 starts have exactly one winner. A scoped run spends the revision like any
 other: the folders it left out are the next plan's work — regenerate a plan and
 execute that — never a second run of this one. The idempotency key covers the
-scope, so the same key with a different `folder_paths` is
+scope, so the same key with a different scope is
 `IDEMPOTENCY_KEY_REUSED`. Failures, partial completions and interrupted
 sessions do not auto-retry: refresh the inputs (rescan), then generate a new
 revision — a revision never runs twice.
@@ -147,7 +150,7 @@ session options — conversion: `{"delete_mode":"soft"|"hard"}`),
 recorded component results, never incremented on its own),
 `total_operations`, `completed_operations`, `current_root`,
 `current_component_id`, `current_phase` (`component` while a component runs),
-`components[]`, `selected_folders` (the scope this session ran; absent when it
+`components[]`, `selected_member_ids` (the scope this session ran; absent when it
 ran the whole revision), `error_code`, `error_message`, `started_at`,
 `finished_at`, `created_at`.
 
@@ -162,7 +165,8 @@ views below instead.
 `GET …/events?view=members` replace the component list with per-member
 summaries; without a parameter the shapes above are unchanged. `view` accepts
 only `members`; any other value, or `view` together with `member_id`, is 400
-`INVALID_VIEW`.
+`INVALID_VIEW`. Every operation type supports the view; the web client reads
+conversion, rename and metadata sessions through it.
 
 A session's members are the members in its scope that own at least one frozen
 component (a component belongs to the member whose `folder_path` equals its

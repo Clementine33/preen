@@ -9,12 +9,20 @@ import RowList from '@/features/worksets/RowList.vue'
  * name above, the new name below, so the eye zigzags old → new down the list.
  * A whole-library plan is mostly folders whose name does not change, so those
  * are never drawn; the page's tabs choose among renames, skipped (blocked)
- * folders and followed hand renames, and own the counts. Both lines carry the parent folder in grey: a rename only
+ * folders and followed hand renames, and own the counts, and read only the
+ * chosen category from the server (`hidden` says how many it left out). Both lines carry the parent folder in grey: a rename only
  * changes the last segment, and the shared prefix shows it stays in place.
  * Review always shows the frozen payload (ADR 0012).
  */
-const props = withDefaults(defineProps<{ components: RenameComponent[], members?: WorksetMember[], tab?: PlanTab }>(), {
+const props = withDefaults(defineProps<{
+  components: RenameComponent[]
+  members?: WorksetMember[]
+  tab?: PlanTab
+  /** How many more of this tab the server holds beyond `components`. */
+  hidden?: number
+}>(), {
   tab: 'rename',
+  hidden: 0,
 })
 
 const REASONS: Record<string, string> = {
@@ -92,5 +100,6 @@ function secondLine(component: RenameComponent): string {
         </span>
       </template>
     </RowList>
+    <p v-if="hidden > 0" class="px-2 py-2 text-[11px] text-[var(--text-secondary)]" data-testid="plan-more">另有 {{ hidden }} 条</p>
   </div>
 </template>

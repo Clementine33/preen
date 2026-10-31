@@ -1,5 +1,5 @@
 import type { SessionIdentity } from './use-workset-observation'
-import type { ExecutionStatus, ExecutionView, OperationType } from '@/lib/api/types'
+import type { ExecutionScope, ExecutionStatus, ExecutionView, OperationType } from '@/lib/api/types'
 import { useMutation, useQueryClient } from '@tanstack/vue-query'
 import { useApiClient } from '@/lib/api/client'
 import { queryKeys } from '@/queries/query-keys'
@@ -76,8 +76,8 @@ export function useWorksetExecution() {
     planId: string
     ifMatchVersion: number
     idempotencyKey: string
-    /** The folders this run covers; absent runs the whole revision. */
-    folderPaths?: string[]
+    /** The members this run covers; absent runs the whole revision. */
+    scope?: ExecutionScope
   }
 
   // Starts a session and attaches the SSE stream on a fresh 202. Resolves with

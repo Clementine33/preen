@@ -13,6 +13,7 @@ import (
 
 	"github.com/Clementine33/preen/backend/internal/conversion/execute"
 	"github.com/Clementine33/preen/backend/internal/inventory"
+	"github.com/Clementine33/preen/backend/internal/library"
 
 	"github.com/Clementine33/preen/backend/internal/adapters/filesystem"
 
@@ -243,6 +244,20 @@ func (f *fixture) standardLibrary(folderNames ...string) []string {
 	return rels
 }
 
+// selection names relPaths of a library by directory id.
+func (f *fixture) selection(libraryID string, relPaths []string) workset.Selection {
+	f.t.Helper()
+	lib, err := f.repo.GetLibrary(libraryID)
+	if err != nil {
+		f.t.Fatal(err)
+	}
+	ids := make([]string, 0, len(relPaths))
+	for _, rel := range relPaths {
+		ids = append(ids, library.DirID(lib.ID, lib.RootPath, rel))
+	}
+	return workset.Selection{DirIDs: ids}
+}
+
 // createCurrent creates the library's current record for the conversion
 // operation and returns its view.
 func (f *fixture) createCurrent(title string, relPaths ...string) *workset.WorksetView {
@@ -259,7 +274,7 @@ func (f *fixture) createCurrentFor(libraryID, title string, relPaths ...string) 
 		LibraryID:         libraryID,
 		OperationType:     workset.OperationTypeConversion,
 		Title:             title,
-		FolderPaths:       relPaths,
+		Selection:         f.selection(libraryID, relPaths),
 		ExpectedCurrentID: f.currentID(libraryID),
 		IdempotencyKey:    "create-" + title,
 	})
@@ -281,7 +296,7 @@ func (f *fixture) createCurrentOperation(
 	view, err := f.svc.CreateCurrentWorkset(f.ctx, workset.CreateCurrentRequest{
 		LibraryID:         libraryID,
 		OperationType:     operationType,
-		FolderPaths:       relPaths,
+		Selection:         f.selection(libraryID, relPaths),
 		ExpectedCurrentID: f.currentIDFor(libraryID, operationType),
 		IdempotencyKey:    "create-" + operationType,
 	})

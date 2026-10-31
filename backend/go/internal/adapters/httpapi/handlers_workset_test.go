@@ -126,12 +126,17 @@ func seedMember(t *testing.T, repo *sqlite.Repository, rel string) {
 	)
 }
 
+// albumADirID is the directory id the overview lists for seedMember's folder.
+func albumADirID(libID string) string {
+	return library.DirID(libID, "/music", "albumA")
+}
+
 // createRecord creates the current conversion record of a library through the
 // API and returns its id, failing the test when the creation is refused.
 func createRecord(t *testing.T, h http.Handler, libID, key string) string {
 	t.Helper()
 	w := reqWithIdempotency(t, h, http.MethodPut, recordsPath(libID), testToken, map[string]any{
-		"folder_paths": []string{"albumA"},
+		"selection": map[string]any{"all": true},
 	}, key)
 	if w.Code != http.StatusCreated {
 		t.Fatalf("create record: %d %s", w.Code, w.Body.String())
@@ -206,7 +211,7 @@ func TestWorksetHTTPLifecycle(t *testing.T) {
 
 	// PUT create: the record of this (library, operation) pair, with the scope
 	// it actually recorded.
-	createBody := map[string]any{"folder_paths": []string{"albumA"}}
+	createBody := map[string]any{"selection": map[string]any{"dir_ids": []string{albumADirID(libID), "unknown"}}}
 	w := reqWithIdempotency(t, h, http.MethodPut, recordsPath(libID), testToken, createBody, "create-http-1")
 	if w.Code != http.StatusCreated {
 		t.Fatalf("create status = %d, body=%s", w.Code, w.Body.String())
@@ -219,7 +224,7 @@ func TestWorksetHTTPLifecycle(t *testing.T) {
 		Created  bool `json:"created"`
 		Recorded int  `json:"recorded"`
 		Skipped  []struct {
-			Path   string `json:"path"`
+			DirID  string `json:"dir_id"`
 			Reason string `json:"reason"`
 		} `json:"skipped"`
 	}
@@ -228,6 +233,10 @@ func TestWorksetHTTPLifecycle(t *testing.T) {
 	}
 	if createResp.Workset.WorksetID == "" || !createResp.Created || createResp.Recorded != 1 {
 		t.Fatalf("create resp: %+v", createResp)
+	}
+	if len(createResp.Skipped) != 1 || createResp.Skipped[0].DirID != "unknown" ||
+		createResp.Skipped[0].Reason != "unknown_dir" {
+		t.Fatalf("skipped = %+v, want the unknown id", createResp.Skipped)
 	}
 	// A retried create answers with the same record instead of a second one.
 	replay := reqWithIdempotency(t, h, http.MethodPut, recordsPath(libID), testToken, createBody, "create-http-1")
@@ -531,7 +540,7 @@ func TestWorksetAuthRequired(t *testing.T) {
 	seedLibrary(t, repo)
 	seedMember(t, repo, "albumA")
 	w := reqWithIdempotency(t, h, http.MethodPut, recordsPath("lib-1"), "",
-		map[string]any{"folder_paths": []string{"albumA"}}, "create-auth")
+		map[string]any{"selection": map[string]any{"all": true}}, "create-auth")
 	if w.Code != http.StatusUnauthorized {
 		t.Fatalf("no auth status = %d, want 401", w.Code)
 	}

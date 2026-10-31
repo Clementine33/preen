@@ -40,7 +40,11 @@ func TestWorksetRefreshCommitsMetadataAndQueuesCoversWithoutWaitingForCDN(t *tes
 	enableCoverDownload(t, svc)
 	record, err := svc.CreateCurrentWorkset(
 		t.Context(),
-		workset.CreateCurrentRequest{LibraryID: libID, OperationType: refresh.Kind, FolderPaths: names},
+		workset.CreateCurrentRequest{
+			LibraryID:     libID,
+			OperationType: refresh.Kind,
+			Selection:     workset.Selection{All: true},
+		},
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -308,11 +312,10 @@ func TestMetadataSSEIncludesResultsThatFinishOutOfOrder(t *testing.T) {
 			TaskResult: []byte(`{"rj":"first"}`), CompletedOperations: &completed,
 		})
 	}
-	svc, _, _, _, names, libID, _, _ := worksetFixture(t, run)
-	record, err := svc.CreateCurrentWorkset(
-		t.Context(),
-		workset.CreateCurrentRequest{LibraryID: libID, OperationType: refresh.Kind, FolderPaths: names},
-	)
+	svc, _, _, _, _, libID, _, _ := worksetFixture(t, run)
+	record, err := svc.CreateCurrentWorkset(t.Context(), workset.CreateCurrentRequest{
+		LibraryID: libID, OperationType: refresh.Kind, Selection: workset.Selection{All: true},
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -421,9 +424,9 @@ func publishCommon(t *testing.T, svc workset.Service, worksetID string, common r
 }
 
 func TestRefreshAllCanRunAgainWithoutChangingSettingsOrFolders(t *testing.T) {
-	svc, _, _, _, names, libID, statics, _ := worksetFixture(t)
+	svc, _, _, _, _, libID, statics, _ := worksetFixture(t)
 	record, err := svc.CreateCurrentWorkset(t.Context(), workset.CreateCurrentRequest{
-		LibraryID: libID, OperationType: refresh.Kind, FolderPaths: names,
+		LibraryID: libID, OperationType: refresh.Kind, Selection: workset.Selection{All: true},
 	})
 	if err != nil {
 		t.Fatal(err)

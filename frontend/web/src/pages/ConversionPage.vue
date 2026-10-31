@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { MemberFilter } from '@/app/route-params'
 import type { MemberConclusion } from '@/features/worksets/plan-readers'
-import type { WorksetMember } from '@/lib/api/types'
+import type { ExecutionScope, WorksetMember } from '@/lib/api/types'
 import { useQuery } from '@tanstack/vue-query'
 import { computed, nextTick, ref, watch } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
@@ -19,6 +19,7 @@ import {
 } from '@/features/worksets/plan-readers'
 import WorkbenchNav from '@/features/worksets/WorkbenchNav.vue'
 import { useApiClient } from '@/lib/api/client'
+import { shorterIdSelection } from '@/lib/api/id-selection'
 import { newIdempotencyKey } from '@/lib/utils'
 import { currentRecordQueryOptions } from '@/queries/worksets'
 import { useWorksetEditorStore } from '@/stores/workset-editor'
@@ -289,7 +290,7 @@ async function onGenerate() {
   }
 }
 
-async function startExecution(folderPaths?: string[]) {
+async function startExecution(scope?: ExecutionScope) {
   const op = operation.value
   const planId = op?.current_revision?.plan_id
   if (!worksetId.value || !op || !planId)
@@ -302,7 +303,7 @@ async function startExecution(folderPaths?: string[]) {
       planId,
       ifMatchVersion: op.version,
       idempotencyKey: newIdempotencyKey(),
-      folderPaths,
+      scope,
     })
     await openExecution()
   }
@@ -321,9 +322,15 @@ async function startExecution(folderPaths?: string[]) {
   }
 }
 
-/** The selection as the record names it — the scope of a partial run. */
-const selectedFolderPaths = computed(() =>
-  members.value.filter(member => ui.selectedMemberIds.has(member.member_id)).map(member => member.rel_path),
+/** The selection as the record names it — the scope of a partial run, in the shorter form. */
+const selectedScope = computed<ExecutionScope>(() => {
+  const { all, ids } = shorterIdSelection(ui.selectedMemberIds, members.value.map(member => member.member_id))
+  return all
+    ? { all_except_member_ids: ids }
+    : { member_ids: ids }
+})
+const selectedMemberCount = computed(() =>
+  members.value.filter(member => ui.selectedMemberIds.has(member.member_id)).length,
 )
 
 /** Selected execution checks the server input facts of selected members. */
@@ -528,9 +535,9 @@ const parentLink = computed(() => {
                 data-testid="execute-selected"
                 :disabled="!selectedPlanRunnable"
                 :title="selectedPlanRunnable ? '只执行选中的文件夹；未选中的需重新生成计划后执行' : (selectedExecuteBlocked ?? '还没有可执行的计划版本')"
-                @click="startExecution(selectedFolderPaths)"
+                @click="startExecution(selectedScope)"
               >
-                仅执行选中（{{ selectedFolderPaths.length }}）
+                仅执行选中（{{ selectedMemberCount }}）
               </Button>
               <Button size="xs" variant="ghost" @click="ui.clearSelection()">清除选择</Button>
             </div>
@@ -573,7 +580,7 @@ const parentLink = computed(() => {
               :filter="filter"
               :search="ui.search"
               :conclusion-for="conclusionFor"
-              :execution-scope="executionView ? (executionView.selected_folders ?? []) : null"
+              :execution-scope="executionView ? (executionView.selected_member_ids ?? []) : null"
               @toggle="ui.toggleMember($event)"
               @toggle-all="ui.toggleAllVisible($event)"
               @open="openMember($event)"

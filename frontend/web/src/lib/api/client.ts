@@ -22,6 +22,7 @@ import type {
   DraftEnvelopeResponse,
   DraftResponse,
   ExecutionEvent,
+  ExecutionScope,
   ExecutionView,
   ExecutionViewMode,
   FileOperation,
@@ -753,9 +754,13 @@ export class ApiClient implements ApiClientContract {
     operation: OperationType,
     planId: string,
     signal?: AbortSignal,
+    category?: { category: string, limit: number },
   ): Promise<RevisionDetailResponse> {
+    const query = category
+      ? `?category=${encodeURIComponent(category.category)}&limit=${category.limit}`
+      : ''
     const wire = await this.request<RevisionDetailResponse>(
-      `${this.operationPath(worksetId, operation)}/revisions/${encodeURIComponent(planId)}`,
+      `${this.operationPath(worksetId, operation)}/revisions/${encodeURIComponent(planId)}${query}`,
       { signal },
     )
     if (operation === 'conversion' && wire.task.payload.policy) {
@@ -776,16 +781,16 @@ export class ApiClient implements ApiClientContract {
   /**
    * Enqueue the execution of the operation's current revision, optionally
    * scoped to some of its member folders. The file worklist and the session
-   * options are the frozen revision's, never the client's; `folderPaths` says
-   * how much of that revision this session covers, and an empty list runs all
-   * of it. Disconnecting never cancels the session — only cancelExecution or
+   * options are the frozen revision's, never the client's; `scope` says
+   * how much of that revision this session covers, and no scope runs all of
+   * it. Disconnecting never cancels the session — only cancelExecution or
    * the backend process lifecycle does.
    */
   startExecution(
     worksetId: string,
     operation: OperationType,
     planId: string,
-    input: { ifMatchVersion: number, idempotencyKey: string, folderPaths?: string[] },
+    input: { ifMatchVersion: number, idempotencyKey: string, scope?: ExecutionScope },
   ): Promise<StartExecutionResponse> {
     return this.request(
       `${this.operationPath(worksetId, operation)}/revisions/${encodeURIComponent(planId)}/executions`,
@@ -795,7 +800,7 @@ export class ApiClient implements ApiClientContract {
           'If-Match': String(input.ifMatchVersion),
           'Idempotency-Key': input.idempotencyKey,
         },
-        body: { folder_paths: input.folderPaths ?? [] },
+        body: input.scope ?? {},
       },
     )
   }
@@ -1037,9 +1042,7 @@ export function useApiClient(): ApiClientContract {
   return client
 }
 
-/** Conversion reads sessions as per-member summaries; rename and metadata keep the full shape. */
-export function executionViewFor(operation: OperationType): ExecutionViewMode | undefined {
-  return operation === 'conversion'
-    ? 'members'
-    : undefined
+/** Every operation reads its sessions as per-member summaries. */
+export function executionViewFor(_operation: OperationType): ExecutionViewMode {
+  return 'members'
 }

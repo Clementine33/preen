@@ -132,21 +132,22 @@ func createScannedWorkset(
 	base, token, libID string,
 	folders []struct {
 		RelPath string `json:"rel_path"`
-		Path    string `json:"path"`
+		DirID   string `json:"dir_id"`
 	},
 	albums []string,
 ) (string, string) {
 	t.Helper()
 	byRel := map[string]string{}
 	for _, f := range folders {
-		byRel[f.RelPath] = f.Path
+		byRel[f.RelPath] = f.DirID
 	}
 	selected := make([]string, 0, len(albums))
 	for _, album := range albums {
-		if _, ok := byRel[album]; !ok {
+		id, ok := byRel[album]
+		if !ok {
 			t.Fatalf("scanned folder %s missing from %+v", album, folders)
 		}
-		selected = append(selected, album)
+		selected = append(selected, id)
 	}
 	var ws struct {
 		Workset struct {
@@ -157,7 +158,7 @@ func createScannedWorkset(
 		t, client, ctx, base, http.MethodPut,
 		"/api/v1/libraries/"+libID+"/operations/conversion/current", token,
 		map[string]string{"Idempotency-Key": "create-e2e-exec"},
-		map[string]any{"folder_paths": selected}, &ws,
+		map[string]any{"selection": map[string]any{"dir_ids": selected}}, &ws,
 	); code != http.StatusCreated {
 		t.Fatalf("create record: %d", code)
 	}
@@ -211,7 +212,7 @@ func setupScannedWorkset(
 	var folders struct {
 		Folders []struct {
 			RelPath string `json:"rel_path"`
-			Path    string `json:"path"`
+			DirID   string `json:"dir_id"`
 		} `json:"dirs"`
 	}
 	if code := doJSON(

@@ -162,3 +162,15 @@ func (*Task) MemberConclusion(components []json.RawMessage) (json.RawMessage, er
 	}
 	return components[0], nil
 }
+
+// MemberCategory files a member by its planned action: refresh, cover or skip.
+func (*Task) MemberCategory(components []json.RawMessage) string {
+	if len(components) == 0 {
+		return ""
+	}
+	var o Outcome
+	if json.Unmarshal(components[0], &o) != nil {
+		return ""
+	}
+	return o.Action
+}

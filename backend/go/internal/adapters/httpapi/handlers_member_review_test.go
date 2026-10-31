@@ -57,6 +57,7 @@ func TestMemberReviewHTTP(t *testing.T) {
 		"status",
 		"summary",
 		"counts",
+		"category_counts",
 		"execution",
 		"task",
 		"members",

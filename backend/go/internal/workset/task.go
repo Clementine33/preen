@@ -109,6 +109,13 @@ type MemberConclusionTask interface {
 	MemberConclusion(components []json.RawMessage) (json.RawMessage, error)
 }
 
+// MemberCategoryTask optionally files each member under a task-defined category
+// string, frozen with its conclusion at generation. Workset counts and filters
+// by it without interpreting it; an empty category is not counted.
+type MemberCategoryTask interface {
+	MemberCategory(components []json.RawMessage) string
+}
+
 // InputValidationTask declares that a read's Member Input freshness needs only
 // the frozen roots, so summary reads skip the component payloads. It reports
 // only the roots whose live inputs moved, never an execution verdict such as

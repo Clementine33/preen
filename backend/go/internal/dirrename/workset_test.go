@@ -33,7 +33,7 @@ func TestWorksetAcceptsNoAudioRenameAndExecutesFrozenProposal(t *testing.T) {
 		workset.CreateCurrentRequest{
 			LibraryID:     libs[0].ID,
 			OperationType: "rename",
-			FolderPaths:   []string{member.RelPath},
+			Selection:     workset.Selection{All: true},
 		},
 	)
 	if err != nil {
@@ -159,6 +159,58 @@ func verifyHTTPReviewAndExecution(t *testing.T, svc workset.Service, id, revisio
 	if executionResponse.Code != http.StatusAccepted {
 		t.Fatalf("execute HTTP: %d, %s", executionResponse.Code, executionResponse.Body.String())
 	}
+	verifyCategoryAndMembersViews(t, handler, id, reviewRequest.URL.Path, executionResponse.Body.Bytes())
+}
+
+// verifyCategoryAndMembersViews checks the revision's category read and the
+// members view of the session just started: both are generic reads of a rename.
+func verifyCategoryAndMembersViews(
+	t *testing.T, handler http.Handler, id, revisionPath string, started []byte,
+) {
+	t.Helper()
+	get := func(path string) *httptest.ResponseRecorder {
+		request := httptest.NewRequest(http.MethodGet, path, nil)
+		request.Header.Set("Authorization", "Bearer test-token")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		return response
+	}
+	var category struct {
+		CategoryCounts map[string]int             `json:"category_counts"`
+		CategoryTotal  int                        `json:"category_total"`
+		Members        []workset.MemberConclusion `json:"members"`
+	}
+	categoryResponse := get(revisionPath + "?category=rename&limit=1")
+	if json.Unmarshal(categoryResponse.Body.Bytes(), &category) != nil || category.CategoryCounts["rename"] != 1 ||
+		category.CategoryTotal != 1 || len(category.Members) != 1 || category.Members[0].Category != "rename" {
+		t.Fatalf("category read: %d %s", categoryResponse.Code, categoryResponse.Body.String())
+	}
+	var execution struct {
+		Execution struct {
+			ExecutionID string `json:"execution_id"`
+		} `json:"execution"`
+		ExecutionID string `json:"execution_id"`
+	}
+	if err := json.Unmarshal(started, &execution); err != nil {
+		t.Fatal(err)
+	}
+	if execution.ExecutionID == "" {
+		execution.ExecutionID = execution.Execution.ExecutionID
+	}
+	membersResponse := get(
+		"/api/v1/worksets/" + id + "/operations/rename/executions/" + execution.ExecutionID + "?view=members",
+	)
+	var summary struct {
+		Members struct {
+			Counts         workset.MemberCounts `json:"counts"`
+			AttentionTotal int                  `json:"attention_total"`
+		} `json:"members"`
+	}
+	if json.Unmarshal(membersResponse.Body.Bytes(), &summary) != nil || membersResponse.Code != http.StatusOK ||
+		summary.Members.Counts.Succeeded+summary.Members.Counts.Failed+summary.Members.Counts.Canceled+
+			summary.Members.Counts.Running+summary.Members.Counts.Pending != 1 {
+		t.Fatalf("members view: %d %s %+v", membersResponse.Code, membersResponse.Body.String(), summary.Members.Counts)
+	}
 }
 
 func TestMissingSourceIsReportedOnceInReview(t *testing.T) {
@@ -192,7 +244,7 @@ func TestMissingSourceIsReportedOnceInReview(t *testing.T) {
 		workset.CreateCurrentRequest{
 			LibraryID:     libs[0].ID,
 			OperationType: "rename",
-			FolderPaths:   []string{member.RelPath},
+			Selection:     workset.Selection{All: true},
 		},
 	)
 	if err != nil {
@@ -249,14 +301,14 @@ func TestMissingSourceIsReportedOnceInReview(t *testing.T) {
 }
 
 func TestDraftPutPassesTheRenamePayloadToTheTask(t *testing.T) {
-	repo, task, member := fixture(t, "title")
+	repo, task, _ := fixture(t, "title")
 	svc := workset.NewService(repo, 1, 1, []workset.Task{task}, nil, nil)
 	libs, err := repo.ListLibraries()
 	if err != nil {
 		t.Fatal(err)
 	}
 	created, err := svc.CreateCurrentWorkset(t.Context(), workset.CreateCurrentRequest{
-		LibraryID: libs[0].ID, OperationType: "rename", FolderPaths: []string{member.RelPath},
+		LibraryID: libs[0].ID, OperationType: "rename", Selection: workset.Selection{All: true},
 	})
 	if err != nil {
 		t.Fatal(err)

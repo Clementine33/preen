@@ -133,8 +133,12 @@ type worksetMeasurement struct {
 func (f *worksetMeasurement) create(t *testing.T, expected string) string {
 	t.Helper()
 	if len(f.names) <= workset.MaxMembers {
-		result, err := f.svc.CreateCurrentWorkset(t.Context(), workset.CreateCurrentRequest{LibraryID: f.libraryID,
-			OperationType: workset.OperationTypeConversion, FolderPaths: f.names, ExpectedCurrentID: expected})
+		result, err := f.svc.CreateCurrentWorkset(t.Context(), workset.CreateCurrentRequest{
+			LibraryID:         f.libraryID,
+			OperationType:     workset.OperationTypeConversion,
+			Selection:         workset.Selection{All: true},
+			ExpectedCurrentID: expected,
+		})
 		if err != nil {
 			t.Fatal(err)
 		}

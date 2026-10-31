@@ -16,6 +16,7 @@ import (
 
 	"github.com/Clementine33/preen/backend/internal/conversion/execute"
 	"github.com/Clementine33/preen/backend/internal/inventory"
+	"github.com/Clementine33/preen/backend/internal/library"
 
 	"github.com/Clementine33/preen/backend/internal/adapters/filesystem"
 
@@ -133,7 +134,7 @@ func newExecFixtureWithTask(
 		LibraryID:      f.libraryID,
 		OperationType:  workset.OperationTypeConversion,
 		Title:          "実行",
-		FolderPaths:    members,
+		Selection:      workset.Selection{DirIDs: dirIDs(f.libraryID, root, members)},
 		IdempotencyKey: "create-exec-fixture",
 	})
 	if err != nil {
@@ -395,20 +396,43 @@ func sessionDeleteMode(t *testing.T, options json.RawMessage) string {
 }
 
 // startExecution enqueues a session through the exported API.
-// startExecution starts a session, optionally scoped to some member folders.
+// startExecution starts a session, optionally scoped to the members named by
+// folder (a name the record does not hold is passed through as an unknown id).
 func (f *execFixture) startExecution(
 	planID, key string,
 	folders ...string,
 ) (*workset.StartExecutionResult, error) {
 	f.t.Helper()
-	return f.svc.StartExecution(
-		f.t.Context(), f.worksetID, workset.OperationTypeConversion, planID,
-		workset.StartExecutionRequest{
-			IfMatchVersion: f.operation().Version,
-			IdempotencyKey: key,
-			FolderPaths:    folders,
-		},
-	)
+	return f.startScoped(planID, key, workset.StartExecutionRequest{MemberIDs: f.memberIDs(folders)})
+}
+
+func dirIDs(libraryID, root string, rels []string) []string {
+	ids := make([]string, 0, len(rels))
+	for _, rel := range rels {
+		ids = append(ids, library.DirID(libraryID, filepath.ToSlash(root), rel))
+	}
+	return ids
+}
+
+func (f *execFixture) memberIDs(folders []string) []string {
+	ids := make([]string, 0, len(folders))
+	for _, name := range folders {
+		if m, ok := f.members[name]; ok {
+			name = m.MemberID
+		}
+		ids = append(ids, name)
+	}
+	return ids
+}
+
+func (f *execFixture) startScoped(
+	planID, key string,
+	req workset.StartExecutionRequest,
+) (*workset.StartExecutionResult, error) {
+	f.t.Helper()
+	req.IfMatchVersion = f.operation().Version
+	req.IdempotencyKey = key
+	return f.svc.StartExecution(f.t.Context(), f.worksetID, workset.OperationTypeConversion, planID, req)
 }
 
 func (f *execFixture) mustStart(planID, key string) *workset.ExecutionView {
@@ -845,14 +869,22 @@ func TestExecutionScopedToSelectedFolders(t *testing.T) {
 	if started.Execution.TotalOperations != 1 {
 		t.Fatalf("total operations = %d, want the selected folder's 1", started.Execution.TotalOperations)
 	}
-	if got := started.Execution.SelectedFolders; len(got) != 1 || got[0] != "albumB" {
-		t.Fatalf("selected folders = %v, want [albumB]", got)
+	if got := started.Execution.SelectedMemberIDs; len(got) != 1 || got[0] != f.members["albumB"].MemberID {
+		t.Fatalf("selected member ids = %v, want [albumB's]", got)
 	}
 
 	done := f.waitTerminal(started.Execution.ExecutionID)
 	if done.Status != workset.ExecStatusSucceeded {
 		t.Fatalf("status = %s (%s: %s)", done.Status, done.ErrorCode, done.ErrorMessage)
 	}
+	// The same scope written the other way round is the same request.
+	replay, err := f.startScoped("plan-scope", "key-scope", workset.StartExecutionRequest{
+		AllExceptMemberIDs: []string{f.members["albumA"].MemberID},
+	})
+	if err != nil || replay.Created || replay.Execution.ExecutionID != started.Execution.ExecutionID {
+		t.Fatalf("all_except replay = %+v, %v; want the same session", replay, err)
+	}
+
 	// The folder that was not selected is exactly as it was.
 	if _, statErr := os.Stat(filepath.FromSlash(aSource)); statErr != nil {
 		t.Fatalf("an unselected folder must not be touched: %v", statErr)
@@ -886,8 +918,14 @@ func TestExecutionScopeRefusesAFolderTheRecordDoesNotHold(t *testing.T) {
 	// folders than were asked for would be a scope change nobody approved.
 	_, err := f.startExecution("plan-refuse", "key-refuse", "albumA", "albumZ")
 	code, _ := errorDetail(t, err)
-	if code != "FOLDER_NOT_IN_RECORD" {
-		t.Fatalf("err = %s, want FOLDER_NOT_IN_RECORD", code)
+	if code != "MEMBER_NOT_IN_RECORD" {
+		t.Fatalf("err = %s, want MEMBER_NOT_IN_RECORD", code)
+	}
+	_, err = f.startScoped("plan-refuse", "key-refuse-2", workset.StartExecutionRequest{
+		AllExceptMemberIDs: []string{"m-nope"},
+	})
+	if code, _ = errorDetail(t, err); code != "MEMBER_NOT_IN_RECORD" {
+		t.Fatalf("all_except err = %s, want MEMBER_NOT_IN_RECORD", code)
 	}
 
 	// Nothing was created and nothing ran: the revision is still executable.

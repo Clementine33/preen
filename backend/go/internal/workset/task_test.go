@@ -188,7 +188,7 @@ func TestTasksReuseTheSameBatch(t *testing.T) {
 	}
 	replay, err := f.svc.CreateCurrentWorkset(f.ctx, workset.CreateCurrentRequest{
 		LibraryID: "lib-1", OperationType: workset.OperationTypeConversion,
-		FolderPaths: []string{"albumA", "emptyDir"}, IdempotencyKey: "create-rename",
+		Selection: f.selection("lib-1", []string{"albumA", "emptyDir"}), IdempotencyKey: "create-rename",
 	})
 	if err != nil || replay.Created || replay.Workset.WorksetID != ws.WorksetID {
 		t.Fatalf("cross-task replay = %+v, err=%v", replay, err)

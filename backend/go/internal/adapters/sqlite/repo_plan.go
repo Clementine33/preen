@@ -150,9 +150,9 @@ func insertPlanRecords(tx *sql.Tx, planID string, rec planRecords) error {
 
 	for _, c := range rec.conclusions {
 		if _, err := tx.Exec(`
-			INSERT INTO plan_member_conclusions (plan_id, member_id, excluded, has_components, task_json)
-			VALUES (?, ?, ?, ?, ?)
-		`, planID, c.MemberID, c.Excluded, c.HasComponents, string(c.Task)); err != nil {
+			INSERT INTO plan_member_conclusions (plan_id, member_id, excluded, has_components, task_json, category)
+			VALUES (?, ?, ?, ?, ?, ?)
+		`, planID, c.MemberID, c.Excluded, c.HasComponents, string(c.Task), c.Category); err != nil {
 			return fmt.Errorf("insert member conclusion: %w", err)
 		}
 	}
@@ -167,7 +167,7 @@ func (r *Repository) ListMemberConclusions(planID string, memberID *string) ([]w
 		filter, args = " AND member_id = ?", append(args, *memberID)
 	}
 	rows, err := r.db.Query(`
-		SELECT member_id, excluded, has_components, task_json
+		SELECT member_id, excluded, has_components, task_json, category
 		FROM plan_member_conclusions WHERE plan_id = ? AND plan_id IN (`+visiblePlanIDs+`)`+filter+` ORDER BY member_id`, args...)
 	if err != nil {
 		return nil, err
@@ -177,7 +177,7 @@ func (r *Repository) ListMemberConclusions(planID string, memberID *string) ([]w
 	for rows.Next() {
 		var c workset.MemberConclusion
 		var task string
-		if err := rows.Scan(&c.MemberID, &c.Excluded, &c.HasComponents, &task); err != nil {
+		if err := rows.Scan(&c.MemberID, &c.Excluded, &c.HasComponents, &task, &c.Category); err != nil {
 			return nil, err
 		}
 		if task != "" {

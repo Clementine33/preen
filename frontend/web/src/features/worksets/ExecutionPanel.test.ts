@@ -156,7 +156,7 @@ describe('executionPanel', () => {
         members,
         view: view({
           status: 'succeeded',
-          selected_folders: ['albumA'],
+          selected_member_ids: ['m-1'],
         }),
       },
     })
@@ -171,7 +171,7 @@ describe('executionPanel', () => {
         members,
         view: view({
           status: 'succeeded',
-          selected_folders: ['albumA', 'albumB'],
+          selected_member_ids: ['m-1', 'm-2'],
         }),
       },
     })

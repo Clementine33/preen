@@ -68,8 +68,12 @@ func AssertStored(
 				t.Fatal(err)
 			}
 		}
+		category := ""
+		if categorizer, ok := task.(workset.MemberCategoryTask); ok && !excluded {
+			category = categorizer.MemberCategory(owned)
+		}
 		if got.Excluded != excluded || got.HasComponents != (len(owned) > 0) || !bytes.Equal(got.Task, payload) ||
-			got.Input != "" {
+			got.Input != "" || got.Category != category {
 			t.Fatalf("member %s stored %+v, derived excluded=%v components=%d task=%s",
 				member.MemberID, got, excluded, len(owned), payload)
 		}

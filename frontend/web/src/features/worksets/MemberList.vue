@@ -20,8 +20,8 @@ const props = defineProps<{
   conclusionFor: (member: WorksetMember) => MemberConclusion
   /**
    * The current revision's execution scope: `null` when it has no execution
-   * session, `[]` for a whole-revision run, else the record-relative paths of
-   * the folders it covered. Only members in scope offer 执行结果.
+   * session, `[]` for a whole-revision run, else the member ids it covered.
+   * Only members in scope offer 执行结果.
    */
   executionScope?: string[] | null
 }>()
@@ -63,7 +63,7 @@ const scopeSet = computed(() => (props.executionScope?.length
   ? new Set(props.executionScope)
   : null))
 function hasExecutionResult(member: WorksetMember): boolean {
-  return props.executionScope != null && (scopeSet.value === null || scopeSet.value.has(member.rel_path))
+  return props.executionScope != null && (scopeSet.value === null || scopeSet.value.has(member.member_id))
 }
 
 const excluded = computed(() => {

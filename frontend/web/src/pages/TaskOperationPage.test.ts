@@ -119,6 +119,52 @@ function revisionMembers(components: (RenameComponent | MetadataComponent)[]) {
   } satisfies MemberConclusion<RenameComponent | MetadataComponent>))
 }
 
+/** The filing each Task freezes for a member (the server's `category`). */
+function categoryOf(task: RenameComponent | MetadataComponent): string {
+  if ('target' in task)
+    return task.action
+  return task.action === 'noop'
+    ? (task.observed_name ? 'noop' : 'unchanged')
+    : task.action
+}
+
+/** A revision read as the server answers it: counts of every category, and the asked one's first `limit`. */
+function revisionOf(
+  members: ReturnType<typeof revisionMembers>,
+  read?: { category: string, limit: number },
+  extra: Record<string, unknown> = {},
+) {
+  const filed = members.map(member => ({
+    ...member,
+    ...(member.task && !member.excluded
+      ? {
+          category: categoryOf(member.task),
+        }
+      : {}),
+  }))
+  const category_counts: Record<string, number> = {}
+  for (const member of filed) {
+    if (member.category)
+      category_counts[member.category] = (category_counts[member.category] ?? 0) + 1
+  }
+  const asked = read
+    ? filed.filter(member => member.category === read.category)
+    : filed
+  return {
+    plan_id: 'p-1',
+    task: { kind: 'rename', schema_version: 1, payload: {} },
+    category_counts,
+    ...(read
+      ? { category_total: asked.length }
+      : {}),
+    members: read
+      ? asked.slice(0, read.limit)
+      : filed,
+    execution: null,
+    ...extra,
+  }
+}
+
 function pageApi(overrides: Partial<ApiClientContract> = {}): ApiClientContract {
   return apiStub({
     getCurrentRecord: vi.fn().mockResolvedValue({ workset }),
@@ -132,16 +178,10 @@ function pageApi(overrides: Partial<ApiClientContract> = {}): ApiClientContract 
       document: { schema_version: 1, common: COMMON[type as 'rename'], members: [] },
       updated_at: '',
     })) as never,
-    getRevision: vi.fn(async (_id: string, type: OperationType) => ({
-      plan_id: 'p-1',
-      task: {
-        kind: type,
-        schema_version: 1,
-        payload: {},
-      },
-      members: revisionMembers(COMPONENTS[type as 'rename']),
-      execution: null,
-    })) as never,
+    getRevision: vi.fn(async (_id: string, type: OperationType, _plan: string, _signal: unknown, read?: { category: string, limit: number }) =>
+      revisionOf(revisionMembers(COMPONENTS[type as 'rename']), read, {
+        task: { kind: type, schema_version: 1, payload: {} },
+      })) as never,
     getTaskSettings: vi.fn(async (type: OperationType) => ({ settings: COMMON[type as 'rename'], etag: '"e1"' })) as never,
     saveTaskSettings: vi.fn(async (_type: OperationType, settings: unknown) => ({ settings, etag: '"e2"' })) as never,
     saveOperationDraft: vi.fn(async () => operationOf('metadata_refresh')),
@@ -331,7 +371,7 @@ describe('task operation page', () => {
     await flushPromises()
     expect(wrapper.get('[data-testid="task-page-metadata_refresh"]').element).toBe(original)
     expect(wrapper.get('[data-testid="results-pane"]').text()).toContain('2/3')
-    expect(api.getExecution).toHaveBeenCalledWith('ws-1', 'metadata_refresh', 'metadata_refresh', expect.any(AbortSignal))
+    expect(api.getExecution).toHaveBeenCalledWith('ws-1', 'metadata_refresh', 'metadata_refresh', expect.any(AbortSignal), { view: 'members' })
     finishRename()
     await flushPromises()
     expect(wrapper.get('[data-testid="task-toast"]').text()).toContain('Lib · 重命名 · 执行')
@@ -395,44 +435,36 @@ describe('task operation page', () => {
   })
 
   it('executes a rename plan that holds a blocked folder and lists only changes', async () => {
-    const { wrapper } = await mountPage('/worksets/lib-1/rename', {
-      getRevision: vi.fn(async () => ({
-        plan_id: 'p-1',
-        counts: { blocked: 1 },
-        task: {
-          kind: 'rename',
-          schema_version: 1,
-          payload: {},
+    const members = [
+      ...revisionMembers([
+        ...COMPONENTS.rename,
+        {
+          member_id: 'm-2',
+          source_name: 'b',
+          work_code: 'RJ02',
+          raw_name: '',
+          target_name: '',
+          action: 'blocked',
+          reason_code: 'TARGET_EXISTS',
         },
-        members: [
-          ...revisionMembers([
-            ...COMPONENTS.rename,
-            {
-              member_id: 'm-2',
-              source_name: 'b',
-              work_code: 'RJ02',
-              raw_name: '',
-              target_name: '',
-              action: 'blocked',
-              reason_code: 'TARGET_EXISTS',
-            },
-            {
-              member_id: 'm-3',
-              source_name: 'c',
-              work_code: 'RJ03',
-              raw_name: '',
-              target_name: 'c',
-              action: 'noop',
-            },
-          ]),
-          {
-            member_id: 'excluded',
-            excluded: true,
-            input: 'none',
-            has_components: false,
-          },
-        ],
-      })) as never,
+        {
+          member_id: 'm-3',
+          source_name: 'c',
+          work_code: 'RJ03',
+          raw_name: '',
+          target_name: 'c',
+          action: 'noop',
+        },
+      ]),
+      {
+        member_id: 'excluded',
+        excluded: true,
+        input: 'none' as const,
+        has_components: false,
+      },
+    ]
+    const { wrapper } = await mountPage('/worksets/lib-1/rename', {
+      getRevision: vi.fn(async (_id, _type, _plan, _signal, read) => revisionOf(members as never, read)) as never,
     })
     expect(wrapper.text()).not.toContain('排除阻塞项后重新生成')
     expect(wrapper.find('[data-testid="execute"]').exists()).toBe(true)
@@ -441,6 +473,36 @@ describe('task operation page', () => {
     expect(wrapper.get('[data-testid="task-plan-table"]').text()).toContain('目标名称已存在')
     expect(wrapper.get('[data-testid="result-tabs"]').text()).toBe('重命名 1跳过 1已手动改名 0')
     expect(wrapper.get('[data-testid="plan-unchanged"]').text()).toBe('1 个名称不变（未显示）')
+  })
+
+  it('lists the skipped folders whole and caps the other tabs at 200 with the rest counted', async () => {
+    const component = (n: number, action: 'rename' | 'blocked'): RenameComponent => ({
+      member_id: `${action}-${n}`,
+      source_name: `${action}-${n}`,
+      work_code: 'RJ01',
+      raw_name: '',
+      target_name: `new-${n}`,
+      action,
+    })
+    const members = revisionMembers([
+      ...Array.from({ length: 205 }, (_, n) => component(n, 'rename')),
+      ...Array.from({ length: 3 }, (_, n) => component(n, 'blocked')),
+    ])
+    const { wrapper, api } = await mountPage('/worksets/lib-1/rename', {
+      getRevision: vi.fn(async (_id, _type, _plan, _signal, read) => revisionOf(members, read)) as never,
+    })
+    // Opens on the skipped folders, all of them, in one read of that category.
+    expect(api.getRevision).toHaveBeenCalledWith('ws-1', 'rename', 'p-1', expect.anything(), { category: 'blocked', limit: 10_000 })
+    expect(api.getRevision).not.toHaveBeenCalledWith('ws-1', 'rename', 'p-1', expect.anything(), undefined)
+    expect(wrapper.get('[data-testid="result-tabs"]').text()).toBe('重命名 205跳过 3已手动改名 0')
+    expect(wrapper.get('[data-testid="task-plan-table"]').findAll('li')).toHaveLength(3)
+    expect(wrapper.find('[data-testid="plan-more"]').exists()).toBe(false)
+
+    await wrapper.get('[data-testid="tab-rename"]').trigger('click')
+    await flushPromises()
+    expect(api.getRevision).toHaveBeenCalledWith('ws-1', 'rename', 'p-1', expect.anything(), { category: 'rename', limit: 200 })
+    expect(wrapper.get('[data-testid="task-plan-table"]').findAll('li')).toHaveLength(200)
+    expect(wrapper.get('[data-testid="plan-more"]').text()).toBe('另有 5 条')
   })
 
   it('saves a folder name into the draft next to the other records', async () => {
@@ -494,128 +556,160 @@ describe('task operation page', () => {
     )
   })
 
-  it('shows recovered rename results while the session stays interrupted', async () => {
-    const { wrapper } = await mountPage('/worksets/lib-1/rename', {
+  it('shows member counts and the exceptions of a rename session, with no success tab', async () => {
+    const attention = (n: number) => ({
+      member_id: `m-${n}`,
+      root_path: `/music/f${n}`,
+      status: 'failed',
+      total_components: 1,
+      completed_components: 0,
+      total_operations: 1,
+      completed_operations: 0,
+      error_message: `boom ${n}`,
+      inventory_sync_error: '',
+    })
+    const { wrapper, api } = await mountPage('/worksets/lib-1/rename', {
       getRevision: vi.fn(async () => ({
-        plan_id: 'p-1',
-        task: {
-          kind: 'rename',
-          schema_version: 1,
-          payload: {},
-        },
+        ...revisionOf(revisionMembers(COMPONENTS.rename)),
         execution: { execution_id: 'e-1' },
       })) as never,
-      getExecution: vi.fn(async () => ({
-        execution_id: 'e-1',
-        status: 'interrupted',
-        completed_components: 1,
-        total_components: 2,
-        components: [
-          {
-            component_id: 'm-1',
-            root_path: '/music/a',
-            status: 'succeeded',
-            task_result: {
-              source_path: '/music/a',
-              target_path: '/music/title',
-              renamed: true,
-              recovered: true,
+      getExecution: vi.fn(async (_ws, _op, _id, _signal, read) => read?.memberId
+        ? {
+            execution_id: 'e-1',
+            status: 'interrupted',
+            components: [
+              {
+                component_id: 'm-1',
+                root_path: '/music/f1',
+                status: 'failed',
+                task_result: {
+                  source_path: '/music/f1',
+                  target_path: '/music/title',
+                  renamed: true,
+                  rolled_back: true,
+                },
+              },
+            ],
+          }
+        : {
+            execution_id: 'e-1',
+            status: 'interrupted',
+            completed_components: 1,
+            total_components: 54,
+            members: {
+              counts: {
+                succeeded: 49,
+                failed: 5,
+                canceled: 0,
+                running: 0,
+                pending: 0,
+              },
+              attention: [
+                attention(1),
+                attention(2),
+              ],
+              attention_total: 5,
             },
-          },
-        ],
-      })) as never,
+          }) as never,
     })
+    expect(api.getExecution).toHaveBeenCalledWith('ws-1', 'rename', 'e-1', expect.any(AbortSignal), { view: 'members' })
     expect(wrapper.get('[data-testid="results-pane"]').text()).toContain('已中断')
-    // Results open on the failures; a recovered rename counts as a success.
-    expect(wrapper.find('[data-testid="rename-results"]').exists()).toBe(false)
-    await wrapper.get('[data-testid="tab-succeeded"]').trigger('click')
-    expect(wrapper.get('[data-testid="rename-results"]').text()).toContain('已改名（启动恢复）')
-    expect(wrapper.get('[data-testid="rename-results"]').text()).toContain('/music/title')
+    expect(wrapper.get('[data-testid="execution-count-succeeded"]').text()).toBe('49')
+    expect(wrapper.get('[data-testid="execution-count-failed"]').text()).toBe('5')
+    expect(wrapper.findAll('[data-testid="execution-attention-item"]')).toHaveLength(2)
+    expect(wrapper.get('[data-testid="execution-attention-more"]').text()).toBe('另有 3 个')
+    expect(wrapper.find('[data-testid="tab-succeeded"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="task-member-result"]').exists()).toBe(false)
+
+    // A member's own result is read only when the reader opens it.
+    await wrapper.get('[data-testid="execution-member-open"]').trigger('click')
+    await flushPromises()
+    expect(api.getExecution).toHaveBeenCalledWith('ws-1', 'rename', 'e-1', expect.any(AbortSignal), { memberId: 'm-1' })
+    expect(wrapper.get('[data-testid="task-member-result"]').text()).toContain('失败（已恢复原名称）')
     expect(wrapper.find('[data-testid="execute"]').exists()).toBe(false)
   })
 
   it('summarizes the metadata plan as a count', async () => {
-    const { wrapper } = await mountPage('/worksets/lib-1/metadata', {
-      getRevision: vi.fn().mockResolvedValue({
-        plan_id: 'p-1',
-        task: { kind: 'metadata_refresh', schema_version: 1, payload: {} },
-        members: [
-          ...revisionMembers([
-            ...COMPONENTS.metadata_refresh,
-            { ...COMPONENTS.metadata_refresh[0], member_id: 'covered', action: 'cover' },
-            {
-              ...COMPONENTS.metadata_refresh[0],
-              member_id: 'unbound',
-              action: 'skip',
-              reason_code: 'NO_WORK_BINDING',
-            },
-          ]),
-          {
-            member_id: 'excluded',
-            excluded: true,
-            input: 'none',
-            has_components: false,
-          },
-        ],
-      }),
+    const members = [
+      ...revisionMembers([
+        ...COMPONENTS.metadata_refresh,
+        { ...COMPONENTS.metadata_refresh[0], member_id: 'covered', action: 'cover' },
+        {
+          ...COMPONENTS.metadata_refresh[0],
+          member_id: 'unbound',
+          action: 'skip',
+          reason_code: 'NO_WORK_BINDING',
+        },
+      ]),
+      {
+        member_id: 'excluded',
+        excluded: true,
+        input: 'none' as const,
+        has_components: false,
+      },
+    ]
+    const { wrapper, api } = await mountPage('/worksets/lib-1/metadata', {
+      getRevision: vi.fn(async (_id, _type, _plan, _signal, read) => revisionOf(members as never, read)) as never,
     })
 
+    // The page needs only the counts: it reads one member, never the whole list.
+    expect(api.getRevision).toHaveBeenCalledWith('ws-1', 'metadata_refresh', 'p-1', expect.anything(), { category: 'refresh', limit: 1 })
     expect(wrapper.get('[data-testid="metadata-plan-count"]').text()).toBe('标签语言 日本語 · 将刷新 1 个 · 跳过 2 个')
     expect(wrapper.find('[data-testid="task-plan-table"]').exists()).toBe(false)
   })
 
-  it('lists only the works whose metadata fetch failed', async () => {
-    const component = {
-      root_path: '/music/a',
-      partition: 'matched',
-      operations: 1,
-      completed_operations: 1,
-      committed: [],
-      removed: [],
-      remaining: [],
-      recovery: [],
-      inventory_synced: true,
-    }
-    const { wrapper } = await mountPage('/worksets/lib-1/metadata', {
+  it('lists only the failed members of a metadata session and reads a failure on demand', async () => {
+    const { wrapper, api } = await mountPage('/worksets/lib-1/metadata', {
       getRevision: vi.fn(async () => ({
-        plan_id: 'p-1',
-        task: {
-          kind: 'metadata_refresh',
-          schema_version: 1,
-          payload: {},
-        },
+        ...revisionOf(revisionMembers(COMPONENTS.metadata_refresh)),
+        task: { kind: 'metadata_refresh', schema_version: 1, payload: {} },
         execution: { execution_id: 'e-1' },
       })) as never,
-      getExecution: vi.fn(async () => ({
-        execution_id: 'e-1',
-        status: 'succeeded',
-        total_components: 2,
-        completed_components: 2,
-        error_message: '',
-        components: [
-          {
-            ...component,
-            component_index: 0,
-            component_id: 'c-1',
+      getExecution: vi.fn(async (_ws, _op, _id, _signal, read) => read?.memberId
+        ? {
+            execution_id: 'e-1',
             status: 'succeeded',
-            task_result: {
-              rj: 'RJ01',
-              issues: [
-                { source: 'asmr.one', code: 'BACKUP_FAILED', message: 'x' },
+            components: [
+              {
+                component_id: 'c-2',
+                root_path: '/music/a',
+                status: 'failed',
+                error_code: 'METADATA_UNAVAILABLE',
+                error_message: 'not found',
+                task_result: { rj: 'RJ02' },
+              },
+            ],
+          }
+        : {
+            execution_id: 'e-1',
+            status: 'succeeded',
+            total_components: 2,
+            completed_components: 2,
+            error_message: '',
+            members: {
+              counts: {
+                succeeded: 1,
+                failed: 1,
+                canceled: 0,
+                running: 0,
+                pending: 0,
+              },
+              attention: [
+                {
+                  member_id: 'm-1',
+                  root_path: '/music/a',
+                  status: 'failed',
+                  total_components: 1,
+                  completed_components: 1,
+                  total_operations: 1,
+                  completed_operations: 0,
+                  error_message: 'not found',
+                  inventory_sync_error: '',
+                },
               ],
+              attention_total: 1,
             },
-          },
-          {
-            ...component,
-            component_index: 1,
-            component_id: 'c-2',
-            status: 'failed',
-            error_code: 'METADATA_UNAVAILABLE',
-            error_message: 'not found',
-            task_result: { rj: 'RJ02' },
-          },
-        ],
-      })) as never,
+          }) as never,
       getExecutionCovers: vi.fn(async () => ({
         items: [],
         counts: {
@@ -629,13 +723,16 @@ describe('task operation page', () => {
       })) as never,
     })
 
-    const rows = wrapper.get('[data-testid="execution-failures"]').findAll('li')
+    const rows = wrapper.get('[data-testid="execution-attention"]').findAll('li')
     expect(rows).toHaveLength(1)
-    expect(rows[0].text()).toContain('RJ02')
-    expect(rows[0].text()).toContain('元数据获取失败')
-    expect(wrapper.get('[data-testid="result-tabs"]').text()).toBe('失败 1成功 1')
-    await wrapper.get('[data-testid="tab-succeeded"]').trigger('click')
-    expect(wrapper.get('[data-testid="execution-failures"]').text()).toContain('RJ01')
+    expect(rows[0].text()).toContain('not found')
+    expect(wrapper.find('[data-testid="execution-attention-more"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="tab-succeeded"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="covers"]').exists()).toBe(true)
+    await wrapper.get('[data-testid="execution-member-open"]').trigger('click')
+    await flushPromises()
+    expect(api.getExecution).toHaveBeenCalledWith('ws-1', 'metadata_refresh', 'e-1', expect.any(AbortSignal), { memberId: 'm-1' })
+    expect(wrapper.get('[data-testid="task-member-result"]').text()).toBe('RJ02 · 元数据获取失败')
   })
 
   it('saves metadata settings and executes the current plan', async () => {

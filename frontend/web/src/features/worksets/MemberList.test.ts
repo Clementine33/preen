@@ -217,7 +217,7 @@ it('offers 执行结果 only for members inside the current execution session', 
   // A whole-revision run (empty scope) covers every member.
   const whole = await buttons([])
   expect(whole.findAll('[data-testid="member-execution"]')).toHaveLength(2)
-  // A scoped run covers only its folders (record-relative paths).
+  // A scoped run covers only its members, by member id.
   const scoped = await buttons(['b'])
   const only = scoped.findAll('[data-testid="member-execution"]')
   expect(only).toHaveLength(1)

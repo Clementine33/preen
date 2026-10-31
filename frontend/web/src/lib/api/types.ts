@@ -702,23 +702,27 @@ export interface WorksetListResponse {
   next_cursor?: string
 }
 
-/** Why a selected directory did not become a member of the record. */
-export type SkippedReason
-  = | 'no_audio'
-    | 'missing'
-    | 'recovery_dir'
-    | 'duplicate'
-    | 'invalid_path'
-    | 'not_work_root'
+/** Why a selected directory id did not become a member of the record. */
+export type SkippedReason = 'unknown_dir' | 'duplicate' | 'ambiguous'
 
 export interface SkippedFolder {
-  path: string
+  dir_id: string
   reason: SkippedReason
 }
 
+/** The members of a record, by rule over the overview's `dir_id`s. */
+export type RecordSelection
+  = | { all: true, except_dir_ids: string[] }
+    | { dir_ids: string[] }
+
+/** The members a session runs: these, or every member but these. */
+export type ExecutionScope
+  = | { member_ids: string[] }
+    | { all_except_member_ids: string[] }
+
 /** The create-or-replace payload of a library's current record. */
 export interface CreateRecordInput {
-  folder_paths: string[]
+  selection: RecordSelection
   /** The record the caller saw as current; absent when it saw none. */
   expected_current_id?: string
   title?: string
@@ -1036,10 +1040,10 @@ export interface ExecutionView {
   /** `member_id=`: the member this read is about. */
   member?: MemberSummary
   /**
-   * The scope this session ran: record-relative paths, absent for a whole
-   *  revision. The folders it left out are the next plan's work.
+   * The scope this session ran: member ids, absent for a whole revision. The
+   *  members it left out are the next plan's work.
    */
-  selected_folders?: string[]
+  selected_member_ids?: string[]
   error_code: string
   error_message: string
   started_at: string
@@ -1264,6 +1268,8 @@ export interface MemberConclusion<T = ConversionMemberConclusion> {
   input: 'none' | 'valid' | 'stale' | 'missing' | 'unavailable'
   has_components: boolean
   task?: T
+  /** The Task-defined filing frozen at generation; absent when it declares none. */
+  category?: string
 }
 
 /** One member of a frozen revision: effective settings plus unit provenance. */
@@ -1312,6 +1318,10 @@ export interface RevisionDetailResponse<P = Omit<ConversionPlanPayload, 'compone
   counts: RevisionCounts
   /** Server conclusions; full frozen inputs belong to member review. */
   members: MemberConclusion<T>[]
+  /** Member conclusions per Task-defined category. */
+  category_counts: Record<string, number>
+  /** A category read only: that category's full size, of which `members` holds the first `limit`. */
+  category_total?: number
   /** The session that ran this revision, if any (a revision runs at most once). */
   execution: ExecutionRef | null
 }
@@ -1429,12 +1439,14 @@ export interface ApiClientContract {
     operation: OperationType,
     planId: string,
     signal?: AbortSignal,
+    /** Only that category's first `limit` member conclusions, in frozen order. */
+    category?: { category: string, limit: number },
   ) => Promise<RevisionDetailResponse>
   startExecution: (
     worksetId: string,
     operation: OperationType,
     planId: string,
-    input: { ifMatchVersion: number, idempotencyKey: string, folderPaths?: string[] },
+    input: { ifMatchVersion: number, idempotencyKey: string, scope?: ExecutionScope },
   ) => Promise<StartExecutionResponse>
   getExecution: (
     worksetId: string,

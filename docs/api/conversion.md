@@ -225,7 +225,7 @@ file is accepted on its codec.
 may be `UNMET_TARGETS`. New operation drafts seed `mode: "available_sources"`.
 
 A record's scope is fixed once created: it is replaced, never re-scanned in
-place. `folder_paths` come from `GET /api/v1/libraries/:id/dirs` of the owning
-library, as library-relative paths.
+place. The `dir_id`s in the creation `selection` come from
+`GET /api/v1/libraries/:id/dirs` of the owning library.
 
 Use the shared [operation routes and versions](worksets.md) and [execution sessions](executions.md#execution-sessions). Reusable classifier tags are supplied by the [classifier tag library](policies.md).

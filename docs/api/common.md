@@ -217,8 +217,8 @@ exit can still leave unfinished filesystem changes requiring inspection.
 | --- | --- | --- | --- | --- |
 | GET | `/api/v1/health` | no | 200 | Object with `ok: true`, `version: string`, `workset_max_members: integer` |
 
-`workset_max_members` is the positive integer limit on selected folder paths
-when creating a workset (current value in the [workset contract](worksets.md#creating-the-current-record)). It comes from the same backend limit used to reject
+`workset_max_members` is the positive integer limit on the members of a workset
+(the resolved selection) when creating it (current value in the [workset contract](worksets.md#creating-the-current-record)). It comes from the same backend limit used to reject
 `INVALID_FOLDER_COUNT`; clients must not keep a separate numeric constant.
 The web app reads health at startup and shares it with the overview and About
 settings. An unknown limit (loading, failed request, or an older server that

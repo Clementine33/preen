@@ -7,21 +7,28 @@ import (
 )
 
 // recordCreateRequest is the PUT
-// /api/v1/libraries/{id}/operations/{type}/current payload. folder_paths are
-// library-relative member directories — the same identity the overview lists —
+// /api/v1/libraries/{id}/operations/{type}/current payload. selection names
+// the members by the directory ids the overview lists — `all` with
+// `except_dir_ids`, or `dir_ids` — so the body does not grow with path length,
 // and expected_current_id is the record the caller saw as current (absent when
 // it saw none), which is what turns a concurrent replace into a conflict
 // instead of an overwrite.
 type recordCreateRequest struct {
-	FolderPaths       []string `json:"folder_paths"`
-	ExpectedCurrentID string   `json:"expected_current_id"`
-	Title             string   `json:"title"`
+	Selection         selectionRequest `json:"selection"`
+	ExpectedCurrentID string           `json:"expected_current_id"`
+	Title             string           `json:"title"`
 }
 
-// skippedFolderResponse is one selected directory that did not become a
+type selectionRequest struct {
+	All          bool     `json:"all"`
+	ExceptDirIDs []string `json:"except_dir_ids"`
+	DirIDs       []string `json:"dir_ids"`
+}
+
+// skippedFolderResponse is one selected directory id that did not become a
 // member, with the reason the scope is narrower than the selection.
 type skippedFolderResponse struct {
-	Path   string `json:"path"`
+	DirID  string `json:"dir_id"`
 	Reason string `json:"reason"`
 }
 
@@ -86,10 +93,14 @@ func (s *Server) putCurrentRecord(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	result, err := svc.CreateCurrentWorkset(r.Context(), workset.CreateCurrentRequest{
-		LibraryID:         r.PathValue("id"),
-		OperationType:     r.PathValue("type"),
-		Title:             req.Title,
-		FolderPaths:       req.FolderPaths,
+		LibraryID:     r.PathValue("id"),
+		OperationType: r.PathValue("type"),
+		Title:         req.Title,
+		Selection: workset.Selection{
+			All:          req.Selection.All,
+			ExceptDirIDs: req.Selection.ExceptDirIDs,
+			DirIDs:       req.Selection.DirIDs,
+		},
 		ExpectedCurrentID: req.ExpectedCurrentID,
 		IdempotencyKey:    r.Header.Get("Idempotency-Key"),
 	})
@@ -99,7 +110,7 @@ func (s *Server) putCurrentRecord(w http.ResponseWriter, r *http.Request) {
 	}
 	skipped := make([]skippedFolderResponse, 0, len(result.Skipped))
 	for _, item := range result.Skipped {
-		skipped = append(skipped, skippedFolderResponse{Path: item.Path, Reason: item.Reason})
+		skipped = append(skipped, skippedFolderResponse{DirID: item.DirID, Reason: item.Reason})
 	}
 	status := http.StatusCreated
 	if !result.Created {

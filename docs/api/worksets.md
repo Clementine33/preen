@@ -27,22 +27,37 @@ only release databases upgrade, through migrations (ADR 0011).
 shared batch and seeds every registered Task's independent draft from its
 common settings. The existing `{type}` entry point validates a registered
 Task; it does not select a separate batch. GET through any registered Task
-returns the same `workset_id` and member identities. It validates the requested scope against the **scanned
-inventory** — the same listing the caller selected from — and reports every
-directory that did not become a member instead of dropping it silently:
+returns the same `workset_id` and member identities.
+
+The body names the members by rule over the `dir_id`s that
+`GET /api/v1/libraries/{id}/dirs` lists, so its size does not grow with path
+length. `selection` is one of:
+
+```json
+{ "selection": { "all": true, "except_dir_ids": ["…"] } }
+{ "selection": { "dir_ids": ["…"] } }
+```
+
+`all` means every scanned work root at the moment the request is read, minus
+`except_dir_ids`; an unknown id in `except_dir_ids` is ignored. `recorded`
+reports the member count actually written, which differs from what the caller
+saw when the inventory changed in between — the server does not refuse, the
+client compares. Giving `dir_ids` together with `all`, or `except_dir_ids`
+without `all`, is `INVALID_SELECTION` (400). Members are ordered by the
+inventory path, whatever order the ids were sent in. Every id that did not
+become a member is reported instead of dropped silently:
 
 | `skipped[].reason` | Meaning |
 | --- | --- |
-| `missing` | the inventory does not know it as a directory of this root |
-| `not_work_root` | a scanned directory is not marked as a work root |
-| `recovery_dir` | `Delete/` and its descendants at any depth are not members |
-| `invalid_path` | not a plain library-relative path |
-| `duplicate` | selected more than once |
+| `unknown_dir` | no scanned work root of this library has that id |
+| `duplicate` | the id was selected more than once |
+| `ambiguous` | two directories claim the id; it names neither ([ADR 0003](../adr/0003-directory-identity.md)) |
 
 A selection whose every entry is unusable creates nothing and answers
-`NO_MEMBERS` (400), with the skipped paths in `details`. Batch membership does
+`NO_MEMBERS` (400), with the skipped ids in `details`. Batch membership does
 not depend on the entry-point Task or on audio count. More than 2,000
-selected paths is `INVALID_FOLDER_COUNT` (400) — never a silent truncation.
+resolved members, or more than 2,000 listed `dir_ids`, is
+`INVALID_FOLDER_COUNT` (400) — never a silent truncation.
 The current limit is advertised as `workset_max_members` by
 [`GET /api/v1/health`](common.md#health-endpoint). The overview shows selected
 count / limit and disables task entry above that limit, with an explanation.
@@ -76,7 +91,7 @@ All routes require auth and use the [standard error envelope](common.md#error-en
 | Method | Path | Behavior |
 | --- | --- | --- |
 | GET | `/api/v1/libraries/{id}/operations/{type}/current` | The library's shared current batch (the same for every registered type), or `{"workset": null}` with 200 when it has none. A library that does not exist is 404. |
-| PUT | `/api/v1/libraries/{id}/operations/{type}/current` | Create or replace. Body `{"folder_paths":[...],"expected_current_id":"…","title":"…"}` (title optional; the library's name is the default), `Idempotency-Key` optional (`INVALID_IDEMPOTENCY_KEY` when malformed, and an absent key means the call is never a replay). 201 `{"workset":…,"created":true,"recorded":N,"skipped":[{"path","reason"}]}`; 200 for an idempotent replay. The new record and the disappearance of the one it replaces — members and every operation, draft, plan and session — are atomic. Unfinished cover demands are canceled at the same boundary; stored payload is removed in background batches. |
+| PUT | `/api/v1/libraries/{id}/operations/{type}/current` | Create or replace. Body `{"selection":{…},"expected_current_id":"…","title":"…"}` (`selection` as in [Creating the current record](#creating-the-current-record)) (title optional; the library's name is the default), `Idempotency-Key` optional (`INVALID_IDEMPOTENCY_KEY` when malformed, and an absent key means the call is never a replay). 201 `{"workset":…,"created":true,"recorded":N,"skipped":[{"dir_id","reason"}]}`; 200 for an idempotent replay. The new record and the disappearance of the one it replaces — members and every operation, draft, plan and session — are atomic. Unfinished cover demands are canceled at the same boundary; stored payload is removed in background batches. |
 | GET | `/api/v1/worksets` | Keyset list (`limit`, `cursor` → `next_cursor`, `library_id`, `status=active` excludes orphaned). |
 | GET | `/api/v1/worksets/{id}` | Metadata view: `workset_id`, `title`, `version`, `library`, `members[]`, `created_at`, `updated_at`; no operations. Member coverage and planning state belong to an operation, never to the member or the workset. |
 | PATCH | `/api/v1/worksets/{id}` | Rename only. `If-Match` = workset metadata version (`VERSION_REQUIRED` without it, `VERSION_CONFLICT` when stale, `ORPHANED_WORKSET` when the library is gone). |
@@ -87,10 +102,10 @@ All routes require auth and use the [standard error envelope](common.md#error-en
 | GET | `/api/v1/worksets/{id}/operations/{type}/planning-sessions/{genId}` | Session detail. Statuses `queued`, `running`, `completed`, `failed`, `canceled`, `interrupted`. A session of another workset or operation is 404. |
 | GET | `/api/v1/worksets/{id}/operations/{type}/planning-sessions/{genId}/events` | SSE progress (`session_snapshot`, `progress`, terminal event). |
 | POST | `/api/v1/worksets/{id}/operations/{type}/planning-sessions/{genId}/cancel` | Cooperative cancel; idempotent on terminal sessions. |
-| GET | `/api/v1/worksets/{id}/operations/{type}/revisions/{planId}` | Lightweight detail of the record's **current** plan (a replaced plan returns 404 `REVISION_NOT_FOUND`): `plan_id`, `revision_index`, `created_at`, `root_path`, `snapshot_token`, `status`, `summary`, `counts`, `execution`, `task: {kind, schema_version, payload}` (frozen policy, policy hash, classifier and step summary, without `components`), and `members[]` containing Member Conclusions directly (`member_id`, `excluded`, `input`, `has_components`, task-owned `task`). No `roots`, `component_roots`, member settings or sources. Cache by plan with finite freshness and refresh on re-entry after expiry: input validation and execution can change while the plan id stays unchanged. |
+| GET | `/api/v1/worksets/{id}/operations/{type}/revisions/{planId}` | Lightweight detail of the record's **current** plan (a replaced plan returns 404 `REVISION_NOT_FOUND`): `plan_id`, `revision_index`, `created_at`, `root_path`, `snapshot_token`, `status`, `summary`, `counts`, `execution`, `category_counts`, `task: {kind, schema_version, payload}` (frozen policy, policy hash, classifier and step summary, without `components`), and `members[]` containing Member Conclusions directly (`member_id`, `excluded`, `input`, `has_components`, task-owned `task`, optional `category`). `category_counts` maps each task-defined category to its member count (members filed under no category are not counted; a task that declares none yields `{}`). Optional `?category=X&limit=N` (both required together, `limit` a positive integer; otherwise 400 `INVALID_ARGUMENT`) narrows `members[]` to the first N conclusions of that category in the record's member order and adds `category_total`, that category's full size; without them the shape is unchanged. No `roots`, `component_roots`, member settings or sources. Cache by plan with finite freshness and refresh on re-entry after expiry: input validation and execution can change while the plan id stays unchanged. |
 | GET | `/api/v1/worksets/{id}/operations/{type}/revisions/{planId}/members/{memberId}` | One member's Plan Review: `plan_id`, `member_id`, `member_name`, `folder_path`, `excluded`, frozen `effective` and per-unit `sources` (`common` / `member`), `conclusion`, its input `roots[]` (root index/path, status/error, stale flag, inventory fingerprint and entry count), and `task: {kind, schema_version, payload}` with only its complete task `components[]`. Component ownership is resolved by the server; no `component_roots` table is needed. Excluded members and members without planning input return 200 with empty components. 404 `MEMBER_NOT_FOUND` means the member is outside this record; 404 `REVISION_NOT_FOUND` means the plan is no longer current. After a replaced-plan response, refresh the operation and read the member under its new current plan. Cache by plan and member with finite freshness: input validation may change without a new plan. |
-| POST | `/api/v1/worksets/{id}/operations/{type}/revisions/{planId}/executions` | Execute the operation's current revision (see [Execution sessions](executions.md#execution-sessions)), optionally scoped to some of its folders. Body optional: `{"folder_paths":["albumA",…]}` — record-relative member paths; absent or empty runs the whole revision. The worklist and the session options (the obsolete-audio handling the draft declares) are always the frozen revision's. `If-Match` (operation version) and `Idempotency-Key` are both required. 202 `{"created":true,"execution":…}`; 200 with the same session for a key replay. |
-| GET | `/api/v1/worksets/{id}/operations/{type}/executions/{executionId}` | Session detail, including each component's result. Optional `view=members` (per-member summaries instead of components) or `member_id` (one member's components), see [executions](executions.md); a session of another workset or operation is 404. |
+| POST | `/api/v1/worksets/{id}/operations/{type}/revisions/{planId}/executions` | Execute the operation's current revision (see [Execution sessions](executions.md#execution-sessions)), optionally scoped to some of its members. Body optional: `{"member_ids":[…]}` runs those members, `{"all_except_member_ids":[…]}` every member but those; absent or empty runs the whole revision. The worklist and the session options (the obsolete-audio handling the draft declares) are always the frozen revision's. `If-Match` (operation version) and `Idempotency-Key` are both required. 202 `{"created":true,"execution":…}`; 200 with the same session for a key replay. |
+| GET | `/api/v1/worksets/{id}/operations/{type}/executions/{executionId}` | Session detail, including each component's result. Optional `view=members` (per-member summaries instead of components; every operation type supports it) or `member_id` (one member's components), see [executions](executions.md); a session of another workset or operation is 404. |
 | GET | `/api/v1/worksets/{id}/operations/{type}/executions/{executionId}/events` | SSE execution stream (`execution_snapshot`, `component`, `progress`, terminal event). |
 | POST | `/api/v1/worksets/{id}/operations/{type}/executions/{executionId}/cancel` | Cooperative cancel; idempotent on terminal sessions (200 with the session either way). |
 
@@ -129,4 +144,4 @@ session may have an empty `revision_id` because the old plan was deleted. A
 client observing that result should refresh the current operation and report
 that the original plan was replaced, without requesting the deleted revision.
 
-Member `rel_path` and creation `folder_paths` may contain nested library-relative paths, for example `分类/RJ000001 album`. Classification directories and internal directories of a work are not members. Audio count never filters the shared batch; conversion plans the observed audio within each participating member.
+Member `rel_path` may contain nested library-relative paths, for example `分类/RJ000001 album`. Classification directories and internal directories of a work are not members. Audio count never filters the shared batch; conversion plans the observed audio within each participating member.

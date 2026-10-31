@@ -40,6 +40,12 @@ test('select one batch and reuse its members and independent plans across tasks'
       return (await response.json()).workset
     }
     const batch = await readRecord('conversion')
+    // The workset view holds no operations: a task's plan is read from its own operation.
+    const readPlanId = async (kind: string) => {
+      const response = await page.request.get(`${api}/worksets/${batch.workset_id}/operations/${kind}`)
+      expect(response.status(), await response.text()).toBe(200)
+      return (await response.json()).current_revision.plan_id as string
+    }
     for (const kind of ['rename', 'metadata_refresh']) {
       const record = await readRecord(kind)
       expect(record.workset_id).toBe(batch.workset_id)
@@ -54,7 +60,7 @@ test('select one batch and reuse its members and independent plans across tasks'
     await expect(page.getByTestId('task-page-metadata_refresh')).toContainText('2 个文件夹')
     await page.getByTestId('generate').click()
     await expect(page.getByTestId('metadata-plan-count')).toContainText('将刷新 2 个')
-    const metadata = (await readRecord('metadata_refresh')).operations.find((op: { operation_type: string }) => op.operation_type === 'metadata_refresh')
+    const metadataPlanId = await readPlanId('metadata_refresh')
 
     await page.goto(overview)
     await page.getByTestId('nav-conversion').click()
@@ -63,7 +69,7 @@ test('select one batch and reuse its members and independent plans across tasks'
     await expect(page.getByTestId('operation-counts')).toBeVisible()
     const after = await readRecord('conversion')
     expect(after.members).toEqual(batch.members)
-    expect(after.operations.find((op: { operation_type: string }) => op.operation_type === 'metadata_refresh').current_revision.plan_id).toBe(metadata.current_revision.plan_id)
+    expect(await readPlanId('metadata_refresh')).toBe(metadataPlanId)
     expect(creations).toBe(1)
   }
   finally {

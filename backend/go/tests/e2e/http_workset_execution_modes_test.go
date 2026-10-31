@@ -40,15 +40,56 @@ func executionDraft(codec string, bitrate int, deleteMode string) map[string]any
 	}
 }
 
+// start runs the revision, scoped to the named member folders when any are
+// given: through member_ids for the listed ones, or all_except_member_ids for
+// every other member of the record.
 func (f *execFixtureHTTP) start(t *testing.T, folders ...string) executionView {
 	t.Helper()
+	return f.startScoped(t, "member_ids", folders...)
+}
+
+func (f *execFixtureHTTP) startScoped(t *testing.T, field string, folders ...string) executionView {
+	t.Helper()
+	body := map[string]any{}
+	if len(folders) > 0 {
+		var ws struct {
+			Members []struct {
+				MemberID string `json:"member_id"`
+				RelPath  string `json:"rel_path"`
+			} `json:"members"`
+		}
+		if code := doJSON(
+			t,
+			f.client,
+			f.ctx,
+			f.base,
+			http.MethodGet,
+			f.wsPath,
+			f.token,
+			nil,
+			&ws,
+		); code != http.StatusOK {
+			t.Fatalf("read record: %d", code)
+		}
+		listed := map[string]bool{}
+		for _, name := range folders {
+			listed[name] = true
+		}
+		ids := []string{}
+		for _, m := range ws.Members {
+			if listed[m.RelPath] {
+				ids = append(ids, m.MemberID)
+			}
+		}
+		body[field] = ids
+	}
 	var started struct {
 		Execution executionView `json:"execution"`
 	}
 	if code := doJSONWithHeaders(t, f.client, f.ctx, f.base, http.MethodPost,
 		f.opPath+"/revisions/"+f.revision+"/executions", f.token,
 		map[string]string{"Idempotency-Key": "exec-mode", "If-Match": strconv.Itoa(f.opVersion)},
-		map[string]any{"folder_paths": folders}, &started); code != http.StatusAccepted {
+		body, &started); code != http.StatusAccepted {
 		t.Fatalf("start execution: %d", code)
 	}
 	return started.Execution
@@ -115,19 +156,19 @@ func TestHTTPWorksetExecutionScopedFolders(t *testing.T) {
 		before[file] = requireFile(t, filepath.Join(left, file))
 	}
 	f := setupScannedWorkset(t, buildBackendBinary(t), dataDir, root, []string{leftName, chosenName}, nil)
-	started := f.start(t, chosenName)
+	started := f.startScoped(t, "all_except_member_ids", leftName)
 	done := waitForTerminalExecution(t, f.client, f.ctx, f.base, f.opPath, started.ExecutionID, f.token)
 	if done.Status != "succeeded" || len(done.Components) != 1 ||
 		done.Components[0].RootPath != filepath.ToSlash(chosen) {
 		t.Fatalf("scoped execution = %+v", done)
 	}
 	var scope struct {
-		SelectedFolders []string `json:"selected_folders"`
+		SelectedMemberIDs []string `json:"selected_member_ids"`
 	}
 	if code := doJSON(t, f.client, f.ctx, f.base, http.MethodGet,
 		f.opPath+"/executions/"+started.ExecutionID, f.token, nil, &scope); code != http.StatusOK ||
-		len(scope.SelectedFolders) != 1 || scope.SelectedFolders[0] != chosenName {
-		t.Fatalf("selected folders = %d %+v", code, scope)
+		len(scope.SelectedMemberIDs) != 1 {
+		t.Fatalf("selected member ids = %d %+v", code, scope)
 	}
 	for file, data := range before {
 		if !bytes.Equal(data, requireFile(t, filepath.Join(left, file))) {
@@ -144,7 +185,7 @@ func TestHTTPWorksetExecutionScopedFolders(t *testing.T) {
 	if code := doJSONWithHeaders(t, f.client, f.ctx, f.base, http.MethodPost,
 		f.opPath+"/revisions/"+f.revision+"/executions", f.token,
 		map[string]string{"Idempotency-Key": "exec-other", "If-Match": strconv.Itoa(f.opVersion)},
-		map[string]any{"folder_paths": []string{leftName}}, &conflict); code != http.StatusConflict ||
+		map[string]any{}, &conflict); code != http.StatusConflict ||
 		conflict.Code != "PLAN_NOT_EXECUTABLE" {
 		t.Fatalf("second execution = %d %+v", code, conflict)
 	}

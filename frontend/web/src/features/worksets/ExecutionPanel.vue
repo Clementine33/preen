@@ -57,7 +57,7 @@ const hiddenAttention = computed(() => Math.max(0, (memberBlock.value?.attention
  * find out from a missing card.
  */
 const scope = computed(() => {
-  const selected = props.view.selected_folders ?? []
+  const selected = props.view.selected_member_ids ?? []
   const total = props.members?.length ?? 0
   if (selected.length === 0 || total === 0 || selected.length >= total)
     return null

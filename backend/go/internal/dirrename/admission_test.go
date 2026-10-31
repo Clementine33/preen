@@ -45,7 +45,7 @@ func metadataRecord(t *testing.T, f renameRun, otherLibrary bool) string {
 		workset.CreateCurrentRequest{
 			LibraryID:     libraryID,
 			OperationType: "metadata_refresh",
-			FolderPaths:   []string{f.member.RelPath},
+			Selection:     workset.Selection{All: true},
 		},
 	)
 	if err != nil {

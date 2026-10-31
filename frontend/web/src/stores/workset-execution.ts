@@ -177,6 +177,10 @@ export const useWorksetExecutionStore = defineStore('workset-execution', {
       this.receivedEvent = true
       switch (event.type) {
         case 'execution_snapshot': {
+          // The held components are replaced wholesale, never mutated: keep the
+          // large list free of per-entry reactive proxies.
+          if (event.data.components)
+            markRaw(event.data.components)
           this.view = event.data
           this.memberTick = { seq: this.memberTick.seq + 1, memberId: null }
           break
@@ -222,7 +226,7 @@ export const useWorksetExecutionStore = defineStore('workset-execution', {
           if (this.view) {
             this.view = {
               ...this.view,
-              components: mergeComponent(this.view.components ?? [], event.data),
+              components: markRaw(mergeComponent(this.view.components ?? [], event.data)),
             }
           }
           break

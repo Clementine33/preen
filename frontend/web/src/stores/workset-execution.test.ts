@@ -7,6 +7,7 @@ import type {
 } from '@/lib/api/types'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { isReactive } from 'vue'
 import { apiStub } from '@/test/api-stub'
 import { useWorksetExecutionStore } from './workset-execution'
 
@@ -227,6 +228,25 @@ describe('component events', () => {
       inventory_synced: status === 'succeeded',
     }
   }
+
+  it('keeps the held components out of deep reactivity', () => {
+    const store = useWorksetExecutionStore()
+    store.status = 'streaming'
+    store.applyEvent({
+      type: 'execution_snapshot',
+      data: view({
+        components: [
+          component(0, 'pending'),
+        ],
+      }),
+    })
+    expect(isReactive(store.view?.components?.[0])).toBe(false)
+    store.applyEvent({
+      type: 'component',
+      data: component(0, 'succeeded'),
+    })
+    expect(isReactive(store.view?.components?.[0])).toBe(false)
+  })
 
   it('replaces the entry the snapshot carried and inserts one it did not', () => {
     const store = useWorksetExecutionStore()

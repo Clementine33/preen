@@ -1,4 +1,4 @@
-Status: Draft — 2026-10-30
+Status: Accepted — 2026-10-31
 
 # 0011 开发 schema 与发布迁移双轨
 

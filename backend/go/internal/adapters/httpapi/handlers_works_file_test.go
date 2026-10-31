@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"image"
 	"image/png"
+	"mime"
 	"net/http"
 	"net/url"
 	"os"
@@ -58,6 +59,17 @@ func seedWorkFiles(t *testing.T, fixture *sqlite.Repository) *fileFixture {
 	if err := os.WriteFile(filepath.Join(member, "はじめにお読みください.txt"), sjisBytes, 0o644); err != nil {
 		t.Fatal(err)
 	}
+	// FLAC is outside Go's sniffer; its type must not depend on the host MIME database.
+	flacBytes := append([]byte("fLaC"), make([]byte, 60)...)
+	if err := os.WriteFile(filepath.Join(member, "01.flac"), flacBytes, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// An ID3v2 tag (600 bytes, past the sniff sample) in front of a FLAC stream.
+	id3Bytes := append([]byte{'I', 'D', '3', 4, 0, 0, 0, 0, 4, 88}, make([]byte, 600)...)
+	id3Bytes = append(append(id3Bytes, "fLaC"...), make([]byte, 60)...)
+	if err := os.WriteFile(filepath.Join(member, "02.flac"), id3Bytes, 0o644); err != nil {
+		t.Fatal(err)
+	}
 	// On disk but never scanned: the whitelist must refuse it.
 	if err := os.WriteFile(filepath.Join(member, "unlisted.bin"), []byte("bytes"), 0o644); err != nil {
 		t.Fatal(err)
@@ -97,6 +109,8 @@ func seedWorkFiles(t *testing.T, fixture *sqlite.Repository) *fileFixture {
 	seedEntry(memberPosix, "RJ01000001", "", 0, 1)
 	seedEntry(memberPosix+"/表紙", "表紙", "", 0, 1)
 	seedEntry(memberPosix+"/表紙/cover_main.jpg", "cover_main.jpg", "image/jpeg", int64(len(pngBytes)), 0)
+	seedEntry(memberPosix+"/01.flac", "01.flac", "audio/flac", int64(len(flacBytes)), 0)
+	seedEntry(memberPosix+"/02.flac", "02.flac", "audio/flac", int64(len(id3Bytes)), 0)
 	seedEntry(memberPosix+"/はじめにお読みください.txt", "はじめにお読みください.txt", "text/plain", int64(len(sjisBytes)), 0)
 
 	return &fileFixture{root: root, member: memberPosix, png: pngBytes, sjis: sjisBytes}
@@ -144,6 +158,19 @@ func TestWorkFileServesTheBytesItStores(t *testing.T) {
 	}
 	if !bytes.Equal(w.Body.Bytes(), files.sjis) {
 		t.Error("text bytes must never be re-encoded on the way out")
+	}
+
+	// A host that registers the legacy alias must not change the answer.
+	if err := mime.AddExtensionType(".flac", "audio/x-flac"); err != nil {
+		t.Fatal(err)
+	}
+	w = doRequest(t, engine, http.MethodGet, fileURL("c-1", "01.flac"), nil, nil)
+	if ct := w.Header().Get("Content-Type"); w.Code != http.StatusOK || ct != "audio/flac" {
+		t.Errorf("flac response = %d %q, want audio/flac", w.Code, ct)
+	}
+	w = doRequest(t, engine, http.MethodGet, fileURL("c-1", "02.flac"), nil, nil)
+	if ct := w.Header().Get("Content-Type"); w.Code != http.StatusOK || ct != "audio/flac" {
+		t.Errorf("id3-tagged flac response = %d %q, want audio/flac", w.Code, ct)
 	}
 
 	// An unlisted file is not served, and neither is a traversal.

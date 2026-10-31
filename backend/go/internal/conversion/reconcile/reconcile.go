@@ -115,6 +115,7 @@ func measuredMiss(bitrate int64, spec *AudioOutputSpec) bool {
 	case CodecAac:
 		target := int64(spec.Quality.Bitrate) * 1000
 		return target <= aacExactAbove || bitrate > target*aacCeiling/100
+	case CodecWav, CodecFlac, CodecOpus:
 	}
 	return false
 }

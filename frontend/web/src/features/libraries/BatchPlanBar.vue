@@ -10,8 +10,9 @@ export type TaskTarget = (typeof TASKS)[number]['target']
 
 <script setup lang="ts">
 import { X } from '@lucide/vue'
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
 import { Button } from '@/components/ui/button'
+import { useToast } from '@/composables/use-toast'
 
 /**
  * The overview's scope bar (ADR 0001). It belongs to a selection, so
@@ -37,6 +38,13 @@ const emit = defineEmits<{
   enter: [target: TaskTarget]
 }>()
 const overLimit = computed(() => props.memberLimit !== undefined && props.selectedCount > props.memberLimit)
+// Crossing the cap is announced once; the note below keeps the reason beside
+// the disabled entries after the toast is gone.
+const toast = useToast()
+watch(overLimit, (over) => {
+  if (over)
+    toast.show({ text: `已选择 ${props.selectedCount} 个文件夹，超过单个批次上限 ${props.memberLimit} 个，请减少选择后再进入` })
+}, { immediate: true })
 </script>
 
 <template>
@@ -46,7 +54,7 @@ const overLimit = computed(() => props.memberLimit !== undefined && props.select
     <div class="h-5 w-1 shrink-0 bg-[var(--ring)]" aria-hidden="true" />
     <div class="min-w-0">
       <p class="font-heading text-xs font-semibold">处理范围</p>
-      <p class="font-mono text-[11px] text-muted-foreground">已选择 {{ selectedCount }}<template v-if="memberLimit !== undefined"> / {{ memberLimit }}</template> 个文件夹</p>
+      <p class="font-mono text-[11px] text-muted-foreground">已选择 {{ selectedCount }} 个文件夹</p>
       <p v-if="overLimit" id="member-limit-note" class="text-[11px] text-destructive">
         超过上限 {{ memberLimit }} 个文件夹，请减少选择后再进入
       </p>

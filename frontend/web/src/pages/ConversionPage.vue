@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Sheet } from '@/components/ui/modal'
 import { useOperationContext } from '@/composables/use-operation-context'
+import { useToast } from '@/composables/use-toast'
 import MemberList from '@/features/worksets/MemberList.vue'
 import OperationHeader from '@/features/worksets/OperationHeader.vue'
 import {
@@ -196,6 +197,13 @@ const participants = computed(() =>
 /** The task's Participation Limit; the server stays the authority. */
 const maxParticipants = computed(() => operation.value?.max_participants ?? null)
 const overLimit = computed(() => maxParticipants.value !== null && participants.value > maxParticipants.value)
+// Crossing the limit is announced once; the note keeps the reason beside the
+// disabled generation after the toast is gone.
+const toast = useToast()
+watch(overLimit, (over) => {
+  if (over)
+    toast.show({ text: `参与转换的文件夹有 ${participants.value} 个，超过单次转换上限 ${maxParticipants.value} 个，请用批量修改排除一部分后再生成计划` })
+}, { immediate: true })
 const canGenerate = computed(() => Boolean(draft.value && operation.value && !operation.value.active_generation && !overLimit.value))
 const counts = computed(() => revision.value?.counts ?? operation.value?.current_revision?.counts ?? null)
 /** Any live session for this operation, or a start in flight: its own actions
@@ -519,13 +527,12 @@ const parentLink = computed(() => {
               {{ executeError }}
             </p>
             <p
-              v-if="maxParticipants !== null"
-              class="border-b border-border bg-card px-3 py-1.5 text-[11px]"
-              :class="overLimit ? 'text-[var(--danger-ink)]' : 'text-[var(--text-secondary)]'"
-              :role="overLimit ? 'alert' : undefined"
+              v-if="overLimit"
+              class="border-b border-border bg-card px-3 py-1.5 text-[11px] text-[var(--danger-ink)]"
+              role="alert"
               data-testid="participation-count"
             >
-              参与 {{ participants }} / {{ maxParticipants }}<template v-if="overLimit">：超过单次转换上限，请用批量修改排除一部分成员后再生成计划</template>
+              参与 {{ participants }} 个文件夹，超过单次转换上限 {{ maxParticipants }} 个：请用批量修改排除一部分后再生成计划
             </p>
             <p
               v-if="generateError"

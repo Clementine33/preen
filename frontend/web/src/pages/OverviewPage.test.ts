@@ -244,12 +244,13 @@ describe('workbench overview', () => {
     })
     ui().toggleDir('albumA', dirs)
     await flushPromises()
-    expect(wrapper.text()).toContain('已选择 1 / 2 个文件夹')
+    expect(wrapper.text()).toContain('已选择 1 个文件夹')
     expect(wrapper.get('[data-testid="enter-conversion"]').attributes('disabled')).toBeUndefined()
 
     ui().toggleDir('docs', dirs)
     await flushPromises()
-    expect(wrapper.text()).toContain('已选择 2 / 2 个文件夹')
+    expect(wrapper.text()).toContain('已选择 2 个文件夹')
+    expect(useToast().current.value?.text ?? '').not.toContain('超过单个批次上限')
     for (const target of ['conversion', 'rename', 'metadata-refresh']) {
       expect(wrapper.get(`[data-testid="enter-${target}"]`).attributes('disabled')).toBeUndefined()
     }
@@ -266,8 +267,9 @@ describe('workbench overview', () => {
     for (const dir of dirs) ui().toggleDir(dir.rel_path, dirs)
     await flushPromises()
 
-    expect(wrapper.text()).toContain('已选择 2 / 1 个文件夹')
+    expect(wrapper.text()).toContain('已选择 2 个文件夹')
     expect(wrapper.text()).toContain('超过上限 1 个文件夹，请减少选择后再进入')
+    expect(useToast().current.value?.text).toContain('超过单个批次上限 1 个')
     for (const target of ['conversion', 'rename', 'metadata-refresh']) {
       const entry = wrapper.get(`[data-testid="enter-${target}"]`)
       expect(entry.attributes('disabled')).toBeDefined()

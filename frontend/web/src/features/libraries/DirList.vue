@@ -37,6 +37,7 @@ const emit = defineEmits<{
  */
 const ROW_HEIGHT = 56
 const OVERSCAN = 10
+const selectedSet = computed(() => new Set(props.selectedPaths))
 
 /** The caller owns the offset: hiding this list collapses the element's own. */
 defineExpose({
@@ -124,7 +125,7 @@ function dirAt(index: number): LibraryDir {
               :id="`dir-select-${dirAt(virtualItem.index).dir_id}`"
               :data-testid="`dir-checkbox-${dirAt(virtualItem.index).rel_path}`"
               type="checkbox"
-              :checked="selectedPaths.includes(dirAt(virtualItem.index).rel_path)"
+              :checked="selectedSet.has(dirAt(virtualItem.index).rel_path)"
               :aria-label="`选择 ${dirAt(virtualItem.index).name}`"
               class="size-4 accent-[var(--ring)] rail:size-3.5"
               @change="emit('select', dirAt(virtualItem.index).rel_path, checkboxValue($event))"

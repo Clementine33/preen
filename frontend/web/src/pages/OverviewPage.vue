@@ -173,11 +173,11 @@ const shownDirs = computed(() => {
   )
 })
 const allShownSelected = computed(
-  () => shownDirs.value.length > 0 && shownDirs.value.every(dir => ui.selectedDirPaths.includes(dir.rel_path)),
+  () => shownDirs.value.length > 0 && shownDirs.value.every(dir => ui.selectedDirSet.has(dir.rel_path)),
 )
 
 /** The selection as the caller sees it, so the confirmation names it. */
-const selectedDirs = computed(() => dirs.value.filter(dir => ui.selectedDirPaths.includes(dir.rel_path)))
+const selectedDirs = computed(() => dirs.value.filter(dir => ui.selectedDirSet.has(dir.rel_path)))
 /** A directory the conversion will skip: it is selectable, but holds no audio. */
 const selectedWithoutAudio = computed(() => selectedDirs.value.filter(dir => dir.audio_file_count === 0))
 
@@ -209,7 +209,7 @@ async function submit() {
         // members as stored, so none of them sorts on its own. Taken from the
         // unfiltered list so a search never drops a selected folder.
         folder_paths: sortedDirs.value
-          .filter(dir => ui.selectedDirPaths.includes(dir.rel_path))
+          .filter(dir => ui.selectedDirSet.has(dir.rel_path))
           .map(dir => dir.rel_path),
         // The record the caller saw as current: a concurrent replace is a
         // conflict, not an overwrite.
@@ -317,7 +317,7 @@ function onSelectAll(value: boolean) {
     ui.clearSelection()
     return
   }
-  for (const dir of shownDirs.value) ui.setDirSelected(dir.rel_path, true, dirs.value)
+  ui.addDirs(shownDirs.value)
 }
 
 /** The page in view, named as the navigation names it (ADR 0001; ADR 0003). */

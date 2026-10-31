@@ -73,8 +73,14 @@ function commonValue(doc: OperationDraftDocument, unit: OverrideUnit): unknown {
   }
 }
 
-function memberRecord(doc: OperationDraftDocument, memberId: string): DraftMember | undefined {
-  return doc.members.find(m => m.member_id === memberId)
+/** The document's records by member, first one winning like a linear search. */
+function indexMembers(doc: OperationDraftDocument): Map<string, DraftMember> {
+  const index = new Map<string, DraftMember>()
+  for (const m of doc.members) {
+    if (!index.has(m.member_id))
+      index.set(m.member_id, m)
+  }
+  return index
 }
 
 function overrideValue(record: DraftMember | undefined, unit: OverrideUnit): { present: boolean, value: unknown } {
@@ -153,10 +159,11 @@ export function readUnit(doc: OperationDraftDocument, target: EditTarget, unit: 
     ? [target.memberId]
     : target.memberIds
   const common = commonValue(doc, unit)
+  const records = indexMembers(doc)
   let overridden = 0
   const effective: unknown[] = []
   for (const memberId of memberIds) {
-    const { present, value } = overrideValue(memberRecord(doc, memberId), unit)
+    const { present, value } = overrideValue(records.get(memberId), unit)
     if (present) {
       overridden++
       effective.push(value)
@@ -166,7 +173,8 @@ export function readUnit(doc: OperationDraftDocument, target: EditTarget, unit: 
     }
   }
   const first = effective[0]
-  const uniform = effective.every(v => sameUnitValue(v, first))
+  const firstKey = canonical(first)
+  const uniform = overridden === 0 || effective.every(v => canonical(v) === firstKey)
   const source: UnitSource
     = overridden === 0
       ? 'common'
@@ -189,9 +197,10 @@ export function readParticipation(
   const memberIds = target.kind === 'member'
     ? [target.memberId]
     : target.memberIds
+  const records = indexMembers(doc)
   let excluded = 0
   for (const memberId of memberIds) {
-    if (memberRecord(doc, memberId)?.excluded)
+    if (records.get(memberId)?.excluded)
       excluded++
   }
   if (excluded === 0)
@@ -249,11 +258,12 @@ function clearOverride(record: DraftMember, unit: OverrideUnit): void {
     delete record.overrides
 }
 
-function recordFor(doc: OperationDraftDocument, memberId: string): DraftMember {
-  let record = memberRecord(doc, memberId)
+function recordFor(doc: OperationDraftDocument, records: Map<string, DraftMember>, memberId: string): DraftMember {
+  let record = records.get(memberId)
   if (!record) {
     record = { member_id: memberId }
     doc.members.push(record)
+    records.set(memberId, record)
   }
   return record
 }
@@ -291,12 +301,13 @@ export function applyIntent(
     })),
   }
 
+  const records = indexMembers(doc)
   const memberIds = target.kind === 'member'
     ? [target.memberId]
     : target.memberIds
   for (const memberId of memberIds) {
     if (intent.participation !== 'keep') {
-      const record = recordFor(doc, memberId)
+      const record = recordFor(doc, records, memberId)
       if (intent.participation === 'exclude')
         record.excluded = true
       else delete record.excluded
@@ -306,10 +317,10 @@ export function applyIntent(
       if (!unitIntent || unitIntent.intent === 'keep')
         continue
       if (unitIntent.intent === 'set') {
-        setOverride(recordFor(doc, memberId), unit, unitIntent.value)
+        setOverride(recordFor(doc, records, memberId), unit, unitIntent.value)
       }
       else {
-        const record = memberRecord(doc, memberId)
+        const record = records.get(memberId)
         if (record)
           clearOverride(record, unit)
       }

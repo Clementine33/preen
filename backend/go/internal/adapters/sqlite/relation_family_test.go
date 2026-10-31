@@ -274,7 +274,7 @@ func randomFamilyGroup(rng *rand.Rand) works.RelationsGroup {
 func TestRelationFamilyImportMatchesGlobalResolution(t *testing.T) {
 	rng := rand.New(rand.NewPCG(33, 603))
 	refusals := 0
-	for iteration := range 300 {
+	for iteration := range familyIterations {
 		repo := familyRepository(t)
 		clock := &familyClock{}
 		// Build a globally valid state through accepted imports only.

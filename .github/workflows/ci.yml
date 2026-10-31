@@ -11,6 +11,9 @@ permissions:
   contents: read
 
 # Only main saves caches: PR caches are invisible to other refs.
+# Go modules key on go.sum and build caches on the Go sources, so a push that
+# changes neither restores exactly and saves nothing. go-race reuses go-test's
+# module cache.
 # Conda FFmpeg adds ~350MB to each mise cache; only jobs that run it install it.
 # gopls is editor-only; CI does not need its source build or dependency downloads.
 env:
@@ -97,24 +100,29 @@ jobs:
           echo "build=$(go env GOCACHE)" >> "$GITHUB_OUTPUT"
           echo "version=$(go env GOVERSION)" >> "$GITHUB_OUTPUT"
       - uses: actions/cache/restore@v6
-        id: go-restore
+        id: go-mod-restore
         with:
-          path: |
-            ${{ steps.go-cache.outputs.modules }}
-            ${{ steps.go-cache.outputs.build }}
-          key: go-${{ runner.os }}-${{ runner.arch }}-normal-${{ steps.go-cache.outputs.version }}-${{ hashFiles('backend/go/go.sum') }}-${{ github.sha }}
-          restore-keys: |
-            go-${{ runner.os }}-${{ runner.arch }}-normal-${{ steps.go-cache.outputs.version }}-${{ hashFiles('backend/go/go.sum') }}-
-            go-${{ runner.os }}-${{ runner.arch }}-normal-${{ steps.go-cache.outputs.version }}-
+          path: ${{ steps.go-cache.outputs.modules }}
+          key: go-mod-${{ runner.os }}-${{ runner.arch }}-backend-${{ steps.go-cache.outputs.version }}-${{ hashFiles('backend/go/go.sum') }}
+          restore-keys: go-mod-${{ runner.os }}-${{ runner.arch }}-backend-${{ steps.go-cache.outputs.version }}-
+      - uses: actions/cache/restore@v6
+        id: go-build-restore
+        with:
+          path: ${{ steps.go-cache.outputs.build }}
+          key: go-build-${{ runner.os }}-${{ runner.arch }}-normal-${{ steps.go-cache.outputs.version }}-${{ hashFiles('backend/go/**') }}
+          restore-keys: go-build-${{ runner.os }}-${{ runner.arch }}-normal-${{ steps.go-cache.outputs.version }}-
       - run: task test:go
       - run: task lint:go
       - uses: actions/cache/save@v6
-        if: github.ref == 'refs/heads/main' && steps.go-restore.outputs.cache-hit != 'true'
+        if: github.ref == 'refs/heads/main' && steps.go-mod-restore.outputs.cache-hit != 'true'
         with:
-          path: |
-            ${{ steps.go-cache.outputs.modules }}
-            ${{ steps.go-cache.outputs.build }}
-          key: ${{ steps.go-restore.outputs.cache-primary-key }}
+          path: ${{ steps.go-cache.outputs.modules }}
+          key: ${{ steps.go-mod-restore.outputs.cache-primary-key }}
+      - uses: actions/cache/save@v6
+        if: github.ref == 'refs/heads/main' && steps.go-build-restore.outputs.cache-hit != 'true'
+        with:
+          path: ${{ steps.go-cache.outputs.build }}
+          key: ${{ steps.go-build-restore.outputs.cache-primary-key }}
 
   web-quality:
     needs: prepare
@@ -148,8 +156,10 @@ jobs:
       - run: pnpm lint:web
       - run: pnpm typecheck:web
       - run: pnpm test:web
-      - run: pnpm build:web
-      - run: pnpm -C frontend/web exec playwright install chromium --with-deps
+      # build:web would repeat the vue-tsc -b that typecheck:web just ran.
+      - run: pnpm -C frontend/web exec vite build
+      # Both Playwright configs run headless, which needs only the headless shell.
+      - run: pnpm -C frontend/web exec playwright install --with-deps --only-shell chromium
       - run: task test:web:browser
 
   desktop:
@@ -180,15 +190,17 @@ jobs:
           echo "build=$(go env GOCACHE)" >> "$GITHUB_OUTPUT"
           echo "version=$(go env GOVERSION)" >> "$GITHUB_OUTPUT"
       - uses: actions/cache/restore@v6
-        id: go-restore
+        id: go-mod-restore
         with:
-          path: |
-            ${{ steps.go-cache.outputs.modules }}
-            ${{ steps.go-cache.outputs.build }}
-          key: go-${{ runner.os }}-${{ runner.arch }}-desktop-${{ steps.go-cache.outputs.version }}-${{ hashFiles('backend/go/go.sum', 'desktop/go.sum') }}-${{ github.sha }}
-          restore-keys: |
-            go-${{ runner.os }}-${{ runner.arch }}-desktop-${{ steps.go-cache.outputs.version }}-${{ hashFiles('backend/go/go.sum', 'desktop/go.sum') }}-
-            go-${{ runner.os }}-${{ runner.arch }}-desktop-${{ steps.go-cache.outputs.version }}-
+          path: ${{ steps.go-cache.outputs.modules }}
+          key: go-mod-${{ runner.os }}-${{ runner.arch }}-desktop-${{ steps.go-cache.outputs.version }}-${{ hashFiles('backend/go/go.sum', 'desktop/go.sum') }}
+          restore-keys: go-mod-${{ runner.os }}-${{ runner.arch }}-desktop-${{ steps.go-cache.outputs.version }}-
+      - uses: actions/cache/restore@v6
+        id: go-build-restore
+        with:
+          path: ${{ steps.go-cache.outputs.build }}
+          key: go-build-${{ runner.os }}-${{ runner.arch }}-desktop-${{ steps.go-cache.outputs.version }}-${{ hashFiles('backend/go/**', 'desktop/**') }}
+          restore-keys: go-build-${{ runner.os }}-${{ runner.arch }}-desktop-${{ steps.go-cache.outputs.version }}-
       - name: Install Linux WebView build dependencies
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libgtk-4-dev libwebkitgtk-6.0-dev pkg-config
@@ -206,12 +218,15 @@ jobs:
         working-directory: desktop
         run: go build -trimpath -tags production -ldflags "-X main.version=0.2.0 ${{ runner.os == 'Windows' && '-H windowsgui' || '' }}" -o "${{ runner.temp }}/preen-desktop${{ runner.os == 'Windows' && '.exe' || '' }}" .
       - uses: actions/cache/save@v6
-        if: github.ref == 'refs/heads/main' && steps.go-restore.outputs.cache-hit != 'true'
+        if: github.ref == 'refs/heads/main' && steps.go-mod-restore.outputs.cache-hit != 'true'
         with:
-          path: |
-            ${{ steps.go-cache.outputs.modules }}
-            ${{ steps.go-cache.outputs.build }}
-          key: ${{ steps.go-restore.outputs.cache-primary-key }}
+          path: ${{ steps.go-cache.outputs.modules }}
+          key: ${{ steps.go-mod-restore.outputs.cache-primary-key }}
+      - uses: actions/cache/save@v6
+        if: github.ref == 'refs/heads/main' && steps.go-build-restore.outputs.cache-hit != 'true'
+        with:
+          path: ${{ steps.go-cache.outputs.build }}
+          key: ${{ steps.go-build-restore.outputs.cache-primary-key }}
 
   # Backend-only checks can start as soon as the Go suite passes.
   go-race:
@@ -235,24 +250,27 @@ jobs:
           echo "build=$(go env GOCACHE)" >> "$GITHUB_OUTPUT"
           echo "version=$(go env GOVERSION)" >> "$GITHUB_OUTPUT"
       - uses: actions/cache/restore@v6
-        id: go-restore
+        id: go-mod-restore
         with:
-          path: |
-            ${{ steps.go-cache.outputs.modules }}
-            ${{ steps.go-cache.outputs.build }}
-          key: go-${{ runner.os }}-${{ runner.arch }}-race-${{ steps.go-cache.outputs.version }}-${{ hashFiles('backend/go/go.sum') }}-${{ github.sha }}
-          restore-keys: |
-            go-${{ runner.os }}-${{ runner.arch }}-race-${{ steps.go-cache.outputs.version }}-${{ hashFiles('backend/go/go.sum') }}-
-            go-${{ runner.os }}-${{ runner.arch }}-race-${{ steps.go-cache.outputs.version }}-
+          path: ${{ steps.go-cache.outputs.modules }}
+          key: go-mod-${{ runner.os }}-${{ runner.arch }}-backend-${{ steps.go-cache.outputs.version }}-${{ hashFiles('backend/go/go.sum') }}
+          restore-keys: go-mod-${{ runner.os }}-${{ runner.arch }}-backend-${{ steps.go-cache.outputs.version }}-
+      - uses: actions/cache/restore@v6
+        id: go-build-restore
+        with:
+          path: ${{ steps.go-cache.outputs.build }}
+          key: go-build-${{ runner.os }}-${{ runner.arch }}-race-${{ steps.go-cache.outputs.version }}-${{ hashFiles('backend/go/**') }}
+          restore-keys: go-build-${{ runner.os }}-${{ runner.arch }}-race-${{ steps.go-cache.outputs.version }}-
+      # The transpiled SQLite engine runs ~12x slower instrumented; its locks go
+      # through modernc.org/libc, which stays instrumented so happens-before
+      # edges survive. Uninstrumenting libc too loses atomics and false-reports.
       - working-directory: backend/go
-        run: go test ./internal/... -race -count=1
+        run: go test ./internal/... -race -count=1 -gcflags='modernc.org/sqlite/lib=-race=false'
       - uses: actions/cache/save@v6
-        if: github.ref == 'refs/heads/main' && steps.go-restore.outputs.cache-hit != 'true'
+        if: github.ref == 'refs/heads/main' && steps.go-build-restore.outputs.cache-hit != 'true'
         with:
-          path: |
-            ${{ steps.go-cache.outputs.modules }}
-            ${{ steps.go-cache.outputs.build }}
-          key: ${{ steps.go-restore.outputs.cache-primary-key }}
+          path: ${{ steps.go-cache.outputs.build }}
+          key: ${{ steps.go-build-restore.outputs.cache-primary-key }}
 
   windows-smoke:
     needs: [prepare, go-test]
@@ -313,7 +331,24 @@ jobs:
         with:
           path: ${{ steps.pnpm-cache.outputs.path }}
           key: ${{ steps.pnpm-restore.outputs.cache-primary-key }}
-      - run: pnpm -C frontend/web exec playwright install chromium --with-deps
+      - run: pnpm -C frontend/web exec playwright install --with-deps --only-shell chromium
+      - name: Find Go cache paths
+        id: go-cache
+        run: |
+          echo "modules=$(go env GOMODCACHE)" >> "$GITHUB_OUTPUT"
+          echo "build=$(go env GOCACHE)" >> "$GITHUB_OUTPUT"
+          echo "version=$(go env GOVERSION)" >> "$GITHUB_OUTPUT"
+      # The stack starts the backend with go run; go-test's caches make that a link.
+      - uses: actions/cache/restore@v6
+        with:
+          path: ${{ steps.go-cache.outputs.modules }}
+          key: go-mod-${{ runner.os }}-${{ runner.arch }}-backend-${{ steps.go-cache.outputs.version }}-${{ hashFiles('backend/go/go.sum') }}
+          restore-keys: go-mod-${{ runner.os }}-${{ runner.arch }}-backend-${{ steps.go-cache.outputs.version }}-
+      - uses: actions/cache/restore@v6
+        with:
+          path: ${{ steps.go-cache.outputs.build }}
+          key: go-build-${{ runner.os }}-${{ runner.arch }}-normal-${{ steps.go-cache.outputs.version }}-${{ hashFiles('backend/go/**') }}
+          restore-keys: go-build-${{ runner.os }}-${{ runner.arch }}-normal-${{ steps.go-cache.outputs.version }}-
       - run: task e2e:web
 
   # Advisory data changes without source changes, so this never uses duplicate

@@ -88,6 +88,11 @@ func (s *serviceImpl) operationView(ctx context.Context, op *Operation) (*Operat
 		OperationType: op.OperationType,
 		Version:       op.Version,
 	}
+	if task, taskErr := s.requireTask(op.OperationType); taskErr == nil {
+		if limited, ok := task.(ParticipationLimitTask); ok {
+			out.MaxParticipants = limited.ParticipationLimit()
+		}
+	}
 	w, err := s.repo.GetWorkset(op.WorksetID)
 	if err != nil {
 		return nil, NewError(ErrKindInternal, "INTERNAL", "failed to load workset", err)

@@ -2,6 +2,7 @@
 package sqlite
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -12,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Clementine33/preen/backend/internal/conversion"
 	"github.com/Clementine33/preen/backend/internal/librarypath"
 	"github.com/Clementine33/preen/backend/internal/works/coverdelivery"
 	"github.com/Clementine33/preen/backend/internal/works/refresh"
@@ -43,7 +45,8 @@ func TestMeasureWorksetLifecycle(t *testing.T) {
 	)
 	f := newWorksetMeasurement(t, members, audio)
 	defer f.sql.report(t)
-	id := f.create(t, "")
+	id := f.overviewEntry(t)
+	var renamePlan string
 	// Both generations replace fully executed plans. Execute the replacement plans
 	// too, so replacing the record also removes nonempty execution/cover results.
 	for round := range 2 {
@@ -53,7 +56,12 @@ func TestMeasureWorksetLifecycle(t *testing.T) {
 			return
 		}
 		metadataPlan := f.generate(t, id, refresh.Kind, round)
-		f.execute(t, id, refresh.Kind, metadataPlan, round)
+		if round == 0 && os.Getenv("PREEN_MEASURE_BROWSER") == "1" {
+			f.browser(t, "task-plan", id, metadataPlan, "", "", refresh.Kind)
+			f.executeSampled(t, id, refresh.Kind, metadataPlan, round)
+		} else {
+			f.execute(t, id, refresh.Kind, metadataPlan, round)
+		}
 		f.deliver(t, id, round)
 		f.read(
 			t,
@@ -62,7 +70,10 @@ func TestMeasureWorksetLifecycle(t *testing.T) {
 		)
 		// Rename is only planned: its current plan makes all three operations
 		// carry one when the shared records are read.
-		renamePlan := f.generate(t, id, "rename", round)
+		renamePlan = f.generate(t, id, "rename", round)
+		if round == 0 && os.Getenv("PREEN_MEASURE_BROWSER") == "1" {
+			f.browser(t, "task-plan", id, renamePlan, "", "", "rename")
+		}
 		f.read(t, "revision/rename", "/api/v1/worksets/"+id+"/operations/rename/revisions/"+renamePlan)
 		f.read(t, "current", "/api/v1/libraries/"+f.libraryID+"/operations/conversion/current")
 		f.read(t, "operation", "/api/v1/worksets/"+id+"/operations/conversion")
@@ -76,6 +87,11 @@ func TestMeasureWorksetLifecycle(t *testing.T) {
 		if round == 0 && os.Getenv("PREEN_MEASURE_KEPT_SNAPSHOT") != "1" {
 			f.browser(t, "revision", id, conversionPlan, f.readLargestMember(t, id, conversionPlan), "")
 		}
+	}
+	if os.Getenv("PREEN_MEASURE_BROWSER") == "1" {
+		// Rename is executed last: it moves the member folders the earlier
+		// rounds address by name.
+		f.executeSampled(t, id, "rename", renamePlan, 1)
 	}
 	replacement := f.create(t, id)
 	if replacement == id {
@@ -202,6 +218,9 @@ func (f *worksetMeasurement) create(t *testing.T, expected string) string {
 
 func (f *worksetMeasurement) generate(t *testing.T, id, kind string, round int) string {
 	t.Helper()
+	if kind == workset.OperationTypeConversion {
+		f.excludeBeyondParticipationLimit(t, id)
+	}
 	op, err := f.svc.GetOperation(t.Context(), id, kind)
 	if err != nil {
 		t.Fatal(err)
@@ -366,4 +385,45 @@ func worksetMeasurementWait(t *testing.T, done func() bool) {
 		}
 		time.Sleep(10 * time.Millisecond) // Real disk and SQLite workers cannot use synctest.
 	}
+}
+
+// excludeBeyondParticipationLimit excludes the members past conversion's
+// Participation Limit, as a user must, so oversized fixtures still plan.
+func (f *worksetMeasurement) excludeBeyondParticipationLimit(t *testing.T, id string) {
+	t.Helper()
+	view, err := f.repo.ListWorksetMembers(id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(view) <= conversion.MaxParticipants {
+		return
+	}
+	draft, err := f.svc.GetDraft(t.Context(), id, workset.OperationTypeConversion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc, err := conversion.ParseDraft(string(draft.Document))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(doc.Members) == len(view)-conversion.MaxParticipants {
+		return
+	}
+	doc.Members = doc.Members[:0]
+	for _, member := range view[conversion.MaxParticipants:] {
+		doc.Members = append(doc.Members, conversion.DraftMember{MemberID: member.MemberID, Excluded: true})
+	}
+	raw, err := json.Marshal(doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	op, err := f.svc.GetOperation(t.Context(), id, workset.OperationTypeConversion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = f.svc.SaveDraft(t.Context(), id, workset.OperationTypeConversion,
+		workset.SaveDraftRequest{Document: raw, IfMatchVersion: op.Version}); err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("participation limit: excluded %d of %d members", len(view)-conversion.MaxParticipants, len(view))
 }

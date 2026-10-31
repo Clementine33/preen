@@ -116,6 +116,15 @@ type MemberCategoryTask interface {
 	MemberCategory(components []json.RawMessage) string
 }
 
+// ParticipationLimitTask declares the most participating members the task
+// plans in one session (CONTEXT.md: Participation Limit). Workset checks it at
+// generation enqueue with the count the task reports for the frozen draft;
+// tasks without it are bounded by the batch limit alone.
+type ParticipationLimitTask interface {
+	ParticipationLimit() int
+	Participants(rawDraft []byte, members []*WorksetMember) (int, error)
+}
+
 // InputValidationTask declares that a read's Member Input freshness needs only
 // the frozen roots, so summary reads skip the component payloads. It reports
 // only the roots whose live inputs moved, never an execution verdict such as

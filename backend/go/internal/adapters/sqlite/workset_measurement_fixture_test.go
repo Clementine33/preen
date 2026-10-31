@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -143,12 +144,31 @@ func worksetMeasurementRepository(t *testing.T, dir string) (*Repository, *works
 
 func worksetMeasurementLibrary(t *testing.T, repo *Repository, root string, members, audio int) (string, []string) {
 	t.Helper()
+	// PREEN_MEASURE_OTHER non-audio files per member (small bytes, a
+	// .jpg/.txt/.vtt mix) so inventory carries what a real library does.
+	other := 0
+	if value := os.Getenv("PREEN_MEASURE_OTHER"); value != "" {
+		var err error
+		if other, err = strconv.Atoi(value); err != nil || other < 0 {
+			t.Fatal("PREEN_MEASURE_OTHER must be a non-negative integer")
+		}
+	}
+	otherExt := []string{".jpg", ".txt", ".vtt"}
 	names := make([]string, members)
 	for i := range names {
 		names[i] = fmt.Sprintf("RJ%08d album", i+1)
 		folder := filepath.Join(root, names[i])
 		if err := os.MkdirAll(folder, 0o755); err != nil {
 			t.Fatal(err)
+		}
+		for j := range other {
+			if err := os.WriteFile(
+				filepath.Join(folder, fmt.Sprintf("extra-%02d%s", j+1, otherExt[j%len(otherExt)])),
+				[]byte("x"),
+				0o600,
+			); err != nil {
+				t.Fatal(err)
+			}
 		}
 		for j := range audio {
 			if err := os.WriteFile(
@@ -189,7 +209,12 @@ func worksetMeasurementTasks(repo *Repository, dir string, pipeline *inventory.P
 				},
 			},
 		),
-		dirrename.New(repo, filesystem.ReadRenameDirectory),
+		dirrename.New(repo, filesystem.ReadRenameDirectory, dirrename.ExecutionIO{
+			ResolveDirectory: filesystem.ResolveMember,
+			Rename:           filesystem.RenameNoReplace,
+			Relocate:         repo.RelocateDirectoryAs,
+			PendingCovers:    repo.HasPendingRenameCovers,
+		}),
 		refresh.NewTask(repo, filesystem.CheckWorkDirectory),
 	}
 }

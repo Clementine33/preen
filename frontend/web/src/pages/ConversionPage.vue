@@ -189,7 +189,14 @@ const sessionMemberCount = computed(() => {
       : 0
 })
 
-const canGenerate = computed(() => Boolean(draft.value && operation.value && !operation.value.active_generation))
+/** Members that would plan: the record's members minus the draft's exclusions. */
+const participants = computed(() =>
+  members.value.length - (draft.value?.document.members ?? []).filter(m => m.excluded).length,
+)
+/** The task's Participation Limit; the server stays the authority. */
+const maxParticipants = computed(() => operation.value?.max_participants ?? null)
+const overLimit = computed(() => maxParticipants.value !== null && participants.value > maxParticipants.value)
+const canGenerate = computed(() => Boolean(draft.value && operation.value && !operation.value.active_generation && !overLimit.value))
 const counts = computed(() => revision.value?.counts ?? operation.value?.current_revision?.counts ?? null)
 /** Any live session for this operation, or a start in flight: its own actions
  *  are the only ones offered, and a double click cannot fire two starts. */
@@ -212,6 +219,7 @@ const generateError = ref<string | null>(null)
 const GENERATE_CODES: Record<string, string> = {
   INVALID_POLICY: '设置不完整，无法生成：检查无音效匹配（至少一个非空标签）、其他版本目录与目标输出（编码目标必须填码率）',
   NO_ACTIVE_MEMBERS: '所有文件夹都被排除，至少要恢复一个才能生成',
+  TOO_MANY_PARTICIPANTS: '参与的文件夹超过转换的单次上限，请用批量修改排除一部分后再生成',
   SCAN_IN_PROGRESS: '媒体库正在扫描，等扫描结束后再生成',
   EXECUTION_IN_PROGRESS: '该操作已有执行在进行中，等它结束后再生成',
   BUSY: '当前有其他任务或后台维护在进行，稍后再生成',
@@ -509,6 +517,15 @@ const parentLink = computed(() => {
               data-testid="execute-error"
             >
               {{ executeError }}
+            </p>
+            <p
+              v-if="maxParticipants !== null"
+              class="border-b border-border bg-card px-3 py-1.5 text-[11px]"
+              :class="overLimit ? 'text-[var(--danger-ink)]' : 'text-[var(--text-secondary)]'"
+              :role="overLimit ? 'alert' : undefined"
+              data-testid="participation-count"
+            >
+              参与 {{ participants }} / {{ maxParticipants }}<template v-if="overLimit">：超过单次转换上限，请用批量修改排除一部分成员后再生成计划</template>
             </p>
             <p
               v-if="generateError"

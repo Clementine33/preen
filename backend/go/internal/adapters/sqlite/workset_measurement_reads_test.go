@@ -45,7 +45,7 @@ func (f *worksetMeasurement) readLargestMember(t *testing.T, id, plan string) st
 
 // browser makes the exact lifecycle fixture available over loopback. Only the
 // optional measurement process owns the server; no production listener changes.
-func (f *worksetMeasurement) browser(t *testing.T, phase, id, plan, member, execution string) {
+func (f *worksetMeasurement) browser(t *testing.T, phase, id, plan, member, execution string, kind ...string) {
 	t.Helper()
 	if os.Getenv("PREEN_MEASURE_BROWSER") != "1" {
 		return
@@ -59,18 +59,9 @@ func (f *worksetMeasurement) browser(t *testing.T, phase, id, plan, member, exec
 	if err != nil {
 		t.Fatal(err)
 	}
-	command := exec.CommandContext(
-		t.Context(),
-		"node",
-		script,
-		phase,
-		server.URL,
-		f.libraryID,
-		id,
-		plan,
-		member,
-		execution,
-	)
+	args := []string{script, phase, server.URL, f.libraryID, id, plan, member, execution}
+	//nolint:gosec // opt-in harness runs its own repository script
+	command := exec.CommandContext(t.Context(), "node", append(args, kind...)...)
 	output, err := command.CombinedOutput()
 	t.Logf("browser phase=%s\n%s", phase, output)
 	if err != nil {
@@ -216,4 +207,42 @@ func (f *worksetMeasurement) measureConversionRound(t *testing.T, id string, rou
 	}
 	f.browser(t, "execution", id, conversionPlan, memberID, executionID)
 	return conversionPlan, false
+}
+
+// overviewEntry creates the record through the overview page itself (whole
+// library select-all, enter conversion) and returns its id; without the browser
+// it creates it directly (also when the member cap refuses the page's request).
+func (f *worksetMeasurement) overviewEntry(t *testing.T) string {
+	t.Helper()
+	if os.Getenv("PREEN_MEASURE_BROWSER") != "1" {
+		return f.create(t, "")
+	}
+	f.browser(t, "overview", "", "", "", "")
+	current, err := f.svc.GetCurrentWorkset(t.Context(), f.libraryID, workset.OperationTypeConversion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if current == nil {
+		// The member cap refused the whole library: use the baseline bypass.
+		return f.create(t, "")
+	}
+	return current.WorksetID
+}
+
+// executeSampled runs one execution; with the browser on it samples the
+// kind's result page while the session is slowed to stay running, then again
+// once finished.
+func (f *worksetMeasurement) executeSampled(t *testing.T, id, kind, plan string, round int) string {
+	t.Helper()
+	if os.Getenv("PREEN_MEASURE_BROWSER") != "1" {
+		return f.execute(t, id, kind, plan, round)
+	}
+	delayMS := worksetMeasurementInt(t, "PREEN_MEASURE_SAVE_DELAY_MS", 40)
+	f.sql.saveDelay.Store(int64(time.Duration(delayMS) * time.Millisecond))
+	execution := f.startExecution(t, id, kind, plan, round)
+	f.browser(t, "task-result-stream", id, plan, "", execution, kind)
+	f.sql.saveDelay.Store(0)
+	f.awaitExecution(t, kind, round, execution)
+	f.browser(t, "task-result", id, plan, "", execution, kind)
+	return execution
 }

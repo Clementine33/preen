@@ -206,6 +206,31 @@ func (*Task) ValidateSessionInput(rawDraft []byte, members []*workset.WorksetMem
 	return nil
 }
 
+// MaxParticipants is conversion's Participation Limit: the heaviest task bounds
+// how many members one planning session covers.
+const MaxParticipants = 3000
+
+// ParticipationLimit declares the limit to the workset seam.
+func (*Task) ParticipationLimit() int { return MaxParticipants }
+
+// Participants counts the members that would plan: all but those the frozen
+// draft excludes.
+func (*Task) Participants(rawDraft []byte, members []*workset.WorksetMember) (int, error) {
+	doc, err := ParseDraft(string(rawDraft))
+	if err != nil {
+		return 0, workset.NewError(
+			workset.ErrKindInternal, "INTERNAL", "stored draft is invalid", err,
+		)
+	}
+	excluded := 0
+	for _, m := range doc.Members {
+		if m.Excluded {
+			excluded++
+		}
+	}
+	return len(members) - excluded, nil
+}
+
 // PlanSession resolves the frozen draft into the executable per-member input
 // and runs one planning pass, mapping the planner snapshot onto the seam's
 // plan snapshot.

@@ -78,7 +78,13 @@ func TestWorksetRefreshCommitsMetadataAndQueuesCoversWithoutWaitingForCDN(t *tes
 		t.Fatal(err)
 	}
 	view := waitExecution(t, svc, id, execution.Execution.ExecutionID)
-	if view.Status != "succeeded" || len(view.TaskResult) != 2 || statics.Load() != 1 {
+	results := 0
+	for _, c := range view.Components {
+		if len(c.TaskResult) > 0 {
+			results++
+		}
+	}
+	if view.Status != "succeeded" || results != 2 || statics.Load() != 1 {
 		t.Fatalf("batch: %+v, requests %d", view, statics.Load())
 	}
 	detail, e := cat.Detail("RJ00000001")

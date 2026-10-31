@@ -213,8 +213,7 @@ cancellation stop the batch and preserve committed results. Each component and
 SSE `component` event may contain optional `task_result`: `{rj, outcome, issues,
 main_url?, backup_url?}` for refresh, or the frozen skip payload. Issue fields
 are `group?`, `source?`, `code`, `message`; outcome contains `applied`, `ignored`,
-`warnings`. Detail's optional `task_result[]` collects
-results from the returned component page. A partial failure yields session
+`warnings`. A partial failure yields session
 `failed` / `METADATA_PARTIAL_FAILURE` after other works finish.
 
 Metadata results and cover demands are persisted before metadata execution

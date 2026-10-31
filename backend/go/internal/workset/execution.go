@@ -81,7 +81,6 @@ type ExecutionComponentView struct {
 // ExecutionView is the session detail payload; it is also the SSE snapshot, so
 // a reconnect starts from the same authoritative shape as GET.
 type ExecutionView struct {
-	TaskResult          []json.RawMessage        `json:"task_result,omitempty"`
 	ExecutionID         string                   `json:"execution_id"`
 	WorksetID           string                   `json:"workset_id"`
 	OperationType       string                   `json:"operation_type"`
@@ -749,9 +748,6 @@ func (s *serviceImpl) executionViewOf(e *PlanExecution, read ExecutionRead) (*Ex
 			continue // a result outside the requested member
 		}
 		applyComponentResult(&view.Components[at], res)
-		if len(view.Components[at].TaskResult) > 0 {
-			view.TaskResult = append(view.TaskResult, view.Components[at].TaskResult)
-		}
 	}
 	return view, nil
 }

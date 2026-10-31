@@ -347,7 +347,9 @@ data: {"state":"running","libraries":[{"library_id":"…","pending":120,"unmeasu
 resumes by itself), and `idle` when no pass is in progress. Each library counts
 its files whose media facts are still unknown, split at the pass cursor:
 `pending` files come after it and will still be visited, `unmeasurable` files
-were visited in this pass and stay unknown. When idle, every remaining file is
+were visited in this pass and stay unknown. A pass kicked while paused
+starts over from the beginning when it resumes, and a kick pending when a pass
+ends continues it without an `idle` in between. When idle, every remaining file is
 `unmeasurable`. A library with both counts 0 is omitted, so `libraries` may be
 empty.
 

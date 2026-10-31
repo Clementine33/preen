@@ -351,8 +351,8 @@ The codec and quality required for an encoded output, such as MP3 at 320 kbps, a
 The observed files and their properties, including paths, codec, size, modification time and bitrate. These facts describe available inputs rather than desired outputs.
 
 **Media Facts Pass**:
-One automatic background walk over every file whose media facts are still unknown, started by a scan, a member refresh or startup. Any other work stops it and it resumes where it left off; it never refuses that work. A file that cannot be measured stays unknown and is tried again on the next pass.
-_Avoid_: Media facts task (a Task is something the user starts through the task seam); treating it as a gate holder.
+One automatic background walk over every file whose media facts are still unknown, across every library, started by a scan, a member refresh, an execution that changed files, or startup. Any other work stops it; it resumes where it left off, or starts over when that work recorded new files, and it never refuses that work. A file that cannot be measured stays unknown and is tried again on the next pass.
+_Avoid_: Media facts task (a Task is something the user starts through the task seam); a per-library pass or queue (there is one pass, and at most one next pass); treating it as a gate holder.
 
 **Component**:
 A transitive association of audio files sharing a parent directory or track stem within one Planning Root, Version Scope and classifier partition. It is the safety boundary for blocking changes and, in strict mode, maintaining encoded-output consistency.

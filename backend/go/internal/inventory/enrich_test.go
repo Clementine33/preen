@@ -20,6 +20,7 @@ type factsStore struct {
 	missing  map[string]string // path -> format
 	written  map[string]inventory.MediaFactsUpdate
 	writeErr error
+	counted  []string // the cursors MediaFactsCounts was asked at
 }
 
 func newFactsStore(n int) *factsStore {
@@ -64,6 +65,7 @@ func (s *factsStore) UpdateEntryMediaFacts(updates []inventory.MediaFactsUpdate)
 func (s *factsStore) MediaFactsCounts(after string) ([]inventory.LibraryMediaCounts, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.counted = append(s.counted, after)
 	c := inventory.LibraryMediaCounts{LibraryID: "lib"}
 	for path := range s.missing {
 		if path > after {
@@ -326,6 +328,112 @@ func TestMediaFactsStatusSplitsAtTheCursorAndThrottlesBatches(t *testing.T) {
 		want = inventory.LibraryMediaCounts{LibraryID: "lib", Unmeasurable: 3}
 		if st := e.Status(); st.State != inventory.MediaFactsIdle || len(st.Libraries) != 1 || st.Libraries[0] != want {
 			t.Errorf("status when idle = %+v, want every remaining file unmeasurable: %+v", st, want)
+		}
+	})
+}
+
+// TestMediaFactsKickWhilePausedRestartsThePass pins what "unmeasurable" means:
+// a file added while the pass was paused at P, sorting before P, is pending
+// again once the kicked pass resumes, is measured, and only files the pass
+// measured and still could not are counted unmeasurable.
+func TestMediaFactsKickWhilePausedRestartsThePass(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		gate := admission.NewGate(nil)
+		store := newFactsStore(200)
+		prober := &slowProber{fail: map[string]bool{"/lib/a/0002": true}}
+		e := inventory.NewMediaEnricher(store, prober, gate.BeginBackground)
+		e.Workers = 64
+		runEnricher(t, e)
+
+		e.Kick()
+		time.Sleep(25 * time.Millisecond) // a batch or two done, cursor inside rj1
+		releaseScan, err := gate.BeginScan()
+		if err != nil {
+			t.Fatal(err)
+		}
+		synctest.Wait()
+		store.mu.Lock()
+		store.missing["/lib/a/0001"] = "audio/mpeg"
+		store.missing["/lib/a/0002"] = "audio/mpeg"
+		store.mu.Unlock()
+		e.Kick()
+		releaseScan()
+		for e.Status().State == inventory.MediaFactsPaused {
+			time.Sleep(time.Millisecond) // the pass runs well over a millisecond
+		}
+		st := e.Status()
+		if st.State != inventory.MediaFactsRunning || len(st.Libraries) != 1 ||
+			st.Libraries[0].Unmeasurable != 0 || st.Libraries[0].Pending < 2 {
+			t.Fatalf("status after the resume = %+v, want the new files pending, none unmeasurable", st)
+		}
+
+		time.Sleep(time.Minute)
+		if _, ok := store.written["/lib/a/0001"]; !ok {
+			t.Error("the file added while paused was never measured")
+		}
+		want := inventory.LibraryMediaCounts{LibraryID: "lib", Unmeasurable: 1}
+		if st := e.Status(); st.State != inventory.MediaFactsIdle || len(st.Libraries) != 1 || st.Libraries[0] != want {
+			t.Errorf("status when idle = %+v, want only the unmeasurable file left: %+v", st, want)
+		}
+	})
+}
+
+// TestMediaFactsKickPendingAtTheEndContinuesWithoutIdle: a kick stored while
+// the pass runs restarts it from the beginning at once, without an idle status
+// in between and without one more pass afterwards.
+func TestMediaFactsKickPendingAtTheEndContinuesWithoutIdle(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		store := newFactsStore(10)
+		prober := &slowProber{fail: map[string]bool{"/lib/rj1/0003": true}}
+		e := inventory.NewMediaEnricher(store, prober, nil)
+		runEnricher(t, e)
+
+		e.Kick()
+		time.Sleep(5 * time.Millisecond)
+		e.Kick() // stored: the pass is mid-batch
+		time.Sleep(time.Minute)
+
+		// Ten probes, then the restart re-asks the one unknown file; a further
+		// pass would ask it a third time.
+		if asked := prober.askedCount(); asked != 11 {
+			t.Errorf("probes = %d, want 11 (one pass plus the restart)", asked)
+		}
+		idles := 0
+		for _, after := range store.counted {
+			if after == "\U0010FFFF" {
+				idles++
+			}
+		}
+		if idles != 1 {
+			t.Errorf("idle published %d times, want once at the very end", idles)
+		}
+	})
+}
+
+// TestMediaFactsWithoutAKickTheCursorIsKept: a preemption alone resumes after
+// the last finished batch instead of starting over.
+func TestMediaFactsWithoutAKickTheCursorIsKept(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		gate := admission.NewGate(nil)
+		store := newFactsStore(200)
+		prober := &slowProber{}
+		e := inventory.NewMediaEnricher(store, prober, gate.BeginBackground)
+		e.Workers = 64
+		runEnricher(t, e)
+
+		e.Kick()
+		time.Sleep(25 * time.Millisecond)
+		releaseScan, err := gate.BeginScan()
+		if err != nil {
+			t.Fatal(err)
+		}
+		releaseScan()
+		time.Sleep(time.Minute)
+		if missing, _ := store.counts(); missing != 0 {
+			t.Fatalf("%d files left", missing)
+		}
+		if asked := prober.askedCount(); asked != 200 {
+			t.Errorf("probes = %d, want 200: no file measured twice", asked)
 		}
 	})
 }

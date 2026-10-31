@@ -18,6 +18,18 @@ async function applySettings(page: Page) {
 }
 
 /**
+ * Regenerates an edited draft and waits for the planning session to end. The
+ * previous revision's counts stay on screen meanwhile, so only the state badge
+ * says the session is over — and a live session refuses file management.
+ */
+async function regenerate(page: Page) {
+  const header = page.getByTestId('operation-header')
+  await expect(header).toContainText('需重新规划')
+  await page.getByTestId('start-generation').click()
+  await expect(header).toContainText('已规划', { timeout: 30_000 })
+}
+
+/**
  * End-to-end smoke of the workset operation workflow against a real stack (Go
  * backend with a fresh PREEN_DATA_DIR + Vite dev server), launched by
  * `e2e/launch-stack.mjs` (see playwright.config.ts webServer).
@@ -218,8 +230,7 @@ test.describe('workset operation smoke', () => {
 
     // 6. Regenerate on the changed draft: the new revision is a different
     //    version and its review reports the member's own setting.
-    await page.getByTestId('start-generation').click()
-    await expect(page.getByTestId('operation-counts')).toBeVisible({ timeout: 30_000 })
+    await regenerate(page)
     await page.getByTestId('member-open').first().click()
     await expect(page.getByTestId('member-review')).toContainText('独立设置', { timeout: 15_000 })
     await expect(page.getByTestId('member-review')).toContainText('无音效目标')
@@ -235,8 +246,7 @@ test.describe('workset operation smoke', () => {
     await pickUnitOption(page, 'common-mode', '严格')
     await applySettings(page)
     await page.getByTestId('nav-conversion').click()
-    await page.getByTestId('start-generation').click()
-    await expect(page.getByTestId('operation-counts')).toBeVisible({ timeout: 30_000 })
+    await regenerate(page)
 
     // 7. The shared file module: the same tree the overview browses, here for
     //    a conversion member, with the plan as a read-only second view.

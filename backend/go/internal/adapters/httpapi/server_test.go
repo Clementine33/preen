@@ -162,8 +162,8 @@ func TestHealthEndpoint(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200 (body=%s)", w.Code, w.Body.String())
 	}
-	if got := w.Body.String(); got != `{"ok":true,"version":"dev","workset_max_members":2000}` {
-		t.Fatalf("body = %s, want %s", got, `{"ok":true,"version":"dev","workset_max_members":2000}`)
+	if got := w.Body.String(); got != `{"ok":true,"version":"dev","workset_max_members":10000}` {
+		t.Fatalf("body = %s, want %s", got, `{"ok":true,"version":"dev","workset_max_members":10000}`)
 	}
 }
 

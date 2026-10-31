@@ -160,6 +160,8 @@ type OperationView struct {
 	// LatestExecution is the newest execution session (any status) so the UI can
 	// reach a finished partial run after a reload.
 	LatestExecution *ExecutionRef
+	// MaxParticipants is the task's Participation Limit; 0 when it has none.
+	MaxParticipants int
 }
 
 // WorksetView is the workset metadata view: identity, library, fixed members

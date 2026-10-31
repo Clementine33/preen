@@ -6,6 +6,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"strconv"
 	"time"
 )
 
@@ -105,6 +107,20 @@ func (s *serviceImpl) prepareGeneration(
 	// rejected here instead of failing the queued session (ADR 0005).
 	if execErr := task.ValidateSessionInput([]byte(draft.DraftJSON), members); execErr != nil {
 		return nil, execErr
+	}
+	if limited, ok := task.(ParticipationLimitTask); ok {
+		n, perr := limited.Participants([]byte(draft.DraftJSON), members)
+		if perr != nil {
+			return nil, perr
+		}
+		if limit := limited.ParticipationLimit(); n > limit {
+			return nil, NewError(
+				ErrKindInvalidArgument,
+				"TOO_MANY_PARTICIPANTS",
+				fmt.Sprintf("this task plans at most %d participating folders; exclude some members", limit),
+				nil,
+			).WithDetails([]string{"limit=" + strconv.Itoa(limit), "participants=" + strconv.Itoa(n)})
+		}
 	}
 	w, err := s.repo.GetWorkset(worksetID)
 	if err != nil {

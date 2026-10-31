@@ -356,3 +356,19 @@ func TestSeedDraftUsesTheStoredCommonSettings(t *testing.T) {
 		t.Fatalf("an unreadable stored payload must fall back to the seed: %+v", doc)
 	}
 }
+
+func TestParticipantsCountsAllButExcluded(t *testing.T) {
+	task := conversion.New(nil, nil, nil, nil, nil, nil, conversion.ExecutionIO{})
+	raw, _, err := conversion.MarshalDraft(&conversion.DraftDoc{
+		SchemaVersion: conversion.DraftSchemaVersion,
+		Members:       []conversion.DraftMember{{MemberID: "m-2", Excluded: true}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	members := []*workset.WorksetMember{{MemberID: "m-1"}, {MemberID: "m-2"}, {MemberID: "m-3"}}
+	n, err := task.Participants([]byte(raw), members)
+	if err != nil || n != 2 || task.ParticipationLimit() != 3000 {
+		t.Fatalf("participants=%d limit=%d err=%v", n, task.ParticipationLimit(), err)
+	}
+}

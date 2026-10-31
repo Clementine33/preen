@@ -6,9 +6,16 @@ import { chromium } from '@playwright/test'
 import { createServer } from 'vite'
 
 async function main() {
-  const [phase, backend, library, workset, plan, member, execution] = process.argv.slice(2)
-  assert(['revision', 'execution', 'execution-stream'].includes(phase), 'expected revision, execution or execution-stream phase')
-  const streaming = phase === 'execution-stream'
+  const [phase, backend, library, workset, plan, member, execution, kind] = process.argv.slice(2)
+  const taskPhases = ['task-plan', 'task-result', 'task-result-stream']
+  assert([
+    'revision',
+    'execution',
+    'execution-stream',
+    'overview',
+    ...taskPhases,
+  ].includes(phase), 'unknown phase')
+  const streaming = phase === 'execution-stream' || phase === 'task-result-stream'
   process.env.PREEN_BACKEND_URL = backend
   process.env.PREEN_VUE_DEVTOOLS = '0'
   const root = fileURLToPath(new URL('..', import.meta.url))
@@ -67,6 +74,105 @@ async function main() {
           return response
         }
       })
+      if (phase === 'overview') {
+        // Whole-library select-all, then enter conversion: the first width
+        // creates the record, the second replaces it.
+        const creations = []
+        page.on('request', (request) => {
+          if (request.method() === 'PUT' && request.url().endsWith('/current'))
+            creations.push(request.postDataBuffer()?.length ?? 0)
+        })
+        await page.goto(`http://127.0.0.1:5189/worksets/${library}`)
+        await page.getByTestId('select-all-dirs').waitFor()
+        await page.evaluate(() => document.fonts.ready)
+        const started = Date.now()
+        await page.getByTestId('select-all-dirs').check()
+        // The page itself disables entry above the server's member cap.
+        if (await page.getByTestId('enter-conversion').isDisabled()) {
+          console.log(JSON.stringify({
+            phase,
+            width,
+            outcome: 'entry_disabled_by_member_limit',
+            note: await page.locator('#member-limit-note').textContent(),
+            heap_bytes: await page.evaluate(() => performance.memory.usedJSHeapSize),
+          }))
+          await page.close()
+          continue
+        }
+        await page.getByTestId('enter-conversion').click()
+        const confirm = page.getByTestId('confirm-replace')
+        if (await confirm.isVisible().catch(() => false))
+          await confirm.click()
+        // The server's member cap can refuse the whole library; that is reported, not fatal.
+        const refused = page.getByTestId('create-error')
+        const outcome = await Promise.race([
+          page.waitForURL('**/conversion').then(() => 'entered'),
+          refused.waitFor().then(() => 'refused'),
+        ])
+        if (outcome === 'entered')
+          await page.getByTestId('member-row').first().waitFor()
+        const entryMs = Date.now() - started
+        console.log(JSON.stringify({
+          phase,
+          width,
+          outcome,
+          refusal: outcome === 'refused'
+            ? await refused.textContent()
+            : undefined,
+          select_all_to_entry_ms: entryMs,
+          creation_body_bytes: creations,
+          heap_bytes: await page.evaluate(() => performance.memory.usedJSHeapSize),
+        }))
+        assert.deepEqual(errors, [])
+        await page.close()
+        continue
+      }
+      if (taskPhases.includes(phase)) {
+        // Rename / metadata plan page or execution result page, reloaded from a
+        // fresh query cache. Streaming means the session runs around the sample.
+        const route = kind === 'rename'
+          ? 'rename'
+          : 'metadata'
+        const planPage = phase === 'task-plan'
+        const ready = planPage
+          ? (kind === 'rename'
+              ? '[data-testid="task-plan-table"], [data-testid="plan-empty"]'
+              : '[data-testid="metadata-plan-count"]')
+          : '[data-testid="execution-member-counts"]'
+        const url = `http://127.0.0.1:5189/worksets/${library}/${route}`
+        const status = async () => {
+          const path = `/api/v1/worksets/${workset}/operations/${kind}/executions/${execution}?view=members`
+          const body = await (await fetch(`${backend}${path}`)).json()
+          return body.status
+        }
+        await page.goto(url)
+        await page.locator(ready).first().waitFor()
+        await page.evaluate(() => document.fonts.ready)
+        const before = planPage
+          ? ''
+          : await status()
+        await page.reload()
+        await page.locator(ready).first().waitFor()
+        const visible = await page.evaluate(() => performance.now())
+        const after = planPage
+          ? ''
+          : await status()
+        console.log(JSON.stringify({
+          phase,
+          kind,
+          // Reported, not asserted: a short rename session may finish early.
+          streaming_valid: !streaming || (before === 'running' && after === 'running'),
+          width,
+          visible_ms: visible,
+          session_before: before,
+          session_after: after,
+          heap_bytes: await page.evaluate(() => performance.memory.usedJSHeapSize),
+          requests: (await page.evaluate(() => window.measureReads)).map(({ url, bytes, handler, parse_ms }) => ({ url, bytes, handler, parse_ms })),
+        }))
+        assert.deepEqual(errors, [])
+        await page.close()
+        continue
+      }
       // Warm code/font delivery once, then start a fresh document/query cache.
       // The timed API reads below still execute against the live handler.
       const executionPage = phase.startsWith('execution') && process.env.PREEN_MEASURE_SNAPSHOT_LIST !== '1'

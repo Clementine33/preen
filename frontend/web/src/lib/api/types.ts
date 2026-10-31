@@ -685,6 +685,8 @@ export interface Operation {
   latest_generation: GenerationSummary | null
   active_execution: ExecutionProgress | null
   latest_execution: ExecutionRef | null
+  /** The task's Participation Limit; absent when it declares none. */
+  max_participants?: number
 }
 
 export interface Workset {

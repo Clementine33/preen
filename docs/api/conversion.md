@@ -53,6 +53,10 @@ so nothing about it is stored or validated differently from a hand-made one.
 - **Exclusion** changes participation only: overrides and inheritance survive
   it, and restoring participation restores the previous relationships.
   Excluding every member saves but cannot generate (`NO_ACTIVE_MEMBERS`).
+- **Participation Limit**: conversion plans at most 3000 participating
+  (non-excluded) members per session; more is refused at generation enqueue
+  with `TOO_MANY_PARTICIPANTS` (400). The operation view carries it as
+  `max_participants`.
 - **Common settings are deployment-wide** (ADR 0008). The seven common values
   are stored once per operation kind, not per record, and are written only
   through [`PUT /api/v1/tasks/conversion/settings`](tasks.md#task-settings),

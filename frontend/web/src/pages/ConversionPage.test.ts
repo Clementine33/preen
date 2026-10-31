@@ -75,7 +75,7 @@ function revision(selectedStale = false) {
     })),
   }
 }
-async function page(getRevision = vi.fn().mockResolvedValue(revision()), blocked = 0, queryClient = createTestQueryClient()) {
+async function page(getRevision = vi.fn().mockResolvedValue(revision()), blocked = 0, queryClient = createTestQueryClient(), limit: { max?: number, excluded?: string[], startGeneration?: () => Promise<never> } = {}) {
   const router = createRouter({
     history: createMemoryHistory(),
     routes: [
@@ -94,6 +94,7 @@ async function page(getRevision = vi.fn().mockResolvedValue(revision()), blocked
     getWorkset: vi.fn().mockResolvedValue(workset),
     getOperation: vi.fn().mockResolvedValue({
       ...operation,
+      max_participants: limit.max,
       current_revision: {
         ...operation.current_revision,
         counts: { ...counts, blocked },
@@ -106,10 +107,13 @@ async function page(getRevision = vi.fn().mockResolvedValue(revision()), blocked
         no_effect_tags: [],
         matched: {},
         unmatched: {},
-        members: [],
+        members: (limit.excluded ?? []).map(member_id => ({ member_id, excluded: true })),
       },
     }),
     getRevision,
+    ...(limit.startGeneration
+      ? { startGeneration: limit.startGeneration }
+      : {}),
   })
   const wrapper = mount(ConversionPage, {
     global: {
@@ -127,8 +131,9 @@ async function page(getRevision = vi.fn().mockResolvedValue(revision()), blocked
         WorkbenchNav: true,
         MemberList: true,
         OperationHeader: {
-          props: ['executeBlocked'],
-          template: '<div data-testid="full-reason">{{ executeBlocked }}</div>',
+          props: ['executeBlocked', 'canGenerate'],
+          emits: ['generate'],
+          template: '<div data-testid="full-reason"><button data-testid="gen" @click="$emit(\'generate\')" />{{ executeBlocked }}<i data-testid="can-generate">{{ canGenerate }}</i></div>',
         },
       },
     },
@@ -227,4 +232,34 @@ describe('conversion editing status', () => {
       wrapper.unmount()
     },
   )
+})
+
+describe('participation limit', () => {
+  it('shows the count and disables generation above the limit, excluded members not counted', async () => {
+    const over = await page(undefined, 0, undefined, { max: 1 })
+    expect(over.get('[data-testid="participation-count"]').text()).toContain('参与 2 / 1')
+    expect(over.get('[data-testid="participation-count"]').text()).toContain('批量修改')
+    expect(over.get('[data-testid="can-generate"]').text()).toBe('false')
+    over.unmount()
+    const within = await page(undefined, 0, undefined, {
+      max: 1,
+      excluded: ['b'],
+    })
+    expect(within.get('[data-testid="participation-count"]').text()).toBe('参与 1 / 1')
+    expect(within.get('[data-testid="can-generate"]').text()).toBe('true')
+    within.unmount()
+  })
+  it('maps a TOO_MANY_PARTICIPANTS refusal to guidance', async () => {
+    const startGeneration = vi.fn().mockRejectedValue({ code: 'TOO_MANY_PARTICIPANTS', message: 'raw' })
+    const wrapper = await page(undefined, 0, undefined, { startGeneration })
+    await wrapper.get('[data-testid="gen"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.get('[data-testid="generate-error"]').text()).toContain('批量修改')
+    wrapper.unmount()
+  })
+  it('shows nothing when the task declares no limit', async () => {
+    const wrapper = await page()
+    expect(wrapper.find('[data-testid="participation-count"]').exists()).toBe(false)
+    wrapper.unmount()
+  })
 })

@@ -227,6 +227,10 @@ _Avoid_: Frontend-only disabling; a queue of waiting file operations.
 An independent business activity on a Workset's shared members, owning its draft, participation scope, planning sessions and its current plan. Conversion, metadata refresh and directory rename are the available activities; each reuses the same selected batch and retains its own settings, plan and results.
 _Avoid_: Workflow step; filesystem Operation when referring to this activity.
 
+**Participation Limit**:
+The most participating members one Task will plan in a single Planning Session, declared by the Task itself and checked when planning starts; excluded members do not count. It is separate from the Workset's own member limit, which bounds what the shared batch may hold for every activity; a Task without one is bounded by the batch alone.
+_Avoid_: A smaller batch per Task; truncating the members a plan covers.
+
 **Operation Draft**:
 The saved common settings, member field overrides and participation choices of one Workset Operation.
 _Avoid_: Batch Draft, Workset-wide Workflow Draft.

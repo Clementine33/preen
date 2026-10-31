@@ -89,6 +89,7 @@ type operationResponse struct {
 	LatestGeneration *generationSummaryResponse  `json:"latest_generation"`
 	ActiveExecution  *workset.ExecutionProgress  `json:"active_execution"`
 	LatestExecution  *workset.ExecutionRef       `json:"latest_execution"`
+	MaxParticipants  int                         `json:"max_participants,omitempty"`
 }
 
 // worksetResponse is the workset metadata view.
@@ -110,10 +111,11 @@ type worksetListResponse struct {
 
 func toOperationResponse(v *workset.OperationView) operationResponse {
 	out := operationResponse{
-		WorksetID:     v.WorksetID,
-		OperationType: v.OperationType,
-		Version:       v.Version,
-		PlanningState: v.PlanningState,
+		WorksetID:       v.WorksetID,
+		OperationType:   v.OperationType,
+		Version:         v.Version,
+		PlanningState:   v.PlanningState,
+		MaxParticipants: v.MaxParticipants,
 	}
 	if v.CurrentRevision != nil {
 		out.CurrentRevision = toCurrentRevisionResponse(v.CurrentRevision)

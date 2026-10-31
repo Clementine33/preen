@@ -5,6 +5,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia } from 'pinia'
 import { describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
+import { useToast } from '@/composables/use-toast'
 import { apiClientKey } from '@/lib/api/client'
 import { queryKeys } from '@/queries/query-keys'
 import { useWorksetEditorStore } from '@/stores/workset-editor'
@@ -235,17 +236,21 @@ describe('conversion editing status', () => {
 })
 
 describe('participation limit', () => {
-  it('shows the count and disables generation above the limit, excluded members not counted', async () => {
+  it('announces and disables generation above the limit, excluded members not counted', async () => {
+    useToast().current.value = null
     const over = await page(undefined, 0, undefined, { max: 1 })
-    expect(over.get('[data-testid="participation-count"]').text()).toContain('参与 2 / 1')
+    expect(over.get('[data-testid="participation-count"]').text()).toContain('参与 2 个文件夹，超过单次转换上限 1 个')
     expect(over.get('[data-testid="participation-count"]').text()).toContain('批量修改')
+    expect(useToast().current.value?.text).toContain('超过单次转换上限 1 个')
     expect(over.get('[data-testid="can-generate"]').text()).toBe('false')
     over.unmount()
+    useToast().current.value = null
     const within = await page(undefined, 0, undefined, {
       max: 1,
       excluded: ['b'],
     })
-    expect(within.get('[data-testid="participation-count"]').text()).toBe('参与 1 / 1')
+    expect(within.find('[data-testid="participation-count"]').exists()).toBe(false)
+    expect(useToast().current.value).toBeNull()
     expect(within.get('[data-testid="can-generate"]').text()).toBe('true')
     within.unmount()
   })

@@ -86,7 +86,7 @@ test.describe('workset operation smoke', () => {
     //    record is the library's own.
     await expect(page.getByRole('checkbox', { name: '选择 RJ000001 albumA' }).first()).toBeVisible()
     await page.getByRole('checkbox', { name: '选择 RJ000001 albumA' }).first().check()
-    await expect(page.getByText(/已选择 1 \/ \d+ 个文件夹/)).toBeVisible()
+    await expect(page.getByText('已选择 1 个文件夹')).toBeVisible()
     await page.getByTestId('enter-conversion').click()
 
     // The record opens on 转换: its settings, members and plan. The overview

@@ -235,6 +235,9 @@ const (
 	ReasonSourceAmbiguous     = "SOURCE_AMBIGUOUS"
 	ReasonTargetPathAmbiguous = "TARGET_PATH_AMBIGUOUS"
 	ReasonTargetPathConflict  = "TARGET_PATH_CONFLICT"
+	// ReasonNameTooLong is an encode target whose name, or the staging or aside
+	// name derived from it, would not fit as one path component.
+	ReasonNameTooLong = "NAME_TOO_LONG"
 	// ReasonConformanceUnconfirmed is an observed file of the declared codec
 	// whose own measured rate cannot judge it (unknown, Opus below target,
 	// saturated AAC below its floor) and that no generation credential accepts.

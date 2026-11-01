@@ -3,23 +3,9 @@ package execute
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 
-	"github.com/google/uuid"
+	"github.com/Clementine33/preen/backend/internal/conversion/reconcile"
 )
-
-// tempOutputPath returns this run's unique staging path beside its target, so
-// the commit rename stays on one filesystem and a concurrent run cannot share
-// the file.
-func tempOutputPath(target string) string {
-	return filepath.Join(filepath.Dir(target), filepath.Base(target)+".tmp."+uuid.NewString()[:8])
-}
-
-// replacedAsidePath returns the staging name that holds a replaced old output
-// until the new output has landed (hard mode only).
-func replacedAsidePath(target string) string {
-	return filepath.Join(filepath.Dir(target), filepath.Base(target)+".tmp-old."+uuid.NewString()[:8])
-}
 
 // commitOutput moves one validated temporary output onto its target. A fresh
 // target is renamed into place directly. A same-path replacement first keeps
@@ -42,7 +28,7 @@ func commitOutput(
 	if soft {
 		protected, result, err = tk.recoverMove(ctx, workRoot, enc.target)
 	} else {
-		protected = replacedAsidePath(enc.target)
+		protected = reconcile.AsidePath(enc.target)
 		result, err = tk.move(enc.target, protected)
 	}
 	if err != nil || !result.SourceRemoved || result.Unverified {

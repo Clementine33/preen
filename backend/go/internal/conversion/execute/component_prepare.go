@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
+	"github.com/Clementine33/preen/backend/internal/conversion/reconcile"
 )
 
 // PreparedComponent is one frozen component that passed the full precheck and
@@ -60,7 +62,7 @@ func (p *PreparedComponent) EncodeOne(ctx context.Context, index int) error {
 	if ctxErr := ctx.Err(); ctxErr != nil {
 		return canceledComponentError(ComponentStageMaterialize, ctxErr)
 	}
-	enc.temp = tempOutputPath(enc.target)
+	enc.temp = reconcile.StagingPath(enc.target)
 	if err := p.materialize(ctx, enc); err != nil {
 		if ctxErr := ctx.Err(); ctxErr != nil {
 			return canceledComponentError(ComponentStageMaterialize, ctxErr)
@@ -70,7 +72,7 @@ func (p *PreparedComponent) EncodeOne(ctx context.Context, index int) error {
 		}
 		return &ComponentError{
 			Stage:   ComponentStageMaterialize,
-			Code:    ComponentCodeEncodeFailed,
+			Code:    failureCode(err, ComponentCodeEncodeFailed),
 			Path:    posixForm(enc.target),
 			Message: "encoding the frozen target failed",
 			Err:     err,
@@ -170,7 +172,7 @@ func (p *PreparedComponent) Commit(ctx context.Context) (ComponentRunResult, err
 		if err != nil {
 			return stopRun(p.plan, p.tk, result, ComponentStatusFailed, ComponentStageCommit, &ComponentError{
 				Stage:   ComponentStageCommit,
-				Code:    ComponentCodeCommitFailed,
+				Code:    failureCode(err, ComponentCodeCommitFailed),
 				Path:    posixForm(enc.target),
 				Message: "committing the output failed",
 				Err:     err,
@@ -221,7 +223,7 @@ func (p *PreparedComponent) remove(ctx context.Context, result ComponentRunResul
 		if err != nil {
 			return stopRun(p.plan, p.tk, result, ComponentStatusFailed, ComponentStageRemove, &ComponentError{
 				Stage:   ComponentStageRemove,
-				Code:    ComponentCodeDeleteFailed,
+				Code:    failureCode(err, ComponentCodeDeleteFailed),
 				Path:    posixForm(rem.source),
 				Message: "removing an obsolete file failed",
 				Err:     err,

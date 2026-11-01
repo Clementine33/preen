@@ -158,6 +158,12 @@ func TestRenameRefusals(t *testing.T) {
 		},
 		{"traversal name", fileops.Item{Source: "01.mp3", Name: ".."}, fileops.CodeInvalidName, "albumA/01.mp3"},
 		{"target exists", fileops.Item{Source: "01.mp3", Name: "taken.mp3"}, fileops.CodeTargetExists, "albumA/01.mp3"},
+		{
+			"name over 255 bytes",
+			fileops.Item{Source: "01.mp3", Name: strings.Repeat("a", 256)},
+			fileops.CodeNameTooLong,
+			"albumA/01.mp3",
+		},
 		{"source missing", fileops.Item{Source: "gone.mp3", Name: "new.mp3"}, fileops.CodeSourceMissing, ""},
 	}
 	for _, tc := range cases {

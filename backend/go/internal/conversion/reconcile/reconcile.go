@@ -3,9 +3,14 @@ package reconcile
 import (
 	"fmt"
 	"path"
+	"path/filepath"
 	"slices"
 	"sort"
 	"strings"
+
+	"github.com/google/uuid"
+
+	"github.com/Clementine33/preen/backend/internal/librarypath"
 )
 
 // Stable decision reason codes (machine identity, not prose).
@@ -133,6 +138,32 @@ func sameStemPath(sourcePosix, targetExt string) string {
 	base := path.Base(sourcePosix)
 	stem := strings.TrimSuffix(base, path.Ext(base))
 	return path.Join(dir, stem+targetExt)
+}
+
+// StagingPath returns a run's unique staging path beside target, so the commit
+// rename stays on one filesystem and a concurrent run cannot share the file.
+func StagingPath(target string) string {
+	return filepath.Join(filepath.Dir(target), filepath.Base(target)+".tmp."+uuid.NewString()[:8])
+}
+
+// AsidePath returns the staging name that holds a replaced old output until
+// the new output has landed (hard mode only).
+func AsidePath(target string) string {
+	return filepath.Join(filepath.Dir(target), filepath.Base(target)+".tmp-old."+uuid.NewString()[:8])
+}
+
+// targetNameTooLong reports whether the target's own name, or the staging or
+// aside name execution derives from it, would not fit as a path component.
+// Staging names are checked by their real shape, so the suffix budget cannot
+// drift from StagingPath and AsidePath.
+func targetNameTooLong(target string) bool {
+	dir := path.Dir(target)
+	for _, name := range []string{path.Base(target), filepath.Base(StagingPath(target)), filepath.Base(AsidePath(target))} {
+		if !librarypath.NameFits(dir, name) {
+			return true
+		}
+	}
+	return false
 }
 
 // Reconcile plans one root: isolate scopes -> classify -> partition ->
@@ -379,6 +410,13 @@ func reconcileComponent(
 					)
 					break
 				}
+				if p.losslessEncodeSrc != nil {
+					target := sameStemPath(p.losslessEncodeSrc.PathPosix, ExtForCodec(profile.Lossless.Codec))
+					if targetNameTooLong(target) {
+						block(ReasonNameTooLong, "stem %s target name %s is too long", p.stem, path.Base(target))
+						break
+					}
+				}
 			}
 		}
 		lane := LaneDecision{Lane: LaneLossless}
@@ -460,6 +498,14 @@ func reconcileComponent(
 						"stem %s has multiple %s variants; cannot choose an encode target",
 						p.stem,
 						profile.Encoded.Codec,
+					)
+				}
+				if !isBlocked() && targetNameTooLong(p.encodedTargetPath) {
+					block(
+						ReasonNameTooLong,
+						"stem %s target name %s is too long",
+						p.stem,
+						path.Base(p.encodedTargetPath),
 					)
 				}
 				if isBlocked() {

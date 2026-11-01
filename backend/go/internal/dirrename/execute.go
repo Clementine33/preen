@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/Clementine33/preen/backend/internal/librarypath"
 	"github.com/Clementine33/preen/backend/internal/workset"
 )
 
@@ -227,7 +228,11 @@ func (p *preparedRename) Commit(ctx context.Context) (workset.UnitResult, error)
 		if errors.Is(err, fs.ErrExist) {
 			err = fmt.Errorf("target already exists: %w", err)
 		}
-		return p.failure("COMPONENT_RENAME_FAILED", err), nil
+		code := "COMPONENT_RENAME_FAILED"
+		if librarypath.IsNameTooLong(err) {
+			code = "COMPONENT_NAME_TOO_LONG"
+		}
+		return p.failure(code, err), nil
 	}
 	p.result.Renamed = true
 	// Cancellation stops the next unit; this disk/database boundary must finish.

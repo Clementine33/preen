@@ -8,11 +8,13 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"syscall"
 	"testing"
 	"testing/synctest"
 
 	"github.com/Clementine33/preen/backend/internal/adapters/filesystem"
+	"github.com/Clementine33/preen/backend/internal/librarypath"
 )
 
 func recoveryFixture(t *testing.T) (string, string, string) {
@@ -187,6 +189,48 @@ func TestRecoverCancellationStopsLockedWait(t *testing.T) {
 		}
 		if attempts != 1 {
 			t.Fatalf("attempts = %d; cancellation should stop before retry", attempts)
+		}
+		recoveryContent(t, source, "original")
+	})
+}
+
+func TestRecoverRefusesLongNamesWithoutTouchingDisk(t *testing.T) {
+	long := strings.Repeat("a", 256)
+	t.Run("recovery directory segment", func(t *testing.T) {
+		parent := t.TempDir()
+		root := filepath.Join(parent, long)
+		source := filepath.Join(root, "track.mp3")
+		got, err := filesystem.Recover(t.Context(), root, source)
+		if got != "" || !errors.Is(err, librarypath.ErrNameTooLong) {
+			t.Fatalf("Recover = %q, %v; want ErrNameTooLong", got, err)
+		}
+		if _, err := os.Stat(filepath.Join(parent, "Delete")); !errors.Is(err, fs.ErrNotExist) {
+			t.Fatalf("Delete created: %v", err)
+		}
+	})
+	t.Run("first candidate", func(t *testing.T) {
+		parent := t.TempDir()
+		root := filepath.Join(parent, "RJ000001")
+		got, err := filesystem.Recover(t.Context(), root, filepath.Join(root, long))
+		if got != "" || !errors.Is(err, librarypath.ErrNameTooLong) {
+			t.Fatalf("Recover = %q, %v; want ErrNameTooLong", got, err)
+		}
+		if _, err := os.Stat(filepath.Join(parent, "Delete")); !errors.Is(err, fs.ErrNotExist) {
+			t.Fatalf("Delete created: %v", err)
+		}
+	})
+	t.Run("collision candidate", func(t *testing.T) {
+		root, _, want := recoveryFixture(t)
+		base := strings.Repeat("b", 255)
+		source := filepath.Join(root, base)
+		recoveryWrite(t, source, "original")
+		if err := os.MkdirAll(filepath.Dir(want), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		recoveryWrite(t, filepath.Join(filepath.Dir(filepath.Dir(want)), base), "earlier recovery")
+		got, err := filesystem.Recover(t.Context(), root, source)
+		if got != "" || !errors.Is(err, librarypath.ErrNameTooLong) {
+			t.Fatalf("Recover = %q, %v; want ErrNameTooLong", got, err)
 		}
 		recoveryContent(t, source, "original")
 	})

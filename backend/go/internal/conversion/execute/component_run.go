@@ -53,6 +53,7 @@ const (
 	ComponentCodeValidateFailed    = "COMPONENT_VALIDATE_FAILED"
 	ComponentCodeCommitFailed      = "COMPONENT_COMMIT_FAILED"
 	ComponentCodeDeleteFailed      = "COMPONENT_DELETE_FAILED"
+	ComponentCodeNameTooLong       = "COMPONENT_NAME_TOO_LONG"
 	ComponentCodeCanceled          = "COMPONENT_CANCELED"
 )
 

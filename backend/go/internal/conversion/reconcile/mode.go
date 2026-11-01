@@ -1,6 +1,9 @@
 package reconcile
 
-import "fmt"
+import (
+	"fmt"
+	"path"
+)
 
 // Reason code exclusive to the available_sources (relaxed) mode: an existing
 // file kept because the declared shape of its stem cannot be reached. Strict
@@ -207,6 +210,11 @@ func lenientStem(g StemGroup, profile DesiredProfile, occupied map[string]struct
 	}
 	if profile.Lossless != nil && len(losslessKeep) == 0 {
 		target := sameStemPath(src.PathPosix, ExtForCodec(profile.Lossless.Codec))
+		if targetNameTooLong(target) {
+			d.blockCode = ReasonNameTooLong
+			d.blockMsg = fmt.Sprintf("stem %s target name %s is too long", d.stem, path.Base(target))
+			return d
+		}
 		d.encode(src.PathPosix, target, ReasonMaterializeLossless)
 	}
 	replaced := ""
@@ -220,6 +228,11 @@ func lenientStem(g StemGroup, profile DesiredProfile, occupied map[string]struct
 		if _, taken := occupied[replaced]; taken && !stemOwns(g, replaced) {
 			d.blockCode = ReasonTargetPathConflict
 			d.blockMsg = fmt.Sprintf("stem %s target path %s is occupied by another entry", d.stem, replaced)
+			return d
+		}
+		if targetNameTooLong(replaced) {
+			d.blockCode = ReasonNameTooLong
+			d.blockMsg = fmt.Sprintf("stem %s target name %s is too long", d.stem, path.Base(replaced))
 			return d
 		}
 		d.encode(src.PathPosix, replaced, ReasonMaterializeEncoded)

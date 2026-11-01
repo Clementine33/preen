@@ -13,7 +13,7 @@ import (
 )
 
 func conversionMount(path string) (string, error) {
-	pathPtr, err := windows.UTF16PtrFromString(path)
+	pathPtr, err := windows.UTF16PtrFromString(fixLongPath(path))
 	if err != nil {
 		return "", err
 	}
@@ -22,7 +22,9 @@ func conversionMount(path string) (string, error) {
 	if err := windows.GetVolumePathName(pathPtr, &buffer[0], capacity); err != nil {
 		return "", err
 	}
-	mount := windows.UTF16ToString(buffer)
+	// A prefixed input yields a prefixed volume name; strip it so short and
+	// long paths on one volume share an identity.
+	mount := trimLongPathPrefix(windows.UTF16ToString(buffer))
 	mountPtr, err := windows.UTF16PtrFromString(mount)
 	if err != nil {
 		return "", err

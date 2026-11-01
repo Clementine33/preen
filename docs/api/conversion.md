@@ -162,7 +162,9 @@ audio: every observed file in it is removed. `available_sources` differs in
 `strict`'s failure behavior: a stem whose declared shape cannot be reached is
 left exactly as it is and recorded as `UNMET_TARGET` (no generation, no
 cleanup), where strict blocks the whole Component with zero operations.
-Ambiguity and path conflicts block in both. Qualified source priority is the
+Ambiguity and path conflicts block in both, as does a target whose name, or the
+`.tmp.<8>` staging or `.tmp-old.<8>` aside name derived from it, does not fit one
+path component (`NAME_TOO_LONG`, zero operations). Qualified source priority is the
 declared lossless codec, then WAV, then FLAC. Multiple candidates at the selected
 priority remain `SOURCE_AMBIGUOUS` when an output needs generating; their actual
 paths appear in file decisions. `ComponentOutcome.scope` is the matched directory's

@@ -25,6 +25,7 @@ const (
 	CodePermission      = "PERMISSION_DENIED"
 	CodeLocked          = "FILE_LOCKED"
 	CodeIOError         = "IO_ERROR"
+	CodeNameTooLong     = "NAME_TOO_LONG"
 	CodeMemberMissing   = "MEMBER_MISSING"
 	CodeOperationDenied = "OPERATION_DENIED"
 )
@@ -163,7 +164,7 @@ func (m *member) resolveTargetDir(rel string) (string, error) {
 // targetName validates the new name of a rename. A name is one path component:
 // a separator, a traversal segment or an empty string is refused, so a rename
 // can never move an item to another directory (ADR 0002).
-func targetName(name string) (string, error) {
+func targetName(root, name string) (string, error) {
 	trimmed := strings.TrimSpace(name)
 	if trimmed == "" || trimmed != name {
 		return "", &PathError{CodeInvalidName, "the new name is empty or padded with spaces"}
@@ -173,6 +174,9 @@ func targetName(name string) (string, error) {
 	}
 	if name == "." || name == ".." {
 		return "", &PathError{CodeInvalidName, "the new name is not a directory reference"}
+	}
+	if !librarypath.NameFits(root, name) {
+		return "", &PathError{CodeNameTooLong, "the new name is longer than the filesystem allows"}
 	}
 	return name, nil
 }
@@ -191,6 +195,8 @@ func insideMember(base, candidate string) bool {
 // errCode maps a filesystem error to the stable code the UI explains.
 func errCode(err error) string {
 	switch {
+	case librarypath.IsNameTooLong(err):
+		return CodeNameTooLong
 	case errors.Is(err, fs.ErrPermission):
 		return CodePermission
 	case errors.Is(err, fs.ErrNotExist):

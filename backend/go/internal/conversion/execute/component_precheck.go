@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/Clementine33/preen/backend/internal/conversion/reconcile"
+	"github.com/Clementine33/preen/backend/internal/librarypath"
 )
 
 // audioExtensions are the audio extensions observed in components and emitted
@@ -57,6 +58,15 @@ func posixForm(p string) string { return path.Clean(filepath.ToSlash(p)) }
 // componentError builds a stage-scoped failure with its gate code.
 func componentError(stage, code, p, message string, err error) *ComponentError {
 	return &ComponentError{Stage: stage, Code: code, Path: p, Message: message, Err: err}
+}
+
+// failureCode picks the code for a component stage failure: an OS or adapter
+// refusal of an over-long name is its own code, anything else keeps fallback.
+func failureCode(err error, fallback string) string {
+	if librarypath.IsNameTooLong(err) {
+		return ComponentCodeNameTooLong
+	}
+	return fallback
 }
 
 // precheckComponentRequest validates the whole component before any file is

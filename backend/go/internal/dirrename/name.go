@@ -104,7 +104,7 @@ func planName(
 		}
 		return r
 	}, o.RawName)), " .")
-	if len(o.TargetName) > 255 {
+	if !librarypath.NameFits(root, o.TargetName) {
 		o.ReasonCode = "NAME_TOO_LONG"
 		return o
 	}

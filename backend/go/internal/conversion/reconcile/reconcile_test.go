@@ -800,3 +800,28 @@ func TestAppleDoubleSidecarIsNotAudio(t *testing.T) {
 		t.Errorf("audio entries = %+v, want only the track", entries)
 	}
 }
+
+// TestReconcile_NameTooLongStagingBlocksComponent covers a target whose own
+// name fits but whose staging name does not, in strict and lenient planning.
+func TestReconcile_NameTooLongStagingBlocksComponent(t *testing.T) {
+	stem := strings.Repeat("a", 245) // 249-byte target; +".tmp.<8>" exceeds 255
+	entries := []AudioEntry{rjEntry("SEなし/wav/"+stem+".wav", 100, 0)}
+	for name, policy := range map[string]Policy{
+		"strict":  mp3OnlyProfile(),
+		"lenient": lenientPolicyFrom(mp3OnlyProfile()),
+	} {
+		t.Run(name, func(t *testing.T) {
+			res := reconcileRJ(t, entries, policy)
+			if len(res.Components) != 1 {
+				t.Fatalf("components = %d, want 1", len(res.Components))
+			}
+			c := res.Components[0]
+			if c.Status != StatusBlocked || c.ReasonCode != ReasonNameTooLong {
+				t.Fatalf("status = %s, reason = %s, want blocked NAME_TOO_LONG", c.Status, c.ReasonCode)
+			}
+			if len(c.Operations) != 0 {
+				t.Fatalf("operations = %d, want 0", len(c.Operations))
+			}
+		})
+	}
+}

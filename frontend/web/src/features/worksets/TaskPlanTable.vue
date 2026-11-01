@@ -30,7 +30,7 @@ const REASONS: Record<string, string> = {
   WORK_UNBOUND: '未绑定作品',
   SOURCE_MISSING: '目录不存在',
   SOURCE_NOT_DIRECTORY: '不是目录',
-  NAME_TOO_LONG: '名称超过 255 字节',
+  NAME_TOO_LONG: '名称过长（Linux 按 UTF-8 字节，Windows 按 UTF-16 码元，上限 255）',
   NAME_RESERVED: '保留名称',
   NAME_CODE_INVALID: '名称须恰好包含一个作品号',
   WORK_CODE_AMBIGUOUS: '名称无法唯一指向作品',

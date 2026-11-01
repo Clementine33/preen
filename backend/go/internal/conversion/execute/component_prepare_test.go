@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"testing"
 
 	"github.com/Clementine33/preen/backend/internal/adapters/ffmpeg"
@@ -390,4 +391,31 @@ func TestPreparedComponentValidationFailureAndCancellation(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestPreparedComponent_NameTooLongFromOSHasOwnCode covers the execution
+// backstop: an OS refusal of an over-long name is not an encode failure.
+func TestPreparedComponent_NameTooLongFromOSHasOwnCode(t *testing.T) {
+	root, wav := newAudioRoot(t)
+	spec := mp3Spec()
+	prepared, err := execute.PrepareComponentWithTestKit(t.Context(), runRequest(
+		root,
+		componentFixture(
+			[]reconcile.FileTuple{freezeFile(t, wav)},
+			encodeOp("cmp-1", wav, filepath.Join(root, "a.mp3")),
+		),
+		reconcile.DesiredProfile{Encoded: &spec},
+		execute.DeleteModeSoft,
+	), execute.ComponentRunTestKit{Encode: func(context.Context, string, string, reconcile.AudioOutputSpec) error {
+		return &os.PathError{Op: "open", Path: "x", Err: syscall.ENAMETOOLONG}
+	}})
+	if err != nil {
+		t.Fatalf("prepare: %v", err)
+	}
+	encErr := prepared.EncodeOne(t.Context(), 0)
+	if code := errorCode(t, encErr); code != execute.ComponentCodeNameTooLong {
+		t.Fatalf("code = %s, want %s", code, execute.ComponentCodeNameTooLong)
+	}
+	requireStage(t, encErr, execute.ComponentStageMaterialize)
+	prepared.Discard(encErr)
 }

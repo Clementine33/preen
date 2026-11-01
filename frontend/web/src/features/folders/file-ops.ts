@@ -17,6 +17,7 @@ const ITEM_CODE_TEXT: Record<string, string> = {
   TARGET_EXISTS: '目标已存在，不会覆盖',
   MOVE_INTO_SELF: '不能把目录移动到自己或其子目录里',
   INVALID_NAME: '新名称不合法：只能是一个名称，不能包含路径分隔符',
+  NAME_TOO_LONG: '名字过长',
   INVALID_TARGET_DIR: '目标目录不存在或不是目录',
   PERMISSION_DENIED: '权限不足',
   FILE_LOCKED: '文件被其他程序占用',

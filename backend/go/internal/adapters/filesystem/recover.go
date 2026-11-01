@@ -33,17 +33,29 @@ func recoverFile(
 	if err != nil {
 		return "", err
 	}
+	base := filepath.Base(source)
+	// Every name is checked before the first Mkdir, so a refusal leaves the disk untouched.
+	for part := range strings.SplitSeq(relDir, string(filepath.Separator)) {
+		if nameErr := checkRecoveryName(parent, part); nameErr != nil {
+			return "", nameErr
+		}
+	}
+	if nameErr := checkRecoveryName(parent, base); nameErr != nil {
+		return "", nameErr
+	}
 	dir, err := createRecoveryDirectory(parent, relDir)
 	if err != nil {
 		return "", err
 	}
-	base := filepath.Base(source)
 	const maxNameAttempts = 100
 	for attempt := 0; attempt <= maxNameAttempts; attempt++ {
 		name := base
 		if attempt > 0 {
 			ext := filepath.Ext(base)
 			name = fmt.Sprintf("%s.%d%s", strings.TrimSuffix(base, ext), attempt, ext)
+			if nameErr := checkRecoveryName(parent, name); nameErr != nil {
+				return "", nameErr
+			}
 		}
 		target := filepath.Join(dir, name)
 		err := renameRecovery(ctx, source, target, rename)
@@ -56,6 +68,13 @@ func recoverFile(
 		return target, nil
 	}
 	return "", fmt.Errorf("no free recovery name for %s: %w", base, fs.ErrExist)
+}
+
+func checkRecoveryName(root, name string) error {
+	if librarypath.NameFits(root, name) {
+		return nil
+	}
+	return fmt.Errorf("recovery name %q is %d bytes: %w", name, len(name), librarypath.ErrNameTooLong)
 }
 
 // createRecoveryDirectory refuses links before descending, so a pre-existing
@@ -114,7 +133,8 @@ func recoveryMoveLocked(err error) bool {
 		strings.Contains(message, "accessed by another process")
 }
 
-// recoveryDirectory shares the established layout and UNC truncation with probes.
+// recoveryDirectory shares the established layout with probes. Its segments
+// repeat names the source path already has; recoverFile checks them anyway.
 func recoveryDirectory(workRoot, source string) (string, string, error) {
 	workRoot = filepath.Clean(workRoot)
 	source = filepath.Clean(source)
@@ -128,8 +148,5 @@ func recoveryDirectory(workRoot, source string) (string, string, error) {
 	}
 	parent := filepath.Dir(workRoot)
 	relDir := filepath.Join(filepath.Base(workRoot), filepath.Dir(rel))
-	if librarypath.IsWindowsUNCPath(parent) {
-		relDir = TruncatePathComponentsToBytes(relDir, 214)
-	}
 	return parent, filepath.Join(librarypath.RecoveryDirName, relDir), nil
 }

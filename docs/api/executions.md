@@ -233,6 +233,7 @@ Conversion component failure codes (the payload shape is unchanged):
 | `COMPONENT_VALIDATE_FAILED` | stage flush/close, encoded output probe, decode/hash (Ogg page checks for Opus) or post-encode object check failed (`materialize`); the whole ready component's pre-publication identity pass failed (`validate`) |
 | `COMPONENT_COMMIT_FAILED` | publication or replacement/recovery failed (`commit`) |
 | `COMPONENT_DELETE_FAILED` | obsolete-file removal failed (`remove`) |
+| `COMPONENT_NAME_TOO_LONG` | the OS or filesystem adapter refused an over-long target, staging or recovery name (`materialize`, `commit` or `remove`); replaces the stage's encode/commit/delete code |
 | `COMPONENT_CANCELED` | cancellation at the reported stage; cancellation takes precedence over a killed tool's diagnostics |
 
 `stage` and `error_code` describe different facts: output validation runs inside
@@ -350,6 +351,7 @@ committed/removed fields:
 | Component error code | Meaning |
 | --- | --- |
 | `COMPONENT_RENAME_FAILED` | target conflict or filesystem rename failure |
+| `COMPONENT_NAME_TOO_LONG` | the OS refused the target name as too long |
 | `RENAME_STATE_SYNC_FAILED` | path-state transaction failed; this directory was moved back |
 | `RENAME_ROLLBACK_FAILED` | path-state transaction and reverse move failed; disk may retain the new name while the database retains the old path |
 

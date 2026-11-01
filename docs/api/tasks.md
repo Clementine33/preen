@@ -89,8 +89,10 @@ or `unchanged` (a `noop` without it). The rename plan page takes its tab counts 
 revision's `category_counts` and lists one category at a time through
 `?category=…&limit=…` (all skipped folders, the first 200 of the others). Used metadata must be nonempty.
 Illegal filename characters become `_`; outer whitespace and trailing dots/spaces
-are removed. The result must still identify exactly the bound Work. Names over
-255 UTF-8 bytes are blocked without truncation or automatic suffixes.
+are removed. The result must still identify exactly the bound Work. A name
+longer than 255 is blocked as `NAME_TOO_LONG`, without truncation or automatic
+suffixes; the unit is UTF-8 bytes on Linux, UTF-16 code units on a Windows drive,
+and both limits apply on a UNC path.
 
 A folder that was renamed by hand is followed from the parent listing planning
 already reads: when the recorded name is gone and the same parent holds exactly

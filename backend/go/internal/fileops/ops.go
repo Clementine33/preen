@@ -108,7 +108,7 @@ func (s *Service) applyOperation(ctx context.Context, m *member, op string, item
 
 // renameItem changes one item's name inside its own directory.
 func (s *Service) renameItem(m *member, item Item) ItemResult {
-	name, err := targetName(item.Name)
+	name, err := targetName(m.root, item.Name)
 	if err != nil {
 		return fromError(item.Source, err)
 	}

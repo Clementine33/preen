@@ -295,7 +295,7 @@ jobs:
         run: go test ./internal/adapters/settings -count=1
       - name: Check conversion handles and strict moves on Windows
         working-directory: backend/go
-        run: go test ./internal/adapters/filesystem -run "TestConversion(SourceHandleKeepsPlatformIdentity|Probe)" -count=1
+        run: go test ./internal/adapters/filesystem -run "TestConversion(SourceHandleKeepsPlatformIdentity|Probe)|TestWindowsLongPath" -count=1 -v
       - name: Check SQLite connections, scan lifecycle and temp spills on Windows
         working-directory: backend/go
         run: go test ./internal/adapters/sqlite -count=1

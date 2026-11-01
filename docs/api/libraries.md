@@ -252,7 +252,7 @@ Body:
 
 | Operation | Items |
 | --- | --- |
-| `rename` | one item; `name` is a plain name, never a path (`INVALID_NAME`) |
+| `rename` | one item; `name` is a plain name, never a path (`INVALID_NAME`) of at most 255 units (`NAME_TOO_LONG`; UTF-8 bytes on Linux, UTF-16 code units on Windows, both on UNC) |
 | `move` | one item; `target_dir` is an existing directory of the same member, or `"."` for the member root (`INVALID_TARGET_DIR`, `MOVE_INTO_SELF`) |
 | `soft_delete` | one or more items, applied in order |
 
@@ -266,7 +266,7 @@ the member root is never an item. A destination that exists is refused
 rename of the target platform is what enforces it. A batch stops at its first
 failure: the rest are reported as `not_attempted`, and nothing already done is
 undone. Selecting a directory and something inside it is one operation: the
-child is reported `skipped` with `COVERED_BY_PARENT`.
+child is reported `skipped` with `COVERED_BY_PARENT`. A `soft_delete` whose recovery name or recovery directory name does not fit the same limit is reported `NAME_TOO_LONG` before anything is created.
 
 Response (200):
 

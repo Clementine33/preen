@@ -214,6 +214,6 @@ describe('executionPanel', () => {
     expect(wrapper.get('[data-testid="execution-status"]').text()).toBe('执行中')
     expect(wrapper.get('[data-testid="execution-progress"]').text()).toContain('组件 1/2')
     expect(wrapper.get('[data-testid="execution-progress"]').text()).toContain('操作 1/3')
-    expect(wrapper.text()).toContain('albumB')
+    expect(wrapper.text()).not.toContain('albumB')
   })
 })

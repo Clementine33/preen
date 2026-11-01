@@ -86,14 +86,14 @@ async function logout(): Promise<void> {
     <div class="flex min-h-0 flex-1 flex-col rail:flex-row">
       <nav
         aria-label="设置分类"
-        class="flex shrink-0 gap-1 border-b border-[var(--wire-fine)] substrate-panel px-4 py-1.5 rail:w-[200px] rail:flex-col rail:border-r rail:border-b-0 rail:border-border rail:px-2 rail:py-3"
+        class="flex shrink-0 gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden rail:overflow-x-visible border-b border-[var(--wire-fine)] substrate-panel px-4 py-1.5 rail:w-[200px] rail:flex-col rail:border-r rail:border-b-0 rail:border-border rail:px-2 rail:py-3"
       >
         <RouterLink
           v-for="item in SECTIONS"
           :key="item.id"
           :to="{ name: 'settings', params: { section: item.id } }"
           :aria-current="section.id === item.id ? 'page' : undefined"
-          class="flex min-h-11 items-center px-3 text-xs font-medium focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none rail:min-h-8"
+          class="flex min-h-11 shrink-0 whitespace-nowrap items-center px-3 text-xs font-medium focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none rail:min-h-8"
           :class="section.id === item.id ? 'bg-primary text-primary-foreground' : 'text-[var(--text-secondary)] hover:bg-accent hover:text-foreground'"
           :data-testid="`settings-nav-${item.id}`"
         >

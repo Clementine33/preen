@@ -144,9 +144,6 @@ const validationWarning = computed(() => {
     </p>
     <p v-if="operation?.active_generation" class="mt-1 text-[11px] text-[var(--text-secondary)]">
       生成中：{{ operation.active_generation.completed_roots }}/{{ operation.active_generation.total_roots }}
-      <span v-if="operation.active_generation.current_root" class="font-mono">
-        · {{ operation.active_generation.current_root }}
-      </span>
     </p>
   </header>
 </template>

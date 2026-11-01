@@ -105,5 +105,6 @@ const side = computed(() => {
 /* On a phone the page scrolls, so the leaf opens up until READ caps it. */
 @media (max-width: 768px) {
   .leaf-body { max-height: none; overflow: visible; }
+  .strip-file, .gauge { display: none; }
 }
 </style>

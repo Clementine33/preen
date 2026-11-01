@@ -203,7 +203,7 @@ function onCellClick(work: WorkSummary) {
       }"
     >
       <div
-        class="cursor" :class="{ idle: cursorIdle }" aria-hidden="true"
+        v-show="selectedIndex >= 0" class="cursor" :class="{ idle: cursorIdle }" aria-hidden="true"
         :style="{ transform: `translate(${cursorX}px, ${cursorY}px)` }"
       />
       <WorkCard

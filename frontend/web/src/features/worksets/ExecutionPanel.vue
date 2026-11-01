@@ -33,7 +33,6 @@ const STATUS: Record<ExecutionStatus, { label: string, tone: 'neutral' | 'brand'
 }
 
 const status = computed(() => STATUS[props.view.status])
-const running = computed(() => props.view.status === 'running' || props.view.status === 'queued')
 
 function shortPath(path: string): string {
   const parts = path.split('/')
@@ -73,10 +72,6 @@ const scope = computed(() => {
         组件 {{ view.completed_components }}/{{ view.total_components }} · 操作 {{ view.completed_operations }}/{{ view.total_operations }}
       </span>
       <Badge tone="neutral">{{ view.options?.delete_mode === 'hard' ? '硬删除' : '软删除' }}</Badge>
-      <span v-if="running && view.current_root" class="font-mono text-[10px] text-[var(--text-secondary)]" :title="view.current_root">
-        {{ shortPath(view.current_root) }}
-        <template v-if="view.current_component_id"> · {{ view.current_component_id }}</template>
-      </span>
     </div>
 
     <p v-if="view.error_code" class="mt-1 text-[11px] text-[var(--danger-ink)]" role="alert" data-testid="execution-error">

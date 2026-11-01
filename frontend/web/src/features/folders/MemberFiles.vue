@@ -88,6 +88,12 @@ const treeQuery = useQuery(() =>
 const tree = computed<TreeNode | null>(() => treeQuery.data.value?.tree ?? null)
 /** The work the directory is bound to; unbound directories have no card. */
 const workRj = computed(() => treeQuery.data.value?.rj ?? null)
+/** The copy's total bytes: every file under the member root. */
+const totalSize = computed(() => {
+  const sum = (node: TreeNode): number =>
+    node.type === 'file' ? (node.size ?? 0) : (node.children ?? []).reduce((acc, child) => acc + sum(child), 0)
+  return tree.value ? sum(tree.value) : null
+})
 const treePending = computed(() => treeQuery.isPending.value)
 const treeError = computed(() => {
   const error = treeQuery.error.value
@@ -387,7 +393,7 @@ function submitDelete() {
       <span>{{ treeErrorText }}</span>
     </p>
 
-    <MemberWorkCard v-if="workRj && !recordChanged" :rj="workRj" class="border-b border-border" />
+    <MemberWorkCard v-if="workRj && !recordChanged" :rj="workRj" :size="totalSize" class="border-b border-border" />
 
     <!-- A member link that no longer resolves against the current record: the
          record was replaced by another page, and the only honest thing to

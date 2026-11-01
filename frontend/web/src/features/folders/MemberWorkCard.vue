@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { fmtSize } from '@/features/work-detail/derive'
 import { useCoverSrc } from '@/features/works/use-cover-src'
 import { useWorkDetail } from '@/queries/works'
 import { useLibraryUiStore } from '@/stores/library-ui'
@@ -7,7 +8,8 @@ import { useLibraryUiStore } from '@/stores/library-ui'
 // The work a member directory holds, above its files: cover, title, circle and
 // voice actors, nothing more. It answers nothing while the work is loading or
 // gone — the file list is the page, this only says what it belongs to.
-const props = defineProps<{ rj: string }>()
+/** `size`: the bytes of the copy being browsed, summed from its tree by the page. */
+const props = defineProps<{ rj: string, size?: number | null }>()
 
 const libraryUi = useLibraryUiStore()
 const { work } = useWorkDetail(() => props.rj)
@@ -32,6 +34,7 @@ const voiceActors = computed(() => work.value?.voice_actors.map(va => va.name).j
       <div class="title" data-testid="work-title">{{ work.title ?? '—' }}</div>
       <div class="row"><span class="lbl">社团</span><span data-testid="work-circle">{{ work.circle ?? '—' }}</span></div>
       <div class="row"><span class="lbl">声优</span><span data-testid="work-voice">{{ voiceActors }}</span></div>
+      <div v-if="size != null" class="row"><span class="lbl">大小</span><span data-testid="work-size">{{ fmtSize(size) }}B</span></div>
     </div>
   </div>
 </template>

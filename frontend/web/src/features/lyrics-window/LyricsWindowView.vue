@@ -48,12 +48,17 @@ const rows = computed(() => shown.value.text.split('\n').slice(0, 2))
 <style scoped>
 .lw {
   position: fixed; inset: 0; display: flex; flex-direction: column;
-  background: var(--invert-bg); color: var(--invert-fg); font-family: var(--font-ui);
+  overflow: hidden; color: var(--invert-fg); font-family: var(--font-ui);
+  /* Depth instead of a flat block: light falls from the top, a hairline edge and a lit top rim. */
+  background: linear-gradient(color-mix(in srgb, var(--invert-fg) 7%, var(--invert-bg)), var(--invert-bg) 70%);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--invert-fg) 9%, transparent), inset 0 1px 0 color-mix(in srgb, var(--invert-fg) 12%, transparent);
   /* Readable on whatever lies behind a transparent window. */
   text-shadow: 0 0 2px #000, 0 1px 6px #000a;
 }
-/* The desktop entry marks a transparent window: nothing paints behind the lyrics. */
-:global(html.lw-clear), :global(html.lw-clear body), :global(html.lw-clear .lw) { background: transparent; }
+/* The desktop entry marks a transparent window: the page draws the backdrop's shape itself, or with lw-clear nothing at all. */
+:global(html.lw-float), :global(html.lw-float body) { background: transparent; }
+:global(html.lw-float .lw) { border-radius: 10px; }
+:global(html.lw-clear .lw) { background: transparent; box-shadow: none; }
 .stage { container-type: size; position: relative; flex: 1; min-height: 0; overflow: hidden; transition: opacity var(--dur-in) linear; }
 .paused .stage { opacity: .7; }
 .line, .none { position: absolute; left: 0; right: 0; margin: 0; padding: 0 var(--sp-4); text-align: center; }

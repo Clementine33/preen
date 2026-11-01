@@ -50,6 +50,8 @@ func (d *Desktop) OpenLyricsWindow() {
 	if runtime.GOOS == "windows" {
 		options.BackgroundType = application.BackgroundTypeTransparent
 		options.BackgroundColour = application.NewRGBA(0, 0, 0, 0)
+		// The decorations extend the DWM frame over the client area, which the light theme paints white.
+		options.Windows.DisableFramelessWindowDecorations = true
 		if screen := d.app.Screen.GetPrimary(); screen != nil {
 			area := screen.WorkArea
 			options.Screen = screen

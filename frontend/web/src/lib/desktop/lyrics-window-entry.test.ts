@@ -33,6 +33,7 @@ beforeEach(() => {
 
 it('starts transparent on Windows and remembers the dark backdrop', async () => {
   await mount()
+  expect(root.classList.contains('lw-float')).toBe(true)
   expect(root.classList.contains('lw-clear')).toBe(true)
   backdrop()!.click()
   expect(root.classList.contains('lw-clear')).toBe(false)
@@ -49,6 +50,7 @@ it('starts transparent on Windows and remembers the dark backdrop', async () => 
 it('offers no backdrop switch off Windows', async () => {
   windows.mockReturnValue(false)
   await mount()
+  expect(root.classList.contains('lw-float')).toBe(false)
   expect(root.classList.contains('lw-clear')).toBe(false)
   expect(backdrop()).toBeNull()
 })

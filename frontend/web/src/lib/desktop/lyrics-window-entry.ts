@@ -17,6 +17,7 @@ const BACKDROP_ICON = 'M5 0a5 5 0 1 0 0 10A5 5 0 0 0 5 0zm0 1a4 4 0 0 1 0 8z'
 /** Windows only: whether the transparent window paints the dark backdrop anyway; this device's choice, transparent by default. */
 export const LYRICS_BACKDROP_STORAGE_KEY = 'preen-lyrics-backdrop'
 const CLEAR_CLASS = 'lw-clear'
+const FLOAT_CLASS = 'lw-float'
 
 function readDark(): boolean {
   try {
@@ -67,6 +68,7 @@ export function mountLyricsWindow(): void {
   // Dark in every theme, like the Picture-in-Picture window; Windows paints nothing behind the lyrics unless the device chose the dark backdrop.
   document.documentElement.classList.remove('dark')
   const windows = System.IsWindows()
+  document.documentElement.classList.toggle(FLOAT_CLASS, windows)
   if (windows && !readDark())
     document.documentElement.classList.add(CLEAR_CLASS)
   const frame = shallowRef(blank)

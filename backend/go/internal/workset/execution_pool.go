@@ -129,6 +129,8 @@ type encodePool struct {
 	jobs   chan encodeJob
 	wg     sync.WaitGroup
 
+	ex *PlanExecution // for log fields only
+
 	recordOnce sync.Once
 	stop       *sessionStop
 	stopMu     sync.Mutex
@@ -138,8 +140,14 @@ type encodePool struct {
 // newEncodePool starts the session's workers over one bounded queue; cancel is
 // the session's own cancellation, so a stop reaches encoders and the
 // committing component alike.
-func newEncodePool(ctx context.Context, cancel context.CancelFunc, workers int) *encodePool {
+func newEncodePool(
+	ctx context.Context,
+	cancel context.CancelFunc,
+	ex *PlanExecution,
+	workers int,
+) *encodePool {
 	p := &encodePool{
+		ex:     ex,
 		ctx:    ctx,
 		jobs:   make(chan encodeJob, workers),
 		cancel: cancel,
@@ -158,6 +166,7 @@ func newEncodePool(ctx context.Context, cancel context.CancelFunc, workers int) 
 // unit, and a real failure records the session's stop.
 func (p *encodePool) work(job encodeJob) {
 	err := job.unit.prepared.EncodeTask(p.ctx, job.index)
+	warnUnrequestedCancel(p.ctx, p.ex, err)
 	job.unit.taskReturned(err)
 	if err != nil && !sessionCanceled(p.ctx, err) {
 		p.requestStop(sessionStop{
@@ -244,6 +253,7 @@ func (s *sessionRun) settleHead(
 			reported:  true,
 		})
 	case commitErr != nil && sessionCanceled(s.ctx, commitErr):
+		warnUnrequestedCancel(s.ctx, s.ex, commitErr)
 		s.stopSession(*canceledStop())
 		return true
 	case commitErr != nil:
@@ -254,6 +264,7 @@ func (s *sessionRun) settleHead(
 			ExecStatusFailed,
 			code,
 			fmt.Sprintf("component %s: %s", head.frozen.ID, message),
+			commitErr,
 		)
 		return true
 	}
@@ -262,8 +273,11 @@ func (s *sessionRun) settleHead(
 		return true
 	}
 	if entry.Status == ExecComponentCanceled {
+		if s.ctx.Err() == nil {
+			logUnrequestedCancel(s.ex, NewError(ErrKindInternal, entry.ErrorCode, entry.ErrorMessage, nil))
+		}
 		status, code, message := cancellationOutcome(s.ctx)
-		s.stopAfterHead(status, code, message)
+		s.stopAfterHead(status, code, message, nil)
 		return true
 	}
 	return false
@@ -282,6 +296,7 @@ func (s *sessionRun) prepare(u ExecutionUnit, reportIdx int) *sessionStop {
 	})
 	if err != nil {
 		if sessionCanceled(s.ctx, err) {
+			warnUnrequestedCancel(s.ctx, s.ex, err)
 			return canceledStop()
 		}
 		stop := sessionStop{reportIdx: reportIdx, unit: u, err: err}
@@ -375,7 +390,7 @@ func (s *sessionRun) stopSession(observed sessionStop) {
 	if stop.err == nil {
 		s.discardOpen(nil)
 		status, code, message := cancellationOutcome(s.ctx)
-		s.d.finishExecution(s.ex, status, code, message)
+		s.d.finishExecution(s.ex, status, code, message, nil)
 		return
 	}
 	s.reportFailedUnit(stop)
@@ -386,6 +401,7 @@ func (s *sessionRun) stopSession(observed sessionStop) {
 		ExecStatusFailed,
 		entry.ErrorCode,
 		unitStopMessage(stop.unit, entry),
+		stop.err,
 	)
 }
 
@@ -393,11 +409,11 @@ func (s *sessionRun) stopSession(observed sessionStop) {
 // head's result is its final report — nothing is discarded for it, since its
 // commit was already its own — and every other open unit is discarded and
 // stays pending.
-func (s *sessionRun) stopAfterHead(status, code, message string) {
+func (s *sessionRun) stopAfterHead(status, code, message string, cause error) {
 	s.endPending()
 	s.pool.shutdown()
 	s.discardOpen(nil)
-	s.d.finishExecution(s.ex, status, code, message)
+	s.d.finishExecution(s.ex, status, code, message, cause)
 }
 
 // reportFailedUnit fills the failing unit's own entry: a unit whose encode
@@ -464,7 +480,7 @@ func (s *sessionRun) recordUnit(
 // given position. The counters are not passed: the repository recomputes them
 // from the stored results, so a replay cannot double-count.
 func (s *sessionRun) persistEntry(entry *ExecutionComponentView, next ExecutionUnit) error {
-	return s.d.persistUnitResult(s.ex.ExecutionID, entry, next)
+	return s.d.persistUnitResult(s.ex, entry, next)
 }
 
 // endPending seals a delivery interrupted by teardown; its existing expected

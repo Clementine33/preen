@@ -3,6 +3,7 @@ package workset_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -25,6 +26,14 @@ type poolPlan struct {
 	CommitGate   bool     `json:"commit_gate"`
 	FinishOnStop bool     `json:"finish_on_stop"`
 	Leftovers    []string `json:"leftovers"`
+
+	// Failure-log scripts: an error shaped like cancellation while nothing asked
+	// to cancel, and a refused prepare carrying a cause.
+	PrepareDeadline       bool   `json:"prepare_deadline"`
+	EncodeDeadline        bool   `json:"encode_deadline"`
+	CommitDeadline        bool   `json:"commit_deadline"`
+	PrepareCause          string `json:"prepare_cause"`
+	PrepareCauseInMessage bool   `json:"prepare_cause_in_message"`
 }
 
 // poolUnit is the standard script: n encode tasks and nothing else.
@@ -209,6 +218,18 @@ func (t *poolTask) PrepareUnit(
 		return nil, workset.NewError(workset.ErrKindInternal, "PAYLOAD_INVALID", err.Error(), err)
 	}
 	t.obs.recordf("prepare %s", in.Unit.ID)
+	if plan.PrepareDeadline {
+		return nil, context.DeadlineExceeded
+	}
+	if plan.PrepareCause != "" {
+		message := "prepare refused"
+		if plan.PrepareCauseInMessage {
+			message += ": " + plan.PrepareCause
+		}
+		return nil, workset.NewError(
+			workset.ErrKindPrecondition, "PREPARE_REFUSED", message, errors.New(plan.PrepareCause),
+		).WithStage("precheck")
+	}
 	if plan.FailPrepare {
 		return nil, workset.NewError(
 			workset.ErrKindPrecondition, "PREPARE_REFUSED", "prepare refused", nil,
@@ -233,6 +254,9 @@ func (u *scriptUnit) EncodeTask(ctx context.Context, index int) error {
 	if err != nil {
 		return err
 	}
+	if u.plan.EncodeDeadline {
+		return context.DeadlineExceeded
+	}
 	if u.plan.FailEncode == index {
 		return workset.NewError(
 			workset.ErrKindInternal, "ENCODE_FAILED", "encode refused", nil,
@@ -252,6 +276,9 @@ func (u *scriptUnit) Commit(ctx context.Context) (workset.UnitResult, error) {
 	}
 	if u.plan.CancelCommit {
 		return u.canceledFacts(), nil
+	}
+	if u.plan.CommitDeadline {
+		return workset.UnitResult{}, context.DeadlineExceeded
 	}
 	return workset.UnitResult{
 		Committed: []string{u.id + "/out"},

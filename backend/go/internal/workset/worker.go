@@ -102,17 +102,17 @@ func (d *dispatcher) execute(gen *PlanGeneration) {
 
 	req, err := parseGenerationRequest(gen.RequestJSON)
 	if err != nil {
-		d.fail(gen, "DRAFT_LOAD_FAILED", "failed to load the frozen draft")
+		d.fail(gen, "DRAFT_LOAD_FAILED", "failed to load the frozen draft", err)
 		return
 	}
 	members, err := d.svc.repo.ListWorksetMembers(gen.WorksetID)
 	if err != nil {
-		d.fail(gen, "MEMBERS_LOAD_FAILED", "failed to load members")
+		d.fail(gen, "MEMBERS_LOAD_FAILED", "failed to load members", err)
 		return
 	}
 	w, err := d.svc.repo.GetWorkset(gen.WorksetID)
 	if err != nil {
-		d.fail(gen, "WORKSET_LOAD_FAILED", "failed to load workset")
+		d.fail(gen, "WORKSET_LOAD_FAILED", "failed to load workset", err)
 		return
 	}
 
@@ -126,7 +126,7 @@ func (d *dispatcher) execute(gen *PlanGeneration) {
 	// a plan made from a stale one is the drift the executor refuses later.
 	memberFolders, rootsErr := d.svc.participatingRoots(gen.OperationType, req.Draft, members)
 	if rootsErr != nil {
-		d.fail(gen, "MEMBERS_LOAD_FAILED", "failed to resolve the participating members")
+		d.fail(gen, "MEMBERS_LOAD_FAILED", "failed to resolve the participating members", rootsErr)
 		return
 	}
 	if scanErr := d.svc.refreshGenerationInputs(
@@ -140,7 +140,7 @@ func (d *dispatcher) execute(gen *PlanGeneration) {
 			d.finishGenerationCancellation(ctx, gen.GenerationID)
 			return
 		}
-		d.fail(gen, "SCAN_FAILED", "failed to refresh the scanned inventory before planning")
+		d.fail(gen, "SCAN_FAILED", "failed to refresh the scanned inventory before planning", scanErr)
 		return
 	}
 
@@ -161,21 +161,21 @@ func (d *dispatcher) execute(gen *PlanGeneration) {
 		if werr, ok := AsError(runErr); ok {
 			code, message = werr.Code, werr.Message
 		}
-		d.fail(gen, code, message)
+		d.fail(gen, code, message, runErr)
 		return
 	}
 
 	revision, freezeErr := freezeRevision(snap, members, gen, req, w.LibraryID)
 	if freezeErr != nil {
-		d.fail(gen, "PERSIST_FAILED", freezeErr.Error())
+		d.fail(gen, "PERSIST_FAILED", freezeErr.Error(), freezeErr)
 		return
 	}
 	if stampErr := d.svc.stampRevisionSummary(gen.OperationType, revision); stampErr != nil {
-		d.fail(gen, "PERSIST_FAILED", stampErr.Error())
+		d.fail(gen, "PERSIST_FAILED", stampErr.Error(), stampErr)
 		return
 	}
 	if concludeErr := d.svc.stampMemberConclusions(gen.OperationType, members, revision); concludeErr != nil {
-		d.fail(gen, "PERSIST_FAILED", concludeErr.Error())
+		d.fail(gen, "PERSIST_FAILED", concludeErr.Error(), concludeErr)
 		return
 	}
 	if persistErr := d.svc.repo.PersistOperationRevision(
@@ -186,7 +186,7 @@ func (d *dispatcher) execute(gen *PlanGeneration) {
 			d.finishGenerationCancellation(ctx, gen.GenerationID)
 			return
 		}
-		d.fail(gen, "PERSIST_FAILED", "failed to persist revision")
+		d.fail(gen, "PERSIST_FAILED", "failed to persist revision", persistErr)
 		return
 	}
 }
@@ -270,7 +270,8 @@ func freezeRevision(snap *PlanSnapshot, members []*WorksetMember, gen *PlanGener
 }
 
 // fail records a stable system failure on the session row.
-func (d *dispatcher) fail(gen *PlanGeneration, code, message string) {
+func (d *dispatcher) fail(gen *PlanGeneration, code, message string, cause error) {
+	logGenerationFailed(gen, code, message, cause)
 	if err := d.svc.repo.MarkGenerationFailed(gen.GenerationID, code, message); err != nil {
 		logGenerationTerminalFailure(gen.GenerationID, err)
 	}

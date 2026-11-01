@@ -21,6 +21,19 @@ Every HTTP request is logged at `debug` with `method`, `path`, `status` and
 string and headers are never logged. A handler panic is logged at `error` with its stack and answered
 with `500` / `INTERNAL`.
 
+Task failures are logged because the records that carry them are replaced by the
+next run. A failed execution logs `execution failed` at `error` with
+`execution_id`, `plan_id`, `workset_id`, `operation_type`, `error_code` and
+`error_message`; a component that failed on its own logs
+`execution component failed` at `warn` with the same identifiers plus
+`component_index`, `component_id`, `root_path` and `stage`; a failed plan
+generation logs `generation failed` at `error` with `generation_id`,
+`workset_id`, `operation_type`, `error_code` and `error_message`. `err` is added
+when the cause is not already in the message. A cancellation or shutdown is not
+a failure and is not logged, except `execution canceled without a cancel
+request` at `warn`, which marks an error that looked like a cancellation while
+nothing asked to cancel.
+
 ## Log Export
 
 | Method | Path | Contract |

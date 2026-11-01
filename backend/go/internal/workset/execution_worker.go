@@ -86,7 +86,7 @@ type executionRun struct {
 func (d *dispatcher) prepareExecution(ex *PlanExecution) (*executionRun, bool) {
 	req, err := parseExecutionRequest(ex.RequestJSON)
 	if err != nil {
-		d.finishExecution(ex, ExecStatusFailed, "REQUEST_LOAD_FAILED", "failed to load the frozen request")
+		d.finishExecution(ex, ExecStatusFailed, "REQUEST_LOAD_FAILED", "failed to load the frozen request", err)
 		return nil, false
 	}
 	report := initialComponentReport(req.Units)
@@ -97,6 +97,7 @@ func (d *dispatcher) prepareExecution(ex *PlanExecution) (*executionRun, bool) {
 			ExecStatusFailed,
 			"REQUEST_LOAD_FAILED",
 			"failed to load the component results",
+			err,
 		)
 		return nil, false
 	}
@@ -112,6 +113,7 @@ func (d *dispatcher) prepareExecution(ex *PlanExecution) (*executionRun, bool) {
 				ExecStatusFailed,
 				"REQUEST_LOAD_FAILED",
 				"a component result does not belong to the frozen worklist",
+				nil,
 			)
 			return nil, false
 		}
@@ -119,12 +121,12 @@ func (d *dispatcher) prepareExecution(ex *PlanExecution) (*executionRun, bool) {
 	}
 	w, err := d.svc.repo.GetWorkset(ex.WorksetID)
 	if err != nil {
-		d.finishExecution(ex, ExecStatusFailed, "WORKSET_LOAD_FAILED", "failed to load workset")
+		d.finishExecution(ex, ExecStatusFailed, "WORKSET_LOAD_FAILED", "failed to load workset", err)
 		return nil, false
 	}
 	lib, err := d.svc.repo.GetLibrary(w.LibraryID)
 	if err != nil {
-		d.finishExecution(ex, ExecStatusFailed, "LIBRARY_LOAD_FAILED", "failed to load library storage class")
+		d.finishExecution(ex, ExecStatusFailed, "LIBRARY_LOAD_FAILED", "failed to load library storage class", err)
 		return nil, false
 	}
 	width := d.svc.encodeWindow(lib.StorageClass)
@@ -135,6 +137,7 @@ func (d *dispatcher) prepareExecution(ex *PlanExecution) (*executionRun, bool) {
 			ExecStatusFailed,
 			"REVISION_LOAD_FAILED",
 			"failed to load the frozen revision",
+			err,
 		)
 		return nil, false
 	}
@@ -162,7 +165,7 @@ func (d *dispatcher) executeRun(ex *PlanExecution) {
 	defer cancel()
 	if ctx.Err() != nil {
 		status, code, message := cancellationOutcome(ctx)
-		d.finishExecution(ex, status, code, message)
+		d.finishExecution(ex, status, code, message, nil)
 		return
 	}
 	run, ok := d.prepareExecution(ex)
@@ -176,6 +179,7 @@ func (d *dispatcher) executeRun(ex *PlanExecution) {
 			ExecStatusFailed,
 			"REQUEST_LOAD_FAILED",
 			"operation task is not registered",
+			taskErr,
 		)
 		return
 	}
@@ -185,7 +189,7 @@ func (d *dispatcher) executeRun(ex *PlanExecution) {
 	// frozen payload; a mismatch would mislabel facts, so the session fails
 	// closed before anything is written.
 	if code, message, ready := worklistReady(req, run); !ready {
-		d.finishExecution(ex, ExecStatusFailed, code, message)
+		d.finishExecution(ex, ExecStatusFailed, code, message, nil)
 		return
 	}
 
@@ -214,10 +218,10 @@ func (d *dispatcher) executeRun(ex *PlanExecution) {
 	// An empty execution keeps its existing completion rules: no worker pool
 	// starts and no frozen unit is indexed.
 	if len(req.Units) == 0 {
-		d.finishExecution(ex, ExecStatusSucceeded, "", "")
+		d.finishExecution(ex, ExecStatusSucceeded, "", "", nil)
 		return
 	}
-	session.pool = newEncodePool(ctx, cancel, session.window)
+	session.pool = newEncodePool(ctx, cancel, ex, session.window)
 
 	for i := range req.Units { // one commit per frozen unit, in frozen order
 		if stop := session.stopNow(); stop != nil {
@@ -258,6 +262,7 @@ func (d *dispatcher) executeRun(ex *PlanExecution) {
 				ExecStatusFailed,
 				code,
 				fmt.Sprintf("component %s: %s", head.frozen.ID, message),
+				writeErr,
 			)
 			return
 		}
@@ -266,7 +271,7 @@ func (d *dispatcher) executeRun(ex *PlanExecution) {
 		}
 	}
 	session.pool.shutdown()
-	d.finishExecution(ex, ExecStatusSucceeded, "", "")
+	d.finishExecution(ex, ExecStatusSucceeded, "", "", nil)
 }
 
 // worklistReady checks the frozen worklist's invariant before any write: every
@@ -327,26 +332,26 @@ func (d *dispatcher) verifyInputs(
 	ctx context.Context,
 	ex *PlanExecution,
 	run *executionRun,
-) (code, message string, verified bool) {
+) (code, message string, cause error, verified bool) {
 	if scanErr := d.svc.refreshRoots(ctx, unitRoots(run.req.Units), run.rootPath, nil); scanErr != nil {
 		if sessionCanceled(ctx, scanErr) {
-			return "CANCELED", "execution canceled", false
+			return "CANCELED", "execution canceled", scanErr, false
 		}
-		return "SCAN_FAILED", "failed to refresh the scanned inventory before executing", false
+		return "SCAN_FAILED", "failed to refresh the scanned inventory before executing", scanErr, false
 	}
 	health, healthErr := d.svc.revisionHealth(ctx, ex.OperationType, run.plan)
 	if healthErr != nil {
 		if sessionCanceled(ctx, healthErr) {
-			return "CANCELED", "execution canceled", false
+			return "CANCELED", "execution canceled", healthErr, false
 		}
-		return "REVISION_LOAD_FAILED", "failed to evaluate the revision's inputs", false
+		return "REVISION_LOAD_FAILED", "failed to evaluate the revision's inputs", healthErr, false
 	}
 	if health.InputMoved {
 		return ExecBlockedInput,
 			"the scanned inventory no longer matches the revision's recorded inputs; regenerate the plan",
-			false
+			nil, false
 	}
-	return "", "", true
+	return "", "", nil, true
 }
 
 // applyUnitResult records one unit run's observed facts on its report entry:
@@ -399,6 +404,19 @@ func (d *dispatcher) persistPosition(executionID string, u ExecutionUnit) {
 // failure that survives the retries is returned — the caller stops the session
 // rather than pretending the result is durable.
 func (d *dispatcher) persistUnitResult(
+	ex *PlanExecution,
+	entry *ExecutionComponentView,
+	next ExecutionUnit,
+) error {
+	if entry.Status == ExecComponentFailed {
+		logComponentFailed(ex, entry)
+	}
+	return d.saveUnitResult(ex.ExecutionID, entry, next)
+}
+
+// saveUnitResult is persistUnitResult's write: the retry loop alone, with no
+// failure log, for results the caller already accounts for elsewhere.
+func (d *dispatcher) saveUnitResult(
 	executionID string,
 	entry *ExecutionComponentView,
 	next ExecutionUnit,
@@ -427,7 +445,15 @@ func (d *dispatcher) persistUnitResult(
 // swallowed: the row then stays running until the startup sweep marks it
 // interrupted, and that sweep is a fallback, not a recovery of the session's
 // real outcome.
-func (d *dispatcher) finishExecution(ex *PlanExecution, status, code, message string) {
+func (d *dispatcher) finishExecution(
+	ex *PlanExecution,
+	status, code, message string,
+	cause error,
+	extra ...any,
+) {
+	if status == ExecStatusFailed {
+		logExecutionFailed(ex, code, message, cause, extra)
+	}
 	err := d.svc.repo.FinishExecution(ex.ExecutionID, status, code, message)
 	if err != nil {
 		slog.Error("execution terminal write failed", "execution_id", ex.ExecutionID, "status", status, "err", err)
@@ -504,9 +530,10 @@ func (d *dispatcher) finishPreparationFailure(ctx context.Context, ex *PlanExecu
 	}
 	status := ExecStatusFailed
 	if sessionCanceled(ctx, err) {
+		warnUnrequestedCancel(ctx, ex, err)
 		status, code, message = cancellationOutcome(ctx)
 	}
-	d.finishExecution(ex, status, code, message)
+	d.finishExecution(ex, status, code, message, err)
 }
 
 func (d *dispatcher) observeCancel(ctx context.Context, cancel context.CancelFunc, executionID string) func() {

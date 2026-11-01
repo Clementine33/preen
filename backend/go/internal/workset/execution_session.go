@@ -42,8 +42,8 @@ func (d *dispatcher) executionPreparer(
 			},
 		})
 	}
-	if code, message, ok := d.verifyInputs(ctx, ex, run); !ok {
-		return nil, NewError(ErrKindInternal, code, message, nil)
+	if code, message, cause, ok := d.verifyInputs(ctx, ex, run); !ok {
+		return nil, NewError(ErrKindInternal, code, message, cause)
 	}
 	return task, nil
 }

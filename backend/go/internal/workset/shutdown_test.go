@@ -88,6 +88,7 @@ func TestGenerationShutdownInterruptsAndReleasesKey(t *testing.T) {
 func TestExecutionShutdownJoinsEncodersAndPreservesPublishedFacts(t *testing.T) {
 	for _, commit := range []bool{false, true} {
 		t.Run(map[bool]string{false: "encode", true: "commit"}[commit], func(t *testing.T) {
+			logs := captureLogs(t)
 			plan := poolUnit(1)
 			if commit {
 				plan.Tasks, plan.CommitGate = 0, true
@@ -111,6 +112,13 @@ func TestExecutionShutdownJoinsEncodersAndPreservesPublishedFacts(t *testing.T) 
 			done := f.waitTerminal(started.ExecutionID)
 			if done.Status != workset.ExecStatusInterrupted || done.ErrorCode != "INTERRUPTED" {
 				t.Fatalf("execution = %+v", done)
+			}
+			for _, msg := range []string{
+				"execution failed", "execution component failed", "execution canceled without a cancel request",
+			} {
+				if got := logs.lines(t, msg); len(got) != 0 {
+					t.Fatalf("%q logged on shutdown: %v", msg, got)
+				}
 			}
 			obs.mu.Lock()
 			running, open := obs.running, obs.open

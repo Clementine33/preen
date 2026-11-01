@@ -66,6 +66,7 @@ func newExecFixtureWithTask(
 	scan workset.FolderScan,
 	encodeConcurrency int,
 	tasks []workset.Task,
+	batch ...map[string]workset.BatchExecutor,
 ) *execFixture {
 	t.Helper()
 	tmp := t.TempDir()
@@ -101,7 +102,7 @@ func newExecFixtureWithTask(
 	f := &execFixture{
 		t:         t,
 		repo:      repo,
-		svc:       workset.NewService(repo, 1, encodeConcurrency, tasks, scan, nil),
+		svc:       workset.NewService(repo, 1, encodeConcurrency, tasks, scan, nil, batch...),
 		root:      root,
 		libraryID: "lib-1",
 		members:   map[string]workset.MemberView{},

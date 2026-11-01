@@ -1,14 +1,13 @@
 package reconcile
 
 import (
+	"crypto/rand"
 	"fmt"
 	"path"
 	"path/filepath"
 	"slices"
 	"sort"
 	"strings"
-
-	"github.com/google/uuid"
 
 	"github.com/Clementine33/preen/backend/internal/librarypath"
 )
@@ -143,13 +142,13 @@ func sameStemPath(sourcePosix, targetExt string) string {
 // StagingPath returns a run's unique staging path beside target, so the commit
 // rename stays on one filesystem and a concurrent run cannot share the file.
 func StagingPath(target string) string {
-	return filepath.Join(filepath.Dir(target), filepath.Base(target)+".tmp."+uuid.NewString()[:8])
+	return filepath.Join(filepath.Dir(target), filepath.Base(target)+".tmp."+rand.Text()[:8])
 }
 
 // AsidePath returns the staging name that holds a replaced old output until
 // the new output has landed (hard mode only).
 func AsidePath(target string) string {
-	return filepath.Join(filepath.Dir(target), filepath.Base(target)+".tmp-old."+uuid.NewString()[:8])
+	return filepath.Join(filepath.Dir(target), filepath.Base(target)+".tmp-old."+rand.Text()[:8])
 }
 
 // targetNameTooLong reports whether the target's own name, or the staging or

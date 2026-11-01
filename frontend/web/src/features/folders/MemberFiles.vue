@@ -91,8 +91,12 @@ const workRj = computed(() => treeQuery.data.value?.rj ?? null)
 /** The copy's total bytes: every file under the member root. */
 const totalSize = computed(() => {
   const sum = (node: TreeNode): number =>
-    node.type === 'file' ? (node.size ?? 0) : (node.children ?? []).reduce((acc, child) => acc + sum(child), 0)
-  return tree.value ? sum(tree.value) : null
+    node.type === 'file'
+      ? (node.size ?? 0)
+      : (node.children ?? []).reduce((acc, child) => acc + sum(child), 0)
+  return tree.value
+    ? sum(tree.value)
+    : null
 })
 const treePending = computed(() => treeQuery.isPending.value)
 const treeError = computed(() => {

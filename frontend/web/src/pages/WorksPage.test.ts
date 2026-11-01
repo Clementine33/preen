@@ -449,6 +449,9 @@ describe('works page', () => {
     expect(lastParams(listWorks)).toMatchObject({ language: 'NM' })
     await pick(wrapper, 'LANG', '简中')
     expect(lastParams(listWorks)).toMatchObject({ language: 'CHI_HANS' })
+    await pick(wrapper, 'LANG', '多版在库')
+    expect(lastParams(listWorks)).toMatchObject({ multi_edition: true })
+    expect(lastParams(listWorks)).not.toHaveProperty('language')
     await pick(wrapper, 'LANG', 'ALL')
     expect(router.currentRoute.value.query.language).toBeUndefined()
     await pick(wrapper, 'AGE', 'R18')
@@ -471,21 +474,37 @@ describe('works page', () => {
     expect(lastParams(listWorks)).not.toHaveProperty('voice_actor_match')
   })
 
-  it('maps the personal rating filter to a floor, the unrated set, or nothing', async () => {
-    const { wrapper, listWorks } = await mountWorks('/works?rating=8')
-    expect(lastParams(listWorks)).toMatchObject({ rating_from: 8 })
-    expect(lastParams(listWorks)).not.toHaveProperty('rating_to')
+  it('maps the personal rating bar to an inclusive range, the unrated set, or nothing', async () => {
+    const { wrapper, listWorks, router } = await mountWorks('/works?rating=7-9')
+    expect(lastParams(listWorks)).toMatchObject({ rating_from: 7, rating_to: 9 })
+    const select = wrapper.findAll('.rs').find(candidate => candidate.find('.rs-lbl').text() === 'RATING')!
+    expect(select.get('.rs-value').text()).toBe('7–9')
 
-    await pick(wrapper, 'RATING', '已评分')
-    expect(lastParams(listWorks)).toMatchObject({ rating_from: 1 })
+    // Two presses in either order pick the range; one cell twice is exact.
+    const cell = (score: number) => select.findAll('.rb-cell').find(candidate => candidate.text() === String(score))!
+    await select.get('.rs-trigger').trigger('click')
+    await cell(10).trigger('click')
+    await cell(6).trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value.query.rating).toBe('6-10')
+    expect(lastParams(listWorks)).toMatchObject({ rating_from: 6, rating_to: 10 })
+    await select.get('.rs-trigger').trigger('click')
+    await cell(8).trigger('click')
+    await cell(8).trigger('click')
+    await flushPromises()
+    expect(lastParams(listWorks)).toMatchObject({ rating_from: 8, rating_to: 8 })
+    expect(select.get('.rs-value').text()).toBe('8')
+
     await pick(wrapper, 'RATING', '未评分')
     expect(lastParams(listWorks)).toMatchObject({ unrated: true })
     expect(lastParams(listWorks)).not.toHaveProperty('rating_from')
 
-    // An address value outside the options constrains nothing.
-    const bogus = await mountWorks('/works?rating=bogus')
-    expect(lastParams(bogus.listWorks)).not.toHaveProperty('rating_from')
-    expect(lastParams(bogus.listWorks)).not.toHaveProperty('unrated')
+    // An address value outside the bar, an old floor included, constrains nothing.
+    for (const address of ['/works?rating=bogus', '/works?rating=8', '/works?rating=9-7']) {
+      const other = await mountWorks(address)
+      expect(lastParams(other.listWorks)).not.toHaveProperty('rating_from')
+      expect(lastParams(other.listWorks)).not.toHaveProperty('unrated')
+    }
   })
 
   it('maps the listening filter to its listing parameter, or to nothing', async () => {

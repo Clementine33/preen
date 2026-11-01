@@ -93,6 +93,20 @@ one its resolved parent roots. A work's chain shows the Japanese, simplified
 Chinese and traditional Chinese editions; a language-free (NM) work has none.
 _Avoid_: Calling an edition a "version", or treating the edition page as the thing that is collected.
 
+**Multi-Edition Work**:
+A held Work whose chain has two or more held Language Editions, the Japanese
+original counting as one. Two held translations of the same language are one
+edition, and a language-free (NM) work never qualifies. Every held Work of such
+a chain is one, wherever its siblings are held.
+_Avoid_: "多版本", "多语言" or "multi-version"; counting translations instead of
+editions; confusing it with one Work declaring several languages.
+
+**Declared Languages**:
+Every language a Work itself declares; one work number may ship several. The
+language a Work is listed under is the preferred one among them, so a
+multilingual Work still lists, and joins its chain, as one language.
+_Avoid_: Calling such a Work a Multi-Edition Work, or reading its listed language as all it ships.
+
 **Held**:
 A Work that has at least one Copy in any Library right now, online or not. An
 edition is held when its root or any translation under it is held. A collected

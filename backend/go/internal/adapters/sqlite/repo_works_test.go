@@ -1,6 +1,7 @@
 package sqlite //nolint:testpackage // white-box tests seed the catalog through the real repository
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -608,5 +609,70 @@ func TestWorkLanguageImportAndFilterStayIndependentOfRelations(t *testing.T) {
 	})
 	if refusal == nil {
 		t.Fatal("translation provenance accepted as language")
+	}
+}
+
+// TestMultiEditionFilterCountsHeldEditions: a chain qualifies by its held
+// editions, not its held works, and every held work of such a chain is listed.
+func TestMultiEditionFilterCountsHeldEditions(t *testing.T) {
+	repo := newTestRepository(t)
+	library, err := repo.CreateLibrary("music", "/music")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// work, role, language, original, held
+	for _, row := range []struct {
+		rj, role, language, original string
+		held                         bool
+	}{
+		// Original and a simplified translation held: two editions.
+		{"RJ00000001", "original", "JPN", "", true},
+		{"RJ00000002", "child", "CHI_HANS", "RJ00000001", true},
+		// Two simplified translations held, original not: one edition.
+		{"RJ00000011", "original", "JPN", "", false},
+		{"RJ00000012", "child", "CHI_HANS", "RJ00000011", true},
+		{"RJ00000013", "child", "CHI_HANS", "RJ00000011", true},
+		// Both Chinese editions held without the original: two editions.
+		{"RJ00000021", "child", "CHI_HANS", "RJ00000020", true},
+		{"RJ00000022", "child", "CHI_HANT", "RJ00000020", true},
+		// Unheld translation of a qualifying chain is not itself one.
+		{"RJ00000003", "child", "CHI_HANT", "RJ00000001", false},
+		// No relation at all.
+		{"RJ00000030", "", "", "", true},
+	} {
+		id := seedWork(t, repo, row.rj)
+		if row.role != "" {
+			if _, err := repo.DB().Exec(
+				"INSERT INTO work_translations (work_id, role, language, original_work_id) VALUES (?, ?, ?, NULLIF(?, ''))",
+				string(id), row.role, row.language, row.original,
+			); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if row.held {
+			if _, err := repo.DB().Exec(
+				"INSERT INTO work_copies (id, work_id, library_id, rel_path, created_at) VALUES (?, ?, ?, ?, ?)",
+				"copy-"+row.rj, string(id), library.ID, row.rj, testStamp,
+			); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	listed := func(multi bool) []string {
+		page, err := repo.ListWorks(works.Filter{MultiEdition: &multi, Limit: 50})
+		if err != nil {
+			t.Fatal(err)
+		}
+		var ids []string
+		for _, work := range page.Works {
+			ids = append(ids, string(work.ID))
+		}
+		return ids
+	}
+	if got, want := fmt.Sprint(listed(true)), "[RJ00000001 RJ00000002 RJ00000021 RJ00000022]"; got != want {
+		t.Errorf("multi_edition=true: got %s, want %s", got, want)
+	}
+	if got, want := fmt.Sprint(listed(false)), "[RJ00000003 RJ00000011 RJ00000012 RJ00000013 RJ00000030]"; got != want {
+		t.Errorf("multi_edition=false: got %s, want %s", got, want)
 	}
 }

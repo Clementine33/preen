@@ -127,7 +127,13 @@ describe('the wall address', () => {
     }
   })
 
-  it.each(['CHI_HANS', 'CHI_HANT', 'JPN', 'NM'])('keeps language %s through navigation and reload', async (language) => {
+  it.each([
+    'CHI_HANS',
+    'CHI_HANT',
+    'JPN',
+    'NM',
+    'multi',
+  ])('keeps language %s through navigation and reload', async (language) => {
     const router = guardRouter()
     await router.push(`/works?language=${language}`)
     expect(router.currentRoute.value.query.language).toBe(language)
@@ -144,7 +150,7 @@ describe('the wall address', () => {
       voice: ids.join(','),
       circle: 'ci-1',
       age: 'r18',
-      rating: '8',
+      rating: '7-9',
       listening: 'listening',
       tag: 's:s-asmr|u:u-asmr,s:s-ear',
       mode: 'any',
@@ -166,6 +172,8 @@ describe('the wall address', () => {
       ['voice', 'a b'],
       ['language', 'invalid'],
       ['rating', '11'],
+      ['rating', '8'],
+      ['rating', '1-11'],
       ['listening', 'maybe'],
     ]) {
       expect(cleanedQuery(routeOf(guardRouter(), `/works?${key}=${encodeURIComponent(value)}`)), key).toEqual({})

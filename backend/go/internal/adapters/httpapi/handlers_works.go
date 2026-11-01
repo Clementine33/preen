@@ -220,7 +220,7 @@ var filterKeys = map[string]bool{
 	"language": true, "nsfw": true, "age_category": true,
 	"released_from": true, "released_to": true,
 	"rating_from": true, "rating_to": true, "unrated": true,
-	"favorite": true, "library": true, "has_copy": true, "listening": true,
+	"favorite": true, "library": true, "has_copy": true, "multi_edition": true, "listening": true,
 	"sort": true, "direction": true, "limit": true, "page": true,
 }
 
@@ -338,7 +338,7 @@ func parseIntAndFlagFilters(query url.Values, first func(string) *string, filter
 	for _, flag := range []struct {
 		key  string
 		into **bool
-	}{{"unrated", &filter.Unrated}, {"favorite", &filter.Favorite}, {"has_copy", &filter.HasCopy}} {
+	}{{"unrated", &filter.Unrated}, {"favorite", &filter.Favorite}, {"has_copy", &filter.HasCopy}, {"multi_edition", &filter.MultiEdition}} {
 		value := first(flag.key)
 		if value == nil {
 			continue

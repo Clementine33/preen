@@ -113,6 +113,8 @@ type Filter struct {
 	Favorite  *bool
 	Libraries []string
 	HasCopy   *bool
+	// MultiEdition keeps (or, false, drops) the Multi-Edition Works.
+	MultiEdition *bool
 	// Listening is an any-of set of ListeningNone, ListeningActive and
 	// ListeningFinished.
 	Listening []string

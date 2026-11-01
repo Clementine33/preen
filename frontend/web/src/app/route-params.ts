@@ -26,19 +26,16 @@ export type MemberFilter = (typeof MEMBER_FILTERS)[number]
 const ALLOWED_VALUES: Record<string, readonly string[]> = {
   view: ['current', 'plan'],
   filter: MEMBER_FILTERS,
-  // The wall's age rating, personal rating, tag match mode, order and page size.
+  // The wall's age rating, tag match mode, order and page size.
   age: ['safe', 'r15', 'r18'],
-  rating: [
-    '10',
-    '9',
-    '8',
-    '7',
-    '5',
-    'rated',
-    'none',
-  ],
   listening: ['listening', 'finished', 'none'],
-  language: ['CHI_HANS', 'CHI_HANT', 'JPN', 'NM'],
+  language: [
+    'CHI_HANS',
+    'CHI_HANT',
+    'JPN',
+    'NM',
+    'multi',
+  ],
   mode: ['all', 'any'],
   sort: [
     'rj',
@@ -77,6 +74,8 @@ const OPEN_VALUE: Record<string, RegExp> = {
   circle: ID_LIST,
   tag: /^[su]:[\w-]+([|,][su]:[\w-]+)*$/,
   q: /\S/,
+  // The personal rating: the unrated set, or an inclusive `from-to` range.
+  rating: /^(?:none|(?:10|[1-9])-(?:10|[1-9]))$/,
   page: /^[1-9]\d{0,5}$/,
 }
 

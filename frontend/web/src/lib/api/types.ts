@@ -523,6 +523,8 @@ export interface ListWorksParams {
   unrated?: boolean
   favorite?: boolean
   has_copy?: boolean
+  /** Multi-Edition Works: the chain holds two or more language editions. */
+  multi_edition?: boolean
   /** Comma-separated `listening`, `finished`, `none`; a work matches any of them. */
   listening?: string
   sort?: WorksSort

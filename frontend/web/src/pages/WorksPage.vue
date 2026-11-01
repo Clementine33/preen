@@ -14,6 +14,7 @@ import { useMediaQuery, WALL_MOBILE_QUERY } from '@/composables/use-media-query'
 import LibrarySwitcher from '@/features/works/LibrarySwitcher.vue'
 import PlayerBar from '@/features/works/PlayerBar.vue'
 import RailSelect from '@/features/works/RailSelect.vue'
+import RatingBar from '@/features/works/RatingBar.vue'
 import TagIndex from '@/features/works/TagIndex.vue'
 import { usePlayWork } from '@/features/works/use-play-work'
 import { PAGE_SIZES, useWallQuery } from '@/features/works/use-wall-query'
@@ -136,31 +137,43 @@ const LANGUAGE_OPTIONS: RailOption[] = [
   { value: 'CHI_HANT', label: '繁中' },
   { value: 'JPN', label: '日语' },
   { value: 'NM', label: '无语言限制' },
+  // Not a language: works whose chain holds two or more language editions.
+  { value: 'multi', label: '多版在库' },
 ]
-// Personal rating is a floor, never a range: a number N lists works rated N or
-// higher, so only the top score is exact ('10'); 'none' lists the unrated.
+// Personal rating is an inclusive range picked on the RatingBar, written
+// `from-to` ('8-8' is exactly 8); 'none' lists the unrated. Any other address
+// value, an old floor like '8' included, constrains nothing.
 const RATING_OPTIONS: RailOption[] = [
   { value: '', label: 'ALL' },
-  { value: '10', label: '10' },
-  { value: '9', label: '9+' },
-  { value: '8', label: '8+' },
-  { value: '7', label: '7+' },
-  { value: '5', label: '5+' },
-  { value: 'rated', label: '已评分' },
   { value: 'none', label: '未评分' },
 ]
-/** An address value outside the options constrains nothing, like an unknown AGE. */
-function ratingParam(value: string): Pick<ListWorksParams, 'rating_from' | 'unrated'> {
+function ratingRange(value: string): { from: number, to: number } | null {
+  const match = /^(10|[1-9])-(10|[1-9])$/.exec(value)
+  if (!match)
+    return null
+  const from = Number(match[1])
+  const to = Number(match[2])
+  return from <= to
+    ? { from, to }
+    : null
+}
+function ratingParam(value: string): Pick<ListWorksParams, 'rating_from' | 'rating_to' | 'unrated'> {
   if (value === 'none')
     return { unrated: true }
-  if (value === 'rated')
-    return { rating_from: 1 }
-  return /^(?:10|[5789])$/.test(value)
-    ? {
-        rating_from: Number(value),
-      }
+  const range = ratingRange(value)
+  return range
+    ? { rating_from: range.from, rating_to: range.to }
     : {}
 }
+const ratingPicked = computed(() => ratingRange(wq.rating.value))
+const ratingLabel = computed(() => {
+  const range = ratingPicked.value
+  if (!range)
+    return undefined
+  return range.from === range.to
+    ? String(range.from)
+    : `${range.from}–${range.to}`
+})
 // Listening state of the work: one pick of listening / finished / none.
 const LISTENING_OPTIONS: RailOption[] = [
   { value: '', label: 'ALL' },
@@ -195,9 +208,11 @@ const scope = computed<WorksScope>(() => ({
   ...(wq.circle.value
     ? { circle: wq.circle.value }
     : {}),
-  ...(wq.language.value
-    ? { language: wq.language.value }
-    : {}),
+  ...(wq.language.value === 'multi'
+    ? { multi_edition: true }
+    : wq.language.value
+      ? { language: wq.language.value }
+      : {}),
   ...(wq.age.value
     ? { age_category: AGE_PARAM[wq.age.value] }
     : {}),
@@ -465,7 +480,11 @@ useKeymap({
         <RailSelect v-model="circle" label="CIRCLE" :options="circleOptions" marks-active searchable />
         <RailSelect v-model="age" label="AGE" :options="AGE_OPTIONS" marks-active />
         <RailSelect v-model="language" label="LANG" :options="LANGUAGE_OPTIONS" marks-active />
-        <RailSelect v-model="rating" label="RATING" :options="RATING_OPTIONS" marks-active />
+        <RailSelect v-model="rating" label="RATING" :options="RATING_OPTIONS" :value-label="ratingLabel" marks-active>
+          <template #default="{ open, choose }">
+            <RatingBar :range="ratingPicked" :open="open" @pick="(from, to) => choose(`${from}-${to}`)" />
+          </template>
+        </RailSelect>
         <RailSelect v-model="listening" label="PROG" :options="LISTENING_OPTIONS" marks-active />
         <TagIndex v-model="tags" :scope="tagScope" />
         <span v-if="wq.overflow.value" class="lbl notice" role="status">筛选条件过多，未应用</span>

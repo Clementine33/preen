@@ -500,6 +500,7 @@ is the first scan's `collected_at`; the work has no separate `created_at`.
 | `rating_from` / `rating_to` | Integer 1–10, inclusive. |
 | `unrated` | `true`/`false`. It **unions** with the rating range inside that dimension: `rating_from=8&unrated=true` means "8 or more, or not rated". |
 | `favorite`, `has_copy` | `true`/`false`. |
+| `multi_edition` | `true`/`false`. `true` lists Multi-Edition Works: held works whose chain, keyed by the resolved original, holds two or more of the JPN, CHI_HANS and CHI_HANT editions (the original counts as JPN; same-language translations are one edition). Holding is counted in any library, so `library` still scopes only the listed work. `false` lists every other work. |
 | `listening` | Comma-separated listening states (`listening`, `finished`, `none`); a work matches if its state is any of them. Any other value is `INVALID_ARGUMENT` (400). |
 | `sort` / `direction` | `rj` / `release_date` / `collected_at` / `rating` / `listened_at`, and `asc` / `desc`. `listened_at` orders by the work's latest Listening Position update. |
 | `limit`, `page` | Page size and 1-based page number (below). |

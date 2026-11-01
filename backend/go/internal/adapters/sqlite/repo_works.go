@@ -283,6 +283,13 @@ func (b *listQueryBuilder) applyFilters(filter works.Filter) {
 		)
 	}
 	b.addCopyFilter(filter)
+	if filter.MultiEdition != nil {
+		if *filter.MultiEdition {
+			b.add(multiEditionSQL)
+		} else {
+			b.add("NOT (" + multiEditionSQL + ")")
+		}
+	}
 	if len(filter.Listening) > 0 {
 		b.add(listeningStateSQL+" IN ("+placeholderList(len(filter.Listening))+")", textArgs(filter.Listening)...)
 	}
@@ -386,6 +393,20 @@ func (b *listQueryBuilder) addCopyFilter(filter works.Filter) {
 	}
 	b.add("EXISTS ("+clause+")", args...)
 }
+
+// multiEditionSQL matches a Multi-Edition Work: a held work whose chain, keyed
+// by its resolved original, holds two or more of the editions the edition tree
+// shows (the original as JPN, a translation as its Chinese edition). A work
+// with no resolved original is in no chain.
+// ponytail: correlated scan of work_translations per row; index the chain key
+// if large catalogs make the filter slow.
+const multiEditionSQL = `(EXISTS (SELECT 1 FROM work_copies me_copy WHERE me_copy.work_id = w.id) AND
+    (SELECT COUNT(DISTINCT CASE WHEN me.role = 'original' THEN 'JPN' ELSE me.language END)
+     FROM work_translations me
+     WHERE (me.role = 'original' OR me.language IN ('CHI_HANS', 'CHI_HANT'))
+       AND CASE WHEN me.role = 'original' THEN me.work_id ELSE me.original_work_id END =
+           CASE WHEN t.role = 'original' THEN t.work_id ELSE t.original_work_id END
+       AND EXISTS (SELECT 1 FROM work_copies me_held WHERE me_held.work_id = me.work_id)) >= 2)`
 
 // ratingRange renders the inclusive rating bounds that are present.
 func ratingRange(filter works.Filter) (string, []any) {

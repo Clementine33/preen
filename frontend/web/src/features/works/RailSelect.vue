@@ -18,6 +18,9 @@ import { usePopupMenu } from './use-popup-menu'
 // native modal <dialog> (top layer, focus trap, Esc), closed by its CLOSE
 // button or a tap on the backdrop. The dialog's own `close` event keeps `open`
 // in step, so Esc and the Android back gesture need no handler of their own.
+//
+// A select whose value is not one of its rows (the rating range) draws its own
+// picker in the default slot, above the rows, and names its value for the tab.
 
 export interface RailOption {
   /** '' is the "no constraint" entry every select opens with. */
@@ -33,6 +36,8 @@ const props = defineProps<{
   /** Whether a set value inverts the tab: a filter does, the order does not. */
   marksActive?: boolean
   searchable?: boolean
+  /** The tab's text for a value no option carries. */
+  valueLabel?: string
 }>()
 
 const model = defineModel<string>({ required: true })
@@ -125,7 +130,10 @@ watch(open, (value) => {
 
 const menu = usePopupMenu({ root, trigger, open })
 
-const current = computed(() => props.options.find(option => option.value === model.value) ?? null)
+const current = computed(() => props.options.find(option => option.value === model.value)
+  ?? (props.valueLabel === undefined
+    ? null
+    : { value: model.value, label: props.valueLabel }))
 const active = computed(() => props.marksActive === true && model.value !== '')
 
 function choose(value: string): void {
@@ -152,13 +160,14 @@ const chevron = 'M0 2.5h10L5 8z'
     >
       <div class="strip">
         <span class="strip-name lbl">{{ label }}</span>
-        <span class="lbl">{{ options.length - (options[0]?.value === '' ? 1 : 0) }}</span>
+        <span v-if="!$slots.default" class="lbl">{{ options.length - (options[0]?.value === '' ? 1 : 0) }}</span>
         <button v-if="narrow" class="lbl rs-close" type="button" @click="menu.close(true)">CLOSE</button>
       </div>
       <label v-if="searchable" class="rs-search">
         <span class="lbl">FIND</span>
         <input v-model="search" type="search" :aria-label="`Find ${label.toLowerCase()}`">
       </label>
+      <slot :open="open" :choose="choose" />
       <div ref="listEl" class="rs-list" role="listbox" :aria-label="label" :style="narrow ? undefined : { height: listHeight }">
         <div class="rs-rows" :style="{ height: `${virtualizer.getTotalSize()}px` }">
           <button

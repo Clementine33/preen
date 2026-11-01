@@ -130,6 +130,7 @@ function worksQuery(params: ListWorksParams): string {
     'unrated',
     'favorite',
     'has_copy',
+    'multi_edition',
   ] as const) {
     const value = params[key]
     if (value !== undefined)

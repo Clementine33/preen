@@ -10,6 +10,9 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"runtime"
+	"slices"
+	"strings"
 	"testing"
 
 	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
@@ -149,6 +152,14 @@ func TestDirIDCoversUnicodeAndReservedCharacters(t *testing.T) {
 		"🎵 emoji",
 		"café",       // NFC
 		"cafe\u0301", // the same word as NFD: a different path, a different identity
+	}
+	// A name this host's filesystem refuses cannot be created, so its identity
+	// is only asserted where such a directory can exist. The characters stay
+	// listed: the identity rules do not depend on the host, only the fixture does.
+	if runtime.GOOS == "windows" {
+		names = slices.DeleteFunc(names, func(name string) bool {
+			return strings.ContainsAny(name, `<>:"/\|?*`)
+		})
 	}
 	for _, name := range names {
 		seedDir(t, repo, root, name)

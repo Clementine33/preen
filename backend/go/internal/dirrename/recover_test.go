@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"path"
 	"path/filepath"
 	"testing"
 	"time"
@@ -188,8 +189,10 @@ func TestStartupRepairOnlyTouchesFirstMissingResultAndPersistsIt(t *testing.T) {
 func TestRepairFailureCanRetryAndPersistedRollbackFailureIsSkipped(t *testing.T) {
 	f := newRenameRun(t)
 	ex := f.start(t)
-	target := filepath.Join(detailRoot(f.member), "[RJ00000001] title")
-	if err := filesystem.RenameNoReplace(f.member.FolderPath, target); err != nil {
+	// The target names a directory in the library: the inventory records it in
+	// the stored POSIX form, while the rename acts on the host's own spelling.
+	target := path.Join(detailRoot(f.member), "[RJ00000001] title")
+	if err := filesystem.RenameNoReplace(f.member.FolderPath, filepath.FromSlash(target)); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := f.repo.InterruptStaleExecutions(); err != nil {
@@ -221,7 +224,7 @@ func TestRepairFailureCanRetryAndPersistedRollbackFailureIsSkipped(t *testing.T)
 	); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Remove(target); err != nil {
+	if err := os.Remove(filepath.FromSlash(target)); err != nil {
 		t.Fatal(err)
 	}
 	if errs := f.task.RecoverInterrupted(t.Context(), f.repo); len(errs) > 0 {

@@ -42,7 +42,13 @@ type TreeNode struct {
 // member directory. Directories sort before files; within the same type, both
 // sort naturally by name. Node names are basenames only and RelPath is
 // relative to the member root.
+//
+// The member root is normalized to the entries' stored POSIX form first: a
+// caller holding the host's native spelling (a Windows member path uses
+// backslashes) would otherwise key the root under a path no entry's parent
+// matches, and every child would be dropped.
 func BuildMemberTree(rootPath string, entries []Entry) *TreeNode {
+	rootPath = librarypath.CleanRootPath(rootPath)
 	index := map[string]*TreeNode{}
 	root := &TreeNode{Name: basename(rootPath), Path: rootPath, RelPath: "", Type: "dir"}
 	index[rootPath] = root

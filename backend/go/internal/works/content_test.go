@@ -49,6 +49,24 @@ func classifyKindOf(t *testing.T, input [2]string) works.ContentFileKind {
 	return tree.Children[0].Kind
 }
 
+// TestBuildContentTreeAcceptsANativeMemberRoot covers a Windows caller: the
+// member path arrives with backslashes while entries carry the stored POSIX
+// form, so the root's name must still be the member's basename.
+func TestBuildContentTreeAcceptsANativeMemberRoot(t *testing.T) {
+	const stored = "C:/lib/RJ01000001"
+	entries := []inventory.Entry{
+		{Path: stored + "/01.mp3", ParentPath: stored, Name: "01.mp3", Size: 1, Format: "audio/mpeg"},
+	}
+	tree := works.BuildContentTree(`C:\lib\RJ01000001`, entries, "eng-1")
+
+	if tree.Name != "RJ01000001" {
+		t.Fatalf("root name = %q, want RJ01000001", tree.Name)
+	}
+	if len(tree.Children) != 1 || tree.Children[0].RelPath != "01.mp3" {
+		t.Fatalf("children = %+v, want one node with rel_path 01.mp3", tree.Children)
+	}
+}
+
 func TestBuildContentTree(t *testing.T) {
 	member := "/lib/RJ01000001"
 	entries := []inventory.Entry{

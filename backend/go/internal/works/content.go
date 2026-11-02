@@ -239,7 +239,7 @@ type contentBuilder struct {
 func BuildContentTree(memberPath string, entries []inventory.Entry, thumbEngine string) *ContentNode {
 	memberKey := librarypath.NormalizeToPOSIX(memberPath)
 	index := map[string]*contentBuilder{
-		memberKey: {node: ContentNode{Name: lastSegment(memberPath)}},
+		memberKey: {node: ContentNode{Name: lastSegment(memberKey)}},
 	}
 	root := index[memberKey]
 

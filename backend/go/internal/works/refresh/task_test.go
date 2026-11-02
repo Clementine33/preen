@@ -25,7 +25,9 @@ func (c taskCatalog) CoverTargets(_ context.Context, _ string, _ []string) (map[
 	return c, nil
 }
 func TestMetadataPlanKeepsFrozenCopyTargetsAfterRebinding(t *testing.T) {
-	root := t.TempDir()
+	// The plan answers the root in the stored POSIX form, so the fixture holds
+	// its temp root that way too: on Windows the native spelling differs.
+	root := filepath.ToSlash(t.TempDir())
 	a := filepath.ToSlash(filepath.Join(root, "one", "RJ00000001 a"))
 	b := filepath.ToSlash(filepath.Join(root, "two", "RJ00000001 b"))
 	bindings := taskCatalog{

@@ -244,7 +244,9 @@ func TestNamesBlockMissingMetadataOccupiedTargetsAndUnsafeLengths(t *testing.T) 
 		{name: "unreported actors", title: "title", template: "[{rj}] {voice_actors}", reason: "METADATA_MISSING"},
 		{name: "ambiguous code", title: "RJ000002", template: "[{rj}] {title}", reason: "WORK_CODE_AMBIGUOUS"},
 		{name: "code boundary lost", title: "title", template: "x{rj}", reason: "WORK_CODE_AMBIGUOUS"},
-		{name: "too long", title: strings.Repeat("声", 90), template: "[{rj}] {title}", reason: "NAME_TOO_LONG"},
+		// Long enough to exceed the name limit on any host: POSIX counts UTF-8
+		// bytes, Windows UTF-16 code units, and this title is over both.
+		{name: "too long", title: strings.Repeat("声", 300), template: "[{rj}] {title}", reason: "NAME_TOO_LONG"},
 		{name: "reserved", title: "title", template: "CON.{rj}", reason: "NAME_RESERVED"},
 		{name: "target file", title: "title", template: "[{rj}] {title}", target: "[RJ00000001] title", reason: "TARGET_EXISTS"},
 	} {

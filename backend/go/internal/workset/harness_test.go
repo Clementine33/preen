@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"os"
+	"path"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -183,9 +184,9 @@ func (f *fixture) clearPlaceholders() {
 }
 
 // rootOf is the library root a placeholder path belongs to.
-func (f *fixture) rootOf(path string) string {
+func (f *fixture) rootOf(entryPath string) string {
 	for _, root := range []string{"/music", "/music2"} {
-		if len(path) > len(root) && path[:len(root)+1] == root+"/" {
+		if len(entryPath) > len(root) && entryPath[:len(root)+1] == root+"/" {
 			return root
 		}
 	}
@@ -195,11 +196,14 @@ func (f *fixture) rootOf(path string) string {
 func (f *fixture) insertDirEntry(abs, root, name string) {
 	f.t.Helper()
 	now := time.Now().Unix()
+	// Stored paths are POSIX on every host, so the parent is split with
+	// path.Dir: filepath.Dir answers in the host's separator form and would
+	// never equal the POSIX root on Windows, leaving no work root at all.
 	inventoryfixture.SeedInventory(f.t, f.repo, inventoryfixture.Row{
 		Path:       abs,
 		RootPath:   root,
 		IsDir:      true,
-		IsWorkRoot: filepath.Dir(abs) == root,
+		IsWorkRoot: path.Dir(abs) == root,
 		CreatedAt:  now,
 	})
 }

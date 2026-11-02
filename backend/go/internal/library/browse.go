@@ -40,7 +40,9 @@ type Member struct {
 	Library *Library
 	// RelPath is the library-relative path: the member's durable data identity.
 	RelPath string
-	// AbsPath is the path the inventory queries by.
+	// AbsPath is the member's absolute path in the host's native spelling
+	// (backslashes on Windows). Inventory consumers normalize it to the
+	// stored POSIX form themselves before matching entry paths.
 	AbsPath string
 	// DirID is the navigation identity the request named (ADR 0003).
 	DirID string

@@ -18,5 +18,8 @@ var NewOutboundProxy = newOutboundProxy
 
 // WiredMediaFacts exposes the process's assembled media pass to integration tests.
 func WiredMediaFacts(repo *sqlite.Repository, dir string) *inventory.MediaEnricher {
-	return buildServices(repo, dir, dir).mediaFacts
+	return buildServices(repo, dir, dir, "0.2.0-dev").mediaFacts
 }
+
+// NewUpdateCheck exposes the release check's assembly to the black-box tests.
+var NewUpdateCheck = newUpdateCheck

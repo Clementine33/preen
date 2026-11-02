@@ -10,6 +10,7 @@ export function apiStub(overrides: Partial<ApiClientContract> = {}): ApiClientCo
     createSession: vi.fn().mockResolvedValue(undefined),
     deleteSession: vi.fn().mockResolvedValue(undefined),
     getHealth: vi.fn().mockResolvedValue({ ok: true, version: 'test' }),
+    getUpdateCheck: vi.fn().mockResolvedValue({ state: 'none' }),
     listLibraries: vi.fn().mockResolvedValue([]),
     getLibrary: vi.fn(),
     createLibrary: vi.fn(),

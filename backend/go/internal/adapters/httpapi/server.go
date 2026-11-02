@@ -16,6 +16,7 @@ import (
 	"github.com/Clementine33/preen/backend/internal/library"
 	"github.com/Clementine33/preen/backend/internal/notify"
 	"github.com/Clementine33/preen/backend/internal/thumbnail"
+	"github.com/Clementine33/preen/backend/internal/updatecheck"
 	"github.com/Clementine33/preen/backend/internal/works"
 	"github.com/Clementine33/preen/backend/internal/works/coverdelivery"
 	"github.com/Clementine33/preen/backend/internal/workset"
@@ -60,6 +61,8 @@ type Dependencies struct {
 	Thumbs  *thumbnail.Service
 	Covers  *coverdelivery.Service
 	Cleanup *cleanup.Service
+	// UpdateCheck is the process's one release check; nil reads as none.
+	UpdateCheck *updatecheck.Service
 }
 
 // Dependencies names no storage: every route reaches its business entry, and
@@ -138,6 +141,7 @@ func NewServer(deps Dependencies) http.Handler {
 	mux.Handle("PATCH /api/v1/user-tags/{id}", protect(http.HandlerFunc(s.patchUserTag)))
 	mux.Handle("DELETE /api/v1/user-tags/{id}", protect(http.HandlerFunc(s.deleteUserTag)))
 	s.settingsRoutes(mux, protect)
+	mux.Handle("GET /api/v1/update-check", protect(http.HandlerFunc(s.getUpdateCheck)))
 	mux.Handle("GET /api/v1/classifier-tags", protect(http.HandlerFunc(s.listClassifierTags)))
 	mux.Handle("POST /api/v1/classifier-tags", protect(http.HandlerFunc(s.addClassifierTag)))
 	mux.Handle("DELETE /api/v1/classifier-tags/{id}", protect(http.HandlerFunc(s.deleteClassifierTag)))

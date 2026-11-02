@@ -14,8 +14,8 @@ const (
 	ProxyDirect = "direct"
 )
 
-// OutboundProxy is the deployment-wide outbound proxy for metadata sources and
-// the cover CDN. URL is used only in manual mode and is kept otherwise, so
+// OutboundProxy is the deployment-wide outbound proxy for metadata sources, the
+// cover CDN and the GitHub update check. URL is used only in manual mode and is kept otherwise, so
 // switching back restores it.
 type OutboundProxy struct {
 	Mode string `json:"mode"`

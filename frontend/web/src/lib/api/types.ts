@@ -243,6 +243,11 @@ export interface OutboundProxy {
   url: string
 }
 
+/** The one release check of this server process; the release fields appear only when `available` (docs/api/update-check.md). */
+export type UpdateCheck
+  = | { state: 'checking' | 'none' }
+    | { state: 'available', latest_version: string, release_url: string }
+
 export interface WorkUserTag {
   id: string
   name: string
@@ -1334,6 +1339,7 @@ export interface ApiClientContract {
   createSession: (token: string) => Promise<void>
   deleteSession: () => Promise<void>
   getHealth: (signal?: AbortSignal) => Promise<HealthResponse>
+  getUpdateCheck: (signal?: AbortSignal) => Promise<UpdateCheck>
   listLibraries: (signal?: AbortSignal) => Promise<Library[]>
   getLibrary: (id: string, signal?: AbortSignal) => Promise<Library>
   createLibrary: (input: CreateLibraryInput) => Promise<Library>

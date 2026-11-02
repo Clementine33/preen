@@ -8,7 +8,7 @@ Status: Accepted — 2026-10-28
 
 ## 决定
 
-1. **出站代理分三种方式**：`system` 跟随后端所在电脑的系统代理，`manual` 使用填写的 URL，`direct` 直连。从未保存时为 `system`，这样桌面壳开箱即与 WebView 一致。`manual` 以外的方式保留已填 URL，切回即恢复。
+1. **出站代理分三种方式**，覆盖后端的全部上游请求（元数据源、封面 CDN 与检查更新的 GitHub）：`system` 跟随后端所在电脑的系统代理，`manual` 使用填写的 URL，`direct` 直连。从未保存时为 `system`，这样桌面壳开箱即与 WebView 一致。`manual` 以外的方式保留已填 URL，切回即恢复。
 2. **系统代理按目标逐请求解析**，因为 PAC 的答案因 URL 而异；回环目标始终直连。解析在 `adapters/sysproxy`：
    - Windows 读当前用户的 Internet 选项（WebView2 所读的同一份设置），自动检测与 PAC 由 WinHTTP 求值；求值失败时与浏览器一样回落到手动代理。
    - Linux 先看会话桌面：KDE 读 `kioslaverc`，其他桌面读 GNOME `gsettings`；没有桌面会话（容器、无头服务器）或读不到时读 `HTTP(S)_PROXY` / `NO_PROXY`。桌面设置为 PAC 或自动检测时请求失败并提示改用手动，不猜测路由。

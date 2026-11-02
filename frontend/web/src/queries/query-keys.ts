@@ -5,6 +5,7 @@ import type { CollectionWindow, ListWorksParams, WorkFacetKind, WorksScope } fro
 
 export const queryKeys = {
   health: () => ['health'] as const,
+  updateCheck: () => ['update-check'] as const,
   libraries: {
     all: () => ['libraries'] as const,
     list: () => ['libraries', 'list'] as const,

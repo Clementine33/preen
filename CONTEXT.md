@@ -320,7 +320,7 @@ An execution's request to deliver a Main Cover to one selected Copy. It can be s
 _Avoid_: Extending a metadata Execution Session until its covers finish.
 
 **Outbound Proxy**:
-The single deployment-wide setting for how the server reaches metadata sources and the cover CDN: following the system proxy of the computer the server runs on (the default), through one user-entered proxy URL, or directly. It takes effect for the next upstream request.
+The single deployment-wide setting for how the server reaches metadata sources, the cover CDN and GitHub (for the Update Check): following the system proxy of the computer the server runs on (the default), through one user-entered proxy URL, or directly. It takes effect for the next upstream request.
 _Avoid_: Upstream Proxy (upstream names the metadata sources themselves, not the direction this server connects); Proxy alone; the development `/api` proxy and the HTTPS reverse proxy in front of a deployment are different things.
 
 **Obsolete Audio Handling**:
@@ -417,3 +417,7 @@ _Avoid_: Log for a processing record, execution result or listening history; tre
 **Log Export**:
 A file of the recent Diagnostic Log that the user downloads from the application to attach to a bug report. It is a snapshot to hand over, not a place to browse or search.
 _Avoid_: Log viewer.
+
+**Update Check**:
+The one check per service process, made at startup, of whether GitHub has published a newer stable release than the running version. Its answer lives in memory only and is `checking`, `available` or `none`; a development version skips it, and a failed check reads as `none` rather than as an error, leaving only a line in the Diagnostic Log. It only informs: the user opens the release page and updates by hand, so the service never downloads or installs anything.
+_Avoid_: Auto-update, upgrade check (neither the service nor the Desktop Shell replaces itself); version check (the Preen version is read from health, not compared).

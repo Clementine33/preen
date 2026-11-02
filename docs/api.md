@@ -24,7 +24,8 @@ All endpoint documents use the shared authentication, error and path conventions
 | [Audio conversion](api/conversion.md) | Sparse conversion drafts, common settings, frozen revisions and conformance rules |
 | [Classifier tags](api/policies.md) | Conversion classifier tag vocabulary |
 | [User preferences](api/preferences.md) | Server-synced Format Preference |
-| [Outbound Proxy](api/outbound-proxy.md) | Deployment-wide outbound proxy for metadata sources and cover downloads |
+| [Outbound Proxy](api/outbound-proxy.md) | Deployment-wide outbound proxy for metadata sources, cover downloads and the update check |
+| [Update Check](api/update-check.md) | The server's one startup check for a newer stable release |
 | [Work catalog](api/works.md) | Works, personal data, tags, content manifests, thumbnails, media facts, metadata imports and listing filters |
 | [Work collections](api/collections.md) | Ordered collections, built-in Favorites, incremental membership edits and deletion protection |
 | [Diagnostics](api/diagnostics.md) | Diagnostic Log output, `PREEN_LOG_LEVEL`, access log and Log Export |

@@ -51,6 +51,7 @@ import type {
   TagFacets,
   TaskSettings,
   TaskSettingsMap,
+  UpdateCheck,
   UpdateLibraryInput,
   UserPreferences,
   WorkCollection,
@@ -198,6 +199,10 @@ export class ApiClient implements ApiClientContract {
 
   getHealth(signal?: AbortSignal): Promise<HealthResponse> {
     return this.request('/health', { signal })
+  }
+
+  getUpdateCheck(signal?: AbortSignal): Promise<UpdateCheck> {
+    return this.request('/update-check', { signal })
   }
 
   async listLibraries(signal?: AbortSignal): Promise<Library[]> {

@@ -4,6 +4,7 @@ import { computed } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { GLOBAL_NAV, globalNavOwner, SETTINGS_NAV } from '@/components/layout/global-nav'
 import { useTheme } from '@/composables/use-theme'
+import { useUpdateNotice } from '@/composables/use-update-notice'
 import { useLibraryList } from '@/queries/libraries'
 
 /**
@@ -27,6 +28,8 @@ useLibraryList()
 // The theme is chosen on 设置; the shell keeps its system-preference listener
 // alive while that page is not on screen.
 useTheme()
+// A newer release is announced once per version; the check itself runs on the server.
+useUpdateNotice()
 
 function isCurrent(id: GlobalNavId): boolean {
   return current.value === id

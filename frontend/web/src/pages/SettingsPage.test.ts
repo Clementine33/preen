@@ -255,4 +255,26 @@ describe('settings: about', () => {
     }), '/settings/about')
     expect(wrapper.get('[data-testid="about-version"]').text()).toBe('—')
   })
+
+  it('links to the new release beside the version only when one is available', async () => {
+    const wrapper = await mountPage(apiStub({
+      getUpdateCheck: vi.fn(async () => ({ state: 'available', latest_version: 'v0.3.0', release_url: 'https://example.test/releases/v0.3.0' } as const)),
+    }), '/settings/about')
+    const link = wrapper.get('[data-testid="about-update"]')
+    expect(link.attributes('href')).toBe('https://example.test/releases/v0.3.0')
+    expect(link.attributes('target')).toBe('_blank')
+    expect(link.attributes('rel')).toBe('noopener noreferrer')
+    expect(link.attributes('aria-label')).toBe('有新版本 v0.3.0')
+    expect(link.attributes('title')).toBe('有新版本 v0.3.0')
+  })
+
+  it.each([
+    { state: 'none' },
+    { state: 'checking' },
+  ] as const)('hides the update link while the state is $state', async (state) => {
+    const wrapper = await mountPage(apiStub({
+      getUpdateCheck: vi.fn(async () => state),
+    }), '/settings/about')
+    expect(wrapper.find('[data-testid="about-update"]').exists()).toBe(false)
+  })
 })

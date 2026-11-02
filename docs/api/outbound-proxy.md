@@ -3,7 +3,7 @@
 [API reference](../api.md) · [Common conventions](common.md)
 
 Authenticated routes for how the server reaches metadata sources (DLsite,
-api.asmr.one) and the cover CDN. There is no ETag or `If-Match`: the last
+api.asmr.one), the cover CDN and GitHub (the [update check](update-check.md)). There is no ETag or `If-Match`: the last
 write wins.
 
 | Method | Path | Contract |

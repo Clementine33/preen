@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -21,6 +22,7 @@ import (
 	"github.com/Clementine33/preen/backend/internal/adapters/diaglog"
 	"github.com/Clementine33/preen/backend/internal/adapters/ffmpeg"
 	"github.com/Clementine33/preen/backend/internal/adapters/filesystem"
+	"github.com/Clementine33/preen/backend/internal/adapters/githubrelease"
 	"github.com/Clementine33/preen/backend/internal/adapters/httpapi"
 	"github.com/Clementine33/preen/backend/internal/adapters/media"
 	"github.com/Clementine33/preen/backend/internal/adapters/scraper"
@@ -41,6 +43,7 @@ import (
 
 	"github.com/Clementine33/preen/backend/internal/dirrename"
 	"github.com/Clementine33/preen/backend/internal/thumbnail"
+	"github.com/Clementine33/preen/backend/internal/updatecheck"
 	"github.com/Clementine33/preen/backend/internal/works"
 	"github.com/Clementine33/preen/backend/internal/workset"
 )
@@ -197,6 +200,8 @@ type services struct {
 	metadata *refresh.Service
 	covers   *coverdelivery.Service
 	rename   *dirrename.Task
+	// updates is the process's one release check (docs/api/update-check.md).
+	updates *updatecheck.Service
 }
 
 // buildServices wires the process. Direct file management and the managed task
@@ -208,7 +213,7 @@ type services struct {
 // pipeline. Direct file operations preserve inventory move identities before
 // refreshing; directory-only tasks bypass scans; covers synchronize exact file deltas
 // and metadata's completed cover queue repairs only inventory-sync failures in one scan.
-func buildServices(repo *sqlite.Repository, configDir, dataDir string) services {
+func buildServices(repo *sqlite.Repository, configDir, dataDir, version string) services {
 	worksChanged := &notify.Hub{}
 	repo.OnCatalogChanged = worksChanged.Notify
 	gate := admission.NewGate(repo.HasActiveSession)
@@ -241,6 +246,7 @@ func buildServices(repo *sqlite.Repository, configDir, dataDir string) services 
 		outboundProxy, repo, filesystem.ResolveMember, filesystem.ResolveMemberFile, media.ThumbEngineVersion,
 	)
 	scraperClient := scraper.NewProxied(outboundProxy.Resolve)
+	updates := newUpdateCheck(version, outboundProxy.Resolve)
 	metadataSvc := refresh.NewService(worksSvc, repo, scraperClient, scraperClient)
 	coverSvc, err := coverdelivery.New(
 		coverdelivery.Dependencies{
@@ -308,7 +314,18 @@ func buildServices(repo *sqlite.Repository, configDir, dataDir string) services 
 		covers:       coverSvc,
 		mediaFacts:   mediaFacts,
 		worksChanged: worksChanged,
+		updates:      updates,
 	}
+}
+
+// newUpdateCheck builds the release check over the Outbound Proxy. A development
+// version has no release to compare with, so it gets no source and reports none
+// without any request; a version that is not semantic is skipped by the check.
+func newUpdateCheck(version string, proxy func(*url.URL) (*url.URL, error)) *updatecheck.Service {
+	if IsDevelopmentVersion(version) {
+		return updatecheck.New(version, nil)
+	}
+	return updatecheck.New(version, githubrelease.NewProxied(proxy, version).Latest)
 }
 
 // memberInventoryRefresh registers task-owned member walks in the shared gate.
@@ -365,6 +382,17 @@ func startCoverWorkers(ctx context.Context, service *coverdelivery.Service) <-ch
 	return done
 }
 
+// startUpdateCheck runs the process's one release check in the background; it
+// ends with ctx, so shutdown does not wait for its network attempts.
+func startUpdateCheck(ctx context.Context, service *updatecheck.Service) <-chan struct{} {
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		service.Run(ctx)
+	}()
+	return done
+}
+
 // runServer starts the HTTP listener and blocks until the process is killed.
 // Startup failures are fatal so CI/dev surfaces them.
 func runServer(
@@ -383,7 +411,7 @@ func runServer(
 
 	// The HTTP API is the only client surface. The workset service owns the
 	// async planning dispatcher.
-	services := buildServices(repo, cfg.ConfigDir, cfg.DataDir)
+	services := buildServices(repo, cfg.ConfigDir, cfg.DataDir, cfg.Version)
 
 	// Startup recovery: any session left queued/running by a previous process
 	// is marked interrupted before the dispatcher starts from an empty queue.
@@ -420,6 +448,7 @@ func runServer(
 		defer close(maintenanceDone)
 		maintenanceLoop.Run(ctx)
 	}()
+	updatesDone := startUpdateCheck(ctx, services.updates)
 	// The startup kick picks up whatever an earlier process left unmeasured.
 	services.mediaFacts.Kick()
 	mediaFactsDone := make(chan struct{})
@@ -452,8 +481,9 @@ func runServer(
 			media.ThumbEngine{}, filepath.Join(cfg.DataDir, "thumbs"), 512<<20,
 			runtime.NumCPU(), 4*runtime.NumCPU(),
 		),
-		Covers:  services.covers,
-		Cleanup: cleanupService,
+		Covers:      services.covers,
+		Cleanup:     cleanupService,
+		UpdateCheck: services.updates,
 	}))
 	requestCtx, cancelRequests := context.WithCancel(context.Background())
 	defer cancelRequests()
@@ -480,7 +510,7 @@ func runServer(
 	slog.Info("shutting down")
 	shutdownBackend(httpSrv, handlers, services.workset.DispatcherHandle(), map[string]<-chan struct{}{
 		"cleanup": cleanupDone, "maintenance": maintenanceDone, "media facts": mediaFactsDone, "covers": coversDone,
-		"retired plans": retiredDone,
+		"retired plans": retiredDone, "update check": updatesDone,
 	}, repo.Close, os.Exit)
 }
 

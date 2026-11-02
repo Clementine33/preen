@@ -59,7 +59,11 @@ func TestUpdateCheckEndpointReportsEachState(t *testing.T) {
 }
 
 func TestUpdateCheckEndpointRequiresAuthentication(t *testing.T) {
-	svc := updatecheck.New("0.2.0", release("v0.3.0"), updatecheck.WithSleep(func(context.Context, time.Duration) error { return nil }))
+	svc := updatecheck.New(
+		"0.2.0",
+		release("v0.3.0"),
+		updatecheck.WithSleep(func(context.Context, time.Duration) error { return nil }),
+	)
 	engine := newTestServer(t, func(d *Dependencies, _ *sqlite.Repository) {
 		d.UpdateCheck = svc
 		d.Token = "secret"

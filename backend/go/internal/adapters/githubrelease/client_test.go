@@ -127,10 +127,14 @@ func TestCancelledContextStopsTheCheck(t *testing.T) {
 	srv, calls := serve(t, status(http.StatusServiceUnavailable))
 	ctx, cancel := context.WithCancel(context.Background())
 	client := githubrelease.New(srv.Client(), srv.URL, "0.2.0")
-	svc := updatecheck.New("0.2.0", client.Latest, updatecheck.WithSleep(func(ctx context.Context, _ time.Duration) error {
-		cancel()
-		return ctx.Err()
-	}))
+	svc := updatecheck.New(
+		"0.2.0",
+		client.Latest,
+		updatecheck.WithSleep(func(ctx context.Context, _ time.Duration) error {
+			cancel()
+			return ctx.Err()
+		}),
+	)
 	svc.Run(ctx)
 	if calls.Load() != 1 || svc.Status().State != updatecheck.StateChecking {
 		t.Fatalf("after cancel: %d requests, state = %q", calls.Load(), svc.Status().State)

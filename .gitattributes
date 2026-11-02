@@ -1,0 +1,17 @@
+# Text files are stored and checked out with LF everywhere, regardless of the
+# contributor's core.autocrlf setting, so the same commit never carries CRLF.
+* text=auto eol=lf
+
+# Binary assets are never converted or diffed as text.
+*.png binary
+*.ico binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.woff binary
+*.woff2 binary
+*.pdf binary
+*.syso binary
+*.exe binary
+*.db binary

@@ -19,7 +19,7 @@ func conversionMount(path string) (string, error) {
 	}
 	const capacity = 32768
 	buffer := make([]uint16, capacity)
-	if err := windows.GetVolumePathName(pathPtr, &buffer[0], capacity); err != nil {
+	if err = windows.GetVolumePathName(pathPtr, &buffer[0], capacity); err != nil {
 		return "", err
 	}
 	// A prefixed input yields a prefixed volume name; strip it so short and

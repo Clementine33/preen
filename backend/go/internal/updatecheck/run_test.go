@@ -64,7 +64,8 @@ func TestStatusComparesTheLatestTagWithTheRunningVersion(t *testing.T) {
 			if got.State != c.want {
 				t.Fatalf("state = %q, want %q", got.State, c.want)
 			}
-			if c.want == updatecheck.StateAvailable && (got.LatestVersion != c.tag || got.ReleaseURL != "https://example.test/"+c.tag) {
+			if c.want == updatecheck.StateAvailable &&
+				(got.LatestVersion != c.tag || got.ReleaseURL != "https://example.test/"+c.tag) {
 				t.Fatalf("status = %+v", got)
 			}
 			if c.want != updatecheck.StateAvailable && (got.LatestVersion != "" || got.ReleaseURL != "") {

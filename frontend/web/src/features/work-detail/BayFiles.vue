@@ -3,6 +3,7 @@ import type { WorkContentDir, WorkContentFile } from '@/lib/api/types'
 import { computed, nextTick, ref, watch } from 'vue'
 import { useKeymap } from '@/composables/use-keymap'
 import { audioInfo, dirCounts, fmtSize, kindGlyph } from '@/features/work-detail/derive'
+import { useLibraryList } from '@/queries/libraries'
 import { usePlayerStore } from '@/stores/player'
 import { useWorkDetailStore } from '@/stores/work-detail'
 
@@ -16,6 +17,10 @@ import { useWorkDetailStore } from '@/stores/work-detail'
 
 const store = useWorkDetailStore()
 const player = usePlayerStore()
+const { librariesData } = useLibraryList()
+const copyLibrary = computed(() =>
+  librariesData.value.find(library => library.id === store.activeCopy?.library_id)?.name ?? '—',
+)
 
 const dir = computed(() => store.cwdDir)
 const crumbs = computed(() => (store.copy
@@ -103,10 +108,8 @@ function isPlaying(entry: WorkContentDir | WorkContentFile): boolean {
           @click="store.selectDir(store.cwd.slice(0, i))"
         >{{ crumb }}</button>
       </template>
-      <button
-        class="btn btn-s copy-pick" type="button" disabled
-        :title="`读取副本 ${store.activeCopy?.library_id ?? '—'}（多副本切换未实现）`"
-      >{{ store.activeCopy?.library_id ?? '—' }} ▾</button>
+      <!-- Several copies are usually one work stored twice: no switching, only which library this tree is read from. -->
+      <span v-if="(store.content?.copies.length ?? 0) > 1" class="lbl copy-pick">{{ copyLibrary }}</span>
     </div>
     <div class="list-head"><span /><span /><span class="lbl">NAME</span><span class="lbl">INFO</span><span class="lbl">SIZE</span></div>
     <div ref="list" class="list" lang="ja">

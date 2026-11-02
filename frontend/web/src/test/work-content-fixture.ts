@@ -111,7 +111,7 @@ function audio(fmt: 'MP3' | 'WAV', track: [name: string, dur: number]): WorkCont
     size: Math.round(track[1] * bytesPerSec),
     format: fmt,
     bitrate: fmt === 'MP3'
-      ? 320
+      ? 320_000
       : null,
     duration_sec: track[1],
   })

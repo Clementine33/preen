@@ -8,10 +8,12 @@ import {
   imageSets,
   lrcFilesOf,
   pickFormat,
+  playableCopy,
   playQueue,
 
   trackFormats,
 } from '@/features/work-detail/derive'
+import { useLibraryUiStore } from './library-ui'
 import { usePlayerStore } from './player'
 
 /**
@@ -73,10 +75,9 @@ export const useWorkDetailStore = defineStore('work-detail', {
   }),
 
   getters: {
-    /** The page reads the first online copy; offline ones stay listed. */
+    /** The page reads the browsed library's online copy, else the first online one; offline ones stay listed. */
     activeCopy(state) {
-      const online = state.content?.copies.find(copy => copy.online)
-      return online ?? state.content?.copies[0] ?? null
+      return playableCopy(state.content, useLibraryUiStore().scopedLibraryId)
     },
     /** Whether the bay's rows are on screen (a bottom drawer may be shut). */
     bayVisible: (state): boolean => state.dock === 'right' || state.bayOpen,

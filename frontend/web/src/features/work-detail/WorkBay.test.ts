@@ -19,13 +19,16 @@ import WorkBay from './WorkBay.vue'
 
 const RJ = 'RJ01000001'
 
-async function mountBay() {
+async function mountBay(content = sampleWorkContent(RJ)) {
   const pinia = createPinia()
   setActivePinia(pinia)
   const store = useWorkDetailStore()
-  store.bind(RJ, sampleWorkContent(RJ))
+  store.bind(RJ, content)
   const api = apiStub({
     getWork: vi.fn().mockResolvedValue(makeWorkDetail()),
+    listLibraries: vi.fn().mockResolvedValue([
+      { id: 'lib-a', name: '主库' },
+    ]),
   } as never)
   const wrapper = mount(WorkBay, {
     global: {
@@ -189,6 +192,20 @@ describe('workBay', () => {
     expect(wrapper.findAll('.trk').map(row => row.get('.nm').text())).toEqual(['0', '1', '2'])
     expect(wrapper.findAll('.trk')[1].get('.dur').text()).toBe('02:00')
     expect(store.playFmt).toBe('MP3')
+  })
+
+  it('names the library being read only when the work has several copies', async () => {
+    const { wrapper, store } = await mountBay()
+    store.openBayTab('files')
+    await flushPromises()
+    expect(wrapper.get('.copy-pick').text()).toBe('主库')
+
+    const single = sampleWorkContent(RJ)
+    single.copies = single.copies.slice(0, 1)
+    const { wrapper: one, store: oneStore } = await mountBay(single)
+    oneStore.openBayTab('files')
+    await flushPromises()
+    expect(one.find('.copy-pick').exists()).toBe(false)
   })
 
   it('navigates directories and acts on file rows', async () => {

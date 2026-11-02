@@ -4,6 +4,7 @@ import { deriveTracks, pickFormat, playableCopy, playQueue, resumePoint, trackFo
 import { useApiClient } from '@/lib/api/client'
 import { usePreferences } from '@/queries/preferences'
 import { queryKeys } from '@/queries/query-keys'
+import { useLibraryUiStore } from '@/stores/library-ui'
 import { usePlayerStore } from '@/stores/player'
 
 // Playing a work from the wall: its tracks queue in their effective format (the
@@ -20,11 +21,12 @@ export function usePlayWork() {
   const api = useApiClient()
   const client = useQueryClient()
   const player = usePlayerStore()
+  const libraryUi = useLibraryUiStore()
   const { trackFormats: preference } = usePreferences()
 
   /** Synchronous, for a click with the manifest in hand: play() stays user-initiated. */
   function playFrom(work: PlayableWork, content: WorkContent | null, index = 0, format = '', resumeAt?: number): void {
-    const copy = playableCopy(content)
+    const copy = playableCopy(content, libraryUi.scopedLibraryId)
     const tracks = copy?.tree
       ? deriveTracks(copy.tree)
       : []
@@ -75,7 +77,7 @@ export function usePlayWork() {
     // An unreadable manifest plays nothing: the silent clock would pretend audio exists.
     if (content === undefined)
       return
-    const copy = playableCopy(content)
+    const copy = playableCopy(content, libraryUi.scopedLibraryId)
     const point = resumePoint(saved, copy?.tree
       ? deriveTracks(copy.tree)
       : [])

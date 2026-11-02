@@ -4,6 +4,7 @@ import { deriveTracks, fmtLong, fmtT, pickFormat, playableCopy, trackFormats } f
 import { usePlayWork } from '@/features/works/use-play-work'
 import { usePreferences } from '@/queries/preferences'
 import { useWorkContent } from '@/queries/works'
+import { useLibraryUiStore } from '@/stores/library-ui'
 import { usePlayerStore } from '@/stores/player'
 
 // One work's tracklist, wherever a work is shown without its detail page (the
@@ -21,9 +22,10 @@ const props = defineProps<{
 }>()
 
 const player = usePlayerStore()
+const libraryUi = useLibraryUiStore()
 const { content, query: contentQuery } = useWorkContent(() => props.rj)
 const allTracks = computed(() => {
-  const tree = playableCopy(content.value)?.tree
+  const tree = playableCopy(content.value, libraryUi.scopedLibraryId)?.tree
   return tree
     ? deriveTracks(tree)
     : []

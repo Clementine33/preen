@@ -167,7 +167,7 @@ async function retryPage() {
         data-testid="libraries-empty"
       >
         <div class="max-w-md border border-dashed border-[var(--wire-mid)] px-8 py-10">
-          <div class="hatch mx-auto size-10 border border-border">
+          <div class="mx-auto grid size-10 place-items-center border border-border">
             <Plus class="size-4 text-muted-foreground" />
           </div>
           <h1 class="mt-4 font-heading text-lg font-semibold">还没有媒体库</h1>

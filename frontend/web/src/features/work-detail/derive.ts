@@ -229,10 +229,16 @@ export function deriveTracks(tree: WorkContentDir): Track[] {
   })
 }
 
-/** The copy a work plays and reads from: the first online one, else the first. */
-export function playableCopy(content: WorkContent | null): WorkContentCopy | null {
+/**
+ * The copy a work plays and reads from: the online one in the library being
+ * browsed, else the first online one, else the first. Copies of one work are
+ * usually the same files stored twice, so the browsed library must not be
+ * read through another library's copy when it holds its own.
+ */
+export function playableCopy(content: WorkContent | null, libraryId: string | null = null): WorkContentCopy | null {
   const copies = content?.copies ?? []
-  return copies.find(copy => copy.online) ?? copies[0] ?? null
+  const online = copies.filter(copy => copy.online)
+  return online.find(copy => copy.library_id === libraryId) ?? online[0] ?? copies[0] ?? null
 }
 
 /**
@@ -516,7 +522,7 @@ export function kindGlyph(kind: WorkFileKind | 'dir'): string {
 export function audioInfo(f: WorkContentFile): string {
   const label = f.format
     ? `${f.format}${f.bitrate
-      ? ` ${f.bitrate}K`
+      ? ` ${Math.round(f.bitrate / 1000)}K`
       : ''}`
     : ''
   return f.duration_sec !== null

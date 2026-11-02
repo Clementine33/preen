@@ -17,6 +17,7 @@ import {
   parseLyrics,
   parseTxt,
   pickFormat,
+  playableCopy,
   playQueue,
   resumePoint,
   trackFormats,
@@ -617,7 +618,7 @@ describe('telemetry formatting', () => {
   })
 
   it('labels an audio file by its duration and format', () => {
-    expect(audioInfo(f('a.mp3', 'aud', { format: 'MP3', bitrate: 320, duration_sec: 252 }))).toBe('04:12 · MP3 320K')
+    expect(audioInfo(f('a.mp3', 'aud', { format: 'MP3', bitrate: 320000, duration_sec: 252 }))).toBe('04:12 · MP3 320K')
     expect(audioInfo(f('a.wav', 'aud', { format: 'WAV', duration_sec: 480 }))).toBe('08:00 · WAV')
   })
 })
@@ -670,5 +671,32 @@ describe('resumePoint', () => {
       row({ track_key: 'missing' }),
     ], tracks)).toBeNull()
     expect(resumePoint([], tracks)).toBeNull()
+  })
+})
+
+describe('playableCopy', () => {
+  const copy = (library_id: string, online: boolean) => ({
+    copy_id: `c-${library_id}`,
+    library_id,
+    dir_id: '',
+    online,
+  })
+  const content = {
+    rj: 'RJ1',
+    copies: [
+      copy('a', true),
+      copy('b', true),
+      copy('c', false),
+    ],
+  }
+
+  it('reads the browsed library\'s online copy, not the first one', () => {
+    expect(playableCopy(content, 'b')?.library_id).toBe('b')
+  })
+
+  it('falls back to the first online copy when the library has none online or no copy', () => {
+    expect(playableCopy(content, 'c')?.library_id).toBe('a')
+    expect(playableCopy(content, 'z')?.library_id).toBe('a')
+    expect(playableCopy(content)?.library_id).toBe('a')
   })
 })

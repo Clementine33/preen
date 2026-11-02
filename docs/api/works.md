@@ -217,7 +217,7 @@ inventory** — never a live walk — as one tree per bound copy (ADR 0013):
             "width": 1200, "height": 900, "duration_sec": null,
             "thumb_v": "9f86d081884c7d65" } ] },
         { "name": "01_導入.mp3", "rel_path": "01_導入.mp3",
-          "kind": "aud", "size": 5120, "format": "MP3", "bitrate": 320,
+          "kind": "aud", "size": 5120, "format": "MP3", "bitrate": 320000,
           "width": null, "height": null, "duration_sec": 185.5,
           "thumb_v": null } ] } }
   ]
@@ -231,7 +231,7 @@ work without Copies answers an empty `copies` array. `kind` classifies each file
 (`aud`, `img`, `txt`, `lrc`, `vid`, `bin`); directories carry `children` (empty
 included) and files carry no `children`, always carry `size`, and carry
 `format` only for audio, as the container name the track list aggregates by.
-`width`/`height`/`duration_sec`/`bitrate` are the inventory's facts (ADR 0013): `null` means unmeasured, not zero. Dimensions and durations are measured
+`width`/`height`/`duration_sec`/`bitrate` are the inventory's facts (ADR 0013): `null` means unmeasured, not zero. `bitrate` is in bits per second. Dimensions and durations are measured
 in the background after a scan completes, so a freshly scanned work can answer
 `null` for a while. `thumb_v` is an image's opaque
 thumbnail version (`null` for every other kind), the `v` its thumbnail address

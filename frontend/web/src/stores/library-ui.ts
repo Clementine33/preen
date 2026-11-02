@@ -41,6 +41,10 @@ export const useLibraryUiStore = defineStore('library-ui', {
   getters: {
     /** Membership view of the ordered `selectedDirPaths`. */
     selectedDirSet: state => new Set(state.selectedDirPaths),
+    /** The library a work's copy is preferred from; null under the wall's all-libraries scope. */
+    scopedLibraryId: (state): string | null => state.allLibraries
+      ? null
+      : state.activeLibraryId,
   },
   actions: {
     setActiveLibrary(id: string) {

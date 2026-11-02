@@ -6,6 +6,7 @@ import { apiClientKey } from '@/lib/api/client'
 import { usePlayerStore } from '@/stores/player'
 import { useWorkDetailStore } from '@/stores/work-detail'
 import { apiStub } from '@/test/api-stub'
+import { installTestQueryPlugin } from '@/test/query-client'
 import { sampleWorkContent } from '@/test/work-content-fixture'
 import BayFiles from './BayFiles.vue'
 import WorkVideo from './WorkVideo.vue'
@@ -45,7 +46,10 @@ describe('workVideo', () => {
       }),
       {
         global: {
-          plugins: [pinia],
+          plugins: [
+            pinia,
+            installTestQueryPlugin(),
+          ],
           provide: {
             [apiClientKey as symbol]: apiStub(),
           },

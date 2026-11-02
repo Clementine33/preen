@@ -71,6 +71,7 @@ func backendPlan(t *testing.T, config string) supervisor.Plan {
 		}
 	}
 	options := supervisor.Options{Executable: filepath.Join(root, "bin", "preen-desktop"), GOOS: runtime.GOOS, Environ: append(env, "XDG_DATA_HOME="+root), HomeDir: root, Origin: "http://wails.localhost", Version: releaseVersion}
+	writeWebFixture(t, options)
 	p, err := supervisor.Prepare(options)
 	if err != nil {
 		t.Fatal(err)

@@ -25,6 +25,12 @@ contents:
     expand: true
     file_info:
       mode: 0755
+  - src: dist/desktop/linux-${GOARCH}/share/preen/web
+    dst: /usr/share/preen/web
+    expand: true
+    # No file_info.mode: on a tree it would override directory modes too (0644 dirs
+    # are not traversable); modes come from the build output (dirs 0755, files 0644).
+    type: tree
   - src: desktop/preen.desktop
     dst: /usr/share/applications/preen.desktop
   - src: frontend/web/public/favicon.svg

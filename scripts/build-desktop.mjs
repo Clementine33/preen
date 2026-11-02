@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-/** Build the shared web assets and both desktop binaries in their installed layout. */
+/** Build the shared web assets and both desktop binaries, plus an on-disk web copy, in their installed layout. */
 import { spawn, spawnSync } from 'node:child_process'
-import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { cpSync, mkdirSync, readFileSync, rmSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { releaseVersion } from './release-version.mjs'
@@ -14,6 +14,11 @@ function run(command, args, cwd = root, env = process.env) {
   const result = spawnSync(command, args, { cwd, env, stdio: 'inherit', shell: process.platform === 'win32' && command === 'pnpm' })
   if (result.error) throw result.error
   if (result.status !== 0) throw new Error(`${command} failed (${result.status ?? result.signal})`)
+}
+
+/** Where the installed layout keeps the web build read by the shell and the service. */
+export function webOutputDir(output, goos) {
+  return path.join(output, goos === 'windows' ? 'web' : 'share/preen/web')
 }
 
 function build() {
@@ -35,14 +40,12 @@ function build() {
     // The Release workflow supplies assets from its shared frontend build.
     if (!process.argv.includes('--prebuilt-web')) run('pnpm', ['--dir', webDir, 'build'])
     readFileSync(path.join(webDir, 'dist/index.html'))
-    const assets = path.join(root, 'desktop/assets')
-    rmSync(assets, { recursive: true, force: true })
-    cpSync(path.join(root, 'frontend/web/dist'), assets, { recursive: true })
-    writeFileSync(path.join(assets, '.gitkeep'), '')
   }
   rmSync(output, { recursive: true, force: true })
   mkdirSync(path.dirname(backend), { recursive: true })
   mkdirSync(path.dirname(shell), { recursive: true })
+  // The shell window and the supervised service both read this one on-disk copy.
+  if (!dev) cpSync(path.join(webDir, 'dist'), webOutputDir(output, goos), { recursive: true })
   const env = { ...process.env, GOOS: goos, GOARCH: goarch }
   run('go', ['build', '-trimpath', '-ldflags', `-X main.version=${version}`, '-o', backend, './cmd/preen'], path.join(root, 'backend/go'), env)
   run('go', ['build', '-trimpath', ...(dev ? [] : ['-tags', 'production']), '-ldflags', `${goos === 'windows' ? '-H windowsgui ' : ''}-X main.version=${version}`, '-o', shell, '.'], path.join(root, 'desktop'), env)

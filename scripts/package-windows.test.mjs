@@ -10,8 +10,9 @@ test('portable assembly validates every input and archives only the fixed layout
   t.after(() => rmSync(root, { recursive: true, force: true }))
   const inputs = ['LICENSE', 'dist/desktop/windows-amd64/preen-desktop.exe', 'dist/desktop/windows-amd64/bin/preen.exe',
     ...['ffmpeg.exe', 'ffprobe.exe'].map((name) => `dist/desktop-ffmpeg/bin/${name}`),
-    'dist/desktop-ffmpeg/THIRD_PARTY_NOTICES.txt']
-  for (const input of inputs) {
+    'dist/desktop-ffmpeg/THIRD_PARTY_NOTICES.txt', 'dist/desktop/windows-amd64/web/index.html']
+  const nestedAsset = 'dist/desktop/windows-amd64/web/assets/app.js'
+  for (const input of [...inputs, nestedAsset]) {
     mkdirSync(path.dirname(path.join(root, input)), { recursive: true })
     writeFileSync(path.join(root, input), 'fixture')
   }
@@ -30,8 +31,10 @@ test('portable assembly validates every input and archives only the fixed layout
   mkdirSync(stale, { recursive: true })
   writeFileSync(path.join(stale, 'private.db'), 'never distribute')
   const output = packageWindows({ ...options, archive: (stage, destination) => {
-    assert.deepEqual(readdirSync(stage).sort(), ['LICENSE', 'THIRD_PARTY_NOTICES.txt', 'bin', 'preen-desktop.exe'])
+    assert.deepEqual(readdirSync(stage).sort(), ['LICENSE', 'THIRD_PARTY_NOTICES.txt', 'bin', 'preen-desktop.exe', 'web'])
     assert.deepEqual(readdirSync(path.join(stage, 'bin')).sort(), ['ffmpeg.exe', 'ffprobe.exe', 'preen.exe'])
+    assert.deepEqual(readdirSync(path.join(stage, 'web')).sort(), ['assets', 'index.html'])
+    assert.equal(readFileSync(path.join(stage, 'web/assets/app.js'), 'utf8'), 'fixture')
     assert.equal(existsSync(path.join(stage, 'data')), false)
     assert.equal(existsSync(path.join(stage, 'LICENSE')), true)
     assert.equal(existsSync(path.join(stage, 'THIRD_PARTY_NOTICES.txt')), true)

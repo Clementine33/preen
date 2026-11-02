@@ -4,13 +4,13 @@ The Desktop Shell opens Preen in a native window and runs the same backend used 
 
 ## Windows portable zip
 
-Download `preen-<version>-windows-amd64.zip` and `SHA256SUMS` from the corresponding GitHub Release. Verify the ZIP's SHA-256 against `SHA256SUMS` (for example with PowerShell `Get-FileHash -Algorithm SHA256 <zip>`), then extract the entire ZIP to a directory your user can write, such as `C:\Users\you\Apps\Preen`. Run `preen-desktop.exe` from there. Keep its `bin` directory beside it; `bin` contains the backend and bundled FFmpeg/FFprobe.
+Download `preen-<version>-windows-amd64.zip` and `SHA256SUMS` from the corresponding GitHub Release. Verify the ZIP's SHA-256 against `SHA256SUMS` (for example with PowerShell `Get-FileHash -Algorithm SHA256 <zip>`), then extract the entire ZIP to a directory your user can write, such as `C:\Users\you\Apps\Preen`. Run `preen-desktop.exe` from there. Keep its `bin` and `web` directories beside it; `bin` contains the backend and bundled FFmpeg/FFprobe, and `web` is the browser application that both the shell and the backend use. A missing `web` directory or `web/index.html` stops startup with an error dialog, like a missing backend.
 
 Install [Microsoft Edge WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/) if it is missing. The zip contains neither the runtime nor its installer; Preen displays the download address and exits when it cannot find the runtime. The executable is unsigned, so Windows SmartScreen may warn when you first run it.
 
 Preen creates `data` beside `preen-desktop.exe`. If that directory cannot be created or written, startup displays an error and exits. It does not fall back to AppData or another location: move the whole extracted directory to a writable location. Do not run directly inside the zip or place the portable directory under a protected system directory.
 
-To upgrade, close Preen, back up the complete `data` directory, and extract the new zip over the old program files, **preserving `data`**. Replace the shell and everything in `bin` together; mismatched shell and backend versions refuse to start. A fresh zip contains no user data. Release database migrations run at startup and keep pre-migration database backups under `data/backups`; a backup or migration failure stops startup. Back up media separately, since a database backup cannot undo media changes.
+To upgrade, close Preen, back up the complete `data` directory, and extract the new zip over the old program files, **preserving `data`**. Replace the shell and everything in `bin` and `web` together; mismatched shell and backend versions refuse to start. A fresh zip contains no user data. Release database migrations run at startup and keep pre-migration database backups under `data/backups`; a backup or migration failure stops startup. Back up media separately, since a database backup cannot undo media changes.
 
 ## Arch Linux package
 
@@ -24,7 +24,7 @@ sudo pacman -U dist/preen-0.2.0-1-x86_64.pkg.tar.zst
 
 The package declares five runtime dependencies: `gtk4`, `webkitgtk-6.0`, `ffmpeg`, `gst-plugins-good`, and `gst-libav`. Install missing dependencies from your configured Arch repositories. Linux uses the system FFmpeg/FFprobe and GStreamer media plugins.
 
-Start Preen from the desktop menu or run `preen-desktop`. The package installs the shell at `/usr/bin/preen-desktop` and the private backend at `/usr/lib/preen/preen`. Close Preen and back up its data before installing an upgrade with `pacman -U`; package upgrades preserve the user data directory.
+Start Preen from the desktop menu or run `preen-desktop`. The package installs the shell at `/usr/bin/preen-desktop` and the private backend at `/usr/lib/preen/preen`, and the web application at `/usr/share/preen/web`. Close Preen and back up its data before installing an upgrade with `pacman -U`; package upgrades preserve the user data directory.
 
 ## Data and logs
 
@@ -62,9 +62,9 @@ First launch and close Preen to create its configuration. To give a script on th
 }
 ```
 
-Replace the example token with a generated secret (for example `openssl rand -hex 32` where OpenSSL is available). Keys must use visible ASCII without spaces. Restart Preen, then use `http://127.0.0.1:8765/api/v1` with `Authorization: Bearer <your-key>`. For example, a script can GET `/api/v1/libraries` with that header. Userscripts using `GM_xmlhttpRequest` can call this local endpoint without opening LAN access. An ordinary cross-origin browser page additionally needs an explicit `PREEN_CORS_ORIGINS` allowlist; see [API common conventions](api/common.md#cors).
+Replace the example token with a generated secret (for example `openssl rand -hex 32` where OpenSSL is available). Keys must use visible ASCII without spaces. Restart Preen, then use `http://127.0.0.1:8765/api/v1` with `Authorization: Bearer <your-key>`. For example, a script can GET `/api/v1/libraries` with that header. The backend also serves the browser application, so with this fixed port and key a browser on the same computer can open `http://127.0.0.1:8765` and sign in with the key. Userscripts using `GM_xmlhttpRequest` can call this local endpoint without opening LAN access. An ordinary cross-origin browser page additionally needs an explicit `PREEN_CORS_ORIGINS` allowlist; see [API common conventions](api/common.md#cors).
 
-After local script access works, set `allow_lan` to `true`, retaining the fixed port and key, and restart. The service then binds `0.0.0.0`; other devices use `http://<desktop-lan-ip>:8765/api/v1` and the same Bearer key. Allow the selected port through your firewall as needed. The shell serves its embedded UI separately, so this API endpoint does not serve the browser application; use the Docker deployment for browser access from other devices.
+After local script access works, set `allow_lan` to `true`, retaining the fixed port and key, and restart. The service then binds `0.0.0.0`; other devices open `http://<desktop-lan-ip>:8765` in a browser and enter the same access key, exactly as with the [Docker deployment](docker.md); scripts keep using `http://<desktop-lan-ip>:8765/api/v1` with the Bearer key. Allow the selected port through your firewall as needed. In browser form, library folders are typed as paths on the desktop computer, since there is no native folder picker, and the lyrics window uses Document Picture-in-Picture (Chromium 116 or later). The desktop windows themselves are unchanged.
 
 LAN mode requires a nonzero fixed port and a nonempty effective key. Missing credentials, an invalid port or key, a malformed/unreadable configuration, or a port already in use prevent startup; the service never silently chooses another port. **Every configuration or launch-environment change requires closing and restarting Preen.** Changing the key invalidates existing credentials. LAN access is intended for a trusted network; HTTP does not encrypt the key or media. Full configuration and authentication rules are in [common conventions](api/common.md#server-configuration).
 
@@ -94,7 +94,7 @@ On Arch Linux:
 task desktop:package:arch RAW_TAG=v0.2.0
 ```
 
-This uses [desktop/nfpm.yaml](../desktop/nfpm.yaml) and produces `dist/preen-0.2.0-1-x86_64.pkg.tar.zst` on x86_64. `task desktop:build RAW_TAG=v0.2.0` builds without packaging, with Linux binaries at `dist/desktop/linux-amd64/bin/preen-desktop` and `dist/desktop/linux-amd64/lib/preen/preen` on amd64. `task desktop:dev` builds and runs a development version with Linux data isolated under `.dev_data/desktop/preen`.
+This uses [desktop/nfpm.yaml](../desktop/nfpm.yaml) and produces `dist/preen-0.2.0-1-x86_64.pkg.tar.zst` on x86_64. `task desktop:build RAW_TAG=v0.2.0` builds without packaging, with Linux binaries at `dist/desktop/linux-amd64/bin/preen-desktop` and `dist/desktop/linux-amd64/lib/preen/preen` and the web application at `dist/desktop/linux-amd64/share/preen/web` on amd64 (on Windows, `dist/desktop/windows-amd64/web` beside the binaries). `task desktop:dev` builds and runs a development version with Linux data isolated under `.dev_data/desktop/preen`.
 
 Windows delivery is automatic from a version tag through [.github/workflows/release.yml](../.github/workflows/release.yml). It builds audio tools on Ubuntu, then the shell/backend and ZIP on Windows, sharing the release frontend build's production assets. The ZIP and its checksum are attached to the same GitHub Release as the container reference after the tagged commit passes main push CI and release checks; see [release publication](docker.md#publish-a-release-maintainers) for the procedure.
 

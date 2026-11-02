@@ -9,8 +9,8 @@ import (
 
 func TestSPAAssetsServesIndexForClientRoutes(t *testing.T) {
 	files := fstest.MapFS{
-		"assets/index.html":    {Data: []byte("<html>index</html>")},
-		"assets/assets/app.js": {Data: []byte("app")},
+		"index.html":    {Data: []byte("<html>index</html>")},
+		"assets/app.js": {Data: []byte("app")},
 	}
 	for path, want := range map[string]string{"/works?rj=RJ01": "index", "/works/RJ01": "index", "/assets/app.js": "app"} {
 		rec := httptest.NewRecorder()

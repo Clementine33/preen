@@ -18,6 +18,7 @@ export function packageWindows({ root = repository, rawTag = process.env.RAW_TAG
     ...['ffmpeg.exe', 'ffprobe.exe'].map((name) => [path.join(tools, 'bin', name), `bin/${name}`]),
     [path.join(root, 'LICENSE'), 'LICENSE'],
     [path.join(tools, 'THIRD_PARTY_NOTICES.txt'), 'THIRD_PARTY_NOTICES.txt'],
+    [path.join(binaries, 'web/index.html'), 'web/index.html'],
   ]
   for (const [source] of files) {
     if (!statSync(source, { throwIfNoEntry: false })?.isFile() || statSync(source).size === 0) {
@@ -32,6 +33,8 @@ export function packageWindows({ root = repository, rawTag = process.env.RAW_TAG
     mkdirSync(path.dirname(target), { recursive: true })
     cpSync(source, target)
   }
+  // The shell and the service share this on-disk web build; index.html was validated above.
+  cpSync(path.join(binaries, 'web'), path.join(stage, 'web'), { recursive: true })
   try {
     if (archive) archive(stage, `${output}.tmp`)
     else {

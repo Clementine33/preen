@@ -208,9 +208,6 @@ jobs:
       - name: Build release backend for lifecycle tests
         working-directory: backend/go
         run: go build -trimpath -ldflags "-X main.version=0.2.0" -o "$PREEN_SUPERVISOR_TEST_BINARY" ./cmd/preen
-      - name: Populate placeholder web assets
-        working-directory: desktop
-        run: printf '<!doctype html><title>Preen CI</title>\n' > assets/index.html
       - name: Test desktop module and service lifecycle
         working-directory: desktop
         run: go test ./... -count=1

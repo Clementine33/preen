@@ -4,27 +4,29 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/Clementine33/preen/desktop/supervisor"
 )
 
 func TestResolveLayouts(t *testing.T) {
-	for _, tc := range []struct{ platform, executable, home, xdg, service, data, path string }{
-		{"windows", "/portable/Preen.exe", "/home/person", "", "/portable/bin/preen.exe", "/portable/data", "/portable/bin;system"},
-		{"linux", "/usr/bin/preen-desktop", "/home/person", "", "/usr/lib/preen/preen", "/home/person/.local/share/preen", "system"},
-		{"linux", "/usr/bin/preen-desktop", "/home/person", "/custom", "/usr/lib/preen/preen", "/custom/preen", "system"},
+	for _, tc := range []struct{ platform, executable, home, xdg, service, web, data, path string }{
+		{"windows", "/portable/Preen.exe", "/home/person", "", "/portable/bin/preen.exe", "/portable/web", "/portable/data", "/portable/bin;system"},
+		{"windows", `C:\Apps\Preen\preen-desktop.exe`, "/home/person", "", "C:/Apps/Preen/bin/preen.exe", "C:/Apps/Preen/web", "C:/Apps/Preen/data", "C:/Apps/Preen/bin;system"},
+		{"linux", "/usr/bin/preen-desktop", "/home/person", "", "/usr/lib/preen/preen", "/usr/share/preen/web", "/home/person/.local/share/preen", "system"},
+		{"linux", "/usr/bin/preen-desktop", "/home/person", "/custom", "/usr/lib/preen/preen", "/usr/share/preen/web", "/custom/preen", "system"},
 	} {
 		t.Run(tc.platform+tc.xdg, func(t *testing.T) {
 			plan, err := supervisor.Resolve(supervisor.Input{Options: supervisor.Options{GOOS: tc.platform, Executable: tc.executable, HomeDir: tc.home, Environ: []string{"PATH=system", "XDG_DATA_HOME=" + tc.xdg, "PREEN_CORS_ORIGINS=https://external", "PREEN_DATA_DIR=ignored"}, Origin: "wails://wails.localhost", Version: "0.2.0"}, LocalToken: "random"})
 			if err != nil {
 				t.Fatal(err)
 			}
-			if plan.Executable != tc.service || plan.DataDir != tc.data {
+			if plan.Executable != tc.service || plan.DataDir != tc.data || plan.WebDir != tc.web {
 				t.Fatalf("layout: %+v", plan)
 			}
-			if !reflect.DeepEqual(plan.Args, []string{"--watch-stdin"}) {
-				t.Fatalf("args: %v", plan.Args)
+			if want := []string{"--watch-stdin", "--web-dir=" + tc.web}; !reflect.DeepEqual(plan.Args, want) {
+				t.Fatalf("args: %v, want %v", plan.Args, want)
 			}
 			for key, want := range map[string]string{"PATH": tc.path, "PREEN_TOKEN": "random", "PREEN_DATA_DIR": tc.data, "PREEN_CORS_ORIGINS": "https://external,wails://wails.localhost"} {
 				if got := envValue(plan.Env, key); got != want {
@@ -32,6 +34,38 @@ func TestResolveLayouts(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestLayoutOf(t *testing.T) {
+	for _, tc := range []struct {
+		platform, executable string
+		want                 supervisor.Layout
+	}{
+		{"windows", `C:\Apps\Preen\preen-desktop.exe`, supervisor.Layout{Service: "C:/Apps/Preen/bin/preen.exe", WebDir: "C:/Apps/Preen/web", PortableData: "C:/Apps/Preen/data"}},
+		{"linux", "/usr/bin/preen-desktop", supervisor.Layout{Service: "/usr/lib/preen/preen", WebDir: "/usr/share/preen/web"}},
+	} {
+		t.Run(tc.platform, func(t *testing.T) {
+			got, err := supervisor.LayoutOf(tc.executable, tc.platform)
+			if err != nil || got != tc.want {
+				t.Fatalf("layout = %+v, %v; want %+v", got, err, tc.want)
+			}
+		})
+	}
+	if _, err := supervisor.LayoutOf("/Applications/preen", "darwin"); err == nil {
+		t.Fatal("unsupported platform must fail")
+	}
+}
+
+func TestResolveDevServerOmitsWebDir(t *testing.T) {
+	for _, platform := range []string{"windows", "linux"} {
+		plan, err := supervisor.Resolve(supervisor.Input{Options: supervisor.Options{GOOS: platform, Executable: "/usr/bin/preen-desktop", HomeDir: "/home/person", DevServer: true}, LocalToken: "random"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if plan.WebDir != "" || !reflect.DeepEqual(plan.Args, []string{"--watch-stdin"}) {
+			t.Fatalf("%s dev plan serves a web directory: %+v", platform, plan)
+		}
 	}
 }
 
@@ -61,6 +95,7 @@ func TestResolveCredentials(t *testing.T) {
 func TestPrepareFreshTokenAndUnwritableData(t *testing.T) {
 	root := t.TempDir()
 	opts := supervisor.Options{Executable: filepath.Join(root, "Preen.exe"), GOOS: "windows", Version: "0.2.0"}
+	writeWebFixture(t, opts)
 	a, err := supervisor.Prepare(opts)
 	if err != nil {
 		t.Fatal(err)
@@ -80,6 +115,49 @@ func TestPrepareFreshTokenAndUnwritableData(t *testing.T) {
 	}
 	if _, err := supervisor.Prepare(opts); err == nil {
 		t.Fatal("must fail instead of choosing another data directory")
+	}
+}
+
+func TestPrepareRequiresWebIndexUnlessDevServer(t *testing.T) {
+	root := t.TempDir()
+	opts := supervisor.Options{Executable: filepath.Join(root, "Preen.exe"), GOOS: "windows", Version: "0.2.0"}
+	layout, err := supervisor.LayoutOf(opts.Executable, opts.GOOS)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = supervisor.Prepare(opts); err == nil || !strings.Contains(err.Error(), "web directory") || !strings.Contains(err.Error(), "index.html") {
+		t.Fatalf("missing web directory: %v", err)
+	}
+	// A directory named index.html is not a readable regular file.
+	if err = os.MkdirAll(filepath.Join(layout.WebDir, "index.html"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = supervisor.Prepare(opts); err == nil || !strings.Contains(err.Error(), "web directory") {
+		t.Fatalf("index.html directory: %v", err)
+	}
+	if _, err = os.Stat(layout.PortableData); err == nil {
+		t.Fatal("web check must precede data directory creation")
+	}
+	dev := opts
+	dev.DevServer = true
+	plan, err := supervisor.Prepare(dev)
+	if err != nil || plan.WebDir != "" {
+		t.Fatalf("dev server needs no web directory: %+v, %v", plan, err)
+	}
+}
+
+// writeWebFixture creates the packaged web directory's index.html that Prepare requires.
+func writeWebFixture(t *testing.T, opts supervisor.Options) {
+	t.Helper()
+	layout, err := supervisor.LayoutOf(opts.Executable, opts.GOOS)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.MkdirAll(layout.WebDir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(filepath.Join(layout.WebDir, "index.html"), []byte("<html></html>"), 0600); err != nil {
+		t.Fatal(err)
 	}
 }
 

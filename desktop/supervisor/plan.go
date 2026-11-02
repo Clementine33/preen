@@ -12,6 +12,8 @@ import (
 )
 
 // Options supplies the shell location and inherited environment explicitly.
+// DevServer marks a shell fronting a Vite dev server: the service then serves
+// no web directory and the packaged one is not required.
 type Options struct {
 	Executable string
 	GOOS       string
@@ -19,6 +21,33 @@ type Options struct {
 	HomeDir    string
 	Origin     string
 	Version    string
+	DevServer  bool
+}
+
+// Layout is the packaged program layout derived from the shell executable.
+// Paths use forward slashes, which both supported platforms accept.
+type Layout struct {
+	// Service is the supervised backend executable.
+	Service string
+	// WebDir is the one web build directory that the shell and the service share.
+	WebDir string
+	// PortableData is the data directory beside a portable Windows install;
+	// it is empty on Linux, where data follows the XDG base directory.
+	PortableData string
+}
+
+// LayoutOf computes the packaged layout from the shell executable path and
+// GOOS without touching the filesystem.
+func LayoutOf(executable, goos string) (Layout, error) {
+	dir := path.Dir(strings.ReplaceAll(executable, "\\", "/"))
+	switch goos {
+	case "windows":
+		return Layout{Service: path.Join(dir, "bin/preen.exe"), WebDir: path.Join(dir, "web"), PortableData: path.Join(dir, "data")}, nil
+	case "linux":
+		return Layout{Service: path.Join(dir, "../lib/preen/preen"), WebDir: path.Join(dir, "../share/preen/web")}, nil
+	default:
+		return Layout{}, fmt.Errorf("unsupported desktop platform %q", goos)
+	}
 }
 
 // Input adds the configuration bytes and a fresh local-only token to Options.
@@ -35,6 +64,7 @@ type Plan struct {
 	Args       []string
 	Env        []string
 	DataDir    string
+	WebDir     string // the web build the service serves; empty in dev-server mode
 	Token      string
 	Version    string
 }
@@ -62,26 +92,24 @@ func Resolve(in Input) (Plan, error) {
 		}
 		env = append(out, key+"="+value)
 	}
-	dir := path.Dir(strings.ReplaceAll(in.Executable, "\\", "/"))
-	var service, data string
+	layout, err := LayoutOf(in.Executable, in.GOOS)
+	if err != nil {
+		return Plan{}, err
+	}
+	service, data := layout.Service, layout.PortableData
 	switch in.GOOS {
 	case "windows":
-		service = path.Join(dir, "bin/preen.exe")
-		data = path.Join(dir, "data")
-		bin := path.Join(dir, "bin")
+		bin := path.Dir(service)
 		if old := get("PATH"); old != "" {
 			bin += ";" + old
 		}
 		set("PATH", bin)
 	case "linux":
-		service = path.Join(dir, "../lib/preen/preen")
 		base := get("XDG_DATA_HOME")
 		if base == "" {
 			base = path.Join(in.HomeDir, ".local/share")
 		}
 		data = path.Join(base, "preen")
-	default:
-		return Plan{}, fmt.Errorf("unsupported desktop platform %q", in.GOOS)
 	}
 	var config struct {
 		Server struct {
@@ -109,7 +137,13 @@ func Resolve(in Input) (Plan, error) {
 		}
 		set("PREEN_CORS_ORIGINS", cors+in.Origin)
 	}
-	return Plan{Executable: service, Args: []string{"--watch-stdin"}, Env: env, DataDir: data, Token: token, Version: in.Version}, nil
+	args := []string{"--watch-stdin"}
+	var webDir string
+	if !in.DevServer {
+		webDir = layout.WebDir
+		args = append(args, "--web-dir="+webDir)
+	}
+	return Plan{Executable: service, Args: args, Env: env, DataDir: data, WebDir: webDir, Token: token, Version: in.Version}, nil
 }
 
 func sameKey(a, b, platform string) bool {

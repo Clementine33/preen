@@ -1,4 +1,5 @@
-// Command preen-desktop hosts the shared web build and owns one supervised service.
+// Command preen-desktop serves the packaged web directory, which the supervised
+// service also serves, and owns that one service. See ADR 0015.
 package main
 
 import (
@@ -20,9 +21,6 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
 )
-
-//go:embed all:assets
-var assets embed.FS
 
 // The window and taskbar icon; the exe's own icon is the embedded resource in rsrc_windows_amd64.syso.
 //
@@ -70,17 +68,37 @@ func (d *Desktop) fail(err error) {
 	dialog.Show()
 }
 
+// devServerURL is set by desktop:dev; Wails then proxies the page to Vite and
+// the service serves no web directory.
+func devServerURL() string { return os.Getenv("FRONTEND_DEVSERVER_URL") }
+
+// packagedWeb exposes the web directory beside the executable. It only builds a
+// view; nothing is read until a request, so the single-instance lock still
+// precedes all data access. An unresolvable executable yields an empty tree and
+// startService reports the same error in the native dialog.
+func packagedWeb() fs.FS {
+	executable, err := os.Executable()
+	if err != nil {
+		return embed.FS{}
+	}
+	layout, err := supervisor.LayoutOf(executable, runtime.GOOS)
+	if err != nil {
+		return embed.FS{}
+	}
+	return os.DirFS(layout.WebDir)
+}
+
 // spaAssets serves index.html for any missing file, like the service's web
 // middleware, so reloading a client route keeps the page. A Vite dev server
 // behind FRONTEND_DEVSERVER_URL does its own fallback.
 func spaAssets(files fs.FS) http.Handler {
 	handler := application.BundledAssetFileServer(files)
-	if os.Getenv("FRONTEND_DEVSERVER_URL") != "" {
+	if devServerURL() != "" {
 		return handler
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		name := strings.TrimPrefix(r.URL.Path, "/")
-		if _, err := fs.Stat(files, "assets/"+name); err != nil && !strings.HasPrefix(name, "wails/") {
+		if _, err := fs.Stat(files, name); err != nil && !strings.HasPrefix(name, "wails/") {
 			r.URL.Path = "/"
 		}
 		handler.ServeHTTP(w, r)
@@ -101,10 +119,10 @@ func startService(ctx context.Context) (*supervisor.Process, error) {
 		origin = "http://wails.localhost"
 	}
 	// Wails moves the page onto the dev server's port.
-	if dev, err := url.Parse(os.Getenv("FRONTEND_DEVSERVER_URL")); err == nil && dev.Port() != "" {
+	if dev, err := url.Parse(devServerURL()); err == nil && dev.Port() != "" {
 		origin += ":" + dev.Port()
 	}
-	plan, err := supervisor.Prepare(supervisor.Options{Executable: executable, GOOS: runtime.GOOS, Environ: os.Environ(), HomeDir: home, Origin: origin, Version: version})
+	plan, err := supervisor.Prepare(supervisor.Options{Executable: executable, GOOS: runtime.GOOS, Environ: os.Environ(), HomeDir: home, Origin: origin, Version: version, DevServer: devServerURL() != ""})
 	if err != nil {
 		return nil, err
 	}
@@ -151,7 +169,7 @@ func main() {
 		Name:     "Preen",
 		Icon:     appIcon,
 		Services: []application.Service{application.NewService(desktop)},
-		Assets:   application.AssetOptions{Handler: spaAssets(assets)},
+		Assets:   application.AssetOptions{Handler: spaAssets(packagedWeb())},
 		SingleInstance: &application.SingleInstanceOptions{
 			UniqueID: "io.github.Clementine33.preen",
 			OnSecondInstanceLaunch: func(application.SecondInstanceData) {

@@ -18,9 +18,11 @@ func (s *Service) refreshWork(
 	run *refreshRun,
 ) error {
 	data := works.ImportRequest{}
+	rejected := make(rejections)
 	if want[works.GroupCore] || want[works.GroupEditions] {
 		snapshot, err := run.localized(ctx, item.WorkCode, works.SourceDLsite, req.Locale, dynamic.Relations)
 		data = snapshot.ImportRequest
+		rejected.add(works.SourceDLsite, snapshot.Rejected)
 		item.MainURL = snapshot.MainURL
 		if err != nil {
 			item.Issues = append(
@@ -45,7 +47,7 @@ func (s *Service) refreshWork(
 	if data.Core != nil && data.Core.CoverURL != nil {
 		item.MainURL = *data.Core.CoverURL
 	}
-	data = s.supplyMissing(ctx, req, item, data, want, run)
+	data = s.supplyMissing(ctx, req, item, data, want, run, rejected)
 	data = chineseSnapshot(data)
 	if want[works.GroupCore] {
 		if err := run.originalCircle(ctx, data); err != nil {
@@ -79,10 +81,7 @@ func (s *Service) refreshWork(
 	}
 	slices.Sort(groups)
 	for _, group := range groups {
-		item.Issues = append(
-			item.Issues,
-			Issue{Group: group, Code: "GROUP_UNAVAILABLE", Message: "no complete snapshot was retrieved"},
-		)
+		item.Issues = append(item.Issues, rejected.unavailable(group))
 	}
 	data = retain(data, want)
 	if len(availableGroups(data)) > 0 {
@@ -109,6 +108,7 @@ func (s *Service) supplyMissing(
 	data works.ImportRequest,
 	want map[works.DataGroup]bool,
 	run *refreshRun,
+	rejected rejections,
 ) works.ImportRequest {
 	missing := missingGroups(data, want)
 	if !missing[works.GroupCore] && !missing[works.GroupRelations] && !missing[works.GroupEditions] {
@@ -123,6 +123,7 @@ func (s *Service) supplyMissing(
 		return data
 	}
 	item.BackupURL = fallback.MainURL
+	rejected.add(works.SourceASMRone, fallback.Rejected)
 	if missing[works.GroupCore] {
 		data.Core = fallback.Core
 	}

@@ -4,9 +4,10 @@ import (
 	"encoding/json"
 
 	"github.com/Clementine33/preen/backend/internal/works"
+	"github.com/Clementine33/preen/backend/internal/works/refresh"
 )
 
-func asmrSnapshot(data record, at string) works.ImportRequest {
+func asmrSnapshot(data record, at string) refresh.Snapshot {
 	// The shared edition report has the DLsite shape; provenance belongs to the fetched source.
 	out := dlsiteSnapshot(
 		record{"language_editions": data["language_editions"], "translation_info": data["translation_info"]},

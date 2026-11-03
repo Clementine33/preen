@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strings"
 	"sync"
 
 	"github.com/Clementine33/preen/backend/internal/works"
@@ -196,6 +197,24 @@ func retain(data works.ImportRequest, want map[works.DataGroup]bool) works.Impor
 		data.Editions = nil
 	}
 	return data
+}
+
+// rejections collects, per group, each source's reason for dropping its report.
+type rejections map[works.DataGroup][]string
+
+func (r rejections) add(source works.Source, rejected map[works.DataGroup]string) {
+	for group, reason := range rejected {
+		r[group] = append(r[group], string(source)+": "+reason)
+	}
+}
+
+// unavailable reports a group no source supplied, naming why sources dropped it.
+func (r rejections) unavailable(group works.DataGroup) Issue {
+	message := "no complete snapshot was retrieved"
+	if reasons := r[group]; len(reasons) > 0 {
+		message += " (" + strings.Join(reasons, "; ") + ")"
+	}
+	return Issue{Group: group, Code: "GROUP_UNAVAILABLE", Message: message}
 }
 
 func missingGroups(data works.ImportRequest, want map[works.DataGroup]bool) map[works.DataGroup]bool {

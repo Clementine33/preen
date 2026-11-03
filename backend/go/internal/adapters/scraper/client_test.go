@@ -265,3 +265,95 @@ func TestStaticSelectsDeclaredWorkLanguage(t *testing.T) {
 		}
 	}
 }
+
+func TestStaticEditionsAcceptBothShapesAndKeepOnePerLanguage(t *testing.T) {
+	for _, tc := range []struct {
+		id, workno string
+		editions   string
+		want       []string
+	}{
+		// Newer works send an object; keys out of order must still read in index order.
+		{"RJ01150189", "RJ01150189", `{"5":{"workno":"RJ01162978","lang":"CHI_HANS","display_order":5},` +
+			`"3":{"workno":"RJ01150189","lang":"JPN","display_order":1},` +
+			`"10":{"workno":"RJ01163064","lang":"CHI_HANT","display_order":7}}`,
+			[]string{"JPN:RJ01150189", "CHI_HANS:RJ01162978", "CHI_HANT:RJ01163064"}},
+		// A duplicate language that lists the fetched work keeps it without a lookup.
+		{"RJ00392965", "RJ392965", `[{"workno":"RJ371488","lang":"JPN","display_order":1},` +
+			`{"workno":"RJ392960","lang":"CHI_HANS","display_order":2},` +
+			`{"workno":"RJ392965","lang":"CHI_HANS","display_order":3}]`,
+			[]string{"JPN:RJ371488", "CHI_HANS:RJ392965"}},
+		{"RJ00000001", "RJ000001", `{}`, []string{}},
+	} {
+		body := `[{"workno":"` + tc.workno + `","product_name":"work","language_editions":` + tc.editions + `}]`
+		client := scraper.New(&http.Client{Transport: transportFunc(func(*http.Request) (*http.Response, error) {
+			return response(http.StatusOK, body), nil
+		})})
+		snapshot, err := client.FetchStatic(t.Context(), works.WorkCode(tc.id), "ja-jp")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if snapshot.Editions == nil {
+			t.Fatalf("%s: editions dropped", tc.id)
+		}
+		got := []string{}
+		for _, item := range snapshot.Editions.Items {
+			got = append(got, item.Language+":"+item.VersionRootRJ)
+		}
+		if strings.Join(got, ",") != strings.Join(tc.want, ",") {
+			t.Fatalf("%s: editions %v, want %v", tc.id, got, tc.want)
+		}
+	}
+}
+
+func TestStaticResolvesDuplicateEditionsByLookingUpCandidates(t *testing.T) {
+	editions := `[{"workno":"RJ371488","lang":"JPN","display_order":1},` +
+		`{"workno":"RJ392960","lang":"CHI_HANS","display_order":2},` +
+		`{"workno":"RJ392965","lang":"CHI_HANS","display_order":2},` +
+		`{"workno":"RJ392970","lang":"CHI_HANS","display_order":3}]`
+	for _, tc := range []struct {
+		name       string
+		candidates map[string]string
+		want       string
+	}{
+		{"same type wins over script-only and unlisted", map[string]string{
+			"RJ392960": `[{"workno":"RJ392960","work_type":"NRE"}]`,
+			"RJ392965": `[{"workno":"RJ392965","work_type":"SOU"}]`,
+			"RJ392970": `[]`,
+		}, "RJ392965"},
+		{"listed wins over unlisted", map[string]string{
+			"RJ392960": `[]`,
+			"RJ392965": `[{"workno":"RJ392965","work_type":"NRE"}]`,
+			"RJ392970": `[{"workno":"RJ392970","work_type":"NRE"}]`,
+		}, "RJ392965"},
+		{"a failed lookup keeps the first listed", map[string]string{
+			"RJ392960": `[{"workno":"RJ392960","work_type":"NRE"}]`,
+			"RJ392965": `[{"workno":"RJ392965","work_type":"SOU"}]`,
+		}, "RJ392960"},
+	} {
+		client := scraper.New(&http.Client{Transport: transportFunc(func(r *http.Request) (*http.Response, error) {
+			workno := r.URL.Query().Get("workno")
+			if workno == "RJ371488" {
+				return response(http.StatusOK, `[{"workno":"RJ371488","product_name":"work","work_type":"SOU",`+
+					`"language_editions":`+editions+`}]`), nil
+			}
+			if body, ok := tc.candidates[workno]; ok {
+				return response(http.StatusOK, body), nil
+			}
+			return response(http.StatusNotFound, ``), nil
+		})})
+		snapshot, err := client.FetchStatic(t.Context(), "RJ00371488", "ja-jp")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if snapshot.Editions == nil {
+			t.Fatalf("%s: editions dropped", tc.name)
+		}
+		got := []string{}
+		for _, item := range snapshot.Editions.Items {
+			got = append(got, item.Language+":"+item.VersionRootRJ)
+		}
+		if want := "JPN:RJ371488,CHI_HANS:" + tc.want; strings.Join(got, ",") != want {
+			t.Fatalf("%s: editions %v, want %s", tc.name, got, want)
+		}
+	}
+}

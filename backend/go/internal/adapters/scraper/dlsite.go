@@ -2,9 +2,12 @@ package scraper
 
 import (
 	"encoding/json"
+	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/Clementine33/preen/backend/internal/works"
+	"github.com/Clementine33/preen/backend/internal/works/refresh"
 )
 
 type record map[string]json.RawMessage
@@ -17,18 +20,10 @@ func scalar[T any](r record, key string) *T {
 	return value
 }
 
-func dlsiteSnapshot(data record, at string) works.ImportRequest {
-	out := works.ImportRequest{Relations: relations(data, "dlsite", at)}
-	out.Core = dlsiteCore(data, at)
+func dlsiteSnapshot(data record, at string) refresh.Snapshot {
+	out := refresh.Snapshot{Relations: relations(data, "dlsite", at), Core: dlsiteCore(data, at)}
 	if raw, ok := data["language_editions"]; ok && string(raw) != "null" {
-		var editions []struct {
-			Workno       string          `json:"workno"`
-			Lang         string          `json:"lang"`
-			Label        *string         `json:"label"`
-			EditionID    json.RawMessage `json:"edition_id"`
-			DisplayOrder int             `json:"display_order"`
-		}
-		if err := json.Unmarshal(raw, &editions); err == nil {
+		if editions, ok := editionList(raw); ok {
 			group := &works.ImportEditions{Source: "dlsite", FetchedAt: at, Items: []works.ImportEditionItem{}}
 			for _, e := range editions {
 				group.EditionID = entityID(e.EditionID)
@@ -43,9 +38,45 @@ func dlsiteSnapshot(data record, at string) works.ImportRequest {
 				)
 			}
 			out.Editions = group
+		} else {
+			reject(&out, works.GroupEditions, "language_editions has an unrecognized shape")
 		}
 	}
 	return out
+}
+
+type sourceEdition struct {
+	Workno       string          `json:"workno"`
+	Lang         string          `json:"lang"`
+	Label        *string         `json:"label"`
+	EditionID    json.RawMessage `json:"edition_id"`
+	DisplayOrder int             `json:"display_order"`
+}
+
+// editionList accepts both upstream shapes: older works send an array, newer
+// ones an object keyed by index, which is read in numeric key order.
+func editionList(raw json.RawMessage) ([]sourceEdition, bool) {
+	var list []sourceEdition
+	if json.Unmarshal(raw, &list) == nil {
+		return list, true
+	}
+	var keyed map[string]sourceEdition
+	if json.Unmarshal(raw, &keyed) != nil {
+		return nil, false
+	}
+	keys := make([]int, 0, len(keyed))
+	for key := range keyed {
+		n, err := strconv.Atoi(key)
+		if err != nil {
+			return nil, false
+		}
+		keys = append(keys, n)
+	}
+	slices.Sort(keys)
+	for _, n := range keys {
+		list = append(list, keyed[strconv.Itoa(n)])
+	}
+	return list, true
 }
 
 func relations(data record, source, at string) *works.ImportRelations {

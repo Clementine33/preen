@@ -376,3 +376,40 @@ func TestProgressObservesCommittedMetadataAndCanStopTheRefresh(t *testing.T) {
 		t.Fatalf("callback stop ignored: %v %v", seen, err)
 	}
 }
+
+func TestUnavailableGroupNamesWhySourcesDroppedIt(t *testing.T) {
+	repo, worksSvc := catalog(t, "RJ000001 old")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/maniax/api/=/product.json":
+			_, _ = w.Write([]byte(`[{"workno":"RJ000001","product_name":"作品","genres":[],"creaters":{},` +
+				`"language_editions":[{"workno":"bad","lang":"JPN"}]}]`))
+		case "/maniax-touch/product/info/ajax":
+			_, _ = w.Write([]byte(`{"RJ000001":{"dl_count":1,"translation_info":{"is_original":true}}}`))
+		case "/api/workInfo/1":
+			_, _ = w.Write([]byte(`{"source_id":"RJ000001","language_editions":5}`))
+		default:
+			t.Errorf("unexpected request: %s", r.URL)
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(server.Close)
+	client := scraper.New(&http.Client{Transport: localTransport{server}})
+	result, err := refresh.NewService(worksSvc, repo, client, client).Refresh(
+		t.Context(),
+		refresh.Request{WorkCodes: []string{"RJ000001"}, Mode: refresh.RefreshAll},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := refresh.Issue{
+		Group: works.GroupEditions,
+		Code:  "GROUP_UNAVAILABLE",
+		Message: "no complete snapshot was retrieved (dlsite: INVALID_ARGUMENT: version_root_rj is not a work number; " +
+			"asmr_one: language_editions has an unrecognized shape)",
+	}
+	if len(result.Works) != 1 || len(result.Works[0].Issues) != 1 || result.Works[0].Issues[0] != want {
+		t.Fatalf("issues: %+v", result.Works)
+	}
+}

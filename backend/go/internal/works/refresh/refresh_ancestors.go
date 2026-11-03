@@ -61,6 +61,7 @@ func (r *refreshRun) refreshAncestor(ctx context.Context, req Request, id works.
 		return nil, nil
 	}
 	issues := []Issue{}
+	rejected := make(rejections)
 	data := r.dynamic[id]
 	if data.Relations == nil {
 		fetched, fetchErr := r.service.dlsite.FetchDynamic(ctx, []works.WorkCode{id}, req.Locale)
@@ -82,6 +83,7 @@ func (r *refreshRun) refreshAncestor(ctx context.Context, req Request, id works.
 			)
 		} else {
 			data.Relations = fallback.Relations
+			rejected.add(works.SourceASMRone, fallback.Rejected)
 		}
 	}
 	data = chineseSnapshot(data)
@@ -89,14 +91,7 @@ func (r *refreshRun) refreshAncestor(ctx context.Context, req Request, id works.
 		return nil, nil
 	}
 	if data.Relations == nil {
-		issues = append(
-			issues,
-			Issue{
-				Group:   works.GroupRelations,
-				Code:    "GROUP_UNAVAILABLE",
-				Message: "no complete snapshot was retrieved",
-			},
-		)
+		issues = append(issues, rejected.unavailable(works.GroupRelations))
 	} else if _, refusal := r.service.catalog.ImportRelationReport(id, *data.Relations); refusal != nil {
 		if refusal.Kind == works.KindInternal {
 			return issues, refusal

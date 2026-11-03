@@ -101,10 +101,10 @@ func (c *Client) FetchStatic(ctx context.Context, id works.WorkCode, locale stri
 	if value := cleanURL(scalar[string](image, "url")); value != nil {
 		main = *value
 	}
-	return refresh.Snapshot{
-		ImportRequest: validSnapshot(id, dlsiteSnapshot(items[0], time.Now().UTC().Format(works.TimestampFormat))),
-		MainURL:       main,
-	}, nil
+	snap := dlsiteSnapshot(items[0], time.Now().UTC().Format(works.TimestampFormat))
+	c.resolveDuplicateEditions(ctx, id, scalar[string](items[0], "work_type"), snap.Editions, locale)
+	snap.MainURL = main
+	return validSnapshot(id, snap), nil
 }
 
 // FetchDynamic reads a stable batch; missing keys remain absent from the result.
@@ -175,7 +175,8 @@ func decodeDynamic(
 				snap.Statistics = &works.ImportStatistics{FetchedAt: at, DLCount: n}
 			}
 		}
-		out[id] = validSnapshot(id, snap)
+		// shortcut: the dynamic channel's drop reasons are discarded, carry them if relations go missing unexplained.
+		out[id] = validSnapshot(id, refresh.Snapshot{ImportRequest: snap}).ImportRequest
 	}
 	return out, nil
 }
@@ -207,8 +208,7 @@ func (c *Client) FetchASMR(ctx context.Context, id works.WorkCode, locale string
 	if value := cleanURL(scalar[string](data, "mainCoverUrl")); value != nil {
 		main = *value
 	}
-	return refresh.Snapshot{
-		ImportRequest: validSnapshot(id, asmrSnapshot(data, time.Now().UTC().Format(works.TimestampFormat))),
-		MainURL:       main,
-	}, nil
+	snap := asmrSnapshot(data, time.Now().UTC().Format(works.TimestampFormat))
+	snap.MainURL = main
+	return validSnapshot(id, snap), nil
 }

@@ -24,6 +24,9 @@ type Snapshot struct {
 	works.ImportRequest
 
 	MainURL string
+	// Rejected says why the source's report of a group was dropped, so an
+	// unavailable group can name its cause.
+	Rejected map[works.DataGroup]string
 }
 
 // DLsite exposes the two independent upstream channels.

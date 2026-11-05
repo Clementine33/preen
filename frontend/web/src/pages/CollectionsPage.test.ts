@@ -176,9 +176,9 @@ describe('collectionsPage', () => {
     expect(typedOf()).toBe(long.length)
   })
 
-  it('shows the cover as the picture box background, from the remote link when no local file', async () => {
+  it('shows the cover as the picture box image, from the remote link when no local file', async () => {
     const wrapper = await mountPage(setup().api)
-    expect(wrapper.get('[data-testid="collection-screen"]').attributes('style')).toContain('https://img/3.jpg')
+    await vi.waitFor(() => expect(wrapper.get('[data-testid="collection-screen"] img').attributes('src')).toBe('https://img/3.jpg'))
   })
 
   it('blanks the cover of an R18 work while the veil is on', async () => {

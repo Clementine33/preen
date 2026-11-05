@@ -10,6 +10,7 @@ import { useReducedMotion, useSwitchBurst } from '@/composables/use-motion'
 import { useToast } from '@/composables/use-toast'
 import CollectionScreen from '@/features/collections/CollectionScreen.vue'
 import { fmtT } from '@/features/work-detail/derive'
+import { useCoverSrc } from '@/features/works/use-cover-src'
 import { useApiClient } from '@/lib/api/client'
 import { collectionDetailQueryOptions, newCollectionName, useCollectionManage, useCollections, useCollectionTitles } from '@/queries/collections'
 import { useLibraryUiStore } from '@/stores/library-ui'
@@ -92,17 +93,11 @@ async function drawCover(redraw = false) {
   }
 }
 
-// ponytail: no failed-load fallback to the remote link (the screen paints a
-// CSS background, which cannot report an error); the wall's useCoverSrc can.
-const coverUrl = computed(() => {
+const { src: coverUrl, failed: coverFailed } = useCoverSrc(() => {
   const w = coverWork.value
-  if (!w)
-    return null
-  if (w.local_cover) {
-    const { copy_id: copyId, rel_path: relPath, version } = w.local_cover
-    return api.workFileUrl({ rj: w.rj, copyId, relPath }, version)
-  }
-  return w.thumbnail_url
+  return w
+    ? { rj: w.rj, local: w.local_cover, remote: w.thumbnail_url }
+    : null
 })
 
 /** An R18 cover is shown only as a Gaussian blur while the veil is on. */
@@ -385,7 +380,7 @@ function onRow(i: number) {
         </div>
         <div class="panel">
           <div class="deck-body">
-            <CollectionScreen :url="coverUrl" :instant="switching" :veiled="coverVeiled" @redraw="drawCover(true)" />
+            <CollectionScreen :url="coverUrl" :instant="switching" :veiled="coverVeiled" @redraw="drawCover(true)" @failed="coverFailed" />
             <div class="titles-col">
               <div ref="titlesEl" class="titles" lang="ja" data-testid="collection-titles">
                 <div v-for="(w, i) in titles" :key="`${current?.id}-${w.rj}`" class="ti" :class="{ off: i >= fitCount }" :title="titleText(w)">

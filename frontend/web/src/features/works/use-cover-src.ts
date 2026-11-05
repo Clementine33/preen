@@ -16,9 +16,10 @@ interface CoverSource {
 /**
  * The address a work's cover is shown from. A cover already on disk is served
  * by the backend's content route; it is shown ahead of the remote link until
- * it fails to load, and a failure holds only until the next list/detail read
- * lands (see coverEpoch) — a version change reloads on its own, as it changes
- * the address.
+ * it fails to load, and the remote link is shown until it fails too (then
+ * null). A failure holds only until the next list/detail read lands (see
+ * coverEpoch) — a version change reloads on its own, as it changes the
+ * address.
  */
 export function useCoverSrc(source: MaybeRefOrGetter<CoverSource | null>) {
   const api = inject(apiClientKey, null)
@@ -36,16 +37,15 @@ export function useCoverSrc(source: MaybeRefOrGetter<CoverSource | null>) {
     const url = local.value
     if (url !== null && failures.value.get(url) !== coverEpoch.value)
       return url
-    return toValue(source)?.remote ?? null
+    const remote = toValue(source)?.remote ?? null
+    return remote !== null && failures.value.get(remote) !== coverEpoch.value
+      ? remote
+      : null
   })
-  /** Report that `url` did not load; only the local address is tracked. */
+  /** Report that `url` (the local or the remote address) did not load. */
   function failed(url: string): void {
-    if (url === local.value)
+    if (url === local.value || url === toValue(source)?.remote)
       failures.value = new Map(failures.value).set(url, coverEpoch.value)
   }
-  return {
-    src,
-    failed,
-    isLocal: (url: string | null) => url !== null && url === local.value,
-  }
+  return { src, failed }
 }

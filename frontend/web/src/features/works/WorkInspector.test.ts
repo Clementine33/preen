@@ -139,52 +139,72 @@ afterEach(() => {
 })
 
 describe('workInspector', () => {
-  it('paints a local cover once it is proven loadable, and the remote one when it is not', async () => {
-    const outcomes: Array<'load' | 'error'> = ['load', 'error']
-    class StubImage {
-      onload: (() => void) | null = null
-      onerror: (() => void) | null = null
-      set src(_: string) {
-        const outcome = outcomes.shift() ?? 'error'
-        queueMicrotask(() => (outcome === 'load'
-          ? this.onload
-          : this.onerror)?.())
-      }
-    }
-    vi.stubGlobal('Image', StubImage)
+  const local = {
+    copy_id: 'c1',
+    rel_path: 'cover.jpg',
+    version: '1-2-3',
+    thumb_v: 't',
+  }
+
+  it('shows a local cover, falls back to the remote one when it fails, and hatches when that fails too', async () => {
     reducedMotion(true)
-    const local = {
-      copy_id: 'c1',
-      rel_path: 'cover.jpg',
-      version: '1-2-3',
-      thumb_v: 't',
-    }
     const getWork = vi.fn(async (rj: string) => ({
       ...detail(rj, 'va'),
       local_cover: local,
     }))
     const wrapper = await mountInspector(getWork, { rj: FIRST })
     await settle()
-    expect(wrapper.get<HTMLElement>('.cover.front').element.style.backgroundImage).toContain('/files/')
+    expect(wrapper.get('.cover.front img').attributes('src')).toContain('/files/')
+    expect(wrapper.get('.cover.front').classes()).not.toContain('hatch')
 
-    const failing = await mountInspector(getWork, { rj: SECOND })
+    await wrapper.get('.cover.front img').trigger('error')
+    await flushPromises()
+    expect(wrapper.get('.cover.front img').attributes('src')).toBe(`https://covers.test/${FIRST}.jpg`)
+
+    await wrapper.get('.cover.front img').trigger('error')
+    await flushPromises()
+    expect(wrapper.find('.cover.front img').exists()).toBe(false)
+    expect(wrapper.get('.cover.front').classes()).toContain('hatch')
+  })
+
+  it('starts the cover wipe only once the new picture has loaded', async () => {
+    const getWork = vi.fn((rj: string) => Promise.resolve(detail(rj, 'va')))
+    const wrapper = await mountInspector(getWork, { rj: FIRST })
     await settle()
-    expect(failing.get<HTMLElement>('.cover.front').element.style.backgroundImage).toContain(`${SECOND}.jpg`)
-    vi.unstubAllGlobals()
+    await wrapper.get('.cover.front img').trigger('load')
+
+    await wrapper.setProps({ rj: SECOND })
+    await settle()
+    // The old picture waits on the back plate; the front is still unwiped.
+    expect(wrapper.get('.cover.back img').attributes('src')).toBe(`https://covers.test/${FIRST}.jpg`)
+    expect(wrapper.get('.cover.front img').attributes('src')).toBe(`https://covers.test/${SECOND}.jpg`)
+    expect(wrapper.get('.cover.front').classes()).not.toContain('run')
+
+    await wrapper.get('.cover.front img').trigger('load')
+    expect(wrapper.get('.cover.front').classes()).toContain('run')
+  })
+
+  it('keeps the previous cover on the back plate while a failed local cover falls back to the remote one', async () => {
+    const getWork = vi.fn(async (rj: string) => ({
+      ...detail(rj, 'va'),
+      local_cover: rj === SECOND
+        ? local
+        : null,
+    }))
+    const wrapper = await mountInspector(getWork, { rj: FIRST })
+    await settle()
+    await wrapper.get('.cover.front img').trigger('load')
+
+    await wrapper.setProps({ rj: SECOND })
+    await settle()
+    await wrapper.get('.cover.front img').trigger('error')
+    await flushPromises()
+
+    expect(wrapper.get('.cover.front img').attributes('src')).toBe(`https://covers.test/${SECOND}.jpg`)
+    expect(wrapper.get('.cover.back img').attributes('src')).toBe(`https://covers.test/${FIRST}.jpg`)
   })
 
   it('fills the first work at once: no pause, no scramble, no wipe, and its cover is fetched at high priority', async () => {
-    const probes: Array<{ priority: string | undefined, url: string }> = []
-    class StubImage {
-      onload: (() => void) | null = null
-      onerror: (() => void) | null = null
-      fetchPriority: string | undefined
-      set src(url: string) {
-        probes.push({ priority: this.fetchPriority, url })
-        queueMicrotask(() => this.onload?.())
-      }
-    }
-    vi.stubGlobal('Image', StubImage)
     const getWork = vi.fn(async (rj: string) => ({
       ...detail(rj, 'va'),
       local_cover: {
@@ -203,18 +223,16 @@ describe('workInspector', () => {
     expect(frame).not.toHaveBeenCalled()
     expect(wrapper.get('.spec').classes()).not.toContain('dim')
     expect(wrapper.get('.spec').text()).toContain('va')
-    const front = wrapper.get<HTMLElement>('.cover.front').element
-    expect(front.style.backgroundImage).toContain('/files/')
-    expect(front.classList.contains('run')).toBe(false)
-    expect(probes.at(-1)?.priority).toBe('high')
+    expect(wrapper.get('.cover.front img').attributes('src')).toContain('/files/')
+    expect(wrapper.get('.cover.front').classes()).not.toContain('run')
+    expect(wrapper.get('.cover.front img').attributes('fetchpriority')).toBe('high')
 
-    // A later switch keeps the ordinary pause and probe priority.
+    // A later switch keeps the ordinary pause and priority.
     await wrapper.setProps({ rj: SECOND })
     await flushPromises()
     expect(wrapper.get('.spec').classes()).toContain('dim')
     await settle()
-    expect(probes.at(-1)?.priority).toBeUndefined()
-    vi.unstubAllGlobals()
+    expect(wrapper.get('.cover.front img').attributes('fetchpriority')).toBeUndefined()
   })
 
   it('keeps the last body, dimmed, while the next work is still loading', async () => {
@@ -259,10 +277,9 @@ describe('workInspector', () => {
     const wrapper = await mountInspector(getWork, { rj: FIRST })
     await settle()
 
-    const front = wrapper.get<HTMLElement>('.cover.front').element
-    expect(front.classList.contains('hatch')).toBe(false)
-    expect(front.style.backgroundImage).toContain(`${FIRST}.jpg`)
-    expect(front.classList.contains('run')).toBe(false)
+    expect(wrapper.get('.cover.front').classes()).not.toContain('hatch')
+    expect(wrapper.get('.cover.front img').attributes('src')).toContain(`${FIRST}.jpg`)
+    expect(wrapper.get('.cover.front').classes()).not.toContain('run')
   })
 
   it('offers no way back to a wall it is not on', async () => {
@@ -417,8 +434,7 @@ describe('workInspector', () => {
     await flushPromises()
 
     expect(wrapper.get('.spec').text()).toContain('沢城みゆき')
-    const front = wrapper.get<HTMLElement>('.cover.front').element
-    expect(front.classList.contains('hatch')).toBe(false)
-    expect(front.style.backgroundImage).toContain(`${FIRST}.jpg`)
+    expect(wrapper.get('.cover.front').classes()).not.toContain('hatch')
+    expect(wrapper.get('.cover.front img').attributes('src')).toContain(`${FIRST}.jpg`)
   })
 })

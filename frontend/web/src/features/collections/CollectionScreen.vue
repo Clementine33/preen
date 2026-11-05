@@ -3,12 +3,13 @@ import { onBeforeUnmount, ref, watch } from 'vue'
 import { useReducedMotion } from '@/composables/use-motion'
 
 // The picture box of the collections page: a cover rebuilt by an interlaced
-// raster scan, done in CSS (clip-path plus a line mask). The old frame powers
+// raster scan, done in CSS (clip-path plus a line mask) over <img> layers, so a
+// load failure is reported (`failed`). The old frame powers
 // down to black, then the odd and even lines are drawn, overlapping, each pass
 // led by a beam with a short phosphor afterglow. No url shows a blank
 // panel; `veiled` Gaussian-blurs the picture instead. Reduced motion, or a burst of switching, swaps the cover at once.
 const props = defineProps<{ url: string | null, instant?: boolean, veiled?: boolean }>()
-defineEmits<{ redraw: [] }>()
+defineEmits<{ redraw: [], failed: [url: string] }>()
 
 const reduce = useReducedMotion()
 const SETTLE_MS = 400 // second pass delay (120) + pass (260) + a frame
@@ -21,15 +22,11 @@ const nextV = ref(false)
 const scanning = ref(false)
 const ready = ref(false)
 let timer: ReturnType<typeof setTimeout> | undefined
-
-function css(url: string | null) {
-  return url
-    ? `url("${url.replace(/"/g, '%22')}")`
-    : 'none'
-}
+let frame = 0
 
 function settle(url: string | null, veiled: boolean) {
   clearTimeout(timer)
+  cancelAnimationFrame(frame)
   scanning.value = false
   cur.value = next.value = url
   curV.value = nextV.value = veiled
@@ -45,7 +42,7 @@ watch(() => props.url, (url) => {
   nextV.value = props.veiled === true
   scanning.value = false
   // Restart the animations: one frame with the class off, then on.
-  requestAnimationFrame(() => {
+  frame = requestAnimationFrame(() => {
     scanning.value = true
     timer = setTimeout(settle, SETTLE_MS, url, nextV.value)
   })
@@ -58,18 +55,27 @@ watch(() => props.veiled, (veiled) => {
     curV.value = nextV.value
 })
 
-onBeforeUnmount(() => clearTimeout(timer))
+onBeforeUnmount(() => {
+  clearTimeout(timer)
+  cancelAnimationFrame(frame)
+})
 </script>
 
 <template>
   <div
     class="screen" :class="{ scanning, empty: !cur && !scanning }" data-testid="collection-screen"
-    :style="{ '--cur': css(cur), '--new': css(next) }" role="button" tabindex="-1" title="换一张"
+    role="button" tabindex="-1" title="换一张"
     @click="$emit('redraw')"
   >
-    <div class="scr-base" :class="{ blur: curV }" />
-    <div class="scr-pass p1" :class="{ blur: nextV }" />
-    <div class="scr-pass p2" :class="{ blur: nextV }" />
+    <!-- keyed: an <img> whose src changes keeps the old picture until the new one loads, which could show an R18 cover unblurred -->
+    <img
+      v-if="cur" :key="cur" class="scr-base" :class="{ blur: curV }"
+      :src="cur" alt="" @error="$emit('failed', cur)"
+    >
+    <template v-if="scanning && next">
+      <img class="scr-pass p1" :class="{ blur: nextV }" :src="next" alt="" @error="$emit('failed', next)">
+      <img class="scr-pass p2" :class="{ blur: nextV }" :src="next" alt="">
+    </template>
     <i class="scr-head h1" />
     <i class="scr-head h2" />
   </div>
@@ -86,11 +92,10 @@ onBeforeUnmount(() => clearTimeout(timer))
 .screen > * { position: absolute; inset: 0; pointer-events: none; }
 .scr-base, .scr-pass { --blur: blur(0); --zoom: 1; filter: var(--blur); transform: scale(var(--zoom)); }
 .blur { --blur: blur(28px); --zoom: 1.15; } /* the zoom hides the blur's faded edge */
-.scr-base { background: var(--cur) center / cover no-repeat; }
 /* No cover: the bare panel colour, not the dark device. */
 .screen.empty { background: var(--bg-panel); }
-.screen.empty .scr-base { display: none; }
-.scr-pass { background: var(--new) center / cover no-repeat; clip-path: inset(0 0 100% 0); }
+.scr-base, .scr-pass { width: 100%; height: 100%; object-fit: cover; }
+.scr-pass { clip-path: inset(0 0 100% 0); }
 .scr-pass.p1 { mask: repeating-linear-gradient(to bottom, #000 0 2px, transparent 2px 4px); }
 .scr-pass.p2 { mask: repeating-linear-gradient(to bottom, transparent 0 2px, #000 2px 4px); }
 /* Scan head = a 2px beam with a short afterglow trailing above it (the lines just drawn). */

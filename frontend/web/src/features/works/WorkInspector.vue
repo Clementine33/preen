@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { WorkDetail } from '@/lib/api/types'
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useReducedMotion, useSwitchBurst } from '@/composables/use-motion'
 import { useCoverSrc } from '@/features/works/use-cover-src'
@@ -130,67 +130,72 @@ function scramble(text: string, instant = false) {
   scrambleFrame = requestAnimationFrame(tick)
 }
 
-// ── Cover plate: two layers; the new cover wipes in over the old one in
-// 240ms, and four corner ticks frame the specimen. ──
+// ── Cover plate: two layers, each an <img>; the new cover wipes in over the
+// old one in 240ms once it has loaded, and four corner ticks frame the
+// specimen. ──
 const coverBack = ref<HTMLElement | null>(null)
 const coverFront = ref<HTMLElement | null>(null)
+const backCover = ref<string | null>(null)
+const frontCover = ref<string | null>(null)
 let shownCover: string | null = null
-/** Whether any cover has been painted: the first one has nothing to wipe over. */
+/** Whether `shownCover` has loaded: only a loaded picture is worth keeping on the back plate. */
+let shownLoaded = false
+/** The cover whose load starts the wipe, if one is due. */
+let wipeFor: string | null = null
+/** Whether a cover has been shown: the first one has nothing to wipe over. */
 let painted = false
+/** Only the first cover is fetched at high priority. */
+const firstCover = ref(true)
 const libraryUi = useLibraryUiStore()
 /** The work whose veiled cover was shown by a click; any other work is hatched again. */
 const shownRj = ref<string | null>(null)
 const veiled = computed(() => libraryUi.veil && deferredWork.value?.nsfw === true && shownRj.value !== deferredWork.value.rj)
-const { src: realCover, failed: coverFailed, isLocal: coverIsLocal } = useCoverSrc(() => {
+const { src: realCover, failed: coverFailed } = useCoverSrc(() => {
   const detail = deferredWork.value
   return detail
     ? { rj: detail.rj, local: detail.local_cover, remote: detail.cover_url ?? detail.thumbnail_url }
     : null
 })
 const coverSrc = computed(() => (veiled.value ? null : realCover.value))
-/** A CSS background never reports a load failure, so a local cover is proven loadable first. */
-function probe(url: string, first: boolean): Promise<boolean> {
-  return new Promise((resolve) => {
-    const image = new Image()
-    if (first)
-      image.fetchPriority = 'high'
-    image.onload = () => resolve(true)
-    image.onerror = () => resolve(false)
-    image.src = url
-  })
-}
 // The plates are watched too: a body filled during setup is painted once
 // they mount.
 watch(
   () => [coverSrc.value, coverFront.value] as const,
-  ([url]) => {
-    if (url !== null && coverIsLocal(url) && url !== shownCover) {
-      void probe(url, !painted).then((ok) => {
-        if (url !== coverSrc.value)
-          return
-        if (ok)
-          showCover(url)
-        else coverFailed(url)
-      })
-      return
-    }
-    showCover(url)
-  },
+  ([url]) => showCover(url),
 )
 function showCover(url: string | null) {
   if (url === shownCover || !coverBack.value || !coverFront.value)
     return
   const first = !painted
   painted = true
+  firstCover.value = first
+  // A cover that never loaded (a pending one, a failed local file) leaves the plate behind it as it is.
+  const old = shownLoaded
+    ? shownCover
+    : backCover.value
+  shownCover = url
+  shownLoaded = false
   if (reducedMotion.value || switching.value || first) {
     // No wipe, but the cover still has to be painted.
-    shownCover = url
-    paintCover(coverFront.value, url)
+    wipeFor = null
+    frontCover.value = url
     return
   }
-  paintCover(coverBack.value, shownCover)
-  shownCover = url
-  paintCover(coverFront.value, url)
+  // The front <img> keeps the old picture until the new one is ready.
+  backCover.value = old
+  frontCover.value = url
+  wipeFor = url
+  if (url === null)
+    void nextTick(() => frontLoaded(null))
+}
+/** The front picture is ready (or there is none): replay the wipe if one is due for it. */
+function frontLoaded(url: string | null) {
+  if (url !== shownCover)
+    return
+  shownLoaded = url !== null
+  if (wipeFor !== url || !coverFront.value)
+    return
+  wipeFor = null
   // Replay the wipe: clip to fully-open, force a reflow, then run.
   coverFront.value.classList.remove('run')
   coverFront.value.classList.add('enter')
@@ -198,12 +203,7 @@ function showCover(url: string | null) {
   coverFront.value.classList.add('run')
   coverFront.value.classList.remove('enter')
 }
-function paintCover(el: HTMLElement, url: string | null) {
-  el.classList.toggle('hatch', url === null)
-  el.style.backgroundImage = url === null
-    ? ''
-    : `url("${url}")`
-}
+const srcOf = (e: Event) => (e.currentTarget as HTMLImageElement).getAttribute('src')
 
 /** `YYYY.MM.DD` from the catalog's `YYYY-MM-DD`. */
 function dottedDate(value: string | null): string {
@@ -254,8 +254,15 @@ const playIcon = 'M1 0l9 5-9 5z'
 
     <div class="plate">
       <div class="plate-frame" :class="{ veiled }">
-        <div ref="coverBack" class="cover back" />
-        <div ref="coverFront" class="cover front hatch" />
+        <div ref="coverBack" class="cover back" :class="{ hatch: !backCover }">
+          <img v-if="backCover" :src="backCover" alt="">
+        </div>
+        <div ref="coverFront" class="cover front" :class="{ hatch: !frontCover }">
+          <img
+            v-if="frontCover" :src="frontCover" alt="" :fetchpriority="firstCover ? 'high' : undefined"
+            @load="frontLoaded(srcOf($event))" @error="coverFailed(srcOf($event) ?? '')"
+          >
+        </div>
         <button v-if="veiled" class="btn btn-s reveal" type="button" @click="shownRj = deferredWork?.rj ?? null">SHOW</button>
         <i class="tick tl" /><i class="tick tr" /><i class="tick bl" /><i class="tick br" />
       </div>
@@ -307,10 +314,17 @@ const playIcon = 'M1 0l9 5-9 5z'
 .plate-frame { position: relative; height: 100%; max-width: 100%; aspect-ratio: var(--cover-ratio); margin: 0 auto; }
 .cover {
   position: absolute; inset: 0; overflow: hidden;
-  background-position: center;
   box-shadow: inset 0 0 0 1px var(--wire-fine);
 }
-.cover:not(.hatch) { background-size: cover; }
+.cover img {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: cover; object-position: center;
+}
+/* The frame's inset rule draws over the picture, as it did over the old background image. */
+.cover::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  box-shadow: inherit;
+}
 .veiled .cover::before { content: none; }
 .reveal { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 1; }
 .cover.front { clip-path: inset(0 0 0 0); }

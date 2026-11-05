@@ -267,7 +267,7 @@ export interface WorkSummary {
   /** Canonical RJ + 8 digits; the API normalizes 6-digit input itself. */
   rj: string
   title: string | null
-  thumbnail_url: string | null
+  cover_url: string | null
   circle: string | null
   language: string | null
   nsfw: boolean | null
@@ -395,7 +395,6 @@ export interface WorkEditionSlot {
 /** The full work: metadata, personal data, resolved relation and copies. */
 export interface WorkDetail extends Omit<WorkSummary, 'listening'> {
   source_url: string | null
-  cover_url: string | null
   sample_cover_url: string | null
   series_id: string | null
   series_name: string | null

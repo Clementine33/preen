@@ -26,18 +26,14 @@ func wireWorks(d *Dependencies, fixture *sqlite.Repository) {
 
 const stamp = "2026-09-27T10:00:00.000000000Z"
 
-func TestWorkThumbnailsAreDerivedFromTheMainCover(t *testing.T) {
+func TestWorkCoverURLIsAnsweredByListAndDetail(t *testing.T) {
 	for _, tc := range []struct {
-		name        string
-		cover, want *string
+		name  string
+		cover *string
 	}{
-		{"DLsite jpg", new("https://img.dlsite.jp/modpub/images2/work/doujin/RJ110000/RJ109959_img_main.jpg"), new("https://img.dlsite.jp/resize/images2/work/doujin/RJ110000/RJ109959_img_main_240x240.jpg")},
-		{"DLsite webp", new("https://img.dlsite.jp/modpub/images2/work/doujin/RJ110000/RJ109959_img_main.webp"), new("https://img.dlsite.jp/resize/images2/work/doujin/RJ110000/RJ109959_img_main_240x240.jpg")},
-		{"ASMR", new("https://api.asmr.one/api/cover/109959.jpg?type=main&v=2"), new("https://api.asmr.one/api/cover/109959.jpg?type=240x240&v=2")},
-		{"other host", new("https://covers.test/main.webp"), new("https://covers.test/main.webp")},
-		{"other DLsite path", new("https://img.dlsite.jp/other/main.jpg"), new("https://img.dlsite.jp/other/main.jpg")},
-		{"empty", new(""), nil},
-		{"unknown", nil, nil},
+		{"known", new("https://img.dlsite.jp/modpub/images2/work/doujin/RJ110000/RJ109959_img_main.webp")},
+		{"empty", new("")},
+		{"unknown", nil},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) {
@@ -54,8 +50,8 @@ func TestWorkThumbnailsAreDerivedFromTheMainCover(t *testing.T) {
 			w = doRequest(t, engine, http.MethodGet, "/api/v1/works", nil, nil)
 			var page struct {
 				Works []struct {
-					ThumbnailURL *string `json:"thumbnail_url"`
-					CollectedAt  string  `json:"collected_at"`
+					CoverURL    *string `json:"cover_url"`
+					CollectedAt string  `json:"collected_at"`
 				} `json:"works"`
 			}
 			if err := json.Unmarshal(w.Body.Bytes(), &page); err != nil {
@@ -64,19 +60,18 @@ func TestWorkThumbnailsAreDerivedFromTheMainCover(t *testing.T) {
 			if w.Code != http.StatusOK || len(page.Works) != 1 {
 				t.Fatalf("list = %d %s", w.Code, w.Body.String())
 			}
-			if !reflect.DeepEqual(page.Works[0].ThumbnailURL, tc.want) || page.Works[0].CollectedAt != stamp {
+			if !reflect.DeepEqual(page.Works[0].CoverURL, tc.cover) || page.Works[0].CollectedAt != stamp {
 				t.Fatalf("list cover or collection time changed: %s", w.Body.String())
 			}
 			w = doRequest(t, engine, http.MethodGet, "/api/v1/works/RJ00000001", nil, nil)
 			var detail struct {
-				CoverURL     *string `json:"cover_url"`
-				ThumbnailURL *string `json:"thumbnail_url"`
+				CoverURL *string `json:"cover_url"`
 			}
 			if err := json.Unmarshal(w.Body.Bytes(), &detail); err != nil || w.Code != http.StatusOK {
 				t.Fatalf("detail = %d %s, err = %v", w.Code, w.Body.String(), err)
 			}
-			if !reflect.DeepEqual(detail.CoverURL, tc.cover) || !reflect.DeepEqual(detail.ThumbnailURL, tc.want) {
-				t.Fatalf("detail did not derive the thumbnail from the main cover: %s", w.Body.String())
+			if !reflect.DeepEqual(detail.CoverURL, tc.cover) {
+				t.Fatalf("detail cover changed: %s", w.Body.String())
 			}
 		})
 	}

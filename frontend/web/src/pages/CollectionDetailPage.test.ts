@@ -23,7 +23,6 @@ function work(n: number): WorkSummary {
   return {
     rj: `RJ${String(n).padStart(8, '0')}`,
     title: `作品${n}`,
-    thumbnail_url: null,
     circle: `社${n}`,
     language: null,
     nsfw: false,

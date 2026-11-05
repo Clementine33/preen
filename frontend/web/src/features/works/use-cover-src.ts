@@ -14,6 +14,32 @@ interface CoverSource {
 }
 
 /**
+ * The CDN's small rendition of a main cover: a presentation of that cover, so
+ * the display that wants it derives it. Other addresses stay as they are.
+ */
+export function remoteThumb(cover: string | null | undefined): string | null {
+  if (!cover)
+    return null
+  let url: URL
+  try {
+    url = new URL(cover)
+  }
+  catch {
+    return cover
+  }
+  const { host, pathname } = url
+  if (host === 'img.dlsite.jp' && pathname.startsWith('/modpub/') && /\.[^./]*$/.test(pathname)) {
+    url.pathname = pathname.replace('/modpub/', '/resize/').replace(/\.[^./]*$/, '_240x240.jpg')
+    return url.href
+  }
+  if (host === 'api.asmr.one' && pathname.startsWith('/api/cover/')) {
+    url.searchParams.set('type', '240x240')
+    return url.href
+  }
+  return cover
+}
+
+/**
  * The address a work's cover is shown from. A cover already on disk is served
  * by the backend's content route; it is shown ahead of the remote link until
  * it fails to load, and the remote link is shown until it fails too (then

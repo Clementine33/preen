@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { fmtSize } from '@/features/work-detail/derive'
-import { useCoverSrc } from '@/features/works/use-cover-src'
+import { remoteThumb, useCoverSrc } from '@/features/works/use-cover-src'
 import { useWorkDetail } from '@/queries/works'
 import { useLibraryUiStore } from '@/stores/library-ui'
 
@@ -15,7 +15,11 @@ const libraryUi = useLibraryUiStore()
 const { work } = useWorkDetail(() => props.rj)
 const { src: realCover, failed } = useCoverSrc(() =>
   work.value
-    ? { rj: work.value.rj, local: work.value.local_cover, remote: work.value.thumbnail_url ?? null }
+    ? {
+        rj: work.value.rj,
+        local: work.value.local_cover,
+        remote: remoteThumb(work.value.cover_url),
+      }
     : null,
 )
 

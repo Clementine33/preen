@@ -35,7 +35,7 @@ function makeWorks(base: number, count: number): WorkSummary[] {
   return Array.from({ length: count }, (_, i) => ({
     rj: rjOf(base + i),
     title: `Title ${rjOf(base + i)}`,
-    thumbnail_url: null,
+    cover_url: null,
     circle: 'CIRCLE',
     language: null,
     nsfw: false,

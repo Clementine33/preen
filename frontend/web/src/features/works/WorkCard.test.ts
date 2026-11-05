@@ -19,7 +19,7 @@ function work(version = '1-5-9'): WorkSummary {
   return {
     rj: 'RJ01000001',
     title: 'Title',
-    thumbnail_url: REMOTE,
+    cover_url: REMOTE,
     circle: null,
     language: null,
     nsfw: null,

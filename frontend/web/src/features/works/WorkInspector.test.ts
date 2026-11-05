@@ -23,7 +23,6 @@ function detail(rj: string, voice: string): WorkDetail {
   return {
     rj,
     title: `Title ${rj}`,
-    thumbnail_url: `https://covers.test/${rj}_sam.jpg`,
     circle: 'mete0r',
     language: null,
     nsfw: false,

@@ -41,7 +41,7 @@ function makeWorks(count: number): WorkSummary[] {
   return Array.from({ length: count }, (_, i) => ({
     rj: `RJ${String(10_000_000 + i)}`,
     title: `Title ${i}`,
-    thumbnail_url: null,
+    cover_url: null,
     circle: 'CIRCLE',
     language: null,
     nsfw: false,

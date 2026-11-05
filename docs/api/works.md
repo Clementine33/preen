@@ -475,15 +475,12 @@ library and `rel_path`, then by name). Its bytes are served by the content route
 `version` is `<content_rev>-<mtime>-<size>`, so the address changes when the
 inventory observes new bytes. `thumb_v` is the file's manifest `thumb_v`, so a
 client showing it small loads it from the thumbnail route at its current
-version instead. Clients show it ahead of `thumbnail_url` and fall back to
-`thumbnail_url` when the image fails to load.
+version instead. Clients show it ahead of `cover_url` and fall back to
+`cover_url` when the image fails to load.
 
-`thumbnail_url` is derived from `cover_url` when rendering a response and is
-neither stored nor accepted in a core import. DLsite main-image paths use the
-CDN's `resize` path with a `_240x240.jpg` suffix; ASMR.one cover paths use
-`type=240x240`. Other addresses fall back to the main cover unchanged. An
-missing or empty main-cover address produces a null thumbnail. Collection time
-is the first scan's `collected_at`; the work has no separate `created_at`.
+`cover_url` is the stored main-cover address, in list and detail responses
+alike. The API answers no thumbnail address: a client wanting a small rendition
+derives it from this one. Collection time is the first scan's `collected_at`; the work has no separate `created_at`.
 
 `GET /api/v1/works` accepts exactly these parameters; anything else is
 `INVALID_ARGUMENT` (400), so a typo cannot silently widen the answer.

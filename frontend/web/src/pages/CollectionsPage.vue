@@ -96,7 +96,7 @@ async function drawCover(redraw = false) {
 const { src: coverUrl, failed: coverFailed } = useCoverSrc(() => {
   const w = coverWork.value
   return w
-    ? { rj: w.rj, local: w.local_cover, remote: w.thumbnail_url }
+    ? { rj: w.rj, local: w.local_cover, remote: w.cover_url }
     : null
 })
 

@@ -2,7 +2,7 @@
 import type { WorkSummary } from '@/lib/api/types'
 import { computed } from 'vue'
 import { useLibraryUiStore } from '@/stores/library-ui'
-import { useCoverSrc } from './use-cover-src'
+import { remoteThumb, useCoverSrc } from './use-cover-src'
 
 // One cell of the wall: a 4:3 cover — hatched when the catalog
 // has none — over a caption base that the selection wipes in from the left.
@@ -23,7 +23,7 @@ const libraryUi = useLibraryUiStore()
 const { src: realCover, failed } = useCoverSrc(() => ({
   rj: props.work.rj,
   local: props.work.local_cover,
-  remote: props.work.thumbnail_url ?? null,
+  remote: remoteThumb(props.work.cover_url),
 }))
 
 /** An R18 work's cover stays hatched while the veil is on. */

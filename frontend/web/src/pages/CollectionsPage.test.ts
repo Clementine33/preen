@@ -29,7 +29,7 @@ function work(n: number, patch: Partial<WorkSummary> = {}): WorkSummary {
   return {
     rj: `RJ${String(n).padStart(8, '0')}`,
     title: `作品${n}`,
-    thumbnail_url: `https://img/${n}.jpg`,
+    cover_url: `https://img/${n}.jpg`,
     circle: null,
     language: null,
     nsfw: false,
@@ -176,7 +176,7 @@ describe('collectionsPage', () => {
     expect(typedOf()).toBe(long.length)
   })
 
-  it('shows the cover as the picture box image, from the remote link when no local file', async () => {
+  it('shows the cover as the picture box image, from the full-size remote link when no local file', async () => {
     const wrapper = await mountPage(setup().api)
     await vi.waitFor(() => expect(wrapper.get('[data-testid="collection-screen"] img').attributes('src')).toBe('https://img/3.jpg'))
   })

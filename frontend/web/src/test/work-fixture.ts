@@ -26,7 +26,6 @@ export function makeWorkDetail(overrides: Partial<WorkDetail> = {}): WorkDetail 
   return {
     rj: 'RJ01000001',
     title: '雨宿りの縁側で、君と眠るまで',
-    thumbnail_url: null,
     circle: 'mete0r',
     language: 'JPN',
     nsfw: true,

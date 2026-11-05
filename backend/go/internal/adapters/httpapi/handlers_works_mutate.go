@@ -123,7 +123,6 @@ type workDetailResponse struct {
 	workSummaryResponse
 
 	SourceURL        *string                 `json:"source_url"`
-	CoverURL         *string                 `json:"cover_url"`
 	SampleCoverURL   *string                 `json:"sample_cover_url"`
 	SeriesID         *string                 `json:"series_id"`
 	SeriesName       *string                 `json:"series_name"`
@@ -149,7 +148,6 @@ func toWorkDetail(detail *works.WorkDetail, dirID func(works.Copy) string) workD
 	out := workDetailResponse{
 		workSummaryResponse: toWorkSummary(detail.WorkSummary),
 		SourceURL:           detail.SourceURL,
-		CoverURL:            detail.CoverURL,
 		SampleCoverURL:      detail.SampleCoverURL,
 		SeriesID:            detail.SeriesID,
 		SeriesName:          detail.SeriesName,

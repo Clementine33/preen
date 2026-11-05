@@ -153,7 +153,7 @@ const veiled = computed(() => libraryUi.veil && deferredWork.value?.nsfw === tru
 const { src: realCover, failed: coverFailed } = useCoverSrc(() => {
   const detail = deferredWork.value
   return detail
-    ? { rj: detail.rj, local: detail.local_cover, remote: detail.cover_url ?? detail.thumbnail_url }
+    ? { rj: detail.rj, local: detail.local_cover, remote: detail.cover_url }
     : null
 })
 const coverSrc = computed(() => (veiled.value ? null : realCover.value))

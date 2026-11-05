@@ -2,7 +2,7 @@
 import type { WorkSummary } from '@/lib/api/types'
 import { computed } from 'vue'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { useCoverSrc } from '@/features/works/use-cover-src'
+import { remoteThumb, useCoverSrc } from '@/features/works/use-cover-src'
 import WorkTracklist from '@/features/works/WorkTracklist.vue'
 import { useLibraryUiStore } from '@/stores/library-ui'
 
@@ -63,7 +63,7 @@ const COVER_HEIGHT = 120
 const { src, failed } = useCoverSrc(() => ({
   rj: props.work.rj,
   local: props.work.local_cover,
-  remote: props.work.thumbnail_url ?? null,
+  remote: remoteThumb(props.work.cover_url),
   thumbHeight: COVER_HEIGHT,
 }))
 // An R18 work's cover stays hatched while the veil is on.

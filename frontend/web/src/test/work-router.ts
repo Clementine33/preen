@@ -9,6 +9,7 @@ export async function workDetailTestRouter() {
   const router = createRouter({
     history: createMemoryHistory(),
     routes: [
+      { path: '/works', name: 'works', component: stub },
       { path: '/works/:rj', name: 'work-detail', component: stub },
       { path: '/worksets/:libraryId', name: 'workbench-overview', component: stub },
       { path: '/worksets/:libraryId/f/:dirId', name: 'overview-files', component: stub },

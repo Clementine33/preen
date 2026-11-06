@@ -1,13 +1,15 @@
 <script setup lang="ts">
-import type { WorkEditionNode, WorkEditionSlot, WorkUserTag } from '@/lib/api/types'
+import type { WorkEditionNode, WorkEditionSlot, WorkFacetKind, WorkUserTag } from '@/lib/api/types'
+import { useQueryClient } from '@tanstack/vue-query'
 import { computed, ref } from 'vue'
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRouter } from 'vue-router'
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { useToast } from '@/composables/use-toast'
 import { dottedDate, fmtT, resumePoint } from '@/features/work-detail/derive'
+import { useApiClient } from '@/lib/api/client'
 import { newCollectionName, useCollectionManage, useCollectionMemberWrites, useCollections } from '@/queries/collections'
 import { useLibraryList } from '@/queries/libraries'
-import { useCreateUserTag, useReplaceWorkUserTags, useUpdateWorkUserData, useUserTags, useWorkDetail } from '@/queries/works'
+import { useCreateUserTag, useReplaceWorkUserTags, useUpdateWorkUserData, useUserTags, useWorkDetail, workFacetsQueryOptions } from '@/queries/works'
 import { usePlayerStore } from '@/stores/player'
 import { useWorkDetailStore } from '@/stores/work-detail'
 
@@ -34,11 +36,37 @@ const rating = computed(() => work.value?.rating ?? null)
 const favorite = computed(() => work.value?.favorite ?? false)
 const mine = computed<WorkUserTag[]>(() => work.value?.user_tags ?? [])
 
-const voice = computed(() =>
-  work.value && work.value.voice_actors.length > 0
-    ? work.value.voice_actors.map(actor => actor.name).join(' / ')
-    : '—',
-)
+const toast = useToast()
+const api = useApiClient()
+const queryClient = useQueryClient()
+const router = useRouter()
+
+/**
+ * Open the wall on one circle or voice actor. The wall filters by entity id,
+ * and an entity without a source id is one id per work (ADR 0009), so the
+ * name is resolved to every id carrying it, as the filter rail does. `own` is
+ * this work's id for the name, used when the lookup finds none; a circle has no id here.
+ */
+async function showOnWall(kind: WorkFacetKind, name: string, own?: string): Promise<void> {
+  try {
+    const ids = (await queryClient.fetchQuery(workFacetsQueryOptions(api, kind, {}))).filter(facet => facet.name === name).map(facet => facet.id)
+    const picked = (ids.length > 0
+      ? ids
+      : own
+        ? [own]
+        : []).join(',')
+    if (picked !== '') {
+      await router.push({
+        name: 'works',
+        query: { [kind === 'circle'
+          ? 'circle'
+          : 'voice']: picked },
+      })
+    }
+  }
+  catch (e) { toast.error(e) }
+}
+
 const age = computed(() =>
   work.value?.age_category
     ? ({ 1: '全年龄', 2: 'R15', 3: 'R18' }[work.value.age_category])
@@ -59,7 +87,6 @@ function toggleFavorite(): void {
 }
 
 // ── Add to collection: tick follows `collection_ids`; a click joins or leaves, no undo here. ──
-const toast = useToast()
 const { collections } = useCollections()
 const memberWrites = useCollectionMemberWrites()
 const manage = useCollectionManage()
@@ -207,8 +234,17 @@ function copyTo(copy: { copy_id: string, library_id: string, dir_id: string }) {
 
     <dl class="colo-box">
       <div class="colo-row"><dt>作品</dt><dd><span class="mono">{{ work?.rj ?? '—' }}</span></dd></div>
-      <div class="colo-row"><dt>社团</dt><dd><span lang="ja">{{ work?.circle ?? '—' }}</span></dd></div>
-      <div class="colo-row"><dt>声优</dt><dd><span lang="ja">{{ voice }}</span></dd></div>
+      <div class="colo-row"><dt>社团</dt><dd>
+        <button v-if="work?.circle" class="jump" type="button" lang="ja" @click="showOnWall('circle', work.circle)">{{ work.circle }}</button>
+        <span v-else>—</span>
+      </dd></div>
+      <div class="colo-row"><dt>声优</dt><dd>
+        <template v-for="(actor, index) in work?.voice_actors ?? []" :key="actor.id">
+          <span v-if="index > 0" class="sep">/</span>
+          <button class="jump" type="button" lang="ja" @click="showOnWall('voice_actor', actor.name, actor.id)">{{ actor.name }}</button>
+        </template>
+        <span v-if="!work?.voice_actors.length">—</span>
+      </dd></div>
       <div class="colo-row"><dt>发售</dt>
         <dd><span class="mono">{{ dottedDate(work?.release_date ?? null) }}</span>
           <template v-if="work?.dl_count !== null && work?.dl_count !== undefined"><span class="sep">·</span><span class="lbl">DL<b>{{ work.dl_count.toLocaleString() }}</b></span></template>
@@ -360,6 +396,12 @@ function copyTo(copy: { copy_id: string, library_id: string, dir_id: string }) {
 .ed-line { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
 .ed-line[aria-current='true'] > .lbl { color: var(--fg-base); font-weight: 700; }
 .tag .lbl { margin-left: 4px; }
+.colo-row dd .copy a, .colo-row dd .tag a, .colo-row dd > a { text-decoration: none; }
+.colo-row dd .copy a:is(:hover, :focus-visible),
+.colo-row dd .tag a:is(:hover, :focus-visible),
+.colo-row dd > a:is(:hover, :focus-visible) { color: var(--info-ink); text-decoration: underline; text-decoration-color: currentcolor; }
+.jump { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; text-underline-offset: 3px; }
+.jump:hover, .jump:focus-visible { color: var(--info-ink); text-decoration: underline; }
 .tag a { color: inherit; text-decoration: underline; text-decoration-color: var(--wire-mid); text-underline-offset: 3px; margin-left: 4px; }
 .copy { display: grid; grid-template-columns: auto 1fr; gap: 2px var(--sp-2); }
 .copy > span:nth-child(even) { min-width: 0; overflow-wrap: anywhere; }

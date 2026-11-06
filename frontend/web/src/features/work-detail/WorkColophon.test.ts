@@ -460,4 +460,48 @@ describe('workColophon, listening', () => {
     await flushPromises()
     expect(api.deleteWorkListening).toHaveBeenCalledWith(RJ)
   })
+
+  describe('wall jump', () => {
+    const jump = (wrapper: Awaited<ReturnType<typeof mountColophon>>['wrapper'], label: string) =>
+      wrapper.findAll('.colo-row button.jump').find(b => b.text() === label)!
+
+    it('opens the wall on every id carrying the circle name', async () => {
+      const listWorkFacets = vi.fn().mockResolvedValue([
+        { id: 'c1', name: 'mete0r', work_count: 2 },
+        { id: 'c2', name: 'other', work_count: 1 },
+        { id: 'c3', name: 'mete0r', work_count: 1 },
+      ])
+      const { wrapper } = await mountColophon({ listWorkFacets })
+      const push = vi.spyOn(wrapper.vm.$router, 'push')
+      await jump(wrapper, 'mete0r').trigger('click')
+      await flushPromises()
+      expect(listWorkFacets).toHaveBeenCalledWith('circle', {}, expect.anything())
+      expect(push).toHaveBeenCalledWith({
+        name: 'works',
+        query: { circle: 'c1,c3' },
+      })
+    })
+
+    it('falls back to the actor\'s own id when the lookup finds none', async () => {
+      const { wrapper } = await mountColophon()
+      const push = vi.spyOn(wrapper.vm.$router, 'push')
+      await jump(wrapper, '伊ヶ崎綾香').trigger('click')
+      await flushPromises()
+      expect(push).toHaveBeenCalledWith({
+        name: 'works',
+        query: { voice: 'va-1' },
+      })
+    })
+
+    it('stays and toasts when the lookup fails', async () => {
+      const { wrapper } = await mountColophon({
+        listWorkFacets: vi.fn().mockRejectedValue(new Error('boom')),
+      })
+      const push = vi.spyOn(wrapper.vm.$router, 'push')
+      await jump(wrapper, 'mete0r').trigger('click')
+      await flushPromises()
+      expect(push).not.toHaveBeenCalled()
+      expect(useToast().current.value?.text).toBe('boom')
+    })
+  })
 })

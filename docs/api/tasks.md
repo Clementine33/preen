@@ -58,6 +58,7 @@ work's re-binds the folder's copy to that work when it is executed
 (`rebind_to`). Members without a record participate. The template and filters are
 the deployment-wide [Task settings](#task-settings). Exactly one `{rj}` is required; the other allowed placeholders
 are `{title}`, `{circle}`, `{voice_actors}`, `{language}`, `{release_date}`.
+`{language}` is the work's current language code as listed in [works](works.md) (`JPN`, `NM`, `CHI_HANS`, …); a work with no known language is `METADATA_MISSING`.
 `voice_actor_separator` (optional, omitted or empty means `、`) joins the actors
 of `{voice_actors}` (sorted, deduplicated); it is at most 16 characters with no
 control characters and none of `<>:"/\|?*`, else `INVALID_DRAFT`. No other

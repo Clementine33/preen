@@ -921,3 +921,54 @@ func TestChainLookupListsAWorkOnceAndKeepsTheUserSort(t *testing.T) {
 		t.Fatalf("facets: %+v, %v", facets, err)
 	}
 }
+
+// TestRenameWorksLanguageIsTheCurrentLanguage: {language} follows the language a
+// listing shows - the declared one first, the relation language for legacy
+// rows - and stays empty when neither is known.
+func TestRenameWorksLanguageIsTheCurrentLanguage(t *testing.T) {
+	repo := newTestRepository(t)
+	library, err := repo.CreateLibrary("music", "/music")
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows := []struct{ rj, declared, relation, want string }{
+		{"RJ00000001", "JPN", "", "JPN"},
+		{"RJ00000002", "NM", "", "NM"},
+		{"RJ00000003", "CHI_HANS", "CHI_HANT", "CHI_HANS"},
+		{"RJ00000004", "", "CHI_HANT", "CHI_HANT"},
+		{"RJ00000005", "", "", ""},
+	}
+	var folders []string
+	for _, row := range rows {
+		id := seedWork(t, repo, row.rj)
+		if row.declared != "" {
+			if _, err := repo.DB().Exec("UPDATE works SET language = ? WHERE id = ?", row.declared, string(id)); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if row.relation != "" {
+			if _, err := repo.DB().Exec(
+				"INSERT INTO work_translations (work_id, role, language) VALUES (?, 'child', ?)",
+				string(id), row.relation,
+			); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if _, err := repo.DB().Exec(
+			"INSERT INTO work_copies (id, work_id, library_id, rel_path, created_at) VALUES (?, ?, ?, ?, ?)",
+			"copy-"+row.rj, string(id), library.ID, row.rj, testStamp,
+		); err != nil {
+			t.Fatal(err)
+		}
+		folders = append(folders, "/music/"+row.rj)
+	}
+	got, err := repo.RenameWorks(t.Context(), "/music", folders)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, row := range rows {
+		if language := got[folders[i]].Values["language"]; language != row.want {
+			t.Errorf("%s: language %q, want %q", row.rj, language, row.want)
+		}
+	}
+}

@@ -38,7 +38,7 @@ func (r *Repository) RenameWorks(
 	}
 	rows, err := r.db.QueryContext(
 		ctx,
-		`SELECT wc.rel_path,w.id,COALESCE(w.title,''),COALESCE(c.name,''),COALESCE(w.release_date,''),COALESCE(tr.language,''),
+		`SELECT wc.rel_path,w.id,COALESCE(w.title,''),COALESCE(c.name,''),COALESCE(w.release_date,''),COALESCE(w.language,tr.language,''),
  (SELECT json_group_array(va.name) FROM work_voice_actors wva JOIN voice_actors va ON va.id=wva.voice_actor_id WHERE wva.work_id=w.id)
  FROM work_copies wc JOIN libraries l ON l.id=wc.library_id JOIN works w ON w.id=wc.work_id
  LEFT JOIN circles c ON c.id=w.circle_id LEFT JOIN work_translations tr ON tr.work_id=w.id

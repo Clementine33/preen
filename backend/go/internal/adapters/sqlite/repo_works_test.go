@@ -942,22 +942,27 @@ func TestRenameWorksLanguageIsTheCurrentLanguage(t *testing.T) {
 	for _, row := range rows {
 		id := seedWork(t, repo, row.rj)
 		if row.declared != "" {
-			if _, err := repo.DB().Exec("UPDATE works SET language = ? WHERE id = ?", row.declared, string(id)); err != nil {
+			_, err = repo.DB().Exec(
+				"UPDATE works SET language = ? WHERE id = ?", row.declared, string(id),
+			)
+			if err != nil {
 				t.Fatal(err)
 			}
 		}
 		if row.relation != "" {
-			if _, err := repo.DB().Exec(
+			_, err = repo.DB().Exec(
 				"INSERT INTO work_translations (work_id, role, language) VALUES (?, 'child', ?)",
 				string(id), row.relation,
-			); err != nil {
+			)
+			if err != nil {
 				t.Fatal(err)
 			}
 		}
-		if _, err := repo.DB().Exec(
+		_, err = repo.DB().Exec(
 			"INSERT INTO work_copies (id, work_id, library_id, rel_path, created_at) VALUES (?, ?, ?, ?, ?)",
 			"copy-"+row.rj, string(id), library.ID, row.rj, testStamp,
-		); err != nil {
+		)
+		if err != nil {
 			t.Fatal(err)
 		}
 		folders = append(folders, "/music/"+row.rj)

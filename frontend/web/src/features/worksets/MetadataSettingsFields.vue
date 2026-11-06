@@ -19,7 +19,7 @@ defineProps<{ collapsible: boolean }>()
 
 const MODES = [
   { value: 'fill_missing', label: '只补缺失', hint: '数据已齐的作品跳过，只在缺封面时补封面。' },
-  { value: 'refresh_dynamic', label: '刷新动态数据', hint: '重新获取销量、评分等会变化的数据，不下载封面。' },
+  { value: 'refresh_dynamic', label: '刷新动态数据', hint: '重新获取销量与翻译版本。' },
   { value: 'refresh_all', label: '全部刷新', hint: '每个作品都重新请求，请求最多。' },
 ]
 const LOCALES = [
@@ -119,7 +119,7 @@ const summary = computed(() => {
           下载封面
         </SettingsSwitch>
         <p v-if="coverLocked" class="text-[11px] text-[var(--text-secondary)]" data-testid="metadata-cover-reason">
-          刷新动态数据只更新销量与评分，不下载封面
+          刷新动态数据不会下载封面
         </p>
       </SettingsField>
     </div>

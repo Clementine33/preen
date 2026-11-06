@@ -742,7 +742,7 @@ describe('task operation page', () => {
     await flushPromises()
     // A dynamic refresh never downloads covers, and the form says why beside the box.
     expect((wrapper.get('[data-testid="metadata-cover"]').element as HTMLInputElement).disabled).toBe(true)
-    expect(wrapper.get('[data-testid="metadata-cover-reason"]').text()).toBe('刷新动态数据只更新销量与评分，不下载封面')
+    expect(wrapper.get('[data-testid="metadata-cover-reason"]').text()).toBe('刷新动态数据不会下载封面')
     await wrapper.get('[data-testid="settings-apply"]').trigger('click')
     await flushPromises()
     const [type, settings] = vi.mocked(api.saveTaskSettings).mock.calls[0]

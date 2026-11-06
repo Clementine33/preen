@@ -333,7 +333,10 @@ Static workers: 8; dynamic batches: 500, recursively split on HTTP 414. Shared
 client limits: DLsite 8 in flight / 10 starts per second; ASMR.one 2 in flight /
 3 starts per second; default timeout 10 seconds; response limit 16 MiB; at most
 3 attempts for network/5xx errors. HTTP 403/429 or challenge headers stop further
-source requests for at least 60 seconds, honoring longer `Retry-After`.
+source requests for at least 60 seconds, honoring longer `Retry-After`. Five
+consecutive requests to one source that get no HTTP response stop its requests for
+60 seconds; any HTTP response resets the count, and one failure after the cooldown
+starts it again.
 Cancellation stops new requests/imports. Neither scanning nor startup triggers
 refresh automatically.
 

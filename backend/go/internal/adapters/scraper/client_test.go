@@ -60,6 +60,42 @@ func TestSourceRetriesAreBoundedAndChallengesStopFurtherRequests(t *testing.T) {
 	})
 }
 
+func TestUnreachableNetworkCoolsASourceDownUntilItAnswersAgain(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		var calls atomic.Int32
+		var down atomic.Bool
+		down.Store(true)
+		client := scraper.New(&http.Client{Transport: transportFunc(func(*http.Request) (*http.Response, error) {
+			calls.Add(1)
+			if down.Load() {
+				return nil, io.ErrUnexpectedEOF
+			}
+			return response(http.StatusOK, `{}`), nil
+		})})
+		ids := []works.WorkCode{"RJ00000001"}
+		_, _ = client.FetchDynamic(context.Background(), ids, "ja-jp")
+		_, _ = client.FetchDynamic(context.Background(), ids, "ja-jp")
+		if calls.Load() != 5 {
+			t.Fatalf("requests before the source cooled down: %d, want 5", calls.Load())
+		}
+		_, _ = client.FetchStatic(context.Background(), "RJ00000002", "ja-jp")
+		if calls.Load() != 5 {
+			t.Fatalf("cooling source was contacted %d times", calls.Load())
+		}
+		// After the cooldown a single failed probe cools it down again.
+		time.Sleep(61 * time.Second)
+		_, _ = client.FetchDynamic(context.Background(), ids, "ja-jp")
+		if calls.Load() != 6 {
+			t.Fatalf("probe after cooldown: %d requests, want 6", calls.Load())
+		}
+		time.Sleep(61 * time.Second)
+		down.Store(false)
+		if _, err := client.FetchDynamic(context.Background(), ids, "ja-jp"); err != nil {
+			t.Fatalf("recovered source failed: %v", err)
+		}
+	})
+}
+
 func TestSourcesValidateIdentityAndBackupLocale(t *testing.T) {
 	client := scraper.New(&http.Client{Transport: transportFunc(func(req *http.Request) (*http.Response, error) {
 		if req.URL.Host == "api.asmr.one" {

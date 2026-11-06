@@ -19,7 +19,12 @@ type sourceGate struct {
 	interval           time.Duration
 	mu                 sync.Mutex
 	next, blockedUntil time.Time
+	transportFails     int
 }
+
+// transportTrip is how many consecutive transport failures (no HTTP response)
+// put a source into cooldown, so an unreachable network ends a batch quickly.
+const transportTrip = 5
 
 func newSourceGate(concurrency int, interval time.Duration) *sourceGate {
 	return &sourceGate{slots: make(chan struct{}, concurrency), interval: interval}
@@ -74,6 +79,24 @@ func (g *sourceGate) coolDown(header string) {
 		g.blockedUntil = until
 	}
 	g.mu.Unlock()
+}
+
+// transport records the outcome of one request: any HTTP response proves the
+// network works; consecutive failures to get one cool the source down.
+func (g *sourceGate) transport(failed bool) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if !failed {
+		g.transportFails = 0
+		return
+	}
+	if g.transportFails++; g.transportFails >= transportTrip {
+		// One more failure after the cooldown trips it again.
+		g.transportFails = transportTrip - 1
+		if until := time.Now().Add(time.Minute); until.After(g.blockedUntil) {
+			g.blockedUntil = until
+		}
+	}
 }
 
 func pause(ctx context.Context, duration time.Duration) error {
@@ -146,9 +169,13 @@ func (c *Client) request(ctx context.Context, address string, gate *sourceGate) 
 	}
 	resp, err := c.http.Do(req)
 	if err != nil {
+		if ctx.Err() == nil {
+			gate.transport(true)
+		}
 		return nil, ctx.Err() == nil, err
 	}
 	defer resp.Body.Close()
+	gate.transport(false)
 	if resp.StatusCode == http.StatusForbidden || resp.StatusCode == http.StatusTooManyRequests ||
 		resp.Header.Get("Cf-Mitigated") != "" {
 		gate.coolDown(resp.Header.Get("Retry-After"))

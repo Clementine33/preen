@@ -230,9 +230,9 @@ func TestMemberRefreshLeavesBindingsAlone(t *testing.T) {
 	})
 }
 
-// TestRootChangeUnbindsTheLibrary: the bindings name directories under the old
-// root, so a root change drops them while the works survive.
-func TestRootChangeUnbindsTheLibrary(t *testing.T) {
+// TestDeleteUnbindsTheLibrary: the bindings name directories under the root, so
+// deleting the library drops them while the works survive.
+func TestDeleteUnbindsTheLibrary(t *testing.T) {
 	repo := newTestRepository(t)
 	library, err := repo.CreateLibrary("music", "/music")
 	if err != nil {
@@ -244,23 +244,11 @@ func TestRootChangeUnbindsTheLibrary(t *testing.T) {
 	}
 	assertBindings(t, repo, library.ID, []binding{{relPath: "RJ00000001 album", workID: "RJ00000001"}})
 
-	if _, err := repo.UpdateLibrary(library.ID, new("music"), new("/elsewhere"), nil); err != nil {
-		t.Fatal(err)
-	}
-	assertBindings(t, repo, library.ID, nil)
-
-	var works int
-	if err := repo.DB().QueryRow("SELECT COUNT(*) FROM works").Scan(&works); err != nil {
-		t.Fatal(err)
-	}
-	if works != 1 {
-		t.Errorf("works = %d, want the work to have survived the root change", works)
-	}
-
-	// Deleting the library leaves the work alone too.
 	if err := repo.DeleteLibrary(library.ID); err != nil {
 		t.Fatal(err)
 	}
+	assertBindings(t, repo, library.ID, nil)
+	var works int
 	if err := repo.DB().QueryRow("SELECT COUNT(*) FROM works").Scan(&works); err != nil {
 		t.Fatal(err)
 	}

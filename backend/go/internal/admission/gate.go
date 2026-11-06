@@ -105,8 +105,8 @@ func (g *Gate) BeginScanChecked(check func() error) (func(), error) {
 // direct file management request holds the slot: requests serialize, and a
 // busy slot is answered instead of queued.
 //
-// Library root changes and deletions take this same slot, so they cannot
-// interleave with file management.
+// Library deletions take this same slot, so they cannot interleave with file
+// management.
 func (g *Gate) BeginManual() (func(), error) {
 	g.lockPreempting()
 	defer g.mu.Unlock()

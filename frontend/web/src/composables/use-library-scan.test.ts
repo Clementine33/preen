@@ -62,8 +62,8 @@ function seedLibraryDomain(client: ReturnType<typeof createTestQueryClient>) {
     queryKeys.works.detail('RJ01000001'),
     queryKeys.works.list({}),
   ]) client.setQueryData(key, 'cached')
-  client.setQueryData(queryKeys.libraries.dirs('lib-a', 'd:/music'), dirs)
-  client.setQueryData(queryKeys.libraries.memberTree('lib-a', 'd:/music', 'folder-a'), tree)
+  client.setQueryData(queryKeys.libraries.dirs('lib-a'), dirs)
+  client.setQueryData(queryKeys.libraries.memberTree('lib-a', 'folder-a'), tree)
 }
 
 function seedWorksetDomain(client: ReturnType<typeof createTestQueryClient>) {
@@ -93,8 +93,8 @@ describe('syncAfterScan terminal cache matrix', () => {
     const client = createTestQueryClient()
     seedLibraryDomain(client)
     seedWorksetDomain(client)
-    const foldersKey = queryKeys.libraries.dirs('lib-a', 'd:/music')
-    const treeKey = queryKeys.libraries.memberTree('lib-a', 'd:/music', 'folder-a')
+    const foldersKey = queryKeys.libraries.dirs('lib-a')
+    const treeKey = queryKeys.libraries.memberTree('lib-a', 'folder-a')
 
     await syncAfterScan(client, 'lib-a', 'completed', 'event')
 
@@ -137,8 +137,8 @@ describe('syncAfterScan terminal cache matrix', () => {
     const client = createTestQueryClient()
     seedLibraryDomain(client)
     seedWorksetDomain(client)
-    const foldersKey = queryKeys.libraries.dirs('lib-a', 'd:/music')
-    const treeKey = queryKeys.libraries.memberTree('lib-a', 'd:/music', 'folder-a')
+    const foldersKey = queryKeys.libraries.dirs('lib-a')
+    const treeKey = queryKeys.libraries.memberTree('lib-a', 'folder-a')
 
     await syncAfterScan(client, 'lib-a', 'cancelled', 'event')
 
@@ -154,8 +154,8 @@ describe('syncAfterScan terminal cache matrix', () => {
     const client = createTestQueryClient()
     seedLibraryDomain(client)
     seedWorksetDomain(client)
-    const foldersKey = queryKeys.libraries.dirs('lib-a', 'd:/music')
-    const treeKey = queryKeys.libraries.memberTree('lib-a', 'd:/music', 'folder-a')
+    const foldersKey = queryKeys.libraries.dirs('lib-a')
+    const treeKey = queryKeys.libraries.memberTree('lib-a', 'folder-a')
 
     await syncAfterScan(client, 'lib-a', 'error', 'transport')
 
@@ -174,8 +174,8 @@ describe('syncAfterScan terminal cache matrix', () => {
     const client = createTestQueryClient()
     seedLibraryDomain(client)
     seedWorksetDomain(client)
-    const foldersKey = queryKeys.libraries.dirs('lib-a', 'd:/music')
-    const treeKey = queryKeys.libraries.memberTree('lib-a', 'd:/music', 'folder-a')
+    const foldersKey = queryKeys.libraries.dirs('lib-a')
+    const treeKey = queryKeys.libraries.memberTree('lib-a', 'folder-a')
 
     // The POST /scans request was rejected before any event arrived: the
     // scan never started, so folders/trees cannot have changed.
@@ -192,8 +192,8 @@ describe('syncAfterScan terminal cache matrix', () => {
     const client = createTestQueryClient()
     seedLibraryDomain(client)
     seedWorksetDomain(client)
-    const foldersKey = queryKeys.libraries.dirs('lib-a', 'd:/music')
-    const treeKey = queryKeys.libraries.memberTree('lib-a', 'd:/music', 'folder-a')
+    const foldersKey = queryKeys.libraries.dirs('lib-a')
+    const treeKey = queryKeys.libraries.memberTree('lib-a', 'folder-a')
 
     // Cancel aborts the stream (transport terminal) after a 'started' event:
     // materialized folders are replaced in one transaction only on completion,

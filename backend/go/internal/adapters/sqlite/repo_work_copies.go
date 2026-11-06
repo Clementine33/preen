@@ -261,9 +261,9 @@ func bindDirectories(tx *sql.Tx, libraryID string, bound map[string]works.WorkCo
 	return nil
 }
 
-// unbindLibraryCopies drops every binding of one library, which a root change
-// and a library deletion both need: the bindings describe directories under the
-// old root, and they are meaningless without it.
+// unbindLibraryCopies drops every binding of one library, which a library
+// deletion needs: the bindings describe directories under the root, and they
+// are meaningless without the library.
 func unbindLibraryCopies(tx *sql.Tx, libraryID string) error {
 	_, err := tx.Exec("DELETE FROM work_copies WHERE library_id = ?", libraryID)
 	return err

@@ -24,5 +24,5 @@ Status: Accepted — 2026-10-31
 
 ## 后果
 
-- 物理目录改名或换根会导致对应的旧 `dir_id` 链接失效，客户端需要通过重新索引获取新链接。
+- 物理目录改名会导致对应的旧 `dir_id` 链接失效，客户端需要通过重新索引获取新链接。
 - 派生规则与接口契约见 [libraries.md](../api/libraries.md#directories-and-member-trees)。

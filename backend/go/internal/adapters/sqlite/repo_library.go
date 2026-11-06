@@ -101,97 +101,28 @@ func (r *Repository) GetLibrary(id string) (*library.Library, error) {
 	return lib, nil
 }
 
-// ErrLibraryHasWorksets is returned when a root-path change is attempted on a
-// library that still owns worksets. workset.Workset membership identity is a
-// normalized library-relative path, so silently rebinding the root would
-// reattach fixed worksets to unrelated content.
-
-// ErrGenerationInProgress is returned when an owned workset has a queued or
-// running planning session and an operation that must wait for it (library
-// deletion) is attempted.
-
-// UpdateLibrary updates a library's name and root path and returns the
-// updated row. Changing the root drops the scanned inventory of the old root
-// and the prior scan state in the same transaction, so no stale paths remain
-// attached and the next scan starts from nothing. A root-path change is
-// rejected with ErrLibraryHasWorksets while a processing record still belongs
-// to the library (a record keeps its root until it is replaced); name
-// edits stay allowed. Omitted fields retain their value inside this transaction.
+// UpdateLibrary updates a library's name and storage class and returns the
+// updated row. The root is fixed at creation: paths stored under it (member
+// paths, the inventory, copy bindings) are relative to it, so there is no
+// rebinding. Omitted fields retain their value inside this transaction.
 func (r *Repository) UpdateLibrary(
 	id string,
-	name, rootPath *string,
+	name *string,
 	storageClass *library.StorageClass,
 ) (*library.Library, error) {
-	tx, err := r.db.Begin()
+	res, err := r.db.Exec(
+		`UPDATE libraries
+		SET name = COALESCE(?, name), updated_at = ?, storage_class = COALESCE(?, storage_class)
+		WHERE id = ?`,
+		name, time.Now().Format(timeFormat), storageClass, id,
+	)
 	if err != nil {
 		return nil, err
 	}
-	defer tx.Rollback()
-
-	var currentRoot string
-	if err := tx.QueryRow("SELECT root_path FROM libraries WHERE id = ?", id).Scan(&currentRoot); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, library.ErrLibraryNotFound
-		}
+	if n, err := res.RowsAffected(); err != nil {
 		return nil, err
-	}
-
-	candidateRoot := currentRoot
-	if rootPath != nil {
-		candidateRoot = librarypath.CleanRootPath(*rootPath)
-	}
-	rootPathKey := librarypath.RootPathKey(candidateRoot)
-	now := time.Now().Format(timeFormat)
-	// A root change is judged on the canonical identity key, so a spelling-only
-	// edit (e.g. `/music/.` for `/music`) must not invalidate folders or scan
-	// state, while `C:/Music` -> `c:/music` is genuinely unchanged on Windows.
-	rootChanged := librarypath.RootPathKey(currentRoot) != rootPathKey
-	if rootChanged {
-		var n int
-		if err := tx.QueryRow("SELECT COUNT(*) FROM worksets WHERE library_id = ? AND retired = 0", id).
-			Scan(&n); err != nil {
-			return nil, err
-		}
-		if n > 0 {
-			return nil, library.ErrLibraryHasWorksets
-		}
-	}
-	query := `UPDATE libraries SET name = COALESCE(?, name), root_path = ?, root_path_key = ?, updated_at = ?, storage_class = COALESCE(?, storage_class) WHERE id = ?`
-	if rootChanged {
-		query = `
-			UPDATE libraries
-			SET name = COALESCE(?, name), root_path = ?, root_path_key = ?, updated_at = ?,
-			    last_scan_at = NULL, last_scan_status = '', last_scan_error = '', storage_class = COALESCE(?, storage_class)
-			WHERE id = ?
-		`
-	}
-	if _, err := tx.Exec(query, name, candidateRoot, rootPathKey, now, storageClass, id); err != nil {
-		if isUniqueConstraintError(err) {
-			return nil, library.ErrLibraryExists
-		}
-		return nil, err
-	}
-	if rootChanged {
-		if err := checkLibraryRootOverlap(tx, candidateRoot, id); err != nil {
-			return nil, err
-		}
-		// The inventory of the previous root is not the inventory of the new
-		// one: drop it and let the next scan rebuild it, so nothing reads a
-		// stale listing as if it described the new root. The bindings go with
-		// it - they name directories under the old root, so keeping them would
-		// point the catalog at paths that are no longer part of this library.
-		if _, err := tx.Exec("DELETE FROM inventory_dirs WHERE root_path = ?", currentRoot); err != nil {
-			return nil, err
-		}
-		if err := unbindLibraryCopies(tx, id); err != nil {
-			return nil, err
-		}
-	}
-	if err := tx.Commit(); err != nil {
-		return nil, err
-	}
-	if rootChanged {
-		r.catalogChanged()
+	} else if n == 0 {
+		return nil, library.ErrLibraryNotFound
 	}
 	return r.GetLibrary(id)
 }
@@ -264,13 +195,13 @@ func (r *Repository) deleteLibrary(id string) error {
 		}
 	}
 	// Deleting the library row would cascade its bindings away as well, but the
-	// removal is explicit here so the rule reads the same as the root change:
+	// removal is explicit here so the rule reads plainly:
 	// the bindings describe directories under this library and go with it. The
 	// works and their personal data stay.
 	if err := unbindLibraryCopies(tx, id); err != nil {
 		return err
 	}
-	// As with a root change, the inventory of the root goes with the library;
+	// The inventory of the root goes with the library;
 	// no other library's scan would ever remove it.
 	if _, err := tx.Exec(
 		"DELETE FROM inventory_dirs WHERE root_path = (SELECT root_path FROM libraries WHERE id = ?)",

@@ -26,8 +26,8 @@ describe('media facts synchronization', () => {
     const client = createTestQueryClient()
     const active = queryKeys.works.content('RJ01000001')
     const inactive = queryKeys.works.content('RJ01000002')
-    const tree = queryKeys.libraries.memberTree('lib', 'root', 'dir')
-    const oldTree = queryKeys.libraries.memberTree('lib', 'root', 'inactive')
+    const tree = queryKeys.libraries.memberTree('lib', 'dir')
+    const oldTree = queryKeys.libraries.memberTree('lib', 'inactive')
     const detail = queryKeys.works.detail('RJ01000001')
     for (const key of [
       active,

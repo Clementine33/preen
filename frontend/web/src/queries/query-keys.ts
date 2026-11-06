@@ -9,28 +9,20 @@ export const queryKeys = {
   libraries: {
     all: () => ['libraries'] as const,
     list: () => ['libraries', 'list'] as const,
-    // The overview listing: every direct child directory of the root. Its
-    // identity is the library-relative path, and the key carries the root
-    // identity so a genuine root change invalidates it.
-    dirsPrefix: (libraryId: string) => ['libraries', 'dirs', libraryId] as const,
-    dirs: (libraryId: string, rootIdentity: string) =>
-      [
-        'libraries',
-        'dirs',
-        libraryId,
-        rootIdentity,
-      ] as const,
+    // The overview listing: every direct child directory of the root, keyed
+    // by library (the root is fixed at creation). Its identity is the
+    // library-relative path.
+    dirs: (libraryId: string) => ['libraries', 'dirs', libraryId] as const,
     // One member tree, addressed by the member's directory identity: the
     // overview and the conversion entry derive the same identity for the same
     // directory, so they share this entry instead of reading the tree twice.
     memberTreesPrefix: (libraryId: string) => ['libraries', 'member-trees', libraryId] as const,
     memberTreesAll: () => ['libraries', 'member-trees'] as const,
-    memberTree: (libraryId: string, rootIdentity: string, dirId: string) =>
+    memberTree: (libraryId: string, dirId: string) =>
       [
         'libraries',
         'member-trees',
         libraryId,
-        rootIdentity,
         dirId,
       ] as const,
   },

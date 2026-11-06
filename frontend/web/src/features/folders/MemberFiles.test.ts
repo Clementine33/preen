@@ -400,8 +400,15 @@ describe('shared member files', () => {
       untouched: 0,
       refresh: { ok: true },
     })
-    const getMemberTree = vi.fn().mockResolvedValue({ ...memberTreeResponse, tree: nested })
-    const { wrapper } = await mountFiles(`/worksets/lib-1/f/${DIR_ID}`, { applyFileOperation, getMemberTree })
+    const nestedResponse = { ...memberTreeResponse, tree: nested }
+    const getMemberTree = vi.fn().mockResolvedValue(nestedResponse)
+    // Entering the page refreshes the member and writes the answer into the tree on screen.
+    const refreshMemberTree = vi.fn().mockResolvedValue(nestedResponse)
+    const { wrapper } = await mountFiles(`/worksets/lib-1/f/${DIR_ID}`, {
+      applyFileOperation,
+      getMemberTree,
+      refreshMemberTree,
+    })
 
     await wrapper.get('[aria-label="展开 disc1"]').trigger('click')
     expect(wrapper.find('[data-testid="tree-row-disc1/a.flac"]').exists()).toBe(true)
@@ -455,8 +462,15 @@ describe('shared member files', () => {
       untouched: 0,
       refresh: { ok: true },
     })
-    const getMemberTree = vi.fn().mockResolvedValue({ ...memberTreeResponse, tree: nested })
-    const { wrapper } = await mountFiles(`/worksets/lib-1/f/${DIR_ID}`, { applyFileOperation, getMemberTree })
+    const nestedResponse = { ...memberTreeResponse, tree: nested }
+    const getMemberTree = vi.fn().mockResolvedValue(nestedResponse)
+    // Entering the page refreshes the member and writes the answer into the tree on screen.
+    const refreshMemberTree = vi.fn().mockResolvedValue(nestedResponse)
+    const { wrapper } = await mountFiles(`/worksets/lib-1/f/${DIR_ID}`, {
+      applyFileOperation,
+      getMemberTree,
+      refreshMemberTree,
+    })
 
     await wrapper.get('[aria-label="展开 disc1"]').trigger('click')
     await wrapper.get('[data-testid="file-checkbox-disc1/a.flac"]').setValue(true)

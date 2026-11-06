@@ -226,7 +226,7 @@ A scanned Work Root selected into one processing record. Its library-relative pa
 _Avoid_: Scan folder ID, list index, or the absolute path as member identity.
 
 **Directory Identity (`dir_id`)**:
-The navigation identity of one member directory, derived by the backend from a fixed version marker, the library, the canonical identity of its root and the directory's stored relative path. Page addresses and the tree routes carry it instead of the path, so an address names no folder. It is stable across rescans and restarts, unknown again once the directory is renamed or the library root changes, and it is never an access credential.
+The navigation identity of one member directory, derived by the backend from a fixed version marker, the library, the canonical identity of its root and the directory's stored relative path. Page addresses and the tree routes carry it instead of the path, so an address names no folder. It is stable across rescans and restarts, unknown again once the directory is renamed, and it is never an access credential.
 _Avoid_: Treating it as a permission, or confusing it with the data identity `rel_path`.
 
 **Member Files / Current Files**:
@@ -242,7 +242,7 @@ Renaming one item, moving one item inside its member, and soft-deleting one or m
 _Avoid_: Treating these writes as a conversion step; disguising them as a plan.
 
 **File Management Admission**:
-The process-wide rule that direct file management and the managed task paths (scan, planning, execution) never interleave: one side is refused while the other is in flight, checked and registered atomically. Library root changes and deletions take the same slot.
+The process-wide rule that direct file management and the managed task paths (scan, planning, execution) never interleave: one side is refused while the other is in flight, checked and registered atomically. Library deletions take the same slot.
 _Avoid_: Frontend-only disabling; a queue of waiting file operations.
 
 **Workset Operation**:

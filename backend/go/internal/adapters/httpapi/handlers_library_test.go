@@ -3,13 +3,13 @@ package httpapi //nolint:testpackage // white-box tests exercise unexported inte
 import (
 	"encoding/json"
 	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
-	"time"
 
-	"github.com/Clementine33/preen/backend/internal/testutil/inventoryfixture"
-
+	"github.com/Clementine33/preen/backend/internal/adapters/filesystem"
 	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
-	"github.com/Clementine33/preen/backend/internal/admission"
 )
 
 //nolint:gocognit,funlen // CRUD scenario with many branches
@@ -128,91 +128,52 @@ func TestLibrariesCRUD(t *testing.T) {
 	})
 }
 
-// TestRootChangeTakesTheFileManagementSlot covers the admission rule that a
-// root change is a path-rewriting action (ADR 0002; ADR 0001): it goes through while
-// nothing else holds the slot, releases it again, and is refused — not queued —
-// while a scan is running.
-func TestRootChangeTakesTheFileManagementSlot(t *testing.T) {
-	gate := admission.NewGate(nil)
-	engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) { testGate(d, fixture, gate) })
-	libID := createLibraryViaAPI(t, engine, "Music", "/music")
-
-	for _, root := range []string{"/new-music", "/music"} {
-		w := doRequest(t, engine, http.MethodPatch, "/api/v1/libraries/"+libID,
-			map[string]string{"root_path": root}, nil)
-		if w.Code != http.StatusOK {
-			t.Fatalf("root change to %s: status = %d, want 200 (body=%s)", root, w.Code, w.Body.String())
-		}
-	}
-
-	release, err := gate.BeginScan()
-	if err != nil {
-		t.Fatalf("begin scan: %v", err)
-	}
-	defer release()
-	w := doRequest(t, engine, http.MethodPatch, "/api/v1/libraries/"+libID,
-		map[string]string{"root_path": "/third"}, nil)
-	if w.Code != http.StatusConflict {
-		t.Fatalf("status while scanning = %d, want 409 (body=%s)", w.Code, w.Body.String())
-	}
-	if code, _ := errorEnvelope(t, w); code != "BUSY" {
-		t.Fatalf("code = %q, want BUSY", code)
-	}
-}
-
-func TestPatchLibraryRootInvalidatesDerivedFolders(t *testing.T) {
-	var repo *sqlite.Repository
-	engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) { repo = fixture })
-	libID := createLibraryViaAPI(t, engine, "Music", "/music")
-
-	inventoryfixture.SeedInventory(t, repo, inventoryfixture.Row{Path: "/music/album", RootPath: "/music", IsDir: true})
-	if err := repo.UpdateLibraryScanState(libID, "completed", "", time.Now()); err != nil {
-		t.Fatalf("UpdateLibraryScanState failed: %v", err)
-	}
-
-	w := doRequest(t, engine, http.MethodPatch, "/api/v1/libraries/"+libID,
-		map[string]string{"root_path": "/new-music"}, nil)
-	if w.Code != http.StatusOK {
-		t.Fatalf("patch status = %d, want 200 (body=%s)", w.Code, w.Body.String())
-	}
-	var updated libraryResponse
-	if err := json.Unmarshal(w.Body.Bytes(), &updated); err != nil {
-		t.Fatalf("decode updated library: %v", err)
-	}
-	if updated.LastScanAt != nil || updated.LastScanStatus != "" || updated.LastScanError != "" {
-		t.Fatalf("scan state was not reset: %+v", updated)
-	}
-
-	// The inventory of the old root is gone: the listing endpoint arrives with
-	// the workbench routes, so this asserts the storage fact.
-	stale, scanErr := repo.ListEntriesUnderPath("/music")
-	if scanErr != nil {
-		t.Fatalf("read stale entries: %v", scanErr)
-	}
-	if len(stale) != 0 {
-		t.Fatalf("root change retained %d stale entries", len(stale))
-	}
-}
-
 func TestLibraryOverlapHTTPRefusals(t *testing.T) {
 	engine := newTestServer(t, nil)
 	createLibraryViaAPI(t, engine, "outer", "/a")
-	sibling := createLibraryViaAPI(t, engine, "sibling", "/b")
-	for _, req := range []struct{ method, path string }{
-		{http.MethodPost, "/api/v1/libraries"},
-		{http.MethodPatch, "/api/v1/libraries/" + sibling},
-	} {
-		w := doRequest(
-			t,
-			engine,
-			req.method,
-			req.path,
-			map[string]string{"name": "nested", "root_path": "/a/nested"},
-			nil,
-		)
-		code, message := errorEnvelope(t, w)
-		if w.Code != http.StatusConflict || code != "LIBRARY_ROOT_OVERLAP" || message == "" {
-			t.Fatalf("%s refusal: %d %s", req.method, w.Code, w.Body.String())
+	createLibraryViaAPI(t, engine, "sibling", "/b")
+	w := doRequest(t, engine, http.MethodPost, "/api/v1/libraries",
+		map[string]string{"name": "nested", "root_path": "/a/nested"}, nil)
+	code, message := errorEnvelope(t, w)
+	if w.Code != http.StatusConflict || code != "LIBRARY_ROOT_OVERLAP" || message == "" {
+		t.Fatalf("refusal: %d %s", w.Code, w.Body.String())
+	}
+}
+
+// TestLibraryRootIsCheckedAtCreation: a root must exist as a directory (400
+// LIBRARY_ROOT_INVALID), and it is fixed afterwards: PATCH has no root_path.
+func TestLibraryRootIsCheckedAtCreation(t *testing.T) {
+	engine := newTestServer(t, func(d *Dependencies, _ *sqlite.Repository) {
+		d.RootCheck = filesystem.CheckLibraryRoot
+	})
+	missing := filepath.Join(t.TempDir(), "gone")
+	file := filepath.Join(t.TempDir(), "file")
+	if err := os.WriteFile(file, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	post := func(root string) *httptest.ResponseRecorder {
+		return doRequest(t, engine, http.MethodPost, "/api/v1/libraries",
+			map[string]string{"name": "m", "root_path": root}, nil)
+	}
+	for _, root := range []string{missing, file} {
+		if w := post(root); w.Code != http.StatusBadRequest {
+			t.Fatalf("create %q: status = %d, want 400 (body=%s)", root, w.Code, w.Body.String())
+		} else if code, _ := errorEnvelope(t, w); code != "LIBRARY_ROOT_INVALID" {
+			t.Fatalf("create %q: code = %q", root, code)
 		}
+	}
+
+	w := post(t.TempDir())
+	if w.Code != http.StatusCreated {
+		t.Fatalf("create existing dir: status = %d (body=%s)", w.Code, w.Body.String())
+	}
+	var lib libraryResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &lib); err != nil {
+		t.Fatal(err)
+	}
+	w = doRequest(t, engine, http.MethodPatch, "/api/v1/libraries/"+lib.ID,
+		map[string]string{"root_path": t.TempDir()}, nil)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("patch root_path: status = %d, want 400 (body=%s)", w.Code, w.Body.String())
 	}
 }

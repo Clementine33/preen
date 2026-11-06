@@ -9,6 +9,18 @@ import (
 	"github.com/Clementine33/preen/backend/internal/library"
 )
 
+// checkRoot is the save-time physical check of a root being set: a typo fails
+// here as 400 LIBRARY_ROOT_INVALID instead of surfacing later as a failing
+// scan. The library service stays lexical (docs/api/libraries.md), so the
+// check sits at this boundary and a server without RootCheck skips it.
+func (s *Server) checkRoot(w http.ResponseWriter, root string) bool {
+	if s.deps.RootCheck == nil || s.deps.RootCheck(root) == nil {
+		return true
+	}
+	writeError(w, http.StatusBadRequest, "LIBRARY_ROOT_INVALID", "library root must be an existing directory")
+	return false
+}
+
 // library loads the library of the request path.
 func (s *Server) library(w http.ResponseWriter, r *http.Request) (*library.Library, bool) {
 	lib, err := s.deps.Library.Get(r.PathValue("id"))
@@ -44,6 +56,9 @@ func (s *Server) createLibrary(w http.ResponseWriter, r *http.Request) {
 		writeDecodeError(w, err, "invalid library payload")
 		return
 	}
+	if !s.checkRoot(w, req.RootPath) {
+		return
+	}
 	lib, err := s.deps.Library.Create(req.Name, req.RootPath)
 	if err != nil {
 		if errors.Is(err, library.ErrLibraryRootOverlap) {
@@ -68,9 +83,9 @@ func (s *Server) getLibrary(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, toLibraryResponse(lib))
 }
 
-// patchLibrary edits one library. Only the fields the request carries change;
-// a root change is a path-rewriting action and an admission refusal is one of
-// its legitimate answers (ADR 0002).
+// patchLibrary edits one library's name and storage class. Only the fields the
+// request carries change; the root is fixed at creation, so a root_path field
+// is an unknown field.
 func (s *Server) patchLibrary(w http.ResponseWriter, r *http.Request) {
 	var req libraryPatchRequest
 	if err := decodeJSON(w, r, &req); err != nil {
@@ -91,26 +106,13 @@ func (s *Server) patchLibrary(w http.ResponseWriter, r *http.Request) {
 		}
 		storageClass = &value
 	}
-	updated, err := s.deps.Library.Patch(r.PathValue("id"), req.Name, req.RootPath, storageClass)
+	updated, err := s.deps.Library.Patch(r.PathValue("id"), req.Name, storageClass)
 	if err != nil {
 		switch {
 		case errors.Is(err, library.ErrInvalidStorageClass):
 			writeError(w, http.StatusBadRequest, "INVALID_STORAGE_CLASS", err.Error())
-		case admission.IsBusy(err):
-			writeBusyError(w, err)
-		case errors.Is(err, library.ErrLibraryRootOverlap):
-			writeError(w, http.StatusConflict, "LIBRARY_ROOT_OVERLAP", err.Error())
-		case errors.Is(err, library.ErrLibraryExists):
-			writeError(w, http.StatusConflict, "LIBRARY_EXISTS", "a library with this root path already exists")
 		case errors.Is(err, library.ErrLibraryNotFound):
 			writeError(w, http.StatusNotFound, "LIBRARY_NOT_FOUND", "library not found")
-		case errors.Is(err, library.ErrLibraryHasWorksets):
-			writeError(
-				w,
-				http.StatusConflict,
-				"LIBRARY_HAS_WORKSETS",
-				"cannot change the library root while a record is linked; delete the library (its record goes with it) and re-create it at the new root",
-			)
 		default:
 			writeInternal(w, err, "failed to update library")
 		}

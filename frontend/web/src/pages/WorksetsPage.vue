@@ -75,7 +75,7 @@ async function saveLibrary({ storage_class, ...input }: CreateLibraryInput & { s
     if (editing.value && editingLibrary.value) {
       await updateMutation.mutateAsync({
         id: editingLibrary.value.id,
-        input: { ...input, storage_class },
+        input: { name: input.name, storage_class },
       })
     }
     else {

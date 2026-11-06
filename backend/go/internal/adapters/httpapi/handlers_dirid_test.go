@@ -218,43 +218,6 @@ func TestDirIDFollowsThePathNotTheFilesystemEntity(t *testing.T) {
 	}
 }
 
-// TestDirIDStopsResolvingAfterARootChange covers the other invalidation: the
-// library root is part of the identity, so the same relative path under a new
-// root is a different directory and the old links are gone.
-func TestDirIDStopsResolvingAfterARootChange(t *testing.T) {
-	var repo *sqlite.Repository
-	engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) { repo = fixture })
-	libID, oldRoot := treeLibrary(t, engine, repo, "Music")
-	seedDir(t, repo, oldRoot, "albumA")
-	oldIdentity := dirIDFor(t, engine, libID, "albumA")
-
-	newRoot := t.TempDir()
-	w := doRequest(t, engine, http.MethodPatch, "/api/v1/libraries/"+libID,
-		map[string]string{"root_path": newRoot}, nil)
-	if w.Code != http.StatusOK {
-		t.Fatalf("root change status = %d, want 200 (body=%s)", w.Code, w.Body.String())
-	}
-	seedDir(t, repo, newRoot, "albumA")
-
-	newIdentity := dirIDFor(t, engine, libID, "albumA")
-	if newIdentity == oldIdentity {
-		t.Fatal("the same path under a new root kept the old identity")
-	}
-	if code, body := treeFor(t, engine, "", libID, oldIdentity); code != http.StatusNotFound {
-		t.Fatalf("the old root's identity resolved with %d (%v), want 404", code, body)
-	}
-	if code, body := treeFor(
-		t,
-		engine,
-		"",
-		libID,
-		newIdentity,
-	); code != http.StatusOK ||
-		body["member_path"] != "albumA" {
-		t.Fatalf("the new root's identity resolved to %v / %v", code, body)
-	}
-}
-
 // TestADirectoryOutsideTheInventoryHasNoIdentity covers where the identity
 // comes from: the scanned inventory, not the disk. A directory no scan has seen
 // has no identity to name, and its path-derived value is unknown.

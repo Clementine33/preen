@@ -13,7 +13,6 @@ import PlanReviewTree from '@/features/folders/PlanReviewTree.vue'
 import { ApiError, useApiClient } from '@/lib/api/client'
 import { errorDetails } from '@/lib/api/error'
 import { CONVERSION, MEMBER_ROOT_TARGET } from '@/lib/api/types'
-import { rootPathIdentityKey } from '@/lib/root-path-identity'
 import {
   fileOperationMutationOptions,
   memberTreeQueryOptions,
@@ -69,21 +68,10 @@ const recordChanged = computed(
   () => Boolean(memberId.value) && recordQuery.isSuccess.value && member.value === null,
 )
 
-const { query: librariesQuery, librariesData } = useLibraryList()
-
-// The root identity scopes the cache: a genuine root change invalidates the
-// stored trees instead of showing another directory's contents.
-const rootIdentity = computed(() => {
-  const library = librariesData.value.find(item => item.id === libraryId.value)
-  if (library)
-    return rootPathIdentityKey(library.root_path)
-  if (librariesQuery.isSuccess.value || librariesQuery.error.value)
-    return 'unresolved-root'
-  return null
-})
+useLibraryList()
 
 const treeQuery = useQuery(() =>
-  memberTreeQueryOptions(api, libraryId.value, rootIdentity.value, dirId.value),
+  memberTreeQueryOptions(api, libraryId.value, dirId.value),
 )
 const tree = computed<TreeNode | null>(() => treeQuery.data.value?.tree ?? null)
 /** The work the directory is bound to; unbound directories have no card. */
@@ -160,10 +148,9 @@ function setMode(next: 'current' | 'plan') {
 
 // ---- refreshing -------------------------------------------------------
 
-// Options are read through a getter: the root identity resolves after setup on
-// a cold load, and a mutation that captured '' would write to a dead cache key.
+// Options are read through a getter so the mutation follows the current library.
 const refreshMutation = useMutation(() =>
-  refreshMemberTreeMutationOptions(api, queryClient, libraryId.value, rootIdentity.value ?? ''),
+  refreshMemberTreeMutationOptions(api, queryClient, libraryId.value),
 )
 const refreshError = ref<string | null>(null)
 
@@ -220,7 +207,7 @@ const result = ref<FileOperationResult | null>(null)
 const opError = ref<string | null>(null)
 
 const fileOps = useMutation(() =>
-  fileOperationMutationOptions(api, queryClient, libraryId.value, rootIdentity.value ?? ''),
+  fileOperationMutationOptions(api, queryClient, libraryId.value),
 )
 const busyApplying = computed(() => fileOps.isPending.value)
 const modifyDisabled = computed(() => busyApplying.value || refreshing.value || Boolean(treeError.value))

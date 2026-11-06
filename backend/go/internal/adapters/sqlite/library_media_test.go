@@ -23,7 +23,7 @@ func TestMediaCandidateBatchCapturesOwningLibraryLimit(t *testing.T) {
 	}
 	libs := library.NewService(repo, nil, repo, nil)
 	class := library.StorageSSD
-	if _, err = libs.Patch(lib.ID, nil, nil, &class); err != nil {
+	if _, err = libs.Patch(lib.ID, nil, &class); err != nil {
 		t.Fatal(err)
 	}
 	if _, err = repo.CreateLibrary("HDD", "/hdd"); err != nil {
@@ -33,12 +33,7 @@ func TestMediaCandidateBatchCapturesOwningLibraryLimit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = libs.Patch(win.ID, nil, nil, &class); err != nil {
-		t.Fatal(err)
-	}
-	// Inventory keeps the old spelling when a root identity is unchanged.
-	renamedRoot := "c:/music"
-	if _, err = libs.Patch(win.ID, nil, &renamedRoot, nil); err != nil {
+	if _, err = libs.Patch(win.ID, nil, &class); err != nil {
 		t.Fatal(err)
 	}
 	for _, root := range []string{"/ssd", "/hdd", "/unowned", "C:/Music"} {
@@ -57,7 +52,7 @@ func TestMediaCandidateBatchCapturesOwningLibraryLimit(t *testing.T) {
 		t.Fatalf("batch=%v", batch)
 	}
 	class = library.StorageHDD
-	if _, err = libs.Patch(lib.ID, nil, nil, &class); err != nil {
+	if _, err = libs.Patch(lib.ID, nil, &class); err != nil {
 		t.Fatal(err)
 	}
 	for _, c := range batch {

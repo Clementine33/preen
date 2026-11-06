@@ -36,8 +36,11 @@
 ```
 
 `POST /api/v1/libraries` body: `{"name":"...","root_path":"/abs/path"}`.
+The root must exist as a directory on the machine the backend runs on,
+otherwise 400 `LIBRARY_ROOT_INVALID`. Overlap and duplicate checks below stay
+lexical. The web client shows the root read-only once the library exists.
 New libraries default to `storage_class: "hdd"`. `PATCH` applies only the fields
-present (`name`, `root_path`, `storage_class`). `storage_class` accepts exactly
+present (`name`, `storage_class`). `storage_class` accepts exactly
 `"hdd"` or `"ssd"`; any other value, including empty strings and `null`, returns
 400 `INVALID_STORAGE_CLASS`. An omitted value preserves the current setting,
 including when edits to different fields overlap. Renaming a library
@@ -49,26 +52,23 @@ them, before session preparation. Neither worker counts nor a second SSD library
 list are file configuration.
 
 Library roots must be disjoint: neither configured root may be a strict
-ancestor of another. Creation and a canonical root change return 409
+ancestor of another. Creation returns 409
 `LIBRARY_ROOT_OVERLAP` for containment in either direction. Canonical duplicates
 keep 409 `LIBRARY_EXISTS`. Checks use the normal lexical root identity rules:
 POSIX case is significant; drive and UNC paths compare without case; component
 boundaries keep `/a`, `/a b` and `/ab` distinct. They do not traverse media or
 resolve filesystem aliases.
 
-A pre-existing overlapping configuration is left intact for repair. Names,
-storage class and identity-preserving root spelling edits remain available;
-deleting a conflicting library or moving its root to a disjoint location
-unblocks scanning. Media files are untouched.
+A pre-existing overlapping configuration is left intact for repair. Names and
+storage class remain editable; deleting a conflicting library unblocks
+scanning. Media files are untouched.
 
-Changing
-`root_path` clears the scanned inventory of the old root and the prior scan
-state; the library must be scanned again before anything is planned from it.
-A root change is rejected with `LIBRARY_HAS_WORKSETS` while the library still
-has a processing record: delete the library — its record goes with it — and
-re-create it at the new root.
-Both a root change and a deletion take the direct-file-management slot, so
-neither interleaves with file management (ADR 0002).
+The root is fixed at creation: member paths, the scanned inventory and copy
+bindings are all relative to it, so `PATCH` carries no `root_path` (an unknown
+field, 400). To use another directory, delete the library — its processing
+record goes with it — and create it again at the new root. Deleting takes the
+direct-file-management slot, so it does not interleave with file management
+(ADR 0002).
 
 `DELETE /api/v1/libraries/:id` removes the library **together with its
 processing record**: the record, its members, operations, drafts, plans and

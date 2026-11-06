@@ -47,9 +47,9 @@ export interface CreateLibraryInput {
   root_path: string
 }
 
+/** The root is fixed at creation, so it is not editable. */
 export interface UpdateLibraryInput {
   name?: string
-  root_path?: string
   storage_class?: StorageClass
 }
 

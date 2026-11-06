@@ -38,7 +38,7 @@ func TestExecutionFreezesLibraryStorageBeforeSessionPreparation(t *testing.T) {
 	f := newExecFixtureWithTask(t, nil, 0, []workset.Task{task})
 	libs := library.NewService(f.repo, nil, f.repo, nil)
 	class := library.StorageSSD
-	if _, err := libs.Patch(f.libraryID, nil, nil, &class); err != nil {
+	if _, err := libs.Patch(f.libraryID, nil, &class); err != nil {
 		t.Fatal(err)
 	}
 	f.runDispatcher()
@@ -54,7 +54,7 @@ func TestExecutionFreezesLibraryStorageBeforeSessionPreparation(t *testing.T) {
 		}
 		// The first session already started, including its preflight. Its width is frozen.
 		class = library.StorageHDD
-		if _, err := libs.Patch(f.libraryID, nil, nil, &class); err != nil {
+		if _, err := libs.Patch(f.libraryID, nil, &class); err != nil {
 			t.Fatal(err)
 		}
 		task.proceed <- struct{}{}

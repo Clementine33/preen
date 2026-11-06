@@ -15,18 +15,6 @@ import (
 	"github.com/Clementine33/preen/backend/internal/works/coverdelivery"
 )
 
-// insertEntryAtRoot inserts an entry belonging to another library root, so a
-// test can assert that a change scoped to one root leaves the others alone.
-func insertEntryAtRoot(t *testing.T, repo *Repository, path, parentPath, name string, isDir bool) {
-	t.Helper()
-	root, _, _ := strings.CutLast(path, "/")
-	inventoryfixture.SeedInventory(
-		t,
-		repo,
-		inventoryfixture.Row{Path: path, RootPath: root, IsDir: isDir},
-	)
-}
-
 // seedRecordWithPlan creates a processing record with a member, an operation,
 // a draft and a plan, so delete/cleanup paths have something to remove.
 func seedRecordWithPlan(t *testing.T, repo *Repository, libraryID, worksetID, planID string) error {
@@ -151,38 +139,17 @@ func TestListAndUpdateAndDeleteLibrary(t *testing.T) {
 			lib3.ID, lib2.ID, lib1.ID, libraries[0].ID, libraries[1].ID, libraries[2].ID)
 	}
 
-	// Update name and root path.
-	updated, err := repo.UpdateLibrary(lib2.ID, new("Second Renamed"), new(`/cinema`), nil)
+	// Update the name; the root is fixed at creation.
+	updated, err := repo.UpdateLibrary(lib2.ID, new("Second Renamed"), nil)
 	if err != nil {
 		t.Fatalf("UpdateLibrary failed: %v", err)
 	}
-	if updated.Name != "Second Renamed" || updated.RootPath != "/cinema" {
+	if updated.Name != "Second Renamed" || updated.RootPath != "/movies" {
 		t.Errorf("update result mismatch: got %+v", updated)
 	}
 
-	// Updating to a duplicate root path must fail with ErrLibraryExists.
-	if _, err := repo.UpdateLibrary(
-		lib3.ID,
-		new("Third"),
-		new("/cinema"),
-		nil,
-	); !errors.Is(
-		err,
-		library.ErrLibraryExists,
-	) {
-		t.Errorf("expected library.ErrLibraryExists on update to duplicate root path, got %v", err)
-	}
-
 	// Updating an unknown library must fail with ErrLibraryNotFound.
-	if _, err := repo.UpdateLibrary(
-		"no-such-id",
-		new("Nope"),
-		new("/x"),
-		nil,
-	); !errors.Is(
-		err,
-		library.ErrLibraryNotFound,
-	) {
+	if _, err := repo.UpdateLibrary("no-such-id", new("Nope"), nil); !errors.Is(err, library.ErrLibraryNotFound) {
 		t.Errorf("expected library.ErrLibraryNotFound on update of unknown id, got %v", err)
 	}
 
@@ -260,36 +227,6 @@ func TestDeleteLibraryRetiresExecutionCoverDemands(t *testing.T) {
 		if err := repo.DB().QueryRow("SELECT COUNT(*) FROM " + table).Scan(&count); err != nil || count != 0 {
 			t.Fatalf("%s remains after library deletion: %d %v", table, count, err)
 		}
-	}
-}
-
-func TestUpdateLibraryRootClearsDerivedState(t *testing.T) {
-	repo := newTestRepository(t)
-	lib, err := repo.CreateLibrary("Music", "/music")
-	if err != nil {
-		t.Fatalf("CreateLibrary failed: %v", err)
-	}
-	insertEntry(t, repo, "/music", "", "music", true)
-	insertEntry(t, repo, "/music/album", "/music", "album", true)
-	insertEntry(t, repo, "/music/album/01.flac", "/music/album", "01.flac", false)
-	insertEntryAtRoot(t, repo, "/movies", "/movies", "movie.mp4", false)
-	if stateErr := repo.UpdateLibraryScanState(lib.ID, "completed", "", time.Now()); stateErr != nil {
-		t.Fatalf("UpdateLibraryScanState failed: %v", stateErr)
-	}
-
-	updated, err := repo.UpdateLibrary(lib.ID, new("Music"), new("/new-music"), nil)
-	if err != nil {
-		t.Fatalf("UpdateLibrary failed: %v", err)
-	}
-	if updated.RootPath != "/new-music" {
-		t.Fatalf("root_path = %q, want /new-music", updated.RootPath)
-	}
-	if updated.LastScanAt != nil || updated.LastScanStatus != "" || updated.LastScanError != "" {
-		t.Fatalf("scan state was not reset: %+v", updated)
-	}
-	stale, err := repo.ListEntriesUnderPath("/music")
-	if err != nil || len(stale) != 0 {
-		t.Fatalf("root change retained old inventory: %+v, %v", stale, err)
 	}
 }
 
@@ -437,35 +374,6 @@ func TestCreateLibraryCanonicalIdentity(t *testing.T) {
 	}
 	if _, err := repo.CreateLibrary("Four", `c:\music\`); !errors.Is(err, library.ErrLibraryExists) {
 		t.Errorf("expected library.ErrLibraryExists for `c:\\music\\` vs `C:\\Music`, got %v", err)
-	}
-}
-
-func TestUpdateLibraryEquivalentRootKeepsDerivedState(t *testing.T) {
-	repo := newTestRepository(t)
-	lib, err := repo.CreateLibrary("Music", "/music")
-	if err != nil {
-		t.Fatalf("CreateLibrary failed: %v", err)
-	}
-	insertEntry(t, repo, "/music/album", "/music", "album", true)
-	if stateErr := repo.UpdateLibraryScanState(lib.ID, "completed", "", time.Now()); stateErr != nil {
-		t.Fatalf("UpdateLibraryScanState failed: %v", stateErr)
-	}
-
-	// A spelling-only root edit must not invalidate folders or scan state,
-	// and the stored root is the cleaned canonical form.
-	updated, err := repo.UpdateLibrary(lib.ID, new("Music"), new("/music/."), nil)
-	if err != nil {
-		t.Fatalf("UpdateLibrary failed: %v", err)
-	}
-	if updated.RootPath != "/music" {
-		t.Errorf("expected cleaned root_path /music, got %q", updated.RootPath)
-	}
-	if updated.LastScanAt == nil || updated.LastScanStatus != "completed" {
-		t.Errorf("scan state must be retained for spelling-only root update: %+v", updated)
-	}
-	kept, err := repo.ListEntriesUnderPath("/music")
-	if err != nil || len(kept) != 1 {
-		t.Fatalf("inventory must survive a spelling-only root update: %+v, %v", kept, err)
 	}
 }
 

@@ -458,8 +458,8 @@ func runServer(
 	}()
 
 	handlers := newActiveHandlers(httpapi.NewServer(httpapi.Dependencies{
-
 		Library:        services.library,
+		RootCheck:      filesystem.CheckLibraryRoot,
 		Catalog:        services.catalog,
 		Token:          server.Token,
 		CORSOrigins:    ParseCORSOrigins(os.Getenv("PREEN_CORS_ORIGINS")),

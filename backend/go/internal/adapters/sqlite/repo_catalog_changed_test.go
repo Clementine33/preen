@@ -71,18 +71,14 @@ func TestCatalogChangedFiresOnceAfterEachCommitThatChangesTheListing(t *testing.
 	}
 	expect(3, "rolled-back relocation")
 
-	if _, err = repo.UpdateLibrary(lib.ID, new("renamed"), new("/music"), nil); err != nil {
+	if _, err = repo.UpdateLibrary(lib.ID, new("renamed"), nil); err != nil {
 		t.Fatal(err)
 	}
 	expect(3, "name-only update")
-	if _, err = repo.UpdateLibrary(lib.ID, new("renamed"), new("/elsewhere"), nil); err != nil {
-		t.Fatal(err)
-	}
-	expect(4, "root change")
 	if err = repo.DeleteLibrary(lib.ID); err != nil {
 		t.Fatal(err)
 	}
-	expect(5, "library delete")
+	expect(4, "library delete")
 }
 
 func TestLocalCoversPicksOneStableCoverPerWorkFromTheInventory(t *testing.T) {

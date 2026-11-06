@@ -1,6 +1,5 @@
 import type { ApiClientContract, Library, LibraryDir, TreeNode } from '@/lib/api/types'
 import { describe, expect, it, vi } from 'vitest'
-import { rootPathIdentityKey } from '@/lib/root-path-identity'
 import { apiStub as sharedApiStub } from '@/test/api-stub'
 import { createTestQueryClient } from '@/test/query-client'
 import {
@@ -22,8 +21,6 @@ const libA: Library = {
   last_scan_error: '',
   storage_class: 'hdd',
 }
-
-const libADifferentRoot: Library = { ...libA, root_path: 'D:\\Audio\\Archive' }
 
 const newLibrary: Library = { ...libA, id: 'lib-new', name: 'New library' }
 
@@ -62,9 +59,9 @@ const workKeys = [
 
 function seedDerivedCaches(client: ReturnType<typeof createTestQueryClient>) {
   for (const key of workKeys) client.setQueryData(key, 'cached')
-  client.setQueryData(queryKeys.libraries.dirs('lib-a', rootPathIdentityKey(libA.root_path)), dirs)
+  client.setQueryData(queryKeys.libraries.dirs('lib-a'), dirs)
   client.setQueryData(
-    queryKeys.libraries.memberTree('lib-a', rootPathIdentityKey(libA.root_path), 'dir-alpha'),
+    queryKeys.libraries.memberTree('lib-a', 'dir-alpha'),
     treeRoot,
   )
 }
@@ -119,61 +116,9 @@ describe('library mutation cache synchronization', () => {
 
     expect(client.getQueryData<Library[]>(queryKeys.libraries.list())).toContainEqual(renamed)
     for (const key of workKeys) expect(client.getQueryData(key)).toBe('cached')
-    expect(client.getQueryData(queryKeys.libraries.dirs('lib-a', rootPathIdentityKey(libA.root_path)))).toEqual(
+    expect(client.getQueryData(queryKeys.libraries.dirs('lib-a'))).toEqual(
       dirs,
     )
-  })
-
-  it('spelling-equivalent root update preserves derived caches', async () => {
-    const client = createTestQueryClient()
-    client.setQueryData(queryKeys.libraries.list(), [libA])
-    seedDerivedCaches(client)
-    const equivalent = { ...libA, root_path: 'C:\\Audio\\archive' }
-    const api = apiStub({
-      updateLibrary: vi.fn().mockResolvedValue(equivalent),
-    })
-    const options = updateLibraryMutationOptions(api, client)
-
-    const updated = await options.mutationFn({
-      id: 'lib-a',
-      input: { root_path: 'C:\\Audio\\archive' },
-    })
-    options.onSuccess?.(updated, {
-      id: 'lib-a',
-      input: { root_path: 'C:\\Audio\\archive' },
-    }, undefined)
-
-    expect(client.getQueryData(queryKeys.libraries.dirs('lib-a', rootPathIdentityKey(libA.root_path)))).toEqual(
-      dirs,
-    )
-  })
-
-  it('genuine root identity change removes derived folder and tree caches', async () => {
-    const client = createTestQueryClient()
-    client.setQueryData(queryKeys.libraries.list(), [libA])
-    seedDerivedCaches(client)
-    const api = apiStub({
-      updateLibrary: vi.fn().mockResolvedValue(libADifferentRoot),
-    })
-    const options = updateLibraryMutationOptions(api, client)
-
-    const updated = await options.mutationFn({
-      id: 'lib-a',
-      input: { root_path: 'D:\\Audio\\Archive' },
-    })
-    options.onSuccess?.(updated, {
-      id: 'lib-a',
-      input: { root_path: 'D:\\Audio\\Archive' },
-    }, undefined)
-
-    expect(client.getQueryData<Library[]>(queryKeys.libraries.list())).toContainEqual(libADifferentRoot)
-    await vi.waitFor(() => {
-      for (const key of workKeys) expect(client.getQueryData(key)).toBeUndefined()
-      expect(client.getQueryData(queryKeys.libraries.dirs('lib-a', rootPathIdentityKey(libA.root_path)))).toBeUndefined()
-      expect(
-        client.getQueryData(queryKeys.libraries.memberTree('lib-a', rootPathIdentityKey(libA.root_path), 'Alpha')),
-      ).toBeUndefined()
-    })
   })
 
   it('delete removes the row and the library-derived cache subtrees', async () => {
@@ -191,16 +136,16 @@ describe('library mutation cache synchronization', () => {
     expect(client.getQueryData<Library[]>(queryKeys.libraries.list())?.map(lib => lib.id)).toEqual(['lib-new'])
     await vi.waitFor(() => {
       for (const key of workKeys) expect(client.getQueryData(key)).toBeUndefined()
-      expect(client.getQueryData(queryKeys.libraries.dirs('lib-a', rootPathIdentityKey(libA.root_path)))).toBeUndefined()
+      expect(client.getQueryData(queryKeys.libraries.dirs('lib-a'))).toBeUndefined()
       expect(
-        client.getQueryData(queryKeys.libraries.memberTree('lib-a', rootPathIdentityKey(libA.root_path), 'Alpha')),
+        client.getQueryData(queryKeys.libraries.memberTree('lib-a', 'Alpha')),
       ).toBeUndefined()
     })
   })
   it('file operations remove stale work list, detail and manifest caches', async () => {
     const client = createTestQueryClient()
     seedDerivedCaches(client)
-    const options = fileOperationMutationOptions(apiStub(), client, 'lib-a', rootPathIdentityKey(libA.root_path))
+    const options = fileOperationMutationOptions(apiStub(), client, 'lib-a')
     const input = {
       dirId: 'dir-alpha',
       body: { member_path: 'Alpha', operation: 'soft_delete' as const, items: [] },

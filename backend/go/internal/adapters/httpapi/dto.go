@@ -93,6 +93,5 @@ type libraryCreateRequest struct {
 // fields distinguish absent fields from explicit empty values.
 type libraryPatchRequest struct {
 	Name         *string         `json:"name"`
-	RootPath     *string         `json:"root_path"`
 	StorageClass json.RawMessage `json:"storage_class"`
 }

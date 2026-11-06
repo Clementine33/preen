@@ -569,7 +569,7 @@ export async function syncAfterExecutionTerminal(
     refreshOrRemoveQueries(queryClient, queryKeys.worksets.executionsPrefix(worksetId, operation)),
     ...(libraryId
       ? [
-          refreshOrRemoveQueries(queryClient, queryKeys.libraries.dirsPrefix(libraryId)),
+          refreshOrRemoveQueries(queryClient, queryKeys.libraries.dirs(libraryId)),
           refreshOrRemoveQueries(queryClient, queryKeys.libraries.memberTreesPrefix(libraryId)),
         ]
       : []),

@@ -1,5 +1,4 @@
 import type { QueryClient } from '@tanstack/vue-query'
-import type { ComputedRef, MaybeRefOrGetter } from 'vue'
 import type {
   ApiClientContract,
   CreateLibraryInput,
@@ -11,9 +10,8 @@ import type {
   UpdateLibraryInput,
 } from '@/lib/api/types'
 import { useQuery } from '@tanstack/vue-query'
-import { computed, toValue, watchEffect } from 'vue'
+import { computed, watchEffect } from 'vue'
 import { useApiClient } from '@/lib/api/client'
-import { rootPathIdentityKey } from '@/lib/root-path-identity'
 import { useLibraryUiStore } from '@/stores/library-ui'
 import { refreshOrRemoveQueries } from './cache-sync'
 import { TREE_GC_TIME } from './query-client'
@@ -37,14 +35,13 @@ export function libraryListQueryOptions(api: ApiClientContract) {
 export function dirsQueryOptions(
   api: ApiClientContract,
   libraryId: string | null,
-  rootIdentity: string | null,
 ) {
   return {
-    queryKey: queryKeys.libraries.dirs(libraryId ?? '', rootIdentity ?? ''),
-    enabled: Boolean(libraryId && rootIdentity),
+    queryKey: queryKeys.libraries.dirs(libraryId ?? ''),
+    enabled: Boolean(libraryId),
     queryFn: ({ signal }: { signal?: AbortSignal }) => {
-      if (!libraryId || !rootIdentity)
-        throw new Error('dirs query requires a library and root identity')
+      if (!libraryId)
+        throw new Error('dirs query requires a library')
       return api.listDirs(libraryId, signal)
     },
   }
@@ -60,16 +57,15 @@ export function dirsQueryOptions(
 export function memberTreeQueryOptions(
   api: ApiClientContract,
   libraryId: string | null,
-  rootIdentity: string | null,
   dirId: string | null,
 ) {
   return {
-    queryKey: queryKeys.libraries.memberTree(libraryId ?? '', rootIdentity ?? '', dirId ?? ''),
-    enabled: Boolean(libraryId && rootIdentity && dirId),
+    queryKey: queryKeys.libraries.memberTree(libraryId ?? '', dirId ?? ''),
+    enabled: Boolean(libraryId && dirId),
     gcTime: TREE_GC_TIME,
     queryFn: ({ signal }: { signal?: AbortSignal }) => {
-      if (!libraryId || !rootIdentity || !dirId) {
-        throw new Error('member tree query requires a library, root identity and directory id')
+      if (!libraryId || !dirId) {
+        throw new Error('member tree query requires a library and directory id')
       }
       return api.getMemberTree(libraryId, dirId, signal)
     },
@@ -85,13 +81,12 @@ export function refreshMemberTreeMutationOptions(
   api: ApiClientContract,
   queryClient: QueryClient,
   libraryId: string,
-  rootIdentity: string,
 ) {
   return {
     mutationFn: (dirId: string) => api.refreshMemberTree(libraryId, dirId),
     onSuccess: (result: MemberTreeResponse, dirId: string) => {
       queryClient.setQueryData(
-        queryKeys.libraries.memberTree(libraryId, rootIdentity, dirId),
+        queryKeys.libraries.memberTree(libraryId, dirId),
         result,
       )
     },
@@ -109,7 +104,6 @@ export function fileOperationMutationOptions(
   api: ApiClientContract,
   queryClient: QueryClient,
   libraryId: string,
-  rootIdentity: string,
 ) {
   return {
     mutationFn: (input: {
@@ -120,9 +114,9 @@ export function fileOperationMutationOptions(
       void sweepWorkCaches(queryClient)
       void refreshOrRemoveQueries(
         queryClient,
-        queryKeys.libraries.memberTree(libraryId, rootIdentity, input.dirId),
+        queryKeys.libraries.memberTree(libraryId, input.dirId),
       )
-      void refreshOrRemoveQueries(queryClient, queryKeys.libraries.dirs(libraryId, rootIdentity))
+      void refreshOrRemoveQueries(queryClient, queryKeys.libraries.dirs(libraryId))
       // A rename, move or deletion inside a member changes the inputs a plan
       // was frozen from, so the record's own view is refetched too.
       void refreshOrRemoveQueries(queryClient, queryKeys.worksets.current(libraryId, 'conversion'))
@@ -156,24 +150,12 @@ export function updateLibraryMutationOptions(api: ApiClientContract, queryClient
       _variables: { id: string, input: UpdateLibraryInput },
       _context: unknown,
     ) => {
-      const previous = queryClient
-        .getQueryData<Library[]>(queryKeys.libraries.list())
-        ?.find(item => item.id === updated.id)
       queryClient.setQueryData<Library[]>(queryKeys.libraries.list(), old =>
         old
           ? old.map(item => (item.id === updated.id
               ? updated
               : item))
           : old)
-      if (previous && rootPathIdentityKey(previous.root_path) !== rootPathIdentityKey(updated.root_path)) {
-        void sweepWorkCaches(queryClient)
-        // Genuine root identity change: the backend discarded materialized
-        // folders, so every derived folder/tree cache for this library is
-        // invalid. Mounted observers refetch; inactive entries are dropped.
-        // (The caller clears UI selection — the mutation module has no store.)
-        void refreshOrRemoveQueries(queryClient, queryKeys.libraries.dirsPrefix(updated.id))
-        void refreshOrRemoveQueries(queryClient, queryKeys.libraries.memberTreesPrefix(updated.id))
-      }
     },
   }
 }
@@ -187,7 +169,7 @@ export function deleteLibraryMutationOptions(api: ApiClientContract, queryClient
         old
           ? old.filter(item => item.id !== id)
           : old)
-      void refreshOrRemoveQueries(queryClient, queryKeys.libraries.dirsPrefix(id))
+      void refreshOrRemoveQueries(queryClient, queryKeys.libraries.dirs(id))
       void refreshOrRemoveQueries(queryClient, queryKeys.libraries.memberTreesPrefix(id))
       // Deleting a library takes its processing record with it, so every
       // record-scoped cache of that library is dropped rather than refreshed.
@@ -216,18 +198,4 @@ export function useLibraryList() {
     () => librariesData.value.find(library => library.id === ui.activeLibraryId) ?? null,
   )
   return { query, librariesData, activeLibrary }
-}
-
-// Canonical root identity for a library record, as a reactive value. Used to
-// scope folder/tree query keys so spelling-equivalent root edits keep their
-// cache while genuine root changes invalidate it.
-export function useRootIdentity(
-  library: MaybeRefOrGetter<Library | null | undefined>,
-): ComputedRef<string | null> {
-  return computed(() => {
-    const lib = toValue(library)
-    return lib
-      ? rootPathIdentityKey(lib.root_path)
-      : null
-  })
 }

@@ -53,6 +53,14 @@ describe('libraryManager storage class', () => {
     ])
   })
 
+  it('locks the root of an existing library and leaves a new one editable', async () => {
+    await attach({ open: true, library })
+    expect(document.querySelector<HTMLInputElement>('[data-testid="library-root"]')!.readOnly).toBe(true)
+    expect(document.body.textContent).not.toContain('选择文件夹')
+    await attach({ open: true })
+    expect(document.querySelectorAll<HTMLInputElement>('[data-testid="library-root"]')[1].readOnly).toBe(false)
+  })
+
   it('defaults a new library to HDD', async () => {
     await attach({ open: true })
     expect(ssdInput().checked).toBe(false)

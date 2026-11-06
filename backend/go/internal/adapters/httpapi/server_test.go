@@ -58,7 +58,7 @@ func wireInventory(d *Dependencies, fixture *sqlite.Repository, gate *admission.
 }
 
 // testGate installs one gate into every path that takes a slot — the library
-// service (root change, deletion), the scanning entry and direct file
+// service (deletion), the scanning entry and direct file
 // management — so a test that holds the slot really refuses them all. One
 // shared gate is the point: a path holding its own would pass vacuously.
 func testGate(d *Dependencies, fixture *sqlite.Repository, gate *admission.Gate) {

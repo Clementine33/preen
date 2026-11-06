@@ -22,7 +22,6 @@ import {
   CONVERSION,
 
 } from '@/lib/api/types'
-import { rootPathIdentityKey } from '@/lib/root-path-identity'
 import { newIdempotencyKey } from '@/lib/utils'
 import { healthQueryOptions } from '@/queries/health'
 import { deleteLibraryMutationOptions, dirsQueryOptions, updateLibraryMutationOptions, useLibraryList } from '@/queries/libraries'
@@ -70,15 +69,7 @@ const mediaFactsLine = computed(() => {
 })
 const filesOpen = computed(() => route.name === 'overview-files')
 
-const { query: librariesQuery, librariesData, activeLibrary } = useLibraryList()
-const rootIdentity = computed(() => {
-  const library = librariesData.value.find(item => item.id === libraryId.value)
-  if (library)
-    return rootPathIdentityKey(library.root_path)
-  if (librariesQuery.isSuccess.value || librariesQuery.error.value)
-    return 'unresolved-root'
-  return null
-})
+const { activeLibrary } = useLibraryList()
 
 watch(
   libraryId,
@@ -89,7 +80,7 @@ watch(
   { immediate: true },
 )
 
-const dirsQuery = useQuery(() => dirsQueryOptions(api, libraryId.value, rootIdentity.value))
+const dirsQuery = useQuery(() => dirsQueryOptions(api, libraryId.value))
 watchEffect(() => {
   if (dirsQuery.data.value)
     ui.reconcileDirs(libraryId.value, dirsQuery.data.value)
@@ -250,14 +241,15 @@ async function submit() {
 const updateLibraryMutation = useMutation(updateLibraryMutationOptions(api, queryClient))
 const deleteLibraryMutation = useMutation(deleteLibraryMutationOptions(api, queryClient))
 
-async function saveLibrary(input: UpdateLibraryInput) {
+async function saveLibrary({ name, storage_class }: Required<Pick<UpdateLibraryInput, 'name' | 'storage_class'>>) {
   if (!activeLibrary.value)
     return
   savingLibrary.value = true
   try {
-    // A root change is refused by the backend while a record exists; the
-    // dialog surfaces that refusal as it is.
-    await updateLibraryMutation.mutateAsync({ id: activeLibrary.value.id, input })
+    await updateLibraryMutation.mutateAsync({
+      id: activeLibrary.value.id,
+      input: { name, storage_class },
+    })
     managerOpen.value = false
   }
   catch {

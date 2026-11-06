@@ -27,10 +27,13 @@ import (
 // settings routes that hold the classifier tag library. Any
 // may be nil until wired, and the handlers guard against that.
 type Dependencies struct {
-	// Library is the media-library business entry: creation, edits, root
-	// changes and deletions go through it, so a root change and a deletion
-	// take the admission slot without the HTTP layer knowing about it.
-	Library     *library.Service
+	// Library is the media-library business entry: creation, edits and
+	// deletions go through it, so a deletion takes the admission slot without
+	// the HTTP layer knowing about it.
+	Library *library.Service
+	// RootCheck optionally verifies at creation that a library root exists as
+	// a directory; nil skips it.
+	RootCheck   func(root string) error
 	Catalog     *conversion.Catalog
 	Token       string
 	CORSOrigins []string

@@ -7,14 +7,10 @@ var (
 	ErrLibraryExists = errors.New("library already exists")
 	// ErrLibraryRootOverlap is returned when one library root contains another.
 	ErrLibraryRootOverlap = errors.New(
-		"library roots must not contain one another; delete or change a conflicting library root before scanning",
+		"library roots must not contain one another; delete a conflicting library before scanning",
 	)
 	// ErrLibraryNotFound is returned when a library cannot be found.
 	ErrLibraryNotFound = errors.New("library not found")
-	// ErrLibraryHasWorksets is returned when a library root change is refused
-	// because a processing record is linked to the library: the record's member
-	// paths are relative to the root, so rebinding it would unbind them all.
-	ErrLibraryHasWorksets = errors.New("library has worksets")
 	// ErrGenerationInProgress is returned when an owned record has a queued or
 	// running planning session, which refuses a deletion and an execution start
 	// alike: a session may not run against a library that is going away, and an

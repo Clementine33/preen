@@ -276,7 +276,7 @@ describe('execution cache synchronization', () => {
       queryKeys.worksets.operation('ws-1', 'conversion'),
       queryKeys.worksets.revisionsPrefix('ws-1', 'conversion'),
       queryKeys.worksets.executionsPrefix('ws-1', 'conversion'),
-      queryKeys.libraries.dirsPrefix('lib-a'),
+      queryKeys.libraries.dirs('lib-a'),
       queryKeys.libraries.memberTreesPrefix('lib-a'),
     ]
     for (const key of keys) client.setQueryData(key, { marker: 'stale' })

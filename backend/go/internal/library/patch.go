@@ -1,39 +1,13 @@
 package library
 
-import "github.com/Clementine33/preen/backend/internal/librarypath"
-
-// Patch applies a partial edit: only the fields the caller sent change, the
-// rest keep the value the current row holds.
-//
-// A root change rebinds every member path of the library, so it takes the
-// direct-file-management slot: it neither interleaves with a file operation
-// nor with a scan (ADR 0002; ADR 0001). A name-only edit touches no path
-// and needs no admission. The row is read before the slot is taken, and a busy
-// slot refuses the request instead of queueing it.
-func (s *Service) Patch(id string, name, rootPath *string, storageClass *StorageClass) (*Library, error) {
-	lib, err := s.store.GetLibrary(id)
-	if err != nil {
-		return nil, err
-	}
-
+// Patch applies a partial edit of the name and storage class: only the fields
+// the caller sent change, the rest keep the value the current row holds. The
+// root is fixed at creation, so no path moves and no admission slot is needed.
+func (s *Service) Patch(id string, name *string, storageClass *StorageClass) (*Library, error) {
 	if storageClass != nil {
 		if *storageClass != StorageHDD && *storageClass != StorageSSD {
 			return nil, ErrInvalidStorageClass
 		}
 	}
-
-	newRoot := lib.RootPath
-	if rootPath != nil {
-		newRoot = *rootPath
-	}
-
-	if librarypath.RootPathKey(newRoot) != librarypath.RootPathKey(lib.RootPath) {
-		release, err := s.beginManual()
-		if err != nil {
-			return nil, err
-		}
-		defer release()
-	}
-
-	return s.store.UpdateLibrary(id, name, rootPath, storageClass)
+	return s.store.UpdateLibrary(id, name, storageClass)
 }

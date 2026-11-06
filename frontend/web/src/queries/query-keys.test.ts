@@ -6,35 +6,25 @@ describe('queryKeys', () => {
     expect(queryKeys.libraries.list()).toEqual(['libraries', 'list'])
   })
 
-  it('isolates the overview listing by library and root identity', () => {
-    expect(queryKeys.libraries.dirs('lib-a', 'root-a')).toEqual(['libraries', 'dirs', 'lib-a', 'root-a'])
-    expect(queryKeys.libraries.dirs('lib-a', 'root-b')).not.toEqual(
-      queryKeys.libraries.dirs('lib-a', 'root-a'),
-    )
-    expect(queryKeys.libraries.dirs('lib-b', 'root-a')).not.toEqual(
-      queryKeys.libraries.dirs('lib-a', 'root-a'),
-    )
+  it('isolates the overview listing by library', () => {
+    expect(queryKeys.libraries.dirs('lib-a')).toEqual(['libraries', 'dirs', 'lib-a'])
+    expect(queryKeys.libraries.dirs('lib-b')).not.toEqual(queryKeys.libraries.dirs('lib-a'))
   })
 
-  it('isolates member trees by library, root identity and member path', () => {
-    const key = queryKeys.libraries.memberTree('lib-a', 'root-a', 'albumA')
+  it('isolates member trees by library and member path', () => {
+    const key = queryKeys.libraries.memberTree('lib-a', 'albumA')
     expect(key).toEqual([
       'libraries',
       'member-trees',
       'lib-a',
-      'root-a',
       'albumA',
     ])
-    expect(queryKeys.libraries.memberTree('lib-a', 'root-a', 'albumB')).not.toEqual(key)
-    expect(queryKeys.libraries.memberTree('lib-a', 'root-b', 'albumA')).not.toEqual(key)
-    expect(queryKeys.libraries.memberTree('lib-b', 'root-a', 'albumA')).not.toEqual(key)
+    expect(queryKeys.libraries.memberTree('lib-a', 'albumB')).not.toEqual(key)
+    expect(queryKeys.libraries.memberTree('lib-b', 'albumA')).not.toEqual(key)
   })
 
-  it('supports prefix invalidation over the listing and trees of one library', () => {
-    expect(queryKeys.libraries.dirs('lib-a', 'r').slice(0, 3)).toEqual(
-      queryKeys.libraries.dirsPrefix('lib-a'),
-    )
-    expect(queryKeys.libraries.memberTree('lib-a', 'r', 'albumA').slice(0, 3)).toEqual(
+  it('supports prefix invalidation over the trees of one library', () => {
+    expect(queryKeys.libraries.memberTree('lib-a', 'albumA').slice(0, 3)).toEqual(
       queryKeys.libraries.memberTreesPrefix('lib-a'),
     )
   })

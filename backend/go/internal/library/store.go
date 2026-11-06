@@ -12,8 +12,8 @@ type Store interface {
 	ListLibraries() ([]*Library, error)
 	// GetLibrary loads one library by id.
 	GetLibrary(id string) (*Library, error)
-	// UpdateLibrary applies partial fields and atomically rejects a root change that overlaps another library.
-	UpdateLibrary(id string, name, rootPath *string, storageClass *StorageClass) (*Library, error)
+	// UpdateLibrary applies a partial name and storage-class edit; the root is fixed at creation.
+	UpdateLibrary(id string, name *string, storageClass *StorageClass) (*Library, error)
 	// DeleteLibrary removes the library and hides its record and sessions atomically.
 	DeleteLibrary(id string) error
 	// UpdateLibraryScanState records the outcome of a scan of this library.

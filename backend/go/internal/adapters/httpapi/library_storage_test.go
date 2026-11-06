@@ -6,9 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
-	"sync/atomic"
 	"testing"
-	"time"
 
 	"github.com/Clementine33/preen/backend/internal/adapters/httpapi"
 	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
@@ -84,81 +82,5 @@ func TestLibraryStorageClassPersistsThroughAPI(t *testing.T) {
 	reverted := request("PATCH", route, `{"storage_class":"hdd"}`, 200)
 	if reverted.StorageClass != "hdd" {
 		t.Fatalf("reverted library = %v", reverted)
-	}
-}
-
-// A library read can finish before a simultaneous settings edit commits.
-type storageSnapshotStore struct {
-	*sqlite.Repository
-
-	reads    atomic.Int32
-	captured chan struct{}
-	resume   chan struct{}
-}
-
-func (s *storageSnapshotStore) GetLibrary(id string) (*library.Library, error) {
-	lib, err := s.Repository.GetLibrary(id)
-	if s.reads.Add(1) == 1 {
-		close(s.captured)
-		<-s.resume
-	}
-	return lib, err
-}
-
-func TestLibraryPatchPreservesConcurrentEditsOfOtherFields(t *testing.T) {
-	for _, tc := range []struct{ name, first, second, wantName, wantRoot string }{
-		{"rename after storage", `{"name":"Renamed"}`, `{"storage_class":"ssd"}`, "Renamed", "/music"},
-		{"storage after rename", `{"storage_class":"ssd"}`, `{"name":"Renamed"}`, "Renamed", "/music"},
-		{"storage after root change", `{"storage_class":"ssd"}`, `{"root_path":"/moved"}`, "Music", "/moved"},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			repo, err := sqlite.NewRepository(filepath.Join(t.TempDir(), "library.db"))
-			if err != nil {
-				t.Fatal(err)
-			}
-			defer repo.Close()
-			lib, err := repo.CreateLibrary("Music", "/music")
-			if err != nil {
-				t.Fatal(err)
-			}
-			store := &storageSnapshotStore{Repository: repo, captured: make(chan struct{}), resume: make(chan struct{})}
-			handler := httpapi.NewServer(httpapi.Dependencies{Library: library.NewService(store, nil, repo, nil)})
-			request := func(body string) *httptest.ResponseRecorder {
-				out := httptest.NewRecorder()
-				req := httptest.NewRequest(http.MethodPatch, "/api/v1/libraries/"+lib.ID, bytes.NewBufferString(body))
-				req.Header.Set("Content-Type", "application/json")
-				handler.ServeHTTP(out, req)
-				return out
-			}
-			first := make(chan *httptest.ResponseRecorder, 1)
-			go func() { first <- request(tc.first) }()
-			select {
-			case <-store.captured:
-			case <-time.After(5 * time.Second):
-				t.Fatal("patch never read its snapshot")
-			}
-			saved := request(tc.second)
-			close(store.resume)
-			if saved.Code != http.StatusOK {
-				t.Fatalf("second patch=%d: %s", saved.Code, saved.Body)
-			}
-			select {
-			case response := <-first:
-				if response.Code != http.StatusOK {
-					t.Fatalf("first patch=%d: %s", response.Code, response.Body)
-				}
-			case <-time.After(5 * time.Second):
-				t.Fatal("patch did not return")
-			}
-			out := httptest.NewRecorder()
-			handler.ServeHTTP(out, httptest.NewRequest(http.MethodGet, "/api/v1/libraries/"+lib.ID, nil))
-			var got storageAPIResponse
-			if err := json.Unmarshal(out.Body.Bytes(), &got); err != nil {
-				t.Fatal(err)
-			}
-			if got.Name != tc.wantName || got.RootPath != tc.wantRoot || got.StorageClass != "ssd" {
-				t.Fatalf("concurrent edit lost: %+v", got)
-			}
-		})
 	}
 }

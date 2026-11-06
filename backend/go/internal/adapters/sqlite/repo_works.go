@@ -298,14 +298,14 @@ func (b *listQueryBuilder) applyFilters(filter works.Filter) {
 // addQuery matches the literal text against the number and the title. `%` and
 // `_` are ordinary characters here: instr is a substring search, where LIKE
 // would read them as wildcards.
+//
+// A query that is itself a number is a Chain Lookup: that number's own work,
+// held or not, or a held work of any original the number connects to. The two
+// share one parenthesised OR, so every other filter, library scope included,
+// still intersects both.
 func (b *listQueryBuilder) addQuery(query string) {
 	if code, ok := works.ParseWorkCode(query); ok {
-		// A query that is itself a number matches that work exactly, so the
-		// short spelling finds the row stored in the canonical one.
-		b.add(`(w.id = ? OR
-		    (t.parent_work_id = ? AND t.language IN ('CHI_HANS', 'CHI_HANT') AND
-		     EXISTS (SELECT 1 FROM work_copies lookup_copy WHERE lookup_copy.work_id = w.id)))`,
-			string(code), string(code))
+		b.add("(w.id = ? OR w.id IN ("+chainLookupSQL+"))", string(code), string(code))
 		return
 	}
 	b.add("(instr(w.id, ?) > 0 OR instr(COALESCE(w.title, ''), ?) > 0)", query, query)
@@ -407,6 +407,45 @@ const multiEditionSQL = `(EXISTS (SELECT 1 FROM work_copies me_copy WHERE me_cop
        AND CASE WHEN me.role = 'original' THEN me.work_id ELSE me.original_work_id END =
            CASE WHEN t.role = 'original' THEN t.work_id ELSE t.original_work_id END
        AND EXISTS (SELECT 1 FROM work_copies me_held WHERE me_held.work_id = me.work_id)) >= 2)`
+
+// chainLookupSQL answers the Held members of the originals a work number
+// connects to (CONTEXT.md, Chain Lookup). Roots are collected from four
+// entries: the number itself, the chain key of relation rows naming it as work
+// or parent, the work whose edition list names it (a work with no resolved
+// original there is no root: COALESCE would make it its own), and every
+// declarer of it as a child, deliberately not narrowed to its effective parent.
+// Members are held works that are a root, or Chinese translations of one, or
+// Chinese children of the number. Copies in any library count: the library
+// scope applies afterwards to what is returned, never to this evidence.
+// shortcut: original_work_id and version_root_rj have no index, so a lookup
+// scans them; add indexes if large catalogs make it slow.
+const chainLookupSQL = `WITH lookup(rj) AS (SELECT ?),
+  roots(rj) AS (
+    SELECT rj FROM lookup
+    UNION
+    SELECT CASE WHEN cl_rel.role = 'original' THEN cl_rel.work_id ELSE cl_rel.original_work_id END
+    FROM work_translations cl_rel
+    WHERE cl_rel.work_id IN (SELECT rj FROM lookup) OR cl_rel.parent_work_id IN (SELECT rj FROM lookup)
+    UNION
+    SELECT CASE WHEN cl_own.work_id IS NULL OR cl_own.role = 'original' THEN cl_ed.work_id
+                ELSE cl_own.original_work_id END
+    FROM work_language_editions cl_ed
+    LEFT JOIN work_translations cl_own ON cl_own.work_id = cl_ed.work_id
+    WHERE cl_ed.version_root_rj IN (SELECT rj FROM lookup)
+    UNION
+    SELECT CASE WHEN cl_dec.role = 'original' THEN cl_dec.work_id ELSE cl_dec.original_work_id END
+    FROM work_translations cl_dec
+    WHERE cl_dec.work_id IN (SELECT declaring_rj FROM relation_declared_children
+                             WHERE child_rj IN (SELECT rj FROM lookup))
+       OR cl_dec.parent_work_id IN (SELECT declaring_rj FROM relation_declared_children
+                                    WHERE child_rj IN (SELECT rj FROM lookup))
+  )
+  SELECT cl_root.work_id FROM work_copies cl_root WHERE cl_root.work_id IN (SELECT rj FROM roots)
+  UNION
+  SELECT cl_tr.work_id FROM work_translations cl_tr
+  WHERE cl_tr.language IN ('CHI_HANS', 'CHI_HANT')
+    AND (cl_tr.original_work_id IN (SELECT rj FROM roots) OR cl_tr.parent_work_id IN (SELECT rj FROM lookup))
+    AND EXISTS (SELECT 1 FROM work_copies cl_held WHERE cl_held.work_id = cl_tr.work_id)`
 
 // ratingRange renders the inclusive rating bounds that are present.
 func ratingRange(filter works.Filter) (string, []any) {

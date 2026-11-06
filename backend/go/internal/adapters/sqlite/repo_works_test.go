@@ -676,3 +676,248 @@ func TestMultiEditionFilterCountsHeldEditions(t *testing.T) {
 		t.Errorf("multi_edition=false: got %s, want %s", got, want)
 	}
 }
+
+// chainRow is one catalog work of a Chain Lookup scene. Numbers a scene only
+// mentions (an external original, an unreported edition page) get no row.
+type chainRow struct {
+	id, role, language, original, parent string
+	children, editionRoots               []string
+	copyIn                               int // 0 copyless, else the 1-based library
+}
+
+// chainScene builds the catalog through the real import path; only the copies
+// are inserted directly. It returns the two libraries.
+func chainScene(t *testing.T, repo *Repository, rows []chainRow) [2]string {
+	t.Helper()
+	var libs [2]string
+	for i, path := range []string{"/lib1", "/lib2"} {
+		lib, err := repo.CreateLibrary(fmt.Sprintf("L%d", i+1), path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		libs[i] = lib.ID
+	}
+	for _, row := range rows {
+		id := seedWork(t, repo, row.id)
+		in := &works.ValidatedImport{Target: id}
+		if row.role != "" {
+			group := relationsGroup(t, works.RelationRole(row.role), nil, row.children...)
+			if row.language != "" {
+				group.Language = new(row.language)
+			}
+			if row.original != "" {
+				group.OriginalRJ = new(code(t, row.original))
+			}
+			if row.parent != "" {
+				group.ParentRJ = new(code(t, row.parent))
+			}
+			in.Relations = group
+		}
+		if len(row.editionRoots) > 0 {
+			in.Editions = &works.EditionsGroup{Source: works.SourceDLsite, FetchedAt: mustTime(t, testStamp)}
+			for _, root := range row.editionRoots {
+				in.Editions.Items = append(in.Editions.Items,
+					works.LanguageEdition{VersionRootRJ: code(t, root), Language: "CHI_HANS"})
+			}
+		}
+		if in.Relations != nil || in.Editions != nil {
+			importGroups(t, repo, id, in)
+		}
+		if row.copyIn > 0 {
+			if _, err := repo.DB().Exec(
+				"INSERT INTO work_copies (id, work_id, library_id, rel_path, created_at) VALUES (?, ?, ?, ?, ?)",
+				row.id, row.id, libs[row.copyIn-1], row.id, testStamp,
+			); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	return libs
+}
+
+func listedIDs(t *testing.T, repo *Repository, filter works.Filter) []string {
+	t.Helper()
+	filter.Limit = 50
+	page, err := repo.ListWorks(filter)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ids := []string{}
+	for _, work := range page.Works {
+		ids = append(ids, string(work.ID))
+	}
+	if page.Total != len(ids) {
+		t.Fatalf("total %d, page %v", page.Total, ids)
+	}
+	return ids
+}
+
+func TestChainLookupFindsHeldWorksOfEveryConnectedOriginal(t *testing.T) {
+	const (
+		a, a2, x, x2, b = "RJ00000001", "RJ00000002", "RJ00000010", "RJ00000011", "RJ00000020"
+		t1, t2, p, u    = "RJ00000031", "RJ00000032", "RJ00000033", "RJ00000034"
+	)
+	hans := "CHI_HANS"
+	for _, tc := range []struct {
+		name string
+		rows []chainRow
+		q    string
+		want []string
+	}{
+		{"external original finds translations and a held edition page",
+			[]chainRow{
+				{id: t1, role: "child", language: hans, original: a, parent: a, copyIn: 1},
+				{id: p, role: "parent", language: hans, original: a, copyIn: 1},
+				{id: t2, role: "child", language: "ENG", original: a, parent: a, copyIn: 1},
+			}, a, []string{t1, p}},
+		{"held original finds itself and its translations",
+			[]chainRow{
+				{id: a, role: "original", language: "JPN", children: []string{t1}, copyIn: 1},
+				{id: t1, role: "child", language: hans, parent: a, copyIn: 1},
+			}, a, []string{a, t1}},
+		{"external edition page finds its sibling edition page's chain",
+			[]chainRow{
+				{id: a, role: "original", language: "JPN", copyIn: 1},
+				{id: t1, role: "child", language: hans, original: a, parent: x, copyIn: 1},
+				{id: t2, role: "child", language: hans, original: a, parent: x2, copyIn: 1},
+			}, x, []string{a, t1, t2}},
+		{"held edition page finds itself and the chain",
+			[]chainRow{
+				{id: a, role: "original", language: "JPN", copyIn: 1},
+				{id: x, role: "parent", language: hans, original: a, copyIn: 1},
+				{id: t1, role: "child", language: hans, original: a, parent: x, copyIn: 1},
+			}, x, []string{a, x, t1}},
+		{"held translation finds the original and sibling chains",
+			[]chainRow{
+				{id: a, role: "original", language: "JPN", copyIn: 1},
+				{id: b, role: "child", language: hans, original: a, parent: a, copyIn: 1},
+				{id: t2, role: "child", language: hans, original: a, parent: x2, copyIn: 1},
+			}, b, []string{a, b, t2}},
+		{"unheld translation is reached through its edition page's declared children",
+			[]chainRow{
+				{id: a, role: "original", language: "JPN", copyIn: 1},
+				{id: x, role: "parent", language: hans, original: a, children: []string{b}},
+				{id: t1, role: "child", language: hans, original: a, parent: x, copyIn: 1},
+			}, b, []string{a, t1}},
+		{"edition list alone is an entry, held work without relation row included",
+			[]chainRow{
+				{id: a, editionRoots: []string{x}, copyIn: 1},
+				{id: t1, role: "child", language: hans, original: a, parent: a, copyIn: 1},
+			}, x, []string{a, t1}},
+		{"nothing connects an unheld number to a held work",
+			[]chainRow{{id: a, role: "original", language: "JPN", copyIn: 1}}, b, []string{}},
+		{"edition list entry of a translation with unknown original is no original of its own",
+			[]chainRow{
+				{id: u, role: "child", language: hans, parent: p, editionRoots: []string{b}, copyIn: 1},
+				{id: t1, role: "child", language: hans, parent: p, copyIn: 1},
+			}, b, []string{}},
+		{"unknown-original translation is found by its number, without siblings",
+			[]chainRow{
+				{id: u, role: "child", language: hans, parent: p, editionRoots: []string{u}, copyIn: 1},
+				{id: t1, role: "child", language: hans, parent: p, copyIn: 1},
+			}, u, []string{u}},
+		{"unknown-original translations answer their parent number",
+			[]chainRow{
+				{id: u, role: "child", language: hans, parent: p, copyIn: 1},
+				{id: t1, role: "child", language: hans, parent: p, copyIn: 1},
+			}, p, []string{t1, u}},
+		{"copyless chain members and other languages are not expanded",
+			[]chainRow{
+				{id: a, role: "original", language: "JPN", copyIn: 1},
+				{id: t1, role: "child", language: hans, original: a, parent: a},
+				{id: t2, role: "child", language: "ENG", original: a, parent: a, copyIn: 1},
+			}, a, []string{a}},
+		{"conflicting declarations both count",
+			[]chainRow{
+				{id: a, role: "original", language: "JPN", copyIn: 1},
+				{id: a2, role: "original", language: "JPN", copyIn: 1},
+				{id: x, role: "parent", language: hans, original: a, children: []string{b}},
+				{id: x2, role: "parent", language: hans, original: a2, children: []string{b}},
+				{id: t1, role: "child", language: hans, original: a, parent: x, copyIn: 1},
+				{id: t2, role: "child", language: hans, original: a2, parent: x2, copyIn: 1},
+			}, b, []string{a, a2, t1, t2}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := newTestRepository(t)
+			chainScene(t, repo, tc.rows)
+			if got := listedIDs(t, repo, works.Filter{Query: new(tc.q)}); fmt.Sprint(got) != fmt.Sprint(tc.want) {
+				t.Fatalf("q=%s: got %v, want %v", tc.q, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestChainLookupKeepsEveryOtherFilter(t *testing.T) {
+	const a, b, t1, t2, x = "RJ00000001", "RJ00000020", "RJ00000031", "RJ00000032", "RJ00000010"
+	hans := "CHI_HANS"
+	repo := newTestRepository(t)
+	libs := chainScene(t, repo, []chainRow{
+		{id: a, role: "original", language: "JPN", copyIn: 1},
+		{id: b, role: "child", language: hans, original: a, parent: a},
+		{id: t1, role: "child", language: hans, original: a, parent: a, copyIn: 1},
+		{id: t2, role: "child", language: hans, original: a, parent: a},
+		{id: x, role: "parent", language: hans, original: a, copyIn: 2},
+	})
+	for _, tc := range []struct {
+		name   string
+		q      string
+		filter works.Filter
+		want   []string
+	}{
+		{"copyless exact hit is kept", b, works.Filter{}, []string{a, x, b, t1}},
+		{"library filter excludes the copyless exact hit", b, works.Filter{Libraries: []string{libs[0]}}, []string{a, t1}},
+		{"language filter excludes the exact hit", b, works.Filter{Languages: []string{"ENG"}}, []string{}},
+		{"language filter keeps the exact hit it matches", b, works.Filter{Languages: []string{hans}}, []string{x, b, t1}},
+		{"copyless exact hit alone with has_copy=false", t2, works.Filter{HasCopy: new(false)}, []string{t2}},
+		{"has_copy=true drops the copyless exact hit", t2, works.Filter{HasCopy: new(true)}, []string{a, x, t1}},
+		{"evidence in another library does not drop the member", x, works.Filter{Libraries: []string{libs[0]}}, []string{a, t1}},
+		{"evidence held in the other library is itself found there", x, works.Filter{Libraries: []string{libs[1]}}, []string{x}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			tc.filter.Query = new(tc.q)
+			if got := listedIDs(t, repo, tc.filter); fmt.Sprint(got) != fmt.Sprint(tc.want) {
+				t.Fatalf("got %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestChainLookupListsAWorkOnceAndKeepsTheUserSort(t *testing.T) {
+	const a, x, t1, y = "RJ00000001", "RJ00000010", "RJ00000031", "RJ00000040"
+	hans := "CHI_HANS"
+	repo := newTestRepository(t)
+	chainScene(t, repo, []chainRow{
+		// x is reachable as the exact hit, through a's edition list, through its
+		// own relation row and as a declared child of y.
+		{id: a, role: "original", language: "JPN", editionRoots: []string{x}, copyIn: 1},
+		{id: x, role: "parent", language: hans, original: a, copyIn: 1},
+		{id: t1, role: "child", language: hans, original: a, parent: x, copyIn: 1},
+		{id: y, role: "parent", language: hans, original: a, children: []string{x}},
+	})
+	for id, at := range map[string]string{a: "2026-01-01T00:00:00.000000000Z", x: "2026-05-01T00:00:00.000000000Z",
+		t1: "2026-09-01T00:00:00.000000000Z"} {
+		if _, err := repo.DB().Exec("UPDATE works SET collected_at = ? WHERE id = ?", at, id); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := repo.DB().Exec(
+			"INSERT INTO circles (id, source, name) VALUES ('c', 'dlsite', 'circle') ON CONFLICT DO NOTHING",
+		); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := repo.DB().Exec("UPDATE works SET circle_id = 'c' WHERE id = ?", id); err != nil {
+			t.Fatal(err)
+		}
+	}
+	filter := works.Filter{Query: new(x), Sort: works.SortByCollectedAt, Direction: works.Ascending}
+	if got, want := listedIDs(t, repo, filter), []string{a, x, t1}; fmt.Sprint(got) != fmt.Sprint(want) {
+		t.Fatalf("got %v, want %v (exact hit must not be pinned)", got, want)
+	}
+	filter.Direction = works.Descending
+	if got, want := listedIDs(t, repo, filter), []string{t1, x, a}; fmt.Sprint(got) != fmt.Sprint(want) {
+		t.Fatalf("got %v, want %v", got, want)
+	}
+	facets, err := repo.ListFacets(works.FacetCircle, filter)
+	if err != nil || len(facets) != 1 || facets[0].WorkCount != 3 {
+		t.Fatalf("facets: %+v, %v", facets, err)
+	}
+}

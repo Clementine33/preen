@@ -80,16 +80,24 @@ _Avoid_: Treating a Japanese name or a change of Tag Language as proof that a ta
 The Japanese original, a simplified or traditional Chinese edition page, and
 an individual translation Work. The edition page and translation have distinct
 Work Numbers even when their titles match. Several translations may share one
-edition page; only translations with Copies in the current Library are in-library
-lookup candidates.
+edition page. Chains that share an original are sibling chains.
 _Avoid_: Treating the edition page as an alias that replaces a translation's identity.
+
+**Chain Lookup**:
+A search by Work Number that answers with that number's own Work, Held or not,
+and the Held Works of every original the number connects to: each original and
+its Chinese editions, across sibling chains. The number may be the original's,
+an edition page's or a translation's, collected or not. Both kinds of result
+stay subject to the search's other filters, including its Library scope. A number
+nothing connects to a Held Work finds at most its own Work.
+_Avoid_: "关联作品搜索"; expecting a lookup to reach numbers no report or edition list mentions.
 
 **Language Edition**:
 One language of a work's chain, rooted at its edition page. The Japanese
 original is an edition in its own right although the source's edition list
-omits it. A Chinese edition page itself is never on disk; the edition is present
-through the translations under it. On a translation, its current edition is the
-one its resolved parent roots. A work's chain shows the Japanese, simplified
+omits it. A Chinese edition page is usually not on disk, though it can be held
+like any Work; otherwise the edition is present through the translations under
+it. On a translation, its current edition is the one its resolved parent roots. A work's chain shows the Japanese, simplified
 Chinese and traditional Chinese editions; a language-free (NM) work has none.
 _Avoid_: Calling an edition a "version", or treating the edition page as the thing that is collected.
 

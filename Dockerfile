@@ -24,12 +24,18 @@ RUN VERSION="$VERSION" mise exec node -- node --input-type=module -e \
     'import { releaseVersion } from "/src/scripts/release-version.mjs"; releaseVersion(process.env.VERSION)' \
     && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 mise exec go -- go build -trimpath -ldflags "-s -w -X main.version=$VERSION" -o /out/preen ./cmd/preen
 
+# Only [vars] (the last section) reaches the media stages, so bumping node/go/pnpm
+# keeps their build cache; COPY --from is keyed by file content.
+FROM alpine:3.24 AS media-vars
+COPY mise.toml /tmp/mise.toml
+RUN sed -n '/^\[vars\]/,$p' /tmp/mise.toml > /mise.toml
+
 FROM alpine:3.24 AS media
 # Link LAME and zlib from their static archives; Opus stays a runtime package.
 RUN apk add --no-cache build-base pkgconf nasm curl xz gnupg coreutils lame-dev opus-dev zlib-dev zlib-static \
     && rm /usr/lib/libmp3lame.so /usr/lib/libz.so
 WORKDIR /build
-COPY mise.toml /src/mise.toml
+COPY --from=media-vars /mise.toml /src/mise.toml
 COPY scripts/ffmpeg-source.sh scripts/ffmpeg-configure.sh /src/scripts/
 # The final check allows only musl and libopus as runtime libraries.
 RUN sh /src/scripts/ffmpeg-source.sh \
@@ -46,7 +52,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential mingw-w64 pkg-config nasm curl ca-certificates xz-utils gnupg \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /build
-COPY mise.toml /src/mise.toml
+COPY --from=media-vars /mise.toml /src/mise.toml
 COPY scripts/ffmpeg-source.sh scripts/ffmpeg-configure.sh scripts/build-windows-ffmpeg.sh /src/scripts/
 RUN sh /src/scripts/build-windows-ffmpeg.sh
 

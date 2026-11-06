@@ -283,6 +283,24 @@ jobs:
           cache: true
           cache_save: ${{ github.ref == 'refs/heads/main' }}
           cache_key_prefix: mise-ffmpeg
+      - name: Find Go cache paths
+        id: go-cache
+        shell: bash
+        run: |
+          echo "modules=$(go env GOMODCACHE)" >> "$GITHUB_OUTPUT"
+          echo "build=$(go env GOCACHE)" >> "$GITHUB_OUTPUT"
+          echo "version=$(go env GOVERSION)" >> "$GITHUB_OUTPUT"
+      # Restore-only reuse of the desktop job's Windows caches, which main writes.
+      - uses: actions/cache/restore@v6
+        with:
+          path: ${{ steps.go-cache.outputs.modules }}
+          key: go-mod-${{ runner.os }}-${{ runner.arch }}-desktop-${{ steps.go-cache.outputs.version }}-${{ hashFiles('backend/go/go.sum', 'desktop/go.sum') }}
+          restore-keys: go-mod-${{ runner.os }}-${{ runner.arch }}-desktop-${{ steps.go-cache.outputs.version }}-
+      - uses: actions/cache/restore@v6
+        with:
+          path: ${{ steps.go-cache.outputs.build }}
+          key: go-build-${{ runner.os }}-${{ runner.arch }}-desktop-${{ steps.go-cache.outputs.version }}-${{ hashFiles('backend/go/**', 'desktop/**') }}
+          restore-keys: go-build-${{ runner.os }}-${{ runner.arch }}-desktop-${{ steps.go-cache.outputs.version }}-
       - run: task build:go:windows-x64
       - name: Check external tools create no console windows on Windows
         working-directory: backend/go

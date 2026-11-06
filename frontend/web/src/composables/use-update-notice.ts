@@ -16,7 +16,7 @@ function readNotified(): string | null {
 }
 
 function recordNotified(version: string): void {
-  // Best-effort: blocked storage only means the toast can show again next visit.
+  // Best-effort: blocked storage only means the toast can show again next launch.
   try {
     localStorage.setItem(UPDATE_NOTIFIED_KEY, version)
   }
@@ -26,10 +26,11 @@ function recordNotified(version: string): void {
 }
 
 /**
- * Tells the user once per release that a newer one exists. The version is
- * recorded in this browser's localStorage as soon as the toast is shown, even
- * if another toast replaces it, so a release is announced a single time; the
- * About page keeps showing it. Called from the always-mounted AppShell.
+ * Tells the user that a newer release exists, on every launch until they open
+ * it. The version is recorded in this browser's localStorage only when the
+ * toast's action is taken, so a toast that expired or was replaced unseen shows
+ * again next launch; the About page keeps showing the release. Called from the
+ * always-mounted AppShell.
  */
 export function useUpdateNotice(): void {
   const { show } = useToast()
@@ -37,12 +38,14 @@ export function useUpdateNotice(): void {
   watch(check.data, (data) => {
     if (data?.state !== 'available' || readNotified() === data.latest_version)
       return
-    recordNotified(data.latest_version)
     show({
       text: `发现新版本 ${data.latest_version}`,
       action: {
         label: '查看',
-        run: () => { window.open(data.release_url, '_blank', 'noopener,noreferrer') },
+        run: () => {
+          recordNotified(data.latest_version)
+          window.open(data.release_url, '_blank', 'noopener,noreferrer')
+        },
       },
     })
   }, { immediate: true })

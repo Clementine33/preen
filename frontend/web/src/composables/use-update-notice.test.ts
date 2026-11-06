@@ -37,18 +37,19 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('useUpdateNotice', () => {
-  it('announces a new version once and records it', async () => {
+  it('announces a new version until its action is taken, then records it', async () => {
     mountNotice(async () => AVAILABLE)
     await flushPromises()
 
     const toast = useToast().current.value
     expect(toast?.text).toBe('发现新版本 v0.3.0')
     expect(toast?.action?.label).toBe('查看')
-    expect(localStorage.getItem(UPDATE_NOTIFIED_KEY)).toBe('v0.3.0')
+    expect(localStorage.getItem(UPDATE_NOTIFIED_KEY)).toBeNull()
 
     const open = vi.fn()
     vi.stubGlobal('open', open)
     toast!.action!.run()
+    expect(localStorage.getItem(UPDATE_NOTIFIED_KEY)).toBe('v0.3.0')
     expect(open).toHaveBeenCalledWith('https://example.test/releases/v0.3.0', '_blank', 'noopener,noreferrer')
 
     // The same version does not announce itself again, even after the toast is gone.
@@ -67,15 +68,18 @@ describe('useUpdateNotice', () => {
     mountNotice(async () => ({ ...AVAILABLE, latest_version: 'v0.4.0' } as UpdateCheck))
     await flushPromises()
     expect(useToast().current.value?.text).toBe('发现新版本 v0.4.0')
-    expect(localStorage.getItem(UPDATE_NOTIFIED_KEY)).toBe('v0.4.0')
   })
 
-  it('records the version even when another toast replaces the announcement', async () => {
+  it('announces again next launch when the toast was replaced without taking its action', async () => {
     mountNotice(async () => AVAILABLE)
     await flushPromises()
     useToast().show({ text: 'something else' })
-    expect(useToast().current.value?.text).toBe('something else')
-    expect(localStorage.getItem(UPDATE_NOTIFIED_KEY)).toBe('v0.3.0')
+    expect(localStorage.getItem(UPDATE_NOTIFIED_KEY)).toBeNull()
+
+    useToast().current.value = null
+    mountNotice(async () => AVAILABLE)
+    await flushPromises()
+    expect(useToast().current.value?.text).toBe('发现新版本 v0.3.0')
   })
 
   it.each<UpdateCheck>([

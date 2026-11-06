@@ -406,7 +406,7 @@ func TestUnavailableGroupNamesWhySourcesDroppedIt(t *testing.T) {
 	want := refresh.Issue{
 		Group: works.GroupEditions,
 		Code:  "GROUP_UNAVAILABLE",
-		Message: "no complete snapshot was retrieved (dlsite: INVALID_ARGUMENT: version_root_rj is not a work number; " +
+		Message: "no complete snapshot was retrieved (dlsite: language_editions lists no work number; " +
 			"asmr_one: language_editions has an unrecognized shape)",
 	}
 	if len(result.Works) != 1 || len(result.Works[0].Issues) != 1 || result.Works[0].Issues[0] != want {

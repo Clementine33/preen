@@ -2,6 +2,7 @@ package scraper
 
 import (
 	"encoding/json"
+	"log/slog"
 	"slices"
 	"strconv"
 	"strings"
@@ -26,23 +27,54 @@ func dlsiteSnapshot(data record, at string) refresh.Snapshot {
 		if editions, ok := editionList(raw); ok {
 			group := &works.ImportEditions{Source: "dlsite", FetchedAt: at, Items: []works.ImportEditionItem{}}
 			for _, e := range editions {
+				// Upstream still lists versions with retired prefixes (RE, from the
+				// English store folded in 2021); they have no page left, so the
+				// RJ-only catalog skips them one by one instead of losing the group.
+				if _, ok := works.ParseWorkCode(e.Workno); !ok {
+					slog.Debug("language edition skipped as not a work number", "workno", e.Workno)
+					continue
+				}
 				group.EditionID = entityID(e.EditionID)
-				group.Items = append(
-					group.Items,
-					works.ImportEditionItem{
-						VersionRootRJ: e.Workno,
-						Language:      e.Lang,
-						Label:         e.Label,
-						DisplayOrder:  e.DisplayOrder,
-					},
-				)
+				for _, lang := range splitLanguages(e.Lang) {
+					group.Items = append(
+						group.Items,
+						works.ImportEditionItem{
+							VersionRootRJ: e.Workno,
+							Language:      lang,
+							Label:         e.Label,
+							DisplayOrder:  e.DisplayOrder,
+						},
+					)
+				}
 			}
-			out.Editions = group
+			// A list that lost every entry must not reach the replace-all write as
+			// an empty group; it stays absent and keeps what is stored.
+			if len(group.Items) == 0 && len(editions) > 0 {
+				reject(&out, works.GroupEditions, "language_editions lists no work number")
+			} else {
+				out.Editions = group
+			}
 		} else {
 			reject(&out, works.GroupEditions, "language_editions has an unrecognized shape")
 		}
 	}
 	return out
+}
+
+// splitLanguages reads upstream's comma-joined language ("CHI_HANS,CHI_HANT")
+// as separate codes, because the catalog keys one edition per single code. An
+// empty value stays one empty code so validation still rejects it.
+func splitLanguages(lang string) []string {
+	codes := []string{}
+	for code := range strings.SplitSeq(lang, ",") {
+		if code = strings.TrimSpace(code); code != "" {
+			codes = append(codes, code)
+		}
+	}
+	if len(codes) == 0 {
+		return []string{""}
+	}
+	return codes
 }
 
 type sourceEdition struct {

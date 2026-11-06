@@ -8,6 +8,10 @@
 // the network: the operating system's proxy (including HTTP(S)_PROXY) is
 // consulted only while that setting says to follow the system.
 //
+// Language edition lists are read leniently: entries that are not RJ work
+// numbers (retired prefixes such as RE) are skipped and comma-joined languages
+// are split, so one legacy entry never costs the whole group.
+//
 // Consumers choose which sources to refresh, import the snapshots and schedule
 // cover delivery. This adapter does not own catalog persistence or batch sessions.
 package scraper

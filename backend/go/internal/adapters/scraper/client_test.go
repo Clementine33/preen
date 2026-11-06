@@ -13,6 +13,7 @@ import (
 
 	"github.com/Clementine33/preen/backend/internal/adapters/scraper"
 	"github.com/Clementine33/preen/backend/internal/works"
+	"github.com/Clementine33/preen/backend/internal/works/refresh"
 )
 
 type transportFunc func(*http.Request) (*http.Response, error)
@@ -391,5 +392,73 @@ func TestStaticResolvesDuplicateEditionsByLookingUpCandidates(t *testing.T) {
 		if want := "JPN:RJ371488,CHI_HANS:" + tc.want; strings.Join(got, ",") != want {
 			t.Fatalf("%s: editions %v, want %s", tc.name, got, want)
 		}
+	}
+}
+
+// RJ232991's real list: a retired-store RE edition without a language and a
+// comma-joined Chinese edition must neither fail the group nor reach storage as-is.
+const retiredStoreEditions = `[{"workno":"RJ232991","lang":"JPN","display_order":1},` +
+	`{"workno":"RE308437","lang":null,"label":"英語","display_order":2},` +
+	`{"workno":"RJ318550","lang":"CHI_HANS,CHI_HANT","display_order":3},` +
+	`{"workno":"RJ01045217","lang":"KO_KR","display_order":9}]`
+
+func TestEditionsSkipRetiredPrefixesAndSplitJoinedLanguages(t *testing.T) {
+	const want = "JPN:RJ232991,CHI_HANS:RJ318550,CHI_HANT:RJ318550,KO_KR:RJ01045217"
+	client := scraper.New(&http.Client{Transport: transportFunc(func(req *http.Request) (*http.Response, error) {
+		if req.URL.Host == "api.asmr.one" {
+			return response(200, `{"source_id":"RJ232991","language_editions":`+retiredStoreEditions+`}`), nil
+		}
+		return response(
+			200,
+			`[{"workno":"RJ232991","product_name":"work","language_editions":`+retiredStoreEditions+`}]`,
+		), nil
+	})})
+	dlsite, err := client.FetchStatic(t.Context(), "RJ00232991", "ja-jp")
+	if err != nil {
+		t.Fatal(err)
+	}
+	asmr, err := client.FetchASMR(t.Context(), "RJ00232991", "ja-jp")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, snapshot := range map[string]refresh.Snapshot{"dlsite": dlsite, "asmr_one": asmr} {
+		if snapshot.Editions == nil || len(snapshot.Rejected) != 0 {
+			t.Fatalf("%s: editions rejected: %v", name, snapshot.Rejected)
+		}
+		got := []string{}
+		for _, item := range snapshot.Editions.Items {
+			got = append(got, item.Language+":"+item.VersionRootRJ)
+		}
+		if strings.Join(got, ",") != want {
+			t.Fatalf("%s: editions %v, want %s", name, got, want)
+		}
+	}
+}
+
+func TestEditionsWithNoWorkNumberStayAbsentInsteadOfEmptyingStoredOnes(t *testing.T) {
+	client := scraper.New(&http.Client{Transport: transportFunc(func(*http.Request) (*http.Response, error) {
+		return response(200, `[{"workno":"RJ000001","product_name":"work","language_editions":`+
+			`[{"workno":"RE308437","lang":"ENG","display_order":1}]}]`), nil
+	})})
+	snapshot, err := client.FetchStatic(t.Context(), "RJ00000001", "ja-jp")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if snapshot.Editions != nil || snapshot.Rejected[works.GroupEditions] == "" {
+		t.Fatalf("empty group submitted: %+v rejected=%v", snapshot.Editions, snapshot.Rejected)
+	}
+}
+
+func TestEditionsStillRefuseAnEmptyLanguage(t *testing.T) {
+	client := scraper.New(&http.Client{Transport: transportFunc(func(*http.Request) (*http.Response, error) {
+		return response(200, `[{"workno":"RJ000001","product_name":"work","language_editions":`+
+			`[{"workno":"RJ000001","lang":null,"display_order":1}]}]`), nil
+	})})
+	snapshot, err := client.FetchStatic(t.Context(), "RJ00000001", "ja-jp")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if snapshot.Editions != nil || snapshot.Rejected[works.GroupEditions] == "" {
+		t.Fatalf("language-less edition accepted: %+v", snapshot.Editions)
 	}
 }

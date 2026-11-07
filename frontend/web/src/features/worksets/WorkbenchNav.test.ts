@@ -1,8 +1,8 @@
 import type { VueWrapper } from '@vue/test-utils'
 import type { Router } from 'vue-router'
-import { flushPromises, mount } from '@vue/test-utils'
+import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { createPinia } from 'pinia'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { nextTick } from 'vue'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import WorkbenchNav from './WorkbenchNav.vue'
@@ -48,10 +48,14 @@ interface NavProps {
 
 // Every mount gets its own Pinia (so the fold state starts fresh) and the same
 // router, which is what the component reads the current section from.
+// isVisible() reads getComputedStyle, which jsdom only resolves for attached nodes.
+enableAutoUnmount(afterEach)
+
 async function mountNav(path: string, props: NavProps = {}): Promise<VueWrapper> {
   await router.push(path)
   await router.isReady()
   return mount(WorkbenchNav, {
+    attachTo: document.body,
     props: {
       libraryId: 'lib-1',
       ...props,

@@ -28,7 +28,9 @@ async function mountDeck() {
   const api = apiStub({
     getWork: vi.fn().mockResolvedValue(makeWorkDetail({ nsfw: true })),
   } as never)
+  // Attached so isVisible() sees v-show: jsdom only computes styles for attached nodes.
   const wrapper = mount(WorkDeck, {
+    attachTo: document.body,
     global: {
       plugins: [
         pinia,

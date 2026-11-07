@@ -136,7 +136,7 @@ describe('workWall', () => {
     // floor((800+20)/(184+20)) = 4 columns, exactly what the prototype's
     // repeat(auto-fill, minmax(184px, 1fr)) would pick at this width.
     expect(exposed.columns).toBe(4)
-    expect(wrapper.find('.grid').attributes('style')).toContain('grid-template-columns: repeat(4, minmax(0, 1fr))')
+    expect(wrapper.find('.grid').attributes('style')).toMatch(/grid-template-columns: repeat\(4, minmax\(0(px)?, 1fr\)\)/)
   })
 
   it('renders the whole page with exactly one tabbable cell', async () => {

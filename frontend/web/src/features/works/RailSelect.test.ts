@@ -126,6 +126,17 @@ describe('railSelect', () => {
     expect(document.activeElement?.getAttribute('aria-selected')).toBe('true')
   })
 
+  it('offers CLEAR in the panel strip only while a value is set, and CLEAR sets ALL', async () => {
+    const { wrapper } = await mountSelect('', false)
+    expect(wrapper.find('.rs-clear').exists()).toBe(false)
+
+    const set = await mountSelect('va-700', false)
+    await set.wrapper.get('.rs-trigger').trigger('click')
+    await set.wrapper.get('.rs-clear').trigger('click')
+    expect(set.value.value).toBe('')
+    expect(set.wrapper.get('.rs').classes()).not.toContain('open')
+  })
+
   it('presents the panel as a bottom sheet on a narrow screen and keeps `open` in step', async () => {
     const real = window.matchMedia
     window.matchMedia = ((query: string) => ({

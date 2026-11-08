@@ -488,6 +488,39 @@ describe('works page', () => {
     expect(lastParams(listWorks)).not.toHaveProperty('voice_actor_match')
   })
 
+  it('clears every rail filter in one address commit and keeps library, order, size and FIND', async () => {
+    const { wrapper, router } = await mountWorks(
+      `/works?library=${LIB_A}&voice=va-1&circle=ci-1&age=r18&language=JPN&rating=7-9&listening=none&tag=s:s-asmr&mode=any&sort=rating&size=36&q=foo&page=2`,
+    )
+    expect(wrapper.find('.rail-clear').exists()).toBe(true)
+    const replace = vi.spyOn(router, 'replace')
+
+    await wrapper.get('.rail-clear').trigger('click')
+    await flushPromises()
+    // The one commit carries every change; any later write is the wall's own selection.
+    const [first] = replace.mock.calls[0] as [{ query: LocationQuery }]
+    expect(Object.keys(first.query).sort()).toEqual(['library', 'q', 'rj', 'size', 'sort'])
+    expect(router.currentRoute.value.query).toMatchObject({
+      library: LIB_A,
+      sort: 'rating',
+      size: '36',
+      q: 'foo',
+    })
+    for (const key of [
+      'voice',
+      'circle',
+      'age',
+      'language',
+      'rating',
+      'listening',
+      'tag',
+      'mode',
+      'page',
+    ])
+      expect(router.currentRoute.value.query).not.toHaveProperty(key)
+    expect(wrapper.find('.rail-clear').exists()).toBe(false)
+  })
+
   it('maps the personal rating bar to an inclusive range, the unrated set, or nothing', async () => {
     const { wrapper, listWorks, router } = await mountWorks('/works?rating=7-9')
     expect(lastParams(listWorks)).toMatchObject({ rating_from: 7, rating_to: 9 })

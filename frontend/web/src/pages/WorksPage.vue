@@ -140,6 +140,30 @@ const tags = computed<TagSelection>({
   }),
 })
 
+// CLEAR drops every rail filter in one address commit; the library, order,
+// page size and FIND are not filters of the rail.
+const filtered = computed(() => [
+  wq.voice,
+  wq.circle,
+  wq.age,
+  wq.language,
+  wq.rating,
+  wq.listening,
+  wq.tag,
+].some(filter => filter.value !== ''))
+function clearFilters(): void {
+  void wq.setFilters({
+    voice: '',
+    circle: '',
+    age: '',
+    language: '',
+    rating: '',
+    listening: '',
+    tag: '',
+    mode: '',
+  })
+}
+
 // Age categories preserve the upstream distinction between 全年龄, R15 and R18.
 const AGE_OPTIONS: RailOption[] = [
   { value: '', label: 'ALL' },
@@ -494,7 +518,7 @@ useKeymap({
       </div>
     </header>
 
-    <div class="rail">
+    <div class="rail" :class="{ filtered }">
       <div class="filters" role="group" aria-label="Filter">
         <RailSelect v-model="voiceActor" label="VOICE" :options="voiceActorOptions" marks-active searchable />
         <RailSelect v-model="circle" label="CIRCLE" :options="circleOptions" marks-active searchable />
@@ -509,6 +533,8 @@ useKeymap({
         <TagIndex v-model="tags" :scope="tagScope" />
         <span v-if="wq.overflow.value" class="lbl notice" role="status">筛选条件过多，未应用</span>
       </div>
+      <!-- Outside .filters: a phone scrolls that row, and CLEAR must stay in view. -->
+      <button v-if="filtered" class="lbl rail-clear" type="button" @click="clearFilters">CLEAR</button>
       <div class="rail-right">
         <RailSelect v-model="sort" label="SORT" :options="SORT_OPTIONS" />
         <RailSelect v-model="size" class="size" label="SIZE" :options="SIZE_OPTIONS" />
@@ -576,6 +602,17 @@ useKeymap({
 .rail-right { gap: var(--sp-4); flex-shrink: 0; margin-left: auto; }
 .filters { flex-wrap: wrap; row-gap: var(--sp-1); }
 
+/* Beside the tabs, as if the last of them: the rail's gap is wider than theirs. */
+.rail-clear {
+  height: 24px; padding: 0 var(--sp-3); margin-left: calc(var(--sp-1) - var(--sp-4)); white-space: nowrap;
+  color: var(--fg-muted);
+}
+.rail-clear:hover { color: var(--fg-base); }
+.rail-clear:focus-visible { outline: 1px solid var(--wire-strong); outline-offset: 2px; }
+@media (pointer: coarse) {
+  .rail-clear { height: auto; min-height: 44px; }
+}
+
 .find { display: flex; align-items: center; gap: var(--sp-2); flex-shrink: 0; }
 .find input {
   height: 24px; width: 184px; padding: 0 var(--sp-2);
@@ -603,9 +640,14 @@ useKeymap({
      phone's panels are modal sheets in the top layer. */
   .works { grid-template-rows: 48px auto minmax(0, 1fr) auto; }
   .rail {
-    display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center;
+    display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center;
     gap: var(--sp-2) var(--sp-1); padding-block: var(--sp-2);
   }
+  /* The first column exists for CLEAR, pinned at the start of FIND's line; with
+     no CLEAR it is empty and FIND spans the whole line. */
+  .filters { grid-column: 1 / 3; }
+  .rail-clear { grid-area: 2 / 1; margin-left: 0; padding: 0 var(--sp-2); }
+  .rail.filtered .find { grid-area: 2 / 2 / auto / -1; padding-left: 0; }
   .rail-right { display: contents; }
   .filters { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
   .filters::-webkit-scrollbar { display: none; }

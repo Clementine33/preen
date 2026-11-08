@@ -19,6 +19,10 @@ import { usePopupMenu } from './use-popup-menu'
 // button or a tap on the backdrop. The dialog's own `close` event keeps `open`
 // in step, so Esc and the Android back gesture need no handler of their own.
 //
+// A pick far down the list scrolls the ALL row out of reach, so the panel's
+// strip also carries CLEAR (a filter select with a value set): it is ALL, one
+// tap away.
+//
 // A select whose value is not one of its rows (the rating range) draws its own
 // picker in the default slot, above the rows, and names its value for the tab.
 
@@ -160,7 +164,7 @@ const chevron = 'M0 2.5h10L5 8z'
     >
       <div class="strip">
         <span class="strip-name lbl">{{ label }}</span>
-        <span v-if="!$slots.default" class="lbl">{{ options.length - (options[0]?.value === '' ? 1 : 0) }}</span>
+        <button v-if="active" class="lbl rs-clear" type="button" @click="choose('')">CLEAR</button>
         <button v-if="narrow" class="lbl rs-close" type="button" @click="menu.close(true)">CLOSE</button>
       </div>
       <label v-if="searchable" class="rs-search">
@@ -238,6 +242,9 @@ const chevron = 'M0 2.5h10L5 8z'
   transition: clip-path 200ms var(--ease-out), visibility 0s;
 }
 .rs-menu .strip { margin: var(--sp-2) var(--sp-2) var(--sp-1); }
+.rs-menu .strip-name { margin-right: auto; }
+.rs-clear { margin-left: var(--sp-3); height: 100%; }
+.rs-clear:hover { color: var(--fg-base); }
 .rs-search { display: flex; align-items: center; gap: var(--sp-2); margin: var(--sp-2) var(--sp-2) var(--sp-1); }
 .rs-search input {
   flex: 1; min-width: 0; height: 24px; padding: 0 var(--sp-2);
@@ -300,8 +307,7 @@ const chevron = 'M0 2.5h10L5 8z'
   .rs { position: static; }
   .rs-value { display: none; }
   dialog.rs-menu .strip { height: auto; min-height: 20px; justify-content: flex-start; }
-  dialog.rs-menu .strip-name { margin-right: auto; }
-  .rs-close { margin-left: var(--sp-3); min-height: 44px; padding: 0 var(--sp-2); color: var(--fg-base); }
+  .rs-clear, .rs-close { margin-left: var(--sp-3); min-height: 44px; padding: 0 var(--sp-2); color: var(--fg-base); }
   dialog.rs-menu {
     position: fixed; inset: auto 0 0 0; z-index: auto; margin: 0; padding: 0;
     width: 100%; max-width: 100%; max-height: 70dvh; color: inherit;

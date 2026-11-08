@@ -2,6 +2,7 @@ package refresh_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io/fs"
 	"os"
@@ -109,5 +110,30 @@ func TestMetadataEmptyScopeAndCancellationDoNotCheckDirectories(t *testing.T) {
 	)
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("cancellation precedence: %v", err)
+	}
+}
+
+func TestMetadataWorkerStillChecksSkipDirectories(t *testing.T) {
+	for _, reason := range []string{"NO_WORK_BINDING", "ALREADY_COMPLETE", "SOURCE_MISSING"} {
+		t.Run(reason, func(t *testing.T) {
+			checks := 0
+			task := refresh.NewTask(taskCatalog{}, func(path string) error {
+				checks++
+				if path != "missing" {
+					t.Fatalf("unexpected directory: %s", path)
+				}
+				return fs.ErrNotExist
+			})
+			raw, err := json.Marshal(refresh.Outcome{Action: "skip", ReasonCode: reason})
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, err = task.NewExecutionSession(t.Context(), workset.ExecutionSessionInput{
+				Units: []workset.ExecutionUnit{{RootPath: "missing", Payload: raw}},
+			})
+			if e, ok := workset.AsError(err); !ok || e.Code != "INPUT_CHANGED" || checks != 1 {
+				t.Fatalf("skip directory check: %v, checks=%d", err, checks)
+			}
+		})
 	}
 }

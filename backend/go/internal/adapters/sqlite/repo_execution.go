@@ -429,61 +429,70 @@ func (r *Repository) UpdateExecutionPosition(executionID string, p workset.Execu
 	return err
 }
 
-// SaveExecutionComponentResult writes one component's result and moves the
-// session's position in a single transaction. The counters are adjusted by the
-// difference between the stored row and the new one (a missing row counts as
-// zero, and a component counts once its status is not 'pending'), so the cost
-// does not grow with the run. Replays stay exact: the result row is replaced
-// wholesale and the delta is read from the stored row inside the transaction, so
-// saving the same result again adds nothing, and a failed commit rolls the
-// counters back with the row. This is the only writer of both. p is the
-// position the run moves to — the next component to work on — and is left empty
-// for the last one.
+// SaveExecutionComponentResult writes one result and advances the position atomically.
 func (r *Repository) SaveExecutionComponentResult(
 	executionID string,
 	res workset.ExecutionComponentResult,
 	p workset.ExecutionPosition,
 ) error {
+	return r.SaveExecutionComponentResults(executionID, []workset.ExecutionComponentResult{res}, p)
+}
+
+// SaveExecutionComponentResults writes all results and advances the position in
+// one transaction. Counters move by the difference from each stored row, making
+// retries and overwrites exact. A failed transaction rolls back rows and counters
+// together. p names the next component, or is empty after the last component.
+func (r *Repository) SaveExecutionComponentResults(
+	executionID string,
+	results []workset.ExecutionComponentResult,
+	p workset.ExecutionPosition,
+) error {
+	if len(results) == 0 {
+		return nil
+	}
 	tx, err := r.db.Begin()
 	if err != nil {
 		return fmt.Errorf("begin component result tx: %w", err)
 	}
 	defer tx.Rollback()
 
-	var oldStatus string
-	var oldOperations int
-	err = tx.QueryRow(`
-		SELECT status, completed_operations FROM execution_component_results
-		WHERE execution_id = ? AND component_index = ?
-	`, executionID, res.ComponentIndex).Scan(&oldStatus, &oldOperations)
-	existed := err == nil
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return fmt.Errorf("read component result: %w", err)
-	}
+	components, operations := 0, 0
+	for _, res := range results {
+		var oldStatus string
+		var oldOperations int
+		err = tx.QueryRow(`
+			SELECT status, completed_operations FROM execution_component_results
+			WHERE execution_id = ? AND component_index = ?
+		`, executionID, res.ComponentIndex).Scan(&oldStatus, &oldOperations)
+		existed := err == nil
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("read component result: %w", err)
+		}
 
-	if _, err = tx.Exec(`
-		INSERT INTO execution_component_results (
-			execution_id, component_index, status, completed_operations, result_json, updated_at
-		)
-		VALUES (?, ?, ?, ?, ?, ?)
-		ON CONFLICT(execution_id, component_index) DO UPDATE SET
-			status = excluded.status,
-			completed_operations = excluded.completed_operations,
-			result_json = excluded.result_json,
-			updated_at = excluded.updated_at
-	`, executionID, res.ComponentIndex, res.Status, res.CompletedOperations, res.ResultJSON,
-		time.Now().Format(timeFormat)); err != nil {
-		return fmt.Errorf("save component result: %w", err)
-	}
+		if _, err = tx.Exec(`
+			INSERT INTO execution_component_results (
+				execution_id, component_index, status, completed_operations, result_json, updated_at
+			)
+			VALUES (?, ?, ?, ?, ?, ?)
+			ON CONFLICT(execution_id, component_index) DO UPDATE SET
+				status = excluded.status,
+				completed_operations = excluded.completed_operations,
+				result_json = excluded.result_json,
+				updated_at = excluded.updated_at
+		`, executionID, res.ComponentIndex, res.Status, res.CompletedOperations, res.ResultJSON,
+			time.Now().Format(timeFormat)); err != nil {
+			return fmt.Errorf("save component result: %w", err)
+		}
 
-	components, operations := 0, res.CompletedOperations
-	if res.Status != "pending" {
-		components++
-	}
-	if existed {
-		operations -= oldOperations
-		if oldStatus != "pending" {
-			components--
+		operations += res.CompletedOperations
+		if res.Status != "pending" {
+			components++
+		}
+		if existed {
+			operations -= oldOperations
+			if oldStatus != "pending" {
+				components--
+			}
 		}
 	}
 	if _, err = tx.Exec(`

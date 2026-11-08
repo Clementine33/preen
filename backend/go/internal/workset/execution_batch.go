@@ -14,6 +14,8 @@ type BatchExecutionInput struct {
 	Units       []ExecutionUnit
 	Options     json.RawMessage
 	Progress    func(int, UnitResult) error
+	// ProgressBatch persists all results atomically before publishing them to the report.
+	ProgressBatch func(map[int]UnitResult) error
 }
 
 func (d *dispatcher) executeBatch(ctx context.Context, ex *PlanExecution, run *executionRun, execute BatchExecutor) {
@@ -40,6 +42,9 @@ func (d *dispatcher) executeBatch(ctx context.Context, ex *PlanExecution, run *e
 			Units:       run.req.Units,
 			Options:     run.req.Options,
 			Progress:    progress,
+			ProgressBatch: func(results map[int]UnitResult) error {
+				return d.persistBatchResults(ctx, ex.ExecutionID, report, byIndex, results)
+			},
 		},
 	)
 	status, code, message := ExecStatusSucceeded, "", ""
@@ -72,4 +77,36 @@ func (d *dispatcher) executeBatch(ctx context.Context, ex *PlanExecution, run *e
 		}
 	}
 	d.finishExecution(ex, status, code, message, err, "pending_count", rewritten)
+}
+
+func (d *dispatcher) persistBatchResults(
+	ctx context.Context, executionID string, report []ExecutionComponentView,
+	byIndex map[int]int, results map[int]UnitResult,
+) error {
+	entries := make(map[int]ExecutionComponentView, len(results))
+	rows := make([]ExecutionComponentResult, 0, len(results))
+	for index, result := range results {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		at, ok := byIndex[index]
+		if !ok {
+			return fmt.Errorf("batch result does not belong to frozen worklist")
+		}
+		entry := report[at]
+		applyUnitResult(&entry, result)
+		entry.InventorySynced = true
+		entries[at] = entry
+		rows = append(rows, componentResultRow(&entry))
+	}
+	if err := retryPersist(ctx, func() error {
+		return d.svc.repo.SaveExecutionComponentResults(executionID, rows, executionPositionOf(ExecutionUnit{}))
+	}); err != nil {
+		return err
+	}
+	// Failed transactions leave the report pending for executeBatch's teardown.
+	for at, entry := range entries {
+		report[at] = entry
+	}
+	return nil
 }

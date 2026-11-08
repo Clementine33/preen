@@ -129,6 +129,8 @@ type Store interface {
 	) error
 	// SaveExecutionComponentResult is one operation of the lifecycle.
 	SaveExecutionComponentResult(executionID string, res ExecutionComponentResult, p ExecutionPosition) error
+	// SaveExecutionComponentResults atomically replaces results and adjusts progress by their stored deltas.
+	SaveExecutionComponentResults(executionID string, results []ExecutionComponentResult, p ExecutionPosition) error
 	// SaveOperationDraft is one operation of the lifecycle.
 	SaveOperationDraft(
 		worksetID, operationType string,

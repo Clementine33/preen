@@ -414,20 +414,31 @@ func (d *dispatcher) persistUnitResult(
 	return d.saveUnitResult(ex.ExecutionID, entry, next)
 }
 
-// saveUnitResult is persistUnitResult's write: the retry loop alone, with no
-// failure log, for results the caller already accounts for elsewhere.
+// saveUnitResult persists results even after execution cancellation: committed
+// facts and teardown outcomes must remain durable. The caller owns failure logs.
 func (d *dispatcher) saveUnitResult(
 	executionID string,
 	entry *ExecutionComponentView,
 	next ExecutionUnit,
 ) error {
-	var err error
-	for range resultWriteAttempts {
-		err = d.svc.repo.SaveExecutionComponentResult(
+	return retryPersist(context.Background(), func() error {
+		return d.svc.repo.SaveExecutionComponentResult(
 			executionID,
 			componentResultRow(entry),
 			executionPositionOf(next),
 		)
+	})
+}
+
+// retryPersist shares result-write retries and error reporting. Callers choose
+// whether cancellation may stop persistence by supplying the appropriate context.
+func retryPersist(ctx context.Context, save func() error) error {
+	var err error
+	for range resultWriteAttempts {
+		if err = ctx.Err(); err != nil {
+			return err
+		}
+		err = save()
 		if err == nil {
 			return nil
 		}

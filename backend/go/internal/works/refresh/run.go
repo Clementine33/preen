@@ -34,15 +34,19 @@ func (e Executor) Run(ctx context.Context, in workset.BatchExecutionInput) error
 	targets := map[string][]coverdelivery.Target{}
 	codes := []string{}
 	coverOnly := map[string][]coverdelivery.Target{}
+	skipped := map[int]workset.UnitResult{}
 	for _, unit := range in.Units {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		var o Outcome
 		if err := json.Unmarshal(unit.Payload, &o); err != nil {
 			return err
 		}
 		if o.Action == "skip" || o.Action == "cover" {
-			if err := reportSkipped(in, unit, o); err != nil {
-				return err
-			}
+			raw, _ := json.Marshal(o)
+			zero := 0
+			skipped[unit.Index] = workset.UnitResult{TaskResult: raw, CompletedOperations: &zero, Stage: "skipped"}
 			if o.Action == "cover" && common.DownloadCover {
 				coverOnly[o.Target.WorkCode] = append(coverOnly[o.Target.WorkCode], o.Target)
 			}
@@ -57,8 +61,14 @@ func (e Executor) Run(ctx context.Context, in workset.BatchExecutionInput) error
 		byCode[o.Target.WorkCode] = append(byCode[o.Target.WorkCode], unit)
 		targets[o.Target.WorkCode] = append(targets[o.Target.WorkCode], o.Target)
 	}
+	if err := reportSkipped(ctx, in, skipped); err != nil {
+		return err
+	}
 	// Complete works need no fetch; their folders may still lack the cover.
 	for code, ts := range coverOnly {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		if e.Covers == nil {
 			return fmt.Errorf("cover delivery is not wired")
 		}
@@ -103,11 +113,17 @@ func (e Executor) Run(ctx context.Context, in workset.BatchExecutionInput) error
 	return err
 }
 
-// reportSkipped records a unit the plan froze as not fetched.
-func reportSkipped(in workset.BatchExecutionInput, unit workset.ExecutionUnit, o Outcome) error {
-	raw, _ := json.Marshal(o)
-	zero := 0
-	return in.Progress(unit.Index, workset.UnitResult{TaskResult: raw, CompletedOperations: &zero, Stage: "skipped"})
+// reportSkipped persists all units frozen as not fetched before any delivery or fetch.
+func reportSkipped(ctx context.Context, in workset.BatchExecutionInput, results map[int]workset.UnitResult) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if len(results) > 0 {
+		if err := in.ProgressBatch(results); err != nil {
+			return err
+		}
+	}
+	return ctx.Err()
 }
 
 // reportWork records one fetched work's result on each copy's unit.

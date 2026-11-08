@@ -3,6 +3,7 @@ package refresh_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -18,9 +19,15 @@ import (
 	"github.com/Clementine33/preen/backend/internal/workset"
 )
 
-type batchSource struct{ cancel context.CancelFunc }
+type batchSource struct {
+	cancel      context.CancelFunc
+	beforeFetch func()
+}
 
 func (s batchSource) FetchStatic(ctx context.Context, id works.WorkCode, _ string) (refresh.Snapshot, error) {
+	if s.beforeFetch != nil {
+		s.beforeFetch()
+	}
 	if id == "RJ00000001" {
 		return refresh.Snapshot{}, fmt.Errorf("work unavailable")
 	}
@@ -128,5 +135,93 @@ func TestBatchCancellationDoesNotImportNewStaticResults(t *testing.T) {
 	detail, err := cat.Detail("RJ00000002")
 	if err != nil || detail.Title != nil {
 		t.Fatalf("canceled source imported: %+v %v", detail, err)
+	}
+}
+
+func withNonFetchUnits(in workset.BatchExecutionInput) workset.BatchExecutionInput {
+	for _, outcome := range []refresh.Outcome{
+		{Action: "skip", ReasonCode: "NO_WORK_BINDING"},
+		{Action: "skip", ReasonCode: "ALREADY_COMPLETE"},
+		{Action: "skip", ReasonCode: "SOURCE_MISSING"},
+		{Action: "cover", Target: coverdelivery.Target{CopyID: "copy", WorkCode: "RJ00000002"}},
+	} {
+		raw, _ := json.Marshal(outcome)
+		in.Units = append(in.Units, workset.ExecutionUnit{Index: len(in.Units), Payload: raw})
+	}
+	return in
+}
+
+func TestBatchReportsNonFetchUnitsOnceBeforeFetching(t *testing.T) {
+	repo, cat := taskBatchCatalog(t)
+	batchCalls, singleCalls := 0, 0
+	in := withNonFetchUnits(batchInput(func(index int, _ workset.UnitResult) error {
+		if index > 1 || batchCalls != 1 {
+			t.Fatalf("unexpected single progress: index=%d, batches=%d", index, batchCalls)
+		}
+		singleCalls++
+		return nil
+	}))
+	in.ProgressBatch = func(results map[int]workset.UnitResult) error {
+		batchCalls++
+		if len(results) != 4 {
+			t.Fatalf("non-fetch results: %+v", results)
+		}
+		for _, unit := range in.Units[2:] {
+			result, ok := results[unit.Index]
+			if !ok || result.Stage != "skipped" || result.CompletedOperations == nil ||
+				*result.CompletedOperations != 0 || string(result.TaskResult) != string(unit.Payload) {
+				t.Fatalf("non-fetch result changed: %+v", result)
+			}
+		}
+		return nil
+	}
+	source := batchSource{beforeFetch: func() {
+		if batchCalls != 1 {
+			t.Fatalf("fetch before batch progress: %d", batchCalls)
+		}
+	}}
+	executor := refresh.Executor{Metadata: refresh.NewService(cat, repo, source, source)}
+	if err := executor.Run(t.Context(), in); err != nil {
+		t.Fatal(err)
+	}
+	if batchCalls != 1 || singleCalls != 2 {
+		t.Fatalf("progress calls: batch=%d single=%d", batchCalls, singleCalls)
+	}
+}
+
+func TestBatchStopsBeforeCoversAndFetchOnProgressFailureOrCancellation(t *testing.T) {
+	writeErr := errors.New("batch write failed")
+	for _, scenario := range []string{"write failure", "canceled before batch", "canceled after batch"} {
+		t.Run(scenario, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+			in := withNonFetchUnits(batchInput(func(int, workset.UnitResult) error {
+				t.Fatal("single progress after failure or cancellation")
+				return nil
+			}))
+			in.Options = json.RawMessage(`{"mode":"refresh_all","locale":"ja-jp","download_cover":true}`)
+			batchCalls := 0
+			in.ProgressBatch = func(map[int]workset.UnitResult) error {
+				batchCalls++
+				if scenario == "write failure" {
+					return writeErr
+				}
+				cancel()
+				return nil
+			}
+			wantErr, wantCalls := writeErr, 1
+			if scenario != "write failure" {
+				wantErr = context.Canceled
+			}
+			if scenario == "canceled before batch" {
+				cancel()
+				wantCalls = 0
+			}
+			// Reaching either dependency would fail: both must follow batch persistence.
+			err := (refresh.Executor{}).Run(ctx, in)
+			if !errors.Is(err, wantErr) || batchCalls != wantCalls {
+				t.Fatalf("Run: %v, batch calls=%d; want %v, %d", err, batchCalls, wantErr, wantCalls)
+			}
+		})
 	}
 }

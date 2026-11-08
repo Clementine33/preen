@@ -18,7 +18,9 @@ _Avoid_: Treating a directory as the work, or a work as a copy of one.
 **Work Number**:
 The canonical form of a work's identity: `RJ` plus eight zero-padded digits.
 Six-digit and eight-digit spellings of the same number are the same work; a
-seven-digit run is not a work number at all.
+seven-digit run is not a work number at all. In a directory name the number
+may be welded to a title on either side (`RJ123456Title`); its neighbouring
+characters are never inspected.
 _Avoid_: Using the source's own spelling as the key.
 
 **External Work Reference**:

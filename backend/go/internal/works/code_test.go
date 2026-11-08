@@ -77,10 +77,17 @@ func TestCodesInDirName(t *testing.T) {
 		{"title around the number", "【ASMR】RJ01234567 耳かき", single("RJ01234567")},
 		{"underscore separates", "RJ01234567_extra", single("RJ01234567")},
 
-		// The adjacent case: neither candidate has a separator on both sides,
-		// so neither is a token at all and the name carries no number. It must
-		// not be read as a single (wrong binding) or as multiple.
-		{"adjacent digits, no separator", "RJ0123456RJ01234567", works.DirCodeResult{Kind: works.DirCodeNone}},
+		// A number may be welded to a title on either side.
+		{"trailing title", "RJ123456Title", single("RJ00123456")},
+		{"trailing version letter", "RJ01234567v2", single("RJ01234567")},
+		{"weld to a trailing letter", "RJ01234567X", single("RJ01234567")},
+		{"weld to a leading letter", "XRJ01234567", single("RJ01234567")},
+		{"weld to a leading digit", "1RJ01234567", single("RJ01234567")},
+		{"date prefix", "20240101RJ01234567", single("RJ01234567")},
+
+		// Two welded numbers are two numbers: reported, never guessed.
+		{"welded valid pair", "RJ123456RJ01234567", multiple("RJ00123456", "RJ01234567")},
+		{"welded seven digits beside a number", "RJ0123456RJ01234567", singleWithStray("RJ01234567", 1)},
 
 		// Two distinct numbers, either separator, must both be found.
 		{"space separated pair", "RJ01234567 RJ07654321", multiple("RJ01234567", "RJ07654321")},
@@ -95,8 +102,6 @@ func TestCodesInDirName(t *testing.T) {
 		{"five-digit run", "RJ01234", invalidOnly(1)},
 		{"zero number", "RJ00000000", invalidOnly(1)},
 
-		{"weld to a letter", "XRJ01234567", works.DirCodeResult{Kind: works.DirCodeNone}},
-		{"weld to a trailing letter", "RJ01234567X", works.DirCodeResult{Kind: works.DirCodeNone}},
 		{"no number at all", "some album name", works.DirCodeResult{Kind: works.DirCodeNone}},
 		{"no prefix", "01234567", works.DirCodeResult{Kind: works.DirCodeNone}},
 	}

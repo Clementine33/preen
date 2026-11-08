@@ -109,27 +109,20 @@ type DirCodeResult struct {
 
 // rjCandidate finds the shape of a number inside a name. The digit run is
 // deliberately greedy: a nine-digit run must be read whole and then rejected
-// as too long, never truncated to a legal eight-digit prefix. A candidate is
-// additionally checked against its neighbours by index below, because RE2 has
-// no lookaround.
+// as too long, never truncated to a legal eight-digit prefix.
 var rjCandidate = regexp.MustCompile(`(?i)RJ[0-9]+`)
 
 // CodesInDirName extracts the work number a directory name carries. Only the
 // name itself is consulted — never file names, parent directories or a
 // metadata title — because the directory name is what the user controls.
 //
-// A match is accepted only when the character before it and the character
-// after it are both non-alphanumeric (or the ends of the string). Those two
-// characters are inspected by index and never consumed, so two numbers
-// separated by one separator are both found; a pattern that carried its own
-// boundary would swallow the separator and see only the first of them.
+// Neighbouring characters are not inspected: a number may be welded to a title
+// on either side (RJ123456Title, 2024RJ01234567). Two numbers welded together
+// are therefore both found and reported as DirCodeMultiple, never guessed.
 func CodesInDirName(dirName string) DirCodeResult {
 	var result DirCodeResult
 	seen := map[WorkCode]struct{}{}
 	for _, at := range rjCandidate.FindAllStringIndex(dirName, -1) {
-		if !atTokenBoundary(dirName, at[0], at[1]) {
-			continue
-		}
 		code, ok := ParseWorkCode(dirName[at[0]:at[1]])
 		if !ok {
 			result.InvalidCount++
@@ -153,24 +146,4 @@ func CodesInDirName(dirName string) DirCodeResult {
 		result.Kind = DirCodeMultiple
 	}
 	return result
-}
-
-// atTokenBoundary reports whether the match at [start,end) stands alone: the
-// character on each side is a separator rather than another word character.
-func atTokenBoundary(s string, start, end int) bool {
-	if start > 0 && isWordByte(s[start-1]) {
-		return false
-	}
-	return end >= len(s) || !isWordByte(s[end])
-}
-
-// isWordByte reports whether b is an ASCII letter or digit — the characters
-// that would weld a number to a neighbouring token.
-func isWordByte(b byte) bool {
-	switch {
-	case b >= '0' && b <= '9', b >= 'a' && b <= 'z', b >= 'A' && b <= 'Z':
-		return true
-	default:
-		return false
-	}
 }

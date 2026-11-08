@@ -84,7 +84,7 @@ describe('worksets page: Default Library', () => {
     await flushPromises()
   }
 
-  it('tags the Default Library in the list', async () => {
+  it('tags the Default Library in the list and shows no scan status', async () => {
     const wrapper = await mountPage(apiStub({
       listLibraries: vi.fn().mockResolvedValue(libraries),
       getPreferences: vi.fn().mockResolvedValue({ track_formats: [], default_library_id: 'lib-a' }),
@@ -92,6 +92,7 @@ describe('worksets page: Default Library', () => {
 
     expect(wrapper.find('[data-testid="default-lib-a"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="default-lib-b"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toMatch(/已扫描|未扫描|扫描失败/)
   })
 
   it('moves the Default Library from the edit dialog', async () => {
@@ -100,7 +101,7 @@ describe('worksets page: Default Library', () => {
       listLibraries: vi.fn().mockResolvedValue(libraries),
       getPreferences: vi.fn().mockResolvedValue({ track_formats: [], default_library_id: 'lib-a' }),
       putPreferences,
-      updateLibrary: vi.fn(async (id: string) => libraries.find(item => item.id === id)),
+      updateLibrary: vi.fn(async (id: string) => libraries.find(item => item.id === id)!),
     }))
     await wrapper.get('[data-testid="edit-lib-b"]').trigger('click')
     await flushPromises()
@@ -120,7 +121,7 @@ describe('worksets page: Default Library', () => {
       listLibraries: vi.fn().mockResolvedValue(libraries),
       getPreferences: vi.fn().mockResolvedValue({ track_formats: [], default_library_id: 'lib-a' }),
       putPreferences,
-      updateLibrary: vi.fn(async (id: string) => libraries.find(item => item.id === id)),
+      updateLibrary: vi.fn(async (id: string) => libraries.find(item => item.id === id)!),
     }))
     await edit(wrapper, 'lib-a', false)
     expect(putPreferences).not.toHaveBeenCalled()
@@ -128,5 +129,16 @@ describe('worksets page: Default Library', () => {
     await edit(wrapper, 'lib-a', true)
     expect(putPreferences).toHaveBeenCalledExactlyOnceWith({ default_library_id: null })
     expect(wrapper.find('[data-testid="default-lib-a"]').exists()).toBe(false)
+  })
+
+  it('adds a library from the header NEW, with no default choice for a library not yet created', async () => {
+    const wrapper = await mountPage(apiStub({
+      listLibraries: vi.fn().mockResolvedValue(libraries),
+    }))
+    await wrapper.get('[data-testid="worksets-new"]').trigger('click')
+    await flushPromises()
+
+    expect(document.body.textContent).toContain('添加媒体库')
+    expect(document.querySelector('[data-testid="library-default"]')).toBeNull()
   })
 })

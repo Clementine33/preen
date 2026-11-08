@@ -102,7 +102,8 @@ const deletingCount = computed(() => (deleting.value
 
 <template>
   <div data-testid="user-tag-settings">
-    <form class="flex flex-wrap items-start gap-2" @submit.prevent="submitCreate">
+    <!-- mt-2.5: the same top inset a SettingsField gives the first row under the strip. -->
+    <form class="mt-2.5 flex flex-wrap items-start gap-2" @submit.prevent="submitCreate">
       <input
         v-model="newName"
         class="field-input h-11! min-w-0 flex-1 text-[16px]! rail:h-[30px]! rail:text-[length:var(--fs-s)]!"

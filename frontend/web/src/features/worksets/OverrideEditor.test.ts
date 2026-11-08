@@ -89,10 +89,8 @@ describe('overrideEditor', () => {
       kind: 'member',
       memberId: 'm-1',
     })
-    // matched = 独立值, everything else = 默认.
-    expect(wrapper.get('[data-testid="unit-matched"]').text()).toContain('独立值')
-    expect(wrapper.get('[data-testid="unit-mode"]').text()).toContain('默认')
-    // The source word never stands in for the value itself.
+    // The status line alone tells the source: an override says how it relates
+    // to the global value, a default says nothing, and there is no source chip.
     expect(statusText(wrapper, 'matched')).toBe('当前：FLAC（与全局不同）')
     expect(statusText(wrapper, 'mode')).toBe('当前：可用源')
     expect(statusText(wrapper, 'no_effect_tags')).toBe('当前：A')
@@ -193,7 +191,6 @@ describe('overrideEditor', () => {
       memberIds: ['m-1', 'm-2'],
     })
 
-    expect(wrapper.get('[data-testid="unit-matched"]').text()).toContain('多种值')
     expect(statusText(wrapper, 'matched')).toBe('当前：多种值')
     // Neither choice is pressed until the user decides.
     expect(wrapper.get('[data-testid="unit-matched-default"]').attributes('aria-checked')).toBe('false')

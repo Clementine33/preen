@@ -26,7 +26,7 @@ const durations = computed(() => store.tracks.map((_, t) => fileFor(t)?.duration
 // A "full cut" track (about the sum of the others) would squash every real
 // track to one cell, so it is full and the second longest sets the scale.
 const scale = computed(() => {
-  const sorted = durations.value.filter(d => d > 0).toSorted((a, b) => b - a)
+  const sorted = durations.value.filter(d => d > 0).sort((a, b) => b - a)
   const [max = 0, second = 0] = sorted
   const rest = sorted.slice(1).reduce((sum, d) => sum + d, 0)
   return sorted.length >= 4 && max >= rest * 0.7

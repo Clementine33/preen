@@ -50,7 +50,7 @@ test.describe('workbench addresses', () => {
 
     // A library of its own, on the fixture tree above.
     await page.goto('/worksets')
-    await page.getByRole('button', { name: '添加媒体库' }).first().click()
+    await page.getByTestId('worksets-new').click()
     await page.locator('#library-name').fill('Addresses Library')
     await page.locator('#library-root').fill(root)
     await page.getByRole('button', { name: '保存' }).click()

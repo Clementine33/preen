@@ -23,7 +23,8 @@ defineEmits<{ undo: [] }>()
   <div class="@container border-t border-[var(--wire-fine)] py-2.5 first:border-t-0" :data-testid="`field-${id}`">
     <div class="grid gap-x-4 gap-y-1.5 @lg:grid-cols-[11rem_minmax(0,1fr)]">
       <div class="min-w-0">
-        <div class="flex min-h-5 flex-wrap items-center gap-x-2 gap-y-1">
+        <!-- min-h-7: the label line is as tall as a standard control (28px: .seg, Button sm), so a label and its control share one centre line. -->
+        <div class="flex min-h-7 flex-wrap items-center gap-x-2 gap-y-1">
           <span class="text-xs font-medium">{{ label }}</span>
           <template v-if="modified">
             <span class="inline-flex items-center gap-1.5 text-[11px]" :data-testid="`${id}-modified`">

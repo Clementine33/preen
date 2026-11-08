@@ -345,9 +345,6 @@ function onRow(i: number) {
       <GlobalMenu />
       <div class="min-w-0 flex-1">
         <h1 class="font-heading text-sm font-semibold">合集</h1>
-        <p v-if="!narrow" class="truncate text-[11px] text-muted-foreground">
-          选择一个合集，随机展示它的封面与最新作品
-        </p>
       </div>
       <button class="btn btn-s" type="button" data-testid="collections-new" @click="createNew">+ NEW</button>
     </header>

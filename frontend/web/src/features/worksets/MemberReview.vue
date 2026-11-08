@@ -69,9 +69,6 @@ function componentFacts(component: ComponentOutcome): { label: string, tone: 'su
   <div class="space-y-3 p-3" data-testid="member-review">
     <div>
       <h2 class="truncate font-heading text-sm font-semibold" :title="member.folder_path">{{ member.folder_name }}</h2>
-      <p class="truncate font-mono text-[10px] text-[var(--text-muted)]" :title="member.folder_path">
-        {{ member.rel_path }}
-      </p>
     </div>
 
     <!-- An excluded member is still editable: participation is one of the

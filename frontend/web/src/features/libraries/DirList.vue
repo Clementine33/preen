@@ -84,7 +84,7 @@ function dirAt(index: number): LibraryDir {
     <!-- Desktop keeps the column labels; the phone tier shows the count and the
          select-all control instead, because the rows are merged there. -->
     <div
-      class="grid h-9 shrink-0 grid-cols-[44px_minmax(0,1fr)_44px] items-center border-t border-border border-b-[var(--wire-strong)] border-b bg-muted/35 px-2 text-[11px] font-medium text-muted-foreground rail:grid-cols-[38px_minmax(0,1fr)_92px] rail:px-3"
+      class="grid h-9 shrink-0 grid-cols-[44px_minmax(0,1fr)_44px] items-center border-t border-border border-b-[var(--wire-strong)] border-b bg-muted/35 px-2 text-[11px] font-medium text-muted-foreground rail:grid-cols-[38px_minmax(0,1fr)_32px] rail:px-3"
     >
       <label class="flex h-full w-full cursor-pointer items-center justify-center rail:justify-start">
         <input
@@ -118,7 +118,7 @@ function dirAt(index: number): LibraryDir {
           v-for="virtualItem in virtualizer.getVirtualItems()"
           :key="dirAt(virtualItem.index).rel_path"
           :style="{ transform: `translateY(${virtualItem.start}px)` }"
-          class="absolute top-0 left-0 grid h-14 w-full grid-cols-[44px_minmax(0,1fr)_44px] items-center overflow-hidden border-b border-border px-2 transition-colors hover:bg-accent/45 rail:grid-cols-[38px_minmax(0,1fr)_92px] rail:px-3"
+          class="absolute top-0 left-0 grid h-14 w-full grid-cols-[44px_minmax(0,1fr)_44px] items-center overflow-hidden border-b border-border px-2 transition-colors hover:bg-accent/45 rail:grid-cols-[38px_minmax(0,1fr)_32px] rail:px-3"
         >
           <label class="flex h-full w-full cursor-pointer items-center justify-center rail:justify-start">
             <input
@@ -154,10 +154,11 @@ function dirAt(index: number): LibraryDir {
             </span>
           </label>
           <!-- Always on screen, never hover-only; the phone tier keeps a
-               44px target while the desktop tier stays compact. -->
+               44px target while the desktop tier stays compact, a 32px
+               column with the button flush to the row's right edge. -->
           <button
             type="button"
-            class="flex h-full w-full items-center justify-center rounded text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none rail:h-8 rail:w-8"
+            class="flex h-full w-full items-center justify-center rounded text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none rail:h-8 rail:w-8 rail:justify-self-end"
             :aria-label="`打开 ${dirAt(virtualItem.index).name}`"
             @click="emit('open', dirAt(virtualItem.index).dir_id)"
           >

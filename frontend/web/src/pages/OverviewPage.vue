@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { TaskTarget } from '@/features/libraries/BatchPlanBar.vue'
-import type { LibraryDir, ScanMode, SkippedFolder, SkippedReason, UpdateLibraryInput } from '@/lib/api/types'
-import { AlertTriangle, Pencil, RefreshCw, ScanLine, Square } from '@lucide/vue'
+import type { LibraryDir, ScanMode, SkippedFolder, SkippedReason } from '@/lib/api/types'
+import { AlertTriangle, RefreshCw, ScanLine, Square } from '@lucide/vue'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { computed, ref, watch, watchEffect } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
@@ -12,7 +12,6 @@ import { useLibraryScan } from '@/composables/use-library-scan'
 import { useToast } from '@/composables/use-toast'
 import BatchPlanBar from '@/features/libraries/BatchPlanBar.vue'
 import DirList from '@/features/libraries/DirList.vue'
-import LibraryManager from '@/features/libraries/LibraryManager.vue'
 import ScanProgressBar from '@/features/libraries/ScanProgressBar.vue'
 import WorkbenchNav from '@/features/worksets/WorkbenchNav.vue'
 import { useApiClient } from '@/lib/api/client'
@@ -24,8 +23,7 @@ import {
 } from '@/lib/api/types'
 import { newIdempotencyKey } from '@/lib/utils'
 import { healthQueryOptions } from '@/queries/health'
-import { deleteLibraryMutationOptions, dirsQueryOptions, updateLibraryMutationOptions, useLibraryList } from '@/queries/libraries'
-import { useSetDefaultLibrary } from '@/queries/preferences'
+import { dirsQueryOptions, useLibraryList } from '@/queries/libraries'
 import { createCurrentRecordMutationOptions, currentRecordQueryOptions } from '@/queries/worksets'
 import { useLibraryUiStore } from '@/stores/library-ui'
 import { useMediaFactsStore } from '@/stores/media-facts'
@@ -70,8 +68,7 @@ const mediaFactsLine = computed(() => {
 })
 const filesOpen = computed(() => route.name === 'overview-files')
 
-const { activeLibrary, defaultLibraryId } = useLibraryList()
-const setDefaultLibrary = useSetDefaultLibrary()
+const { activeLibrary } = useLibraryList()
 
 watch(
   libraryId,
@@ -102,8 +99,6 @@ const record = computed(() => recordQuery.data.value?.workset ?? null)
 
 // ---- scope → record ---------------------------------------------------
 
-const managerOpen = ref(false)
-const savingLibrary = ref(false)
 const confirmOpen = ref(false)
 const createError = ref<string | null>(null)
 const skipped = ref<SkippedFolder[]>([])
@@ -238,64 +233,6 @@ async function submit() {
   }
 }
 
-// ---- library management ------------------------------------------------
-
-const updateLibraryMutation = useMutation(updateLibraryMutationOptions(api, queryClient))
-const deleteLibraryMutation = useMutation(deleteLibraryMutationOptions(api, queryClient))
-
-async function saveLibrary(
-  { name, storage_class, is_default }: Required<Pick<UpdateLibraryInput, 'name' | 'storage_class'>> & { is_default?: boolean },
-) {
-  if (!activeLibrary.value)
-    return
-  savingLibrary.value = true
-  try {
-    const id = activeLibrary.value.id
-    await updateLibraryMutation.mutateAsync({
-      id,
-      input: { name, storage_class },
-    })
-    if (is_default !== undefined && is_default !== (defaultLibraryId.value === id))
-      await setDefaultLibrary.mutateAsync(is_default ? id : null)
-    managerOpen.value = false
-  }
-  catch {
-    // The mutation error is shown in the dialog.
-  }
-  finally {
-    savingLibrary.value = false
-  }
-}
-
-async function removeLibrary(id: string) {
-  if (
-    !window.confirm(
-      '删除这个媒体库条目？它的设置、处理记录、计划和执行结果都会一并删除；磁盘上的音频文件与 Delete/ 回收目录不会被删除。',
-    )
-  ) {
-    return
-  }
-  savingLibrary.value = true
-  try {
-    await deleteLibraryMutation.mutateAsync(id)
-    managerOpen.value = false
-    await router.push({ name: 'worksets' })
-  }
-  catch {
-    // Keep the dialog open and expose the mutation error in it.
-  }
-  finally {
-    savingLibrary.value = false
-  }
-}
-
-const managementError = computed(() => {
-  const error = updateLibraryMutation.error.value ?? deleteLibraryMutation.error.value
-  return error
-    ? errorDetails(error)
-    : null
-})
-
 // ---- scanning ---------------------------------------------------------
 
 const scanningThisLibrary = computed(() => scan.status === 'scanning' && scan.libraryId === libraryId.value)
@@ -374,8 +311,7 @@ const libraryRoot = computed(() => activeLibrary.value?.root_path ?? '')
 
         <section class="flex min-h-0 flex-1 flex-col overflow-y-auto" data-testid="overview">
           <div class="mx-auto flex w-full max-w-5xl min-h-0 flex-1 flex-col p-4">
-            <!-- Library identity, its scan state and the library-level actions
-              : management and scanning live here, not in a second page. -->
+            <!-- Library identity and its scan actions, scan last (rightmost). -->
             <div class="flex flex-wrap items-start gap-3">
               <div class="min-w-0">
                 <h1 class="truncate font-heading text-base font-semibold">
@@ -390,17 +326,6 @@ const libraryRoot = computed(() => activeLibrary.value?.root_path ?? '')
                   v-if="activeLibrary"
                   size="xs"
                   variant="outline"
-                  data-testid="scan-button"
-                  :disabled="scanningThisLibrary"
-                  @click="runScan()"
-                >
-                  <ScanLine class="size-3.5" />
-                  {{ scanningThisLibrary ? '扫描中…' : '扫描' }}
-                </Button>
-                <Button
-                  v-if="activeLibrary"
-                  size="xs"
-                  variant="outline"
                   data-testid="full-rescan-button"
                   :disabled="scanningThisLibrary"
                   @click="runScan('full')"
@@ -411,17 +336,16 @@ const libraryRoot = computed(() => activeLibrary.value?.root_path ?? '')
                   <Square class="size-3" />
                   取消
                 </Button>
-                <!-- Library management stays reachable from the workbench:
-                   the entry lives here, not only on the selection page. -->
                 <Button
                   v-if="activeLibrary"
                   size="xs"
-                  variant="ghost"
-                  data-testid="edit-library"
-                  @click="managerOpen = true"
+                  variant="outline"
+                  data-testid="scan-button"
+                  :disabled="scanningThisLibrary"
+                  @click="runScan()"
                 >
-                  <Pencil class="size-3.5" />
-                  媒体库
+                  <ScanLine class="size-3.5" />
+                  {{ scanningThisLibrary ? '扫描中…' : '扫描' }}
                 </Button>
               </div>
             </div>
@@ -537,20 +461,6 @@ const libraryRoot = computed(() => activeLibrary.value?.root_path ?? '')
       />
     </template>
   </WorkbenchShell>
-
-  <!-- The library's own management dialog (rename, root, delete): reachable
-       from the workbench, and portalled so it works at every tier. -->
-  <LibraryManager
-    v-if="managerOpen"
-    :open="managerOpen"
-    :library="activeLibrary"
-    :is-default="activeLibrary?.id === defaultLibraryId"
-    :saving="savingLibrary"
-    @close="managerOpen = false"
-    @save="saveLibrary"
-    @remove="removeLibrary"
-  />
-  <p v-if="managementError" class="sr-only" role="alert">{{ managementError.message }}</p>
 
   <!-- The replace confirmation is a page-level decision, not a carrier: it is
        portalled, so it reaches the user at every container tier. -->

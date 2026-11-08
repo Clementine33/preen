@@ -100,10 +100,11 @@ async function logout(): Promise<void> {
       <div class="min-h-0 min-w-0 flex-1 overflow-y-auto">
         <section
           class="grid max-w-3xl grid-cols-[minmax(0,1fr)] px-4 pt-6 pb-16 rail:px-8"
-          aria-labelledby="settings-section-title"
+          :aria-label="section.label"
+          data-testid="settings-section"
         >
+          <!-- The strip is the section's title; the nav already names it in full. -->
           <div class="strip"><span class="strip-name lbl">{{ section.code }}</span></div>
-          <h2 id="settings-section-title" class="mt-3 font-heading text-base font-semibold">{{ section.label }}</h2>
 
           <template v-if="section.id === 'appearance'">
             <SettingsField id="theme" label="主题">
@@ -137,7 +138,7 @@ async function logout(): Promise<void> {
 
           <template v-else-if="section.id === 'maintenance'">
             <DataMaintenanceSettings />
-            <SettingsField id="diagnostic-log" label="诊断日志" hint="最近的后端运行日志，用于反馈问题；不含访问密钥，含媒体路径" class="mt-6">
+            <SettingsField id="diagnostic-log" label="诊断日志" class="mt-6">
               <DiagnosticLogExport />
             </SettingsField>
           </template>
@@ -157,7 +158,7 @@ async function logout(): Promise<void> {
           <template v-else-if="section.id === 'about'">
             <AboutSettings />
             <SettingsField id="account" label="会话" class="border-t border-[var(--wire-fine)]">
-              <Button variant="outline" :disabled="loggingOut" data-testid="logout" @click="logout">
+              <Button size="sm" variant="outline" :disabled="loggingOut" data-testid="logout" @click="logout">
                 Exit
               </Button>
               <p v-if="logoutError" role="alert" class="mt-2 text-sm text-destructive">{{ logoutError }}</p>

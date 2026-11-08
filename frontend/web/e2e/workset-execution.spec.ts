@@ -103,7 +103,7 @@ async function addLibraryAndScan(page: Page, root: string, name: string): Promis
     await emptyState.click()
   }
   else {
-    await page.getByRole('button', { name: '添加媒体库' }).first().click()
+    await page.getByTestId('worksets-new').click()
   }
   await page.locator('#library-name').fill(name)
   await page.locator('#library-root').fill(root)

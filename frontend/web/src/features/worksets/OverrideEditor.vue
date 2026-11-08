@@ -2,7 +2,6 @@
 import type { EditTarget } from '@/features/worksets/draft-intents'
 import type { OperationDraftDocument, OverrideUnit } from '@/lib/api/types'
 import { computed } from 'vue'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
 
@@ -45,10 +44,6 @@ const UNIT_LABELS: Record<OverrideUnit, string> = {
 type Choice = 'default' | 'override' | 'unset'
 
 /** What the group is set to right now, before this session's edits. */
-function storedSource(unit: OverrideUnit): 'common' | 'member' | 'mixed' {
-  return readUnit(props.draft, props.target, unit).source
-}
-
 function choiceOf(unit: OverrideUnit): Choice {
   const pending = editor.session?.intent.units[unit]
   if (pending?.intent === 'inherit')
@@ -131,14 +126,6 @@ function storedLabel(unit: OverrideUnit): string {
   return `当前：${unitValueText(unit, stored.value)}${relation}`
 }
 
-function sourceText(source: 'common' | 'member' | 'mixed'): string {
-  if (source === 'member')
-    return '独立值'
-  if (source === 'mixed')
-    return '多种值'
-  return '默认'
-}
-
 const participation = computed(() => readParticipation(props.draft, props.target))
 const participationIntent = computed(() => editor.session?.intent.participation ?? 'keep')
 /**
@@ -164,90 +151,86 @@ const effectivelyExcluded = computed(() => participationState.value === 'exclude
 
 <template>
   <div class="space-y-3" data-testid="override-editor">
-    <p class="text-[11px] text-[var(--text-secondary)]">
-      每项设置只有两种选择：默认（跟随全局设置）或覆盖（为此范围写入独立值）。未改动的项保持现状。
-    </p>
 
-    <section v-for="unit in OVERRIDE_UNITS" :key="unit" :data-testid="`unit-${unit}`">
-      <h3 class="border-b border-[var(--wire-mid)] pb-1 text-[11px] font-semibold text-[var(--text-secondary)]">{{ UNIT_LABELS[unit] }}</h3>
-      <div class="my-2 flex flex-wrap items-center gap-2 text-[11px] text-[var(--text-secondary)]">
-        <Badge
-          :tone="storedSource(unit) === 'mixed' ? 'warning' : storedSource(unit) === 'member' ? 'brand' : 'neutral'"
-        >
-          {{ sourceText(storedSource(unit)) }}
-        </Badge>
-        <span data-testid="unit-status">{{ statusLabel(unit) }}</span>
-      </div>
+    <!-- One rule between groups, none under a heading: a heading and its
+         controls read as one block, and the rule says where the next begins. -->
+    <div class="divide-y divide-[var(--wire-fine)]">
+      <section v-for="unit in OVERRIDE_UNITS" :key="unit" class="py-3 first:pt-0" :data-testid="`unit-${unit}`">
+        <h3 class="mb-1.5 text-xs font-semibold">{{ UNIT_LABELS[unit] }}</h3>
+        <div class="mb-2 flex flex-wrap items-center gap-2 text-[11px] text-[var(--text-secondary)]">
+          <span data-testid="unit-status">{{ statusLabel(unit) }}</span>
+        </div>
 
-      <div class="flex flex-wrap gap-2" role="radiogroup" :aria-label="`${UNIT_LABELS[unit]} 来源`">
-        <Button
-          size="xs"
-          role="radio"
-          :aria-checked="choiceOf(unit) === 'default'"
-          :variant="choiceOf(unit) === 'default' ? 'secondary' : 'outline'"
-          :disabled="readOnly"
-          :data-testid="`unit-${unit}-default`"
-          @click="chooseDefault(unit)"
-        >
-          默认
-        </Button>
-        <Button
-          size="xs"
-          role="radio"
-          :aria-checked="choiceOf(unit) === 'override'"
-          :variant="choiceOf(unit) === 'override' ? 'secondary' : 'outline'"
-          :disabled="readOnly"
-          :data-testid="`unit-${unit}-override`"
-          @click="chooseOverride(unit)"
-        >
-          覆盖
-        </Button>
-      </div>
+        <div class="flex flex-wrap gap-2" role="radiogroup" :aria-label="`${UNIT_LABELS[unit]} 来源`">
+          <Button
+            size="xs"
+            role="radio"
+            :aria-checked="choiceOf(unit) === 'default'"
+            :variant="choiceOf(unit) === 'default' ? 'secondary' : 'outline'"
+            :disabled="readOnly"
+            :data-testid="`unit-${unit}-default`"
+            @click="chooseDefault(unit)"
+          >
+            默认
+          </Button>
+          <Button
+            size="xs"
+            role="radio"
+            :aria-checked="choiceOf(unit) === 'override'"
+            :variant="choiceOf(unit) === 'override' ? 'secondary' : 'outline'"
+            :disabled="readOnly"
+            :data-testid="`unit-${unit}-override`"
+            @click="chooseOverride(unit)"
+          >
+            覆盖
+          </Button>
+        </div>
 
-      <div v-if="choiceOf(unit) === 'override'" class="mt-2">
-        <UnitFields
-          :unit="unit"
-          :label="UNIT_LABELS[unit]"
-          scope="override"
-          :value="valueOf(unit)"
-          :disabled="readOnly"
-          @change="editor.setUnit(unit, { intent: 'set', value: $event })"
-        />
-      </div>
-    </section>
+        <div v-if="choiceOf(unit) === 'override'" class="mt-2">
+          <UnitFields
+            :unit="unit"
+            :label="UNIT_LABELS[unit]"
+            scope="override"
+            :value="valueOf(unit)"
+            :disabled="readOnly"
+            @change="editor.setUnit(unit, { intent: 'set', value: $event })"
+          />
+        </div>
+      </section>
 
-    <section v-if="participationEditable">
-      <h3 class="border-b border-[var(--wire-mid)] pb-1 text-[11px] font-semibold text-[var(--text-secondary)]">本操作参与状态</h3>
-      <p class="my-2 text-[11px] text-[var(--text-secondary)]">
-        排除只改变本操作的参与状态，不会删除独立值；恢复参与后继续使用原有设置。
-      </p>
-      <div class="flex flex-wrap gap-2" role="radiogroup" aria-label="本操作参与状态">
-        <Button
-          size="xs"
-          role="radio"
-          :aria-checked="participationState === 'participate'"
-          :variant="participationState === 'participate' ? 'secondary' : 'outline'"
-          :disabled="readOnly"
-          data-testid="participation-include"
-          @click="editor.setParticipation('participate')"
-        >
-          参与（{{ targetLabel }}）
-        </Button>
-        <Button
-          size="xs"
-          role="radio"
-          :aria-checked="participationState === 'exclude'"
-          :variant="participationState === 'exclude' ? 'secondary' : 'outline'"
-          :disabled="readOnly"
-          data-testid="participation-exclude"
-          @click="editor.setParticipation('exclude')"
-        >
-          从本操作排除
-        </Button>
-      </div>
-      <p v-if="effectivelyExcluded" class="mt-2 text-[11px] text-[var(--warning-ink)]">
-        应用后这些文件夹将不参与本操作的计划生成。
-      </p>
-    </section>
+      <section v-if="participationEditable" class="py-3 last:pb-0">
+        <h3 class="mb-1.5 text-xs font-semibold">本操作参与状态</h3>
+        <p class="mb-2 text-[11px] text-[var(--text-secondary)]">
+          排除只改变本操作的参与状态，不会删除独立值；恢复参与后继续使用原有设置。
+        </p>
+        <div class="flex flex-wrap gap-2" role="radiogroup" aria-label="本操作参与状态">
+          <Button
+            size="xs"
+            role="radio"
+            :aria-checked="participationState === 'participate'"
+            :variant="participationState === 'participate' ? 'secondary' : 'outline'"
+            :disabled="readOnly"
+            data-testid="participation-include"
+            @click="editor.setParticipation('participate')"
+          >
+            参与（{{ targetLabel }}）
+          </Button>
+          <Button
+            size="xs"
+            role="radio"
+            :aria-checked="participationState === 'exclude'"
+            :variant="participationState === 'exclude' ? 'secondary' : 'outline'"
+            :disabled="readOnly"
+            data-testid="participation-exclude"
+            @click="editor.setParticipation('exclude')"
+          >
+            从本操作排除
+          </Button>
+        </div>
+        <p v-if="effectivelyExcluded" class="mt-2 text-[11px] text-[var(--warning-ink)]">
+          应用后这些文件夹将不参与本操作的计划生成。
+        </p>
+      </section>
+    </div>
   </div>
 </template>

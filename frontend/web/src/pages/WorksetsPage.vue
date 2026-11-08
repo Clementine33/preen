@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { CreateLibraryInput, StorageClass } from '@/lib/api/types'
-import { AlertTriangle, LibraryBig, Pencil, Plus, RefreshCw } from '@lucide/vue'
+import { AlertTriangle, LibraryBig, Plus, RefreshCw } from '@lucide/vue'
 import { useMutation, useQueryClient } from '@tanstack/vue-query'
 import { computed, ref } from 'vue'
 import { RouterLink } from 'vue-router'
@@ -139,14 +139,10 @@ async function retryPage() {
   <section class="flex h-full min-w-0 flex-col substrate" data-testid="worksets-page">
     <header class="flex min-h-14 shrink-0 flex-wrap items-center gap-x-3 gap-y-1.5 edge-bottom px-4 py-1.5 rail:px-5">
       <GlobalMenu />
-      <div class="min-w-0 flex-1 rail:flex-none">
+      <div class="min-w-0 flex-1">
         <h1 class="font-heading text-sm font-semibold">工作集</h1>
-        <p class="truncate text-[11px] text-muted-foreground">选择一个媒体库进入工作台</p>
       </div>
-      <Button class="ml-auto h-11 rail:h-7" variant="outline" size="sm" @click="openAdd">
-        <Plus class="size-3.5" />
-        添加媒体库
-      </Button>
+      <button class="btn btn-s" type="button" data-testid="worksets-new" @click="openAdd">+ NEW</button>
     </header>
 
     <div
@@ -188,10 +184,13 @@ async function retryPage() {
       </div>
 
       <ul v-else class="mx-auto max-w-3xl space-y-1.5 p-4">
-        <li v-for="library in libraries" :key="library.id" class="flex items-center gap-2">
+        <li
+          v-for="library in libraries" :key="library.id"
+          class="flex items-stretch border border-[var(--wire-mid)] bg-background hover:border-[var(--wire-strong)]"
+        >
           <RouterLink
             :to="{ name: 'workbench-overview', params: { libraryId: library.id } }"
-            class="flex min-w-0 flex-1 items-center gap-2 border border-[var(--wire-mid)] bg-background px-3 py-2 hover:border-[var(--wire-strong)] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            class="flex min-w-0 flex-1 items-center gap-2 px-3 py-2 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset"
             :data-testid="`library-${library.id}`"
           >
             <LibraryBig class="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
@@ -206,19 +205,18 @@ async function retryPage() {
             >
               默认
             </span>
-            <span class="shrink-0 text-[10px] text-[var(--text-secondary)]">
-              {{ library.last_scan_status === 'completed' ? '已扫描' : library.last_scan_status === 'failed' ? '扫描失败' : '未扫描' }}
-            </span>
           </RouterLink>
-          <Button
-            variant="ghost"
-            size="icon"
+          <!-- A segment of the row's own frame, not a second button beside it:
+               one outline, a hairline between, and the segment inverts on hover. -->
+          <button
+            type="button"
+            class="shrink-0 border-l border-[var(--wire-mid)] px-3 font-mono text-[11px] tracking-[.14em] text-[var(--text-secondary)] hover:bg-[var(--invert-bg)] hover:text-[var(--invert-fg)] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset pointer-coarse:min-w-14"
             :aria-label="`编辑 ${library.name}`"
             :data-testid="`edit-${library.id}`"
             @click="openEdit(library.id)"
           >
-            <Pencil class="size-3.5" />
-          </Button>
+            EDIT
+          </button>
         </li>
       </ul>
     </div>

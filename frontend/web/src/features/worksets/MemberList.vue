@@ -3,7 +3,7 @@ import type { Virtualizer } from '@tanstack/vue-virtual'
 import type { MemberFilter } from '@/app/route-params'
 import type { MemberConclusion } from '@/features/worksets/plan-readers'
 import type { OperationDraftDocument, WorksetMember } from '@/lib/api/types'
-import { Eye, FolderOpen, ListChecks } from '@lucide/vue'
+import { FolderOpen, ListChecks, SlidersHorizontal } from '@lucide/vue'
 import { observeElementOffset, useVirtualizer } from '@tanstack/vue-virtual'
 import { computed, ref } from 'vue'
 import { Badge } from '@/components/ui/badge'
@@ -282,7 +282,7 @@ function hasOverride(member: WorksetMember): boolean {
               data-testid="member-open-icon"
               @click="emit('open', member.member_id)"
             >
-              <Eye class="size-5" />
+              <SlidersHorizontal class="size-5" />
             </Button>
             <Button
               v-if="hasExecutionResult(member)"

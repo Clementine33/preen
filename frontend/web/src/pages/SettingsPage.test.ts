@@ -1,4 +1,4 @@
-import type { OutboundProxy } from '@/lib/api/types'
+import type { OutboundProxy, UserPreferencesUpdate } from '@/lib/api/types'
 import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { createPinia } from 'pinia'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -117,7 +117,7 @@ describe('settings: user tags', () => {
 
 describe('settings: format preference', () => {
   it('saves each edit at once, keeps the order, and rolls back with a toast on failure', async () => {
-    const putPreferences = vi.fn(async (input: { track_formats: string[] }) => input)
+    const putPreferences = vi.fn(async (input: UserPreferencesUpdate) => ({ track_formats: input.track_formats ?? [] }))
     const wrapper = await mountPage(apiStub({
       getPreferences: vi.fn().mockResolvedValue({
         track_formats: ['WAV', 'FLAC'],
@@ -228,7 +228,8 @@ describe('settings: keyboard shortcuts', () => {
   it('lists every shortcut of the registry, grouped, as read-only text', async () => {
     expect((await mountPage(apiStub())).find('[data-testid="settings-keys"]').exists()).toBe(false)
     const wrapper = await mountPage(apiStub(), '/settings/keys')
-    expect(wrapper.get('#settings-section-title').text()).toBe('键盘快捷键')
+    expect(wrapper.get('[data-testid="settings-section"]').attributes('aria-label')).toBe('键盘快捷键')
+    expect(wrapper.get('.strip-name').text()).toBe('KEYBOARD')
     const list = wrapper.get('[data-testid="settings-keys"]')
     expect(list.findAll('dt').map(group => group.text())).toEqual(['播放器', '作品墙', '作品详情', '合集'])
     const texts = list.findAll('dd').map(row => row.text())
@@ -243,7 +244,8 @@ describe('settings: about', () => {
     const wrapper = await mountPage(apiStub({
       getHealth: vi.fn(async () => ({ ok: true, version: '1.2.3' })),
     }), '/settings/about')
-    expect(wrapper.get('#settings-section-title').text()).toBe('关于')
+    expect(wrapper.get('[data-testid="settings-section"]').attributes('aria-label')).toBe('关于')
+    expect(wrapper.find('h2').exists()).toBe(false)
     expect(wrapper.get('[data-testid="about-version"]').text()).toBe('1.2.3')
     expect(wrapper.get('[data-testid="settings-about"]').text()).toContain('GPL')
     expect(wrapper.get('[data-testid="about-repo"]').attributes('href')).toBe('https://github.com/Clementine33/preen')

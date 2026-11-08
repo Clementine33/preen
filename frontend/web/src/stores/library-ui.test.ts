@@ -76,13 +76,16 @@ describe('library-ui store', () => {
     expect(store.selectedDirPaths).toEqual([])
   })
 
-  it('leaves the ALL scope when a library is picked, even the active one', () => {
+  it('prefers the wall\'s remembered library for copies, then the active one', () => {
     const store = useLibraryUiStore()
     store.setActiveLibrary('lib-a')
-    store.showAllLibraries()
-    expect(store.allLibraries).toBe(true)
-    store.setActiveLibrary('lib-a')
-    expect(store.allLibraries).toBe(false)
+    expect(store.scopedLibraryId).toBe('lib-a')
+    store.wallQuery = { library: 'lib-b' }
+    expect(store.scopedLibraryId).toBe('lib-b')
+    store.wallQuery = { library: 'all' }
+    expect(store.scopedLibraryId).toBeNull()
+    store.wallQuery = { size: '60' }
+    expect(store.scopedLibraryId).toBe('lib-a')
   })
 
   it('toggles, selects all and clears selection', () => {

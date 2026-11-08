@@ -6,7 +6,7 @@ import type { WallHandle } from '@/features/works/use-wall-restore'
 import type { ListWorksParams, WorkFacet, WorksScope, WorksSort } from '@/lib/api/types'
 import { useQueryClient } from '@tanstack/vue-query'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { onBeforeRouteLeave, useRouter } from 'vue-router'
 import { canonicalRj } from '@/app/route-params'
 import GlobalMenu from '@/components/layout/GlobalMenu.vue'
 import { useKeymap } from '@/composables/use-keymap'
@@ -34,10 +34,12 @@ import { usePlayerStore } from '@/stores/player'
 //
 // State ownership: what the wall shows — library, filters, FIND, order, page,
 // page size and the selected work — is the address's, through useWallQuery and
-// its explicit actions. Where the wall was when a work was opened belongs to
-// that history entry (use-wall-restore). The page-size preference only seeds a
-// fresh visit. Typing in FIND, the tag index's staged picks and open menus stay
-// in their components.
+// its explicit actions (the library included: the store's active library is
+// the workbench's, and useWallQuery writes the session's remembered Wall View).
+// Where the wall was when it was left belongs to that history entry, recorded
+// on every leave (use-wall-restore). The page-size
+// preference only seeds a fresh visit. Typing in FIND, the tag index's staged
+// picks and open menus stay in their components.
 
 const router = useRouter()
 const api = useApiClient()
@@ -48,32 +50,46 @@ const isMobile = useMediaQuery(WALL_MOBILE_QUERY)
 const wall = ref<InstanceType<typeof WorkWall> | null>(null)
 const wq = useWallQuery()
 
-// ── Library: the address names it and the store mirrors it, for the switcher
-// and the other pages. The store differing from the address can only be the
-// switcher's pick — restoring an address sets them equal first — so only that
-// drops the previous library's picks. ──
-const { librariesData } = useLibraryList()
-watch(wq.library, (library) => {
-  if (library === 'all')
-    libraryUi.showAllLibraries()
-  else if (library)
-    libraryUi.setActiveLibrary(library)
-}, { immediate: true })
-const storeLibrary = computed(() => (libraryUi.allLibraries ? 'all' : libraryUi.activeLibraryId))
-watch(storeLibrary, (library) => {
-  if (library === null || library === wq.library.value)
+// ── Library: the address names it and nothing else does. The store's active
+// library belongs to the workbench; it reaches the address only through the
+// fill (no library named: the remembered wall's, else the active one, else the
+// first) and the correction (a library that no longer exists falls back to the
+// first). ──
+const { query: libraryQuery, librariesData } = useLibraryList()
+const libraryIds = computed(() => librariesData.value.map(library => library.id))
+const librariesLoaded = computed(() => libraryQuery.isSuccess.value)
+const noLibraries = computed(() => librariesLoaded.value && librariesData.value.length === 0)
+watch([wq.library, librariesLoaded, libraryIds], ([library]) => {
+  if (!librariesLoaded.value || libraryIds.value.length === 0)
     return
-  if (wq.library.value === null)
-    void wq.fillLibrary(library)
-  else void wq.setLibrary(library)
+  const ids = libraryIds.value
+  if (library === null) {
+    const remembered = libraryUi.wallQuery.library
+    const active = libraryUi.activeLibraryId
+    void wq.fillLibrary(
+      typeof remembered === 'string' && (remembered === 'all' || ids.includes(remembered))
+        ? remembered
+        : active !== null && ids.includes(active)
+          ? active
+          : ids[0],
+    )
+  }
+  else if (library !== 'all' && !ids.includes(library)) {
+    void wq.setLibrary(ids[0])
+  }
 }, { immediate: true })
 // `all` is the aggregate wall: every library's id, so the listing, the facets
 // and FIND share one copy-scoped filter and a work held twice is listed once.
-const libraryScope = computed(() =>
-  libraryUi.allLibraries
-    ? (librariesData.value.map(library => library.id).join(',') || null)
-    : libraryUi.activeLibraryId,
-)
+// A single id is trusted before the library list loads, so the first listing
+// does not wait for it.
+const libraryScope = computed(() => {
+  const library = wq.library.value
+  if (library === 'all')
+    return libraryIds.value.join(',') || null
+  if (library === null || (librariesLoaded.value && !libraryIds.value.includes(library)))
+    return null
+  return library
+})
 
 // ── Filter rail: each select reads the address and writes through an action.
 // '' = no constraint. ──
@@ -234,9 +250,10 @@ const filters = computed<ListWorksParams>(() => ({
   page: wq.page.value,
   limit: wq.size.value,
 }))
-// An address past the length limit is not listed: answering it with a wider
-// listing would misstate what is shown.
-const listable = computed(() => !wq.tooLong.value)
+// Nothing is listed until the address names a usable library, and an address
+// past the length limit is not listed: answering either with a wider listing
+// would misstate what is shown.
+const listable = computed(() => !wq.tooLong.value && libraryScope.value !== null)
 
 // Each rail offers what the wall's other filters can still combine with, and
 // leaves its own pick out so the alternatives to it stay on offer.
@@ -408,17 +425,20 @@ async function submitFind(event: KeyboardEvent): Promise<void> {
 }
 
 // ── Opening a work: every entry (click, tap, Enter, FIND) commits the work to
-// the address, records where the wall was on this history entry, and only then
-// leaves — so BACK returns to exactly this wall. ──
-const recordReturn = useRecordWallReturn()
+// the address and then leaves. ──
 async function openWork(rj: string): Promise<void> {
   await wq.select(rj)
-  recordReturn({ scrollTop: wall.value?.scroller?.scrollTop ?? 0, focusRj: rj })
   await router.push({
     name: 'work-detail',
     params: { rj },
   })
 }
+
+// Every way off the wall records where it was, so BACK returns to this place.
+const recordReturn = useRecordWallReturn()
+onBeforeRouteLeave(() => {
+  recordReturn({ scrollTop: wall.value?.scroller?.scrollTop ?? 0 })
+})
 
 useWallRestore({
   ready: () => settled.value,
@@ -462,7 +482,7 @@ useKeymap({
     <header class="header">
       <div class="header-left">
         <GlobalMenu />
-        <LibrarySwitcher />
+        <LibrarySwitcher :library="wq.library.value" @select="wq.setLibrary" />
       </div>
       <div class="header-meta">
         <button
@@ -502,8 +522,8 @@ useKeymap({
     <main class="bench">
       <div class="wall-col">
         <div class="wall-note">
-          <p v-if="!listable" class="lbl notice" role="alert">地址中的筛选条件过长，未列出作品；请在筛选栏清除部分条件。</p>
-          <p v-else-if="settled && total === 0" class="lbl notice">没有作品</p>
+          <p v-if="wq.tooLong.value" class="lbl notice" role="alert">地址中的筛选条件过长，未列出作品；请在筛选栏清除部分条件。</p>
+          <p v-else-if="noLibraries || (settled && total === 0)" class="lbl notice">没有作品</p>
         </div>
         <WorkWall
           ref="wall" :works="works" :selected-rj="selectedRj" :playing-rj="player.rj"

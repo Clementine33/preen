@@ -147,7 +147,10 @@ function placeCursor() {
 }
 
 // A new page starts at its top; the selection then scrolls itself into view.
-watch(() => props.works, () => {
+// Keyed on which works are listed, not the array: a refetch after a rating
+// replaces the array and must not lose the place.
+const listedKey = computed(() => props.works.map(work => work.rj).join(','))
+watch(listedKey, () => {
   if (wallEl.value)
     wallEl.value.scrollTop = 0
 })
@@ -155,6 +158,9 @@ watch(() => props.works, () => {
 // Keep the selected work in view; focus its cell only after a keyboard move.
 let mounted = false
 const { rapid: switching, note } = useSwitchBurst()
+// The first listing to land is placed by the page (use-wall-restore): a saved
+// offset is the user's own place and must not be pulled to the selection.
+let listed = props.works.length > 0
 // The work and its index both count: a page turn can land on the same index.
 watch([
   () => props.selectedRj,
@@ -162,7 +168,10 @@ watch([
 ], async () => {
   note()
   placeCursor()
-  if (!mounted || selectedIndex.value < 0)
+  const firstListing = !listed && props.works.length > 0
+  if (props.works.length > 0)
+    listed = true
+  if (!mounted || selectedIndex.value < 0 || firstListing)
     return
   const claim = focusOnSelect
   focusOnSelect = false
@@ -218,6 +227,9 @@ function onCellClick(work: WorkSummary) {
 <style scoped>
 .wall {
   overflow-y: auto; min-height: 0; height: 100%;
+  /* Rows have fixed heights; anchoring would only move a restored offset when
+     the first width measurement turns one column into many. */
+  overflow-anchor: none;
   padding: var(--sp-6) var(--sp-6) 48px;
 }
 @media (max-width: 768px) {

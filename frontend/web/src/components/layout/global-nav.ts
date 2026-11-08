@@ -1,5 +1,5 @@
 import type { Component } from 'vue'
-import type { RouteLocationRaw } from 'vue-router'
+import type { LocationQuery, RouteLocationRaw } from 'vue-router'
 import { Layers, ListMusic, Settings2, SquareLibrary } from '@lucide/vue'
 
 /**
@@ -87,4 +87,11 @@ export function globalNavOwner(routeName: unknown): GlobalNavId | null {
   return typeof routeName === 'string' && routeName in NAV_OWNER_BY_ROUTE_NAME
     ? NAV_OWNER_BY_ROUTE_NAME[routeName as AppRouteName]
     : null
+}
+
+/** Where an entry leads: 作品库 returns to the session's remembered Wall View, the others to their page. */
+export function navTarget(item: GlobalNavItem, wallQuery: LocationQuery): RouteLocationRaw {
+  return item.id === 'works'
+    ? { name: 'works', query: wallQuery }
+    : item.to
 }

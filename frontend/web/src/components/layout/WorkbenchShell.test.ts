@@ -1,6 +1,7 @@
 import type { VueWrapper } from '@vue/test-utils'
 import type { Router } from 'vue-router'
 import { enableAutoUnmount, mount } from '@vue/test-utils'
+import { createPinia } from 'pinia'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, nextTick } from 'vue'
 import { createRouter, createWebHistory } from 'vue-router'
@@ -74,7 +75,10 @@ function mountShell(width: number): { wrapper: VueWrapper, elementWidth: ReturnT
   const elementWidth = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(width)
   const options = {
     global: {
-      plugins: [router],
+      plugins: [
+        createPinia(),
+        router,
+      ],
     },
   }
   const wrapper = mount(shell, { ...options, attachTo: document.body })

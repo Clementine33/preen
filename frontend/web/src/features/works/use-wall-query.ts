@@ -3,12 +3,19 @@ import type { WorksSort } from '@/lib/api/types'
 import { computed, ref, shallowRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { canonicalRj } from '@/app/route-params'
+import { useLibraryUiStore } from '@/stores/library-ui'
 
 // The wall's address: every fact that decides what the wall
 // shows — library, filters, FIND, order, page, page size and the selected work
 // — lives in the `/works` query and is read from it, never copied at setup. A
 // change the page makes to its own address (a nav click, BACK, a link) flows
 // straight back in.
+//
+// The session remembers the last address that named a library, in the
+// library-ui store, so the global nav entry returns to that view. The store
+// reaches the URL only through the explicit fill (an address naming no
+// library) and the correction (a removed library falls back to the first);
+// the wall's library is otherwise its address's alone.
 //
 // Writes go through the explicit actions below, which carry the coordination
 // rules: a change to what is listed starts again at page 1, a page turn keeps
@@ -66,16 +73,22 @@ export function queryLength(query: LocationQuery | Changes): number {
 export function useWallQuery() {
   const route = useRoute()
   const router = useRouter()
+  const libraryUi = useLibraryUiStore()
 
   // The last `/works` query: leaving for a work's page must not read as the
-  // wall's filters being cleared while the wall is still mounted.
+  // wall's filters being cleared while the wall is still mounted. A query that
+  // names a library is also the session's remembered view; one without is a
+  // transient address about to be filled and must not wipe the memory.
   const current = shallowRef<LocationQuery>(route.query)
   watch(() => (route.name === 'works'
     ? route.query
     : null), (query) => {
-    if (query)
-      current.value = query
-  }, { flush: 'sync' })
+    if (!query)
+      return
+    current.value = query
+    if (query.library)
+      libraryUi.wallQuery = { ...query }
+  }, { flush: 'sync', immediate: true })
 
   const text = (key: string): string => {
     const value = current.value[key]

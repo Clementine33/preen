@@ -291,4 +291,59 @@ describe('workWall', () => {
     expect(exposed.scroller).toBe(wrapper.find('[data-testid="work-wall"]').element)
     wrapper.unmount()
   })
+
+  it('leaves the first listing\'s placement to the page, then keeps later selections in view', async () => {
+    // Frames an earlier test left queued must land before the spy goes in.
+    await new Promise(resolve => requestAnimationFrame(resolve))
+    const seen: Array<string | undefined> = []
+    HTMLElement.prototype.scrollIntoView = function (this: HTMLElement) {
+      seen.push(this.dataset.rj)
+    }
+    vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
+      cb(0)
+      return 0
+    })
+    const { wrapper } = await scaffold({ works: [], selectedRj: WORKS[3].rj })
+    try {
+      // The listing lands with the selection already named: a restore owns it.
+      await wrapper.setProps({ works: WORKS })
+      await flushPromises()
+      expect(seen).toEqual([])
+
+      await wrapper.setProps({ selectedRj: WORKS[5].rj })
+      await flushPromises()
+      expect(seen).toEqual([WORKS[5].rj])
+    }
+    finally {
+      delete (HTMLElement.prototype as Partial<HTMLElement>).scrollIntoView
+    }
+  })
+
+  it('keeps its scroll when a refetch replaces the works with the same list, and resets for another', async () => {
+    const { wrapper, exposed } = await scaffold()
+    exposed.scroller!.scrollTop = 200
+
+    // Same works in the same order, one rating changed: the place is kept.
+    await wrapper.setProps({
+      works: WORKS.map((work, i) => (i === 2
+        ? { ...work, rating: 5 }
+        : work)),
+    })
+    await flushPromises()
+    expect(exposed.scroller!.scrollTop).toBe(200)
+
+    // The same works in another order: a different page.
+    await wrapper.setProps({
+      works: [...WORKS].reverse(),
+    })
+    await flushPromises()
+    expect(exposed.scroller!.scrollTop).toBe(0)
+
+    exposed.scroller!.scrollTop = 200
+    await wrapper.setProps({
+      works: WORKS.slice(0, 4),
+    })
+    await flushPromises()
+    expect(exposed.scroller!.scrollTop).toBe(0)
+  })
 })

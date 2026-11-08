@@ -1,10 +1,12 @@
+import type { QueryClient } from '@tanstack/vue-query'
 import type { VueWrapper } from '@vue/test-utils'
-import type { Router } from 'vue-router'
+import type { LocationQuery, Router } from 'vue-router'
 import type { Library, WorkSummary } from '@/lib/api/types'
 import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
-import { createPinia } from 'pinia'
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createMemoryHistory, createRouter } from 'vue-router'
+import { createPinia, setActivePinia } from 'pinia'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
+import { h as vh } from 'vue'
+import { createMemoryHistory, createRouter, RouterView } from 'vue-router'
 import { installAddressHygiene } from '@/app/route-params'
 import { apiClientKey } from '@/lib/api/client'
 import { useLibraryUiStore } from '@/stores/library-ui'
@@ -90,6 +92,11 @@ function routerFor(): Router {
         component: { template: '<div />' },
       },
       {
+        path: '/collections',
+        name: 'collections',
+        component: { template: '<div />' },
+      },
+      {
         path: '/worksets',
         name: 'worksets',
         component: { template: '<div />' },
@@ -103,6 +110,7 @@ function routerFor(): Router {
 interface Harness {
   wrapper: VueWrapper
   router: Router
+  queryClient: QueryClient
   listWorks: ReturnType<typeof vi.fn>
   listWorkFacets: ReturnType<typeof vi.fn>
 }
@@ -123,7 +131,13 @@ function pageOf(params: { library?: string, page?: number, limit?: number }) {
 async function mountWorks(
   initialPath = '/works',
   attach = false,
-  reuse: { router?: Router, listWorks?: ReturnType<typeof vi.fn>, listWorkFacets?: ReturnType<typeof vi.fn> } = {},
+  reuse: {
+    listWorks?: ReturnType<typeof vi.fn>
+    listWorkFacets?: ReturnType<typeof vi.fn>
+    listLibraries?: ReturnType<typeof vi.fn>
+    /** Runs on the store before the page mounts: what an earlier page left there. */
+    seed?: (ui: ReturnType<typeof useLibraryUiStore>) => void
+  } = {},
 ): Promise<Harness> {
   const listWorks = reuse.listWorks ?? vi.fn((params: { library?: string, page?: number, limit?: number }) =>
     Promise.resolve(pageOf(params)))
@@ -139,7 +153,7 @@ async function mountWorks(
     ),
   )
   const api = apiStub({
-    listLibraries: vi.fn().mockResolvedValue([
+    listLibraries: reuse.listLibraries ?? vi.fn().mockResolvedValue([
       library(LIB_A, 'Archive', '/music'),
       library(LIB_B, 'Brazil', '/brazil'),
     ]),
@@ -205,12 +219,17 @@ async function mountWorks(
       ],
     })),
   } as never)
-  const router = reuse.router ?? routerFor()
-  if (!reuse.router) {
-    await router.push(initialPath)
-    await router.isReady()
-  }
-  const wrapper = mount(WorksPage, {
+  const router = routerFor()
+  await router.push(initialPath)
+  await router.isReady()
+  const query = installTestQueryPlugin()
+  const pinia = createPinia()
+  setActivePinia(pinia)
+  reuse.seed?.(useLibraryUiStore(pinia))
+  // Under a RouterView, so the page's leave guard is registered as in the app.
+  const wrapper = mount({
+    render: () => vh(RouterView),
+  }, {
     ...(attach
       ? {
           attachTo: document.body.appendChild(document.createElement('div')),
@@ -218,9 +237,9 @@ async function mountWorks(
       : {}),
     global: {
       plugins: [
-        createPinia(),
+        pinia,
         router,
-        installTestQueryPlugin(),
+        query,
       ],
       provide: { [apiClientKey as symbol]: api },
     },
@@ -229,6 +248,7 @@ async function mountWorks(
   return {
     wrapper,
     router,
+    queryClient: query[1].queryClient,
     listWorks,
     listWorkFacets,
   }
@@ -247,6 +267,13 @@ function inspected(wrapper: VueWrapper): string {
 /** The listing parameters of the most recent request. */
 function lastParams(listWorks: ReturnType<typeof vi.fn>): Record<string, unknown> {
   return listWorks.mock.calls.at(-1)?.[0] as Record<string, unknown>
+}
+
+/** Picks a library in the switcher by its name (`ALL LIBRARIES` for the aggregate). */
+async function chooseLibrary(wrapper: VueWrapper, name: string): Promise<void> {
+  await wrapper.get('.lib-trigger').trigger('click')
+  await wrapper.findAll('.lib-item').find(item => item.find('.nm').text() === name)!.trigger('click')
+  await flushPromises()
 }
 
 /** Opens one rail select by its label and picks an option by its text. */
@@ -362,25 +389,14 @@ describe('works page', () => {
     expect(router.currentRoute.value.query.library).toBe(LIB_B)
   })
 
-  it('writes the active library to the address', async () => {
-    const { router } = await mountWorks('/works')
-
-    expect(router.currentRoute.value.query.library).toBe(LIB_A)
-    useLibraryUiStore().setActiveLibrary(LIB_B)
-    await flushPromises()
-    expect(router.currentRoute.value.query).toMatchObject({ library: LIB_B, rj: worksB[0].rj })
-  })
-
   it('lists every library at once under the ALL scope and leaves it for one library', async () => {
-    const { router, listWorks } = await mountWorks('/works')
+    const { wrapper, router, listWorks } = await mountWorks('/works')
 
-    useLibraryUiStore().showAllLibraries()
-    await flushPromises()
+    await chooseLibrary(wrapper, 'ALL LIBRARIES')
     expect(lastParams(listWorks)).toMatchObject({ library: `${LIB_A},${LIB_B}` })
     expect(router.currentRoute.value.query.library).toBe('all')
 
-    useLibraryUiStore().setActiveLibrary(LIB_B)
-    await flushPromises()
+    await chooseLibrary(wrapper, 'Brazil')
     expect(lastParams(listWorks)).toMatchObject({ library: LIB_B })
     expect(router.currentRoute.value.query.library).toBe(LIB_B)
   })
@@ -411,8 +427,7 @@ describe('works page', () => {
     // One name is one group: both vocabularies' ids, either one matches.
     expect(lastParams(listWorks)).toMatchObject({ tag: 's:s-asmr|u:u-asmr', tag_match: 'all' })
 
-    useLibraryUiStore().setActiveLibrary(LIB_B)
-    await flushPromises()
+    await chooseLibrary(wrapper, 'Brazil')
     expect(lastParams(listWorks)).toMatchObject({ library: LIB_B })
     expect(lastParams(listWorks)).not.toHaveProperty('tag')
   })
@@ -420,8 +435,7 @@ describe('works page', () => {
   it('resets the selection when switching libraries', async () => {
     const { wrapper, router } = await mountWorks(`/works?rj=${A3}`)
 
-    useLibraryUiStore().setActiveLibrary(LIB_B)
-    await flushPromises()
+    await chooseLibrary(wrapper, 'Brazil')
 
     // The other library's listing no longer holds the selected work, so the
     // selection falls back to its first item — and the address follows.
@@ -529,8 +543,7 @@ describe('works page', () => {
       { id: 'va-7', name: '悠木碧', work_count: 1 },
       { id: 'va-9', name: '悠木碧', work_count: 2 },
     ])
-    useLibraryUiStore().setActiveLibrary(LIB_B)
-    await flushPromises()
+    await chooseLibrary(wrapper, 'Brazil')
 
     await pick(wrapper, 'VOICE', '悠木碧')
     expect(lastParams(listWorks)).toMatchObject({ voice_actor: 'va-7,va-9', voice_actor_match: 'any' })
@@ -577,8 +590,7 @@ describe('works page', () => {
     const { wrapper, listWorks } = await mountWorks('/works')
     await pick(wrapper, 'VOICE', '伊ヶ崎綾香')
 
-    useLibraryUiStore().setActiveLibrary(LIB_B)
-    await flushPromises()
+    await chooseLibrary(wrapper, 'Brazil')
 
     expect(lastParams(listWorks)).toMatchObject({ library: LIB_B })
     expect(lastParams(listWorks)).not.toHaveProperty('voice_actor')
@@ -883,21 +895,29 @@ describe('works page', () => {
     })
   })
 
-  describe('opening a work and coming back', () => {
+  describe('leaving the wall and coming back', () => {
+    const scrollerOf = (h: Harness) => h.wrapper.get('[data-testid="work-wall"]').element as HTMLElement
+
     /**
-     * Opens the work, then steps back to the entry the wall was on. The first
-     * page stays mounted until the caller has mounted the returning one: the
-     * router resets itself when its last app unmounts.
+     * Leaves the wall by `leave`, then steps back to its entry. With `cold` the
+     * listing is gone from the cache and its next request stays pending until
+     * the returned `answer` is called.
      */
-    async function openAndReturn(h: Harness, open: () => Promise<void> | void) {
-      await open()
+    async function leaveAndReturn(h: Harness, leave: () => Promise<unknown> | unknown, cold = false) {
+      await leave()
       await flushPromises()
-      expect(h.router.currentRoute.value.name).toBe('work-detail')
+      expect(h.router.currentRoute.value.path).not.toBe('/works')
+      let answer = (_value: ReturnType<typeof pageOf>) => {}
+      if (cold) {
+        h.listWorks.mockImplementation(() => new Promise((done) => { answer = done }))
+        h.queryClient.clear()
+      }
       h.router.back()
       await flushPromises()
+      return (value: ReturnType<typeof pageOf>) => answer(value)
     }
 
-    it('commits the work and the wall\'s position before leaving, from every entry', async () => {
+    it('commits the work and restores the wall\'s position, from every entry', async () => {
       for (const open of [
         (h: Harness) => h.wrapper.get(`[data-rj="${A3}"]`).trigger('dblclick'),
         (h: Harness) => {
@@ -906,52 +926,223 @@ describe('works page', () => {
         },
       ]) {
         const h = await mountWorks('/works?size=36')
-        const scroller = h.wrapper.get('[data-testid="work-wall"]').element as HTMLElement
-        scroller.scrollTop = 120
-        await openAndReturn(h, () => open(h))
+        scrollerOf(h).scrollTop = 120
+        await leaveAndReturn(h, () => open(h))
         expect(h.router.currentRoute.value.query.rj).toBe(A3)
-        expect(h.router.options.history.state.wallReturn).toEqual({ scrollTop: 120, focusRj: A3 })
+        expect(scrollerOf(h).scrollTop).toBe(120)
         h.wrapper.unmount()
       }
     })
 
-    it('restores the scroll offset and then focus once a slow listing lands', async () => {
+    it('restores the position after any other way off the wall', async () => {
       const h = await mountWorks('/works?size=36')
-      ;(h.wrapper.get('[data-testid="work-wall"]').element as HTMLElement).scrollTop = 120
-      await openAndReturn(h, () => h.wrapper.get(`[data-rj="${A3}"]`).trigger('dblclick'))
+      scrollerOf(h).scrollTop = 80
+      await leaveAndReturn(h, () => h.router.push('/collections'))
+      expect(scrollerOf(h).scrollTop).toBe(80)
+    })
 
-      // A cold start: the listing has not answered when the wall mounts again.
-      let answer!: (value: ReturnType<typeof pageOf>) => void
-      const listWorks = vi.fn(() => new Promise((done) => { answer = done }))
-      const back = await mountWorks('', true, { router: h.router, listWorks })
-      h.wrapper.unmount()
+    it('does not write the wall\'s address over the destination when leaving by BACK', async () => {
+      const h = await mountWorks('/collections')
+      await h.router.push('/works?size=60')
+      await flushPromises()
+      expect(h.wrapper.find('[data-testid="work-wall"]').exists()).toBe(true)
+
+      h.router.back()
+      await flushPromises()
+      expect(h.router.currentRoute.value.fullPath).toBe('/collections')
+      expect(h.router.options.history.location).toBe('/collections')
+      expect(h.router.options.history.state.wallReturn).toBeUndefined()
+    })
+
+    it('restores exactly the scroll offset and focuses the selection once a slow listing lands', async () => {
+      const h = await mountWorks('/works?size=36', true)
+      scrollerOf(h).scrollTop = 120
+      // The spy records where the scroller stood when the cell was brought into view.
+      const seen: Array<{ rj?: string, top: number }> = []
+      HTMLElement.prototype.scrollIntoView = function (this: HTMLElement) {
+        seen.push({ rj: this.dataset.rj, top: scrollerOf(h).scrollTop })
+      }
+      onTestFinished(() => { delete (HTMLElement.prototype as Partial<HTMLElement>).scrollIntoView })
+      const answer = await leaveAndReturn(h, () => h.wrapper.get(`[data-rj="${A3}"]`).trigger('dblclick'), true)
       expect(document.activeElement).toBe(document.body)
 
       answer(pageOf({ limit: 36 }))
       await flushPromises()
-      expect((back.wrapper.get('[data-testid="work-wall"]').element as HTMLElement).scrollTop).toBe(120)
+      expect(scrollerOf(h).scrollTop).toBe(120)
+      // The saved offset is the user's place: the restore does not pull the selection into view.
+      expect(seen).not.toContainEqual({ rj: A3, top: 120 })
       expect((document.activeElement as HTMLElement).dataset.rj).toBe(A3)
       // Used once: the entry no longer asks for a restore.
       expect(h.router.options.history.state.wallReturn).toBeNull()
-      back.wrapper.unmount()
     })
 
-    it('does not take focus when the user has already moved on', async () => {
-      const h = await mountWorks('/works?size=36')
-      await openAndReturn(h, () => h.wrapper.get(`[data-rj="${A3}"]`).trigger('dblclick'))
-
-      let answer!: (value: ReturnType<typeof pageOf>) => void
-      const listWorks = vi.fn(() => new Promise((done) => { answer = done }))
-      const back = await mountWorks('', true, { router: h.router, listWorks })
-      h.wrapper.unmount()
-      const find = back.wrapper.get<HTMLInputElement>('.find input').element
-      find.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))
+    it('does not take focus when something else already holds it', async () => {
+      const h = await mountWorks('/works?size=36', true)
+      const answer = await leaveAndReturn(h, () => h.wrapper.get(`[data-rj="${A3}"]`).trigger('dblclick'), true)
+      const find = h.wrapper.get<HTMLInputElement>('.find input').element
       find.focus()
 
       answer(pageOf({ limit: 36 }))
       await flushPromises()
       expect(document.activeElement).toBe(find)
-      back.wrapper.unmount()
+    })
+  })
+
+  describe('the wall\'s library comes from its address', () => {
+    it('fills a bare address with the remembered wall\'s library, not the workbench\'s', async () => {
+      const { router, listWorks } = await mountWorks('/works?voice=va-1', false, {
+        seed: (ui) => {
+          ui.setActiveLibrary(LIB_B)
+          ui.wallQuery = { library: LIB_A }
+        },
+      })
+
+      expect(router.currentRoute.value.query).toMatchObject({ library: LIB_A, voice: 'va-1' })
+      expect(lastParams(listWorks)).toMatchObject({ library: LIB_A })
+    })
+
+    it('fills with the remembered ALL scope as well', async () => {
+      const { router } = await mountWorks('/works', false, {
+        seed: (ui) => { ui.wallQuery = { library: 'all' } },
+      })
+
+      expect(router.currentRoute.value.query.library).toBe('all')
+    })
+
+    it('fills with the workbench\'s active library without a memory, or when the remembered one is gone', async () => {
+      const memories: LocationQuery[] = [
+        {},
+        { library: 'removed' },
+      ]
+      for (const wallQuery of memories) {
+        const { router } = await mountWorks('/works?voice=va-1', false, {
+          seed: (ui) => {
+            ui.setActiveLibrary(LIB_B)
+            ui.wallQuery = wallQuery
+          },
+        })
+        expect(router.currentRoute.value.query.library).toBe(LIB_B)
+      }
+    })
+
+    it('fills with the first library when there is neither a memory nor an active library', async () => {
+      const { router } = await mountWorks('/works')
+
+      expect(router.currentRoute.value.query.library).toBe(LIB_A)
+    })
+
+    it('never changes the workbench\'s active library or selection', async () => {
+      const { wrapper } = await mountWorks(`/works?library=${LIB_A}`, false, {
+        seed: (ui) => {
+          ui.setActiveLibrary(LIB_B)
+          ui.selectedDirPaths = ['Alpha']
+          ui.overviewScroll = 40
+        },
+      })
+      const ui = useLibraryUiStore()
+      await chooseLibrary(wrapper, 'ALL LIBRARIES')
+      await chooseLibrary(wrapper, 'Archive')
+
+      expect(ui.activeLibraryId).toBe(LIB_B)
+      expect(ui.selectedDirPaths).toEqual(['Alpha'])
+      expect(ui.overviewScroll).toBe(40)
+    })
+
+    it('writes the switcher\'s pick to the address and drops the previous library\'s picks', async () => {
+      const { wrapper, router } = await mountWorks(`/works?library=${LIB_A}&voice=va-1&circle=ci-1&tag=s:s-asmr&mode=any&page=2&age=r18&size=36`)
+
+      await chooseLibrary(wrapper, 'Brazil')
+
+      const query = router.currentRoute.value.query
+      expect(query).toMatchObject({ library: LIB_B, age: 'r18', size: '36' })
+      for (const key of [
+        'voice',
+        'circle',
+        'tag',
+        'mode',
+        'page',
+      ])
+        expect(query).not.toHaveProperty(key)
+    })
+
+    it('corrects a library that no longer exists to the first one, dropping its picks', async () => {
+      const { router } = await mountWorks('/works?library=removed&voice=va-1&age=r18')
+
+      expect(router.currentRoute.value.query).toMatchObject({ library: LIB_A, age: 'r18' })
+      expect(router.currentRoute.value.query).not.toHaveProperty('voice')
+    })
+
+    it('lists nothing until the address names a library, and says nothing is too long meanwhile', async () => {
+      const { wrapper, router, listWorks, listWorkFacets } = await mountWorks('/works', false, {
+        listLibraries: vi.fn(() => new Promise(() => {})),
+      })
+
+      expect(router.currentRoute.value.query.library).toBeUndefined()
+      expect(listWorks).not.toHaveBeenCalled()
+      expect(listWorkFacets).not.toHaveBeenCalled()
+      expect(wrapper.find('[role="alert"]').exists()).toBe(false)
+    })
+
+    it('shows the empty state and requests nothing when there are no libraries', async () => {
+      const { wrapper, router, listWorks, listWorkFacets } = await mountWorks('/works', false, {
+        listLibraries: vi.fn().mockResolvedValue([]),
+      })
+
+      expect(wrapper.text()).toContain('没有作品')
+      expect(wrapper.find('[role="alert"]').exists()).toBe(false)
+      expect(router.currentRoute.value.query.library).toBeUndefined()
+      expect(listWorks).not.toHaveBeenCalled()
+      expect(listWorkFacets).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('the remembered Wall View', () => {
+    it('remembers an untouched wall loaded with a full query', async () => {
+      await mountWorks(`/works?library=${LIB_B}&size=36&page=1&voice=va-1`)
+
+      expect(useLibraryUiStore().wallQuery).toMatchObject({ library: LIB_B, size: '36', voice: 'va-1' })
+    })
+
+    it('is not overwritten by an address that names no library', async () => {
+      const { router } = await mountWorks(`/works?library=${LIB_B}&voice=va-1`)
+      const ui = useLibraryUiStore()
+
+      await router.replace({
+        name: 'works',
+        query: { voice: 'va-2' },
+      })
+      expect(ui.wallQuery).toMatchObject({ library: LIB_B, voice: 'va-1' })
+      // The fill then names the remembered library.
+      await flushPromises()
+      expect(router.currentRoute.value.query).toMatchObject({ library: LIB_B, voice: 'va-2' })
+    })
+
+    it('brings the wall back with its filters, page and work after a trip to another page', async () => {
+      const { wrapper, router, listWorks } = await mountWorks('/works?size=36')
+      await pick(wrapper, 'AGE', 'R18')
+      await wrapper.get('[aria-label="Page 2"]').trigger('click')
+      await flushPromises()
+      const before = { ...router.currentRoute.value.query }
+      expect(before).toMatchObject({
+        library: LIB_A,
+        age: 'r18',
+        page: '2',
+        rj: worksA[36].rj,
+      })
+
+      await router.push('/collections')
+      await flushPromises()
+      await router.push({ name: 'works', query: useLibraryUiStore().wallQuery })
+      await flushPromises()
+
+      expect(router.currentRoute.value.query).toEqual(before)
+      expect(lastParams(listWorks)).toMatchObject({
+        library: LIB_A,
+        age_category: 3,
+        page: 2,
+        limit: 36,
+      })
+      expect(inspected(wrapper)).toBe(worksA[36].rj)
     })
   })
 

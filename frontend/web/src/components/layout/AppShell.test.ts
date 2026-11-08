@@ -1,21 +1,22 @@
 import type { VueWrapper } from '@vue/test-utils'
 import { mount } from '@vue/test-utils'
-import { createPinia } from 'pinia'
+import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it } from 'vitest'
 // The shell derives the current entry from the router's own route name,
 // so the test drives the real route table. The slot stands in for the page:
 // AppShell renders no RouterView, so no page component is mounted here.
 import { router } from '@/app/router'
 import { apiClientKey } from '@/lib/api/client'
+import { useLibraryUiStore } from '@/stores/library-ui'
 import { apiStub } from '@/test/api-stub'
 import { installTestQueryPlugin } from '@/test/query-client'
 import AppShell from './AppShell.vue'
 
-function mountShell(): VueWrapper {
+function mountShell(pinia = createPinia()): VueWrapper {
   return mount(AppShell, {
     global: {
       plugins: [
-        createPinia(),
+        pinia,
         router,
         installTestQueryPlugin(),
       ],
@@ -43,6 +44,20 @@ describe('appShell global navigation', () => {
 
     expect(links.map(link => link.text())).toEqual(['作品库', '合集', '工作集'])
     expect(links.map(link => link.attributes('href'))).toEqual(['/works', '/collections', '/worksets'])
+  })
+
+  it('returns 作品库 to the remembered Wall View and leaves the other entries alone', async () => {
+    await at('/worksets')
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    useLibraryUiStore().wallQuery = { library: 'lib-b', voice: 'va-1', page: '2' }
+    const links = mountShell(pinia).get('[data-testid="global-rail"] nav').findAll('a')
+
+    expect(links.map(link => link.attributes('href'))).toEqual([
+      '/works?library=lib-b&voice=va-1&page=2',
+      '/collections',
+      '/worksets',
+    ])
   })
 
   it('shows the rail in CSS from the shared 641px breakpoint and leaves the phone to the page', async () => {

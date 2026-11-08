@@ -1,30 +1,32 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useLibraryList } from '@/queries/libraries'
-import { useLibraryUiStore } from '@/stores/library-ui'
 import { usePopupMenu } from './use-popup-menu'
 
 // The media-library switcher: the trigger unfolds a specimen
-// panel that cascades in row by row. Switching reuses the one library-selection
-// state the workbench already has; no OFFLINE tag and no per-library counts,
-// because the library DTO carries neither.
+// panel that cascades in row by row. It is a pure picker over the wall's
+// address: the page passes the address's library and writes the pick back; the
+// switcher holds no library state of its own. No OFFLINE tag and no
+// per-library counts, because the library DTO carries neither.
 
+const props = defineProps<{
+  /** The wall's library: `all` or a library id; null while its address names none. */
+  library: string | null
+}>()
+const emit = defineEmits<{ select: [library: string] }>()
 const open = defineModel<boolean>('open', { default: false })
 
-const libraryUi = useLibraryUiStore()
-const { librariesData, activeLibrary } = useLibraryList()
+const { librariesData } = useLibraryList()
+const shown = computed(() => props.library === 'all'
+  ? 'ALL'
+  : (librariesData.value.find(library => library.id === props.library)?.name ?? '—'))
 
 const root = ref<HTMLElement | null>(null)
 const trigger = ref<HTMLButtonElement | null>(null)
 const menu = usePopupMenu({ root, trigger, open })
 
-function selectAll(): void {
-  libraryUi.showAllLibraries()
-  menu.close(true)
-}
-
 function selectLibrary(id: string): void {
-  libraryUi.setActiveLibrary(id)
+  emit('select', id)
   menu.close(true)
 }
 
@@ -38,7 +40,7 @@ const chevron = 'M0 2.5h10L5 8z'
       :aria-expanded="open" @click="menu.setOpen(!open)"
     >
       <span class="lbl lib-lbl">LIBRARY</span>
-      <span class="lib-name">{{ libraryUi.allLibraries ? 'ALL' : (activeLibrary?.name ?? '—') }}</span>
+      <span class="lib-name">{{ shown }}</span>
       <span class="lib-chev"><svg viewBox="0 0 10 10" aria-hidden="true"><path :d="chevron" /></svg></span>
     </button>
     <div class="lib-menu" data-own-keys>
@@ -48,8 +50,8 @@ const chevron = 'M0 2.5h10L5 8z'
       </div>
       <div class="lib-list" role="listbox" aria-label="Media libraries">
         <button
-          class="lib-item" type="button" role="option" :aria-selected="libraryUi.allLibraries"
-          :style="{ '--d': '10ms' }" @click="selectAll"
+          class="lib-item" type="button" role="option" :aria-selected="props.library === 'all'"
+          :style="{ '--d': '10ms' }" @click="selectLibrary('all')"
         >
           <span class="lib-mark" />
           <span class="lib-text">
@@ -58,14 +60,14 @@ const chevron = 'M0 2.5h10L5 8z'
           </span>
         </button>
         <button
-          v-for="(library, i) in librariesData" :key="library.id" class="lib-item" type="button" role="option"
-          :aria-selected="!libraryUi.allLibraries && library.id === libraryUi.activeLibraryId" :style="{ '--d': `${40 + Math.min(i, 5) * 30}ms` }"
-          @click="selectLibrary(library.id)"
+          v-for="(item, i) in librariesData" :key="item.id" class="lib-item" type="button" role="option"
+          :aria-selected="item.id === props.library" :style="{ '--d': `${40 + Math.min(i, 5) * 30}ms` }"
+          @click="selectLibrary(item.id)"
         >
           <span class="lib-mark" />
           <span class="lib-text">
-            <span class="nm">{{ library.name }}</span>
-            <span class="lbl path">{{ library.root_path }}</span>
+            <span class="nm">{{ item.name }}</span>
+            <span class="lbl path">{{ item.root_path }}</span>
           </span>
         </button>
       </div>

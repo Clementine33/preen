@@ -185,6 +185,22 @@ it never chooses what plays. Where it lives (a browser picture-in-picture
 window, a Desktop Shell's own window) is not part of the concept.
 _Avoid_: PiP (one way to host it), desktop lyrics, mini player.
 
+**Wall View**:
+What the work wall lists and how: its Library scope (one Library or all),
+filters, FIND text, order, page, page size and the selected Work. A link to
+the wall names a complete Wall View, so the same link lists the same range
+anywhere. Coming back to the wall through its global entry returns to the last
+Wall View of the session; changing the wall's Library drops the previous
+Library's picks; opening a Library's workbench does not change the wall.
+_Avoid_: Filters (only part of it), the wall's state (it also has a Wall Return).
+
+**Wall Return**:
+How far the wall was scrolled when the user left it, by any way. It belongs to
+that one visit: stepping back to it restores it once and keeps the selected
+Work in view; reaching the same Wall View any other way only brings its
+selected Work into view.
+_Avoid_: Treating it as part of the Wall View; a link never carries it.
+
 ### Collections and workbench
 
 **Work Collection**:

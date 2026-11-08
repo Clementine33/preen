@@ -7,16 +7,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import { apiClientKey } from '@/lib/api/client'
-import { useLibraryUiStore } from '@/stores/library-ui'
 import { apiStub } from '@/test/api-stub'
 import { installTestQueryPlugin } from '@/test/query-client'
 import LibrarySwitcher from './LibrarySwitcher.vue'
 
 /**
- * The library switcher's contracts: it reuses the one
- * library-selection state the workbench already has — switching dispatches
- * `setActiveLibrary` and nothing else — and while the menu is open it owns the
- * keyboard: J/K move inside the menu and never reach the wall underneath.
+ * The library switcher's contracts: it is a pure picker — it shows the library
+ * it is given and emits the pick, touching no store — and while the menu is
+ * open it owns the keyboard: J/K move inside the menu and never reach the wall
+ * underneath.
  */
 
 function library(id: string, name: string, root: string): Library {
@@ -53,7 +52,7 @@ function routerFor(): Router {
 
 let container: HTMLElement | null = null
 
-async function mountSwitcher(): Promise<VueWrapper> {
+async function mountSwitcher(library: string | null = 'lib-a'): Promise<VueWrapper> {
   const api = apiStub({
     listLibraries: vi.fn().mockResolvedValue(libraries),
   } as never)
@@ -63,6 +62,7 @@ async function mountSwitcher(): Promise<VueWrapper> {
   container = document.body.appendChild(document.createElement('div'))
   const wrapper = mount(LibrarySwitcher, {
     attachTo: container,
+    props: { library },
     global: {
       plugins: [
         createPinia(),
@@ -111,7 +111,7 @@ describe('librarySwitcher', () => {
     expect(wrapper.get('.lib-menu').text()).toContain('2 ROOTS')
   })
 
-  it('switches through the shared store and closes, returning focus to the trigger', async () => {
+  it('emits the pick and closes, returning focus to the trigger', async () => {
     const wrapper = await mountSwitcher()
     await wrapper.get('.lib-trigger').trigger('click')
     await nextTick()
@@ -119,25 +119,28 @@ describe('librarySwitcher', () => {
     await wrapper.findAll('[role="option"]')[2].trigger('click')
     await nextTick()
 
-    const ui = useLibraryUiStore()
-    expect(ui.activeLibraryId).toBe('lib-b')
+    expect(wrapper.emitted('select')).toEqual([
+      ['lib-b'],
+    ])
+    // The shown library is the prop's: the picker never changes it itself.
+    expect(wrapper.get('.lib-name').text()).toBe('Archive')
     expect(wrapper.get('.lib-trigger').attributes('aria-expanded')).toBe('false')
-    expect(wrapper.get('.lib-name').text()).toBe('Brazil')
     expect(document.activeElement).toBe(wrapper.get('.lib-trigger').element)
   })
 
-  it('offers the ALL scope ahead of the roots', async () => {
-    const wrapper = await mountSwitcher()
+  it('shows and offers the ALL scope ahead of the roots', async () => {
+    const wrapper = await mountSwitcher('all')
     await wrapper.get('.lib-trigger').trigger('click')
     await nextTick()
 
-    await wrapper.findAll('[role="option"]')[0].trigger('click')
-    await nextTick()
-
-    expect(useLibraryUiStore().allLibraries).toBe(true)
     expect(wrapper.get('.lib-name').text()).toBe('ALL')
     expect(wrapper.findAll('[role="option"]').map(option => option.attributes('aria-selected')))
       .toEqual(['true', 'false', 'false'])
+
+    await wrapper.findAll('[role="option"]')[0].trigger('click')
+    expect(wrapper.emitted('select')).toEqual([
+      ['all'],
+    ])
   })
 
   it('moves inside the menu with J/K and stops the events from reaching the wall', async () => {

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { GLOBAL_NAV, globalNavOwner, SETTINGS_NAV } from '@/components/layout/global-nav'
+import { GLOBAL_NAV, globalNavOwner, navTarget, SETTINGS_NAV } from '@/components/layout/global-nav'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,6 +9,7 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { useLibraryUiStore } from '@/stores/library-ui'
 
 /**
  * The phone's global navigation: the brand mark at the head of
@@ -19,6 +20,7 @@ import {
 
 const route = useRoute()
 const router = useRouter()
+const libraryUi = useLibraryUiStore()
 const ENTRIES = [...GLOBAL_NAV, SETTINGS_NAV]
 const current = computed(() => globalNavOwner(route.name))
 const currentLabel = computed(() => ENTRIES.find(item => item.id === current.value)?.label ?? '')
@@ -26,7 +28,7 @@ const currentLabel = computed(() => ENTRIES.find(item => item.id === current.val
 function go(value: unknown): void {
   const item = ENTRIES.find(entry => entry.id === value)
   if (item)
-    void router.push(item.to)
+    void router.push(navTarget(item, libraryUi.wallQuery))
 }
 </script>
 

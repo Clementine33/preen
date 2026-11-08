@@ -2,10 +2,11 @@
 import type { GlobalNavId } from '@/components/layout/global-nav'
 import { computed } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
-import { GLOBAL_NAV, globalNavOwner, SETTINGS_NAV } from '@/components/layout/global-nav'
+import { GLOBAL_NAV, globalNavOwner, navTarget, SETTINGS_NAV } from '@/components/layout/global-nav'
 import { useTheme } from '@/composables/use-theme'
 import { useUpdateNotice } from '@/composables/use-update-notice'
 import { useLibraryList } from '@/queries/libraries'
+import { useLibraryUiStore } from '@/stores/library-ui'
 
 /**
  * The application shell owns the whole application height and the global
@@ -16,6 +17,7 @@ import { useLibraryList } from '@/queries/libraries'
  * window.
  */
 const route = useRoute()
+const libraryUi = useLibraryUiStore()
 // Ownership comes from the router's own route name, so a workbench
 // child route still lights up 工作集 without a second active-id state.
 const current = computed(() => globalNavOwner(route.name))
@@ -55,7 +57,7 @@ function isCurrent(id: GlobalNavId): boolean {
         <RouterLink
           v-for="item in GLOBAL_NAV"
           :key="item.id"
-          :to="item.to"
+          :to="navTarget(item, libraryUi.wallQuery)"
           :aria-current="isCurrent(item.id) ? 'page' : undefined"
           class="flex flex-col items-center gap-1 px-1 py-2 text-[10px] font-medium focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none"
           :class="isCurrent(item.id) ? 'bg-primary text-primary-foreground' : 'text-sidebar-foreground hover:bg-sidebar-accent'"

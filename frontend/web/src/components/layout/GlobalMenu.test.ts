@@ -1,17 +1,22 @@
 import type { VueWrapper } from '@vue/test-utils'
 import { flushPromises, mount } from '@vue/test-utils'
+import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 // The menu derives the current entry from the router's own route name, so the
 // test drives the real route table, as the AppShell test does.
 import { router } from '@/app/router'
+import { useLibraryUiStore } from '@/stores/library-ui'
 import GlobalMenu from './GlobalMenu.vue'
 
-async function openAt(path: string): Promise<VueWrapper> {
+async function openAt(path: string, wallQuery: Record<string, string> = {}): Promise<VueWrapper> {
   await router.push(path)
   await router.isReady()
+  const pinia = createPinia()
+  setActivePinia(pinia)
+  useLibraryUiStore().wallQuery = wallQuery
   const wrapper = mount(GlobalMenu, {
     global: {
-      plugins: [router],
+      plugins: [pinia, router],
     },
     attachTo: document.body.appendChild(document.createElement('div')),
   })
@@ -52,5 +57,13 @@ describe('globalMenu', () => {
     radios()[0].click()
 
     await vi.waitFor(() => expect(router.currentRoute.value.path).toBe('/works'))
+  })
+
+  it('returns 作品库 to the remembered Wall View', async () => {
+    await openAt('/worksets', { library: 'lib-b', voice: 'va-1', page: '2' })
+
+    radios()[0].click()
+
+    await vi.waitFor(() => expect(router.currentRoute.value.fullPath).toBe('/works?library=lib-b&voice=va-1&page=2'))
   })
 })

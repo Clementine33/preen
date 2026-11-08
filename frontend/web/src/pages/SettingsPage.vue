@@ -23,7 +23,7 @@ import { useApiClient } from '@/lib/api/client'
  * 设置 (`/settings/:section?`): what has no other home, one category per
  * address — appearance (theme and motion stay in this browser; the Format
  * Preference syncs through the server), network (the Outbound Proxy) and the
- * user-tag vocabulary and data maintenance (record cleanup), plus the read-only shortcut list and 关于 (version and licence). Each saves
+ * user-tag vocabulary and data maintenance (record cleanup), plus the read-only shortcut list and 关于 (version, licence and Exit). Each saves
  * where its data lives. Task settings stay beside their tasks, a library's storage
  * class in its edit dialog.
  */
@@ -77,11 +77,7 @@ async function logout(): Promise<void> {
     <header class="flex min-h-14 shrink-0 items-center gap-3 edge-bottom px-4 py-1.5 rail:px-5">
       <GlobalMenu />
       <h1 class="font-heading text-sm font-semibold">设置</h1>
-      <Button variant="outline" class="ml-auto" :disabled="loggingOut" data-testid="logout" @click="logout">
-        {{ loggingOut ? '退出中…' : '退出登录' }}
-      </Button>
     </header>
-    <p v-if="logoutError" role="alert" class="px-4 py-2 text-sm text-destructive">{{ logoutError }}</p>
 
     <div class="flex min-h-0 flex-1 flex-col rail:flex-row">
       <nav
@@ -158,7 +154,15 @@ async function logout(): Promise<void> {
             </div>
           </template>
 
-          <AboutSettings v-else-if="section.id === 'about'" />
+          <template v-else-if="section.id === 'about'">
+            <AboutSettings />
+            <SettingsField id="account" label="会话" class="border-t border-[var(--wire-fine)]">
+              <Button variant="outline" :disabled="loggingOut" data-testid="logout" @click="logout">
+                Exit
+              </Button>
+              <p v-if="logoutError" role="alert" class="mt-2 text-sm text-destructive">{{ logoutError }}</p>
+            </SettingsField>
+          </template>
 
           <template v-else>
             <UserTagSettings />

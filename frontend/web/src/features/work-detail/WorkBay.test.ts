@@ -174,7 +174,7 @@ describe('workBay', () => {
     expect(rows.map(row => row.get('.no').text())).toEqual(['01', '02', '03'])
     expect(rows.map(row => row.get('.nm').text())).toEqual(['0', '1', '2'])
     expect(rows.map(row => row.get('.dur').text())).toEqual(['04:12', '00:30', '—'])
-    expect(rows.map(row => row.get('.bar').attributes('style'))).toEqual(['width: 160px;', 'width: 19px;', 'width: 0px;'])
+    expect(rows.map(row => row.findAll('.meter i.on').length)).toEqual([8, 3, 0])
     expect(wrapper.get('.bay-sum').text()).toContain('00:30')
     await rows[1].trigger('click')
     // Track 0 is WAV only, so the MP3 queue is [1, 2]; the key still names row 1.

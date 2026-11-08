@@ -68,7 +68,7 @@ const recordChanged = computed(
   () => Boolean(memberId.value) && recordQuery.isSuccess.value && member.value === null,
 )
 
-useLibraryList()
+const { librariesData } = useLibraryList()
 
 const treeQuery = useQuery(() =>
   memberTreeQueryOptions(api, libraryId.value, dirId.value),
@@ -95,6 +95,19 @@ const treeError = computed(() => {
 })
 /** What the tree's path is: the record's member path, or the one the tree answers with. */
 const memberPath = computed(() => member.value?.rel_path ?? treeQuery.data.value?.member_path ?? null)
+/** The copy's absolute path: the library root and the member path, in the root's own separator. */
+const copyPath = computed(() => {
+  const root = librariesData.value.find(library => library.id === libraryId.value)?.root_path
+  if (!root || !memberPath.value)
+    return null
+  const sep = root.includes('\\') && !root.includes('/')
+    ? '\\'
+    : '/'
+  return [
+    root.replace(/[\\/]+$/, ''),
+    ...memberPath.value.split('/').filter(Boolean),
+  ].join(sep)
+})
 
 /**
  * Why the tree is not there, in the user's terms. A directory that disappeared,
@@ -384,7 +397,7 @@ function submitDelete() {
       <span>{{ treeErrorText }}</span>
     </p>
 
-    <MemberWorkCard v-if="workRj && !recordChanged" :rj="workRj" :size="totalSize" class="border-b border-border" />
+    <MemberWorkCard v-if="workRj && !recordChanged" :rj="workRj" :size="totalSize" :path="copyPath" class="border-b border-border" />
 
     <!-- A member link that no longer resolves against the current record: the
          record was replaced by another page, and the only honest thing to

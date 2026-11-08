@@ -42,7 +42,7 @@ describe('settings: logout', () => {
     const deleteSession = vi.fn(() => new Promise<void>((resolve) => { resolveLogout = resolve }))
     const replace = vi.fn()
     vi.stubGlobal('location', { replace })
-    const wrapper = await mountPage(apiStub({ deleteSession }))
+    const wrapper = await mountPage(apiStub({ deleteSession }), '/settings/about')
     await wrapper.get('[data-testid="logout"]').trigger('click')
     expect(replace).not.toHaveBeenCalled()
     expect(wrapper.get('[data-testid="logout"]').attributes('disabled')).toBeDefined()
@@ -56,7 +56,7 @@ describe('settings: logout', () => {
     vi.stubGlobal('location', { replace })
     const wrapper = await mountPage(apiStub({
       deleteSession: vi.fn().mockRejectedValue(new Error('offline')),
-    }))
+    }), '/settings/about')
     await wrapper.get('[data-testid="logout"]').trigger('click')
     await flushPromises()
     expect(replace).not.toHaveBeenCalled()

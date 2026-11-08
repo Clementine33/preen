@@ -11,7 +11,7 @@ import { useLibraryUiStore } from '@/stores/library-ui'
 
 // The inspector: the detail of the selected work, rendered to fit 1440x900
 // without scrolling. While cruising the wall the text follows
-// immediately, but the cover/SPEC/TRACKLIST dim to 30% and are swapped only
+// immediately, but the cover/specs/TRACKLIST dim to 30% and are swapped only
 // after a 70ms pause, so fast browsing merges updates instead of flickering.
 // The first fill (nothing shown yet, e.g. a restored `?rj=`) has nothing to
 // merge or wipe over: it skips the pause, the title scramble and the wipe,
@@ -31,7 +31,7 @@ const workNow = computed(() => (work.value && props.rj !== null && work.value.rj
   ? work.value
   : null))
 
-// ── Deferred body: cover + SPEC + TRACKLIST swap after a 70ms pause. ──
+// ── Deferred body: cover + specs + TRACKLIST swap after a 70ms pause. ──
 // Seeded from the cache: a remount (the wall leaving and re-entering the
 // desktop layout) finds the work already loaded, and no change would fill it.
 const deferredWork = ref<WorkDetail | null>(workNow.value)
@@ -268,10 +268,10 @@ const playIcon = 'M1 0l9 5-9 5z'
       </div>
     </div>
 
-    <span class="insp-circle lbl">CIRCLE<b>{{ workNow?.circle ?? '—' }}</b></span>
     <h2 ref="titleEl" class="insp-title">{{ workNow?.title ?? '' }}</h2>
-
-    <div class="strip"><span class="strip-name lbl">SPEC</span></div>
+    <dl class="spec-circle">
+      <div class="spec-row"><dt class="lbl">CIRCLE</dt><dd>{{ workNow?.circle ?? '—' }}</dd></div>
+    </dl>
     <dl class="spec" :class="{ dim }">
       <div class="spec-row"><dt class="lbl">VOICE</dt><dd>{{ voice }}</dd></div>
       <div class="spec-row"><dt class="lbl">RELEASE</dt><dd>{{ dottedDate(deferredWork?.release_date ?? null) }}</dd></div>
@@ -305,7 +305,7 @@ const playIcon = 'M1 0l9 5-9 5z'
 /* The specimen plate: a 4:3 cover never scaled above its native 560px. */
 .plate {
   position: relative; width: 100%; max-width: var(--cover-native);
-  margin: var(--sp-4) auto var(--sp-3);
+  margin: var(--sp-3) auto var(--sp-3);
 }
 /* On a short screen the plate is what gives way: it starts at its full-width
    4:3 height (0.75 = 1 / --cover-ratio) and shrinks until the rest fits, and
@@ -336,17 +336,16 @@ const playIcon = 'M1 0l9 5-9 5z'
 .tick.bl { left: -4px; bottom: -4px; border-left-width: 1px; border-bottom-width: 1px; }
 .tick.br { right: -4px; bottom: -4px; border-right-width: 1px; border-bottom-width: 1px; }
 
-.insp-circle { display: block; }
-.insp-circle b { color: var(--fg-base); font-weight: 600; }
 .insp-title {
-  margin: var(--sp-1) 0 var(--sp-4);
+  margin: 0 0 var(--sp-1);
   font-family: var(--font-mincho);
   font-size: var(--fs-l); line-height: var(--lh-l); font-weight: 600;
   /* Japanese never carries tracking. */
   letter-spacing: 0; min-height: var(--lh-l);
 }
 
-.spec { margin: var(--sp-1) 0 var(--sp-4); }
+.spec { margin: 0 0 var(--sp-3); }
+.spec-circle { margin: 0; }
 /* One field per row: a fixed label column, and the value wraps rather than
    widening the panel — a cast or tag list is as long as the work says. */
 .spec-row {
@@ -364,7 +363,7 @@ const playIcon = 'M1 0l9 5-9 5z'
    its wrapper dissolves so a short panel scrolls instead of the list spilling. */
 .tracklist-slot { display: contents; }
 .tracklist-slot :deep(.strip) { flex-shrink: 0; }
-.tracklist-slot :deep(.tracks) { flex: 1 1 0; min-height: 84px; }
+.tracklist-slot :deep(.tracks) { flex: 1 1 0; min-height: 168px; }
 
 .insp-foot { margin-top: auto; padding-top: var(--sp-4); }
 .insp-foot-inner {

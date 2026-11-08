@@ -49,6 +49,48 @@ describe('refreshOrRemoveQueries', () => {
     expect(queryClient.getQueryData(inactiveKey)).toBeUndefined()
   })
 
+  it('keeps an active member whose key an inactive one partially matches', async () => {
+    const queryClient = createTestQueryClient()
+    const inactiveKey = [
+      'family',
+      'list',
+      { page: 1 },
+    ] as const
+    const activeKey = [
+      'family',
+      'list',
+      { library: 'lib-a', page: 1 },
+    ] as const
+    await queryClient.fetchQuery({
+      queryKey: inactiveKey,
+      queryFn: () => 'unscoped',
+    })
+    const activeCall = vi.fn().mockResolvedValue('scoped')
+    const Active = defineComponent({
+      setup: () => ({
+        query: useQuery({ queryKey: activeKey, queryFn: activeCall }),
+      }),
+      template: `<div>{{ query.data ?? 'none' }}</div>`,
+    })
+    mount(Active, {
+      global: {
+        plugins: [
+          [
+            VueQueryPlugin,
+            { queryClient },
+          ],
+        ],
+      },
+    })
+    await flushPromises()
+
+    await refreshOrRemoveQueries(queryClient, ['family'] as const)
+    await flushPromises()
+
+    expect(queryClient.getQueryData(inactiveKey)).toBeUndefined()
+    expect(queryClient.getQueryData(activeKey)).toBe('scoped')
+  })
+
   it('leaves keys outside the prefix untouched', async () => {
     const queryClient = createTestQueryClient()
     const outsideKey = ['plans', 'list', 'lib-a', 100] as const

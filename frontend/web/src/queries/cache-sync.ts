@@ -21,6 +21,8 @@ export async function refreshOrRemoveQueries(
     .findAll({ ...filters, queryKey: prefix })
     .filter(query => query.getObserversCount() === 0)
   for (const query of inactive) {
-    queryClient.removeQueries({ queryKey: query.queryKey })
+    // Exact: a key matches partially by default, so removing `{ page: 1 }`
+    // would also take an active `{ library, page: 1 }` with it.
+    queryClient.removeQueries({ queryKey: query.queryKey, exact: true })
   }
 }

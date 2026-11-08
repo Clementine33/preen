@@ -9,11 +9,15 @@ import { useDesktopAdapter } from '@/lib/desktop/desktop-adapter'
 const props = defineProps<{
   open: boolean
   library?: Library | null
+  /** Whether `library` is the Default Library now; the checkbox starts from it. */
+  isDefault?: boolean
   saving?: boolean
 }>()
 const emit = defineEmits<{
   close: []
-  save: [value: CreateLibraryInput & { storage_class: StorageClass }]
+  // `is_default` rides along only for an existing library: the Default Library
+  // names one that exists, so a new library is set default by editing it.
+  save: [value: CreateLibraryInput & { storage_class: StorageClass, is_default?: boolean }]
   remove: [id: string]
 }>()
 
@@ -21,6 +25,7 @@ const adapter = useDesktopAdapter()
 const name = ref('')
 const rootPath = ref('')
 const ssd = ref(false)
+const makeDefault = ref(false)
 
 watch(
   () => [props.open, props.library] as const,
@@ -30,6 +35,7 @@ watch(
     name.value = props.library?.name ?? ''
     rootPath.value = props.library?.root_path ?? ''
     ssd.value = props.library?.storage_class === 'ssd'
+    makeDefault.value = props.isDefault ?? false
   },
   { immediate: true },
 )
@@ -47,6 +53,9 @@ function submit() {
     name: name.value,
     root_path: rootPath.value,
     storage_class: ssd.value ? 'ssd' : 'hdd',
+    ...(props.library
+      ? { is_default: makeDefault.value }
+      : {}),
   })
 }
 </script>
@@ -103,6 +112,13 @@ function submit() {
           <span class="mt-0.5 block text-[11px] text-muted-foreground">
             决定读取媒体信息和转换时的并行宽度。
           </span>
+        </span>
+      </label>
+
+      <label v-if="library" class="mt-4 flex min-h-11 cursor-pointer items-start gap-3 rail:min-h-0">
+        <input v-model="makeDefault" type="checkbox" class="mt-0.5 size-4 shrink-0" data-testid="library-default">
+        <span>
+          <span class="block text-xs font-medium">设为默认媒体库</span>
         </span>
       </label>
 

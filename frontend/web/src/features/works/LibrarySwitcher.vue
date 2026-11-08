@@ -7,7 +7,8 @@ import { usePopupMenu } from './use-popup-menu'
 // panel that cascades in row by row. It is a pure picker over the wall's
 // address: the page passes the address's library and writes the pick back; the
 // switcher holds no library state of its own. No OFFLINE tag and no
-// per-library counts, because the library DTO carries neither.
+// per-library counts, because the library DTO carries neither. The Default
+// Library carries a DEFAULT tag; it is set on the 工作集 page, not here.
 
 const props = defineProps<{
   /** The wall's library: `all` or a library id; null while its address names none. */
@@ -16,7 +17,7 @@ const props = defineProps<{
 const emit = defineEmits<{ select: [library: string] }>()
 const open = defineModel<boolean>('open', { default: false })
 
-const { librariesData } = useLibraryList()
+const { librariesData, defaultLibraryId } = useLibraryList()
 const shown = computed(() => props.library === 'all'
   ? 'ALL'
   : (librariesData.value.find(library => library.id === props.library)?.name ?? '—'))
@@ -67,7 +68,7 @@ const chevron = 'M0 2.5h10L5 8z'
           <span class="lib-mark" />
           <span class="lib-text">
             <span class="nm">{{ item.name }}</span>
-            <span class="lbl path">{{ item.root_path }}</span>
+            <span class="lbl path">{{ item.root_path }}{{ item.id === defaultLibraryId ? ' · DEFAULT' : '' }}</span>
           </span>
         </button>
       </div>

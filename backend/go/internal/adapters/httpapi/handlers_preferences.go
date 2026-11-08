@@ -20,13 +20,13 @@ func (s *Server) getPreferences(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, prefs)
 }
 
-// putPreferences handles PUT /api/v1/preferences: last write wins.
+// putPreferences handles PUT /api/v1/preferences: a merge, last write wins per field.
 func (s *Server) putPreferences(w http.ResponseWriter, r *http.Request) {
 	service, ok := s.catalog(w)
 	if !ok {
 		return
 	}
-	var req works.Preferences
+	var req works.PreferencesUpdate
 	if decodeErr := decodeJSON(w, r, &req); decodeErr != nil {
 		writeDecodeError(w, decodeErr, "invalid preferences payload")
 		return

@@ -54,6 +54,7 @@ import type {
   UpdateCheck,
   UpdateLibraryInput,
   UserPreferences,
+  UserPreferencesUpdate,
   WorkCollection,
   WorkContent,
   WorkDetail,
@@ -541,12 +542,12 @@ export class ApiClient implements ApiClientContract {
     return body.user_tags
   }
 
-  // Last write wins; the answer is the normalized list (docs/api/preferences.md).
+  // A merge, last write wins per field; the answer is the whole stored object (docs/api/preferences.md).
   getPreferences(signal?: AbortSignal): Promise<UserPreferences> {
     return this.request('/preferences', { signal })
   }
 
-  putPreferences(input: UserPreferences): Promise<UserPreferences> {
+  putPreferences(input: UserPreferencesUpdate): Promise<UserPreferences> {
     return this.request('/preferences', { method: 'PUT', body: input })
   }
 

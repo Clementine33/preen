@@ -32,12 +32,39 @@ export function useSetTrackFormats() {
     onMutate: async (trackFormats) => {
       await client.cancelQueries({ queryKey: key })
       const previous = client.getQueryData<UserPreferences>(key)
-      client.setQueryData<UserPreferences>(key, { track_formats: trackFormats })
+      client.setQueryData<UserPreferences>(key, { ...previous, track_formats: trackFormats })
       return { previous }
     },
     onError: (_error, _input, context) => {
       client.setQueryData(key, context?.previous)
       toast.show({ text: '格式偏好保存失败，已恢复原设置' })
+    },
+  })
+}
+
+/**
+ * Sets (a library id) or clears (null) the Default Library. The cache follows
+ * the click at once; a failed write puts the previous object back and says so.
+ */
+export function useSetDefaultLibrary() {
+  const api = useApiClient()
+  const client = useQueryClient()
+  const toast = useToast()
+  const key = queryKeys.preferences.detail()
+  return useMutation({
+    mutationFn: (libraryId: string | null) => api.putPreferences({ default_library_id: libraryId }),
+    onMutate: async (libraryId) => {
+      await client.cancelQueries({ queryKey: key })
+      const previous = client.getQueryData<UserPreferences>(key)
+      const { default_library_id: _dropped, ...rest } = previous ?? { track_formats: [] }
+      client.setQueryData<UserPreferences>(key, libraryId === null
+        ? rest
+        : { ...rest, default_library_id: libraryId })
+      return { previous }
+    },
+    onError: (_error, _input, context) => {
+      client.setQueryData(key, context?.previous)
+      toast.show({ text: '默认媒体库保存失败，已恢复原设置' })
     },
   })
 }

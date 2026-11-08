@@ -216,6 +216,15 @@ _Avoid_: A second favorite marker synchronized with collection membership.
 **Library**:
 A named media collection rooted at one directory, whose scanned inventory supplies the member directories and media facts. Library roots are disjoint: neither root contains another Library root; sibling roots remain independent. It owns the workbench: entering a library is entering its overview, its browsing, its conversion record and its file management. Its deletion removes its entry (and that entry's shared Workset) but never the media.
 
+**Default Library**:
+The one Library the user names to open first when a session has no place of its
+own yet: the wall's remembered Library, if any, comes first, and with no Default
+Library the newest-added Library is used. It names one concrete Library, never
+"all". It belongs to the deployment's single user, not to one browser, and
+clearing it returns to the newest-added Library. A Default Library that no
+longer exists counts as none.
+_Avoid_: The workbench's active Library (the one last entered in this session), a Library's sort position.
+
 **Work Root**:
 The first directory in a Library descendant chain whose name unambiguously carries one Work Number. Its whole subtree belongs to that independent work, even when an internal directory also carries a Work Number.
 _Avoid_: Treating every RJ directory inside a work as another copy.

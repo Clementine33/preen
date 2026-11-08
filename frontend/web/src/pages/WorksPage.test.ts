@@ -135,6 +135,8 @@ async function mountWorks(
     listWorks?: ReturnType<typeof vi.fn>
     listWorkFacets?: ReturnType<typeof vi.fn>
     listLibraries?: ReturnType<typeof vi.fn>
+    /** The stored Default Library; none when left out. */
+    defaultLibraryId?: string
     /** Runs on the store before the page mounts: what an earlier page left there. */
     seed?: (ui: ReturnType<typeof useLibraryUiStore>) => void
   } = {},
@@ -153,6 +155,12 @@ async function mountWorks(
     ),
   )
   const api = apiStub({
+    getPreferences: vi.fn().mockResolvedValue({
+      track_formats: [],
+      ...(reuse.defaultLibraryId
+        ? { default_library_id: reuse.defaultLibraryId }
+        : {}),
+    }),
     listLibraries: reuse.listLibraries ?? vi.fn().mockResolvedValue([
       library(LIB_A, 'Archive', '/music'),
       library(LIB_B, 'Brazil', '/brazil'),
@@ -1042,15 +1050,15 @@ describe('works page', () => {
       expect(router.currentRoute.value.query.library).toBe('all')
     })
 
-    it('fills with the workbench\'s active library without a memory, or when the remembered one is gone', async () => {
+    it('fills with the Default Library without a memory, or when the remembered one is gone', async () => {
       const memories: LocationQuery[] = [
         {},
         { library: 'removed' },
       ]
       for (const wallQuery of memories) {
         const { router } = await mountWorks('/works?voice=va-1', false, {
+          defaultLibraryId: LIB_B,
           seed: (ui) => {
-            ui.setActiveLibrary(LIB_B)
             ui.wallQuery = wallQuery
           },
         })
@@ -1058,10 +1066,34 @@ describe('works page', () => {
       }
     })
 
-    it('fills with the first library when there is neither a memory nor an active library', async () => {
-      const { router } = await mountWorks('/works')
+    it('keeps the remembered library over the Default Library', async () => {
+      const { router } = await mountWorks('/works', false, {
+        defaultLibraryId: LIB_B,
+        seed: (ui) => {
+          ui.wallQuery = { library: LIB_A }
+        },
+      })
 
       expect(router.currentRoute.value.query.library).toBe(LIB_A)
+    })
+
+    it('ignores the workbench\'s active library', async () => {
+      const { router } = await mountWorks('/works', false, {
+        defaultLibraryId: LIB_B,
+        seed: (ui) => {
+          ui.setActiveLibrary(LIB_A)
+        },
+      })
+
+      expect(router.currentRoute.value.query.library).toBe(LIB_B)
+    })
+
+    it('fills with the newest library when no Default Library is set or it was deleted', async () => {
+      for (const defaultLibraryId of [undefined, 'deleted']) {
+        const { router } = await mountWorks('/works', false, { defaultLibraryId })
+
+        expect(router.currentRoute.value.query.library).toBe(LIB_A)
+      }
     })
 
     it('never changes the workbench\'s active library or selection', async () => {

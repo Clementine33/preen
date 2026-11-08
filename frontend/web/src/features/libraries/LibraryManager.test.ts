@@ -31,7 +31,7 @@ const global = {
 afterEach(() => document.body.replaceChildren())
 enableAutoUnmount(afterEach)
 
-async function attach(props: { open: boolean, library?: Library }) {
+async function attach(props: { open: boolean, library?: Library, isDefault?: boolean }) {
   const wrapper = mount(LibraryManager, { props, global, attachTo: document.body })
   await flushPromises()
   return wrapper
@@ -48,7 +48,12 @@ describe('libraryManager storage class', () => {
     await flushPromises()
     expect(wrapper.emitted('save')).toEqual([
       [
-        { name: '库', root_path: '/m/a', storage_class: 'hdd' },
+        {
+          name: '库',
+          root_path: '/m/a',
+          storage_class: 'hdd',
+          is_default: false,
+        },
       ],
     ])
   })
@@ -71,5 +76,41 @@ describe('libraryManager storage class', () => {
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
     await flushPromises()
     expect(wrapper.emitted('close')).toBeTruthy()
+  })
+})
+
+describe('libraryManager default library', () => {
+  const defaultInput = () => document.querySelector<HTMLInputElement>('[data-testid="library-default"]')
+
+  it('starts from whether the library is the default and saves the toggled choice', async () => {
+    const wrapper = await attach({ open: true, library, isDefault: true })
+    expect(defaultInput()!.checked).toBe(true)
+
+    defaultInput()!.click()
+    document.querySelector('form')!.dispatchEvent(new Event('submit', { cancelable: true }))
+    await flushPromises()
+    expect(wrapper.emitted('save')).toEqual([
+      [
+        {
+          name: '库',
+          root_path: '/m/a',
+          storage_class: 'ssd',
+          is_default: false,
+        },
+      ],
+    ])
+  })
+
+  it('offers no default choice for a library that does not exist yet', async () => {
+    const wrapper = await attach({ open: true })
+    expect(defaultInput()).toBeNull()
+
+    document.querySelector<HTMLInputElement>('#library-name')!.value = 'x'
+    document.querySelector<HTMLInputElement>('#library-name')!.dispatchEvent(new Event('input'))
+    document.querySelector<HTMLInputElement>('[data-testid="library-root"]')!.value = '/x'
+    document.querySelector<HTMLInputElement>('[data-testid="library-root"]')!.dispatchEvent(new Event('input'))
+    document.querySelector('form')!.dispatchEvent(new Event('submit', { cancelable: true }))
+    await flushPromises()
+    expect(wrapper.emitted('save')![0]![0]).not.toHaveProperty('is_default')
   })
 })

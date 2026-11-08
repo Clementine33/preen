@@ -14,6 +14,7 @@ import { computed, watchEffect } from 'vue'
 import { useApiClient } from '@/lib/api/client'
 import { useLibraryUiStore } from '@/stores/library-ui'
 import { refreshOrRemoveQueries } from './cache-sync'
+import { usePreferences } from './preferences'
 import { TREE_GC_TIME } from './query-client'
 import { queryKeys } from './query-keys'
 import { sweepWorkCaches } from './works'
@@ -180,22 +181,47 @@ export function deleteLibraryMutationOptions(api: ApiClientContract, queryClient
 
 // ---------- composables ----------
 
-// Observes the library list and keeps the UI store's active ID reconciled.
-// A page mounts this to guarantee data (the app also mounts AppShell as a
-// long-lived observer), so any consumer can derive its library list from the
-// shared cache. Exposes the derived data and active library so callers do not
-// repeat the same unwrapping/computed logic.
+// Observes the library list and the preferences, and keeps the UI store's
+// active ID reconciled and its start library mirrored. A page mounts this to
+// guarantee data (the app also mounts AppShell as a long-lived observer), so
+// any consumer can derive its library list from the shared cache. Exposes the
+// derived data so callers do not repeat the same unwrapping/computed logic.
+//
+// The Default Library counts only while it still exists. `startLibraryId` is
+// the library a session with no place of its own opens (the Default Library,
+// else the newest); it stays null until the list and the preferences have both
+// answered, so a first fill never picks the newest just before the default
+// arrives. A failed preferences read counts as answered, with no default.
 export function useLibraryList() {
   const api = useApiClient()
   const ui = useLibraryUiStore()
   const query = useQuery(libraryListQueryOptions(api))
+  const { query: preferences } = usePreferences()
+  const librariesData = computed(() => query.data.value ?? [])
+  const defaultLibraryId = computed(() => {
+    const id = preferences.data.value?.default_library_id
+    return id && librariesData.value.some(library => library.id === id)
+      ? id
+      : null
+  })
+  const startLibraryId = computed(() =>
+    query.isSuccess.value && !preferences.isPending.value
+      ? (defaultLibraryId.value ?? librariesData.value[0]?.id ?? null)
+      : null,
+  )
   watchEffect(() => {
     if (query.data.value)
       ui.reconcileLibraries(query.data.value)
+    ui.startLibraryId = startLibraryId.value
   })
-  const librariesData = computed(() => query.data.value ?? [])
   const activeLibrary = computed(
     () => librariesData.value.find(library => library.id === ui.activeLibraryId) ?? null,
   )
-  return { query, librariesData, activeLibrary }
+  return {
+    query,
+    librariesData,
+    activeLibrary,
+    defaultLibraryId,
+    startLibraryId,
+  }
 }

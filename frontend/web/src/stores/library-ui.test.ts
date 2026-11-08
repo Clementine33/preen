@@ -48,23 +48,21 @@ const dirs: LibraryDir[] = [
 describe('library-ui store', () => {
   beforeEach(() => setActivePinia(createPinia()))
 
-  it('selects the first library when reconciling an empty active ID', () => {
+  it('never fills an empty active ID from the library list', () => {
     const store = useLibraryUiStore()
     store.reconcileLibraries([libA, libB])
-    expect(store.activeLibraryId).toBe('lib-a')
+    expect(store.activeLibraryId).toBeNull()
   })
 
-  it('keeps the active ID when it still exists and falls back on deletion', () => {
+  it('keeps the active ID when it still exists and drops it on deletion', () => {
     const store = useLibraryUiStore()
     store.setActiveLibrary('lib-b')
     store.reconcileLibraries([libA, libB])
     expect(store.activeLibraryId).toBe('lib-b')
+    store.toggleDir('Alpha')
     store.reconcileLibraries([libA])
-    expect(store.activeLibraryId).toBe('lib-a')
-    store.reconcileLibraries([])
     expect(store.activeLibraryId).toBeNull()
-    store.reconcileLibraries([libB])
-    expect(store.activeLibraryId).toBe('lib-b')
+    expect(store.selectedDirPaths).toEqual([])
   })
 
   it('clears selection when the active library changes', () => {
@@ -76,9 +74,10 @@ describe('library-ui store', () => {
     expect(store.selectedDirPaths).toEqual([])
   })
 
-  it('prefers the wall\'s remembered library for copies, then the active one', () => {
+  it('prefers the wall\'s remembered library for copies, then the start library, never the active one', () => {
     const store = useLibraryUiStore()
-    store.setActiveLibrary('lib-a')
+    store.setActiveLibrary('lib-b')
+    store.startLibraryId = 'lib-a'
     expect(store.scopedLibraryId).toBe('lib-a')
     store.wallQuery = { library: 'lib-b' }
     expect(store.scopedLibraryId).toBe('lib-b')

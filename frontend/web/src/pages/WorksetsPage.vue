@@ -15,6 +15,7 @@ import {
   updateLibraryMutationOptions,
   useLibraryList,
 } from '@/queries/libraries'
+import { useSetDefaultLibrary } from '@/queries/preferences'
 import { useLibraryUiStore } from '@/stores/library-ui'
 
 /**
@@ -29,7 +30,8 @@ const api = useApiClient()
 const queryClient = useQueryClient()
 const ui = useLibraryUiStore()
 
-const { query, librariesData } = useLibraryList()
+const { query, librariesData, defaultLibraryId } = useLibraryList()
+const setDefault = useSetDefaultLibrary()
 const libraries = computed(() => librariesData.value)
 const loading = computed(() => query.isPending.value && !query.data.value)
 
@@ -69,14 +71,19 @@ function openEdit(libraryId: string) {
   managerOpen.value = true
 }
 
-async function saveLibrary({ storage_class, ...input }: CreateLibraryInput & { storage_class: StorageClass }) {
+async function saveLibrary(
+  { storage_class, is_default, ...input }: CreateLibraryInput & { storage_class: StorageClass, is_default?: boolean },
+) {
   saving.value = true
   try {
     if (editing.value && editingLibrary.value) {
+      const id = editingLibrary.value.id
       await updateMutation.mutateAsync({
-        id: editingLibrary.value.id,
+        id,
         input: { name: input.name, storage_class },
       })
+      if (is_default !== undefined && is_default !== (defaultLibraryId.value === id))
+        await setDefault.mutateAsync(is_default ? id : null)
     }
     else {
       const created = await createMutation.mutateAsync(input)
@@ -192,6 +199,13 @@ async function retryPage() {
               <span class="block truncate font-heading text-xs font-semibold">{{ library.name }}</span>
               <span class="block truncate font-mono text-[10px] text-[var(--text-secondary)]">{{ library.root_path }}</span>
             </span>
+            <span
+              v-if="library.id === defaultLibraryId"
+              class="shrink-0 text-[10px] text-[var(--text-secondary)]"
+              :data-testid="`default-${library.id}`"
+            >
+              默认
+            </span>
             <span class="shrink-0 text-[10px] text-[var(--text-secondary)]">
               {{ library.last_scan_status === 'completed' ? '已扫描' : library.last_scan_status === 'failed' ? '扫描失败' : '未扫描' }}
             </span>
@@ -213,6 +227,7 @@ async function retryPage() {
       v-if="managerOpen"
       :open="managerOpen"
       :library="editingLibrary"
+      :is-default="editingLibrary?.id === defaultLibraryId"
       :saving="saving"
       @close="managerOpen = false"
       @save="saveLibrary"

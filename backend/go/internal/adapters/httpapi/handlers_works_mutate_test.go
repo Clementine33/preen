@@ -3,7 +3,9 @@ package httpapi //nolint:testpackage // white-box tests drive the routes through
 import (
 	"encoding/json"
 	"net/http"
+	"net/http/httptest"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
@@ -502,6 +504,59 @@ func TestAgeCategoriesPersistAndFilterIndependently(t *testing.T) {
 	w := doRequest(t, engine, http.MethodGet, "/api/v1/works?age_category=4", nil, nil)
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("invalid filter accepted: %s", w.Body.String())
+	}
+}
+
+// TestDefaultLibraryPreference: the Default Library merges into the stored
+// preferences without touching the Format Preference, names only an existing
+// Library, and clears on null.
+func TestDefaultLibraryPreference(t *testing.T) {
+	var libraryID string
+	engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) {
+		wireWorks(d, fixture)
+		lib, err := fixture.CreateLibrary("Music", "/music")
+		if err != nil {
+			t.Fatal(err)
+		}
+		libraryID = lib.ID
+	})
+	put := func(body any) *httptest.ResponseRecorder {
+		return doRequest(t, engine, http.MethodPut, "/api/v1/preferences", body, nil)
+	}
+	read := func() string {
+		return doRequest(t, engine, http.MethodGet, "/api/v1/preferences", nil, nil).Body.String()
+	}
+
+	if w := put(map[string]any{"track_formats": []string{"wav"}}); w.Code != http.StatusOK {
+		t.Fatalf("formats = %d %s", w.Code, w.Body.String())
+	}
+	w := put(map[string]any{"default_library_id": libraryID})
+	want := `{"track_formats":["WAV"],"default_library_id":"` + libraryID + `"}`
+	if w.Code != http.StatusOK || w.Body.String() != want {
+		t.Fatalf("set default = %d %s", w.Code, w.Body.String())
+	}
+	put(map[string]any{"track_formats": []string{"FLAC"}})
+	if got := read(); got != `{"track_formats":["FLAC"],"default_library_id":"`+libraryID+`"}` {
+		t.Fatalf("a formats write must keep the default: %s", got)
+	}
+	for name, body := range map[string]any{
+		"empty id": map[string]any{"default_library_id": ""},
+		"number":   map[string]any{"default_library_id": 7},
+	} {
+		if w := put(body); w.Code != http.StatusBadRequest {
+			t.Errorf("%s: status = %d, want 400", name, w.Code)
+		}
+	}
+	if w := put(map[string]any{"default_library_id": "missing"}); w.Code != http.StatusNotFound ||
+		!strings.Contains(w.Body.String(), "LIBRARY_NOT_FOUND") {
+		t.Errorf("unknown library = %d %s", w.Code, w.Body.String())
+	}
+	if got := read(); got != `{"track_formats":["FLAC"],"default_library_id":"`+libraryID+`"}` {
+		t.Fatalf("rejected writes changed state: %s", got)
+	}
+	if w := put(map[string]any{"default_library_id": nil}); w.Code != http.StatusOK ||
+		w.Body.String() != `{"track_formats":["FLAC"]}` {
+		t.Fatalf("clear = %d %s", w.Code, w.Body.String())
 	}
 }
 

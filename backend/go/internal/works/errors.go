@@ -25,6 +25,7 @@ const (
 	CodeUserTagNotFound      = "USER_TAG_NOT_FOUND"
 	CodeTimestampFormat      = "INVALID_TIMESTAMP"
 	CodeInvalidPreferences   = "INVALID_PREFERENCES"
+	CodeLibraryNotFound      = "LIBRARY_NOT_FOUND"
 	CodeInvalidOutboundProxy = "INVALID_OUTBOUND_PROXY"
 )
 

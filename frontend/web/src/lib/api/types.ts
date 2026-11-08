@@ -206,10 +206,18 @@ export interface ClassifierTagLibraryResponse {
 // (ADR 0009): an unknown adult flag is not false and an unrated work
 // is not 0.
 
-/** Server-synced display choices (docs/api/preferences.md). */
+/** Server-synced choices (docs/api/preferences.md). */
 export interface UserPreferences {
   /** The ordered Format Preference, uppercase extensions; empty means none. */
   track_formats: string[]
+  /** The Default Library; absent when none is set, and it may name a deleted library. */
+  default_library_id?: string
+}
+
+/** A merge into the preferences: a field left out stays; `null` clears the Default Library. */
+export interface UserPreferencesUpdate {
+  track_formats?: string[]
+  default_library_id?: string | null
 }
 
 export type CleanupCategory
@@ -1391,7 +1399,7 @@ export interface ApiClientContract {
   deleteWorkListening: (rj: string) => Promise<void>
   replaceWorkUserTags: (rj: string, tagIds: string[]) => Promise<WorkUserTag[]>
   getPreferences: (signal?: AbortSignal) => Promise<UserPreferences>
-  putPreferences: (input: UserPreferences) => Promise<UserPreferences>
+  putPreferences: (input: UserPreferencesUpdate) => Promise<UserPreferences>
   getOutboundProxy: (signal?: AbortSignal) => Promise<OutboundProxy>
   putOutboundProxy: (input: OutboundProxy) => Promise<OutboundProxy>
   downloadDiagnosticLog: () => Promise<{ blob: Blob, filename: string }>

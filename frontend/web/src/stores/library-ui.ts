@@ -6,8 +6,10 @@ import { defineStore } from 'pinia'
  * UI-only store: the workbench's active library, the overview's directory
  * selection and the work wall's remembered view. Server-derived data lives in
  * Vue Query; this store never holds libraries, directories, loading, or error
- * state. `activeLibraryId` belongs to the workbench: the wall's library lives
- * in its own address and reaches this store only through `wallQuery`.
+ * state. `activeLibraryId` belongs to the workbench: the library last entered
+ * this session, null before any (it is never filled from the list). The wall's
+ * library lives in its own address and reaches this store only through
+ * `wallQuery`; `startLibraryId` is the one id mirrored here from the queries.
  *
  * The selection is a set of library-relative paths, because that is the
  * identity a record is created from — a folder id from an earlier scan would
@@ -27,6 +29,12 @@ function readVeil(): boolean {
 export const useLibraryUiStore = defineStore('library-ui', {
   state: () => ({
     activeLibraryId: null as string | null,
+    /**
+     * The library a session with no place of its own opens: the Default Library
+     * while it exists, else the newest. Mirrored from the library list and the
+     * preferences by `useLibraryList`; null until both have answered.
+     */
+    startLibraryId: null as string | null,
     /** The last `/works` query of this session that named a library; never in localStorage, no action resets it. */
     wallQuery: {} as LocationQuery,
     selectedDirPaths: [] as string[],
@@ -43,7 +51,7 @@ export const useLibraryUiStore = defineStore('library-ui', {
     selectedDirSet: state => new Set(state.selectedDirPaths),
     /**
      * The library a work's copy is preferred from: the wall's remembered one
-     * (null under its all-libraries scope), else the workbench's active one.
+     * (null under its all-libraries scope), else the start library.
      */
     scopedLibraryId: (state): string | null => {
       const library = state.wallQuery.library
@@ -51,7 +59,7 @@ export const useLibraryUiStore = defineStore('library-ui', {
         return null
       return typeof library === 'string' && library !== ''
         ? library
-        : state.activeLibraryId
+        : state.startLibraryId
     },
   },
   actions: {
@@ -64,16 +72,11 @@ export const useLibraryUiStore = defineStore('library-ui', {
       this.selectedDirPaths = []
       this.overviewScroll = 0
     },
-    // Keeps the active ID valid against a freshly fetched library list: keep
-    // the current ID when it still exists, otherwise fall back to the first
-    // library (or null when there are none).
+    // Keeps the active ID valid against a freshly fetched library list: it is
+    // dropped when its library is gone, and never filled in.
     reconcileLibraries(libraries: Library[]) {
-      const next
-        = this.activeLibraryId !== null && libraries.some(library => library.id === this.activeLibraryId)
-          ? this.activeLibraryId
-          : (libraries[0]?.id ?? null)
-      if (next !== this.activeLibraryId) {
-        this.activeLibraryId = next
+      if (this.activeLibraryId !== null && !libraries.some(library => library.id === this.activeLibraryId)) {
+        this.activeLibraryId = null
         this.selectedDirPaths = []
       }
     },

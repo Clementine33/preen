@@ -25,6 +25,7 @@ import {
 import { newIdempotencyKey } from '@/lib/utils'
 import { healthQueryOptions } from '@/queries/health'
 import { deleteLibraryMutationOptions, dirsQueryOptions, updateLibraryMutationOptions, useLibraryList } from '@/queries/libraries'
+import { useSetDefaultLibrary } from '@/queries/preferences'
 import { createCurrentRecordMutationOptions, currentRecordQueryOptions } from '@/queries/worksets'
 import { useLibraryUiStore } from '@/stores/library-ui'
 import { useMediaFactsStore } from '@/stores/media-facts'
@@ -69,7 +70,8 @@ const mediaFactsLine = computed(() => {
 })
 const filesOpen = computed(() => route.name === 'overview-files')
 
-const { activeLibrary } = useLibraryList()
+const { activeLibrary, defaultLibraryId } = useLibraryList()
+const setDefaultLibrary = useSetDefaultLibrary()
 
 watch(
   libraryId,
@@ -241,15 +243,20 @@ async function submit() {
 const updateLibraryMutation = useMutation(updateLibraryMutationOptions(api, queryClient))
 const deleteLibraryMutation = useMutation(deleteLibraryMutationOptions(api, queryClient))
 
-async function saveLibrary({ name, storage_class }: Required<Pick<UpdateLibraryInput, 'name' | 'storage_class'>>) {
+async function saveLibrary(
+  { name, storage_class, is_default }: Required<Pick<UpdateLibraryInput, 'name' | 'storage_class'>> & { is_default?: boolean },
+) {
   if (!activeLibrary.value)
     return
   savingLibrary.value = true
   try {
+    const id = activeLibrary.value.id
     await updateLibraryMutation.mutateAsync({
-      id: activeLibrary.value.id,
+      id,
       input: { name, storage_class },
     })
+    if (is_default !== undefined && is_default !== (defaultLibraryId.value === id))
+      await setDefaultLibrary.mutateAsync(is_default ? id : null)
     managerOpen.value = false
   }
   catch {
@@ -537,6 +544,7 @@ const libraryRoot = computed(() => activeLibrary.value?.root_path ?? '')
     v-if="managerOpen"
     :open="managerOpen"
     :library="activeLibrary"
+    :is-default="activeLibrary?.id === defaultLibraryId"
     :saving="savingLibrary"
     @close="managerOpen = false"
     @save="saveLibrary"

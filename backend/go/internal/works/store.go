@@ -3,6 +3,8 @@ package works
 import (
 	"encoding/json"
 	"time"
+
+	"github.com/Clementine33/preen/backend/internal/library"
 )
 
 // Optional marks a field a patch may leave alone. Set distinguishes "absent"
@@ -29,6 +31,27 @@ func (n *NullableInt) UnmarshalJSON(data []byte) error {
 		return nil
 	}
 	var value int
+	if err := json.Unmarshal(data, &value); err != nil {
+		return err
+	}
+	n.Value = &value
+	return nil
+}
+
+// NullableString is a string a request may omit, set, or explicitly clear.
+type NullableString struct {
+	Set   bool
+	Value *string
+}
+
+// UnmarshalJSON reads a string, or an explicit null meaning "clear it".
+func (n *NullableString) UnmarshalJSON(data []byte) error {
+	n.Set = true
+	if string(data) == "null" {
+		n.Value = nil
+		return nil
+	}
+	var value string
 	if err := json.Unmarshal(data, &value); err != nil {
 		return err
 	}
@@ -130,10 +153,13 @@ type Store interface {
 	// DeleteUserTag removes a tag and its relations.
 	DeleteUserTag(id string) error
 
-	// TrackFormats reads the stored Format Preference; nil when never saved.
-	TrackFormats() ([]string, error)
-	// SaveTrackFormats replaces the stored Format Preference.
-	SaveTrackFormats(formats []string, now time.Time) error
+	// Preferences reads the stored preferences; the zero value when never saved.
+	Preferences() (Preferences, error)
+	// SavePreferences merges the update into the stored preferences in one
+	// statement, so concurrent writes of different fields never lose one.
+	SavePreferences(update PreferencesUpdate, now time.Time) error
+	// GetLibrary reads one library, library.ErrLibraryNotFound when absent.
+	GetLibrary(id string) (*library.Library, error)
 
 	// OutboundProxy reads the stored Outbound Proxy; system mode when never
 	// saved.

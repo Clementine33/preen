@@ -50,32 +50,29 @@ const isMobile = useMediaQuery(WALL_MOBILE_QUERY)
 const wall = ref<InstanceType<typeof WorkWall> | null>(null)
 const wq = useWallQuery()
 
-// ── Library: the address names it and nothing else does. The store's active
-// library belongs to the workbench; it reaches the address only through the
-// fill (no library named: the remembered wall's, else the active one, else the
-// first) and the correction (a library that no longer exists falls back to the
-// first). ──
-const { query: libraryQuery, librariesData } = useLibraryList()
+// ── Library: the address names it and nothing else does. The workbench's
+// active library never reaches it; the address gets a library only through the
+// fill (no library named: the remembered wall's, else the start library: the
+// Default Library, else the newest) and the correction (a library that no
+// longer exists falls back to the start library). ──
+const { query: libraryQuery, librariesData, startLibraryId } = useLibraryList()
 const libraryIds = computed(() => librariesData.value.map(library => library.id))
 const librariesLoaded = computed(() => libraryQuery.isSuccess.value)
 const noLibraries = computed(() => librariesLoaded.value && librariesData.value.length === 0)
-watch([wq.library, librariesLoaded, libraryIds], ([library]) => {
-  if (!librariesLoaded.value || libraryIds.value.length === 0)
+watch([wq.library, startLibraryId, libraryIds], ([library, start]) => {
+  if (!librariesLoaded.value || start === null)
     return
   const ids = libraryIds.value
   if (library === null) {
     const remembered = libraryUi.wallQuery.library
-    const active = libraryUi.activeLibraryId
     void wq.fillLibrary(
       typeof remembered === 'string' && (remembered === 'all' || ids.includes(remembered))
         ? remembered
-        : active !== null && ids.includes(active)
-          ? active
-          : ids[0],
+        : start,
     )
   }
   else if (library !== 'all' && !ids.includes(library)) {
-    void wq.setLibrary(ids[0])
+    void wq.setLibrary(start)
   }
 }, { immediate: true })
 // `all` is the aggregate wall: every library's id, so the listing, the facets

@@ -6,6 +6,7 @@ import { createPinia } from 'pinia'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import { installAddressHygiene } from '@/app/route-params'
+import { useToast } from '@/composables/use-toast'
 import { apiClientKey, ApiError } from '@/lib/api/client'
 import { apiStub } from '@/test/api-stub'
 import { installTestQueryPlugin } from '@/test/query-client'
@@ -302,8 +303,48 @@ describe('shared member files', () => {
     const report = wrapper.get('[data-testid="file-op-result"]').text()
     expect(report).toContain('完成 1 项')
     expect(report).toContain('失败 1 项')
-    expect(report).toContain('Delete/albumA/01.flac')
+    expect(report).toContain('cover.jpg')
+    expect(report).toContain('另有 1 项已完成')
     expect(report).toContain('文件已修改，刷新失败')
+  })
+
+  it('closes the result report on ×, and when the folder changes', async () => {
+    const failed: FileOperationResult = {
+      operation: 'rename',
+      member_path: 'albumA',
+      items: [
+        { source: '01.flac', status: 'failed', code: 'TARGET_EXISTS' },
+      ],
+      succeeded: 0,
+      failed: 1,
+      untouched: 0,
+      refresh: { ok: true },
+    }
+    const applyFileOperation = vi.fn().mockResolvedValue(failed)
+    const { wrapper, router } = await mountFiles(`/worksets/lib-1/f/${DIR_ID}`, { applyFileOperation })
+    const open = async () => {
+      await wrapper.get('[data-testid="file-checkbox-01.flac"]').setValue(true)
+      await wrapper.get('[data-testid="rename-selection"]').trigger('click')
+      await flushPromises()
+      const input = document.body.querySelector('[data-testid="rename-input"]') as HTMLInputElement
+      input.value = 'x.flac'
+      input.dispatchEvent(new Event('input'))
+      await flushPromises()
+      ;(document.body.querySelector('[data-testid="rename-submit"]') as HTMLElement).click()
+      await flushPromises()
+    }
+
+    await open()
+    expect(wrapper.find('[data-testid="file-op-result"]').exists()).toBe(true)
+    await wrapper.get('[data-testid="file-op-result-close"]').trigger('click')
+    expect(wrapper.find('[data-testid="file-op-result"]').exists()).toBe(false)
+
+    await wrapper.get('[data-testid="file-checkbox-01.flac"]').setValue(false)
+    await open()
+    expect(wrapper.find('[data-testid="file-op-result"]').exists()).toBe(true)
+    await router.push('/worksets/lib-1/f/b1b2c3d4e5f60718293a4b5c6d7e8f90')
+    await flushPromises()
+    expect(wrapper.find('[data-testid="file-op-result"]').exists()).toBe(false)
   })
 
   it('explains a refused request without claiming anything ran', async () => {
@@ -351,8 +392,9 @@ describe('shared member files', () => {
     const call = applyFileOperation.mock.calls[0] as unknown as [string, { items: { name: string }[] }]
     expect(call[1].items[0].name).toBe('sub/02.flac')
     // The backend is the authority on the name; the client sends what the user
-    // typed and reports the refusal it gets back.
-    expect(wrapper.get('[data-testid="file-op-result"]').text()).toContain('02.flac')
+    // typed; a clean result is a toast, not a panel.
+    expect(wrapper.find('[data-testid="file-op-result"]').exists()).toBe(false)
+    expect(useToast().current.value?.text).toContain('完成 1 项')
   })
 
   it('deletes a selected folder as one item and keeps what is open across a re-read', async () => {

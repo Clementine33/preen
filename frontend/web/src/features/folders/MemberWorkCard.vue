@@ -59,6 +59,8 @@ const voiceActors = computed(() => work.value?.voice_actors.map(va => va.name).j
   box-shadow: inset 0 0 0 1px var(--wire-fine);
 }
 .cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+/* The veil is a mask, not a missing cover: it stays hatched without the NO COVER label, as on the wall. */
+.cover.veiled::before { content: none; }
 .info {
   min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 6px;
   font-size: var(--fs-s); line-height: var(--lh-s);

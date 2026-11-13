@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import type { FileOperation, FileOperationResult, TreeNode } from '@/lib/api/types'
-import { AlertTriangle, FolderInput, Pencil, RefreshCw, Trash2 } from '@lucide/vue'
+import { AlertTriangle, FolderInput, Pencil, RefreshCw, Trash2, X } from '@lucide/vue'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Button } from '@/components/ui/button'
 import Modal from '@/components/ui/modal/Modal.vue'
+import { useToast } from '@/composables/use-toast'
 import { itemStatusText, refreshText, requestRefusalText } from '@/features/folders/file-ops'
 import MemberTree from '@/features/folders/MemberTree.vue'
 import MemberWorkCard from '@/features/folders/MemberWorkCard.vue'
@@ -208,7 +209,11 @@ watch(
 const selection = ref<string[]>([])
 // The selection belongs to the tree on screen: another member or the other
 // view mounts a fresh tree, so the page's copy starts over with it.
-watch(() => [dirId.value, mode.value], () => { selection.value = [] })
+// The result report belongs to the page it was made on, like the selection.
+watch(() => [dirId.value, mode.value], () => {
+  selection.value = []
+  result.value = null
+})
 const dialog = ref<'none' | 'rename' | 'move' | 'delete'>('none')
 /** What the open dialog acts on, fixed when it opened: a background re-read of
  *  the tree must not change what the user is confirming. */
@@ -218,6 +223,12 @@ const renameValue = ref('')
 const moveDir = ref('')
 const result = ref<FileOperationResult | null>(null)
 const opError = ref<string | null>(null)
+const toast = useToast()
+// A clean result needs no report: the tree already shows the change. Only what
+// went wrong (failed, skipped, untouched, refresh failed) keeps a panel, and
+// problems list first so the ok items fold into one line.
+const problemItems = computed(() => result.value?.items.filter(item => item.status !== 'ok') ?? [])
+const okCount = computed(() => (result.value?.items.length ?? 0) - problemItems.value.length)
 
 const fileOps = useMutation(() =>
   fileOperationMutationOptions(api, queryClient, libraryId.value),
@@ -294,11 +305,15 @@ async function apply(operation: FileOperation, items: { source: string, name?: s
   opError.value = null
   result.value = null
   try {
-    result.value = await fileOps.mutateAsync({
+    const outcome = await fileOps.mutateAsync({
       dirId: dirId.value ?? '',
       body: { member_path: memberPath.value ?? '', operation, items },
     })
     dialog.value = 'none'
+    if (outcome.refresh.ok && outcome.items.every(item => item.status === 'ok'))
+      toast.show({ text: `完成 ${outcome.succeeded} 项 · ${refreshText(outcome.refresh)}` })
+    else
+      result.value = outcome
   }
   catch (error) {
     // The request never became a scope: nothing ran, and it says why.
@@ -510,21 +525,33 @@ function submitDelete() {
 
     <div
       v-if="result"
-      class="max-h-56 shrink-0 overflow-y-auto border-t border-border substrate-panel px-3 py-2"
+      class="max-h-32 shrink-0 overflow-y-auto border-t border-border substrate-panel px-3 py-2"
       data-testid="file-op-result"
       role="status"
     >
-      <p class="text-[11px] font-medium">
-        完成 {{ result.succeeded }} 项<template v-if="result.failed">，失败 {{ result.failed }} 项</template><template v-if="result.untouched">，未处理 {{ result.untouched }} 项</template>
-      </p>
+      <div class="flex items-start justify-between gap-2">
+        <p class="text-[11px] font-medium">
+          完成 {{ result.succeeded }} 项<template v-if="result.failed">，失败 {{ result.failed }} 项</template><template v-if="result.untouched">，未处理 {{ result.untouched }} 项</template>
+        </p>
+        <button
+          type="button"
+          class="shrink-0 text-muted-foreground hover:text-foreground"
+          aria-label="关闭"
+          data-testid="file-op-result-close"
+          @click="result = null"
+        >
+          <X class="size-3.5" />
+        </button>
+      </div>
       <p class="mt-0.5 text-[11px]" :class="result.refresh.ok ? 'text-[var(--text-muted)]' : 'text-[var(--danger-ink)]'">
         {{ refreshText(result.refresh) }}
       </p>
       <ul class="mt-1 space-y-0.5">
-        <li v-for="item in result.items" :key="item.source" class="text-[11px]" :data-status="item.status">
+        <li v-for="item in problemItems" :key="item.source" class="text-[11px]" :data-status="item.status">
           <span class="font-mono">{{ item.source }}</span>
           <span class="text-[var(--text-secondary)]"> — {{ itemStatusText(item) }}</span>
         </li>
+        <li v-if="okCount" class="text-[11px] text-[var(--text-secondary)]">另有 {{ okCount }} 项已完成</li>
       </ul>
     </div>
     <p v-if="opError" class="border-t border-border px-3 py-1.5 text-[11px] text-[var(--danger-ink)]" role="alert">

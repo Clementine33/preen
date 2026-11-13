@@ -128,14 +128,14 @@ func (s *Pipeline) stageSelected(
 		group.Go(func() error {
 			defer walkers.Done()
 			for folder := range jobs {
-				if err := s.walkMember(ctx, folder, root, func(entry DirEntry) error {
+				if err := s.walkMember(ctx, folder, root, skipUnaddressable(func(entry DirEntry) error {
 					select {
 					case <-ctx.Done():
 						return ctx.Err()
 					case entries <- DirEntryToStagingEntry(entry, id, root):
 						return nil
 					}
-				}); err != nil {
+				})); err != nil {
 					return err
 				}
 			}

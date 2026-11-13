@@ -1,9 +1,9 @@
 import type { ToastAction } from '@/composables/use-toast'
 import { defineStore } from 'pinia'
 
-// The notification category a result maps to. Failure-like tones stay until
-// dismissed; success and stopped expire.
-export type TaskTone = 'success' | 'stopped' | 'partial' | 'failed' | 'interrupted' | 'unknown'
+// The notification category a result maps to. Failure-like tones and warning stay
+// until dismissed; success and stopped expire.
+export type TaskTone = 'success' | 'warning' | 'stopped' | 'partial' | 'failed' | 'interrupted' | 'unknown'
 export interface TaskNotice { id: number, title: string, text: string, tone: TaskTone, action?: ToastAction }
 
 // App-lifetime FIFO for asynchronous results, independent of editing/undo.

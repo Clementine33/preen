@@ -88,7 +88,7 @@ export function useLibraryScan() {
       return
     await syncAfterScan(queryClient, libraryId, outcome.status, outcome.terminal, outcome.receivedEvent)
 
-    function notify({ status, terminal, admissionError }: ScanOutcome) {
+    function notify({ status, terminal, admissionError, unaddressableNames }: ScanOutcome) {
       if (admissionError)
         return
       const localCancel = terminal === 'transport' && status === 'cancelled'
@@ -109,6 +109,21 @@ export function useLibraryScan() {
           : status === 'cancelled'
             ? 'stopped'
             : 'failed'
+      if (status === 'completed' && terminal === 'event' && unaddressableNames > 0) {
+        // Not quiet on the overview: the skipped names are listed only in the log export.
+        notice({
+          libraryId,
+          libraryName,
+          title: `${libraryName} · 扫描`,
+          text: `扫描完成 · 跳过 ${unaddressableNames} 个无法识别的文件名`,
+          tone: 'warning',
+          target: 'settings',
+          params: { section: 'maintenance' },
+          actionLabel: '查看日志',
+          quietOn: [],
+        })
+        return
+      }
       notice({
         libraryId,
         libraryName,

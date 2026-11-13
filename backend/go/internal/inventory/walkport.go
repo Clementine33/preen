@@ -14,6 +14,10 @@ type DirEntry struct {
 	Mtime        int64
 	FilesCarried int
 	Carried      bool
+	// Unaddressable marks a name that is not valid UTF-8 (see CONTEXT.md):
+	// JSON would rewrite it lossily, so a path echoed back could reach another
+	// file. Its subtree is not walked and the entry never reaches staging.
+	Unaddressable bool
 }
 
 // ReuseDirectory decides whether a directory's direct files can be carried over.

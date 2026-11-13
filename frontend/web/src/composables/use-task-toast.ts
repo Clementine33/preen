@@ -20,6 +20,10 @@ export interface TaskResult {
   tone: TaskTone
   /** Route the 查看结果 action opens, addressed by the captured Library. */
   target: string
+  /** Route params of the 查看结果 action instead of `{ libraryId }`. */
+  params?: Record<string, string>
+  /** Overrides the 查看结果 label. */
+  actionLabel?: string
   /** Route names on which this result stays quiet: the page already shows it. */
   quietOn: readonly string[]
 }
@@ -42,7 +46,7 @@ export function useTaskResultNotice(queryClient: QueryClient) {
       text: result.text,
       tone: result.tone,
       action: {
-        label: '查看结果',
+        label: result.actionLabel ?? '查看结果',
         run: () => { void viewResults() },
       },
     })
@@ -55,7 +59,7 @@ export function useTaskResultNotice(queryClient: QueryClient) {
         if (libraries.some(library => library.id === result.libraryId)) {
           await router.push({
             name: result.target,
-            params: { libraryId: result.libraryId },
+            params: result.params ?? { libraryId: result.libraryId },
           })
         }
         else {

@@ -142,6 +142,8 @@ export interface ScanEventData {
   root_path?: string
   files_scanned?: number
   dirs_scanned?: number
+  /** Names the scan skipped because they are not valid UTF-8; each is in the log. */
+  unaddressable_names?: number
   code?: string
 }
 

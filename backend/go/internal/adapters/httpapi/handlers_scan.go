@@ -35,7 +35,10 @@ type scanEventData struct {
 	DirsWithMultipleNumbers int      `json:"dirs_with_multiple_numbers,omitempty"`
 	ExampleDirs             []string `json:"example_dirs,omitempty"`
 	ExamplesTruncated       bool     `json:"examples_truncated,omitempty"`
-	Code                    string   `json:"code,omitempty"`
+	// Unaddressable Names the scan left out of the inventory; each is logged
+	// (docs/api/libraries.md#scan-post--sse).
+	UnaddressableNames int    `json:"unaddressable_names,omitempty"`
+	Code               string `json:"code,omitempty"`
 }
 
 // writeScanAdmissionError maps a refused admission to its envelope: the gate's
@@ -164,5 +167,6 @@ func (s *Server) postLibraryScan(w http.ResponseWriter, r *http.Request) {
 		DirsWithMultipleNumbers: result.DirsWithMultipleNumbers,
 		ExampleDirs:             result.ExampleDirs,
 		ExamplesTruncated:       result.ExamplesTruncated,
+		UnaddressableNames:      result.Unaddressable,
 	})
 }

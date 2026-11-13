@@ -17,6 +17,7 @@ export interface ScanOutcome {
   terminal: ScanTerminal | null
   receivedEvent: boolean
   admissionError: boolean
+  unaddressableNames: number
 }
 
 export const useScanStore = defineStore('scan', {
@@ -28,6 +29,7 @@ export const useScanStore = defineStore('scan', {
     dirsScanned: 0,
     scanId: null as string | null,
     rootPath: null as string | null,
+    unaddressableNames: 0,
     message: '',
     errorCode: null as string | null,
     errorMessage: null as string | null,
@@ -49,6 +51,7 @@ export const useScanStore = defineStore('scan', {
       this.dirsScanned = 0
       this.scanId = null
       this.rootPath = null
+      this.unaddressableNames = 0
       this.message = ''
       this.errorCode = null
       this.errorMessage = null
@@ -65,6 +68,7 @@ export const useScanStore = defineStore('scan', {
           terminal: this.terminal,
           receivedEvent: this.receivedEvent,
           admissionError,
+          unaddressableNames: this.unaddressableNames,
         }
         onOutcome?.(settledOutcome)
         return settledOutcome
@@ -135,6 +139,7 @@ export const useScanStore = defineStore('scan', {
         this.filesScanned = data.files_scanned ?? this.filesScanned
         this.scanId = data.scan_id ?? null
         this.rootPath = data.root_path ?? null
+        this.unaddressableNames = data.unaddressable_names ?? 0
       }
       else if (event.type === 'cancelled') {
         this.status = 'cancelled'

@@ -241,6 +241,10 @@ _Avoid_: "Incremental scan" — the scan still accounts for every directory, it 
 A Library Scan that observes every file, carrying nothing over. It is the way to pick up files that external tools rewrote in place.
 _Avoid_: Treating it as a repair for anything other than in-place rewrites.
 
+**Unaddressable Name**:
+An on-disk file or directory name that cannot be represented as text, such as a Shift_JIS name extracted on Linux. A Library Scan reports it and leaves it — and everything beneath it — out of the inventory; Preen never renames it. The user renames it outside Preen, and the next scan observes it normally.
+_Avoid_: Treating it as a corrupt file, or "repairing" it by guessing its encoding.
+
 **Album Folder / Planning Root**:
 A Work Root of a Library, including its descendants. It is listed whether or not it holds audio, and each selected root is an independent boundary for classification, association and planning.
 

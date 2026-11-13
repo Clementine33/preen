@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"unicode/utf8"
 
 	"golang.org/x/sync/errgroup"
 
@@ -188,7 +189,31 @@ func listObservedDirectory(
 			return nil, err
 		}
 	}
-	return entries, nil
+	return addressableEntries(currentPath, entries, emit)
+}
+
+// addressableEntries reports each Unaddressable Name and drops it, so neither
+// it nor its subtree is walked. Reuse matching above still sees it, which
+// keeps its directory re-listed and the name reported on every scan.
+func addressableEntries(
+	currentPath string,
+	entries []fs.DirEntry,
+	emit func(inventory.DirEntry) error,
+) ([]fs.DirEntry, error) {
+	kept := entries[:0]
+	for _, d := range entries {
+		if utf8.ValidString(d.Name()) {
+			kept = append(kept, d)
+			continue
+		}
+		if err := emit(inventory.DirEntry{
+			Path: filepath.Join(currentPath, d.Name()), ParentPath: currentPath, Name: d.Name(),
+			IsDir: d.IsDir(), Unaddressable: true,
+		}); err != nil {
+			return nil, err
+		}
+	}
+	return kept, nil
 }
 
 func matchingEntries(entries []fs.DirEntry, retained map[string]bool, basePath string) bool {

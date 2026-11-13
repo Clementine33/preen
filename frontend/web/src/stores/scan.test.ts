@@ -45,6 +45,7 @@ describe('scan store', () => {
               scan_id: 'scan-1',
               root_path: '/music',
               files_scanned: 8,
+              unaddressable_names: 2,
             },
           },
         ]),
@@ -52,7 +53,7 @@ describe('scan store', () => {
     )
     const store = useScanStore()
 
-    await store.start('lib-a', api)
+    const outcome = await store.start('lib-a', api)
 
     expect(store.status).toBe('completed')
     expect(store.terminal).toBe('event')
@@ -60,6 +61,8 @@ describe('scan store', () => {
     expect(store.dirsScanned).toBe(2)
     expect(store.scanId).toBe('scan-1')
     expect(store.rootPath).toBe('/music')
+    expect(store.unaddressableNames).toBe(2)
+    expect(outcome?.unaddressableNames).toBe(2)
   })
 
   it('aborts an active scan and settles as cancelled', async () => {

@@ -59,6 +59,11 @@ async function harness(path = '/elsewhere') {
         ],
       },
       {
+        path: '/settings/:section?',
+        name: 'settings',
+        component: { template: '<div />' },
+      },
+      {
         path: '/elsewhere',
         name: 'worksets',
         component: { template: '<div />' },
@@ -129,6 +134,25 @@ describe('scan result notifications', () => {
     await app.router.push('/elsewhere')
     await flushPromises()
     expect(notice()).toBe('')
+  })
+  it('warns about skipped names even on its own overview and opens the log export settings', async () => {
+    const app = await harness('/worksets/lib-a')
+    const pending = app.scan.start('lib-a')
+    app.finish([
+      {
+        type: 'completed',
+        data: { stage: 'scan', unaddressable_names: 3 },
+      },
+    ])
+    await pending
+    await flushPromises()
+    expect(notice()).toContain('注意')
+    expect(notice()).toContain('扫描完成 · 跳过 3 个无法识别的文件名')
+    expect(notice()).toContain('查看日志')
+    document.body.querySelector<HTMLButtonElement>('[data-testid="task-toast-action"]')!.click()
+    await flushPromises()
+    expect(app.router.currentRoute.value.name).toBe('settings')
+    expect(app.router.currentRoute.value.params.section).toBe('maintenance')
   })
   it('shows confirmed failure on its own overview', async () => {
     const app = await harness('/worksets/lib-a')

@@ -104,7 +104,7 @@ disconnects.
 | --- | --- |
 | `started` | `stage`, `message` |
 | `progress` | `stage`, `files_scanned`, `dirs_scanned` |
-| `completed` | `stage`, `scan_id`, `root_path`, `files_scanned` |
+| `completed` | `stage`, `scan_id`, `root_path`, `files_scanned`; when non-zero: `dirs_with_multiple_numbers`, `example_dirs`, `examples_truncated`, `unaddressable_names` |
 | `error` | `stage`, `code`, `message` |
 | `cancelled` | `stage`, `message` |
 
@@ -125,6 +125,20 @@ file rewrite when that directory's mtime stays unchanged, and client filesystem
 attribute caches can temporarily hide a directory change. The latter is caught
 by a later scan after the cache expires. Use Full Rescan to read the files in
 unchanged directories, for example after editing tags in place.
+
+`dirs_with_multiple_numbers` counts directories outside any work whose name
+carries more than one work number; `example_dirs` lists some of them and
+`examples_truncated` says the list is capped.
+
+An entry whose name is not valid UTF-8 (raw bytes on Linux, an unpaired
+surrogate on Windows) is an Unaddressable Name: it and its descendants are left
+out of the inventory, never renamed, and not counted in scan progress. Rows a
+previous scan stored for it are removed like any vanished entry. A full scan's
+`completed` event reports `unaddressable_names`, their count. Each refused name
+is logged at `warn` (`scan skipped unaddressable name`, see
+[diagnostics](diagnostics.md#output)); read the full list from the Log Export.
+Member refreshes and selected-folder scans skip such names without reporting
+them. Rename the entry outside Preen and rescan.
 
 `Delete/` is a reserved recovery directory name at every depth. Such directories
 and their descendants are skipped before reading their metadata or traversing

@@ -34,6 +34,11 @@ a failure and is not logged, except `execution canceled without a cancel
 request` at `warn`, which marks an error that looked like a cancellation while
 nothing asked to cancel.
 
+A Library Scan logs `scan skipped unaddressable name` at `warn` for each file
+or directory name that is not valid UTF-8, with `root` (the Library root) and
+`path` (library-relative, forward slashes, invalid bytes written as Go escapes
+such as `\x93\xfa`). The scan's `completed` event carries only the count.
+
 ## Log Export
 
 | Method | Path | Contract |

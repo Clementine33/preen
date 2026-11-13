@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"mime"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -33,6 +35,39 @@ type Progress struct {
 	DirsWithMultipleNumbers int
 	ExampleDirs             []string
 	ExamplesTruncated       bool
+
+	// Unaddressable counts the Unaddressable Names the walk left out.
+	Unaddressable int
+}
+
+// unaddressableNames counts refused names from concurrent walkers and logs
+// each one; the escaped path is only ever read from the Diagnostic Log.
+type unaddressableNames struct {
+	mu    sync.Mutex
+	count int
+}
+
+func (u *unaddressableNames) add(rootPath, path string) {
+	u.mu.Lock()
+	u.count++
+	u.mu.Unlock()
+	rel, err := filepath.Rel(rootPath, path)
+	if err != nil {
+		rel = path
+	}
+	quoted := strconv.Quote(filepath.ToSlash(rel))
+	slog.Warn("scan skipped unaddressable name", "root", rootPath, "path", quoted[1:len(quoted)-1])
+}
+
+// skipUnaddressable drops Unaddressable Names on scoped refreshes, which do
+// not report them; only a Library Scan does.
+func skipUnaddressable(emit func(DirEntry) error) func(DirEntry) error {
+	return func(entry DirEntry) error {
+		if entry.Unaddressable {
+			return nil
+		}
+		return emit(entry)
+	}
 }
 
 type scanOptions struct {
@@ -300,12 +335,17 @@ func (s *Pipeline) ScanRootCtx(ctx context.Context, rootPath string, opts ...Sca
 	entryCh := make(chan StagingEntry, taskQueueSize)
 	var producerErr, consumerErr error
 	var wg sync.WaitGroup
+	var unaddressable unaddressableNames
 
 	// Producer: walk and emit to channel
 	wg.Go(func() {
 		defer close(entryCh) // Only close when producer exits
 
 		emitFn := func(entry DirEntry) error {
+			if entry.Unaddressable {
+				unaddressable.add(rootPath, entry.Path)
+				return nil
+			}
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
@@ -428,6 +468,7 @@ func (s *Pipeline) ScanRootCtx(ctx context.Context, rootPath string, opts ...Sca
 				DirsWithMultipleNumbers: outcome.DirsWithMultipleNumbers,
 				ExampleDirs:             outcome.ExampleDirs,
 				ExamplesTruncated:       outcome.ExamplesTruncated,
+				Unaddressable:           unaddressable.count,
 			})
 		}
 
@@ -500,14 +541,14 @@ func (s *Pipeline) ScanFolderCtx(
 	wg.Go(func() {
 		defer close(entryCh) // Producer owns close
 
-		emitFn := func(entry DirEntry) error {
+		emitFn := skipUnaddressable(func(entry DirEntry) error {
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
 			case entryCh <- DirEntryToStagingEntry(entry, sessionID, normalizedRootPath):
 				return nil
 			}
-		}
+		})
 
 		if err := s.walkMember(ctx, folderPath, rootPath, emitFn); err != nil {
 			producerErr = err

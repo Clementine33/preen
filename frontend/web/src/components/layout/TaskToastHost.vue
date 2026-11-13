@@ -9,6 +9,7 @@ const { current, dismiss } = useTaskToast()
 // Severity is spelled out in the tag, never carried by color alone.
 const TAGS: Record<TaskTone, string> = {
   success: '完成',
+  warning: '注意',
   stopped: '已停止',
   partial: '部分失败',
   failed: '失败',
@@ -16,6 +17,7 @@ const TAGS: Record<TaskTone, string> = {
   unknown: '待确认',
 }
 const STICKY = new Set<TaskTone>([
+  'warning',
   'partial',
   'failed',
   'interrupted',
@@ -64,6 +66,7 @@ function duration(tone: TaskTone) {
   font-family: var(--font-mono); font-size: var(--fs-xs); letter-spacing: .08em; line-height: 1.4;
 }
 .task-toast[data-tone="failed"] .task-toast-tag, .task-toast[data-tone="partial"] .task-toast-tag { background: var(--invert-bg); color: var(--invert-fg); }
+.task-toast[data-tone="warning"] .task-toast-tag { border-width: 2px; }
 .task-toast[data-tone="unknown"] .task-toast-tag, .task-toast[data-tone="interrupted"] .task-toast-tag { border-style: dashed; }
 .task-toast-title {
   flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;

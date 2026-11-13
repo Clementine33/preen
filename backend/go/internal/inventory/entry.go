@@ -43,6 +43,7 @@ type Result struct {
 	DirsWithMultipleNumbers int
 	ExampleDirs             []string
 	ExamplesTruncated       bool
+	Unaddressable           int
 }
 
 // ErrorKind values for Error.Kind, used to map to HTTP status codes.
@@ -300,9 +301,13 @@ func (s *service) Scan(ctx context.Context, req Request, emit func(Event)) (Resu
 	})
 
 	return Result{
-		ScanID:       scanID,
-		RootPath:     req.RootPath,
-		FilesScanned: lastProgress.FilesScanned,
+		ScanID:                  scanID,
+		RootPath:                req.RootPath,
+		FilesScanned:            lastProgress.FilesScanned,
+		DirsWithMultipleNumbers: lastProgress.DirsWithMultipleNumbers,
+		ExampleDirs:             lastProgress.ExampleDirs,
+		ExamplesTruncated:       lastProgress.ExamplesTruncated,
+		Unaddressable:           lastProgress.Unaddressable,
 	}, nil
 }
 

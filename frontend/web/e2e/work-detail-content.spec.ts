@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { expect, test } from '@playwright/test'
+import { expect, test } from './helpers/test.ts'
 
 // The existing launcher supplies a fresh real backend. Only media fixtures and
 // observation of the browser's native audio are added; no API/audio mocks.

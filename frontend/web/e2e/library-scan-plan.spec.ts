@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test'
-import { expect, test } from '@playwright/test'
 import { readStackState } from './helpers/stack-state.ts'
+import { expect, test } from './helpers/test.ts'
 
 /** Picks one value of a segmented setting: its buttons carry their labels. */
 async function pickUnitOption(page: Page, testId: string, option: string) {
@@ -271,8 +271,10 @@ test.describe('workset operation smoke', () => {
     const renameInput = page.getByTestId('rename-input')
     await renameInput.fill('renamed.mp3')
     await page.getByTestId('rename-submit').click()
-    await expect(page.getByTestId('file-op-result')).toContainText('完成 1 项')
-    await expect(page.getByTestId('file-op-result')).toContainText('已刷新目录')
+    // A clean result reports through the toast; the panel is for problems only.
+    await expect(page.getByTestId('toast')).toContainText('完成 1 项')
+    await expect(page.getByTestId('toast')).toContainText('已刷新目录')
+    await expect(page.getByTestId('file-op-result')).toBeHidden()
     await expect(page.getByTestId('member-tree')).toContainText('renamed.mp3')
 
     // Back to the list: the workbench survives, and the member list is where

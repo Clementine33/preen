@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { expect, test } from '@playwright/test'
+import { expect, test } from './helpers/test.ts'
 
 // The wall at a size the dev library never reaches: five numbered
 // pages of works. An empty directory named for a work is already a collected

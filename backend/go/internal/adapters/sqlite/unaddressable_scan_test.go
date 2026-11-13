@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"unicode/utf8"
 
@@ -14,6 +15,9 @@ import (
 )
 
 func TestScanLeavesUnaddressableNamesOutOfInventory(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows stores names as UTF-16, so a non-UTF-8 name cannot exist")
+	}
 	repo, err := sqlite.NewDevelopmentRepository(filepath.Join(t.TempDir(), "cache.db"))
 	if err != nil {
 		t.Fatal(err)

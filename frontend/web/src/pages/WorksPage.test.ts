@@ -1001,6 +1001,9 @@ describe('works page', () => {
       // The spy records where the scroller stood when the cell was brought into view.
       const seen: Array<{ rj?: string, top: number }> = []
       HTMLElement.prototype.scrollIntoView = function (this: HTMLElement) {
+        // The wall being left still settles a frame after its cells are gone.
+        if (!this.isConnected)
+          return
         seen.push({ rj: this.dataset.rj, top: scrollerOf(h).scrollTop })
       }
       onTestFinished(() => { delete (HTMLElement.prototype as Partial<HTMLElement>).scrollIntoView })

@@ -1,8 +1,8 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { expect, test } from '@playwright/test'
 import { readStackState } from './helpers/stack-state.ts'
+import { expect, test } from './helpers/test.ts'
 
 test('select one batch and reuse its members and independent plans across tasks', async ({ page }) => {
   test.skip(process.env.BROWSER_E2E !== '1', 'requires the real stack')

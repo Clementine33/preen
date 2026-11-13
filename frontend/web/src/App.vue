@@ -6,6 +6,7 @@ import TaskToastHost from '@/components/layout/TaskToastHost.vue'
 import ToastHost from '@/components/layout/ToastHost.vue'
 import { useListeningSync } from '@/composables/use-listening-sync'
 import { provideLyricsWindow } from '@/composables/use-lyrics-window'
+import { useMediaFactsNotice } from '@/composables/use-media-facts-notice'
 import { useMediaFactsSync } from '@/composables/use-media-facts-sync'
 import { usePlayerKeys } from '@/composables/use-player-keys'
 import { useApiClient } from '@/lib/api/client'
@@ -14,6 +15,7 @@ import { healthQueryOptions } from '@/queries/health'
 const route = useRoute()
 useQuery(healthQueryOptions(useApiClient()))
 useMediaFactsSync()
+useMediaFactsNotice()
 useListeningSync()
 usePlayerKeys(provideLyricsWindow())
 </script>

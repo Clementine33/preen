@@ -39,6 +39,12 @@ or directory name that is not valid UTF-8, with `root` (the Library root) and
 `path` (library-relative, forward slashes, invalid bytes written as Go escapes
 such as `\x93\xfa`). The scan's `completed` event carries only the count.
 
+The Media Facts Pass logs `media facts unmeasurable` at `warn` for each file it
+visits but cannot measure, with `path` (absolute), `format` and, when the probe
+itself failed, `err`. Every pass revisits these files, so the record repeats per
+pass; the [status event](works.md#background-media-facts-notifications) carries
+only the per-library count.
+
 ## Log Export
 
 | Method | Path | Contract |

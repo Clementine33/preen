@@ -2,6 +2,7 @@ package inventory
 
 import (
 	"context"
+	"log/slog"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -220,9 +221,19 @@ func (e *MediaEnricher) probe(ctx context.Context, c MediaCandidate) (MediaFacts
 	case strings.HasPrefix(c.Format, "audio/"):
 		u.DurationSec, u.Bitrate, err = e.prober.AudioFacts(ctx, c.Path)
 	default:
+		slog.Warn("media facts unmeasurable", "path", c.Path, "format", c.Format)
 		return u, false
 	}
-	return u, err == nil && (u.Width > 0 || u.DurationSec > 0 || u.Bitrate > 0)
+	ok := err == nil && (u.Width > 0 || u.DurationSec > 0 || u.Bitrate > 0)
+	if !ok && ctx.Err() == nil {
+		// The status counts these; the log names them (docs/api/diagnostics.md).
+		attrs := []any{"path", c.Path, "format", c.Format}
+		if err != nil {
+			attrs = append(attrs, "err", err)
+		}
+		slog.Warn("media facts unmeasurable", attrs...)
+	}
+	return u, ok
 }
 
 // sleep waits d and reports false when ctx ends first.

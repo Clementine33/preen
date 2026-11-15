@@ -99,10 +99,10 @@ function cancel() {
     <p v-if="!member" class="text-xs text-[var(--danger-ink)]" role="alert">未找到该文件夹。</p>
     <template v-else-if="session && draft">
       <h2 class="font-heading text-sm font-semibold">{{ member.folder_name }} · 修改此文件夹</h2>
-      <p class="mt-0.5 text-[11px] text-[var(--text-muted)]">
+      <p class="mt-0.5 text-xs text-[var(--text-muted)]">
         范围：仅此文件夹。全局设置入口请回到转换列表。
       </p>
-      <p v-if="session.error" class="mt-2 text-[11px] text-[var(--danger-ink)]" role="alert" data-testid="edit-error">
+      <p v-if="session.error" class="mt-2 text-xs text-[var(--danger-ink)]" role="alert" data-testid="edit-error">
         {{ session.error }}
       </p>
 
@@ -120,7 +120,7 @@ function cancel() {
           应用到该文件夹
         </Button>
         <Button size="sm" variant="ghost" :disabled="session.applying" @click="cancel">取消</Button>
-        <span class="text-[11px] text-[var(--text-muted)]">保存后需要重新生成计划版本。</span>
+        <span class="text-xs text-[var(--text-muted)]">保存后需要重新生成计划版本。</span>
       </div>
     </template>
     <p v-else class="text-xs text-[var(--text-muted)]">加载中…</p>

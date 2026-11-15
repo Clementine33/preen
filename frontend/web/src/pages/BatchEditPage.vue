@@ -117,7 +117,7 @@ function cancel() {
       <h2 class="font-heading text-sm font-semibold">批量修改 {{ members.length }} 个文件夹</h2>
     </div>
 
-    <details class="mb-2 rounded-md border border-border p-2 text-[11px]" open>
+    <details class="mb-2 rounded-md border border-border p-2 text-xs" open>
       <summary class="cursor-pointer font-medium">作用名单（固定，不随列表变化）</summary>
       <ul class="mt-1 space-y-0.5">
         <li v-for="member in members" :key="member.member_id" class="flex items-center gap-1.5">
@@ -127,7 +127,7 @@ function cancel() {
       </ul>
     </details>
 
-    <p v-if="session?.error" class="text-[11px] text-[var(--danger-ink)]" role="alert">{{ session.error }}</p>
+    <p v-if="session?.error" class="text-xs text-[var(--danger-ink)]" role="alert">{{ session.error }}</p>
 
     <div v-if="draft && session">
       <OverrideEditor

@@ -32,7 +32,7 @@
      or a workbench heading, which read as UI (--font-heading resolves to
      --font-ui in style.css). Glyphs a face lacks fall back to the system serif
      or sans. Bundled same-origin via @fontsource in main.ts (ADR 0018). */
-  --font-mono: 'IBM Plex Mono', 'JetBrains Mono', ui-monospace, monospace;
+  --font-mono: 'IBM Plex Mono', 'JetBrains Mono', ui-monospace, 'Noto Sans SC Variable', monospace;
   --font-ui: 'Noto Sans SC Variable', 'PingFang SC', 'Microsoft YaHei', sans-serif;
   --font-mincho: 'Noto Serif SC Variable', serif;
 
@@ -93,6 +93,7 @@
   font-family: var(--font-mono); font-size: var(--text-2xs); line-height: var(--text-2xs--line-height);
   letter-spacing: .14em; text-transform: uppercase; color: var(--fg-meta);
 }
+.lbl-xs { font-size: var(--text-xs); line-height: var(--text-xs--line-height); } /* a label whose text can be CJK */
 .sep { color: var(--fg-meta); padding: 0 .5em; letter-spacing: 0; }
 .lbl > b { margin-left: var(--sp-2); }
 
@@ -157,7 +158,7 @@
   position: relative; isolation: isolate;
   display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-2);
   height: 36px; padding: 0 var(--sp-4);
-  font-family: var(--font-mono); font-size: var(--text-2xs); line-height: 1; letter-spacing: .14em;
+  font-family: var(--font-mono); font-size: var(--text-xs); line-height: 1; letter-spacing: .14em;
   text-transform: uppercase; white-space: nowrap; color: var(--fg-base);
   border: 1px solid var(--wire-mid);
   transition: color 0s, border-color var(--dur-out) linear, transform 80ms var(--ease-out), box-shadow 80ms var(--ease-out);
@@ -240,7 +241,7 @@
 .switch input:focus-visible + .track { outline: 1px solid var(--wire-strong); outline-offset: 2px; }
 .switch:has(input:disabled) { cursor: not-allowed; opacity: .55; }
 
-.chip { height: 22px; padding: 0 var(--sp-2); border: 1px solid var(--wire-mid); font-family: var(--font-mono); font-size: 11px; letter-spacing: .06em; white-space: nowrap; }
+.chip { height: 22px; padding: 0 var(--sp-2); border: 1px solid var(--wire-mid); font-family: var(--font-mono); font-size: var(--text-xs); letter-spacing: .06em; white-space: nowrap; }
 .chip:hover:not(:disabled) { border-color: var(--wire-strong); }
 .chip[aria-pressed="true"] { background: var(--invert-bg); color: var(--invert-fg); border-color: var(--invert-bg); }
 .chip:focus-visible { outline: 1px solid var(--wire-strong); outline-offset: 2px; }

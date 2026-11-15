@@ -1,6 +1,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { expectCjkFloor } from './helpers/cjk-floor.ts'
 import { expect, test } from './helpers/test.ts'
 
 /**
@@ -91,6 +92,7 @@ test.describe('workbench addresses', () => {
     await expect(page.getByTestId('member-tree')).toBeVisible()
     await page.getByTestId('overview-breadcrumb').getByRole('link').last().click()
     await expect(page.getByText('已选择 1 个文件夹')).toBeVisible()
+    await expectCjkFloor(page)
     await expect.poll(() => scroller.evaluate(el => Math.abs(el.scrollTop - 600))).toBeLessThan(5)
     expect(offset).toBe(600)
     await scroller.evaluate((el) => { el.scrollTop = 0 })
@@ -146,6 +148,13 @@ test.describe('workbench addresses', () => {
     await page.goto(`/worksets/libraries/${libraryID}/files?folder=${encodeURIComponent(opened)}`)
     await expect(page.getByTestId('not-found')).toBeVisible()
     await page.getByTestId('not-found-home').click()
+    await expect(page.getByTestId('worksets-page')).toBeVisible()
+
+    // The Settings page carries the densest Chinese copy; hold it to the floor too.
+    await page.goto('/settings')
+    await expect(page.getByTestId('settings-page')).toBeVisible()
+    await expectCjkFloor(page)
+    await page.goto('/worksets')
     await expect(page.getByTestId('worksets-page')).toBeVisible()
 
     // Clean up: the library record this spec created, then the fixture on disk.

@@ -71,7 +71,7 @@ function playTrack(t: number) {
     </div>
     <div class="tracks" :class="{ dim }" lang="ja">
       <template v-for="(track, t) in tracks" :key="track.key">
-        <div v-if="showHeader(t)" class="var lbl">{{ track.variant || '/' }}</div>
+        <div v-if="showHeader(t)" class="var lbl lbl-xs">{{ track.variant || '/' }}</div>
         <button
           class="trk" :class="{ now: isPlaying(t) }"
           type="button" :aria-current="isPlaying(t) || undefined" @click="playTrack(t)"
@@ -97,7 +97,7 @@ function playTrack(t: number) {
   text-align: left; color: var(--fg-base); font-family: inherit; cursor: pointer;
 }
 /* A variant is a folder name, usually Japanese: the mono face has no CJK, so it reads in the UI face. */
-.var { padding: var(--sp-2) var(--sp-2) var(--sp-1); font-family: var(--font-ui); letter-spacing: 0; font-size: var(--text-2xs); color: var(--fg-meta); border-bottom: 1px solid var(--wire-fine); }
+.var { padding: var(--sp-2) var(--sp-2) var(--sp-1); font-family: var(--font-ui); letter-spacing: 0; font-size: var(--text-xs); color: var(--fg-meta); border-bottom: 1px solid var(--wire-fine); }
 .trk:hover { background: var(--bg-subtle); }
 .trk:focus-visible { outline: 1px solid var(--wire-strong); outline-offset: -1px; }
 .trk .lbl { letter-spacing: .04em; }

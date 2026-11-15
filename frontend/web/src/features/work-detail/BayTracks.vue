@@ -103,7 +103,7 @@ useKeymap({
   </div>
   <div v-else ref="list" class="list" lang="ja">
     <template v-for="(track, t) in store.tracks" :key="track.key">
-      <div v-if="showHeader(t)" class="var lbl">{{ track.variant || '/' }}</div>
+      <div v-if="showHeader(t)" class="var lbl lbl-xs">{{ track.variant || '/' }}</div>
       <button
         class="trk" type="button"
         :class="{ missing: missing(t), now: isPlaying(t), cur: at(t) }" :aria-current="isPlaying(t) ? 'true' : undefined"
@@ -131,7 +131,7 @@ useKeymap({
    phone drop it (v3). */
 .trk { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; align-items: center; gap: var(--sp-3); height: 28px; padding: 0 var(--sp-6) 0 var(--sp-5); border-bottom: 1px solid var(--wire-fine); cursor: pointer; width: 100%; text-align: left; background: none; color: var(--fg-base); border-left: none; border-right: none; border-top: none; font-family: inherit; }
 /* A variant is a folder name, usually Japanese: the mono face has no CJK, so it reads in the UI face. */
-.var { padding: var(--sp-2) var(--sp-6) var(--sp-1) var(--sp-5); font-family: var(--font-ui); letter-spacing: 0; font-size: var(--text-2xs); color: var(--fg-meta); border-bottom: 1px solid var(--wire-fine); }
+.var { padding: var(--sp-2) var(--sp-6) var(--sp-1) var(--sp-5); font-family: var(--font-ui); letter-spacing: 0; font-size: var(--text-xs); color: var(--fg-meta); border-bottom: 1px solid var(--wire-fine); }
 .trk:hover { background: var(--bg-subtle); }
 .trk.cur { outline: 1px solid var(--wire-strong); outline-offset: -1px; }
 .trk .lbl { letter-spacing: .04em; }
@@ -141,7 +141,7 @@ useKeymap({
 .trk .meter { display: flex; gap: 2px; }
 .trk .meter i { width: 4px; height: 6px; background: var(--wire-fine); }
 .trk .meter i.on { background: var(--fg-meta); }
-.trk .only { flex-shrink: 0; font-family: var(--font-mono); font-size: 9px; letter-spacing: .12em; padding: 0 4px; border: 1px solid var(--wire-mid); color: var(--fg-muted); }
+.trk .only { flex-shrink: 0; font-family: var(--font-mono); font-size: var(--text-2xs); letter-spacing: .12em; padding: 0 4px; border: 1px solid var(--wire-mid); color: var(--fg-muted); }
 .trk .has-lrc { flex-shrink: 0; font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--fg-meta); }
 .trk .dur { min-width: 40px; text-align: right; font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--fg-muted); }
 .trk.missing { color: var(--fg-meta); }

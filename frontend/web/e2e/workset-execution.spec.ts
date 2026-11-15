@@ -3,6 +3,7 @@ import { execFileSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, rmSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { expectCjkFloor } from './helpers/cjk-floor.ts'
 import { expect, test } from './helpers/test.ts'
 
 /**
@@ -191,6 +192,7 @@ test.describe('workset execution', () => {
     // The panel only carries the session total and per-member counts; file
     // facts live on the member page.
     await expect(page.getByTestId('execution-count-succeeded')).toHaveText('1')
+    await expectCjkFloor(page)
     await expect(page.getByTestId('execution-count-failed')).toHaveText('0')
     await expect(page.getByTestId('execution-attention')).toBeHidden()
     await expect(page.getByTestId('execution-panel')).not.toContainText('00.wav')

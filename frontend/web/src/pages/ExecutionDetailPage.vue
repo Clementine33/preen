@@ -64,7 +64,7 @@ async function cancel() {
         >
           {{ execution.store.canceling ? '取消中…' : '取消执行' }}
         </Button>
-        <span class="text-[11px] text-[var(--text-muted)]">取消在当前组件的安全边界生效，已完成的结果保留。</span>
+        <span class="text-xs text-[var(--text-muted)]">取消在当前组件的安全边界生效，已完成的结果保留。</span>
       </div>
     </template>
   </div>

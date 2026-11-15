@@ -50,23 +50,23 @@ function partitionText(partition: string): string {
 <template>
   <div class="border-b border-border/60 px-3 py-2.5 last:border-b-0" data-testid="execution-component">
     <div class="flex flex-wrap items-center gap-1.5">
-      <span class="text-[11px] font-medium">{{ partitionText(component.partition) }}</span>
+      <span class="text-xs font-medium">{{ partitionText(component.partition) }}</span>
       <Badge :tone="COMPONENT_STATUS[component.status].tone">{{ COMPONENT_STATUS[component.status].label }}</Badge>
-      <span class="ml-auto text-[11px] tabular-nums text-muted-foreground">
+      <span class="ml-auto text-xs tabular-nums text-muted-foreground">
         操作 {{ component.completed_operations }}/{{ component.operations }}
       </span>
-      <span v-if="component.stage" class="text-[10px] text-[var(--danger-ink)]">
+      <span v-if="component.stage" class="text-xs text-[var(--danger-ink)]">
         停在{{ STAGE_LABELS[component.stage] ?? component.stage }}
       </span>
     </div>
 
-    <p v-if="component.error_code" class="mt-1 text-[11px] text-[var(--danger-ink)]">
+    <p v-if="component.error_code" class="mt-1 text-xs text-[var(--danger-ink)]">
       {{ component.error_message || component.error_code }}
     </p>
 
     <details
       v-if="component.committed.length || component.removed.length || component.remaining.length || component.kept_decisions.length"
-      class="group mt-2 border border-[var(--wire-fine)] text-[11px]"
+      class="group mt-2 border border-[var(--wire-fine)] text-xs"
     >
       <summary class="flex cursor-pointer list-none flex-wrap items-center gap-x-2 gap-y-1 rounded-md px-2 py-1.5 text-muted-foreground hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
         <ChevronRight class="size-3 shrink-0 transition-transform group-open:rotate-90" aria-hidden="true" />
@@ -99,13 +99,13 @@ function partitionText(partition: string): string {
           <dd class="space-y-2" data-testid="execution-kept">
             <div v-for="file in component.kept_decisions" :key="file.path">
               <span class="block break-all font-mono leading-relaxed" :title="file.path">{{ filePath(file.path, component.root_path) }}</span>
-              <span class="text-[10px] text-muted-foreground">{{ keepReasonText(file.reason_code) }}</span>
+              <span class="text-xs text-muted-foreground">{{ keepReasonText(file.reason_code) }}</span>
             </div>
           </dd>
         </div>
       </dl>
     </details>
-    <p v-if="component.inventory_sync_error" class="mt-1 text-[10px] text-[var(--warning-ink)]" data-testid="execution-inventory-warning">
+    <p v-if="component.inventory_sync_error" class="mt-1 text-xs text-[var(--warning-ink)]" data-testid="execution-inventory-warning">
       磁盘结果与媒体库索引未完全同步：{{ component.inventory_sync_error }}
     </p>
   </div>

@@ -57,10 +57,10 @@ const backRoute = computed(() => ({
       <div class="flex flex-wrap items-center gap-2 border-b border-[var(--wire-strong)] px-4 py-2.5">
         <span class="min-w-0 break-words font-heading text-xs font-semibold" data-testid="execution-member-title" :title="view.member.root_path">{{ name }}</span>
         <Badge :tone="MEMBER_STATUS[view.member.status].tone" data-testid="execution-member-status">{{ MEMBER_STATUS[view.member.status].label }}</Badge>
-        <span class="font-mono text-[11px] tabular-nums" data-testid="execution-member-progress">
+        <span class="font-mono text-xs tabular-nums" data-testid="execution-member-progress">
           组件 {{ view.member.completed_components }}/{{ view.member.total_components }} · 操作 {{ view.member.completed_operations }}/{{ view.member.total_operations }}
         </span>
-        <RouterLink :to="backRoute" class="ml-auto text-[11px] underline" data-testid="execution-member-back">返回执行结果</RouterLink>
+        <RouterLink :to="backRoute" class="ml-auto text-xs underline" data-testid="execution-member-back">返回执行结果</RouterLink>
       </div>
       <ExecutionComponentRow
         v-for="component in view.components ?? []"

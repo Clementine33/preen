@@ -106,7 +106,7 @@ const deletingCount = computed(() => (deleting.value
     <form class="mt-2.5 flex flex-wrap items-start gap-2" @submit.prevent="submitCreate">
       <input
         v-model="newName"
-        class="field-input h-11! min-w-0 flex-1 text-[16px]! rail:h-[30px]! rail:text-[length:var(--text-xs)]!"
+        class="field-input h-11! min-w-0 flex-1 text-[length:var(--input-font)]! rail:h-[30px]! rail:text-[length:var(--text-xs)]!"
         placeholder="新标签名称"
         aria-label="新标签名称"
         autocomplete="off"
@@ -116,7 +116,7 @@ const deletingCount = computed(() => (deleting.value
       <Button type="submit" class="h-11 rail:h-[30px]" size="sm" variant="outline" :disabled="!newName.trim() || create.isPending.value" data-testid="user-tag-create">
         新建
       </Button>
-      <p v-if="createError" class="w-full text-[11px] text-destructive" role="alert">新建失败：{{ createError }}</p>
+      <p v-if="createError" class="w-full text-xs text-destructive" role="alert">新建失败：{{ createError }}</p>
     </form>
 
     <p v-if="query.isPending.value" class="py-3 text-xs text-muted-foreground">正在读取标签…</p>
@@ -128,7 +128,7 @@ const deletingCount = computed(() => (deleting.value
       还没有用户标签。在上面新建，或在作品详情页给作品加标签。
     </p>
     <template v-else>
-      <div class="mt-3 flex items-center border-b border-[var(--wire-strong)] px-1 pb-1 text-[11px] text-[var(--text-secondary)]">
+      <div class="mt-3 flex items-center border-b border-[var(--wire-strong)] px-1 pb-1 text-xs text-[var(--text-secondary)]">
         <span class="flex-1">名称</span>
         <span class="w-16 text-right">作品数</span>
         <span class="w-[7.5rem]" aria-hidden="true" />
@@ -144,7 +144,7 @@ const deletingCount = computed(() => (deleting.value
             <input
               ref="editInput"
               v-model="editName"
-              class="field-input h-11! min-w-0 flex-1 text-[16px]! rail:h-[30px]! rail:text-[length:var(--text-xs)]!"
+              class="field-input h-11! min-w-0 flex-1 text-[length:var(--input-font)]! rail:h-[30px]! rail:text-[length:var(--text-xs)]!"
               :aria-label="`重命名「${tag.name}」`"
               :aria-invalid="editError ? true : undefined"
               autocomplete="off"
@@ -153,11 +153,11 @@ const deletingCount = computed(() => (deleting.value
             >
             <Button type="button" size="sm" variant="ghost" @click="editingId = null">取消</Button>
             <Button type="submit" size="sm" :disabled="!editName.trim() || rename.isPending.value" data-testid="user-tag-rename-submit">保存</Button>
-            <p v-if="editError" class="w-full text-[11px] text-destructive" role="alert" data-testid="user-tag-rename-error">{{ editError }}</p>
+            <p v-if="editError" class="w-full text-xs text-destructive" role="alert" data-testid="user-tag-rename-error">{{ editError }}</p>
           </form>
           <div v-else class="flex min-h-11 items-center px-1 rail:min-h-9">
             <span class="min-w-0 flex-1 truncate text-xs">{{ tag.name }}</span>
-            <span class="w-16 text-right font-mono text-[11px] text-[var(--text-secondary)]">{{ counts.get(tag.id) ?? 0 }}</span>
+            <span class="w-16 text-right font-mono text-xs text-[var(--text-secondary)]">{{ counts.get(tag.id) ?? 0 }}</span>
             <span class="flex w-[7.5rem] justify-end gap-1">
               <Button size="xs" variant="ghost" class="text-[var(--text-secondary)]" :data-testid="`user-tag-rename-${tag.id}`" @click="startRename(tag)">重命名</Button>
               <Button size="xs" variant="ghost" class="text-[var(--text-secondary)] hover:text-[var(--danger-ink)]" :data-testid="`user-tag-delete-${tag.id}`" @click="askDelete(tag)">删除</Button>
@@ -171,7 +171,7 @@ const deletingCount = computed(() => (deleting.value
       <p class="text-xs leading-relaxed">
         删除标签「{{ deleting?.name }}」？它会从{{ deletingCount > 0 ? ` ${deletingCount} 部` : '所有' }}作品上移除，作品本身和文件不会被删除。
       </p>
-      <p v-if="deleteError" class="text-[11px] text-destructive" role="alert">删除失败：{{ deleteError }}</p>
+      <p v-if="deleteError" class="text-xs text-destructive" role="alert">删除失败：{{ deleteError }}</p>
       <div class="flex justify-end gap-2">
         <Button variant="ghost" size="sm" @click="deleting = null">取消</Button>
         <Button variant="destructive" size="sm" :disabled="remove.isPending.value" data-testid="user-tag-delete-confirm" @click="confirmDelete">删除</Button>

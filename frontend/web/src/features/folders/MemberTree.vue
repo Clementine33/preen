@@ -99,7 +99,7 @@ function meta(node: TreeModelNode): string {
   <div class="flex min-h-0 flex-1 flex-col" data-testid="member-tree">
     <p
       v-if="stale"
-      class="border-b border-border bg-muted px-3 py-1.5 text-[11px] text-[var(--warning-ink,var(--text-secondary))]"
+      class="border-b border-border bg-muted px-3 py-1.5 text-xs text-[var(--warning-ink,var(--text-secondary))]"
       data-testid="tree-stale"
     >
       未能刷新：下面是上次扫描的内容，可能已过期。
@@ -172,7 +172,7 @@ function meta(node: TreeModelNode): string {
             </span>
             <span
               v-if="node.type === 'file' && meta(node)"
-              class="block font-mono text-[10px] text-muted-foreground"
+              class="block font-mono text-xs text-muted-foreground"
             >
               {{ meta(node) }}
             </span>

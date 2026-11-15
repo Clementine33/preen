@@ -378,7 +378,7 @@ function submitDelete() {
       <span v-else class="text-xs font-medium">当前文件</span>
 
       <span class="ml-auto flex items-center gap-2">
-        <span v-if="refreshing" class="text-[11px] text-[var(--text-muted)]" data-testid="refreshing">
+        <span v-if="refreshing" class="text-xs text-[var(--text-muted)]" data-testid="refreshing">
           正在刷新…
         </span>
         <Button
@@ -396,7 +396,7 @@ function submitDelete() {
 
     <p
       v-if="refreshError"
-      class="border-b border-border bg-[var(--warning-weak,var(--muted))] px-3 py-1.5 text-[11px]"
+      class="border-b border-border bg-[var(--warning-weak,var(--muted))] px-3 py-1.5 text-xs"
       data-testid="refresh-error"
       role="alert"
     >
@@ -404,7 +404,7 @@ function submitDelete() {
     </p>
     <p
       v-if="treeError"
-      class="flex items-center gap-2 border-b border-destructive/30 bg-destructive/10 px-3 py-2 text-[11px] text-destructive"
+      class="flex items-center gap-2 border-b border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive"
       data-testid="tree-error"
       role="alert"
     >
@@ -480,10 +480,10 @@ function submitDelete() {
       class="flex min-h-12 shrink-0 flex-wrap items-center gap-2 border-t border-border substrate-panel px-3 py-1.5"
       data-testid="file-toolbar"
     >
-      <span class="text-[11px] text-[var(--text-muted)]">
+      <span class="text-xs text-[var(--text-muted)]">
         {{ selection.length ? `${selection.length} 项已选择` : '勾选文件或文件夹后在此操作' }}
       </span>
-      <span v-if="modifyDisabled" class="text-[11px] text-[var(--warning-ink,var(--text-secondary))]">
+      <span v-if="modifyDisabled" class="text-xs text-[var(--warning-ink,var(--text-secondary))]">
         {{ modifyDisabledReason }}
       </span>
       <span class="ml-auto flex flex-wrap items-center gap-1">
@@ -530,7 +530,7 @@ function submitDelete() {
       role="status"
     >
       <div class="flex items-start justify-between gap-2">
-        <p class="text-[11px] font-medium">
+        <p class="text-xs font-medium">
           完成 {{ result.succeeded }} 项<template v-if="result.failed">，失败 {{ result.failed }} 项</template><template v-if="result.untouched">，未处理 {{ result.untouched }} 项</template>
         </p>
         <button
@@ -543,18 +543,18 @@ function submitDelete() {
           <X class="size-3.5" />
         </button>
       </div>
-      <p class="mt-0.5 text-[11px]" :class="result.refresh.ok ? 'text-[var(--text-muted)]' : 'text-[var(--danger-ink)]'">
+      <p class="mt-0.5 text-xs" :class="result.refresh.ok ? 'text-[var(--text-muted)]' : 'text-[var(--danger-ink)]'">
         {{ refreshText(result.refresh) }}
       </p>
       <ul class="mt-1 space-y-0.5">
-        <li v-for="item in problemItems" :key="item.source" class="text-[11px]" :data-status="item.status">
+        <li v-for="item in problemItems" :key="item.source" class="text-xs" :data-status="item.status">
           <span class="font-mono">{{ item.source }}</span>
           <span class="text-[var(--text-secondary)]"> — {{ itemStatusText(item) }}</span>
         </li>
-        <li v-if="okCount" class="text-[11px] text-[var(--text-secondary)]">另有 {{ okCount }} 项已完成</li>
+        <li v-if="okCount" class="text-xs text-[var(--text-secondary)]">另有 {{ okCount }} 项已完成</li>
       </ul>
     </div>
-    <p v-if="opError" class="border-t border-border px-3 py-1.5 text-[11px] text-[var(--danger-ink)]" role="alert">
+    <p v-if="opError" class="border-t border-border px-3 py-1.5 text-xs text-[var(--danger-ink)]" role="alert">
       {{ opError }}
     </p>
 
@@ -568,7 +568,7 @@ function submitDelete() {
           class="mt-1 h-9 w-full rounded-md border border-input bg-transparent px-2 text-xs focus-visible:border-[var(--wire-strong)] focus-visible:outline-none"
         >
       </label>
-      <p class="text-[11px] text-[var(--text-muted)]">只能改名称：要换目录请用“移动”。目标已存在时不会覆盖。</p>
+      <p class="text-xs text-[var(--text-muted)]">只能改名称：要换目录请用“移动”。目标已存在时不会覆盖。</p>
       <div class="flex justify-end gap-2">
         <Button variant="ghost" size="sm" @click="dialog = 'none'">取消</Button>
         <Button size="sm" :disabled="busyApplying" data-testid="rename-submit" @click="submitRename">重命名</Button>
@@ -588,7 +588,7 @@ function submitDelete() {
           <option v-for="dir in directories" :key="dir.relPath" :value="dir.relPath">{{ dir.label }}</option>
         </select>
       </label>
-      <p v-if="directories.length === 0" class="text-[11px] text-[var(--text-muted)]">
+      <p v-if="directories.length === 0" class="text-xs text-[var(--text-muted)]">
         没有可移动到的目录（本版本不提供新建目录）。
       </p>
       <div class="flex justify-end gap-2">
@@ -602,10 +602,10 @@ function submitDelete() {
     <!-- Soft delete: confirm, then recycle into the library's Delete/. -->
     <Modal :open="dialog === 'delete'" title="移入回收目录" @update:open="dialog = 'none'">
       <p class="text-xs">将把 {{ deleteItems.length }} 项移入媒体库的 Delete/ 目录，目录层级会保留。</p>
-      <p class="text-[11px] text-[var(--text-muted)]">
+      <p class="text-xs text-[var(--text-muted)]">
         已成功的项目不会自动撤销；恢复请在系统文件管理器里完成。
       </p>
-      <ul class="max-h-32 overflow-y-auto text-[11px]">
+      <ul class="max-h-32 overflow-y-auto text-xs">
         <li v-for="source in deleteItems" :key="source" class="font-mono">{{ source }}</li>
       </ul>
       <div class="flex justify-end gap-2">

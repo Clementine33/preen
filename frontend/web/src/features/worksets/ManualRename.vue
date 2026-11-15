@@ -157,7 +157,7 @@ function commit(member: WorksetMember) {
         </template>
       </li>
     </ul>
-    <p v-else-if="query.trim()" class="text-[11px] text-[var(--text-muted)]">没有匹配的文件夹</p>
+    <p v-else-if="query.trim()" class="text-xs text-[var(--text-muted)]">没有匹配的文件夹</p>
 
     <div v-if="named.length" class="space-y-1" data-testid="manual-rename-named">
       <p class="font-semibold text-[var(--text-secondary)]">已单独命名 {{ named.length }}</p>

@@ -227,7 +227,7 @@ function copyTo(copy: { copy_id: string, library_id: string, dir_id: string }) {
 <template>
   <div class="colo" :class="{ compact: props.compact }">
     <div class="colo-head">
-      <span class="strip-name lbl">奥付<span class="jp"> · COLOPHON</span></span>
+      <span class="strip-name lbl lbl-xs">奥付<span class="jp"> · COLOPHON</span></span>
       <span class="lbl">{{ work?.rj ?? '—' }}</span>
     </div>
     <h2 class="colo-title" :lang="work?.relation?.language === 'CHI_HANS' ? 'zh-Hans' : work?.relation?.language === 'CHI_HANT' ? 'zh-Hant' : 'ja'">{{ work?.title ?? '—' }}</h2>
@@ -263,7 +263,7 @@ function copyTo(copy: { copy_id: string, library_id: string, dir_id: string }) {
             v-for="line in editionLines" :key="line.slot.language" class="ed-line"
             :aria-current="line.current ? 'true' : undefined"
           >
-            <span class="lbl">{{ SLOT_NAMES[line.slot.language] ?? line.slot.language }}</span>
+            <span class="lbl lbl-xs">{{ SLOT_NAMES[line.slot.language] ?? line.slot.language }}</span>
             <template v-for="(node, index) in line.nodes" :key="node.rj">
               <span v-if="index > 0" class="sep">{{ index === 1 ? '→' : '·' }}</span>
               <span class="tag" :aria-current="node.rj === work?.rj ? 'true' : undefined">
@@ -384,7 +384,7 @@ function copyTo(copy: { copy_id: string, library_id: string, dir_id: string }) {
 /* Overrides the global `.tags` input-field box (theme-yorha.css). */
 .tags { display: flex; flex-wrap: wrap; gap: 4px; min-height: 0; padding: 0; background: none; border: none; }
 .tags:focus-within { box-shadow: none; }
-.tag { height: 18px; padding: 0 6px; display: inline-flex; align-items: center; border: 1px solid transparent; font-size: var(--text-2xs); }
+.tag { min-height: 18px; padding: 0 6px; display: inline-flex; align-items: center; border: 1px solid transparent; font-size: var(--text-xs); }
 .tag.add.quiet { opacity: 0; }
 .colo-row:hover .tag.add.quiet, .tag.add.quiet:focus-visible { opacity: 1; }
 .tag[aria-current='true'] { background: var(--invert-bg); color: var(--invert-fg); border-color: var(--invert-bg); font-weight: 700; }
@@ -410,7 +410,7 @@ function copyTo(copy: { copy_id: string, library_id: string, dir_id: string }) {
 .rating i.on { background: var(--invert-bg); border-color: var(--invert-bg); }
 .rating i[role='button'] { cursor: pointer; }
 .rating i[role='button']:hover { border-color: var(--wire-strong); }
-.fav { font-family: var(--font-mono); font-size: var(--text-2xs); letter-spacing: .12em; height: 18px; padding: 0 6px; border: 1px solid var(--wire-mid); margin-left: var(--sp-3); color: var(--fg-base); background: none; cursor: pointer; }
+.fav { font-family: var(--font-mono); font-size: var(--text-xs); letter-spacing: .12em; min-height: 18px; padding: 0 6px; border: 1px solid var(--wire-mid); margin-left: var(--sp-3); color: var(--fg-base); background: none; cursor: pointer; }
 .fav.lead { margin-left: 0; }
 .fav[aria-pressed='true'] { background: var(--invert-bg); color: var(--invert-fg); border-color: var(--invert-bg); font-weight: 700; }
 .note { width: 100%; min-height: 64px; resize: vertical; background: transparent; border: 1px solid var(--wire-fine); padding: var(--sp-2); font-size: var(--text-xs); line-height: 20px; color: var(--fg-base); outline: none; }

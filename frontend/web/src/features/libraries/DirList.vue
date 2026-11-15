@@ -84,7 +84,7 @@ function dirAt(index: number): LibraryDir {
     <!-- Desktop keeps the column labels; the phone tier shows the count and the
          select-all control instead, because the rows are merged there. -->
     <div
-      class="grid h-9 shrink-0 grid-cols-[44px_minmax(0,1fr)_44px] items-center border-t border-border border-b-[var(--wire-strong)] border-b bg-muted/35 px-2 text-[11px] font-medium text-muted-foreground rail:grid-cols-[38px_minmax(0,1fr)_32px] rail:px-3"
+      class="grid h-9 shrink-0 grid-cols-[44px_minmax(0,1fr)_44px] items-center border-t border-border border-b-[var(--wire-strong)] border-b bg-muted/35 px-2 text-xs font-medium text-muted-foreground rail:grid-cols-[38px_minmax(0,1fr)_32px] rail:px-3"
     >
       <label class="flex h-full w-full cursor-pointer items-center justify-center rail:justify-start">
         <input
@@ -146,7 +146,7 @@ function dirAt(index: number): LibraryDir {
               </span>
               <span
                 v-if="parentOf(dirAt(virtualItem.index).rel_path)"
-                class="block truncate font-mono text-[11px] text-muted-foreground"
+                class="block truncate font-mono text-xs text-muted-foreground"
                 :title="parentOf(dirAt(virtualItem.index).rel_path)"
               >
                 {{ parentOf(dirAt(virtualItem.index).rel_path) }}

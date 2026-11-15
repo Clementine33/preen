@@ -86,7 +86,7 @@ function secondLine(component: RenameComponent): string {
         <span class="flex min-w-0 flex-col">
           <span class="truncate font-mono" :title="item.source_name">
             <span v-if="parents.get(item.member_id)" class="text-[var(--text-muted)]">{{ parents.get(item.member_id) }}</span>{{ item.source_name }}
-            <span v-if="item.observed_name" class="font-sans text-[11px] text-[var(--text-secondary)]">
+            <span v-if="item.observed_name" class="font-sans text-xs text-[var(--text-secondary)]">
               已手动改名为 {{ item.observed_name }}
             </span>
           </span>
@@ -94,12 +94,12 @@ function secondLine(component: RenameComponent): string {
             ↘ <span v-if="item.action !== 'blocked' && parents.get(item.member_id)" class="text-[var(--text-muted)]">{{ parents.get(item.member_id) }}</span>{{ secondLine(item) }}
           </span>
         </span>
-        <span class="text-[11px] text-[var(--text-secondary)]">
+        <span class="text-xs text-[var(--text-secondary)]">
           <template v-if="item.rebind_to">RJ 变更 {{ item.work_code }} → {{ item.rebind_to }}</template>
           <template v-else-if="item.custom_name">自定义</template>
         </span>
       </template>
     </RowList>
-    <p v-if="hidden > 0" class="px-2 py-2 text-[11px] text-[var(--text-secondary)]" data-testid="plan-more">另有 {{ hidden }} 条</p>
+    <p v-if="hidden > 0" class="px-2 py-2 text-xs text-[var(--text-secondary)]" data-testid="plan-more">另有 {{ hidden }} 条</p>
   </div>
 </template>

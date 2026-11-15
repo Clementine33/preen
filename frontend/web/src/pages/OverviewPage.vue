@@ -317,7 +317,7 @@ const libraryRoot = computed(() => activeLibrary.value?.root_path ?? '')
                 <h1 class="truncate font-heading text-base font-semibold">
                   {{ activeLibrary?.name ?? '…' }}
                 </h1>
-                <p class="truncate font-mono text-[11px] text-[var(--text-muted)]" :title="libraryRoot">
+                <p class="truncate font-mono text-xs text-[var(--text-muted)]" :title="libraryRoot">
                   {{ libraryRoot }}
                 </p>
               </div>
@@ -363,7 +363,7 @@ const libraryRoot = computed(() => activeLibrary.value?.root_path ?? '')
 
             <p
               v-if="mediaFactsLine"
-              class="mt-1 text-[11px] text-[var(--text-muted)]"
+              class="mt-1 text-xs text-[var(--text-muted)]"
               data-testid="media-facts-status"
             >
               {{ mediaFactsLine }}
@@ -371,14 +371,14 @@ const libraryRoot = computed(() => activeLibrary.value?.root_path ?? '')
 
             <p
               v-if="createError"
-              class="mt-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-[11px] text-destructive"
+              class="mt-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive"
               role="alert"
               data-testid="create-error"
             >
               {{ createError }}
             </p>
             <ul v-if="skipped.length" class="mt-3 space-y-0.5" data-testid="skipped-report">
-              <li v-for="item in skipped" :key="item.dir_id" class="text-[11px] text-[var(--text-secondary)]">
+              <li v-for="item in skipped" :key="item.dir_id" class="text-xs text-[var(--text-secondary)]">
                 <span class="font-mono">{{ dirPathOf.get(item.dir_id) ?? item.dir_id }}</span> — {{ SKIP_TEXT[item.reason] ?? item.reason }}
               </li>
             </ul>
@@ -413,14 +413,14 @@ const libraryRoot = computed(() => activeLibrary.value?.root_path ?? '')
                 </div>
               </div>
 
-              <p v-if="dirsPending" class="mt-1 text-[11px] text-[var(--text-muted)]">正在读取文件夹…</p>
-              <p v-else-if="dirsError" class="mt-1 flex items-center gap-1.5 text-[11px] text-destructive">
+              <p v-if="dirsPending" class="mt-1 text-xs text-[var(--text-muted)]">正在读取文件夹…</p>
+              <p v-else-if="dirsError" class="mt-1 flex items-center gap-1.5 text-xs text-destructive">
                 <AlertTriangle class="size-3.5" />{{ dirsError.code }} {{ dirsError.message }}
                 <Button size="xs" variant="outline" @click="dirsQuery.refetch()">
                   <RefreshCw class="size-3" />重试
                 </Button>
               </p>
-              <p v-else-if="dirs.length === 0" class="mt-1 text-[11px] text-[var(--text-muted)]" data-testid="no-dirs">
+              <p v-else-if="dirs.length === 0" class="mt-1 text-xs text-[var(--text-muted)]" data-testid="no-dirs">
                 还没有扫描结果。先扫描媒体库，这里会列出根目录下的所有文件夹。
               </p>
 
@@ -472,7 +472,7 @@ const libraryRoot = computed(() => activeLibrary.value?.root_path ?? '')
     <p class="text-xs">
       这个媒体库已有一个工作集批次。替换会删除所有 Task 的成员设置、当前计划与执行结果，且无法恢复；全局设置会保留。
     </p>
-    <p class="text-[11px] text-[var(--text-muted)]">文件本身不会被修改。</p>
+    <p class="text-xs text-[var(--text-muted)]">文件本身不会被修改。</p>
     <div class="flex justify-end gap-2">
       <Button variant="ghost" size="sm" @click="confirmOpen = false">取消</Button>
       <Button size="sm" :disabled="creating" data-testid="confirm-replace" @click="submit">替换</Button>

@@ -240,7 +240,7 @@ function hasOverride(member: WorksetMember): boolean {
             </button>
             <span
               v-if="member.rel_path.lastIndexOf('/') > 0"
-              class="mt-0.5 block truncate font-mono text-[11px] leading-4 text-[var(--text-muted)]"
+              class="mt-0.5 block truncate font-mono text-xs leading-4 text-[var(--text-muted)]"
               :title="member.folder_path"
             >
               {{ member.rel_path.slice(0, member.rel_path.lastIndexOf('/')) }}

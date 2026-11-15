@@ -109,7 +109,7 @@ function isPlaying(entry: WorkContentDir | WorkContentFile): boolean {
         >{{ crumb }}</button>
       </template>
       <!-- Several copies are usually one work stored twice: no switching, only which library this tree is read from. -->
-      <span v-if="(store.content?.copies.length ?? 0) > 1" class="lbl copy-pick">{{ copyLibrary }}</span>
+      <span v-if="(store.content?.copies.length ?? 0) > 1" class="lbl lbl-xs copy-pick">{{ copyLibrary }}</span>
     </div>
     <div class="list-head"><span /><span /><span class="lbl">NAME</span><span class="lbl">INFO</span><span class="lbl">SIZE</span></div>
     <div ref="list" class="list" lang="ja">
@@ -145,7 +145,7 @@ function isPlaying(entry: WorkContentDir | WorkContentFile): boolean {
 .files { display: flex; flex-direction: column; min-height: 0; flex: 1; }
 
 .crumbs { display: flex; align-items: center; gap: 2px; padding: var(--sp-2) var(--sp-4) var(--sp-2) var(--sp-5); border-bottom: 1px solid var(--wire-fine); flex-shrink: 0; overflow-x: auto; scrollbar-width: none; }
-.crumb { font-family: var(--font-mono); font-size: var(--text-2xs); letter-spacing: .06em; color: var(--fg-muted); padding: 0 4px; height: 18px; white-space: nowrap; background: none; border: none; cursor: pointer; }
+.crumb { font-family: var(--font-mono); font-size: var(--text-xs); letter-spacing: .06em; color: var(--fg-muted); padding: 0 4px; height: 18px; white-space: nowrap; background: none; border: none; cursor: pointer; }
 .crumb:hover { color: var(--fg-base); background: var(--bg-subtle); }
 .crumb[aria-current='true'] { color: var(--fg-base); font-weight: 600; }
 .crumb-sep { color: var(--fg-meta); font-family: var(--font-mono); font-size: var(--text-2xs); }
@@ -175,7 +175,7 @@ function isPlaying(entry: WorkContentDir | WorkContentFile): boolean {
 .row[aria-selected='true'] .mark { background: var(--invert-fg); }
 .row[aria-selected='true'] .glyph, .row[aria-selected='true'] .info, .row[aria-selected='true'] .size { color: var(--invert-fg); }
 .row.now .mark { background: var(--now); }
-.row .nowtag { font-family: var(--font-mono); font-size: 9px; letter-spacing: .12em; background: var(--now); color: var(--now-fg); padding: 0 4px; margin-left: var(--sp-2); font-weight: 700; }
+.row .nowtag { font-family: var(--font-mono); font-size: var(--text-2xs); letter-spacing: .12em; background: var(--now); color: var(--now-fg); padding: 0 4px; margin-left: var(--sp-2); font-weight: 700; }
 
 @media (max-width: 768px) {
   .list-head, .row { grid-template-columns: 14px 18px minmax(0, 1fr) 64px; }

@@ -520,7 +520,7 @@ const parentLink = computed(() => {
                retried with a fresh key. -->
             <p
               v-if="executeError"
-              class="border-b border-border bg-card px-3 py-1.5 text-[11px] text-[var(--danger-ink)]"
+              class="border-b border-border bg-card px-3 py-1.5 text-xs text-[var(--danger-ink)]"
               role="alert"
               data-testid="execute-error"
             >
@@ -528,7 +528,7 @@ const parentLink = computed(() => {
             </p>
             <p
               v-if="overLimit"
-              class="border-b border-border bg-card px-3 py-1.5 text-[11px] text-[var(--danger-ink)]"
+              class="border-b border-border bg-card px-3 py-1.5 text-xs text-[var(--danger-ink)]"
               role="alert"
               data-testid="participation-count"
             >
@@ -536,7 +536,7 @@ const parentLink = computed(() => {
             </p>
             <p
               v-if="generateError"
-              class="border-b border-border bg-card px-3 py-1.5 text-[11px] text-[var(--danger-ink)]"
+              class="border-b border-border bg-card px-3 py-1.5 text-xs text-[var(--danger-ink)]"
               role="alert"
               data-testid="generate-error"
             >
@@ -571,7 +571,7 @@ const parentLink = computed(() => {
               class="flex flex-wrap items-center gap-2 border-b border-border bg-card px-3 py-1.5"
               data-testid="edit-session-bar"
             >
-              <span class="text-[11px]">
+              <span class="text-xs">
                 正在编辑：{{ sessionMemberCount }} 个文件夹
               </span>
               <Badge :tone="editor.isDirty ? 'warning' : 'neutral'">{{ editor.isDirty ? '有未应用修改' : '无修改' }}</Badge>
@@ -634,7 +634,7 @@ const parentLink = computed(() => {
 
     <template #detail>
       <RouterView v-if="!filesOpen" />
-      <p v-if="!detailOpen && !filesOpen" class="p-3 text-[11px] text-[var(--text-muted)]">
+      <p v-if="!detailOpen && !filesOpen" class="p-3 text-xs text-[var(--text-muted)]">
         选择列表中的文件夹查看其冻结设置与计划结论。
       </p>
     </template>

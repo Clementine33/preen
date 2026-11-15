@@ -157,7 +157,7 @@ function backToEntry(): void {
           v-model="draft" class="h-9 w-full rounded-md border border-input bg-transparent px-2 text-xs focus-visible:border-[var(--wire-strong)] focus-visible:outline-none"
           aria-label="合集名称" data-testid="collection-rename-input"
         >
-        <p v-if="!trimmed" class="text-[11px] text-[var(--text-muted)]">名称不能为空。</p>
+        <p v-if="!trimmed" class="text-xs text-[var(--text-muted)]">名称不能为空。</p>
         <div class="flex justify-end gap-2">
           <Button type="button" variant="ghost" size="sm" @click="dialog = 'none'">取消</Button>
           <Button type="submit" size="sm" :disabled="!trimmed" data-testid="collection-rename-submit">保存</Button>

@@ -48,7 +48,7 @@ const text = computed(() => {
 </script>
 
 <template>
-  <p class="mt-1 pl-6.5 font-mono text-[11px] text-[var(--text-secondary)]" data-testid="task-member-result">
+  <p class="mt-1 pl-6.5 text-xs tabular-nums text-[var(--text-secondary)]" data-testid="task-member-result">
     <template v-if="query.isPending.value">读取中…</template>
     <template v-else-if="query.isError.value">无法读取该成员的结果</template>
     <template v-else>{{ text }}</template>

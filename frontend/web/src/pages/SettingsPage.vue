@@ -146,7 +146,7 @@ async function logout(): Promise<void> {
           <template v-else-if="section.id === 'keys'">
             <div data-testid="settings-keys">
               <dl v-for="{ group, rows } in KEY_ROWS" :key="group" class="mt-4">
-                <dt class="lbl">{{ GROUP_LABELS[group] }}</dt>
+                <dt class="lbl lbl-xs">{{ GROUP_LABELS[group] }}</dt>
                 <dd v-for="row in rows" :key="row.text" class="flex items-baseline gap-3 border-b border-[var(--wire-fine)] py-1.5 text-sm">
                   <span class="flex min-w-32 shrink-0 gap-1"><kbd v-for="combo in row.keys" :key="combo" class="border border-[var(--wire-fine)] px-1 font-mono text-xs">{{ keyCap(combo) }}</kbd></span>
                   <span>{{ row.text }}</span>

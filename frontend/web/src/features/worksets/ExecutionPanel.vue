@@ -68,25 +68,25 @@ const scope = computed(() => {
   <section aria-label="执行结果" class="px-3 py-2" data-testid="execution-panel">
     <div class="flex flex-wrap items-center gap-2 border-b border-[var(--wire-strong)] px-1 py-2.5">
       <Badge :tone="status.tone" size="md" data-testid="execution-status">{{ status.label }}</Badge>
-      <span class="font-mono text-[11px]" data-testid="execution-progress">
+      <span class="font-mono text-xs" data-testid="execution-progress">
         组件 {{ view.completed_components }}/{{ view.total_components }} · 操作 {{ view.completed_operations }}/{{ view.total_operations }}
       </span>
       <Badge tone="neutral">{{ view.options?.delete_mode === 'hard' ? '硬删除' : '软删除' }}</Badge>
     </div>
 
-    <p v-if="view.error_code" class="mt-1 text-[11px] text-[var(--danger-ink)]" role="alert" data-testid="execution-error">
+    <p v-if="view.error_code" class="mt-1 text-xs text-[var(--danger-ink)]" role="alert" data-testid="execution-error">
       执行失败：{{ sessionFailureText(view.error_code, view.error_message) }}
     </p>
-    <p v-if="view.status === 'interrupted'" class="mt-1 text-[11px] text-[var(--danger-ink)]">
+    <p v-if="view.status === 'interrupted'" class="mt-1 text-xs text-[var(--danger-ink)]">
       执行被后端中断（进程重启）：已完成的组件结果保留，未执行的操作保持磁盘原样。需重新生成并确认新版本才能继续。
     </p>
-    <p v-else-if="view.status === 'canceled'" class="mt-1 text-[11px] text-[var(--warning-ink)]">
+    <p v-else-if="view.status === 'canceled'" class="mt-1 text-xs text-[var(--warning-ink)]">
       执行已取消：已完成的组件结果保留，未执行的操作保持磁盘原样。
     </p>
 
     <p
       v-if="scope"
-      class="mt-2 border border-[var(--wire-mid)] bg-[var(--warning-weak,var(--muted))] px-3 py-2 text-[11px]"
+      class="mt-2 border border-[var(--wire-mid)] bg-[var(--warning-weak,var(--muted))] px-3 py-2 text-xs"
       data-testid="execution-scope"
       role="status"
     >
@@ -97,7 +97,7 @@ const scope = computed(() => {
       <ul class="mt-3 flex flex-wrap gap-1.5" aria-label="成员执行状态" data-testid="execution-member-counts">
         <li v-for="key in MEMBER_COUNT_ORDER" :key="key" class="flex items-center gap-1">
           <Badge :tone="MEMBER_STATUS[key].tone">{{ MEMBER_STATUS[key].label }}</Badge>
-          <span class="font-mono text-[11px] tabular-nums" :data-testid="`execution-count-${key}`">{{ memberBlock.counts[key] }}</span>
+          <span class="font-mono text-xs tabular-nums" :data-testid="`execution-count-${key}`">{{ memberBlock.counts[key] }}</span>
         </li>
       </ul>
 
@@ -125,17 +125,17 @@ const scope = computed(() => {
               {{ MEMBER_STATUS[member.status].label }}
             </Badge>
           </div>
-          <div class="mt-1 pl-6.5 text-[11px] tabular-nums text-muted-foreground" data-testid="execution-member-counts">
+          <div class="mt-1 pl-6.5 text-xs tabular-nums text-muted-foreground" data-testid="execution-member-counts">
             组件 {{ member.completed_components }}/{{ member.total_components }} · 操作
             {{ member.completed_operations }}/{{ member.total_operations }}
           </div>
-          <p v-if="member.error_message" class="mt-1 pl-6.5 text-[11px] text-[var(--danger-ink)]">{{ member.error_message }}</p>
-          <p v-if="member.inventory_sync_error" class="mt-1 pl-6.5 text-[10px] text-[var(--warning-ink)]" data-testid="execution-inventory-warning">
+          <p v-if="member.error_message" class="mt-1 pl-6.5 text-xs text-[var(--danger-ink)]">{{ member.error_message }}</p>
+          <p v-if="member.inventory_sync_error" class="mt-1 pl-6.5 text-xs text-[var(--warning-ink)]" data-testid="execution-inventory-warning">
             磁盘结果与媒体库索引未完全同步：{{ member.inventory_sync_error }}
           </p>
         </li>
       </ul>
-      <p v-if="hiddenAttention > 0" class="mt-2 px-1 text-[11px] text-[var(--text-secondary)]" data-testid="execution-attention-more">
+      <p v-if="hiddenAttention > 0" class="mt-2 px-1 text-xs text-[var(--text-secondary)]" data-testid="execution-attention-more">
         另有 {{ hiddenAttention }} 个
       </p>
     </template>

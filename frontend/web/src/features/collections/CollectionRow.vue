@@ -89,7 +89,7 @@ const cover = computed(() => (libraryUi.veil && props.work.nsfw === true
       </span>
       <span class="main">
         <span class="title" lang="ja">{{ work.title ?? '—' }}</span>
-        <span class="lbl circle sub">{{ work.circle }}</span>
+        <span class="lbl lbl-xs circle sub">{{ work.circle }}</span>
       </span>
       <span class="circle col">{{ work.circle }}</span>
       <span class="lbl rj">{{ work.rj }}</span>
@@ -167,7 +167,7 @@ const cover = computed(() => (libraryUi.veil && props.work.nsfw === true
 .drop-below::after { bottom: -1px; }
 .play, .more {
   width: 28px; height: 28px; border: 1px solid var(--wire-control); background: transparent; color: inherit;
-  font-size: var(--text-2xs); cursor: pointer;
+  font-size: var(--text-xs); cursor: pointer;
 }
 .play { opacity: 0; }
 .row:hover .play, .row.sel .play, .play:focus-visible { opacity: 1; }

@@ -280,7 +280,7 @@ const MARK = 'M5.5.2l2.3 2.3-2.3 2.3-2.3-2.3zM5.5 6.2l2.3 2.3-2.3 2.3-2.3-2.3zM.
 /* The current number shares the row's baseline. */
 .current {
   cursor: default; color: var(--fg-base);
-  font-family: var(--font-mincho); font-weight: 600; font-size: 15px; letter-spacing: 0;
+  font-family: var(--font-mincho); font-weight: 600; font-size: 15px; letter-spacing: 0; /* type-scale: exception mincho page numeral */
   transition: none;
 }
 
@@ -299,7 +299,7 @@ const MARK = 'M5.5.2l2.3 2.3-2.3 2.3-2.3-2.3zM5.5 6.2l2.3 2.3-2.3 2.3-2.3-2.3zM.
 /* A phone draws the turns larger and close in. */
 @media (max-width: 640px) {
   .folio { padding: 4px var(--sp-4); }
-  .turn { width: 32px; margin: 0 2px; font-size: 20px; color: var(--fg-muted); }
+  .turn { width: 32px; margin: 0 2px; font-size: 20px; color: var(--fg-muted); } /* type-scale: exception turn glyph */
   .turn::after { inset: -12px -6px; }
 }
 </style>

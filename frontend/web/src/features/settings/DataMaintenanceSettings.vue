@@ -162,10 +162,10 @@ async function stop(): Promise<void> {
       <section v-if="shown" class="space-y-1.5" aria-live="polite" data-testid="cleanup-run">
         <div class="flex flex-wrap items-center gap-2">
           <span class="text-xs font-medium" data-testid="cleanup-status">{{ STATUS_TEXT[shown.status] }}</span>
-          <span v-if="active && shown.phase" class="text-[11px] text-[var(--text-secondary)]">阶段：{{ LABELS[shown.phase] ?? shown.phase }}</span>
+          <span v-if="active && shown.phase" class="text-xs text-[var(--text-secondary)]">阶段：{{ LABELS[shown.phase] ?? shown.phase }}</span>
         </div>
-        <p v-if="shown.reason" class="text-[11px] text-[var(--text-secondary)]">{{ shown.reason }}</p>
-        <table class="w-full text-[11px]">
+        <p v-if="shown.reason" class="text-xs text-[var(--text-secondary)]">{{ shown.reason }}</p>
+        <table class="w-full text-xs">
           <thead><tr class="text-left text-[var(--text-secondary)]"><th scope="col" class="font-normal">类别</th><th scope="col" class="font-normal">已检查</th><th scope="col" class="font-normal">已删除</th><th scope="col" class="font-normal">已跳过</th></tr></thead>
           <tbody>
             <tr v-for="id in shown.categories" :key="id" :data-testid="`cleanup-count-${id}`">

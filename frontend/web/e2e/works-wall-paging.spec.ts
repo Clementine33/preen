@@ -1,6 +1,7 @@
 import { mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { expectCjkFloor } from './helpers/cjk-floor.ts'
 import { expect, test } from './helpers/test.ts'
 
 // The wall at a size the dev library never reaches: five numbered
@@ -33,6 +34,7 @@ test('the works wall pages through a large library and keeps the rendered range 
     const pages = Math.ceil(TOTAL / PAGE)
     await expect(wall.locator('[data-rj]')).toHaveCount(PAGE)
     await expect(pager.getByRole('button', { name: 'Page 1', exact: true })).toHaveAttribute('aria-current', 'page')
+    await expectCjkFloor(page)
     const first = await wall.locator('[data-rj]').first().getAttribute('data-rj')
     await pager.getByRole('button', { name: 'Next page' }).click()
     await expect(page).toHaveURL(/page=2(?:&|$)/)

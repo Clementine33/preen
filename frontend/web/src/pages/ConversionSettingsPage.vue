@@ -143,7 +143,7 @@ const DELETE_MODES: { value: DeleteMode, label: string, hint: string, danger?: b
             />
             <p
               v-if="form.value('delete_mode') === 'hard'"
-              class="text-[11px] text-[var(--danger-ink)]"
+              class="text-xs text-[var(--danger-ink)]"
               role="alert"
               data-testid="common-hard-delete-warning"
             >

@@ -196,11 +196,11 @@ async function retryPage() {
             <LibraryBig class="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
             <span class="min-w-0 flex-1">
               <span class="block truncate font-heading text-xs font-semibold">{{ library.name }}</span>
-              <span class="block truncate font-mono text-[10px] text-[var(--text-secondary)]">{{ library.root_path }}</span>
+              <span class="block truncate font-mono text-xs text-[var(--text-secondary)]">{{ library.root_path }}</span>
             </span>
             <span
               v-if="library.id === defaultLibraryId"
-              class="shrink-0 text-[10px] text-[var(--text-secondary)]"
+              class="shrink-0 text-xs text-[var(--text-secondary)]"
               :data-testid="`default-${library.id}`"
             >
               默认
@@ -210,7 +210,7 @@ async function retryPage() {
                one outline, a hairline between, and the segment inverts on hover. -->
           <button
             type="button"
-            class="shrink-0 border-l border-[var(--wire-mid)] px-3 font-mono text-[11px] tracking-[.14em] text-[var(--text-secondary)] hover:bg-[var(--invert-bg)] hover:text-[var(--invert-fg)] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset pointer-coarse:min-w-14"
+            class="shrink-0 border-l border-[var(--wire-mid)] px-3 font-mono text-2xs tracking-[.14em] text-[var(--text-secondary)] hover:bg-[var(--invert-bg)] hover:text-[var(--invert-fg)] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset pointer-coarse:min-w-14"
             :aria-label="`编辑 ${library.name}`"
             :data-testid="`edit-${library.id}`"
             @click="openEdit(library.id)"

@@ -27,7 +27,7 @@ defineEmits<{ undo: [] }>()
         <div class="flex min-h-7 flex-wrap items-center gap-x-2 gap-y-1">
           <span class="text-xs font-medium">{{ label }}</span>
           <template v-if="modified">
-            <span class="inline-flex items-center gap-1.5 text-[11px]" :data-testid="`${id}-modified`">
+            <span class="inline-flex items-center gap-1.5 text-xs" :data-testid="`${id}-modified`">
               <span class="size-1.5 bg-[var(--warning-ink)]" aria-hidden="true" />已修改
             </span>
             <Button size="xs" variant="outline" :disabled="disabled" :data-testid="`${id}-undo`" @click="$emit('undo')">
@@ -35,7 +35,7 @@ defineEmits<{ undo: [] }>()
             </Button>
           </template>
         </div>
-        <p v-if="hint" class="text-[11px] leading-snug text-[var(--text-secondary)]">{{ hint }}</p>
+        <p v-if="hint" class="text-xs leading-snug text-[var(--text-secondary)]">{{ hint }}</p>
       </div>
       <div class="min-w-0 space-y-1.5">
         <slot />

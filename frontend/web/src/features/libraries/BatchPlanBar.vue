@@ -54,11 +54,11 @@ watch(overLimit, (over) => {
     <div class="h-5 w-1 shrink-0 bg-[var(--ring)]" aria-hidden="true" />
     <div class="min-w-0">
       <p class="font-heading text-xs font-semibold">处理范围</p>
-      <p class="font-mono text-[11px] text-muted-foreground">已选择 {{ selectedCount }} 个文件夹</p>
-      <p v-if="overLimit" id="member-limit-note" class="text-[11px] text-destructive">
+      <p class="tabular-nums text-xs text-muted-foreground">已选择 {{ selectedCount }} 个文件夹</p>
+      <p v-if="overLimit" id="member-limit-note" class="text-xs text-destructive">
         超过上限 {{ memberLimit }} 个文件夹，请减少选择后再进入
       </p>
-      <p v-if="audioLessCount > 0" class="text-[10px] text-[var(--warning-ink,var(--text-secondary))]" data-testid="audio-less-note">
+      <p v-if="audioLessCount > 0" class="text-xs text-[var(--warning-ink,var(--text-secondary))]" data-testid="audio-less-note">
         其中 {{ audioLessCount }} 个没有音频，转换会跳过
       </p>
     </div>

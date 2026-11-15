@@ -54,7 +54,7 @@ function onOpenChange(value: boolean) {
         <div class="flex items-start justify-between gap-3">
           <div class="min-w-0">
             <DialogTitle class="font-heading text-base font-semibold">{{ title }}</DialogTitle>
-            <DialogDescription v-if="description" class="mt-0.5 text-[11px] text-[var(--text-muted)]">
+            <DialogDescription v-if="description" class="mt-0.5 text-xs text-[var(--text-muted)]">
               {{ description }}
             </DialogDescription>
           </div>

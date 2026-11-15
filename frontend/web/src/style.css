@@ -110,7 +110,7 @@
   --font-heading: var(--font-ui);
   /* Cannot self-reference var(--font-mono) inside @theme; the same stack is
      declared in theme-yorha.css as --font-mono. */
-  --font-mono: 'IBM Plex Mono', 'JetBrains Mono', ui-monospace, monospace;
+  --font-mono: 'IBM Plex Mono', 'JetBrains Mono', ui-monospace, 'Noto Sans SC Variable', monospace;
 }
 
 /*

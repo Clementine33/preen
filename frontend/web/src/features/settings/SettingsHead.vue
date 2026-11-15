@@ -17,7 +17,7 @@ defineEmits<{ restore: [] }>()
 
 <template>
   <div class="flex items-start gap-3" data-testid="settings-head">
-    <p class="flex-1 text-[11px] leading-snug text-[var(--text-secondary)]">{{ scope }}</p>
+    <p class="flex-1 text-xs leading-snug text-[var(--text-secondary)]">{{ scope }}</p>
     <Button
       size="xs"
       variant="outline"

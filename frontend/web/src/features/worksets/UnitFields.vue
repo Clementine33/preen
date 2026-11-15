@@ -74,7 +74,7 @@ const PRESETS = [
   },
 ]
 
-const ROW_LABEL = 'flex h-[30px] items-center text-[11px] text-[var(--text-secondary)]'
+const ROW_LABEL = 'flex h-[30px] items-center text-xs text-[var(--text-secondary)]'
 
 const profile = computed<DesiredProfile>(() => cloneProfile(props.value))
 const tagList = computed<string[]>(() => (props.value as string[] | undefined) ?? [])
@@ -204,7 +204,7 @@ function applyPreset(preset: (typeof PRESETS)[number]) {
       />
       <template v-if="encodedCodec !== ''">
         <span :class="ROW_LABEL">码率</span>
-        <label class="flex h-[30px] items-center gap-1 text-[11px] text-[var(--text-secondary)]">
+        <label class="flex h-[30px] items-center gap-1 text-xs text-[var(--text-secondary)]">
           <input
             type="number"
             min="1"
@@ -239,15 +239,15 @@ function applyPreset(preset: (typeof PRESETS)[number]) {
     </div>
     <p
       v-if="(unit === 'matched' || unit === 'unmatched') && !profile.lossless && !profile.encoded"
-      class="text-[11px] text-[var(--warning-ink)]"
+      class="text-xs text-[var(--warning-ink)]"
       data-testid="empty-profile-warning"
     >
       两者都不需要：该分类下的音频将被移除，去向由「旧音频处理」决定。
     </p>
-    <p v-if="unit === 'no_effect_tags' && tagList.length === 0" role="status" class="text-[11px] text-[var(--warning-ink)]" :data-testid="`${scope}-no-effect-empty-warning`">
+    <p v-if="unit === 'no_effect_tags' && tagList.length === 0" role="status" class="text-xs text-[var(--warning-ink)]" :data-testid="`${scope}-no-effect-empty-warning`">
       无音效匹配为空：可以保存草稿，生成计划前需要至少一个标签。
     </p>
-    <p v-if="unit === 'other_tags' && tagList.some((tag) => /[/\\]/.test(tag))" role="alert" class="text-[11px] text-[var(--danger-ink)]">
+    <p v-if="unit === 'other_tags' && tagList.some((tag) => /[/\\]/.test(tag))" role="alert" class="text-xs text-[var(--danger-ink)]">
       其他版本标签只能匹配目录名称，不能包含 / 或 \。
     </p>
   </div>

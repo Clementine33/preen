@@ -212,7 +212,7 @@ const active = computed(() => applied.value > 0)
         <div class="ti-scroll">
           <section v-for="section in sections" :key="section.title" class="ti-section">
             <div class="strip">
-              <span class="strip-name lbl">{{ section.title }}</span>
+              <span class="strip-name lbl lbl-xs">{{ section.title }}</span>
               <span class="lbl">{{ section.entries.length }}</span>
             </div>
             <div class="ti-chips">
@@ -300,7 +300,7 @@ const active = computed(() => applied.value > 0)
 .ti-chips { display: flex; flex-wrap: wrap; gap: 4px; }
 .chip {
   height: 22px; padding: 0 6px; display: inline-flex; align-items: center; gap: 6px;
-  border: 1px solid var(--wire-mid); font-size: var(--text-2xs); color: var(--fg-base);
+  border: 1px solid var(--wire-mid); font-size: var(--text-xs); color: var(--fg-base);
 }
 .chip:hover { border-color: var(--wire-strong); }
 .chip:focus-visible { outline: 1px solid var(--wire-strong); outline-offset: 2px; }

@@ -273,7 +273,7 @@ const NEXT_ICON = 'M2 0l7 5-7 5z'
 <template>
   <div class="deck" :class="{ reading }" aria-label="Plate deck">
     <div class="strip">
-      <span class="strip-name lbl">{{ mode }}</span>
+      <span class="strip-name lbl lbl-xs">{{ mode }}</span>
       <span v-show="!reading" class="strip-side">
         <span ref="chipsEl" class="chips">
           <button
@@ -335,7 +335,7 @@ const NEXT_ICON = 'M2 0l7 5-7 5z'
 .strip-side { display: flex; align-items: center; gap: var(--sp-3); min-width: 0; }
 .chips { display: inline-flex; gap: var(--sp-1); overflow-x: auto; scrollbar-width: none; min-width: 0; }
 .chips::-webkit-scrollbar { display: none; }
-.chip { height: 16px; padding: 0 6px; font-family: var(--font-mono); font-size: var(--text-2xs); letter-spacing: .08em; color: var(--fg-muted); border: 1px solid var(--wire-fine); display: inline-flex; align-items: center; gap: 4px; background: none; cursor: pointer; flex-shrink: 0; }
+.chip { height: 16px; padding: 0 6px; font-family: var(--font-mono); font-size: var(--text-xs); letter-spacing: .08em; color: var(--fg-muted); border: 1px solid var(--wire-fine); display: inline-flex; align-items: center; gap: 4px; background: none; cursor: pointer; flex-shrink: 0; }
 .chip:hover { border-color: var(--wire-mid); color: var(--fg-base); }
 .chip[aria-pressed='true'] { background: var(--invert-bg); color: var(--invert-fg); border-color: var(--invert-bg); font-weight: 700; }
 .chip .jp { font-family: var(--font-ui); letter-spacing: 0; max-width: 8em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

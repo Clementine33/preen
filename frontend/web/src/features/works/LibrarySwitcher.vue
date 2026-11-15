@@ -68,7 +68,7 @@ const chevron = 'M0 2.5h10L5 8z'
           <span class="lib-mark" />
           <span class="lib-text">
             <span class="nm">{{ item.name }}</span>
-            <span class="lbl path">{{ item.root_path }}{{ item.id === defaultLibraryId ? ' · DEFAULT' : '' }}</span>
+            <span class="lbl lbl-xs path">{{ item.root_path }}{{ item.id === defaultLibraryId ? ' · DEFAULT' : '' }}</span>
           </span>
         </button>
       </div>

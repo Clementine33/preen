@@ -96,8 +96,8 @@ function componentFacts(component: ComponentOutcome): { label: string, tone: 'su
     </div>
 
     <section aria-label="冻结的有效设置">
-      <h3 class="mb-1 text-[11px] font-semibold text-[var(--text-secondary)]">冻结的有效设置</h3>
-      <dl class="space-y-1 text-[11px]">
+      <h3 class="mb-1 text-xs font-semibold text-[var(--text-secondary)]">冻结的有效设置</h3>
+      <dl class="space-y-1 text-xs">
         <div v-for="unit in Object.keys(UNIT_LABELS)" :key="unit" class="flex items-start gap-2">
           <dt class="w-20 shrink-0 text-[var(--text-muted)]">{{ UNIT_LABELS[unit] }}</dt>
           <dd class="min-w-0 flex-1">
@@ -115,24 +115,24 @@ function componentFacts(component: ComponentOutcome): { label: string, tone: 'su
     </section>
 
     <section aria-label="计划结论">
-      <h3 class="mb-1 text-[11px] font-semibold text-[var(--text-secondary)]">计划结论</h3>
-      <p v-if="components.length === 0" class="text-[11px] text-[var(--text-muted)]">
+      <h3 class="mb-1 text-xs font-semibold text-[var(--text-secondary)]">计划结论</h3>
+      <p v-if="components.length === 0" class="text-xs text-[var(--text-muted)]">
         {{ frozen?.excluded ? '本操作已排除该文件夹，未参与规划。' : '该文件夹在此版本中没有可审阅的组件。' }}
       </p>
       <ul v-else class="space-y-2">
         <li v-for="component in components" :key="component.component_id" class="rounded-md border border-border p-2">
           <div class="flex flex-wrap items-center gap-1.5">
-            <span class="text-[11px] text-[var(--text-muted)]">
+            <span class="text-xs text-[var(--text-muted)]">
               {{ component.scope ? '其他版本' : component.partition === 'matched' ? '无音效' : '有音效' }}
             </span>
             <Badge v-for="fact in componentFacts(component)" :key="fact.label" :tone="fact.tone">
               {{ fact.label }}
             </Badge>
-            <span v-if="component.reason_code" class="font-mono text-[10px] text-[var(--text-muted)]">
+            <span v-if="component.reason_code" class="font-mono text-xs text-[var(--text-muted)]">
               {{ component.reason_code }}
             </span>
           </div>
-          <p v-if="component.message" class="mt-1 text-[11px]">{{ component.message }}</p>
+          <p v-if="component.message" class="mt-1 text-xs">{{ component.message }}</p>
           <!-- Each file once, its folder named once: the plan's own per-file
                resolutions. Text wraps rather than clipping, so a long name is
                never cut into an unreadable one. -->
@@ -142,14 +142,14 @@ function componentFacts(component: ComponentOutcome): { label: string, tone: 'su
             class="mt-1"
             data-testid="component-decisions"
           >
-            <p v-if="group.dir" class="font-mono text-[10px] text-[var(--text-muted)] [overflow-wrap:anywhere]">
+            <p v-if="group.dir" class="font-mono text-xs text-[var(--text-muted)] [overflow-wrap:anywhere]">
               {{ group.dir }}
             </p>
             <ul class="space-y-0.5">
               <li
                 v-for="row in group.rows"
                 :key="`${row.resolution}-${row.name}`"
-                class="flex gap-1.5 font-mono text-[10px] leading-4"
+                class="flex gap-1.5 font-mono text-xs leading-4"
                 data-testid="component-decision"
               >
                 <span class="w-8 shrink-0 text-[var(--text-secondary)]">

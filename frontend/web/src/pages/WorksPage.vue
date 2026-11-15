@@ -528,7 +528,7 @@ useKeymap({
         </RailSelect>
         <RailSelect v-model="listening" label="PROG" :options="LISTENING_OPTIONS" marks-active />
         <TagIndex v-model="tags" :scope="tagScope" />
-        <span v-if="wq.overflow.value" class="lbl notice" role="status">筛选条件过多，未应用</span>
+        <span v-if="wq.overflow.value" class="lbl lbl-xs notice" role="status">筛选条件过多，未应用</span>
       </div>
       <!-- Outside .filters: a phone scrolls that row, and CLEAR must stay in view. -->
       <button v-if="filtered" class="lbl rail-clear" type="button" @click="clearFilters">CLEAR</button>
@@ -545,8 +545,8 @@ useKeymap({
     <main class="bench">
       <div class="wall-col">
         <div class="wall-note">
-          <p v-if="wq.tooLong.value" class="lbl notice" role="alert">地址中的筛选条件过长，未列出作品；请在筛选栏清除部分条件。</p>
-          <p v-else-if="noLibraries || (settled && total === 0)" class="lbl notice">没有作品</p>
+          <p v-if="wq.tooLong.value" class="lbl lbl-xs notice" role="alert">地址中的筛选条件过长，未列出作品；请在筛选栏清除部分条件。</p>
+          <p v-else-if="noLibraries || (settled && total === 0)" class="lbl lbl-xs notice">没有作品</p>
         </div>
         <WorkWall
           ref="wall" :works="works" :selected-rj="selectedRj" :playing-rj="player.rj"
@@ -614,7 +614,7 @@ useKeymap({
 .find input {
   height: 24px; width: 184px; padding: 0 var(--sp-2);
   border: 1px solid var(--wire-control); background: transparent; color: var(--fg-base);
-  font-family: var(--font-mono); font-size: var(--text-2xs); letter-spacing: .08em;
+  font-family: var(--font-mono); font-size: var(--text-xs); letter-spacing: .08em;
 }
 .find input::placeholder { color: var(--fg-meta); }
 .find input:focus { border-color: var(--wire-strong); outline: none; }

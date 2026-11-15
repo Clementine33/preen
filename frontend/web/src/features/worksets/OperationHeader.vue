@@ -79,7 +79,7 @@ const validationWarning = computed(() => {
     <div class="flex flex-wrap items-center gap-2">
       <div class="min-w-0">
         <h1 class="truncate font-heading text-sm font-semibold">{{ title }}</h1>
-        <p v-if="libraryName && libraryName !== title" class="truncate font-mono text-[10px] text-[var(--text-secondary)]">{{ libraryName }}</p>
+        <p v-if="libraryName && libraryName !== title" class="truncate font-mono text-xs text-[var(--text-secondary)]">{{ libraryName }}</p>
       </div>
       <Badge :tone="state.tone" size="md">{{ state.label }}</Badge>
       <Badge v-if="operation" tone="neutral">操作版本 v{{ operation.version }}</Badge>
@@ -131,18 +131,18 @@ const validationWarning = computed(() => {
     <div v-if="cells.length" class="mt-2 flex flex-wrap gap-4" data-testid="operation-counts">
       <div v-for="cell in cells" :key="cell.label" class="min-w-14">
         <div class="font-mono text-sm">{{ cell.value }}</div>
-        <div class="text-[10px] text-[var(--text-secondary)]">{{ cell.label }}</div>
+        <div class="text-xs text-[var(--text-secondary)]">{{ cell.label }}</div>
       </div>
     </div>
-    <p v-else class="mt-2 text-[11px] text-[var(--text-secondary)]">尚无计划版本：当前操作待规划。</p>
+    <p v-else class="mt-2 text-xs text-[var(--text-secondary)]">尚无计划版本：当前操作待规划。</p>
 
-    <p v-if="validationWarning" class="mt-1 text-[11px] text-[var(--warning-ink)]" data-testid="validation-warning">
+    <p v-if="validationWarning" class="mt-1 text-xs text-[var(--warning-ink)]" data-testid="validation-warning">
       {{ validationWarning }}
     </p>
-    <p v-if="operation?.latest_generation?.status === 'failed'" class="mt-1 text-[11px] text-[var(--danger-ink)]">
+    <p v-if="operation?.latest_generation?.status === 'failed'" class="mt-1 text-xs text-[var(--danger-ink)]">
       上次生成失败：{{ sessionFailureText(operation.latest_generation.error_code, operation.latest_generation.error_message) }}
     </p>
-    <p v-if="operation?.active_generation" class="mt-1 text-[11px] text-[var(--text-secondary)]">
+    <p v-if="operation?.active_generation" class="mt-1 text-xs text-[var(--text-secondary)]">
       生成中：{{ operation.active_generation.completed_roots }}/{{ operation.active_generation.total_roots }}
     </p>
   </header>

@@ -60,7 +60,7 @@ function pick(next: string): void {
     <form v-if="mode === 'manual'" class="flex flex-wrap items-start gap-2" data-testid="outbound-proxy" @submit.prevent="store({ mode: 'manual', url })">
       <input
         v-model="url"
-        class="field-input h-11! min-w-0 flex-1 text-[16px]! rail:h-[30px]! rail:text-[length:var(--text-xs)]!"
+        class="field-input h-11! min-w-0 flex-1 text-[length:var(--input-font)]! rail:h-[30px]! rail:text-[length:var(--text-xs)]!"
         placeholder="socks5://127.0.0.1:7890"
         aria-label="代理服务器地址"
         :aria-invalid="error ? true : undefined"
@@ -73,6 +73,6 @@ function pick(next: string): void {
         保存
       </Button>
     </form>
-    <p v-if="error" class="w-full text-[11px] text-destructive" role="alert" data-testid="outbound-proxy-error">{{ error }}</p>
+    <p v-if="error" class="w-full text-xs text-destructive" role="alert" data-testid="outbound-proxy-error">{{ error }}</p>
   </div>
 </template>

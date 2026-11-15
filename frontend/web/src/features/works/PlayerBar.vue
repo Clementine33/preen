@@ -155,7 +155,7 @@ const MUTED_ICON = 'M6 3.7l.7-.7L8 4.3 9.3 3l.7.7L8.7 5 10 6.3l-.7.7L8 5.7 6.7 7
   letter-spacing: .08em; color: var(--fg-base); flex-shrink: 0; text-decoration: none;
 }
 .bl-rj:hover { text-decoration: underline; text-underline-offset: 4px; }
-.bl-title { font-size: var(--text-2xs); color: var(--fg-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bl-title { font-size: var(--text-xs); color: var(--fg-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .bl-center { display: flex; align-items: center; gap: var(--sp-3); padding-top: 2px; }
 .bl-center .t {

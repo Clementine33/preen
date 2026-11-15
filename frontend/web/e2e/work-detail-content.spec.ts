@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { expectCjkFloor } from './helpers/cjk-floor.ts'
 import { expect, test } from './helpers/test.ts'
 
 // The existing launcher supplies a fresh real backend. Only media fixtures and
@@ -98,6 +99,7 @@ test('work content updates from background measurement without restarting audio'
     await page.locator('.lrc-line').filter({ hasText: '後半' }).click()
     await expect.poll(() => page.evaluate(() => (window as unknown as { e2eAudio: HTMLMediaElement }).e2eAudio.currentTime)).toBeGreaterThanOrEqual(20)
     await expect(page.locator('.baseline .bl-right')).toContainText('WAV')
+    await expectCjkFloor(page)
     await page.evaluate(() => Object.assign(window, { e2eOriginalAudio: (window as unknown as { e2eAudio: HTMLMediaElement }).e2eAudio }))
 
     // Scan through another client: Vue mutation callbacks cannot refresh this

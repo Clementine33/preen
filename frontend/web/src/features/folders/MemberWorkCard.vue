@@ -37,11 +37,11 @@ const voiceActors = computed(() => work.value?.voice_actors.map(va => va.name).j
     <div class="info">
       <div class="title" data-testid="work-title">{{ work.title ?? '—' }}</div>
       <div class="row">
-        <span class="cell"><span class="lbl">社团</span><span data-testid="work-circle">{{ work.circle ?? '—' }}</span></span>
-        <span class="cell"><span class="lbl">声优</span><span data-testid="work-voice">{{ voiceActors }}</span></span>
+        <span class="cell"><span class="lbl lbl-xs">社团</span><span data-testid="work-circle">{{ work.circle ?? '—' }}</span></span>
+        <span class="cell"><span class="lbl lbl-xs">声优</span><span data-testid="work-voice">{{ voiceActors }}</span></span>
       </div>
-      <div v-if="path" class="row"><span class="lbl">路径</span><span class="meta" data-testid="work-path" :title="path">{{ path }}</span></div>
-      <div v-if="size != null" class="row"><span class="lbl">大小</span><span class="meta" data-testid="work-size">{{ fmtSize(size) }}B</span></div>
+      <div v-if="path" class="row"><span class="lbl lbl-xs">路径</span><span class="meta" data-testid="work-path" :title="path">{{ path }}</span></div>
+      <div v-if="size != null" class="row"><span class="lbl lbl-xs">大小</span><span class="meta" data-testid="work-size">{{ fmtSize(size) }}B</span></div>
     </div>
   </div>
 </template>
@@ -80,7 +80,7 @@ const voiceActors = computed(() => work.value?.voice_actors.map(va => va.name).j
 .cell + .cell { margin-left: var(--sp-4, 16px); }
 .cell > span:last-child { font-weight: 500; }
 /* Path and size are reference, not content: smaller, quieter, ellipsised with the full text on hover. */
-.meta { font-size: var(--text-2xs); color: var(--fg-muted); }
+.meta { font-size: var(--text-xs); color: var(--fg-muted); }
 /* Mobile keeps the compact caption sizing and drops the path. */
 @media (max-width: 768px) {
   .info { justify-content: flex-start; gap: 2px; }

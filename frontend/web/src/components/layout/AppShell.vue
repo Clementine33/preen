@@ -59,7 +59,7 @@ function isCurrent(id: GlobalNavId): boolean {
           :key="item.id"
           :to="navTarget(item, libraryUi.wallQuery)"
           :aria-current="isCurrent(item.id) ? 'page' : undefined"
-          class="flex flex-col items-center gap-1 px-1 py-2 text-[10px] font-medium focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none"
+          class="flex flex-col items-center gap-1 px-1 py-2 text-xs font-medium focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none"
           :class="isCurrent(item.id) ? 'bg-primary text-primary-foreground' : 'text-sidebar-foreground hover:bg-sidebar-accent'"
         >
           <component :is="item.icon" class="size-4" aria-hidden="true" />
@@ -70,7 +70,7 @@ function isCurrent(id: GlobalNavId): boolean {
         <RouterLink
           :to="SETTINGS_NAV.to"
           :aria-current="isCurrent(SETTINGS_NAV.id) ? 'page' : undefined"
-          class="flex flex-col items-center gap-1 px-1 py-2 text-[10px] font-medium focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none"
+          class="flex flex-col items-center gap-1 px-1 py-2 text-xs font-medium focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none"
           :class="isCurrent(SETTINGS_NAV.id) ? 'bg-primary text-primary-foreground' : 'text-sidebar-foreground hover:bg-sidebar-accent'"
           data-testid="global-settings"
         >

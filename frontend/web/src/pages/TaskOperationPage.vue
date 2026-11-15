@@ -437,7 +437,7 @@ watch(
                 :saving="saveMutation.isPending.value"
                 @save="nameFolder"
               />
-              <p v-if="nameError" class="mt-2 text-[11px] text-[var(--danger-ink)]" role="alert">{{ nameError }}</p>
+              <p v-if="nameError" class="mt-2 text-xs text-[var(--danger-ink)]" role="alert">{{ nameError }}</p>
             </SettingsSection>
           </component>
         </aside>
@@ -460,17 +460,17 @@ watch(
           <header class="sticky top-0 z-10 space-y-1.5 border-b border-[var(--wire-strong)] bg-background px-3 py-2">
             <div class="flex min-h-7 flex-wrap items-center gap-2">
               <FilterTabs v-if="!executionView && !isMetadata && planCountTotal" v-model="planTab" :tabs="planTabs" />
-              <span class="font-mono text-[11px] text-[var(--text-secondary)]" data-testid="folder-count">
+              <span class="font-mono text-xs text-[var(--text-secondary)]" data-testid="folder-count">
                 {{ record?.members.length ?? 0 }} 个文件夹
               </span>
               <Badge v-if="planNote" tone="warning">{{ planNote }}</Badge>
               <template v-if="executionView">
                 <Badge tone="neutral">{{ EXECUTION_STATES[executionView.status] ?? executionView.status }}</Badge>
-                <span class="font-mono text-[11px]">{{ executionView.completed_components }}/{{ executionView.total_components }}</span>
+                <span class="font-mono text-xs">{{ executionView.completed_components }}/{{ executionView.total_components }}</span>
               </template>
               <div class="ml-auto flex items-center gap-2">
                 <template v-if="generationProgress">
-                  <span class="font-mono text-[11px]">生成中 {{ generationProgress.done }}/{{ generationProgress.total }}</span>
+                  <span class="text-xs tabular-nums">生成中 {{ generationProgress.done }}/{{ generationProgress.total }}</span>
                   <Button
                     size="xs"
                     variant="ghost"
@@ -494,12 +494,12 @@ watch(
                 <Button v-if="canExecute" size="xs" data-testid="execute" @click="execute">执行</Button>
               </div>
             </div>
-            <p v-if="!isMetadata && !executionView && planCounts.unchanged" class="text-[11px] text-[var(--text-secondary)]" data-testid="plan-unchanged">
+            <p v-if="!isMetadata && !executionView && planCounts.unchanged" class="text-xs text-[var(--text-secondary)]" data-testid="plan-unchanged">
               {{ planCounts.unchanged }} 个名称不变（未显示）
             </p>
-            <p v-if="generateError" class="text-[11px] text-[var(--danger-ink)]" role="alert">{{ generateError }}</p>
-            <p v-if="executeError" class="text-[11px] text-[var(--danger-ink)]" role="alert">{{ executeError }}</p>
-            <p v-if="executionView?.error_message" class="text-[11px] text-[var(--danger-ink)]">{{ executionView.error_message }}</p>
+            <p v-if="generateError" class="text-xs text-[var(--danger-ink)]" role="alert">{{ generateError }}</p>
+            <p v-if="executeError" class="text-xs text-[var(--danger-ink)]" role="alert">{{ executeError }}</p>
+            <p v-if="executionView?.error_message" class="text-xs text-[var(--danger-ink)]">{{ executionView.error_message }}</p>
           </header>
 
           <div class="px-3 pb-4" :data-testid="executionView ? 'execution' : 'plan'">
@@ -508,7 +508,7 @@ watch(
                 <ul class="mt-3 flex flex-wrap gap-1.5" aria-label="成员执行状态" data-testid="execution-member-counts">
                   <li v-for="key in MEMBER_COUNT_ORDER" :key="key" class="flex items-center gap-1">
                     <Badge :tone="MEMBER_STATUS[key].tone">{{ MEMBER_STATUS[key].label }}</Badge>
-                    <span class="font-mono text-[11px] tabular-nums" :data-testid="`execution-count-${key}`">{{ memberBlock.counts[key] }}</span>
+                    <span class="font-mono text-xs tabular-nums" :data-testid="`execution-count-${key}`">{{ memberBlock.counts[key] }}</span>
                   </li>
                 </ul>
                 <ul v-if="memberBlock.attention.length > 0" class="mt-3 border border-[var(--wire-mid)]" data-testid="execution-attention">
@@ -528,8 +528,8 @@ watch(
                         {{ openMembers.has(member.member_id) ? '收起' : '详情' }}
                       </Button>
                     </div>
-                    <p v-if="member.error_message" class="mt-1 text-[11px] text-[var(--danger-ink)]">{{ member.error_message }}</p>
-                    <p v-if="member.inventory_sync_error" class="mt-1 text-[10px] text-[var(--warning-ink)]">
+                    <p v-if="member.error_message" class="mt-1 text-xs text-[var(--danger-ink)]">{{ member.error_message }}</p>
+                    <p v-if="member.inventory_sync_error" class="mt-1 text-xs text-[var(--warning-ink)]">
                       磁盘结果与媒体库索引未完全同步：{{ member.inventory_sync_error }}
                     </p>
                     <TaskMemberResult
@@ -541,11 +541,11 @@ watch(
                     />
                   </li>
                 </ul>
-                <p v-if="hiddenAttention > 0" class="mt-2 px-1 text-[11px] text-[var(--text-secondary)]" data-testid="execution-attention-more">
+                <p v-if="hiddenAttention > 0" class="mt-2 px-1 text-xs text-[var(--text-secondary)]" data-testid="execution-attention-more">
                   另有 {{ hiddenAttention }} 个
                 </p>
               </template>
-              <div v-if="isMetadata && coversQuery.data.value" class="mt-3 flex flex-wrap items-center gap-2 text-[11px]" data-testid="covers">
+              <div v-if="isMetadata && coversQuery.data.value" class="mt-3 flex flex-wrap items-center gap-2 text-xs" data-testid="covers">
                 <span class="font-semibold text-[var(--text-secondary)]">封面</span>
                 <span>完成 {{ coversQuery.data.value.counts.succeeded }}</span>
                 <span>等待 {{ coversQuery.data.value.counts.pending + coversQuery.data.value.counts.running }}</span>

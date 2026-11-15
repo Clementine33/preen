@@ -280,7 +280,7 @@ const RESOLUTION_TONES: Record<string, 'neutral' | 'success' | 'danger' | 'warni
         <span class="text-[var(--text-secondary)]">{{ conclusion.detail }}</span>
       </p>
       <div v-if="tally.rows > 0" class="flex items-center gap-2">
-        <p class="text-[11px] text-[var(--text-muted)]" data-testid="plan-tally">
+        <p class="text-xs text-[var(--text-muted)]" data-testid="plan-tally">
           保留 {{ tally.counts.keep }} · 删除 {{ tally.counts.delete }} · 生成 {{ tally.counts.encode }}
           <template v-if="tally.counts.pending">（其中 {{ tally.counts.pending }} 项待生成）</template>
         </p>
@@ -297,7 +297,7 @@ const RESOLUTION_TONES: Record<string, 'neutral' | 'success' | 'danger' | 'warni
 
     <p
       v-if="needsPlanning"
-      class="shrink-0 border-b border-border bg-[var(--warning-weak,var(--muted))] px-3 py-1.5 text-[11px]"
+      class="shrink-0 border-b border-border bg-[var(--warning-weak,var(--muted))] px-3 py-1.5 text-xs"
       data-testid="plan-needs-regeneration"
       role="status"
     >
@@ -356,15 +356,15 @@ const RESOLUTION_TONES: Record<string, 'neutral' | 'success' | 'danger' | 'warni
               <Badge :tone="RESOLUTION_TONES[node.row.resolution] ?? 'neutral'">
                 {{ resolutionText(node.row.resolution) }}
               </Badge>
-              <span v-if="node.row.pending" class="text-[10px] text-[var(--text-muted)]" data-testid="pending-output">
+              <span v-if="node.row.pending" class="text-xs text-[var(--text-muted)]" data-testid="pending-output">
                 待生成
               </span>
-              <span v-if="node.row.projected" class="truncate text-[10px] text-[var(--text-muted)]">计划预计产生</span>
+              <span v-if="node.row.projected" class="truncate text-xs text-[var(--text-muted)]">计划预计产生</span>
               <!-- Why a file stays is the question worth answering; a generated or
                  removed file speaks for itself — the member review's own rule. -->
               <span
                 v-else-if="node.row.resolution === 'keep' && node.row.reasonCode"
-                class="truncate text-[10px] text-[var(--text-muted)]"
+                class="truncate text-xs text-[var(--text-muted)]"
               >
                 {{ keepReasonText(node.row.reasonCode) }}
               </span>

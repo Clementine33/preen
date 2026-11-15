@@ -141,7 +141,7 @@ const release = computed(() =>
 .cap-meta .lbl, .cap-title { transition: color 0s; }
 .cap-title {
   font-family: var(--font-mincho);
-  font-size: var(--text-xs); line-height: var(--text-xs--line-height); font-weight: 500; height: 32px;
+  font-size: var(--text-xs); line-height: var(--text-xs--line-height); font-weight: 500; height: calc(2 * var(--text-xs) * var(--text-xs--line-height));
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
 .cell.active .cap::before { clip-path: inset(0 0 0 0); transition: clip-path var(--dur-in) var(--ease-out); }

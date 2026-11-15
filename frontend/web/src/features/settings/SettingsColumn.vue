@@ -27,7 +27,7 @@ const open = ref(false)
       @click="open = !open"
     >
       <span class="min-w-0 flex-1 truncate text-xs font-medium">{{ summary }}</span>
-      <span aria-hidden="true" class="text-[11px]">{{ open ? '▴' : '▾' }}</span>
+      <span aria-hidden="true" class="text-xs">{{ open ? '▴' : '▾' }}</span>
     </button>
     <div v-show="!collapsible || open" class="min-h-0 flex-1 space-y-4 overflow-y-auto p-3" data-testid="settings-body">
       <slot />

@@ -118,7 +118,7 @@ const summary = computed(() => {
         >
           下载封面
         </SettingsSwitch>
-        <p v-if="coverLocked" class="text-[11px] text-[var(--text-secondary)]" data-testid="metadata-cover-reason">
+        <p v-if="coverLocked" class="text-xs text-[var(--text-secondary)]" data-testid="metadata-cover-reason">
           刷新动态数据不会下载封面
         </p>
       </SettingsField>

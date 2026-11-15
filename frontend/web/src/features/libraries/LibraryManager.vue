@@ -75,7 +75,7 @@ function submit() {
         v-model="name"
         required
         autocomplete="off"
-        class="mt-1.5 h-11 w-full rounded-md border border-input bg-transparent px-3 text-[16px] focus-visible:border-[var(--wire-strong)] focus-visible:outline-none rail:h-9 rail:text-sm"
+        class="mt-1.5 h-11 w-full rounded-md border border-input bg-transparent px-3 text-[length:var(--input-font)] focus-visible:border-[var(--wire-strong)] focus-visible:outline-none rail:h-9 rail:text-sm"
       >
 
       <label class="mt-4 block text-xs font-medium" for="library-root">根目录</label>
@@ -88,7 +88,7 @@ function submit() {
           data-testid="library-root"
           autocomplete="off"
           spellcheck="false"
-          class="h-11 min-w-0 flex-1 rounded-md border border-input bg-transparent px-3 font-mono text-[16px] focus-visible:border-[var(--wire-strong)] focus-visible:outline-none rail:h-9 rail:text-xs"
+          class="h-11 min-w-0 flex-1 rounded-md border border-input bg-transparent px-3 font-mono text-[length:var(--input-font)] focus-visible:border-[var(--wire-strong)] focus-visible:outline-none rail:h-9 rail:text-xs"
           placeholder="/home/me/music 或 D:\Music"
         >
         <Button v-if="!library" class="h-11 shrink-0 rail:h-8" type="button" variant="outline" @click="pickFolder">
@@ -96,7 +96,7 @@ function submit() {
           选择文件夹
         </Button>
       </div>
-      <p class="mt-1.5 text-[11px] text-muted-foreground">
+      <p class="mt-1.5 text-xs text-muted-foreground">
         <template v-if="library">
           根目录创建后不可更改；要换目录，请删除媒体库后重新添加。
         </template>
@@ -109,7 +109,7 @@ function submit() {
         <input v-model="ssd" type="checkbox" class="mt-0.5 size-4 shrink-0" data-testid="library-ssd">
         <span>
           <span class="block text-xs font-medium">媒体在 SSD 上</span>
-          <span class="mt-0.5 block text-[11px] text-muted-foreground">
+          <span class="mt-0.5 block text-xs text-muted-foreground">
             决定读取媒体信息和转换时的并行宽度。
           </span>
         </span>

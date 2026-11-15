@@ -369,22 +369,22 @@ function copyTo(copy: { copy_id: string, library_id: string, dir_id: string }) {
 <style scoped>
 .colo { padding: var(--sp-5) var(--sp-5) var(--sp-6); display: flex; flex-direction: column; gap: var(--sp-4); }
 .colo.compact { padding: var(--sp-4); gap: var(--sp-3); }
-.colo.compact .colo-title { font-size: var(--fs-m); line-height: var(--lh-m); }
+.colo.compact .colo-title { font-size: var(--text-sm); line-height: var(--text-sm--line-height); }
 .colo-head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--sp-3); }
 .colo-head .strip-name::before { display: none; }
 .strip-name .jp { font-family: var(--font-ui); letter-spacing: 0; }
-.colo-title { font-family: var(--font-mincho); font-size: var(--fs-l); line-height: var(--lh-l); font-weight: 700; letter-spacing: 0; }
+.colo-title { font-family: var(--font-mincho); font-size: var(--text-xl); line-height: var(--text-xl--line-height); font-weight: 700; letter-spacing: 0; }
 /* A printed 奥付: one thin rule under the title, unruled rows, labels justified to a common width. */
 .colo-title + .colo-box { border-top: 1px solid var(--wire-mid); padding-top: var(--sp-3); }
 .colo-row { display: grid; grid-template-columns: 3em 1fr; gap: var(--sp-4); align-items: baseline; padding: 5px 0; }
-.colo-row dt { font-size: var(--fs-s); color: var(--fg-muted); text-align-last: justify; white-space: nowrap; }
-.colo-row dd { font-size: var(--fs-s); font-weight: 500; min-width: 0; position: relative; }
-.mono { font-family: var(--font-mono); font-size: var(--fs-xs); letter-spacing: .06em; }
-.colo-row dd a { color: inherit; text-decoration: underline; text-decoration-color: var(--wire-mid); text-underline-offset: 3px; font-family: var(--font-mono); font-size: var(--fs-xs); word-break: break-all; }
+.colo-row dt { font-size: var(--text-xs); color: var(--fg-muted); text-align-last: justify; white-space: nowrap; }
+.colo-row dd { font-size: var(--text-xs); font-weight: 500; min-width: 0; position: relative; }
+.mono { font-family: var(--font-mono); font-size: var(--text-2xs); letter-spacing: .06em; }
+.colo-row dd a { color: inherit; text-decoration: underline; text-decoration-color: var(--wire-mid); text-underline-offset: 3px; font-family: var(--font-mono); font-size: var(--text-2xs); word-break: break-all; }
 /* Overrides the global `.tags` input-field box (theme-yorha.css). */
 .tags { display: flex; flex-wrap: wrap; gap: 4px; min-height: 0; padding: 0; background: none; border: none; }
 .tags:focus-within { box-shadow: none; }
-.tag { height: 18px; padding: 0 6px; display: inline-flex; align-items: center; border: 1px solid transparent; font-size: var(--fs-xs); }
+.tag { height: 18px; padding: 0 6px; display: inline-flex; align-items: center; border: 1px solid transparent; font-size: var(--text-2xs); }
 .tag.add.quiet { opacity: 0; }
 .colo-row:hover .tag.add.quiet, .tag.add.quiet:focus-visible { opacity: 1; }
 .tag[aria-current='true'] { background: var(--invert-bg); color: var(--invert-fg); border-color: var(--invert-bg); font-weight: 700; }
@@ -410,19 +410,19 @@ function copyTo(copy: { copy_id: string, library_id: string, dir_id: string }) {
 .rating i.on { background: var(--invert-bg); border-color: var(--invert-bg); }
 .rating i[role='button'] { cursor: pointer; }
 .rating i[role='button']:hover { border-color: var(--wire-strong); }
-.fav { font-family: var(--font-mono); font-size: var(--fs-xs); letter-spacing: .12em; height: 18px; padding: 0 6px; border: 1px solid var(--wire-mid); margin-left: var(--sp-3); color: var(--fg-base); background: none; cursor: pointer; }
+.fav { font-family: var(--font-mono); font-size: var(--text-2xs); letter-spacing: .12em; height: 18px; padding: 0 6px; border: 1px solid var(--wire-mid); margin-left: var(--sp-3); color: var(--fg-base); background: none; cursor: pointer; }
 .fav.lead { margin-left: 0; }
 .fav[aria-pressed='true'] { background: var(--invert-bg); color: var(--invert-fg); border-color: var(--invert-bg); font-weight: 700; }
-.note { width: 100%; min-height: 64px; resize: vertical; background: transparent; border: 1px solid var(--wire-fine); padding: var(--sp-2); font-size: var(--fs-s); line-height: 20px; color: var(--fg-base); outline: none; }
+.note { width: 100%; min-height: 64px; resize: vertical; background: transparent; border: 1px solid var(--wire-fine); padding: var(--sp-2); font-size: var(--text-xs); line-height: 20px; color: var(--fg-base); outline: none; }
 .note:focus { border-color: var(--wire-strong); }
 .note:disabled { opacity: .5; }
 .colo-foot { display: flex; justify-content: space-between; }
 /* The + TAG specimen panel, same grammar as the leaf's pair menu. */
 .menu { position: absolute; right: 0; top: calc(100% + 8px); z-index: 20; width: 264px; padding-bottom: var(--sp-2); background: var(--grain), var(--bg-panel); border: 1px solid var(--wire-strong); box-shadow: 4px 4px 0 -1px var(--bg-canvas), 4px 4px 0 0 var(--wire-mid); }
 .menu .strip { margin: var(--sp-2) var(--sp-2) var(--sp-1); }
-.menu-item { display: flex; align-items: center; gap: var(--sp-2); width: calc(100% - 16px); margin: 0 var(--sp-2); height: 28px; padding: 0 var(--sp-2) 0 var(--sp-1); border-bottom: 1px solid var(--wire-fine); font-size: var(--fs-s); text-align: left; color: var(--fg-base); background: none; cursor: pointer; }
+.menu-item { display: flex; align-items: center; gap: var(--sp-2); width: calc(100% - 16px); margin: 0 var(--sp-2); height: 28px; padding: 0 var(--sp-2) 0 var(--sp-1); border-bottom: 1px solid var(--wire-fine); font-size: var(--text-xs); text-align: left; color: var(--fg-base); background: none; cursor: pointer; }
 .menu-item:hover { background: var(--invert-bg); color: var(--invert-fg); }
-.menu-item .glyph { width: 14px; text-align: center; font-family: var(--font-mono); font-size: var(--fs-xs); color: inherit; }
+.menu-item .glyph { width: 14px; text-align: center; font-family: var(--font-mono); font-size: var(--text-2xs); color: inherit; }
 .menu-item.new-tag { border-bottom: none; }
-.menu-item input { flex: 1; min-width: 0; border: none; border-bottom: 1px solid var(--wire-mid); background: transparent; color: inherit; font-size: var(--fs-s); outline: none; }
+.menu-item input { flex: 1; min-width: 0; border: none; border-bottom: 1px solid var(--wire-mid); background: transparent; color: inherit; font-size: var(--text-xs); outline: none; }
 </style>

@@ -216,7 +216,7 @@ const chevron = 'M0 2.5h10L5 8z'
 .rs-trigger:hover, .rs.open .rs-trigger { color: var(--fg-base); }
 .rs-trigger:focus-visible { outline: 1px solid var(--wire-strong); outline-offset: 2px; }
 .rs-value {
-  font-size: var(--fs-s); font-weight: 700; color: var(--fg-base); letter-spacing: 0;
+  font-size: var(--text-xs); font-weight: 700; color: var(--fg-base); letter-spacing: 0;
   max-width: 160px; overflow: hidden; text-overflow: ellipsis;
 }
 .rs-chev { width: 8px; height: 8px; fill: currentColor; transition: transform var(--dur-in) var(--ease-out); }
@@ -249,7 +249,7 @@ const chevron = 'M0 2.5h10L5 8z'
 .rs-search input {
   flex: 1; min-width: 0; height: 24px; padding: 0 var(--sp-2);
   border: 1px solid var(--wire-control); background: transparent; color: var(--fg-base);
-  font-size: var(--fs-s);
+  font-size: var(--text-xs);
 }
 .rs-search input:focus { border-color: var(--wire-strong); outline: none; }
 
@@ -287,7 +287,7 @@ const chevron = 'M0 2.5h10L5 8z'
 @media (hover: hover) and (pointer: fine) {
   .rs-item:hover .rs-mark { background: var(--wire-mid); }
 }
-.rs-name { font-size: var(--fs-s); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rs-name { font-size: var(--text-xs); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rs-item[aria-selected='true'] { color: var(--invert-fg); }
 .rs-item[aria-selected='true']::before { background: var(--invert-bg); clip-path: inset(0 0 0 0); }
 .rs-item[aria-selected='true'] .rs-mark { background: var(--invert-fg); }

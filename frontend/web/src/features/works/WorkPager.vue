@@ -269,12 +269,12 @@ const MARK = 'M5.5.2l2.3 2.3-2.3 2.3-2.3-2.3zM5.5 6.2l2.3 2.3-2.3 2.3-2.3-2.3zM.
   position: relative; display: inline-flex; justify-content: center; align-items: baseline;
   width: calc(max(var(--digits), 2) * 8px + 4px); height: 20px; padding: 0;
   background: none; border: 0; cursor: pointer;
-  font-family: var(--font-mono); font-size: var(--fs-xs); line-height: 20px; letter-spacing: .04em;
+  font-family: var(--font-mono); font-size: var(--text-2xs); line-height: 20px; letter-spacing: .04em;
   color: var(--fg-meta); transition: color var(--dur-in) var(--ease-out);
 }
 .cell:hover:not(:disabled) { color: var(--fg-base); }
 .cell:focus-visible { outline: 1px solid var(--wire-strong); outline-offset: -1px; }
-.turn { width: 20px; margin: 0 20px; font-size: var(--fs-s); }
+.turn { width: 20px; margin: 0 20px; font-size: var(--text-xs); }
 .turn:disabled { opacity: .35; cursor: default; }
 .gap { cursor: default; letter-spacing: 0; }
 /* The current number shares the row's baseline. */

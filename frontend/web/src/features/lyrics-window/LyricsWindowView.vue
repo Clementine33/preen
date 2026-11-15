@@ -65,7 +65,7 @@ const rows = computed(() => shown.value.text.split('\n').slice(0, 2))
 .line { top: 50%; translate: 0 -50%; display: flex; flex-direction: column; gap: .25em; font-size: clamp(14px, min(6cqw, 30cqh), 36px); font-weight: 700; line-height: 1.3; overflow-wrap: anywhere; transition: opacity var(--dur-in) var(--ease-out); }
 .line.dim { opacity: .45; }
 .sub { font-size: .8em; font-weight: 400; }
-.none { bottom: var(--sp-3); font-size: var(--fs-xs); opacity: .6; }
+.none { bottom: var(--sp-3); font-size: var(--text-2xs); opacity: .6; }
 
 /* A step to the next line scrolls: the old line leaves by its own height as the new one follows from below. */
 .lw-line-enter-active { transition: transform calc(var(--dur-in) * 2) var(--ease-out), opacity calc(var(--dur-in) * 2) var(--ease-out); }

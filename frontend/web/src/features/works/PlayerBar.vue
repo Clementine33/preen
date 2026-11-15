@@ -151,15 +151,15 @@ const MUTED_ICON = 'M6 3.7l.7-.7L8 4.3 9.3 3l.7.7L8.7 5 10 6.3l-.7.7L8 5.7 6.7 7
 .bl-dot { width: 6px; height: 6px; background: var(--now); flex-shrink: 0; }
 .paused .bl-dot { background: var(--fg-meta); }
 .bl-rj {
-  font-family: var(--font-mono); font-size: var(--fs-xs); font-weight: 600;
+  font-family: var(--font-mono); font-size: var(--text-2xs); font-weight: 600;
   letter-spacing: .08em; color: var(--fg-base); flex-shrink: 0; text-decoration: none;
 }
 .bl-rj:hover { text-decoration: underline; text-underline-offset: 4px; }
-.bl-title { font-size: var(--fs-xs); color: var(--fg-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bl-title { font-size: var(--text-2xs); color: var(--fg-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .bl-center { display: flex; align-items: center; gap: var(--sp-3); padding-top: 2px; }
 .bl-center .t {
-  font-family: var(--font-mono); font-size: var(--fs-xs); letter-spacing: .04em;
+  font-family: var(--font-mono); font-size: var(--text-2xs); letter-spacing: .04em;
   color: var(--fg-muted); min-width: 36px;
 }
 .bl-center .t.pos { text-align: right; color: var(--fg-base); font-weight: 600; }

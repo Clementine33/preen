@@ -260,7 +260,7 @@ const active = computed(() => applied.value > 0)
 }
 .ti-trigger:hover { color: var(--fg-base); }
 .ti-trigger:focus-visible { outline: 1px solid var(--wire-strong); outline-offset: 2px; }
-.ti-value { font-size: var(--fs-s); font-weight: 700; letter-spacing: 0; }
+.ti-value { font-size: var(--text-xs); font-weight: 700; letter-spacing: 0; }
 .ti.active .ti-trigger { background: var(--invert-bg); color: var(--invert-fg); }
 .ti.active .ti-trigger::before { display: none; }
 .ti.active .ti-lbl, .ti.active .ti-value { color: var(--invert-fg); }
@@ -273,7 +273,7 @@ const active = computed(() => applied.value > 0)
 .ti-find { flex: 1; display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
 .ti-find input {
   flex: 1; min-width: 0; height: 28px; padding: 0 var(--sp-2);
-  border: 1px solid var(--wire-control); background: transparent; color: var(--fg-base); font-size: var(--fs-s);
+  border: 1px solid var(--wire-control); background: transparent; color: var(--fg-base); font-size: var(--text-xs);
 }
 .ti-find input:focus { border-color: var(--wire-strong); outline: none; }
 
@@ -281,7 +281,7 @@ const active = computed(() => applied.value > 0)
 .ti-mode { display: inline-flex; border: 1px solid var(--wire-control); }
 .ti-mode button {
   height: 26px; padding: 0 var(--sp-3);
-  font-family: var(--font-mono); font-size: var(--fs-xs); letter-spacing: .12em; color: var(--fg-muted);
+  font-family: var(--font-mono); font-size: var(--text-2xs); letter-spacing: .12em; color: var(--fg-muted);
 }
 .ti-mode button + button { border-left: 1px solid var(--wire-control); }
 .ti-mode button[aria-checked='true'] { background: var(--invert-bg); color: var(--invert-fg); font-weight: 700; }
@@ -300,7 +300,7 @@ const active = computed(() => applied.value > 0)
 .ti-chips { display: flex; flex-wrap: wrap; gap: 4px; }
 .chip {
   height: 22px; padding: 0 6px; display: inline-flex; align-items: center; gap: 6px;
-  border: 1px solid var(--wire-mid); font-size: var(--fs-xs); color: var(--fg-base);
+  border: 1px solid var(--wire-mid); font-size: var(--text-2xs); color: var(--fg-base);
 }
 .chip:hover { border-color: var(--wire-strong); }
 .chip:focus-visible { outline: 1px solid var(--wire-strong); outline-offset: 2px; }

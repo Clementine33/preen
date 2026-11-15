@@ -110,7 +110,7 @@ const chevron = 'M0 2.5h10L5 8z'
 }
 .lib.open .lib-trigger { border-color: var(--wire-strong); }
 .lib-name {
-  font-size: var(--fs-s); font-weight: 700; max-width: 200px;
+  font-size: var(--text-xs); font-weight: 700; max-width: 200px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .lib-chev {
@@ -174,7 +174,7 @@ const chevron = 'M0 2.5h10L5 8z'
   .lib-item:hover .lib-mark { background: var(--wire-mid); }
 }
 .lib-text { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.lib-text .nm { font-size: var(--fs-s); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lib-text .nm { font-size: var(--text-xs); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lib-text .lbl {
   letter-spacing: .04em; text-transform: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }

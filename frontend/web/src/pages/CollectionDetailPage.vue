@@ -180,14 +180,14 @@ function backToEntry(): void {
 .header::after { content: ''; position: absolute; left: var(--sp-6); right: var(--sp-6); bottom: 0; height: 4px; border-top: 1px solid var(--wire-fine); border-bottom: 2px solid var(--wire-strong); }
 .header-left { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
 .header-meta { display: flex; align-items: center; gap: var(--sp-2); flex-shrink: 0; }
-.h-title { font-size: var(--fs-m); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.h-title { font-size: var(--text-sm); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 /* A definite row: in an implicit auto row the list's height depends on its
    rows, so any change to one row re-laid out every loaded row. */
 .main { display: grid; grid-template-rows: minmax(0, 1fr); min-height: 0; min-width: 0; }
 .actions { display: inline-flex; gap: var(--sp-2); }
 .more { width: 28px; padding: 0; justify-content: center; }
 .actions .btn.on { background: var(--invert-bg); color: var(--invert-fg); }
-.empty { padding: var(--sp-6); font-size: var(--fs-m); }
+.empty { padding: var(--sp-6); font-size: var(--text-sm); }
 .empty a { margin-left: var(--sp-2); text-decoration: underline; text-underline-offset: 4px; }
 @media (max-width: 900px) {
   .header { padding: 0 var(--sp-4); }

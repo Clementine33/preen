@@ -63,11 +63,11 @@ const voiceActors = computed(() => work.value?.voice_actors.map(va => va.name).j
 .cover.veiled::before { content: none; }
 .info {
   min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 6px;
-  font-size: var(--fs-s); line-height: var(--lh-s);
+  font-size: var(--text-xs); line-height: var(--text-xs--line-height);
 }
 .lbl { flex: none; }
 .title {
-  font-weight: 700; font-size: var(--fs-l); line-height: var(--lh-l);
+  font-weight: 700; font-size: var(--text-xl); line-height: var(--text-xl--line-height);
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
 /* Baseline-aligned: the label is a smaller face than its value. The first label
@@ -80,7 +80,7 @@ const voiceActors = computed(() => work.value?.voice_actors.map(va => va.name).j
 .cell + .cell { margin-left: var(--sp-4, 16px); }
 .cell > span:last-child { font-weight: 500; }
 /* Path and size are reference, not content: smaller, quieter, ellipsised with the full text on hover. */
-.meta { font-size: var(--fs-xs); color: var(--fg-muted); }
+.meta { font-size: var(--text-2xs); color: var(--fg-muted); }
 /* Mobile keeps the compact caption sizing and drops the path. */
 @media (max-width: 768px) {
   .info { justify-content: flex-start; gap: 2px; }

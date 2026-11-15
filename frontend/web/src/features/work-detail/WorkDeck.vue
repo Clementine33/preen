@@ -335,7 +335,7 @@ const NEXT_ICON = 'M2 0l7 5-7 5z'
 .strip-side { display: flex; align-items: center; gap: var(--sp-3); min-width: 0; }
 .chips { display: inline-flex; gap: var(--sp-1); overflow-x: auto; scrollbar-width: none; min-width: 0; }
 .chips::-webkit-scrollbar { display: none; }
-.chip { height: 16px; padding: 0 6px; font-family: var(--font-mono); font-size: var(--fs-xs); letter-spacing: .08em; color: var(--fg-muted); border: 1px solid var(--wire-fine); display: inline-flex; align-items: center; gap: 4px; background: none; cursor: pointer; flex-shrink: 0; }
+.chip { height: 16px; padding: 0 6px; font-family: var(--font-mono); font-size: var(--text-2xs); letter-spacing: .08em; color: var(--fg-muted); border: 1px solid var(--wire-fine); display: inline-flex; align-items: center; gap: 4px; background: none; cursor: pointer; flex-shrink: 0; }
 .chip:hover { border-color: var(--wire-mid); color: var(--fg-base); }
 .chip[aria-pressed='true'] { background: var(--invert-bg); color: var(--invert-fg); border-color: var(--invert-bg); font-weight: 700; }
 .chip .jp { font-family: var(--font-ui); letter-spacing: 0; max-width: 8em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -363,7 +363,7 @@ const NEXT_ICON = 'M2 0l7 5-7 5z'
 .tick.bl { left: -4px; bottom: -4px; border-left-width: 1px; border-bottom-width: 1px; }
 .tick.br { right: -6px; bottom: -6px; width: 14px; height: 14px; border-right-width: 2px; border-bottom-width: 2px; cursor: pointer; background: none; padding: 0; }
 .tick.br:hover { border-color: var(--now); }
-.scroll-tag { position: absolute; left: 0; top: 0; height: 16px; padding: 0 6px; background: var(--invert-bg); color: var(--invert-fg); font-family: var(--font-mono); font-size: var(--fs-xs); letter-spacing: .12em; font-weight: 700; z-index: 2; display: none; align-items: center; }
+.scroll-tag { position: absolute; left: 0; top: 0; height: 16px; padding: 0 6px; background: var(--invert-bg); color: var(--invert-fg); font-family: var(--font-mono); font-size: var(--text-2xs); letter-spacing: .12em; font-weight: 700; z-index: 2; display: none; align-items: center; }
 .plate.is-scroll .scroll-tag { display: inline-flex; }
 .plate.flipped .scroll-tag { display: none; }
 .step { position: absolute; top: 50%; margin-top: -9px; z-index: 4; }
@@ -374,7 +374,7 @@ const NEXT_ICON = 'M2 0l7 5-7 5z'
 
 /* The R18 veil: the empty-state hatch, heavier for the thumbs so the two read apart. */
 .face.front.veil { background: linear-gradient(-45deg, transparent calc(50% - .5px), var(--wire-fine) calc(50% - .5px) calc(50% + .5px), transparent calc(50% + .5px)) 0 0 / 8px 8px, var(--bg-panel); cursor: pointer; display: grid; place-items: center; }
-.face.front.veil::after { content: 'SHOW'; font-family: var(--font-mono); font-size: var(--fs-xs); letter-spacing: .14em; color: var(--fg-muted); background: var(--bg-panel); border: 1px solid var(--wire-mid); padding: 2px var(--sp-2); }
+.face.front.veil::after { content: 'SHOW'; font-family: var(--font-mono); font-size: var(--text-2xs); letter-spacing: .14em; color: var(--fg-muted); background: var(--bg-panel); border: 1px solid var(--wire-mid); padding: 2px var(--sp-2); }
 .face.front.veil:hover::after { color: var(--invert-fg); background: var(--invert-bg); border-color: var(--invert-bg); }
 
 /* The filmstrip: equal heights, widths follow the ratio; extremes are cropped with a hatch mark. */

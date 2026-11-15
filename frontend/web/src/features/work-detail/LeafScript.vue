@@ -87,7 +87,7 @@ watch(txtRel, () => {
 }
 .script p { text-indent: 1em; margin: 0; }
 .script .sp { text-indent: 0; }
-.script .spk { font-weight: 700; font-size: var(--fs-s); color: var(--fg-muted); }
-.script .no { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--fg-meta); letter-spacing: 0; }
-.script .scene { font-family: var(--font-mono); font-size: var(--fs-xs); letter-spacing: .14em; color: var(--fg-meta); margin: 0 1.2em; text-indent: 0; }
+.script .spk { font-weight: 700; font-size: var(--text-xs); color: var(--fg-muted); }
+.script .no { font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--fg-meta); letter-spacing: 0; }
+.script .scene { font-family: var(--font-mono); font-size: var(--text-2xs); letter-spacing: .14em; color: var(--fg-meta); margin: 0 1.2em; text-indent: 0; }
 </style>

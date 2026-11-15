@@ -97,12 +97,12 @@ function playTrack(t: number) {
   text-align: left; color: var(--fg-base); font-family: inherit; cursor: pointer;
 }
 /* A variant is a folder name, usually Japanese: the mono face has no CJK, so it reads in the UI face. */
-.var { padding: var(--sp-2) var(--sp-2) var(--sp-1); font-family: var(--font-ui); letter-spacing: 0; font-size: var(--fs-xs); color: var(--fg-meta); border-bottom: 1px solid var(--wire-fine); }
+.var { padding: var(--sp-2) var(--sp-2) var(--sp-1); font-family: var(--font-ui); letter-spacing: 0; font-size: var(--text-2xs); color: var(--fg-meta); border-bottom: 1px solid var(--wire-fine); }
 .trk:hover { background: var(--bg-subtle); }
 .trk:focus-visible { outline: 1px solid var(--wire-strong); outline-offset: -1px; }
 .trk .lbl { letter-spacing: .04em; }
-.trk .nm { font-size: var(--fs-s); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.trk .dur { text-align: right; font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--fg-muted); }
+.trk .nm { font-size: var(--text-xs); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.trk .dur { text-align: right; font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--fg-muted); }
 /* The playing track: inverted with the bay's ■ marker ( --now). */
 .trk.now { background: var(--invert-bg); color: var(--invert-fg); font-weight: 700; }
 .trk.now .lbl, .trk.now .dur { color: var(--invert-fg); }

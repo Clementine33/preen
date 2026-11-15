@@ -29,7 +29,7 @@ const { current, dismiss } = useToast()
 .app-toast {
   display: flex; align-items: center; gap: var(--sp-4); padding: var(--sp-2) var(--sp-3);
   background: var(--invert-bg); color: var(--invert-fg); border: 1px solid var(--wire-strong);
-  font-family: var(--font-mono); font-size: var(--fs-s); letter-spacing: .04em;
+  font-family: var(--font-mono); font-size: var(--text-xs); letter-spacing: .04em;
 }
 .app-toast .btn { color: inherit; border-color: currentColor; flex-shrink: 0; }
 .app-toast { transition: opacity var(--dur-in) var(--ease-out), transform var(--dur-in) var(--ease-out); }

@@ -145,10 +145,10 @@ function isPlaying(entry: WorkContentDir | WorkContentFile): boolean {
 .files { display: flex; flex-direction: column; min-height: 0; flex: 1; }
 
 .crumbs { display: flex; align-items: center; gap: 2px; padding: var(--sp-2) var(--sp-4) var(--sp-2) var(--sp-5); border-bottom: 1px solid var(--wire-fine); flex-shrink: 0; overflow-x: auto; scrollbar-width: none; }
-.crumb { font-family: var(--font-mono); font-size: var(--fs-xs); letter-spacing: .06em; color: var(--fg-muted); padding: 0 4px; height: 18px; white-space: nowrap; background: none; border: none; cursor: pointer; }
+.crumb { font-family: var(--font-mono); font-size: var(--text-2xs); letter-spacing: .06em; color: var(--fg-muted); padding: 0 4px; height: 18px; white-space: nowrap; background: none; border: none; cursor: pointer; }
 .crumb:hover { color: var(--fg-base); background: var(--bg-subtle); }
 .crumb[aria-current='true'] { color: var(--fg-base); font-weight: 600; }
-.crumb-sep { color: var(--fg-meta); font-family: var(--font-mono); font-size: var(--fs-xs); }
+.crumb-sep { color: var(--fg-meta); font-family: var(--font-mono); font-size: var(--text-2xs); }
 .crumbs .copy-pick { margin-left: auto; flex-shrink: 0; }
 
 .list-head, .row { display: grid; grid-template-columns: 14px 18px minmax(0, 1fr) auto 64px; align-items: center; gap: var(--sp-2); padding: 0 var(--sp-4) 0 var(--sp-1); }
@@ -166,10 +166,10 @@ function isPlaying(entry: WorkContentDir | WorkContentFile): boolean {
 @media (hover: hover) and (pointer: fine) {
   .row:hover .mark { background: var(--wire-mid); }
 }
-.row .glyph { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--fg-meta); text-align: center; }
-.row .name { font-size: var(--fs-s); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row .glyph { font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--fg-meta); text-align: center; }
+.row .name { font-size: var(--text-xs); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .row.dir .name { font-weight: 700; }
-.row .info, .row .size { font-family: var(--font-mono); font-size: var(--fs-xs); letter-spacing: .04em; color: var(--fg-muted); white-space: nowrap; }
+.row .info, .row .size { font-family: var(--font-mono); font-size: var(--text-2xs); letter-spacing: .04em; color: var(--fg-muted); white-space: nowrap; }
 .row .counts { display: inline-flex; gap: var(--sp-2); }
 .row[aria-selected='true'] { background: var(--invert-bg); color: var(--invert-fg); font-weight: 700; }
 .row[aria-selected='true'] .mark { background: var(--invert-fg); }

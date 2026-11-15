@@ -614,7 +614,7 @@ useKeymap({
 .find input {
   height: 24px; width: 184px; padding: 0 var(--sp-2);
   border: 1px solid var(--wire-control); background: transparent; color: var(--fg-base);
-  font-family: var(--font-mono); font-size: var(--fs-xs); letter-spacing: .08em;
+  font-family: var(--font-mono); font-size: var(--text-2xs); letter-spacing: .08em;
 }
 .find input::placeholder { color: var(--fg-meta); }
 .find input:focus { border-color: var(--wire-strong); outline: none; }

@@ -49,7 +49,7 @@ function press(score: number): void {
 <style scoped>
 .rb { display: grid; grid-template-columns: repeat(10, 1fr); gap: 2px; margin: var(--sp-2); }
 .rb-cell {
-  height: 32px; font-size: var(--fs-s); font-weight: 700; color: var(--fg-base);
+  height: 32px; font-size: var(--text-xs); font-weight: 700; color: var(--fg-base);
   border: 1px solid var(--wire-control);
 }
 .rb-cell:focus-visible { outline: 1px solid var(--wire-strong); outline-offset: 1px; }

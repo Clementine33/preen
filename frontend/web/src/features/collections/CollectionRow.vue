@@ -151,23 +151,23 @@ const cover = computed(() => (libraryUi.veil && props.work.nsfw === true
 .cover.hatch::before { content: none; }
 .cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .main { min-width: 0; display: grid; }
-.title { font-family: var(--font-mincho); font-size: var(--fs-m); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.circle { min-width: 0; font-size: var(--fs-s); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.title { font-family: var(--font-mincho); font-size: var(--text-sm); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.circle { min-width: 0; font-size: var(--text-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sub { display: none; }
 .end { display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-2); }
 .playing-tag {
   height: 16px; padding: 0 6px; display: inline-flex; align-items: center;
-  background: var(--now); color: var(--now-fg); font-family: var(--font-mono); font-size: var(--fs-xs); font-weight: 700; letter-spacing: .12em;
+  background: var(--now); color: var(--now-fg); font-family: var(--font-mono); font-size: var(--text-2xs); font-weight: 700; letter-spacing: .12em;
 }
 .handle { align-self: stretch; cursor: grab; opacity: .7; display: grid; place-items: center; }
-.handle::before { content: '⋮⋮'; font-size: var(--fs-xs); letter-spacing: -2px; }
+.handle::before { content: '⋮⋮'; font-size: var(--text-2xs); letter-spacing: -2px; }
 /* The insertion line of a drag; it overlays the row edge, nothing shifts. */
 .drop-above::after, .drop-below::after { content: ''; position: absolute; left: 0; right: 0; height: 2px; background: var(--now); z-index: 1; pointer-events: none; }
 .drop-above::after { top: -1px; }
 .drop-below::after { bottom: -1px; }
 .play, .more {
   width: 28px; height: 28px; border: 1px solid var(--wire-control); background: transparent; color: inherit;
-  font-size: var(--fs-xs); cursor: pointer;
+  font-size: var(--text-2xs); cursor: pointer;
 }
 .play { opacity: 0; }
 .row:hover .play, .row.sel .play, .play:focus-visible { opacity: 1; }

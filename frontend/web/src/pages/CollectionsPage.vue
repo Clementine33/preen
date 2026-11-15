@@ -457,7 +457,7 @@ function onRow(i: number) {
   display: flex; align-items: center; gap: var(--sp-3); padding: 0 var(--sp-3); cursor: pointer;
 }
 .row .sq { flex: none; width: 12px; height: 12px; background: var(--invert-bg); }
-.row .nm { min-width: 0; font-size: var(--fs-m); line-height: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row .nm { min-width: 0; font-size: var(--text-sm); line-height: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .row:hover { background: var(--bg-subtle); }
 .row[aria-selected="true"] { background: var(--invert-bg); color: var(--invert-fg); }
 .row[aria-selected="true"] .sq { background: var(--invert-fg); }
@@ -473,7 +473,7 @@ function onRow(i: number) {
 .deck-strip {
   height: 44px; flex: none; display: flex; align-items: center; gap: var(--sp-3); padding: 0 var(--sp-4);
   background: var(--bg-subtle); box-shadow: inset 0 -1px 0 var(--wire-fine);
-  font-size: var(--fs-l); font-weight: 500; white-space: nowrap; overflow: hidden;
+  font-size: var(--text-xl); font-weight: 500; white-space: nowrap; overflow: hidden;
 }
 .deck-strip::before { content: ''; flex: none; width: 14px; height: 14px; background: var(--invert-bg); }
 .deck-strip span { overflow: hidden; line-height: 28px; text-overflow: ellipsis; animation: wipe 200ms var(--ease-out) both; }
@@ -489,7 +489,7 @@ function onRow(i: number) {
 .ti {
   margin-bottom: 10px; line-height: 22px; /* TITLE_GAP, TITLE_LINE */ overflow: hidden; overflow-wrap: anywhere;
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3;
-  font-family: var(--font-mincho); font-size: var(--fs-m); font-weight: 500;
+  font-family: var(--font-mincho); font-size: var(--text-sm); font-weight: 500;
 }
 .ti .rest { visibility: hidden; }
 
@@ -502,13 +502,13 @@ function onRow(i: number) {
 }
 .hint::after { content: ''; position: absolute; right: 6px; bottom: 6px; width: 8px; height: 8px; background: var(--invert-bg); }
 /* The message takes the free width */
-.msg { flex: 1; min-width: 0; margin-right: auto; font-size: var(--fs-m); letter-spacing: .06em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.msg { flex: 1; min-width: 0; margin-right: auto; font-size: var(--text-sm); letter-spacing: .06em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .msg.now { display: flex; align-items: center; gap: var(--sp-3); padding-block: 4px; } /* room for the rj underline inside .msg's overflow clip */
 .msg.now .st { flex: none; display: grid; place-items: center; padding: 7px; margin: -7px; background: none; border: 0; color: inherit; cursor: pointer; }
 .msg.now .st i { width: 10px; height: 10px; background: linear-gradient(90deg, var(--invert-bg) 35%, transparent 35% 65%, var(--invert-bg) 65%); }
 .msg.now.paused .st i { background: var(--invert-bg); clip-path: polygon(0 0, 100% 50%, 0 100%); }
 .msg.now .st:focus-visible { outline: 1px solid var(--wire-strong); }
-.msg.now .rj, .msg.now .clk { flex: none; font-family: var(--font-mono); font-size: var(--fs-s); color: var(--fg-meta); }
+.msg.now .rj, .msg.now .clk { flex: none; font-family: var(--font-mono); font-size: var(--text-xs); color: var(--fg-meta); }
 .msg.now .rj { text-decoration: none; text-underline-offset: 4px; }
 .msg.now .rj:hover { color: var(--fg-base); text-decoration: underline; }
 .msg.now .tt { min-width: 0; overflow: hidden; text-overflow: ellipsis; }

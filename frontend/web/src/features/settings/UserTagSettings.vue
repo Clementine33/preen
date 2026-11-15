@@ -106,7 +106,7 @@ const deletingCount = computed(() => (deleting.value
     <form class="mt-2.5 flex flex-wrap items-start gap-2" @submit.prevent="submitCreate">
       <input
         v-model="newName"
-        class="field-input h-11! min-w-0 flex-1 text-[16px]! rail:h-[30px]! rail:text-[length:var(--fs-s)]!"
+        class="field-input h-11! min-w-0 flex-1 text-[16px]! rail:h-[30px]! rail:text-[length:var(--text-xs)]!"
         placeholder="新标签名称"
         aria-label="新标签名称"
         autocomplete="off"
@@ -144,7 +144,7 @@ const deletingCount = computed(() => (deleting.value
             <input
               ref="editInput"
               v-model="editName"
-              class="field-input h-11! min-w-0 flex-1 text-[16px]! rail:h-[30px]! rail:text-[length:var(--fs-s)]!"
+              class="field-input h-11! min-w-0 flex-1 text-[16px]! rail:h-[30px]! rail:text-[length:var(--text-xs)]!"
               :aria-label="`重命名「${tag.name}」`"
               :aria-invalid="editError ? true : undefined"
               autocomplete="off"

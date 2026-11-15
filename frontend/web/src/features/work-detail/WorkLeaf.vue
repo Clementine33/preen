@@ -89,13 +89,13 @@ const side = computed(() => {
 <style scoped>
 .leaf { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
 .leaf .strip { position: relative; overflow: visible; }
-.strip-file { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--fg-base); letter-spacing: .04em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.strip-file { font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--fg-base); letter-spacing: .04em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .leaf-body { flex: 1; min-height: 0; overflow: auto; position: relative; margin-top: var(--sp-3); animation: fadein 160ms var(--ease-out); }
 @keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
 .gauge { color: var(--fg-base); white-space: nowrap; }
 
 .seg { display: inline-flex; border: 1px solid var(--wire-mid); }
-.seg-b { height: 16px; padding: 0 8px; font-family: var(--font-mono); font-size: var(--fs-xs); letter-spacing: .12em; color: var(--fg-muted); display: inline-flex; align-items: center; gap: 4px; background: none; border: none; cursor: pointer; }
+.seg-b { height: 16px; padding: 0 8px; font-family: var(--font-mono); font-size: var(--text-2xs); letter-spacing: .12em; color: var(--fg-muted); display: inline-flex; align-items: center; gap: 4px; background: none; border: none; cursor: pointer; }
 .seg-b + .seg-b { border-left: 1px solid var(--wire-fine); }
 .seg-b:hover { background: var(--bg-subtle); color: var(--fg-base); }
 .seg-b[aria-pressed='true'] { background: var(--invert-bg); color: var(--invert-fg); font-weight: 700; }

@@ -114,7 +114,7 @@ const release = computed(() =>
   position: absolute; right: 0; top: 0; height: 16px; padding: 0 6px;
   display: inline-flex; align-items: center; gap: 6px;
   background: var(--now); color: var(--now-fg);
-  font-family: var(--font-mono); font-size: var(--fs-xs); font-weight: 700; letter-spacing: .12em;
+  font-family: var(--font-mono); font-size: var(--text-2xs); font-weight: 700; letter-spacing: .12em;
 }
 
 /* The caption base: rest is quiet; the bone block wipes in from the left
@@ -141,7 +141,7 @@ const release = computed(() =>
 .cap-meta .lbl, .cap-title { transition: color 0s; }
 .cap-title {
   font-family: var(--font-mincho);
-  font-size: var(--fs-s); line-height: var(--lh-s); font-weight: 500; height: 32px;
+  font-size: var(--text-xs); line-height: var(--text-xs--line-height); font-weight: 500; height: 32px;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
 .cell.active .cap::before { clip-path: inset(0 0 0 0); transition: clip-path var(--dur-in) var(--ease-out); }

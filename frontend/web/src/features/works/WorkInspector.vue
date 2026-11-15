@@ -339,9 +339,9 @@ const playIcon = 'M1 0l9 5-9 5z'
 .insp-title {
   margin: 0 0 var(--sp-1);
   font-family: var(--font-mincho);
-  font-size: var(--fs-l); line-height: var(--lh-l); font-weight: 600;
+  font-size: var(--text-xl); line-height: var(--text-xl--line-height); font-weight: 600;
   /* Japanese never carries tracking. */
-  letter-spacing: 0; min-height: var(--lh-l);
+  letter-spacing: 0; min-height: calc(var(--text-xl) * var(--text-xl--line-height));
 }
 
 .spec { margin: 0 0 var(--sp-3); }
@@ -352,7 +352,7 @@ const playIcon = 'M1 0l9 5-9 5z'
   display: grid; grid-template-columns: 64px minmax(0, 1fr); align-items: baseline; gap: var(--sp-2);
   min-height: 28px; padding: 8px 0 6px;
 }
-.spec-row dd { font-size: var(--fs-s); line-height: var(--lh-s); font-weight: 500; overflow-wrap: anywhere; }
+.spec-row dd { font-size: var(--text-xs); line-height: var(--text-xs--line-height); font-weight: 500; overflow-wrap: anywhere; }
 /* A tag list is open-ended: two lines, the rest on hover. */
 .spec-row dd.clamp { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
 .spec { transition: opacity 80ms linear; }

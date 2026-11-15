@@ -43,6 +43,12 @@
   }
 }
 
+/* The one step Tailwind lacks: 10/12 telemetry labels. */
+@theme {
+  --text-2xs: 0.625rem;
+  --text-2xs--line-height: calc(0.75 / 0.625);
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -268,8 +274,8 @@
   }
   body {
     @apply bg-background text-foreground antialiased;
-    font-size: var(--fs-s);
-    line-height: var(--lh-s);
+    font-size: var(--text-xs);
+    line-height: var(--text-xs--line-height);
     font-variant-numeric: tabular-nums;
   }
   /* Native checks take the bone/carbon ink instead of the browser blue. */

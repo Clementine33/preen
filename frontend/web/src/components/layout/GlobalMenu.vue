@@ -53,7 +53,7 @@ function go(value: unknown): void {
           v-for="item in ENTRIES"
           :key="item.id"
           :value="item.id"
-          class="cursor-pointer text-[length:var(--fs-s)] font-medium"
+          class="cursor-pointer text-[length:var(--text-xs)] font-medium"
         >
           {{ item.label }}
         </DropdownMenuRadioItem>

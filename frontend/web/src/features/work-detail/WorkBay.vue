@@ -108,7 +108,7 @@ function pin(): void {
 [data-dock='right'] .bay-inner { height: 100%; }
 
 .chips { display: inline-flex; gap: var(--sp-1); margin-left: var(--sp-3); }
-.chip { height: 16px; padding: 0 6px; font-family: var(--font-mono); font-size: var(--fs-xs); letter-spacing: .08em; color: var(--fg-muted); border: 1px solid var(--wire-fine); display: inline-flex; align-items: center; gap: 4px; background: none; cursor: pointer; }
+.chip { height: 16px; padding: 0 6px; font-family: var(--font-mono); font-size: var(--text-2xs); letter-spacing: .08em; color: var(--fg-muted); border: 1px solid var(--wire-fine); display: inline-flex; align-items: center; gap: 4px; background: none; cursor: pointer; }
 .chip:hover { border-color: var(--wire-mid); color: var(--fg-base); }
 .chip[aria-pressed='true'] { background: var(--invert-bg); color: var(--invert-fg); border-color: var(--invert-bg); font-weight: 700; }
 

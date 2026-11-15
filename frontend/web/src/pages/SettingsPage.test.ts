@@ -231,7 +231,7 @@ describe('settings: keyboard shortcuts', () => {
     expect(wrapper.get('[data-testid="settings-section"]').attributes('aria-label')).toBe('键盘快捷键')
     expect(wrapper.get('.strip-name').text()).toBe('KEYBOARD')
     const list = wrapper.get('[data-testid="settings-keys"]')
-    expect(list.findAll('dt').map(group => group.text())).toEqual(['播放器', '作品墙', '作品详情', '合集'])
+    expect(list.findAll('dt').map(group => group.text())).toEqual(['播放器', '作品墙', '作品详情', '收藏夹'])
     const texts = list.findAll('dd').map(row => row.text())
     for (const descriptor of Object.values(KEYS)) expect(texts.some(row => row.includes(descriptor.text))).toBe(true)
     expect(list.findAll('kbd').map(key => key.text())).toContain('Shift+→')

@@ -157,47 +157,42 @@ function hasOverride(member: WorksetMember): boolean {
 
 <template>
   <div class="flex min-h-0 flex-col">
-    <!-- The toolbar wraps instead of pushing anything out of the container. -->
-    <div class="flex shrink-0 flex-col gap-2 border-b border-border px-3 py-2" data-testid="member-toolbar">
+    <!-- The list head: select-all above the rows' own checkboxes, then search and filters, the shown count last. It wraps instead of pushing anything out of the container. -->
+    <div class="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-[var(--wire-strong)] bg-card py-2 pr-3 pl-4" data-testid="member-toolbar">
+      <input
+        type="checkbox"
+        class="size-5 shrink-0 cursor-pointer"
+        aria-label="全选当前筛选结果"
+        title="全选当前筛选结果"
+        :checked="allVisibleSelected"
+        @change="emit('toggleAll', visibleIds)"
+      >
       <input
         :value="search"
         type="search"
         placeholder="搜索文件夹"
         aria-label="搜索文件夹"
-        class="h-9 w-full rounded-md border border-[var(--control-border)] bg-background px-3 text-sm focus-visible:border-[var(--wire-strong)] focus-visible:outline-none @[641px]:max-w-xs"
+        class="h-7 min-w-40 flex-1 rounded-md border border-[var(--control-border)] bg-background px-2 text-sm focus-visible:border-[var(--wire-strong)] focus-visible:outline-none @[641px]:max-w-xs"
         @input="emit('update:search', ($event.target as HTMLInputElement).value)"
       >
-      <div class="flex flex-wrap items-center gap-1.5" role="group" aria-label="筛选">
+      <div class="flex flex-wrap items-center gap-1" role="group" aria-label="筛选">
         <Button
           v-for="item in FILTERS"
           :key="item.value"
           :variant="filter === item.value ? 'secondary' : 'ghost'"
           size="sm"
-          class="h-9 px-3 text-sm"
+          class="h-7 px-2 text-sm"
           :aria-pressed="filter === item.value"
           @click="emit('update:filter', item.value)"
         >
           {{ item.label }}
         </Button>
       </div>
-      <span v-if="hiddenSelectedCount > 0" class="text-xs text-[var(--text-muted)]" data-testid="hidden-selection">
+      <span class="ml-auto font-mono text-xs text-[var(--text-muted)]">{{ visible.length }} / {{ members.length }}</span>
+      <span v-if="hiddenSelectedCount > 0" class="basis-full text-xs text-[var(--text-muted)]" data-testid="hidden-selection">
         另有 {{ hiddenSelectedCount }} 个已选文件夹被筛选隐藏
       </span>
     </div>
-
-    <label
-      class="flex min-h-11 shrink-0 cursor-pointer items-center gap-3 border-b border-[var(--wire-strong)] bg-card px-3 text-xs text-[var(--text-muted)]"
-    >
-      <input
-        type="checkbox"
-        class="size-5 shrink-0"
-        aria-label="全选当前筛选结果"
-        :checked="allVisibleSelected"
-        @change="emit('toggleAll', visibleIds)"
-      >
-      <span>全选当前筛选结果</span>
-      <span class="ml-auto font-mono">{{ visible.length }} / {{ members.length }}</span>
-    </label>
 
     <div ref="scrollEl" class="min-h-0 flex-1 overflow-y-auto overflow-x-hidden" data-testid="member-scroller">
       <ul
@@ -240,7 +235,7 @@ function hasOverride(member: WorksetMember): boolean {
             </button>
             <span
               v-if="member.rel_path.lastIndexOf('/') > 0"
-              class="mt-0.5 block truncate font-mono text-xs leading-4 text-[var(--text-muted)]"
+              class="mt-0.5 block truncate text-xs leading-4 text-[var(--text-muted)]"
               :title="member.folder_path"
             >
               {{ member.rel_path.slice(0, member.rel_path.lastIndexOf('/')) }}

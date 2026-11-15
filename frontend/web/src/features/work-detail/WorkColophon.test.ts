@@ -350,9 +350,9 @@ describe('add to collection', () => {
       listCollections: vi.fn().mockResolvedValue({ collections: COLS, total: COLS.length }),
       ...overrides,
     })
-    mounted.wrapper.get('[data-testid="work-collections"]').element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }))
+    await mounted.wrapper.get('[data-testid="work-collections"]').trigger('click')
     await flushPromises()
-    const items = () => Array.from(document.body.querySelectorAll<HTMLElement>('[data-testid="work-collection-item"]'))
+    const items = () => Array.from((mounted.wrapper.element as HTMLElement).querySelectorAll<HTMLElement>('[data-testid="work-collection-item"]'))
     const click = async (el: Element | null) => { (el as HTMLElement).click(); await flushPromises() }
     return { ...mounted, items, click }
   }
@@ -361,7 +361,7 @@ describe('add to collection', () => {
     const { wrapper, items } = await openMenu()
     expect(items().map(el => [
       el.dataset.id,
-      el.textContent?.trim(),
+      el.textContent?.replace(/^[■□]/, '').trim(),
       el.getAttribute('aria-checked'),
     ])).toEqual([
       ['c1', 'Sleep', 'true'],
@@ -383,15 +383,15 @@ describe('add to collection', () => {
     wrapper.unmount()
   })
 
-  it('creates 新合集 #N with this work in it and says so', async () => {
-    const create = vi.fn().mockResolvedValue(col('c3', '新合集 #3'))
+  it('creates 新收藏夹 #N with this work in it and says so', async () => {
+    const create = vi.fn().mockResolvedValue(col('c3', '新收藏夹 #3'))
     const append = vi.fn().mockResolvedValue({})
     const { wrapper, click } = await openMenu({ createCollection: create, appendToCollection: append })
-    await click(document.body.querySelector('[data-testid="work-collection-new"]'))
-    expect(create).toHaveBeenCalledWith('新合集 #3')
+    await click((wrapper.element as HTMLElement).querySelector('[data-testid="work-collection-new"]'))
+    expect(create).toHaveBeenCalledWith('新收藏夹 #3')
     expect(append).toHaveBeenCalledWith('c3', [RJ])
-    expect(toast.current.value?.text).toBe('已新建 新合集 #3 并添加')
-    expect(document.body.querySelector('[data-testid="work-collection-new"]')).toBeNull() // the menu closed
+    expect(toast.current.value?.text).toBe('已新建 新收藏夹 #3 并添加')
+    expect(wrapper.find('[data-testid="work-collection-new"]').exists()).toBe(false) // the menu closed
     wrapper.unmount()
   })
 

@@ -111,7 +111,7 @@ const playClock = computed(() => `${fmtT(player.elapsed)} / ${player.duration ==
 const message = computed(() => {
   const col = current.value
   if (!col)
-    return '还没有合集。'
+    return '还没有收藏夹。'
   if (col.work_count === 0)
     return `${col.name} 还是空的。`
   return `${col.name} 收录 ${col.work_count} 部作品。`
@@ -340,11 +340,11 @@ function onRow(i: number) {
 </script>
 
 <template>
-  <section class="page substrate" aria-label="合集" data-testid="collections-page">
-    <header class="flex min-h-14 shrink-0 flex-wrap items-center gap-x-3 gap-y-1.5 edge-bottom px-4 py-1.5 rail:px-5">
+  <section class="page substrate" aria-label="收藏夹" data-testid="collections-page">
+    <header class="page-head">
       <GlobalMenu />
       <div class="min-w-0 flex-1">
-        <h1 class="font-heading text-sm font-semibold">合集</h1>
+        <h1 class="font-heading text-sm font-semibold">收藏夹</h1>
       </div>
       <button class="btn btn-s" type="button" data-testid="collections-new" @click="createNew">+ NEW</button>
     </header>
@@ -356,7 +356,7 @@ function onRow(i: number) {
         </div>
         <div class="panel">
           <div
-            ref="listEl" class="list" role="listbox" tabindex="0" aria-label="合集"
+            ref="listEl" class="list" role="listbox" tabindex="0" aria-label="收藏夹"
             :aria-activedescendant="collections[sel] ? `col-${collections[sel].id}` : undefined"
             @scroll.passive="syncChrome" @wheel.passive="glide = false"
           >

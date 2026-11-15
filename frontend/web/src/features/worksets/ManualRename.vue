@@ -149,8 +149,8 @@ function commit(member: WorksetMember) {
           <Button type="button" size="xs" variant="ghost" data-testid="manual-rename-cancel" @click="editing = null">取消</Button>
         </form>
         <template v-else>
-          <span class="min-w-0 flex-1 truncate font-mono" :title="member.rel_path">{{ member.rel_path }}</span>
-          <span v-if="nameOf.get(member.member_id)" class="truncate font-mono text-[var(--text-secondary)]">
+          <span class="min-w-0 flex-1 truncate" :title="member.rel_path">{{ member.rel_path }}</span>
+          <span v-if="nameOf.get(member.member_id)" class="truncate text-[var(--text-secondary)]">
             → {{ nameOf.get(member.member_id) }}
           </span>
           <Button size="xs" variant="ghost" :disabled="disabled" @click="edit(member)">命名</Button>
@@ -163,7 +163,7 @@ function commit(member: WorksetMember) {
       <p class="font-semibold text-[var(--text-secondary)]">已单独命名 {{ named.length }}</p>
       <ul class="m-0 list-none p-0">
         <li v-for="entry in named" :key="entry.member.member_id" class="flex items-center gap-2">
-          <span class="min-w-0 flex-1 truncate font-mono" :title="entry.member.rel_path">
+          <span class="min-w-0 flex-1 truncate" :title="entry.member.rel_path">
             {{ entry.member.folder_name }} → {{ entry.name }}
           </span>
           <Button

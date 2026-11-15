@@ -88,7 +88,7 @@ function partitionText(partition: string): string {
           <div v-if="group.paths.length">
             <dt class="mb-1 text-muted-foreground">{{ group.label }}</dt>
             <dd class="space-y-1" :data-testid="group.testId">
-              <span v-for="path in group.paths" :key="path" class="block break-all font-mono leading-relaxed" :title="path">
+              <span v-for="path in group.paths" :key="path" class="block break-all leading-relaxed" :title="path">
                 {{ filePath(path, component.root_path) }}
               </span>
             </dd>
@@ -98,7 +98,7 @@ function partitionText(partition: string): string {
           <dt class="mb-1 text-muted-foreground">保留文件</dt>
           <dd class="space-y-2" data-testid="execution-kept">
             <div v-for="file in component.kept_decisions" :key="file.path">
-              <span class="block break-all font-mono leading-relaxed" :title="file.path">{{ filePath(file.path, component.root_path) }}</span>
+              <span class="block break-all leading-relaxed" :title="file.path">{{ filePath(file.path, component.root_path) }}</span>
               <span class="text-xs text-muted-foreground">{{ keepReasonText(file.reason_code) }}</span>
             </div>
           </dd>

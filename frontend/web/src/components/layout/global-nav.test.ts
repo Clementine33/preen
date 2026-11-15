@@ -6,7 +6,7 @@ describe('global navigation definition', () => {
   it('lists the work catalog and collections before the workbench', () => {
     expect(GLOBAL_NAV.map(item => ({ id: item.id, label: item.label, to: item.to }))).toEqual([
       { id: 'works', label: '作品库', to: '/works' },
-      { id: 'collections', label: '合集', to: '/collections' },
+      { id: 'collections', label: '收藏夹', to: '/collections' },
       { id: 'worksets', label: '工作集', to: '/worksets' },
     ])
   })
@@ -35,7 +35,7 @@ describe('global navigation ownership', () => {
     }
   })
 
-  it('keeps the collections page under 合集', () => {
+  it('keeps the collections page under 收藏夹', () => {
     expect(globalNavOwner('collections')).toBe('collections')
   })
 

@@ -50,7 +50,7 @@ export function useCollectionEdit(src: {
 
   function fail(e: unknown) {
     if (e instanceof ApiError && e.code === 'COLLECTION_MEMBER_CONFLICT')
-      toast.show({ text: '合集已在别处变动，已刷新' })
+      toast.show({ text: '收藏夹已在别处变动，已刷新' })
     else toast.error(e)
   }
 

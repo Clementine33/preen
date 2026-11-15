@@ -48,7 +48,7 @@ function isCurrent(id: GlobalNavId): boolean {
       class="rail:flex hidden min-h-0 flex-col border-r border-sidebar-border substrate-panel"
       data-testid="global-rail"
     >
-      <div class="grid h-14 shrink-0 place-items-center" data-testid="app-brand">
+      <div class="grid h-12 shrink-0 place-items-center" data-testid="app-brand">
         <img src="/preen-mark.svg" class="size-8 dark:hidden" alt="" aria-hidden="true">
         <img src="/favicon.svg" class="hidden size-8 dark:block" alt="" aria-hidden="true">
         <span class="sr-only">Preen</span>

@@ -285,7 +285,7 @@ describe('collectionsPage', () => {
   })
 
   describe('creating', () => {
-    it('+ NEW creates 新合集 #N, counting user collections only, and opens it', async () => {
+    it('+ NEW creates 新收藏夹 #N, counting user collections only, and opens it', async () => {
       const stub = { template: '<i />' }
       const router = createRouter({
         history: createMemoryHistory(),
@@ -295,7 +295,7 @@ describe('collectionsPage', () => {
         ],
       })
       await router.push('/')
-      const createCollection = vi.fn().mockResolvedValue(collection('c9', '新合集 #2', 0))
+      const createCollection = vi.fn().mockResolvedValue(collection('c9', '新收藏夹 #2', 0))
       const api = apiStub({
         ...setup().api,
         createCollection,
@@ -314,7 +314,7 @@ describe('collectionsPage', () => {
       await flushPromises()
       await wrapper.get('[data-testid="collections-new"]').trigger('click')
       await flushPromises()
-      expect(createCollection).toHaveBeenCalledWith('新合集 #2') // Favorites + Sleep: one user collection
+      expect(createCollection).toHaveBeenCalledWith('新收藏夹 #2') // Favorites + Sleep: one user collection
       expect(router.currentRoute.value.fullPath).toBe('/collections/c9')
     })
   })

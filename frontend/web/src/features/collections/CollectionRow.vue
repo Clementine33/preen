@@ -116,7 +116,7 @@ const cover = computed(() => (libraryUi.veil && props.work.nsfw === true
               <DropdownMenuItem :disabled="last" data-testid="collection-move-bottom" @select="$emit('move', 'bottom')">移到底部</DropdownMenuItem>
               <DropdownMenuSeparator />
             </template>
-            <DropdownMenuItem variant="destructive" data-testid="collection-remove" @select="$emit('remove')">从合集移除</DropdownMenuItem>
+            <DropdownMenuItem variant="destructive" data-testid="collection-remove" @select="$emit('remove')">从收藏夹移除</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </span>

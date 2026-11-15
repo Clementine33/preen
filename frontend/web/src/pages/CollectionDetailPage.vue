@@ -106,8 +106,8 @@ function backToEntry(): void {
 </script>
 
 <template>
-  <section class="detail substrate" aria-label="合集详情" data-testid="collection-detail-page">
-    <header class="header">
+  <section class="detail substrate" aria-label="收藏夹详情" data-testid="collection-detail-page">
+    <header class="page-head">
       <div class="header-left">
         <GlobalMenu />
         <button class="btn btn-s" type="button" data-testid="collection-back" @click="backToEntry">
@@ -116,11 +116,11 @@ function backToEntry(): void {
         <h1 class="h-title">{{ name }}</h1>
         <DropdownMenu v-if="id !== 'favorites'">
           <DropdownMenuTrigger as-child>
-            <button class="btn btn-s more" type="button" aria-label="合集操作" title="合集操作" data-testid="collection-menu">⋯</button>
+            <button class="btn btn-s more" type="button" aria-label="收藏夹操作" title="收藏夹操作" data-testid="collection-menu">⋯</button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" class="w-36" data-own-keys>
             <DropdownMenuItem data-testid="collection-rename" @select="openRename">重命名</DropdownMenuItem>
-            <DropdownMenuItem variant="destructive" data-testid="collection-delete" @select="dialog = 'delete'">删除合集</DropdownMenuItem>
+            <DropdownMenuItem variant="destructive" data-testid="collection-delete" @select="dialog = 'delete'">删除收藏夹</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -145,17 +145,17 @@ function backToEntry(): void {
         @done="editing = false" @more="!query.isFetchingNextPage.value && query.fetchNextPage()"
       />
       <p v-else-if="query.data.value" class="empty" data-testid="collection-empty">
-        这个合集还是空的。<RouterLink :to="{ name: 'works' }">去作品墙挑选</RouterLink>
+        这个收藏夹还是空的。<RouterLink :to="{ name: 'works' }">去作品墙挑选</RouterLink>
       </p>
     </main>
 
     <PlayerBar />
 
-    <Modal :open="dialog === 'rename'" title="重命名合集" @update:open="dialog = 'none'">
+    <Modal :open="dialog === 'rename'" title="重命名收藏夹" @update:open="dialog = 'none'">
       <form class="grid gap-3" @submit.prevent="submitRename">
         <input
           v-model="draft" class="h-9 w-full rounded-md border border-input bg-transparent px-2 text-sm focus-visible:border-[var(--wire-strong)] focus-visible:outline-none"
-          aria-label="合集名称" data-testid="collection-rename-input"
+          aria-label="收藏夹名称" data-testid="collection-rename-input"
         >
         <p v-if="!trimmed" class="text-xs text-[var(--text-muted)]">名称不能为空。</p>
         <div class="flex justify-end gap-2">
@@ -164,8 +164,8 @@ function backToEntry(): void {
         </div>
       </form>
     </Modal>
-    <Modal :open="dialog === 'delete'" title="删除合集" @update:open="dialog = 'none'">
-      <p class="text-sm">删除合集「{{ name }}」？其中 {{ total }} 部作品与文件不受影响。</p>
+    <Modal :open="dialog === 'delete'" title="删除收藏夹" @update:open="dialog = 'none'">
+      <p class="text-sm">删除收藏夹「{{ name }}」？其中 {{ total }} 部作品与文件不受影响。</p>
       <div class="flex justify-end gap-2">
         <Button variant="ghost" size="sm" @click="dialog = 'none'">取消</Button>
         <Button variant="destructive" size="sm" data-testid="collection-delete-confirm" @click="submitDelete">删除</Button>
@@ -176,10 +176,8 @@ function backToEntry(): void {
 
 <style scoped>
 .detail { display: grid; grid-template-rows: 48px minmax(0, 1fr) auto; width: 100%; height: 100%; font-variant-numeric: tabular-nums; }
-.header { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-4); padding: 0 var(--sp-6); position: relative; min-width: 0; }
-.header::after { content: ''; position: absolute; left: var(--sp-6); right: var(--sp-6); bottom: 0; height: 4px; border-top: 1px solid var(--wire-fine); border-bottom: 2px solid var(--wire-strong); }
 .header-left { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
-.header-meta { display: flex; align-items: center; gap: var(--sp-2); flex-shrink: 0; }
+.header-meta { margin-left: auto; display: flex; align-items: center; gap: var(--sp-2); flex-shrink: 0; }
 .h-title { font-size: var(--text-sm); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 /* A definite row: in an implicit auto row the list's height depends on its
    rows, so any change to one row re-laid out every loaded row. */
@@ -190,8 +188,6 @@ function backToEntry(): void {
 .empty { padding: var(--sp-6); font-size: var(--text-sm); }
 .empty a { margin-left: var(--sp-2); text-decoration: underline; text-underline-offset: 4px; }
 @media (max-width: 900px) {
-  .header { padding: 0 var(--sp-4); }
-  .header::after { left: var(--sp-4); right: var(--sp-4); }
   .header-meta { gap: var(--sp-1); }
   .header-meta :deep(.rs-lbl) { display: none; }
   /* A phone keeps the title readable: BACK and the direction keep only their arrows. */

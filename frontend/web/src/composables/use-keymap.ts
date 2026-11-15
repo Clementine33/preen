@@ -26,7 +26,7 @@ export const GROUP_LABELS: Record<KeyGroup, string> = {
   player: '播放器',
   wall: '作品墙',
   detail: '作品详情',
-  collections: '合集',
+  collections: '收藏夹',
 }
 
 const ARROWS = [
@@ -57,7 +57,7 @@ export const KEYS = {
   'collections.move': key('collections', ARROWS.slice(1, 3), '移动选择'),
   'collections.page': key('collections', ['PageUp', 'PageDown'], '上移 / 下移 5 项'),
   'collections.ends': key('collections', ['Home', 'End'], '第一项 / 最后一项'),
-  'collections.open': key('collections', ['Enter'], '打开所选合集或作品'),
+  'collections.open': key('collections', ['Enter'], '打开所选收藏夹或作品'),
   'collections.redraw': key('collections', ['R'], '重抽封面'),
   'collections.close': key('collections', ['Escape'], '收起展开项 / 结束编辑'),
   'collections.remove': key('collections', ['Delete'], '编辑时移除所选作品'),

@@ -88,7 +88,7 @@ const side = computed(() => {
 <style scoped>
 .leaf { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
 .leaf .strip { position: relative; overflow: visible; }
-.strip-file { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--fg-base); letter-spacing: var(--track-data); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.strip-file { font-size: var(--text-xs); color: var(--fg-base); letter-spacing: var(--track-data); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .leaf-body { flex: 1; min-height: 0; overflow: auto; position: relative; margin-top: var(--sp-3); animation: fadein 160ms var(--ease-out); }
 @keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
 .gauge { color: var(--fg-base); white-space: nowrap; }

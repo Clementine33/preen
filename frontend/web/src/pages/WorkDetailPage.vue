@@ -101,7 +101,7 @@ useKeymap({
 
 <template>
   <section class="detail substrate" :data-dock="store.dock" aria-label="作品详情">
-    <header class="header">
+    <header class="page-head">
       <div class="header-left">
         <GlobalMenu />
         <button class="btn btn-s" type="button" @click="backToWall">
@@ -136,11 +136,9 @@ useKeymap({
   font-variant-numeric: tabular-nums;
 }
 
-.header { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-4); padding: 0 var(--sp-6); position: relative; min-width: 0; }
-.header::after { content: ''; position: absolute; left: var(--sp-6); right: var(--sp-6); bottom: 0; height: 4px; border-top: 1px solid var(--wire-fine); border-bottom: 2px solid var(--wire-strong); }
 .header-left { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
 .h-title { font-family: var(--font-mincho); font-size: var(--text-sm); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; letter-spacing: 0; }
-.header-meta { display: flex; align-items: center; gap: var(--sp-2); flex-shrink: 0; }
+.header-meta { margin-left: auto; display: flex; align-items: center; gap: var(--sp-2); flex-shrink: 0; }
 
 /* ── The stage and the bay: bottom dock = deck beside leaf, bay lifting below;
    right dock = the bay pinned as a column and the stage stacked deck over
@@ -156,8 +154,6 @@ useKeymap({
 [data-dock='right'] .stage.read { grid-template-rows: 180px minmax(0, 1fr); }
 
 @media (max-width: 768px) {
-  .header { padding: 0 var(--sp-4); }
-  .header::after { left: var(--sp-4); right: var(--sp-4); }
   .h-title { display: none !important; }
   [data-dock='bottom'] .main, [data-dock='right'] .main { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
   [data-dock='bottom'] .stage, [data-dock='bottom'] .stage.read,

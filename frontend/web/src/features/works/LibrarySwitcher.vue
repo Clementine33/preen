@@ -57,7 +57,6 @@ const chevron = 'M0 2.5h10L5 8z'
           <span class="lib-mark" />
           <span class="lib-text">
             <span class="nm">ALL LIBRARIES</span>
-            <span class="lbl path">{{ librariesData.length }} ROOTS</span>
           </span>
         </button>
         <button
@@ -68,7 +67,7 @@ const chevron = 'M0 2.5h10L5 8z'
           <span class="lib-mark" />
           <span class="lib-text">
             <span class="nm">{{ item.name }}</span>
-            <span class="lbl lbl-xs path">{{ item.root_path }}{{ item.id === defaultLibraryId ? ' · DEFAULT' : '' }}</span>
+            <span v-if="item.id === defaultLibraryId" class="lbl lbl-xs">DEFAULT</span>
           </span>
         </button>
       </div>
@@ -176,11 +175,9 @@ const chevron = 'M0 2.5h10L5 8z'
 @media (hover: hover) and (pointer: fine) {
   .lib-item:hover .lib-mark { background: var(--wire-mid); }
 }
-.lib-text { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.lib-text { min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
 .lib-text .nm { font-size: var(--text-xs); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.lib-text .lbl {
-  letter-spacing: var(--track-data); text-transform: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
+.lib-text .lbl { flex-shrink: 0; letter-spacing: var(--track-data); text-transform: none; white-space: nowrap; }
 .lib-item[aria-selected='true'] { color: var(--invert-fg); }
 .lib-item[aria-selected='true']::before { background: var(--invert-bg); clip-path: inset(0 0 0 0); }
 .lib-item[aria-selected='true'] .lib-mark { background: var(--invert-fg); }

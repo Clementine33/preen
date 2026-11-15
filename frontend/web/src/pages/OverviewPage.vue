@@ -311,31 +311,17 @@ const libraryRoot = computed(() => activeLibrary.value?.root_path ?? '')
 
         <section class="flex min-h-0 flex-1 flex-col overflow-y-auto" data-testid="overview">
           <div class="mx-auto flex w-full max-w-5xl min-h-0 flex-1 flex-col p-4">
-            <!-- Library identity and its scan actions, scan last (rightmost). -->
+            <!-- Library identity and its scan actions, scan first. -->
             <div class="flex flex-wrap items-start gap-3">
               <div class="min-w-0">
                 <h1 class="truncate font-heading text-base font-semibold">
                   {{ activeLibrary?.name ?? '…' }}
                 </h1>
-                <p class="truncate font-mono text-xs text-[var(--text-muted)]" :title="libraryRoot">
+                <p class="truncate text-xs text-[var(--text-muted)]" :title="libraryRoot">
                   {{ libraryRoot }}
                 </p>
               </div>
               <div class="ml-auto flex items-center gap-2">
-                <Button
-                  v-if="activeLibrary"
-                  size="xs"
-                  variant="outline"
-                  data-testid="full-rescan-button"
-                  :disabled="scanningThisLibrary"
-                  @click="runScan('full')"
-                >
-                  完整重扫
-                </Button>
-                <Button v-if="scanningThisLibrary" size="xs" variant="ghost" data-testid="cancel-scan" @click="libraryScan.cancel">
-                  <Square class="size-3" />
-                  取消
-                </Button>
                 <Button
                   v-if="activeLibrary"
                   size="xs"
@@ -346,6 +332,20 @@ const libraryRoot = computed(() => activeLibrary.value?.root_path ?? '')
                 >
                   <ScanLine class="size-3.5" />
                   {{ scanningThisLibrary ? '扫描中…' : '扫描' }}
+                </Button>
+                <Button v-if="scanningThisLibrary" size="xs" variant="ghost" data-testid="cancel-scan" @click="libraryScan.cancel">
+                  <Square class="size-3" />
+                  取消
+                </Button>
+                <Button
+                  v-if="activeLibrary"
+                  size="xs"
+                  variant="outline"
+                  data-testid="full-rescan-button"
+                  :disabled="scanningThisLibrary"
+                  @click="runScan('full')"
+                >
+                  完整重扫
                 </Button>
               </div>
             </div>
@@ -379,7 +379,7 @@ const libraryRoot = computed(() => activeLibrary.value?.root_path ?? '')
             </p>
             <ul v-if="skipped.length" class="mt-3 space-y-0.5" data-testid="skipped-report">
               <li v-for="item in skipped" :key="item.dir_id" class="text-xs text-[var(--text-secondary)]">
-                <span class="font-mono">{{ dirPathOf.get(item.dir_id) ?? item.dir_id }}</span> — {{ SKIP_TEXT[item.reason] ?? item.reason }}
+                <span>{{ dirPathOf.get(item.dir_id) ?? item.dir_id }}</span> — {{ SKIP_TEXT[item.reason] ?? item.reason }}
               </li>
             </ul>
 

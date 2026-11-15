@@ -16,7 +16,7 @@ for (const mobile of [false, true]) {
     await page.locator('#enqueue').click()
     const task = page.getByTestId('task-toast')
     await expect(task).toBeVisible()
-    await expect(page.getByTestId('toast')).toContainText('已从合集移除')
+    await expect(page.getByTestId('toast')).toContainText('已从收藏夹移除')
     const box = (await task.boundingBox())!
     const viewport = page.viewportSize()!
     expect(box.y).toBeGreaterThanOrEqual(16)

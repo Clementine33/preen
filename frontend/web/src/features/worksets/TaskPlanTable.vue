@@ -84,13 +84,13 @@ function secondLine(component: RenameComponent): string {
       <template #default="{ item }">
         <Badge :tone="ACTIONS[item.action]?.tone ?? 'neutral'">{{ ACTIONS[item.action]?.label ?? item.action }}</Badge>
         <span class="flex min-w-0 flex-col">
-          <span class="truncate font-mono" :title="item.source_name">
+          <span class="truncate" :title="item.source_name">
             <span v-if="parents.get(item.member_id)" class="text-[var(--text-muted)]">{{ parents.get(item.member_id) }}</span>{{ item.source_name }}
             <span v-if="item.observed_name" class="font-sans text-xs text-[var(--text-secondary)]">
               已手动改名为 {{ item.observed_name }}
             </span>
           </span>
-          <span class="truncate font-mono text-[var(--text-secondary)]" :title="secondLine(item)">
+          <span class="truncate text-[var(--text-secondary)]" :title="secondLine(item)">
             ↘ <span v-if="item.action !== 'blocked' && parents.get(item.member_id)" class="text-[var(--text-muted)]">{{ parents.get(item.member_id) }}</span>{{ secondLine(item) }}
           </span>
         </span>

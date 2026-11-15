@@ -172,7 +172,7 @@ function meta(node: TreeModelNode): string {
             </span>
             <span
               v-if="node.type === 'file' && meta(node)"
-              class="block font-mono text-xs text-muted-foreground"
+              class="block font-mono text-2xs text-muted-foreground"
             >
               {{ meta(node) }}
             </span>

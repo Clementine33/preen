@@ -47,7 +47,7 @@ describe('globalMenu', () => {
     const wrapper = await openAt('/worksets/lib-a/conversion/settings')
 
     expect(wrapper.get('[data-testid="global-menu"]').attributes('aria-label')).toBe('全局导航（当前：工作集）')
-    expect(radios().map(item => item.textContent?.trim())).toEqual(['作品库', '合集', '工作集', '设置'])
+    expect(radios().map(item => item.textContent?.trim())).toEqual(['作品库', '收藏夹', '工作集', '设置'])
     expect(radios().map(item => item.getAttribute('aria-checked'))).toEqual(['false', 'false', 'true', 'false'])
   })
 

@@ -269,7 +269,7 @@ const active = computed(() => props.works[sel.value]?.rj)
 
 <template>
   <div
-    ref="scroller" class="list" role="listbox" aria-label="合集作品" tabindex="-1"
+    ref="scroller" class="list" role="listbox" aria-label="收藏夹作品" tabindex="-1"
     :aria-activedescendant="active ? `cw-${active}` : undefined" @dragover="dragOver" @drop="drop"
   >
     <CollectionRow

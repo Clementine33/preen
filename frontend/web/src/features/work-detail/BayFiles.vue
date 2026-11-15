@@ -145,7 +145,7 @@ function isPlaying(entry: WorkContentDir | WorkContentFile): boolean {
 .files { display: flex; flex-direction: column; min-height: 0; flex: 1; }
 
 .crumbs { display: flex; align-items: center; gap: 2px; padding: var(--sp-2) var(--sp-4) var(--sp-2) var(--sp-5); border-bottom: 1px solid var(--wire-fine); flex-shrink: 0; overflow-x: auto; scrollbar-width: none; }
-.crumb { font-family: var(--font-mono); font-size: var(--text-xs); letter-spacing: var(--track-label); color: var(--fg-muted); padding: 0 4px; height: 18px; white-space: nowrap; background: none; border: none; cursor: pointer; }
+.crumb { font-size: var(--text-xs); letter-spacing: var(--track-label); color: var(--fg-muted); padding: 0 4px; height: 18px; white-space: nowrap; background: none; border: none; cursor: pointer; }
 .crumb:hover { color: var(--fg-base); background: var(--bg-subtle); }
 .crumb[aria-current='true'] { color: var(--fg-base); font-weight: 600; }
 .crumb-sep { color: var(--fg-meta); font-family: var(--font-mono); font-size: var(--text-2xs); }

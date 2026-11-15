@@ -109,7 +109,7 @@ test.describe('workset operation smoke', () => {
     await expect(page.getByTestId('member-toolbar')).toBeVisible()
     await expect(page.getByTestId('operation-header')).toBeVisible()
     await expect(page.getByTestId('member-toolbar')).toBeVisible()
-    await expect(page.getByText('尚无计划版本')).toBeVisible()
+    await expect(page.getByTestId('operation-header').getByText('待规划')).toBeVisible()
 
     // 转换 is a group whose label navigates and whose arrow only folds — two
     // adjacent controls; the settings child is reachable while unfolded.

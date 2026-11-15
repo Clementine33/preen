@@ -42,11 +42,11 @@ for (const isMobile of [false, true]) {
       }
 
       await pick('test-mode', '可用源')
-      await pick('test-matched-encoded', '不需要')
+      await pick('test-matched-encoded', 'DEL')
       await expect(page.getByTestId('test-matched-bitrate')).toHaveCount(0)
       await pick('test-matched-encoded', 'Opus')
       await expect(page.getByTestId('test-matched-bitrate')).toBeVisible()
-      await pick('test-matched-lossless', '不需要')
+      await pick('test-matched-lossless', 'DEL')
       await expect(page.getByTestId('test-matched-encoded').getByRole('button', { name: 'Opus' })).toHaveAttribute('aria-pressed', 'true')
 
       // Each row label shares its control's centre line.

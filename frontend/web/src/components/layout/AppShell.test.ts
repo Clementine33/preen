@@ -42,7 +42,7 @@ describe('appShell global navigation', () => {
     await at('/worksets')
     const links = mountShell().get('[data-testid="global-rail"] nav').findAll('a')
 
-    expect(links.map(link => link.text())).toEqual(['作品库', '合集', '工作集'])
+    expect(links.map(link => link.text())).toEqual(['作品库', '收藏夹', '工作集'])
     expect(links.map(link => link.attributes('href'))).toEqual(['/works', '/collections', '/worksets'])
   })
 

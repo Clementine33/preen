@@ -15,7 +15,7 @@ createApp({
         id: 'enqueue',
         onclick: () => {
           edit.show({
-            text: '已从合集移除',
+            text: '已从收藏夹移除',
             action: {
               label: '撤销',
               run: () => {

@@ -64,7 +64,7 @@ function pin(): void {
       <span class="bay-sum lbl">{{ summary }}</span>
       <span class="grow" />
       <button
-        class="btn btn-s pin" type="button" :title="store.dock === 'right' ? '机库停靠底部' : '机库钉在右侧'"
+        class="btn btn-s pin" type="button" :title="store.dock === 'right' ? '停靠底部' : '钉在右侧'"
         @click="pin"
       >{{ store.dock === 'right' ? 'DOCK' : 'PIN' }}</button>
       <!-- A phone has no Esc and no pin: the open drawer says how to put it away. -->

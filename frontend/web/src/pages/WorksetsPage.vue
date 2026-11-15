@@ -137,7 +137,7 @@ async function retryPage() {
 
 <template>
   <section class="flex h-full min-w-0 flex-col substrate" data-testid="worksets-page">
-    <header class="flex min-h-14 shrink-0 flex-wrap items-center gap-x-3 gap-y-1.5 edge-bottom px-4 py-1.5 rail:px-5">
+    <header class="page-head">
       <GlobalMenu />
       <div class="min-w-0 flex-1">
         <h1 class="font-heading text-sm font-semibold">工作集</h1>
@@ -196,7 +196,7 @@ async function retryPage() {
             <LibraryBig class="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
             <span class="min-w-0 flex-1">
               <span class="block truncate font-heading text-sm font-semibold">{{ library.name }}</span>
-              <span class="block truncate font-mono text-xs text-[var(--text-secondary)]">{{ library.root_path }}</span>
+              <span class="block truncate text-xs text-[var(--text-secondary)]">{{ library.root_path }}</span>
             </span>
             <span
               v-if="library.id === defaultLibraryId"

@@ -146,7 +146,7 @@ function dirAt(index: number): LibraryDir {
               </span>
               <span
                 v-if="parentOf(dirAt(virtualItem.index).rel_path)"
-                class="block truncate font-mono text-xs text-muted-foreground"
+                class="block truncate text-xs text-muted-foreground"
                 :title="parentOf(dirAt(virtualItem.index).rel_path)"
               >
                 {{ parentOf(dirAt(virtualItem.index).rel_path) }}

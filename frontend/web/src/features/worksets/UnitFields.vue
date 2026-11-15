@@ -36,12 +36,12 @@ const MODES = [
 // An absent lane is not "do not generate": the declared profile is the
 // partition's final shape, so an undeclared output is removed where one exists.
 const LOSSLESS_CODECS = [
-  { value: '', label: '不需要' },
+  { value: '', label: 'DEL' },
   { value: 'wav', label: 'WAV' },
   { value: 'flac', label: 'FLAC' },
 ]
 const ENCODED_CODECS = [
-  { value: '', label: '不需要' },
+  { value: '', label: 'DEL' },
   { value: 'mp3', label: 'MP3' },
   { value: 'aac', label: 'AAC' },
   { value: 'opus', label: 'Opus' },
@@ -242,7 +242,7 @@ function applyPreset(preset: (typeof PRESETS)[number]) {
       class="text-xs text-[var(--warning-ink)]"
       data-testid="empty-profile-warning"
     >
-      两者都不需要：该分类下的音频将被移除，去向由「旧音频处理」决定。
+      两者都选 DEL：该分类下的音频将被移除，去向由「旧音频处理」决定。
     </p>
     <p v-if="unit === 'no_effect_tags' && tagList.length === 0" role="status" class="text-xs text-[var(--warning-ink)]" :data-testid="`${scope}-no-effect-empty-warning`">
       无音效匹配为空：可以保存草稿，生成计划前需要至少一个标签。

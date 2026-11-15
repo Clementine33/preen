@@ -123,9 +123,9 @@ export function useCollectionMemberWrites() {
   }
 }
 
-/** The default name of the next collection: 新合集 #N, N counting the user collections (not Favorites) plus one. */
+/** The default name of the next collection: 新收藏夹 #N, N counting the user collections (not Favorites) plus one. */
 export function newCollectionName(collections: { id: string }[]): string {
-  return `新合集 #${collections.filter(c => c.id !== 'favorites').length + 1}`
+  return `新收藏夹 #${collections.filter(c => c.id !== 'favorites').length + 1}`
 }
 
 /** Create, rename and delete refresh the `['collections']` prefix; a deleted collection's queries are dropped instead, so nothing refetches into a 404. */

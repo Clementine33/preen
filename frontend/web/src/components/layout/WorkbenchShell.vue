@@ -103,7 +103,7 @@ function onDrawerClick(event: MouseEvent) {
   <DialogRoot :open="narrow && drawerOpen" @update:open="(value: boolean) => (drawerOpen = value)">
     <div class="flex h-full min-h-0 flex-col overflow-hidden substrate text-foreground">
       <header
-        class="flex h-[var(--title-h)] shrink-0 items-center gap-2 edge-bottom px-3"
+        class="page-head"
         data-testid="workbench-header"
       >
         <GlobalMenu />

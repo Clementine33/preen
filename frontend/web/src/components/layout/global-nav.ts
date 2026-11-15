@@ -30,7 +30,7 @@ export const GLOBAL_NAV: readonly GlobalNavItem[] = [
   },
   {
     id: 'collections',
-    label: '合集',
+    label: '收藏夹',
     icon: Layers,
     to: '/collections',
   },

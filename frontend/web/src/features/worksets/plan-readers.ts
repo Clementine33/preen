@@ -318,7 +318,7 @@ export function profileText(profile: DesiredProfile | undefined): string {
   // keeps no managed audio.
   return parts.length > 0
     ? parts.join(' + ')
-    : '不需要'
+    : 'DEL'
 }
 
 const MODE_TEXT: Record<string, string> = { strict: '严格', available_sources: '可用源' }

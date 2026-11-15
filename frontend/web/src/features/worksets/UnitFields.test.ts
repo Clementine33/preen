@@ -24,7 +24,7 @@ function mountFields(value: unknown): VueWrapper {
 }
 
 describe('unitFields', () => {
-  it('seeds the displayed bitrate when an encoded codec is picked from 不需要', () => {
+  it('seeds the displayed bitrate when an encoded codec is picked from DEL', () => {
     const wrapper = mountFields({})
 
     pickCodec(wrapper, 'common-matched-encoded', 'aac')

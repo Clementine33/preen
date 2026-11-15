@@ -548,7 +548,7 @@ function submitDelete() {
       </p>
       <ul class="mt-1 space-y-0.5">
         <li v-for="item in problemItems" :key="item.source" class="text-xs" :data-status="item.status">
-          <span class="font-mono">{{ item.source }}</span>
+          <span>{{ item.source }}</span>
           <span class="text-[var(--text-secondary)]"> — {{ itemStatusText(item) }}</span>
         </li>
         <li v-if="okCount" class="text-xs text-[var(--text-secondary)]">另有 {{ okCount }} 项已完成</li>
@@ -606,7 +606,7 @@ function submitDelete() {
         已成功的项目不会自动撤销；恢复请在系统文件管理器里完成。
       </p>
       <ul class="max-h-32 overflow-y-auto text-xs">
-        <li v-for="source in deleteItems" :key="source" class="font-mono">{{ source }}</li>
+        <li v-for="source in deleteItems" :key="source">{{ source }}</li>
       </ul>
       <div class="flex justify-end gap-2">
         <Button variant="ghost" size="sm" @click="dialog = 'none'">取消</Button>

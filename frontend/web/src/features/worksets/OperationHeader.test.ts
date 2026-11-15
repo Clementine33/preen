@@ -19,10 +19,10 @@ const base = {
 
 describe('operationHeader', () => {
   it('does not repeat the title as the library name', () => {
-    expect(mount(OperationHeader, { props: base }).findAll('p.font-mono')).toHaveLength(0)
+    expect(mount(OperationHeader, { props: base }).findAll('p.truncate')).toHaveLength(0)
     const other = mount(OperationHeader, {
       props: { ...base, libraryName: 'Lib' },
     })
-    expect(other.get('p.font-mono').text()).toBe('Lib')
+    expect(other.get('p.truncate').text()).toBe('Lib')
   })
 })

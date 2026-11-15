@@ -73,8 +73,8 @@ async function logout(): Promise<void> {
 </script>
 
 <template>
-  <section class="flex h-full min-w-0 flex-col substrate" data-testid="settings-page">
-    <header class="flex min-h-14 shrink-0 items-center gap-3 edge-bottom px-4 py-1.5 rail:px-5">
+  <section class="ctl-roomy flex h-full min-w-0 flex-col substrate" data-testid="settings-page">
+    <header class="page-head">
       <GlobalMenu />
       <h1 class="font-heading text-sm font-semibold">设置</h1>
     </header>

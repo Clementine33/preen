@@ -527,7 +527,7 @@ describe('collectionDetailPage', () => {
       getCollection.mockClear()
       dropOn(wrapper, 3, 0)
       await flushPromises()
-      expect(toast.current.value?.text).toBe('合集已在别处变动，已刷新')
+      expect(toast.current.value?.text).toBe('收藏夹已在别处变动，已刷新')
       expect(getCollection).toHaveBeenCalled()
       expect(rows(wrapper).map(r => r.attributes('data-rj'))[0]).toBe('RJ00000001')
       moveCollectionMember.mockRejectedValueOnce(new ApiError(500, 'INTERNAL', 'boom'))
@@ -604,7 +604,7 @@ describe('collectionDetailPage', () => {
         deleteCollection,
       }))
       await openItem('collection-delete')
-      expect(document.body.textContent).toContain('删除合集「Sleep」？其中 3 部作品与文件不受影响。')
+      expect(document.body.textContent).toContain('删除收藏夹「Sleep」？其中 3 部作品与文件不受影响。')
       document.body.querySelector<HTMLElement>('[data-testid="collection-delete-confirm"]')!.click()
       await flushPromises()
       expect(deleteCollection).toHaveBeenCalledWith('c1')

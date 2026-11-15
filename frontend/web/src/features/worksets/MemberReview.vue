@@ -142,14 +142,14 @@ function componentFacts(component: ComponentOutcome): { label: string, tone: 'su
             class="mt-1"
             data-testid="component-decisions"
           >
-            <p v-if="group.dir" class="font-mono text-xs text-[var(--text-muted)] [overflow-wrap:anywhere]">
+            <p v-if="group.dir" class="text-xs text-[var(--text-muted)] [overflow-wrap:anywhere]">
               {{ group.dir }}
             </p>
             <ul class="space-y-0.5">
               <li
                 v-for="row in group.rows"
                 :key="`${row.resolution}-${row.name}`"
-                class="flex gap-1.5 font-mono text-xs leading-4"
+                class="flex gap-1.5 text-xs leading-4"
                 data-testid="component-decision"
               >
                 <span class="w-8 shrink-0 text-[var(--text-secondary)]">

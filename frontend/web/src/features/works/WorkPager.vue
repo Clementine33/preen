@@ -250,8 +250,8 @@ const MARK = 'M5.5.2l2.3 2.3-2.3 2.3-2.3-2.3zM5.5 6.2l2.3 2.3-2.3 2.3-2.3-2.3zM.
 </template>
 
 <style scoped>
-/* One line, 4px of air above and below. */
-.folio { display: flex; justify-content: center; padding: 4px var(--sp-6); }
+/* One line, 4px of air above and below; the footer around it owns the inset. */
+.folio { display: flex; justify-content: center; padding: 4px 0; }
 .row { position: relative; display: flex; align-items: baseline; height: 20px; }
 /* Steps only group a dot with its measure: the row lays out both directly,
    so the numbers share one baseline and the dots one centre line. */
@@ -298,7 +298,6 @@ const MARK = 'M5.5.2l2.3 2.3-2.3 2.3-2.3-2.3zM5.5 6.2l2.3 2.3-2.3 2.3-2.3-2.3zM.
 
 /* A phone draws the turns larger and close in. */
 @media (max-width: 640px) {
-  .folio { padding: 4px var(--sp-4); }
   .turn { width: 32px; margin: 0 2px; font-size: 20px; color: var(--fg-muted); } /* type-scale: exception turn glyph */
   .turn::after { inset: -12px -6px; }
 }

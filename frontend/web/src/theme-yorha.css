@@ -26,7 +26,7 @@
   --cover-ratio: 4 / 3;              /* 560 × 420, never scaled above native */
   --cover-native: 560px;
 
-  --dur-in: 160ms; --dur-out: 90ms; --dur-cursor: 160ms; --dur-ghost-delay: 70ms;
+  --dur-in: 160ms; --dur-out: 90ms; --dur-cursor: 160ms;
   --ease-out: cubic-bezier(.2, .8, .2, 1);
 
   /* Font matrix: mono telemetry, one CJK sans for UI, mincho display. Mincho is

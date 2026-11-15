@@ -25,12 +25,12 @@ const emit = defineEmits<{
   edge: [direction: -1 | 1]
 }>()
 
-const MIN_COL = 184
-const GAP_X = 20
-const GAP_Y = 28
+const MIN_COL = 192
+const GAP_X = 24
+const GAP_Y = 24
 const MOBILE_GAP_X = 12
-/** The caption block under a cover: margin 8 + padding 4 + title 3 × 20 + 6. */
-const CAP_HEIGHT = 78
+/** The caption block under a cover: margin 8 + padding 4 + title 2 × 20 + 6. */
+const CAP_HEIGHT = 58
 
 const wallEl = ref<HTMLElement | null>(null)
 const gridEl = ref<HTMLElement | null>(null)
@@ -52,7 +52,7 @@ onBeforeUnmount(() => {
   resizeObserver?.disconnect()
 })
 
-// The prototype wall is repeat(auto-fill, minmax(184px, 1fr)); with the gutter
+// The prototype wall is repeat(auto-fill, minmax(192px, 1fr)); with the gutter
 // known, the count a browser would pick is deterministic, so we compute it.
 // Mobile is pinned to the prototype's 2 columns.
 const columns = computed(() =>
@@ -139,7 +139,7 @@ function placeCursor() {
   const inRow = selectedIndex.value % columns.value
   // Every row is the same height, so the cursor is placed by arithmetic rather
   // than by measuring the cell.
-  cursorX.value = inRow * (colWidth.value + gapX.value) - 14
+  cursorX.value = inRow * (colWidth.value + gapX.value) - 16
   cursorY.value = rowIndex * rowHeight.value + coverHeight.value + 14
   idleTimer = window.setTimeout(() => {
     cursorIdle.value = true

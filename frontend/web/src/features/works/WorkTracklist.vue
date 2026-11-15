@@ -37,7 +37,8 @@ const tracks = computed(() =>
     ? allTracks.value.filter(track => track.files[codec.value!])
     : allTracks.value,
 )
-// A variant header only helps when the work has more than one variant.
+// A variant header only helps when the work has more than one variant; the
+// root directory (variant '') has no name to show and gets none.
 const multiVariant = computed(() => new Set(tracks.value.map(track => track.variant)).size > 1)
 function showHeader(t: number): boolean {
   return multiVariant.value && tracks.value[t].variant !== tracks.value[t - 1]?.variant
@@ -71,7 +72,7 @@ function playTrack(t: number) {
     </div>
     <div class="tracks" :class="{ dim }" lang="ja">
       <template v-for="(track, t) in tracks" :key="track.key">
-        <div v-if="showHeader(t)" class="var lbl lbl-xs">{{ track.variant || '/' }}</div>
+        <div v-if="showHeader(t) && track.variant" class="var lbl lbl-xs">{{ track.variant }}</div>
         <button
           class="trk" :class="{ now: isPlaying(t) }"
           type="button" :aria-current="isPlaying(t) || undefined" @click="playTrack(t)"

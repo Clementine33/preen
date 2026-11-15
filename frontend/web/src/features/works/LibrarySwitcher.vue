@@ -109,6 +109,9 @@ const chevron = 'M0 2.5h10L5 8z'
   }
 }
 .lib.open .lib-trigger { border-color: var(--wire-strong); }
+@media (min-width: 769px) {
+  .lib-trigger { height: 24px; }
+}
 .lib-name {
   font-size: var(--text-xs); font-weight: 700; max-width: 200px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;

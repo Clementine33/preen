@@ -133,10 +133,10 @@ describe('workWall', () => {
   it('derives the column count from the grid width and drives the grid style with it', async () => {
     const { wrapper, exposed } = await scaffold()
 
-    // floor((800+20)/(184+20)) = 4 columns, exactly what the prototype's
-    // repeat(auto-fill, minmax(184px, 1fr)) would pick at this width.
-    expect(exposed.columns).toBe(4)
-    expect(wrapper.find('.grid').attributes('style')).toMatch(/grid-template-columns: repeat\(4, minmax\(0(px)?, 1fr\)\)/)
+    // floor((800+24)/(192+24)) = 3 columns, exactly what the prototype's
+    // repeat(auto-fill, minmax(192px, 1fr)) would pick at this width.
+    expect(exposed.columns).toBe(3)
+    expect(wrapper.find('.grid').attributes('style')).toMatch(/grid-template-columns: repeat\(3, minmax\(0(px)?, 1fr\)\)/)
   })
 
   it('renders the whole page with exactly one tabbable cell', async () => {
@@ -212,12 +212,12 @@ describe('workWall', () => {
   })
 
   it('places the cursor by row and column', async () => {
-    // Index 5 over 4 columns: row 1, column 1. colWidth = (800-60)/4 = 185,
-    // coverHeight = 138.75, rowHeight = 244.75 — the cursor must sit at the
-    // caption of that cell: x = 1*(185+20)-14, y = 1*244.75+138.75+14.
+    // Index 5 over 3 columns: row 1, column 2 (0-based). colWidth = (800-48)/3 = 250.67,
+    // coverHeight = 188, rowHeight = 270 — the cursor must sit at the
+    // caption of that cell: x = 2*(250.67+24)-16 = 533.33, y = 1*270+188+14 = 472.
     const { wrapper } = await scaffold({ selectedRj: WORKS[5].rj })
 
-    expect(wrapper.find('.cursor').attributes('style')).toContain('translate(191px, 397.5px)')
+    expect(wrapper.find('.cursor').attributes('style')).toMatch(/translate\(533\.33\d*px, 472px\)/)
   })
 
   it('selects on click and opens on double click; a mobile tap routes instead', async () => {

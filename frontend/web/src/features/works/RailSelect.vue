@@ -42,6 +42,8 @@ const props = defineProps<{
   searchable?: boolean
   /** The tab's text for a value no option carries. */
   valueLabel?: string
+  /** A tab at the foot of the page opens its panel above itself, right-aligned. */
+  up?: boolean
 }>()
 
 const model = defineModel<string>({ required: true })
@@ -149,7 +151,7 @@ const chevron = 'M0 2.5h10L5 8z'
 </script>
 
 <template>
-  <div ref="root" class="rs" :class="{ open, active }" @focusout="menu.onFocusOut">
+  <div ref="root" class="rs" :class="{ open, active, up }" @focusout="menu.onFocusOut">
     <button
       ref="trigger" class="rs-trigger" type="button" aria-haspopup="listbox" :aria-expanded="open"
       @click="menu.setOpen(!open)"
@@ -240,6 +242,10 @@ const chevron = 'M0 2.5h10L5 8z'
 .rs.open .rs-menu {
   visibility: visible; clip-path: inset(-8px -8px -8px -8px);
   transition: clip-path 200ms var(--ease-out), visibility 0s;
+}
+@media (min-width: 769px) {
+  .rs.up .rs-menu { top: auto; bottom: calc(100% + 8px); left: auto; right: 0; clip-path: inset(100% 0 0 0); }
+  .rs.up.open .rs-menu { clip-path: inset(-8px -8px -8px -8px); }
 }
 .rs-menu .strip { margin: var(--sp-2) var(--sp-2) var(--sp-1); }
 .rs-menu .strip-name { margin-right: auto; }

@@ -17,7 +17,7 @@ const props = defineProps<{
 }>()
 
 /** The covers of the first rows are on screen at load, so lazy loading only delays them. */
-const EAGER_COVERS = 12
+const EAGER_COVERS = 18
 
 const libraryUi = useLibraryUiStore()
 const { src: realCover, failed } = useCoverSrc(() => ({
@@ -107,8 +107,7 @@ const veiled = computed(() => libraryUi.veil && props.work.nsfw === true)
 }
 
 /* The caption base: rest is quiet; the bone block wipes in from the left
-   (160ms ease-out), the text flips 60ms in, and a 1px ghost frame steps out
-   3px down-right 70ms later. */
+   (160ms ease-out) and the text flips 60ms in. */
 .cap {
   position: relative; isolation: isolate;
   margin-top: var(--sp-2); padding: var(--sp-1) var(--sp-2) 6px;
@@ -120,23 +119,13 @@ const veiled = computed(() => libraryUi.veil && props.work.nsfw === true)
   clip-path: inset(0 100% 0 0);
   transition: clip-path var(--dur-out) var(--ease-out);
 }
-.cap::after {
-  content: ''; position: absolute; inset: 0; z-index: -2;
-  border: 1px solid var(--wire-mid);
-  opacity: 0; transform: translate(0, 0);
-  transition: opacity 60ms linear, transform 60ms linear;
-}
 .cap-title { transition: color 0s; }
 .cap-title {
   font-family: var(--font-mincho);
-  font-size: var(--text-sm); line-height: var(--text-sm--line-height); font-weight: 500; height: calc(3 * var(--text-sm) * var(--text-sm--line-height));
-  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+  font-size: var(--text-sm); line-height: var(--text-sm--line-height); font-weight: 500; height: calc(2 * var(--text-sm) * var(--text-sm--line-height));
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
 .cell.active .cap::before { clip-path: inset(0 0 0 0); transition: clip-path var(--dur-in) var(--ease-out); }
-.cell.active .cap::after {
-  opacity: 1; transform: translate(3px, 3px);
-  transition: opacity 120ms linear var(--dur-ghost-delay), transform 180ms var(--ease-out) var(--dur-ghost-delay);
-}
 .cell.active .cap-title {
   color: var(--invert-fg); transition: color 0s linear 60ms;
 }
@@ -146,12 +135,10 @@ const veiled = computed(() => libraryUi.veil && props.work.nsfw === true)
    page, so the inverted state never shows there. */
 @media (max-width: 768px) {
   .cell.active .cap::before { clip-path: inset(0 100% 0 0); }
-  .cell.active .cap::after { opacity: 0; }
   .cell.active .cap-title { color: inherit; font-weight: 500; }
 }
 /* A burst on the wall (DESIGN.md §7): the caption inverts at once. The wall's class
    is outside this component, so it stays unscoped; only the last compound is scoped. */
 .wall-rapid .cell .cap::before,
-.wall-rapid .cell .cap::after,
 .wall-rapid .cell .cap-title { transition: none; }
 </style>

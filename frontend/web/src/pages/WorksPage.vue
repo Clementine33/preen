@@ -28,9 +28,11 @@ import { useWorkFacets, useWorksList, worksListQueryOptions } from '@/queries/wo
 import { useLibraryUiStore } from '@/stores/library-ui'
 import { usePlayerStore } from '@/stores/player'
 
-// The work wall page: an in-page header, a filter rail, the
-// bench of one numbered page of works with its pager and the inspector, and
-// the player baseline — four rows inside the AppShell's main.
+// The work wall page: one top row (library, filter rail, SORT, FIND and the R18
+// veil), the bench of one numbered page of works with its footer (count, pager,
+// SIZE) and the inspector, and the player baseline — three rows inside the
+// AppShell's main. A phone splits the top row into a bar (menu, library, R18)
+// and the filter rail.
 //
 // State ownership: what the wall shows — library, filters, FIND, order, page,
 // page size and the selected work — is the address's, through useWallQuery and
@@ -500,22 +502,11 @@ useKeymap({
 
 <template>
   <section class="works substrate" aria-label="作品库">
-    <header class="header">
+    <div class="top" :class="{ filtered }">
       <div class="header-left">
         <GlobalMenu />
         <LibrarySwitcher :library="wq.library.value" @select="wq.setLibrary" />
       </div>
-      <div class="header-meta">
-        <button
-          class="btn btn-s" type="button" :aria-pressed="libraryUi.veil"
-          title="观看者选项：R18 作品的封面与插画先以排线遮盖"
-          @click="libraryUi.toggleVeil()"
-        >R18<span class="veil-state">{{ libraryUi.veil ? ' ON' : ' OFF' }}</span></button>
-        <span class="lbl count">WORKS<b>{{ total }}</b></span>
-      </div>
-    </header>
-
-    <div class="rail" :class="{ filtered }">
       <div class="filters" role="group" aria-label="Filter">
         <RailSelect v-model="voiceActor" label="VOICE" :options="voiceActorOptions" marks-active searchable />
         <RailSelect v-model="circle" label="CIRCLE" :options="circleOptions" marks-active searchable />
@@ -533,12 +524,16 @@ useKeymap({
       <!-- Outside .filters: a phone scrolls that row, and CLEAR must stay in view. -->
       <button v-if="filtered" class="lbl rail-clear" type="button" @click="clearFilters">CLEAR</button>
       <div class="rail-right">
-        <RailSelect v-model="sort" label="SORT" :options="SORT_OPTIONS" />
-        <RailSelect v-model="size" class="size" label="SIZE" :options="SIZE_OPTIONS" />
+        <RailSelect v-model="sort" class="sort" label="SORT" :options="SORT_OPTIONS" />
         <label class="find">
           <span class="lbl">FIND</span>
           <input v-model="findText" type="text" placeholder="RJ / TITLE" @keydown.enter="submitFind">
         </label>
+        <button
+          class="btn btn-s veil" type="button" :aria-pressed="libraryUi.veil"
+          title="观看者选项：R18 作品的封面与插画先以排线遮盖"
+          @click="libraryUi.toggleVeil()"
+        >R18<span class="veil-state">{{ libraryUi.veil ? ' ON' : ' OFF' }}</span></button>
       </div>
     </div>
 
@@ -553,7 +548,11 @@ useKeymap({
           @select="wq.select($event)" @open="openWork"
           @edge="(direction) => turnPage(wq.page.value + direction, direction < 0 ? 'last' : 'first', true)"
         />
-        <WorkPager :page="wq.page.value" :page-count="pageCount" @go="turnPage" />
+        <footer class="wall-foot">
+          <span class="lbl count">WORKS<b>{{ total }}</b></span>
+          <WorkPager :page="wq.page.value" :page-count="pageCount" @go="turnPage" />
+          <RailSelect v-model="size" class="size" label="SIZE" :options="SIZE_OPTIONS" up />
+        </footer>
       </div>
       <!-- A phone has no inspector: a tap routes to the detail page instead. -->
       <WorkInspector v-if="!isMobile" :rj="selectedRj" />
@@ -564,42 +563,34 @@ useKeymap({
 </template>
 
 <style scoped>
-/* App rows: header 48, filter rail 40, work area 1fr, bottom bar 28. The two
-   outer edges carry the only double bar (1px fine + 2px strong); everything
-   inside uses single 1px lines. */
+/* App rows: top row (library, filters, SORT, FIND, R18) min 48, work area 1fr,
+   bottom bar 28. The top row's lower edge and the bottom bar's upper edge are
+   the two outer edges and carry the only double bar (1px fine + 2px strong);
+   everything inside uses single 1px lines. A phone splits the top row into a
+   48px bar (menu, library, R18) that keeps the double bar, and the rail. */
 .works {
-  display: grid; grid-template-rows: 48px minmax(40px, auto) minmax(0, 1fr) auto; grid-template-columns: minmax(0, 1fr);
+  display: grid; grid-template-rows: minmax(48px, auto) minmax(0, 1fr) auto; grid-template-columns: minmax(0, 1fr);
   width: 100%; height: 100%;
   font-variant-numeric: tabular-nums;
 }
 
-.header {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 0 var(--sp-6); position: relative;
+.top {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1) var(--sp-4);
+  padding: var(--sp-1) var(--sp-6); position: relative;
 }
-.header::after {
+.top::after {
   content: ''; position: absolute; left: var(--sp-6); right: var(--sp-6); bottom: 0; height: 4px;
   border-top: 1px solid var(--wire-fine); border-bottom: 2px solid var(--wire-strong);
 }
-.header-meta { display: flex; align-items: center; gap: var(--sp-6); }
-.header-meta b { color: var(--fg-base); font-weight: 600; letter-spacing: var(--track-label); }
-
-.rail {
-  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-1) var(--sp-4);
-  padding: var(--sp-1) var(--sp-6); position: relative;
-}
-.rail::after {
-  content: ''; position: absolute; left: var(--sp-6); right: var(--sp-6); bottom: 0;
-  border-bottom: 1px solid var(--wire-fine);
-}
-.filters, .rail-right { display: flex; align-items: center; gap: var(--sp-1); min-width: 0; }
-/* Too narrow for one line, SORT/SIZE/FIND drop to their own line on the right,
+.header-left, .filters, .rail-right { display: flex; align-items: center; gap: var(--sp-1); min-width: 0; }
+.header-left { gap: var(--sp-2); flex-shrink: 0; }
+/* Too narrow for one line, SORT/FIND/R18 drop to their own line on the right,
    leaving the filters the full width; only then do the tabs themselves wrap (a
    set filter widens its tab by its value). */
 .rail-right { gap: var(--sp-4); flex-shrink: 0; margin-left: auto; }
 .filters { flex-wrap: wrap; row-gap: var(--sp-1); }
 
-/* Beside the tabs, as if the last of them: the rail's gap is wider than theirs. */
+/* Beside the tabs, as if the last of them: the row's gap is wider than theirs. */
 .rail-clear {
   height: 24px; padding: 0 var(--sp-3); margin-left: calc(var(--sp-1) - var(--sp-4)); white-space: nowrap;
   color: var(--fg-muted);
@@ -610,6 +601,9 @@ useKeymap({
   .rail-clear { height: auto; min-height: 44px; }
 }
 
+@media (min-width: 769px) {
+  .veil { height: 24px; }
+}
 .find { display: flex; align-items: center; gap: var(--sp-2); flex-shrink: 0; }
 .find input {
   height: 24px; width: 184px; padding: 0 var(--sp-2);
@@ -620,43 +614,62 @@ useKeymap({
 .find input:focus { border-color: var(--wire-strong); outline: none; }
 
 .bench {
-  display: grid; grid-template-columns: minmax(0, 1fr) clamp(400px, 34vw, 608px);
+  display: grid; grid-template-columns: minmax(0, 1fr) clamp(400px, 30vw, 560px);
   min-height: 0;
 }
-/* The wall scrolls; the pager stays under it. */
+/* The wall scrolls; the footer stays under it. */
 .wall-col { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; min-height: 0; min-width: 0; }
 .notice { padding: var(--sp-3) var(--sp-6) 0; letter-spacing: var(--track-data); text-transform: none; }
-.rail .notice { padding: 0 var(--sp-2); }
+.top .notice { padding: 0 var(--sp-2); }
 
-.header-left { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
+/* Count left, pager centred, SIZE right; the pager row may be absent (one page)
+   and the row keeps its height and both ends. */
+.wall-foot {
+  position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center;
+  min-height: 40px; padding: 0 var(--sp-6);
+}
+.wall-foot::before {
+  content: ''; position: absolute; left: var(--sp-6); right: var(--sp-6); top: 0;
+  border-top: 1px solid var(--wire-fine);
+}
+.wall-foot .count { grid-column: 1; }
+.wall-foot .count b { color: var(--fg-base); font-weight: 600; letter-spacing: var(--track-label); }
+.size { grid-column: 3; justify-self: end; }
 
 @media (max-width: 768px) {
   /* A phone's rail cannot hold every tab on one line: the filters scroll
      sideways in one row, SORT stays pinned beside them, and FIND takes its own
      line. The scrolling row clips an absolute dropdown, which is fine: a
-     phone's panels are modal sheets in the top layer. */
-  .works { grid-template-rows: 48px auto minmax(0, 1fr) auto; }
-  .rail {
-    display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center;
-    gap: var(--sp-2) var(--sp-1); padding-block: var(--sp-2);
+     phone's panels are modal sheets in the top layer. The top row is a grid:
+     the bar (menu, library, R18) on a 48px first row that keeps the double bar,
+     then the filters + SORT, then CLEAR + FIND. */
+  .works { grid-template-rows: auto minmax(0, 1fr) auto; }
+  .top {
+    display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-rows: 48px;
+    align-items: center; gap: var(--sp-2) var(--sp-1); padding: 0 var(--sp-4) var(--sp-2);
   }
-  /* The first column exists for CLEAR, pinned at the start of FIND's line; with
-     no CLEAR it is empty and FIND spans the whole line. */
-  .filters { grid-column: 1 / 3; }
-  .rail-clear { grid-area: 2 / 1; margin-left: 0; padding: 0 var(--sp-2); }
-  .rail.filtered .find { grid-area: 2 / 2 / auto / -1; padding-left: 0; }
+  .top::after { left: var(--sp-4); right: var(--sp-4); height: 0; border-top: 0; border-bottom: 1px solid var(--wire-fine); }
+  .header-left { grid-area: 1 / 1 / 2 / -1; align-self: stretch; position: relative; }
+  .header-left::after {
+    content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 4px;
+    border-top: 1px solid var(--wire-fine); border-bottom: 2px solid var(--wire-strong);
+  }
   .rail-right { display: contents; }
-  .filters { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .veil { grid-area: 1 / 3; justify-self: end; z-index: 1; }
+  .veil-state { display: none; }
+  .filters { grid-area: 2 / 1 / 3 / 3; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
   .filters::-webkit-scrollbar { display: none; }
   .filters > * { flex-shrink: 0; }
-  .bench { grid-template-columns: 1fr; }
-  .header { padding: 0 var(--sp-4); }
-  .rail { padding-inline: var(--sp-4); }
-  .header::after, .rail::after { left: var(--sp-4); right: var(--sp-4); }
-  /* A phone keeps the default page size and gives FIND the whole second line. */
-  .size { display: none; }
-  .find { grid-column: 1 / -1; min-width: 0; padding-left: var(--sp-2); }
+  .sort { grid-area: 2 / 3; }
+  /* The first column exists for CLEAR, pinned at the start of FIND's line; with
+     no CLEAR it is empty and FIND spans the whole line. */
+  .rail-clear { grid-area: 3 / 1; margin-left: 0; padding: 0 var(--sp-2); }
+  .find { grid-area: 3 / 1 / auto / -1; min-width: 0; padding-left: var(--sp-2); }
+  .top.filtered .find { grid-area: 3 / 2 / auto / -1; padding-left: 0; }
   .find input { flex: 1; min-width: 0; width: auto; }
-  .header-meta .count, .veil-state { display: none; }
+  .bench { grid-template-columns: 1fr; }
+  /* A phone keeps the default page size and no count: the pager alone. */
+  .wall-foot { display: flex; justify-content: center; min-height: 0; padding: 0 var(--sp-4); }
+  .wall-foot::before, .wall-foot .count, .size { display: none; }
 }
 </style>

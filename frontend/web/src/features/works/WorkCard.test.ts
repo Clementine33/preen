@@ -99,10 +99,10 @@ describe('workCard cover', () => {
     const first = mountCard(work(), 0).get('img')
     expect(first.attributes('loading')).toBe('eager')
     expect(first.attributes('fetchpriority')).toBe('high')
-    const twelfth = mountCard(work(), 11).get('img')
-    expect(twelfth.attributes('loading')).toBe('eager')
-    expect(twelfth.attributes('fetchpriority')).toBeUndefined()
-    expect(mountCard(work(), 12).get('img').attributes('loading')).toBe('lazy')
+    const last = mountCard(work(), 17).get('img')
+    expect(last.attributes('loading')).toBe('eager')
+    expect(last.attributes('fetchpriority')).toBeUndefined()
+    expect(mountCard(work(), 18).get('img').attributes('loading')).toBe('lazy')
   })
 
   it('keeps the remote link for a work without a local cover', () => {

@@ -298,7 +298,7 @@ const playIcon = 'M1 0l9 5-9 5z'
   border-left: 1px solid var(--wire-mid);
   overflow-y: auto; min-height: 0;
   display: flex; flex-direction: column;
-  padding: var(--sp-5) var(--sp-6) var(--sp-5);
+  padding: var(--sp-6) var(--sp-6) var(--sp-5);
   container-type: inline-size;
 }
 

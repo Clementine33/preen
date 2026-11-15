@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { WorkEditionNode, WorkEditionSlot, WorkFacetKind, WorkUserTag } from '@/lib/api/types'
+import { Heart, LayersPlus } from '@lucide/vue'
 import { useQueryClient } from '@tanstack/vue-query'
 import { computed, ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
@@ -227,8 +228,7 @@ function copyTo(copy: { copy_id: string, library_id: string, dir_id: string }) {
 <template>
   <div class="colo" :class="{ compact: props.compact }">
     <div class="colo-head">
-      <span class="strip-name lbl lbl-xs">奥付<span class="jp"> · COLOPHON</span></span>
-      <span class="lbl">{{ work?.rj ?? '—' }}</span>
+      <span class="strip-name lbl lbl-xs">奥付</span>
     </div>
     <h2 class="colo-title" :lang="work?.relation?.language === 'CHI_HANS' ? 'zh-Hans' : work?.relation?.language === 'CHI_HANT' ? 'zh-Hant' : 'ja'">{{ work?.title ?? '—' }}</h2>
 
@@ -247,7 +247,7 @@ function copyTo(copy: { copy_id: string, library_id: string, dir_id: string }) {
       </dd></div>
       <div class="colo-row"><dt>发售</dt>
         <dd><span class="mono">{{ dottedDate(work?.release_date ?? null) }}</span>
-          <template v-if="work?.dl_count !== null && work?.dl_count !== undefined"><span class="sep">·</span><span class="lbl">DL<b>{{ work.dl_count.toLocaleString() }}</b></span></template>
+          <template v-if="work?.dl_count !== null && work?.dl_count !== undefined"><span class="sep">·</span><span class="lbl lbl-xs">DL<b>{{ work.dl_count.toLocaleString() }}</b></span></template>
         </dd>
       </div>
       <div v-if="age" class="colo-row"><dt>分级</dt>
@@ -279,7 +279,7 @@ function copyTo(copy: { copy_id: string, library_id: string, dir_id: string }) {
         </span></dd>
       </div>
       <div v-if="work?.source_tags.length" class="colo-row"><dt>标签</dt>
-        <dd><span class="tags"><span v-for="tag in work.source_tags" :key="tag.id" class="tag">{{ tag.name }}</span></span></dd>
+        <dd><span class="tags"><span v-for="tag in work.source_tags" :key="tag.id" class="tag plain">{{ tag.name }}</span></span></dd>
       </div>
       <div v-if="work?.copies.length" class="colo-row"><dt>副本</dt>
         <dd><span class="copy">
@@ -297,7 +297,7 @@ function copyTo(copy: { copy_id: string, library_id: string, dir_id: string }) {
     <div class="colo-head"><span class="lbl">PERSONAL</span></div>
     <dl class="colo-box">
       <div class="colo-row"><dt>评分</dt>
-        <dd>
+        <dd class="rate-row">
           <span class="rating">
             <i
               v-for="n in 10" :key="n" class="on-able" :class="{ on: rating !== null && n <= rating }"
@@ -305,11 +305,11 @@ function copyTo(copy: { copy_id: string, library_id: string, dir_id: string }) {
               :aria-label="`评分 ${n}`" @click="setRating(n)" @keydown.enter="setRating(n)"
             />
           </span>
-          <span class="lbl"><b>{{ rating ?? '—' }}</b>/10</span>
-          <button class="fav" type="button" :aria-pressed="favorite" @click="toggleFavorite">♥ FAV</button>
+          <span class="lbl lbl-xs"><b>{{ rating ?? '—' }}</b>/10</span>
+          <button class="fav icon" type="button" title="收藏" aria-label="收藏" :aria-pressed="favorite" @click="toggleFavorite"><Heart aria-hidden="true" :fill="favorite ? 'currentColor' : 'none'" /></button>
           <DropdownMenu>
             <DropdownMenuTrigger as-child>
-              <button class="fav" type="button" data-testid="work-collections">+ 合集</button>
+              <button class="fav icon" type="button" title="加入合集" aria-label="加入合集" data-testid="work-collections"><LayersPlus aria-hidden="true" /></button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" class="w-52" data-own-keys>
               <DropdownMenuCheckboxItem
@@ -377,20 +377,23 @@ function copyTo(copy: { copy_id: string, library_id: string, dir_id: string }) {
 /* A printed 奥付: one thin rule under the title, unruled rows, labels justified to a common width. */
 .colo-title + .colo-box { border-top: 1px solid var(--wire-mid); padding-top: var(--sp-3); }
 .colo-row { display: grid; grid-template-columns: 3em 1fr; gap: var(--sp-4); align-items: baseline; padding: 5px 0; }
-.colo-row dt { font-size: var(--text-xs); color: var(--fg-muted); text-align-last: justify; white-space: nowrap; }
-.colo-row dd { font-size: var(--text-xs); font-weight: 500; min-width: 0; position: relative; }
-.mono { font-family: var(--font-mono); font-size: var(--text-2xs); letter-spacing: .06em; }
-.colo-row dd a { color: inherit; text-decoration: underline; text-decoration-color: var(--wire-mid); text-underline-offset: 3px; font-family: var(--font-mono); font-size: var(--text-2xs); word-break: break-all; }
+.colo-row dt { font-size: var(--text-sm); color: var(--fg-muted); text-align-last: justify; white-space: nowrap; }
+.colo-row dd { font-size: var(--text-sm); font-weight: 500; min-width: 0; position: relative; }
+.mono { font-family: var(--font-mono); font-size: var(--text-xs); letter-spacing: var(--track-label); }
+.colo-row dd a { color: inherit; text-decoration: underline; text-decoration-color: var(--wire-mid); text-underline-offset: 3px; font-family: var(--font-mono); font-size: var(--text-xs); word-break: break-all; }
+/* A copy is named by its Library, which the user wrote: it can hold CJK, so it is not the mono of the RJ links. */
+.colo-row dd .copy a { font-family: var(--font-ui); font-size: inherit; word-break: normal; }
 /* Overrides the global `.tags` input-field box (theme-yorha.css). */
 .tags { display: flex; flex-wrap: wrap; gap: 4px; min-height: 0; padding: 0; background: none; border: none; }
 .tags:focus-within { box-shadow: none; }
-.tag { min-height: 18px; padding: 0 6px; display: inline-flex; align-items: center; border: 1px solid transparent; font-size: var(--text-xs); }
+.tag { min-height: 22px; padding: 0 6px; display: inline-flex; align-items: center; border: 1px solid transparent; font-size: var(--text-sm); }
 .tag.add.quiet { opacity: 0; }
 .colo-row:hover .tag.add.quiet, .tag.add.quiet:focus-visible { opacity: 1; }
 .tag[aria-current='true'] { background: var(--invert-bg); color: var(--invert-fg); border-color: var(--invert-bg); font-weight: 700; }
 .tag.add { border-color: var(--wire-mid); }
 .tag.mine:hover { text-decoration: line-through; }
-.tag.add { border-style: dashed; color: var(--fg-meta); font-family: var(--font-mono); }
+.tag.plain { background: none; padding: 0; margin-right: var(--sp-2); } /* plain text, flush with the value column */
+.tag.add { border-style: dashed; color: var(--fg-meta); font-family: var(--font-mono); font-size: var(--text-xs); }
 .ed { display: flex; flex-direction: column; gap: 4px; }
 .rel-warn { display: flex; flex-direction: column; gap: 2px; color: var(--warning-ink); }
 .ed-line { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
@@ -405,24 +408,34 @@ function copyTo(copy: { copy_id: string, library_id: string, dir_id: string }) {
 .tag a { color: inherit; text-decoration: underline; text-decoration-color: var(--wire-mid); text-underline-offset: 3px; margin-left: 4px; }
 .copy { display: grid; grid-template-columns: auto 1fr; gap: 2px var(--sp-2); }
 .copy > span:nth-child(even) { min-width: 0; overflow-wrap: anywhere; }
-.rating { display: inline-flex; gap: 3px; vertical-align: middle; }
-.rating i { width: 10px; height: 10px; border: 1px solid var(--wire-mid); }
+.rate-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1) var(--sp-2); }
+.rate-row .fav { margin-left: 0; }
+.rating { display: inline-flex; gap: 4px; vertical-align: middle; }
+.rating i { width: 14px; height: 14px; border: 1px solid var(--wire-mid); }
 .rating i.on { background: var(--invert-bg); border-color: var(--invert-bg); }
 .rating i[role='button'] { cursor: pointer; }
 .rating i[role='button']:hover { border-color: var(--wire-strong); }
-.fav { font-family: var(--font-mono); font-size: var(--text-xs); letter-spacing: .12em; min-height: 18px; padding: 0 6px; border: 1px solid var(--wire-mid); margin-left: var(--sp-3); color: var(--fg-base); background: none; cursor: pointer; }
+.fav { font-family: var(--font-mono); font-size: var(--text-xs); letter-spacing: var(--track-caps); min-height: 18px; padding: 0 6px; border: 1px solid var(--wire-mid); margin-left: var(--sp-3); color: var(--fg-base); background: none; cursor: pointer; }
 .fav.lead { margin-left: 0; }
+/* An icon-only fav: a square of the same 22px as a tag, glyph 14px on the centre line. */
+.fav.icon { width: 22px; height: 22px; padding: 0; display: inline-grid; place-items: center; }
+.fav.icon svg { width: 14px; height: 14px; }
 .fav[aria-pressed='true'] { background: var(--invert-bg); color: var(--invert-fg); border-color: var(--invert-bg); font-weight: 700; }
 .note { width: 100%; min-height: 64px; resize: vertical; background: transparent; border: 1px solid var(--wire-fine); padding: var(--sp-2); font-size: var(--text-xs); line-height: 20px; color: var(--fg-base); outline: none; }
 .note:focus { border-color: var(--wire-strong); }
 .note:disabled { opacity: .5; }
 .colo-foot { display: flex; justify-content: space-between; }
 /* The + TAG specimen panel, same grammar as the leaf's pair menu. */
-.menu { position: absolute; right: 0; top: calc(100% + 8px); z-index: 20; width: 264px; padding-bottom: var(--sp-2); background: var(--grain), var(--bg-panel); border: 1px solid var(--wire-strong); box-shadow: 4px 4px 0 -1px var(--bg-canvas), 4px 4px 0 0 var(--wire-mid); }
+.menu { position: absolute; left: 0; top: calc(100% + 8px); z-index: 20; width: 264px; padding-bottom: var(--sp-2); background: var(--grain), var(--bg-panel); border: 1px solid var(--wire-strong); box-shadow: 4px 4px 0 -1px var(--bg-canvas), 4px 4px 0 0 var(--wire-mid); }
 .menu .strip { margin: var(--sp-2) var(--sp-2) var(--sp-1); }
 .menu-item { display: flex; align-items: center; gap: var(--sp-2); width: calc(100% - 16px); margin: 0 var(--sp-2); height: 28px; padding: 0 var(--sp-2) 0 var(--sp-1); border-bottom: 1px solid var(--wire-fine); font-size: var(--text-xs); text-align: left; color: var(--fg-base); background: none; cursor: pointer; }
 .menu-item:hover { background: var(--invert-bg); color: var(--invert-fg); }
 .menu-item .glyph { width: 14px; text-align: center; font-family: var(--font-mono); font-size: var(--text-2xs); color: inherit; }
 .menu-item.new-tag { border-bottom: none; }
 .menu-item input { flex: 1; min-width: 0; border: none; border-bottom: 1px solid var(--wire-mid); background: transparent; color: inherit; font-size: var(--text-xs); outline: none; }
+/* A narrower column (a phone, a pinned bay) fits the ten boxes, the score and both icons on one line only with smaller boxes. */
+@media (max-width: 1100px) {
+  .rating { gap: 3px; }
+  .rating i { width: 12px; height: 12px; }
+}
 </style>

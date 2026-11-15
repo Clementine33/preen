@@ -213,11 +213,11 @@ describe('workWall', () => {
 
   it('places the cursor by row and column', async () => {
     // Index 5 over 4 columns: row 1, column 1. colWidth = (800-60)/4 = 185,
-    // coverHeight = 138.75, rowHeight = 228.75 — the cursor must sit at the
-    // caption of that cell: x = 1*(185+20)-14, y = 1*228.75+138.75+14.
+    // coverHeight = 138.75, rowHeight = 244.75 — the cursor must sit at the
+    // caption of that cell: x = 1*(185+20)-14, y = 1*244.75+138.75+14.
     const { wrapper } = await scaffold({ selectedRj: WORKS[5].rj })
 
-    expect(wrapper.find('.cursor').attributes('style')).toContain('translate(191px, 381.5px)')
+    expect(wrapper.find('.cursor').attributes('style')).toContain('translate(191px, 397.5px)')
   })
 
   it('selects on click and opens on double click; a mobile tap routes instead', async () => {

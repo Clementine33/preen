@@ -41,13 +41,6 @@ const listeningTitle = computed(() => {
 })
 
 const veiled = computed(() => libraryUi.veil && props.work.nsfw === true)
-
-/** `YYYY.MM` from the catalog's `YYYY-MM-DD`, or the empty-state dash. */
-const release = computed(() =>
-  props.work.release_date
-    ? props.work.release_date.slice(0, 7).replace('-', '.')
-    : '—',
-)
 </script>
 
 <template>
@@ -70,10 +63,6 @@ const release = computed(() =>
     />
     <span v-if="playing" class="playing-tag">▶ NOW</span>
     <div class="cap">
-      <div class="cap-meta">
-        <span class="lbl">{{ work.rj }}</span>
-        <span class="lbl">{{ release }}</span>
-      </div>
       <div class="cap-title">{{ work.title ?? '—' }}</div>
     </div>
   </div>
@@ -114,7 +103,7 @@ const release = computed(() =>
   position: absolute; right: 0; top: 0; height: 16px; padding: 0 6px;
   display: inline-flex; align-items: center; gap: 6px;
   background: var(--now); color: var(--now-fg);
-  font-family: var(--font-mono); font-size: var(--text-2xs); font-weight: 700; letter-spacing: .12em;
+  font-family: var(--font-mono); font-size: var(--text-2xs); font-weight: 700; letter-spacing: var(--track-caps);
 }
 
 /* The caption base: rest is quiet; the bone block wipes in from the left
@@ -137,19 +126,18 @@ const release = computed(() =>
   opacity: 0; transform: translate(0, 0);
   transition: opacity 60ms linear, transform 60ms linear;
 }
-.cap-meta { display: flex; justify-content: space-between; gap: var(--sp-2); }
-.cap-meta .lbl, .cap-title { transition: color 0s; }
+.cap-title { transition: color 0s; }
 .cap-title {
   font-family: var(--font-mincho);
-  font-size: var(--text-xs); line-height: var(--text-xs--line-height); font-weight: 500; height: calc(2 * var(--text-xs) * var(--text-xs--line-height));
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  font-size: var(--text-sm); line-height: var(--text-sm--line-height); font-weight: 500; height: calc(3 * var(--text-sm) * var(--text-sm--line-height));
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
 }
 .cell.active .cap::before { clip-path: inset(0 0 0 0); transition: clip-path var(--dur-in) var(--ease-out); }
 .cell.active .cap::after {
   opacity: 1; transform: translate(3px, 3px);
   transition: opacity 120ms linear var(--dur-ghost-delay), transform 180ms var(--ease-out) var(--dur-ghost-delay);
 }
-.cell.active .cap-title, .cell.active .cap-meta .lbl {
+.cell.active .cap-title {
   color: var(--invert-fg); transition: color 0s linear 60ms;
 }
 .cell.active .cap-title { font-weight: 700; }
@@ -159,13 +147,11 @@ const release = computed(() =>
 @media (max-width: 768px) {
   .cell.active .cap::before { clip-path: inset(0 100% 0 0); }
   .cell.active .cap::after { opacity: 0; }
-  .cell.active .cap-title, .cell.active .cap-meta .lbl { color: inherit; font-weight: 500; }
-  .cell.active .cap-meta .lbl { color: var(--fg-meta); }
+  .cell.active .cap-title { color: inherit; font-weight: 500; }
 }
 /* A burst on the wall (DESIGN.md §7): the caption inverts at once. The wall's class
    is outside this component, so it stays unscoped; only the last compound is scoped. */
 .wall-rapid .cell .cap::before,
 .wall-rapid .cell .cap::after,
-.wall-rapid .cell .cap-title,
-.wall-rapid .cell .cap-meta .lbl { transition: none; }
+.wall-rapid .cell .cap-title { transition: none; }
 </style>

@@ -19,7 +19,7 @@ import { useLibraryUiStore } from '@/stores/library-ui'
 
 const props = defineProps<{
   rj: string | null
-  /** On the detail page: no wall to return to, so no OPEN DETAIL. */
+  /** On the detail page: no wall to return to, so no DETAIL button. */
   standalone?: boolean
 }>()
 
@@ -286,7 +286,7 @@ const playIcon = 'M1 0l9 5-9 5z'
           <svg viewBox="0 0 10 10" aria-hidden="true"><path :d="playIcon" /></svg>PLAY
         </button>
         <button v-if="!standalone" class="btn" type="button" :disabled="rj === null" @click="openDetail">
-          OPEN DETAIL<svg viewBox="0 0 10 10" aria-hidden="true"><path :d="arrowIcon" /></svg>
+          DETAIL<svg viewBox="0 0 10 10" aria-hidden="true"><path :d="arrowIcon" /></svg>
         </button>
       </div>
     </div>

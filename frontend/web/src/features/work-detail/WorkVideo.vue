@@ -88,8 +88,7 @@ function close(): void {
 .video-modal[open] { display: grid; }
 .video-modal::backdrop { background: var(--bg-canvas); }
 .video-modal .strip { margin: var(--sp-3) var(--sp-4) 0; }
-.video-modal .strip-side { display: flex; align-items: center; gap: var(--sp-3); }
-.strip-file { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--fg-base); letter-spacing: .04em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.strip-file { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--fg-base); letter-spacing: var(--track-data); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .vd-body { position: relative; display: grid; place-items: center; min-height: 0; }
 .vd-body video { max-width: calc(100vw - 112px); max-height: calc(100vh - 96px); box-shadow: 0 0 0 1px var(--wire-mid), 4px 4px 0 -1px var(--bg-canvas), 4px 4px 0 0 var(--wire-mid); }

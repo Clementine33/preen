@@ -160,7 +160,6 @@ const NEXT_ICON = 'M2 0l7 5-7 5z'
   .viewer[open], .viewer[open]::backdrop { opacity: 0; }
 }
 .viewer .strip { margin: var(--sp-3) var(--sp-4) 0; }
-.viewer .strip-side { display: flex; align-items: center; gap: var(--sp-3); }
 
 .seg { display: inline-flex; flex-wrap: nowrap; border: 1px solid var(--wire-mid); }
 .seg > button { height: 20px; padding: 0 var(--sp-2); font-size: inherit; }

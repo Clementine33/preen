@@ -284,10 +284,10 @@ describe('workInspector', () => {
   it('offers no way back to a wall it is not on', async () => {
     const getWork = vi.fn((rj: string) => Promise.resolve(detail(rj, '沢城みゆき')))
     const onWall = await mountInspector(getWork, { rj: FIRST })
-    expect(onWall.text()).toContain('OPEN DETAIL')
+    expect(onWall.text()).toContain('DETAIL')
 
     const standalone = await mountInspector(getWork, { rj: FIRST, standalone: true })
-    expect(standalone.text()).not.toContain('OPEN DETAIL')
+    expect(standalone.text()).not.toContain('DETAIL')
   })
   it('lists the tracks of the first online copy', async () => {
     const getWork = vi.fn((rj: string) => Promise.resolve(detail(rj, '沢城みゆき')))

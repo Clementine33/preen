@@ -48,7 +48,7 @@ beforeEach(() => {
 describe('workLeaf', () => {
   it('starts on the colophon with only the entries that exist', async () => {
     const { wrapper } = await mountLeaf()
-    const buttons = wrapper.findAll('.seg-b')
+    const buttons = wrapper.findAll('.chip')
     expect(buttons).toHaveLength(1)
     expect(buttons[0].text()).toContain('COLOPHON')
   })
@@ -57,14 +57,14 @@ describe('workLeaf', () => {
     const { wrapper, store } = await mountLeaf()
     store.startTrack(1) // 02 has the automatic pairing
     await flushPromises()
-    const labels = wrapper.findAll('.seg-b').map(button => button.text())
+    const labels = wrapper.findAll('.chip').map(button => button.text())
     expect(labels.some(text => text.includes('LISTEN'))).toBe(true)
     expect(store.leaf).toBe('lrc')
 
     store.startTrack(0) // 01 has none
     await flushPromises()
     expect(store.leaf).toBe('colophon')
-    expect(wrapper.findAll('.seg-b').some(button => button.text().includes('LISTEN'))).toBe(false)
+    expect(wrapper.findAll('.chip').some(button => button.text().includes('LISTEN'))).toBe(false)
   })
 
   it('keeps READ once a script has been opened', async () => {
@@ -79,7 +79,7 @@ describe('workLeaf', () => {
     // READ stays after switching away: it is sticky.
     store.setLeaf('colophon')
     await flushPromises()
-    expect(wrapper.findAll('.seg-b').some(button => button.text().includes('READ'))).toBe(true)
+    expect(wrapper.findAll('.chip').some(button => button.text().includes('READ'))).toBe(true)
   })
 
   it.each(['lrc', 'vtt'])('opens a %s file in READ without changing playback or lyric pairing', async (ext) => {

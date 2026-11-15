@@ -281,7 +281,7 @@ const active = computed(() => applied.value > 0)
 .ti-mode { display: inline-flex; border: 1px solid var(--wire-control); }
 .ti-mode button {
   height: 26px; padding: 0 var(--sp-3);
-  font-family: var(--font-mono); font-size: var(--text-2xs); letter-spacing: .12em; color: var(--fg-muted);
+  font-family: var(--font-mono); font-size: var(--text-2xs); letter-spacing: var(--track-caps); color: var(--fg-muted);
 }
 .ti-mode button + button { border-left: 1px solid var(--wire-control); }
 .ti-mode button[aria-checked='true'] { background: var(--invert-bg); color: var(--invert-fg); font-weight: 700; }
@@ -304,10 +304,10 @@ const active = computed(() => applied.value > 0)
 }
 .chip:hover { border-color: var(--wire-strong); }
 .chip:focus-visible { outline: 1px solid var(--wire-strong); outline-offset: 2px; }
-.chip .n { letter-spacing: .04em; }
+.chip .n { letter-spacing: var(--track-data); }
 .chip.on { background: var(--invert-bg); color: var(--invert-fg); border-color: var(--invert-bg); font-weight: 700; }
 .chip.on .n { color: var(--invert-fg); }
-.none { letter-spacing: .04em; text-transform: none; }
+.none { letter-spacing: var(--track-data); text-transform: none; }
 
 .ti-foot {
   display: flex; justify-content: flex-end; gap: var(--sp-2);

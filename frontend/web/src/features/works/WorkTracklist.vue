@@ -100,7 +100,7 @@ function playTrack(t: number) {
 .var { padding: var(--sp-2) var(--sp-2) var(--sp-1); font-family: var(--font-ui); letter-spacing: 0; font-size: var(--text-xs); color: var(--fg-meta); border-bottom: 1px solid var(--wire-fine); }
 .trk:hover { background: var(--bg-subtle); }
 .trk:focus-visible { outline: 1px solid var(--wire-strong); outline-offset: -1px; }
-.trk .lbl { letter-spacing: .04em; }
+.trk .lbl { letter-spacing: var(--track-data); }
 .trk .nm { font-size: var(--text-xs); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .trk .dur { text-align: right; font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--fg-muted); }
 /* The playing track: inverted with the bay's ■ marker ( --now). */
@@ -111,6 +111,6 @@ function playTrack(t: number) {
 .no-tracks {
   display: flex; align-items: center; height: 28px;
   padding: 0 var(--sp-2); border-bottom: 1px solid var(--wire-fine);
-  letter-spacing: .04em; text-transform: none;
+  letter-spacing: var(--track-data); text-transform: none;
 }
 </style>

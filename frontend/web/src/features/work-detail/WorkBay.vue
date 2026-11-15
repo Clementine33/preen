@@ -46,18 +46,18 @@ function pin(): void {
       <button
         class="tab" type="button" :aria-pressed="store.tab === 'tracks' && (store.bayOpen || store.dock === 'right')"
         @click="store.openBayTab('tracks')"
-      ><span class="lbl">TRACKS</span><span class="lbl">{{ trackCount }}</span></button>
+      ><span class="lbl lbl-xs">TRACKS</span><span class="lbl lbl-xs">{{ trackCount }}</span></button>
       <button
         class="tab" type="button" :aria-pressed="store.tab === 'files' && (store.bayOpen || store.dock === 'right')"
         @click="store.openBayTab('files')"
-      ><span class="lbl">FILES</span><span class="lbl">{{ fileTotal }}</span></button>
+      ><span class="lbl lbl-xs">FILES</span><span class="lbl lbl-xs">{{ fileTotal }}</span></button>
       <span v-show="store.tab === 'tracks'" class="chips">
         <button
-          v-for="format in store.formats" :key="format" class="chip" type="button"
+          v-for="format in store.formats" :key="format" class="chip chip-s" type="button"
           :aria-pressed="!store.lrcMode && store.fmt === format" @click="store.setFmt(format)"
         >{{ format }}</button>
         <button
-          v-if="store.lrcFiles.length" class="chip" type="button" :aria-pressed="store.lrcMode" title="歌词文件：选择当前音轨的 LRC / VTT"
+          v-if="store.lrcFiles.length" class="chip chip-s" type="button" :aria-pressed="store.lrcMode" title="歌词文件：选择当前音轨的 LRC / VTT"
           @click="store.showLrc()"
         >LRC</button>
       </span>
@@ -66,7 +66,7 @@ function pin(): void {
       <button
         class="btn btn-s pin" type="button" :title="store.dock === 'right' ? '机库停靠底部' : '机库钉在右侧'"
         @click="pin"
-      >{{ store.dock === 'right' ? 'DOCK BOTTOM' : 'PIN RIGHT' }}</button>
+      >{{ store.dock === 'right' ? 'DOCK' : 'PIN' }}</button>
       <!-- A phone has no Esc and no pin: the open drawer says how to put it away. -->
       <button v-if="store.bayOpen && store.dock === 'bottom'" class="btn btn-s shut" type="button" @click="store.closeBay()">CLOSE</button>
     </div>
@@ -87,7 +87,7 @@ function pin(): void {
 .bay-tabs { height: 32px; display: flex; align-items: center; gap: var(--sp-1); padding: 0 var(--sp-6) 0 var(--sp-4); flex-shrink: 0; }
 [data-dock='right'] .bay-tabs { padding: 0 var(--sp-4); border-bottom: 1px solid var(--wire-fine); }
 
-.tab { position: relative; isolation: isolate; height: 24px; padding: 0 var(--sp-3); white-space: nowrap; color: var(--fg-muted); display: inline-flex; align-items: center; gap: var(--sp-2); background: none; border: none; cursor: pointer; }
+.tab { position: relative; isolation: isolate; height: 20px; padding: 0 var(--sp-3); white-space: nowrap; color: var(--fg-muted); display: inline-flex; align-items: center; gap: var(--sp-2); background: none; border: none; cursor: pointer; }
 .tab::before { content: ''; position: absolute; inset: 0; z-index: -1; background: var(--bg-subtle); clip-path: inset(0 100% 0 0); transition: clip-path var(--dur-out) var(--ease-out); }
 @media (hover: hover) and (pointer: fine) {
   .tab:hover::before { clip-path: inset(0 0 0 0); transition: clip-path var(--dur-in) var(--ease-out); }
@@ -96,7 +96,7 @@ function pin(): void {
 .tab[aria-pressed='true'] { background: var(--invert-bg); color: var(--invert-fg); font-weight: 700; }
 .tab[aria-pressed='true'] .lbl { color: inherit; }
 
-.bay-sum { margin-left: var(--sp-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bay-sum { margin-left: var(--sp-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 [data-dock='right'] .bay-sum { display: none; }
 .bay-tabs .grow { flex: 1; }
 
@@ -107,10 +107,10 @@ function pin(): void {
 [data-dock='right'] .bay-body { max-height: none; flex: 1; }
 [data-dock='right'] .bay-inner { height: 100%; }
 
-.chips { display: inline-flex; gap: var(--sp-1); margin-left: var(--sp-3); }
-.chip { height: 16px; padding: 0 6px; font-family: var(--font-mono); font-size: var(--text-2xs); letter-spacing: .08em; color: var(--fg-muted); border: 1px solid var(--wire-fine); display: inline-flex; align-items: center; gap: 4px; background: none; cursor: pointer; }
-.chip:hover { border-color: var(--wire-mid); color: var(--fg-base); }
-.chip[aria-pressed='true'] { background: var(--invert-bg); color: var(--invert-fg); border-color: var(--invert-bg); font-weight: 700; }
+/* Every control of the bar is 20px on one centre line: tab, chip, button. The chips are
+   a filter of the TRACKS tab, so a wire separates them from the two tabs. */
+.chips { display: inline-flex; gap: var(--sp-1); margin-left: var(--sp-2); padding-left: var(--sp-3); border-left: 1px solid var(--wire-fine); }
+.chips .chip-s { height: 20px; padding: 0 var(--sp-2); }
 
 @media (min-width: 769px) {
   .shut { display: none; }

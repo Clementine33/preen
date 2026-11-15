@@ -33,10 +33,10 @@ const LISTEN = computed(() => {
 const READ = computed(() => (store.scriptSeen && store.activeTxt !== null
   ? { mode: 'script' as const, label: 'READ' }
   : null))
-/** The switcher's items, in v3's order: LISTEN, READ, 奥付. */
+/** The switcher's items, in v3's order: LISTEN, READ, COLOPHON. */
 const items = computed(() => {
   const out: Array<{ mode: 'colophon' | 'lrc' | 'script', label: string }> = [
-    { mode: 'colophon', label: '奥付' },
+    { mode: 'colophon', label: 'COLOPHON' },
   ]
   if (READ.value)
     out.unshift(READ.value)
@@ -66,14 +66,13 @@ const side = computed(() => {
         <template v-if="side">
           <span class="strip-file" lang="ja">{{ side.file }}</span>
         </template>
-        <span class="seg" role="group" aria-label="页叶">
+        <span class="chips" role="group" aria-label="页叶">
           <button
-            v-for="item in items" :key="item.mode" class="seg-b" type="button"
+            v-for="item in items" :key="item.mode" class="chip chip-s" type="button"
             :aria-pressed="store.leaf === item.mode" @click="store.setLeaf(item.mode)"
           >
             <span v-if="item.mode === 'lrc' && playing" class="live" aria-hidden="true" />
-            <span v-if="item.mode === 'colophon'" class="jp">COLOPHON</span>
-            <template v-else>{{ item.label }}</template>
+            {{ item.label }}
           </button>
         </span>
       </span>
@@ -89,18 +88,13 @@ const side = computed(() => {
 <style scoped>
 .leaf { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
 .leaf .strip { position: relative; overflow: visible; }
-.strip-file { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--fg-base); letter-spacing: .04em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.strip-file { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--fg-base); letter-spacing: var(--track-data); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .leaf-body { flex: 1; min-height: 0; overflow: auto; position: relative; margin-top: var(--sp-3); animation: fadein 160ms var(--ease-out); }
 @keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
 .gauge { color: var(--fg-base); white-space: nowrap; }
 
-.seg { display: inline-flex; border: 1px solid var(--wire-mid); }
-.seg-b { height: 16px; padding: 0 8px; font-family: var(--font-mono); font-size: var(--text-xs); letter-spacing: .12em; color: var(--fg-muted); display: inline-flex; align-items: center; gap: 4px; background: none; border: none; cursor: pointer; }
-.seg-b + .seg-b { border-left: 1px solid var(--wire-fine); }
-.seg-b:hover { background: var(--bg-subtle); color: var(--fg-base); }
-.seg-b[aria-pressed='true'] { background: var(--invert-bg); color: var(--invert-fg); font-weight: 700; }
-.seg-b .jp { font-family: var(--font-ui); letter-spacing: 0; }
-.seg-b .live { width: 5px; height: 5px; background: var(--now); }
+.chips { display: inline-flex; gap: var(--sp-1); }
+.chip .live { width: 5px; height: 5px; background: var(--now); }
 
 /* On a phone the page scrolls, so the leaf opens up until READ caps it. */
 @media (max-width: 768px) {

@@ -29,8 +29,8 @@ const MIN_COL = 184
 const GAP_X = 20
 const GAP_Y = 28
 const MOBILE_GAP_X = 12
-/** The caption block under a cover: margin 8 + padding 4 + meta 12 + title 32 + 6. */
-const CAP_HEIGHT = 62
+/** The caption block under a cover: margin 8 + padding 4 + title 3 × 20 + 6. */
+const CAP_HEIGHT = 78
 
 const wallEl = ref<HTMLElement | null>(null)
 const gridEl = ref<HTMLElement | null>(null)

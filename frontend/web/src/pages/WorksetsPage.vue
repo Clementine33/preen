@@ -210,7 +210,7 @@ async function retryPage() {
                one outline, a hairline between, and the segment inverts on hover. -->
           <button
             type="button"
-            class="shrink-0 border-l border-[var(--wire-mid)] px-3 font-mono text-2xs tracking-[.14em] text-[var(--text-secondary)] hover:bg-[var(--invert-bg)] hover:text-[var(--invert-fg)] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset pointer-coarse:min-w-14"
+            class="shrink-0 border-l border-[var(--wire-mid)] px-3 font-mono text-2xs tracking-[var(--track-caps)] text-[var(--text-secondary)] hover:bg-[var(--invert-bg)] hover:text-[var(--invert-fg)] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset pointer-coarse:min-w-14"
             :aria-label="`编辑 ${library.name}`"
             :data-testid="`edit-${library.id}`"
             @click="openEdit(library.id)"

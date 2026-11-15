@@ -145,7 +145,7 @@ function isPlaying(entry: WorkContentDir | WorkContentFile): boolean {
 .files { display: flex; flex-direction: column; min-height: 0; flex: 1; }
 
 .crumbs { display: flex; align-items: center; gap: 2px; padding: var(--sp-2) var(--sp-4) var(--sp-2) var(--sp-5); border-bottom: 1px solid var(--wire-fine); flex-shrink: 0; overflow-x: auto; scrollbar-width: none; }
-.crumb { font-family: var(--font-mono); font-size: var(--text-xs); letter-spacing: .06em; color: var(--fg-muted); padding: 0 4px; height: 18px; white-space: nowrap; background: none; border: none; cursor: pointer; }
+.crumb { font-family: var(--font-mono); font-size: var(--text-xs); letter-spacing: var(--track-label); color: var(--fg-muted); padding: 0 4px; height: 18px; white-space: nowrap; background: none; border: none; cursor: pointer; }
 .crumb:hover { color: var(--fg-base); background: var(--bg-subtle); }
 .crumb[aria-current='true'] { color: var(--fg-base); font-weight: 600; }
 .crumb-sep { color: var(--fg-meta); font-family: var(--font-mono); font-size: var(--text-2xs); }
@@ -167,15 +167,15 @@ function isPlaying(entry: WorkContentDir | WorkContentFile): boolean {
   .row:hover .mark { background: var(--wire-mid); }
 }
 .row .glyph { font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--fg-meta); text-align: center; }
-.row .name { font-size: var(--text-xs); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row .name { font-size: var(--text-sm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .row.dir .name { font-weight: 700; }
-.row .info, .row .size { font-family: var(--font-mono); font-size: var(--text-2xs); letter-spacing: .04em; color: var(--fg-muted); white-space: nowrap; }
+.row .info, .row .size { font-family: var(--font-mono); font-size: var(--text-2xs); letter-spacing: var(--track-data); color: var(--fg-muted); white-space: nowrap; }
 .row .counts { display: inline-flex; gap: var(--sp-2); }
 .row[aria-selected='true'] { background: var(--invert-bg); color: var(--invert-fg); font-weight: 700; }
 .row[aria-selected='true'] .mark { background: var(--invert-fg); }
 .row[aria-selected='true'] .glyph, .row[aria-selected='true'] .info, .row[aria-selected='true'] .size { color: var(--invert-fg); }
 .row.now .mark { background: var(--now); }
-.row .nowtag { font-family: var(--font-mono); font-size: var(--text-2xs); letter-spacing: .12em; background: var(--now); color: var(--now-fg); padding: 0 4px; margin-left: var(--sp-2); font-weight: 700; }
+.row .nowtag { font-family: var(--font-mono); font-size: var(--text-2xs); letter-spacing: var(--track-caps); background: var(--now); color: var(--now-fg); padding: 0 4px; margin-left: var(--sp-2); font-weight: 700; }
 
 @media (max-width: 768px) {
   .list-head, .row { grid-template-columns: 14px 18px minmax(0, 1fr) 64px; }

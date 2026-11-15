@@ -157,10 +157,10 @@ const cover = computed(() => (libraryUi.veil && props.work.nsfw === true
 .end { display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-2); }
 .playing-tag {
   height: 16px; padding: 0 6px; display: inline-flex; align-items: center;
-  background: var(--now); color: var(--now-fg); font-family: var(--font-mono); font-size: var(--text-2xs); font-weight: 700; letter-spacing: .12em;
+  background: var(--now); color: var(--now-fg); font-family: var(--font-mono); font-size: var(--text-2xs); font-weight: 700; letter-spacing: var(--track-caps);
 }
 .handle { align-self: stretch; cursor: grab; opacity: .7; display: grid; place-items: center; }
-.handle::before { content: '⋮⋮'; font-size: var(--text-2xs); letter-spacing: -2px; }
+.handle::before { content: '⋮⋮'; font-size: var(--text-2xs); letter-spacing: -2px; } /* type-scale: exception tightens the two dots of the drag glyph */
 /* The insertion line of a drag; it overlays the row edge, nothing shifts. */
 .drop-above::after, .drop-below::after { content: ''; position: absolute; left: 0; right: 0; height: 2px; background: var(--now); z-index: 1; pointer-events: none; }
 .drop-above::after { top: -1px; }

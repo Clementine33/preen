@@ -19,6 +19,8 @@
 /* ── Type scale, spacing, motion, covers, fonts (theme-invariant) ── */
 :root {
   /* Type scale lives in Tailwind's --text-* (style.css @theme); spacing in 4px multiples */
+  /* Letter-spacing: three tiers for mono text; sans and CJK text uses 0 (DESIGN.md §6). */
+  --track-data: .04em; --track-label: .08em; --track-caps: .14em;
   --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 20px; --sp-6: 24px;
 
   --cover-ratio: 4 / 3;              /* 560 × 420, never scaled above native */
@@ -91,9 +93,9 @@
      by "::". The "·" divider lives only in key hints and the track total. ── */
 .lbl {
   font-family: var(--font-mono); font-size: var(--text-2xs); line-height: var(--text-2xs--line-height);
-  letter-spacing: .14em; text-transform: uppercase; color: var(--fg-meta);
+  letter-spacing: var(--track-caps); text-transform: uppercase; color: var(--fg-meta);
 }
-.lbl-xs { font-size: var(--text-xs); line-height: var(--text-xs--line-height); } /* a label whose text can be CJK */
+.lbl-xs { font-size: var(--text-xs); line-height: var(--text-xs--line-height); letter-spacing: var(--track-label); } /* a label whose text can be CJK: a lighter tracking than the Latin 0.14em */
 .sep { color: var(--fg-meta); padding: 0 .5em; letter-spacing: 0; }
 .lbl > b { margin-left: var(--sp-2); }
 
@@ -124,6 +126,7 @@
   padding: 0 var(--sp-2); background: var(--bg-subtle);
 }
 .strip .lbl { color: var(--fg-muted); }
+.strip-side { display: flex; align-items: center; gap: var(--sp-3); min-width: 0; } /* the strip's right group: chips, counters, buttons on one centre line */
 .strip-name { display: inline-flex; align-items: center; gap: var(--sp-2); }
 .strip-name::before { content: ''; width: 6px; height: 6px; background: var(--invert-bg); }
 
@@ -147,7 +150,7 @@
 }
 .hatch::before {
   content: 'NO COVER';
-  font-family: var(--font-mono); font-size: var(--text-2xs); letter-spacing: .14em;
+  font-family: var(--font-mono); font-size: var(--text-2xs); letter-spacing: var(--track-caps);
   color: var(--fg-meta); background: var(--bg-panel); padding: 0 var(--sp-2);
 }
 
@@ -158,7 +161,7 @@
   position: relative; isolation: isolate;
   display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-2);
   height: 36px; padding: 0 var(--sp-4);
-  font-family: var(--font-mono); font-size: var(--text-xs); line-height: 1; letter-spacing: .14em;
+  font-family: var(--font-mono); font-size: var(--text-xs); line-height: 1; letter-spacing: var(--track-caps);
   text-transform: uppercase; white-space: nowrap; color: var(--fg-base);
   border: 1px solid var(--wire-mid);
   transition: color 0s, border-color var(--dur-out) linear, transform 80ms var(--ease-out), box-shadow 80ms var(--ease-out);
@@ -215,7 +218,7 @@
 .seg > button[aria-pressed="true"] { background: var(--invert-bg); color: var(--invert-fg); }
 .seg > button:disabled { color: var(--fg-meta); cursor: not-allowed; }
 .seg > button:focus-visible { z-index: 1; outline: 1px solid var(--wire-strong); outline-offset: 2px; }
-.seg.mono > button { font-family: var(--font-mono); letter-spacing: .06em; }
+.seg.mono > button { font-family: var(--font-mono); letter-spacing: var(--track-label); }
 
 .opts { display: grid; gap: var(--sp-2); }
 .opt { position: relative; display: grid; grid-template-columns: 12px minmax(0, 1fr); gap: var(--sp-2); padding: var(--sp-2) var(--sp-3); border: 1px solid var(--wire-fine); cursor: pointer; font-size: var(--text-sm); line-height: var(--text-sm--line-height); }
@@ -241,10 +244,14 @@
 .switch input:focus-visible + .track { outline: 1px solid var(--wire-strong); outline-offset: 2px; }
 .switch:has(input:disabled) { cursor: not-allowed; opacity: .55; }
 
-.chip { height: 22px; padding: 0 var(--sp-2); border: 1px solid var(--wire-mid); font-family: var(--font-mono); font-size: var(--text-xs); letter-spacing: .06em; white-space: nowrap; }
+.chip { height: 22px; padding: 0 var(--sp-2); border: 1px solid var(--wire-mid); font-family: var(--font-mono); font-size: var(--text-xs); letter-spacing: var(--track-label); white-space: nowrap; }
 .chip:hover:not(:disabled) { border-color: var(--wire-strong); }
 .chip[aria-pressed="true"] { background: var(--invert-bg); color: var(--invert-fg); border-color: var(--invert-bg); }
 .chip:focus-visible { outline: 1px solid var(--wire-strong); outline-offset: 2px; }
+/* The compact chip of a strip (format filter, plate tabs): quieter at rest, bold when pressed. */
+.chip-s { height: 16px; padding: 0 6px; gap: 4px; display: inline-flex; align-items: center; flex-shrink: 0; letter-spacing: var(--track-label); color: var(--fg-muted); border-color: var(--wire-fine); background: none; cursor: pointer; }
+.chip-s:hover:not(:disabled, [aria-pressed="true"]) { border-color: var(--wire-mid); color: var(--fg-base); }
+.chip-s[aria-pressed="true"] { color: var(--invert-fg); border-color: var(--invert-bg); font-weight: 700; }
 
 .field-input { height: 30px; min-width: 0; padding: 0 var(--sp-2); background: var(--bg-canvas); border: 1px solid var(--wire-control); border-radius: 0; font-size: var(--text-sm); }
 .field-input:focus, .tags:focus-within { outline: none; border-color: var(--wire-strong); box-shadow: inset 0 0 0 1px var(--wire-strong); }

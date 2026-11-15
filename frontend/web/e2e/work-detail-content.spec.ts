@@ -49,7 +49,7 @@ test('work content updates from background measurement without restarting audio'
       0xCD,
     ]))
     const created = await request.post(`${api}/libraries`, {
-      data: { name: 'Detail acceptance', root_path: root },
+      data: { name: '詳細受入 Detail acceptance', root_path: root },
     })
     expect(created.ok()).toBe(true)
     libraryId = (await created.json()).id

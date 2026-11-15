@@ -51,7 +51,7 @@ export const router = createRouter({
     { path: '/worksets', name: 'worksets', component: WorksetsPage },
 
     // The work catalog: the wall of works, and one work's detail
-    // page — the mobile tap target and OPEN DETAIL. The wall keeps its selected
+    // page — the mobile tap target and the inspector's DETAIL button. The wall keeps its selected
     // work in the `?rj=` identity, never a search term.
     { path: '/works', name: 'works', component: WorksPage },
     { path: '/works/:rj', name: 'work-detail', component: WorkDetailPage },

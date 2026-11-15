@@ -176,7 +176,7 @@ const chevron = 'M0 2.5h10L5 8z'
 .lib-text { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .lib-text .nm { font-size: var(--text-xs); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lib-text .lbl {
-  letter-spacing: .04em; text-transform: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  letter-spacing: var(--track-data); text-transform: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .lib-item[aria-selected='true'] { color: var(--invert-fg); }
 .lib-item[aria-selected='true']::before { background: var(--invert-bg); clip-path: inset(0 0 0 0); }

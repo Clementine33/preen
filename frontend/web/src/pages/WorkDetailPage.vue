@@ -107,8 +107,9 @@ useKeymap({
         <button class="btn btn-s" type="button" @click="backToWall">
           <svg viewBox="0 0 10 10" aria-hidden="true" style="transform: scaleX(-1)"><path d="M0 4.5h7.2L4.6 1.9l.7-.7L9.1 5 5.3 8.8l-.7-.7 2.6-2.6H0z" /></svg>BACK
         </button>
-        <span class="lbl">{{ rj ?? '—' }}</span>
-        <span class="h-title" :lang="work?.relation?.language === 'CHI_HANS' ? 'zh-Hans' : work?.relation?.language === 'CHI_HANT' ? 'zh-Hant' : 'ja'">{{ work?.title ?? '' }}</span>
+        <span v-show="store.leaf !== 'colophon' && !store.flipped" class="lbl lbl-xs">{{ rj ?? '—' }}</span>
+        <!-- The colophon (leaf or the plate's back) already heads with the title. -->
+        <span v-show="store.leaf !== 'colophon' && !store.flipped" class="h-title" :lang="work?.relation?.language === 'CHI_HANS' ? 'zh-Hans' : work?.relation?.language === 'CHI_HANT' ? 'zh-Hant' : 'ja'">{{ work?.title ?? '' }}</span>
       </div>
     </header>
 
@@ -138,7 +139,7 @@ useKeymap({
 .header { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-4); padding: 0 var(--sp-6); position: relative; min-width: 0; }
 .header::after { content: ''; position: absolute; left: var(--sp-6); right: var(--sp-6); bottom: 0; height: 4px; border-top: 1px solid var(--wire-fine); border-bottom: 2px solid var(--wire-strong); }
 .header-left { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
-.h-title { font-family: var(--font-mincho); font-size: var(--text-sm); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; letter-spacing: 0; }
+.h-title { font-family: var(--font-mincho); font-size: var(--text-sm); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; letter-spacing: 0; }
 .header-meta { display: flex; align-items: center; gap: var(--sp-2); flex-shrink: 0; }
 
 /* ── The stage and the bay: bottom dock = deck beside leaf, bay lifting below;

@@ -510,7 +510,7 @@ useKeymap({
           class="btn btn-s" type="button" :aria-pressed="libraryUi.veil"
           title="观看者选项：R18 作品的封面与插画先以排线遮盖"
           @click="libraryUi.toggleVeil()"
-        >R18<span class="veil-state">{{ libraryUi.veil ? ' VEIL ON' : ' VEIL OFF' }}</span></button>
+        >R18<span class="veil-state">{{ libraryUi.veil ? ' ON' : ' OFF' }}</span></button>
         <span class="lbl count">WORKS<b>{{ total }}</b></span>
       </div>
     </header>
@@ -582,7 +582,7 @@ useKeymap({
   border-top: 1px solid var(--wire-fine); border-bottom: 2px solid var(--wire-strong);
 }
 .header-meta { display: flex; align-items: center; gap: var(--sp-6); }
-.header-meta b { color: var(--fg-base); font-weight: 600; letter-spacing: .08em; }
+.header-meta b { color: var(--fg-base); font-weight: 600; letter-spacing: var(--track-label); }
 
 .rail {
   display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-1) var(--sp-4);
@@ -614,7 +614,7 @@ useKeymap({
 .find input {
   height: 24px; width: 184px; padding: 0 var(--sp-2);
   border: 1px solid var(--wire-control); background: transparent; color: var(--fg-base);
-  font-family: var(--font-mono); font-size: var(--text-xs); letter-spacing: .08em;
+  font-family: var(--font-mono); font-size: var(--text-xs); letter-spacing: var(--track-label);
 }
 .find input::placeholder { color: var(--fg-meta); }
 .find input:focus { border-color: var(--wire-strong); outline: none; }
@@ -625,7 +625,7 @@ useKeymap({
 }
 /* The wall scrolls; the pager stays under it. */
 .wall-col { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; min-height: 0; min-width: 0; }
-.notice { padding: var(--sp-3) var(--sp-6) 0; letter-spacing: .04em; text-transform: none; }
+.notice { padding: var(--sp-3) var(--sp-6) 0; letter-spacing: var(--track-data); text-transform: none; }
 .rail .notice { padding: 0 var(--sp-2); }
 
 .header-left { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }

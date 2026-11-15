@@ -134,14 +134,14 @@ useKeymap({
 .var { padding: var(--sp-2) var(--sp-6) var(--sp-1) var(--sp-5); font-family: var(--font-ui); letter-spacing: 0; font-size: var(--text-xs); color: var(--fg-meta); border-bottom: 1px solid var(--wire-fine); }
 .trk:hover { background: var(--bg-subtle); }
 .trk.cur { outline: 1px solid var(--wire-strong); outline-offset: -1px; }
-.trk .lbl { letter-spacing: .04em; }
+.trk .lbl { letter-spacing: var(--track-data); }
 .trk .nm-wrap { display: flex; align-items: center; gap: var(--sp-3); min-width: 0; }
-.trk .nm { font-size: var(--text-xs); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.trk .nm { font-size: var(--text-sm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .trk .tail { display: flex; align-items: center; gap: var(--sp-3); }
 .trk .meter { display: flex; gap: 2px; }
 .trk .meter i { width: 4px; height: 6px; background: var(--wire-fine); }
 .trk .meter i.on { background: var(--fg-meta); }
-.trk .only { flex-shrink: 0; font-family: var(--font-mono); font-size: var(--text-2xs); letter-spacing: .12em; padding: 0 4px; border: 1px solid var(--wire-mid); color: var(--fg-muted); }
+.trk .only { flex-shrink: 0; font-family: var(--font-mono); font-size: var(--text-2xs); letter-spacing: var(--track-caps); padding: 0 4px; border: 1px solid var(--wire-mid); color: var(--fg-muted); }
 .trk .has-lrc { flex-shrink: 0; font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--fg-meta); }
 .trk .dur { min-width: 40px; text-align: right; font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--fg-muted); }
 .trk.missing { color: var(--fg-meta); }

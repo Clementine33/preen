@@ -89,7 +89,7 @@ async function logout(): Promise<void> {
           :key="item.id"
           :to="{ name: 'settings', params: { section: item.id } }"
           :aria-current="section.id === item.id ? 'page' : undefined"
-          class="flex min-h-11 shrink-0 whitespace-nowrap items-center px-3 text-xs font-medium focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none rail:min-h-8"
+          class="flex min-h-11 shrink-0 whitespace-nowrap items-center px-3 text-sm font-medium focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none rail:min-h-8"
           :class="section.id === item.id ? 'bg-primary text-primary-foreground' : 'text-[var(--text-secondary)] hover:bg-accent hover:text-foreground'"
           :data-testid="`settings-nav-${item.id}`"
         >

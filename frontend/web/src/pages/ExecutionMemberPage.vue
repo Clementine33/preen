@@ -55,7 +55,7 @@ const backRoute = computed(() => ({
     <p v-else-if="memberQuery.error.value" class="p-3 text-xs text-[var(--danger-ink)]" role="alert">读取执行结果失败。</p>
     <template v-else-if="view?.member">
       <div class="flex flex-wrap items-center gap-2 border-b border-[var(--wire-strong)] px-4 py-2.5">
-        <span class="min-w-0 break-words font-heading text-xs font-semibold" data-testid="execution-member-title" :title="view.member.root_path">{{ name }}</span>
+        <span class="min-w-0 break-words font-heading text-sm font-semibold" data-testid="execution-member-title" :title="view.member.root_path">{{ name }}</span>
         <Badge :tone="MEMBER_STATUS[view.member.status].tone" data-testid="execution-member-status">{{ MEMBER_STATUS[view.member.status].label }}</Badge>
         <span class="font-mono text-xs tabular-nums" data-testid="execution-member-progress">
           组件 {{ view.member.completed_components }}/{{ view.member.total_components }} · 操作 {{ view.member.completed_operations }}/{{ view.member.total_operations }}

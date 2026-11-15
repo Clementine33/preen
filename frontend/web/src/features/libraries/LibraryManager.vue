@@ -69,7 +69,7 @@ function submit() {
     @close="emit('close')"
   >
     <form @submit.prevent="submit">
-      <label class="block text-xs font-medium" for="library-name">名称</label>
+      <label class="block text-sm font-medium" for="library-name">名称</label>
       <input
         id="library-name"
         v-model="name"
@@ -78,7 +78,7 @@ function submit() {
         class="mt-1.5 h-11 w-full rounded-md border border-input bg-transparent px-3 text-[length:var(--input-font)] focus-visible:border-[var(--wire-strong)] focus-visible:outline-none rail:h-9 rail:text-sm"
       >
 
-      <label class="mt-4 block text-xs font-medium" for="library-root">根目录</label>
+      <label class="mt-4 block text-sm font-medium" for="library-root">根目录</label>
       <div class="mt-1.5 flex gap-2">
         <input
           id="library-root"
@@ -108,7 +108,7 @@ function submit() {
       <label class="mt-4 flex min-h-11 cursor-pointer items-start gap-3 rail:min-h-0">
         <input v-model="ssd" type="checkbox" class="mt-0.5 size-4 shrink-0" data-testid="library-ssd">
         <span>
-          <span class="block text-xs font-medium">媒体在 SSD 上</span>
+          <span class="block text-sm font-medium">媒体在 SSD 上</span>
           <span class="mt-0.5 block text-xs text-muted-foreground">
             决定读取媒体信息和转换时的并行宽度。
           </span>
@@ -118,7 +118,7 @@ function submit() {
       <label v-if="library" class="mt-4 flex min-h-11 cursor-pointer items-start gap-3 rail:min-h-0">
         <input v-model="makeDefault" type="checkbox" class="mt-0.5 size-4 shrink-0" data-testid="library-default">
         <span>
-          <span class="block text-xs font-medium">设为默认媒体库</span>
+          <span class="block text-sm font-medium">设为默认媒体库</span>
         </span>
       </label>
 

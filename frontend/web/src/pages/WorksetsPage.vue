@@ -195,7 +195,7 @@ async function retryPage() {
           >
             <LibraryBig class="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
             <span class="min-w-0 flex-1">
-              <span class="block truncate font-heading text-xs font-semibold">{{ library.name }}</span>
+              <span class="block truncate font-heading text-sm font-semibold">{{ library.name }}</span>
               <span class="block truncate font-mono text-xs text-[var(--text-secondary)]">{{ library.root_path }}</span>
             </span>
             <span

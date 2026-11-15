@@ -560,12 +560,12 @@ function submitDelete() {
 
     <!-- Rename: a name, never a path. -->
     <Modal :open="dialog === 'rename'" title="重命名" :description="target" @update:open="dialog = 'none'">
-      <label class="block text-xs">
+      <label class="block text-sm">
         新名称
         <input
           v-model="renameValue"
           data-testid="rename-input"
-          class="mt-1 h-9 w-full rounded-md border border-input bg-transparent px-2 text-xs focus-visible:border-[var(--wire-strong)] focus-visible:outline-none"
+          class="mt-1 h-9 w-full rounded-md border border-input bg-transparent px-2 text-sm focus-visible:border-[var(--wire-strong)] focus-visible:outline-none"
         >
       </label>
       <p class="text-xs text-[var(--text-muted)]">只能改名称：要换目录请用“移动”。目标已存在时不会覆盖。</p>
@@ -577,12 +577,12 @@ function submitDelete() {
 
     <!-- Move: an existing directory of the same member. -->
     <Modal :open="dialog === 'move'" title="移动到" :description="target" @update:open="dialog = 'none'">
-      <label class="block text-xs">
+      <label class="block text-sm">
         目标目录
         <select
           v-model="moveDir"
           data-testid="move-target"
-          class="mt-1 h-9 w-full rounded-md border border-input bg-background px-2 text-xs"
+          class="mt-1 h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
         >
           <option value="" disabled>选择一个目录</option>
           <option v-for="dir in directories" :key="dir.relPath" :value="dir.relPath">{{ dir.label }}</option>
@@ -601,7 +601,7 @@ function submitDelete() {
 
     <!-- Soft delete: confirm, then recycle into the library's Delete/. -->
     <Modal :open="dialog === 'delete'" title="移入回收目录" @update:open="dialog = 'none'">
-      <p class="text-xs">将把 {{ deleteItems.length }} 项移入媒体库的 Delete/ 目录，目录层级会保留。</p>
+      <p class="text-sm">将把 {{ deleteItems.length }} 项移入媒体库的 Delete/ 目录，目录层级会保留。</p>
       <p class="text-xs text-[var(--text-muted)]">
         已成功的项目不会自动撤销；恢复请在系统文件管理器里完成。
       </p>

@@ -132,9 +132,9 @@ async function stop(): Promise<void> {
 
     <template v-else>
       <fieldset class="space-y-1">
-        <legend class="text-xs font-medium">清理类别</legend>
+        <legend class="text-sm font-medium">清理类别</legend>
         <p class="text-xs leading-relaxed text-[var(--text-secondary)]">自动清理保留最近 7 天的扫描记录和 30 天的规划记录，完整一轮结束后每 24 小时运行一次。</p>
-        <label v-for="c in CATEGORIES" :key="c.id" class="flex min-h-11 items-center gap-2 text-xs rail:min-h-7">
+        <label v-for="c in CATEGORIES" :key="c.id" class="flex min-h-11 items-center gap-2 text-sm rail:min-h-7">
           <input v-model="selected" type="checkbox" :value="c.id" :data-testid="`cleanup-select-${c.id}`">
           <span class="flex-1">{{ c.label }}</span>
         </label>

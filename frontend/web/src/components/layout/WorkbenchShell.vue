@@ -139,7 +139,7 @@ function onDrawerClick(event: MouseEvent) {
             <ChevronLeft class="size-4" />
           </RouterLink>
           <div class="min-w-0 flex-1">
-            <p class="truncate font-heading text-xs font-semibold" :title="contextTitle">{{ contextTitle }}</p>
+            <p class="truncate font-heading text-sm font-semibold" :title="contextTitle">{{ contextTitle }}</p>
             <p v-if="contextPage" class="truncate text-xs text-[var(--text-muted)]" :title="contextPage">
               {{ contextPage }}
             </p>

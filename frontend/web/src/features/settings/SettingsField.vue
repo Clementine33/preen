@@ -25,7 +25,7 @@ defineEmits<{ undo: [] }>()
       <div class="min-w-0">
         <!-- min-h-7: the label line is as tall as a standard control (28px: .seg, Button sm), so a label and its control share one centre line. -->
         <div class="flex min-h-7 flex-wrap items-center gap-x-2 gap-y-1">
-          <span class="text-xs font-medium">{{ label }}</span>
+          <span class="text-sm font-medium">{{ label }}</span>
           <template v-if="modified">
             <span class="inline-flex items-center gap-1.5 text-xs" :data-testid="`${id}-modified`">
               <span class="size-1.5 bg-[var(--warning-ink)]" aria-hidden="true" />已修改

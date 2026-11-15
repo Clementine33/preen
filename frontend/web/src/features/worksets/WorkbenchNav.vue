@@ -41,7 +41,7 @@ watch(
 
 function rowClass(current: boolean, parent: boolean, child = false): string {
   return [
-    'flex items-center gap-2 px-2 text-xs focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
+    'flex items-center gap-2 px-2 text-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
     child ? 'pl-4' : 'min-w-0 flex-1',
     // Touch devices get the 44px minimum at any width — the tablet tiers are
     // touch too, so this is a pointer query, not a width one.

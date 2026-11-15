@@ -156,7 +156,7 @@ const effectivelyExcluded = computed(() => participationState.value === 'exclude
          controls read as one block, and the rule says where the next begins. -->
     <div class="divide-y divide-[var(--wire-fine)]">
       <section v-for="unit in OVERRIDE_UNITS" :key="unit" class="py-3 first:pt-0" :data-testid="`unit-${unit}`">
-        <h3 class="mb-1.5 text-xs font-semibold">{{ UNIT_LABELS[unit] }}</h3>
+        <h3 class="mb-1.5 text-sm font-semibold">{{ UNIT_LABELS[unit] }}</h3>
         <div class="mb-2 flex flex-wrap items-center gap-2 text-xs text-[var(--text-secondary)]">
           <span data-testid="unit-status">{{ statusLabel(unit) }}</span>
         </div>
@@ -199,7 +199,7 @@ const effectivelyExcluded = computed(() => participationState.value === 'exclude
       </section>
 
       <section v-if="participationEditable" class="py-3 last:pb-0">
-        <h3 class="mb-1.5 text-xs font-semibold">本操作参与状态</h3>
+        <h3 class="mb-1.5 text-sm font-semibold">本操作参与状态</h3>
         <p class="mb-2 text-xs text-[var(--text-secondary)]">
           排除只改变本操作的参与状态，不会删除独立值；恢复参与后继续使用原有设置。
         </p>

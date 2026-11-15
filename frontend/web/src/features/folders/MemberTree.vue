@@ -165,7 +165,7 @@ function meta(node: TreeModelNode): string {
 
           <span class="min-w-0 flex-1 cursor-pointer" @click="onNameClick(node)">
             <span
-              class="line-clamp-2 font-heading text-xs font-semibold [overflow-wrap:anywhere]"
+              class="line-clamp-2 font-heading text-sm font-semibold [overflow-wrap:anywhere]"
               :title="node.name"
             >
               {{ node.name }}

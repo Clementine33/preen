@@ -14,7 +14,7 @@ import { RouterLink } from 'vue-router'
       <RouterLink
         to="/worksets"
         data-testid="not-found-home"
-        class="mt-3 inline-block rounded-md border border-border px-3 py-1.5 text-xs hover:bg-muted"
+        class="mt-3 inline-block rounded-md border border-border px-3 py-1.5 text-sm hover:bg-muted"
       >
         返回工作集
       </RouterLink>

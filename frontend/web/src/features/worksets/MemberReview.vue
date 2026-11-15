@@ -96,7 +96,7 @@ function componentFacts(component: ComponentOutcome): { label: string, tone: 'su
     </div>
 
     <section aria-label="冻结的有效设置">
-      <h3 class="mb-1 text-xs font-semibold text-[var(--text-secondary)]">冻结的有效设置</h3>
+      <h3 class="mb-1 text-sm font-semibold text-[var(--text-secondary)]">冻结的有效设置</h3>
       <dl class="space-y-1 text-xs">
         <div v-for="unit in Object.keys(UNIT_LABELS)" :key="unit" class="flex items-start gap-2">
           <dt class="w-20 shrink-0 text-[var(--text-muted)]">{{ UNIT_LABELS[unit] }}</dt>
@@ -115,7 +115,7 @@ function componentFacts(component: ComponentOutcome): { label: string, tone: 'su
     </section>
 
     <section aria-label="计划结论">
-      <h3 class="mb-1 text-xs font-semibold text-[var(--text-secondary)]">计划结论</h3>
+      <h3 class="mb-1 text-sm font-semibold text-[var(--text-secondary)]">计划结论</h3>
       <p v-if="components.length === 0" class="text-xs text-[var(--text-muted)]">
         {{ frozen?.excluded ? '本操作已排除该文件夹，未参与规划。' : '该文件夹在此版本中没有可审阅的组件。' }}
       </p>

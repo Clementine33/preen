@@ -50,7 +50,7 @@ function partitionText(partition: string): string {
 <template>
   <div class="border-b border-border/60 px-3 py-2.5 last:border-b-0" data-testid="execution-component">
     <div class="flex flex-wrap items-center gap-1.5">
-      <span class="text-xs font-medium">{{ partitionText(component.partition) }}</span>
+      <span class="text-sm font-medium">{{ partitionText(component.partition) }}</span>
       <Badge :tone="COMPONENT_STATUS[component.status].tone">{{ COMPONENT_STATUS[component.status].label }}</Badge>
       <span class="ml-auto text-xs tabular-nums text-muted-foreground">
         操作 {{ component.completed_operations }}/{{ component.operations }}

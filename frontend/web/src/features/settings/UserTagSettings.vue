@@ -106,7 +106,7 @@ const deletingCount = computed(() => (deleting.value
     <form class="mt-2.5 flex flex-wrap items-start gap-2" @submit.prevent="submitCreate">
       <input
         v-model="newName"
-        class="field-input h-11! min-w-0 flex-1 text-[length:var(--input-font)]! rail:h-[30px]! rail:text-[length:var(--text-xs)]!"
+        class="field-input h-11! min-w-0 flex-1 text-[length:var(--input-font)]! rail:h-[30px]! rail:text-[length:var(--text-sm)]!"
         placeholder="新标签名称"
         aria-label="新标签名称"
         autocomplete="off"
@@ -144,7 +144,7 @@ const deletingCount = computed(() => (deleting.value
             <input
               ref="editInput"
               v-model="editName"
-              class="field-input h-11! min-w-0 flex-1 text-[length:var(--input-font)]! rail:h-[30px]! rail:text-[length:var(--text-xs)]!"
+              class="field-input h-11! min-w-0 flex-1 text-[length:var(--input-font)]! rail:h-[30px]! rail:text-[length:var(--text-sm)]!"
               :aria-label="`重命名「${tag.name}」`"
               :aria-invalid="editError ? true : undefined"
               autocomplete="off"
@@ -156,7 +156,7 @@ const deletingCount = computed(() => (deleting.value
             <p v-if="editError" class="w-full text-xs text-destructive" role="alert" data-testid="user-tag-rename-error">{{ editError }}</p>
           </form>
           <div v-else class="flex min-h-11 items-center px-1 rail:min-h-9">
-            <span class="min-w-0 flex-1 truncate text-xs">{{ tag.name }}</span>
+            <span class="min-w-0 flex-1 truncate text-sm">{{ tag.name }}</span>
             <span class="w-16 text-right font-mono text-xs text-[var(--text-secondary)]">{{ counts.get(tag.id) ?? 0 }}</span>
             <span class="flex w-[7.5rem] justify-end gap-1">
               <Button size="xs" variant="ghost" class="text-[var(--text-secondary)]" :data-testid="`user-tag-rename-${tag.id}`" @click="startRename(tag)">重命名</Button>

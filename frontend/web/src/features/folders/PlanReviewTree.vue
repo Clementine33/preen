@@ -334,7 +334,7 @@ const RESOLUTION_TONES: Record<string, 'neutral' | 'success' | 'danger' | 'warni
                 <ChevronRight v-else class="size-3.5" />
               </button>
               <Folder class="size-3.5 text-[var(--brand)]" aria-hidden="true" />
-              <span class="font-heading text-xs font-semibold">{{ node.name }}</span>
+              <span class="font-heading text-sm font-semibold">{{ node.name }}</span>
             </li>
             <li
               v-else
@@ -350,7 +350,7 @@ const RESOLUTION_TONES: Record<string, 'neutral' | 'success' | 'danger' | 'warni
                 class="size-3.5 shrink-0 text-muted-foreground"
                 aria-hidden="true"
               />
-              <span class="min-w-0 truncate text-xs" :class="node.row.pending ? 'italic' : ''">
+              <span class="min-w-0 truncate text-sm" :class="node.row.pending ? 'italic' : ''">
                 {{ node.row.name }}
               </span>
               <Badge :tone="RESOLUTION_TONES[node.row.resolution] ?? 'neutral'">

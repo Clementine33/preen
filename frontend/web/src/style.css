@@ -274,8 +274,8 @@
   }
   body {
     @apply bg-background text-foreground antialiased;
-    font-size: var(--text-xs);
-    line-height: var(--text-xs--line-height);
+    font-size: var(--text-sm);
+    line-height: var(--text-sm--line-height);
     font-variant-numeric: tabular-nums;
   }
   /* Native checks take the bone/carbon ink instead of the browser blue. */

@@ -114,7 +114,7 @@ const scope = computed(() => {
             <component
               :is="memberRoute ? RouterLink : 'span'"
               :to="memberRoute?.(member.member_id)"
-              class="min-w-0 flex-1 line-clamp-2 break-words font-heading text-xs font-semibold leading-relaxed"
+              class="min-w-0 flex-1 line-clamp-2 break-words font-heading text-sm font-semibold leading-relaxed"
               :class="memberRoute ? 'hover:underline' : ''"
               :title="member.root_path"
               data-testid="execution-member-name"

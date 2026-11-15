@@ -10,7 +10,7 @@ defineProps<{ title: string }>()
 <template>
   <section class="min-w-0">
     <div class="flex items-center gap-2 border-b border-[var(--wire-mid)] pb-1">
-      <h3 class="flex-1 text-xs font-semibold text-[var(--text-secondary)]">{{ title }}</h3>
+      <h3 class="flex-1 text-sm font-semibold text-[var(--text-secondary)]">{{ title }}</h3>
       <slot name="aside" />
     </div>
     <slot />

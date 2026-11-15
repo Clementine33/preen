@@ -16,7 +16,7 @@ defineEmits<{ 'update:modelValue': [key: string] }>()
       role="tab"
       :aria-selected="tab.key === modelValue"
       :data-testid="`tab-${tab.key}`"
-      class="h-6 border border-[var(--wire-control)] px-2 text-xs hover:bg-[var(--bg-subtle)]"
+      class="h-6 border border-[var(--wire-control)] px-2 text-sm hover:bg-[var(--bg-subtle)]"
       :class="tab.key === modelValue ? 'border-[var(--invert-bg)] bg-[var(--invert-bg)] text-[var(--invert-fg)] hover:bg-[var(--invert-bg)]' : ''"
       @click="$emit('update:modelValue', tab.key)"
     >

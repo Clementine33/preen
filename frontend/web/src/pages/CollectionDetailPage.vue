@@ -154,7 +154,7 @@ function backToEntry(): void {
     <Modal :open="dialog === 'rename'" title="重命名合集" @update:open="dialog = 'none'">
       <form class="grid gap-3" @submit.prevent="submitRename">
         <input
-          v-model="draft" class="h-9 w-full rounded-md border border-input bg-transparent px-2 text-xs focus-visible:border-[var(--wire-strong)] focus-visible:outline-none"
+          v-model="draft" class="h-9 w-full rounded-md border border-input bg-transparent px-2 text-sm focus-visible:border-[var(--wire-strong)] focus-visible:outline-none"
           aria-label="合集名称" data-testid="collection-rename-input"
         >
         <p v-if="!trimmed" class="text-xs text-[var(--text-muted)]">名称不能为空。</p>
@@ -165,7 +165,7 @@ function backToEntry(): void {
       </form>
     </Modal>
     <Modal :open="dialog === 'delete'" title="删除合集" @update:open="dialog = 'none'">
-      <p class="text-xs">删除合集「{{ name }}」？其中 {{ total }} 部作品与文件不受影响。</p>
+      <p class="text-sm">删除合集「{{ name }}」？其中 {{ total }} 部作品与文件不受影响。</p>
       <div class="flex justify-end gap-2">
         <Button variant="ghost" size="sm" @click="dialog = 'none'">取消</Button>
         <Button variant="destructive" size="sm" data-testid="collection-delete-confirm" @click="submitDelete">删除</Button>

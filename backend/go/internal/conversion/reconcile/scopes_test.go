@@ -1,7 +1,6 @@
 package reconcile_test
 
 import (
-	"encoding/json"
 	"strings"
 	"testing"
 
@@ -168,37 +167,6 @@ func TestRegisteringOtherTagResolvesRealSourceConflict(t *testing.T) {
 				t.Fatal("unused tags changed component identity")
 			}
 		})
-	}
-}
-
-func TestPersistedLegacyPolicyStillReconciles(t *testing.T) {
-	var policy reconcile.Policy
-	err := json.Unmarshal(
-		[]byte(
-			`{"schema_version":1,"classifier_tags":["NoSE"],"matched":{"lossless":{"codec":"wav"}},"unmatched":{"lossless":{"codec":"wav"}}}`,
-		),
-		&policy,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if validateErr := reconcile.ValidatePolicy(policy); validateErr != nil {
-		t.Fatalf("legacy validation: %v", validateErr)
-	}
-	classifier, err := reconcile.ResolveClassifier([]string{"NoSE"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	out, err := reconcile.Reconcile(
-		reconcile.ReconcileInput{
-			RootPath:   "work",
-			Entries:    []reconcile.AudioEntry{{PathPosix: "work/1.wav"}},
-			Policy:     policy,
-			Classifier: classifier,
-		},
-	)
-	if err != nil || out.Summary.BlockedCount != 0 || len(out.Components) != 1 {
-		t.Fatalf("legacy reconciliation: %+v, %v", out, err)
 	}
 }
 

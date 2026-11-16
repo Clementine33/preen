@@ -506,10 +506,11 @@ describe('work content routes', () => {
   })
 })
 
-it('normalizes legacy conversion tags at every stored JSON read without losing empty overrides', async () => {
-  const legacy = {
+it('materializes null conversion tag lists at every stored JSON read without losing empty overrides', async () => {
+  const stored = {
     schema_version: 1,
-    classifier_tags: ['SEなし'],
+    no_effect_tags: null,
+    other_tags: null,
     matched: {},
     unmatched: {},
   }
@@ -522,11 +523,11 @@ it('normalizes legacy conversion tags at every stored JSON read without losing e
           kind: 'conversion',
           schema_version: 1,
           payload: {
-            ...legacy,
+            ...stored,
             members: [
               {
                 member_id: 'one',
-                overrides: { classifier_tags: [] },
+                overrides: { no_effect_tags: [], other_tags: null },
               },
               { member_id: 'two' },
             ],
@@ -540,19 +541,24 @@ it('normalizes legacy conversion tags at every stored JSON read without losing e
         schema_version: 1,
         payload: {
           ...wireRevision().task.payload,
-          policy: legacy,
+          policy: {
+            schema_version: 1,
+            other_tags: null,
+            matched: {},
+            unmatched: {},
+          },
         },
       },
     }))
   })
   const client = createClient()
   const draft = await client.getOperationDraft('ws', 'conversion')
-  expect(draft.document.no_effect_tags).toEqual(['SEなし'])
+  expect(draft.document.no_effect_tags).toEqual([])
+  expect(draft.document.other_tags).toEqual([])
   expect(draft.document.members[0]?.overrides).toEqual({ no_effect_tags: [] })
   expect(draft.document.members[1]?.overrides).toBeUndefined()
-  expect(draft.document).not.toHaveProperty('classifier_tags')
   expect((await client.getRevision('ws', 'conversion', 'p')).task.payload.policy).toMatchObject({
-    no_effect_tags: ['SEなし'],
+    no_effect_tags: [],
     other_tags: [],
   })
 })

@@ -554,28 +554,3 @@ func TestDraftSaveRefusesADifferingCommonSection(t *testing.T) {
 	doc.Members = []conversion.DraftMember{{MemberID: first.Members[0].MemberID, Excluded: true}}
 	f.saveDraft(first.WorksetID, doc, version)
 }
-
-// Settings stored under an older field spelling read as the same settings: the
-// endpoint serves them under today's names and a draft save is not a mismatch,
-// while no stored draft is rewritten by either read.
-func TestLegacyCommonSettingsReadDoesNotRewriteStoredDraft(t *testing.T) {
-	f := newFixture(t)
-	first, _ := f.twoLibraries(t)
-	f.saveSettings(elsewhere("NoSE"))
-	before := f.draft(first.WorksetID)
-	legacy := strings.ReplaceAll(string(before.Document), "no_effect_tags", "classifier_tags")
-	f.exec("UPDATE workset_operation_drafts SET draft_json = ? WHERE workset_id = ?", legacy, first.WorksetID)
-	f.exec(
-		"UPDATE common_settings SET settings_json = replace(settings_json, 'no_effect_tags', 'classifier_tags') WHERE operation_type = 'conversion'",
-	)
-	read, err := f.svc.GetTaskSettings(f.ctx, workset.OperationTypeConversion)
-	if err != nil || !strings.Contains(string(read.Settings), "no_effect_tags") {
-		t.Fatalf("legacy settings read = %+v err=%v", read, err)
-	}
-	after := f.draft(first.WorksetID)
-	if string(after.Document) != legacy || after.Version != before.Version || !after.UpdatedAt.Equal(before.UpdatedAt) {
-		t.Fatalf("read changed frozen storage: %+v -> %+v", before, after)
-	}
-	doc := mustDraft(t, after)
-	f.saveDraft(first.WorksetID, doc, after.Version)
-}

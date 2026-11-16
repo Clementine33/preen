@@ -260,8 +260,9 @@ request schema remain independent; the request does not accept `classifier_tags`
 
 The web client binds each JSON call to declared success statuses and each SSE
 subscription to declared event names. Task bindings select kind/version, and
-execution reads distinguish full, members and single-member schemas. Generated
-AJV standalone validators check request bodies, responses and event payloads in
-development and tests before client view conversion. Non-success HTTP responses
-use the error-envelope schemas. Production builds remove validators and binding
-metadata; a build gate rejects any rendered validation module.
+execution reads distinguish full, members and single-member schemas. AJV
+validators, compiled on demand from `docs/api/schema/*.json`, check request
+bodies, responses and event payloads in development and tests before client view
+conversion. Non-success HTTP responses use the error-envelope schemas.
+Production builds remove the validators and binding metadata; a build gate
+rejects any rendered validation module.

@@ -1,3 +1,4 @@
+import type Ajv2020 from 'ajv/dist/2020.js'
 import type { HttpContract, SSEContract } from './contracts'
 import type { SchemaId } from './contracts.gen'
 import type { WireSchemas } from './wire.gen'
@@ -9,11 +10,26 @@ export class WireContractError extends Error {
   }
 }
 
+const schemaFiles = import.meta.glob<{ default: object }>('../../../../../docs/api/schema/*.json')
+
+// Schemas compile on first use: this module only runs in development and tests.
+let ajv: Promise<Ajv2020> | undefined
+function loadAjv() {
+  return ajv ??= (async () => {
+    const { default: Ajv } = await import('ajv/dist/2020.js')
+    const instance = new Ajv({ strict: false, validateFormats: false, allErrors: true })
+    const entries = Object.entries(schemaFiles).filter(([path]) => !path.endsWith('/contracts.json'))
+    // Every schema is registered by file name (some have no `$id`) so `$ref`s between files resolve.
+    for (const [path, load] of entries)
+      instance.addSchema((await load()).default, path.slice(path.lastIndexOf('/') + 1))
+    return instance
+  })()
+}
+
 /** A schema ID selects its generated TypeScript type as well as its validator. */
 export async function validateWire<K extends SchemaId>(name: K, data: unknown): Promise<WireSchemas[K]> {
-  const validators = await import('./validators.gen.js')
-  const validate = validators[name]
-  if (typeof validate !== 'function')
+  const validate = (await loadAjv()).getSchema(`${name}.json`)
+  if (!validate)
     throw new WireContractError(`unknown schema ${name}`)
   if (!validate(data))
     throw new WireContractError(`${name}: ${JSON.stringify(validate.errors)}`)

@@ -146,7 +146,6 @@ tasks:
     cmds:
       - cd backend/go && go generate ./internal/adapters/httpapi
       - node frontend/web/scripts/generate-wire.mjs
-      - node frontend/web/scripts/generate-validators.mjs
 
   contract:check:
     desc: Regenerate wire contracts and reject drift, including untracked new schemas

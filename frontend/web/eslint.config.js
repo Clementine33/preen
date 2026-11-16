@@ -6,8 +6,6 @@ export default antfu({
   ignores: [
     'src/lib/api/wire.gen.ts',
     'src/lib/api/contracts.gen.ts',
-    'src/lib/api/validators.gen.js',
-    'src/lib/api/validators.gen.d.ts',
     'DESIGN.md',
     'README.md',
     'test-results/**',

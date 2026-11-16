@@ -20,7 +20,7 @@ function woff2Only(): Plugin {
 }
 
 // A production build must never render the development contract checker,
-// standalone validators, AJV, or the generated binding metadata.
+// schema loader, AJV, or the generated binding metadata.
 function excludeWireValidation(): Plugin {
   return {
     name: 'exclude-wire-validation',
@@ -30,7 +30,7 @@ function excludeWireValidation(): Plugin {
         if (chunk.type !== 'chunk')
           continue
         for (const [id, module] of Object.entries(chunk.modules)) {
-          if (module.renderedLength > 0 && (id.includes('/wire-validation.ts') || id.includes('/validators.gen.js') || id.includes('/contracts.gen.ts') || id.includes('/node_modules/ajv/')))
+          if (module.renderedLength > 0 && (id.includes('/wire-validation.ts') || id.includes('/docs/api/schema/') || id.includes('/contracts.gen.ts') || id.includes('/node_modules/ajv/')))
             this.error(`Production contains wire validation: ${id}`)
         }
       }

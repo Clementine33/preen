@@ -9,18 +9,16 @@ kind, independent of any record, and this endpoint is the only way to read or
 write it. `{type}` is `conversion`, `rename` or `metadata_refresh`; any other
 value is 404 `UNKNOWN_OPERATION_TYPE`.
 
-| Method | Path | Behavior |
-| --- | --- | --- |
-| GET | `/api/v1/tasks/{type}/settings` | `{"operation_type","settings"}` with an `ETag` header. `settings` is the stored set, or the Task's seed value while none was saved; it works in a library with no record. |
-| PUT | `/api/v1/tasks/{type}/settings` | Body `{"settings":{…}}`, `If-Match` = the `ETag` last read (`VERSION_REQUIRED` 400 without it, `VERSION_CONFLICT` 409 when the set changed meanwhile). 200 with the new set and `ETag`. |
+| Method | Path | Schema | Behavior |
+| --- | --- | --- | --- |
+| GET | `/api/v1/tasks/{type}/settings` | [taskSettingsResponse](schema/taskSettingsResponse.json) | Returns the stored set (or the Task's seed value while none was saved) with an `ETag` header; works in a library with no record. |
+| PUT | `/api/v1/tasks/{type}/settings` | Req: [taskSettingsRequest](schema/taskSettingsRequest.json) · Res: [taskSettingsResponse](schema/taskSettingsResponse.json) | `If-Match` = last read `ETag` (`VERSION_REQUIRED` 400 without it, `VERSION_CONFLICT` 409 when stale). Returns 200 with the new set and `ETag`. |
 
-`settings` is the task's common section, the same object its draft carries:
-conversion `{other_tags, mode, delete_mode, no_effect_tags, matched, unmatched,
-other}`; rename `{template, strip_bracketed_title, strip_tilde_title,
-strip_book_title, voice_actor_separator}`; metadata refresh `{mode, locale,
-download_cover}`. The `ETag` is the canonical-JSON hash of that object (a quoted
-string), so equal settings have equal tags. An unreadable or invalid payload is
-400 (`INVALID_SETTINGS`, or the task's own `INVALID_DRAFT`).
+`settings` is the task's common section ([conversion_CommonSettings](schema/conversion_CommonSettings.json),
+[dirrename_Common](schema/dirrename_Common.json), or [refresh_Common](schema/refresh_Common.json)).
+The `ETag` is the canonical-JSON hash of that object (a quoted string), so equal
+settings have equal tags. An unreadable or invalid payload is 400
+(`INVALID_SETTINGS`, or the task's own `INVALID_DRAFT`).
 
 A save is all-or-nothing and runs in one transaction: it stores the set and
 rewrites the common section of every editable record of the kind, each with its
@@ -39,15 +37,10 @@ working.
 
 ## Rename task (schema version 1)
 
-Use the operation routes with `{type}=rename`. The draft payload is:
-
-```json
-{
-  "schema_version": 1,
-  "common": { "template": "[{rj}] {title}", "strip_bracketed_title": false, "strip_tilde_title": false, "strip_book_title": false, "voice_actor_separator": "、" },
-  "members": [{ "member_id": "…", "excluded": true }, { "member_id": "…", "name": "[RJ01234567] my name" }]
-}
-```
+Use the operation routes with `{type}=rename`. Draft schemas:
+[dirrename_Draft](schema/dirrename_Draft.json) /
+[dirrename_Draft_request](schema/dirrename_Draft_request.json) (default template:
+`[{rj}] {title}`, separator `、`).
 
 A member record holds an exclusion, a literal `name`, or both; a template per
 member is rejected. A `name` replaces the template for that folder (it is
@@ -76,18 +69,15 @@ becomes `Title  Vol.2`). An empty used title is still `METADATA_MISSING`. Old
 plans decode absent switches as off; schema version and old off-state hashes remain
 compatible.
 
-Each participating member produces one frozen component without modifying disk
-or bindings. `task.payload.policy` holds the template and filters;
-the member review's `task.payload.components[]` contains `member_id`, `source_name`, `work_code`,
-`raw_name`, `target_name`, `action` (`rename`, `noop`, `blocked`) and optional
-`reason_code`, `custom_name`, `observed_name` and `rebind_to`. The classifier has empty tags. In revision details, each
-`members[].task` is that member's single frozen component, unchanged
-(including every optional field). Excluded members and members without planning
-input omit `task`; the workset-owned `member_id`, `excluded`, `input` and
-`has_components` remain directly on each member conclusion. Each conclusion also carries a frozen
-`category`: `rename`, `blocked`, `noop` (a `noop` with `observed_name`: renamed by hand)
-or `unchanged` (a `noop` without it). The rename plan page takes its tab counts from the
-revision's `category_counts` and lists one category at a time through
+Each participating member produces one frozen component
+([dirrename_Outcome](schema/dirrename_Outcome.json)) without modifying disk or
+bindings. In [revisionResponse](schema/rename_v1_revisionResponse.json), the
+classifier has empty tags and each `members[].task` is that member's single
+frozen component, unchanged; excluded members and members without planning input
+omit `task`. Each conclusion also carries a frozen `category`: `rename`,
+`blocked`, `noop` (a `noop` with `observed_name`: renamed by hand) or
+`unchanged` (a `noop` without it). The rename plan page takes its tab counts
+from `category_counts` and lists one category at a time through
 `?category=…&limit=…` (all skipped folders, the first 200 of the others). Used metadata must be nonempty.
 Illegal filename characters become `_`; outer whitespace and trailing dots/spaces
 are removed. The result must still identify exactly the bound Work. A name
@@ -145,34 +135,26 @@ their old names. Results and interrupted repair are described in
 ## Metadata refresh task (schema version 1)
 
 Use the operation routes with `{type}=metadata_refresh`. Audio files are not
-required. The draft payload defaults to:
+required. Draft schemas: [refresh_Draft](schema/refresh_Draft.json) /
+[refresh_Draft_request](schema/refresh_Draft_request.json) (default common:
+`mode: "fill_missing"`, `locale: "ja-jp"`, `download_cover: false`).
 
-```json
-{
-  "schema_version": 1,
-  "common": { "mode": "fill_missing", "locale": "ja-jp", "download_cover": false },
-  "members": []
-}
-```
-
-Modes: `fill_missing`, `refresh_dynamic`, `refresh_all`; locales: `ja-jp`,
-`zh-cn`, `zh-tw`. Only `member_id` / `excluded` are stored per member; unknown
-fields and duplicate/unknown members are rejected. Dynamic refresh normalizes
-`download_cover` to false. The common section is written through the deployment-wide [Task settings](#task-settings).
+Only `member_id` / `excluded` are stored per member; unknown fields and
+duplicate/unknown members are rejected. Dynamic refresh normalizes
+`download_cover` to false. The common section is written through the
+deployment-wide [Task settings](#task-settings).
 
 Planning freezes selected directories, copy/work targets and settings without
 upstream requests or inventory scans. It checks each selected directory directly,
 without scanning its contents or the classification directories. Each participating
-member produces a frozen component with `member_id`, `target` (`copy_id`, `rj`,
-`library_root`, `rel_path`, `identity`), `action` (`refresh`, `cover` or `skip`) and an
-optional `reason_code`. In revision details, each
-`members[].task` is that member's single frozen component with all
-fields preserved, including the entire `target` and any optional `reason_code`.
-Excluded members and members without planning input omit `task`. Each conclusion's
-frozen `category` is its `action` (`refresh`, `cover`, `skip`); the metadata plan page reads
-only the revision's `category_counts`, never the member list. Plan counts
-come from these conclusions: `refresh` runs; `cover` and `skip` count as skipped
-metadata fetches. An unbound directory skips with `NO_WORK_BINDING`; in
+member produces a frozen component ([refresh_Outcome](schema/refresh_Outcome.json)).
+In [revisionResponse](schema/metadata_refresh_v1_revisionResponse.json), each
+`members[].task` is that member's single frozen component with all fields
+preserved; excluded members and members without planning input omit `task`. Each
+conclusion's frozen `category` matches its `action` (`refresh`, `cover`, `skip`);
+the metadata plan page reads only the revision's `category_counts`, never the
+member list. Plan counts come from these conclusions: `refresh` runs; `cover`
+and `skip` count as skipped metadata fetches. An unbound directory skips with `NO_WORK_BINDING`; in
 `fill_missing` mode a work whose four data groups are all stored (in any tag
 language) plans as `skip` with `ALREADY_COMPLETE`, or as `cover` when
 `download_cover` is on: no fetch, only cover delivery;
@@ -218,11 +200,11 @@ completion scan; they retain normal exact inventory updates.
 Execution deduplicates upstream metadata by RJ and retains every selected copy
 as a cover target. Per-work source failures continue; database failures or
 cancellation stop the batch and preserve committed results. Each component and
-SSE `component` event may contain optional `task_result`: `{rj, outcome, issues,
-main_url?, backup_url?}` for refresh, or the frozen skip payload. Issue fields
-are `group?`, `source?`, `code`, `message`; outcome contains `applied`, `ignored`,
-`warnings`. A partial failure yields session
-`failed` / `METADATA_PARTIAL_FAILURE` after other works finish.
+SSE `component` event may contain optional `task_result`:
+[refresh_WorkResult](schema/refresh_WorkResult.json) for refresh (selected by
+`stage: "metadata"`), or the frozen skip payload ([refresh_Outcome](schema/refresh_Outcome.json),
+`stage: "skipped"`). A partial failure yields session `failed` /
+`METADATA_PARTIAL_FAILURE` after other works finish.
 
 Metadata results and cover demands are persisted before metadata execution
 ends. Covers run asynchronously and do not alter that session's terminal status.
@@ -238,19 +220,16 @@ published cover files remain.
 
 All routes below require the normal Bearer authentication.
 
-| Method | Path | Behavior |
-| --- | --- | --- |
-| GET | `/api/v1/works/{rj}/copies/{copyId}/cover` | Read the copy's existing local main image. Validates copy ownership; never starts a download. Actual image MIME, digest ETag, `private, no-cache` and `nosniff`; conditional GET and ranges use standard HTTP semantics. 404 `COPY_NOT_FOUND` / `COVER_UNAVAILABLE`, 409 `COVER_CONFLICT` / `INPUT_CHANGED`. |
-| GET | `/api/v1/worksets/{id}/operations/metadata_refresh/executions/{executionId}/covers` | `{items: [...], counts: {...}}`; execution ownership is checked, including operation kind. |
-| POST | same path + `/retry` | Requeue every failed or canceled demand of the execution. Returns the updated report. Does not restart metadata execution. |
-| POST | same path + `/cancel` | Stop this execution's pending/running demands. A transfer still needed by another execution's demand for the same work continues. Returns the updated report. |
+| Method | Path | Schema | Behavior |
+| --- | --- | --- | --- |
+| GET | `/api/v1/works/{rj}/copies/{copyId}/cover` | — | Read the copy's existing local main image. Validates copy ownership; never starts a download. Actual image MIME, digest ETag, `private, no-cache` and `nosniff`; conditional GET and ranges use standard HTTP semantics. 404 `COPY_NOT_FOUND` / `COVER_UNAVAILABLE`, 409 `COVER_CONFLICT` / `INPUT_CHANGED`. |
+| GET | `/api/v1/worksets/{id}/operations/{type}/executions/{executionId}/covers` | [coverReportResponse](schema/coverReportResponse.json) | Execution ownership is checked; `{type}` must be `metadata_refresh` (otherwise 404 `EXECUTION_NOT_FOUND`). |
+| POST | same path + `/retry` | [coverReportResponse](schema/coverReportResponse.json) | Requeue every failed or canceled demand of the execution. Returns the updated report. Does not restart metadata execution. |
+| POST | same path + `/cancel` | [coverReportResponse](schema/coverReportResponse.json) | Stop this execution's pending/running demands. A transfer still needed by another execution's demand for the same work continues. Returns the updated report. |
 
-Each item contains `id`, `execution_id`, `target` (the frozen copy target),
-`refresh`, `status`, optional `error_code`, `error_message`, `published`, `digest`.
-Statuses/count keys: `pending`, `running`, `succeeded`, `skipped`, `failed`,
-`canceled`. `running` marks a demand a worker has claimed; a restart returns it
-to `pending`. Inventory failure reports `INVENTORY_REFRESH_FAILED` with
-`published` retained.
+`running` marks a demand a worker has claimed; a restart returns it to
+`pending`. Inventory failure reports `INVENTORY_REFRESH_FAILED` with `published`
+retained.
 
 Only main artwork is downloaded: the work's current stored cover URL, read when
 the download starts, then ASMR.one `mainCoverUrl` on absence/rejection/download
@@ -342,6 +321,6 @@ refresh automatically.
 
 Shared [operation routes and versions](worksets.md) and [execution sessions](executions.md#execution-sessions) apply to these tasks. Metadata imports use the [work catalog contract](works.md#source-metadata-import).
 
-Rename planning accepts nested scanned work roots and changes only their basename. Occupancy and batch conflicts are checked within each actual parent; equal targets in distinct parents are allowed. Plan freshness checks each participating parent. Rename execution remains unavailable.
+Rename planning accepts nested scanned work roots and changes only their basename. Occupancy and batch conflicts are checked within each actual parent; equal targets in distinct parents are allowed. Plan freshness checks each participating parent. Rename execution follows [Rename component results and interrupted repair](executions.md#rename-component-results-and-interrupted-repair).
 
 Conversion planning handles at most four work roots concurrently per session and preserves request order. Scan, planning and encoding limits are independent. Metadata planning also uses the saved library root and accepts copies beneath different classification directories.

@@ -9,12 +9,12 @@ runs VACUUM and does not reset the automatic maintenance clock.
 
 ## Routes
 
-| Method | Path under `/api/v1` | Result |
-| --- | --- | --- |
-| POST | `/maintenance/cleanup/preview` | 200 preview of the selected categories |
-| POST | `/maintenance/cleanup` | 202 accepted run summary |
-| GET | `/maintenance/cleanup` | 200 current/latest summary, or `{"run":null}` |
-| POST | `/maintenance/cleanup/{runId}/cancel` | 200 current summary after requesting stop |
+| Method | Path under `/api/v1` | Schema | Result |
+| --- | --- | --- | --- |
+| POST | `/maintenance/cleanup/preview` | Req: [cleanupCategoriesRequest](schema/cleanupCategoriesRequest.json) · Res: [cleanupPreviewResponse](schema/cleanupPreviewResponse.json) | 200 preview of the selected categories |
+| POST | `/maintenance/cleanup` | Req: [cleanupCategoriesRequest](schema/cleanupCategoriesRequest.json) · Res: [cleanupRunEnvelopeResponse](schema/cleanupRunEnvelopeResponse.json) | 202 accepted run summary |
+| GET | `/maintenance/cleanup` | [cleanupRunEnvelopeResponse](schema/cleanupRunEnvelopeResponse.json) | 200 current/latest summary, or `{"run":null}` |
+| POST | `/maintenance/cleanup/{runId}/cancel` | Req: [emptyRequest](schema/emptyRequest.json) · Res: [cleanupRunEnvelopeResponse](schema/cleanupRunEnvelopeResponse.json) | 200 current summary after requesting stop |
 
 Preview and start require a nonempty category selection, for example `{"categories":["works","source_tags"]}`.
 The array must be nonempty and contain only supported keys. Duplicate keys are
@@ -43,17 +43,10 @@ for scans, 30 days for planning records) and is unchanged by manual runs.
 
 ## Preview
 
-```json
-{
-  "checked_at":"2026-10-23T04:00:00Z",
-  "categories":["scan_sessions"],
-  "candidates":{"scan_sessions":12},
-  "rules":{"scan_sessions":{"protection":"Only terminal scans; missing finished_at falls back to started_at."}}
-}
-```
-
-Only selected categories appear; each rule carries a `protection` description. Preview
-counts source references and report roots after projected eligible work deletion only when `works` is selected;
+[cleanupPreviewResponse](schema/cleanupPreviewResponse.json) includes only
+selected categories, each with a `protection` rule description. Preview counts
+source references and report roots after projected eligible work deletion only
+when `works` is selected;
 otherwise every current work reference remains effective. Works with offline
 copies remain protected. Empty user-data rows, collection time and source
 metadata alone do not protect a work; notes are not trimmed. Listening positions and Finished marks do not protect a
@@ -88,22 +81,7 @@ zero candidates can succeed. Preview counts are not a fixed progress denominator
 
 ## Run summary
 
-Start, GET and cancel return the same envelope:
-
-```json
-{
-  "run":{
-    "run_id":"server-generated-uuid",
-    "categories":["scan_sessions"],
-    "status":"running",
-    "phase":"scan_sessions",
-    "started_at":"2026-10-23T04:00:00Z",
-    "finished_at":null,
-    "counts":{"scan_sessions":{"checked":500,"deleted":498,"skipped":2}},
-    "reason":""
-  }
-}
-```
+Start, GET and cancel return [cleanupRunEnvelopeResponse](schema/cleanupRunEnvelopeResponse.json).
 
 `phase` identifies the selected category being processed. Counts describe only
 committed batches: checked candidates, actual top-level records deleted and

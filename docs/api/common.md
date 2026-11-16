@@ -100,10 +100,10 @@ are exempt. `Sec-Fetch-Site` takes precedence over `Origin`.
 
 ## Session
 
-| Method | Path | Auth | Status | Request |
+| Method | Path | Auth | Status | Schema |
 | --- | --- | --- | --- | --- |
-| POST | `/api/v1/session` | no | 204 | `{"token":"<shared key>"}` |
-| DELETE | `/api/v1/session` | no | 204 | none |
+| POST | `/api/v1/session` | no | 204 | Req: [sessionCreateRequest](schema/sessionCreateRequest.json) (`token` = shared key) |
+| DELETE | `/api/v1/session` | no | 204 | — |
 
 A successful login sets `preen_token=<base64url(key)>; HttpOnly; SameSite=Strict;
 Path=/api/v1; Max-Age=34560000` (400 days). `Secure` is added when the request
@@ -145,11 +145,8 @@ headers (`Access-Control-Expose-Headers`); an `ETag` is what a later
 
 ## Error envelope
 
-Non-2xx JSON responses always use the same shape:
-
-```json
-{ "code": "LIBRARY_NOT_FOUND", "message": "library not found" }
-```
+Non-2xx JSON responses always use [errorResponse](schema/errorResponse.json) (or
+[errorWithDetails](schema/errorWithDetails.json) when `details[]` is required).
 
 Common codes: `INVALID_ARGUMENT` (400), `UNAUTHORIZED` (401),
 `LIBRARY_NOT_FOUND` / `DIRECTORY_NOT_FOUND` / `MEMBER_MISSING` (404),
@@ -213,9 +210,9 @@ exit can still leave unfinished filesystem changes requiring inspection.
 
 ## Health endpoint
 
-| Method | Path | Auth | Status | Response |
+| Method | Path | Auth | Status | Schema |
 | --- | --- | --- | --- | --- |
-| GET | `/api/v1/health` | no | 200 | Object with `ok: true`, `version: string`, `workset_max_members: integer` |
+| GET | `/api/v1/health` | no | 200 | [healthResponse](schema/healthResponse.json) |
 
 `workset_max_members` is the positive integer limit on the members of a workset
 (the resolved selection) when creating it (current value in the [workset contract](worksets.md#creating-the-current-record)). It comes from the same backend limit used to reject
@@ -229,9 +226,11 @@ omits the field) does not prevent entry; creation still validates on the server.
 The checked-in [schemas](schema/) describe the encoding, including the closed
 value sets of enumerated string fields (`status`, `mode`, `storage_class`,
 cleanup categories, `operation_type` and so on) as `enum`s; a value the backend
-does not list there is contract drift. The decoder reads an empty conversion `mode` or `delete_mode` as absent: only
-the conversion draft request schemas list that empty value, while Task payload
-schemas list the named values. Open vocabularies (error and reason codes,
+does not list there is contract drift. The decoder reads a top-level empty conversion `mode` or `delete_mode` as absent:
+only the top-level conversion draft request schema
+([draftDocumentRequest](schema/draftDocumentRequest.json)) lists that empty
+value, while member override `mode` and Task payload schemas list only the
+named values. Open vocabularies (error and reason codes,
 `summary_reason`, a plan `status`, a scan `stage`, `current_phase`, the fallback
 `message` event `status`, `last_scan_status`, audio `codec`) stay plain strings. Response and request
 array fields are never `null`: empty collections are `[]`, and `omitempty` fields

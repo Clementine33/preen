@@ -6,9 +6,9 @@ One authenticated route reports whether GitHub has published a newer stable
 release than the running server. It only informs; nothing is downloaded or
 installed.
 
-| Method | Path | Contract |
-| --- | --- | --- |
-| GET | `/api/v1/update-check` | 200 `{"state":"none"}`; `{"state":"checking"}`; `{"state":"available","latest_version":"v0.3.0","release_url":"https://github.com/Clementine33/preen/releases/tag/v0.3.0"}`. |
+| Method | Path | Schema | Contract |
+| --- | --- | --- | --- |
+| GET | `/api/v1/update-check` | [updateCheckResponse](schema/updateCheckResponse.json) | 200 with `state` (`checking`, `available`, or `none`). |
 
 `state` is one of:
 

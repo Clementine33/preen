@@ -6,10 +6,10 @@ Authenticated routes for how the server reaches metadata sources (DLsite,
 api.asmr.one), the cover CDN and GitHub (the [update check](update-check.md)). There is no ETag or `If-Match`: the last
 write wins.
 
-| Method | Path | Contract |
-| --- | --- | --- |
-| GET | `/api/v1/outbound-proxy` | 200 `{"mode":"manual","url":"socks5://127.0.0.1:7890"}`; `{"mode":"system","url":""}` when never saved. |
-| PUT | `/api/v1/outbound-proxy` | Same body; 200 with the normalized object. |
+| Method | Path | Schema | Contract |
+| --- | --- | --- | --- |
+| GET | `/api/v1/outbound-proxy` | [outboundProxyResponse](schema/outboundProxyResponse.json) | 200; defaults to `system` (`url: ""`) when never saved. |
+| PUT | `/api/v1/outbound-proxy` | Req: [outboundProxyPutRequest](schema/outboundProxyPutRequest.json) · Res: [outboundProxyResponse](schema/outboundProxyResponse.json) | 200 with the normalized object. |
 
 `mode` is one of:
 

@@ -14,22 +14,21 @@ collection playback endpoint or cross-work sequencing.
 All routes require bearer authentication. Work numbers use the catalog's
 six/eight-digit, case-insensitive normalization and return canonical eight-digit RJs.
 
-| Method | Path | Contract |
-| --- | --- | --- |
-| GET | `/api/v1/collections` | 200 `{"collections":[…],"total":N}`: one page. |
-| POST | `/api/v1/collections` | Body `{"name":"Sleep"}`; 201 the new empty collection. |
-| GET | `/api/v1/collections/{id}` | 200 collection fields plus `works:[…]` and `total`: one page of work summaries in saved order, reversed with `direction=desc`, or view-sorted with `sort`. |
-| PATCH | `/api/v1/collections/{id}` | Body `{"name":"Rest"}`; 200 the renamed collection. |
-| DELETE | `/api/v1/collections/{id}` | 204; deletes only the collection and its membership. |
-| POST | `/api/v1/collections/{id}/works` | Body `{"rjs":["RJ00000002","RJ00000001"]}`; 200 `{"added":[…],"skipped":[…],"work_count":N}`. |
-| DELETE | `/api/v1/collections/{id}/works/{rj}` | 204; an already absent member succeeds when the collection and Work still exist. |
-| PATCH | `/api/v1/collections/{id}/works/{rj}` | Body `{"before_rj":"RJ00000002"}` or `{"before_rj":null}`; 204 after moving before that member or to the end. |
+| Method | Path | Schema | Contract |
+| --- | --- | --- | --- |
+| GET | `/api/v1/collections` | [collectionListResponse](schema/collectionListResponse.json) | 200; one page of collections. |
+| POST | `/api/v1/collections` | Req: [collectionNameRequest](schema/collectionNameRequest.json) · Res: [collectionResponse](schema/collectionResponse.json) | 201; the new empty collection. |
+| GET | `/api/v1/collections/{id}` | [collectionDetailResponse](schema/collectionDetailResponse.json) | 200; one page of work summaries in saved order, reversed with `direction=desc`, or view-sorted with `sort`. |
+| PATCH | `/api/v1/collections/{id}` | Req: [collectionNameRequest](schema/collectionNameRequest.json) · Res: [collectionResponse](schema/collectionResponse.json) | 200; the renamed collection. |
+| DELETE | `/api/v1/collections/{id}` | — | 204; deletes only the collection and its membership. |
+| POST | `/api/v1/collections/{id}/works` | Req: [collectionWorksAppendRequest](schema/collectionWorksAppendRequest.json) · Res: [collectionWorksAppendResponse](schema/collectionWorksAppendResponse.json) | 200; appends new canonical RJs and reports `skipped` and `work_count`. |
+| DELETE | `/api/v1/collections/{id}/works/{rj}` | — | 204; an already absent member succeeds when the collection and Work still exist. |
+| PATCH | `/api/v1/collections/{id}/works/{rj}` | Req: [collectionWorkMoveRequest](schema/collectionWorkMoveRequest.json) | 204 after moving before `before_rj` or to the end (`null`). |
 
-Collection fields are `id`, `name`, `work_count`, `created_at` and `updated_at`.
 User collections have UUID IDs. Names are trimmed and must be non-blank; duplicate
 names are allowed. There is no separate name-length cap beyond the shared 1 MiB
 JSON-body limit. Timestamps use UTC with nine fractional digits and are informational,
-not concurrency tokens. Successful changes to membership or order update the timestamp.
+not concurrency tokens. Successful changes to membership or order update `updated_at`.
 
 Detail returns the [work listing's summary](works.md#listing-filters-ordering-and-paging)
 fields, including local covers. Work information is current, not a second title or

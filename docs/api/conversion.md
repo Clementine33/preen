@@ -4,28 +4,17 @@
 
 ## Operation draft document
 
-The draft is one sparse document. The six common setting groups are the base;
+Schemas: [conversion_DraftDoc](schema/conversion_DraftDoc.json) (stored/read)
+and [conversion_DraftDoc_request](schema/conversion_DraftDoc_request.json)
+(write), wrapped in [draftResponse](schema/draftResponse.json) /
+[draftDocumentRequest](schema/draftDocumentRequest.json).
+
+The draft is one sparse document. The six common setting groups (`mode`,
+`no_effect_tags`, `other_tags`, `matched`, `unmatched`, `other`) are the base;
 a member record overrides only the units it explicitly replaces. The
 operation-wide `delete_mode` (obsolete-audio handling: `soft` — the default —
 or `hard`) is a common-level field, never a member override, and freezes into
 every revision the draft produces; the execution uses the frozen value.
-
-```json
-{
-  "schema_version": 1,
-  "mode": "available_sources",
-  "delete_mode": "soft",
-  "no_effect_tags": ["SEなし"],
-  "other_tags": ["反転"],
-  "matched":   {"encoded": {"codec": "mp3", "quality": {"kind": "bitrate", "bitrate": 320}}},
-  "unmatched": {"encoded": {"codec": "mp3", "quality": {"kind": "bitrate", "bitrate": 320}}},
-  "other":     {"encoded": {"codec": "mp3", "quality": {"kind": "bitrate", "bitrate": 320}}},
-  "members": [
-    {"member_id": "m-…", "overrides": {"matched": {"lossless": {"codec": "flac"}}}},
-    {"member_id": "m-…", "excluded": true}
-  ]
-}
-```
 
 A profile names a codec per lane: `lossless` is `wav` or `flac` and carries no
 quality; `encoded` is `mp3`, `aac` (an `.m4a`) or `opus` (an `.opus`) and
@@ -107,36 +96,32 @@ key even as `null` or `[]`. No read rewrites a frozen payload or changes its has
 
 ## Frozen revisions
 
-`GET .../revisions/{planId}` returns lightweight current-plan detail: identity,
-creation time, root path, snapshot token, status, summary, counts, execution,
-and the frozen task policy, policy hash, classifier and step summary. Its
-`members[]` are Member Conclusions directly; it contains no task components,
-root validation or ownership tables, member settings or sources. `counts`
-reports independent facts (`members`, `changed`, `unmet_targets`, `blocked`,
-`unchanged`) that may overlap; no exclusive status label is derived from them.
-The plan id is a cache key, but input validation and execution are live: the
-query has finite freshness and refreshes on re-entry after expiry.
+`GET .../revisions/{planId}` ([conversion_v1_revisionResponse](schema/conversion_v1_revisionResponse.json))
+returns lightweight current-plan detail without task components, root
+validation tables, member settings or sources. `counts` reports independent
+facts (`members`, `changed`, `unmet_targets`, `blocked`, `unchanged`) that may
+overlap; no exclusive status label is derived from them. The plan id is a cache
+key, but input validation and execution are live: the query has finite
+freshness and refreshes on re-entry after expiry.
 
-Member review uses `GET .../revisions/{planId}/members/{memberId}`. It returns
-only that member's frozen `effective`, `sources`, `conclusion`, input `roots[]`,
-and full task components, including file decisions. The database selects the
-member's roots before loading component outcomes; the browser does not receive
-or filter other members' components. Excluded and no-input members are valid
-reviews with empty components. Settings and per-unit sources (`common` |
-`member`) come from the revision's frozen draft: equal values with different
-provenance stay distinguishable, and later common changes never rewrite it.
-In member review, main components show only 有音效 or 无音效; isolated
-components show only 其他版本, while file rows show their directories.
-A replaced plan returns `REVISION_NOT_FOUND`;
-clients refresh the operation and follow its new current plan. Member review
-caches use both plan and member identity with finite freshness because input
-validation can change while the plan remains the same.
+Member review uses `GET .../revisions/{planId}/members/{memberId}`
+([conversion_v1_memberReviewResponse](schema/conversion_v1_memberReviewResponse.json)).
+The database selects the member's roots before loading component outcomes; the
+browser does not receive or filter other members' components. Excluded and
+no-input members are valid reviews with empty components. Settings and per-unit
+sources (`common` | `member`) come from the revision's frozen draft: equal
+values with different provenance stay distinguishable, and later common changes
+never rewrite it. In member review, main components show only 有音效 or 无音效;
+isolated components show only 其他版本, while file rows show their directories.
+A replaced plan returns `REVISION_NOT_FOUND`; clients refresh the operation and
+follow its new current plan. Member review caches use both plan and member
+identity with finite freshness because input validation can change while the
+plan remains the same.
 
-Every revision member is a server-computed Member Conclusion (see
-[Member Conclusion](worksets.md#routes)). Its conversion
-`task` payload contains `status`, `matched` (无音效), and `unmatched` (有音效).
-Each partition contains independent boolean facts `applicable`, `blocked`,
-`unmet`, and `changes`, so an unmet target can coexist with changes.
+Every revision member's conversion `task` payload
+([conversion_FrozenMemberConclusion](schema/conversion_FrozenMemberConclusion.json))
+carries `status`, `matched` (无音效), and `unmatched` (有音效), with
+independent partition booleans so an unmet target can coexist with changes.
 The status is the first matching result in this order: `blocked` (a blocker
 other than source ambiguity), `source_ambiguous`, `partially_unmet` / `unmet`,
 `changed`, `not_applicable` (no components), `unchanged`. Unmet classification

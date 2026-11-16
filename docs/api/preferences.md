@@ -7,10 +7,10 @@ Preference and the Default Library. They sync through the server, so every
 device shares them. There is no ETag or `If-Match`: the last write wins, per
 field.
 
-| Method | Path | Contract |
-| --- | --- | --- |
-| GET | `/api/v1/preferences` | 200 `{"track_formats":["WAV","FLAC"],"default_library_id":"…"}`; `track_formats` is `[]` and `default_library_id` is absent when never saved. |
-| PUT | `/api/v1/preferences` | A merge: 200 with the whole stored object after it. |
+| Method | Path | Schema | Contract |
+| --- | --- | --- | --- |
+| GET | `/api/v1/preferences` | [preferencesResponse](schema/preferencesResponse.json) | 200; `track_formats` is `[]` and `default_library_id` is absent when never saved. |
+| PUT | `/api/v1/preferences` | Req: [preferencesUpdateRequest](schema/preferencesUpdateRequest.json) · Res: [preferencesResponse](schema/preferencesResponse.json) | A merge: 200 with the whole stored object after it. |
 
 `track_formats` is the ordered Format Preference. A Work's effective format is
 the first listed format it ships; a Work shipping none keeps every format. An

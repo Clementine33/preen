@@ -4,44 +4,30 @@
 
 ## Endpoints
 
-| Method | Path | Auth | Status | Response |
+| Method | Path | Auth | Status | Schema / Response |
 | --- | --- | --- | --- | --- |
-| GET | `/api/v1/libraries` | yes | 200 | `{"libraries":[{...}]}` |
-| POST | `/api/v1/libraries` | yes | 201 | library object |
-| GET | `/api/v1/libraries/:id` | yes | 200 | library object |
-| PATCH | `/api/v1/libraries/:id` | yes | 200 | library object |
+| GET | `/api/v1/libraries` | yes | 200 | [libraryListResponse](schema/libraryListResponse.json) |
+| POST | `/api/v1/libraries` | yes | 201 | Req: [libraryCreateRequest](schema/libraryCreateRequest.json) · Res: [libraryResponse](schema/libraryResponse.json) |
+| GET | `/api/v1/libraries/:id` | yes | 200 | [libraryResponse](schema/libraryResponse.json) |
+| PATCH | `/api/v1/libraries/:id` | yes | 200 | Req: [libraryPatchRequest](schema/libraryPatchRequest.json) · Res: [libraryResponse](schema/libraryResponse.json) |
 | DELETE | `/api/v1/libraries/:id` | yes | 204 | — |
-| POST | `/api/v1/libraries/:id/scans` | yes | 200 | SSE stream (see below) |
-| GET | `/api/v1/libraries/:id/dirs` | yes | 200 | `{"dirs":[{...}]}` |
-| GET | `/api/v1/libraries/:id/tree?dir=…` | yes | 200 | `{"tree":{...},"dir_id":…,"member_path":…}` (see below) |
-| POST | `/api/v1/libraries/:id/tree/refresh?dir=…` | yes | 200 | `{"tree":{...},"dir_id":…,"member_path":…,"refreshed":true}` |
-| POST | `/api/v1/libraries/:id/file-operations` | yes | 200 | per-item result (see below) |
-| GET | `/api/v1/libraries/:id/operations/:type/current` | yes | 200 | `{"workset":{...}\|null}` |
-| PUT | `/api/v1/libraries/:id/operations/:type/current` | yes | 201/200 | record + `skipped[]` (see [Processing records](worksets.md#creating-the-current-record)) |
+| POST | `/api/v1/libraries/:id/scans` | yes | 200 | Req: [scanRequest](schema/scanRequest.json) · SSE stream ([scanEventData](schema/scanEventData.json)) |
+| GET | `/api/v1/libraries/:id/dirs` | yes | 200 | [dirListResponse](schema/dirListResponse.json) |
+| GET | `/api/v1/libraries/:id/tree?dir=…` | yes | 200 | [treeResponse](schema/treeResponse.json) |
+| POST | `/api/v1/libraries/:id/tree/refresh?dir=…` | yes | 200 | [treeResponse](schema/treeResponse.json) (`refreshed: true`) |
+| POST | `/api/v1/libraries/:id/file-operations` | yes | 200 | Req: [fileOperationRequest](schema/fileOperationRequest.json) · Res: [fileOperationResponse](schema/fileOperationResponse.json) |
+| GET | `/api/v1/libraries/:id/operations/:type/current` | yes | 200 | [currentRecordResponse](schema/currentRecordResponse.json) |
+| PUT | `/api/v1/libraries/:id/operations/:type/current` | yes | 201/200 | [recordCreateResponse](schema/recordCreateResponse.json) (see [Processing records](worksets.md#creating-the-current-record)) |
 
 ## Library object
 
-```json
-{
-  "id": "uuid",
-  "name": "Music",
-  "root_path": "/home/me/music",
-  "storage_class": "hdd",
-  "created_at": "2026-08-22T00:00:00Z",
-  "updated_at": "2026-08-22T00:00:00Z",
-  "last_scan_at": null,
-  "last_scan_status": "",
-  "last_scan_error": ""
-}
-```
-
-`POST /api/v1/libraries` body: `{"name":"...","root_path":"/abs/path"}`.
-The root must exist as a directory on the machine the backend runs on,
+Schema: [libraryResponse](schema/libraryResponse.json). `POST /api/v1/libraries`
+requires `root_path` to exist as a directory on the machine the backend runs on,
 otherwise 400 `LIBRARY_ROOT_INVALID`. Overlap and duplicate checks below stay
 lexical. The web client shows the root read-only once the library exists.
 New libraries default to `storage_class: "hdd"`. `PATCH` applies only the fields
-present (`name`, `storage_class`). `storage_class` accepts exactly
-`"hdd"` or `"ssd"`; any other value, including empty strings and `null`, returns
+present (`name`, `storage_class` in [libraryPatchRequest](schema/libraryPatchRequest.json));
+any other `storage_class` value (including `""` and `null`) returns
 400 `INVALID_STORAGE_CLASS`. An omitted value preserves the current setting,
 including when edits to different fields overlap. Renaming a library
 preserves its storage class; deleting it deletes that setting with the library.
@@ -97,20 +83,15 @@ An optional `root_path` is retained for
 client compatibility but must resolve to the selected library's configured
 root; cross-library scan overrides are rejected with
 `ROOT_PATH_OUTSIDE_LIBRARY`. The response is
-`Content-Type: text/event-stream` and is cancelled automatically if the client
-disconnects.
-
-| Event | Data fields |
-| --- | --- |
-| `started` | `stage`, `message` |
-| `progress` | `stage`, `files_scanned`, `dirs_scanned` |
-| `completed` | `stage`, `scan_id`, `root_path`, `files_scanned`; when non-zero: `dirs_with_multiple_numbers`, `example_dirs`, `examples_truncated`, `unaddressable_names` |
-| `error` | `stage`, `code`, `message` |
-| `cancelled` | `stage`, `message` |
+`Content-Type: text/event-stream` with [scanEventData](schema/scanEventData.json)
+payloads (see `sse.scan` in [contracts.json](schema/contracts.json)), and is
+cancelled automatically if the client disconnects.
 
 A successful scan always emits `started` then one or more `progress` then
-`completed` (`scan_id` is set). Failures end with `error`;
-client-initiated cancellation with `cancelled`. The scan writes the library's
+`completed` (`scan_id` is set; `dirs_with_multiple_numbers`, `example_dirs`,
+`examples_truncated`, and `unaddressable_names` appear when non-zero). Failures
+end with `error` (`code`, `message`); client-initiated cancellation with
+`cancelled`. The scan writes the library's
 inventory — the only listing source: there is no separate derived folder table
 to rebuild, and a rescan cannot renumber anything the workbench navigates by.
 A `completed` scan state is recorded on the library.
@@ -168,20 +149,10 @@ slot itself, so a file operation refuses a running scan in turn (ADR 0002).
 
 ## Directories and member trees
 
-`GET /api/v1/libraries/:id/dirs` lists **every scanned work root** of the
-library, whether or not it holds audio, with that directory's subtree
-counts. Recovery directories at every depth are not members and are left out:
-
-```json
-{
-  "dirs": [
-    { "name": "albumA", "path": "/home/me/music/albumA", "rel_path": "albumA",
-      "dir_id": "4b7fa32eebf5b001bcf43b1976c1b163",
-      "audio_file_count": 4, "file_count": 7,
-      "added_at": "2026-05-01T08:00:00Z", "work_code": null }
-  ]
-}
-```
+`GET /api/v1/libraries/:id/dirs` ([dirListResponse](schema/dirListResponse.json))
+lists **every scanned work root** of the library, whether or not it holds audio,
+with that directory's subtree counts. Recovery directories at every depth are
+not members and are left out.
 
 `added_at` is when a scan first saw the directory; rescans never move it.
 `work_code` is the canonical work number (`RJ` + eight digits) when the
@@ -197,29 +168,12 @@ same value across rescans and restarts; renaming the directory, or changing the
 library root, makes the old value unknown. It is an identity, **not** a
 credential: the same auth and path checks apply to it as to any other route.
 
-`GET /api/v1/libraries/:id/tree?dir=<dir_id>` returns the stored tree of one
-member directory, and answers with the identity it resolved and the path that
-identity stands for, so a caller that only holds the identity learns both. The
-tree carries each node's `rel_path` (relative to the member root), which is what
-file management addresses. `rj` is the work number of the Copy bound to that
-directory, or `null` when the directory is unbound (the refresh route answers it
-the same way):
-
-```json
-{
-  "dir_id": "4b7fa32eebf5b001bcf43b1976c1b163",
-  "member_path": "albumA",
-  "rj": null,
-  "tree": {
-    "name": "albumA", "path": "/home/me/music/albumA", "rel_path": "", "type": "dir",
-    "children": [
-      { "name": "track1.flac", "path": "/home/me/music/albumA/track1.flac",
-        "rel_path": "track1.flac",
-        "type": "file", "size": 12345, "bitrate": 920000, "format": "flac" }
-    ]
-  }
-}
-```
+`GET /api/v1/libraries/:id/tree?dir=<dir_id>` ([treeResponse](schema/treeResponse.json))
+returns the stored tree of one member directory, and answers with the identity
+it resolved and the path that identity stands for, so a caller that only holds
+the identity learns both. Each node carries its `rel_path` relative to the member
+root (for file management; `""` on the root node). `rj` is the work number of
+the Copy bound to that directory, or `null` when unbound.
 
 The identity is resolved against the library's scanned inventory — the work
 roots its listing shows, recovery directory excluded — and only the
@@ -239,8 +193,8 @@ it instead of `dir` is answered as a missing identity. A directory that no scan
 has recorded yet has no identity to address.
 
 `POST /api/v1/libraries/:id/tree/refresh?dir=<dir_id>` re-scans that one
-member directory and answers `{"tree": …, "dir_id": …, "member_path": …,
-"refreshed": true}`; the refreshed directory keeps its own row in the inventory,
+member directory and returns [treeResponse](schema/treeResponse.json) with
+`refreshed: true`; the refreshed directory keeps its own row in the inventory,
 so it stays listed and stays addressable. It takes the
 scanning side of the admission slot (see above) and answers `BUSY` (409) while
 a file operation holds it. A failed refresh is `502` with the scan's code: the
@@ -248,21 +202,12 @@ caller keeps the tree it already shows and marks it unrefreshed.
 
 ## Direct file management
 
-`POST /api/v1/libraries/:id/file-operations` is the second, explicitly
-non-plan write path (ADR 0002). It holds the direct-file-management slot
-for the whole request — including the inventory refresh that follows the
+`POST /api/v1/libraries/:id/file-operations` ([fileOperationRequest](schema/fileOperationRequest.json)
+→ [fileOperationResponse](schema/fileOperationResponse.json)) is the second,
+explicitly non-plan write path (ADR 0002). It holds the direct-file-management
+slot for the whole request — including the inventory refresh that follows the
 writes — and is refused with `BUSY` (409) while any scan is running or any
 planning session or execution is queued or running.
-
-Body:
-
-```json
-{
-  "member_path": "albumA",
-  "operation": "rename",
-  "items": [ { "source": "track1.flac", "name": "track01.flac" } ]
-}
-```
 
 | Operation | Items |
 | --- | --- |
@@ -282,31 +227,16 @@ failure: the rest are reported as `not_attempted`, and nothing already done is
 undone. Selecting a directory and something inside it is one operation: the
 child is reported `skipped` with `COVERED_BY_PARENT`. A `soft_delete` whose recovery name or recovery directory name does not fit the same limit is reported `NAME_TOO_LONG` before anything is created.
 
-Response (200):
-
-```json
-{
-  "operation": "soft_delete",
-  "member_path": "albumA",
-  "items": [
-    { "source": "track1.flac", "status": "ok", "recovered_path": "Delete/albumA/track1.flac" },
-    { "source": "cover.jpg", "status": "failed", "code": "TARGET_EXISTS", "message": "…" }
-  ],
-  "succeeded": 1, "failed": 1, "untouched": 0,
-  "refresh": { "ok": false, "code": "REFRESH_FAILED", "message": "files were modified, but refreshing the inventory failed: …" }
-}
-```
-
-`status` is `ok`, `failed`, `skipped` or `not_attempted`; a rename or move
-reports where the item landed as `target` (member-relative). A soft delete keeps
+A rename or move reports where the item landed as `target` (member-relative). A soft delete keeps
 the work name and the item's member-relative path under
 `<work parent>/Delete/<work name>/` and never overwrites media recycled earlier
 (a collision becomes `<stem>.N<ext>`). For example, deleting
 `分类/RJ000001/disc/track.flac` recovers it as
 `分类/Delete/RJ000001/disc/track.flac`;
 `recovered_path` is that location relative to the library root, for the user to restore from with their own
-file manager. A refresh failure is reported beside the item results and never
-replaces them: the files were modified, and both facts are stated.
+file manager. A refresh failure (`refresh.ok: false`, e.g. `REFRESH_FAILED`) is
+reported beside the item results and never replaces them: the files were
+modified, and both facts are stated.
 
 Work roots may be nested beneath classification directories. The list exposes the
 basename as `name` and the full library-relative path as `rel_path`; `dir_id`

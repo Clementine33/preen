@@ -3,55 +3,38 @@
 [API reference](../api.md) · [JSON schemas and endpoint/event bindings](schema/contracts.json) · [Common conventions](common.md)
 
 A **workset** is the library's shared current folder batch: a fixed, ordered
-set of 1–10,000 selected Work Roots, including roots without audio. Each library
-has at most one workset, enforced by a storage-level unique index.
+set of 1–10,000 selected Work Roots, including roots without audio. Each library has at most one workset, enforced by a storage-level unique index.
 `conversion`, `rename` and `metadata_refresh` reuse the same members and each
 retain independent drafts, versions, planning sessions, current plans and
 execution results. Decision: [ADR 0004](../adr/0004-task-seam-and-opaque-payloads.md).
 
-**Status: implemented and machine-checked.** The Go handler, repository and
-e2e tests are the reference for the shapes below. There is no revision-history
-route: each operation exposes exactly one current plan, and publishing a new
-plan makes the one it replaced — with its payload, roots, units and execution
-sessions — inaccessible and cancels unfinished cover demands in the same transaction. A failed generation
-keeps the current plan, execution and pending cover demands. The pre-operation
-workset routes (`/worksets/{id}/draft`, `/worksets/{id}/revisions`,
-`/worksets/{id}/planning-sessions/*`) and the old record-creation route
-(`POST /worksets` with `folder_ids`) were removed in the same delivery. A
-database from another schema generation is refused at startup, never cleared;
-only release databases upgrade, through migrations (ADR 0011).
+There is no revision-history route: each operation exposes exactly one current
+plan, and publishing a new plan makes the one it replaced — with its payload,
+roots, units and execution sessions — inaccessible and cancels unfinished cover
+demands in the same transaction. A failed generation keeps the current plan,
+execution and pending cover demands. A database from another schema generation
+is refused at startup, never cleared; only release databases upgrade, through
+migrations (ADR 0011).
 
 ## Creating the current record
 
 `PUT /api/v1/libraries/{id}/operations/{type}/current` creates the library's
 shared batch and seeds every registered Task's independent draft from its
-common settings. The existing `{type}` entry point validates a registered
-Task; it does not select a separate batch. GET through any registered Task
-returns the same `workset_id` and member identities.
+common settings. `{type}` validates a registered Task without scoping the batch;
+`GET` through any registered Task returns the same `workset_id` and member
+identities.
 
-The body names the members by rule over the `dir_id`s that
-`GET /api/v1/libraries/{id}/dirs` lists, so its size does not grow with path
-length. `selection` is one of:
-
-```json
-{ "selection": { "all": true, "except_dir_ids": ["…"] } }
-{ "selection": { "dir_ids": ["…"] } }
-```
-
-`all` means every scanned work root at the moment the request is read, minus
-`except_dir_ids`; an unknown id in `except_dir_ids` is ignored. `recorded`
-reports the member count actually written, which differs from what the caller
-saw when the inventory changed in between — the server does not refuse, the
-client compares. Giving `dir_ids` together with `all`, or `except_dir_ids`
-without `all`, is `INVALID_SELECTION` (400). Members are ordered by the
-inventory path, whatever order the ids were sent in. Every id that did not
-become a member is reported instead of dropped silently:
-
-| `skipped[].reason` | Meaning |
-| --- | --- |
-| `unknown_dir` | no scanned work root of this library has that id |
-| `duplicate` | the id was selected more than once |
-| `ambiguous` | two directories claim the id; it names neither ([ADR 0003](../adr/0003-directory-identity.md)) |
+`selection` ([recordCreateRequest](schema/recordCreateRequest.json)) addresses
+the `dir_id`s listed by `GET /api/v1/libraries/{id}/dirs` so body size does not
+grow with path length, and its two forms are mutually exclusive: either
+`all: true` (with optional `except_dir_ids`; unknown ids are ignored) or
+`dir_ids`. Combining `dir_ids` with `all`, or `except_dir_ids` without `all`, is
+`INVALID_SELECTION` (400). Members are ordered by inventory path regardless of
+request order. `recorded` reports the member count actually written (which may
+differ from what the caller saw when inventory changed concurrently), and every
+unusable `dir_id` is reported in `skipped[]` with its
+[reason](schema/recordCreateResponse.json) (`ambiguous` means two directories
+claim the id per [ADR 0003](../adr/0003-short-routes-and-directory-identity.md)).
 
 A selection whose every entry is unusable creates nothing and answers
 `NO_MEMBERS` (400), with the skipped ids in `details`. Batch membership does
@@ -88,40 +71,36 @@ back as `If-Match`.
 
 All routes require auth and use the [standard error envelope](common.md#error-envelope).
 
-| Method | Path | Behavior |
-| --- | --- | --- |
-| GET | `/api/v1/libraries/{id}/operations/{type}/current` | The library's shared current batch (the same for every registered type), or `{"workset": null}` with 200 when it has none. A library that does not exist is 404. |
-| PUT | `/api/v1/libraries/{id}/operations/{type}/current` | Create or replace. Body `{"selection":{…},"expected_current_id":"…","title":"…"}` (`selection` as in [Creating the current record](#creating-the-current-record)) (title optional; the library's name is the default), `Idempotency-Key` optional (`INVALID_IDEMPOTENCY_KEY` when malformed, and an absent key means the call is never a replay). 201 `{"workset":…,"created":true,"recorded":N,"skipped":[{"dir_id","reason"}]}`; 200 for an idempotent replay. The new record and the disappearance of the one it replaces — members and every operation, draft, plan and session — are atomic. Unfinished cover demands are canceled at the same boundary; stored payload is removed in background batches. |
-| GET | `/api/v1/worksets` | Keyset list (`limit`, `cursor` → `next_cursor`, `library_id`, `status=active` excludes orphaned). |
-| GET | `/api/v1/worksets/{id}` | Metadata view: `workset_id`, `title`, `version`, `library`, `members[]`, `created_at`, `updated_at`; no operations. Member coverage and planning state belong to an operation, never to the member or the workset. |
-| PATCH | `/api/v1/worksets/{id}` | Rename only. `If-Match` = workset metadata version (`VERSION_REQUIRED` without it, `VERSION_CONFLICT` when stale, `ORPHANED_WORKSET` when the library is gone). |
-| GET | `/api/v1/worksets/{id}/operations/{type}` | Operation view: `version`, `planning_state`, `current_revision`, `active_generation`, `latest_generation`, `active_execution`, `latest_execution`, and `max_participants` (the task's Participation Limit; omitted when the task declares none — only conversion does, 3000). Unknown workset, unsupported type and unestablished operation are all 404 (`UNKNOWN_OPERATION_TYPE` for a type this iteration does not implement). |
-| GET | `/api/v1/worksets/{id}/operations/{type}/draft` | The operation version plus the sparse draft wrapped in its task envelope: `task: {kind, schema_version, payload}`. The payload is task-owned (conversion: the sparse document). |
-| PUT | `/api/v1/worksets/{id}/operations/{type}/draft` | Full replacement of the sparse document, `If-Match` = operation version. Structural validation only: an incomplete draft saves. The common section is not written here: one that differs from the deployment-wide [Task settings](tasks.md#task-settings) is refused with `COMMON_SETTINGS_MISMATCH` (409), neither applied nor ignored (ADR 0008). `GENERATION_IN_PROGRESS` while this operation's session is queued/running; `EXECUTION_IN_PROGRESS` while its execution session is; `ORPHANED_WORKSET` when read-only. |
-| POST | `/api/v1/worksets/{id}/operations/{type}/revisions` | Start generation. No request body; `If-Match` (operation version) and `Idempotency-Key` are both required. 202 `{"created":true,"generation":…}`; 202 `{"created":false,"generation":…}` for an effective key replay; 200 `{"created":false,"revision":…}` when no effective key matches and the current revision has never executed and nothing semantic changed. A new key after execution creates a fresh plan even with unchanged settings and folders. At most one queued/running generation exists per workset operation, including concurrent starts: the same effective key and request replay its session; another key gets `GENERATION_IN_PROGRESS` (409). Different worksets and operations may start independently. Conflicts: `IDEMPOTENCY_KEY_REUSED` for a different request under an effective key, `GENERATION_IN_PROGRESS`, `EXECUTION_IN_PROGRESS`, `SCAN_IN_PROGRESS`, `NO_ACTIVE_MEMBERS`, `VERSION_CONFLICT`; `INVALID_POLICY` is 400. `TOO_MANY_PARTICIPANTS` is 400: the participating (non-excluded) member count exceeds the task's Participation Limit; `details` are `limit=N` and `participants=M`, and excluding members lets generation proceed. |
-| GET | `/api/v1/worksets/{id}/operations/{type}/planning-sessions/{genId}` | Session detail. Statuses `queued`, `running`, `completed`, `failed`, `canceled`, `interrupted`. A session of another workset or operation is 404. |
-| GET | `/api/v1/worksets/{id}/operations/{type}/planning-sessions/{genId}/events` | SSE progress (`session_snapshot`, `progress`, terminal event). `session_snapshot` has the same payload as the session detail, including `operation_type`. |
-| POST | `/api/v1/worksets/{id}/operations/{type}/planning-sessions/{genId}/cancel` | Cooperative cancel; idempotent on terminal sessions. |
-| GET | `/api/v1/worksets/{id}/operations/{type}/revisions/{planId}` | Lightweight detail of the record's **current** plan (a replaced plan returns 404 `REVISION_NOT_FOUND`): `plan_id`, `revision_index`, `created_at`, `root_path`, `snapshot_token`, `status`, `summary`, `counts`, `execution`, `category_counts`, `task: {kind, schema_version, payload}` (frozen policy, policy hash, classifier and step summary, without `components`), and `members[]` containing Member Conclusions directly (`member_id`, `excluded`, `input`, `has_components`, task-owned `task`, optional `category`). `category_counts` maps each task-defined category to its member count (members filed under no category are not counted; a task that declares none yields `{}`). Optional `?category=X&limit=N` (both required together, `limit` a positive integer; otherwise 400 `INVALID_ARGUMENT`) narrows `members[]` to the first N conclusions of that category in the record's member order and adds `category_total`, that category's full size; without them the shape is unchanged. No `roots`, `component_roots`, member settings or sources. The frozen policy and step summary are always present. A stored plan the Task cannot review (unsupported `task_schema_version`, not exactly one step, or no frozen policy or summary) fails the read: 400 `UNSUPPORTED_SCHEMA_VERSION` from a rename or metadata Task that refuses the version, otherwise 500 `INTERNAL`; the response never carries a `null` policy or summary. Cache by plan with finite freshness and refresh on re-entry after expiry: input validation and execution can change while the plan id stays unchanged. |
-| GET | `/api/v1/worksets/{id}/operations/{type}/revisions/{planId}/members/{memberId}` | One member's Plan Review: `plan_id`, `member_id`, `member_name`, `folder_path`, `excluded`, frozen `effective` and per-unit `sources` (`common` / `member`), `conclusion`, its input `roots[]` (root index/path, status/error, stale flag, inventory fingerprint and entry count), and `task: {kind, schema_version, payload}` with only its complete task `components[]`. Component ownership is resolved by the server; no `component_roots` table is needed. Excluded members and members without planning input return 200 with empty components. 404 `MEMBER_NOT_FOUND` means the member is outside this record; 404 `REVISION_NOT_FOUND` means the plan is no longer current. After a replaced-plan response, refresh the operation and read the member under its new current plan. The same unreviewable-plan failures as the revision read apply. Cache by plan and member with finite freshness: input validation may change without a new plan. |
-| POST | `/api/v1/worksets/{id}/operations/{type}/revisions/{planId}/executions` | Execute the operation's current revision (see [Execution sessions](executions.md#execution-sessions)), optionally scoped to some of its members. Body optional: `{"member_ids":[…]}` runs those members, `{"all_except_member_ids":[…]}` every member but those; absent or empty runs the whole revision. The worklist and the session options (the obsolete-audio handling the draft declares) are always the frozen revision's. `If-Match` (operation version) and `Idempotency-Key` are both required. 202 `{"created":true,"execution":…}`; 200 with the same session for a key replay. |
-| GET | `/api/v1/worksets/{id}/operations/{type}/executions/{executionId}` | Session detail, including each component's result. Optional `view=members` (per-member summaries instead of components; every operation type supports it) or `member_id` (one member's components), see [executions](executions.md); a session of another workset or operation is 404. |
-| GET | `/api/v1/worksets/{id}/operations/{type}/executions/{executionId}/events` | SSE execution stream (`execution_snapshot`, `component`, `progress`, terminal event). |
-| POST | `/api/v1/worksets/{id}/operations/{type}/executions/{executionId}/cancel` | Cooperative cancel; idempotent on terminal sessions (200 with the session either way). |
+| Method | Path | Schema | Behavior |
+| --- | --- | --- | --- |
+| GET | `/api/v1/libraries/{id}/operations/{type}/current` | [currentRecordResponse](schema/currentRecordResponse.json) | The library's shared current batch (`workset: null` when none). A library that does not exist is 404. |
+| PUT | `/api/v1/libraries/{id}/operations/{type}/current` | Req: [recordCreateRequest](schema/recordCreateRequest.json) · Res: [recordCreateResponse](schema/recordCreateResponse.json) | Create or replace atomically (`title` defaults to library name). `Idempotency-Key` optional (`INVALID_IDEMPOTENCY_KEY` when malformed; absent means never a replay): 201 when created, 200 on replay. Atomic replacement retires the old record, members, operations, drafts, plans and sessions, cancels unfinished cover demands, and removes stored payloads in background batches. |
+| GET | `/api/v1/worksets` | [worksetListResponse](schema/worksetListResponse.json) | Keyset list (`limit`, `cursor` → `next_cursor`, `library_id`, `status=active` excludes orphaned). |
+| GET | `/api/v1/worksets/{id}` | [worksetResponse](schema/worksetResponse.json) | Metadata and members only; no operations. Member coverage and planning state belong to an operation, never to the member or workset. |
+| PATCH | `/api/v1/worksets/{id}` | Req: [worksetPatchRequest](schema/worksetPatchRequest.json) · Res: [worksetResponse](schema/worksetResponse.json) | Rename only. `If-Match` = workset metadata version (`VERSION_REQUIRED` without it, `VERSION_CONFLICT` when stale, `ORPHANED_WORKSET` when the library is gone). |
+| GET | `/api/v1/worksets/{id}/operations/{type}` | [operationResponse](schema/operationResponse.json) | Operation view including `max_participants` (omitted when the task declares none — only `conversion` does, 3000). Unknown workset, unsupported type and unestablished operation are all 404 (`UNKNOWN_OPERATION_TYPE` for an unknown `{type}`). |
+| GET | `/api/v1/worksets/{id}/operations/{type}/draft` | [draftResponse](schema/draftResponse.json) | Operation version (`If-Match` token) plus the task-owned sparse draft envelope. |
+| PUT | `/api/v1/worksets/{id}/operations/{type}/draft` | Req: [draftDocumentRequest](schema/draftDocumentRequest.json) · Res: [operationResponse](schema/operationResponse.json) | Full replacement of the sparse document, `If-Match` = operation version. Structural validation only: an incomplete draft saves. The common section is not written here: one that differs from the deployment-wide [Task settings](tasks.md#task-settings) is refused with `COMMON_SETTINGS_MISMATCH` (409), neither applied nor ignored (ADR 0008). `GENERATION_IN_PROGRESS` while this operation's session is queued/running; `EXECUTION_IN_PROGRESS` while its execution session is; `ORPHANED_WORKSET` when read-only. |
+| POST | `/api/v1/worksets/{id}/operations/{type}/revisions` | Req: [emptyRequest](schema/emptyRequest.json) · Res: 202 [generationStartResponse](schema/generationStartResponse.json) / 200 [generationReplayRevisionResponse](schema/generationReplayRevisionResponse.json) | Start generation. `If-Match` (operation version) and `Idempotency-Key` are both required. 202 (`created: true`, or `false` on effective key replay); 200 when no effective key matches and the unexecuted current revision had no semantic changes. A new key after execution creates a fresh plan even with unchanged settings and folders. At most one queued/running generation exists per workset operation: matching effective key + request replays its session; another key gets `GENERATION_IN_PROGRESS` (409). Different worksets and operations start independently. Conflicts: `IDEMPOTENCY_KEY_REUSED`, `GENERATION_IN_PROGRESS`, `EXECUTION_IN_PROGRESS`, `SCAN_IN_PROGRESS`, `NO_ACTIVE_MEMBERS`, `VERSION_CONFLICT`; `INVALID_POLICY` is 400. `TOO_MANY_PARTICIPANTS` is 400 (`details`: `limit=N`, `participants=M`; excluding members lets generation proceed). |
+| GET | `/api/v1/worksets/{id}/operations/{type}/planning-sessions/{genId}` | [generationViewResponse](schema/generationViewResponse.json) | Session detail. A session of another workset or operation is 404. |
+| GET | `/api/v1/worksets/{id}/operations/{type}/planning-sessions/{genId}/events` | `sse.generation` in [contracts.json](schema/contracts.json) | SSE progress (`session_snapshot`, `progress`, terminal event). `session_snapshot` matches the session detail schema. |
+| POST | `/api/v1/worksets/{id}/operations/{type}/planning-sessions/{genId}/cancel` | [generationViewResponse](schema/generationViewResponse.json) | Cooperative cancel; idempotent on terminal sessions. |
+| GET | `/api/v1/worksets/{id}/operations/{type}/revisions/{planId}` | [revisionResponse](schema/revisionResponse.json) | Lightweight detail of the **current** plan (replaced plans return 404 `REVISION_NOT_FOUND`; no `roots`, `component_roots`, member settings, sources, or `components`). `category_counts` omits uncategorized members (`{}` when none). Optional `?category=X&limit=N` (both required together, `limit` a positive integer; else 400 `INVALID_ARGUMENT`) narrows `members[]` to the first `N` entries in member order and adds `category_total`. Frozen policy and step summary are always present; unreviewable plans (`task_schema_version` unsupported, step count != 1, or missing policy/summary) fail with 400 `UNSUPPORTED_SCHEMA_VERSION` (when refused by rename/metadata) or 500 `INTERNAL`, never returning `null`. Cache by `plan_id` with finite freshness: input validation and execution change in place. |
+| GET | `/api/v1/worksets/{id}/operations/{type}/revisions/{planId}/members/{memberId}` | [memberReviewResponse](schema/memberReviewResponse.json) | One member's Plan Review with frozen `effective`, `sources`, `conclusion`, `roots[]` and `components[]`. Server resolves component ownership (no `component_roots`). Excluded and no-input members return 200 with empty components. 404 `MEMBER_NOT_FOUND` (outside record) or `REVISION_NOT_FOUND` (replaced plan; refresh operation and re-read). Same unreviewable-plan failures and finite-freshness cache rules apply. |
+| POST | `/api/v1/worksets/{id}/operations/{type}/revisions/{planId}/executions` | Req: [executionStartRequest](schema/executionStartRequest.json) · Res: [executionStartResponse](schema/executionStartResponse.json) | Execute the operation's current revision ([Execution sessions](executions.md#execution-sessions)). Optional body scopes to `member_ids` or `all_except_member_ids` (absent/empty runs all); worklist and options come from the frozen revision. `If-Match` (operation version) and `Idempotency-Key` are both required. 202 when created, 200 on key replay. |
+| GET | `/api/v1/worksets/{id}/operations/{type}/executions/{executionId}` | [executionViewResponse](schema/executionViewResponse.json) | Session detail; optional `view=members` or `member_id` (see [executions](executions.md)). A session of another workset or operation is 404. |
+| GET | `/api/v1/worksets/{id}/operations/{type}/executions/{executionId}/events` | `sse.execution` in [contracts.json](schema/contracts.json) | SSE execution stream (`execution_snapshot`, `component`/`member`, `progress`, terminal event). |
+| POST | `/api/v1/worksets/{id}/operations/{type}/executions/{executionId}/cancel` | [executionViewResponse](schema/executionViewResponse.json) | Cooperative cancel; idempotent on terminal sessions (200 either way). |
 
-Each revision member's `conclusion` contains `member_id`, `excluded`,
-`input` (`none` | `valid` | `stale` | `missing` | `unavailable`),
-`has_components`, and an optional task-owned `task` payload. Workset resolves
-root ownership on the server. `none` means no frozen planning input; `missing`
-means the frozen planning root was missing; `unavailable` means the record has
-no library to validate against; `stale` means live inventory no longer matches
-the frozen input. Frozen facts take precedence: `none`, `missing`,
-`unavailable`, `stale`, then `valid`. Exclusion and missing input take precedence over task status in
-the UI. The conversion list reads these conclusions, including selected-run
-input checks, without matching paths or inspecting component payloads.
-Input validity is evaluated on every read; clients use a finite cache lifetime
-(the web client uses 60 seconds), even when `plan_id` stays the same.
-Rename and metadata refresh may currently omit the task-owned payload.
+Each revision member's `conclusion` ([revisionMemberResponse](schema/revisionMemberResponse.json))
+evaluates `input` (`none`: no frozen planning input; `missing`: frozen root
+missing; `unavailable`: record has no library; `stale`: live inventory differs
+from frozen input; `valid`: matches) in that strict precedence order (`none`,
+`missing`, `unavailable`, `stale`, `valid`). Exclusion and missing input take
+precedence over task status in the UI. Input validity is evaluated on every
+read; clients use a finite cache lifetime (the web client uses 60 seconds), even
+when `plan_id` stays the same. Excluded members and members without planning
+input omit the task-owned payload.
 
 Task payloads: [Audio conversion](conversion.md), [rename and metadata refresh](tasks.md). Frozen conversion revisions are described in [Frozen revisions](conversion.md#frozen-revisions).
 

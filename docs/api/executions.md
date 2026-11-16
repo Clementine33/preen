@@ -142,80 +142,58 @@ terminal outcomes retain their meaning. Shutdown waits for protected publication
 and inventory finalization before closing SQLite, subject to the process-wide
 [five-second exit deadline](common.md#shutdown).
 
-**Detail payload** (also the SSE snapshot): `execution_id`, `workset_id`,
-`operation_type`, `plan_id`, `status`, `options` (the task-owned frozen
-session options — conversion: `{"delete_mode":"soft"|"hard"}`),
-`total_components`,
-`completed_components` (components that are no longer pending — derived from the
-recorded component results, never incremented on its own),
-`total_operations`, `completed_operations`, `current_root`,
-`current_component_id`, `current_phase` (`component` while a component runs),
-`components[]`, `selected_member_ids` (the scope this session ran; absent when it
-ran the whole revision), `error_code`, `error_message`, `started_at`,
-`finished_at`, `created_at`.
+**Detail payload** ([executionFullViewResponse](schema/executionFullViewResponse.json),
+also the SSE `execution_snapshot` payload): `completed_components` counts
+components that are no longer pending — derived from recorded component results,
+never incremented on its own; `current_phase` is `"component"` while a component
+runs; `selected_member_ids` is present only for scoped runs (absent when running
+the whole revision).
 
-`components[]` carries the run's scope: the frozen worklist in component order,
-with each component's own result folded in. A component with no recorded result
-at all is `pending` with empty result lists — nothing has run for it yet. Its
-frozen `kept_decisions` may already contain files. The list is
-ordered by `component_index`. There is no paging: large runs read the members
-views below instead.
+`components[]` ([executionComponentResponse](schema/executionComponentResponse.json))
+carries the run's scope in `component_index` order: a component with no recorded
+result yet is `pending` with empty result lists, while its frozen `kept_decisions`
+may already contain files. There is no paging: large runs read the members views
+below instead.
 
-**Members views (opt-in).** `GET …/executions/{executionId}?view=members` and
-`GET …/events?view=members` replace the component list with per-member
-summaries; without a parameter the shapes above are unchanged. `view` accepts
-only `members`; any other value, or `view` together with `member_id`, is 400
+**Members views (opt-in).** `GET …/executions/{executionId}?view=members`
+([executionMembersViewResponse](schema/executionMembersViewResponse.json)) and
+`GET …/events?view=members` replace `components[]` with per-member summaries;
+without a parameter the full detail shape above is returned. `view` accepts only
+`members`; any other value, or `view` together with `member_id`, is 400
 `INVALID_VIEW`. Every operation type supports the view; the web client reads
 conversion, rename and metadata sessions through it.
 
 A session's members are the members in its scope that own at least one frozen
 component (a component belongs to the member whose `folder_path` equals its
-`root_path`), ordered by their first component's `component_index`. A
-`MemberSummary` is `member_id`, `root_path`, `status`, `total_components`,
-`completed_components` (components that are not `pending`), `total_operations`,
-`completed_operations`, `error_message` (the first failed component's
-`error_message`, else its `error_code`, else `""`) and `inventory_sync_error`
-(the first non-empty one, else `""`). Member `status` is defined here only:
+`root_path`), ordered by their first component's `component_index`. In each
+[MemberSummary](schema/executionMemberSummaryResponse.json), `error_message` is
+the first failed component's `error_message` (else its `error_code`, else `""`),
+`inventory_sync_error` is the first non-empty one (else `""`), and `status` is
 `running` while the session is `queued`/`running` and the member holds
-`current_component_id`; otherwise `succeeded` when all its components
-succeeded, `failed` if any failed, `canceled` if any was canceled, else
-`pending`.
+`current_component_id`, otherwise `succeeded` when all its components succeeded,
+`failed` if any failed, `canceled` if any was canceled, else `pending`.
 
-The members detail keeps every scalar field and omits `components`, adding
-`members`: `counts` (`succeeded`, `failed`, `canceled`, `running`, `pending`
-member counts), `attention[]` (members that are `failed`, `canceled`, `running`
-or have a non-empty `inventory_sync_error`, in member order, at most 50) and
-`attention_total` (the uncapped count). The summary is read from result
-statuses only; it never joins `kept_decisions`.
+In `members`, `attention[]` holds members that are `failed`, `canceled`,
+`running` or have a non-empty `inventory_sync_error` (in member order, capped at
+50), while `attention_total` is the uncapped count. The summary is read from
+result statuses only; it never joins `kept_decisions`.
 
-`GET …/executions/{executionId}?member_id=<id>` keeps every scalar field, limits
+`GET …/executions/{executionId}?member_id=<id>`
+([executionMemberViewResponse](schema/executionMemberViewResponse.json)) limits
 `components[]` to that member's components (full entries, including
-`kept_decisions`) and adds `member: MemberSummary`. A member that is not in the
-workset, outside the session's scope, or without components in it is 404
+`kept_decisions`) and includes `member`. A member not in the workset, outside
+the session's scope, or without components in it is 404
 `MEMBER_NOT_IN_EXECUTION`.
 
-Each `components[]` entry: `component_index`, `component_id`, `root_path`,
-`partition`, `status` (`pending` | `succeeded` | `failed` | `canceled`),
-`stage` (the failing stage: `precheck`, `materialize`, `validate`, `commit`,
-`remove`), `operations`, `completed_operations`, `committed[]`, `removed[]`,
-`remaining[]` (operations not completed, in frozen order), `recovery[]`
-(preserved files needing operator attention: soft-delete destinations,
-replaced-old copies, leftover temporaries), `error_code`, `error_message`,
-`inventory_synced`, `inventory_sync_error`, optional task-owned `task_result`,
-`kept_decisions[]` (the frozen plan's file decisions whose `resolution` is
-`keep`, in plan order).
-
-`kept_decisions` is always an array, including `[]` for components with no kept
-files and tasks without file decisions. Each decision has `path`, `resolution`
-(`keep`), and optional `reason_code`, `message`, `target_path`, matching the
-conversion plan's file-decision shape. These are plan conclusions, including
-unmet targets, rather than observed execution results: pending, failed and
-canceled components carry them too. The server joins the requested components
-to their frozen plan; clients do not need a revision read. Every component
-entry carries this field: detail pages (default and `member_id` reads),
-initial and reconnect `execution_snapshot` events, incremental `component`
-events, and start (including idempotent replay) and cancel session responses.
-Clients may replace an entire component entry when applying an event.
+Each `components[]` entry exposes `stage` (conversion failure stages `precheck`,
+`materialize`, `validate`, `commit`, `remove`, or metadata task stages `skipped` /
+`metadata`), `remaining[]` (operations not completed, in frozen order),
+`recovery[]` (preserved files needing operator attention: soft-delete
+destinations, replaced-old copies, leftover temporaries), and `kept_decisions[]` (always an array — `[]` when none — carrying the frozen
+plan's `keep` decisions in plan order). The server joins requested components to
+their frozen plan on detail pages, initial/reconnect `execution_snapshot` events,
+`component` events, and start/cancel responses; clients may replace an entire
+component entry when applying an event.
 
 Conversion component failure codes (the payload shape is unchanged):
 
@@ -279,25 +257,25 @@ A ready head
 component commits and persists even if later task delivery is backpressured;
 FIFO delivery and serial preparation/publication remain unchanged.
 
-**Events.** Every connection first receives `execution_snapshot` (the full
-detail above), then `component` (one component's own entry, exactly as it
-appears in `components[]`, sent as that component's result lands), `progress`
-(counts + current component; never a fabricated percentage) and exactly one
-terminal event: `succeeded`, `failed`, `canceled` or `interrupted`. A component
-result and the final persisted progress are emitted before the terminal event,
-so a client that watches a run to its end has seen every component it ran and
-the final counts, including partial counts after failure or cancellation.
-A connection to an already-terminal session gets those counts in its initial
-snapshot.
+**Events** (`sse.execution` in [contracts.json](schema/contracts.json)). Every
+connection first receives `execution_snapshot` (the full detail above), then
+`component` (one component's entry as its result lands), `progress` (counts +
+current component; never a fabricated percentage) and exactly one terminal event:
+`succeeded`, `failed`, `canceled` or `interrupted`. A component result and the
+final persisted progress are emitted before the terminal event, so a client that
+watches a run to its end has seen every component it ran and the final counts,
+including partial counts after failure or cancellation. A connection to an
+already-terminal session gets those counts in its initial snapshot.
 
-With `view=members` the snapshot is the members detail and `component` is
-replaced by `member`: `{"member": MemberSummary, "counts": {…},
-"attention_total": n}`, sent whenever a member's summary changes — a component
-result landing, or `current_component_id` moving (the member left and the
-member entered each get one). Within one poll tick the `member` events come
-first, then `progress`, and the terminal event is last; `progress` and the
-terminal events are unchanged. Calibration after the terminal event re-reads
-the detail with `view=members`. There is no event-log
+With `view=members` the snapshot is
+[executionMembersViewResponse](schema/executionMembersViewResponse.json) and
+`component` is replaced by `member`
+([executionMemberEvent](schema/executionMemberEvent.json)), sent whenever a
+member's summary changes — a component result landing, or `current_component_id`
+moving (the member left and the member entered each get one). Within one poll
+tick the `member` events come first, then `progress`, and the terminal event is
+last; `progress` and the terminal events are unchanged. Calibration after the
+terminal event re-reads the detail with `view=members`. There is no event-log
 replay: a client that missed events — or attached late — re-reads the detail route, and the terminal event's
 calibration read closes any gap left by a result written outside component
 order. Disconnecting never cancels the session — only `POST …/cancel` or the
@@ -343,10 +321,9 @@ Session routes and version guards are listed in [Processing records and operatio
 
 Rename uses zero-encode components, commits directories serially in frozen order,
 and persists each result before the next commit. Noop completes zero operations;
-a committed rename completes one. `task_result` carries `source_path`,
-`target_path`, `renamed`, optional `rolled_back`, and optional `recovered`.
-Failures report the actual disk location through these facts and the existing
-committed/removed fields:
+a committed rename completes one. `task_result` uses
+[dirrename_Result](schema/dirrename_Result.json). Failures report the actual disk
+location through these facts and the existing committed/removed fields:
 
 | Component error code | Meaning |
 | --- | --- |

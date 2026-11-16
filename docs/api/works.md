@@ -11,27 +11,27 @@ a path or body is accepted in either case and in its 6- or 8-digit spelling, and
 resolves to the canonical 8-digit form; `RJ123456` and `RJ00123456` are the same
 work, while `RJ1657200` (7 digits) is refused.
 
-| Method | Path | Contract |
-| --- | --- | --- |
-| GET | `/api/v1/works` | 200 `{"works":[…],"total":N}`: one numbered page and how many works the whole filter lists. Filters and paging below. |
-| GET | `/api/v1/works/{rj}` | 200 the work in full: metadata, personal data, resolved relation, language editions and every copy. Only scanning creates a Work; an external relation number without a Work returns `WORK_NOT_FOUND` (404). `collection_ids` names the user collections holding the work (below). |
-| GET | `/api/v1/inventory/media-facts/events` | Bearer-authenticated SSE; `changed` with `{}` after a committed measurement batch, and once on connection. See below. |
-| GET | `/api/v1/works/{rj}/content` | 200 the work's file manifest (ADR 0013): every bound copy's tree, below. |
-| GET | `/api/v1/works/{rj}/content/{copyId}/{path...}` | 200 one manifest file's bytes (ADR 0013): `path` is the copy-root-relative manifest path. See below. |
-| GET | `/api/v1/works/{rj}/thumbs/{copyId}/{path...}?h=240&v=…` | 200 one manifest image's thumbnail (ADR 0013). See below. |
-| PUT | `/api/v1/works/{rj}/metadata` | Body: up to four independent data groups (below). 200 `{"applied":[…],"ignored":[…],"warnings":[…]}`. |
-| PATCH | `/api/v1/works/{rj}/user-data` | Body `{"rating":8,"favorite":true,"note":"…"}`; only the fields present are applied, and `"rating":null` clears it. 200 the resulting state. |
-| PUT | `/api/v1/works/{rj}/listening` | Body `{"rendition":"","track_key":"…","position_sec":271.4,"track_index":2,"track_count":12,"client":"k3f9…","seq":41}`, or the same with `"finished":true`. Upserts the work's row for that Rendition, except that a PUT whose `client` equals the stored row's and whose `seq` is not greater leaves the row (a different `client` always applies). 200 the stored row either way. `INVALID_ARGUMENT` (400) when `track_key` or `client` is empty, `position_sec < 0`, or not `0 <= track_index < track_count`. See below. |
-| DELETE | `/api/v1/works/{rj}/listening` | 204; removes every Listening Position row of the work, Finished marks included. |
-| PUT | `/api/v1/works/{rj}/user-tags` | Body `{"tag_ids":["…"]}`; replaces the work's tag set with exactly these. 200 `{"user_tags":[…]}`. Unknown ids are `USER_TAG_NOT_FOUND` (404). |
-| GET | `/api/v1/circles` | 200 `{"circles":[{"id":"…","name":"…","work_count":3}]}`: every circle a listed work carries, ordered by name. Takes the listing's filter parameters (below) and counts only the works they list, so `library` (comma-separated ids) scopes the circles and their counts to works with a copy there, and any other filter narrows them the same way; a caller offering alternatives to its own pick leaves that dimension out. `sort`, `direction`, `limit`, `page` and any unknown parameter are `INVALID_ARGUMENT` (400). |
-| GET | `/api/v1/voice-actors` | 200 `{"voice_actors":[…]}`, the same shape and scoping for voice actors. Each `id` is what the listing's `circle` / `voice_actor` parameter takes. |
-| GET | `/api/v1/tags` | 200 `{"source_tags":[…],"user_tags":[…]}`: the same shape and scoping for both tag vocabularies at once (the wall's tag index). A `source_tags` id is an `s:` ref of the listing's `tag` parameter (and a `source_tag` id), a `user_tags` id a `u:` ref. A user tag no listed work carries is absent here; `GET /user-tags` is the whole vocabulary. |
-| GET | `/api/v1/user-tags` | 200 `{"user_tags":[{"id":"…","name":"…"}]}`. |
-| POST | `/api/v1/user-tags` | Body `{"name":"…"}`; 200 the tag, **creating it if new and returning the existing one otherwise** — creating by name is idempotent. |
-| PATCH | `/api/v1/user-tags/{id}` | Body `{"name":"…"}`; 200 the tag, `USER_TAG_EXISTS` (409) on a name another tag holds. |
-| DELETE | `/api/v1/user-tags/{id}` | 204; the tag's relations go with it, no work is touched. |
-| DELETE | `/api/v1/works/{rj}` | 204; `WORK_NOT_FOUND` (404) for an absent Work; `WORK_IN_USE` (409) with `details[]` while stored Copies, a rating, a note, user tags or collection membership protect it (below). |
+| Method | Path | Schema | Contract |
+| --- | --- | --- | --- |
+| GET | `/api/v1/works` | [workListResponse](schema/workListResponse.json) | 200; one numbered page and `total` matching works. Filters and paging below. |
+| GET | `/api/v1/works/{rj}` | [workDetailResponse](schema/workDetailResponse.json) | 200; the work in full. Only scanning creates a Work; an external relation number without a Work returns `WORK_NOT_FOUND` (404). `collection_ids` names the user collections holding the work (below). |
+| GET | `/api/v1/inventory/media-facts/events` | `sse.media` in [contracts.json](schema/contracts.json) | Bearer-authenticated SSE (`changed`, `status`, `works_changed`). See below. |
+| GET | `/api/v1/works/{rj}/content` | [workContentResponse](schema/workContentResponse.json) | 200; the work's file manifest (ADR 0013): every bound copy's tree, below. |
+| GET | `/api/v1/works/{rj}/content/{copyId}/{path...}` | — | 200; one manifest file's bytes (ADR 0013): `path` is the copy-root-relative manifest path. See below. |
+| GET | `/api/v1/works/{rj}/thumbs/{copyId}/{path...}?h=240&v=…` | — | 200; one manifest image's thumbnail (ADR 0013). See below. |
+| PUT | `/api/v1/works/{rj}/metadata` | Req: [workMetadataImportRequest](schema/workMetadataImportRequest.json) · Res: [importResponse](schema/importResponse.json) | 200; up to four independent data groups (below). |
+| PATCH | `/api/v1/works/{rj}/user-data` | Req: [workUserDataPatchRequest](schema/workUserDataPatchRequest.json) · Res: [userDataResponse](schema/userDataResponse.json) | 200; only present fields are applied, and `"rating":null` clears it. |
+| PUT | `/api/v1/works/{rj}/listening` | Req: [workListeningRequest](schema/workListeningRequest.json) · Res: [listeningResponse](schema/listeningResponse.json) | 200 with the stored row. Upserts the work's row for that Rendition, except that a PUT whose `client` equals the stored row's and whose `seq` is not greater leaves the row (a different `client` always applies). `INVALID_ARGUMENT` (400) when `track_key` or `client` is empty, `position_sec < 0`, or not `0 <= track_index < track_count`. See below. |
+| DELETE | `/api/v1/works/{rj}/listening` | — | 204; removes every Listening Position row of the work, Finished marks included. |
+| PUT | `/api/v1/works/{rj}/user-tags` | Req: [workUserTagsRequest](schema/workUserTagsRequest.json) · Res: [userTagListResponse](schema/userTagListResponse.json) | 200; replaces the work's tag set with `tag_ids`. Unknown ids are `USER_TAG_NOT_FOUND` (404). |
+| GET | `/api/v1/circles` | [circleFacetsResponse](schema/circleFacetsResponse.json) | 200; every circle a listed work carries, ordered by name. Takes the listing's filter parameters (below) and counts only listed works (a caller offering alternatives to its own pick leaves that dimension out). `sort`, `direction`, `limit`, `page` and any unknown parameter are `INVALID_ARGUMENT` (400). |
+| GET | `/api/v1/voice-actors` | [voiceActorFacetsResponse](schema/voiceActorFacetsResponse.json) | 200; same shape and scoping for voice actors. Each `id` is what the listing's `circle` / `voice_actor` parameter takes. |
+| GET | `/api/v1/tags` | [tagFacetsResponse](schema/tagFacetsResponse.json) | 200; same scoping for both tag vocabularies (`s:` refs for `source_tags`, `u:` refs for `user_tags`). A user tag no listed work carries is absent here; `GET /user-tags` is the whole vocabulary. |
+| GET | `/api/v1/user-tags` | [userTagListResponse](schema/userTagListResponse.json) | 200; the full user tag vocabulary. |
+| POST | `/api/v1/user-tags` | Req: [userTagRequest](schema/userTagRequest.json) · Res: [userTagResponse](schema/userTagResponse.json) | 200; **creates if new and returns existing otherwise** (idempotent by trimmed exact name). |
+| PATCH | `/api/v1/user-tags/{id}` | Req: [userTagRequest](schema/userTagRequest.json) · Res: [userTagResponse](schema/userTagResponse.json) | 200; `USER_TAG_EXISTS` (409) on a name another tag holds. |
+| DELETE | `/api/v1/user-tags/{id}` | — | 204; the tag's relations go with it, no work is touched. |
+| DELETE | `/api/v1/works/{rj}` | — | 204; `WORK_NOT_FOUND` (404) for an absent Work; `WORK_IN_USE` (409) with `details[]` while stored Copies, a rating, a note, user tags or collection membership protect it (below). |
 
 Ratings are integers 1–10 (`null` means unrated, which is not 0). Personal data
 writes require an existing Work (`WORK_NOT_FOUND`, 404). User tag names are trimmed, must be non-empty, and
@@ -60,20 +60,13 @@ overwrites the position and keeps `finished_at`.
 counter, raised for every snapshot. They order one page's writes without
 comparing clocks.
 
-The detail answers `listening`, the rows newest first, `[]` when none:
-
-```json
-"listening": [
-  { "rendition": "", "track_key": "01_導入", "position_sec": 271.4,
-    "track_index": 2, "track_count": 12, "finished_at": null,
-    "updated_at": "2026-10-21T01:02:03.000000000Z" } ]
-```
-
-Each listing item (and collection member) answers
-`"listening": {"state","track_index","track_count","updated_at"}`. `state` is
-`finished` when any Rendition has `finished_at`, else `listening` when any has a
-position, else `none`; the other three come from the most recently updated row
-with a position and are `null` when there is none.
+The detail answers `listening` ([listeningResponse](schema/listeningResponse.json)[]),
+newest first, `[]` when none. Each listing item and collection member answers a
+summary (`listening` in [workSummaryResponse](schema/workListResponse.json)) where
+`state` is `finished` when any Rendition has `finished_at`, else `listening`
+when any has a position, else `none`; `track_index`, `track_count` and
+`updated_at` come from the most recently updated row with a position (`null`
+when none).
 
 The `favorite` flag is membership in the built-in
 [Favorites collection](collections.md#favorites), shared by user-data writes,
@@ -127,34 +120,17 @@ Each entry of the detail's `copies` carries `dir_id`, the navigation id of the
 copy's folder (the `{dirId}` of the library's folder page; `""` if the library is
 unknown).
 
-The detail also answers `edition_tree`: the work's Language Editions resolved
-into up to three slots in the order JPN, CHI_HANS, CHI_HANT, or `[]` when the
-tree holds no node besides the work itself (language-free works, works with no
-Chinese edition and no known original). Other languages of `language_editions`
-are not shown here. It combines the work's `language_editions`, its resolved `relation`, and only
-children whose effective resolved parent is that edition page. Raw child
-claims that lose to a self-report or remain ambiguous are never tree edges.
-External reports participate in resolution even when their subject is absent
-from the catalog, so B → X → A retains X as B's parent and A as its original.
-
-The abbreviated example omits the node language, relation and source-link fields
-described below.
-
-```json
-"edition_tree": [
-  { "language": "JPN", "label": null, "held": true,
-    "root": { "rj": "RJ01287230", "role": "original", "is_work": true, "held": true },
-    "translations": [] },
-  { "language": "CHI_HANS", "label": "簡体中文", "held": true,
-    "root": { "rj": "RJ01289610", "role": "edition_page", "is_work": true, "held": false },
-    "translations": [
-      { "rj": "RJ01289611", "role": "translation", "is_work": true, "held": true },
-      { "rj": "RJ01289700", "role": "translation", "is_work": true, "held": false } ] },
-  { "language": "CHI_HANT", "label": "繁体中文", "held": false,
-    "root": { "rj": "RJ01291590", "role": "edition_page", "is_work": false, "held": false },
-    "translations": [] }
-]
-```
+The detail also answers `edition_tree` (`editionSlotResponse` in
+[workDetailResponse](schema/workDetailResponse.json)): the work's Language
+Editions resolved into up to three slots in the order JPN, CHI_HANS, CHI_HANT,
+or `[]` when the tree holds no node besides the work itself (language-free
+works, works with no Chinese edition and no known original). Other languages of
+`language_editions` are not shown here. It combines the work's
+`language_editions`, its resolved `relation`, and only children whose effective
+resolved parent is that edition page. Raw child claims that lose to a
+self-report or remain ambiguous are never tree edges. External reports
+participate in resolution even when their subject is absent from the catalog, so
+B → X → A retains X as B's parent and A as its original.
 
 `is_work` means a collected works row exists; `held` means
 at least one Copy in any Library right now, online or not. A slot is held when its
@@ -168,15 +144,12 @@ and its resolved original number. It preserves external intermediate nodes
 even when their language is unknown or outside the tree's three slots.
 Unadopted raw child claims are not added to this set.
 
-Both `relation_nodes` entries and `edition_tree` roots/translations carry
-`rj`, `role`, `is_work`, `held`, `language`, `relation` and `source_url`.
-`relation` has the same nullable `role`, `language`, `original_rj` and `parent_rj`
-fields as the detail's resolved relation. In `relation_nodes`, outer `role` is
-the resolved role (`original`, `parent`, `child`) or `""` when unknown; the tree
-keeps its display roles (`original`, `edition_page`, `translation`). Node
-`language` uses known Core language, then resolved relation language, then the
-stored edition language. Missing values stay `null`; the JPN display slot does
-not imply the original's language is known.
+In `relation_nodes`, outer `role` is the resolved role (`original`, `parent`,
+`child`) or `""` when unknown; `edition_tree` keeps its display roles
+(`original`, `edition_page`, `translation`). Node `language` uses known Core
+language, then resolved relation language, then the stored edition language.
+Missing values stay `null`; the JPN display slot does not imply the original's
+language is known.
 
 `source_url` is constructed from the validated canonical RJ identity on the
 supported DLsite source; legacy six-digit numbers use that source spelling.
@@ -202,27 +175,10 @@ deletions may commit while it is read; a later request observes the newer state.
 
 ## Work content manifest
 
-`GET /api/v1/works/{rj}/content` answers the work's files from the **stored
-inventory** — never a live walk — as one tree per bound copy (ADR 0013):
-
-```json
-{
-  "rj": "RJ01000001",
-  "copies": [
-    { "copy_id": "…", "library_id": "…", "dir_id": "…", "online": true,
-      "tree": { "name": "RJ01000001", "rel_path": "", "children": [
-        { "name": "表紙", "rel_path": "表紙", "children": [
-          { "name": "cover_main.jpg", "rel_path": "表紙/cover_main.jpg",
-            "kind": "img", "size": 4096, "format": null, "bitrate": null,
-            "width": 1200, "height": 900, "duration_sec": null,
-            "thumb_v": "9f86d081884c7d65" } ] },
-        { "name": "01_導入.mp3", "rel_path": "01_導入.mp3",
-          "kind": "aud", "size": 5120, "format": "MP3", "bitrate": 320000,
-          "width": null, "height": null, "duration_sec": 185.5,
-          "thumb_v": null } ] } }
-  ]
-}
-```
+`GET /api/v1/works/{rj}/content` ([workContentResponse](schema/workContentResponse.json))
+answers the work's files from the **stored inventory** — never a live walk —
+as one tree per bound copy (ADR 0013). `tree` uses `rel_path` relative to the
+copy root (`""` on the root node).
 
 `dir_id` is the copy root's navigation identity (ADR 0003), resolved
 server-side. A copy whose member directory no longer resolves on disk answers
@@ -231,11 +187,12 @@ work without Copies answers an empty `copies` array. `kind` classifies each file
 (`aud`, `img`, `txt`, `lrc`, `vid`, `bin`); directories carry `children` (empty
 included) and files carry no `children`, always carry `size`, and carry
 `format` only for audio, as the container name the track list aggregates by.
-`width`/`height`/`duration_sec`/`bitrate` are the inventory's facts (ADR 0013): `null` means unmeasured, not zero. `bitrate` is in bits per second. Dimensions and durations are measured
-in the background after a scan completes, so a freshly scanned work can answer
-`null` for a while. `thumb_v` is an image's opaque
-thumbnail version (`null` for every other kind), the `v` its thumbnail address
-carries.
+`width`/`height`/`duration_sec`/`bitrate` are the inventory's facts (ADR 0013):
+`null` means unmeasured, not zero. `bitrate` is in bits per second. Dimensions
+and durations are measured in the background after a scan completes, so a
+freshly scanned work can answer `null` for a while. `thumb_v` is an image's
+opaque thumbnail version (`null` for every other kind), the `v` its thumbnail
+address carries.
 
 `GET /api/v1/works/{rj}/content/{copyId}/{path...}` serves one manifest
 file's bytes. The route is read-only and takes no admission slot: only paths
@@ -317,30 +274,19 @@ Storage-class edits affect the next batch, and never resize one already probing.
 Scanning and planning retain their existing scheduling.
 
 `GET /api/v1/inventory/media-facts/events` is a bearer-authenticated SSE
-connection; query-token authentication is not accepted. It responds with
-`Content-Type: text/event-stream` and `Cache-Control: no-cache`.
-
-```text
-event: changed
-data: {}
-
-```
-
-A successful batch commit sends one notification; failed writes send none.
+connection (`sse.media` in [contracts.json](schema/contracts.json)); query-token
+authentication is not accepted. It responds with `Content-Type: text/event-stream`
+and `Cache-Control: no-cache`, emitting `event: changed` with `{}` after a
+committed measurement batch (and once on connection); failed writes send none.
 Each subscriber has only one pending notification, so slow clients coalesce
 changes without blocking measurement. Every connection receives an initial
 notification to cover changes while disconnected. A `: keep-alive` comment
 is sent every 15 seconds; disconnection unregisters the subscriber. There are
 no event IDs, replay history or persistent event fields.
 
-The same connection also carries `event: status`, the state of the Media Facts
+The same connection also carries `event: status`
+([mediaFactsStatus](schema/mediaFactsStatus.json)), the state of the Media Facts
 Pass and what it has left, per library:
-
-```text
-event: status
-data: {"state":"running","libraries":[{"library_id":"…","pending":120,"unmeasurable":3}]}
-
-```
 
 `state` is `running` while a pass holds the admission slot and measures,
 `paused` while a kicked pass is refused or preempted and waits to retry (it
@@ -400,46 +346,12 @@ subject's family before and after the write, following parent, original and
 declared-child edges in both directions. A violation already stored in an
 unrelated family does not refuse the submission.
 
-The body carries up to four **independent** groups; a group that is absent is
-left exactly as it was, and a group that is present is a complete snapshot of
-that group — an unknown scalar is an explicit `null`, and an empty array means
-the set is empty. A submission with no group at all is refused.
-
-```json
-{
-  "core": {
-    "source": "dlsite",
-    "fetched_at": "2026-09-27T10:00:00.000000000Z",
-    "title": "…",
-    "language": "NM",
-    "circle": { "source_circle_id": "RG01038998", "name": "mete0r" },
-    "nsfw": true,
-    "age_category": 3,
-    "release_date": "2025-06-25",
-    "source_url": "https://…",
-    "cover_url": "…", "sample_cover_url": "…",
-    "series_id": null, "series_name": null,
-    "voice_actors": [{ "source_voice_actor_id": "17180", "name": "伊ヶ崎綾香" }],
-    "tags": [{ "source_tag_id": "497", "name": "ASMR" }]
-  },
-  "statistics": { "fetched_at": "2026-09-27T10:00:00.000000000Z", "dl_count": 12 },
-  "relations": {
-    "source": "dlsite",
-    "fetched_at": "2026-09-27T10:00:00.000000000Z",
-    "role": "child",
-    "language": "CHI_HANT",
-    "original_rj": "RJ01276487",
-    "parent_rj": "RJ01412616",
-    "child_rjs": []
-  },
-  "editions": {
-    "source": "dlsite",
-    "fetched_at": "2026-09-27T10:00:00.000000000Z",
-    "edition_id": "51904",
-    "items": [{ "version_root_rj": "RJ01506610", "language": "JPN", "label": "日本語", "display_order": 1 }]
-  }
-}
-```
+The body ([workMetadataImportRequest](schema/workMetadataImportRequest.json))
+carries up to four **independent** groups (`core`, `statistics`, `relations`,
+`editions`); a group that is absent is left exactly as it was, and a group that
+is present is a complete snapshot of that group — an unknown scalar is an
+explicit `null`, and an empty array means the set is empty. A submission with
+no group at all is refused.
 
 Work detail presents both `original_rj` and `parent_rj` when available; they are different hops, not alternative labels. On the library wall, Enter in FIND opens an exact in-library number first, otherwise the sole in-library Chinese translation; multiple candidates remain on the wall. Typing alone does not navigate.
 
@@ -515,12 +427,10 @@ number, so consecutive pages of an unchanged catalog neither repeat nor skip a
 row. There is no cross-request snapshot: a concurrent change can move a work
 across a page boundary, and `total` is counted with each page.
 
-The listing returns the work number, title, thumbnail, circle, language, adult
-flag, exact age category, release date, **sales**, personal rating, favorite flag, user tags,
-whether a note exists, when it was first collected, its copy count and its
-listening summary. It does
-not return the note text, the full edition list, relation details or the file
-tree.
+Listing items ([workListResponse](schema/workListResponse.json)) omit the note
+text, full edition list, relation details and file tree; use
+[workDetailResponse](schema/workDetailResponse.json) and
+[workContentResponse](schema/workContentResponse.json) for those.
 
 作品 Core、列表与详情的 `age_category` 使用 `1`（全年龄）、`2`（R15）、`3`（R18），
 未报告时为 `null`。导入拒绝其他数字及与 `nsfw` 冲突的值；指定分级时自动同步兼容

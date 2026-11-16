@@ -36,7 +36,16 @@
         "conclusion": {
           "$ref": "#/$defs/memberConclusionResponse"
         },
-        "effective": true,
+        "effective": {
+          "anyOf": [
+            {
+              "$ref": "reconcile_Policy.json"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "excluded": {
           "type": "boolean"
         },
@@ -173,7 +182,7 @@
         "policy": {
           "anyOf": [
             {
-              "$ref": "reconcile_Policy.json"
+              "$ref": "reconcile_Policy_stored.json"
             },
             {
               "type": "null"

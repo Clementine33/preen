@@ -691,9 +691,15 @@ describe.each(['metadata_refresh', 'rename'] as const)('%s execution notices', (
           task_result: operation === 'metadata_refresh'
             ? {
                 rj: 'RJ01',
-                imported_groups: ['core'],
+                outcome: {
+                  applied: [
+                    { data_group: 'core' },
+                  ],
+                  ignored: [],
+                  warnings: [],
+                },
                 issues: [
-                  { code: 'SOURCE_FAILED' },
+                  { code: 'SOURCE_FAILED', message: '' },
                 ],
               }
             : {
@@ -762,12 +768,18 @@ describe.each(['metadata_refresh', 'rename'] as const)('%s execution notices', (
           inventory_synced: true,
           task_result: operation === 'metadata_refresh'
             ? {
-                action: 'skip',
+                rj: 'RJ01',
+                outcome: { applied: [], ignored: [], warnings: [] },
                 issues: [
-                  { code: 'SOURCE_WARNING' },
+                  { code: 'SOURCE_WARNING', message: '' },
                 ],
               }
-            : { skipped: 'TARGET_EXISTS', renamed: false },
+            : {
+                source_path: 'old',
+                target_path: 'new',
+                skipped: 'TARGET_EXISTS',
+                renamed: false,
+              },
         },
         {
           component_index: 1,
@@ -785,12 +797,13 @@ describe.each(['metadata_refresh', 'rename'] as const)('%s execution notices', (
           inventory_synced: true,
           task_result: operation === 'metadata_refresh'
             ? {
-                action: 'refresh',
+                rj: 'RJ01',
+                outcome: { applied: [], ignored: [], warnings: [] },
                 issues: [
                   { code: 'BACKUP_FAILED', message: 'Usable fallback' },
                 ],
               }
-            : { renamed: false },
+            : { source_path: 'old', target_path: 'new', renamed: false },
         },
       ],
     }

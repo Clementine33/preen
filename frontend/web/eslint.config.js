@@ -3,7 +3,12 @@ import antfu from '@antfu/eslint-config'
 export default antfu({
   vue: true,
   typescript: true,
-  ignores: ['DESIGN.md', 'README.md', 'test-results/**'],
+  ignores: [
+    'src/lib/api/wire.gen.ts',
+    'DESIGN.md',
+    'README.md',
+    'test-results/**',
+  ],
 }, {
   rules: {
     // Project idioms the preset disallows: one-line `{ a(); b() }` blocks,

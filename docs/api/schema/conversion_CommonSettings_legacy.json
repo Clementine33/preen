@@ -1,0 +1,108 @@
+{
+  "$defs": {
+    "conversion_CommonSettings": {
+      "additionalProperties": false,
+      "properties": {
+        "classifier_tags": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "delete_mode": {
+          "type": "string"
+        },
+        "matched": {
+          "$ref": "#/$defs/reconcile_DesiredProfile"
+        },
+        "mode": {
+          "type": "string"
+        },
+        "no_effect_tags": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "other": {
+          "$ref": "#/$defs/reconcile_DesiredProfile"
+        },
+        "other_tags": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "unmatched": {
+          "$ref": "#/$defs/reconcile_DesiredProfile"
+        }
+      },
+      "required": [
+        "classifier_tags",
+        "matched",
+        "unmatched"
+      ],
+      "type": "object"
+    },
+    "reconcile_AudioOutputSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "codec": {
+          "type": "string"
+        },
+        "quality": {
+          "$ref": "#/$defs/reconcile_Quality"
+        }
+      },
+      "required": [
+        "codec"
+      ],
+      "type": "object"
+    },
+    "reconcile_DesiredProfile": {
+      "additionalProperties": false,
+      "properties": {
+        "encoded": {
+          "$ref": "#/$defs/reconcile_AudioOutputSpec"
+        },
+        "lossless": {
+          "$ref": "#/$defs/reconcile_AudioOutputSpec"
+        }
+      },
+      "type": "object"
+    },
+    "reconcile_Quality": {
+      "additionalProperties": false,
+      "properties": {
+        "bitrate": {
+          "type": "integer"
+        },
+        "kind": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "conversion_CommonSettings_legacy.json",
+  "$ref": "#/$defs/conversion_CommonSettings",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "conversion_CommonSettings_legacy"
+}

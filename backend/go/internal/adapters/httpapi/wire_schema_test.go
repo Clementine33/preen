@@ -56,6 +56,32 @@ func TestGenerateWireSchema(t *testing.T) {
 			schema = map[string]any{"anyOf": variants, "title": name, "$id": name + ".json"}
 		}
 		writeWireSchema(t, dir, name, schema)
+		if name == "conversion_DraftDoc" || name == "conversion_CommonSettings" || name == "reconcile_Policy" {
+			legacy := reflectWireSchema(t, typ)
+			defs, _ := legacy["$defs"].(map[string]any)
+			def, _ := defs[name].(map[string]any)
+			required, _ := def["required"].([]any)
+			keep := []any{"classifier_tags"}
+			for _, field := range required {
+				if field != "no_effect_tags" && field != "other_tags" {
+					keep = append(keep, field)
+				}
+			}
+			def["required"] = keep
+			legacy["$id"] = name + "_legacy.json"
+			legacy["title"] = name + "_legacy"
+			writeWireSchema(t, dir, name+"_legacy", legacy)
+			writeWireSchema(
+				t,
+				dir,
+				name+"_stored",
+				map[string]any{
+					"$id":   name + "_stored.json",
+					"title": name + "_stored",
+					"anyOf": []any{schemaRef(name), schemaRef(name + "_legacy")},
+				},
+			)
+		}
 		if isTaskInput(typ) {
 			input := cloneWireMap(schema)
 			optionalRequestFields(input)

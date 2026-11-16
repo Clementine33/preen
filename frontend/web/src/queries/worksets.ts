@@ -21,6 +21,7 @@ import type {
 import { infiniteQueryOptions, queryOptions } from '@tanstack/vue-query'
 import { executionViewFor } from '@/lib/api/client'
 import { errorDetails } from '@/lib/api/error'
+import { generationSnapshotView } from '@/lib/api/wire-view'
 import { refreshOrRemoveQueries } from './cache-sync'
 import { queryKeys } from './query-keys'
 
@@ -362,9 +363,9 @@ export function syncGenerationSnapshot(queryClient: QueryClient, session: Genera
 
 export function syncGenerationEvent(queryClient: QueryClient, worksetId: string, operation: OperationType, generationId: string, event: GenerationEvent) {
   if (event.type === 'session_snapshot') {
-    syncGenerationSnapshot(queryClient, event.data)
+    syncGenerationSnapshot(queryClient, generationSnapshotView(event.data, operation))
   }
-  else if (event.type !== 'error') {
+  else if (event.type !== 'error' && event.type !== 'message') {
     const previous = queryClient.getQueryData<GenerationView>(queryKeys.worksets.generation(worksetId, operation, generationId))
     if (previous) {
       syncGenerationSnapshot(queryClient, {

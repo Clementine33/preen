@@ -27,7 +27,7 @@ export function useListeningSync(): void {
       listening: row
         ? [
             row,
-            ...detail.listening.filter(l => l.rendition !== row.rendition),
+            ...(detail.listening ?? []).filter(l => l.rendition !== row.rendition),
           ]
         : [],
     })

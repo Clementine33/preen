@@ -27,13 +27,21 @@ try {
   }
   else {
     const after = snapshot(temporary)
+    const generatedWire = join(temporary, 'wire.gen.ts')
+    const frontend = spawnSync('node', ['scripts/generate-wire.mjs', generatedWire], {
+      cwd: `${root}frontend/web`, stdio: 'inherit',
+    })
+    if (frontend.status !== 0)
+      throw new Error(`Wire TypeScript generation failed: ${frontend.status}`)
+    before.set('wire.gen.ts', readFileSync(`${root}frontend/web/src/lib/api/wire.gen.ts`, 'utf8'))
+    after.set('wire.gen.ts', readFileSync(generatedWire, 'utf8'))
     const changed = [...new Set([...before.keys(), ...after.keys()])].filter(name => before.get(name) !== after.get(name))
     if (changed.length) {
       console.error(`Wire contract generation differs:\n${changed.join('\n')}`)
       status = 1
     }
     else {
-      console.log(`Wire contracts unchanged (${after.size - 1} schemas and bindings).`)
+      console.log(`Wire contracts unchanged (${after.size - 2} schemas and bindings, generated TypeScript).`)
     }
   }
 }

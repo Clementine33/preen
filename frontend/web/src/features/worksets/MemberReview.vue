@@ -43,7 +43,7 @@ const inputStatus = computed(() => props.review.roots[0] ?? null)
 
 /** Only the member's own settings are called out; inheriting is the default. */
 function isOverride(unit: string): boolean {
-  return frozen.value?.sources[unit] === 'member'
+  return frozen.value?.sources?.[unit] === 'member'
 }
 
 /**
@@ -101,12 +101,12 @@ function componentFacts(component: ComponentOutcome): { label: string, tone: 'su
         <div v-for="unit in Object.keys(UNIT_LABELS)" :key="unit" class="flex items-start gap-2">
           <dt class="w-20 shrink-0 text-[var(--text-muted)]">{{ UNIT_LABELS[unit] }}</dt>
           <dd class="min-w-0 flex-1">
-            <span v-if="unit === 'mode'">{{ modeText(frozen?.effective.mode ?? 'strict') }}</span>
+            <span v-if="unit === 'mode'">{{ modeText(frozen?.effective?.mode ?? 'strict') }}</span>
             <span v-else-if="unit === 'no_effect_tags' || unit === 'other_tags'" class="font-mono">
-              {{ (unit === 'other_tags' ? frozen?.effective.other_tags ?? [] : frozen?.effective.no_effect_tags ?? []).join(', ') || '（空）' }}
+              {{ (unit === 'other_tags' ? frozen?.effective?.other_tags ?? [] : frozen?.effective?.no_effect_tags ?? []).join(', ') || '（空）' }}
             </span>
             <span v-else class="font-mono">
-              {{ profileText(unit === 'other' ? frozen?.effective.other : unit === 'matched' ? frozen?.effective.matched : frozen?.effective.unmatched) }}
+              {{ profileText(unit === 'other' ? frozen?.effective?.other : unit === 'matched' ? frozen?.effective?.matched : frozen?.effective?.unmatched) }}
             </span>
             <Badge v-if="isOverride(unit)" tone="brand" class="ml-1">独立设置</Badge>
           </dd>

@@ -1,167 +1,359 @@
 {
   "$defs": {
     "executionComponentResponse": {
-      "additionalProperties": false,
-      "allOf": [
+      "oneOf": [
         {
-          "if": {
-            "properties": {
-              "stage": {
-                "const": "skipped"
-              }
+          "additionalProperties": false,
+          "properties": {
+            "committed": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ]
             },
-            "required": [
-              "stage"
-            ]
-          },
-          "then": {
-            "properties": {
-              "task_result": {
-                "$ref": "refresh_Outcome.json"
-              }
+            "completed_operations": {
+              "type": "integer"
+            },
+            "component_id": {
+              "type": "string"
+            },
+            "component_index": {
+              "type": "integer"
+            },
+            "error_code": {
+              "type": "string"
+            },
+            "error_message": {
+              "type": "string"
+            },
+            "inventory_sync_error": {
+              "type": "string"
+            },
+            "inventory_synced": {
+              "type": "boolean"
+            },
+            "kept_decisions": {
+              "maxItems": 0,
+              "type": "array"
+            },
+            "operations": {
+              "type": "integer"
+            },
+            "partition": {
+              "type": "string"
+            },
+            "recovery": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "remaining": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "removed": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "root_path": {
+              "type": "string"
+            },
+            "stage": {
+              "type": "string"
+            },
+            "status": {
+              "type": "string"
             }
-          }
+          },
+          "required": [
+            "kept_decisions",
+            "component_index",
+            "component_id",
+            "root_path",
+            "partition",
+            "status",
+            "operations",
+            "completed_operations",
+            "committed",
+            "removed",
+            "remaining",
+            "recovery",
+            "inventory_synced"
+          ],
+          "type": "object"
         },
         {
-          "if": {
-            "properties": {
-              "stage": {
-                "const": "metadata"
-              }
+          "additionalProperties": false,
+          "properties": {
+            "committed": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ]
             },
-            "required": [
-              "stage"
-            ]
-          },
-          "then": {
-            "properties": {
-              "task_result": {
-                "$ref": "refresh_WorkResult.json"
-              }
-            }
-          }
-        }
-      ],
-      "properties": {
-        "committed": {
-          "anyOf": [
-            {
-              "items": {
-                "type": "string"
-              },
+            "completed_operations": {
+              "type": "integer"
+            },
+            "component_id": {
+              "type": "string"
+            },
+            "component_index": {
+              "type": "integer"
+            },
+            "error_code": {
+              "type": "string"
+            },
+            "error_message": {
+              "type": "string"
+            },
+            "inventory_sync_error": {
+              "type": "string"
+            },
+            "inventory_synced": {
+              "type": "boolean"
+            },
+            "kept_decisions": {
+              "maxItems": 0,
               "type": "array"
             },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "completed_operations": {
-          "type": "integer"
-        },
-        "component_id": {
-          "type": "string"
-        },
-        "component_index": {
-          "type": "integer"
-        },
-        "error_code": {
-          "type": "string"
-        },
-        "error_message": {
-          "type": "string"
-        },
-        "inventory_sync_error": {
-          "type": "string"
-        },
-        "inventory_synced": {
-          "type": "boolean"
-        },
-        "kept_decisions": {
-          "maxItems": 0,
-          "type": "array"
-        },
-        "operations": {
-          "type": "integer"
-        },
-        "partition": {
-          "type": "string"
-        },
-        "recovery": {
-          "anyOf": [
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
+            "operations": {
+              "type": "integer"
             },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "remaining": {
-          "anyOf": [
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
+            "partition": {
+              "type": "string"
             },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "removed": {
-          "anyOf": [
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
+            "recovery": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ]
             },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "root_path": {
-          "type": "string"
-        },
-        "stage": {
-          "type": "string"
-        },
-        "status": {
-          "type": "string"
-        },
-        "task_result": {
-          "oneOf": [
-            {
+            "remaining": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "removed": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "root_path": {
+              "type": "string"
+            },
+            "stage": {
+              "const": "skipped",
+              "type": "string"
+            },
+            "status": {
+              "type": "string"
+            },
+            "task_result": {
               "$ref": "refresh_Outcome.json"
+            }
+          },
+          "required": [
+            "kept_decisions",
+            "component_index",
+            "component_id",
+            "root_path",
+            "partition",
+            "status",
+            "operations",
+            "completed_operations",
+            "committed",
+            "removed",
+            "remaining",
+            "recovery",
+            "inventory_synced",
+            "stage",
+            "task_result"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "committed": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ]
             },
-            {
+            "completed_operations": {
+              "type": "integer"
+            },
+            "component_id": {
+              "type": "string"
+            },
+            "component_index": {
+              "type": "integer"
+            },
+            "error_code": {
+              "type": "string"
+            },
+            "error_message": {
+              "type": "string"
+            },
+            "inventory_sync_error": {
+              "type": "string"
+            },
+            "inventory_synced": {
+              "type": "boolean"
+            },
+            "kept_decisions": {
+              "maxItems": 0,
+              "type": "array"
+            },
+            "operations": {
+              "type": "integer"
+            },
+            "partition": {
+              "type": "string"
+            },
+            "recovery": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "remaining": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "removed": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "root_path": {
+              "type": "string"
+            },
+            "stage": {
+              "const": "metadata",
+              "type": "string"
+            },
+            "status": {
+              "type": "string"
+            },
+            "task_result": {
               "$ref": "refresh_WorkResult.json"
             }
-          ]
+          },
+          "required": [
+            "kept_decisions",
+            "component_index",
+            "component_id",
+            "root_path",
+            "partition",
+            "status",
+            "operations",
+            "completed_operations",
+            "committed",
+            "removed",
+            "remaining",
+            "recovery",
+            "inventory_synced",
+            "stage",
+            "task_result"
+          ],
+          "type": "object"
         }
-      },
-      "required": [
-        "kept_decisions",
-        "component_index",
-        "component_id",
-        "root_path",
-        "partition",
-        "status",
-        "operations",
-        "completed_operations",
-        "committed",
-        "removed",
-        "remaining",
-        "recovery",
-        "inventory_synced"
-      ],
-      "type": "object"
+      ]
     },
     "executionMemberCountsResponse": {
       "additionalProperties": false,

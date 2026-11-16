@@ -55,7 +55,7 @@ describe('useListeningSync', () => {
       lists: false,
     }
     await flushPromises()
-    expect(client.getQueryData<WorkDetail>(queryKeys.works.detail(RJ))!.listening.map(l => l.track_key)).toEqual(['c', 'a'])
+    expect(client.getQueryData<WorkDetail>(queryKeys.works.detail(RJ))!.listening?.map(l => l.track_key)).toEqual(['c', 'a'])
 
     player.saved = { rj: RJ, row: null, lists: false }
     await flushPromises()

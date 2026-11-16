@@ -1,81 +1,12 @@
 import type { InjectionKey } from 'vue'
 import type { SSEEvent } from './sse'
-import type {
-  AnyDraftDocument,
-  ApiClientContract,
-  ApiConfig,
-  ClassifierCustomTag,
-  ClassifierTagLibraryResponse,
-  CleanupCategory,
-  CleanupPreview,
-  CleanupRun,
-  CollectionAppendResult,
-  CollectionDetail,
-  CollectionListResponse,
-  CollectionWindow,
-  ContentFileRef,
-  CoverReport,
-  CreateLibraryInput,
-  CreateRecordInput,
-  CreateRecordResponse,
-  CurrentRecordResponse,
-  DraftEnvelopeResponse,
-  DraftResponse,
-  ExecutionEvent,
-  ExecutionScope,
-  ExecutionView,
-  ExecutionViewMode,
-  FileOperation,
-  FileOperationItem,
-  FileOperationResult,
-  GenerationEvent,
-  GenerationView,
-  HealthResponse,
-  Library,
-  LibraryDir,
-  ListWorksetsParams,
-  ListWorksParams,
-  MediaFactsEvent,
-  MemberReviewResponse,
-  MemberTreeResponse,
-  Operation,
-  OperationType,
-  OutboundProxy,
-  PatchWorkUserDataParams,
-  PutWorkListeningParams,
-  RevisionDetailResponse,
-  ScanEvent,
-  ScanMode,
-  StartExecutionResponse,
-  StartGenerationResponse,
-  TagFacets,
-  TaskSettings,
-  TaskSettingsMap,
-  UpdateCheck,
-  UpdateLibraryInput,
-  UserPreferences,
-  UserPreferencesUpdate,
-  WorkCollection,
-  WorkContent,
-  WorkDetail,
-  WorkFacet,
-  WorkFacetKind,
-  WorkListening,
-  WorkListResponse,
-  Workset,
-  WorksetListResponse,
-  WorksScope,
-  WorkUserData,
-  WorkUserTag,
-} from './types'
+import type { AnyDraftDocument, ApiClientContract, ApiConfig, ClassifierCustomTag, ClassifierTagLibraryResponse, CleanupCategory, CleanupPreview, CleanupRun, CollectionAppendResult, CollectionDetail, CollectionListResponse, CollectionWindow, ContentFileRef, CoverReport, CreateLibraryInput, CreateRecordInput, CreateRecordResponse, CurrentRecordResponse, DraftEnvelopeResponse, DraftResponse, ExecutionEvent, ExecutionScope, ExecutionView, ExecutionViewMode, FileOperationInput, FileOperationResult, GenerationEvent, GenerationView, HealthResponse, Library, LibraryDir, ListWorksetsParams, ListWorksParams, MediaFactsEvent, MemberReviewResponse, MemberTreeResponse, Operation, OperationType, OutboundProxy, PatchWorkUserDataParams, PutWorkListeningParams, RevisionDetailResponse, ScanEvent, ScanMode, StartExecutionResponse, StartGenerationResponse, TagFacets, TaskSettings, TaskSettingsMap, UpdateCheck, UpdateLibraryInput, UserPreferences, UserPreferencesUpdate, WorkCollection, WorkContent, WorkDetail, WorkFacet, WorkFacetKind, WorkListening, WorkListResponse, Workset, WorksetListResponse, WorksScope, WorkUserData, WorkUserTag } from './types'
+import type { WireSchemas } from './wire.gen'
 import { inject } from 'vue'
 import { parseSSEStream } from './sse'
+import { normalizeConversionTags } from './wire-view'
 
-interface ErrorEnvelope {
-  code?: string
-  message?: string
-  details?: string[]
-}
+type ErrorEnvelope = Partial<WireSchemas['errorResponse']>
 
 export class ApiError extends Error {
   readonly status: number
@@ -154,26 +85,6 @@ function windowQuery(window: CollectionWindow): string {
   return qs
     ? `?${qs}`
     : ''
-}
-
-/**
- * Stored conversion JSON may still use the old key; writes only use the new one.
- * Overrides preserve absence, while common settings materialize empty arrays.
- */
-function normalizeConversionTags<T extends { no_effect_tags?: string[], other_tags?: string[] }>(value: T, override = false): T {
-  const out = { ...value } as T & { classifier_tags?: string[] }
-  if (!override || out.no_effect_tags != null || out.classifier_tags != null) {
-    out.no_effect_tags = out.no_effect_tags ?? out.classifier_tags ?? []
-  }
-  else {
-    delete out.no_effect_tags
-  }
-  if (!override)
-    out.other_tags = out.other_tags ?? []
-  else if (out.other_tags == null)
-    delete out.other_tags
-  delete out.classifier_tags
-  return out
 }
 
 export class ApiClient implements ApiClientContract {
@@ -277,7 +188,7 @@ export class ApiClient implements ApiClientContract {
    */
   applyFileOperation(
     libraryId: string,
-    input: { member_path: string, operation: FileOperation, items: FileOperationItem[] },
+    input: FileOperationInput,
   ): Promise<FileOperationResult> {
     return this.request(`/libraries/${encodeURIComponent(libraryId)}/file-operations`, {
       method: 'POST',

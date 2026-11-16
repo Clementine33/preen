@@ -141,6 +141,13 @@ tasks:
     cmds:
       - pnpm exec playwright install chromium
 
+  contract:generate:
+    desc: Generate Go wire schemas and frontend wire types
+    cmds:
+      - cmd: go generate ./internal/adapters/httpapi
+        dir: backend/go
+      - node frontend/web/scripts/generate-wire.mjs
+
   contract:check:
     desc: Regenerate wire contracts and reject drift, including untracked new schemas
     cmds:

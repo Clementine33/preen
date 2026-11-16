@@ -79,9 +79,15 @@ const revision: MemberReviewResponse = {
     kind: 'conversion',
     schema_version: 1,
     payload: {
-      policy: {},
+      policy: {
+        schema_version: 1,
+        no_effect_tags: [],
+        other_tags: [],
+        matched: {},
+        unmatched: {},
+      },
       policy_hash: 'ph',
-      classifier: {},
+      classifier: { tags: [], hash: '' },
       summary: {
         component_count: 1,
         blocked_count: 0,
@@ -98,7 +104,12 @@ const revision: MemberReviewResponse = {
   member_name: 'albumA',
   folder_path: '/music/albumA',
   excluded: false,
-  effective: { schema_version: 1 },
+  effective: {
+    schema_version: 1,
+    other_tags: [],
+    matched: {},
+    unmatched: {},
+  },
   sources: {},
   conclusion: changedConclusion,
   roots: [
@@ -126,9 +137,15 @@ function nestedRevision(): Partial<MemberReviewResponse> {
       kind: 'conversion',
       schema_version: 1,
       payload: {
-        policy: {},
+        policy: {
+          schema_version: 1,
+          no_effect_tags: [],
+          other_tags: [],
+          matched: {},
+          unmatched: {},
+        },
         policy_hash: 'ph',
-        classifier: {},
+        classifier: { tags: [], hash: '' },
         summary: {
           component_count: 1,
           blocked_count: 0,

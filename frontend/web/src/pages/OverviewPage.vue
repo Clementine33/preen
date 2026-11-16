@@ -53,7 +53,7 @@ const libraryId = computed(() => (route.params.libraryId as string) || '')
 // One quiet line for this library's Media Facts Pass; absent while nothing is unknown.
 const mediaFactsLine = computed(() => {
   const status = mediaFacts.status
-  const counts = status?.libraries.find(item => item.library_id === libraryId.value)
+  const counts = status?.libraries?.find(item => item.library_id === libraryId.value)
   if (!status || !counts)
     return ''
   if (counts.pending > 0 && status.state !== 'idle') {

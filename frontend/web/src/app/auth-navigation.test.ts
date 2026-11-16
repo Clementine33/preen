@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ApiClient } from '@/lib/api/client'
+import { wireJson } from '@/test/wire-fixtures'
 import { loginReturnAddress, redirectToLogin } from './auth-navigation'
 import { cleanedQuery } from './route-params'
 import { router } from './router'
@@ -32,7 +33,7 @@ describe('browser authentication navigation', () => {
       hash: '',
       replace,
     })
-    vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 401 })))
+    vi.stubGlobal('fetch', vi.fn(async () => wireJson('errorResponse', { code: 'UNAUTHORIZED', message: 'unauthorized' }, {}, 401)))
     const client = new ApiClient({ baseUrl: '/api/v1', token: null, onUnauthorized: redirectToLogin })
     await expect(client.listLibraries()).rejects.toMatchObject({ status: 401 })
     expect(replace).not.toHaveBeenCalled()
@@ -46,7 +47,7 @@ describe('browser authentication navigation', () => {
       hash: '#row',
       replace,
     })
-    vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 401 })))
+    vi.stubGlobal('fetch', vi.fn(async () => wireJson('errorResponse', { code: 'UNAUTHORIZED', message: 'unauthorized' }, {}, 401)))
     const client = new ApiClient({ baseUrl: '/api/v1', token: null, onUnauthorized: redirectToLogin })
     await Promise.allSettled([
       client.listLibraries(),

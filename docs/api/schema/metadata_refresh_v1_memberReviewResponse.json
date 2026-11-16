@@ -36,7 +36,16 @@
         "conclusion": {
           "$ref": "#/$defs/memberConclusionResponse"
         },
-        "effective": true,
+        "effective": {
+          "anyOf": [
+            {
+              "$ref": "refresh_Common.json"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "excluded": {
           "type": "boolean"
         },

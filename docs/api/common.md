@@ -245,3 +245,9 @@ to select its Outcome or WorkResult shape; no new discriminator is sent.
 The HTTP error envelope, envelope with `details`, and SSE error have separate
 schema entry points. Scan SSE `error` uses the scan payload, not the session error
 envelope. Unknown fields are rejected for closed DTOs by contract tests.
+
+Stored conversion snapshots have separate `_stored` schema entry points combining
+the current Go encoding with a `_legacy` shape requiring `classifier_tags` and
+allowing the newer tag fields to be absent. These apply only to raw stored drafts,
+settings and plan policies. The canonical Go type schemas and current draft
+request schema remain independent; the request does not accept `classifier_tags`.

@@ -15,7 +15,7 @@
         "policy": {
           "anyOf": [
             {
-              "$ref": "reconcile_Policy.json"
+              "$ref": "reconcile_Policy_stored.json"
             },
             {
               "type": "null"

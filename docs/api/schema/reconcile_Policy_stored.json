@@ -1,0 +1,13 @@
+{
+  "$id": "reconcile_Policy_stored.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "anyOf": [
+    {
+      "$ref": "reconcile_Policy.json"
+    },
+    {
+      "$ref": "reconcile_Policy_legacy.json"
+    }
+  ],
+  "title": "reconcile_Policy_stored"
+}

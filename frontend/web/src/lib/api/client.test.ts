@@ -1,5 +1,6 @@
 import type { ApiConfig } from './types'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { wireJson as okJson, wireDraft, wireExecution, wireGeneration, wireJson, wireOperation, wireRevision, wireSSE, wireWorkset } from '@/test/wire-fixtures'
 import { ApiClient, ApiError } from './client'
 
 function createClient(config: Partial<ApiConfig> = {}): ApiClient {
@@ -19,7 +20,12 @@ it.each([
     { mode: 'full' },
   ],
 ] as const)('encodes scan root %s and mode %s', async (root, mode, body) => {
-  const fetch = mockFetch(() => new Response('event: completed\ndata: {"stage":"scan"}\n\n'))
+  const fetch = mockFetch(() => wireSSE('scan', [
+    {
+      type: 'completed',
+      data: { stage: 'scan' },
+    },
+  ]))
   const signal = new AbortController().signal
   const events = []
   for await (const event of createClient().scanLibrary('lib-1', signal, root, mode)) events.push(event)
@@ -36,13 +42,6 @@ it('logs out through the public session endpoint', async () => {
   await createClient().deleteSession()
   expect(fetch).toHaveBeenCalledWith('http://example.test/api/v1/session', expect.objectContaining({ method: 'DELETE', body: undefined }))
 })
-
-function okJson(body: unknown, headers: Record<string, string> = {}, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json', ...headers },
-  })
-}
 
 // Typed fetch mock factory so mock.calls elements keep their RequestInit type.
 function mockFetch(
@@ -61,7 +60,7 @@ afterEach(() => {
 
 describe('apiClient', () => {
   it('keeps desktop unauthorized responses on the desktop path', async () => {
-    mockFetch(async () => new Response('{}', { status: 401 }))
+    mockFetch(async () => wireJson('errorResponse', { code: 'UNAUTHORIZED', message: 'unauthorized' }, {}, 401))
     const onUnauthorized = vi.fn()
     const client = new ApiClient({ baseUrl: '/api/v1', token: 'desktop-key', onUnauthorized })
     await expect(client.listLibraries()).rejects.toMatchObject({ status: 401 })
@@ -78,7 +77,7 @@ describe('apiClient', () => {
   })
 
   it.each([1, 2, 3, undefined] as const)('sends the selected age category %s in the works request', async (age) => {
-    const fetchMock = mockFetch(async () => okJson({ works: [] }))
+    const fetchMock = mockFetch(async () => okJson('workListResponse', { works: [], total: 0 }))
 
     await createClient().listWorks({ age_category: age })
 
@@ -89,7 +88,17 @@ describe('apiClient', () => {
   })
 
   it('sends the collection window, and only the detail route takes a direction', async () => {
-    const fetchMock = mockFetch(async () => okJson({ collections: [], works: [] }))
+    const fetchMock = mockFetch(async input => String(input).split('?')[0]!.endsWith('/collections')
+      ? okJson('collectionListResponse', { collections: [], total: 0 })
+      : okJson('collectionDetailResponse', {
+          id: 'favorites',
+          name: '',
+          work_count: 0,
+          created_at: '',
+          updated_at: '',
+          works: [],
+          total: 0,
+        }))
 
     await createClient().listCollections({ limit: 200 })
     await createClient().getCollection('favorites', { limit: 20, direction: 'desc' })
@@ -105,7 +114,7 @@ describe('apiClient', () => {
   })
 
   it('sends the combined tag filter and its mode in the works request', async () => {
-    const fetchMock = mockFetch(async () => okJson({ works: [] }))
+    const fetchMock = mockFetch(async () => okJson('workListResponse', { works: [], total: 0 }))
 
     await createClient().listWorks({ tag: 's:a|u:b,s:c', tag_match: 'any' })
 
@@ -115,9 +124,19 @@ describe('apiClient', () => {
   })
 
   it('puts a Listening Position (kept alive on request), deletes it, and filters and sorts the listing by it', async () => {
-    const fetchMock = mockFetch(async (_input, init) => (init?.method === 'DELETE'
+    const fetchMock = mockFetch(async (input, init) => (init?.method === 'DELETE'
       ? new Response(null, { status: 204 })
-      : okJson({})))
+      : String(input).includes('/listening')
+        ? okJson('listeningResponse', {
+            rendition: '',
+            track_key: 'a',
+            position_sec: 1.5,
+            track_index: 0,
+            track_count: 2,
+            finished_at: null,
+            updated_at: '',
+          })
+        : okJson('workListResponse', { works: [], total: 0 })))
     const body = {
       rendition: '',
       track_key: 'a',
@@ -154,12 +173,12 @@ describe('apiClient', () => {
         expect(JSON.parse(String(init.body))).toEqual({
           settings: { template: '{rj}' },
         })
-        return okJson({
+        return okJson('rename_v1_taskSettingsResponse', {
           operation_type: 'rename',
           settings: { template: '{rj}' },
         }, { ETag: '"def"' })
       }
-      return okJson({
+      return okJson('rename_v1_taskSettingsResponse', {
         operation_type: 'rename',
         settings: { template: '[{rj}] {title}' },
       }, { ETag: '"abc"' })
@@ -187,7 +206,7 @@ describe('apiClient', () => {
       common: { template: '{rj}' },
       members: [],
     }
-    mockFetch(async () => okJson({
+    mockFetch(async () => okJson('rename_v1_draftResponse', {
       workset_id: 'ws-1',
       operation_type: 'rename',
       version: 2,
@@ -260,32 +279,27 @@ describe('apiClient', () => {
       if (path.endsWith('/draft')) {
         expect(headers.get('If-Match')).toBe('3')
         expect(JSON.parse(String(init?.body)).apply_common_settings).toBeUndefined()
-        return okJson({
-          workset_id: 'ws-1',
-          version: 4,
-          planning_state: 'planned',
-          members: [],
-        })
+        return okJson('conversion_v1_operationResponse', wireOperation({ workset_id: 'ws-1', version: 4, planning_state: 'planned' }))
       }
       if (path.endsWith('/revisions')) {
         expect(path).toContain('/operations/conversion/')
         expect(headers.get('Idempotency-Key')).toBe('key-1')
         expect(headers.get('If-Match')).toBe('3')
-        return okJson({
+        return okJson('generationStartResponse', {
           created: true,
-          generation: { generation_id: 'gen-1', status: 'queued' },
-        })
+          generation: wireGeneration({ generation_id: 'gen-1', status: 'queued' }),
+        }, {}, 202)
       }
       if (path.endsWith('/operations/conversion/current') && init?.method === 'PUT') {
         expect(headers.get('Idempotency-Key')).toBe('create-key')
-        return okJson({
-          workset: { workset_id: 'ws-1', members: [] },
+        return okJson('recordCreateResponse', {
+          workset: wireWorkset({ workset_id: 'ws-1' }),
           created: true,
           recorded: 1,
           skipped: [],
         })
       }
-      return okJson({})
+      throw new Error('Unexpected test request')
     })
 
     const client = createClient()
@@ -311,7 +325,10 @@ describe('apiClient', () => {
   })
 
   it('sends the execution scope as given, and an empty body for the whole revision', async () => {
-    const fetchMock = mockFetch(async () => okJson({ created: true, execution: {} }, {}, 202))
+    const fetchMock = mockFetch(async () => okJson('conversion_v1_executionStartResponse', {
+      created: true,
+      execution: wireExecution(),
+    }, {}, 202))
     const client = createClient()
     const input = { ifMatchVersion: 1, idempotencyKey: 'k' }
 
@@ -330,7 +347,7 @@ describe('apiClient', () => {
   })
 
   it('always applies a management signal even when none is provided', async () => {
-    const fetchMock = mockFetch(async () => okJson({ libraries: [] }))
+    const fetchMock = mockFetch(async () => okJson('libraryListResponse', { libraries: [] }))
 
     await createClient().listLibraries()
 
@@ -347,7 +364,7 @@ describe('apiClient', () => {
           init?.signal?.addEventListener('abort', () =>
             reject(new DOMException('请求超时', 'TimeoutError')))
         })
-        return okJson({ libraries: [] })
+        return okJson('libraryListResponse', { libraries: [] })
       })
 
       const promise = createClient().listLibraries()
@@ -381,10 +398,7 @@ describe('apiClient', () => {
 
   it('parses the JSON envelope and wraps failures as ApiError', async () => {
     const fetchMock = mockFetch(async () => {
-      return new Response(JSON.stringify({ code: 'LIBRARY_NOT_FOUND', message: 'no such library' }), {
-        status: 404,
-        headers: { 'Content-Type': 'application/json' },
-      })
+      return okJson('errorResponse', { code: 'LIBRARY_NOT_FOUND', message: 'no such library' }, {}, 404)
     })
 
     const error = await createClient().getLibrary('missing').catch((e: unknown) => e)
@@ -431,9 +445,9 @@ describe('work content routes', () => {
   })
 
   it('parses media notifications through the authenticated SSE client', async () => {
-    const fetchMock = mockFetch(() => new Response('event: changed\ndata: {}\n\n: keep-alive\n\n', {
-      headers: { 'Content-Type': 'text/event-stream' },
-    }))
+    const fetchMock = mockFetch(() => wireSSE('media', [
+      { type: 'changed', data: {} },
+    ]))
     const signal = new AbortController().signal
     const events = []
     for await (const event of createClient({ token: 'secret' }).streamMediaFactsEvents(signal)) events.push(event)
@@ -502,7 +516,7 @@ it('normalizes legacy conversion tags at every stored JSON read without losing e
   mockFetch((input) => {
     const url = String(input)
     if (url.endsWith('/draft')) {
-      return okJson({
+      return okJson('conversion_v1_draftResponse', wireDraft({
         operation_type: 'conversion',
         task: {
           kind: 'conversion',
@@ -518,14 +532,18 @@ it('normalizes legacy conversion tags at every stored JSON read without losing e
             ],
           },
         },
-      })
+      }))
     }
-    return okJson({
+    return okJson('conversion_v1_revisionResponse', wireRevision({
       task: {
         kind: 'conversion',
-        payload: { policy: legacy },
+        schema_version: 1,
+        payload: {
+          ...wireRevision().task.payload,
+          policy: legacy,
+        },
       },
-    })
+    }))
   })
   const client = createClient()
   const draft = await client.getOperationDraft('ws', 'conversion')

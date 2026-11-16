@@ -142,9 +142,15 @@ function revision(execution: RevisionDetailResponse['execution']): RevisionDetai
       kind: 'conversion',
       schema_version: 1,
       payload: {
-        policy: {},
+        policy: {
+          schema_version: 1,
+          no_effect_tags: [],
+          other_tags: [],
+          matched: {},
+          unmatched: {},
+        },
         policy_hash: '',
-        classifier: {},
+        classifier: { tags: [], hash: '' },
         summary: {
           component_count: 2,
           blocked_count: 0,

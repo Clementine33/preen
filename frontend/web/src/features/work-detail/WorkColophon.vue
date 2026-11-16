@@ -130,7 +130,7 @@ async function addToNewCollection(): Promise<void> {
 // to resume, 重听 (a Finished work) or 从头播放 (only orphans left) starts track 1.
 // 标记为未听 forgets every Rendition's. ──
 const resume = computed(() => resumePoint(work.value?.listening ?? [], store.tracks))
-const restartLabel = computed(() => (work.value?.listening.some(l => l.finished_at !== null)
+const restartLabel = computed(() => (work.value?.listening?.some(l => l.finished_at !== null)
   ? '重听'
   : '从头播放'))
 
@@ -323,7 +323,7 @@ function copyTo(copy: { copy_id: string, library_id: string, dir_id: string }) {
           </span>
         </dd>
       </div>
-      <div v-if="work?.listening.length" class="colo-row"><dt>收听</dt>
+      <div v-if="work?.listening?.length" class="colo-row"><dt>收听</dt>
         <dd class="acts">
           <button class="fav" type="button" :disabled="store.tracks.length === 0" @click="resumeListening"><template v-if="resume">▶ 继续 · {{ resume.row.track_index! + 1 }}/{{ resume.row.track_count }} · {{ fmtT(resume.position) }}</template><template v-else>▶ {{ restartLabel }}</template></button>
           <button class="fav" type="button" @click="clearListening">标记为未听</button>

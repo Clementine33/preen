@@ -175,9 +175,15 @@ async function mountFiles(
         kind: 'conversion',
         schema_version: 1,
         payload: {
-          policy: {},
+          policy: {
+            schema_version: 1,
+            no_effect_tags: [],
+            other_tags: [],
+            matched: {},
+            unmatched: {},
+          },
           policy_hash: '',
-          classifier: {},
+          classifier: { tags: [], hash: '' },
           components: [],
           summary: {
             component_count: 0,

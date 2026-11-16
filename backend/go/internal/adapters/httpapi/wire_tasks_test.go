@@ -117,21 +117,33 @@ func bindTaskWireDefinition(name string, def map[string]any, task wireTask) {
 		props["kind"] = map[string]any{"const": task.kind, "type": "string"}
 		props["schema_version"] = map[string]any{"const": 1, "type": "integer"}
 		if name == "taskDraftEnvelope" {
-			props["payload"] = schemaRef(task.draft)
+			draft := task.draft
+			if task.kind == "conversion" {
+				draft += "_stored"
+			}
+			props["payload"] = schemaRef(draft)
 		}
 	case "taskSettingsResponse":
 		props["operation_type"] = map[string]any{"const": task.kind, "type": "string"}
-		props["settings"] = schemaRef(task.settings)
+		settings := task.settings
+		if task.kind == "conversion" {
+			settings += "_stored"
+		}
+		props["settings"] = schemaRef(settings)
 	case "taskSettingsRequest":
 		props["settings"] = schemaRef(task.settings + "_request")
 	case "taskPayloadResponse":
-		props["policy"] = nullableWireRef(task.policy)
+		policy := task.policy
+		if task.kind == "conversion" {
+			policy += "_stored"
+		}
+		props["policy"] = nullableWireRef(policy)
 		props["summary"] = nullableWireRef(task.summary)
 		props["classifier"] = schemaRef("taskClassifierSnapshot")
 		if _, present := props["components"]; present {
 			props["components"] = map[string]any{"type": "array", "items": schemaRef(task.component)}
 		}
-	case "revisionMemberResponse":
+	case "revisionMemberResponse", "memberReviewResponse":
 		props["effective"] = nullableWireRef(task.policy)
 	case "memberConclusionResponse":
 		props["task"] = schemaRef(task.conclusion)
@@ -151,26 +163,34 @@ func bindTaskWireDefinition(name string, def map[string]any, task wireTask) {
 			delete(props, "task_result")
 			props["kept_decisions"] = map[string]any{"type": "array", "items": schemaRef("reconcile_FileDecision")}
 		case "metadata_refresh":
-			props["task_result"] = map[string]any{
-				"oneOf": []any{schemaRef("refresh_Outcome"), schemaRef("refresh_WorkResult")},
-			}
-			def["allOf"] = []any{
-				taskResultStage("skipped", "refresh_Outcome"), taskResultStage("metadata", "refresh_WorkResult"),
-			}
+			metadataTaskResultShape(def)
+
 		default:
 			props["task_result"] = schemaRef(task.result)
 		}
 	}
 }
 
-func taskResultStage(stage, result string) map[string]any {
-	return map[string]any{
-		"if": map[string]any{
-			"required":   []string{"stage"},
-			"properties": map[string]any{"stage": map[string]any{"const": stage}},
-		},
-		"then": map[string]any{"properties": map[string]any{"task_result": schemaRef(result)}},
+// metadataTaskResultShape uses the existing stage discriminator, keeping
+// pending components (which have no task_result) as a separate branch.
+func metadataTaskResultShape(def map[string]any) {
+	pending := cloneWireMap(def)
+	removeWireProperty(pending, "task_result")
+	skipped := cloneWireMap(def)
+	metadata := cloneWireMap(def)
+	for stage, branch := range map[string]map[string]any{"skipped": skipped, "metadata": metadata} {
+		props, _ := branch["properties"].(map[string]any)
+		props["stage"] = map[string]any{"type": "string", "const": stage}
+		result := "refresh_Outcome"
+		if stage == "metadata" {
+			result = "refresh_WorkResult"
+		}
+		props["task_result"] = schemaRef(result)
+		required, _ := branch["required"].([]any)
+		branch["required"] = append(required, "stage", "task_result")
 	}
+	clear(def)
+	def["oneOf"] = []any{pending, skipped, metadata}
 }
 
 func nullableWireRef(name string) map[string]any {

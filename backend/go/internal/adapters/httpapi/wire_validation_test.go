@@ -97,3 +97,15 @@ func TestWireSnapshotIsDistinctFromHTTPDetail(t *testing.T) {
 		t.Fatal("snapshot accepted as HTTP detail")
 	}
 }
+
+func TestWireLegacySnapshotsHaveIndependentSchemas(t *testing.T) {
+	legacy := []byte(`{"schema_version":1,"classifier_tags":["legacy"],"matched":{},"unmatched":{}}`)
+	wirecheck.AssertSchema(t, "conversion_DraftDoc_stored", legacy)
+	wirecheck.AssertSchema(t, "reconcile_Policy_stored", legacy)
+	if wirecheck.Validate("conversion_DraftDoc", legacy) == nil {
+		t.Fatal("legacy storage accepted as current canonical encoding")
+	}
+	if wirecheck.Validate("draftDocumentRequest", legacy) == nil {
+		t.Fatal("compatibility key accepted as a draft request")
+	}
+}

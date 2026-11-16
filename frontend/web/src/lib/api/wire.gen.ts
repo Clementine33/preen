@@ -1,7 +1,5 @@
 // Generated from Go wire schemas. Do not edit; run task contract:generate.
 
-export type Conversion_CommonSettingsStored = Conversion_CommonSettings | Conversion_CommonSettingsLegacy
-export type Conversion_DraftDocStored = Conversion_DraftDoc | Conversion_DraftDocLegacy
 export type ConversionV1ExecutionStartResponse_ExecutionViewResponse =
   | {
       completed_components: number
@@ -138,7 +136,6 @@ export type ConversionV1ExecutionViewResponse =
       total_operations: number
       workset_id: string
     }
-export type Reconcile_PolicyStored = Reconcile_Policy | Reconcile_PolicyLegacy
 export type DraftResponse = ConversionV1DraftResponse | RenameV1DraftResponse | MetadataRefreshV1DraftResponse
 export type ErrorWithDetails = ErrorResponse & {
   [k: string]: unknown
@@ -821,13 +818,9 @@ export interface WireSchemas {
   collectionWorksAppendRequest: CollectionWorksAppendRequest
   collectionWorksAppendResponse: CollectionWorksAppendResponse
   conversion_CommonSettings: Conversion_CommonSettings
-  conversion_CommonSettings_legacy: Conversion_CommonSettingsLegacy
   conversion_CommonSettings_request: Conversion_CommonSettingsRequest
-  conversion_CommonSettings_stored: Conversion_CommonSettingsStored
   conversion_DraftDoc: Conversion_DraftDoc
-  conversion_DraftDoc_legacy: Conversion_DraftDocLegacy
   conversion_DraftDoc_request: Conversion_DraftDocRequest
-  conversion_DraftDoc_stored: Conversion_DraftDocStored
   conversion_ExecutionOptions: Conversion_ExecutionOptions
   conversion_FrozenMemberConclusion: Conversion_FrozenMemberConclusion
   conversion_v1_draftResponse: ConversionV1DraftResponse
@@ -949,8 +942,6 @@ export interface WireSchemas {
   reconcile_ComponentOutcome: Reconcile_ComponentOutcome
   reconcile_FileDecision: Reconcile_FileDecision
   reconcile_Policy: Reconcile_Policy
-  reconcile_Policy_legacy: Reconcile_PolicyLegacy
-  reconcile_Policy_stored: Reconcile_PolicyStored
   reconcile_StepSummary: Reconcile_StepSummary
   reconcile_VariantDecision: Reconcile_VariantDecision
   recordCreateRequest: RecordCreateRequest
@@ -1267,7 +1258,6 @@ export interface CollectionWorksAppendResponse {
   work_count: number
 }
 export interface Conversion_CommonSettings {
-  classifier_tags?: string[]
   delete_mode?: 'soft' | 'hard'
   matched: Conversion_CommonSettings_Reconcile_DesiredProfile
   mode?: 'strict' | 'available_sources'
@@ -1288,30 +1278,7 @@ export interface Conversion_CommonSettings_Reconcile_Quality {
   bitrate?: number
   kind: string
 }
-export interface Conversion_CommonSettingsLegacy {
-  classifier_tags: string[]
-  delete_mode?: 'soft' | 'hard'
-  matched: Conversion_CommonSettingsLegacy_Reconcile_DesiredProfile
-  mode?: 'strict' | 'available_sources'
-  no_effect_tags?: string[] | null
-  other?: Conversion_CommonSettingsLegacy_Reconcile_DesiredProfile
-  other_tags?: string[] | null
-  unmatched: Conversion_CommonSettingsLegacy_Reconcile_DesiredProfile
-}
-export interface Conversion_CommonSettingsLegacy_Reconcile_DesiredProfile {
-  encoded?: Conversion_CommonSettingsLegacy_Reconcile_AudioOutputSpec
-  lossless?: Conversion_CommonSettingsLegacy_Reconcile_AudioOutputSpec
-}
-export interface Conversion_CommonSettingsLegacy_Reconcile_AudioOutputSpec {
-  codec: string
-  quality?: Conversion_CommonSettingsLegacy_Reconcile_Quality
-}
-export interface Conversion_CommonSettingsLegacy_Reconcile_Quality {
-  bitrate?: number
-  kind: string
-}
 export interface Conversion_CommonSettingsRequest {
-  classifier_tags?: string[]
   delete_mode?: 'soft' | 'hard'
   matched?: Conversion_CommonSettingsRequest_Reconcile_DesiredProfile
   mode?: 'strict' | 'available_sources'
@@ -1333,7 +1300,6 @@ export interface Conversion_CommonSettingsRequest_Reconcile_Quality {
   kind?: string
 }
 export interface Conversion_DraftDoc {
-  classifier_tags?: string[]
   delete_mode?: 'soft' | 'hard'
   matched: Conversion_DraftDoc_Reconcile_DesiredProfile
   members?: Conversion_DraftDoc_Conversion_DraftMember[]
@@ -1362,7 +1328,6 @@ export interface Conversion_DraftDoc_Conversion_DraftMember {
   overrides?: Conversion_DraftDoc_Conversion_OverrideSet
 }
 export interface Conversion_DraftDoc_Conversion_OverrideSet {
-  classifier_tags?: string[] | null
   matched?: Conversion_DraftDoc_Reconcile_DesiredProfile
   mode?: 'strict' | 'available_sources'
   no_effect_tags?: string[] | null
@@ -1370,46 +1335,7 @@ export interface Conversion_DraftDoc_Conversion_OverrideSet {
   other_tags?: string[] | null
   unmatched?: Conversion_DraftDoc_Reconcile_DesiredProfile
 }
-export interface Conversion_DraftDocLegacy {
-  classifier_tags: string[]
-  delete_mode?: 'soft' | 'hard'
-  matched: Conversion_DraftDocLegacy_Reconcile_DesiredProfile
-  members?: Conversion_DraftDocLegacy_Conversion_DraftMember[]
-  mode?: 'strict' | 'available_sources'
-  no_effect_tags?: string[] | null
-  other?: Conversion_DraftDocLegacy_Reconcile_DesiredProfile
-  other_tags?: string[] | null
-  schema_version: number
-  unmatched: Conversion_DraftDocLegacy_Reconcile_DesiredProfile
-}
-export interface Conversion_DraftDocLegacy_Reconcile_DesiredProfile {
-  encoded?: Conversion_DraftDocLegacy_Reconcile_AudioOutputSpec
-  lossless?: Conversion_DraftDocLegacy_Reconcile_AudioOutputSpec
-}
-export interface Conversion_DraftDocLegacy_Reconcile_AudioOutputSpec {
-  codec: string
-  quality?: Conversion_DraftDocLegacy_Reconcile_Quality
-}
-export interface Conversion_DraftDocLegacy_Reconcile_Quality {
-  bitrate?: number
-  kind: string
-}
-export interface Conversion_DraftDocLegacy_Conversion_DraftMember {
-  excluded?: boolean
-  member_id: string
-  overrides?: Conversion_DraftDocLegacy_Conversion_OverrideSet
-}
-export interface Conversion_DraftDocLegacy_Conversion_OverrideSet {
-  classifier_tags?: string[] | null
-  matched?: Conversion_DraftDocLegacy_Reconcile_DesiredProfile
-  mode?: 'strict' | 'available_sources'
-  no_effect_tags?: string[] | null
-  other?: Conversion_DraftDocLegacy_Reconcile_DesiredProfile
-  other_tags?: string[] | null
-  unmatched?: Conversion_DraftDocLegacy_Reconcile_DesiredProfile
-}
 export interface Conversion_DraftDocRequest {
-  classifier_tags?: string[]
   delete_mode?: 'soft' | 'hard'
   matched?: Conversion_DraftDocRequest_Reconcile_DesiredProfile
   members?: Conversion_DraftDocRequest_Conversion_DraftMember[]
@@ -1438,7 +1364,6 @@ export interface Conversion_DraftDocRequest_Conversion_DraftMember {
   overrides?: Conversion_DraftDocRequest_Conversion_OverrideSet
 }
 export interface Conversion_DraftDocRequest_Conversion_OverrideSet {
-  classifier_tags?: string[] | null
   matched?: Conversion_DraftDocRequest_Reconcile_DesiredProfile
   mode?: 'strict' | 'available_sources'
   no_effect_tags?: string[] | null
@@ -1469,7 +1394,7 @@ export interface ConversionV1DraftResponse {
 }
 export interface ConversionV1DraftResponse_TaskDraftEnvelope {
   kind: 'conversion'
-  payload: Conversion_DraftDocStored
+  payload: Conversion_DraftDoc
   schema_version: 1
 }
 export interface ConversionV1ExecutionComponentResponse {
@@ -1769,7 +1694,6 @@ export interface ConversionV1MemberReviewResponse_MemberConclusionResponse {
   task?: Conversion_FrozenMemberConclusion
 }
 export interface Reconcile_Policy {
-  classifier_tags?: string[]
   matched: Reconcile_Policy_Reconcile_DesiredProfile
   mode?: 'strict' | 'available_sources'
   no_effect_tags?: string[]
@@ -1808,7 +1732,7 @@ export interface ConversionV1MemberReviewResponse_TaskEnvelopeResponse {
 export interface ConversionV1MemberReviewResponse_TaskPayloadResponse {
   classifier: TaskClassifierSnapshot
   components: Reconcile_ComponentOutcome[]
-  policy: Reconcile_PolicyStored
+  policy: Reconcile_Policy
   policy_hash: string
   summary: Reconcile_StepSummary
 }
@@ -1859,28 +1783,6 @@ export interface Reconcile_ComponentOutcome_Reconcile_FileDecision {
   reason_code?: string
   resolution: 'keep' | 'delete' | 'encode'
   target_path?: string
-}
-export interface Reconcile_PolicyLegacy {
-  classifier_tags: string[]
-  matched: Reconcile_PolicyLegacy_Reconcile_DesiredProfile
-  mode?: 'strict' | 'available_sources'
-  no_effect_tags?: string[]
-  other?: Reconcile_PolicyLegacy_Reconcile_DesiredProfile
-  other_tags?: string[] | null
-  schema_version: number
-  unmatched: Reconcile_PolicyLegacy_Reconcile_DesiredProfile
-}
-export interface Reconcile_PolicyLegacy_Reconcile_DesiredProfile {
-  encoded?: Reconcile_PolicyLegacy_Reconcile_AudioOutputSpec
-  lossless?: Reconcile_PolicyLegacy_Reconcile_AudioOutputSpec
-}
-export interface Reconcile_PolicyLegacy_Reconcile_AudioOutputSpec {
-  codec: string
-  quality?: Reconcile_PolicyLegacy_Reconcile_Quality
-}
-export interface Reconcile_PolicyLegacy_Reconcile_Quality {
-  bitrate?: number
-  kind: string
 }
 export interface Reconcile_StepSummary {
   blocked_count: number
@@ -2028,13 +1930,13 @@ export interface ConversionV1RevisionResponse_TaskEnvelopeResponse {
 }
 export interface ConversionV1RevisionResponse_TaskPayloadResponse {
   classifier: TaskClassifierSnapshot
-  policy: Reconcile_PolicyStored
+  policy: Reconcile_Policy
   policy_hash: string
   summary: Reconcile_StepSummary
 }
 export interface ConversionV1TaskDraftEnvelope {
   kind: 'conversion'
-  payload: Conversion_DraftDocStored
+  payload: Conversion_DraftDoc
   schema_version: 1
 }
 export interface ConversionV1TaskEnvelopeResponse {
@@ -2045,14 +1947,14 @@ export interface ConversionV1TaskEnvelopeResponse {
 export interface ConversionV1TaskEnvelopeResponse_TaskPayloadResponse {
   classifier: TaskClassifierSnapshot
   components?: Reconcile_ComponentOutcome[]
-  policy: Reconcile_PolicyStored
+  policy: Reconcile_Policy
   policy_hash: string
   summary: Reconcile_StepSummary
 }
 export interface ConversionV1TaskPayloadResponse {
   classifier: TaskClassifierSnapshot
   components?: Reconcile_ComponentOutcome[]
-  policy: Reconcile_PolicyStored
+  policy: Reconcile_Policy
   policy_hash: string
   summary: Reconcile_StepSummary
 }
@@ -2061,7 +1963,7 @@ export interface ConversionV1TaskSettingsRequest {
 }
 export interface ConversionV1TaskSettingsResponse {
   operation_type: 'conversion'
-  settings: Conversion_CommonSettingsStored
+  settings: Conversion_CommonSettings
 }
 export interface CopyResponse {
   copy_id: string

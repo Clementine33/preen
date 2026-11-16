@@ -171,7 +171,6 @@ func targetNameTooLong(target string) bool {
 // only the per-component decision table: reconcileComponent for "" / strict
 // (historical behavior), lenientComponent in mode.go for available_sources.
 func Reconcile(in ReconcileInput) (ReconcileResult, error) {
-	in.Policy.FoldLegacyTags()
 	if err := ValidatePolicy(in.Policy); err != nil {
 		return ReconcileResult{}, err
 	}

@@ -96,7 +96,6 @@ func (t *Task) SeedDraft(common json.RawMessage) ([]byte, string, int) {
 	if len(common) > 0 {
 		var payload CommonSettings
 		if decodeErr := json.Unmarshal(common, &payload); decodeErr == nil {
-			payload.foldLegacyTags()
 			doc = ReplaceCommonSettings(doc, payload)
 		}
 	}
@@ -135,7 +134,6 @@ func (*Task) ApplyCommonSettings(
 			workset.ErrKindInternal, "INTERNAL", "common settings are unreadable", decodeErr,
 		)
 	}
-	payload.foldLegacyTags()
 	document, hash, err := MarshalDraft(ReplaceCommonSettings(doc, payload))
 	if err != nil {
 		return nil, "", workset.NewError(

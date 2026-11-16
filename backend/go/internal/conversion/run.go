@@ -23,10 +23,6 @@ import (
 //
 //nolint:gocognit,funlen // per-root outcome branches; split when more steps appear
 func Plan(ctx context.Context, inv Inventory, settings Settings, probe ProbeBitrate, in Input) (*Snapshot, error) {
-	in.Policy.FoldLegacyTags()
-	for i := range in.Roots {
-		in.Roots[i].Policy.FoldLegacyTags()
-	}
 	if len(in.Roots) == 0 {
 		return nil, workset.NewError(
 			workset.ErrKindInvalidArgument,

@@ -238,7 +238,7 @@
           "$ref": "taskClassifierSnapshot.json"
         },
         "policy": {
-          "$ref": "reconcile_Policy_stored.json"
+          "$ref": "reconcile_Policy.json"
         },
         "policy_hash": {
           "type": "string"

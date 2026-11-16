@@ -8,7 +8,7 @@
           "type": "string"
         },
         "payload": {
-          "$ref": "conversion_DraftDoc_stored.json"
+          "$ref": "conversion_DraftDoc.json"
         },
         "schema_version": {
           "const": 1,

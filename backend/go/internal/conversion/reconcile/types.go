@@ -201,14 +201,13 @@ const (
 // that isolate independent version scopes. Conversion/cleanup mechanics are
 // derived by the planner. Mode applies to both partitions within every scope.
 type Policy struct {
-	LegacyClassifierTags []string        `json:"classifier_tags,omitempty"`
-	OtherTags            []string        `json:"other_tags"`
-	SchemaVersion        int             `json:"schema_version"`
-	Mode                 string          `json:"mode,omitempty"            jsonschema:"enum=strict,enum=available_sources"`
-	NoEffectTags         []string        `json:"no_effect_tags,omitempty"`
-	Matched              DesiredProfile  `json:"matched"`
-	Unmatched            DesiredProfile  `json:"unmatched"`
-	Other                *DesiredProfile `json:"other,omitempty"`
+	OtherTags     []string        `json:"other_tags"`
+	SchemaVersion int             `json:"schema_version"`
+	Mode          string          `json:"mode,omitempty"           jsonschema:"enum=strict,enum=available_sources"`
+	NoEffectTags  []string        `json:"no_effect_tags,omitempty"`
+	Matched       DesiredProfile  `json:"matched"`
+	Unmatched     DesiredProfile  `json:"unmatched"`
+	Other         *DesiredProfile `json:"other,omitempty"`
 }
 
 // ProfileFor selects the isolated-scope target or the main partition target.

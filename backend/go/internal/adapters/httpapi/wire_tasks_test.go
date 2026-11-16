@@ -124,27 +124,15 @@ func bindTaskWireDefinition(name string, def map[string]any, task wireTask) {
 		props["kind"] = map[string]any{"const": task.kind, "type": "string"}
 		props["schema_version"] = map[string]any{"const": 1, "type": "integer"}
 		if name == "taskDraftEnvelope" {
-			draft := task.draft
-			if task.kind == "conversion" {
-				draft += "_stored"
-			}
-			props["payload"] = schemaRef(draft)
+			props["payload"] = schemaRef(task.draft)
 		}
 	case "taskSettingsResponse":
 		props["operation_type"] = map[string]any{"const": task.kind, "type": "string"}
-		settings := task.settings
-		if task.kind == "conversion" {
-			settings += "_stored"
-		}
-		props["settings"] = schemaRef(settings)
+		props["settings"] = schemaRef(task.settings)
 	case "taskSettingsRequest":
 		props["settings"] = schemaRef(task.settings + "_request")
 	case "taskPayloadResponse":
-		policy := task.policy
-		if task.kind == "conversion" {
-			policy += "_stored"
-		}
-		props["policy"] = schemaRef(policy)
+		props["policy"] = schemaRef(task.policy)
 		props["summary"] = schemaRef(task.summary)
 		props["classifier"] = schemaRef("taskClassifierSnapshot")
 		if _, present := props["components"]; present {

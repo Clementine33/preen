@@ -3,12 +3,6 @@
     "conversion_CommonSettings": {
       "additionalProperties": false,
       "properties": {
-        "classifier_tags": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
         "delete_mode": {
           "enum": [
             "soft",

@@ -3,12 +3,6 @@
     "conversion_DraftDoc": {
       "additionalProperties": false,
       "properties": {
-        "classifier_tags": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
         "delete_mode": {
           "enum": [
             "soft",
@@ -98,19 +92,6 @@
     "conversion_OverrideSet": {
       "additionalProperties": false,
       "properties": {
-        "classifier_tags": {
-          "anyOf": [
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
         "matched": {
           "$ref": "#/$defs/reconcile_DesiredProfile"
         },

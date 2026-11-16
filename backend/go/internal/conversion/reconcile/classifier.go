@@ -69,7 +69,6 @@ func (c Classifier) Classify(relPath string) Partition {
 // ValidatePolicy checks the structural shape of a resolved policy. Errors here
 // are request-validation errors (no Plan is created), not media conflicts.
 func ValidatePolicy(p Policy) error {
-	p.FoldLegacyTags()
 	if err := ValidateOtherTags(p.OtherTags); err != nil {
 		return err
 	}

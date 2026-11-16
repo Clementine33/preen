@@ -102,13 +102,8 @@ The six independent override units are `mode`, `no_effect_tags`, `other_tags`,
 `matched`, `unmatched` and `other`. Each tag list supports explicit `[]` to clear the unit.
 An empty no-effect list remains saveable; generation requires at least one tag.
 
-New HTTP draft and slot writes reject the old `classifier_tags` key, including
-`null` and `[]`. Stored schema-1 drafts, common settings and policies remain
-readable: the old key supplies `no_effect_tags` only when the new value is absent
-or null, so an explicit new `[]` wins. Stored draft and slot GET payloads and
-frozen policy payloads may retain the old spelling; the web API client normalizes
-them before editing or comparing drafts. No read rewrites a frozen payload or
-changes its hash. Effective member settings and their sources use the new keys.
+Draft and slot writes reject unknown keys, including the retired `classifier_tags`
+key even as `null` or `[]`. No read rewrites a frozen payload or changes its hash.
 
 ## Frozen revisions
 

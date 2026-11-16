@@ -8,7 +8,7 @@
           "type": "string"
         },
         "settings": {
-          "$ref": "conversion_CommonSettings_stored.json"
+          "$ref": "conversion_CommonSettings.json"
         }
       },
       "required": [

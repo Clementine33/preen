@@ -38,16 +38,15 @@ const (
 // hard; empty means soft) — it is one global choice, frozen into every
 // revision and never overridable per member.
 type DraftDoc struct {
-	OtherTags            []string                  `json:"other_tags"`
-	LegacyClassifierTags []string                  `json:"classifier_tags,omitempty"`
-	SchemaVersion        int                       `json:"schema_version"`
-	Mode                 string                    `json:"mode,omitempty"            jsonschema:"enum=strict,enum=available_sources"`
-	DeleteMode           string                    `json:"delete_mode,omitempty"     jsonschema:"enum=soft,enum=hard"`
-	NoEffectTags         []string                  `json:"no_effect_tags"`
-	Matched              reconcile.DesiredProfile  `json:"matched"`
-	Unmatched            reconcile.DesiredProfile  `json:"unmatched"`
-	Other                *reconcile.DesiredProfile `json:"other,omitempty"`
-	Members              []DraftMember             `json:"members,omitempty"`
+	OtherTags     []string                  `json:"other_tags"`
+	SchemaVersion int                       `json:"schema_version"`
+	Mode          string                    `json:"mode,omitempty"        jsonschema:"enum=strict,enum=available_sources"`
+	DeleteMode    string                    `json:"delete_mode,omitempty" jsonschema:"enum=soft,enum=hard"`
+	NoEffectTags  []string                  `json:"no_effect_tags"`
+	Matched       reconcile.DesiredProfile  `json:"matched"`
+	Unmatched     reconcile.DesiredProfile  `json:"unmatched"`
+	Other         *reconcile.DesiredProfile `json:"other,omitempty"`
+	Members       []DraftMember             `json:"members,omitempty"`
 }
 
 // DraftMember is one member's participation plus its sparse unit overrides.
@@ -63,13 +62,12 @@ type DraftMember struct {
 // value; a non-nil field — including a pointer to an empty tag slice — is an
 // explicit value that later common changes never touch.
 type OverrideSet struct {
-	OtherTags            *[]string                 `json:"other_tags,omitempty"`
-	LegacyClassifierTags *[]string                 `json:"classifier_tags,omitempty"`
-	Mode                 *string                   `json:"mode,omitempty"            jsonschema:"enum=strict,enum=available_sources"`
-	NoEffectTags         *[]string                 `json:"no_effect_tags,omitempty"`
-	Matched              *reconcile.DesiredProfile `json:"matched,omitempty"`
-	Unmatched            *reconcile.DesiredProfile `json:"unmatched,omitempty"`
-	Other                *reconcile.DesiredProfile `json:"other,omitempty"`
+	OtherTags    *[]string                 `json:"other_tags,omitempty"`
+	Mode         *string                   `json:"mode,omitempty"           jsonschema:"enum=strict,enum=available_sources"`
+	NoEffectTags *[]string                 `json:"no_effect_tags,omitempty"`
+	Matched      *reconcile.DesiredProfile `json:"matched,omitempty"`
+	Unmatched    *reconcile.DesiredProfile `json:"unmatched,omitempty"`
+	Other        *reconcile.DesiredProfile `json:"other,omitempty"`
 }
 
 // HasUnit reports whether the override set explicitly sets a unit.
@@ -115,14 +113,13 @@ func (o *OverrideSet) IsEmpty() bool { return len(o.Units()) == 0 }
 // list is always an array, so an explicitly empty tag set survives the round
 // trip as the explicit value it is.
 type CommonSettings struct {
-	OtherTags            []string                  `json:"other_tags"`
-	LegacyClassifierTags []string                  `json:"classifier_tags,omitempty"`
-	Mode                 string                    `json:"mode,omitempty"            jsonschema:"enum=strict,enum=available_sources"`
-	DeleteMode           string                    `json:"delete_mode,omitempty"     jsonschema:"enum=soft,enum=hard"`
-	NoEffectTags         []string                  `json:"no_effect_tags"`
-	Matched              reconcile.DesiredProfile  `json:"matched"`
-	Unmatched            reconcile.DesiredProfile  `json:"unmatched"`
-	Other                *reconcile.DesiredProfile `json:"other,omitempty"`
+	OtherTags    []string                  `json:"other_tags"`
+	Mode         string                    `json:"mode,omitempty"        jsonschema:"enum=strict,enum=available_sources"`
+	DeleteMode   string                    `json:"delete_mode,omitempty" jsonschema:"enum=soft,enum=hard"`
+	NoEffectTags []string                  `json:"no_effect_tags"`
+	Matched      reconcile.DesiredProfile  `json:"matched"`
+	Unmatched    reconcile.DesiredProfile  `json:"unmatched"`
+	Other        *reconcile.DesiredProfile `json:"other,omitempty"`
 }
 
 // ProjectCommonSettings extracts one draft document's common settings.
@@ -176,7 +173,6 @@ func ParseDraft(raw string) (*DraftDoc, error) {
 	if err := dec.Decode(&doc); err != nil {
 		return nil, err
 	}
-	doc.foldLegacyTags()
 	return &doc, nil
 }
 

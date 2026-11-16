@@ -244,9 +244,7 @@ when the Go decoder permits omission; semantic required-field checks stay in the
 endpoint implementation and this reference. Request and response schemas are
 separate even when their Go declarations look similar.
 
-Task payloads are bound by kind and schema version 1. Conversion `classifier_tags`
-compatibility fields remain in the response/settings schemas where present and
-are absent from the conversion draft request schema. Reconciliation file tuples
+Task payloads are bound by kind and schema version 1. Reconciliation file tuples
 retain `Path`, `Size`, and `Mtime`. A planning `session_snapshot` carries the
 same payload and schema as the planning-session HTTP detail, including
 `operation_type`. A plan payload always carries its frozen policy and summary;
@@ -258,12 +256,6 @@ to select its Outcome or WorkResult shape; no new discriminator is sent.
 The HTTP error envelope, envelope with `details`, and SSE error have separate
 schema entry points. Scan SSE `error` uses the scan payload, not the session error
 envelope. Unknown fields are rejected for closed DTOs by contract tests.
-
-Stored conversion snapshots have separate `_stored` schema entry points combining
-the current Go encoding with a `_legacy` shape requiring `classifier_tags` and
-allowing the newer tag fields to be absent. These apply only to raw stored drafts,
-settings and plan policies. The canonical Go type schemas and current draft
-request schema remain independent; the request does not accept `classifier_tags`.
 
 The web client binds each JSON call to declared success statuses and each SSE
 subscription to declared event names. Task bindings select kind/version through a generated

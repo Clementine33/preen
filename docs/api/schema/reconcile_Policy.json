@@ -30,12 +30,6 @@
     "reconcile_Policy": {
       "additionalProperties": false,
       "properties": {
-        "classifier_tags": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
         "matched": {
           "$ref": "#/$defs/reconcile_DesiredProfile"
         },

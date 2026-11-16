@@ -1,6 +1,6 @@
 import type { WireSchemas } from './wire.gen'
 import { afterEach, expect, it, vi } from 'vitest'
-import { wireExecution, wireGeneration, wireJson, wireSSE } from '@/test/wire-fixtures'
+import { wireExecution, wireGeneration, wireJson, wireRevision, wireSSE } from '@/test/wire-fixtures'
 import { ApiClient } from './client'
 import { validateWire, WireContractError } from './wire-validation'
 
@@ -105,6 +105,21 @@ it('keeps FileTuple PascalCase keys and requires operation_type on the snapshot'
   const { operation_type: _operation, ...snapshot } = wireGeneration()
   await expect(validateWire('generationViewResponse', snapshot)).rejects.toBeInstanceOf(WireContractError)
   await expect(validateWire('generationViewResponse', wireGeneration())).resolves.toEqual(wireGeneration())
+})
+
+it('requires the frozen policy and summary in a plan payload', async () => {
+  const revision = wireRevision()
+  await expect(validateWire('conversion_v1_revisionResponse', revision)).resolves.toEqual(revision)
+  for (const field of ['policy', 'summary']) {
+    const broken = {
+      ...revision,
+      task: {
+        ...revision.task,
+        payload: { ...revision.task.payload, [field]: null },
+      },
+    }
+    await expect(validateWire('conversion_v1_revisionResponse', broken)).rejects.toBeInstanceOf(WireContractError)
+  }
 })
 
 it('rejects malformed payloads of a declared SSE event', async () => {

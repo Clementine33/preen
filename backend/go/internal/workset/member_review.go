@@ -88,24 +88,31 @@ func (s *serviceImpl) GetMemberReview(
 		return nil, NewError(ErrKindInternal, "INTERNAL", "failed to load member conclusion", err)
 	}
 	owned := []RevisionMember{member}
-	if err := concludeRevisionMembers(owned, stored, detail.Roots, w.LibraryID == "", staleRoots); err != nil {
+	if err = concludeRevisionMembers(owned, stored, detail.Roots, w.LibraryID == "", staleRoots); err != nil {
 		return nil, NewError(ErrKindInternal, "INTERNAL", "failed to conclude member", err)
 	}
-	review := &MemberReview{PlanID: planID, Member: owned[0], Plan: s.planView(operationType, detail)}
-	for _, root := range detail.Roots {
-		review.Roots = append(
-			review.Roots,
-			RootValidation{
-				RootIndex:            root.RootIndex,
-				RootPath:             root.RootPath,
-				RootStatus:           root.RootStatus,
-				RootErrorCode:        root.RootErrorCode,
-				RootErrorMessage:     root.RootErrorMessage,
-				Stale:                staleRoots[root.RootIndex],
-				InventoryFingerprint: root.InventoryFingerprint,
-				EntryCount:           root.EntryCount,
-			},
-		)
+	plan, err := s.planView(operationType, detail)
+	if err != nil {
+		return nil, err
 	}
+	review := &MemberReview{PlanID: planID, Member: owned[0], Plan: plan}
+	review.Roots = rootValidations(detail.Roots, staleRoots)
 	return review, nil
+}
+
+func rootValidations(roots []PlanRootRecord, stale map[int]bool) []RootValidation {
+	var out []RootValidation
+	for _, root := range roots {
+		out = append(out, RootValidation{
+			RootIndex:            root.RootIndex,
+			RootPath:             root.RootPath,
+			RootStatus:           root.RootStatus,
+			RootErrorCode:        root.RootErrorCode,
+			RootErrorMessage:     root.RootErrorMessage,
+			Stale:                stale[root.RootIndex],
+			InventoryFingerprint: root.InventoryFingerprint,
+			EntryCount:           root.EntryCount,
+		})
+	}
+	return out
 }

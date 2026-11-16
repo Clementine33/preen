@@ -785,7 +785,7 @@ export class ApiClient implements ApiClientContract {
     const wire = await this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
       ? taskContract(httpContracts['GET /api/v1/worksets/{id}/operations/{type}/revisions/{planId}'], operation)
       : undefined), `${this.operationPath(worksetId, operation)}/revisions/${encodeURIComponent(planId)}${query}`, { signal })
-    if (operation === 'conversion' && wire.task.payload.policy) {
+    if (operation === 'conversion') {
       return {
         ...wire,
         task: {

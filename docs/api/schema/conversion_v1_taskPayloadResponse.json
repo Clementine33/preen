@@ -13,27 +13,13 @@
           "type": "array"
         },
         "policy": {
-          "anyOf": [
-            {
-              "$ref": "reconcile_Policy_stored.json"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "$ref": "reconcile_Policy_stored.json"
         },
         "policy_hash": {
           "type": "string"
         },
         "summary": {
-          "anyOf": [
-            {
-              "$ref": "reconcile_StepSummary.json"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "$ref": "reconcile_StepSummary.json"
         }
       },
       "required": [

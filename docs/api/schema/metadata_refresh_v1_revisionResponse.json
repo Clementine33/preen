@@ -223,27 +223,13 @@
           "$ref": "taskClassifierSnapshot.json"
         },
         "policy": {
-          "anyOf": [
-            {
-              "$ref": "refresh_Common.json"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "$ref": "refresh_Common.json"
         },
         "policy_hash": {
           "type": "string"
         },
         "summary": {
-          "anyOf": [
-            {
-              "$ref": "refresh_PlanSummary.json"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "$ref": "refresh_PlanSummary.json"
         }
       },
       "required": [

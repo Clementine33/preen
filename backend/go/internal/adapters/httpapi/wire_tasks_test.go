@@ -137,8 +137,8 @@ func bindTaskWireDefinition(name string, def map[string]any, task wireTask) {
 		if task.kind == "conversion" {
 			policy += "_stored"
 		}
-		props["policy"] = nullableWireRef(policy)
-		props["summary"] = nullableWireRef(task.summary)
+		props["policy"] = schemaRef(policy)
+		props["summary"] = schemaRef(task.summary)
 		props["classifier"] = schemaRef("taskClassifierSnapshot")
 		if _, present := props["components"]; present {
 			props["components"] = map[string]any{"type": "array", "items": schemaRef(task.component)}

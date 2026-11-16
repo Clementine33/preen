@@ -223,27 +223,13 @@
           "$ref": "taskClassifierSnapshot.json"
         },
         "policy": {
-          "anyOf": [
-            {
-              "$ref": "dirrename_Common.json"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "$ref": "dirrename_Common.json"
         },
         "policy_hash": {
           "type": "string"
         },
         "summary": {
-          "anyOf": [
-            {
-              "$ref": "workset_PlanSummary.json"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "$ref": "workset_PlanSummary.json"
         }
       },
       "required": [

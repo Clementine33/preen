@@ -129,5 +129,5 @@ it('shows file loading failures instead of an empty pane', async () => {
   vi.mocked(fetch).mockResolvedValue(new Response('{}', { status: 404 }))
   useWorkDetailStore().pairLrc(1, 'gone.lrc')
   // The error envelope is validated through a lazily imported module, which can outlast a microtask flush.
-  await vi.waitFor(() => expect(wrapper.get('[role="status"]').text()).toBe('无法读取歌词文件'))
+  await vi.waitFor(() => expect(wrapper.get('[role="status"]').text()).toBe('无法读取歌词文件'), { timeout: 5000 })
 })

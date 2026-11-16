@@ -113,10 +113,22 @@ export function wireRevision(patch: Partial<WireSchemas['conversion_v1_revisionR
       kind: 'conversion',
       schema_version: 1,
       payload: {
-        policy: null,
+        policy: {
+          schema_version: 1,
+          other_tags: [],
+          no_effect_tags: [],
+          matched: {},
+          unmatched: {},
+        },
         policy_hash: '',
         classifier: { tags: [], hash: '' },
-        summary: null,
+        summary: {
+          component_count: 0,
+          blocked_count: 0,
+          operation_count: 0,
+          error_count: 0,
+          summary_reason: '',
+        },
       },
     },
     counts: {

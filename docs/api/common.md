@@ -242,8 +242,9 @@ compatibility fields remain in the response/settings schemas where present and
 are absent from the conversion draft request schema. Reconciliation file tuples
 retain `Path`, `Size`, and `Mtime`. A planning `session_snapshot` carries the
 same payload and schema as the planning-session HTTP detail, including
-`operation_type`. Missing stored plan
-policy/summary fragments can encode as `null` and remain nullable in the schemas.
+`operation_type`. A plan payload always carries its frozen policy and summary;
+a stored plan without them fails the read (see [worksets](worksets.md)) rather
+than encoding `null`.
 The metadata execution result uses its existing `stage` (`skipped` or `metadata`)
 to select its Outcome or WorkResult shape; no new discriminator is sent.
 

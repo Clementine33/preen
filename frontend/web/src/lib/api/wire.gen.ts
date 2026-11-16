@@ -1756,9 +1756,9 @@ export interface ConversionV1MemberReviewResponse_TaskEnvelopeResponse {
 export interface ConversionV1MemberReviewResponse_TaskPayloadResponse {
   classifier: TaskClassifierSnapshot
   components: Reconcile_ComponentOutcome[]
-  policy: Reconcile_PolicyStored | null
+  policy: Reconcile_PolicyStored
   policy_hash: string
-  summary: Reconcile_StepSummary | null
+  summary: Reconcile_StepSummary
 }
 export interface TaskClassifierSnapshot {
   hash: string
@@ -1976,9 +1976,9 @@ export interface ConversionV1RevisionResponse_TaskEnvelopeResponse {
 }
 export interface ConversionV1RevisionResponse_TaskPayloadResponse {
   classifier: TaskClassifierSnapshot
-  policy: Reconcile_PolicyStored | null
+  policy: Reconcile_PolicyStored
   policy_hash: string
-  summary: Reconcile_StepSummary | null
+  summary: Reconcile_StepSummary
 }
 export interface ConversionV1TaskDraftEnvelope {
   kind: 'conversion'
@@ -1993,16 +1993,16 @@ export interface ConversionV1TaskEnvelopeResponse {
 export interface ConversionV1TaskEnvelopeResponse_TaskPayloadResponse {
   classifier: TaskClassifierSnapshot
   components?: Reconcile_ComponentOutcome[]
-  policy: Reconcile_PolicyStored | null
+  policy: Reconcile_PolicyStored
   policy_hash: string
-  summary: Reconcile_StepSummary | null
+  summary: Reconcile_StepSummary
 }
 export interface ConversionV1TaskPayloadResponse {
   classifier: TaskClassifierSnapshot
   components?: Reconcile_ComponentOutcome[]
-  policy: Reconcile_PolicyStored | null
+  policy: Reconcile_PolicyStored
   policy_hash: string
-  summary: Reconcile_StepSummary | null
+  summary: Reconcile_StepSummary
 }
 export interface ConversionV1TaskSettingsRequest {
   settings?: Conversion_CommonSettingsRequest
@@ -3264,9 +3264,9 @@ export interface RenameV1MemberReviewResponse_TaskEnvelopeResponse {
 export interface RenameV1MemberReviewResponse_TaskPayloadResponse {
   classifier: TaskClassifierSnapshot
   components: Dirrename_Outcome[]
-  policy: Dirrename_Common | null
+  policy: Dirrename_Common
   policy_hash: string
-  summary: Workset_PlanSummary | null
+  summary: Workset_PlanSummary
 }
 export interface Workset_PlanSummary {
   blocked_count: number
@@ -3316,9 +3316,9 @@ export interface MetadataRefreshV1MemberReviewResponse_TaskEnvelopeResponse {
 export interface MetadataRefreshV1MemberReviewResponse_TaskPayloadResponse {
   classifier: TaskClassifierSnapshot
   components: Refresh_Outcome[]
-  policy: Refresh_Common | null
+  policy: Refresh_Common
   policy_hash: string
-  summary: Refresh_PlanSummary | null
+  summary: Refresh_PlanSummary
 }
 export interface Refresh_PlanSummary {
   blocked_count: number
@@ -3487,9 +3487,9 @@ export interface MetadataRefreshV1RevisionResponse_TaskEnvelopeResponse {
 }
 export interface MetadataRefreshV1RevisionResponse_TaskPayloadResponse {
   classifier: TaskClassifierSnapshot
-  policy: Refresh_Common | null
+  policy: Refresh_Common
   policy_hash: string
-  summary: Refresh_PlanSummary | null
+  summary: Refresh_PlanSummary
 }
 export interface MetadataRefreshV1TaskDraftEnvelope {
   kind: 'metadata_refresh'
@@ -3504,16 +3504,16 @@ export interface MetadataRefreshV1TaskEnvelopeResponse {
 export interface MetadataRefreshV1TaskEnvelopeResponse_TaskPayloadResponse {
   classifier: TaskClassifierSnapshot
   components?: Refresh_Outcome[]
-  policy: Refresh_Common | null
+  policy: Refresh_Common
   policy_hash: string
-  summary: Refresh_PlanSummary | null
+  summary: Refresh_PlanSummary
 }
 export interface MetadataRefreshV1TaskPayloadResponse {
   classifier: TaskClassifierSnapshot
   components?: Refresh_Outcome[]
-  policy: Refresh_Common | null
+  policy: Refresh_Common
   policy_hash: string
-  summary: Refresh_PlanSummary | null
+  summary: Refresh_PlanSummary
 }
 export interface MetadataRefreshV1TaskSettingsRequest {
   settings?: Refresh_CommonRequest
@@ -3764,9 +3764,9 @@ export interface RenameV1RevisionResponse_TaskEnvelopeResponse {
 }
 export interface RenameV1RevisionResponse_TaskPayloadResponse {
   classifier: TaskClassifierSnapshot
-  policy: Dirrename_Common | null
+  policy: Dirrename_Common
   policy_hash: string
-  summary: Workset_PlanSummary | null
+  summary: Workset_PlanSummary
 }
 export interface RenameV1TaskDraftEnvelope {
   kind: 'rename'
@@ -3781,16 +3781,16 @@ export interface RenameV1TaskEnvelopeResponse {
 export interface RenameV1TaskEnvelopeResponse_TaskPayloadResponse {
   classifier: TaskClassifierSnapshot
   components?: Dirrename_Outcome[]
-  policy: Dirrename_Common | null
+  policy: Dirrename_Common
   policy_hash: string
-  summary: Workset_PlanSummary | null
+  summary: Workset_PlanSummary
 }
 export interface RenameV1TaskPayloadResponse {
   classifier: TaskClassifierSnapshot
   components?: Dirrename_Outcome[]
-  policy: Dirrename_Common | null
+  policy: Dirrename_Common
   policy_hash: string
-  summary: Workset_PlanSummary | null
+  summary: Workset_PlanSummary
 }
 export interface RenameV1TaskSettingsRequest {
   settings?: Dirrename_CommonRequest

@@ -46,7 +46,15 @@ func seedRevision(
 	}
 	if err := sqlite.CreatePlanTx(
 		repo.DB(), planID, "conversion", 1, "/music", "snap-"+planID, libID, worksetID,
-		nil, nil, nil,
+		[]workset.PlanStepRecord{
+			{
+				StepType:            "reconcile_audio_outputs",
+				Status:              "ok",
+				PolicySchemaVersion: 1,
+				PolicyJSON:          `{"schema_version":1,"other_tags":[],"no_effect_tags":[],"matched":{},"unmatched":{}}`,
+				StepSummaryJSON:     `{"component_count":0,"blocked_count":0,"operation_count":0,"error_count":0,"summary_reason":"ok"}`,
+			},
+		}, nil, nil,
 	); err != nil {
 		t.Fatalf("CreatePlanTx: %v", err)
 	}

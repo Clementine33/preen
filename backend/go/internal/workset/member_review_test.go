@@ -89,3 +89,38 @@ func assertMemberReviewError(t *testing.T, err error, code string) {
 		t.Fatalf("want %s, got %v", code, err)
 	}
 }
+
+// A stored plan without its frozen policy or summary cannot be reviewed: the
+// read fails instead of answering with null fragments.
+func TestRevisionReadsRefuseAPlanWithoutFrozenPolicyOrSummary(t *testing.T) {
+	for _, column := range []string{"policy_json", "step_summary_json"} {
+		t.Run(column, func(t *testing.T) {
+			f := newFixture(t)
+			ids := f.standardLibrary("albumA")
+			f.insertAudioEntry("/music/albumA/own.mp3", "/music/albumA", 1024, 1000)
+			ws := f.createCurrent("损坏的计划", ids...)
+			saved := f.saveDraft(ws.WorksetID, draftDoc(), f.operation(ws.WorksetID).Version)
+			gen := f.runGeneration(ws.WorksetID, saved.Version)
+			if gen.Status != "completed" {
+				t.Fatalf("generation: %+v", gen)
+			}
+			if _, err := f.svc.GetRevision(f.ctx, ws.WorksetID, "conversion", gen.RevisionID); err != nil {
+				t.Fatal(err)
+			}
+			f.exec("UPDATE conversion_steps SET "+column+" = '' WHERE plan_id = ?", gen.RevisionID)
+			_, err := f.svc.GetRevision(f.ctx, ws.WorksetID, "conversion", gen.RevisionID)
+			assertNoFrozenPlan(t, err)
+			member := ws.Members[0].MemberID
+			_, err = f.svc.GetMemberReview(f.ctx, ws.WorksetID, "conversion", gen.RevisionID, member)
+			assertNoFrozenPlan(t, err)
+		})
+	}
+}
+
+func assertNoFrozenPlan(t *testing.T, err error) {
+	t.Helper()
+	assertMemberReviewError(t, err, "INTERNAL")
+	if !strings.Contains(err.Error(), "no frozen policy or summary") {
+		t.Fatalf("wrong refusal: %v", err)
+	}
+}

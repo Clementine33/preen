@@ -1,6 +1,7 @@
 package workset
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -279,7 +280,7 @@ func (s *serviceImpl) readRevision(
 	for _, member := range members {
 		concluded = append(concluded, RevisionMember{MemberID: member.MemberID, FolderPath: member.FolderPath})
 	}
-	if err := concludeRevisionMembers(concluded, stored, detail.Roots, w.LibraryID == "", staleRoots); err != nil {
+	if err = concludeRevisionMembers(concluded, stored, detail.Roots, w.LibraryID == "", staleRoots); err != nil {
 		return nil, NewError(ErrKindInternal, "INTERNAL", "failed to conclude revision members", err)
 	}
 	out.Members = make([]MemberConclusion, 0, len(concluded))
@@ -298,7 +299,9 @@ func (s *serviceImpl) readRevision(
 	}
 	out.Category = category
 	review.Units = nil
-	out.Plan = revisionPlan(detail, review)
+	if out.Plan, err = revisionPlan(detail, review); err != nil {
+		return nil, err
+	}
 	executed, execErr := s.repo.GetExecutionForRevision(planID)
 	if execErr != nil {
 		return nil, NewError(ErrKindInternal, "INTERNAL", "failed to load revision execution", execErr)
@@ -368,16 +371,20 @@ func excludedSet(scope string) map[string]bool {
 // planView rebuilds one revision's reviewable plan from its persisted records
 // — never from live policy/classifier state. A revision carries exactly one
 // plan, so the persisted single step flattens into it; the payload decode
-// belongs to the operation's task.
-func (s *serviceImpl) planView(operationType string, detail *PlanDetail) RevisionPlan {
+// belongs to the operation's task. A record the task cannot review is an error,
+// not a plan with a missing policy.
+func (s *serviceImpl) planView(operationType string, detail *PlanDetail) (RevisionPlan, error) {
 	review, err := s.revisionReview(operationType, detail)
 	if err != nil {
-		review = PlanReview{}
+		return RevisionPlan{}, err
 	}
 	return revisionPlan(detail, review)
 }
 
-func revisionPlan(detail *PlanDetail, review PlanReview) RevisionPlan {
+// revisionPlan flattens the stored plan. The frozen policy and step summary are
+// part of every plan the generic side persists; a record without them cannot be
+// reviewed and is reported rather than shown with null fragments.
+func revisionPlan(detail *PlanDetail, review PlanReview) (RevisionPlan, error) {
 	out := RevisionPlan{
 		PlanID:            detail.Plan.PlanID,
 		SnapshotToken:     detail.Plan.SnapshotToken,
@@ -393,10 +400,20 @@ func revisionPlan(detail *PlanDetail, review PlanReview) RevisionPlan {
 		out.StepSummary = json.RawMessage(st.StepSummaryJSON)
 	}
 	out.Payload = review.Payload
+	if len(detail.Steps) == 0 || jsonAbsent(out.Payload) || jsonAbsent(out.StepSummary) {
+		return RevisionPlan{}, NewError(
+			ErrKindInternal, "INTERNAL", "stored revision has no frozen policy or summary", nil)
+	}
 	out.ClassifierTags = review.Tags
 	out.ClassifierHash = review.TagHash
 	for _, u := range review.Units {
 		out.Units = append(out.Units, u.Payload)
 	}
-	return out
+	return out, nil
+}
+
+// jsonAbsent reports a missing JSON fragment: empty or null.
+func jsonAbsent(raw json.RawMessage) bool {
+	t := bytes.TrimSpace(raw)
+	return len(t) == 0 || string(t) == "null"
 }

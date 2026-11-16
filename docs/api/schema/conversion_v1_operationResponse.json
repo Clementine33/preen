@@ -32,6 +32,11 @@
           "type": "string"
         },
         "validation_state": {
+          "enum": [
+            "valid",
+            "stale",
+            "unavailable"
+          ],
           "type": "string"
         }
       },
@@ -75,6 +80,14 @@
           "type": "string"
         },
         "status": {
+          "enum": [
+            "queued",
+            "running",
+            "succeeded",
+            "failed",
+            "canceled",
+            "interrupted"
+          ],
           "type": "string"
         },
         "total_components": {
@@ -117,6 +130,14 @@
           "type": "string"
         },
         "status": {
+          "enum": [
+            "queued",
+            "running",
+            "succeeded",
+            "failed",
+            "canceled",
+            "interrupted"
+          ],
           "type": "string"
         }
       },
@@ -143,6 +164,14 @@
           "type": "string"
         },
         "status": {
+          "enum": [
+            "queued",
+            "running",
+            "completed",
+            "failed",
+            "canceled",
+            "interrupted"
+          ],
           "type": "string"
         },
         "total_roots": {
@@ -175,6 +204,14 @@
           "type": "string"
         },
         "status": {
+          "enum": [
+            "queued",
+            "running",
+            "completed",
+            "failed",
+            "canceled",
+            "interrupted"
+          ],
           "type": "string"
         }
       },
@@ -244,9 +281,21 @@
           "type": "integer"
         },
         "operation_type": {
+          "enum": [
+            "conversion",
+            "rename",
+            "metadata_refresh"
+          ],
           "type": "string"
         },
         "planning_state": {
+          "enum": [
+            "unplanned",
+            "planned",
+            "needs_planning",
+            "planning",
+            "orphaned"
+          ],
           "type": "string"
         },
         "version": {

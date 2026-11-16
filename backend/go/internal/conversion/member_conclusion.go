@@ -58,7 +58,7 @@ func (*Task) MemberConclusion(components []json.RawMessage) (json.RawMessage, er
 
 // FrozenMemberConclusion is the task-owned frozen member summary on the wire.
 type FrozenMemberConclusion struct {
-	Status    string              `json:"status"`
+	Status    string              `json:"status"    jsonschema:"enum=blocked,enum=source_ambiguous,enum=partially_unmet,enum=unmet,enum=changed,enum=not_applicable,enum=unchanged"`
 	Matched   PartitionConclusion `json:"matched"`
 	Unmatched PartitionConclusion `json:"unmatched"`
 }

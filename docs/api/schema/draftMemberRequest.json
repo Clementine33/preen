@@ -74,6 +74,11 @@
         "mode": {
           "anyOf": [
             {
+              "enum": [
+                "",
+                "strict",
+                "available_sources"
+              ],
               "type": "string"
             },
             {

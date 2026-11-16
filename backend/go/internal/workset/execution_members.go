@@ -22,7 +22,7 @@ const (
 type MemberSummary struct {
 	MemberID            string `json:"member_id"`
 	RootPath            string `json:"root_path"`
-	Status              string `json:"status"`
+	Status              string `json:"status"               jsonschema:"enum=pending,enum=running,enum=succeeded,enum=failed,enum=canceled"`
 	TotalComponents     int    `json:"total_components"`
 	CompletedComponents int    `json:"completed_components"`
 	TotalOperations     int    `json:"total_operations"`

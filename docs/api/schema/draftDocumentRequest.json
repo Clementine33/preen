@@ -40,6 +40,11 @@
       "additionalProperties": false,
       "properties": {
         "delete_mode": {
+          "enum": [
+            "",
+            "soft",
+            "hard"
+          ],
           "type": "string"
         },
         "matched": {
@@ -52,6 +57,11 @@
           "type": "array"
         },
         "mode": {
+          "enum": [
+            "",
+            "strict",
+            "available_sources"
+          ],
           "type": "string"
         },
         "no_effect_tags": {
@@ -116,6 +126,11 @@
         "mode": {
           "anyOf": [
             {
+              "enum": [
+                "",
+                "strict",
+                "available_sources"
+              ],
               "type": "string"
             },
             {

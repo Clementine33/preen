@@ -10,6 +10,11 @@
           "type": "string"
         },
         "state": {
+          "enum": [
+            "checking",
+            "none",
+            "available"
+          ],
           "type": "string"
         }
       },

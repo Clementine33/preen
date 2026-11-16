@@ -44,6 +44,14 @@
           ]
         },
         "kind": {
+          "enum": [
+            "aud",
+            "img",
+            "txt",
+            "lrc",
+            "vid",
+            "bin"
+          ],
           "type": "string"
         },
         "name": {

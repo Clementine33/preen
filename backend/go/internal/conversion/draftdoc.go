@@ -41,8 +41,8 @@ type DraftDoc struct {
 	OtherTags            []string                  `json:"other_tags"`
 	LegacyClassifierTags []string                  `json:"classifier_tags,omitempty"`
 	SchemaVersion        int                       `json:"schema_version"`
-	Mode                 string                    `json:"mode,omitempty"`
-	DeleteMode           string                    `json:"delete_mode,omitempty"`
+	Mode                 string                    `json:"mode,omitempty"            jsonschema:"enum=strict,enum=available_sources"`
+	DeleteMode           string                    `json:"delete_mode,omitempty"     jsonschema:"enum=soft,enum=hard"`
 	NoEffectTags         []string                  `json:"no_effect_tags"`
 	Matched              reconcile.DesiredProfile  `json:"matched"`
 	Unmatched            reconcile.DesiredProfile  `json:"unmatched"`
@@ -65,7 +65,7 @@ type DraftMember struct {
 type OverrideSet struct {
 	OtherTags            *[]string                 `json:"other_tags,omitempty"`
 	LegacyClassifierTags *[]string                 `json:"classifier_tags,omitempty"`
-	Mode                 *string                   `json:"mode,omitempty"`
+	Mode                 *string                   `json:"mode,omitempty"            jsonschema:"enum=strict,enum=available_sources"`
 	NoEffectTags         *[]string                 `json:"no_effect_tags,omitempty"`
 	Matched              *reconcile.DesiredProfile `json:"matched,omitempty"`
 	Unmatched            *reconcile.DesiredProfile `json:"unmatched,omitempty"`
@@ -117,8 +117,8 @@ func (o *OverrideSet) IsEmpty() bool { return len(o.Units()) == 0 }
 type CommonSettings struct {
 	OtherTags            []string                  `json:"other_tags"`
 	LegacyClassifierTags []string                  `json:"classifier_tags,omitempty"`
-	Mode                 string                    `json:"mode,omitempty"`
-	DeleteMode           string                    `json:"delete_mode,omitempty"`
+	Mode                 string                    `json:"mode,omitempty"            jsonschema:"enum=strict,enum=available_sources"`
+	DeleteMode           string                    `json:"delete_mode,omitempty"     jsonschema:"enum=soft,enum=hard"`
 	NoEffectTags         []string                  `json:"no_effect_tags"`
 	Matched              reconcile.DesiredProfile  `json:"matched"`
 	Unmatched            reconcile.DesiredProfile  `json:"unmatched"`

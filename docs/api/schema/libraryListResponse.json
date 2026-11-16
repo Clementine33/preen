@@ -49,6 +49,10 @@
           "type": "string"
         },
         "storage_class": {
+          "enum": [
+            "hdd",
+            "ssd"
+          ],
           "type": "string"
         },
         "updated_at": {

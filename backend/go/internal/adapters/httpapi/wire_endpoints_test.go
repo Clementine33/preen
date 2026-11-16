@@ -47,7 +47,9 @@ func (replayWireService) StartGeneration(
 	string,
 	workset.StartGenerationRequest,
 ) (*workset.StartGenerationResult, error) {
-	return &workset.StartGenerationResult{Revision: &workset.RevisionSummary{PlanID: "existing"}}, nil
+	return &workset.StartGenerationResult{
+		Revision: &workset.RevisionSummary{PlanID: "existing", ValidationState: workset.ValidationValid},
+	}, nil
 }
 func TestWireGenerationRevisionReplay(t *testing.T) {
 	server := newTestServer(t, func(d *Dependencies, _ *sqlite.Repository) { d.WorksetService = replayWireService{} })

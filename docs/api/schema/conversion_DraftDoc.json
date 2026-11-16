@@ -10,6 +10,10 @@
           "type": "array"
         },
         "delete_mode": {
+          "enum": [
+            "soft",
+            "hard"
+          ],
           "type": "string"
         },
         "matched": {
@@ -22,6 +26,10 @@
           "type": "array"
         },
         "mode": {
+          "enum": [
+            "strict",
+            "available_sources"
+          ],
           "type": "string"
         },
         "no_effect_tags": {
@@ -107,6 +115,10 @@
           "$ref": "#/$defs/reconcile_DesiredProfile"
         },
         "mode": {
+          "enum": [
+            "strict",
+            "available_sources"
+          ],
           "type": "string"
         },
         "no_effect_tags": {

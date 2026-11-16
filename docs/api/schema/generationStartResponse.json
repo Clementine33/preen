@@ -44,6 +44,11 @@
           "type": "string"
         },
         "operation_type": {
+          "enum": [
+            "conversion",
+            "rename",
+            "metadata_refresh"
+          ],
           "type": "string"
         },
         "revision_id": {
@@ -53,6 +58,14 @@
           "type": "string"
         },
         "status": {
+          "enum": [
+            "queued",
+            "running",
+            "completed",
+            "failed",
+            "canceled",
+            "interrupted"
+          ],
           "type": "string"
         },
         "total_roots": {

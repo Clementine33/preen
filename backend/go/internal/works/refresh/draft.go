@@ -12,8 +12,8 @@ import (
 )
 
 type Common struct {
-	Mode          Mode   `json:"mode"`
-	Locale        string `json:"locale"`
+	Mode          Mode   `json:"mode"           jsonschema:"enum=fill_missing,enum=refresh_dynamic,enum=refresh_all"`
+	Locale        string `json:"locale"         jsonschema:"enum=ja-jp,enum=zh-cn,enum=zh-tw"`
 	DownloadCover bool   `json:"download_cover"`
 }
 type Member struct {

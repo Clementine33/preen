@@ -38,6 +38,11 @@
           "type": "integer"
         },
         "partition": {
+          "enum": [
+            "",
+            "matched",
+            "unmatched"
+          ],
           "type": "string"
         },
         "recovery": {
@@ -62,9 +67,24 @@
           "type": "string"
         },
         "stage": {
+          "enum": [
+            "precheck",
+            "materialize",
+            "validate",
+            "commit",
+            "remove",
+            "skipped",
+            "metadata"
+          ],
           "type": "string"
         },
         "status": {
+          "enum": [
+            "pending",
+            "succeeded",
+            "failed",
+            "canceled"
+          ],
           "type": "string"
         },
         "task_result": {
@@ -138,6 +158,13 @@
           "type": "string"
         },
         "status": {
+          "enum": [
+            "pending",
+            "running",
+            "succeeded",
+            "failed",
+            "canceled"
+          ],
           "type": "string"
         },
         "total_components": {
@@ -257,6 +284,14 @@
               "type": "string"
             },
             "status": {
+              "enum": [
+                "queued",
+                "running",
+                "succeeded",
+                "failed",
+                "canceled",
+                "interrupted"
+              ],
               "type": "string"
             },
             "total_components": {
@@ -344,6 +379,14 @@
               "type": "string"
             },
             "status": {
+              "enum": [
+                "queued",
+                "running",
+                "succeeded",
+                "failed",
+                "canceled",
+                "interrupted"
+              ],
               "type": "string"
             },
             "total_components": {
@@ -437,6 +480,14 @@
               "type": "string"
             },
             "status": {
+              "enum": [
+                "queued",
+                "running",
+                "succeeded",
+                "failed",
+                "canceled",
+                "interrupted"
+              ],
               "type": "string"
             },
             "total_components": {

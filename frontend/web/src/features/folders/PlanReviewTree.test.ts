@@ -58,7 +58,7 @@ function component(): ComponentOutcome {
     operations: [
       {
         kind: 'encode',
-        phase: 'execute',
+        phase: 'materialize_outputs',
         component_id: 'c-1',
         variant_stem: 'track1',
         source_path: '/music/albumA/track1.flac',

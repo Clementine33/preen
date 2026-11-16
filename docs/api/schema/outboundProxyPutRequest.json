@@ -4,6 +4,11 @@
       "additionalProperties": false,
       "properties": {
         "mode": {
+          "enum": [
+            "system",
+            "manual",
+            "direct"
+          ],
           "type": "string"
         },
         "url": {

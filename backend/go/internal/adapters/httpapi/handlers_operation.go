@@ -15,8 +15,8 @@ import (
 type draftDocumentRequest struct {
 	OtherTags     []string             `json:"other_tags"`
 	SchemaVersion int                  `json:"schema_version"`
-	Mode          string               `json:"mode"`
-	DeleteMode    string               `json:"delete_mode,omitempty"`
+	Mode          string               `json:"mode"                  jsonschema:"enum=,enum=strict,enum=available_sources"`
+	DeleteMode    string               `json:"delete_mode,omitempty" jsonschema:"enum=,enum=soft,enum=hard"`
 	NoEffectTags  []string             `json:"no_effect_tags"`
 	Matched       desiredProfileDTO    `json:"matched"`
 	Unmatched     desiredProfileDTO    `json:"unmatched"`
@@ -32,7 +32,7 @@ type draftMemberRequest struct {
 
 type draftOverridesRequest struct {
 	OtherTags    *[]string          `json:"other_tags"`
-	Mode         *string            `json:"mode"`
+	Mode         *string            `json:"mode"           jsonschema:"enum=,enum=strict,enum=available_sources"`
 	NoEffectTags *[]string          `json:"no_effect_tags"`
 	Matched      *desiredProfileDTO `json:"matched"`
 	Unmatched    *desiredProfileDTO `json:"unmatched"`

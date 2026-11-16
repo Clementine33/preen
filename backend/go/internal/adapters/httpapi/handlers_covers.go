@@ -95,7 +95,7 @@ type coverDestinationResponse struct {
 	ExecutionID  string              `json:"execution_id"`
 	Target       coverTargetResponse `json:"target"`
 	Refresh      bool                `json:"refresh"`
-	Status       string              `json:"status"`
+	Status       string              `json:"status"                  jsonschema:"enum=pending,enum=running,enum=succeeded,enum=skipped,enum=failed,enum=canceled"`
 	ErrorCode    string              `json:"error_code,omitempty"`
 	ErrorMessage string              `json:"error_message,omitempty"`
 	Published    string              `json:"published,omitempty"`

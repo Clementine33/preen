@@ -42,7 +42,7 @@ type editionResponse struct {
 // relationResponse is the resolved relation: what the catalog derived from the
 // evidence, not the evidence itself.
 type relationResponse struct {
-	Role       *string `json:"role"`
+	Role       *string `json:"role"        jsonschema:"enum=original,enum=parent,enum=child"`
 	Language   *string `json:"language"`
 	OriginalRJ *string `json:"original_rj"`
 	ParentRJ   *string `json:"parent_rj"`
@@ -78,7 +78,7 @@ type copyResponse struct {
 // treeNodeResponse is one work number in the edition tree.
 type treeNodeResponse struct {
 	RJ        string           `json:"rj"`
-	Role      string           `json:"role"`
+	Role      string           `json:"role"       jsonschema:"enum=,enum=original,enum=parent,enum=child,enum=edition_page,enum=translation"`
 	IsWork    bool             `json:"is_work"`
 	Held      bool             `json:"held"`
 	Language  *string          `json:"language"`

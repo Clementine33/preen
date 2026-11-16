@@ -204,7 +204,7 @@ type Policy struct {
 	LegacyClassifierTags []string        `json:"classifier_tags,omitempty"`
 	OtherTags            []string        `json:"other_tags"`
 	SchemaVersion        int             `json:"schema_version"`
-	Mode                 string          `json:"mode,omitempty"`
+	Mode                 string          `json:"mode,omitempty"            jsonschema:"enum=strict,enum=available_sources"`
 	NoEffectTags         []string        `json:"no_effect_tags,omitempty"`
 	Matched              DesiredProfile  `json:"matched"`
 	Unmatched            DesiredProfile  `json:"unmatched"`
@@ -296,8 +296,8 @@ const (
 
 // LaneDecision summarizes one output lane's component-wide outcome.
 type LaneDecision struct {
-	Lane       string `json:"lane"`
-	Decision   string `json:"decision"`
+	Lane       string `json:"lane"                  jsonschema:"enum=lossless,enum=encoded"`
+	Decision   string `json:"decision"              jsonschema:"enum=KEEP_ALL,enum=REBUILD_ALL,enum=REBUILD,enum=KEEP,enum=BLOCKED"`
 	ReasonCode string `json:"reason_code,omitempty"`
 	Message    string `json:"message,omitempty"`
 }
@@ -306,7 +306,7 @@ type LaneDecision struct {
 // never executable operations; they exist so the review shows the final set.
 type FileDecision struct {
 	Path       string `json:"path"`
-	Resolution string `json:"resolution"`
+	Resolution string `json:"resolution"            jsonschema:"enum=keep,enum=delete,enum=encode"`
 	ReasonCode string `json:"reason_code,omitempty"`
 	Message    string `json:"message,omitempty"`
 	TargetPath string `json:"target_path,omitempty"`
@@ -320,8 +320,8 @@ type VariantDecision struct {
 
 // Operation is one planned executable change.
 type Operation struct {
-	Kind        string   `json:"kind"`
-	Phase       string   `json:"phase"`
+	Kind        string   `json:"kind"                  jsonschema:"enum=encode,enum=delete_obsolete"`
+	Phase       string   `json:"phase"                 jsonschema:"enum=materialize_outputs,enum=validate_outputs,enum=commit_outputs,enum=remove_obsolete_audio"`
 	ComponentID string   `json:"component_id"`
 	VariantStem string   `json:"variant_stem"`
 	SourcePath  string   `json:"source_path"`
@@ -334,8 +334,8 @@ type ComponentOutcome struct {
 	// Scope is the work-relative isolation root; empty denotes the main scope.
 	Scope              string            `json:"scope,omitempty"`
 	ComponentID        string            `json:"component_id"`
-	Partition          Partition         `json:"partition"`
-	Status             string            `json:"status"`
+	Partition          Partition         `json:"partition"             jsonschema:"enum=matched,enum=unmatched"`
+	Status             string            `json:"status"                jsonschema:"enum=ok,enum=blocked"`
 	ReasonCode         string            `json:"reason_code,omitempty"`
 	Message            string            `json:"message,omitempty"`
 	Lanes              []LaneDecision    `json:"lanes"`

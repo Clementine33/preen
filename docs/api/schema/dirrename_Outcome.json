@@ -4,6 +4,11 @@
       "additionalProperties": false,
       "properties": {
         "action": {
+          "enum": [
+            "rename",
+            "noop",
+            "blocked"
+          ],
           "type": "string"
         },
         "custom_name": {

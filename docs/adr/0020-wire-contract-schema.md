@@ -13,7 +13,7 @@ HTTP/SSE 的线格式现在有三处各自维护的描述：Go 侧的 json 标�
 1. **Go 是线格式的唯一来源。** 线上出现的每个 JSON 请求体、响应体（包括错误信封）和 SSE 事件载荷（包括 error 事件）都由具名类型表达，不用匿名结构。领域类型的改动导致线格式变化，由入库的 schema、`task contract:check`（重新生成后必须零 diff）和生成的 TS 类型暴露出来，没有 `arch` 测试守边界。schema 的根类型在 `adapters/httpapi` 里声明，所以与领域类型逐字段一致的线上类型，在 httpapi 里以领域类型定义（`type X workset.Y`），不再手工复制字段，schema 标识不变；有实际处理的转换（nil 规整为 `[]`、自定义 `MarshalJSON`、视图选择、三态解码、字段改名或省略）照旧保留。
 2. **结构由生成的 JSON Schema 表达。** 从 httpapi 的具名类型生成 JSON Schema，入库到 `docs/api/schema/`。schema 描述实际的序列化结果：自定义 `MarshalJSON` 的类型用手写的 schema 覆盖，生成时不对结果做美化。CI 重新生成后必须零 diff。
 3. **不透明载荷按 Task kind 分别建 schema。** [0004](0004-task-seam-and-opaque-payloads.md) 中以 `json.RawMessage` 传输的 Task 载荷和设置，外层 schema 只能看到一个不透明字段。每个 Task kind 和 `schema_version` 的组合要有自己的载荷 schema，由各 Task 包的具名类型生成；外层 schema 按 kind 引用对应的载荷 schema。
-4. **职责划分。** schema 负责字段、类型、可选与可空；`docs/api/*.md` 负责语义、行为、错误码、准入与版本规则，并链接到对应的 schema，不再重复字段的类型说明。
+4. **职责划分。** schema 负责字段、类型、可选与可空，以及封闭字符串取值集合（`enum`）；`docs/api/*.md` 负责语义、行为、错误码、准入与版本规则，并链接到对应的 schema，不再重复字段的类型说明。
 5. **后端测试按 schema 校验。** httpapi 测试和 e2e 测试用同一个辅助函数，把请求体、成功响应、错误响应和 SSE 事件载荷对照 schema 校验。键断言只保留在检查语义值的地方。
 6. **前端 wire 类型由 schema 生成。** 生成的类型取代 `types.ts` 里的请求和响应 DTO。只有路径参数、查询参数、客户端契约和配置类型仍然手写。客户端对数据的整形（例如 `classifier_tags` 的归一化）放在 wire 类型到视图类型的一层，组件只使用视图类型。
 7. **运行时校验只在开发和测试环境启用，契约由调用点指定。** 泛型参数在运行时不存在，所以每个 API 方法要显式传入 schema 标识：HTTP 按状态码分别对应成功 schema 和错误信封，SSE 按事件名对应载荷 schema。生产构建不包含这段代码。服务升级时旧标签页和新后端之间的错配风险，接受下来，由用户刷新页面消除，不在生产环境做校验。
@@ -40,6 +40,7 @@ HTTP/SSE 的线格式现在有三处各自维护的描述：Go 侧的 json 标�
 
 - 阶段 2 使用 invopop/jsonschema 生成 Draft 2020-12，Go 测试使用 santhosh-tekuri/jsonschema/v6 校验；两者都只被测试/生成代码引用，后端构建不依赖前端。
 - schema 按具名类型分别入库。HTTP 状态码和 SSE 事件绑定单独生成；Task 外壳按 kind/version 生成独立 schema 并引用 Task 包的载荷类型。请求与响应分别建模。
+- 封闭取值集合的 `enum` 由 Go 侧给出，不让前端手写字面量联合来补：命名字符串类型提供 `WireValues()`，其余字段用 `jsonschema:"enum=…"` 标签；schema 生成库不进入生产包，所以取值只以标签字符串或不依赖该库的方法表达。`operation_type` 取注册的 Task kind。
 - 编码差异如 PascalCase FileTuple、兼容 classifier_tags 均如实保留。metadata_refresh 的 TaskResult 用现有 stage 判别，不增加线上字段。
 
 - 阶段 3 使用 json-schema-to-typescript 16.0.0；相对引用先做等价重定位，metadata 结果使用显式 oneOf，使生成 TS 可表达判别。存储中原样透传的旧 classifier_tags 载荷有独立兼容 schema，不改规范编码或请求形状。

@@ -4,6 +4,9 @@
       "additionalProperties": false,
       "properties": {
         "mode": {
+          "enum": [
+            "full"
+          ],
           "type": "string"
         },
         "root_path": {

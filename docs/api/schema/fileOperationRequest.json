@@ -28,6 +28,11 @@
           "type": "string"
         },
         "operation": {
+          "enum": [
+            "rename",
+            "move",
+            "soft_delete"
+          ],
           "type": "string"
         }
       },

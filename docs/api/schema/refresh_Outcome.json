@@ -32,6 +32,11 @@
       "additionalProperties": false,
       "properties": {
         "action": {
+          "enum": [
+            "refresh",
+            "skip",
+            "cover"
+          ],
           "type": "string"
         },
         "member_id": {

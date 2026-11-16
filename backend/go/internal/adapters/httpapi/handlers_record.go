@@ -29,7 +29,7 @@ type selectionRequest struct {
 // member, with the reason the scope is narrower than the selection.
 type skippedFolderResponse struct {
 	DirID  string `json:"dir_id"`
-	Reason string `json:"reason"`
+	Reason string `json:"reason" jsonschema:"enum=unknown_dir,enum=duplicate,enum=ambiguous"`
 }
 
 type recordCreateResponse struct {

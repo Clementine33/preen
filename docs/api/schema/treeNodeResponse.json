@@ -36,6 +36,11 @@
         "role": {
           "anyOf": [
             {
+              "enum": [
+                "original",
+                "parent",
+                "child"
+              ],
               "type": "string"
             },
             {
@@ -78,6 +83,14 @@
           "type": "string"
         },
         "role": {
+          "enum": [
+            "",
+            "original",
+            "parent",
+            "child",
+            "edition_page",
+            "translation"
+          ],
           "type": "string"
         },
         "source_url": {

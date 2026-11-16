@@ -14,7 +14,7 @@ import (
 type Outcome struct {
 	MemberID   string               `json:"member_id"`
 	Target     coverdelivery.Target `json:"target"`
-	Action     string               `json:"action"`
+	Action     string               `json:"action"                jsonschema:"enum=refresh,enum=skip,enum=cover"`
 	ReasonCode string               `json:"reason_code,omitempty"`
 }
 

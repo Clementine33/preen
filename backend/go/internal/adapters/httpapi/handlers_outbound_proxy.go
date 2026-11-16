@@ -8,13 +8,13 @@ import (
 
 // outboundProxyResponse is the GET/PUT /api/v1/outbound-proxy payload.
 type outboundProxyResponse struct {
-	Mode string `json:"mode"`
+	Mode string `json:"mode" jsonschema:"enum=system,enum=manual,enum=direct"`
 	URL  string `json:"url"`
 }
 
 // outboundProxyPutRequest is the PUT /api/v1/outbound-proxy payload.
 type outboundProxyPutRequest struct {
-	Mode string  `json:"mode"`
+	Mode string  `json:"mode" jsonschema:"enum=system,enum=manual,enum=direct"`
 	URL  *string `json:"url"`
 }
 

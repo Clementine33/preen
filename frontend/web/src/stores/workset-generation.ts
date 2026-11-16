@@ -122,7 +122,8 @@ export const useWorksetGenerationStore = defineStore('workset-generation', {
     },
     applyEvent(event: GenerationEvent) {
       this.receivedEvent = true
-      const data = event.data as Record<string, unknown>
+      // Generated payloads are interfaces, which carry no index signature.
+      const data = event.data as unknown as Record<string, unknown>
       switch (event.type) {
         case 'session_snapshot': {
           this.statusText = String(data.status ?? '')

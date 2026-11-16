@@ -168,6 +168,11 @@ func reflectWireSchema(t *testing.T, typ reflect.Type) map[string]any {
 		case reflect.TypeFor[json.RawMessage]():
 			return &jsonschema.Schema{}
 		}
+		if typ.Kind() == reflect.String {
+			if e, ok := reflect.TypeAssert[interface{ WireValues() []string }](reflect.New(typ).Elem()); ok {
+				return &jsonschema.Schema{Type: "string", Enum: stringsToAny(e.WireValues())}
+			}
+		}
 		return nil
 	}
 	raw, err := json.Marshal(r.ReflectFromType(typ))
@@ -189,6 +194,7 @@ func reflectWireSchema(t *testing.T, typ reflect.Type) map[string]any {
 		if dt, exists := types[name]; exists {
 			fixWireFields(def, dt)
 		}
+		bindWireOperationKinds(name, def)
 		overrideWireShape(name, def)
 	}
 	if def, ok := defs["taskPayloadResponse"].(map[string]any); ok {

@@ -13,7 +13,7 @@ import (
 // addressed relative to that member.
 type fileOperationRequest struct {
 	MemberPath string              `json:"member_path"`
-	Operation  string              `json:"operation"`
+	Operation  string              `json:"operation"   jsonschema:"enum=rename,enum=move,enum=soft_delete"`
 	Items      []fileOperationItem `json:"items"`
 }
 
@@ -28,7 +28,7 @@ type fileOperationItem struct {
 // fileOperationItemResponse is what happened to one requested item.
 type fileOperationItemResponse struct {
 	Source        string `json:"source"`
-	Status        string `json:"status"`
+	Status        string `json:"status"                   jsonschema:"enum=ok,enum=failed,enum=skipped,enum=not_attempted"`
 	Code          string `json:"code,omitempty"`
 	Message       string `json:"message,omitempty"`
 	Target        string `json:"target,omitempty"`
@@ -44,7 +44,7 @@ type fileOperationRefreshResponse struct {
 
 // fileOperationResponse is the POST /api/v1/libraries/{id}/file-operations payload.
 type fileOperationResponse struct {
-	Operation  string                       `json:"operation"`
+	Operation  string                       `json:"operation"   jsonschema:"enum=rename,enum=move,enum=soft_delete"`
 	MemberPath string                       `json:"member_path"`
 	Items      []fileOperationItemResponse  `json:"items"`
 	Succeeded  int                          `json:"succeeded"`

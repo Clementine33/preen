@@ -129,7 +129,7 @@ func (v ExecutionView) MarshalJSON() ([]byte, error) {
 type ExecutionRef struct {
 	ExecutionID  string `json:"execution_id"`
 	PlanID       string `json:"plan_id"`
-	Status       string `json:"status"`
+	Status       string `json:"status"                  jsonschema:"enum=queued,enum=running,enum=succeeded,enum=failed,enum=canceled,enum=interrupted"`
 	ErrorCode    string `json:"error_code,omitempty"`
 	ErrorMessage string `json:"error_message,omitempty"`
 	FinishedAt   string `json:"finished_at,omitempty"`
@@ -140,7 +140,7 @@ type ExecutionRef struct {
 type ExecutionProgress struct {
 	ExecutionID         string          `json:"execution_id"`
 	PlanID              string          `json:"plan_id"`
-	Status              string          `json:"status"`
+	Status              string          `json:"status"               jsonschema:"enum=queued,enum=running,enum=succeeded,enum=failed,enum=canceled,enum=interrupted"`
 	Options             json.RawMessage `json:"options,omitempty"`
 	TotalComponents     int             `json:"total_components"`
 	CompletedComponents int             `json:"completed_components"`

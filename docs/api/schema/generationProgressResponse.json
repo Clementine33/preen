@@ -16,6 +16,14 @@
           "type": "string"
         },
         "status": {
+          "enum": [
+            "queued",
+            "running",
+            "completed",
+            "failed",
+            "canceled",
+            "interrupted"
+          ],
           "type": "string"
         },
         "total_roots": {

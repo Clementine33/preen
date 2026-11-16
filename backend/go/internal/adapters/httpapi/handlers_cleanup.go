@@ -11,6 +11,9 @@ import (
 
 type cleanupCategory string
 
+// WireValues keeps the schema's enum beside the domain's category list.
+func (cleanupCategory) WireValues() []string { return cleanup.Category("").WireValues() }
+
 type cleanupCategoriesRequest struct {
 	Categories []cleanupCategory `json:"categories"`
 }
@@ -35,7 +38,7 @@ type cleanupCountResponse struct {
 type cleanupRunResponse struct {
 	ID         string                                   `json:"run_id"`
 	Categories []cleanupCategory                        `json:"categories"`
-	Status     string                                   `json:"status"`
+	Status     string                                   `json:"status"      jsonschema:"enum=running,enum=stopping,enum=stopped,enum=succeeded,enum=failed,enum=interrupted"`
 	Phase      cleanupCategory                          `json:"phase"`
 	StartedAt  time.Time                                `json:"started_at"`
 	FinishedAt *time.Time                               `json:"finished_at"`

@@ -18,9 +18,9 @@ import (
 func TestWireEmptyCollectionsEncodeAsEmptyArrays(t *testing.T) {
 	detail := toWorkDetail(&works.WorkDetail{}, func(works.Copy) string { return "" })
 	envelope := toTaskEnvelope(workset.RevisionPlan{})
-	view := toExecutionViewResponse(&workset.ExecutionView{OperationType: "conversion"})
+	view := toExecutionViewResponse(&workset.ExecutionView{OperationType: "conversion", Status: "queued"})
 	members := toExecutionViewResponse(&workset.ExecutionView{
-		OperationType: "conversion", Members: &workset.ExecutionMembers{},
+		OperationType: "conversion", Status: "queued", Members: &workset.ExecutionMembers{},
 	})
 	for _, tc := range []struct {
 		name  string
@@ -36,7 +36,7 @@ func TestWireEmptyCollectionsEncodeAsEmptyArrays(t *testing.T) {
 		{"taskClassifierSnapshot", envelope.Payload.Classifier, `"tags":[]`},
 		{"conversion_v1_executionFullViewResponse", view, `"components":[]`},
 		{"conversion_v1_executionMembersViewResponse", members, `"attention":[]`},
-		{"conversion_v1_executionComponentResponse", toExecutionComponentResponse(workset.ExecutionComponentView{KeptDecisions: json.RawMessage(`[]`)}), `"committed":[]`},
+		{"conversion_v1_executionComponentResponse", toExecutionComponentResponse(workset.ExecutionComponentView{Status: "pending", KeptDecisions: json.RawMessage(`[]`)}), `"committed":[]`},
 	} {
 		t.Run(tc.name+tc.want, func(t *testing.T) {
 			wirecheck.AssertSchema(t, tc.name, tc.value)

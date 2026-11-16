@@ -13,6 +13,13 @@
           "type": "boolean"
         },
         "input": {
+          "enum": [
+            "none",
+            "valid",
+            "stale",
+            "missing",
+            "unavailable"
+          ],
           "type": "string"
         },
         "member_id": {

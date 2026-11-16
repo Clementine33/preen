@@ -82,6 +82,11 @@
           "type": "string"
         },
         "reason": {
+          "enum": [
+            "unknown_dir",
+            "duplicate",
+            "ambiguous"
+          ],
           "type": "string"
         }
       },

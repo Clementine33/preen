@@ -28,6 +28,10 @@
           "type": "array"
         },
         "partition": {
+          "enum": [
+            "matched",
+            "unmatched"
+          ],
           "type": "string"
         },
         "projected_inventory": {
@@ -43,6 +47,10 @@
           "type": "string"
         },
         "status": {
+          "enum": [
+            "ok",
+            "blocked"
+          ],
           "type": "string"
         },
         "variant_decisions": {
@@ -77,6 +85,11 @@
           "type": "string"
         },
         "resolution": {
+          "enum": [
+            "keep",
+            "delete",
+            "encode"
+          ],
           "type": "string"
         },
         "target_path": {
@@ -113,9 +126,20 @@
       "additionalProperties": false,
       "properties": {
         "decision": {
+          "enum": [
+            "KEEP_ALL",
+            "REBUILD_ALL",
+            "REBUILD",
+            "KEEP",
+            "BLOCKED"
+          ],
           "type": "string"
         },
         "lane": {
+          "enum": [
+            "lossless",
+            "encoded"
+          ],
           "type": "string"
         },
         "message": {
@@ -144,9 +168,19 @@
           "type": "array"
         },
         "kind": {
+          "enum": [
+            "encode",
+            "delete_obsolete"
+          ],
           "type": "string"
         },
         "phase": {
+          "enum": [
+            "materialize_outputs",
+            "validate_outputs",
+            "commit_outputs",
+            "remove_obsolete_audio"
+          ],
           "type": "string"
         },
         "source_path": {

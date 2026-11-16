@@ -40,6 +40,11 @@
           "type": "integer"
         },
         "partition": {
+          "enum": [
+            "",
+            "matched",
+            "unmatched"
+          ],
           "type": "string"
         },
         "recovery": {
@@ -64,9 +69,24 @@
           "type": "string"
         },
         "stage": {
+          "enum": [
+            "precheck",
+            "materialize",
+            "validate",
+            "commit",
+            "remove",
+            "skipped",
+            "metadata"
+          ],
           "type": "string"
         },
         "status": {
+          "enum": [
+            "pending",
+            "succeeded",
+            "failed",
+            "canceled"
+          ],
           "type": "string"
         }
       },

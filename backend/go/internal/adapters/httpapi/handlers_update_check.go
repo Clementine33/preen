@@ -9,7 +9,7 @@ import (
 // updateCheckResponse is the wire form of the update check; the release fields
 // appear only while a newer release is available (docs/api/update-check.md).
 type updateCheckResponse struct {
-	State         string `json:"state"`
+	State         string `json:"state"                    jsonschema:"enum=checking,enum=none,enum=available"`
 	LatestVersion string `json:"latest_version,omitempty"`
 	ReleaseURL    string `json:"release_url,omitempty"`
 }

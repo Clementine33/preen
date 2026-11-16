@@ -28,6 +28,14 @@
           "type": "string"
         },
         "status": {
+          "enum": [
+            "queued",
+            "running",
+            "succeeded",
+            "failed",
+            "canceled",
+            "interrupted"
+          ],
           "type": "string"
         },
         "total_components": {

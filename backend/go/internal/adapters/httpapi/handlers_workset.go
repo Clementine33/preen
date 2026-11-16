@@ -53,14 +53,14 @@ type currentRevisionResponse struct {
 	Status          string                 `json:"status"`
 	SummaryReason   string                 `json:"summary_reason"`
 	Counts          revisionCountsResponse `json:"counts"`
-	ValidationState string                 `json:"validation_state"`
+	ValidationState string                 `json:"validation_state" jsonschema:"enum=valid,enum=stale,enum=unavailable"`
 	Stale           *bool                  `json:"stale"`
 }
 
 // generationProgressResponse is root-level progress of an active session.
 type generationProgressResponse struct {
 	GenerationID   string `json:"generation_id"`
-	Status         string `json:"status"`
+	Status         string `json:"status"          jsonschema:"enum=queued,enum=running,enum=completed,enum=failed,enum=canceled,enum=interrupted"`
 	TotalRoots     int    `json:"total_roots"`
 	CompletedRoots int    `json:"completed_roots"`
 	CurrentRoot    string `json:"current_root"`
@@ -70,7 +70,7 @@ type generationProgressResponse struct {
 // generationSummaryResponse is the terminal session summary.
 type generationSummaryResponse struct {
 	GenerationID string `json:"generation_id"`
-	Status       string `json:"status"`
+	Status       string `json:"status"        jsonschema:"enum=queued,enum=running,enum=completed,enum=failed,enum=canceled,enum=interrupted"`
 	ErrorCode    string `json:"error_code"`
 	ErrorMessage string `json:"error_message"`
 	FinishedAt   string `json:"finished_at"`
@@ -82,7 +82,7 @@ type operationResponse struct {
 	WorksetID        string                      `json:"workset_id"`
 	OperationType    string                      `json:"operation_type"`
 	Version          int                         `json:"version"`
-	PlanningState    string                      `json:"planning_state"`
+	PlanningState    string                      `json:"planning_state"             jsonschema:"enum=unplanned,enum=planned,enum=needs_planning,enum=planning,enum=orphaned"`
 	CurrentRevision  *currentRevisionResponse    `json:"current_revision"`
 	ActiveGeneration *generationProgressResponse `json:"active_generation"`
 	LatestGeneration *generationSummaryResponse  `json:"latest_generation"`

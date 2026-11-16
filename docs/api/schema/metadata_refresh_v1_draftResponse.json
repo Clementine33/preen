@@ -4,6 +4,11 @@
       "additionalProperties": false,
       "properties": {
         "operation_type": {
+          "enum": [
+            "conversion",
+            "rename",
+            "metadata_refresh"
+          ],
           "type": "string"
         },
         "task": {

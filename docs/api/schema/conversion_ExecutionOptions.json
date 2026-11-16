@@ -4,6 +4,10 @@
       "additionalProperties": false,
       "properties": {
         "delete_mode": {
+          "enum": [
+            "soft",
+            "hard"
+          ],
           "type": "string"
         }
       },

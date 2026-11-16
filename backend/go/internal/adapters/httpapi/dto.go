@@ -127,7 +127,7 @@ type libraryResponse struct {
 	ID             string     `json:"id"`
 	Name           string     `json:"name"`
 	RootPath       string     `json:"root_path"`
-	StorageClass   string     `json:"storage_class"`
+	StorageClass   string     `json:"storage_class"    jsonschema:"enum=hdd,enum=ssd"`
 	CreatedAt      time.Time  `json:"created_at"`
 	UpdatedAt      time.Time  `json:"updated_at"`
 	LastScanAt     *time.Time `json:"last_scan_at"`

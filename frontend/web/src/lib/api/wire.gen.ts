@@ -20,7 +20,7 @@ export type ConversionV1ExecutionStartResponse_ExecutionViewResponse =
       plan_id: string
       selected_member_ids?: string[]
       started_at: string
-      status: string
+      status: 'queued' | 'running' | 'succeeded' | 'failed' | 'canceled' | 'interrupted'
       total_components: number
       total_operations: number
       workset_id: string
@@ -42,7 +42,7 @@ export type ConversionV1ExecutionStartResponse_ExecutionViewResponse =
       plan_id: string
       selected_member_ids?: string[]
       started_at: string
-      status: string
+      status: 'queued' | 'running' | 'succeeded' | 'failed' | 'canceled' | 'interrupted'
       total_components: number
       total_operations: number
       workset_id: string
@@ -65,7 +65,7 @@ export type ConversionV1ExecutionStartResponse_ExecutionViewResponse =
       plan_id: string
       selected_member_ids?: string[]
       started_at: string
-      status: string
+      status: 'queued' | 'running' | 'succeeded' | 'failed' | 'canceled' | 'interrupted'
       total_components: number
       total_operations: number
       workset_id: string
@@ -88,7 +88,7 @@ export type ConversionV1ExecutionViewResponse =
       plan_id: string
       selected_member_ids?: string[]
       started_at: string
-      status: string
+      status: 'queued' | 'running' | 'succeeded' | 'failed' | 'canceled' | 'interrupted'
       total_components: number
       total_operations: number
       workset_id: string
@@ -110,7 +110,7 @@ export type ConversionV1ExecutionViewResponse =
       plan_id: string
       selected_member_ids?: string[]
       started_at: string
-      status: string
+      status: 'queued' | 'running' | 'succeeded' | 'failed' | 'canceled' | 'interrupted'
       total_components: number
       total_operations: number
       workset_id: string
@@ -133,7 +133,7 @@ export type ConversionV1ExecutionViewResponse =
       plan_id: string
       selected_member_ids?: string[]
       started_at: string
-      status: string
+      status: 'queued' | 'running' | 'succeeded' | 'failed' | 'canceled' | 'interrupted'
       total_components: number
       total_operations: number
       workset_id: string
@@ -162,13 +162,13 @@ export type MetadataRefreshV1ExecutionComponentResponse =
        */
       kept_decisions: []
       operations: number
-      partition: string
+      partition: '' | 'matched' | 'unmatched'
       recovery: string[]
       remaining: string[]
       removed: string[]
       root_path: string
-      stage?: string
-      status: string
+      stage?: 'precheck' | 'materialize' | 'validate' | 'commit' | 'remove' | 'skipped' | 'metadata'
+      status: 'pending' | 'succeeded' | 'failed' | 'canceled'
     }
   | {
       committed: string[]
@@ -184,13 +184,13 @@ export type MetadataRefreshV1ExecutionComponentResponse =
        */
       kept_decisions: []
       operations: number
-      partition: string
+      partition: '' | 'matched' | 'unmatched'
       recovery: string[]
       remaining: string[]
       removed: string[]
       root_path: string
       stage: 'skipped'
-      status: string
+      status: 'pending' | 'succeeded' | 'failed' | 'canceled'
       task_result: Refresh_Outcome
     }
   | {
@@ -207,13 +207,13 @@ export type MetadataRefreshV1ExecutionComponentResponse =
        */
       kept_decisions: []
       operations: number
-      partition: string
+      partition: '' | 'matched' | 'unmatched'
       recovery: string[]
       remaining: string[]
       removed: string[]
       root_path: string
       stage: 'metadata'
-      status: string
+      status: 'pending' | 'succeeded' | 'failed' | 'canceled'
       task_result: Refresh_WorkResult
     }
 export type ExecutionFullViewResponse =
@@ -233,13 +233,13 @@ export type MetadataRefreshV1ExecutionFullViewResponse_ExecutionComponentRespons
        */
       kept_decisions: []
       operations: number
-      partition: string
+      partition: '' | 'matched' | 'unmatched'
       recovery: string[]
       remaining: string[]
       removed: string[]
       root_path: string
-      stage?: string
-      status: string
+      stage?: 'precheck' | 'materialize' | 'validate' | 'commit' | 'remove' | 'skipped' | 'metadata'
+      status: 'pending' | 'succeeded' | 'failed' | 'canceled'
     }
   | {
       committed: string[]
@@ -255,13 +255,13 @@ export type MetadataRefreshV1ExecutionFullViewResponse_ExecutionComponentRespons
        */
       kept_decisions: []
       operations: number
-      partition: string
+      partition: '' | 'matched' | 'unmatched'
       recovery: string[]
       remaining: string[]
       removed: string[]
       root_path: string
       stage: 'skipped'
-      status: string
+      status: 'pending' | 'succeeded' | 'failed' | 'canceled'
       task_result: Refresh_Outcome
     }
   | {
@@ -278,13 +278,13 @@ export type MetadataRefreshV1ExecutionFullViewResponse_ExecutionComponentRespons
        */
       kept_decisions: []
       operations: number
-      partition: string
+      partition: '' | 'matched' | 'unmatched'
       recovery: string[]
       remaining: string[]
       removed: string[]
       root_path: string
       stage: 'metadata'
-      status: string
+      status: 'pending' | 'succeeded' | 'failed' | 'canceled'
       task_result: Refresh_WorkResult
     }
 export type ExecutionMemberViewResponse =
@@ -306,13 +306,13 @@ export type MetadataRefreshV1ExecutionMemberViewResponse_ExecutionComponentRespo
        */
       kept_decisions: []
       operations: number
-      partition: string
+      partition: '' | 'matched' | 'unmatched'
       recovery: string[]
       remaining: string[]
       removed: string[]
       root_path: string
-      stage?: string
-      status: string
+      stage?: 'precheck' | 'materialize' | 'validate' | 'commit' | 'remove' | 'skipped' | 'metadata'
+      status: 'pending' | 'succeeded' | 'failed' | 'canceled'
     }
   | {
       committed: string[]
@@ -328,13 +328,13 @@ export type MetadataRefreshV1ExecutionMemberViewResponse_ExecutionComponentRespo
        */
       kept_decisions: []
       operations: number
-      partition: string
+      partition: '' | 'matched' | 'unmatched'
       recovery: string[]
       remaining: string[]
       removed: string[]
       root_path: string
       stage: 'skipped'
-      status: string
+      status: 'pending' | 'succeeded' | 'failed' | 'canceled'
       task_result: Refresh_Outcome
     }
   | {
@@ -351,13 +351,13 @@ export type MetadataRefreshV1ExecutionMemberViewResponse_ExecutionComponentRespo
        */
       kept_decisions: []
       operations: number
-      partition: string
+      partition: '' | 'matched' | 'unmatched'
       recovery: string[]
       remaining: string[]
       removed: string[]
       root_path: string
       stage: 'metadata'
-      status: string
+      status: 'pending' | 'succeeded' | 'failed' | 'canceled'
       task_result: Refresh_WorkResult
     }
 export type ExecutionMembersViewResponse =
@@ -385,7 +385,7 @@ export type RenameV1ExecutionStartResponse_ExecutionViewResponse =
       plan_id: string
       selected_member_ids?: string[]
       started_at: string
-      status: string
+      status: 'queued' | 'running' | 'succeeded' | 'failed' | 'canceled' | 'interrupted'
       total_components: number
       total_operations: number
       workset_id: string
@@ -406,7 +406,7 @@ export type RenameV1ExecutionStartResponse_ExecutionViewResponse =
       plan_id: string
       selected_member_ids?: string[]
       started_at: string
-      status: string
+      status: 'queued' | 'running' | 'succeeded' | 'failed' | 'canceled' | 'interrupted'
       total_components: number
       total_operations: number
       workset_id: string
@@ -428,7 +428,7 @@ export type RenameV1ExecutionStartResponse_ExecutionViewResponse =
       plan_id: string
       selected_member_ids?: string[]
       started_at: string
-      status: string
+      status: 'queued' | 'running' | 'succeeded' | 'failed' | 'canceled' | 'interrupted'
       total_components: number
       total_operations: number
       workset_id: string
@@ -451,7 +451,7 @@ export type MetadataRefreshV1ExecutionStartResponse_ExecutionViewResponse =
       plan_id: string
       selected_member_ids?: string[]
       started_at: string
-      status: string
+      status: 'queued' | 'running' | 'succeeded' | 'failed' | 'canceled' | 'interrupted'
       total_components: number
       total_operations: number
       workset_id: string
@@ -473,7 +473,7 @@ export type MetadataRefreshV1ExecutionStartResponse_ExecutionViewResponse =
       plan_id: string
       selected_member_ids?: string[]
       started_at: string
-      status: string
+      status: 'queued' | 'running' | 'succeeded' | 'failed' | 'canceled' | 'interrupted'
       total_components: number
       total_operations: number
       workset_id: string
@@ -496,7 +496,7 @@ export type MetadataRefreshV1ExecutionStartResponse_ExecutionViewResponse =
       plan_id: string
       selected_member_ids?: string[]
       started_at: string
-      status: string
+      status: 'queued' | 'running' | 'succeeded' | 'failed' | 'canceled' | 'interrupted'
       total_components: number
       total_operations: number
       workset_id: string
@@ -516,13 +516,13 @@ export type MetadataRefreshV1ExecutionStartResponse_ExecutionComponentResponse =
        */
       kept_decisions: []
       operations: number
-      partition: string
+      partition: '' | 'matched' | 'unmatched'
       recovery: string[]
       remaining: string[]
       removed: string[]
       root_path: string
-      stage?: string
-      status: string
+      stage?: 'precheck' | 'materialize' | 'validate' | 'commit' | 'remove' | 'skipped' | 'metadata'
+      status: 'pending' | 'succeeded' | 'failed' | 'canceled'
     }
   | {
       committed: string[]
@@ -538,13 +538,13 @@ export type MetadataRefreshV1ExecutionStartResponse_ExecutionComponentResponse =
        */
       kept_decisions: []
       operations: number
-      partition: string
+      partition: '' | 'matched' | 'unmatched'
       recovery: string[]
       remaining: string[]
       removed: string[]
       root_path: string
       stage: 'skipped'
-      status: string
+      status: 'pending' | 'succeeded' | 'failed' | 'canceled'
       task_result: Refresh_Outcome
     }
   | {
@@ -561,13 +561,13 @@ export type MetadataRefreshV1ExecutionStartResponse_ExecutionComponentResponse =
        */
       kept_decisions: []
       operations: number
-      partition: string
+      partition: '' | 'matched' | 'unmatched'
       recovery: string[]
       remaining: string[]
       removed: string[]
       root_path: string
       stage: 'metadata'
-      status: string
+      status: 'pending' | 'succeeded' | 'failed' | 'canceled'
       task_result: Refresh_WorkResult
     }
 export type ExecutionViewResponse =
@@ -589,7 +589,7 @@ export type RenameV1ExecutionViewResponse =
       plan_id: string
       selected_member_ids?: string[]
       started_at: string
-      status: string
+      status: 'queued' | 'running' | 'succeeded' | 'failed' | 'canceled' | 'interrupted'
       total_components: number
       total_operations: number
       workset_id: string
@@ -610,7 +610,7 @@ export type RenameV1ExecutionViewResponse =
       plan_id: string
       selected_member_ids?: string[]
       started_at: string
-      status: string
+      status: 'queued' | 'running' | 'succeeded' | 'failed' | 'canceled' | 'interrupted'
       total_components: number
       total_operations: number
       workset_id: string
@@ -632,7 +632,7 @@ export type RenameV1ExecutionViewResponse =
       plan_id: string
       selected_member_ids?: string[]
       started_at: string
-      status: string
+      status: 'queued' | 'running' | 'succeeded' | 'failed' | 'canceled' | 'interrupted'
       total_components: number
       total_operations: number
       workset_id: string
@@ -655,7 +655,7 @@ export type MetadataRefreshV1ExecutionViewResponse =
       plan_id: string
       selected_member_ids?: string[]
       started_at: string
-      status: string
+      status: 'queued' | 'running' | 'succeeded' | 'failed' | 'canceled' | 'interrupted'
       total_components: number
       total_operations: number
       workset_id: string
@@ -677,7 +677,7 @@ export type MetadataRefreshV1ExecutionViewResponse =
       plan_id: string
       selected_member_ids?: string[]
       started_at: string
-      status: string
+      status: 'queued' | 'running' | 'succeeded' | 'failed' | 'canceled' | 'interrupted'
       total_components: number
       total_operations: number
       workset_id: string
@@ -700,7 +700,7 @@ export type MetadataRefreshV1ExecutionViewResponse =
       plan_id: string
       selected_member_ids?: string[]
       started_at: string
-      status: string
+      status: 'queued' | 'running' | 'succeeded' | 'failed' | 'canceled' | 'interrupted'
       total_components: number
       total_operations: number
       workset_id: string
@@ -720,13 +720,13 @@ export type MetadataRefreshV1ExecutionViewResponse_ExecutionComponentResponse =
        */
       kept_decisions: []
       operations: number
-      partition: string
+      partition: '' | 'matched' | 'unmatched'
       recovery: string[]
       remaining: string[]
       removed: string[]
       root_path: string
-      stage?: string
-      status: string
+      stage?: 'precheck' | 'materialize' | 'validate' | 'commit' | 'remove' | 'skipped' | 'metadata'
+      status: 'pending' | 'succeeded' | 'failed' | 'canceled'
     }
   | {
       committed: string[]
@@ -742,13 +742,13 @@ export type MetadataRefreshV1ExecutionViewResponse_ExecutionComponentResponse =
        */
       kept_decisions: []
       operations: number
-      partition: string
+      partition: '' | 'matched' | 'unmatched'
       recovery: string[]
       remaining: string[]
       removed: string[]
       root_path: string
       stage: 'skipped'
-      status: string
+      status: 'pending' | 'succeeded' | 'failed' | 'canceled'
       task_result: Refresh_Outcome
     }
   | {
@@ -765,13 +765,13 @@ export type MetadataRefreshV1ExecutionViewResponse_ExecutionComponentResponse =
        */
       kept_decisions: []
       operations: number
-      partition: string
+      partition: '' | 'matched' | 'unmatched'
       recovery: string[]
       remaining: string[]
       removed: string[]
       root_path: string
       stage: 'metadata'
-      status: string
+      status: 'pending' | 'succeeded' | 'failed' | 'canceled'
       task_result: Refresh_WorkResult
     }
 export type MemberConclusionResponse =
@@ -1078,7 +1078,16 @@ export interface ClassifierTagLibraryResponse_ClassifierCustomTagItem {
   tag: string
 }
 export interface CleanupCategoriesRequest {
-  categories?: string[]
+  categories?: (
+    | 'scan_sessions'
+    | 'plan_generations'
+    | 'generation_records'
+    | 'works'
+    | 'relation_reports'
+    | 'source_tags'
+    | 'source_voice_actors'
+    | 'source_circles'
+  )[]
 }
 export interface CleanupCountResponse {
   checked: number
@@ -1089,7 +1098,16 @@ export interface CleanupPreviewResponse {
   candidates: {
     [k: string]: number
   } | null
-  categories: string[]
+  categories: (
+    | 'scan_sessions'
+    | 'plan_generations'
+    | 'generation_records'
+    | 'works'
+    | 'relation_reports'
+    | 'source_tags'
+    | 'source_voice_actors'
+    | 'source_circles'
+  )[]
   checked_at: string
   rules: {
     [k: string]: CleanupPreviewResponse_CleanupRuleResponse
@@ -1105,16 +1123,33 @@ export interface CleanupRunEnvelopeResponse {
   run: CleanupRunEnvelopeResponse_CleanupRunResponse | null
 }
 export interface CleanupRunEnvelopeResponse_CleanupRunResponse {
-  categories: string[]
+  categories: (
+    | 'scan_sessions'
+    | 'plan_generations'
+    | 'generation_records'
+    | 'works'
+    | 'relation_reports'
+    | 'source_tags'
+    | 'source_voice_actors'
+    | 'source_circles'
+  )[]
   counts: {
     [k: string]: CleanupRunEnvelopeResponse_CleanupCountResponse
   } | null
   finished_at: string | null
-  phase: string
+  phase:
+    | 'scan_sessions'
+    | 'plan_generations'
+    | 'generation_records'
+    | 'works'
+    | 'relation_reports'
+    | 'source_tags'
+    | 'source_voice_actors'
+    | 'source_circles'
   reason: string
   run_id: string
   started_at: string
-  status: string
+  status: 'running' | 'stopping' | 'stopped' | 'succeeded' | 'failed' | 'interrupted'
 }
 export interface CleanupRunEnvelopeResponse_CleanupCountResponse {
   checked: number
@@ -1122,16 +1157,33 @@ export interface CleanupRunEnvelopeResponse_CleanupCountResponse {
   skipped: number
 }
 export interface CleanupRunResponse {
-  categories: string[]
+  categories: (
+    | 'scan_sessions'
+    | 'plan_generations'
+    | 'generation_records'
+    | 'works'
+    | 'relation_reports'
+    | 'source_tags'
+    | 'source_voice_actors'
+    | 'source_circles'
+  )[]
   counts: {
     [k: string]: CleanupRunResponse_CleanupCountResponse
   } | null
   finished_at: string | null
-  phase: string
+  phase:
+    | 'scan_sessions'
+    | 'plan_generations'
+    | 'generation_records'
+    | 'works'
+    | 'relation_reports'
+    | 'source_tags'
+    | 'source_voice_actors'
+    | 'source_circles'
   reason: string
   run_id: string
   started_at: string
-  status: string
+  status: 'running' | 'stopping' | 'stopped' | 'succeeded' | 'failed' | 'interrupted'
 }
 export interface CleanupRunResponse_CleanupCountResponse {
   checked: number
@@ -1167,7 +1219,7 @@ export interface CollectionDetailResponse_WorkSummaryResponse {
   user_tags: CollectionDetailResponse_UserTagResponse[]
 }
 export interface CollectionDetailResponse_ListeningSummaryResponse {
-  state: string
+  state: 'none' | 'listening' | 'finished'
   track_count: number | null
   track_index: number | null
   updated_at: string | null
@@ -1216,9 +1268,9 @@ export interface CollectionWorksAppendResponse {
 }
 export interface Conversion_CommonSettings {
   classifier_tags?: string[]
-  delete_mode?: string
+  delete_mode?: 'soft' | 'hard'
   matched: Conversion_CommonSettings_Reconcile_DesiredProfile
-  mode?: string
+  mode?: 'strict' | 'available_sources'
   no_effect_tags: string[] | null
   other?: Conversion_CommonSettings_Reconcile_DesiredProfile
   other_tags: string[] | null
@@ -1238,9 +1290,9 @@ export interface Conversion_CommonSettings_Reconcile_Quality {
 }
 export interface Conversion_CommonSettingsLegacy {
   classifier_tags: string[]
-  delete_mode?: string
+  delete_mode?: 'soft' | 'hard'
   matched: Conversion_CommonSettingsLegacy_Reconcile_DesiredProfile
-  mode?: string
+  mode?: 'strict' | 'available_sources'
   no_effect_tags?: string[] | null
   other?: Conversion_CommonSettingsLegacy_Reconcile_DesiredProfile
   other_tags?: string[] | null
@@ -1260,9 +1312,9 @@ export interface Conversion_CommonSettingsLegacy_Reconcile_Quality {
 }
 export interface Conversion_CommonSettingsRequest {
   classifier_tags?: string[]
-  delete_mode?: string
+  delete_mode?: 'soft' | 'hard'
   matched?: Conversion_CommonSettingsRequest_Reconcile_DesiredProfile
-  mode?: string
+  mode?: 'strict' | 'available_sources'
   no_effect_tags?: string[] | null
   other?: Conversion_CommonSettingsRequest_Reconcile_DesiredProfile
   other_tags?: string[] | null
@@ -1282,10 +1334,10 @@ export interface Conversion_CommonSettingsRequest_Reconcile_Quality {
 }
 export interface Conversion_DraftDoc {
   classifier_tags?: string[]
-  delete_mode?: string
+  delete_mode?: 'soft' | 'hard'
   matched: Conversion_DraftDoc_Reconcile_DesiredProfile
   members?: Conversion_DraftDoc_Conversion_DraftMember[]
-  mode?: string
+  mode?: 'strict' | 'available_sources'
   no_effect_tags: string[] | null
   other?: Conversion_DraftDoc_Reconcile_DesiredProfile
   other_tags: string[] | null
@@ -1312,7 +1364,7 @@ export interface Conversion_DraftDoc_Conversion_DraftMember {
 export interface Conversion_DraftDoc_Conversion_OverrideSet {
   classifier_tags?: string[] | null
   matched?: Conversion_DraftDoc_Reconcile_DesiredProfile
-  mode?: string
+  mode?: 'strict' | 'available_sources'
   no_effect_tags?: string[] | null
   other?: Conversion_DraftDoc_Reconcile_DesiredProfile
   other_tags?: string[] | null
@@ -1320,10 +1372,10 @@ export interface Conversion_DraftDoc_Conversion_OverrideSet {
 }
 export interface Conversion_DraftDocLegacy {
   classifier_tags: string[]
-  delete_mode?: string
+  delete_mode?: 'soft' | 'hard'
   matched: Conversion_DraftDocLegacy_Reconcile_DesiredProfile
   members?: Conversion_DraftDocLegacy_Conversion_DraftMember[]
-  mode?: string
+  mode?: 'strict' | 'available_sources'
   no_effect_tags?: string[] | null
   other?: Conversion_DraftDocLegacy_Reconcile_DesiredProfile
   other_tags?: string[] | null
@@ -1350,7 +1402,7 @@ export interface Conversion_DraftDocLegacy_Conversion_DraftMember {
 export interface Conversion_DraftDocLegacy_Conversion_OverrideSet {
   classifier_tags?: string[] | null
   matched?: Conversion_DraftDocLegacy_Reconcile_DesiredProfile
-  mode?: string
+  mode?: 'strict' | 'available_sources'
   no_effect_tags?: string[] | null
   other?: Conversion_DraftDocLegacy_Reconcile_DesiredProfile
   other_tags?: string[] | null
@@ -1358,10 +1410,10 @@ export interface Conversion_DraftDocLegacy_Conversion_OverrideSet {
 }
 export interface Conversion_DraftDocRequest {
   classifier_tags?: string[]
-  delete_mode?: string
+  delete_mode?: 'soft' | 'hard'
   matched?: Conversion_DraftDocRequest_Reconcile_DesiredProfile
   members?: Conversion_DraftDocRequest_Conversion_DraftMember[]
-  mode?: string
+  mode?: 'strict' | 'available_sources'
   no_effect_tags?: string[] | null
   other?: Conversion_DraftDocRequest_Reconcile_DesiredProfile
   other_tags?: string[] | null
@@ -1388,18 +1440,18 @@ export interface Conversion_DraftDocRequest_Conversion_DraftMember {
 export interface Conversion_DraftDocRequest_Conversion_OverrideSet {
   classifier_tags?: string[] | null
   matched?: Conversion_DraftDocRequest_Reconcile_DesiredProfile
-  mode?: string
+  mode?: 'strict' | 'available_sources'
   no_effect_tags?: string[] | null
   other?: Conversion_DraftDocRequest_Reconcile_DesiredProfile
   other_tags?: string[] | null
   unmatched?: Conversion_DraftDocRequest_Reconcile_DesiredProfile
 }
 export interface Conversion_ExecutionOptions {
-  delete_mode: string
+  delete_mode: 'soft' | 'hard'
 }
 export interface Conversion_FrozenMemberConclusion {
   matched: Conversion_FrozenMemberConclusion_Conversion_PartitionConclusion
-  status: string
+  status: 'blocked' | 'source_ambiguous' | 'partially_unmet' | 'unmet' | 'changed' | 'not_applicable' | 'unchanged'
   unmatched: Conversion_FrozenMemberConclusion_Conversion_PartitionConclusion
 }
 export interface Conversion_FrozenMemberConclusion_Conversion_PartitionConclusion {
@@ -1409,7 +1461,7 @@ export interface Conversion_FrozenMemberConclusion_Conversion_PartitionConclusio
   unmet: boolean
 }
 export interface ConversionV1DraftResponse {
-  operation_type: string
+  operation_type: 'conversion' | 'rename' | 'metadata_refresh'
   task: ConversionV1DraftResponse_TaskDraftEnvelope
   updated_at: string
   version: number
@@ -1431,19 +1483,19 @@ export interface ConversionV1ExecutionComponentResponse {
   inventory_synced: boolean
   kept_decisions: Reconcile_FileDecision[]
   operations: number
-  partition: string
+  partition: '' | 'matched' | 'unmatched'
   recovery: string[]
   remaining: string[]
   removed: string[]
   root_path: string
-  stage?: string
-  status: string
+  stage?: 'precheck' | 'materialize' | 'validate' | 'commit' | 'remove' | 'skipped' | 'metadata'
+  status: 'pending' | 'succeeded' | 'failed' | 'canceled'
 }
 export interface Reconcile_FileDecision {
   message?: string
   path: string
   reason_code?: string
-  resolution: string
+  resolution: 'keep' | 'delete' | 'encode'
   target_path?: string
 }
 export interface ConversionV1ExecutionFullViewResponse {
@@ -1463,7 +1515,7 @@ export interface ConversionV1ExecutionFullViewResponse {
   plan_id: string
   selected_member_ids?: string[]
   started_at: string
-  status: string
+  status: 'queued' | 'running' | 'succeeded' | 'failed' | 'canceled' | 'interrupted'
   total_components: number
   total_operations: number
   workset_id: string
@@ -1479,13 +1531,13 @@ export interface ConversionV1ExecutionFullViewResponse_ExecutionComponentRespons
   inventory_synced: boolean
   kept_decisions: Reconcile_FileDecision[]
   operations: number
-  partition: string
+  partition: '' | 'matched' | 'unmatched'
   recovery: string[]
   remaining: string[]
   removed: string[]
   root_path: string
-  stage?: string
-  status: string
+  stage?: 'precheck' | 'materialize' | 'validate' | 'commit' | 'remove' | 'skipped' | 'metadata'
+  status: 'pending' | 'succeeded' | 'failed' | 'canceled'
 }
 export interface ConversionV1ExecutionMemberViewResponse {
   completed_components: number
@@ -1505,7 +1557,7 @@ export interface ConversionV1ExecutionMemberViewResponse {
   plan_id: string
   selected_member_ids?: string[]
   started_at: string
-  status: string
+  status: 'queued' | 'running' | 'succeeded' | 'failed' | 'canceled' | 'interrupted'
   total_components: number
   total_operations: number
   workset_id: string
@@ -1521,13 +1573,13 @@ export interface ConversionV1ExecutionMemberViewResponse_ExecutionComponentRespo
   inventory_synced: boolean
   kept_decisions: Reconcile_FileDecision[]
   operations: number
-  partition: string
+  partition: '' | 'matched' | 'unmatched'
   recovery: string[]
   remaining: string[]
   removed: string[]
   root_path: string
-  stage?: string
-  status: string
+  stage?: 'precheck' | 'materialize' | 'validate' | 'commit' | 'remove' | 'skipped' | 'metadata'
+  status: 'pending' | 'succeeded' | 'failed' | 'canceled'
 }
 export interface ConversionV1ExecutionMemberViewResponse_ExecutionMemberSummaryResponse {
   completed_components: number
@@ -1536,7 +1588,7 @@ export interface ConversionV1ExecutionMemberViewResponse_ExecutionMemberSummaryR
   inventory_sync_error: string
   member_id: string
   root_path: string
-  status: string
+  status: 'pending' | 'running' | 'succeeded' | 'failed' | 'canceled'
   total_components: number
   total_operations: number
 }
@@ -1557,7 +1609,7 @@ export interface ConversionV1ExecutionMembersViewResponse {
   plan_id: string
   selected_member_ids?: string[]
   started_at: string
-  status: string
+  status: 'queued' | 'running' | 'succeeded' | 'failed' | 'canceled' | 'interrupted'
   total_components: number
   total_operations: number
   workset_id: string
@@ -1574,7 +1626,7 @@ export interface ConversionV1ExecutionMembersViewResponse_ExecutionMemberSummary
   inventory_sync_error: string
   member_id: string
   root_path: string
-  status: string
+  status: 'pending' | 'running' | 'succeeded' | 'failed' | 'canceled'
   total_components: number
   total_operations: number
 }
@@ -1594,7 +1646,7 @@ export interface ConversionV1ExecutionProgressResponse {
   execution_id: string
   options?: Conversion_ExecutionOptions
   plan_id: string
-  status: string
+  status: 'queued' | 'running' | 'succeeded' | 'failed' | 'canceled' | 'interrupted'
   total_components: number
   total_operations: number
 }
@@ -1613,13 +1665,13 @@ export interface ConversionV1ExecutionStartResponse_ExecutionComponentResponse {
   inventory_synced: boolean
   kept_decisions: Reconcile_FileDecision[]
   operations: number
-  partition: string
+  partition: '' | 'matched' | 'unmatched'
   recovery: string[]
   remaining: string[]
   removed: string[]
   root_path: string
-  stage?: string
-  status: string
+  stage?: 'precheck' | 'materialize' | 'validate' | 'commit' | 'remove' | 'skipped' | 'metadata'
+  status: 'pending' | 'succeeded' | 'failed' | 'canceled'
 }
 export interface ConversionV1ExecutionStartResponse_ExecutionMembersResponse {
   attention: ConversionV1ExecutionStartResponse_ExecutionMemberSummaryResponse[]
@@ -1633,7 +1685,7 @@ export interface ConversionV1ExecutionStartResponse_ExecutionMemberSummaryRespon
   inventory_sync_error: string
   member_id: string
   root_path: string
-  status: string
+  status: 'pending' | 'running' | 'succeeded' | 'failed' | 'canceled'
   total_components: number
   total_operations: number
 }
@@ -1655,13 +1707,13 @@ export interface ConversionV1ExecutionViewResponse_ExecutionComponentResponse {
   inventory_synced: boolean
   kept_decisions: Reconcile_FileDecision[]
   operations: number
-  partition: string
+  partition: '' | 'matched' | 'unmatched'
   recovery: string[]
   remaining: string[]
   removed: string[]
   root_path: string
-  stage?: string
-  status: string
+  stage?: 'precheck' | 'materialize' | 'validate' | 'commit' | 'remove' | 'skipped' | 'metadata'
+  status: 'pending' | 'succeeded' | 'failed' | 'canceled'
 }
 export interface ConversionV1ExecutionViewResponse_ExecutionMembersResponse {
   attention: ConversionV1ExecutionViewResponse_ExecutionMemberSummaryResponse[]
@@ -1675,7 +1727,7 @@ export interface ConversionV1ExecutionViewResponse_ExecutionMemberSummaryRespons
   inventory_sync_error: string
   member_id: string
   root_path: string
-  status: string
+  status: 'pending' | 'running' | 'succeeded' | 'failed' | 'canceled'
   total_components: number
   total_operations: number
 }
@@ -1690,7 +1742,7 @@ export interface ConversionV1MemberConclusionResponse {
   category?: string
   excluded: boolean
   has_components: boolean
-  input: string
+  input: 'none' | 'valid' | 'stale' | 'missing' | 'unavailable'
   member_id: string
   task?: Conversion_FrozenMemberConclusion
 }
@@ -1712,14 +1764,14 @@ export interface ConversionV1MemberReviewResponse_MemberConclusionResponse {
   category?: string
   excluded: boolean
   has_components: boolean
-  input: string
+  input: 'none' | 'valid' | 'stale' | 'missing' | 'unavailable'
   member_id: string
   task?: Conversion_FrozenMemberConclusion
 }
 export interface Reconcile_Policy {
   classifier_tags?: string[]
   matched: Reconcile_Policy_Reconcile_DesiredProfile
-  mode?: string
+  mode?: 'strict' | 'available_sources'
   no_effect_tags?: string[]
   other?: Reconcile_Policy_Reconcile_DesiredProfile
   other_tags: string[] | null
@@ -1770,11 +1822,11 @@ export interface Reconcile_ComponentOutcome {
   lanes: Reconcile_ComponentOutcome_Reconcile_LaneDecision[]
   message?: string
   operations: Reconcile_ComponentOutcome_Reconcile_Operation[]
-  partition: string
+  partition: 'matched' | 'unmatched'
   projected_inventory: string[]
   reason_code?: string
   scope?: string
-  status: string
+  status: 'ok' | 'blocked'
   variant_decisions: Reconcile_ComponentOutcome_Reconcile_VariantDecision[]
 }
 export interface Reconcile_ComponentOutcome_Reconcile_FileTuple {
@@ -1783,16 +1835,16 @@ export interface Reconcile_ComponentOutcome_Reconcile_FileTuple {
   Size: number
 }
 export interface Reconcile_ComponentOutcome_Reconcile_LaneDecision {
-  decision: string
-  lane: string
+  decision: 'KEEP_ALL' | 'REBUILD_ALL' | 'REBUILD' | 'KEEP' | 'BLOCKED'
+  lane: 'lossless' | 'encoded'
   message?: string
   reason_code?: string
 }
 export interface Reconcile_ComponentOutcome_Reconcile_Operation {
   component_id: string
   depends_on?: string[]
-  kind: string
-  phase: string
+  kind: 'encode' | 'delete_obsolete'
+  phase: 'materialize_outputs' | 'validate_outputs' | 'commit_outputs' | 'remove_obsolete_audio'
   source_path: string
   target_path?: string
   variant_stem: string
@@ -1805,13 +1857,13 @@ export interface Reconcile_ComponentOutcome_Reconcile_FileDecision {
   message?: string
   path: string
   reason_code?: string
-  resolution: string
+  resolution: 'keep' | 'delete' | 'encode'
   target_path?: string
 }
 export interface Reconcile_PolicyLegacy {
   classifier_tags: string[]
   matched: Reconcile_PolicyLegacy_Reconcile_DesiredProfile
-  mode?: string
+  mode?: 'strict' | 'available_sources'
   no_effect_tags?: string[]
   other?: Reconcile_PolicyLegacy_Reconcile_DesiredProfile
   other_tags?: string[] | null
@@ -1845,8 +1897,8 @@ export interface ConversionV1OperationResponse {
   latest_execution: ConversionV1OperationResponse_ExecutionRefResponse | null
   latest_generation: ConversionV1OperationResponse_GenerationSummaryResponse | null
   max_participants?: number
-  operation_type: string
-  planning_state: string
+  operation_type: 'conversion' | 'rename' | 'metadata_refresh'
+  planning_state: 'unplanned' | 'planned' | 'needs_planning' | 'planning' | 'orphaned'
   version: number
   workset_id: string
 }
@@ -1859,7 +1911,7 @@ export interface ConversionV1OperationResponse_ExecutionProgressResponse {
   execution_id: string
   options?: Conversion_ExecutionOptions
   plan_id: string
-  status: string
+  status: 'queued' | 'running' | 'succeeded' | 'failed' | 'canceled' | 'interrupted'
   total_components: number
   total_operations: number
 }
@@ -1868,7 +1920,7 @@ export interface ConversionV1OperationResponse_GenerationProgressResponse {
   current_root: string
   error_count: number
   generation_id: string
-  status: string
+  status: 'queued' | 'running' | 'completed' | 'failed' | 'canceled' | 'interrupted'
   total_roots: number
 }
 export interface ConversionV1OperationResponse_CurrentRevisionResponse {
@@ -1879,7 +1931,7 @@ export interface ConversionV1OperationResponse_CurrentRevisionResponse {
   stale: boolean | null
   status: string
   summary_reason: string
-  validation_state: string
+  validation_state: 'valid' | 'stale' | 'unavailable'
 }
 export interface ConversionV1OperationResponse_RevisionCountsResponse {
   blocked: number
@@ -1894,14 +1946,14 @@ export interface ConversionV1OperationResponse_ExecutionRefResponse {
   execution_id: string
   finished_at?: string
   plan_id: string
-  status: string
+  status: 'queued' | 'running' | 'succeeded' | 'failed' | 'canceled' | 'interrupted'
 }
 export interface ConversionV1OperationResponse_GenerationSummaryResponse {
   error_code: string
   error_message: string
   finished_at: string
   generation_id: string
-  status: string
+  status: 'queued' | 'running' | 'completed' | 'failed' | 'canceled' | 'interrupted'
 }
 export interface ConversionV1RevisionMemberResponse {
   conclusion: ConversionV1RevisionMemberResponse_MemberConclusionResponse
@@ -1918,7 +1970,7 @@ export interface ConversionV1RevisionMemberResponse_MemberConclusionResponse {
   category?: string
   excluded: boolean
   has_components: boolean
-  input: string
+  input: 'none' | 'valid' | 'stale' | 'missing' | 'unavailable'
   member_id: string
   task?: Conversion_FrozenMemberConclusion
 }
@@ -1952,13 +2004,13 @@ export interface ConversionV1RevisionResponse_ExecutionRefResponse {
   execution_id: string
   finished_at?: string
   plan_id: string
-  status: string
+  status: 'queued' | 'running' | 'succeeded' | 'failed' | 'canceled' | 'interrupted'
 }
 export interface ConversionV1RevisionResponse_MemberConclusionResponse {
   category?: string
   excluded: boolean
   has_components: boolean
-  input: string
+  input: 'none' | 'valid' | 'stale' | 'missing' | 'unavailable'
   member_id: string
   task?: Conversion_FrozenMemberConclusion
 }
@@ -2025,7 +2077,7 @@ export interface CoverDestinationResponse {
   id: string
   published?: string
   refresh: boolean
-  status: string
+  status: 'pending' | 'running' | 'succeeded' | 'skipped' | 'failed' | 'canceled'
   target: CoverDestinationResponse_CoverTargetResponse
 }
 export interface CoverDestinationResponse_CoverTargetResponse {
@@ -2049,7 +2101,7 @@ export interface CoverReportResponse_CoverDestinationResponse {
   id: string
   published?: string
   refresh: boolean
-  status: string
+  status: 'pending' | 'running' | 'succeeded' | 'skipped' | 'failed' | 'canceled'
   target: CoverReportResponse_CoverTargetResponse
 }
 export interface CoverReportResponse_CoverTargetResponse {
@@ -2098,7 +2150,7 @@ export interface CurrentRevisionResponse {
   stale: boolean | null
   status: string
   summary_reason: string
-  validation_state: string
+  validation_state: 'valid' | 'stale' | 'unavailable'
 }
 export interface CurrentRevisionResponse_RevisionCountsResponse {
   blocked: number
@@ -2191,7 +2243,7 @@ export interface Dirrename_DraftRequest_Dirrename_Member {
   name?: string
 }
 export interface Dirrename_Outcome {
-  action: string
+  action: 'rename' | 'noop' | 'blocked'
   custom_name?: string
   member_id: string
   observed_name?: string
@@ -2211,10 +2263,10 @@ export interface Dirrename_Result {
   target_path: string
 }
 export interface DraftDocumentRequest {
-  delete_mode?: string
+  delete_mode?: '' | 'soft' | 'hard'
   matched?: DraftDocumentRequest_DesiredProfileDTO
   members?: DraftDocumentRequest_DraftMemberRequest[]
-  mode?: string
+  mode?: '' | 'strict' | 'available_sources'
   no_effect_tags?: string[]
   other?: DraftDocumentRequest_DesiredProfileDTO
   other_tags?: string[]
@@ -2240,7 +2292,7 @@ export interface DraftDocumentRequest_DraftMemberRequest {
 }
 export interface DraftDocumentRequest_DraftOverridesRequest {
   matched?: DraftDocumentRequest_DesiredProfileDTO | null
-  mode?: string | null
+  mode?: ('' | 'strict' | 'available_sources') | null
   no_effect_tags?: string[] | null
   other?: DraftDocumentRequest_DesiredProfileDTO | null
   other_tags?: string[] | null
@@ -2253,7 +2305,7 @@ export interface DraftMemberRequest {
 }
 export interface DraftMemberRequest_DraftOverridesRequest {
   matched?: DraftMemberRequest_DesiredProfileDTO | null
-  mode?: string | null
+  mode?: ('' | 'strict' | 'available_sources') | null
   no_effect_tags?: string[] | null
   other?: DraftMemberRequest_DesiredProfileDTO | null
   other_tags?: string[] | null
@@ -2273,7 +2325,7 @@ export interface DraftMemberRequest_AudioQualityDTO {
 }
 export interface DraftOverridesRequest {
   matched?: DraftOverridesRequest_DesiredProfileDTO | null
-  mode?: string | null
+  mode?: ('' | 'strict' | 'available_sources') | null
   no_effect_tags?: string[] | null
   other?: DraftOverridesRequest_DesiredProfileDTO | null
   other_tags?: string[] | null
@@ -2292,7 +2344,7 @@ export interface DraftOverridesRequest_AudioQualityDTO {
   kind?: string
 }
 export interface RenameV1DraftResponse {
-  operation_type: string
+  operation_type: 'conversion' | 'rename' | 'metadata_refresh'
   task: RenameV1DraftResponse_TaskDraftEnvelope
   updated_at: string
   version: number
@@ -2304,7 +2356,7 @@ export interface RenameV1DraftResponse_TaskDraftEnvelope {
   schema_version: 1
 }
 export interface MetadataRefreshV1DraftResponse {
-  operation_type: string
+  operation_type: 'conversion' | 'rename' | 'metadata_refresh'
   task: MetadataRefreshV1DraftResponse_TaskDraftEnvelope
   updated_at: string
   version: number
@@ -2322,8 +2374,8 @@ export interface Refresh_Draft {
 }
 export interface Refresh_Draft_Refresh_Common {
   download_cover: boolean
-  locale: string
-  mode: string
+  locale: 'ja-jp' | 'zh-cn' | 'zh-tw'
+  mode: 'fill_missing' | 'refresh_dynamic' | 'refresh_all'
 }
 export interface Refresh_Draft_Refresh_Member {
   excluded: boolean
@@ -2349,14 +2401,14 @@ export interface EditionSlotResponse_TreeNodeResponse {
   language: string | null
   relation: EditionSlotResponse_RelationResponse
   rj: string
-  role: string
+  role: '' | 'original' | 'parent' | 'child' | 'edition_page' | 'translation'
   source_url: string | null
 }
 export interface EditionSlotResponse_RelationResponse {
   language: string | null
   original_rj: string | null
   parent_rj: string | null
-  role: string | null
+  role: ('original' | 'parent' | 'child') | null
 }
 export interface EmptyEvent {}
 export interface EmptyRequest {}
@@ -2379,17 +2431,17 @@ export interface RenameV1ExecutionComponentResponse {
    */
   kept_decisions: []
   operations: number
-  partition: string
+  partition: '' | 'matched' | 'unmatched'
   recovery: string[]
   remaining: string[]
   removed: string[]
   root_path: string
-  stage?: string
-  status: string
+  stage?: 'precheck' | 'materialize' | 'validate' | 'commit' | 'remove' | 'skipped' | 'metadata'
+  status: 'pending' | 'succeeded' | 'failed' | 'canceled'
   task_result?: Dirrename_Result
 }
 export interface Refresh_Outcome {
-  action: string
+  action: 'refresh' | 'skip' | 'cover'
   member_id: string
   reason_code?: string
   target: Refresh_Outcome_Coverdelivery_Target
@@ -2454,7 +2506,7 @@ export interface RenameV1ExecutionFullViewResponse {
   plan_id: string
   selected_member_ids?: string[]
   started_at: string
-  status: string
+  status: 'queued' | 'running' | 'succeeded' | 'failed' | 'canceled' | 'interrupted'
   total_components: number
   total_operations: number
   workset_id: string
@@ -2473,13 +2525,13 @@ export interface RenameV1ExecutionFullViewResponse_ExecutionComponentResponse {
    */
   kept_decisions: []
   operations: number
-  partition: string
+  partition: '' | 'matched' | 'unmatched'
   recovery: string[]
   remaining: string[]
   removed: string[]
   root_path: string
-  stage?: string
-  status: string
+  stage?: 'precheck' | 'materialize' | 'validate' | 'commit' | 'remove' | 'skipped' | 'metadata'
+  status: 'pending' | 'succeeded' | 'failed' | 'canceled'
   task_result?: Dirrename_Result
 }
 export interface MetadataRefreshV1ExecutionFullViewResponse {
@@ -2499,15 +2551,15 @@ export interface MetadataRefreshV1ExecutionFullViewResponse {
   plan_id: string
   selected_member_ids?: string[]
   started_at: string
-  status: string
+  status: 'queued' | 'running' | 'succeeded' | 'failed' | 'canceled' | 'interrupted'
   total_components: number
   total_operations: number
   workset_id: string
 }
 export interface Refresh_Common {
   download_cover: boolean
-  locale: string
-  mode: string
+  locale: 'ja-jp' | 'zh-cn' | 'zh-tw'
+  mode: 'fill_missing' | 'refresh_dynamic' | 'refresh_all'
 }
 export interface ExecutionMemberCountsResponse {
   canceled: number
@@ -2535,7 +2587,7 @@ export interface ExecutionMemberEvent_ExecutionMemberSummaryResponse {
   inventory_sync_error: string
   member_id: string
   root_path: string
-  status: string
+  status: 'pending' | 'running' | 'succeeded' | 'failed' | 'canceled'
   total_components: number
   total_operations: number
 }
@@ -2546,7 +2598,7 @@ export interface ExecutionMemberSummaryResponse {
   inventory_sync_error: string
   member_id: string
   root_path: string
-  status: string
+  status: 'pending' | 'running' | 'succeeded' | 'failed' | 'canceled'
   total_components: number
   total_operations: number
 }
@@ -2567,7 +2619,7 @@ export interface RenameV1ExecutionMemberViewResponse {
   plan_id: string
   selected_member_ids?: string[]
   started_at: string
-  status: string
+  status: 'queued' | 'running' | 'succeeded' | 'failed' | 'canceled' | 'interrupted'
   total_components: number
   total_operations: number
   workset_id: string
@@ -2586,13 +2638,13 @@ export interface RenameV1ExecutionMemberViewResponse_ExecutionComponentResponse 
    */
   kept_decisions: []
   operations: number
-  partition: string
+  partition: '' | 'matched' | 'unmatched'
   recovery: string[]
   remaining: string[]
   removed: string[]
   root_path: string
-  stage?: string
-  status: string
+  stage?: 'precheck' | 'materialize' | 'validate' | 'commit' | 'remove' | 'skipped' | 'metadata'
+  status: 'pending' | 'succeeded' | 'failed' | 'canceled'
   task_result?: Dirrename_Result
 }
 export interface RenameV1ExecutionMemberViewResponse_ExecutionMemberSummaryResponse {
@@ -2602,7 +2654,7 @@ export interface RenameV1ExecutionMemberViewResponse_ExecutionMemberSummaryRespo
   inventory_sync_error: string
   member_id: string
   root_path: string
-  status: string
+  status: 'pending' | 'running' | 'succeeded' | 'failed' | 'canceled'
   total_components: number
   total_operations: number
 }
@@ -2624,7 +2676,7 @@ export interface MetadataRefreshV1ExecutionMemberViewResponse {
   plan_id: string
   selected_member_ids?: string[]
   started_at: string
-  status: string
+  status: 'queued' | 'running' | 'succeeded' | 'failed' | 'canceled' | 'interrupted'
   total_components: number
   total_operations: number
   workset_id: string
@@ -2636,7 +2688,7 @@ export interface MetadataRefreshV1ExecutionMemberViewResponse_ExecutionMemberSum
   inventory_sync_error: string
   member_id: string
   root_path: string
-  status: string
+  status: 'pending' | 'running' | 'succeeded' | 'failed' | 'canceled'
   total_components: number
   total_operations: number
 }
@@ -2652,7 +2704,7 @@ export interface ExecutionMembersResponse_ExecutionMemberSummaryResponse {
   inventory_sync_error: string
   member_id: string
   root_path: string
-  status: string
+  status: 'pending' | 'running' | 'succeeded' | 'failed' | 'canceled'
   total_components: number
   total_operations: number
 }
@@ -2679,7 +2731,7 @@ export interface RenameV1ExecutionMembersViewResponse {
   plan_id: string
   selected_member_ids?: string[]
   started_at: string
-  status: string
+  status: 'queued' | 'running' | 'succeeded' | 'failed' | 'canceled' | 'interrupted'
   total_components: number
   total_operations: number
   workset_id: string
@@ -2696,7 +2748,7 @@ export interface RenameV1ExecutionMembersViewResponse_ExecutionMemberSummaryResp
   inventory_sync_error: string
   member_id: string
   root_path: string
-  status: string
+  status: 'pending' | 'running' | 'succeeded' | 'failed' | 'canceled'
   total_components: number
   total_operations: number
 }
@@ -2724,7 +2776,7 @@ export interface MetadataRefreshV1ExecutionMembersViewResponse {
   plan_id: string
   selected_member_ids?: string[]
   started_at: string
-  status: string
+  status: 'queued' | 'running' | 'succeeded' | 'failed' | 'canceled' | 'interrupted'
   total_components: number
   total_operations: number
   workset_id: string
@@ -2741,7 +2793,7 @@ export interface MetadataRefreshV1ExecutionMembersViewResponse_ExecutionMemberSu
   inventory_sync_error: string
   member_id: string
   root_path: string
-  status: string
+  status: 'pending' | 'running' | 'succeeded' | 'failed' | 'canceled'
   total_components: number
   total_operations: number
 }
@@ -2759,7 +2811,7 @@ export interface ExecutionProgressEvent {
   current_phase: string
   current_root: string
   execution_id: string
-  status: string
+  status: 'queued' | 'running' | 'succeeded' | 'failed' | 'canceled' | 'interrupted'
   total_components: number
   total_operations: number
 }
@@ -2771,7 +2823,7 @@ export interface RenameV1ExecutionProgressResponse {
   current_root: string
   execution_id: string
   plan_id: string
-  status: string
+  status: 'queued' | 'running' | 'succeeded' | 'failed' | 'canceled' | 'interrupted'
   total_components: number
   total_operations: number
 }
@@ -2784,7 +2836,7 @@ export interface MetadataRefreshV1ExecutionProgressResponse {
   execution_id: string
   options?: Refresh_Common
   plan_id: string
-  status: string
+  status: 'queued' | 'running' | 'succeeded' | 'failed' | 'canceled' | 'interrupted'
   total_components: number
   total_operations: number
 }
@@ -2794,7 +2846,7 @@ export interface ExecutionRefResponse {
   execution_id: string
   finished_at?: string
   plan_id: string
-  status: string
+  status: 'queued' | 'running' | 'succeeded' | 'failed' | 'canceled' | 'interrupted'
 }
 export interface ExecutionStartRequest {
   all_except_member_ids?: string[]
@@ -2818,13 +2870,13 @@ export interface RenameV1ExecutionStartResponse_ExecutionComponentResponse {
    */
   kept_decisions: []
   operations: number
-  partition: string
+  partition: '' | 'matched' | 'unmatched'
   recovery: string[]
   remaining: string[]
   removed: string[]
   root_path: string
-  stage?: string
-  status: string
+  stage?: 'precheck' | 'materialize' | 'validate' | 'commit' | 'remove' | 'skipped' | 'metadata'
+  status: 'pending' | 'succeeded' | 'failed' | 'canceled'
   task_result?: Dirrename_Result
 }
 export interface RenameV1ExecutionStartResponse_ExecutionMembersResponse {
@@ -2839,7 +2891,7 @@ export interface RenameV1ExecutionStartResponse_ExecutionMemberSummaryResponse {
   inventory_sync_error: string
   member_id: string
   root_path: string
-  status: string
+  status: 'pending' | 'running' | 'succeeded' | 'failed' | 'canceled'
   total_components: number
   total_operations: number
 }
@@ -2866,7 +2918,7 @@ export interface MetadataRefreshV1ExecutionStartResponse_ExecutionMemberSummaryR
   inventory_sync_error: string
   member_id: string
   root_path: string
-  status: string
+  status: 'pending' | 'running' | 'succeeded' | 'failed' | 'canceled'
   total_components: number
   total_operations: number
 }
@@ -2898,13 +2950,13 @@ export interface RenameV1ExecutionViewResponse_ExecutionComponentResponse {
    */
   kept_decisions: []
   operations: number
-  partition: string
+  partition: '' | 'matched' | 'unmatched'
   recovery: string[]
   remaining: string[]
   removed: string[]
   root_path: string
-  stage?: string
-  status: string
+  stage?: 'precheck' | 'materialize' | 'validate' | 'commit' | 'remove' | 'skipped' | 'metadata'
+  status: 'pending' | 'succeeded' | 'failed' | 'canceled'
   task_result?: Dirrename_Result
 }
 export interface RenameV1ExecutionViewResponse_ExecutionMembersResponse {
@@ -2919,7 +2971,7 @@ export interface RenameV1ExecutionViewResponse_ExecutionMemberSummaryResponse {
   inventory_sync_error: string
   member_id: string
   root_path: string
-  status: string
+  status: 'pending' | 'running' | 'succeeded' | 'failed' | 'canceled'
   total_components: number
   total_operations: number
 }
@@ -2942,7 +2994,7 @@ export interface MetadataRefreshV1ExecutionViewResponse_ExecutionMemberSummaryRe
   inventory_sync_error: string
   member_id: string
   root_path: string
-  status: string
+  status: 'pending' | 'running' | 'succeeded' | 'failed' | 'canceled'
   total_components: number
   total_operations: number
 }
@@ -2968,7 +3020,7 @@ export interface FileOperationItemResponse {
   message?: string
   recovered_path?: string
   source: string
-  status: string
+  status: 'ok' | 'failed' | 'skipped' | 'not_attempted'
   target?: string
 }
 export interface FileOperationRefreshResponse {
@@ -2979,7 +3031,7 @@ export interface FileOperationRefreshResponse {
 export interface FileOperationRequest {
   items?: FileOperationRequest_FileOperationItem[]
   member_path?: string
-  operation?: string
+  operation?: 'rename' | 'move' | 'soft_delete'
 }
 export interface FileOperationRequest_FileOperationItem {
   name?: string
@@ -2990,7 +3042,7 @@ export interface FileOperationResponse {
   failed: number
   items: FileOperationResponse_FileOperationItemResponse[]
   member_path: string
-  operation: string
+  operation: 'rename' | 'move' | 'soft_delete'
   refresh: FileOperationResponse_FileOperationRefreshResponse
   succeeded: number
   untouched: number
@@ -3000,7 +3052,7 @@ export interface FileOperationResponse_FileOperationItemResponse {
   message?: string
   recovered_path?: string
   source: string
-  status: string
+  status: 'ok' | 'failed' | 'skipped' | 'not_attempted'
   target?: string
 }
 export interface FileOperationResponse_FileOperationRefreshResponse {
@@ -3029,7 +3081,7 @@ export interface GenerationProgressResponse {
   current_root: string
   error_count: number
   generation_id: string
-  status: string
+  status: 'queued' | 'running' | 'completed' | 'failed' | 'canceled' | 'interrupted'
   total_roots: number
 }
 export interface GenerationReplayRevisionResponse {
@@ -3044,7 +3096,7 @@ export interface GenerationReplayRevisionResponse_CurrentRevisionResponse {
   stale: boolean | null
   status: string
   summary_reason: string
-  validation_state: string
+  validation_state: 'valid' | 'stale' | 'unavailable'
 }
 export interface GenerationReplayRevisionResponse_RevisionCountsResponse {
   blocked: number
@@ -3066,10 +3118,10 @@ export interface GenerationStartResponse_GenerationViewResponse {
   error_message: string
   finished_at: string
   generation_id: string
-  operation_type: string
+  operation_type: 'conversion' | 'rename' | 'metadata_refresh'
   revision_id: string
   started_at: string
-  status: string
+  status: 'queued' | 'running' | 'completed' | 'failed' | 'canceled' | 'interrupted'
   total_roots: number
   workset_id: string
 }
@@ -3081,7 +3133,7 @@ export interface GenerationSummaryResponse {
   error_message: string
   finished_at: string
   generation_id: string
-  status: string
+  status: 'queued' | 'running' | 'completed' | 'failed' | 'canceled' | 'interrupted'
 }
 export interface GenerationViewResponse {
   completed_roots: number
@@ -3092,10 +3144,10 @@ export interface GenerationViewResponse {
   error_message: string
   finished_at: string
   generation_id: string
-  operation_type: string
+  operation_type: 'conversion' | 'rename' | 'metadata_refresh'
   revision_id: string
   started_at: string
-  status: string
+  status: 'queued' | 'running' | 'completed' | 'failed' | 'canceled' | 'interrupted'
   total_roots: number
   workset_id: string
 }
@@ -3143,12 +3195,12 @@ export interface LibraryListResponse_LibraryResponse {
   last_scan_status: string
   name: string
   root_path: string
-  storage_class: string
+  storage_class: 'hdd' | 'ssd'
   updated_at: string
 }
 export interface LibraryPatchRequest {
   name?: string | null
-  storage_class?: string
+  storage_class?: 'hdd' | 'ssd'
 }
 export interface LibraryRefResponse {
   library_id: string
@@ -3163,7 +3215,7 @@ export interface LibraryResponse {
   last_scan_status: string
   name: string
   root_path: string
-  storage_class: string
+  storage_class: 'hdd' | 'ssd'
   updated_at: string
 }
 export interface ListeningResponse {
@@ -3176,7 +3228,7 @@ export interface ListeningResponse {
   updated_at: string
 }
 export interface ListeningSummaryResponse {
-  state: string
+  state: 'none' | 'listening' | 'finished'
   track_count: number | null
   track_index: number | null
   updated_at: string | null
@@ -3194,7 +3246,7 @@ export interface MediaFactsLibraryStat {
 }
 export interface MediaFactsStatus {
   libraries: MediaFactsStatus_MediaFactsLibraryStat[]
-  state: string
+  state: 'running' | 'paused' | 'idle'
 }
 export interface MediaFactsStatus_MediaFactsLibraryStat {
   library_id: string
@@ -3205,7 +3257,7 @@ export interface RenameV1MemberConclusionResponse {
   category?: string
   excluded: boolean
   has_components: boolean
-  input: string
+  input: 'none' | 'valid' | 'stale' | 'missing' | 'unavailable'
   member_id: string
   task?: Dirrename_Outcome
 }
@@ -3213,7 +3265,7 @@ export interface MetadataRefreshV1MemberConclusionResponse {
   category?: string
   excluded: boolean
   has_components: boolean
-  input: string
+  input: 'none' | 'valid' | 'stale' | 'missing' | 'unavailable'
   member_id: string
   task?: Refresh_Outcome
 }
@@ -3242,7 +3294,7 @@ export interface RenameV1MemberReviewResponse_MemberConclusionResponse {
   category?: string
   excluded: boolean
   has_components: boolean
-  input: string
+  input: 'none' | 'valid' | 'stale' | 'missing' | 'unavailable'
   member_id: string
   task?: Dirrename_Outcome
 }
@@ -3294,7 +3346,7 @@ export interface MetadataRefreshV1MemberReviewResponse_MemberConclusionResponse 
   category?: string
   excluded: boolean
   has_components: boolean
-  input: string
+  input: 'none' | 'valid' | 'stale' | 'missing' | 'unavailable'
   member_id: string
   task?: Refresh_Outcome
 }
@@ -3337,7 +3389,7 @@ export interface MemberTreeNodeResponse {
   path: string
   rel_path: string
   size?: number
-  type: string
+  type: 'dir' | 'file'
 }
 export interface MemberTreeNodeResponse_MemberTreeNodeResponse {
   bitrate: number | null
@@ -3347,7 +3399,7 @@ export interface MemberTreeNodeResponse_MemberTreeNodeResponse {
   path: string
   rel_path: string
   size?: number
-  type: string
+  type: 'dir' | 'file'
 }
 export interface MetadataRefreshV1OperationResponse {
   active_execution: MetadataRefreshV1OperationResponse_ExecutionProgressResponse | null
@@ -3356,8 +3408,8 @@ export interface MetadataRefreshV1OperationResponse {
   latest_execution: MetadataRefreshV1OperationResponse_ExecutionRefResponse | null
   latest_generation: MetadataRefreshV1OperationResponse_GenerationSummaryResponse | null
   max_participants?: number
-  operation_type: string
-  planning_state: string
+  operation_type: 'conversion' | 'rename' | 'metadata_refresh'
+  planning_state: 'unplanned' | 'planned' | 'needs_planning' | 'planning' | 'orphaned'
   version: number
   workset_id: string
 }
@@ -3370,7 +3422,7 @@ export interface MetadataRefreshV1OperationResponse_ExecutionProgressResponse {
   execution_id: string
   options?: Refresh_Common
   plan_id: string
-  status: string
+  status: 'queued' | 'running' | 'succeeded' | 'failed' | 'canceled' | 'interrupted'
   total_components: number
   total_operations: number
 }
@@ -3379,7 +3431,7 @@ export interface MetadataRefreshV1OperationResponse_GenerationProgressResponse {
   current_root: string
   error_count: number
   generation_id: string
-  status: string
+  status: 'queued' | 'running' | 'completed' | 'failed' | 'canceled' | 'interrupted'
   total_roots: number
 }
 export interface MetadataRefreshV1OperationResponse_CurrentRevisionResponse {
@@ -3390,7 +3442,7 @@ export interface MetadataRefreshV1OperationResponse_CurrentRevisionResponse {
   stale: boolean | null
   status: string
   summary_reason: string
-  validation_state: string
+  validation_state: 'valid' | 'stale' | 'unavailable'
 }
 export interface MetadataRefreshV1OperationResponse_RevisionCountsResponse {
   blocked: number
@@ -3405,14 +3457,14 @@ export interface MetadataRefreshV1OperationResponse_ExecutionRefResponse {
   execution_id: string
   finished_at?: string
   plan_id: string
-  status: string
+  status: 'queued' | 'running' | 'succeeded' | 'failed' | 'canceled' | 'interrupted'
 }
 export interface MetadataRefreshV1OperationResponse_GenerationSummaryResponse {
   error_code: string
   error_message: string
   finished_at: string
   generation_id: string
-  status: string
+  status: 'queued' | 'running' | 'completed' | 'failed' | 'canceled' | 'interrupted'
 }
 export interface MetadataRefreshV1RevisionMemberResponse {
   conclusion: MetadataRefreshV1RevisionMemberResponse_MemberConclusionResponse
@@ -3429,7 +3481,7 @@ export interface MetadataRefreshV1RevisionMemberResponse_MemberConclusionRespons
   category?: string
   excluded: boolean
   has_components: boolean
-  input: string
+  input: 'none' | 'valid' | 'stale' | 'missing' | 'unavailable'
   member_id: string
   task?: Refresh_Outcome
 }
@@ -3463,13 +3515,13 @@ export interface MetadataRefreshV1RevisionResponse_ExecutionRefResponse {
   execution_id: string
   finished_at?: string
   plan_id: string
-  status: string
+  status: 'queued' | 'running' | 'succeeded' | 'failed' | 'canceled' | 'interrupted'
 }
 export interface MetadataRefreshV1RevisionResponse_MemberConclusionResponse {
   category?: string
   excluded: boolean
   has_components: boolean
-  input: string
+  input: 'none' | 'valid' | 'stale' | 'missing' | 'unavailable'
   member_id: string
   task?: Refresh_Outcome
 }
@@ -3520,8 +3572,8 @@ export interface MetadataRefreshV1TaskSettingsRequest {
 }
 export interface Refresh_CommonRequest {
   download_cover?: boolean
-  locale?: string
-  mode?: string
+  locale?: 'ja-jp' | 'zh-cn' | 'zh-tw'
+  mode?: 'fill_missing' | 'refresh_dynamic' | 'refresh_all'
 }
 export interface MetadataRefreshV1TaskSettingsResponse {
   operation_type: 'metadata_refresh'
@@ -3534,8 +3586,8 @@ export interface RenameV1OperationResponse {
   latest_execution: RenameV1OperationResponse_ExecutionRefResponse | null
   latest_generation: RenameV1OperationResponse_GenerationSummaryResponse | null
   max_participants?: number
-  operation_type: string
-  planning_state: string
+  operation_type: 'conversion' | 'rename' | 'metadata_refresh'
+  planning_state: 'unplanned' | 'planned' | 'needs_planning' | 'planning' | 'orphaned'
   version: number
   workset_id: string
 }
@@ -3547,7 +3599,7 @@ export interface RenameV1OperationResponse_ExecutionProgressResponse {
   current_root: string
   execution_id: string
   plan_id: string
-  status: string
+  status: 'queued' | 'running' | 'succeeded' | 'failed' | 'canceled' | 'interrupted'
   total_components: number
   total_operations: number
 }
@@ -3556,7 +3608,7 @@ export interface RenameV1OperationResponse_GenerationProgressResponse {
   current_root: string
   error_count: number
   generation_id: string
-  status: string
+  status: 'queued' | 'running' | 'completed' | 'failed' | 'canceled' | 'interrupted'
   total_roots: number
 }
 export interface RenameV1OperationResponse_CurrentRevisionResponse {
@@ -3567,7 +3619,7 @@ export interface RenameV1OperationResponse_CurrentRevisionResponse {
   stale: boolean | null
   status: string
   summary_reason: string
-  validation_state: string
+  validation_state: 'valid' | 'stale' | 'unavailable'
 }
 export interface RenameV1OperationResponse_RevisionCountsResponse {
   blocked: number
@@ -3582,21 +3634,21 @@ export interface RenameV1OperationResponse_ExecutionRefResponse {
   execution_id: string
   finished_at?: string
   plan_id: string
-  status: string
+  status: 'queued' | 'running' | 'succeeded' | 'failed' | 'canceled' | 'interrupted'
 }
 export interface RenameV1OperationResponse_GenerationSummaryResponse {
   error_code: string
   error_message: string
   finished_at: string
   generation_id: string
-  status: string
+  status: 'queued' | 'running' | 'completed' | 'failed' | 'canceled' | 'interrupted'
 }
 export interface OutboundProxyPutRequest {
-  mode?: string
+  mode?: 'system' | 'manual' | 'direct'
   url?: string | null
 }
 export interface OutboundProxyResponse {
-  mode: string
+  mode: 'system' | 'manual' | 'direct'
   url: string
 }
 export interface PlanSummaryResponse {
@@ -3622,7 +3674,7 @@ export interface Reconcile_VariantDecision_Reconcile_FileDecision {
   message?: string
   path: string
   reason_code?: string
-  resolution: string
+  resolution: 'keep' | 'delete' | 'encode'
   target_path?: string
 }
 export interface RecordCreateRequest {
@@ -3643,7 +3695,7 @@ export interface RecordCreateResponse {
 }
 export interface RecordCreateResponse_SkippedFolderResponse {
   dir_id: string
-  reason: string
+  reason: 'unknown_dir' | 'duplicate' | 'ambiguous'
 }
 export interface RecordCreateResponse_WorksetResponse {
   created_at: string
@@ -3673,8 +3725,8 @@ export interface Refresh_DraftRequest {
 }
 export interface Refresh_DraftRequest_Refresh_Common {
   download_cover?: boolean
-  locale?: string
-  mode?: string
+  locale?: 'ja-jp' | 'zh-cn' | 'zh-tw'
+  mode?: 'fill_missing' | 'refresh_dynamic' | 'refresh_all'
 }
 export interface Refresh_DraftRequest_Refresh_Member {
   excluded?: boolean
@@ -3684,7 +3736,7 @@ export interface RelationResponse {
   language: string | null
   original_rj: string | null
   parent_rj: string | null
-  role: string | null
+  role: ('original' | 'parent' | 'child') | null
 }
 export interface RelationWarningResponse {
   code: string
@@ -3706,7 +3758,7 @@ export interface RenameV1RevisionMemberResponse_MemberConclusionResponse {
   category?: string
   excluded: boolean
   has_components: boolean
-  input: string
+  input: 'none' | 'valid' | 'stale' | 'missing' | 'unavailable'
   member_id: string
   task?: Dirrename_Outcome
 }
@@ -3740,13 +3792,13 @@ export interface RenameV1RevisionResponse_ExecutionRefResponse {
   execution_id: string
   finished_at?: string
   plan_id: string
-  status: string
+  status: 'queued' | 'running' | 'succeeded' | 'failed' | 'canceled' | 'interrupted'
 }
 export interface RenameV1RevisionResponse_MemberConclusionResponse {
   category?: string
   excluded: boolean
   has_components: boolean
-  input: string
+  input: 'none' | 'valid' | 'stale' | 'missing' | 'unavailable'
   member_id: string
   task?: Dirrename_Outcome
 }
@@ -3830,7 +3882,7 @@ export interface ScanEventData {
   unaddressable_names?: number
 }
 export interface ScanRequest {
-  mode?: string
+  mode?: 'full'
   root_path?: string | null
 }
 export interface SelectionRequest {
@@ -3846,7 +3898,7 @@ export interface SessionStatusEvent {
 }
 export interface SkippedFolderResponse {
   dir_id: string
-  reason: string
+  reason: 'unknown_dir' | 'duplicate' | 'ambiguous'
 }
 export interface SourceEntityResponse {
   id: string
@@ -3869,14 +3921,14 @@ export interface TreeNodeResponse {
   language: string | null
   relation: TreeNodeResponse_RelationResponse
   rj: string
-  role: string
+  role: '' | 'original' | 'parent' | 'child' | 'edition_page' | 'translation'
   source_url: string | null
 }
 export interface TreeNodeResponse_RelationResponse {
   language: string | null
   original_rj: string | null
   parent_rj: string | null
-  role: string | null
+  role: ('original' | 'parent' | 'child') | null
 }
 export interface TreeResponse {
   dir_id: string
@@ -3893,12 +3945,12 @@ export interface TreeResponse_MemberTreeNodeResponse {
   path: string
   rel_path: string
   size?: number
-  type: string
+  type: 'dir' | 'file'
 }
 export interface UpdateCheckResponse {
   latest_version?: string
   release_url?: string
-  state: string
+  state: 'checking' | 'none' | 'available'
 }
 export interface UserDataResponse {
   favorite: boolean
@@ -3954,7 +4006,7 @@ export interface WorkContentFileNodeJSON {
   duration_sec: number | null
   format: string | null
   height: number | null
-  kind: string
+  kind: 'aud' | 'img' | 'txt' | 'lrc' | 'vid' | 'bin'
   name: string
   rel_path: string
   size: number
@@ -4029,14 +4081,14 @@ export interface WorkDetailResponse_TreeNodeResponse {
   language: string | null
   relation: WorkDetailResponse_RelationResponse
   rj: string
-  role: string
+  role: '' | 'original' | 'parent' | 'child' | 'edition_page' | 'translation'
   source_url: string | null
 }
 export interface WorkDetailResponse_RelationResponse {
   language: string | null
   original_rj: string | null
   parent_rj: string | null
-  role: string | null
+  role: ('original' | 'parent' | 'child') | null
 }
 export interface WorkDetailResponse_EditionResponse {
   display_order: number
@@ -4171,7 +4223,7 @@ export interface WorkListResponse_WorkSummaryResponse {
   user_tags: WorkListResponse_UserTagResponse[]
 }
 export interface WorkListResponse_ListeningSummaryResponse {
-  state: string
+  state: 'none' | 'listening' | 'finished'
   track_count: number | null
   track_index: number | null
   updated_at: string | null
@@ -4276,7 +4328,7 @@ export interface WorkSummaryResponse {
   user_tags: WorkSummaryResponse_UserTagResponse[]
 }
 export interface WorkSummaryResponse_ListeningSummaryResponse {
-  state: string
+  state: 'none' | 'listening' | 'finished'
   track_count: number | null
   track_index: number | null
   updated_at: string | null

@@ -10,7 +10,7 @@ import (
 
 // mediaFactsStatus is the wire form of the `status` event.
 type mediaFactsStatus struct {
-	State     string                  `json:"state"`
+	State     string                  `json:"state"     jsonschema:"enum=running,enum=paused,enum=idle"`
 	Libraries []mediaFactsLibraryStat `json:"libraries"`
 }
 

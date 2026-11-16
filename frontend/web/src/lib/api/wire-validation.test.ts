@@ -43,6 +43,22 @@ it('binds a schema ID to its exact generated output type', async () => {
   expect(member.components).toBeUndefined()
 })
 
+it('rejects a value outside a schema enum, so a new backend value cannot pass unseen', async () => {
+  const library: WireSchemas['libraryResponse'] = {
+    id: 'l',
+    name: 'music',
+    root_path: '/music',
+    storage_class: 'ssd',
+    created_at: '2026-01-01T00:00:00Z',
+    updated_at: '2026-01-01T00:00:00Z',
+    last_scan_at: null,
+    last_scan_status: '',
+    last_scan_error: '',
+  }
+  await expect(validateWire('libraryResponse', library)).resolves.toEqual(library)
+  await expect(validateWire('libraryResponse', { ...library, storage_class: 'nvme' })).rejects.toBeInstanceOf(WireContractError)
+})
+
 it('rejects an undeclared HTTP success status with a valid body', async () => {
   vi.stubGlobal('fetch', vi.fn(async () => wireJson('healthResponse', { ok: true, version: 'dev', workset_max_members: 10000 }, {}, 201)))
   await expect(client().getHealth()).rejects.toThrow('unmapped HTTP status 201')

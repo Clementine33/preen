@@ -308,7 +308,7 @@ type RevisionMember struct {
 type MemberConclusion struct {
 	MemberID      string          `json:"member_id"`
 	Excluded      bool            `json:"excluded"`
-	Input         string          `json:"input"`
+	Input         string          `json:"input"          jsonschema:"enum=none,enum=valid,enum=stale,enum=missing,enum=unavailable"`
 	HasComponents bool            `json:"has_components"`
 	Task          json.RawMessage `json:"task,omitempty"`
 	// Category is the task-defined filing frozen at generation; empty when the

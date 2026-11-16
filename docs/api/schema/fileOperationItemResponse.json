@@ -16,6 +16,12 @@
           "type": "string"
         },
         "status": {
+          "enum": [
+            "ok",
+            "failed",
+            "skipped",
+            "not_attempted"
+          ],
           "type": "string"
         },
         "target": {

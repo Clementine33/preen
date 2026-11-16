@@ -47,7 +47,7 @@ func TestWireGenerationEvents(t *testing.T) {
 		event   string
 		payload any
 	}{
-		{"session_snapshot", workset.GenerationSnapshot{OperationType: "rename"}},
+		{"session_snapshot", workset.GenerationSnapshot{OperationType: "rename", Status: "queued"}},
 		{"progress", workset.GenerationProgressEvent{}},
 		{"completed", workset.GenerationCompletedEvent{}},
 		{"failed", workset.GenerationFailedEvent{}},
@@ -78,10 +78,10 @@ func TestWireExecutionEvents(t *testing.T) {
 		event   string
 		payload any
 	}{
-		{"execution_snapshot", &workset.ExecutionView{OperationType: "conversion"}},
-		{"component", workset.ExecutionComponentView{KeptDecisions: json.RawMessage(`[]`)}},
-		{"member", workset.MemberEvent{}},
-		{"progress", workset.ExecutionProgressEvent{}},
+		{"execution_snapshot", &workset.ExecutionView{OperationType: "conversion", Status: "queued"}},
+		{"component", workset.ExecutionComponentView{Status: "pending", KeptDecisions: json.RawMessage(`[]`)}},
+		{"member", workset.MemberEvent{Member: workset.MemberSummary{Status: "pending"}}},
+		{"progress", workset.ExecutionProgressEvent{Status: "running"}},
 		{"succeeded", workset.ExecutionSucceededEvent{}},
 		{"failed", workset.ExecutionFailedEvent{}},
 		{"canceled", workset.ExecutionStoppedEvent{}},
@@ -98,8 +98,12 @@ func TestWireExecutionEvents(t *testing.T) {
 	}
 	assertWireStream(t, "executions/missing/events", streamWireService{failure: errors.New("subscription failed")})
 	assertWireStream(t, "executions/e/events?view=members", streamWireService{
-		event:   "execution_snapshot",
-		payload: &workset.ExecutionView{OperationType: "conversion", Members: &workset.ExecutionMembers{}},
+		event: "execution_snapshot",
+		payload: &workset.ExecutionView{
+			OperationType: "conversion",
+			Status:        "queued",
+			Members:       &workset.ExecutionMembers{},
+		},
 	})
 }
 

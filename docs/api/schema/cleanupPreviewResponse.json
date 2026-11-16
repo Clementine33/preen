@@ -18,6 +18,16 @@
         },
         "categories": {
           "items": {
+            "enum": [
+              "scan_sessions",
+              "plan_generations",
+              "generation_records",
+              "works",
+              "relation_reports",
+              "source_tags",
+              "source_voice_actors",
+              "source_circles"
+            ],
             "type": "string"
           },
           "type": "array"

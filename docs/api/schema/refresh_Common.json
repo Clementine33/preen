@@ -7,9 +7,19 @@
           "type": "boolean"
         },
         "locale": {
+          "enum": [
+            "ja-jp",
+            "zh-cn",
+            "zh-tw"
+          ],
           "type": "string"
         },
         "mode": {
+          "enum": [
+            "fill_missing",
+            "refresh_dynamic",
+            "refresh_all"
+          ],
           "type": "string"
         }
       },

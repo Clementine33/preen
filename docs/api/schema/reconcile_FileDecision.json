@@ -13,6 +13,11 @@
           "type": "string"
         },
         "resolution": {
+          "enum": [
+            "keep",
+            "delete",
+            "encode"
+          ],
           "type": "string"
         },
         "target_path": {

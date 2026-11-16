@@ -19,7 +19,7 @@ type Outcome struct {
 	WorkCode   string `json:"work_code"`
 	RawName    string `json:"raw_name"`
 	TargetName string `json:"target_name"`
-	Action     string `json:"action"`
+	Action     string `json:"action"                jsonschema:"enum=rename,enum=noop,enum=blocked"`
 	ReasonCode string `json:"reason_code,omitempty"`
 	// CustomName is the literal name the user gave this folder instead of the template.
 	CustomName string `json:"custom_name,omitempty"`

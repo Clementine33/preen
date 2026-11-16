@@ -30,6 +30,11 @@
           "type": "array"
         },
         "state": {
+          "enum": [
+            "running",
+            "paused",
+            "idle"
+          ],
           "type": "string"
         }
       },

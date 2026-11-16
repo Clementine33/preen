@@ -43,6 +43,11 @@
       "additionalProperties": false,
       "properties": {
         "state": {
+          "enum": [
+            "none",
+            "listening",
+            "finished"
+          ],
           "type": "string"
         },
         "track_count": {

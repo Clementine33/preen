@@ -226,7 +226,14 @@ omits the field) does not prevent entry; creation still validates on the server.
 
 ## Wire schemas
 
-The checked-in [schemas](schema/) describe the encoding. Response and request
+The checked-in [schemas](schema/) describe the encoding, including the closed
+value sets of enumerated string fields (`status`, `mode`, `storage_class`,
+cleanup categories, `operation_type` and so on) as `enum`s; a value the backend
+does not list there is contract drift. The decoder reads an empty conversion `mode` or `delete_mode` as absent: only
+the conversion draft request schemas list that empty value, while Task payload
+schemas list the named values. Open vocabularies (error and reason codes,
+`summary_reason`, a plan `status`, a scan `stage`, `current_phase`, the fallback
+`message` event `status`, `last_scan_status`, audio `codec`) stay plain strings. Response and request
 array fields are never `null`: empty collections are `[]`, and `omitempty` fields
 may be absent. A non-omitted nil map still encodes as `null`; non-omitted pointers
 can be null. Task payload types (draft documents, settings, plans, outcomes and

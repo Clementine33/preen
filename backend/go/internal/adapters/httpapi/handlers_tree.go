@@ -38,7 +38,7 @@ type memberTreeNodeResponse struct {
 	Name     string                    `json:"name"`
 	Path     string                    `json:"path"`
 	RelPath  string                    `json:"rel_path"`
-	Type     string                    `json:"type"`
+	Type     string                    `json:"type"               jsonschema:"enum=dir,enum=file"`
 	Size     *int64                    `json:"size,omitempty"`
 	Bitrate  *int32                    `json:"bitrate"`
 	Format   string                    `json:"format"`

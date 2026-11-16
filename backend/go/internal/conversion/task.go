@@ -519,7 +519,7 @@ func deleteModeOf(declared string) (execute.DeleteMode, error) {
 
 // ExecutionOptions is the frozen task-specific execution configuration.
 type ExecutionOptions struct {
-	DeleteMode string `json:"delete_mode"`
+	DeleteMode string `json:"delete_mode" jsonschema:"enum=soft,enum=hard"`
 }
 
 // executionOptionsOf freezes the session options the draft declares: the

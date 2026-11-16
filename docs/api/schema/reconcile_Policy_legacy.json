@@ -40,6 +40,10 @@
           "$ref": "#/$defs/reconcile_DesiredProfile"
         },
         "mode": {
+          "enum": [
+            "strict",
+            "available_sources"
+          ],
           "type": "string"
         },
         "no_effect_tags": {

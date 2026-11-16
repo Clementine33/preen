@@ -7,6 +7,15 @@
           "$ref": "#/$defs/conversion_PartitionConclusion"
         },
         "status": {
+          "enum": [
+            "blocked",
+            "source_ambiguous",
+            "partially_unmet",
+            "unmet",
+            "changed",
+            "not_applicable",
+            "unchanged"
+          ],
           "type": "string"
         },
         "unmatched": {

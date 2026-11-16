@@ -85,7 +85,7 @@ type workSummaryResponse struct {
 
 // listeningSummaryResponse is the listing's per-work listening digest.
 type listeningSummaryResponse struct {
-	State      string  `json:"state"`
+	State      string  `json:"state"       jsonschema:"enum=none,enum=listening,enum=finished"`
 	TrackIndex *int    `json:"track_index"`
 	TrackCount *int    `json:"track_count"`
 	UpdatedAt  *string `json:"updated_at"`

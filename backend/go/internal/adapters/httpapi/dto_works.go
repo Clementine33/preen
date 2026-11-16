@@ -53,7 +53,7 @@ type workContentDirNodeJSON struct {
 type workContentFileNodeJSON struct {
 	Name        string   `json:"name"`
 	RelPath     string   `json:"rel_path"`
-	Kind        string   `json:"kind"`
+	Kind        string   `json:"kind"         jsonschema:"enum=aud,enum=img,enum=txt,enum=lrc,enum=vid,enum=bin"`
 	Size        int64    `json:"size"`
 	Format      *string  `json:"format"`
 	Bitrate     *int32   `json:"bitrate"`

@@ -113,9 +113,9 @@ type executionComponentResponse struct {
 	ComponentIndex     int             `json:"component_index"`
 	ComponentID        string          `json:"component_id"`
 	RootPath           string          `json:"root_path"`
-	Partition          string          `json:"partition"`
-	Status             string          `json:"status"`
-	Stage              string          `json:"stage,omitempty"`
+	Partition          string          `json:"partition"                      jsonschema:"enum=,enum=matched,enum=unmatched"`
+	Status             string          `json:"status"                         jsonschema:"enum=pending,enum=succeeded,enum=failed,enum=canceled"`
+	Stage              string          `json:"stage,omitempty"                jsonschema:"enum=precheck,enum=materialize,enum=validate,enum=commit,enum=remove,enum=skipped,enum=metadata"`
 	Operations         int             `json:"operations"`
 	CompletedOps       int             `json:"completed_operations"`
 	Committed          []string        `json:"committed"`
@@ -133,7 +133,7 @@ type executionViewResponse struct {
 	WorksetID           string                          `json:"workset_id"`
 	OperationType       string                          `json:"operation_type"`
 	PlanID              string                          `json:"plan_id"`
-	Status              string                          `json:"status"`
+	Status              string                          `json:"status"                        jsonschema:"enum=queued,enum=running,enum=succeeded,enum=failed,enum=canceled,enum=interrupted"`
 	Options             json.RawMessage                 `json:"options,omitempty"`
 	TotalComponents     int                             `json:"total_components"`
 	CompletedComponents int                             `json:"completed_components"`

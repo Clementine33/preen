@@ -35,6 +35,10 @@
           "type": "integer"
         },
         "type": {
+          "enum": [
+            "dir",
+            "file"
+          ],
           "type": "string"
         }
       },

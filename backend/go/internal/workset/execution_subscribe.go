@@ -9,7 +9,7 @@ import (
 // carries a fabricated percentage: only counts that actually happened on disk.
 type ExecutionProgressEvent struct {
 	ExecutionID         string `json:"execution_id"`
-	Status              string `json:"status"`
+	Status              string `json:"status"               jsonschema:"enum=queued,enum=running,enum=succeeded,enum=failed,enum=canceled,enum=interrupted"`
 	TotalComponents     int    `json:"total_components"`
 	CompletedComponents int    `json:"completed_components"`
 	TotalOperations     int    `json:"total_operations"`

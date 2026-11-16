@@ -23,6 +23,15 @@ const (
 	SourceCircles     Category = "source_circles"
 )
 
+// WireValues lists the categories the wire schema allows (docs/api/common.md#wire-schemas).
+func (Category) WireValues() []string {
+	out := make([]string, len(supportedCategories))
+	for i, c := range supportedCategories {
+		out[i] = string(c)
+	}
+	return out
+}
+
 var supportedCategories = []Category{
 	ScanSessions,
 	PlanGenerations,

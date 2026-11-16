@@ -70,6 +70,13 @@
           "type": "string"
         },
         "status": {
+          "enum": [
+            "pending",
+            "running",
+            "succeeded",
+            "failed",
+            "canceled"
+          ],
           "type": "string"
         },
         "total_components": {

@@ -179,6 +179,11 @@
       "additionalProperties": false,
       "properties": {
         "state": {
+          "enum": [
+            "none",
+            "listening",
+            "finished"
+          ],
           "type": "string"
         },
         "track_count": {
@@ -280,6 +285,11 @@
         "role": {
           "anyOf": [
             {
+              "enum": [
+                "original",
+                "parent",
+                "child"
+              ],
               "type": "string"
             },
             {
@@ -373,6 +383,14 @@
           "type": "string"
         },
         "role": {
+          "enum": [
+            "",
+            "original",
+            "parent",
+            "child",
+            "edition_page",
+            "translation"
+          ],
           "type": "string"
         },
         "source_url": {

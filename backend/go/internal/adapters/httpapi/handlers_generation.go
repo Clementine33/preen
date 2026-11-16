@@ -11,7 +11,7 @@ type generationViewResponse struct {
 	GenerationID   string `json:"generation_id"`
 	WorksetID      string `json:"workset_id"`
 	OperationType  string `json:"operation_type"`
-	Status         string `json:"status"`
+	Status         string `json:"status"          jsonschema:"enum=queued,enum=running,enum=completed,enum=failed,enum=canceled,enum=interrupted"`
 	TotalRoots     int    `json:"total_roots"`
 	CompletedRoots int    `json:"completed_roots"`
 	CurrentRoot    string `json:"current_root"`

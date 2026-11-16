@@ -32,6 +32,11 @@
           "type": "string"
         },
         "validation_state": {
+          "enum": [
+            "valid",
+            "stale",
+            "unavailable"
+          ],
           "type": "string"
         }
       },

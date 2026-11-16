@@ -36,6 +36,11 @@
         "role": {
           "anyOf": [
             {
+              "enum": [
+                "original",
+                "parent",
+                "child"
+              ],
               "type": "string"
             },
             {

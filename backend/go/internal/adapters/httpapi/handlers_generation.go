@@ -1,7 +1,6 @@
 package httpapi
 
 import (
-	"context"
 	"net/http"
 
 	"github.com/Clementine33/preen/backend/internal/workset"
@@ -59,7 +58,7 @@ func (s *Server) startGeneration(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "INTERNAL", "workset service not configured")
 		return
 	}
-	var req struct{}
+	var req emptyRequest
 	if decodeErr := decodeJSONAllowEmpty(w, r, &req); decodeErr != nil {
 		writeDecodeError(w, decodeErr, "invalid generation payload")
 		return
@@ -98,26 +97,26 @@ func (s *Server) startGeneration(w http.ResponseWriter, r *http.Request) {
 		// generation instead. Encoding both keeps the nil-revision replay
 		// from dereferencing a nil pointer.
 		if res.Revision != nil {
-			writeJSON(w, http.StatusOK, struct {
-				Created  bool                     `json:"created"`
-				Revision *currentRevisionResponse `json:"revision"`
-			}{Created: false, Revision: toCurrentRevisionResponse(res.Revision)})
+			writeJSON(w, http.StatusOK, generationReplayRevisionResponse{
+				Created:  false,
+				Revision: toCurrentRevisionResponse(res.Revision),
+			})
 			return
 		}
 		if res.Generation != nil {
-			writeJSON(w, http.StatusAccepted, struct {
-				Created    bool                   `json:"created"`
-				Generation generationViewResponse `json:"generation"`
-			}{Created: false, Generation: toGenerationViewResponse(res.Generation)})
+			writeJSON(w, http.StatusAccepted, generationStartResponse{
+				Created:    false,
+				Generation: toGenerationViewResponse(res.Generation),
+			})
 			return
 		}
 		writeError(w, http.StatusInternalServerError, "INTERNAL", "generation replay returned no result")
 		return
 	}
-	writeJSON(w, http.StatusAccepted, struct {
-		Created    bool                   `json:"created"`
-		Generation generationViewResponse `json:"generation"`
-	}{Created: true, Generation: toGenerationViewResponse(res.Generation)})
+	writeJSON(w, http.StatusAccepted, generationStartResponse{
+		Created:    true,
+		Generation: toGenerationViewResponse(res.Generation),
+	})
 }
 
 // getGeneration handles GET .../operations/{type}/planning-sessions/{genId}.
@@ -142,9 +141,17 @@ func (s *Server) generationEvents(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "INTERNAL", "workset service not configured")
 		return
 	}
-	streamSessionEvents(w, r, "GENERATION_NOT_FOUND", func(ctx context.Context, emit func(string, any) error) error {
-		return svc.Subscribe(ctx, r.PathValue("id"), r.PathValue("type"), r.PathValue("genId"), emit)
-	})
+	sw, ok := openSSEStream(w)
+	if !ok {
+		return
+	}
+	err = svc.Subscribe(r.Context(), r.PathValue("id"), r.PathValue("type"), r.PathValue("genId"),
+		func(event string, data any) error {
+			return emitGenerationEvent(sw, event, data)
+		})
+	if err != nil {
+		writeSSEError(sw, err, "GENERATION_NOT_FOUND")
+	}
 }
 
 // cancelGeneration handles POST .../planning-sessions/{genId}/cancel.

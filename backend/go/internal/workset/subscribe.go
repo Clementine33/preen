@@ -5,12 +5,9 @@ import (
 	"time"
 )
 
-// generationSnapshot is the wire shape of the session_snapshot event. It
-// mirrors the HTTP layer's generationViewResponse (snake_case JSON) so SSE
-// clients can parse the snapshot with the same contract as GET
-// /planning-sessions/{id}; emitting the tagless usecase view would serialize
-// PascalCase and be silently dropped by the frontend.
-type generationSnapshot struct {
+// GenerationSnapshot is the initial session_snapshot SSE payload. It keeps
+// the wire fields expected by SSE clients (RFC3339Nano timestamps as strings).
+type GenerationSnapshot struct {
 	GenerationID   string `json:"generation_id"`
 	WorksetID      string `json:"workset_id"`
 	Status         string `json:"status"`
@@ -26,8 +23,41 @@ type generationSnapshot struct {
 	CreatedAt      string `json:"created_at"`
 }
 
-func snapshotOf(g *PlanGeneration) generationSnapshot {
-	return generationSnapshot{
+// GenerationProgressEvent is the progress SSE payload for a planning session.
+type GenerationProgressEvent struct {
+	GenerationID   string `json:"generation_id"`
+	TotalRoots     int    `json:"total_roots"`
+	CompletedRoots int    `json:"completed_roots"`
+	CurrentRoot    string `json:"current_root"`
+	ErrorCount     int    `json:"error_count"`
+}
+
+// GenerationCompletedEvent is the completed SSE payload for a planning session.
+type GenerationCompletedEvent struct {
+	GenerationID string `json:"generation_id"`
+	RevisionID   string `json:"revision_id"`
+}
+
+// GenerationFailedEvent is the failed SSE payload for a planning session.
+type GenerationFailedEvent struct {
+	GenerationID string `json:"generation_id"`
+	ErrorCode    string `json:"error_code"`
+	ErrorMessage string `json:"error_message"`
+}
+
+// GenerationStoppedEvent is the canceled/interrupted SSE payload for a planning session.
+type GenerationStoppedEvent struct {
+	GenerationID string `json:"generation_id"`
+}
+
+// SessionStatusEvent is the fallback message SSE payload when a session ends
+// in an unexpected status.
+type SessionStatusEvent struct {
+	Status string `json:"status"`
+}
+
+func snapshotOf(g *PlanGeneration) GenerationSnapshot {
+	return GenerationSnapshot{
 		GenerationID:   g.GenerationID,
 		WorksetID:      g.WorksetID,
 		Status:         g.Status,
@@ -107,12 +137,12 @@ func (s *serviceImpl) Subscribe(
 		}
 		if cur.CompletedRoots != last {
 			last = cur.CompletedRoots
-			if err := emit("progress", map[string]any{
-				"generation_id":   cur.GenerationID,
-				"total_roots":     cur.TotalRoots,
-				"completed_roots": cur.CompletedRoots,
-				"current_root":    cur.CurrentRoot,
-				"error_count":     cur.ErrorCount,
+			if err := emit("progress", GenerationProgressEvent{
+				GenerationID:   cur.GenerationID,
+				TotalRoots:     cur.TotalRoots,
+				CompletedRoots: cur.CompletedRoots,
+				CurrentRoot:    cur.CurrentRoot,
+				ErrorCount:     cur.ErrorCount,
 			}); err != nil {
 				return err
 			}
@@ -133,17 +163,21 @@ func terminalStatus(status string) bool {
 func emitTerminal(emit func(event string, data any) error, status string, g *PlanGeneration) error {
 	switch status {
 	case GenStatusCompleted:
-		return emit("completed", map[string]any{"generation_id": g.GenerationID, "revision_id": g.RevisionID})
+		return emit("completed", GenerationCompletedEvent{
+			GenerationID: g.GenerationID,
+			RevisionID:   g.RevisionID,
+		})
 	case GenStatusFailed:
-		return emit(
-			"failed",
-			map[string]any{"generation_id": g.GenerationID, "error_code": g.ErrorCode, "error_message": g.ErrorMessage},
-		)
+		return emit("failed", GenerationFailedEvent{
+			GenerationID: g.GenerationID,
+			ErrorCode:    g.ErrorCode,
+			ErrorMessage: g.ErrorMessage,
+		})
 	case GenStatusCanceled:
-		return emit("canceled", map[string]any{"generation_id": g.GenerationID})
+		return emit("canceled", GenerationStoppedEvent{GenerationID: g.GenerationID})
 	case GenStatusInterrupted:
-		return emit("interrupted", map[string]any{"generation_id": g.GenerationID})
+		return emit("interrupted", GenerationStoppedEvent{GenerationID: g.GenerationID})
 	default:
-		return emit("message", map[string]any{"status": status})
+		return emit("message", SessionStatusEvent{Status: status})
 	}
 }

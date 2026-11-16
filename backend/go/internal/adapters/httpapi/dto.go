@@ -6,7 +6,64 @@ import (
 	"time"
 
 	"github.com/Clementine33/preen/backend/internal/library"
+	"github.com/Clementine33/preen/backend/internal/works"
 )
+
+// emptyRequest is an optional empty JSON request body.
+type emptyRequest struct{}
+
+// emptyEvent is an SSE event payload with no fields ({}).
+type emptyEvent struct{}
+
+// nullableInt is a three-state integer request field: omitted, null, or value.
+type nullableInt struct {
+	Set   bool
+	Value *int
+}
+
+// UnmarshalJSON records explicit presence, distinguishing null from omission.
+func (n *nullableInt) UnmarshalJSON(data []byte) error {
+	n.Set = true
+	if string(data) == "null" {
+		n.Value = nil
+		return nil
+	}
+	var value int
+	if err := json.Unmarshal(data, &value); err != nil {
+		return err
+	}
+	n.Value = &value
+	return nil
+}
+
+func (n nullableInt) toWorks() works.NullableInt {
+	return works.NullableInt{Set: n.Set, Value: n.Value}
+}
+
+// nullableString is a three-state string request field: omitted, null, or value.
+type nullableString struct {
+	Set   bool
+	Value *string
+}
+
+// UnmarshalJSON records explicit presence, distinguishing null from omission.
+func (n *nullableString) UnmarshalJSON(data []byte) error {
+	n.Set = true
+	if string(data) == "null" {
+		n.Value = nil
+		return nil
+	}
+	var value string
+	if err := json.Unmarshal(data, &value); err != nil {
+		return err
+	}
+	n.Value = &value
+	return nil
+}
+
+func (n nullableString) toWorks() works.NullableString {
+	return works.NullableString{Set: n.Set, Value: n.Value}
+}
 
 // errorResponse is the standard API error envelope: {"code":"...","message":"..."}.
 type errorResponse struct {
@@ -58,15 +115,15 @@ type healthResponse struct {
 
 // libraryResponse mirrors the repo Library type with snake_case JSON.
 type libraryResponse struct {
-	ID             string               `json:"id"`
-	Name           string               `json:"name"`
-	RootPath       string               `json:"root_path"`
-	StorageClass   library.StorageClass `json:"storage_class"`
-	CreatedAt      time.Time            `json:"created_at"`
-	UpdatedAt      time.Time            `json:"updated_at"`
-	LastScanAt     *time.Time           `json:"last_scan_at"`
-	LastScanStatus string               `json:"last_scan_status"`
-	LastScanError  string               `json:"last_scan_error"`
+	ID             string     `json:"id"`
+	Name           string     `json:"name"`
+	RootPath       string     `json:"root_path"`
+	StorageClass   string     `json:"storage_class"`
+	CreatedAt      time.Time  `json:"created_at"`
+	UpdatedAt      time.Time  `json:"updated_at"`
+	LastScanAt     *time.Time `json:"last_scan_at"`
+	LastScanStatus string     `json:"last_scan_status"`
+	LastScanError  string     `json:"last_scan_error"`
 }
 
 func toLibraryResponse(l *library.Library) libraryResponse {
@@ -74,7 +131,7 @@ func toLibraryResponse(l *library.Library) libraryResponse {
 		ID:             l.ID,
 		Name:           l.Name,
 		RootPath:       l.RootPath,
-		StorageClass:   l.StorageClass,
+		StorageClass:   string(l.StorageClass),
 		CreatedAt:      l.CreatedAt,
 		UpdatedAt:      l.UpdatedAt,
 		LastScanAt:     l.LastScanAt,

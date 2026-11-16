@@ -21,6 +21,10 @@ func (s *Server) removeCollectionWork(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+type collectionWorkMoveRequest struct {
+	Before json.RawMessage `json:"before_rj"`
+}
+
 func (s *Server) moveCollectionWork(w http.ResponseWriter, r *http.Request) {
 	service, ok := s.collectionService(w)
 	if !ok {
@@ -30,9 +34,7 @@ func (s *Server) moveCollectionWork(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	var request struct {
-		Before json.RawMessage `json:"before_rj"`
-	}
+	var request collectionWorkMoveRequest
 	if err := decodeJSON(w, r, &request); err != nil {
 		writeDecodeError(w, err, "invalid collection move")
 		return

@@ -1,6 +1,26 @@
 package httpapi
 
-import "net/http"
+import (
+	"net/http"
+
+	"github.com/Clementine33/preen/backend/internal/works"
+)
+
+// outboundProxyResponse is the GET/PUT /api/v1/outbound-proxy payload.
+type outboundProxyResponse struct {
+	Mode string `json:"mode"`
+	URL  string `json:"url"`
+}
+
+// outboundProxyPutRequest is the PUT /api/v1/outbound-proxy payload.
+type outboundProxyPutRequest struct {
+	Mode string  `json:"mode"`
+	URL  *string `json:"url"`
+}
+
+func toOutboundProxyResponse(proxy works.OutboundProxy) outboundProxyResponse {
+	return outboundProxyResponse{Mode: proxy.Mode, URL: proxy.URL}
+}
 
 // settingsRoutes registers the server-synced single-user settings and the
 // Settings page's Log Export.
@@ -23,7 +43,7 @@ func (s *Server) getOutboundProxy(w http.ResponseWriter, _ *http.Request) {
 		writeWorksError(w, refusal)
 		return
 	}
-	writeJSON(w, http.StatusOK, proxy)
+	writeJSON(w, http.StatusOK, toOutboundProxyResponse(proxy))
 }
 
 // putOutboundProxy handles PUT /api/v1/outbound-proxy: last write wins.
@@ -32,10 +52,7 @@ func (s *Server) putOutboundProxy(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	var req struct {
-		Mode string  `json:"mode"`
-		URL  *string `json:"url"`
-	}
+	var req outboundProxyPutRequest
 	if decodeErr := decodeJSON(w, r, &req); decodeErr != nil {
 		writeDecodeError(w, decodeErr, "invalid outbound proxy payload")
 		return
@@ -45,5 +62,5 @@ func (s *Server) putOutboundProxy(w http.ResponseWriter, r *http.Request) {
 		writeWorksError(w, refusal)
 		return
 	}
-	writeJSON(w, http.StatusOK, proxy)
+	writeJSON(w, http.StatusOK, toOutboundProxyResponse(proxy))
 }

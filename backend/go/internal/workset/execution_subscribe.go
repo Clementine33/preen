@@ -5,9 +5,9 @@ import (
 	"time"
 )
 
-// executionProgressEvent is the wire shape of the progress event. It never
+// ExecutionProgressEvent is the payload of the progress event. It never
 // carries a fabricated percentage: only counts that actually happened on disk.
-type executionProgressEvent struct {
+type ExecutionProgressEvent struct {
 	ExecutionID         string `json:"execution_id"`
 	Status              string `json:"status"`
 	TotalComponents     int    `json:"total_components"`
@@ -17,6 +17,24 @@ type executionProgressEvent struct {
 	CurrentRoot         string `json:"current_root"`
 	CurrentComponentID  string `json:"current_component_id"`
 	CurrentPhase        string `json:"current_phase"`
+}
+
+// ExecutionSucceededEvent is the succeeded SSE payload for an execution session.
+type ExecutionSucceededEvent struct {
+	ExecutionID string `json:"execution_id"`
+	PlanID      string `json:"plan_id"`
+}
+
+// ExecutionFailedEvent is the failed SSE payload for an execution session.
+type ExecutionFailedEvent struct {
+	ExecutionID  string `json:"execution_id"`
+	ErrorCode    string `json:"error_code"`
+	ErrorMessage string `json:"error_message"`
+}
+
+// ExecutionStoppedEvent is the canceled/interrupted SSE payload for an execution session.
+type ExecutionStoppedEvent struct {
+	ExecutionID string `json:"execution_id"`
 }
 
 // SubscribeExecution streams execution lifecycle events over the emit callback.
@@ -123,8 +141,8 @@ func (s *serviceImpl) SubscribeExecution(
 }
 
 // progressOf builds the progress payload a reconnect or tick compares against.
-func progressOf(e *PlanExecution) executionProgressEvent {
-	return executionProgressEvent{
+func progressOf(e *PlanExecution) ExecutionProgressEvent {
+	return ExecutionProgressEvent{
 		ExecutionID:         e.ExecutionID,
 		Status:              e.Status,
 		TotalComponents:     e.TotalComponents,
@@ -151,21 +169,21 @@ func executionTerminal(status string) bool {
 func emitExecutionTerminal(emit func(event string, data any) error, e *PlanExecution) error {
 	switch e.Status {
 	case ExecStatusSucceeded:
-		return emit(ExecutionEventSucceeded, map[string]any{
-			"execution_id": e.ExecutionID,
-			"plan_id":      e.PlanID,
+		return emit(ExecutionEventSucceeded, ExecutionSucceededEvent{
+			ExecutionID: e.ExecutionID,
+			PlanID:      e.PlanID,
 		})
 	case ExecStatusFailed:
-		return emit(ExecutionEventFailed, map[string]any{
-			"execution_id":  e.ExecutionID,
-			"error_code":    e.ErrorCode,
-			"error_message": e.ErrorMessage,
+		return emit(ExecutionEventFailed, ExecutionFailedEvent{
+			ExecutionID:  e.ExecutionID,
+			ErrorCode:    e.ErrorCode,
+			ErrorMessage: e.ErrorMessage,
 		})
 	case ExecStatusCanceled:
-		return emit(ExecutionEventCanceled, map[string]any{"execution_id": e.ExecutionID})
+		return emit(ExecutionEventCanceled, ExecutionStoppedEvent{ExecutionID: e.ExecutionID})
 	case ExecStatusInterrupted:
-		return emit(ExecutionEventInterrupted, map[string]any{"execution_id": e.ExecutionID})
+		return emit(ExecutionEventInterrupted, ExecutionStoppedEvent{ExecutionID: e.ExecutionID})
 	default:
-		return emit("message", map[string]any{"status": e.Status})
+		return emit("message", SessionStatusEvent{Status: e.Status})
 	}
 }

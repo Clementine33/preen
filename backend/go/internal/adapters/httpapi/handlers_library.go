@@ -35,6 +35,11 @@ func (s *Server) library(w http.ResponseWriter, r *http.Request) (*library.Libra
 	return lib, true
 }
 
+// libraryListResponse is the GET /api/v1/libraries payload.
+type libraryListResponse struct {
+	Libraries []libraryResponse `json:"libraries"`
+}
+
 func (s *Server) listLibraries(w http.ResponseWriter, _ *http.Request) {
 	libs, err := s.deps.Library.List()
 	if err != nil {
@@ -45,9 +50,7 @@ func (s *Server) listLibraries(w http.ResponseWriter, _ *http.Request) {
 	for _, l := range libs {
 		out = append(out, toLibraryResponse(l))
 	}
-	writeJSON(w, http.StatusOK, struct {
-		Libraries []libraryResponse `json:"libraries"`
-	}{Libraries: out})
+	writeJSON(w, http.StatusOK, libraryListResponse{Libraries: out})
 }
 
 func (s *Server) createLibrary(w http.ResponseWriter, r *http.Request) {
@@ -95,12 +98,13 @@ func (s *Server) patchLibrary(w http.ResponseWriter, r *http.Request) {
 
 	var storageClass *library.StorageClass
 	if req.StorageClass != nil {
-		var value library.StorageClass
-		if err := json.Unmarshal(
-			req.StorageClass,
-			&value,
-		); err != nil ||
-			(value != library.StorageHDD && value != library.StorageSSD) {
+		var raw string
+		if err := json.Unmarshal(req.StorageClass, &raw); err != nil {
+			writeError(w, http.StatusBadRequest, "INVALID_STORAGE_CLASS", library.ErrInvalidStorageClass.Error())
+			return
+		}
+		value := library.StorageClass(raw)
+		if value != library.StorageHDD && value != library.StorageSSD {
 			writeError(w, http.StatusBadRequest, "INVALID_STORAGE_CLASS", library.ErrInvalidStorageClass.Error())
 			return
 		}

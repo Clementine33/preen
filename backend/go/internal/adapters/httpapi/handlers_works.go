@@ -152,6 +152,12 @@ func toWorkSummary(summary works.WorkSummary) workSummaryResponse {
 	}
 }
 
+// workListResponse is one page of the ordinary work listing.
+type workListResponse struct {
+	Works []workSummaryResponse `json:"works"`
+	Total int                   `json:"total"`
+}
+
 // listWorks answers one page of the ordinary listing and the listing's total.
 func (s *Server) listWorks(w http.ResponseWriter, r *http.Request) {
 	service, ok := s.catalog(w)
@@ -168,10 +174,7 @@ func (s *Server) listWorks(w http.ResponseWriter, r *http.Request) {
 		writeWorksError(w, refusal)
 		return
 	}
-	out := struct {
-		Works []workSummaryResponse `json:"works"`
-		Total int                   `json:"total"`
-	}{Works: make([]workSummaryResponse, 0, len(page.Works)), Total: page.Total}
+	out := workListResponse{Works: make([]workSummaryResponse, 0, len(page.Works)), Total: page.Total}
 	for _, summary := range page.Works {
 		out.Works = append(out.Works, toWorkSummary(summary))
 	}

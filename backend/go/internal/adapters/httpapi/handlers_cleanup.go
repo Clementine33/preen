@@ -3,10 +3,104 @@ package httpapi
 import (
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/Clementine33/preen/backend/internal/admission"
 	"github.com/Clementine33/preen/backend/internal/cleanup"
 )
+
+type cleanupCategory string
+
+type cleanupCategoriesRequest struct {
+	Categories []cleanupCategory `json:"categories"`
+}
+
+type cleanupRuleResponse struct {
+	Protection string `json:"protection"`
+}
+
+type cleanupPreviewResponse struct {
+	CheckedAt  time.Time                               `json:"checked_at"`
+	Categories []cleanupCategory                       `json:"categories"`
+	Candidates map[cleanupCategory]int64               `json:"candidates"`
+	Rules      map[cleanupCategory]cleanupRuleResponse `json:"rules"`
+}
+
+type cleanupCountResponse struct {
+	Checked int64 `json:"checked"`
+	Deleted int64 `json:"deleted"`
+	Skipped int64 `json:"skipped"`
+}
+
+type cleanupRunResponse struct {
+	ID         string                                   `json:"run_id"`
+	Categories []cleanupCategory                        `json:"categories"`
+	Status     string                                   `json:"status"`
+	Phase      cleanupCategory                          `json:"phase"`
+	StartedAt  time.Time                                `json:"started_at"`
+	FinishedAt *time.Time                               `json:"finished_at"`
+	Counts     map[cleanupCategory]cleanupCountResponse `json:"counts"`
+	Reason     string                                   `json:"reason"`
+}
+
+type cleanupRunEnvelopeResponse struct {
+	Run *cleanupRunResponse `json:"run"`
+}
+
+func toCleanupCategories(in []cleanup.Category) []cleanupCategory {
+	if in == nil {
+		return nil
+	}
+	out := make([]cleanupCategory, len(in))
+	for i, c := range in {
+		out[i] = cleanupCategory(c)
+	}
+	return out
+}
+
+func toCleanupPreviewResponse(p cleanup.Preview) cleanupPreviewResponse {
+	candidates := make(map[cleanupCategory]int64, len(p.Candidates))
+	for k, v := range p.Candidates {
+		candidates[cleanupCategory(k)] = v
+	}
+	rules := make(map[cleanupCategory]cleanupRuleResponse, len(p.Rules))
+	for k, v := range p.Rules {
+		rules[cleanupCategory(k)] = cleanupRuleResponse{Protection: v.Protection}
+	}
+	return cleanupPreviewResponse{
+		CheckedAt:  p.CheckedAt,
+		Categories: toCleanupCategories(p.Categories),
+		Candidates: candidates,
+		Rules:      rules,
+	}
+}
+
+func toCleanupRunResponse(r *cleanup.Run) *cleanupRunResponse {
+	if r == nil {
+		return nil
+	}
+	var counts map[cleanupCategory]cleanupCountResponse
+	if r.Counts != nil {
+		counts = make(map[cleanupCategory]cleanupCountResponse, len(r.Counts))
+		for k, v := range r.Counts {
+			counts[cleanupCategory(k)] = cleanupCountResponse{
+				Checked: v.Checked,
+				Deleted: v.Deleted,
+				Skipped: v.Skipped,
+			}
+		}
+	}
+	return &cleanupRunResponse{
+		ID:         r.ID,
+		Categories: toCleanupCategories(r.Categories),
+		Status:     r.Status,
+		Phase:      cleanupCategory(r.Phase),
+		StartedAt:  r.StartedAt,
+		FinishedAt: r.FinishedAt,
+		Counts:     counts,
+		Reason:     r.Reason,
+	}
+}
 
 func (s *Server) cleanupRoutes(mux *http.ServeMux, protect func(http.Handler) http.Handler) {
 	mux.Handle("POST /api/v1/maintenance/cleanup/preview", protect(http.HandlerFunc(s.previewCleanup)))
@@ -21,14 +115,16 @@ func (s *Server) cleanupService(w http.ResponseWriter) *cleanup.Service {
 	return s.deps.Cleanup
 }
 func cleanupCategories(w http.ResponseWriter, r *http.Request) ([]cleanup.Category, error) {
-	var req struct {
-		Categories []cleanup.Category `json:"categories"`
-	}
+	var req cleanupCategoriesRequest
 	if err := decodeJSON(w, r, &req); err != nil {
 		writeDecodeError(w, err, "invalid cleanup payload")
 		return nil, err
 	}
-	categories, err := cleanup.Normalize(req.Categories)
+	raw := make([]cleanup.Category, len(req.Categories))
+	for i, c := range req.Categories {
+		raw[i] = cleanup.Category(c)
+	}
+	categories, err := cleanup.Normalize(raw)
 	if err != nil {
 		writeCleanupError(w, err)
 	}
@@ -60,7 +156,7 @@ func (s *Server) previewCleanup(w http.ResponseWriter, r *http.Request) {
 		writeCleanupError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, preview)
+	writeJSON(w, http.StatusOK, toCleanupPreviewResponse(preview))
 }
 func (s *Server) startCleanup(w http.ResponseWriter, r *http.Request) {
 	svc := s.cleanupService(w)
@@ -76,7 +172,7 @@ func (s *Server) startCleanup(w http.ResponseWriter, r *http.Request) {
 		writeCleanupError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusAccepted, map[string]any{"run": run})
+	writeJSON(w, http.StatusAccepted, cleanupRunEnvelopeResponse{Run: toCleanupRunResponse(run)})
 }
 func (s *Server) readCleanup(w http.ResponseWriter, r *http.Request) {
 	svc := s.cleanupService(w)
@@ -88,14 +184,14 @@ func (s *Server) readCleanup(w http.ResponseWriter, r *http.Request) {
 		writeCleanupError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"run": run})
+	writeJSON(w, http.StatusOK, cleanupRunEnvelopeResponse{Run: toCleanupRunResponse(run)})
 }
 func (s *Server) cancelCleanup(w http.ResponseWriter, r *http.Request) {
 	svc := s.cleanupService(w)
 	if svc == nil {
 		return
 	}
-	var req struct{}
+	var req emptyRequest
 	if err := decodeJSONAllowEmpty(w, r, &req); err != nil {
 		writeDecodeError(w, err, "invalid cleanup cancel payload")
 		return
@@ -105,5 +201,5 @@ func (s *Server) cancelCleanup(w http.ResponseWriter, r *http.Request) {
 		writeCleanupError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"run": run})
+	writeJSON(w, http.StatusOK, cleanupRunEnvelopeResponse{Run: toCleanupRunResponse(run)})
 }

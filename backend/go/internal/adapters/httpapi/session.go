@@ -21,10 +21,13 @@ func (s *Server) deleteSession(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// sessionCreateRequest is the POST /api/v1/session payload.
+type sessionCreateRequest struct {
+	Token *string `json:"token"`
+}
+
 func (s *Server) createSession(w http.ResponseWriter, r *http.Request) {
-	var input struct {
-		Token *string `json:"token"`
-	}
+	var input sessionCreateRequest
 	if err := decodeJSON(w, r, &input); err != nil {
 		writeDecodeError(w, err, "invalid session payload")
 		return

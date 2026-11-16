@@ -46,7 +46,8 @@ func (s *Server) getMemberReview(w http.ResponseWriter, r *http.Request) {
 	member := review.Member
 	writeJSON(w, http.StatusOK, memberReviewResponse{
 		MemberID: member.MemberID, MemberName: member.MemberName, FolderPath: member.FolderPath,
-		Excluded: member.Excluded, Effective: member.Payload, Sources: member.Sources, Conclusion: member.Conclusion,
-		PlanID: review.PlanID, Roots: toRoots(review.Roots), Task: toTaskEnvelope(review.Plan),
+		Excluded: member.Excluded, Effective: member.Payload, Sources: member.Sources,
+		Conclusion: toMemberConclusionResponse(member.Conclusion),
+		PlanID:     review.PlanID, Roots: toRoots(review.Roots), Task: toTaskEnvelope(review.Plan),
 	})
 }

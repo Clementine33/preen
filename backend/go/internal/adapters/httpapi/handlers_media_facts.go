@@ -69,7 +69,7 @@ func (s *Server) mediaFactsEvents(w http.ResponseWriter, r *http.Request) {
 		case <-r.Context().Done():
 			return
 		case <-changes:
-			if err := sw.Send("changed", struct{}{}); err != nil {
+			if err := sw.Send("changed", emptyEvent{}); err != nil {
 				return
 			}
 		case <-statusChanges:
@@ -77,7 +77,7 @@ func (s *Server) mediaFactsEvents(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		case <-worksChanged:
-			if err := sw.Send("works_changed", struct{}{}); err != nil {
+			if err := sw.Send("works_changed", emptyEvent{}); err != nil {
 				return
 			}
 		case <-heartbeat.C:

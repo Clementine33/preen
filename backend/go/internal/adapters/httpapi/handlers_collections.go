@@ -32,6 +32,75 @@ func collectionWindow(r *http.Request, withDirection bool) (collections.Window, 
 		Sort: works.SortField(r.URL.Query().Get("sort"))}, invalid
 }
 
+type collectionResponse struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	WorkCount int    `json:"work_count"`
+	CreatedAt string `json:"created_at"`
+	UpdatedAt string `json:"updated_at"`
+}
+
+type collectionListResponse struct {
+	Collections []collectionResponse `json:"collections"`
+	Total       int                  `json:"total"`
+}
+
+type collectionDetailResponse struct {
+	collectionResponse
+
+	Works []workSummaryResponse `json:"works"`
+	Total int                   `json:"total"`
+}
+
+type collectionNameRequest struct {
+	Name string `json:"name"`
+}
+
+type collectionWorksAppendRequest struct {
+	RJs []string `json:"rjs"`
+}
+
+type collectionWorksAppendResponse struct {
+	Added     []string `json:"added"`
+	Skipped   []string `json:"skipped"`
+	WorkCount int      `json:"work_count"`
+}
+
+func toCollectionResponse(c collections.Collection) collectionResponse {
+	return collectionResponse{
+		ID:        c.ID,
+		Name:      c.Name,
+		WorkCount: c.WorkCount,
+		CreatedAt: c.CreatedAt,
+		UpdatedAt: c.UpdatedAt,
+	}
+}
+
+func toCollectionListResponse(page collections.Page) collectionListResponse {
+	items := make([]collectionResponse, len(page.Collections))
+	for i, c := range page.Collections {
+		items[i] = toCollectionResponse(c)
+	}
+	return collectionListResponse{Collections: items, Total: page.Total}
+}
+
+func toCollectionAppendResponse(res collections.AppendResult) collectionWorksAppendResponse {
+	var added, skipped []string
+	if res.Added != nil {
+		added = make([]string, len(res.Added))
+		for i, code := range res.Added {
+			added[i] = string(code)
+		}
+	}
+	if res.Skipped != nil {
+		skipped = make([]string, len(res.Skipped))
+		for i, code := range res.Skipped {
+			skipped[i] = string(code)
+		}
+	}
+	return collectionWorksAppendResponse{Added: added, Skipped: skipped, WorkCount: res.WorkCount}
+}
+
 func (s *Server) listCollections(w http.ResponseWriter, r *http.Request) {
 	service, ok := s.collectionService(w)
 	if !ok {
@@ -47,7 +116,7 @@ func (s *Server) listCollections(w http.ResponseWriter, r *http.Request) {
 		writeWorksError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, page)
+	writeJSON(w, http.StatusOK, toCollectionListResponse(page))
 }
 
 func (s *Server) createCollection(w http.ResponseWriter, r *http.Request) {
@@ -55,9 +124,7 @@ func (s *Server) createCollection(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	var request struct {
-		Name string `json:"name"`
-	}
+	var request collectionNameRequest
 	if err := decodeJSON(w, r, &request); err != nil {
 		writeDecodeError(w, err, "invalid collection name")
 		return
@@ -67,7 +134,7 @@ func (s *Server) createCollection(w http.ResponseWriter, r *http.Request) {
 		writeWorksError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusCreated, c)
+	writeJSON(w, http.StatusCreated, toCollectionResponse(c))
 }
 
 func (s *Server) getCollection(w http.ResponseWriter, r *http.Request) {
@@ -85,12 +152,11 @@ func (s *Server) getCollection(w http.ResponseWriter, r *http.Request) {
 		writeWorksError(w, err)
 		return
 	}
-	out := struct {
-		collections.Collection
-
-		Works []workSummaryResponse `json:"works"`
-		Total int                   `json:"total"`
-	}{Collection: detail.Collection, Works: make([]workSummaryResponse, len(detail.Works)), Total: detail.Total}
+	out := collectionDetailResponse{
+		collectionResponse: toCollectionResponse(detail.Collection),
+		Works:              make([]workSummaryResponse, len(detail.Works)),
+		Total:              detail.Total,
+	}
 	rows := make([]*workSummaryResponse, len(detail.Works))
 	for i, summary := range detail.Works {
 		out.Works[i] = toWorkSummary(summary)
@@ -105,9 +171,7 @@ func (s *Server) appendCollectionWorks(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	var request struct {
-		RJs []string `json:"rjs"`
-	}
+	var request collectionWorksAppendRequest
 	if err := decodeJSON(w, r, &request); err != nil {
 		writeDecodeError(w, err, "invalid collection members")
 		return
@@ -117,7 +181,7 @@ func (s *Server) appendCollectionWorks(w http.ResponseWriter, r *http.Request) {
 		writeWorksError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, result)
+	writeJSON(w, http.StatusOK, toCollectionAppendResponse(result))
 }
 
 func (s *Server) renameCollection(w http.ResponseWriter, r *http.Request) {
@@ -125,9 +189,7 @@ func (s *Server) renameCollection(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	var request struct {
-		Name string `json:"name"`
-	}
+	var request collectionNameRequest
 	if err := decodeJSON(w, r, &request); err != nil {
 		writeDecodeError(w, err, "invalid collection name")
 		return
@@ -137,7 +199,7 @@ func (s *Server) renameCollection(w http.ResponseWriter, r *http.Request) {
 		writeWorksError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, c)
+	writeJSON(w, http.StatusOK, toCollectionResponse(c))
 }
 
 func (s *Server) deleteCollection(w http.ResponseWriter, r *http.Request) {

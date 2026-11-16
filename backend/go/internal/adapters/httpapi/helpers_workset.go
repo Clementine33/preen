@@ -139,10 +139,10 @@ func toTaskEnvelope(plan workset.RevisionPlan) taskEnvelopeResponse {
 		Payload: taskPayloadResponse{
 			Policy:     plan.Payload,
 			PolicyHash: plan.PolicyHash,
-			Classifier: rawJSON(struct {
-				Tags []string `json:"tags"`
-				Hash string   `json:"hash"`
-			}{plan.ClassifierTags, plan.ClassifierHash}),
+			Classifier: rawJSON(taskClassifierSnapshot{
+				Tags: plan.ClassifierTags,
+				Hash: plan.ClassifierHash,
+			}),
 			Summary:    plan.StepSummary,
 			Components: &components,
 		},

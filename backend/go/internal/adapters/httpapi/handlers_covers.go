@@ -81,6 +81,59 @@ func (s *Server) ownedCoverExecution(w http.ResponseWriter, r *http.Request) boo
 	}
 	return true
 }
+
+type coverTargetResponse struct {
+	CopyID      string `json:"copy_id"`
+	WorkCode    string `json:"rj"`
+	LibraryRoot string `json:"library_root"`
+	RelPath     string `json:"rel_path"`
+	Identity    string `json:"identity"`
+}
+
+type coverDestinationResponse struct {
+	ID           string              `json:"id"`
+	ExecutionID  string              `json:"execution_id"`
+	Target       coverTargetResponse `json:"target"`
+	Refresh      bool                `json:"refresh"`
+	Status       string              `json:"status"`
+	ErrorCode    string              `json:"error_code,omitempty"`
+	ErrorMessage string              `json:"error_message,omitempty"`
+	Published    string              `json:"published,omitempty"`
+	Digest       string              `json:"digest,omitempty"`
+}
+
+type coverReportResponse struct {
+	Items  []coverDestinationResponse `json:"items"`
+	Counts map[string]int             `json:"counts"`
+}
+
+func toCoverReportResponse(report coverdelivery.Report) coverReportResponse {
+	var items []coverDestinationResponse
+	if report.Items != nil {
+		items = make([]coverDestinationResponse, len(report.Items))
+		for i, item := range report.Items {
+			items[i] = coverDestinationResponse{
+				ID:          item.ID,
+				ExecutionID: item.ExecutionID,
+				Target: coverTargetResponse{
+					CopyID:      item.Target.CopyID,
+					WorkCode:    item.Target.WorkCode,
+					LibraryRoot: item.Target.LibraryRoot,
+					RelPath:     item.Target.RelPath,
+					Identity:    item.Target.Identity,
+				},
+				Refresh:      item.Refresh,
+				Status:       item.Status,
+				ErrorCode:    item.ErrorCode,
+				ErrorMessage: item.ErrorMessage,
+				Published:    item.Published,
+				Digest:       item.Digest,
+			}
+		}
+	}
+	return coverReportResponse{Items: items, Counts: report.Counts}
+}
+
 func (s *Server) getExecutionCovers(w http.ResponseWriter, r *http.Request) {
 	if !s.ownedCoverExecution(w, r) {
 		return
@@ -90,7 +143,7 @@ func (s *Server) getExecutionCovers(w http.ResponseWriter, r *http.Request) {
 		writeCoverError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, report)
+	writeJSON(w, http.StatusOK, toCoverReportResponse(report))
 }
 func (s *Server) retryExecutionCovers(w http.ResponseWriter, r *http.Request) {
 	if !s.ownedCoverExecution(w, r) {

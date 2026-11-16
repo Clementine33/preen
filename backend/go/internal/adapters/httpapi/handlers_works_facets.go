@@ -14,14 +14,38 @@ type facetResponse struct {
 	WorkCount int    `json:"work_count"`
 }
 
+// circleFacetsResponse is the GET /api/v1/circles payload.
+type circleFacetsResponse struct {
+	Circles []facetResponse `json:"circles"`
+}
+
+// voiceActorFacetsResponse is the GET /api/v1/voice-actors payload.
+type voiceActorFacetsResponse struct {
+	VoiceActors []facetResponse `json:"voice_actors"`
+}
+
+// tagFacetsResponse is the GET /api/v1/tags payload.
+type tagFacetsResponse struct {
+	SourceTags []facetResponse `json:"source_tags"`
+	UserTags   []facetResponse `json:"user_tags"`
+}
+
 // listCircles answers the circles the listing can filter by.
 func (s *Server) listCircles(w http.ResponseWriter, r *http.Request) {
-	s.listFacets(w, r, works.FacetCircle, "circles")
+	facets, ok := s.loadFacets(w, r, works.FacetCircle)
+	if !ok {
+		return
+	}
+	writeJSON(w, http.StatusOK, circleFacetsResponse{Circles: facets})
 }
 
 // listVoiceActors answers the voice actors the listing can filter by.
 func (s *Server) listVoiceActors(w http.ResponseWriter, r *http.Request) {
-	s.listFacets(w, r, works.FacetVoiceActor, "voice_actors")
+	facets, ok := s.loadFacets(w, r, works.FacetVoiceActor)
+	if !ok {
+		return
+	}
+	writeJSON(w, http.StatusOK, voiceActorFacetsResponse{VoiceActors: facets})
 }
 
 // listTags answers both tag vocabularies at once: the tag index shows them
@@ -36,38 +60,39 @@ func (s *Server) listTags(w http.ResponseWriter, r *http.Request) {
 		writeWorksError(w, refusal)
 		return
 	}
-	out := map[string][]facetResponse{}
-	for _, kind := range []struct {
-		kind works.FacetKind
-		key  string
-	}{{works.FacetSourceTag, "source_tags"}, {works.FacetUserTag, "user_tags"}} {
-		facets, refusal := service.Facets(kind.kind, filter)
-		if refusal != nil {
-			writeWorksError(w, refusal)
-			return
-		}
-		out[kind.key] = toFacetResponses(facets)
+	sourceTags, refusal := service.Facets(works.FacetSourceTag, filter)
+	if refusal != nil {
+		writeWorksError(w, refusal)
+		return
 	}
-	writeJSON(w, http.StatusOK, out)
+	userTags, refusal := service.Facets(works.FacetUserTag, filter)
+	if refusal != nil {
+		writeWorksError(w, refusal)
+		return
+	}
+	writeJSON(w, http.StatusOK, tagFacetsResponse{
+		SourceTags: toFacetResponses(sourceTags),
+		UserTags:   toFacetResponses(userTags),
+	})
 }
 
-// listFacets answers one facet list under its collection key.
-func (s *Server) listFacets(w http.ResponseWriter, r *http.Request, kind works.FacetKind, key string) {
+// loadFacets reads one facet list under the current filter.
+func (s *Server) loadFacets(w http.ResponseWriter, r *http.Request, kind works.FacetKind) ([]facetResponse, bool) {
 	service, ok := s.catalog(w)
 	if !ok {
-		return
+		return nil, false
 	}
 	filter, refusal := facetFilter(r)
 	if refusal != nil {
 		writeWorksError(w, refusal)
-		return
+		return nil, false
 	}
 	facets, refusal := service.Facets(kind, filter)
 	if refusal != nil {
 		writeWorksError(w, refusal)
-		return
+		return nil, false
 	}
-	writeJSON(w, http.StatusOK, map[string][]facetResponse{key: toFacetResponses(facets)})
+	return toFacetResponses(facets), true
 }
 
 // facetFilter reads a facet list's parameters: the listing's filters, without

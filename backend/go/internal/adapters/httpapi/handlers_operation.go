@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/Clementine33/preen/backend/internal/conversion/reconcile"
 	"github.com/Clementine33/preen/backend/internal/workset"
 )
 
@@ -14,15 +13,15 @@ import (
 // draftDocumentRequest is the PUT .../operations/{type}/draft payload: the six
 // common setting groups plus the sparse member records. Unoverridden units are absent from member records; null never means "clear".
 type draftDocumentRequest struct {
-	OtherTags     []string                  `json:"other_tags"`
-	SchemaVersion int                       `json:"schema_version"`
-	Mode          string                    `json:"mode"`
-	DeleteMode    string                    `json:"delete_mode,omitempty"`
-	NoEffectTags  []string                  `json:"no_effect_tags"`
-	Matched       reconcile.DesiredProfile  `json:"matched"`
-	Unmatched     reconcile.DesiredProfile  `json:"unmatched"`
-	Other         *reconcile.DesiredProfile `json:"other,omitempty"`
-	Members       []draftMemberRequest      `json:"members"`
+	OtherTags     []string             `json:"other_tags"`
+	SchemaVersion int                  `json:"schema_version"`
+	Mode          string               `json:"mode"`
+	DeleteMode    string               `json:"delete_mode,omitempty"`
+	NoEffectTags  []string             `json:"no_effect_tags"`
+	Matched       desiredProfileDTO    `json:"matched"`
+	Unmatched     desiredProfileDTO    `json:"unmatched"`
+	Other         *desiredProfileDTO   `json:"other,omitempty"`
+	Members       []draftMemberRequest `json:"members"`
 }
 
 type draftMemberRequest struct {
@@ -32,12 +31,12 @@ type draftMemberRequest struct {
 }
 
 type draftOverridesRequest struct {
-	OtherTags    *[]string                 `json:"other_tags"`
-	Mode         *string                   `json:"mode"`
-	NoEffectTags *[]string                 `json:"no_effect_tags"`
-	Matched      *reconcile.DesiredProfile `json:"matched"`
-	Unmatched    *reconcile.DesiredProfile `json:"unmatched"`
-	Other        *reconcile.DesiredProfile `json:"other"`
+	OtherTags    *[]string          `json:"other_tags"`
+	Mode         *string            `json:"mode"`
+	NoEffectTags *[]string          `json:"no_effect_tags"`
+	Matched      *desiredProfileDTO `json:"matched"`
+	Unmatched    *desiredProfileDTO `json:"unmatched"`
+	Other        *desiredProfileDTO `json:"other"`
 }
 
 // taskDraftEnvelope is the opaque task envelope of a draft document: the
@@ -69,7 +68,7 @@ type revisionMemberResponse struct {
 	Excluded   bool                     `json:"excluded"`
 	Effective  json.RawMessage          `json:"effective"`
 	Sources    map[string]string        `json:"sources"`
-	Conclusion workset.MemberConclusion `json:"conclusion"`
+	Conclusion memberConclusionResponse `json:"conclusion"`
 }
 
 func toDraftResponse(d *workset.Draft) draftResponse {
@@ -107,12 +106,12 @@ func decodeDraftBody(w http.ResponseWriter, r *http.Request) (json.RawMessage, b
 		}
 		return toDraftPayload(req), true
 	}
-	var body json.RawMessage
+	var body opaqueDraftRequest
 	if err := decodeJSON(w, r, &body); err != nil {
 		writeDecodeError(w, err, "invalid draft payload")
 		return nil, false
 	}
-	return body, true
+	return json.RawMessage(body), true
 }
 
 // ==================== Handlers ====================
@@ -218,22 +217,7 @@ func (s *Server) getRevision(w http.ResponseWriter, r *http.Request) {
 	if category != "" {
 		categoryTotal = &rv.CategoryTotal
 	}
-	writeJSON(w, http.StatusOK, struct {
-		PlanID        string                 `json:"plan_id"`
-		RevisionIndex int                    `json:"revision_index"`
-		CreatedAt     string                 `json:"created_at"`
-		RootPath      string                 `json:"root_path"`
-		SnapshotToken string                 `json:"snapshot_token"`
-		Status        string                 `json:"status"`
-		Summary       planSummaryResponse    `json:"summary"`
-		Task          taskEnvelopeResponse   `json:"task"`
-		Counts        revisionCountsResponse `json:"counts"`
-		// CategoryTotal is set only on a category read.
-		CategoryCounts map[string]int             `json:"category_counts"`
-		CategoryTotal  *int                       `json:"category_total,omitempty"`
-		Members        []workset.MemberConclusion `json:"members"`
-		Execution      *workset.ExecutionRef      `json:"execution"`
-	}{
+	writeJSON(w, http.StatusOK, revisionResponse{
 		PlanID:        rv.PlanID,
 		RevisionIndex: rv.RevisionIndex,
 		CreatedAt:     rv.CreatedAt.UTC().Format(timeFormatJSON),
@@ -255,7 +239,7 @@ func (s *Server) getRevision(w http.ResponseWriter, r *http.Request) {
 		Task:           task,
 		CategoryCounts: rv.CategoryCounts,
 		CategoryTotal:  categoryTotal,
-		Members:        rv.Members,
-		Execution:      rv.Execution,
+		Members:        toMemberConclusionResponses(rv.Members),
+		Execution:      toExecutionRefResponse(rv.Execution),
 	})
 }

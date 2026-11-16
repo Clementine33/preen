@@ -25,6 +25,61 @@ type fileOperationItem struct {
 	TargetDir string `json:"target_dir,omitempty"`
 }
 
+// fileOperationItemResponse is what happened to one requested item.
+type fileOperationItemResponse struct {
+	Source        string `json:"source"`
+	Status        string `json:"status"`
+	Code          string `json:"code,omitempty"`
+	Message       string `json:"message,omitempty"`
+	Target        string `json:"target,omitempty"`
+	RecoveredPath string `json:"recovered_path,omitempty"`
+}
+
+// fileOperationRefreshResponse reports the post-write inventory refresh state.
+type fileOperationRefreshResponse struct {
+	OK      bool   `json:"ok"`
+	Code    string `json:"code,omitempty"`
+	Message string `json:"message,omitempty"`
+}
+
+// fileOperationResponse is the POST /api/v1/libraries/{id}/file-operations payload.
+type fileOperationResponse struct {
+	Operation  string                       `json:"operation"`
+	MemberPath string                       `json:"member_path"`
+	Items      []fileOperationItemResponse  `json:"items"`
+	Succeeded  int                          `json:"succeeded"`
+	Failed     int                          `json:"failed"`
+	Untouched  int                          `json:"untouched"`
+	Refresh    fileOperationRefreshResponse `json:"refresh"`
+}
+
+func toFileOperationResponse(res *fileops.Result) fileOperationResponse {
+	items := make([]fileOperationItemResponse, len(res.Items))
+	for i, item := range res.Items {
+		items[i] = fileOperationItemResponse{
+			Source:        item.Source,
+			Status:        item.Status,
+			Code:          item.Code,
+			Message:       item.Message,
+			Target:        item.Target,
+			RecoveredPath: item.RecoveredPath,
+		}
+	}
+	return fileOperationResponse{
+		Operation:  res.Operation,
+		MemberPath: res.MemberPath,
+		Items:      items,
+		Succeeded:  res.Succeeded,
+		Failed:     res.Failed,
+		Untouched:  res.Untouched,
+		Refresh: fileOperationRefreshResponse{
+			OK:      res.Refresh.OK,
+			Code:    res.Refresh.Code,
+			Message: res.Refresh.Message,
+		},
+	}
+}
+
 // applyFileOperation performs direct file management inside one member
 // directory: single-item rename, single-item move inside the member, or a
 // batch soft delete into the library's recovery directory.
@@ -74,5 +129,5 @@ func (s *Server) applyFileOperation(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "REQUEST_REFUSED", err.Error())
 		return
 	}
-	writeJSON(w, http.StatusOK, result)
+	writeJSON(w, http.StatusOK, toFileOperationResponse(result))
 }

@@ -1,7 +1,6 @@
 package httpapi
 
 import (
-	"context"
 	"errors"
 	"net/http"
 
@@ -87,8 +86,8 @@ type operationResponse struct {
 	CurrentRevision  *currentRevisionResponse    `json:"current_revision"`
 	ActiveGeneration *generationProgressResponse `json:"active_generation"`
 	LatestGeneration *generationSummaryResponse  `json:"latest_generation"`
-	ActiveExecution  *workset.ExecutionProgress  `json:"active_execution"`
-	LatestExecution  *workset.ExecutionRef       `json:"latest_execution"`
+	ActiveExecution  *executionProgressResponse  `json:"active_execution"`
+	LatestExecution  *executionRefResponse       `json:"latest_execution"`
 	MaxParticipants  int                         `json:"max_participants,omitempty"`
 }
 
@@ -139,8 +138,8 @@ func toOperationResponse(v *workset.OperationView) operationResponse {
 			FinishedAt:   v.LatestGeneration.FinishedAt.UTC().Format(timeFormatJSON),
 		}
 	}
-	out.ActiveExecution = v.ActiveExecution
-	out.LatestExecution = v.LatestExecution
+	out.ActiveExecution = toExecutionProgressResponse(v.ActiveExecution)
+	out.LatestExecution = toExecutionRefResponse(v.LatestExecution)
 	return out
 }
 
@@ -203,37 +202,6 @@ func (s *Server) worksetService() (workset.Service, error) {
 		return nil, errors.New("workset service not configured")
 	}
 	return s.deps.WorksetService, nil
-}
-
-// streamSessionEvents opens one SSE stream and delegates to a session
-// subscribe function. A missing session is reported as a structured error
-// event, because the 200 status is already committed with the stream headers.
-func streamSessionEvents(
-	w http.ResponseWriter,
-	r *http.Request,
-	notFoundCode string,
-	subscribe func(ctx context.Context, emit func(event string, data any) error) error,
-) {
-	sw, err := newSSEWriter(w)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "INTERNAL", "streaming not supported")
-		return
-	}
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("X-Accel-Buffering", "no")
-	w.WriteHeader(http.StatusOK)
-
-	emit := func(event string, data any) error {
-		return sw.Send(event, data)
-	}
-	if err := subscribe(r.Context(), emit); err != nil {
-		if werr, ok := workset.AsError(err); ok && werr.Code == notFoundCode {
-			_ = sw.Send("error", map[string]string{"code": notFoundCode, "message": werr.Message})
-			return
-		}
-		_ = sw.Send("error", map[string]string{"code": "INTERNAL", "message": "streaming failed"})
-	}
 }
 
 // listWorksets handles GET /api/v1/worksets.

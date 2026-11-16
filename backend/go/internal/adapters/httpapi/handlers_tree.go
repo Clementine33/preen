@@ -28,6 +28,46 @@ type dirResponse struct {
 	WorkCode *string `json:"work_code"`
 }
 
+// dirListResponse is the GET /api/v1/libraries/{id}/dirs payload.
+type dirListResponse struct {
+	Dirs []dirResponse `json:"dirs"`
+}
+
+// memberTreeNodeResponse is one node of a member directory tree.
+type memberTreeNodeResponse struct {
+	Name     string                    `json:"name"`
+	Path     string                    `json:"path"`
+	RelPath  string                    `json:"rel_path"`
+	Type     string                    `json:"type"`
+	Size     *int64                    `json:"size,omitempty"`
+	Bitrate  *int32                    `json:"bitrate"`
+	Format   string                    `json:"format"`
+	Children []*memberTreeNodeResponse `json:"children,omitempty"`
+}
+
+func toMemberTreeNodeResponse(node *inventory.TreeNode) *memberTreeNodeResponse {
+	if node == nil {
+		return nil
+	}
+	var children []*memberTreeNodeResponse
+	if node.Children != nil {
+		children = make([]*memberTreeNodeResponse, len(node.Children))
+		for i, child := range node.Children {
+			children[i] = toMemberTreeNodeResponse(child)
+		}
+	}
+	return &memberTreeNodeResponse{
+		Name:     node.Name,
+		Path:     node.Path,
+		RelPath:  node.RelPath,
+		Type:     node.Type,
+		Size:     node.Size,
+		Bitrate:  node.Bitrate,
+		Format:   node.Format,
+		Children: children,
+	}
+}
+
 // listLibraryDirs returns every scanned work root of the library root,
 // including empty ones and ones holding no audio. Recovery directories at every
 // depth are not members and are left out.
@@ -59,18 +99,16 @@ func (s *Server) listLibraryDirs(w http.ResponseWriter, r *http.Request) {
 			WorkCode:       code,
 		})
 	}
-	writeJSON(w, http.StatusOK, struct {
-		Dirs []dirResponse `json:"dirs"`
-	}{Dirs: out})
+	writeJSON(w, http.StatusOK, dirListResponse{Dirs: out})
 }
 
 // treeResponse is the stored tree of one member directory plus the identity it
 // was addressed by, so a caller that only knows the identity learns which path
 // it names (ADR 0003).
 type treeResponse struct {
-	Tree       *inventory.TreeNode `json:"tree"`
-	DirID      string              `json:"dir_id"`
-	MemberPath string              `json:"member_path"`
+	Tree       *memberTreeNodeResponse `json:"tree"`
+	DirID      string                  `json:"dir_id"`
+	MemberPath string                  `json:"member_path"`
 	// RJ is the work the member directory is bound to; null when unbound.
 	RJ        *string `json:"rj"`
 	Refreshed bool    `json:"refreshed,omitempty"`
@@ -103,7 +141,7 @@ func (s *Server) getMemberTree(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, treeResponse{
-		Tree:       tree,
+		Tree:       toMemberTreeNodeResponse(tree),
 		DirID:      member.DirID,
 		MemberPath: member.RelPath,
 		RJ:         s.boundWork(member),
@@ -151,7 +189,7 @@ func (s *Server) refreshMemberTree(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, treeResponse{
-		Tree:       tree,
+		Tree:       toMemberTreeNodeResponse(tree),
 		DirID:      member.DirID,
 		MemberPath: member.RelPath,
 		RJ:         s.boundWork(member),

@@ -1,7 +1,6 @@
 package httpapi
 
 import (
-	"context"
 	"errors"
 	"net/http"
 
@@ -36,10 +35,7 @@ func (s *Server) startExecution(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	var body struct {
-		MemberIDs          []string `json:"member_ids"`
-		AllExceptMemberIDs []string `json:"all_except_member_ids"`
-	}
+	var body executionStartRequest
 	if decodeErr := decodeJSONAllowEmpty(w, r, &body); decodeErr != nil {
 		writeDecodeError(w, decodeErr, "invalid execution request body")
 		return
@@ -64,10 +60,10 @@ func (s *Server) startExecution(w http.ResponseWriter, r *http.Request) {
 	if !res.Created {
 		status = http.StatusOK
 	}
-	writeJSON(w, status, struct {
-		Created   bool                  `json:"created"`
-		Execution workset.ExecutionView `json:"execution"`
-	}{Created: res.Created, Execution: *res.Execution})
+	writeJSON(w, status, executionStartResponse{
+		Created:   res.Created,
+		Execution: toExecutionViewResponse(res.Execution),
+	})
 }
 
 // getExecution handles GET
@@ -97,7 +93,7 @@ func (s *Server) getExecution(w http.ResponseWriter, r *http.Request) {
 		writeWorksetError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, view)
+	writeJSON(w, http.StatusOK, toExecutionViewResponse(view))
 }
 
 // executionReadOf reads the optional shape parameters of a detail request.
@@ -126,7 +122,7 @@ func (s *Server) cancelExecution(w http.ResponseWriter, r *http.Request) {
 		writeWorksetError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, view)
+	writeJSON(w, http.StatusOK, toExecutionViewResponse(view))
 }
 
 // executionEvents handles GET
@@ -148,7 +144,15 @@ func (s *Server) executionEvents(w http.ResponseWriter, r *http.Request) {
 		}
 		subscribe = svc.SubscribeExecutionMembers
 	}
-	streamSessionEvents(w, r, "EXECUTION_NOT_FOUND", func(ctx context.Context, emit func(string, any) error) error {
-		return subscribe(ctx, r.PathValue("id"), r.PathValue("type"), r.PathValue("executionId"), emit)
-	})
+	sw, ok := openSSEStream(w)
+	if !ok {
+		return
+	}
+	err = subscribe(r.Context(), r.PathValue("id"), r.PathValue("type"), r.PathValue("executionId"),
+		func(event string, data any) error {
+			return emitExecutionEvent(sw, event, data)
+		})
+	if err != nil {
+		writeSSEError(sw, err, "EXECUTION_NOT_FOUND")
+	}
 }

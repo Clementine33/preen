@@ -122,17 +122,17 @@ func toEditionTree(slots []works.EditionSlot) []editionSlotResponse {
 type workDetailResponse struct {
 	workSummaryResponse
 
-	SourceURL        *string                 `json:"source_url"`
-	SampleCoverURL   *string                 `json:"sample_cover_url"`
-	SeriesID         *string                 `json:"series_id"`
-	SeriesName       *string                 `json:"series_name"`
-	VoiceActors      []sourceEntityResponse  `json:"voice_actors"`
-	SourceTags       []sourceEntityResponse  `json:"source_tags"`
-	Note             string                  `json:"note"`
-	Editions         []editionResponse       `json:"language_editions"`
-	Relation         relationResponse        `json:"relation"`
-	RelationWarnings []works.RelationWarning `json:"relation_warnings"`
-	RelationNodes    []treeNodeResponse      `json:"relation_nodes"`
+	SourceURL        *string                   `json:"source_url"`
+	SampleCoverURL   *string                   `json:"sample_cover_url"`
+	SeriesID         *string                   `json:"series_id"`
+	SeriesName       *string                   `json:"series_name"`
+	VoiceActors      []sourceEntityResponse    `json:"voice_actors"`
+	SourceTags       []sourceEntityResponse    `json:"source_tags"`
+	Note             string                    `json:"note"`
+	Editions         []editionResponse         `json:"language_editions"`
+	Relation         relationResponse          `json:"relation"`
+	RelationWarnings []relationWarningResponse `json:"relation_warnings"`
+	RelationNodes    []treeNodeResponse        `json:"relation_nodes"`
 	// EditionTree is the resolved JPN / CHI_HANS / CHI_HANT lines, null when
 	// the work has no edition besides itself.
 	EditionTree   []editionSlotResponse `json:"edition_tree"`
@@ -155,12 +155,19 @@ func toWorkDetail(detail *works.WorkDetail, dirID func(works.Copy) string) workD
 		SourceTags:          toSourceEntityResponses(detail.SourceTags),
 		Note:                detail.Note,
 		Relation:            toRelationResponse(detail.Relation),
-		RelationWarnings:    append([]works.RelationWarning{}, detail.RelationWarnings...),
+		RelationWarnings:    make([]relationWarningResponse, 0, len(detail.RelationWarnings)),
 		RelationNodes:       make([]treeNodeResponse, 0, len(detail.RelationNodes)),
 		EditionTree:         toEditionTree(detail.EditionTree),
 		Copies:              make([]copyResponse, 0, len(detail.Copies)),
 		CollectionIDs:       append([]string{}, detail.CollectionIDs...),
 		Listening:           make([]listeningResponse, 0, len(detail.Listening)),
+	}
+	for _, warning := range detail.RelationWarnings {
+		out.RelationWarnings = append(out.RelationWarnings, relationWarningResponse{
+			Code:    warning.Code,
+			WorkID:  string(warning.WorkID),
+			Message: warning.Message,
+		})
 	}
 	for _, node := range detail.RelationNodes {
 		out.RelationNodes = append(out.RelationNodes, toTreeNode(node))
@@ -231,7 +238,7 @@ func (s *Server) getWorkContent(w http.ResponseWriter, r *http.Request) {
 		writeWorksError(w, refusal)
 		return
 	}
-	writeJSON(w, http.StatusOK, content)
+	writeJSON(w, http.StatusOK, toWorkContentResponse(content))
 }
 
 // ==================== metadata import ====================
@@ -275,12 +282,12 @@ func (s *Server) putWorkMetadata(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	var req works.ImportRequest
+	var req workMetadataImportRequest
 	if decodeErr := decodeJSON(w, r, &req); decodeErr != nil {
 		writeDecodeError(w, decodeErr, "invalid metadata payload")
 		return
 	}
-	outcome, refusal := service.Import(code, req)
+	outcome, refusal := service.Import(code, req.toWorks())
 	if refusal != nil {
 		writeWorksError(w, refusal)
 		return
@@ -337,12 +344,12 @@ func (s *Server) patchWorkUserData(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	var req works.UserDataRequest
+	var req workUserDataPatchRequest
 	if decodeErr := decodeJSON(w, r, &req); decodeErr != nil {
 		writeDecodeError(w, decodeErr, "invalid user data payload")
 		return
 	}
-	data, refusal := service.PatchUserData(code, req)
+	data, refusal := service.PatchUserData(code, req.toWorks())
 	if refusal != nil {
 		writeWorksError(w, refusal)
 		return
@@ -360,19 +367,17 @@ func (s *Server) putWorkUserTags(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	var req works.UserTagsRequest
+	var req workUserTagsRequest
 	if decodeErr := decodeJSON(w, r, &req); decodeErr != nil {
 		writeDecodeError(w, decodeErr, "invalid user tag payload")
 		return
 	}
-	tags, refusal := service.ReplaceUserTags(code, req)
+	tags, refusal := service.ReplaceUserTags(code, works.UserTagsRequest{TagIDs: req.TagIDs})
 	if refusal != nil {
 		writeWorksError(w, refusal)
 		return
 	}
-	writeJSON(w, http.StatusOK, struct {
-		UserTags []userTagResponse `json:"user_tags"`
-	}{UserTags: toUserTagResponses(tags)})
+	writeJSON(w, http.StatusOK, userTagListResponse{UserTags: toUserTagResponses(tags)})
 }
 
 // ==================== user tags ====================
@@ -393,9 +398,7 @@ func (s *Server) listUserTags(w http.ResponseWriter, r *http.Request) {
 		writeWorksError(w, refusal)
 		return
 	}
-	writeJSON(w, http.StatusOK, struct {
-		UserTags []userTagResponse `json:"user_tags"`
-	}{UserTags: toUserTagResponses(tags)})
+	writeJSON(w, http.StatusOK, userTagListResponse{UserTags: toUserTagResponses(tags)})
 }
 
 // createUserTag creates a tag, or answers with the existing one when the name

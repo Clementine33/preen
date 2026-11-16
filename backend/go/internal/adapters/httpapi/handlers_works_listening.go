@@ -28,29 +28,7 @@ func toListening(row works.Listening) listeningResponse {
 }
 
 // workListeningRequest is the PUT /api/v1/works/{rj}/listening payload.
-type workListeningRequest struct {
-	Rendition   string  `json:"rendition"`
-	TrackKey    string  `json:"track_key"`
-	PositionSec float64 `json:"position_sec"`
-	TrackIndex  int     `json:"track_index"`
-	TrackCount  int     `json:"track_count"`
-	Finished    bool    `json:"finished"`
-	Client      string  `json:"client"`
-	Seq         int64   `json:"seq"`
-}
-
-func (r workListeningRequest) toWorks() works.ListeningRequest {
-	return works.ListeningRequest{
-		Rendition:   r.Rendition,
-		TrackKey:    r.TrackKey,
-		PositionSec: r.PositionSec,
-		TrackIndex:  r.TrackIndex,
-		TrackCount:  r.TrackCount,
-		Finished:    r.Finished,
-		Client:      r.Client,
-		Seq:         r.Seq,
-	}
-}
+type workListeningRequest works.ListeningRequest
 
 // putWorkListening stores one Listening Position snapshot and answers the
 // stored row.
@@ -68,7 +46,7 @@ func (s *Server) putWorkListening(w http.ResponseWriter, r *http.Request) {
 		writeDecodeError(w, decodeErr, "invalid listening payload")
 		return
 	}
-	row, refusal := service.PutListening(code, req.toWorks())
+	row, refusal := service.PutListening(code, works.ListeningRequest(req))
 	if refusal != nil {
 		writeWorksError(w, refusal)
 		return

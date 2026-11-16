@@ -149,48 +149,22 @@ type workImportCoreRequest struct {
 	Tags           []workImportTagRequest        `json:"tags"`
 }
 
-type workImportCircleRequest struct {
-	SourceCircleID *string `json:"source_circle_id"`
-	Name           string  `json:"name"`
-}
-
-type workImportVoiceActorRequest struct {
-	SourceVoiceActorID *string `json:"source_voice_actor_id"`
-	Name               string  `json:"name"`
-}
-
-type workImportTagRequest struct {
-	SourceTagID *string `json:"source_tag_id"`
-	Name        string  `json:"name"`
-}
-
-type workImportStatisticsRequest struct {
-	FetchedAt string `json:"fetched_at"`
-	DLCount   *int   `json:"dl_count"`
-}
-
-type workImportRelationsRequest struct {
-	Source     string   `json:"source"`
-	FetchedAt  string   `json:"fetched_at"`
-	Role       string   `json:"role"`
-	Language   *string  `json:"language"`
-	OriginalRJ *string  `json:"original_rj"`
-	ParentRJ   *string  `json:"parent_rj"`
-	ChildRJs   []string `json:"child_rjs"`
-}
+// The leaf import requests are the works import types themselves: they cross
+// the wire unchanged, so a domain change shows in the schema diff.
+type (
+	workImportCircleRequest      works.ImportCircle
+	workImportVoiceActorRequest  works.ImportVoiceActor
+	workImportTagRequest         works.ImportTag
+	workImportStatisticsRequest  works.ImportStatistics
+	workImportRelationsRequest   works.ImportRelations
+	workImportEditionItemRequest works.ImportEditionItem
+)
 
 type workImportEditionsRequest struct {
 	Source    string                         `json:"source"`
 	FetchedAt string                         `json:"fetched_at"`
 	EditionID *string                        `json:"edition_id"`
 	Items     []workImportEditionItemRequest `json:"items"`
-}
-
-type workImportEditionItemRequest struct {
-	VersionRootRJ string  `json:"version_root_rj"`
-	Language      string  `json:"language"`
-	Label         *string `json:"label"`
-	DisplayOrder  int     `json:"display_order"`
 }
 
 func (r workMetadataImportRequest) toWorks() works.ImportRequest {

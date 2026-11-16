@@ -33,6 +33,14 @@ func main() {
 			if !ok {
 				return true
 			}
+			if sel, isDomain := ts.Type.(*ast.SelectorExpr); isDomain {
+				// A wire type defined from a domain struct (type X workset.Y);
+				// json.RawMessage wrappers are not structs.
+				if pkg, _ := sel.X.(*ast.Ident); pkg != nil && pkg.Name != "json" {
+					names = append(names, ts.Name.Name)
+				}
+				return false
+			}
 			st, ok := ts.Type.(*ast.StructType)
 			if !ok {
 				return false

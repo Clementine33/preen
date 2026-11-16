@@ -35,30 +35,15 @@ func (o *opaqueDraftRequest) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-type memberConclusionResponse struct {
-	MemberID      string          `json:"member_id"`
-	Excluded      bool            `json:"excluded"`
-	Input         string          `json:"input"`
-	HasComponents bool            `json:"has_components"`
-	Task          json.RawMessage `json:"task,omitempty"`
-	Category      string          `json:"category,omitempty"`
-}
-
-func toMemberConclusionResponse(c workset.MemberConclusion) memberConclusionResponse {
-	return memberConclusionResponse{
-		MemberID:      c.MemberID,
-		Excluded:      c.Excluded,
-		Input:         c.Input,
-		HasComponents: c.HasComponents,
-		Task:          c.Task,
-		Category:      c.Category,
-	}
-}
+// Leaf wire types that match their domain type field for field are defined
+// from it, so a domain change reaches the wire schema (docs/api/schema,
+// task contract:check) and conversions are plain type conversions.
+type memberConclusionResponse workset.MemberConclusion
 
 func toMemberConclusionResponses(in []workset.MemberConclusion) []memberConclusionResponse {
 	out := make([]memberConclusionResponse, len(in))
 	for i, item := range in {
-		out[i] = toMemberConclusionResponse(item)
+		out[i] = memberConclusionResponse(item)
 	}
 	return out
 }
@@ -108,48 +93,13 @@ type executionStartResponse struct {
 	Execution executionViewResponse `json:"execution"`
 }
 
-type executionRefResponse struct {
-	ExecutionID  string `json:"execution_id"`
-	PlanID       string `json:"plan_id"`
-	Status       string `json:"status"`
-	ErrorCode    string `json:"error_code,omitempty"`
-	ErrorMessage string `json:"error_message,omitempty"`
-	FinishedAt   string `json:"finished_at,omitempty"`
-}
+type executionRefResponse workset.ExecutionRef
 
-type executionProgressResponse struct {
-	ExecutionID         string          `json:"execution_id"`
-	PlanID              string          `json:"plan_id"`
-	Status              string          `json:"status"`
-	Options             json.RawMessage `json:"options,omitempty"`
-	TotalComponents     int             `json:"total_components"`
-	CompletedComponents int             `json:"completed_components"`
-	TotalOperations     int             `json:"total_operations"`
-	CompletedOperations int             `json:"completed_operations"`
-	CurrentRoot         string          `json:"current_root"`
-	CurrentComponentID  string          `json:"current_component_id"`
-	CurrentPhase        string          `json:"current_phase"`
-}
+type executionProgressResponse workset.ExecutionProgress
 
-type executionMemberSummaryResponse struct {
-	MemberID            string `json:"member_id"`
-	RootPath            string `json:"root_path"`
-	Status              string `json:"status"`
-	TotalComponents     int    `json:"total_components"`
-	CompletedComponents int    `json:"completed_components"`
-	TotalOperations     int    `json:"total_operations"`
-	CompletedOperations int    `json:"completed_operations"`
-	ErrorMessage        string `json:"error_message"`
-	InventorySyncError  string `json:"inventory_sync_error"`
-}
+type executionMemberSummaryResponse workset.MemberSummary
 
-type executionMemberCountsResponse struct {
-	Succeeded int `json:"succeeded"`
-	Failed    int `json:"failed"`
-	Canceled  int `json:"canceled"`
-	Running   int `json:"running"`
-	Pending   int `json:"pending"`
-}
+type executionMemberCountsResponse workset.MemberCounts
 
 type executionMembersResponse struct {
 	Counts         executionMemberCountsResponse    `json:"counts"`
@@ -217,63 +167,6 @@ func (v executionViewResponse) MarshalJSON() ([]byte, error) {
 	}{plain: plain(v)})
 }
 
-func toExecutionRefResponse(r *workset.ExecutionRef) *executionRefResponse {
-	if r == nil {
-		return nil
-	}
-	return &executionRefResponse{
-		ExecutionID:  r.ExecutionID,
-		PlanID:       r.PlanID,
-		Status:       r.Status,
-		ErrorCode:    r.ErrorCode,
-		ErrorMessage: r.ErrorMessage,
-		FinishedAt:   r.FinishedAt,
-	}
-}
-
-func toExecutionProgressResponse(p *workset.ExecutionProgress) *executionProgressResponse {
-	if p == nil {
-		return nil
-	}
-	return &executionProgressResponse{
-		ExecutionID:         p.ExecutionID,
-		PlanID:              p.PlanID,
-		Status:              p.Status,
-		Options:             p.Options,
-		TotalComponents:     p.TotalComponents,
-		CompletedComponents: p.CompletedComponents,
-		TotalOperations:     p.TotalOperations,
-		CompletedOperations: p.CompletedOperations,
-		CurrentRoot:         p.CurrentRoot,
-		CurrentComponentID:  p.CurrentComponentID,
-		CurrentPhase:        p.CurrentPhase,
-	}
-}
-
-func toExecutionMemberSummaryResponse(m workset.MemberSummary) executionMemberSummaryResponse {
-	return executionMemberSummaryResponse{
-		MemberID:            m.MemberID,
-		RootPath:            m.RootPath,
-		Status:              m.Status,
-		TotalComponents:     m.TotalComponents,
-		CompletedComponents: m.CompletedComponents,
-		TotalOperations:     m.TotalOperations,
-		CompletedOperations: m.CompletedOperations,
-		ErrorMessage:        m.ErrorMessage,
-		InventorySyncError:  m.InventorySyncError,
-	}
-}
-
-func toExecutionMemberCountsResponse(c workset.MemberCounts) executionMemberCountsResponse {
-	return executionMemberCountsResponse{
-		Succeeded: c.Succeeded,
-		Failed:    c.Failed,
-		Canceled:  c.Canceled,
-		Running:   c.Running,
-		Pending:   c.Pending,
-	}
-}
-
 func toExecutionComponentResponse(c workset.ExecutionComponentView) executionComponentResponse {
 	return executionComponentResponse{
 		TaskResult:         c.TaskResult,
@@ -306,18 +199,17 @@ func toExecutionViewResponse(v *workset.ExecutionView) executionViewResponse {
 	if v.Members != nil {
 		attention := make([]executionMemberSummaryResponse, len(v.Members.Attention))
 		for i, item := range v.Members.Attention {
-			attention[i] = toExecutionMemberSummaryResponse(item)
+			attention[i] = executionMemberSummaryResponse(item)
 		}
 		members = &executionMembersResponse{
-			Counts:         toExecutionMemberCountsResponse(v.Members.Counts),
+			Counts:         executionMemberCountsResponse(v.Members.Counts),
 			Attention:      attention,
 			AttentionTotal: v.Members.AttentionTotal,
 		}
 	}
 	var member *executionMemberSummaryResponse
 	if v.Member != nil {
-		m := toExecutionMemberSummaryResponse(*v.Member)
-		member = &m
+		member = (*executionMemberSummaryResponse)(v.Member)
 	}
 	return executionViewResponse{
 		ExecutionID:         v.ExecutionID,
@@ -347,32 +239,15 @@ func toExecutionViewResponse(v *workset.ExecutionView) executionViewResponse {
 
 // ==================== SSE DTOs & Emitters ====================
 
-type generationProgressEvent struct {
-	GenerationID   string `json:"generation_id"`
-	TotalRoots     int    `json:"total_roots"`
-	CompletedRoots int    `json:"completed_roots"`
-	CurrentRoot    string `json:"current_root"`
-	ErrorCount     int    `json:"error_count"`
-}
+type generationProgressEvent workset.GenerationProgressEvent
 
-type generationCompletedEvent struct {
-	GenerationID string `json:"generation_id"`
-	RevisionID   string `json:"revision_id"`
-}
+type generationCompletedEvent workset.GenerationCompletedEvent
 
-type generationFailedEvent struct {
-	GenerationID string `json:"generation_id"`
-	ErrorCode    string `json:"error_code"`
-	ErrorMessage string `json:"error_message"`
-}
+type generationFailedEvent workset.GenerationFailedEvent
 
-type generationStoppedEvent struct {
-	GenerationID string `json:"generation_id"`
-}
+type generationStoppedEvent workset.GenerationStoppedEvent
 
-type sessionStatusEvent struct {
-	Status string `json:"status"`
-}
+type sessionStatusEvent workset.SessionStatusEvent
 
 type executionMemberEvent struct {
 	Member         executionMemberSummaryResponse `json:"member"`
@@ -380,32 +255,13 @@ type executionMemberEvent struct {
 	AttentionTotal int                            `json:"attention_total"`
 }
 
-type executionProgressEvent struct {
-	ExecutionID         string `json:"execution_id"`
-	Status              string `json:"status"`
-	TotalComponents     int    `json:"total_components"`
-	CompletedComponents int    `json:"completed_components"`
-	TotalOperations     int    `json:"total_operations"`
-	CompletedOperations int    `json:"completed_operations"`
-	CurrentRoot         string `json:"current_root"`
-	CurrentComponentID  string `json:"current_component_id"`
-	CurrentPhase        string `json:"current_phase"`
-}
+type executionProgressEvent workset.ExecutionProgressEvent
 
-type executionSucceededEvent struct {
-	ExecutionID string `json:"execution_id"`
-	PlanID      string `json:"plan_id"`
-}
+type executionSucceededEvent workset.ExecutionSucceededEvent
 
-type executionFailedEvent struct {
-	ExecutionID  string `json:"execution_id"`
-	ErrorCode    string `json:"error_code"`
-	ErrorMessage string `json:"error_message"`
-}
+type executionFailedEvent workset.ExecutionFailedEvent
 
-type executionStoppedEvent struct {
-	ExecutionID string `json:"execution_id"`
-}
+type executionStoppedEvent workset.ExecutionStoppedEvent
 
 func openSSEStream(w http.ResponseWriter) (*SSEWriter, bool) {
 	sw, err := newSSEWriter(w)
@@ -431,45 +287,17 @@ func writeSSEError(sw *SSEWriter, err error, notFoundCode string) {
 func emitGenerationEvent(sw *SSEWriter, event string, data any) error {
 	switch payload := data.(type) {
 	case workset.GenerationSnapshot:
-		return sw.Send(event, generationViewResponse{
-			GenerationID:   payload.GenerationID,
-			WorksetID:      payload.WorksetID,
-			OperationType:  payload.OperationType,
-			Status:         payload.Status,
-			TotalRoots:     payload.TotalRoots,
-			CompletedRoots: payload.CompletedRoots,
-			CurrentRoot:    payload.CurrentRoot,
-			ErrorCount:     payload.ErrorCount,
-			RevisionID:     payload.RevisionID,
-			ErrorCode:      payload.ErrorCode,
-			ErrorMessage:   payload.ErrorMessage,
-			StartedAt:      payload.StartedAt,
-			FinishedAt:     payload.FinishedAt,
-			CreatedAt:      payload.CreatedAt,
-		})
+		return sw.Send(event, generationViewResponse(payload))
 	case workset.GenerationProgressEvent:
-		return sw.Send(event, generationProgressEvent{
-			GenerationID:   payload.GenerationID,
-			TotalRoots:     payload.TotalRoots,
-			CompletedRoots: payload.CompletedRoots,
-			CurrentRoot:    payload.CurrentRoot,
-			ErrorCount:     payload.ErrorCount,
-		})
+		return sw.Send(event, generationProgressEvent(payload))
 	case workset.GenerationCompletedEvent:
-		return sw.Send(event, generationCompletedEvent{
-			GenerationID: payload.GenerationID,
-			RevisionID:   payload.RevisionID,
-		})
+		return sw.Send(event, generationCompletedEvent(payload))
 	case workset.GenerationFailedEvent:
-		return sw.Send(event, generationFailedEvent{
-			GenerationID: payload.GenerationID,
-			ErrorCode:    payload.ErrorCode,
-			ErrorMessage: payload.ErrorMessage,
-		})
+		return sw.Send(event, generationFailedEvent(payload))
 	case workset.GenerationStoppedEvent:
-		return sw.Send(event, generationStoppedEvent{GenerationID: payload.GenerationID})
+		return sw.Send(event, generationStoppedEvent(payload))
 	case workset.SessionStatusEvent:
-		return sw.Send(event, sessionStatusEvent{Status: payload.Status})
+		return sw.Send(event, sessionStatusEvent(payload))
 	default:
 		return fmt.Errorf("unexpected generation SSE payload %T for event %s", data, event)
 	}
@@ -483,37 +311,20 @@ func emitExecutionEvent(sw *SSEWriter, event string, data any) error {
 		return sw.Send(event, toExecutionComponentResponse(payload))
 	case workset.MemberEvent:
 		return sw.Send(event, executionMemberEvent{
-			Member:         toExecutionMemberSummaryResponse(payload.Member),
-			Counts:         toExecutionMemberCountsResponse(payload.Counts),
+			Member:         executionMemberSummaryResponse(payload.Member),
+			Counts:         executionMemberCountsResponse(payload.Counts),
 			AttentionTotal: payload.AttentionTotal,
 		})
 	case workset.ExecutionProgressEvent:
-		return sw.Send(event, executionProgressEvent{
-			ExecutionID:         payload.ExecutionID,
-			Status:              payload.Status,
-			TotalComponents:     payload.TotalComponents,
-			CompletedComponents: payload.CompletedComponents,
-			TotalOperations:     payload.TotalOperations,
-			CompletedOperations: payload.CompletedOperations,
-			CurrentRoot:         payload.CurrentRoot,
-			CurrentComponentID:  payload.CurrentComponentID,
-			CurrentPhase:        payload.CurrentPhase,
-		})
+		return sw.Send(event, executionProgressEvent(payload))
 	case workset.ExecutionSucceededEvent:
-		return sw.Send(event, executionSucceededEvent{
-			ExecutionID: payload.ExecutionID,
-			PlanID:      payload.PlanID,
-		})
+		return sw.Send(event, executionSucceededEvent(payload))
 	case workset.ExecutionFailedEvent:
-		return sw.Send(event, executionFailedEvent{
-			ExecutionID:  payload.ExecutionID,
-			ErrorCode:    payload.ErrorCode,
-			ErrorMessage: payload.ErrorMessage,
-		})
+		return sw.Send(event, executionFailedEvent(payload))
 	case workset.ExecutionStoppedEvent:
-		return sw.Send(event, executionStoppedEvent{ExecutionID: payload.ExecutionID})
+		return sw.Send(event, executionStoppedEvent(payload))
 	case workset.SessionStatusEvent:
-		return sw.Send(event, sessionStatusEvent{Status: payload.Status})
+		return sw.Send(event, sessionStatusEvent(payload))
 	default:
 		return fmt.Errorf("unexpected execution SSE payload %T for event %s", data, event)
 	}

@@ -240,6 +240,6 @@ func (s *Server) getRevision(w http.ResponseWriter, r *http.Request) {
 		CategoryCounts: rv.CategoryCounts,
 		CategoryTotal:  categoryTotal,
 		Members:        toMemberConclusionResponses(rv.Members),
-		Execution:      toExecutionRefResponse(rv.Execution),
+		Execution:      (*executionRefResponse)(rv.Execution),
 	})
 }

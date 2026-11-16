@@ -199,21 +199,10 @@ func (r workMetadataImportRequest) toWorks() works.ImportRequest {
 		out.Core = toWorksImportCore(r.Core)
 	}
 	if r.Statistics != nil {
-		out.Statistics = &works.ImportStatistics{
-			FetchedAt: r.Statistics.FetchedAt,
-			DLCount:   r.Statistics.DLCount,
-		}
+		out.Statistics = (*works.ImportStatistics)(r.Statistics)
 	}
 	if r.Relations != nil {
-		out.Relations = &works.ImportRelations{
-			Source:     r.Relations.Source,
-			FetchedAt:  r.Relations.FetchedAt,
-			Role:       r.Relations.Role,
-			Language:   r.Relations.Language,
-			OriginalRJ: r.Relations.OriginalRJ,
-			ParentRJ:   r.Relations.ParentRJ,
-			ChildRJs:   r.Relations.ChildRJs,
-		}
+		out.Relations = (*works.ImportRelations)(r.Relations)
 	}
 	if r.Editions != nil {
 		out.Editions = toWorksImportEditions(r.Editions)
@@ -237,21 +226,18 @@ func toWorksImportCore(c *workImportCoreRequest) *works.ImportCore {
 		SeriesName:     c.SeriesName,
 	}
 	if c.Circle != nil {
-		out.Circle = &works.ImportCircle{SourceCircleID: c.Circle.SourceCircleID, Name: c.Circle.Name}
+		out.Circle = (*works.ImportCircle)(c.Circle)
 	}
 	if c.VoiceActors != nil {
 		out.VoiceActors = make([]works.ImportVoiceActor, len(c.VoiceActors))
 		for i, va := range c.VoiceActors {
-			out.VoiceActors[i] = works.ImportVoiceActor{
-				SourceVoiceActorID: va.SourceVoiceActorID,
-				Name:               va.Name,
-			}
+			out.VoiceActors[i] = works.ImportVoiceActor(va)
 		}
 	}
 	if c.Tags != nil {
 		out.Tags = make([]works.ImportTag, len(c.Tags))
 		for i, tag := range c.Tags {
-			out.Tags[i] = works.ImportTag{SourceTagID: tag.SourceTagID, Name: tag.Name}
+			out.Tags[i] = works.ImportTag(tag)
 		}
 	}
 	return out
@@ -266,12 +252,7 @@ func toWorksImportEditions(e *workImportEditionsRequest) *works.ImportEditions {
 	if e.Items != nil {
 		out.Items = make([]works.ImportEditionItem, len(e.Items))
 		for i, item := range e.Items {
-			out.Items[i] = works.ImportEditionItem{
-				VersionRootRJ: item.VersionRootRJ,
-				Language:      item.Language,
-				Label:         item.Label,
-				DisplayOrder:  item.DisplayOrder,
-			}
+			out.Items[i] = works.ImportEditionItem(item)
 		}
 	}
 	return out

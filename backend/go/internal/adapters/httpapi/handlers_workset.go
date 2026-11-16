@@ -138,8 +138,8 @@ func toOperationResponse(v *workset.OperationView) operationResponse {
 			FinishedAt:   v.LatestGeneration.FinishedAt.UTC().Format(timeFormatJSON),
 		}
 	}
-	out.ActiveExecution = toExecutionProgressResponse(v.ActiveExecution)
-	out.LatestExecution = toExecutionRefResponse(v.LatestExecution)
+	out.ActiveExecution = (*executionProgressResponse)(v.ActiveExecution)
+	out.LatestExecution = (*executionRefResponse)(v.LatestExecution)
 	return out
 }
 

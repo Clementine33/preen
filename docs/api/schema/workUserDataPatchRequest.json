@@ -1,0 +1,44 @@
+{
+  "$defs": {
+    "workUserDataPatchRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "favorite": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "rating": {
+          "oneOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "type": "object"
+    }
+  },
+  "$id": "workUserDataPatchRequest.json",
+  "$ref": "#/$defs/workUserDataPatchRequest",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "workUserDataPatchRequest"
+}

@@ -1,0 +1,68 @@
+{
+  "$defs": {
+    "workImportEditionItemRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "display_order": {
+          "type": "integer"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "language": {
+          "type": "string"
+        },
+        "version_root_rj": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "workImportEditionsRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "edition_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "fetched_at": {
+          "type": "string"
+        },
+        "items": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/workImportEditionItemRequest"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "source": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    }
+  },
+  "$id": "workImportEditionsRequest.json",
+  "$ref": "#/$defs/workImportEditionsRequest",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "workImportEditionsRequest"
+}

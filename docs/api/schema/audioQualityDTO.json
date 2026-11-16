@@ -1,0 +1,23 @@
+{
+  "$defs": {
+    "audioQualityDTO": {
+      "additionalProperties": false,
+      "properties": {
+        "bitrate": {
+          "type": "integer"
+        },
+        "kind": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "audioQualityDTO.json",
+  "$ref": "#/$defs/audioQualityDTO",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "audioQualityDTO"
+}

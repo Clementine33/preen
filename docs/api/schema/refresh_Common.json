@@ -1,0 +1,28 @@
+{
+  "$defs": {
+    "refresh_Common": {
+      "additionalProperties": false,
+      "properties": {
+        "download_cover": {
+          "type": "boolean"
+        },
+        "locale": {
+          "type": "string"
+        },
+        "mode": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "mode",
+        "locale",
+        "download_cover"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "refresh_Common.json",
+  "$ref": "#/$defs/refresh_Common",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "refresh_Common"
+}

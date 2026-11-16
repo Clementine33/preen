@@ -1,0 +1,27 @@
+{
+  "$defs": {
+    "libraryPatchRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "storage_class": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    }
+  },
+  "$id": "libraryPatchRequest.json",
+  "$ref": "#/$defs/libraryPatchRequest",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "libraryPatchRequest"
+}

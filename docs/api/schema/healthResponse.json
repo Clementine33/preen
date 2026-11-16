@@ -1,0 +1,28 @@
+{
+  "$defs": {
+    "healthResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        },
+        "version": {
+          "type": "string"
+        },
+        "workset_max_members": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "ok",
+        "version",
+        "workset_max_members"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "healthResponse.json",
+  "$ref": "#/$defs/healthResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "healthResponse"
+}

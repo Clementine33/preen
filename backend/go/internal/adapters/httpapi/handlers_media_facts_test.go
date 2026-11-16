@@ -9,6 +9,8 @@ import (
 	"testing/synctest"
 	"time"
 
+	"github.com/Clementine33/preen/backend/internal/testutil/wirecheck"
+
 	"github.com/Clementine33/preen/backend/internal/adapters/httpapi"
 	"github.com/Clementine33/preen/backend/internal/inventory"
 	"github.com/Clementine33/preen/backend/internal/notify"
@@ -29,9 +31,9 @@ func (w *flushedResponse) Flush() {
 
 func TestMediaFactsStreamConnectsHeartbeatsAndCancels(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
-		h := httpapi.NewServer(httpapi.Dependencies{
+		h := wirecheck.Handler(t, httpapi.NewServer(httpapi.Dependencies{
 			Token: "test", MediaFacts: inventory.NewMediaEnricher(nil, nil, nil),
-		})
+		}))
 		ctx, cancel := context.WithCancel(context.Background())
 		r := httptest.NewRequest(http.MethodGet, "/api/v1/inventory/media-facts/events", nil).WithContext(ctx)
 		r.Header.Set("Authorization", "Bearer test")
@@ -65,7 +67,7 @@ func TestMediaFactsStreamConnectsHeartbeatsAndCancels(t *testing.T) {
 }
 
 func TestMediaFactsStreamRequiresHeaderAuthentication(t *testing.T) {
-	h := httpapi.NewServer(httpapi.Dependencies{Token: "test"})
+	h := wirecheck.Handler(t, httpapi.NewServer(httpapi.Dependencies{Token: "test"}))
 	for _, target := range []string{"/api/v1/inventory/media-facts/events", "/api/v1/inventory/media-facts/events?access_token=test"} {
 		w := httptest.NewRecorder()
 		h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, target, nil))
@@ -78,9 +80,9 @@ func TestMediaFactsStreamRequiresHeaderAuthentication(t *testing.T) {
 func TestMediaFactsStreamSendsWorksChangedOnConnectAndAfterACommit(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		hub := &notify.Hub{}
-		h := httpapi.NewServer(httpapi.Dependencies{
+		h := wirecheck.Handler(t, httpapi.NewServer(httpapi.Dependencies{
 			Token: "test", MediaFacts: inventory.NewMediaEnricher(nil, nil, nil), WorksChanged: hub,
-		})
+		}))
 		ctx, cancel := context.WithCancel(context.Background())
 		r := httptest.NewRequest(http.MethodGet, "/api/v1/inventory/media-facts/events", nil).WithContext(ctx)
 		r.Header.Set("Authorization", "Bearer test")

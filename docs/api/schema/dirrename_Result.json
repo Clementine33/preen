@@ -1,0 +1,37 @@
+{
+  "$defs": {
+    "dirrename_Result": {
+      "additionalProperties": false,
+      "properties": {
+        "recovered": {
+          "type": "boolean"
+        },
+        "renamed": {
+          "type": "boolean"
+        },
+        "rolled_back": {
+          "type": "boolean"
+        },
+        "skipped": {
+          "type": "string"
+        },
+        "source_path": {
+          "type": "string"
+        },
+        "target_path": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_path",
+        "target_path",
+        "renamed"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "dirrename_Result.json",
+  "$ref": "#/$defs/dirrename_Result",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "dirrename_Result"
+}

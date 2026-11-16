@@ -1,5 +1,7 @@
 # Database record cleanup
 
+[JSON schemas and endpoint/event bindings](schema/contracts.json)
+
 These deployment-wide routes use the [common authentication, same-origin and error rules](common.md).
 They delete database records only. Media, covers, thumbnails, recovery files,
 current plans, execution results and inventory are retained. Manual cleanup never

@@ -1,0 +1,36 @@
+{
+  "$defs": {
+    "memberResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "dir_id": {
+          "type": "string"
+        },
+        "folder_name": {
+          "type": "string"
+        },
+        "folder_path": {
+          "type": "string"
+        },
+        "member_id": {
+          "type": "string"
+        },
+        "rel_path": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "member_id",
+        "folder_path",
+        "folder_name",
+        "rel_path",
+        "dir_id"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "memberResponse.json",
+  "$ref": "#/$defs/memberResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "memberResponse"
+}

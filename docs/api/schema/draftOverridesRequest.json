@@ -1,0 +1,130 @@
+{
+  "$defs": {
+    "audioOutputSpecDTO": {
+      "additionalProperties": false,
+      "properties": {
+        "codec": {
+          "type": "string"
+        },
+        "quality": {
+          "$ref": "#/$defs/audioQualityDTO"
+        }
+      },
+      "type": "object"
+    },
+    "audioQualityDTO": {
+      "additionalProperties": false,
+      "properties": {
+        "bitrate": {
+          "type": "integer"
+        },
+        "kind": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "desiredProfileDTO": {
+      "additionalProperties": false,
+      "properties": {
+        "encoded": {
+          "$ref": "#/$defs/audioOutputSpecDTO"
+        },
+        "lossless": {
+          "$ref": "#/$defs/audioOutputSpecDTO"
+        }
+      },
+      "type": "object"
+    },
+    "draftOverridesRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "matched": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/desiredProfileDTO"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "mode": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "no_effect_tags": {
+          "anyOf": [
+            {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "other": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/desiredProfileDTO"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "other_tags": {
+          "anyOf": [
+            {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "unmatched": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/desiredProfileDTO"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "type": "object"
+    }
+  },
+  "$id": "draftOverridesRequest.json",
+  "$ref": "#/$defs/draftOverridesRequest",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "draftOverridesRequest"
+}

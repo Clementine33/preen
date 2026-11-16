@@ -1,0 +1,249 @@
+{
+  "$defs": {
+    "listeningSummaryResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "state": {
+          "type": "string"
+        },
+        "track_count": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "track_index": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "updated_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "state",
+        "track_index",
+        "track_count",
+        "updated_at"
+      ],
+      "type": "object"
+    },
+    "localCoverResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "copy_id": {
+          "type": "string"
+        },
+        "rel_path": {
+          "type": "string"
+        },
+        "thumb_v": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "copy_id",
+        "rel_path",
+        "version",
+        "thumb_v"
+      ],
+      "type": "object"
+    },
+    "userTagResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ],
+      "type": "object"
+    },
+    "workSummaryResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "age_category": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "circle": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "collected_at": {
+          "type": "string"
+        },
+        "copy_count": {
+          "type": "integer"
+        },
+        "cover_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "dl_count": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "favorite": {
+          "type": "boolean"
+        },
+        "has_note": {
+          "type": "boolean"
+        },
+        "language": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "listening": {
+          "$ref": "#/$defs/listeningSummaryResponse"
+        },
+        "local_cover": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/localCoverResponse"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "nsfw": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "rating": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "release_date": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "rj": {
+          "type": "string"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "user_tags": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/userTagResponse"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "rj",
+        "title",
+        "cover_url",
+        "circle",
+        "language",
+        "nsfw",
+        "age_category",
+        "release_date",
+        "dl_count",
+        "rating",
+        "favorite",
+        "user_tags",
+        "has_note",
+        "collected_at",
+        "copy_count",
+        "listening",
+        "local_cover"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "workSummaryResponse.json",
+  "$ref": "#/$defs/workSummaryResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "workSummaryResponse"
+}

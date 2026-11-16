@@ -1,0 +1,27 @@
+{
+  "$defs": {
+    "workImportTagRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "source_tag_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "type": "object"
+    }
+  },
+  "$id": "workImportTagRequest.json",
+  "$ref": "#/$defs/workImportTagRequest",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "workImportTagRequest"
+}

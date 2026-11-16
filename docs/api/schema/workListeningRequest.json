@@ -1,0 +1,38 @@
+{
+  "$defs": {
+    "workListeningRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "client": {
+          "type": "string"
+        },
+        "finished": {
+          "type": "boolean"
+        },
+        "position_sec": {
+          "type": "number"
+        },
+        "rendition": {
+          "type": "string"
+        },
+        "seq": {
+          "type": "integer"
+        },
+        "track_count": {
+          "type": "integer"
+        },
+        "track_index": {
+          "type": "integer"
+        },
+        "track_key": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    }
+  },
+  "$id": "workListeningRequest.json",
+  "$ref": "#/$defs/workListeningRequest",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "workListeningRequest"
+}

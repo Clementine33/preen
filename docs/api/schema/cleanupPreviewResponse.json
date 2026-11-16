@@ -1,0 +1,75 @@
+{
+  "$defs": {
+    "cleanupPreviewResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "candidates": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "categories": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "checked_at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "rules": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "$ref": "#/$defs/cleanupRuleResponse"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "checked_at",
+        "categories",
+        "candidates",
+        "rules"
+      ],
+      "type": "object"
+    },
+    "cleanupRuleResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "protection": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "protection"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "cleanupPreviewResponse.json",
+  "$ref": "#/$defs/cleanupPreviewResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "cleanupPreviewResponse"
+}

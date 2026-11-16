@@ -8,15 +8,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Clementine33/preen/backend/internal/testutil/wirecheck"
+
 	"github.com/Clementine33/preen/backend/internal/adapters/httpapi"
 )
 
 func TestDiagnosticLogExportIsAuthenticatedAndHeaded(t *testing.T) {
-	handler := httpapi.NewServer(httpapi.Dependencies{
+	handler := wirecheck.Handler(t, httpapi.NewServer(httpapi.Dependencies{
 		Token: "secret", Version: "1.2.3",
 		StartedAt:     time.Date(2026, 10, 26, 1, 2, 3, 0, time.UTC),
 		DiagnosticLog: func() []byte { return []byte("time=t level=INFO msg=\"preen listening\"\n") },
-	})
+	}))
 	anonymous := httptest.NewRecorder()
 	handler.ServeHTTP(anonymous, httptest.NewRequest(http.MethodGet, "/api/v1/diagnostics/log", nil))
 	if anonymous.Code != http.StatusUnauthorized {

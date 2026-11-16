@@ -1,0 +1,23 @@
+{
+  "$defs": {
+    "appliedGroupResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "data_group": {
+          "type": "string"
+        },
+        "dl_count": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "data_group"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "appliedGroupResponse.json",
+  "$ref": "#/$defs/appliedGroupResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "appliedGroupResponse"
+}

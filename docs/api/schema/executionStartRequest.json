@@ -1,0 +1,40 @@
+{
+  "$defs": {
+    "executionStartRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "all_except_member_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "member_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "type": "object"
+    }
+  },
+  "$id": "executionStartRequest.json",
+  "$ref": "#/$defs/executionStartRequest",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "executionStartRequest"
+}

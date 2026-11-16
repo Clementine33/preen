@@ -1,0 +1,123 @@
+{
+  "$defs": {
+    "executionComponentResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "committed": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "completed_operations": {
+          "type": "integer"
+        },
+        "component_id": {
+          "type": "string"
+        },
+        "component_index": {
+          "type": "integer"
+        },
+        "error_code": {
+          "type": "string"
+        },
+        "error_message": {
+          "type": "string"
+        },
+        "inventory_sync_error": {
+          "type": "string"
+        },
+        "inventory_synced": {
+          "type": "boolean"
+        },
+        "kept_decisions": {
+          "items": {
+            "$ref": "reconcile_FileDecision.json"
+          },
+          "type": "array"
+        },
+        "operations": {
+          "type": "integer"
+        },
+        "partition": {
+          "type": "string"
+        },
+        "recovery": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "remaining": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "removed": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "root_path": {
+          "type": "string"
+        },
+        "stage": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kept_decisions",
+        "component_index",
+        "component_id",
+        "root_path",
+        "partition",
+        "status",
+        "operations",
+        "completed_operations",
+        "committed",
+        "removed",
+        "remaining",
+        "recovery",
+        "inventory_synced"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "conversion_v1_executionComponentResponse.json",
+  "$ref": "#/$defs/executionComponentResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "conversion_v1_executionComponentResponse"
+}

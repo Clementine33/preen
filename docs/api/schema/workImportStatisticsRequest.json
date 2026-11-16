@@ -1,0 +1,27 @@
+{
+  "$defs": {
+    "workImportStatisticsRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "dl_count": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "fetched_at": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    }
+  },
+  "$id": "workImportStatisticsRequest.json",
+  "$ref": "#/$defs/workImportStatisticsRequest",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "workImportStatisticsRequest"
+}

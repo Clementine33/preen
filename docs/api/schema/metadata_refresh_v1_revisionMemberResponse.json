@@ -1,0 +1,91 @@
+{
+  "$defs": {
+    "memberConclusionResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "type": "string"
+        },
+        "excluded": {
+          "type": "boolean"
+        },
+        "has_components": {
+          "type": "boolean"
+        },
+        "input": {
+          "type": "string"
+        },
+        "member_id": {
+          "type": "string"
+        },
+        "task": {
+          "$ref": "refresh_Outcome.json"
+        }
+      },
+      "required": [
+        "member_id",
+        "excluded",
+        "input",
+        "has_components"
+      ],
+      "type": "object"
+    },
+    "revisionMemberResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "conclusion": {
+          "$ref": "#/$defs/memberConclusionResponse"
+        },
+        "effective": {
+          "anyOf": [
+            {
+              "$ref": "refresh_Common.json"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "excluded": {
+          "type": "boolean"
+        },
+        "folder_path": {
+          "type": "string"
+        },
+        "member_id": {
+          "type": "string"
+        },
+        "member_name": {
+          "type": "string"
+        },
+        "sources": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "member_id",
+        "member_name",
+        "folder_path",
+        "excluded",
+        "effective",
+        "sources",
+        "conclusion"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "metadata_refresh_v1_revisionMemberResponse.json",
+  "$ref": "#/$defs/revisionMemberResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "metadata_refresh_v1_revisionMemberResponse"
+}

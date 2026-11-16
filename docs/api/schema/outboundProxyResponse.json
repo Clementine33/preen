@@ -1,0 +1,24 @@
+{
+  "$defs": {
+    "outboundProxyResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "mode",
+        "url"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "outboundProxyResponse.json",
+  "$ref": "#/$defs/outboundProxyResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "outboundProxyResponse"
+}

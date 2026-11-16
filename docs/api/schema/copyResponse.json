@@ -1,0 +1,32 @@
+{
+  "$defs": {
+    "copyResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "copy_id": {
+          "type": "string"
+        },
+        "dir_id": {
+          "type": "string"
+        },
+        "library_id": {
+          "type": "string"
+        },
+        "rel_path": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "copy_id",
+        "library_id",
+        "rel_path",
+        "dir_id"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "copyResponse.json",
+  "$ref": "#/$defs/copyResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "copyResponse"
+}

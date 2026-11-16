@@ -1,0 +1,77 @@
+{
+  "$defs": {
+    "classifierCustomTagItem": {
+      "additionalProperties": false,
+      "properties": {
+        "created_at": {
+          "type": "string"
+        },
+        "id": {
+          "type": "integer"
+        },
+        "tag": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "tag"
+      ],
+      "type": "object"
+    },
+    "classifierTagLibraryResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "custom_tags": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/classifierCustomTagItem"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "default_no_effect_tags": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "default_other_tags": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "default_other_tags",
+        "default_no_effect_tags",
+        "custom_tags"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "classifierTagLibraryResponse.json",
+  "$ref": "#/$defs/classifierTagLibraryResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "classifierTagLibraryResponse"
+}

@@ -1,0 +1,98 @@
+{
+  "$defs": {
+    "workContentFileNodeJSON": {
+      "additionalProperties": false,
+      "properties": {
+        "bitrate": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "duration_sec": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "format": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "height": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "kind": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "rel_path": {
+          "type": "string"
+        },
+        "size": {
+          "type": "integer"
+        },
+        "thumb_v": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "width": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "rel_path",
+        "kind",
+        "size",
+        "format",
+        "bitrate",
+        "width",
+        "height",
+        "duration_sec",
+        "thumb_v"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "workContentFileNodeJSON.json",
+  "$ref": "#/$defs/workContentFileNodeJSON",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "workContentFileNodeJSON"
+}

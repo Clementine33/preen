@@ -1,0 +1,13 @@
+{
+  "$defs": {
+    "emptyRequest": {
+      "additionalProperties": false,
+      "properties": {},
+      "type": "object"
+    }
+  },
+  "$id": "emptyRequest.json",
+  "$ref": "#/$defs/emptyRequest",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "emptyRequest"
+}

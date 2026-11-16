@@ -1,0 +1,112 @@
+{
+  "$defs": {
+    "coverDestinationResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "digest": {
+          "type": "string"
+        },
+        "error_code": {
+          "type": "string"
+        },
+        "error_message": {
+          "type": "string"
+        },
+        "execution_id": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "published": {
+          "type": "string"
+        },
+        "refresh": {
+          "type": "boolean"
+        },
+        "status": {
+          "type": "string"
+        },
+        "target": {
+          "$ref": "#/$defs/coverTargetResponse"
+        }
+      },
+      "required": [
+        "id",
+        "execution_id",
+        "target",
+        "refresh",
+        "status"
+      ],
+      "type": "object"
+    },
+    "coverReportResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "counts": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "items": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/coverDestinationResponse"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "items",
+        "counts"
+      ],
+      "type": "object"
+    },
+    "coverTargetResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "copy_id": {
+          "type": "string"
+        },
+        "identity": {
+          "type": "string"
+        },
+        "library_root": {
+          "type": "string"
+        },
+        "rel_path": {
+          "type": "string"
+        },
+        "rj": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "copy_id",
+        "rj",
+        "library_root",
+        "rel_path",
+        "identity"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "coverReportResponse.json",
+  "$ref": "#/$defs/coverReportResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "coverReportResponse"
+}

@@ -1,0 +1,62 @@
+{
+  "$defs": {
+    "libraryResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "created_at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "last_scan_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "last_scan_error": {
+          "type": "string"
+        },
+        "last_scan_status": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "root_path": {
+          "type": "string"
+        },
+        "storage_class": {
+          "type": "string"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "root_path",
+        "storage_class",
+        "created_at",
+        "updated_at",
+        "last_scan_at",
+        "last_scan_status",
+        "last_scan_error"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "libraryResponse.json",
+  "$ref": "#/$defs/libraryResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "libraryResponse"
+}

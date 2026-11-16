@@ -1,0 +1,59 @@
+{
+  "$defs": {
+    "coverdelivery_Target": {
+      "additionalProperties": false,
+      "properties": {
+        "copy_id": {
+          "type": "string"
+        },
+        "identity": {
+          "type": "string"
+        },
+        "library_root": {
+          "type": "string"
+        },
+        "rel_path": {
+          "type": "string"
+        },
+        "rj": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "copy_id",
+        "rj",
+        "library_root",
+        "rel_path",
+        "identity"
+      ],
+      "type": "object"
+    },
+    "refresh_Outcome": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "type": "string"
+        },
+        "member_id": {
+          "type": "string"
+        },
+        "reason_code": {
+          "type": "string"
+        },
+        "target": {
+          "$ref": "#/$defs/coverdelivery_Target"
+        }
+      },
+      "required": [
+        "member_id",
+        "target",
+        "action"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "refresh_Outcome.json",
+  "$ref": "#/$defs/refresh_Outcome",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "refresh_Outcome"
+}

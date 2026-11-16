@@ -1,0 +1,39 @@
+{
+  "$defs": {
+    "workset_PlanSummary": {
+      "additionalProperties": false,
+      "properties": {
+        "blocked_count": {
+          "type": "integer"
+        },
+        "component_count": {
+          "type": "integer"
+        },
+        "error_count": {
+          "type": "integer"
+        },
+        "operation_count": {
+          "type": "integer"
+        },
+        "summary_reason": {
+          "type": "string"
+        },
+        "unmet_targets": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "component_count",
+        "blocked_count",
+        "operation_count",
+        "error_count",
+        "summary_reason"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "workset_PlanSummary.json",
+  "$ref": "#/$defs/workset_PlanSummary",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "workset_PlanSummary"
+}

@@ -1,0 +1,43 @@
+{
+  "$defs": {
+    "selectionRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "all": {
+          "type": "boolean"
+        },
+        "dir_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "except_dir_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "type": "object"
+    }
+  },
+  "$id": "selectionRequest.json",
+  "$ref": "#/$defs/selectionRequest",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "selectionRequest"
+}

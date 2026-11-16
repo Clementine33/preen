@@ -1,6 +1,6 @@
 # User preferences
 
-[API reference](../api.md) · [Common conventions](common.md)
+[API reference](../api.md) · [JSON schemas and endpoint/event bindings](schema/contracts.json) · [Common conventions](common.md)
 
 Authenticated routes for the single user's deployment-wide choices: the Format
 Preference and the Default Library. They sync through the server, so every

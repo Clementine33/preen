@@ -1,0 +1,171 @@
+{
+  "$defs": {
+    "refresh_Issue": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "group": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "message"
+      ],
+      "type": "object"
+    },
+    "refresh_WorkResult": {
+      "additionalProperties": false,
+      "properties": {
+        "backup_url": {
+          "type": "string"
+        },
+        "issues": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/refresh_Issue"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "main_url": {
+          "type": "string"
+        },
+        "outcome": {
+          "$ref": "#/$defs/works_ImportOutcome"
+        },
+        "rj": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "rj",
+        "outcome",
+        "issues"
+      ],
+      "type": "object"
+    },
+    "works_AppliedGroup": {
+      "additionalProperties": false,
+      "properties": {
+        "data_group": {
+          "type": "string"
+        },
+        "dl_count": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "data_group"
+      ],
+      "type": "object"
+    },
+    "works_IgnoredGroup": {
+      "additionalProperties": false,
+      "properties": {
+        "data_group": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "data_group",
+        "reason",
+        "message"
+      ],
+      "type": "object"
+    },
+    "works_ImportOutcome": {
+      "additionalProperties": false,
+      "properties": {
+        "applied": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/works_AppliedGroup"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ignored": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/works_IgnoredGroup"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "warnings": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/works_RelationWarning"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "applied",
+        "ignored",
+        "warnings"
+      ],
+      "type": "object"
+    },
+    "works_RelationWarning": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "rj": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "rj",
+        "message"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "refresh_WorkResult.json",
+  "$ref": "#/$defs/refresh_WorkResult",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "refresh_WorkResult"
+}

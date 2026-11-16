@@ -1,6 +1,6 @@
 # Work catalog
 
-[API reference](../api.md) · [Common conventions](common.md)
+[API reference](../api.md) · [JSON schemas and endpoint/event bindings](schema/contracts.json) · [Common conventions](common.md)
 
 The catalog is the logical layer above the inventory: works identified by their
 work number, the source metadata imported for them, the directories bound to

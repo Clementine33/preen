@@ -13,6 +13,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Clementine33/preen/backend/internal/testutil/wirecheck"
+
 	"github.com/Clementine33/preen/backend/internal/testutil/inventoryfixture"
 
 	"github.com/Clementine33/preen/backend/internal/conversion/execute"
@@ -65,13 +67,13 @@ func newWorksetServer(t *testing.T, guards ...workset.EnqueueGuard) (http.Handle
 			},
 		),
 	}, nil, guard)
-	handler := NewServer(Dependencies{
+	handler := wirecheck.Handler(t, NewServer(Dependencies{
 		Library:        library.NewService(repo, nil, repo, filesystem.ResolveMember),
 		Catalog:        conversion.NewCatalog(repo, appconfig.NewReader(tmp)),
 		Token:          testToken,
 		CORSOrigins:    []string{"http://localhost:5173"},
 		WorksetService: svc,
-	})
+	}))
 	return handler, repo
 }
 
@@ -280,16 +282,6 @@ func TestWorksetHTTPLifecycle(t *testing.T) {
 	}
 	if len(detail.Members) != 1 {
 		t.Fatalf("detail members: %+v", detail.Members)
-	}
-	var keys map[string]json.RawMessage
-	if err := json.Unmarshal(w.Body.Bytes(), &keys); err != nil {
-		t.Fatalf("decode detail keys: %v", err)
-	}
-	if _, has := keys["operations"]; has {
-		t.Fatalf("workset view must not carry operations: %s", w.Body.String())
-	}
-	if _, leaked := detail.Members[0]["state"]; leaked {
-		t.Fatal("member coverage is operation state, not member state")
 	}
 
 	// GET operation, draft.

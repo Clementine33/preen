@@ -1,0 +1,58 @@
+{
+  "$defs": {
+    "recordCreateRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "expected_current_id": {
+          "type": "string"
+        },
+        "selection": {
+          "$ref": "#/$defs/selectionRequest"
+        },
+        "title": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "selectionRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "all": {
+          "type": "boolean"
+        },
+        "dir_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "except_dir_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "type": "object"
+    }
+  },
+  "$id": "recordCreateRequest.json",
+  "$ref": "#/$defs/recordCreateRequest",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "recordCreateRequest"
+}

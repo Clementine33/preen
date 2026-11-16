@@ -1,0 +1,20 @@
+{
+  "$defs": {
+    "executionStoppedEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "execution_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "execution_id"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "executionStoppedEvent.json",
+  "$ref": "#/$defs/executionStoppedEvent",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "executionStoppedEvent"
+}

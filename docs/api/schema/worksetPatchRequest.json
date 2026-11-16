@@ -1,0 +1,17 @@
+{
+  "$defs": {
+    "worksetPatchRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    }
+  },
+  "$id": "worksetPatchRequest.json",
+  "$ref": "#/$defs/worksetPatchRequest",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "worksetPatchRequest"
+}

@@ -1,0 +1,27 @@
+{
+  "$defs": {
+    "workImportVoiceActorRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "source_voice_actor_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "type": "object"
+    }
+  },
+  "$id": "workImportVoiceActorRequest.json",
+  "$ref": "#/$defs/workImportVoiceActorRequest",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "workImportVoiceActorRequest"
+}

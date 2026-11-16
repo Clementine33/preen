@@ -1,0 +1,50 @@
+{
+  "$defs": {
+    "editionResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "display_order": {
+          "type": "integer"
+        },
+        "edition_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "language": {
+          "type": "string"
+        },
+        "version_root_rj": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "version_root_rj",
+        "language",
+        "label",
+        "edition_id",
+        "display_order"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "editionResponse.json",
+  "$ref": "#/$defs/editionResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "editionResponse"
+}

@@ -1,0 +1,36 @@
+{
+  "$defs": {
+    "revisionCountsResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "blocked": {
+          "type": "integer"
+        },
+        "changed": {
+          "type": "integer"
+        },
+        "members": {
+          "type": "integer"
+        },
+        "unchanged": {
+          "type": "integer"
+        },
+        "unmet_targets": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "members",
+        "changed",
+        "unmet_targets",
+        "blocked",
+        "unchanged"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "revisionCountsResponse.json",
+  "$ref": "#/$defs/revisionCountsResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "revisionCountsResponse"
+}

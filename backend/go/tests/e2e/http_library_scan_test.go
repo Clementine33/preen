@@ -15,7 +15,10 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+
 	"time"
+
+	"github.com/Clementine33/preen/backend/internal/testutil/wirecheck"
 )
 
 // TestHTTPLibraryScanLoop boots the real backend binary as a subprocess
@@ -392,6 +395,7 @@ func doJSON(
 	if err != nil {
 		t.Fatalf("%s %s: read body: %v", method, path, err)
 	}
+	wirecheck.AssertHTTP(t, method, path, resp.StatusCode, body, raw, resp.Header.Get("Content-Type"))
 	if out != nil && len(raw) > 0 {
 		if err := json.Unmarshal(raw, out); err != nil {
 			t.Fatalf("%s %s: decode response %s: %v", method, path, raw, err)

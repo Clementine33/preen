@@ -1,0 +1,48 @@
+{
+  "$defs": {
+    "fileOperationItem": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "target_dir": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "fileOperationRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/fileOperationItem"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "member_path": {
+          "type": "string"
+        },
+        "operation": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    }
+  },
+  "$id": "fileOperationRequest.json",
+  "$ref": "#/$defs/fileOperationRequest",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "fileOperationRequest"
+}

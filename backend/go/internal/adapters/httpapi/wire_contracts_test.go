@@ -1,0 +1,486 @@
+//nolint:testpackage // route bindings name private DTOs
+package httpapi
+
+// wireContracts binds existing endpoints and stream families to their wire roots.
+// Routing and admission semantics remain in the HTTP adapter and API reference.
+const wireContracts = `{
+  "http": {
+    "DELETE /api/v1/classifier-tags/{id}": {
+      "request": "",
+      "responses": {
+        "204": "@empty"
+      }
+    },
+    "DELETE /api/v1/collections/{id}": {
+      "request": "",
+      "responses": {
+        "204": "@empty"
+      }
+    },
+    "DELETE /api/v1/collections/{id}/works/{rj}": {
+      "request": "",
+      "responses": {
+        "204": "@empty"
+      }
+    },
+    "DELETE /api/v1/libraries/{id}": {
+      "request": "",
+      "responses": {
+        "204": "@empty"
+      }
+    },
+    "DELETE /api/v1/session": {
+      "request": "",
+      "responses": {
+        "204": "@empty"
+      }
+    },
+    "DELETE /api/v1/user-tags/{id}": {
+      "request": "",
+      "responses": {
+        "204": "@empty"
+      }
+    },
+    "DELETE /api/v1/works/{rj}": {
+      "request": "",
+      "responses": {
+        "204": "@empty"
+      }
+    },
+    "DELETE /api/v1/works/{rj}/listening": {
+      "request": "",
+      "responses": {
+        "204": "@empty"
+      }
+    },
+    "GET /api/v1/circles": {
+      "request": "",
+      "responses": {
+        "200": "circleFacetsResponse"
+      }
+    },
+    "GET /api/v1/classifier-tags": {
+      "request": "",
+      "responses": {
+        "200": "classifierTagLibraryResponse"
+      }
+    },
+    "GET /api/v1/collections": {
+      "request": "",
+      "responses": {
+        "200": "collectionListResponse"
+      }
+    },
+    "GET /api/v1/collections/{id}": {
+      "request": "",
+      "responses": {
+        "200": "collectionDetailResponse"
+      }
+    },
+    "GET /api/v1/health": {
+      "request": "",
+      "responses": {
+        "200": "healthResponse"
+      }
+    },
+    "GET /api/v1/inventory/media-facts/events": {
+      "request": "",
+      "responses": {
+        "200": "@sse"
+      }
+    },
+    "GET /api/v1/libraries": {
+      "request": "",
+      "responses": {
+        "200": "libraryListResponse"
+      }
+    },
+    "GET /api/v1/libraries/{id}": {
+      "request": "",
+      "responses": {
+        "200": "libraryResponse"
+      }
+    },
+    "GET /api/v1/libraries/{id}/dirs": {
+      "request": "",
+      "responses": {
+        "200": "dirListResponse"
+      }
+    },
+    "GET /api/v1/libraries/{id}/operations/{type}/current": {
+      "request": "",
+      "responses": {
+        "200": "currentRecordResponse"
+      }
+    },
+    "GET /api/v1/libraries/{id}/tree": {
+      "request": "",
+      "responses": {
+        "200": "treeResponse"
+      }
+    },
+    "GET /api/v1/maintenance/cleanup": {
+      "request": "",
+      "responses": {
+        "200": "cleanupRunEnvelopeResponse"
+      }
+    },
+    "GET /api/v1/outbound-proxy": {
+      "request": "",
+      "responses": {
+        "200": "outboundProxyResponse"
+      }
+    },
+    "GET /api/v1/preferences": {
+      "request": "",
+      "responses": {
+        "200": "preferencesResponse"
+      }
+    },
+    "GET /api/v1/tags": {
+      "request": "",
+      "responses": {
+        "200": "tagFacetsResponse"
+      }
+    },
+    "GET /api/v1/tasks/{type}/settings": {
+      "request": "",
+      "responses": {
+        "200": "taskSettingsResponse"
+      }
+    },
+    "GET /api/v1/update-check": {
+      "request": "",
+      "responses": {
+        "200": "updateCheckResponse"
+      }
+    },
+    "GET /api/v1/user-tags": {
+      "request": "",
+      "responses": {
+        "200": "userTagListResponse"
+      }
+    },
+    "GET /api/v1/voice-actors": {
+      "request": "",
+      "responses": {
+        "200": "voiceActorFacetsResponse"
+      }
+    },
+    "GET /api/v1/works": {
+      "request": "",
+      "responses": {
+        "200": "workListResponse"
+      }
+    },
+    "GET /api/v1/works/{rj}": {
+      "request": "",
+      "responses": {
+        "200": "workDetailResponse"
+      }
+    },
+    "GET /api/v1/works/{rj}/content": {
+      "request": "",
+      "responses": {
+        "200": "workContentResponse"
+      }
+    },
+    "GET /api/v1/worksets": {
+      "request": "",
+      "responses": {
+        "200": "worksetListResponse"
+      }
+    },
+    "GET /api/v1/worksets/{id}": {
+      "request": "",
+      "responses": {
+        "200": "worksetResponse"
+      }
+    },
+    "GET /api/v1/worksets/{id}/operations/{type}": {
+      "request": "",
+      "responses": {
+        "200": "operationResponse"
+      }
+    },
+    "GET /api/v1/worksets/{id}/operations/{type}/draft": {
+      "request": "",
+      "responses": {
+        "200": "draftResponse"
+      }
+    },
+    "GET /api/v1/worksets/{id}/operations/{type}/executions/{executionId}": {
+      "request": "",
+      "responses": {
+        "200": "executionViewResponse"
+      }
+    },
+    "GET /api/v1/worksets/{id}/operations/{type}/executions/{executionId}/covers": {
+      "request": "",
+      "responses": {
+        "200": "coverReportResponse"
+      }
+    },
+    "GET /api/v1/worksets/{id}/operations/{type}/executions/{executionId}/events": {
+      "request": "",
+      "responses": {
+        "200": "@sse"
+      }
+    },
+    "GET /api/v1/worksets/{id}/operations/{type}/planning-sessions/{genId}": {
+      "request": "",
+      "responses": {
+        "200": "generationViewResponse"
+      }
+    },
+    "GET /api/v1/worksets/{id}/operations/{type}/planning-sessions/{genId}/events": {
+      "request": "",
+      "responses": {
+        "200": "@sse"
+      }
+    },
+    "GET /api/v1/worksets/{id}/operations/{type}/revisions/{planId}": {
+      "request": "",
+      "responses": {
+        "200": "revisionResponse"
+      }
+    },
+    "GET /api/v1/worksets/{id}/operations/{type}/revisions/{planId}/members/{memberId}": {
+      "request": "",
+      "responses": {
+        "200": "memberReviewResponse"
+      }
+    },
+    "PATCH /api/v1/collections/{id}": {
+      "request": "collectionNameRequest",
+      "responses": {
+        "200": "collectionResponse"
+      }
+    },
+    "PATCH /api/v1/collections/{id}/works/{rj}": {
+      "request": "collectionWorkMoveRequest",
+      "responses": {
+        "204": "@empty"
+      }
+    },
+    "PATCH /api/v1/libraries/{id}": {
+      "request": "libraryPatchRequest",
+      "responses": {
+        "200": "libraryResponse"
+      }
+    },
+    "PATCH /api/v1/user-tags/{id}": {
+      "request": "userTagRequest",
+      "responses": {
+        "200": "userTagResponse"
+      }
+    },
+    "PATCH /api/v1/works/{rj}/user-data": {
+      "request": "workUserDataPatchRequest",
+      "responses": {
+        "200": "userDataResponse"
+      }
+    },
+    "PATCH /api/v1/worksets/{id}": {
+      "request": "worksetPatchRequest",
+      "responses": {
+        "200": "worksetResponse"
+      }
+    },
+    "POST /api/v1/classifier-tags": {
+      "request": "classifierTagCreateRequest",
+      "responses": {
+        "201": "classifierCustomTagItem"
+      }
+    },
+    "POST /api/v1/collections": {
+      "request": "collectionNameRequest",
+      "responses": {
+        "201": "collectionResponse"
+      }
+    },
+    "POST /api/v1/collections/{id}/works": {
+      "request": "collectionWorksAppendRequest",
+      "responses": {
+        "200": "collectionWorksAppendResponse"
+      }
+    },
+    "POST /api/v1/libraries": {
+      "request": "libraryCreateRequest",
+      "responses": {
+        "201": "libraryResponse"
+      }
+    },
+    "POST /api/v1/libraries/{id}/file-operations": {
+      "request": "fileOperationRequest",
+      "responses": {
+        "200": "fileOperationResponse"
+      }
+    },
+    "POST /api/v1/libraries/{id}/scans": {
+      "request": "scanRequest",
+      "responses": {
+        "200": "@sse"
+      }
+    },
+    "POST /api/v1/libraries/{id}/tree/refresh": {
+      "request": "",
+      "responses": {
+        "200": "treeResponse"
+      }
+    },
+    "POST /api/v1/maintenance/cleanup": {
+      "request": "cleanupCategoriesRequest",
+      "responses": {
+        "202": "cleanupRunEnvelopeResponse"
+      }
+    },
+    "POST /api/v1/maintenance/cleanup/preview": {
+      "request": "cleanupCategoriesRequest",
+      "responses": {
+        "200": "cleanupPreviewResponse"
+      }
+    },
+    "POST /api/v1/maintenance/cleanup/{runId}/cancel": {
+      "request": "emptyRequest",
+      "responses": {
+        "200": "cleanupRunEnvelopeResponse"
+      }
+    },
+    "POST /api/v1/session": {
+      "request": "sessionCreateRequest",
+      "responses": {
+        "204": "@empty"
+      }
+    },
+    "POST /api/v1/user-tags": {
+      "request": "userTagRequest",
+      "responses": {
+        "200": "userTagResponse"
+      }
+    },
+    "POST /api/v1/worksets/{id}/operations/{type}/executions/{executionId}/cancel": {
+      "request": "",
+      "responses": {
+        "200": "executionViewResponse"
+      }
+    },
+    "POST /api/v1/worksets/{id}/operations/{type}/executions/{executionId}/covers/cancel": {
+      "request": "",
+      "responses": {
+        "200": "coverReportResponse"
+      }
+    },
+    "POST /api/v1/worksets/{id}/operations/{type}/executions/{executionId}/covers/retry": {
+      "request": "",
+      "responses": {
+        "200": "coverReportResponse"
+      }
+    },
+    "POST /api/v1/worksets/{id}/operations/{type}/planning-sessions/{genId}/cancel": {
+      "request": "",
+      "responses": {
+        "200": "generationViewResponse"
+      }
+    },
+    "POST /api/v1/worksets/{id}/operations/{type}/revisions": {
+      "request": "emptyRequest",
+      "responses": {
+        "200": "generationReplayRevisionResponse",
+        "202": "generationStartResponse"
+      }
+    },
+    "POST /api/v1/worksets/{id}/operations/{type}/revisions/{planId}/executions": {
+      "request": "executionStartRequest",
+      "responses": {
+        "200": "executionStartResponse",
+        "202": "executionStartResponse"
+      }
+    },
+    "PUT /api/v1/libraries/{id}/operations/{type}/current": {
+      "request": "recordCreateRequest",
+      "responses": {
+        "200": "recordCreateResponse",
+        "201": "recordCreateResponse"
+      }
+    },
+    "PUT /api/v1/outbound-proxy": {
+      "request": "outboundProxyPutRequest",
+      "responses": {
+        "200": "outboundProxyResponse"
+      }
+    },
+    "PUT /api/v1/preferences": {
+      "request": "preferencesUpdateRequest",
+      "responses": {
+        "200": "preferencesResponse"
+      }
+    },
+    "PUT /api/v1/tasks/{type}/settings": {
+      "request": "taskSettingsRequest",
+      "responses": {
+        "200": "taskSettingsResponse"
+      }
+    },
+    "PUT /api/v1/works/{rj}/listening": {
+      "request": "workListeningRequest",
+      "responses": {
+        "200": "listeningResponse"
+      }
+    },
+    "PUT /api/v1/works/{rj}/metadata": {
+      "request": "workMetadataImportRequest",
+      "responses": {
+        "200": "importResponse"
+      }
+    },
+    "PUT /api/v1/works/{rj}/user-tags": {
+      "request": "workUserTagsRequest",
+      "responses": {
+        "200": "userTagListResponse"
+      }
+    },
+    "PUT /api/v1/worksets/{id}/operations/{type}/draft": {
+      "request": "draftDocumentRequest",
+      "responses": {
+        "200": "operationResponse"
+      }
+    }
+  },
+  "sse": {
+    "execution": {
+      "canceled": "executionStoppedEvent",
+      "component": "executionComponentResponse",
+      "error": "sseError",
+      "execution_snapshot": "executionViewResponse",
+      "failed": "executionFailedEvent",
+      "interrupted": "executionStoppedEvent",
+      "member": "executionMemberEvent",
+      "message": "sessionStatusEvent",
+      "progress": "executionProgressEvent",
+      "succeeded": "executionSucceededEvent"
+    },
+    "generation": {
+      "canceled": "generationStoppedEvent",
+      "completed": "generationCompletedEvent",
+      "error": "sseError",
+      "failed": "generationFailedEvent",
+      "interrupted": "generationStoppedEvent",
+      "message": "sessionStatusEvent",
+      "progress": "generationProgressEvent",
+      "session_snapshot": "generationSnapshotEvent"
+    },
+    "media": {
+      "changed": "emptyEvent",
+      "status": "mediaFactsStatus",
+      "works_changed": "emptyEvent"
+    },
+    "scan": {
+      "cancelled": "scanEventData",
+      "completed": "scanEventData",
+      "error": "scanEventData",
+      "progress": "scanEventData",
+      "started": "scanEventData"
+    }
+  }
+}`

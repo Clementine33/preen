@@ -1,0 +1,52 @@
+{
+  "$defs": {
+    "executionMemberSummaryResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "completed_components": {
+          "type": "integer"
+        },
+        "completed_operations": {
+          "type": "integer"
+        },
+        "error_message": {
+          "type": "string"
+        },
+        "inventory_sync_error": {
+          "type": "string"
+        },
+        "member_id": {
+          "type": "string"
+        },
+        "root_path": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "total_components": {
+          "type": "integer"
+        },
+        "total_operations": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "member_id",
+        "root_path",
+        "status",
+        "total_components",
+        "completed_components",
+        "total_operations",
+        "completed_operations",
+        "error_message",
+        "inventory_sync_error"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "executionMemberSummaryResponse.json",
+  "$ref": "#/$defs/executionMemberSummaryResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "executionMemberSummaryResponse"
+}

@@ -1,0 +1,17 @@
+{
+  "$defs": {
+    "taskSettingsRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "settings": {
+          "$ref": "refresh_Common_request.json"
+        }
+      },
+      "type": "object"
+    }
+  },
+  "$id": "metadata_refresh_v1_taskSettingsRequest.json",
+  "$ref": "#/$defs/taskSettingsRequest",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "metadata_refresh_v1_taskSettingsRequest"
+}

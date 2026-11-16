@@ -1,0 +1,26 @@
+{
+  "$defs": {
+    "fileOperationItem": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "target_dir": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "source"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "fileOperationItem.json",
+  "$ref": "#/$defs/fileOperationItem",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "fileOperationItem"
+}

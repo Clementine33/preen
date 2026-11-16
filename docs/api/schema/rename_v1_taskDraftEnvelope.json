@@ -1,0 +1,30 @@
+{
+  "$defs": {
+    "taskDraftEnvelope": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "rename",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "dirrename_Draft.json"
+        },
+        "schema_version": {
+          "const": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "schema_version",
+        "payload"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "rename_v1_taskDraftEnvelope.json",
+  "$ref": "#/$defs/taskDraftEnvelope",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "rename_v1_taskDraftEnvelope"
+}

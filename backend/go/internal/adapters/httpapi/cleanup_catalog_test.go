@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Clementine33/preen/backend/internal/testutil/wirecheck"
+
 	"github.com/Clementine33/preen/backend/internal/adapters/httpapi"
 	"github.com/Clementine33/preen/backend/internal/admission"
 	"github.com/Clementine33/preen/backend/internal/cleanup"
@@ -42,13 +44,13 @@ func TestCleanupHTTPCatalogSelectionProtectionCountsAndMissingEdits(t *testing.T
 	}
 	svc := cleanup.NewService(t.Context(), repo, admission.NewGate(nil), cleanup.Options{YieldDelay: time.Millisecond})
 	t.Cleanup(svc.Shutdown)
-	handler := httpapi.NewServer(
+	handler := wirecheck.Handler(t, httpapi.NewServer(
 		httpapi.Dependencies{
 			Cleanup:     svc,
 			Works:       works.NewService(repo, nil, nil, nil, "test"),
 			Collections: collections.NewService(repo),
 		},
-	)
+	))
 	sources := `{"categories":["source_tags","source_voice_actors","source_circles"]}`
 	response := deletionRequest(handler, http.MethodPost, "maintenance/cleanup/preview", sources)
 	var preview cleanup.Preview

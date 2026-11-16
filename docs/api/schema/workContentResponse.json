@@ -1,0 +1,71 @@
+{
+  "$defs": {
+    "workContentCopyResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "copy_id": {
+          "type": "string"
+        },
+        "dir_id": {
+          "type": "string"
+        },
+        "library_id": {
+          "type": "string"
+        },
+        "online": {
+          "type": "boolean"
+        },
+        "tree": {
+          "$ref": "#/$defs/workContentNodeResponse"
+        }
+      },
+      "required": [
+        "copy_id",
+        "library_id",
+        "dir_id",
+        "online"
+      ],
+      "type": "object"
+    },
+    "workContentNodeResponse": {
+      "oneOf": [
+        {
+          "$ref": "workContentDirNodeJSON.json"
+        },
+        {
+          "$ref": "workContentFileNodeJSON.json"
+        }
+      ]
+    },
+    "workContentResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "copies": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/workContentCopyResponse"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "rj": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "rj",
+        "copies"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "workContentResponse.json",
+  "$ref": "#/$defs/workContentResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "workContentResponse"
+}

@@ -1,0 +1,79 @@
+{
+  "$defs": {
+    "listeningResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "finished_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "position_sec": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "rendition": {
+          "type": "string"
+        },
+        "track_count": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "track_index": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "track_key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "updated_at": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "rendition",
+        "track_key",
+        "position_sec",
+        "track_index",
+        "track_count",
+        "finished_at",
+        "updated_at"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "listeningResponse.json",
+  "$ref": "#/$defs/listeningResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "listeningResponse"
+}

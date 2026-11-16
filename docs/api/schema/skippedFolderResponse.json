@@ -1,0 +1,24 @@
+{
+  "$defs": {
+    "skippedFolderResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "dir_id": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "dir_id",
+        "reason"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "skippedFolderResponse.json",
+  "$ref": "#/$defs/skippedFolderResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "skippedFolderResponse"
+}

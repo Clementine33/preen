@@ -1,0 +1,24 @@
+{
+  "$defs": {
+    "generationCompletedEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "generation_id": {
+          "type": "string"
+        },
+        "revision_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "generation_id",
+        "revision_id"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "generationCompletedEvent.json",
+  "$ref": "#/$defs/generationCompletedEvent",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "generationCompletedEvent"
+}

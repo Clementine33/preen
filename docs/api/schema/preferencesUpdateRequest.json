@@ -1,0 +1,44 @@
+{
+  "$defs": {
+    "preferencesUpdateRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "default_library_id": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "track_formats": {
+          "anyOf": [
+            {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "type": "object"
+    }
+  },
+  "$id": "preferencesUpdateRequest.json",
+  "$ref": "#/$defs/preferencesUpdateRequest",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "preferencesUpdateRequest"
+}

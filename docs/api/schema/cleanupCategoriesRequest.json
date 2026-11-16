@@ -1,0 +1,27 @@
+{
+  "$defs": {
+    "cleanupCategoriesRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "categories": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "type": "object"
+    }
+  },
+  "$id": "cleanupCategoriesRequest.json",
+  "$ref": "#/$defs/cleanupCategoriesRequest",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "cleanupCategoriesRequest"
+}

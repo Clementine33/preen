@@ -1,0 +1,66 @@
+{
+  "$defs": {
+    "workImportRelationsRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "child_rjs": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "fetched_at": {
+          "type": "string"
+        },
+        "language": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "original_rj": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "parent_rj": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "role": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    }
+  },
+  "$id": "workImportRelationsRequest.json",
+  "$ref": "#/$defs/workImportRelationsRequest",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "workImportRelationsRequest"
+}

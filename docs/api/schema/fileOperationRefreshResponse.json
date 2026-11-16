@@ -1,0 +1,26 @@
+{
+  "$defs": {
+    "fileOperationRefreshResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "ok": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ok"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "fileOperationRefreshResponse.json",
+  "$ref": "#/$defs/fileOperationRefreshResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "fileOperationRefreshResponse"
+}

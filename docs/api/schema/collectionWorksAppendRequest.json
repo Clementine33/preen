@@ -1,0 +1,27 @@
+{
+  "$defs": {
+    "collectionWorksAppendRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "rjs": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "type": "object"
+    }
+  },
+  "$id": "collectionWorksAppendRequest.json",
+  "$ref": "#/$defs/collectionWorksAppendRequest",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "collectionWorksAppendRequest"
+}

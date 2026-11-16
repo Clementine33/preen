@@ -1,0 +1,35 @@
+{
+  "$defs": {
+    "userDataResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "favorite": {
+          "type": "boolean"
+        },
+        "note": {
+          "type": "string"
+        },
+        "rating": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "rating",
+        "favorite",
+        "note"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "userDataResponse.json",
+  "$ref": "#/$defs/userDataResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "userDataResponse"
+}

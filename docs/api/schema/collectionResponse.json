@@ -1,0 +1,36 @@
+{
+  "$defs": {
+    "collectionResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "created_at": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "updated_at": {
+          "type": "string"
+        },
+        "work_count": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "work_count",
+        "created_at",
+        "updated_at"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "collectionResponse.json",
+  "$ref": "#/$defs/collectionResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "collectionResponse"
+}

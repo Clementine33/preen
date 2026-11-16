@@ -1,0 +1,59 @@
+{
+  "$defs": {
+    "executionProgressResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "completed_components": {
+          "type": "integer"
+        },
+        "completed_operations": {
+          "type": "integer"
+        },
+        "current_component_id": {
+          "type": "string"
+        },
+        "current_phase": {
+          "type": "string"
+        },
+        "current_root": {
+          "type": "string"
+        },
+        "execution_id": {
+          "type": "string"
+        },
+        "options": {
+          "$ref": "refresh_Common.json"
+        },
+        "plan_id": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "total_components": {
+          "type": "integer"
+        },
+        "total_operations": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "execution_id",
+        "plan_id",
+        "status",
+        "total_components",
+        "completed_components",
+        "total_operations",
+        "completed_operations",
+        "current_root",
+        "current_component_id",
+        "current_phase"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "metadata_refresh_v1_executionProgressResponse.json",
+  "$ref": "#/$defs/executionProgressResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "metadata_refresh_v1_executionProgressResponse"
+}

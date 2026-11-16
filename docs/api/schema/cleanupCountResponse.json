@@ -1,0 +1,28 @@
+{
+  "$defs": {
+    "cleanupCountResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "checked": {
+          "type": "integer"
+        },
+        "deleted": {
+          "type": "integer"
+        },
+        "skipped": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "checked",
+        "deleted",
+        "skipped"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "cleanupCountResponse.json",
+  "$ref": "#/$defs/cleanupCountResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "cleanupCountResponse"
+}

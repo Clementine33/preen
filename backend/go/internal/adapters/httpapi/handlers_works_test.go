@@ -2,6 +2,7 @@ package httpapi //nolint:testpackage // white-box tests drive the routes through
 
 import (
 	"github.com/Clementine33/preen/backend/internal/adapters/filesystem"
+	"github.com/Clementine33/preen/backend/internal/testutil/wirecheck"
 
 	"encoding/json"
 	"net/http"
@@ -358,12 +359,12 @@ func TestWorkDetailAnswersTheEditionTreeAndCopyDirIDs(t *testing.T) {
 	engine, repo := serverOnDB(t, filepath.Join(t.TempDir(), "tree.db"))
 	t.Cleanup(func() { _ = repo.Close() })
 	libID, root := treeLibrary(t, engine, repo, "Music")
-	handler := NewServer(Dependencies{
+	handler := wirecheck.Handler(t, NewServer(Dependencies{
 		Library:     library.NewService(repo, nil, repo, filesystem.ResolveMember),
 		Works:       works.NewService(repo, nil, nil, nil, "test"),
 		CORSOrigins: []string{},
 		Version:     "dev",
-	})
+	}))
 	for _, id := range []string{"RJ01287230", "RJ01289610", "RJ01289611"} {
 		seedHTTPWork(t, repo, id, id)
 	}

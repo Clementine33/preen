@@ -1,0 +1,110 @@
+{
+  "$defs": {
+    "relationResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "language": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "original_rj": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "parent_rj": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "role": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "role",
+        "language",
+        "original_rj",
+        "parent_rj"
+      ],
+      "type": "object"
+    },
+    "treeNodeResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "held": {
+          "type": "boolean"
+        },
+        "is_work": {
+          "type": "boolean"
+        },
+        "language": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "relation": {
+          "$ref": "#/$defs/relationResponse"
+        },
+        "rj": {
+          "type": "string"
+        },
+        "role": {
+          "type": "string"
+        },
+        "source_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "rj",
+        "role",
+        "is_work",
+        "held",
+        "language",
+        "relation",
+        "source_url"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "treeNodeResponse.json",
+  "$ref": "#/$defs/treeNodeResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "treeNodeResponse"
+}

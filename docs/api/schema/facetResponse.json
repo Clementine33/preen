@@ -1,0 +1,28 @@
+{
+  "$defs": {
+    "facetResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "work_count": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "work_count"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "facetResponse.json",
+  "$ref": "#/$defs/facetResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "facetResponse"
+}

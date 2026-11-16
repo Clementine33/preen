@@ -1,0 +1,531 @@
+{
+  "$defs": {
+    "executionComponentResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "committed": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "completed_operations": {
+          "type": "integer"
+        },
+        "component_id": {
+          "type": "string"
+        },
+        "component_index": {
+          "type": "integer"
+        },
+        "error_code": {
+          "type": "string"
+        },
+        "error_message": {
+          "type": "string"
+        },
+        "inventory_sync_error": {
+          "type": "string"
+        },
+        "inventory_synced": {
+          "type": "boolean"
+        },
+        "kept_decisions": {
+          "maxItems": 0,
+          "type": "array"
+        },
+        "operations": {
+          "type": "integer"
+        },
+        "partition": {
+          "type": "string"
+        },
+        "recovery": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "remaining": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "removed": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "root_path": {
+          "type": "string"
+        },
+        "stage": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "task_result": {
+          "$ref": "dirrename_Result.json"
+        }
+      },
+      "required": [
+        "kept_decisions",
+        "component_index",
+        "component_id",
+        "root_path",
+        "partition",
+        "status",
+        "operations",
+        "completed_operations",
+        "committed",
+        "removed",
+        "remaining",
+        "recovery",
+        "inventory_synced"
+      ],
+      "type": "object"
+    },
+    "executionMemberCountsResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "canceled": {
+          "type": "integer"
+        },
+        "failed": {
+          "type": "integer"
+        },
+        "pending": {
+          "type": "integer"
+        },
+        "running": {
+          "type": "integer"
+        },
+        "succeeded": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "succeeded",
+        "failed",
+        "canceled",
+        "running",
+        "pending"
+      ],
+      "type": "object"
+    },
+    "executionMemberSummaryResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "completed_components": {
+          "type": "integer"
+        },
+        "completed_operations": {
+          "type": "integer"
+        },
+        "error_message": {
+          "type": "string"
+        },
+        "inventory_sync_error": {
+          "type": "string"
+        },
+        "member_id": {
+          "type": "string"
+        },
+        "root_path": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "total_components": {
+          "type": "integer"
+        },
+        "total_operations": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "member_id",
+        "root_path",
+        "status",
+        "total_components",
+        "completed_components",
+        "total_operations",
+        "completed_operations",
+        "error_message",
+        "inventory_sync_error"
+      ],
+      "type": "object"
+    },
+    "executionMembersResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "attention": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/executionMemberSummaryResponse"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "attention_total": {
+          "type": "integer"
+        },
+        "counts": {
+          "$ref": "#/$defs/executionMemberCountsResponse"
+        }
+      },
+      "required": [
+        "counts",
+        "attention",
+        "attention_total"
+      ],
+      "type": "object"
+    },
+    "executionStartResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "created": {
+          "type": "boolean"
+        },
+        "execution": {
+          "$ref": "#/$defs/executionViewResponse"
+        }
+      },
+      "required": [
+        "created",
+        "execution"
+      ],
+      "type": "object"
+    },
+    "executionViewResponse": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "completed_components": {
+              "type": "integer"
+            },
+            "completed_operations": {
+              "type": "integer"
+            },
+            "components": {
+              "anyOf": [
+                {
+                  "items": {
+                    "$ref": "#/$defs/executionComponentResponse"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "created_at": {
+              "type": "string"
+            },
+            "current_component_id": {
+              "type": "string"
+            },
+            "current_phase": {
+              "type": "string"
+            },
+            "current_root": {
+              "type": "string"
+            },
+            "error_code": {
+              "type": "string"
+            },
+            "error_message": {
+              "type": "string"
+            },
+            "execution_id": {
+              "type": "string"
+            },
+            "finished_at": {
+              "type": "string"
+            },
+            "operation_type": {
+              "const": "rename",
+              "type": "string"
+            },
+            "plan_id": {
+              "type": "string"
+            },
+            "selected_member_ids": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "started_at": {
+              "type": "string"
+            },
+            "status": {
+              "type": "string"
+            },
+            "total_components": {
+              "type": "integer"
+            },
+            "total_operations": {
+              "type": "integer"
+            },
+            "workset_id": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "execution_id",
+            "workset_id",
+            "operation_type",
+            "plan_id",
+            "status",
+            "total_components",
+            "completed_components",
+            "total_operations",
+            "completed_operations",
+            "current_root",
+            "current_component_id",
+            "current_phase",
+            "components",
+            "error_code",
+            "error_message",
+            "started_at",
+            "finished_at",
+            "created_at"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "completed_components": {
+              "type": "integer"
+            },
+            "completed_operations": {
+              "type": "integer"
+            },
+            "created_at": {
+              "type": "string"
+            },
+            "current_component_id": {
+              "type": "string"
+            },
+            "current_phase": {
+              "type": "string"
+            },
+            "current_root": {
+              "type": "string"
+            },
+            "error_code": {
+              "type": "string"
+            },
+            "error_message": {
+              "type": "string"
+            },
+            "execution_id": {
+              "type": "string"
+            },
+            "finished_at": {
+              "type": "string"
+            },
+            "members": {
+              "$ref": "#/$defs/executionMembersResponse"
+            },
+            "operation_type": {
+              "const": "rename",
+              "type": "string"
+            },
+            "plan_id": {
+              "type": "string"
+            },
+            "selected_member_ids": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "started_at": {
+              "type": "string"
+            },
+            "status": {
+              "type": "string"
+            },
+            "total_components": {
+              "type": "integer"
+            },
+            "total_operations": {
+              "type": "integer"
+            },
+            "workset_id": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "execution_id",
+            "workset_id",
+            "operation_type",
+            "plan_id",
+            "status",
+            "total_components",
+            "completed_components",
+            "total_operations",
+            "completed_operations",
+            "current_root",
+            "current_component_id",
+            "current_phase",
+            "error_code",
+            "error_message",
+            "started_at",
+            "finished_at",
+            "created_at",
+            "members"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "completed_components": {
+              "type": "integer"
+            },
+            "completed_operations": {
+              "type": "integer"
+            },
+            "components": {
+              "anyOf": [
+                {
+                  "items": {
+                    "$ref": "#/$defs/executionComponentResponse"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "created_at": {
+              "type": "string"
+            },
+            "current_component_id": {
+              "type": "string"
+            },
+            "current_phase": {
+              "type": "string"
+            },
+            "current_root": {
+              "type": "string"
+            },
+            "error_code": {
+              "type": "string"
+            },
+            "error_message": {
+              "type": "string"
+            },
+            "execution_id": {
+              "type": "string"
+            },
+            "finished_at": {
+              "type": "string"
+            },
+            "member": {
+              "$ref": "#/$defs/executionMemberSummaryResponse"
+            },
+            "operation_type": {
+              "const": "rename",
+              "type": "string"
+            },
+            "plan_id": {
+              "type": "string"
+            },
+            "selected_member_ids": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "started_at": {
+              "type": "string"
+            },
+            "status": {
+              "type": "string"
+            },
+            "total_components": {
+              "type": "integer"
+            },
+            "total_operations": {
+              "type": "integer"
+            },
+            "workset_id": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "execution_id",
+            "workset_id",
+            "operation_type",
+            "plan_id",
+            "status",
+            "total_components",
+            "completed_components",
+            "total_operations",
+            "completed_operations",
+            "current_root",
+            "current_component_id",
+            "current_phase",
+            "components",
+            "error_code",
+            "error_message",
+            "started_at",
+            "finished_at",
+            "created_at",
+            "member"
+          ],
+          "type": "object"
+        }
+      ]
+    }
+  },
+  "$id": "rename_v1_executionStartResponse.json",
+  "$ref": "#/$defs/executionStartResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "rename_v1_executionStartResponse"
+}

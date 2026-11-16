@@ -1,0 +1,36 @@
+{
+  "$defs": {
+    "executionMemberCountsResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "canceled": {
+          "type": "integer"
+        },
+        "failed": {
+          "type": "integer"
+        },
+        "pending": {
+          "type": "integer"
+        },
+        "running": {
+          "type": "integer"
+        },
+        "succeeded": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "succeeded",
+        "failed",
+        "canceled",
+        "running",
+        "pending"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "executionMemberCountsResponse.json",
+  "$ref": "#/$defs/executionMemberCountsResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "executionMemberCountsResponse"
+}

@@ -1,0 +1,68 @@
+{
+  "$defs": {
+    "generationSnapshotEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "completed_roots": {
+          "type": "integer"
+        },
+        "created_at": {
+          "type": "string"
+        },
+        "current_root": {
+          "type": "string"
+        },
+        "error_code": {
+          "type": "string"
+        },
+        "error_count": {
+          "type": "integer"
+        },
+        "error_message": {
+          "type": "string"
+        },
+        "finished_at": {
+          "type": "string"
+        },
+        "generation_id": {
+          "type": "string"
+        },
+        "revision_id": {
+          "type": "string"
+        },
+        "started_at": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "total_roots": {
+          "type": "integer"
+        },
+        "workset_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "generation_id",
+        "workset_id",
+        "status",
+        "total_roots",
+        "completed_roots",
+        "current_root",
+        "error_count",
+        "revision_id",
+        "error_code",
+        "error_message",
+        "started_at",
+        "finished_at",
+        "created_at"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "generationSnapshotEvent.json",
+  "$ref": "#/$defs/generationSnapshotEvent",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "generationSnapshotEvent"
+}

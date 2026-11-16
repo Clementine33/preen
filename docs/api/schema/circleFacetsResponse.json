@@ -1,0 +1,50 @@
+{
+  "$defs": {
+    "circleFacetsResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "circles": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/facetResponse"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "circles"
+      ],
+      "type": "object"
+    },
+    "facetResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "work_count": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "work_count"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "circleFacetsResponse.json",
+  "$ref": "#/$defs/circleFacetsResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "circleFacetsResponse"
+}

@@ -1,0 +1,20 @@
+{
+  "$defs": {
+    "generationStoppedEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "generation_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "generation_id"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "generationStoppedEvent.json",
+  "$ref": "#/$defs/generationStoppedEvent",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "generationStoppedEvent"
+}

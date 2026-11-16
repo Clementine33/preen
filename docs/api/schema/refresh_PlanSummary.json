@@ -1,0 +1,43 @@
+{
+  "$defs": {
+    "refresh_PlanSummary": {
+      "additionalProperties": false,
+      "properties": {
+        "blocked_count": {
+          "type": "integer"
+        },
+        "component_count": {
+          "type": "integer"
+        },
+        "error_count": {
+          "type": "integer"
+        },
+        "operation_count": {
+          "type": "integer"
+        },
+        "summary_reason": {
+          "type": "string"
+        },
+        "unmet_targets": {
+          "type": "integer"
+        },
+        "work_count": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "component_count",
+        "blocked_count",
+        "operation_count",
+        "error_count",
+        "summary_reason",
+        "work_count"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "refresh_PlanSummary.json",
+  "$ref": "#/$defs/refresh_PlanSummary",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "refresh_PlanSummary"
+}

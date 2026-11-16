@@ -1,0 +1,13 @@
+{
+  "$defs": {
+    "emptyEvent": {
+      "additionalProperties": false,
+      "properties": {},
+      "type": "object"
+    }
+  },
+  "$id": "emptyEvent.json",
+  "$ref": "#/$defs/emptyEvent",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "emptyEvent"
+}

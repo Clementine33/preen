@@ -1,0 +1,74 @@
+{
+  "$defs": {
+    "taskEnvelopeResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "conversion",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/taskPayloadResponse"
+        },
+        "schema_version": {
+          "const": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "schema_version",
+        "payload"
+      ],
+      "type": "object"
+    },
+    "taskPayloadResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "classifier": {
+          "$ref": "taskClassifierSnapshot.json"
+        },
+        "components": {
+          "items": {
+            "$ref": "reconcile_ComponentOutcome.json"
+          },
+          "type": "array"
+        },
+        "policy": {
+          "anyOf": [
+            {
+              "$ref": "reconcile_Policy.json"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "policy_hash": {
+          "type": "string"
+        },
+        "summary": {
+          "anyOf": [
+            {
+              "$ref": "reconcile_StepSummary.json"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "policy",
+        "policy_hash",
+        "classifier",
+        "summary"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "conversion_v1_taskEnvelopeResponse.json",
+  "$ref": "#/$defs/taskEnvelopeResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "conversion_v1_taskEnvelopeResponse"
+}

@@ -1,0 +1,34 @@
+{
+  "$defs": {
+    "taskClassifierSnapshot": {
+      "additionalProperties": false,
+      "properties": {
+        "hash": {
+          "type": "string"
+        },
+        "tags": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "tags",
+        "hash"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "taskClassifierSnapshot.json",
+  "$ref": "#/$defs/taskClassifierSnapshot",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "taskClassifierSnapshot"
+}

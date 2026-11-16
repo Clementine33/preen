@@ -1,0 +1,53 @@
+{
+  "$defs": {
+    "listeningSummaryResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "state": {
+          "type": "string"
+        },
+        "track_count": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "track_index": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "updated_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "state",
+        "track_index",
+        "track_count",
+        "updated_at"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "listeningSummaryResponse.json",
+  "$ref": "#/$defs/listeningSummaryResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "listeningSummaryResponse"
+}

@@ -8,11 +8,13 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/Clementine33/preen/backend/internal/testutil/wirecheck"
+
 	"github.com/Clementine33/preen/backend/internal/adapters/httpapi"
 )
 
 func TestBrowserLogout(t *testing.T) {
-	server := httpapi.NewServer(httpapi.Dependencies{Token: "secret"})
+	server := wirecheck.Handler(t, httpapi.NewServer(httpapi.Dependencies{Token: "secret"}))
 	for _, credential := range []string{"", "preen_token=invalid", "preen_token=c2VjcmV0"} {
 		req := httptest.NewRequest(http.MethodDelete, "/api/v1/session", nil)
 		req.Header.Set("Cookie", credential)
@@ -31,7 +33,7 @@ func TestBrowserLogout(t *testing.T) {
 }
 
 func TestCookieWritesRequireSameOrigin(t *testing.T) {
-	server := httpapi.NewServer(httpapi.Dependencies{Token: "secret"})
+	server := wirecheck.Handler(t, httpapi.NewServer(httpapi.Dependencies{Token: "secret"}))
 	for _, tc := range []struct {
 		name, site, origin, authorization string
 		status                            int
@@ -72,7 +74,7 @@ func TestCookieWritesRequireSameOrigin(t *testing.T) {
 }
 
 func TestCookieReadsIgnoreOrigin(t *testing.T) {
-	server := httpapi.NewServer(httpapi.Dependencies{Token: "secret"})
+	server := wirecheck.Handler(t, httpapi.NewServer(httpapi.Dependencies{Token: "secret"}))
 	for _, method := range []string{http.MethodGet, http.MethodHead} {
 		req := httptest.NewRequest(method, "/api/v1/libraries", nil)
 		req.Header.Set("Cookie", "preen_token=c2VjcmV0")
@@ -88,7 +90,7 @@ func TestCookieReadsIgnoreOrigin(t *testing.T) {
 
 func TestBrowserLogin(t *testing.T) {
 	const token = `shared;"\secret`
-	server := httpapi.NewServer(httpapi.Dependencies{Token: token})
+	server := wirecheck.Handler(t, httpapi.NewServer(httpapi.Dependencies{Token: token}))
 	body, _ := json.Marshal(map[string]string{"token": token})
 	login := httptest.NewRecorder()
 	server.ServeHTTP(login, httptest.NewRequest(http.MethodPost, "/api/v1/session", bytes.NewReader(body)))
@@ -123,7 +125,7 @@ func TestBrowserLogin(t *testing.T) {
 }
 
 func TestBrowserCredentialPrecedence(t *testing.T) {
-	server := httpapi.NewServer(httpapi.Dependencies{Token: "secret"})
+	server := wirecheck.Handler(t, httpapi.NewServer(httpapi.Dependencies{Token: "secret"}))
 	for _, tc := range []struct {
 		name, path, bearer, cookie string
 		authorized                 bool
@@ -158,7 +160,7 @@ func TestBrowserCredentialPrecedence(t *testing.T) {
 }
 
 func TestBrowserLoginHTTPS(t *testing.T) {
-	server := httpapi.NewServer(httpapi.Dependencies{Token: "secret"})
+	server := wirecheck.Handler(t, httpapi.NewServer(httpapi.Dependencies{Token: "secret"}))
 	for _, forwarded := range []bool{false, true} {
 		req := httptest.NewRequest(http.MethodPost, "/api/v1/session", bytes.NewBufferString(`{"token":"secret"}`))
 		if forwarded {
@@ -175,7 +177,7 @@ func TestBrowserLoginHTTPS(t *testing.T) {
 }
 
 func TestBrowserLoginRejectsMalformedPayloads(t *testing.T) {
-	server := httpapi.NewServer(httpapi.Dependencies{Token: "secret"})
+	server := wirecheck.Handler(t, httpapi.NewServer(httpapi.Dependencies{Token: "secret"}))
 	for _, body := range []string{`{"token":"secret","extra":1}`, `{"token":1}`, `{"token":"secret"} {}`, `null`, `{}`} {
 		response := httptest.NewRecorder()
 		server.ServeHTTP(response, httptest.NewRequest(http.MethodPost, "/api/v1/session", bytes.NewBufferString(body)))

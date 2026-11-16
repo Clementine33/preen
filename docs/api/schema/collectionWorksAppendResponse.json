@@ -1,0 +1,48 @@
+{
+  "$defs": {
+    "collectionWorksAppendResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "added": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "skipped": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "work_count": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "added",
+        "skipped",
+        "work_count"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "collectionWorksAppendResponse.json",
+  "$ref": "#/$defs/collectionWorksAppendResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "collectionWorksAppendResponse"
+}

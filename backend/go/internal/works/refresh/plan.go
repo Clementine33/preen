@@ -18,6 +18,13 @@ type Outcome struct {
 	ReasonCode string               `json:"reason_code,omitempty"`
 }
 
+// PlanSummary adds the number of distinct works to the generic plan counts.
+type PlanSummary struct {
+	workset.PlanSummary
+
+	WorkCount int `json:"work_count"`
+}
+
 const reasonAlreadyComplete = "ALREADY_COMPLETE"
 
 // completeWorks reports the bound works fill_missing would fetch nothing for,
@@ -102,11 +109,7 @@ func (t *Task) PlanSession(ctx context.Context, in workset.PlanSessionInput) (*w
 	}
 	snap.Payload, _ = json.Marshal(d.Common)
 	snap.PayloadHash = workset.CanonicalJSONHash(snap.Payload)
-	var summary struct {
-		workset.PlanSummary
-
-		WorkCount int `json:"work_count"`
-	}
+	var summary PlanSummary
 	summary.SummaryReason = "ok"
 	codes := map[string]bool{}
 	for _, m := range in.Members {

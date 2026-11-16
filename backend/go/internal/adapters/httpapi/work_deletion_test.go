@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Clementine33/preen/backend/internal/testutil/wirecheck"
+
 	"github.com/Clementine33/preen/backend/internal/adapters/httpapi"
 	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
 	"github.com/Clementine33/preen/backend/internal/collections"
@@ -26,10 +28,10 @@ func deletionServer(t *testing.T) (http.Handler, *sqlite.Repository) {
 	 VALUES('RJ00000001','2026-09-27T10:00:00.000000000Z','')`); err != nil {
 		t.Fatal(err)
 	}
-	return httpapi.NewServer(httpapi.Dependencies{
+	return wirecheck.Handler(t, httpapi.NewServer(httpapi.Dependencies{
 		Works:       works.NewService(repo, nil, nil, nil, "test"),
 		Collections: collections.NewService(repo),
-	}), repo
+	})), repo
 }
 
 func deletionRequest(handler http.Handler, method, path, body string) *httptest.ResponseRecorder {

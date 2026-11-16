@@ -1,0 +1,56 @@
+{
+  "$defs": {
+    "memberTreeNodeResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "bitrate": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "children": {
+          "items": {
+            "$ref": "#/$defs/memberTreeNodeResponse"
+          },
+          "type": "array"
+        },
+        "format": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "rel_path": {
+          "type": "string"
+        },
+        "size": {
+          "type": "integer"
+        },
+        "type": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "path",
+        "rel_path",
+        "type",
+        "bitrate",
+        "format"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "memberTreeNodeResponse.json",
+  "$ref": "#/$defs/memberTreeNodeResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "memberTreeNodeResponse"
+}

@@ -1,0 +1,28 @@
+{
+  "$defs": {
+    "ignoredGroupResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "data_group": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "data_group",
+        "reason",
+        "message"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "ignoredGroupResponse.json",
+  "$ref": "#/$defs/ignoredGroupResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ignoredGroupResponse"
+}

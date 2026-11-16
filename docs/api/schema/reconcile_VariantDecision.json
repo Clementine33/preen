@@ -1,0 +1,52 @@
+{
+  "$defs": {
+    "reconcile_FileDecision": {
+      "additionalProperties": false,
+      "properties": {
+        "message": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "reason_code": {
+          "type": "string"
+        },
+        "resolution": {
+          "type": "string"
+        },
+        "target_path": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "resolution"
+      ],
+      "type": "object"
+    },
+    "reconcile_VariantDecision": {
+      "additionalProperties": false,
+      "properties": {
+        "decisions": {
+          "items": {
+            "$ref": "#/$defs/reconcile_FileDecision"
+          },
+          "type": "array"
+        },
+        "stem": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "stem",
+        "decisions"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "reconcile_VariantDecision.json",
+  "$ref": "#/$defs/reconcile_VariantDecision",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "reconcile_VariantDecision"
+}

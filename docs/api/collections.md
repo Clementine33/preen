@@ -1,6 +1,6 @@
 # Work collections
 
-[API reference](../api.md) · [Common conventions](common.md)
+[API reference](../api.md) · [JSON schemas and endpoint/event bindings](schema/contracts.json) · [Common conventions](common.md)
 
 A Work Collection is the single user's ordered set of complete Works, independent
 of Libraries, Copies and inventory paths. A Work may belong to several collections,

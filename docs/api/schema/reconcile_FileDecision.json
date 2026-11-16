@@ -1,0 +1,33 @@
+{
+  "$defs": {
+    "reconcile_FileDecision": {
+      "additionalProperties": false,
+      "properties": {
+        "message": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "reason_code": {
+          "type": "string"
+        },
+        "resolution": {
+          "type": "string"
+        },
+        "target_path": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "resolution"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "reconcile_FileDecision.json",
+  "$ref": "#/$defs/reconcile_FileDecision",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "reconcile_FileDecision"
+}

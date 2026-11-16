@@ -1,0 +1,20 @@
+{
+  "$defs": {
+    "conversion_ExecutionOptions": {
+      "additionalProperties": false,
+      "properties": {
+        "delete_mode": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "delete_mode"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "conversion_ExecutionOptions.json",
+  "$ref": "#/$defs/conversion_ExecutionOptions",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "conversion_ExecutionOptions"
+}

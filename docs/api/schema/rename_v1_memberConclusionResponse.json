@@ -1,0 +1,38 @@
+{
+  "$defs": {
+    "memberConclusionResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "type": "string"
+        },
+        "excluded": {
+          "type": "boolean"
+        },
+        "has_components": {
+          "type": "boolean"
+        },
+        "input": {
+          "type": "string"
+        },
+        "member_id": {
+          "type": "string"
+        },
+        "task": {
+          "$ref": "dirrename_Outcome.json"
+        }
+      },
+      "required": [
+        "member_id",
+        "excluded",
+        "input",
+        "has_components"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "rename_v1_memberConclusionResponse.json",
+  "$ref": "#/$defs/memberConclusionResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "rename_v1_memberConclusionResponse"
+}

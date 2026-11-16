@@ -1,0 +1,28 @@
+{
+  "$defs": {
+    "generationFailedEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "error_code": {
+          "type": "string"
+        },
+        "error_message": {
+          "type": "string"
+        },
+        "generation_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "generation_id",
+        "error_code",
+        "error_message"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "generationFailedEvent.json",
+  "$ref": "#/$defs/generationFailedEvent",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "generationFailedEvent"
+}

@@ -1,0 +1,30 @@
+{
+  "$defs": {
+    "taskDraftEnvelope": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "metadata_refresh",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "refresh_Draft.json"
+        },
+        "schema_version": {
+          "const": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "schema_version",
+        "payload"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "metadata_refresh_v1_taskDraftEnvelope.json",
+  "$ref": "#/$defs/taskDraftEnvelope",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "metadata_refresh_v1_taskDraftEnvelope"
+}

@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Clementine33/preen/backend/internal/testutil/wirecheck"
+
 	"github.com/Clementine33/preen/backend/internal/adapters/filesystem"
 	appconfig "github.com/Clementine33/preen/backend/internal/adapters/settings"
 	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
@@ -36,7 +38,7 @@ func newTestServer(t *testing.T, mutate func(d *Dependencies, fixture *sqlite.Re
 	if mutate != nil {
 		mutate(&deps, fixture)
 	}
-	return NewServer(deps)
+	return wirecheck.Handler(t, NewServer(deps))
 }
 
 // wireInventory builds the real scanning entry over the test repository: the
@@ -113,6 +115,7 @@ func doRequest(
 	}
 	w := httptest.NewRecorder()
 	engine.ServeHTTP(w, req)
+	wirecheck.AssertHTTP(t, method, path, w.Code, body, w.Body.Bytes(), w.Header().Get("Content-Type"))
 	return w
 }
 

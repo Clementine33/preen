@@ -13,6 +13,8 @@ tasks:
   test:go:
     desc: Run Go tests
     dir: backend/go
+    env:
+      PREEN_WIRE_REQUIRE_COVERAGE: '1'
     cmds:
       - go test ./...
 
@@ -139,9 +141,15 @@ tasks:
     cmds:
       - pnpm exec playwright install chromium
 
+  contract:check:
+    desc: Regenerate wire contracts and reject drift, including untracked new schemas
+    cmds:
+      - node scripts/check-contracts.mjs
+
   ci:quality:
     desc: Run quality checks (Go + Web)
     cmds:
+      - task contract:check
       - task test:go
       - task lint:go
       - task vuln:go

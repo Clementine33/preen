@@ -1,0 +1,26 @@
+{
+  "$defs": {
+    "updateCheckResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "latest_version": {
+          "type": "string"
+        },
+        "release_url": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "state"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "updateCheckResponse.json",
+  "$ref": "#/$defs/updateCheckResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "updateCheckResponse"
+}

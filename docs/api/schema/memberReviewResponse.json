@@ -1,0 +1,16 @@
+{
+  "$id": "memberReviewResponse.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "anyOf": [
+    {
+      "$ref": "conversion_v1_memberReviewResponse.json"
+    },
+    {
+      "$ref": "rename_v1_memberReviewResponse.json"
+    },
+    {
+      "$ref": "metadata_refresh_v1_memberReviewResponse.json"
+    }
+  ],
+  "title": "memberReviewResponse"
+}

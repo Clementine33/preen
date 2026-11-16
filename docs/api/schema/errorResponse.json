@@ -1,0 +1,30 @@
+{
+  "$defs": {
+    "errorResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "details": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "message": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "message"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "errorResponse.json",
+  "$ref": "#/$defs/errorResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "errorResponse"
+}

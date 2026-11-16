@@ -1,0 +1,116 @@
+{
+  "$defs": {
+    "cleanupCountResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "checked": {
+          "type": "integer"
+        },
+        "deleted": {
+          "type": "integer"
+        },
+        "skipped": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "checked",
+        "deleted",
+        "skipped"
+      ],
+      "type": "object"
+    },
+    "cleanupRunEnvelopeResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "run": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/cleanupRunResponse"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "run"
+      ],
+      "type": "object"
+    },
+    "cleanupRunResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "categories": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "counts": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "$ref": "#/$defs/cleanupCountResponse"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "finished_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "phase": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "run_id": {
+          "type": "string"
+        },
+        "started_at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "run_id",
+        "categories",
+        "status",
+        "phase",
+        "started_at",
+        "finished_at",
+        "counts",
+        "reason"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "cleanupRunEnvelopeResponse.json",
+  "$ref": "#/$defs/cleanupRunEnvelopeResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "cleanupRunEnvelopeResponse"
+}

@@ -1,0 +1,20 @@
+{
+  "$defs": {
+    "collectionWorkMoveRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "before_rj": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    }
+  },
+  "$id": "collectionWorkMoveRequest.json",
+  "$ref": "#/$defs/collectionWorkMoveRequest",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "collectionWorkMoveRequest"
+}

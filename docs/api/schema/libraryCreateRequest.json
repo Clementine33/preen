@@ -1,0 +1,20 @@
+{
+  "$defs": {
+    "libraryCreateRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "root_path": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    }
+  },
+  "$id": "libraryCreateRequest.json",
+  "$ref": "#/$defs/libraryCreateRequest",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "libraryCreateRequest"
+}

@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/Clementine33/preen/backend/internal/testutil/wirecheck"
+
 	"github.com/Clementine33/preen/backend/internal/adapters/httpapi"
 	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
 	"github.com/Clementine33/preen/backend/internal/library"
@@ -28,7 +30,10 @@ func TestLibraryStorageClassPersistsThroughAPI(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		return repo, httpapi.NewServer(httpapi.Dependencies{Library: library.NewService(repo, nil, repo, nil)})
+		return repo, wirecheck.Handler(
+			t,
+			httpapi.NewServer(httpapi.Dependencies{Library: library.NewService(repo, nil, repo, nil)}),
+		)
 	}
 	repo, handler := open()
 	request := func(method, route, body string, status int) storageAPIResponse {

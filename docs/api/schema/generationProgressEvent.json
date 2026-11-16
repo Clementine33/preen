@@ -1,0 +1,36 @@
+{
+  "$defs": {
+    "generationProgressEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "completed_roots": {
+          "type": "integer"
+        },
+        "current_root": {
+          "type": "string"
+        },
+        "error_count": {
+          "type": "integer"
+        },
+        "generation_id": {
+          "type": "string"
+        },
+        "total_roots": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "generation_id",
+        "total_roots",
+        "completed_roots",
+        "current_root",
+        "error_count"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "generationProgressEvent.json",
+  "$ref": "#/$defs/generationProgressEvent",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "generationProgressEvent"
+}

@@ -1,0 +1,97 @@
+{
+  "$defs": {
+    "memberTreeNodeResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "bitrate": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "children": {
+          "items": {
+            "$ref": "#/$defs/memberTreeNodeResponse"
+          },
+          "type": "array"
+        },
+        "format": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "rel_path": {
+          "type": "string"
+        },
+        "size": {
+          "type": "integer"
+        },
+        "type": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "path",
+        "rel_path",
+        "type",
+        "bitrate",
+        "format"
+      ],
+      "type": "object"
+    },
+    "treeResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "dir_id": {
+          "type": "string"
+        },
+        "member_path": {
+          "type": "string"
+        },
+        "refreshed": {
+          "type": "boolean"
+        },
+        "rj": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "tree": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/memberTreeNodeResponse"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "tree",
+        "dir_id",
+        "member_path",
+        "rj"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "treeResponse.json",
+  "$ref": "#/$defs/treeResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "treeResponse"
+}

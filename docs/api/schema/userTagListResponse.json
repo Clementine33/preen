@@ -1,0 +1,46 @@
+{
+  "$defs": {
+    "userTagListResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "user_tags": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/userTagResponse"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "user_tags"
+      ],
+      "type": "object"
+    },
+    "userTagResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "userTagListResponse.json",
+  "$ref": "#/$defs/userTagListResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "userTagListResponse"
+}

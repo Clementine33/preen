@@ -1,0 +1,195 @@
+{
+  "$defs": {
+    "reconcile_ComponentOutcome": {
+      "additionalProperties": false,
+      "properties": {
+        "component_id": {
+          "type": "string"
+        },
+        "files": {
+          "items": {
+            "$ref": "#/$defs/reconcile_FileTuple"
+          },
+          "type": "array"
+        },
+        "lanes": {
+          "items": {
+            "$ref": "#/$defs/reconcile_LaneDecision"
+          },
+          "type": "array"
+        },
+        "message": {
+          "type": "string"
+        },
+        "operations": {
+          "items": {
+            "$ref": "#/$defs/reconcile_Operation"
+          },
+          "type": "array"
+        },
+        "partition": {
+          "type": "string"
+        },
+        "projected_inventory": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "reason_code": {
+          "type": "string"
+        },
+        "scope": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "variant_decisions": {
+          "items": {
+            "$ref": "#/$defs/reconcile_VariantDecision"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "component_id",
+        "partition",
+        "status",
+        "lanes",
+        "variant_decisions",
+        "operations",
+        "projected_inventory",
+        "files"
+      ],
+      "type": "object"
+    },
+    "reconcile_FileDecision": {
+      "additionalProperties": false,
+      "properties": {
+        "message": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "reason_code": {
+          "type": "string"
+        },
+        "resolution": {
+          "type": "string"
+        },
+        "target_path": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "resolution"
+      ],
+      "type": "object"
+    },
+    "reconcile_FileTuple": {
+      "additionalProperties": false,
+      "properties": {
+        "Mtime": {
+          "type": "integer"
+        },
+        "Path": {
+          "type": "string"
+        },
+        "Size": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Path",
+        "Size",
+        "Mtime"
+      ],
+      "type": "object"
+    },
+    "reconcile_LaneDecision": {
+      "additionalProperties": false,
+      "properties": {
+        "decision": {
+          "type": "string"
+        },
+        "lane": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "reason_code": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "lane",
+        "decision"
+      ],
+      "type": "object"
+    },
+    "reconcile_Operation": {
+      "additionalProperties": false,
+      "properties": {
+        "component_id": {
+          "type": "string"
+        },
+        "depends_on": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "phase": {
+          "type": "string"
+        },
+        "source_path": {
+          "type": "string"
+        },
+        "target_path": {
+          "type": "string"
+        },
+        "variant_stem": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "phase",
+        "component_id",
+        "variant_stem",
+        "source_path"
+      ],
+      "type": "object"
+    },
+    "reconcile_VariantDecision": {
+      "additionalProperties": false,
+      "properties": {
+        "decisions": {
+          "items": {
+            "$ref": "#/$defs/reconcile_FileDecision"
+          },
+          "type": "array"
+        },
+        "stem": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "stem",
+        "decisions"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "reconcile_ComponentOutcome.json",
+  "$ref": "#/$defs/reconcile_ComponentOutcome",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "reconcile_ComponentOutcome"
+}

@@ -1,0 +1,32 @@
+{
+  "$defs": {
+    "localCoverResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "copy_id": {
+          "type": "string"
+        },
+        "rel_path": {
+          "type": "string"
+        },
+        "thumb_v": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "copy_id",
+        "rel_path",
+        "version",
+        "thumb_v"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "localCoverResponse.json",
+  "$ref": "#/$defs/localCoverResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "localCoverResponse"
+}

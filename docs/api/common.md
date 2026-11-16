@@ -1,6 +1,6 @@
 # Common conventions
 
-[API reference](../api.md)
+[API reference](../api.md) · [JSON schemas and endpoint/event bindings](schema/contracts.json)
 
 ## Startup handshake
 
@@ -223,3 +223,25 @@ exit can still leave unfinished filesystem changes requiring inspection.
 The web app reads health at startup and shares it with the overview and About
 settings. An unknown limit (loading, failed request, or an older server that
 omits the field) does not prevent entry; creation still validates on the server.
+
+## Wire schemas
+
+The checked-in [schemas](schema/) describe existing encoding, not a normalized
+replacement. A non-omitted nil slice or map encodes as `null`; `omitempty` fields
+may be absent. Non-omitted pointers can be null. Request properties may be absent
+when the Go decoder permits omission; semantic required-field checks stay in the
+endpoint implementation and this reference. Request and response schemas are
+separate even when their Go declarations look similar.
+
+Task payloads are bound by kind and schema version 1. Conversion `classifier_tags`
+compatibility fields remain in the response/settings schemas where present and
+are absent from the conversion draft request schema. Reconciliation file tuples
+retain `Path`, `Size`, and `Mtime`. A planning `session_snapshot` omits
+`operation_type`; planning-session HTTP details retain it. Missing stored plan
+policy/summary fragments can encode as `null` and remain nullable in the schemas.
+The metadata execution result uses its existing `stage` (`skipped` or `metadata`)
+to select its Outcome or WorkResult shape; no new discriminator is sent.
+
+The HTTP error envelope, envelope with `details`, and SSE error have separate
+schema entry points. Scan SSE `error` uses the scan payload, not the session error
+envelope. Unknown fields are rejected for closed DTOs by contract tests.

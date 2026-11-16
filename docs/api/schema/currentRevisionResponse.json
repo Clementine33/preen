@@ -1,0 +1,83 @@
+{
+  "$defs": {
+    "currentRevisionResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "counts": {
+          "$ref": "#/$defs/revisionCountsResponse"
+        },
+        "created_at": {
+          "type": "string"
+        },
+        "plan_id": {
+          "type": "string"
+        },
+        "revision_index": {
+          "type": "integer"
+        },
+        "stale": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "status": {
+          "type": "string"
+        },
+        "summary_reason": {
+          "type": "string"
+        },
+        "validation_state": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "plan_id",
+        "revision_index",
+        "created_at",
+        "status",
+        "summary_reason",
+        "counts",
+        "validation_state",
+        "stale"
+      ],
+      "type": "object"
+    },
+    "revisionCountsResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "blocked": {
+          "type": "integer"
+        },
+        "changed": {
+          "type": "integer"
+        },
+        "members": {
+          "type": "integer"
+        },
+        "unchanged": {
+          "type": "integer"
+        },
+        "unmet_targets": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "members",
+        "changed",
+        "unmet_targets",
+        "blocked",
+        "unchanged"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "currentRevisionResponse.json",
+  "$ref": "#/$defs/currentRevisionResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "currentRevisionResponse"
+}

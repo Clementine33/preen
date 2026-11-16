@@ -1,0 +1,52 @@
+{
+  "$defs": {
+    "conversion_FrozenMemberConclusion": {
+      "additionalProperties": false,
+      "properties": {
+        "matched": {
+          "$ref": "#/$defs/conversion_PartitionConclusion"
+        },
+        "status": {
+          "type": "string"
+        },
+        "unmatched": {
+          "$ref": "#/$defs/conversion_PartitionConclusion"
+        }
+      },
+      "required": [
+        "status",
+        "matched",
+        "unmatched"
+      ],
+      "type": "object"
+    },
+    "conversion_PartitionConclusion": {
+      "additionalProperties": false,
+      "properties": {
+        "applicable": {
+          "type": "boolean"
+        },
+        "blocked": {
+          "type": "boolean"
+        },
+        "changes": {
+          "type": "boolean"
+        },
+        "unmet": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "applicable",
+        "blocked",
+        "unmet",
+        "changes"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "conversion_FrozenMemberConclusion.json",
+  "$ref": "#/$defs/conversion_FrozenMemberConclusion",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "conversion_FrozenMemberConclusion"
+}

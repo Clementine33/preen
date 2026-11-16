@@ -1,0 +1,758 @@
+{
+  "$defs": {
+    "copyResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "copy_id": {
+          "type": "string"
+        },
+        "dir_id": {
+          "type": "string"
+        },
+        "library_id": {
+          "type": "string"
+        },
+        "rel_path": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "copy_id",
+        "library_id",
+        "rel_path",
+        "dir_id"
+      ],
+      "type": "object"
+    },
+    "editionResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "display_order": {
+          "type": "integer"
+        },
+        "edition_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "language": {
+          "type": "string"
+        },
+        "version_root_rj": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "version_root_rj",
+        "language",
+        "label",
+        "edition_id",
+        "display_order"
+      ],
+      "type": "object"
+    },
+    "editionSlotResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "held": {
+          "type": "boolean"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "language": {
+          "type": "string"
+        },
+        "root": {
+          "$ref": "#/$defs/treeNodeResponse"
+        },
+        "translations": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/treeNodeResponse"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "language",
+        "label",
+        "held",
+        "root",
+        "translations"
+      ],
+      "type": "object"
+    },
+    "listeningResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "finished_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "position_sec": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "rendition": {
+          "type": "string"
+        },
+        "track_count": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "track_index": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "track_key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "updated_at": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "rendition",
+        "track_key",
+        "position_sec",
+        "track_index",
+        "track_count",
+        "finished_at",
+        "updated_at"
+      ],
+      "type": "object"
+    },
+    "listeningSummaryResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "state": {
+          "type": "string"
+        },
+        "track_count": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "track_index": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "updated_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "state",
+        "track_index",
+        "track_count",
+        "updated_at"
+      ],
+      "type": "object"
+    },
+    "localCoverResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "copy_id": {
+          "type": "string"
+        },
+        "rel_path": {
+          "type": "string"
+        },
+        "thumb_v": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "copy_id",
+        "rel_path",
+        "version",
+        "thumb_v"
+      ],
+      "type": "object"
+    },
+    "relationResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "language": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "original_rj": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "parent_rj": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "role": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "role",
+        "language",
+        "original_rj",
+        "parent_rj"
+      ],
+      "type": "object"
+    },
+    "relationWarningResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "rj": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "rj",
+        "message"
+      ],
+      "type": "object"
+    },
+    "sourceEntityResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "source_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "source",
+        "source_id",
+        "name"
+      ],
+      "type": "object"
+    },
+    "treeNodeResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "held": {
+          "type": "boolean"
+        },
+        "is_work": {
+          "type": "boolean"
+        },
+        "language": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "relation": {
+          "$ref": "#/$defs/relationResponse"
+        },
+        "rj": {
+          "type": "string"
+        },
+        "role": {
+          "type": "string"
+        },
+        "source_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "rj",
+        "role",
+        "is_work",
+        "held",
+        "language",
+        "relation",
+        "source_url"
+      ],
+      "type": "object"
+    },
+    "userTagResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ],
+      "type": "object"
+    },
+    "workDetailResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "age_category": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "circle": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "collected_at": {
+          "type": "string"
+        },
+        "collection_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "copies": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/copyResponse"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "copy_count": {
+          "type": "integer"
+        },
+        "cover_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "dl_count": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "edition_tree": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/editionSlotResponse"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "favorite": {
+          "type": "boolean"
+        },
+        "has_note": {
+          "type": "boolean"
+        },
+        "language": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "language_editions": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/editionResponse"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "listening": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/listeningResponse"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "local_cover": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/localCoverResponse"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "note": {
+          "type": "string"
+        },
+        "nsfw": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "rating": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "relation": {
+          "$ref": "#/$defs/relationResponse"
+        },
+        "relation_nodes": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/treeNodeResponse"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "relation_warnings": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/relationWarningResponse"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "release_date": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "rj": {
+          "type": "string"
+        },
+        "sample_cover_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "series_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "series_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "source_tags": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/sourceEntityResponse"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "source_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "user_tags": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/userTagResponse"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "voice_actors": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/sourceEntityResponse"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "rj",
+        "title",
+        "cover_url",
+        "circle",
+        "language",
+        "nsfw",
+        "age_category",
+        "release_date",
+        "dl_count",
+        "rating",
+        "favorite",
+        "user_tags",
+        "has_note",
+        "collected_at",
+        "copy_count",
+        "listening",
+        "local_cover",
+        "source_url",
+        "sample_cover_url",
+        "series_id",
+        "series_name",
+        "voice_actors",
+        "source_tags",
+        "note",
+        "language_editions",
+        "relation",
+        "relation_warnings",
+        "relation_nodes",
+        "edition_tree",
+        "copies",
+        "collection_ids"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "workDetailResponse.json",
+  "$ref": "#/$defs/workDetailResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "workDetailResponse"
+}

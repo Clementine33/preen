@@ -1,0 +1,33 @@
+{
+  "$defs": {
+    "workImportEditionItemRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "display_order": {
+          "type": "integer"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "language": {
+          "type": "string"
+        },
+        "version_root_rj": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    }
+  },
+  "$id": "workImportEditionItemRequest.json",
+  "$ref": "#/$defs/workImportEditionItemRequest",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "workImportEditionItemRequest"
+}

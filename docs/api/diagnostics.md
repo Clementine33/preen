@@ -1,6 +1,6 @@
 # Diagnostics
 
-[API reference](../api.md) · [Common conventions](common.md)
+[API reference](../api.md) · [JSON schemas and endpoint/event bindings](schema/contracts.json) · [Common conventions](common.md)
 
 ## Output
 

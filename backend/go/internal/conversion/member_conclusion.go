@@ -9,11 +9,7 @@ import (
 // MemberConclusion summarizes only this member's frozen conversion components.
 // Workset owns membership and input health; conversion owns these task facts.
 func (*Task) MemberConclusion(components []json.RawMessage) (json.RawMessage, error) {
-	var out struct {
-		Status    string              `json:"status"`
-		Matched   partitionConclusion `json:"matched"`
-		Unmatched partitionConclusion `json:"unmatched"`
-	}
+	var out FrozenMemberConclusion
 	blocked, ambiguous, changed, unmetCount := false, false, false, 0
 	for _, raw := range components {
 		var component reconcile.ComponentOutcome
@@ -60,7 +56,15 @@ func (*Task) MemberConclusion(components []json.RawMessage) (json.RawMessage, er
 	return json.Marshal(out)
 }
 
-type partitionConclusion struct {
+// FrozenMemberConclusion is the task-owned frozen member summary on the wire.
+type FrozenMemberConclusion struct {
+	Status    string              `json:"status"`
+	Matched   PartitionConclusion `json:"matched"`
+	Unmatched PartitionConclusion `json:"unmatched"`
+}
+
+// PartitionConclusion summarizes one matched or unmatched partition.
+type PartitionConclusion struct {
 	Applicable bool `json:"applicable"`
 	Blocked    bool `json:"blocked"`
 	Unmet      bool `json:"unmet"`

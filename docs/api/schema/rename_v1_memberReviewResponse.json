@@ -1,0 +1,211 @@
+{
+  "$defs": {
+    "memberConclusionResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "type": "string"
+        },
+        "excluded": {
+          "type": "boolean"
+        },
+        "has_components": {
+          "type": "boolean"
+        },
+        "input": {
+          "type": "string"
+        },
+        "member_id": {
+          "type": "string"
+        },
+        "task": {
+          "$ref": "dirrename_Outcome.json"
+        }
+      },
+      "required": [
+        "member_id",
+        "excluded",
+        "input",
+        "has_components"
+      ],
+      "type": "object"
+    },
+    "memberReviewResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "conclusion": {
+          "$ref": "#/$defs/memberConclusionResponse"
+        },
+        "effective": true,
+        "excluded": {
+          "type": "boolean"
+        },
+        "folder_path": {
+          "type": "string"
+        },
+        "member_id": {
+          "type": "string"
+        },
+        "member_name": {
+          "type": "string"
+        },
+        "plan_id": {
+          "type": "string"
+        },
+        "roots": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/rootValidationResponse"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sources": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "task": {
+          "$ref": "#/$defs/taskEnvelopeResponse"
+        }
+      },
+      "required": [
+        "member_id",
+        "member_name",
+        "folder_path",
+        "excluded",
+        "effective",
+        "sources",
+        "conclusion",
+        "plan_id",
+        "roots",
+        "task"
+      ],
+      "type": "object"
+    },
+    "rootValidationResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "entry_count": {
+          "type": "integer"
+        },
+        "inventory_fingerprint": {
+          "type": "string"
+        },
+        "root_error_code": {
+          "type": "string"
+        },
+        "root_error_message": {
+          "type": "string"
+        },
+        "root_index": {
+          "type": "integer"
+        },
+        "root_path": {
+          "type": "string"
+        },
+        "root_status": {
+          "type": "string"
+        },
+        "stale": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "root_index",
+        "root_path",
+        "root_status",
+        "root_error_code",
+        "root_error_message",
+        "stale",
+        "inventory_fingerprint",
+        "entry_count"
+      ],
+      "type": "object"
+    },
+    "taskEnvelopeResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "rename",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/taskPayloadResponse"
+        },
+        "schema_version": {
+          "const": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "schema_version",
+        "payload"
+      ],
+      "type": "object"
+    },
+    "taskPayloadResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "classifier": {
+          "$ref": "taskClassifierSnapshot.json"
+        },
+        "components": {
+          "items": {
+            "$ref": "dirrename_Outcome.json"
+          },
+          "type": "array"
+        },
+        "policy": {
+          "anyOf": [
+            {
+              "$ref": "dirrename_Common.json"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "policy_hash": {
+          "type": "string"
+        },
+        "summary": {
+          "anyOf": [
+            {
+              "$ref": "workset_PlanSummary.json"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "policy",
+        "policy_hash",
+        "classifier",
+        "summary",
+        "components"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "rename_v1_memberReviewResponse.json",
+  "$ref": "#/$defs/memberReviewResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "rename_v1_memberReviewResponse"
+}

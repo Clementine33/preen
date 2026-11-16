@@ -1,0 +1,36 @@
+{
+  "$defs": {
+    "planSummaryResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "actionable_count": {
+          "type": "integer"
+        },
+        "error_count": {
+          "type": "integer"
+        },
+        "operation_count": {
+          "type": "integer"
+        },
+        "summary_reason": {
+          "type": "string"
+        },
+        "total_count": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "operation_count",
+        "error_count",
+        "total_count",
+        "actionable_count",
+        "summary_reason"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "planSummaryResponse.json",
+  "$ref": "#/$defs/planSummaryResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "planSummaryResponse"
+}

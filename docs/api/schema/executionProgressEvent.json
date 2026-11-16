@@ -1,0 +1,52 @@
+{
+  "$defs": {
+    "executionProgressEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "completed_components": {
+          "type": "integer"
+        },
+        "completed_operations": {
+          "type": "integer"
+        },
+        "current_component_id": {
+          "type": "string"
+        },
+        "current_phase": {
+          "type": "string"
+        },
+        "current_root": {
+          "type": "string"
+        },
+        "execution_id": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "total_components": {
+          "type": "integer"
+        },
+        "total_operations": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "execution_id",
+        "status",
+        "total_components",
+        "completed_components",
+        "total_operations",
+        "completed_operations",
+        "current_root",
+        "current_component_id",
+        "current_phase"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "executionProgressEvent.json",
+  "$ref": "#/$defs/executionProgressEvent",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "executionProgressEvent"
+}

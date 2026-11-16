@@ -1,6 +1,6 @@
 # Outbound Proxy
 
-[API reference](../api.md) · [Common conventions](common.md)
+[API reference](../api.md) · [JSON schemas and endpoint/event bindings](schema/contracts.json) · [Common conventions](common.md)
 
 Authenticated routes for how the server reaches metadata sources (DLsite,
 api.asmr.one), the cover CDN and GitHub (the [update check](update-check.md)). There is no ETag or `If-Match`: the last

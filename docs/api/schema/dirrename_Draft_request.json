@@ -1,0 +1,69 @@
+{
+  "$defs": {
+    "dirrename_Common": {
+      "additionalProperties": false,
+      "properties": {
+        "strip_book_title": {
+          "type": "boolean"
+        },
+        "strip_bracketed_title": {
+          "type": "boolean"
+        },
+        "strip_tilde_title": {
+          "type": "boolean"
+        },
+        "template": {
+          "type": "string"
+        },
+        "voice_actor_separator": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "dirrename_Draft": {
+      "additionalProperties": false,
+      "properties": {
+        "common": {
+          "$ref": "#/$defs/dirrename_Common"
+        },
+        "members": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/dirrename_Member"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "schema_version": {
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "dirrename_Member": {
+      "additionalProperties": false,
+      "properties": {
+        "excluded": {
+          "type": "boolean"
+        },
+        "member_id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    }
+  },
+  "$id": "dirrename_Draft_request.json",
+  "$ref": "#/$defs/dirrename_Draft",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "dirrename_Draft_request"
+}

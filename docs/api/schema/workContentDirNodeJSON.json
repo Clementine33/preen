@@ -1,0 +1,41 @@
+{
+  "$defs": {
+    "workContentDirNodeJSON": {
+      "additionalProperties": false,
+      "properties": {
+        "children": {
+          "items": {
+            "$ref": "#/$defs/workContentNodeResponse"
+          },
+          "type": "array"
+        },
+        "name": {
+          "type": "string"
+        },
+        "rel_path": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "rel_path",
+        "children"
+      ],
+      "type": "object"
+    },
+    "workContentNodeResponse": {
+      "oneOf": [
+        {
+          "$ref": "workContentDirNodeJSON.json"
+        },
+        {
+          "$ref": "workContentFileNodeJSON.json"
+        }
+      ]
+    }
+  },
+  "$id": "workContentDirNodeJSON.json",
+  "$ref": "#/$defs/workContentDirNodeJSON",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "workContentDirNodeJSON"
+}

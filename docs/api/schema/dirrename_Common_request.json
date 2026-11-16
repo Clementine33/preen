@@ -1,0 +1,29 @@
+{
+  "$defs": {
+    "dirrename_Common": {
+      "additionalProperties": false,
+      "properties": {
+        "strip_book_title": {
+          "type": "boolean"
+        },
+        "strip_bracketed_title": {
+          "type": "boolean"
+        },
+        "strip_tilde_title": {
+          "type": "boolean"
+        },
+        "template": {
+          "type": "string"
+        },
+        "voice_actor_separator": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    }
+  },
+  "$id": "dirrename_Common_request.json",
+  "$ref": "#/$defs/dirrename_Common",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "dirrename_Common_request"
+}

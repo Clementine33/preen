@@ -1,0 +1,20 @@
+{
+  "$defs": {
+    "cleanupRuleResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "protection": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "protection"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "cleanupRuleResponse.json",
+  "$ref": "#/$defs/cleanupRuleResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "cleanupRuleResponse"
+}

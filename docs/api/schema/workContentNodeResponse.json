@@ -1,0 +1,18 @@
+{
+  "$defs": {
+    "workContentNodeResponse": {
+      "oneOf": [
+        {
+          "$ref": "workContentDirNodeJSON.json"
+        },
+        {
+          "$ref": "workContentFileNodeJSON.json"
+        }
+      ]
+    }
+  },
+  "$id": "workContentNodeResponse.json",
+  "$ref": "#/$defs/workContentNodeResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "workContentNodeResponse"
+}

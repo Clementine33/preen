@@ -34,3 +34,9 @@ HTTP/SSE 的线格式现在有三处各自维护的描述：Go 侧的 json 标�
 - 生成器和校验器会引入新的依赖：Go 侧一个 JSON Schema 生成库，前端开发依赖里一个 schema→TS 生成器和一个校验器。
 - 可空性会被如实暴露，例如 nil slice 序列化为 `null`。是否把它规范成 `[]`，需要另行决定并写进 [common.md](../api/common.md)。
 - 脚本客户端可以直接使用入库的 schema。
+
+## 实施约束
+
+- 阶段 2 使用 invopop/jsonschema 生成 Draft 2020-12，Go 测试使用 santhosh-tekuri/jsonschema/v6 校验；两者都只被测试/生成代码引用，后端构建不依赖前端。
+- schema 按具名类型分别入库。HTTP 状态码和 SSE 事件绑定单独生成；Task 外壳按 kind/version 生成独立 schema 并引用 Task 包的载荷类型。请求与响应分别建模。
+- 编码差异如 nil slice、PascalCase FileTuple、兼容 classifier_tags、缺少 operation_type 的 session_snapshot 均如实保留。metadata_refresh 的 TaskResult 用现有 stage 判别，不增加线上字段。

@@ -1,0 +1,16 @@
+{
+  "$id": "executionViewResponse.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "anyOf": [
+    {
+      "$ref": "conversion_v1_executionViewResponse.json"
+    },
+    {
+      "$ref": "rename_v1_executionViewResponse.json"
+    },
+    {
+      "$ref": "metadata_refresh_v1_executionViewResponse.json"
+    }
+  ],
+  "title": "executionViewResponse"
+}

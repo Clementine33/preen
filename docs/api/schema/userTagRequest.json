@@ -1,0 +1,17 @@
+{
+  "$defs": {
+    "userTagRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    }
+  },
+  "$id": "userTagRequest.json",
+  "$ref": "#/$defs/userTagRequest",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "userTagRequest"
+}

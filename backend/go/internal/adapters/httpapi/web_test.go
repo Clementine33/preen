@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Clementine33/preen/backend/internal/testutil/wirecheck"
+
 	"github.com/Clementine33/preen/backend/internal/adapters/httpapi"
 )
 
@@ -27,7 +29,7 @@ func TestWebCacheAndContainment(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = root.Close() })
-	handler := httpapi.NewServer(httpapi.Dependencies{WebRoot: root, Token: "secret"})
+	handler := wirecheck.Handler(t, httpapi.NewServer(httpapi.Dependencies{WebRoot: root, Token: "secret"}))
 	for _, tc := range []struct {
 		path, cache string
 		status      int
@@ -64,7 +66,7 @@ func TestWebRejectsSymlinksOutsideRoot(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = root.Close() })
 	response := httptest.NewRecorder()
-	httpapi.NewServer(httpapi.Dependencies{WebRoot: root}).
+	wirecheck.Handler(t, httpapi.NewServer(httpapi.Dependencies{WebRoot: root})).
 		ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/secret.txt", nil))
 	if response.Code != 404 || strings.Contains(response.Body.String(), "secret") {
 		t.Fatalf("status %d, body %s", response.Code, response.Body.String())
@@ -73,7 +75,7 @@ func TestWebRejectsSymlinksOutsideRoot(t *testing.T) {
 
 func TestWebDisabledPreservesNonAPIResponse(t *testing.T) {
 	response := httptest.NewRecorder()
-	httpapi.NewServer(httpapi.Dependencies{}).
+	wirecheck.Handler(t, httpapi.NewServer(httpapi.Dependencies{})).
 		ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/works/RJ123456", nil))
 	if response.Code != 404 || response.Body.String() != "404 page not found\n" {
 		t.Fatalf("status %d, body %s", response.Code, response.Body.String())
@@ -91,7 +93,7 @@ func TestWebPreservesAPIErrors(t *testing.T) {
 			t.Cleanup(func() { _ = root.Close() })
 			deps.WebRoot = root
 		}
-		handler := httpapi.NewServer(deps)
+		handler := wirecheck.Handler(t, httpapi.NewServer(deps))
 		for _, tc := range []struct {
 			method, path, code string
 			status             int
@@ -128,7 +130,7 @@ func TestWebServesFilesAndHistoryWithoutAuthentication(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = root.Close() })
-	handler := httpapi.NewServer(httpapi.Dependencies{Token: "secret", WebRoot: root})
+	handler := wirecheck.Handler(t, httpapi.NewServer(httpapi.Dependencies{Token: "secret", WebRoot: root}))
 	for _, target := range []string{"/", "/index.html", "/works/RJ123456"} {
 		response := httptest.NewRecorder()
 		handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, target, nil))

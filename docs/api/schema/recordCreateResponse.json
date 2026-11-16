@@ -1,0 +1,159 @@
+{
+  "$defs": {
+    "libraryRefResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "library_id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "root_path": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "library_id",
+        "name",
+        "root_path"
+      ],
+      "type": "object"
+    },
+    "memberResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "dir_id": {
+          "type": "string"
+        },
+        "folder_name": {
+          "type": "string"
+        },
+        "folder_path": {
+          "type": "string"
+        },
+        "member_id": {
+          "type": "string"
+        },
+        "rel_path": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "member_id",
+        "folder_path",
+        "folder_name",
+        "rel_path",
+        "dir_id"
+      ],
+      "type": "object"
+    },
+    "recordCreateResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "created": {
+          "type": "boolean"
+        },
+        "recorded": {
+          "type": "integer"
+        },
+        "skipped": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/skippedFolderResponse"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "workset": {
+          "$ref": "#/$defs/worksetResponse"
+        }
+      },
+      "required": [
+        "workset",
+        "created",
+        "recorded",
+        "skipped"
+      ],
+      "type": "object"
+    },
+    "skippedFolderResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "dir_id": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "dir_id",
+        "reason"
+      ],
+      "type": "object"
+    },
+    "worksetResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "created_at": {
+          "type": "string"
+        },
+        "library": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/libraryRefResponse"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "members": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/memberResponse"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "title": {
+          "type": "string"
+        },
+        "updated_at": {
+          "type": "string"
+        },
+        "version": {
+          "type": "integer"
+        },
+        "workset_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "workset_id",
+        "title",
+        "version",
+        "library",
+        "members",
+        "updated_at",
+        "created_at"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "recordCreateResponse.json",
+  "$ref": "#/$defs/recordCreateResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "recordCreateResponse"
+}

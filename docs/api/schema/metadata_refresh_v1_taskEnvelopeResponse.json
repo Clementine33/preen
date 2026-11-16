@@ -1,0 +1,74 @@
+{
+  "$defs": {
+    "taskEnvelopeResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "metadata_refresh",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/taskPayloadResponse"
+        },
+        "schema_version": {
+          "const": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "schema_version",
+        "payload"
+      ],
+      "type": "object"
+    },
+    "taskPayloadResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "classifier": {
+          "$ref": "taskClassifierSnapshot.json"
+        },
+        "components": {
+          "items": {
+            "$ref": "refresh_Outcome.json"
+          },
+          "type": "array"
+        },
+        "policy": {
+          "anyOf": [
+            {
+              "$ref": "refresh_Common.json"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "policy_hash": {
+          "type": "string"
+        },
+        "summary": {
+          "anyOf": [
+            {
+              "$ref": "refresh_PlanSummary.json"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "policy",
+        "policy_hash",
+        "classifier",
+        "summary"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "metadata_refresh_v1_taskEnvelopeResponse.json",
+  "$ref": "#/$defs/taskEnvelopeResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "metadata_refresh_v1_taskEnvelopeResponse"
+}

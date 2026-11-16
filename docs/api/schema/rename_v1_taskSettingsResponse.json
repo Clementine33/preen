@@ -1,0 +1,25 @@
+{
+  "$defs": {
+    "taskSettingsResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "operation_type": {
+          "const": "rename",
+          "type": "string"
+        },
+        "settings": {
+          "$ref": "dirrename_Common.json"
+        }
+      },
+      "required": [
+        "operation_type",
+        "settings"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "rename_v1_taskSettingsResponse.json",
+  "$ref": "#/$defs/taskSettingsResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "rename_v1_taskSettingsResponse"
+}

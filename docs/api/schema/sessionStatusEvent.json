@@ -1,0 +1,20 @@
+{
+  "$defs": {
+    "sessionStatusEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "sessionStatusEvent.json",
+  "$ref": "#/$defs/sessionStatusEvent",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "sessionStatusEvent"
+}

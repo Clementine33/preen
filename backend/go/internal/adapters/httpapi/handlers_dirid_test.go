@@ -3,6 +3,7 @@ package httpapi //nolint:testpackage // white-box tests exercise unexported inte
 import (
 	"github.com/Clementine33/preen/backend/internal/adapters/filesystem"
 	"github.com/Clementine33/preen/backend/internal/testutil/inventoryfixture"
+	"github.com/Clementine33/preen/backend/internal/testutil/wirecheck"
 
 	"encoding/json"
 	"fmt"
@@ -38,11 +39,11 @@ func serverOnDB(t *testing.T, dbPath string) (http.Handler, *sqlite.Repository) 
 	if err != nil {
 		t.Fatalf("open repository: %v", err)
 	}
-	return NewServer(Dependencies{
+	return wirecheck.Handler(t, NewServer(Dependencies{
 		Library:     library.NewService(repo, nil, repo, filesystem.ResolveMember),
 		CORSOrigins: []string{},
 		Version:     "dev",
-	}), repo
+	})), repo
 }
 
 // treeFor reads one member tree by identity, with the token the harness expects.
@@ -319,12 +320,12 @@ func TestTreeAnswersTheWorkItsDirectoryIsBoundTo(t *testing.T) {
 	); err != nil {
 		t.Fatalf("insert copy: %v", err)
 	}
-	handler := NewServer(Dependencies{
+	handler := wirecheck.Handler(t, NewServer(Dependencies{
 		Library:     library.NewService(repo, nil, repo, filesystem.ResolveMember),
 		Works:       works.NewService(repo, nil, nil, nil, "test"),
 		CORSOrigins: []string{},
 		Version:     "dev",
-	})
+	}))
 
 	if _, body := treeFor(
 		t,

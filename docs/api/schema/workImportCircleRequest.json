@@ -1,0 +1,27 @@
+{
+  "$defs": {
+    "workImportCircleRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "source_circle_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "type": "object"
+    }
+  },
+  "$id": "workImportCircleRequest.json",
+  "$ref": "#/$defs/workImportCircleRequest",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "workImportCircleRequest"
+}

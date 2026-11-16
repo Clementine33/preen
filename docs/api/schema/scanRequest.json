@@ -1,0 +1,27 @@
+{
+  "$defs": {
+    "scanRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "type": "string"
+        },
+        "root_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "type": "object"
+    }
+  },
+  "$id": "scanRequest.json",
+  "$ref": "#/$defs/scanRequest",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "scanRequest"
+}

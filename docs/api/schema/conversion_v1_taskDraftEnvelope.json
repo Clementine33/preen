@@ -1,0 +1,30 @@
+{
+  "$defs": {
+    "taskDraftEnvelope": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "conversion",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "conversion_DraftDoc.json"
+        },
+        "schema_version": {
+          "const": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "schema_version",
+        "payload"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "conversion_v1_taskDraftEnvelope.json",
+  "$ref": "#/$defs/taskDraftEnvelope",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "conversion_v1_taskDraftEnvelope"
+}

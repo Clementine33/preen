@@ -1,0 +1,36 @@
+{
+  "$defs": {
+    "coverTargetResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "copy_id": {
+          "type": "string"
+        },
+        "identity": {
+          "type": "string"
+        },
+        "library_root": {
+          "type": "string"
+        },
+        "rel_path": {
+          "type": "string"
+        },
+        "rj": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "copy_id",
+        "rj",
+        "library_root",
+        "rel_path",
+        "identity"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "coverTargetResponse.json",
+  "$ref": "#/$defs/coverTargetResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "coverTargetResponse"
+}

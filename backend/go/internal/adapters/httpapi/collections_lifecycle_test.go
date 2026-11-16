@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Clementine33/preen/backend/internal/testutil/wirecheck"
+
 	"github.com/Clementine33/preen/backend/internal/adapters/filesystem"
 	"github.com/Clementine33/preen/backend/internal/adapters/httpapi"
 	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
@@ -23,7 +25,7 @@ func TestCollectionsPersistAcrossRepositoryReopen(t *testing.T) {
 		t.Fatal(err)
 	}
 	seedCollectionWorks(t, repo, "RJ00000001", "RJ00000002")
-	server := collectionHandler(repo)
+	server := collectionHandler(t, repo)
 	collection := newCollectionPath(t, server, "Saved")
 	collectionRequest(
 		t,
@@ -41,12 +43,12 @@ func TestCollectionsPersistAcrossRepositoryReopen(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = reopened.Close() })
-	assertCollectionWorks(t, collectionHandler(reopened), collection, "RJ00000002", "RJ00000001")
+	assertCollectionWorks(t, collectionHandler(t, reopened), collection, "RJ00000002", "RJ00000001")
 }
 
 func TestCollectionsSurviveScanAndLibraryRemoval(t *testing.T) {
 	_, repo := collectionServer(t)
-	server := httpapi.NewServer(httpapi.Dependencies{
+	server := wirecheck.Handler(t, httpapi.NewServer(httpapi.Dependencies{
 		Collections: collections.NewService(repo),
 		Library:     library.NewService(repo, nil, repo, filesystem.ResolveMember),
 		Inventory: inventory.NewService(inventory.NewPipeline(
@@ -55,7 +57,7 @@ func TestCollectionsSurviveScanAndLibraryRemoval(t *testing.T) {
 			filesystem.WalkFolderEntries,
 			nil,
 		), repo, nil, repo.UpdateLibraryScanState),
-	})
+	}))
 	collection := newCollectionPath(t, server, "Across libraries")
 	for _, rj := range []string{"RJ00000001", "RJ00000002"} {
 		root := t.TempDir()

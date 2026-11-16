@@ -1,0 +1,62 @@
+{
+  "$defs": {
+    "collectionListResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "collections": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/collectionResponse"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "total": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "collections",
+        "total"
+      ],
+      "type": "object"
+    },
+    "collectionResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "created_at": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "updated_at": {
+          "type": "string"
+        },
+        "work_count": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "work_count",
+        "created_at",
+        "updated_at"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "collectionListResponse.json",
+  "$ref": "#/$defs/collectionListResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "collectionListResponse"
+}

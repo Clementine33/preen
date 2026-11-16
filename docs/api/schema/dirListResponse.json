@@ -1,0 +1,78 @@
+{
+  "$defs": {
+    "dirListResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "dirs": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/dirResponse"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "dirs"
+      ],
+      "type": "object"
+    },
+    "dirResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "added_at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "audio_file_count": {
+          "type": "integer"
+        },
+        "dir_id": {
+          "type": "string"
+        },
+        "file_count": {
+          "type": "integer"
+        },
+        "name": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "rel_path": {
+          "type": "string"
+        },
+        "work_code": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "path",
+        "rel_path",
+        "dir_id",
+        "audio_file_count",
+        "file_count",
+        "added_at",
+        "work_code"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "dirListResponse.json",
+  "$ref": "#/$defs/dirListResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "dirListResponse"
+}

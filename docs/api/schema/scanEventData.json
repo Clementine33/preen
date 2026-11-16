@@ -1,0 +1,53 @@
+{
+  "$defs": {
+    "scanEventData": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "dirs_scanned": {
+          "type": "integer"
+        },
+        "dirs_with_multiple_numbers": {
+          "type": "integer"
+        },
+        "example_dirs": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "examples_truncated": {
+          "type": "boolean"
+        },
+        "files_scanned": {
+          "type": "integer"
+        },
+        "message": {
+          "type": "string"
+        },
+        "root_path": {
+          "type": "string"
+        },
+        "scan_id": {
+          "type": "string"
+        },
+        "stage": {
+          "type": "string"
+        },
+        "unaddressable_names": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "stage"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "scanEventData.json",
+  "$ref": "#/$defs/scanEventData",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "scanEventData"
+}

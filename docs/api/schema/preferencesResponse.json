@@ -1,0 +1,33 @@
+{
+  "$defs": {
+    "preferencesResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "default_library_id": {
+          "type": "string"
+        },
+        "track_formats": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "track_formats"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "preferencesResponse.json",
+  "$ref": "#/$defs/preferencesResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "preferencesResponse"
+}

@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/Clementine33/preen/backend/internal/testutil/wirecheck"
+
 	"github.com/Clementine33/preen/backend/internal/adapters/filesystem"
 	"github.com/Clementine33/preen/backend/internal/adapters/httpapi"
 	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
@@ -236,13 +238,13 @@ func collectionServer(t *testing.T) (http.Handler, *sqlite.Repository) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = repo.Close() })
-	return collectionHandler(repo), repo
+	return collectionHandler(t, repo), repo
 }
 
-func collectionHandler(repo *sqlite.Repository) http.Handler {
-	return httpapi.NewServer(httpapi.Dependencies{Collections: collections.NewService(repo),
+func collectionHandler(t *testing.T, repo *sqlite.Repository) http.Handler {
+	return wirecheck.Handler(t, httpapi.NewServer(httpapi.Dependencies{Collections: collections.NewService(repo),
 		Works:       works.NewService(repo, repo, filesystem.ResolveMember, filesystem.ResolveMemberFile, "test"),
-		LocalCovers: repo})
+		LocalCovers: repo}))
 }
 
 func collectionRequest(t *testing.T, server http.Handler, method, path string, body any, status int) map[string]any {

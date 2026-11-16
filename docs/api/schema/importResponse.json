@@ -1,0 +1,112 @@
+{
+  "$defs": {
+    "appliedGroupResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "data_group": {
+          "type": "string"
+        },
+        "dl_count": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "data_group"
+      ],
+      "type": "object"
+    },
+    "ignoredGroupResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "data_group": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "data_group",
+        "reason",
+        "message"
+      ],
+      "type": "object"
+    },
+    "importResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "applied": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/appliedGroupResponse"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ignored": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/ignoredGroupResponse"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "warnings": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/warningResponse"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "applied",
+        "ignored",
+        "warnings"
+      ],
+      "type": "object"
+    },
+    "warningResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "work_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "message"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "importResponse.json",
+  "$ref": "#/$defs/importResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "importResponse"
+}

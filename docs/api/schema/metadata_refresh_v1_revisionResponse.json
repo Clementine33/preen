@@ -1,0 +1,269 @@
+{
+  "$defs": {
+    "executionRefResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "error_code": {
+          "type": "string"
+        },
+        "error_message": {
+          "type": "string"
+        },
+        "execution_id": {
+          "type": "string"
+        },
+        "finished_at": {
+          "type": "string"
+        },
+        "plan_id": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "execution_id",
+        "plan_id",
+        "status"
+      ],
+      "type": "object"
+    },
+    "memberConclusionResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "type": "string"
+        },
+        "excluded": {
+          "type": "boolean"
+        },
+        "has_components": {
+          "type": "boolean"
+        },
+        "input": {
+          "type": "string"
+        },
+        "member_id": {
+          "type": "string"
+        },
+        "task": {
+          "$ref": "refresh_Outcome.json"
+        }
+      },
+      "required": [
+        "member_id",
+        "excluded",
+        "input",
+        "has_components"
+      ],
+      "type": "object"
+    },
+    "planSummaryResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "actionable_count": {
+          "type": "integer"
+        },
+        "error_count": {
+          "type": "integer"
+        },
+        "operation_count": {
+          "type": "integer"
+        },
+        "summary_reason": {
+          "type": "string"
+        },
+        "total_count": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "operation_count",
+        "error_count",
+        "total_count",
+        "actionable_count",
+        "summary_reason"
+      ],
+      "type": "object"
+    },
+    "revisionCountsResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "blocked": {
+          "type": "integer"
+        },
+        "changed": {
+          "type": "integer"
+        },
+        "members": {
+          "type": "integer"
+        },
+        "unchanged": {
+          "type": "integer"
+        },
+        "unmet_targets": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "members",
+        "changed",
+        "unmet_targets",
+        "blocked",
+        "unchanged"
+      ],
+      "type": "object"
+    },
+    "revisionResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "category_counts": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "category_total": {
+          "type": "integer"
+        },
+        "counts": {
+          "$ref": "#/$defs/revisionCountsResponse"
+        },
+        "created_at": {
+          "type": "string"
+        },
+        "execution": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/executionRefResponse"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "members": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/memberConclusionResponse"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "plan_id": {
+          "type": "string"
+        },
+        "revision_index": {
+          "type": "integer"
+        },
+        "root_path": {
+          "type": "string"
+        },
+        "snapshot_token": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "summary": {
+          "$ref": "#/$defs/planSummaryResponse"
+        },
+        "task": {
+          "$ref": "#/$defs/taskEnvelopeResponse"
+        }
+      },
+      "required": [
+        "plan_id",
+        "revision_index",
+        "created_at",
+        "root_path",
+        "snapshot_token",
+        "status",
+        "summary",
+        "task",
+        "counts",
+        "category_counts",
+        "members",
+        "execution"
+      ],
+      "type": "object"
+    },
+    "taskEnvelopeResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "metadata_refresh",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/taskPayloadResponse"
+        },
+        "schema_version": {
+          "const": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "schema_version",
+        "payload"
+      ],
+      "type": "object"
+    },
+    "taskPayloadResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "classifier": {
+          "$ref": "taskClassifierSnapshot.json"
+        },
+        "policy": {
+          "anyOf": [
+            {
+              "$ref": "refresh_Common.json"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "policy_hash": {
+          "type": "string"
+        },
+        "summary": {
+          "anyOf": [
+            {
+              "$ref": "refresh_PlanSummary.json"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "policy",
+        "policy_hash",
+        "classifier",
+        "summary"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "metadata_refresh_v1_revisionResponse.json",
+  "$ref": "#/$defs/revisionResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "metadata_refresh_v1_revisionResponse"
+}

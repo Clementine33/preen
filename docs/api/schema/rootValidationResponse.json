@@ -1,0 +1,48 @@
+{
+  "$defs": {
+    "rootValidationResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "entry_count": {
+          "type": "integer"
+        },
+        "inventory_fingerprint": {
+          "type": "string"
+        },
+        "root_error_code": {
+          "type": "string"
+        },
+        "root_error_message": {
+          "type": "string"
+        },
+        "root_index": {
+          "type": "integer"
+        },
+        "root_path": {
+          "type": "string"
+        },
+        "root_status": {
+          "type": "string"
+        },
+        "stale": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "root_index",
+        "root_path",
+        "root_status",
+        "root_error_code",
+        "root_error_message",
+        "stale",
+        "inventory_fingerprint",
+        "entry_count"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "rootValidationResponse.json",
+  "$ref": "#/$defs/rootValidationResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "rootValidationResponse"
+}

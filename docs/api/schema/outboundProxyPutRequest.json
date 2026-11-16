@@ -1,0 +1,27 @@
+{
+  "$defs": {
+    "outboundProxyPutRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "type": "string"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "type": "object"
+    }
+  },
+  "$id": "outboundProxyPutRequest.json",
+  "$ref": "#/$defs/outboundProxyPutRequest",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "outboundProxyPutRequest"
+}

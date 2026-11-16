@@ -1,0 +1,28 @@
+{
+  "$defs": {
+    "relationWarningResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "rj": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "rj",
+        "message"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "relationWarningResponse.json",
+  "$ref": "#/$defs/relationWarningResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "relationWarningResponse"
+}

@@ -1,0 +1,52 @@
+{
+  "$defs": {
+    "dirrename_Outcome": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "type": "string"
+        },
+        "custom_name": {
+          "type": "string"
+        },
+        "member_id": {
+          "type": "string"
+        },
+        "observed_name": {
+          "type": "string"
+        },
+        "raw_name": {
+          "type": "string"
+        },
+        "reason_code": {
+          "type": "string"
+        },
+        "rebind_to": {
+          "type": "string"
+        },
+        "source_name": {
+          "type": "string"
+        },
+        "target_name": {
+          "type": "string"
+        },
+        "work_code": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "member_id",
+        "source_name",
+        "work_code",
+        "raw_name",
+        "target_name",
+        "action"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "dirrename_Outcome.json",
+  "$ref": "#/$defs/dirrename_Outcome",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "dirrename_Outcome"
+}

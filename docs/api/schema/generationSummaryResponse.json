@@ -1,0 +1,36 @@
+{
+  "$defs": {
+    "generationSummaryResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "error_code": {
+          "type": "string"
+        },
+        "error_message": {
+          "type": "string"
+        },
+        "finished_at": {
+          "type": "string"
+        },
+        "generation_id": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "generation_id",
+        "status",
+        "error_code",
+        "error_message",
+        "finished_at"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "generationSummaryResponse.json",
+  "$ref": "#/$defs/generationSummaryResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "generationSummaryResponse"
+}

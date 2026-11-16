@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/Clementine33/preen/backend/internal/testutil/wirecheck"
+
 	"github.com/Clementine33/preen/backend/internal/adapters/httpapi"
 	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
 	"github.com/Clementine33/preen/backend/internal/admission"
@@ -30,7 +32,7 @@ func TestCleanupHTTPValidationAdmissionAndAuth(t *testing.T) {
 		cleanup.Options{},
 	)
 	defer service.Shutdown()
-	handler := httpapi.NewServer(httpapi.Dependencies{Cleanup: service, Token: "secret"})
+	handler := wirecheck.Handler(t, httpapi.NewServer(httpapi.Dependencies{Cleanup: service, Token: "secret"}))
 	request := func(method, path, body, credential string) *httptest.ResponseRecorder {
 		t.Helper()
 		req := httptest.NewRequest(method, path, bytes.NewBufferString(body))

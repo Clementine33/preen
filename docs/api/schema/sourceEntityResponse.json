@@ -1,0 +1,39 @@
+{
+  "$defs": {
+    "sourceEntityResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "source_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "source",
+        "source_id",
+        "name"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "sourceEntityResponse.json",
+  "$ref": "#/$defs/sourceEntityResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "sourceEntityResponse"
+}

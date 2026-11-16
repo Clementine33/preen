@@ -1,0 +1,60 @@
+{
+  "$defs": {
+    "relationResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "language": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "original_rj": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "parent_rj": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "role": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "role",
+        "language",
+        "original_rj",
+        "parent_rj"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "relationResponse.json",
+  "$ref": "#/$defs/relationResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "relationResponse"
+}

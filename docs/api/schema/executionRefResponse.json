@@ -1,0 +1,37 @@
+{
+  "$defs": {
+    "executionRefResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "error_code": {
+          "type": "string"
+        },
+        "error_message": {
+          "type": "string"
+        },
+        "execution_id": {
+          "type": "string"
+        },
+        "finished_at": {
+          "type": "string"
+        },
+        "plan_id": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "execution_id",
+        "plan_id",
+        "status"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "executionRefResponse.json",
+  "$ref": "#/$defs/executionRefResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "executionRefResponse"
+}

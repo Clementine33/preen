@@ -1,6 +1,6 @@
 # Processing records and operations
 
-[API reference](../api.md) · [Common conventions](common.md)
+[API reference](../api.md) · [JSON schemas and endpoint/event bindings](schema/contracts.json) · [Common conventions](common.md)
 
 A **workset** is the library's shared current folder batch: a fixed, ordered
 set of 1–10,000 selected Work Roots, including roots without audio. Each library

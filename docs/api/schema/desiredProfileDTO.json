@@ -1,0 +1,50 @@
+{
+  "$defs": {
+    "audioOutputSpecDTO": {
+      "additionalProperties": false,
+      "properties": {
+        "codec": {
+          "type": "string"
+        },
+        "quality": {
+          "$ref": "#/$defs/audioQualityDTO"
+        }
+      },
+      "required": [
+        "codec"
+      ],
+      "type": "object"
+    },
+    "audioQualityDTO": {
+      "additionalProperties": false,
+      "properties": {
+        "bitrate": {
+          "type": "integer"
+        },
+        "kind": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "type": "object"
+    },
+    "desiredProfileDTO": {
+      "additionalProperties": false,
+      "properties": {
+        "encoded": {
+          "$ref": "#/$defs/audioOutputSpecDTO"
+        },
+        "lossless": {
+          "$ref": "#/$defs/audioOutputSpecDTO"
+        }
+      },
+      "type": "object"
+    }
+  },
+  "$id": "desiredProfileDTO.json",
+  "$ref": "#/$defs/desiredProfileDTO",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "desiredProfileDTO"
+}

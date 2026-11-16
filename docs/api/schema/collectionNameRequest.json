@@ -1,0 +1,17 @@
+{
+  "$defs": {
+    "collectionNameRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    }
+  },
+  "$id": "collectionNameRequest.json",
+  "$ref": "#/$defs/collectionNameRequest",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "collectionNameRequest"
+}

@@ -1,0 +1,52 @@
+{
+  "$defs": {
+    "taskPayloadResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "classifier": {
+          "$ref": "taskClassifierSnapshot.json"
+        },
+        "components": {
+          "items": {
+            "$ref": "reconcile_ComponentOutcome.json"
+          },
+          "type": "array"
+        },
+        "policy": {
+          "anyOf": [
+            {
+              "$ref": "reconcile_Policy.json"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "policy_hash": {
+          "type": "string"
+        },
+        "summary": {
+          "anyOf": [
+            {
+              "$ref": "reconcile_StepSummary.json"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "policy",
+        "policy_hash",
+        "classifier",
+        "summary"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "conversion_v1_taskPayloadResponse.json",
+  "$ref": "#/$defs/taskPayloadResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "conversion_v1_taskPayloadResponse"
+}

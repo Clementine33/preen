@@ -1,0 +1,305 @@
+{
+  "$defs": {
+    "currentRevisionResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "counts": {
+          "$ref": "#/$defs/revisionCountsResponse"
+        },
+        "created_at": {
+          "type": "string"
+        },
+        "plan_id": {
+          "type": "string"
+        },
+        "revision_index": {
+          "type": "integer"
+        },
+        "stale": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "status": {
+          "type": "string"
+        },
+        "summary_reason": {
+          "type": "string"
+        },
+        "validation_state": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "plan_id",
+        "revision_index",
+        "created_at",
+        "status",
+        "summary_reason",
+        "counts",
+        "validation_state",
+        "stale"
+      ],
+      "type": "object"
+    },
+    "executionProgressResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "completed_components": {
+          "type": "integer"
+        },
+        "completed_operations": {
+          "type": "integer"
+        },
+        "current_component_id": {
+          "type": "string"
+        },
+        "current_phase": {
+          "type": "string"
+        },
+        "current_root": {
+          "type": "string"
+        },
+        "execution_id": {
+          "type": "string"
+        },
+        "options": {
+          "$ref": "refresh_Common.json"
+        },
+        "plan_id": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "total_components": {
+          "type": "integer"
+        },
+        "total_operations": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "execution_id",
+        "plan_id",
+        "status",
+        "total_components",
+        "completed_components",
+        "total_operations",
+        "completed_operations",
+        "current_root",
+        "current_component_id",
+        "current_phase"
+      ],
+      "type": "object"
+    },
+    "executionRefResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "error_code": {
+          "type": "string"
+        },
+        "error_message": {
+          "type": "string"
+        },
+        "execution_id": {
+          "type": "string"
+        },
+        "finished_at": {
+          "type": "string"
+        },
+        "plan_id": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "execution_id",
+        "plan_id",
+        "status"
+      ],
+      "type": "object"
+    },
+    "generationProgressResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "completed_roots": {
+          "type": "integer"
+        },
+        "current_root": {
+          "type": "string"
+        },
+        "error_count": {
+          "type": "integer"
+        },
+        "generation_id": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "total_roots": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "generation_id",
+        "status",
+        "total_roots",
+        "completed_roots",
+        "current_root",
+        "error_count"
+      ],
+      "type": "object"
+    },
+    "generationSummaryResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "error_code": {
+          "type": "string"
+        },
+        "error_message": {
+          "type": "string"
+        },
+        "finished_at": {
+          "type": "string"
+        },
+        "generation_id": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "generation_id",
+        "status",
+        "error_code",
+        "error_message",
+        "finished_at"
+      ],
+      "type": "object"
+    },
+    "operationResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "active_execution": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/executionProgressResponse"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "active_generation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/generationProgressResponse"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "current_revision": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/currentRevisionResponse"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "latest_execution": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/executionRefResponse"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "latest_generation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/generationSummaryResponse"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "max_participants": {
+          "type": "integer"
+        },
+        "operation_type": {
+          "type": "string"
+        },
+        "planning_state": {
+          "type": "string"
+        },
+        "version": {
+          "type": "integer"
+        },
+        "workset_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "workset_id",
+        "operation_type",
+        "version",
+        "planning_state",
+        "current_revision",
+        "active_generation",
+        "latest_generation",
+        "active_execution",
+        "latest_execution"
+      ],
+      "type": "object"
+    },
+    "revisionCountsResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "blocked": {
+          "type": "integer"
+        },
+        "changed": {
+          "type": "integer"
+        },
+        "members": {
+          "type": "integer"
+        },
+        "unchanged": {
+          "type": "integer"
+        },
+        "unmet_targets": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "members",
+        "changed",
+        "unmet_targets",
+        "blocked",
+        "unchanged"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "metadata_refresh_v1_operationResponse.json",
+  "$ref": "#/$defs/operationResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "metadata_refresh_v1_operationResponse"
+}

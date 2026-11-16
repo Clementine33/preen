@@ -11,7 +11,10 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
 	"time"
+
+	"github.com/Clementine33/preen/backend/internal/testutil/wirecheck"
 )
 
 // TestHTTPWorksetGenerationLoop boots the real backend, creates and scans a
@@ -526,8 +529,12 @@ func doJSONWithHeaders(
 		t.Fatalf("request: %v", err)
 	}
 	defer resp.Body.Close()
+	raw, readErr := io.ReadAll(resp.Body)
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
+	wirecheck.AssertHTTP(t, method, path, resp.StatusCode, body, raw, resp.Header.Get("Content-Type"))
 	if out != nil {
-		raw, _ := io.ReadAll(resp.Body)
 		if err := json.Unmarshal(raw, out); err != nil {
 			t.Logf("raw body: %s", raw)
 			t.Fatalf("decode: %v", err)

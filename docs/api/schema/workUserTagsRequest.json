@@ -1,0 +1,27 @@
+{
+  "$defs": {
+    "workUserTagsRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "tag_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "type": "object"
+    }
+  },
+  "$id": "workUserTagsRequest.json",
+  "$ref": "#/$defs/workUserTagsRequest",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "workUserTagsRequest"
+}

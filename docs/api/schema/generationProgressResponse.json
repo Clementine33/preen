@@ -1,0 +1,40 @@
+{
+  "$defs": {
+    "generationProgressResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "completed_roots": {
+          "type": "integer"
+        },
+        "current_root": {
+          "type": "string"
+        },
+        "error_count": {
+          "type": "integer"
+        },
+        "generation_id": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "total_roots": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "generation_id",
+        "status",
+        "total_roots",
+        "completed_roots",
+        "current_root",
+        "error_count"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "generationProgressResponse.json",
+  "$ref": "#/$defs/generationProgressResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "generationProgressResponse"
+}

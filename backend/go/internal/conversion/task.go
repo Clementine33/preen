@@ -517,6 +517,11 @@ func deleteModeOf(declared string) (execute.DeleteMode, error) {
 	)
 }
 
+// ExecutionOptions is the frozen task-specific execution configuration.
+type ExecutionOptions struct {
+	DeleteMode string `json:"delete_mode"`
+}
+
 // executionOptionsOf freezes the session options the draft declares: the
 // delete mode every unit run must use.
 func executionOptionsOf(doc *DraftDoc) (json.RawMessage, error) {
@@ -524,16 +529,12 @@ func executionOptionsOf(doc *DraftDoc) (json.RawMessage, error) {
 	if err != nil {
 		return nil, err
 	}
-	return json.RawMessage(mustJSON(struct {
-		DeleteMode string `json:"delete_mode"`
-	}{DeleteMode: string(mode)})), nil
+	return json.RawMessage(mustJSON(ExecutionOptions{DeleteMode: string(mode)})), nil
 }
 
 // deleteModeFromOptions reads the frozen session options back.
 func deleteModeFromOptions(options json.RawMessage) (execute.DeleteMode, error) {
-	var opts struct {
-		DeleteMode string `json:"delete_mode"`
-	}
+	var opts ExecutionOptions
 	if len(options) > 0 {
 		if err := json.Unmarshal(options, &opts); err != nil {
 			return "", workset.NewError(

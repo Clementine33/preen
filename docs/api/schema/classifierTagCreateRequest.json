@@ -1,0 +1,17 @@
+{
+  "$defs": {
+    "classifierTagCreateRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "tag": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    }
+  },
+  "$id": "classifierTagCreateRequest.json",
+  "$ref": "#/$defs/classifierTagCreateRequest",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "classifierTagCreateRequest"
+}

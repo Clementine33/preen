@@ -1,0 +1,24 @@
+{
+  "$defs": {
+    "executionSucceededEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "execution_id": {
+          "type": "string"
+        },
+        "plan_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "execution_id",
+        "plan_id"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "executionSucceededEvent.json",
+  "$ref": "#/$defs/executionSucceededEvent",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "executionSucceededEvent"
+}

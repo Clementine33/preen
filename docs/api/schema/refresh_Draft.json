@@ -1,0 +1,74 @@
+{
+  "$defs": {
+    "refresh_Common": {
+      "additionalProperties": false,
+      "properties": {
+        "download_cover": {
+          "type": "boolean"
+        },
+        "locale": {
+          "type": "string"
+        },
+        "mode": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "mode",
+        "locale",
+        "download_cover"
+      ],
+      "type": "object"
+    },
+    "refresh_Draft": {
+      "additionalProperties": false,
+      "properties": {
+        "common": {
+          "$ref": "#/$defs/refresh_Common"
+        },
+        "members": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/refresh_Member"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "schema_version": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "schema_version",
+        "common",
+        "members"
+      ],
+      "type": "object"
+    },
+    "refresh_Member": {
+      "additionalProperties": false,
+      "properties": {
+        "excluded": {
+          "type": "boolean"
+        },
+        "member_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "member_id",
+        "excluded"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "refresh_Draft.json",
+  "$ref": "#/$defs/refresh_Draft",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "refresh_Draft"
+}

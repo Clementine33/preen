@@ -5,7 +5,7 @@ the scan service and the workset service. It defaults to loopback;
 [server configuration](api/common.md#server-configuration) enables a fixed port
 and authenticated LAN access.
 
-HTTP endpoints live under `/api/v1`. Machine-checked contract coverage lives
+HTTP endpoints live under `/api/v1`. Generated [wire schemas](api/schema/) describe JSON structure; [contract bindings](api/schema/contracts.json) map HTTP status codes and SSE event names to schemas. `task contract:check` rejects generated drift. Machine-checked contract coverage lives
 in the Go tests (`backend/go/tests/e2e/*_test.go` and the
 `backend/go/internal/adapters/httpapi` handler tests); this document is the human
 reference.

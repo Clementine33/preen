@@ -1,0 +1,28 @@
+{
+  "$defs": {
+    "mediaFactsLibraryStat": {
+      "additionalProperties": false,
+      "properties": {
+        "library_id": {
+          "type": "string"
+        },
+        "pending": {
+          "type": "integer"
+        },
+        "unmeasurable": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "library_id",
+        "pending",
+        "unmeasurable"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "mediaFactsLibraryStat.json",
+  "$ref": "#/$defs/mediaFactsLibraryStat",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "mediaFactsLibraryStat"
+}

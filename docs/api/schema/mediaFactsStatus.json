@@ -1,0 +1,54 @@
+{
+  "$defs": {
+    "mediaFactsLibraryStat": {
+      "additionalProperties": false,
+      "properties": {
+        "library_id": {
+          "type": "string"
+        },
+        "pending": {
+          "type": "integer"
+        },
+        "unmeasurable": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "library_id",
+        "pending",
+        "unmeasurable"
+      ],
+      "type": "object"
+    },
+    "mediaFactsStatus": {
+      "additionalProperties": false,
+      "properties": {
+        "libraries": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/mediaFactsLibraryStat"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "state": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "state",
+        "libraries"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "mediaFactsStatus.json",
+  "$ref": "#/$defs/mediaFactsStatus",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "mediaFactsStatus"
+}

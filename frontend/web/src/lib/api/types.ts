@@ -1,5 +1,7 @@
 import type { ClassifierCustomTag, ClassifierTagLibraryResponse, CleanupPreview, CleanupRun, CollectionAppendResult, CollectionDetail, CollectionListResponse, CoverReport, CreateLibraryInput, CreateRecordInput, CreateRecordResponse, CurrentRecordResponse, DraftResponse, ExecutionEvent, ExecutionScope, ExecutionView, FileOperationInput, FileOperationResult, GenerationEvent, GenerationView, HealthResponse, Library, LibraryDir, MediaFactsEvent, MemberReviewResponse, MemberTreeResponse, MetadataDraftDocument, Operation, OperationDraftDocument, OutboundProxy, PatchWorkUserDataParams, PutWorkListeningParams, RenameDraftDocument, RevisionDetailResponse, ScanEvent, StartExecutionResponse, StartGenerationResponse, TagFacets, UpdateCheck, UpdateLibraryInput, UserPreferences, UserPreferencesUpdate, WorkCollection, WorkContent, WorkDetail, WorkFacet, WorkListening, WorkListResponse, Workset, WorksetListResponse, WorkUserData, WorkUserTag } from './views'
 
+import type { WireSchemas } from './wire.gen'
+
 export type * from './views'
 
 export interface ApiConfig {
@@ -8,13 +10,15 @@ export interface ApiConfig {
   token: string | null
 }
 
-export type StorageClass = 'hdd' | 'ssd'
+// Closed value sets come from the generated schemas' enums; these names only
+// give call sites a short handle on them.
+export type StorageClass = WireSchemas['libraryResponse']['storage_class']
 
-export type FileOperation = 'rename' | 'move' | 'soft_delete'
+export type FileOperation = WireSchemas['fileOperationResponse']['operation']
 
-export type FileItemStatus = 'ok' | 'failed' | 'skipped' | 'not_attempted'
+export type FileItemStatus = WireSchemas['fileOperationItemResponse']['status']
 
-export type ScanMode = 'full'
+export type ScanMode = NonNullable<WireSchemas['scanRequest']['mode']>
 
 export type ScanEventType = ScanEvent['type']
 
@@ -23,13 +27,11 @@ export type ScanEventType = ScanEvent['type']
  * content tags matched case-insensitively as substrings of each Album
  * Root-relative path (a hit → matched / 无音效).
  */
-export type ConversionMode = 'strict' | 'available_sources'
+export type ConversionMode = NonNullable<WireSchemas['reconcile_Policy']['mode']>
 
-export type CleanupCategory
-  = | 'scan_sessions' | 'plan_generations' | 'generation_records' | 'works'
-    | 'relation_reports' | 'source_tags' | 'source_voice_actors' | 'source_circles'
+export type CleanupCategory = WireSchemas['cleanupPreviewResponse']['categories'][number]
 
-export type CleanupStatus = 'running' | 'stopping' | 'stopped' | 'succeeded' | 'failed' | 'interrupted'
+export type CleanupStatus = WireSchemas['cleanupRunResponse']['status']
 
 export interface CollectionWindow {
   limit?: number
@@ -112,7 +114,7 @@ export interface ListWorksParams {
 // by kind and carries scan-time image dimensions and durations, for different
 // consumers at a different change rate.
 
-export type WorkFileKind = 'aud' | 'img' | 'txt' | 'lrc' | 'vid' | 'bin'
+export type WorkFileKind = WireSchemas['workContentFileNodeJSON']['kind']
 
 /** The identity of one file of one copy: what every content route addresses. */
 export interface ContentFileRef {
@@ -124,11 +126,11 @@ export interface ContentFileRef {
 
 // ==================== Worksets and operations ====================
 
-export type PlanningState = 'unplanned' | 'planned' | 'needs_planning' | 'planning' | 'orphaned'
+export type PlanningState = WireSchemas['operationResponse']['planning_state']
 
-export type GenerationStatus = 'queued' | 'running' | 'completed' | 'failed' | 'canceled' | 'interrupted'
+export type GenerationStatus = WireSchemas['generationViewResponse']['status']
 
-export type OperationType = 'conversion' | 'rename' | 'metadata_refresh'
+export type OperationType = WireSchemas['generationViewResponse']['operation_type']
 
 export const CONVERSION: OperationType = 'conversion'
 
@@ -141,7 +143,7 @@ export const RENAME: OperationType = 'rename'
 export const METADATA_REFRESH: OperationType = 'metadata_refresh'
 
 /** Why a selected directory id did not become a member of the record. */
-export type SkippedReason = 'unknown_dir' | 'duplicate' | 'ambiguous'
+export type SkippedReason = WireSchemas['skippedFolderResponse']['reason']
 
 export interface ListWorksetsParams {
   library_id?: string
@@ -152,9 +154,9 @@ export interface ListWorksetsParams {
 /** The six override units. What an exception replaces, one group at a time. */
 export type OverrideUnit = 'mode' | 'no_effect_tags' | 'other_tags' | 'matched' | 'unmatched' | 'other'
 
-export type MetadataMode = 'fill_missing' | 'refresh_dynamic' | 'refresh_all'
+export type MetadataMode = WireSchemas['refresh_Common']['mode']
 
-export type MetadataLocale = 'ja-jp' | 'zh-cn' | 'zh-tw'
+export type MetadataLocale = WireSchemas['refresh_Common']['locale']
 
 /**
  * The deployment-wide common settings of each Task kind (docs/api/tasks.md#task-settings):
@@ -186,19 +188,19 @@ export type AnyDraftDocument = OperationDraftDocument | RenameDraftDocument | Me
 
 // ==================== Execution sessions ====================
 
-export type DeleteMode = 'soft' | 'hard'
+export type DeleteMode = NonNullable<WireSchemas['conversion_ExecutionOptions']['delete_mode']>
 
-export type ExecutionStatus = 'queued' | 'running' | 'succeeded' | 'failed' | 'canceled' | 'interrupted'
+export type ExecutionStatus = WireSchemas['executionRefResponse']['status']
 
-/** Where a failing component stopped (only set on failure). */
-export type ExecutionStage = 'precheck' | 'materialize' | 'validate' | 'commit' | 'remove'
+/** Where a failing conversion component stopped, or the metadata task's per-component result stage. */
+export type ExecutionStage = NonNullable<WireSchemas['executionComponentResponse']['stage']>
 
-export type MemberStatus = 'pending' | 'running' | 'succeeded' | 'failed' | 'canceled'
+export type MemberStatus = WireSchemas['executionMemberSummaryResponse']['status']
 
 /** `view` query value: the summary shape conversion reads. */
 export type ExecutionViewMode = 'members'
 
-export type CoverStatus = 'pending' | 'running' | 'succeeded' | 'skipped' | 'failed' | 'canceled'
+export type CoverStatus = WireSchemas['coverDestinationResponse']['status']
 
 export interface ApiClientContract {
   createSession: (token: string) => Promise<void>

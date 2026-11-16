@@ -20,7 +20,7 @@
 - A package move preserves stored operation kinds (including `"rename"` and `"metadata_refresh"`), payloads and hashes, error codes, HTTP routes, SSE event names and admission timing: package names are not data contracts. Change these only as an explicit contract change in the requested scope.
 
 ## Tests
-- HTTP/SSE wire schemas and endpoint/event bindings are generated from adapter DTOs and registered Task payload types. After changing those types or bindings, run `task contract:generate` from the repository root and commit the generated contracts. Keep custom encodings covered by serialization tests; `task contract:check` rejects drift.
+- HTTP/SSE wire schemas and endpoint/event bindings are generated from adapter DTOs and registered Task payload types. After changing those types or bindings, run `task contract:generate` from the repository root and commit the generated contracts. Wire payloads (`writeJSON`, request decode, SSE) are named types, never anonymous structs; a type that mirrors a domain struct field for field is defined from it (`type X workset.Y`) instead of copied, and the schema diff shows any domain change that reaches the wire. Keep custom encodings covered by serialization tests; `task contract:check` rejects drift.
 - New test files default to `package <pkg>_test`; same-package tests are allowed only where the test really exercises internals, and must keep the `//nolint:testpackage` note explaining why.
 - Cover behavior through the exported API rather than dedicated tests for unexported helpers or fields. When an internal seam must be exposed to tests, funnel it through a narrow `export_test.go`.
 - Prefer real dependencies or small handwritten fakes; never generate mocks for interfaces defined in this repo.

@@ -10,7 +10,7 @@ HTTP/SSE 的线格式现在有三处各自维护的描述：Go 侧的 json 标�
 
 ## 决定
 
-1. **Go 是线格式的唯一来源。** 线上出现的每个 JSON 请求体、响应体（包括错误信封）和 SSE 事件载荷（包括 error 事件）都是 `adapters/httpapi` 里的具名类型。领域类型不直接编码到线上，也不直接从请求解码，需要时在 httpapi 里转换或包装。`arch` 测试守住这条边界。
+1. **Go 是线格式的唯一来源。** 线上出现的每个 JSON 请求体、响应体（包括错误信封）和 SSE 事件载荷（包括 error 事件）都由具名类型表达，不用匿名结构。领域类型的改动导致线格式变化，由入库的 schema、`task contract:check`（重新生成后必须零 diff）和生成的 TS 类型暴露出来，没有 `arch` 测试守边界。schema 的根类型在 `adapters/httpapi` 里声明，所以与领域类型逐字段一致的线上类型，在 httpapi 里以领域类型定义（`type X workset.Y`），不再手工复制字段，schema 标识不变；有实际处理的转换（nil 规整为 `[]`、自定义 `MarshalJSON`、视图选择、三态解码、字段改名或省略）照旧保留。
 2. **结构由生成的 JSON Schema 表达。** 从 httpapi 的具名类型生成 JSON Schema，入库到 `docs/api/schema/`。schema 描述实际的序列化结果：自定义 `MarshalJSON` 的类型用手写的 schema 覆盖，生成时不对结果做美化。CI 重新生成后必须零 diff。
 3. **不透明载荷按 Task kind 分别建 schema。** [0004](0004-task-seam-and-opaque-payloads.md) 中以 `json.RawMessage` 传输的 Task 载荷和设置，外层 schema 只能看到一个不透明字段。每个 Task kind 和 `schema_version` 的组合要有自己的载荷 schema，由各 Task 包的具名类型生成；外层 schema 按 kind 引用对应的载荷 schema。
 4. **职责划分。** schema 负责字段、类型、可选与可空；`docs/api/*.md` 负责语义、行为、错误码、准入与版本规则，并链接到对应的 schema，不再重复字段的类型说明。
@@ -25,10 +25,11 @@ HTTP/SSE 的线格式现在有三处各自维护的描述：Go 侧的 json 标�
 - **完整的 OpenAPI 描述（包括路由、参数和认证）**：覆盖面大，但路由、准入和错误语义已经由 `docs/api/*.md` 承担，再全部迁过去成本高、收益低；只把结构机器化就能解决漂移问题。
 - **以 TS 类型为来源反向约束后端**：线格式由后端决定，以前端为来源会让后端测试依赖前端构建，与 0015 中“后端构建和测试不依赖前端产物”的考量相冲突。
 - **维持现状，靠键断言和人工同步**：现在大约有 300 处零散断言，覆盖不完整、无法审计，前后端之间也没有任何联系。
+- **httpapi 独占线上类型，并由 `arch` 测试（go/types 检查 writeJSON、请求解码和 SSE 发送的实参类型）强制**：漂移早已被入库 schema 的零 diff 检查覆盖，领域类型一改，schema 和生成的 TS 类型立刻变化，所以这条边界作为防漂移手段是冗余的；代价是约 1200 行逐字段复制的转换代码，加上约 400 行的检查器及其违规用例。
 
 ## 后果
 
-- httpapi 会多出一批具名 DTO 和转换代码；匿名的请求和响应结构，以及直接编码或解码的领域类型，都需要先迁移，迁移完成前 schema 只覆盖已迁移的端点。
+- 匿名的请求和响应结构需要先改成具名类型；迁移完成前 schema 只覆盖已迁移的端点。以领域类型定义的线上类型，其字段和 json 标签随领域类型变化，改动由 schema 零 diff 检查暴露；未在 httpapi 声明为 schema 根的领域类型，不在 schema 覆盖范围内。
 - 新增一个 Task kind 或提升载荷的 `schema_version` 时，必须同时提供它的载荷 schema。
 - 服务升级时还开着的旧标签页，在刷新前可能把新响应按旧结构解析。
 - 生成器和校验器会引入新的依赖：Go 侧一个 JSON Schema 生成库，前端开发依赖里一个 schema→TS 生成器和一个校验器。

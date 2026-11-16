@@ -9,9 +9,11 @@ const names = readdirSync(schemas).filter(name => name.endsWith('.json') && name
 // resolver cannot reliably combine relative $id and external $defs references.
 // This changes reference locations only; every wire constraint stays intact.
 const definitions = {}
-// Task kind -> schema version -> generic schema name -> task-specific schema id,
-// read from the generic schemas' anyOf of `<kind>_v<version>_<name>.json` refs.
+// Task kind -> generic schema name -> task-specific schema id, read from the
+// generic schemas' anyOf of `<kind>_v<version>_<name>.json` refs. The web client
+// binds a contract before any response arrives, so it knows one version per kind.
 const taskSchemas = {}
+const taskVersions = {}
 function relocate(value, name) {
   if (Array.isArray(value))
     return value.map(item => relocate(item, name))
@@ -36,8 +38,15 @@ for (const file of names) {
   definitions[name] = relocate(schema, name)
   for (const branch of schema.anyOf ?? []) {
     const match = /^(.+)_v(\d+)_(.+)\.json$/.exec(branch.$ref ?? '')
-    if (match?.[3] === name)
-      ((taskSchemas[match[1]] ??= {})[match[2]] ??= {})[name] = branch.$ref.slice(0, -5)
+    if (match?.[3] !== name)
+      continue
+    const [, kind, version] = match
+    taskVersions[kind] ??= version
+    if (taskVersions[kind] !== version) {
+      throw new Error(`Task ${kind} has schema versions ${taskVersions[kind]} and ${version}; the web client binds one version per kind`)
+    }
+    taskSchemas[kind] ??= {}
+    taskSchemas[kind][name] = branch.$ref.slice(0, -5)
   }
   for (const [key, value] of Object.entries(schema.$defs ?? {}))
     definitions[`${name}__${key}`] = relocate(value, name)
@@ -70,10 +79,9 @@ writeFileSync(output, code)
 for (const [kind, request] of Object.entries(bindings.task_draft_requests)) {
   if (!taskSchemas[kind] || !names.includes(`${request}.json`))
     throw new Error(`Task ${kind} draft request ${request} has no schema`)
-  for (const version of Object.values(taskSchemas[kind]))
-    version.draftDocumentRequest = request
+  taskSchemas[kind].draftDocumentRequest = request
 }
 const sortedTaskSchemas = Object.fromEntries(Object.entries(taskSchemas).sort(([a], [b]) => a.localeCompare(b)))
 
-const contracts = `// Generated HTTP status and SSE event bindings. Do not edit.\nimport type { WireSchemas } from './wire.gen'\nexport type SchemaId = keyof WireSchemas\nexport const schemaIds = ${JSON.stringify(names.map(file => file.slice(0, -5)))} as const satisfies readonly SchemaId[]\nexport const httpContracts = ${JSON.stringify(bindings.http, null, 2)} as const satisfies Record<string, { request: SchemaId | ''; responses: Record<string, SchemaId | '@empty' | '@sse'> }>\nexport const sseContracts = ${JSON.stringify(bindings.sse, null, 2)} as const satisfies Record<string, Record<string, SchemaId>>\nexport const taskSchemas = ${JSON.stringify(sortedTaskSchemas, null, 2)} as const satisfies Record<string, Record<string, Record<string, SchemaId>>>\n`
+const contracts = `// Generated HTTP status and SSE event bindings. Do not edit.\nimport type { WireSchemas } from './wire.gen'\nexport type SchemaId = keyof WireSchemas\nexport const schemaIds = ${JSON.stringify(names.map(file => file.slice(0, -5)))} as const satisfies readonly SchemaId[]\nexport const httpContracts = ${JSON.stringify(bindings.http, null, 2)} as const satisfies Record<string, { request: SchemaId | ''; responses: Record<string, SchemaId | '@empty' | '@sse'> }>\nexport const sseContracts = ${JSON.stringify(bindings.sse, null, 2)} as const satisfies Record<string, Record<string, SchemaId>>\nexport const taskSchemas = ${JSON.stringify(sortedTaskSchemas, null, 2)} as const satisfies Record<string, Record<string, SchemaId>>\n`
 writeFileSync(join(dirname(output), 'contracts.gen.ts'), contracts)

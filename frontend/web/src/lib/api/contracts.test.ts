@@ -7,9 +7,7 @@ vi.mock('./contracts.gen', async (original) => {
     ...actual,
     taskSchemas: {
       ...actual.taskSchemas,
-      partial: {
-        1: { taskDraftEnvelope: 'partial_v1_taskDraftEnvelope' },
-      },
+      partial: { taskDraftEnvelope: 'partial_v1_taskDraftEnvelope' },
     },
   }
 })

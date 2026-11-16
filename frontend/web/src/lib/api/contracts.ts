@@ -27,18 +27,17 @@ export function taskContract<C extends HttpContract>(contract: C, kind: string):
   } as C
 }
 
-/** Maps a generic schema name to the current schema version's Task-specific schema. */
+/** Maps a generic schema name to the Task-specific schema. */
 export function taskSchema<N extends string>(name: N, kind: string): N {
-  const versions: Record<string, Record<string, string>> | undefined = Object.hasOwn(taskSchemas, kind)
+  const bindings: Record<string, string> | undefined = Object.hasOwn(taskSchemas, kind)
     ? taskSchemas[kind as keyof typeof taskSchemas]
     : undefined
-  if (!versions)
+  if (!bindings)
     throw new Error(`unknown Task kind ${kind}`)
-  const bindings = versions[Math.max(...Object.keys(versions).map(Number))]
   if (Object.hasOwn(bindings, name))
     return bindings[name] as N
   // Any other name (an error envelope, `@empty`) is shared by every Task.
-  if (Object.values(taskSchemas).some(task => Object.values(task).some(bound => Object.hasOwn(bound, name))))
+  if (Object.values(taskSchemas).some(bound => Object.hasOwn(bound, name)))
     throw new Error(`Task ${kind} has no schema bound to ${name}`)
   return name
 }

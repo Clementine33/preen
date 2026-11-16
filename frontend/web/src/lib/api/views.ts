@@ -231,13 +231,12 @@ export type DraftResponse<D = OperationDraftDocument> = Omit<DraftEnvelopeRespon
 
 export type StartGenerationResponse = Refine<WireSchemas['generationStartResponse'], { generation: GenerationView }> | Refine<WireSchemas['generationReplayRevisionResponse'], { created: false, revision: CurrentRevisionSummary }>
 
-export type GenerationEvent = WireGenerationEvent extends infer E ? E extends { type: 'session_snapshot' } ? Omit<E, 'data'> & { data: GenerationSnapshot } : E : never
+export type GenerationEvent = WireGenerationEvent extends infer E ? E extends { type: 'session_snapshot' } ? Omit<E, 'data'> & { data: GenerationView } : E : never
 
 export type ExecutionEvent = WireExecutionEvent extends infer E ? E extends { type: 'execution_snapshot' } ? Omit<E, 'data'> & { data: ExecutionView } : E extends { type: 'component' } ? Omit<E, 'data'> & { data: ExecutionComponent } : E extends { type: 'progress' } ? Omit<E, 'data'> & { data: ExecutionProgressEvent } : E extends { type: 'member' } ? Omit<E, 'data'> & { data: Refine<WireSchemas['executionMemberEvent'], { member: MemberSummary, counts: Client.MemberCounts }> } : E : never
 
 export type TaskEnvelope<P> = Refine<WireSchemas['taskDraftEnvelope'], { payload: P }>
 
-export type GenerationSnapshot = Refine<WireSchemas['generationSnapshotEvent'], { status: Client.GenerationStatus }>
 export type FileOperationInput = WireSchemas['fileOperationRequest']
 
 export type MemberCounts = WireSchemas['executionMemberCountsResponse']

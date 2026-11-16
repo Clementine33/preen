@@ -10,6 +10,7 @@ import (
 type GenerationSnapshot struct {
 	GenerationID   string `json:"generation_id"`
 	WorksetID      string `json:"workset_id"`
+	OperationType  string `json:"operation_type"`
 	Status         string `json:"status"`
 	TotalRoots     int    `json:"total_roots"`
 	CompletedRoots int    `json:"completed_roots"`
@@ -60,6 +61,7 @@ func snapshotOf(g *PlanGeneration) GenerationSnapshot {
 	return GenerationSnapshot{
 		GenerationID:   g.GenerationID,
 		WorksetID:      g.WorksetID,
+		OperationType:  g.OperationType,
 		Status:         g.Status,
 		TotalRoots:     g.TotalRoots,
 		CompletedRoots: g.CompletedRoots,

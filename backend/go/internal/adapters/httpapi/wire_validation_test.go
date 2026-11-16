@@ -100,10 +100,21 @@ func TestWireTaskPayloadAndStage(t *testing.T) {
 	}
 }
 
-func TestWireSnapshotIsDistinctFromHTTPDetail(t *testing.T) {
-	wirecheck.AssertSchema(t, "generationSnapshotEvent", generationSnapshotEvent{})
-	if wirecheck.Validate("generationViewResponse", generationSnapshotEvent{}) == nil {
-		t.Fatal("snapshot accepted as HTTP detail")
+// The session_snapshot event and the planning-session detail share one schema,
+// and that schema requires operation_type.
+func TestWireSnapshotRequiresOperationType(t *testing.T) {
+	wirecheck.AssertSchema(t, "generationViewResponse", generationViewResponse{OperationType: "conversion"})
+	var withoutOperation map[string]any
+	raw, err := json.Marshal(generationViewResponse{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = json.Unmarshal(raw, &withoutOperation); err != nil {
+		t.Fatal(err)
+	}
+	delete(withoutOperation, "operation_type")
+	if wirecheck.Validate("generationViewResponse", withoutOperation) == nil {
+		t.Fatal("a snapshot without operation_type was accepted")
 	}
 }
 

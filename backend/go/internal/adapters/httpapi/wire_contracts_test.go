@@ -468,7 +468,7 @@ const wireContracts = `{
       "interrupted": "generationStoppedEvent",
       "message": "sessionStatusEvent",
       "progress": "generationProgressEvent",
-      "session_snapshot": "generationSnapshotEvent"
+      "session_snapshot": "generationViewResponse"
     },
     "media": {
       "changed": "emptyEvent",

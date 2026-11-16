@@ -347,22 +347,6 @@ func toExecutionViewResponse(v *workset.ExecutionView) executionViewResponse {
 
 // ==================== SSE DTOs & Emitters ====================
 
-type generationSnapshotEvent struct {
-	GenerationID   string `json:"generation_id"`
-	WorksetID      string `json:"workset_id"`
-	Status         string `json:"status"`
-	TotalRoots     int    `json:"total_roots"`
-	CompletedRoots int    `json:"completed_roots"`
-	CurrentRoot    string `json:"current_root"`
-	ErrorCount     int    `json:"error_count"`
-	RevisionID     string `json:"revision_id"`
-	ErrorCode      string `json:"error_code"`
-	ErrorMessage   string `json:"error_message"`
-	StartedAt      string `json:"started_at"`
-	FinishedAt     string `json:"finished_at"`
-	CreatedAt      string `json:"created_at"`
-}
-
 type generationProgressEvent struct {
 	GenerationID   string `json:"generation_id"`
 	TotalRoots     int    `json:"total_roots"`
@@ -447,9 +431,10 @@ func writeSSEError(sw *SSEWriter, err error, notFoundCode string) {
 func emitGenerationEvent(sw *SSEWriter, event string, data any) error {
 	switch payload := data.(type) {
 	case workset.GenerationSnapshot:
-		return sw.Send(event, generationSnapshotEvent{
+		return sw.Send(event, generationViewResponse{
 			GenerationID:   payload.GenerationID,
 			WorksetID:      payload.WorksetID,
+			OperationType:  payload.OperationType,
 			Status:         payload.Status,
 			TotalRoots:     payload.TotalRoots,
 			CompletedRoots: payload.CompletedRoots,

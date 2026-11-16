@@ -68,7 +68,6 @@ func wireRoots() []any {
 		generationProgressEvent{},
 		generationProgressResponse{},
 		generationReplayRevisionResponse{},
-		generationSnapshotEvent{},
 		generationStartResponse{},
 		generationStoppedEvent{},
 		generationSummaryResponse{},

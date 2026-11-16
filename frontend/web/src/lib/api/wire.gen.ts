@@ -901,7 +901,6 @@ export interface WireSchemas {
   generationProgressEvent: GenerationProgressEvent
   generationProgressResponse: GenerationProgressResponse
   generationReplayRevisionResponse: GenerationReplayRevisionResponse
-  generationSnapshotEvent: GenerationSnapshotEvent
   generationStartResponse: GenerationStartResponse
   generationStoppedEvent: GenerationStoppedEvent
   generationSummaryResponse: GenerationSummaryResponse
@@ -3054,21 +3053,6 @@ export interface GenerationReplayRevisionResponse_RevisionCountsResponse {
   unchanged: number
   unmet_targets: number
 }
-export interface GenerationSnapshotEvent {
-  completed_roots: number
-  created_at: string
-  current_root: string
-  error_code: string
-  error_count: number
-  error_message: string
-  finished_at: string
-  generation_id: string
-  revision_id: string
-  started_at: string
-  status: string
-  total_roots: number
-  workset_id: string
-}
 export interface GenerationStartResponse {
   created: boolean
   generation: GenerationStartResponse_GenerationViewResponse
@@ -4367,7 +4351,7 @@ export interface WorksetResponse_MemberResponse {
 
 export type WireExecutionEvent = { type: 'canceled'; data: WireSchemas['executionStoppedEvent'] } | { type: 'component'; data: WireSchemas['executionComponentResponse'] } | { type: 'error'; data: WireSchemas['sseError'] } | { type: 'execution_snapshot'; data: WireSchemas['executionViewResponse'] } | { type: 'failed'; data: WireSchemas['executionFailedEvent'] } | { type: 'interrupted'; data: WireSchemas['executionStoppedEvent'] } | { type: 'member'; data: WireSchemas['executionMemberEvent'] } | { type: 'message'; data: WireSchemas['sessionStatusEvent'] } | { type: 'progress'; data: WireSchemas['executionProgressEvent'] } | { type: 'succeeded'; data: WireSchemas['executionSucceededEvent'] }
 
-export type WireGenerationEvent = { type: 'canceled'; data: WireSchemas['generationStoppedEvent'] } | { type: 'completed'; data: WireSchemas['generationCompletedEvent'] } | { type: 'error'; data: WireSchemas['sseError'] } | { type: 'failed'; data: WireSchemas['generationFailedEvent'] } | { type: 'interrupted'; data: WireSchemas['generationStoppedEvent'] } | { type: 'message'; data: WireSchemas['sessionStatusEvent'] } | { type: 'progress'; data: WireSchemas['generationProgressEvent'] } | { type: 'session_snapshot'; data: WireSchemas['generationSnapshotEvent'] }
+export type WireGenerationEvent = { type: 'canceled'; data: WireSchemas['generationStoppedEvent'] } | { type: 'completed'; data: WireSchemas['generationCompletedEvent'] } | { type: 'error'; data: WireSchemas['sseError'] } | { type: 'failed'; data: WireSchemas['generationFailedEvent'] } | { type: 'interrupted'; data: WireSchemas['generationStoppedEvent'] } | { type: 'message'; data: WireSchemas['sessionStatusEvent'] } | { type: 'progress'; data: WireSchemas['generationProgressEvent'] } | { type: 'session_snapshot'; data: WireSchemas['generationViewResponse'] }
 
 export type WireMediaEvent = { type: 'changed'; data: WireSchemas['emptyEvent'] } | { type: 'status'; data: WireSchemas['mediaFactsStatus'] } | { type: 'works_changed'; data: WireSchemas['emptyEvent'] }
 

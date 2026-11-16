@@ -1,4 +1,3 @@
-import type { GenerationSnapshot, GenerationView, OperationType } from './types'
 /** Wire-to-view conversion preserves server bytes and normalizes legacy editor settings. */
 /**
  * Stored conversion JSON may still use the old key; writes only use the new one.
@@ -18,9 +17,4 @@ export function normalizeConversionTags<T extends { no_effect_tags?: string[] | 
     delete out.other_tags
   delete out.classifier_tags
   return out
-}
-
-/** The stream omits the operation; its subscriber owns the cache identity. */
-export function generationSnapshotView(snapshot: GenerationSnapshot, operation: OperationType): GenerationView {
-  return { ...snapshot, operation_type: operation }
 }

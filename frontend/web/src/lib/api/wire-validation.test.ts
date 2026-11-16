@@ -88,7 +88,7 @@ it('rejects null for response arrays', async () => {
   await expect(client().listLibraries()).rejects.toBeInstanceOf(WireContractError)
 })
 
-it('keeps FileTuple PascalCase keys and the snapshot without operation_type', async () => {
+it('keeps FileTuple PascalCase keys and requires operation_type on the snapshot', async () => {
   const component: WireSchemas['reconcile_ComponentOutcome'] = {
     component_id: 'c',
     partition: 'matched',
@@ -103,9 +103,8 @@ it('keeps FileTuple PascalCase keys and the snapshot without operation_type', as
   }
   await expect(validateWire('reconcile_ComponentOutcome', component)).resolves.toEqual(component)
   const { operation_type: _operation, ...snapshot } = wireGeneration()
-  await expect(validateWire('generationSnapshotEvent', snapshot)).resolves.toEqual(snapshot)
   await expect(validateWire('generationViewResponse', snapshot)).rejects.toBeInstanceOf(WireContractError)
-  await expect(validateWire('generationSnapshotEvent', wireGeneration())).rejects.toBeInstanceOf(WireContractError)
+  await expect(validateWire('generationViewResponse', wireGeneration())).resolves.toEqual(wireGeneration())
 })
 
 it('rejects malformed payloads of a declared SSE event', async () => {

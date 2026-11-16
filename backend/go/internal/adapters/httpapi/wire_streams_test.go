@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/Clementine33/preen/backend/internal/adapters/httpapi"
@@ -46,7 +47,7 @@ func TestWireGenerationEvents(t *testing.T) {
 		event   string
 		payload any
 	}{
-		{"session_snapshot", workset.GenerationSnapshot{}},
+		{"session_snapshot", workset.GenerationSnapshot{OperationType: "rename"}},
 		{"progress", workset.GenerationProgressEvent{}},
 		{"completed", workset.GenerationCompletedEvent{}},
 		{"failed", workset.GenerationFailedEvent{}},
@@ -55,7 +56,14 @@ func TestWireGenerationEvents(t *testing.T) {
 		{"message", workset.SessionStatusEvent{Status: "unexpected"}},
 	} {
 		t.Run(tc.event, func(t *testing.T) {
-			assertWireStream(t, "planning-sessions/g/events", streamWireService{event: tc.event, payload: tc.payload})
+			body := assertWireStream(
+				t,
+				"planning-sessions/g/events",
+				streamWireService{event: tc.event, payload: tc.payload},
+			)
+			if tc.event == "session_snapshot" && !strings.Contains(body, `"operation_type":"rename"`) {
+				t.Fatalf("snapshot lacks operation_type: %s", body)
+			}
 		})
 	}
 	assertWireStream(
@@ -95,7 +103,7 @@ func TestWireExecutionEvents(t *testing.T) {
 	})
 }
 
-func assertWireStream(t *testing.T, tail string, service streamWireService) {
+func assertWireStream(t *testing.T, tail string, service streamWireService) string {
 	t.Helper()
 	handler := wirecheck.Handler(t, httpapi.NewServer(httpapi.Dependencies{WorksetService: service}))
 	response := httptest.NewRecorder()
@@ -106,4 +114,5 @@ func assertWireStream(t *testing.T, tail string, service streamWireService) {
 	if response.Code != http.StatusOK {
 		t.Fatalf("status %d: %s", response.Code, response.Body.String())
 	}
+	return response.Body.String()
 }

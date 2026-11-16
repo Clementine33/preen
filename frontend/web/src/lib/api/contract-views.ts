@@ -111,7 +111,6 @@ interface ViewBindings {
   dirListResponse: WireSchemas['dirListResponse'] & { dirs: Views.LibraryDir[] }
   cleanupRunEnvelopeResponse: WireSchemas['cleanupRunEnvelopeResponse'] & { run: Views.CleanupRun | null }
   executionMemberEvent: WireSchemas['executionMemberEvent'] & { member: Views.MemberSummary }
-  generationSnapshotEvent: Views.GenerationSnapshot
 }
 
 type BaseId<K> = K extends `${'conversion' | 'rename' | 'metadata_refresh'}_v1_${infer Base}` ? Base : K

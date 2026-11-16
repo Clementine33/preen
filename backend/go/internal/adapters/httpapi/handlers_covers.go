@@ -108,27 +108,24 @@ type coverReportResponse struct {
 }
 
 func toCoverReportResponse(report coverdelivery.Report) coverReportResponse {
-	var items []coverDestinationResponse
-	if report.Items != nil {
-		items = make([]coverDestinationResponse, len(report.Items))
-		for i, item := range report.Items {
-			items[i] = coverDestinationResponse{
-				ID:          item.ID,
-				ExecutionID: item.ExecutionID,
-				Target: coverTargetResponse{
-					CopyID:      item.Target.CopyID,
-					WorkCode:    item.Target.WorkCode,
-					LibraryRoot: item.Target.LibraryRoot,
-					RelPath:     item.Target.RelPath,
-					Identity:    item.Target.Identity,
-				},
-				Refresh:      item.Refresh,
-				Status:       item.Status,
-				ErrorCode:    item.ErrorCode,
-				ErrorMessage: item.ErrorMessage,
-				Published:    item.Published,
-				Digest:       item.Digest,
-			}
+	items := make([]coverDestinationResponse, len(report.Items))
+	for i, item := range report.Items {
+		items[i] = coverDestinationResponse{
+			ID:          item.ID,
+			ExecutionID: item.ExecutionID,
+			Target: coverTargetResponse{
+				CopyID:      item.Target.CopyID,
+				WorkCode:    item.Target.WorkCode,
+				LibraryRoot: item.Target.LibraryRoot,
+				RelPath:     item.Target.RelPath,
+				Identity:    item.Target.Identity,
+			},
+			Refresh:      item.Refresh,
+			Status:       item.Status,
+			ErrorCode:    item.ErrorCode,
+			ErrorMessage: item.ErrorMessage,
+			Published:    item.Published,
+			Digest:       item.Digest,
 		}
 	}
 	return coverReportResponse{Items: items, Counts: report.Counts}

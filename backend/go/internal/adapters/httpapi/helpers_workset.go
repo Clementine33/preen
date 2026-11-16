@@ -140,7 +140,7 @@ func toTaskEnvelope(plan workset.RevisionPlan) taskEnvelopeResponse {
 			Policy:     plan.Payload,
 			PolicyHash: plan.PolicyHash,
 			Classifier: rawJSON(taskClassifierSnapshot{
-				Tags: plan.ClassifierTags,
+				Tags: orEmpty(plan.ClassifierTags),
 				Hash: plan.ClassifierHash,
 			}),
 			Summary:    plan.StepSummary,

@@ -80,10 +80,12 @@ it('validates request encoding before fetch', async () => {
   expect(fetch).not.toHaveBeenCalled()
 })
 
-it('preserves nullable wire arrays and only adapts the client list view', async () => {
-  await expect(validateWire('libraryListResponse', { libraries: null })).resolves.toEqual({ libraries: null })
-  vi.stubGlobal('fetch', vi.fn(async () => wireJson('libraryListResponse', { libraries: null })))
-  await expect(client().listLibraries()).resolves.toEqual([])
+it('rejects null for response arrays', async () => {
+  await expect(validateWire('libraryListResponse', { libraries: null })).rejects.toBeInstanceOf(WireContractError)
+  vi.stubGlobal('fetch', vi.fn(async () => new Response('{"libraries":null}', {
+    headers: { 'Content-Type': 'application/json' },
+  })))
+  await expect(client().listLibraries()).rejects.toBeInstanceOf(WireContractError)
 })
 
 it('keeps FileTuple PascalCase keys and the snapshot without operation_type', async () => {

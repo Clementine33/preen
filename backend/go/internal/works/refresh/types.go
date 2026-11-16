@@ -35,5 +35,20 @@ type WorkResult struct {
 	Issues    []Issue             `json:"issues"`
 }
 
+// nonNilOutcome keeps freshly written Task results free of null arrays; stored
+// results from earlier versions may still hold them (docs/api/common.md#wire-schemas).
+func nonNilOutcome(o works.ImportOutcome) works.ImportOutcome {
+	if o.Applied == nil {
+		o.Applied = []works.AppliedGroup{}
+	}
+	if o.Ignored == nil {
+		o.Ignored = []works.IgnoredGroup{}
+	}
+	if o.Warnings == nil {
+		o.Warnings = []works.RelationWarning{}
+	}
+	return o
+}
+
 // Result is ordered by canonical work number, including partial results on cancellation.
 type Result struct{ Works []WorkResult }

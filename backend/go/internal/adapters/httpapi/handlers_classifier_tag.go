@@ -52,8 +52,8 @@ func (s *Server) listClassifierTags(w http.ResponseWriter, _ *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, classifierTagLibraryResponse{
-		DefaultNoEffectTags: s.deps.Catalog.DefaultNoEffectTags(),
-		DefaultOtherTags:    s.deps.Catalog.DefaultOtherTags(),
+		DefaultNoEffectTags: orEmpty(s.deps.Catalog.DefaultNoEffectTags()),
+		DefaultOtherTags:    orEmpty(s.deps.Catalog.DefaultOtherTags()),
 		CustomTags:          customItems,
 	})
 }

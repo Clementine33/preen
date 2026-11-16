@@ -55,17 +55,10 @@
           "type": "string"
         },
         "worksets": {
-          "anyOf": [
-            {
-              "items": {
-                "$ref": "#/$defs/worksetResponse"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "items": {
+            "$ref": "#/$defs/worksetResponse"
+          },
+          "type": "array"
         }
       },
       "required": [
@@ -90,17 +83,10 @@
           ]
         },
         "members": {
-          "anyOf": [
-            {
-              "items": {
-                "$ref": "#/$defs/memberResponse"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "items": {
+            "$ref": "#/$defs/memberResponse"
+          },
+          "type": "array"
         },
         "title": {
           "type": "string"

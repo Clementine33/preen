@@ -20,9 +20,15 @@ func TestWireCustomEncodings(t *testing.T) {
 		{"reconcile_VariantDecision", reconcile.VariantDecision{}},
 		{"workContentNodeResponse", workContentNodeResponse{Name: "directory"}},
 		{"workContentNodeResponse", workContentNodeResponse{Name: "file", Kind: "audio"}},
-		{"conversion_v1_executionViewResponse", executionViewResponse{OperationType: "conversion"}},
-		{"conversion_v1_executionViewResponse", executionViewResponse{OperationType: "conversion", Members: &executionMembersResponse{}}},
-		{"conversion_v1_executionViewResponse", executionViewResponse{OperationType: "conversion", Member: &executionMemberSummaryResponse{}}},
+		{"conversion_v1_executionViewResponse", executionViewResponse{
+			OperationType: "conversion", Components: []executionComponentResponse{},
+		}},
+		{"conversion_v1_executionViewResponse", executionViewResponse{
+			OperationType: "conversion", Members: &executionMembersResponse{Attention: []executionMemberSummaryResponse{}},
+		}},
+		{"conversion_v1_executionViewResponse", executionViewResponse{
+			OperationType: "conversion", Components: []executionComponentResponse{}, Member: &executionMemberSummaryResponse{},
+		}},
 	} {
 		t.Run(tc.name, func(t *testing.T) { wirecheck.AssertSchema(t, tc.name, tc.value) })
 	}
@@ -78,7 +84,10 @@ func TestWireTaskPayloadAndStage(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		component := executionComponentResponse{Stage: tc.stage, TaskResult: raw, KeptDecisions: json.RawMessage(`[]`)}
+		component := executionComponentResponse{
+			Stage: tc.stage, TaskResult: raw, KeptDecisions: json.RawMessage(`[]`),
+			Committed: []string{}, Removed: []string{}, Remaining: []string{}, Recovery: []string{},
+		}
 		wirecheck.AssertSchema(t, "metadata_refresh_v1_executionComponentResponse", component)
 		if tc.stage == "skipped" {
 			component.Stage = "metadata"

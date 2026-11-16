@@ -54,7 +54,7 @@ export function usePlayWork() {
   /** The saved rows, fresh: the cached detail predates the player's latest write. */
   async function savedListening(rj: string): Promise<WorkListening[]> {
     try {
-      return (await api.getWork(rj)).listening ?? []
+      return (await api.getWork(rj)).listening
     }
     catch {
       return []

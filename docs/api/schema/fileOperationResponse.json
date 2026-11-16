@@ -53,17 +53,10 @@
           "type": "integer"
         },
         "items": {
-          "anyOf": [
-            {
-              "items": {
-                "$ref": "#/$defs/fileOperationItemResponse"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "items": {
+            "$ref": "#/$defs/fileOperationItemResponse"
+          },
+          "type": "array"
         },
         "member_path": {
           "type": "string"

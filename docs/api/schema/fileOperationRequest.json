@@ -19,17 +19,10 @@
       "additionalProperties": false,
       "properties": {
         "items": {
-          "anyOf": [
-            {
-              "items": {
-                "$ref": "#/$defs/fileOperationItem"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "items": {
+            "$ref": "#/$defs/fileOperationItem"
+          },
+          "type": "array"
         },
         "member_path": {
           "type": "string"

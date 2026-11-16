@@ -51,8 +51,8 @@ function detail(rj: string, voice: string): WorkDetail {
     ],
     source_tags: [],
     note: '',
-    language_editions: null,
-    edition_tree: null,
+    language_editions: [],
+    edition_tree: [],
     relation: {
       role: null,
       language: null,

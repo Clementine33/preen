@@ -41,17 +41,10 @@
       "additionalProperties": false,
       "properties": {
         "copies": {
-          "anyOf": [
-            {
-              "items": {
-                "$ref": "#/$defs/workContentCopyResponse"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "items": {
+            "$ref": "#/$defs/workContentCopyResponse"
+          },
+          "type": "array"
         },
         "rj": {
           "type": "string"

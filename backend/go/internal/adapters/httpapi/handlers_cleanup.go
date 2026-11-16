@@ -48,9 +48,6 @@ type cleanupRunEnvelopeResponse struct {
 }
 
 func toCleanupCategories(in []cleanup.Category) []cleanupCategory {
-	if in == nil {
-		return nil
-	}
 	out := make([]cleanupCategory, len(in))
 	for i, c := range in {
 		out[i] = cleanupCategory(c)

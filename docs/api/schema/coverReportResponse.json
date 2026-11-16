@@ -57,17 +57,10 @@
           ]
         },
         "items": {
-          "anyOf": [
-            {
-              "items": {
-                "$ref": "#/$defs/coverDestinationResponse"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "items": {
+            "$ref": "#/$defs/coverDestinationResponse"
+          },
+          "type": "array"
         }
       },
       "required": [

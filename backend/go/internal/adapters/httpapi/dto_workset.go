@@ -56,9 +56,6 @@ func toMemberConclusionResponse(c workset.MemberConclusion) memberConclusionResp
 }
 
 func toMemberConclusionResponses(in []workset.MemberConclusion) []memberConclusionResponse {
-	if in == nil {
-		return nil
-	}
 	out := make([]memberConclusionResponse, len(in))
 	for i, item := range in {
 		out[i] = toMemberConclusionResponse(item)
@@ -289,10 +286,10 @@ func toExecutionComponentResponse(c workset.ExecutionComponentView) executionCom
 		Stage:              c.Stage,
 		Operations:         c.Operations,
 		CompletedOps:       c.CompletedOps,
-		Committed:          c.Committed,
-		Removed:            c.Removed,
-		Remaining:          c.Remaining,
-		Recovery:           c.Recovery,
+		Committed:          orEmpty(c.Committed),
+		Removed:            orEmpty(c.Removed),
+		Remaining:          orEmpty(c.Remaining),
+		Recovery:           orEmpty(c.Recovery),
 		ErrorCode:          c.ErrorCode,
 		ErrorMessage:       c.ErrorMessage,
 		InventorySynced:    c.InventorySynced,
@@ -301,21 +298,15 @@ func toExecutionComponentResponse(c workset.ExecutionComponentView) executionCom
 }
 
 func toExecutionViewResponse(v *workset.ExecutionView) executionViewResponse {
-	var components []executionComponentResponse
-	if v.Components != nil {
-		components = make([]executionComponentResponse, len(v.Components))
-		for i, c := range v.Components {
-			components[i] = toExecutionComponentResponse(c)
-		}
+	components := make([]executionComponentResponse, len(v.Components))
+	for i, c := range v.Components {
+		components[i] = toExecutionComponentResponse(c)
 	}
 	var members *executionMembersResponse
 	if v.Members != nil {
-		var attention []executionMemberSummaryResponse
-		if v.Members.Attention != nil {
-			attention = make([]executionMemberSummaryResponse, len(v.Members.Attention))
-			for i, item := range v.Members.Attention {
-				attention[i] = toExecutionMemberSummaryResponse(item)
-			}
+		attention := make([]executionMemberSummaryResponse, len(v.Members.Attention))
+		for i, item := range v.Members.Attention {
+			attention[i] = toExecutionMemberSummaryResponse(item)
 		}
 		members = &executionMembersResponse{
 			Counts:         toExecutionMemberCountsResponse(v.Members.Counts),

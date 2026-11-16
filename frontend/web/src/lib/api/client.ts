@@ -130,7 +130,7 @@ export class ApiClient implements ApiClientContract {
   async listLibraries(signal?: AbortSignal): Promise<Library[]> {
     return (await this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
       ? httpContracts['GET /api/v1/libraries']
-      : undefined), '/libraries', { signal })).libraries ?? []
+      : undefined), '/libraries', { signal })).libraries
   }
 
   getLibrary(id: string, signal?: AbortSignal): Promise<Library> {
@@ -183,7 +183,7 @@ export class ApiClient implements ApiClientContract {
     const result = await this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
       ? httpContracts['GET /api/v1/libraries/{id}/dirs']
       : undefined), `/libraries/${encodeURIComponent(libraryId)}/dirs`, { signal })
-    return result.dirs ?? []
+    return result.dirs
   }
 
   /** The stored member tree: what the last scan recorded for this directory. */
@@ -473,12 +473,12 @@ export class ApiClient implements ApiClientContract {
       const body = await this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
         ? httpContracts['GET /api/v1/circles']
         : undefined), `/circles${qs}`, { signal })
-      return body.circles ?? []
+      return body.circles
     }
     const body = await this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
       ? httpContracts['GET /api/v1/voice-actors']
       : undefined), `/voice-actors${qs}`, { signal })
-    return body.voice_actors ?? []
+    return body.voice_actors
   }
 
   /** Both tag vocabularies under one listing scope (docs/api.md `GET /tags`). */
@@ -519,7 +519,7 @@ export class ApiClient implements ApiClientContract {
       method: 'PUT',
       body: { tag_ids: tagIds },
     })
-    return body.user_tags ?? []
+    return body.user_tags
   }
 
   // A merge, last write wins per field; the answer is the whole stored object (docs/api/preferences.md).
@@ -603,7 +603,7 @@ export class ApiClient implements ApiClientContract {
     const body = await this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
       ? httpContracts['GET /api/v1/user-tags']
       : undefined), '/user-tags', { signal })
-    return body.user_tags ?? []
+    return body.user_tags
   }
 
   async createUserTag(name: string): Promise<WorkUserTag> {

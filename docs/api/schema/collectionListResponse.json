@@ -4,17 +4,10 @@
       "additionalProperties": false,
       "properties": {
         "collections": {
-          "anyOf": [
-            {
-              "items": {
-                "$ref": "#/$defs/collectionResponse"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "items": {
+            "$ref": "#/$defs/collectionResponse"
+          },
+          "type": "array"
         },
         "total": {
           "type": "integer"

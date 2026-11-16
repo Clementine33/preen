@@ -213,6 +213,9 @@ func fixWireFields(def map[string]any, typ reflect.Type) {
 	if !ok {
 		return
 	}
+	// Adapter DTOs convert nil slices to []; Task payload types describe stored
+	// records that may still hold null (docs/api/common.md#wire-schemas).
+	strictArrays := typ.PkgPath() == reflect.TypeFor[errorResponse]().PkgPath()
 	for field := range typ.Fields() {
 		tag := strings.Split(field.Tag.Get("json"), ",")
 		name := tag[0]
@@ -229,20 +232,23 @@ func fixWireFields(def map[string]any, typ reflect.Type) {
 		}
 		omitted := strings.Contains(field.Tag.Get("json"), ",omitempty") ||
 			strings.Contains(field.Tag.Get("json"), ",omitzero")
-		props[name] = wireNullable(prop, field.Type, omitted)
+		props[name] = wireNullable(prop, field.Type, omitted, strictArrays)
 	}
 }
 
-func wireNullable(prop any, typ reflect.Type, omitted bool) any {
+func wireNullable(prop any, typ reflect.Type, omitted, strictArrays bool) any {
 	// Only composite types contain nested wire fields.
 	//exhaustive:ignore
 	switch typ.Kind() {
 	case reflect.Pointer:
-		prop = wireNullable(prop, typ.Elem(), false)
+		prop = wireNullable(prop, typ.Elem(), false, strictArrays)
 		if !omitted {
 			return map[string]any{"anyOf": []any{prop, map[string]any{"type": "null"}}}
 		}
 	case reflect.Slice, reflect.Map:
+		if strictArrays && typ.Kind() == reflect.Slice {
+			return prop
+		}
 		if !omitted && typ != reflect.TypeFor[json.RawMessage]() {
 			return map[string]any{"anyOf": []any{prop, map[string]any{"type": "null"}}}
 		}

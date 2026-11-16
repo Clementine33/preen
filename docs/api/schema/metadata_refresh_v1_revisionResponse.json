@@ -151,17 +151,10 @@
           ]
         },
         "members": {
-          "anyOf": [
-            {
-              "items": {
-                "$ref": "#/$defs/memberConclusionResponse"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "items": {
+            "$ref": "#/$defs/memberConclusionResponse"
+          },
+          "type": "array"
         },
         "plan_id": {
           "type": "string"

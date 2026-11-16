@@ -144,8 +144,7 @@ tasks:
   contract:generate:
     desc: Generate Go wire schemas and frontend wire types
     cmds:
-      - cmd: go generate ./internal/adapters/httpapi
-        dir: backend/go
+      - cd backend/go && go generate ./internal/adapters/httpapi
       - node frontend/web/scripts/generate-wire.mjs
       - node frontend/web/scripts/generate-validators.mjs
 

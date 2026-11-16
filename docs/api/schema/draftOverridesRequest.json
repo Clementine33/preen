@@ -62,17 +62,10 @@
         "no_effect_tags": {
           "anyOf": [
             {
-              "anyOf": [
-                {
-                  "items": {
-                    "type": "string"
-                  },
-                  "type": "array"
-                },
-                {
-                  "type": "null"
-                }
-              ]
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
             },
             {
               "type": "null"
@@ -92,17 +85,10 @@
         "other_tags": {
           "anyOf": [
             {
-              "anyOf": [
-                {
-                  "items": {
-                    "type": "string"
-                  },
-                  "type": "array"
-                },
-                {
-                  "type": "null"
-                }
-              ]
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
             },
             {
               "type": "null"

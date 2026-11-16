@@ -23,43 +23,22 @@
       "additionalProperties": false,
       "properties": {
         "custom_tags": {
-          "anyOf": [
-            {
-              "items": {
-                "$ref": "#/$defs/classifierCustomTagItem"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "items": {
+            "$ref": "#/$defs/classifierCustomTagItem"
+          },
+          "type": "array"
         },
         "default_no_effect_tags": {
-          "anyOf": [
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "default_other_tags": {
-          "anyOf": [
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         }
       },
       "required": [

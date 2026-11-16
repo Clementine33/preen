@@ -129,17 +129,10 @@
           ]
         },
         "tags": {
-          "anyOf": [
-            {
-              "items": {
-                "$ref": "#/$defs/workImportTagRequest"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "items": {
+            "$ref": "#/$defs/workImportTagRequest"
+          },
+          "type": "array"
         },
         "title": {
           "anyOf": [
@@ -152,17 +145,10 @@
           ]
         },
         "voice_actors": {
-          "anyOf": [
-            {
-              "items": {
-                "$ref": "#/$defs/workImportVoiceActorRequest"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "items": {
+            "$ref": "#/$defs/workImportVoiceActorRequest"
+          },
+          "type": "array"
         }
       },
       "type": "object"

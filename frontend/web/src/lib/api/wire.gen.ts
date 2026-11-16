@@ -6,7 +6,7 @@ export type ConversionV1ExecutionStartResponse_ExecutionViewResponse =
   | {
       completed_components: number
       completed_operations: number
-      components: ConversionV1ExecutionStartResponse_ExecutionComponentResponse[] | null
+      components: ConversionV1ExecutionStartResponse_ExecutionComponentResponse[]
       created_at: string
       current_component_id: string
       current_phase: string
@@ -50,7 +50,7 @@ export type ConversionV1ExecutionStartResponse_ExecutionViewResponse =
   | {
       completed_components: number
       completed_operations: number
-      components: ConversionV1ExecutionStartResponse_ExecutionComponentResponse[] | null
+      components: ConversionV1ExecutionStartResponse_ExecutionComponentResponse[]
       created_at: string
       current_component_id: string
       current_phase: string
@@ -74,7 +74,7 @@ export type ConversionV1ExecutionViewResponse =
   | {
       completed_components: number
       completed_operations: number
-      components: ConversionV1ExecutionViewResponse_ExecutionComponentResponse[] | null
+      components: ConversionV1ExecutionViewResponse_ExecutionComponentResponse[]
       created_at: string
       current_component_id: string
       current_phase: string
@@ -118,7 +118,7 @@ export type ConversionV1ExecutionViewResponse =
   | {
       completed_components: number
       completed_operations: number
-      components: ConversionV1ExecutionViewResponse_ExecutionComponentResponse[] | null
+      components: ConversionV1ExecutionViewResponse_ExecutionComponentResponse[]
       created_at: string
       current_component_id: string
       current_phase: string
@@ -149,7 +149,7 @@ export type ExecutionComponentResponse =
   | MetadataRefreshV1ExecutionComponentResponse
 export type MetadataRefreshV1ExecutionComponentResponse =
   | {
-      committed: string[] | null
+      committed: string[]
       completed_operations: number
       component_id: string
       component_index: number
@@ -163,15 +163,15 @@ export type MetadataRefreshV1ExecutionComponentResponse =
       kept_decisions: []
       operations: number
       partition: string
-      recovery: string[] | null
-      remaining: string[] | null
-      removed: string[] | null
+      recovery: string[]
+      remaining: string[]
+      removed: string[]
       root_path: string
       stage?: string
       status: string
     }
   | {
-      committed: string[] | null
+      committed: string[]
       completed_operations: number
       component_id: string
       component_index: number
@@ -185,16 +185,16 @@ export type MetadataRefreshV1ExecutionComponentResponse =
       kept_decisions: []
       operations: number
       partition: string
-      recovery: string[] | null
-      remaining: string[] | null
-      removed: string[] | null
+      recovery: string[]
+      remaining: string[]
+      removed: string[]
       root_path: string
       stage: 'skipped'
       status: string
       task_result: Refresh_Outcome
     }
   | {
-      committed: string[] | null
+      committed: string[]
       completed_operations: number
       component_id: string
       component_index: number
@@ -208,9 +208,9 @@ export type MetadataRefreshV1ExecutionComponentResponse =
       kept_decisions: []
       operations: number
       partition: string
-      recovery: string[] | null
-      remaining: string[] | null
-      removed: string[] | null
+      recovery: string[]
+      remaining: string[]
+      removed: string[]
       root_path: string
       stage: 'metadata'
       status: string
@@ -220,7 +220,7 @@ export type ExecutionFullViewResponse =
   ConversionV1ExecutionFullViewResponse | RenameV1ExecutionFullViewResponse | MetadataRefreshV1ExecutionFullViewResponse
 export type MetadataRefreshV1ExecutionFullViewResponse_ExecutionComponentResponse =
   | {
-      committed: string[] | null
+      committed: string[]
       completed_operations: number
       component_id: string
       component_index: number
@@ -234,15 +234,15 @@ export type MetadataRefreshV1ExecutionFullViewResponse_ExecutionComponentRespons
       kept_decisions: []
       operations: number
       partition: string
-      recovery: string[] | null
-      remaining: string[] | null
-      removed: string[] | null
+      recovery: string[]
+      remaining: string[]
+      removed: string[]
       root_path: string
       stage?: string
       status: string
     }
   | {
-      committed: string[] | null
+      committed: string[]
       completed_operations: number
       component_id: string
       component_index: number
@@ -256,16 +256,16 @@ export type MetadataRefreshV1ExecutionFullViewResponse_ExecutionComponentRespons
       kept_decisions: []
       operations: number
       partition: string
-      recovery: string[] | null
-      remaining: string[] | null
-      removed: string[] | null
+      recovery: string[]
+      remaining: string[]
+      removed: string[]
       root_path: string
       stage: 'skipped'
       status: string
       task_result: Refresh_Outcome
     }
   | {
-      committed: string[] | null
+      committed: string[]
       completed_operations: number
       component_id: string
       component_index: number
@@ -279,9 +279,9 @@ export type MetadataRefreshV1ExecutionFullViewResponse_ExecutionComponentRespons
       kept_decisions: []
       operations: number
       partition: string
-      recovery: string[] | null
-      remaining: string[] | null
-      removed: string[] | null
+      recovery: string[]
+      remaining: string[]
+      removed: string[]
       root_path: string
       stage: 'metadata'
       status: string
@@ -293,7 +293,7 @@ export type ExecutionMemberViewResponse =
   | MetadataRefreshV1ExecutionMemberViewResponse
 export type MetadataRefreshV1ExecutionMemberViewResponse_ExecutionComponentResponse =
   | {
-      committed: string[] | null
+      committed: string[]
       completed_operations: number
       component_id: string
       component_index: number
@@ -307,15 +307,15 @@ export type MetadataRefreshV1ExecutionMemberViewResponse_ExecutionComponentRespo
       kept_decisions: []
       operations: number
       partition: string
-      recovery: string[] | null
-      remaining: string[] | null
-      removed: string[] | null
+      recovery: string[]
+      remaining: string[]
+      removed: string[]
       root_path: string
       stage?: string
       status: string
     }
   | {
-      committed: string[] | null
+      committed: string[]
       completed_operations: number
       component_id: string
       component_index: number
@@ -329,16 +329,16 @@ export type MetadataRefreshV1ExecutionMemberViewResponse_ExecutionComponentRespo
       kept_decisions: []
       operations: number
       partition: string
-      recovery: string[] | null
-      remaining: string[] | null
-      removed: string[] | null
+      recovery: string[]
+      remaining: string[]
+      removed: string[]
       root_path: string
       stage: 'skipped'
       status: string
       task_result: Refresh_Outcome
     }
   | {
-      committed: string[] | null
+      committed: string[]
       completed_operations: number
       component_id: string
       component_index: number
@@ -352,9 +352,9 @@ export type MetadataRefreshV1ExecutionMemberViewResponse_ExecutionComponentRespo
       kept_decisions: []
       operations: number
       partition: string
-      recovery: string[] | null
-      remaining: string[] | null
-      removed: string[] | null
+      recovery: string[]
+      remaining: string[]
+      removed: string[]
       root_path: string
       stage: 'metadata'
       status: string
@@ -372,7 +372,7 @@ export type RenameV1ExecutionStartResponse_ExecutionViewResponse =
   | {
       completed_components: number
       completed_operations: number
-      components: RenameV1ExecutionStartResponse_ExecutionComponentResponse[] | null
+      components: RenameV1ExecutionStartResponse_ExecutionComponentResponse[]
       created_at: string
       current_component_id: string
       current_phase: string
@@ -414,7 +414,7 @@ export type RenameV1ExecutionStartResponse_ExecutionViewResponse =
   | {
       completed_components: number
       completed_operations: number
-      components: RenameV1ExecutionStartResponse_ExecutionComponentResponse[] | null
+      components: RenameV1ExecutionStartResponse_ExecutionComponentResponse[]
       created_at: string
       current_component_id: string
       current_phase: string
@@ -437,7 +437,7 @@ export type MetadataRefreshV1ExecutionStartResponse_ExecutionViewResponse =
   | {
       completed_components: number
       completed_operations: number
-      components: MetadataRefreshV1ExecutionStartResponse_ExecutionComponentResponse[] | null
+      components: MetadataRefreshV1ExecutionStartResponse_ExecutionComponentResponse[]
       created_at: string
       current_component_id: string
       current_phase: string
@@ -481,7 +481,7 @@ export type MetadataRefreshV1ExecutionStartResponse_ExecutionViewResponse =
   | {
       completed_components: number
       completed_operations: number
-      components: MetadataRefreshV1ExecutionStartResponse_ExecutionComponentResponse[] | null
+      components: MetadataRefreshV1ExecutionStartResponse_ExecutionComponentResponse[]
       created_at: string
       current_component_id: string
       current_phase: string
@@ -503,7 +503,7 @@ export type MetadataRefreshV1ExecutionStartResponse_ExecutionViewResponse =
     }
 export type MetadataRefreshV1ExecutionStartResponse_ExecutionComponentResponse =
   | {
-      committed: string[] | null
+      committed: string[]
       completed_operations: number
       component_id: string
       component_index: number
@@ -517,15 +517,15 @@ export type MetadataRefreshV1ExecutionStartResponse_ExecutionComponentResponse =
       kept_decisions: []
       operations: number
       partition: string
-      recovery: string[] | null
-      remaining: string[] | null
-      removed: string[] | null
+      recovery: string[]
+      remaining: string[]
+      removed: string[]
       root_path: string
       stage?: string
       status: string
     }
   | {
-      committed: string[] | null
+      committed: string[]
       completed_operations: number
       component_id: string
       component_index: number
@@ -539,16 +539,16 @@ export type MetadataRefreshV1ExecutionStartResponse_ExecutionComponentResponse =
       kept_decisions: []
       operations: number
       partition: string
-      recovery: string[] | null
-      remaining: string[] | null
-      removed: string[] | null
+      recovery: string[]
+      remaining: string[]
+      removed: string[]
       root_path: string
       stage: 'skipped'
       status: string
       task_result: Refresh_Outcome
     }
   | {
-      committed: string[] | null
+      committed: string[]
       completed_operations: number
       component_id: string
       component_index: number
@@ -562,9 +562,9 @@ export type MetadataRefreshV1ExecutionStartResponse_ExecutionComponentResponse =
       kept_decisions: []
       operations: number
       partition: string
-      recovery: string[] | null
-      remaining: string[] | null
-      removed: string[] | null
+      recovery: string[]
+      remaining: string[]
+      removed: string[]
       root_path: string
       stage: 'metadata'
       status: string
@@ -576,7 +576,7 @@ export type RenameV1ExecutionViewResponse =
   | {
       completed_components: number
       completed_operations: number
-      components: RenameV1ExecutionViewResponse_ExecutionComponentResponse[] | null
+      components: RenameV1ExecutionViewResponse_ExecutionComponentResponse[]
       created_at: string
       current_component_id: string
       current_phase: string
@@ -618,7 +618,7 @@ export type RenameV1ExecutionViewResponse =
   | {
       completed_components: number
       completed_operations: number
-      components: RenameV1ExecutionViewResponse_ExecutionComponentResponse[] | null
+      components: RenameV1ExecutionViewResponse_ExecutionComponentResponse[]
       created_at: string
       current_component_id: string
       current_phase: string
@@ -641,7 +641,7 @@ export type MetadataRefreshV1ExecutionViewResponse =
   | {
       completed_components: number
       completed_operations: number
-      components: MetadataRefreshV1ExecutionViewResponse_ExecutionComponentResponse[] | null
+      components: MetadataRefreshV1ExecutionViewResponse_ExecutionComponentResponse[]
       created_at: string
       current_component_id: string
       current_phase: string
@@ -685,7 +685,7 @@ export type MetadataRefreshV1ExecutionViewResponse =
   | {
       completed_components: number
       completed_operations: number
-      components: MetadataRefreshV1ExecutionViewResponse_ExecutionComponentResponse[] | null
+      components: MetadataRefreshV1ExecutionViewResponse_ExecutionComponentResponse[]
       created_at: string
       current_component_id: string
       current_phase: string
@@ -707,7 +707,7 @@ export type MetadataRefreshV1ExecutionViewResponse =
     }
 export type MetadataRefreshV1ExecutionViewResponse_ExecutionComponentResponse =
   | {
-      committed: string[] | null
+      committed: string[]
       completed_operations: number
       component_id: string
       component_index: number
@@ -721,15 +721,15 @@ export type MetadataRefreshV1ExecutionViewResponse_ExecutionComponentResponse =
       kept_decisions: []
       operations: number
       partition: string
-      recovery: string[] | null
-      remaining: string[] | null
-      removed: string[] | null
+      recovery: string[]
+      remaining: string[]
+      removed: string[]
       root_path: string
       stage?: string
       status: string
     }
   | {
-      committed: string[] | null
+      committed: string[]
       completed_operations: number
       component_id: string
       component_index: number
@@ -743,16 +743,16 @@ export type MetadataRefreshV1ExecutionViewResponse_ExecutionComponentResponse =
       kept_decisions: []
       operations: number
       partition: string
-      recovery: string[] | null
-      remaining: string[] | null
-      removed: string[] | null
+      recovery: string[]
+      remaining: string[]
+      removed: string[]
       root_path: string
       stage: 'skipped'
       status: string
       task_result: Refresh_Outcome
     }
   | {
-      committed: string[] | null
+      committed: string[]
       completed_operations: number
       component_id: string
       component_index: number
@@ -766,9 +766,9 @@ export type MetadataRefreshV1ExecutionViewResponse_ExecutionComponentResponse =
       kept_decisions: []
       operations: number
       partition: string
-      recovery: string[] | null
-      remaining: string[] | null
-      removed: string[] | null
+      recovery: string[]
+      remaining: string[]
+      removed: string[]
       root_path: string
       stage: 'metadata'
       status: string
@@ -1053,7 +1053,7 @@ export interface AudioQualityDTO {
   kind: string
 }
 export interface CircleFacetsResponse {
-  circles: CircleFacetsResponse_FacetResponse[] | null
+  circles: CircleFacetsResponse_FacetResponse[]
 }
 export interface CircleFacetsResponse_FacetResponse {
   id: string
@@ -1069,9 +1069,9 @@ export interface ClassifierTagCreateRequest {
   tag?: string
 }
 export interface ClassifierTagLibraryResponse {
-  custom_tags: ClassifierTagLibraryResponse_ClassifierCustomTagItem[] | null
-  default_no_effect_tags: string[] | null
-  default_other_tags: string[] | null
+  custom_tags: ClassifierTagLibraryResponse_ClassifierCustomTagItem[]
+  default_no_effect_tags: string[]
+  default_other_tags: string[]
 }
 export interface ClassifierTagLibraryResponse_ClassifierCustomTagItem {
   created_at?: string
@@ -1079,7 +1079,7 @@ export interface ClassifierTagLibraryResponse_ClassifierCustomTagItem {
   tag: string
 }
 export interface CleanupCategoriesRequest {
-  categories?: string[] | null
+  categories?: string[]
 }
 export interface CleanupCountResponse {
   checked: number
@@ -1090,7 +1090,7 @@ export interface CleanupPreviewResponse {
   candidates: {
     [k: string]: number
   } | null
-  categories: string[] | null
+  categories: string[]
   checked_at: string
   rules: {
     [k: string]: CleanupPreviewResponse_CleanupRuleResponse
@@ -1106,7 +1106,7 @@ export interface CleanupRunEnvelopeResponse {
   run: CleanupRunEnvelopeResponse_CleanupRunResponse | null
 }
 export interface CleanupRunEnvelopeResponse_CleanupRunResponse {
-  categories: string[] | null
+  categories: string[]
   counts: {
     [k: string]: CleanupRunEnvelopeResponse_CleanupCountResponse
   } | null
@@ -1123,7 +1123,7 @@ export interface CleanupRunEnvelopeResponse_CleanupCountResponse {
   skipped: number
 }
 export interface CleanupRunResponse {
-  categories: string[] | null
+  categories: string[]
   counts: {
     [k: string]: CleanupRunResponse_CleanupCountResponse
   } | null
@@ -1146,7 +1146,7 @@ export interface CollectionDetailResponse {
   total: number
   updated_at: string
   work_count: number
-  works: CollectionDetailResponse_WorkSummaryResponse[] | null
+  works: CollectionDetailResponse_WorkSummaryResponse[]
 }
 export interface CollectionDetailResponse_WorkSummaryResponse {
   age_category: number | null
@@ -1165,7 +1165,7 @@ export interface CollectionDetailResponse_WorkSummaryResponse {
   release_date: string | null
   rj: string
   title: string | null
-  user_tags: CollectionDetailResponse_UserTagResponse[] | null
+  user_tags: CollectionDetailResponse_UserTagResponse[]
 }
 export interface CollectionDetailResponse_ListeningSummaryResponse {
   state: string
@@ -1184,7 +1184,7 @@ export interface CollectionDetailResponse_UserTagResponse {
   name: string
 }
 export interface CollectionListResponse {
-  collections: CollectionListResponse_CollectionResponse[] | null
+  collections: CollectionListResponse_CollectionResponse[]
   total: number
 }
 export interface CollectionListResponse_CollectionResponse {
@@ -1208,11 +1208,11 @@ export interface CollectionWorkMoveRequest {
   before_rj?: string | null
 }
 export interface CollectionWorksAppendRequest {
-  rjs?: string[] | null
+  rjs?: string[]
 }
 export interface CollectionWorksAppendResponse {
-  added: string[] | null
-  skipped: string[] | null
+  added: string[]
+  skipped: string[]
   work_count: number
 }
 export interface Conversion_CommonSettings {
@@ -1422,7 +1422,7 @@ export interface ConversionV1DraftResponse_TaskDraftEnvelope {
   schema_version: 1
 }
 export interface ConversionV1ExecutionComponentResponse {
-  committed: string[] | null
+  committed: string[]
   completed_operations: number
   component_id: string
   component_index: number
@@ -1433,9 +1433,9 @@ export interface ConversionV1ExecutionComponentResponse {
   kept_decisions: Reconcile_FileDecision[]
   operations: number
   partition: string
-  recovery: string[] | null
-  remaining: string[] | null
-  removed: string[] | null
+  recovery: string[]
+  remaining: string[]
+  removed: string[]
   root_path: string
   stage?: string
   status: string
@@ -1450,7 +1450,7 @@ export interface Reconcile_FileDecision {
 export interface ConversionV1ExecutionFullViewResponse {
   completed_components: number
   completed_operations: number
-  components: ConversionV1ExecutionFullViewResponse_ExecutionComponentResponse[] | null
+  components: ConversionV1ExecutionFullViewResponse_ExecutionComponentResponse[]
   created_at: string
   current_component_id: string
   current_phase: string
@@ -1470,7 +1470,7 @@ export interface ConversionV1ExecutionFullViewResponse {
   workset_id: string
 }
 export interface ConversionV1ExecutionFullViewResponse_ExecutionComponentResponse {
-  committed: string[] | null
+  committed: string[]
   completed_operations: number
   component_id: string
   component_index: number
@@ -1481,9 +1481,9 @@ export interface ConversionV1ExecutionFullViewResponse_ExecutionComponentRespons
   kept_decisions: Reconcile_FileDecision[]
   operations: number
   partition: string
-  recovery: string[] | null
-  remaining: string[] | null
-  removed: string[] | null
+  recovery: string[]
+  remaining: string[]
+  removed: string[]
   root_path: string
   stage?: string
   status: string
@@ -1491,7 +1491,7 @@ export interface ConversionV1ExecutionFullViewResponse_ExecutionComponentRespons
 export interface ConversionV1ExecutionMemberViewResponse {
   completed_components: number
   completed_operations: number
-  components: ConversionV1ExecutionMemberViewResponse_ExecutionComponentResponse[] | null
+  components: ConversionV1ExecutionMemberViewResponse_ExecutionComponentResponse[]
   created_at: string
   current_component_id: string
   current_phase: string
@@ -1512,7 +1512,7 @@ export interface ConversionV1ExecutionMemberViewResponse {
   workset_id: string
 }
 export interface ConversionV1ExecutionMemberViewResponse_ExecutionComponentResponse {
-  committed: string[] | null
+  committed: string[]
   completed_operations: number
   component_id: string
   component_index: number
@@ -1523,9 +1523,9 @@ export interface ConversionV1ExecutionMemberViewResponse_ExecutionComponentRespo
   kept_decisions: Reconcile_FileDecision[]
   operations: number
   partition: string
-  recovery: string[] | null
-  remaining: string[] | null
-  removed: string[] | null
+  recovery: string[]
+  remaining: string[]
+  removed: string[]
   root_path: string
   stage?: string
   status: string
@@ -1564,7 +1564,7 @@ export interface ConversionV1ExecutionMembersViewResponse {
   workset_id: string
 }
 export interface ConversionV1ExecutionMembersViewResponse_ExecutionMembersResponse {
-  attention: ConversionV1ExecutionMembersViewResponse_ExecutionMemberSummaryResponse[] | null
+  attention: ConversionV1ExecutionMembersViewResponse_ExecutionMemberSummaryResponse[]
   attention_total: number
   counts: ConversionV1ExecutionMembersViewResponse_ExecutionMemberCountsResponse
 }
@@ -1604,7 +1604,7 @@ export interface ConversionV1ExecutionStartResponse {
   execution: ConversionV1ExecutionStartResponse_ExecutionViewResponse
 }
 export interface ConversionV1ExecutionStartResponse_ExecutionComponentResponse {
-  committed: string[] | null
+  committed: string[]
   completed_operations: number
   component_id: string
   component_index: number
@@ -1615,15 +1615,15 @@ export interface ConversionV1ExecutionStartResponse_ExecutionComponentResponse {
   kept_decisions: Reconcile_FileDecision[]
   operations: number
   partition: string
-  recovery: string[] | null
-  remaining: string[] | null
-  removed: string[] | null
+  recovery: string[]
+  remaining: string[]
+  removed: string[]
   root_path: string
   stage?: string
   status: string
 }
 export interface ConversionV1ExecutionStartResponse_ExecutionMembersResponse {
-  attention: ConversionV1ExecutionStartResponse_ExecutionMemberSummaryResponse[] | null
+  attention: ConversionV1ExecutionStartResponse_ExecutionMemberSummaryResponse[]
   attention_total: number
   counts: ConversionV1ExecutionStartResponse_ExecutionMemberCountsResponse
 }
@@ -1646,7 +1646,7 @@ export interface ConversionV1ExecutionStartResponse_ExecutionMemberCountsRespons
   succeeded: number
 }
 export interface ConversionV1ExecutionViewResponse_ExecutionComponentResponse {
-  committed: string[] | null
+  committed: string[]
   completed_operations: number
   component_id: string
   component_index: number
@@ -1657,15 +1657,15 @@ export interface ConversionV1ExecutionViewResponse_ExecutionComponentResponse {
   kept_decisions: Reconcile_FileDecision[]
   operations: number
   partition: string
-  recovery: string[] | null
-  remaining: string[] | null
-  removed: string[] | null
+  recovery: string[]
+  remaining: string[]
+  removed: string[]
   root_path: string
   stage?: string
   status: string
 }
 export interface ConversionV1ExecutionViewResponse_ExecutionMembersResponse {
-  attention: ConversionV1ExecutionViewResponse_ExecutionMemberSummaryResponse[] | null
+  attention: ConversionV1ExecutionViewResponse_ExecutionMemberSummaryResponse[]
   attention_total: number
   counts: ConversionV1ExecutionViewResponse_ExecutionMemberCountsResponse
 }
@@ -1703,7 +1703,7 @@ export interface ConversionV1MemberReviewResponse {
   member_id: string
   member_name: string
   plan_id: string
-  roots: ConversionV1MemberReviewResponse_RootValidationResponse[] | null
+  roots: ConversionV1MemberReviewResponse_RootValidationResponse[]
   sources: {
     [k: string]: string
   } | null
@@ -1763,7 +1763,7 @@ export interface ConversionV1MemberReviewResponse_TaskPayloadResponse {
 }
 export interface TaskClassifierSnapshot {
   hash: string
-  tags: string[] | null
+  tags: string[]
 }
 export interface Reconcile_ComponentOutcome {
   component_id: string
@@ -1931,7 +1931,7 @@ export interface ConversionV1RevisionResponse {
   counts: ConversionV1RevisionResponse_RevisionCountsResponse
   created_at: string
   execution: ConversionV1RevisionResponse_ExecutionRefResponse | null
-  members: ConversionV1RevisionResponse_MemberConclusionResponse[] | null
+  members: ConversionV1RevisionResponse_MemberConclusionResponse[]
   plan_id: string
   revision_index: number
   root_path: string
@@ -2040,7 +2040,7 @@ export interface CoverReportResponse {
   counts: {
     [k: string]: number
   } | null
-  items: CoverReportResponse_CoverDestinationResponse[] | null
+  items: CoverReportResponse_CoverDestinationResponse[]
 }
 export interface CoverReportResponse_CoverDestinationResponse {
   digest?: string
@@ -2073,7 +2073,7 @@ export interface CurrentRecordResponse {
 export interface CurrentRecordResponse_WorksetResponse {
   created_at: string
   library: CurrentRecordResponse_LibraryRefResponse | null
-  members: CurrentRecordResponse_MemberResponse[] | null
+  members: CurrentRecordResponse_MemberResponse[]
   title: string
   updated_at: string
   version: number
@@ -2121,7 +2121,7 @@ export interface DesiredProfileDTO_AudioQualityDTO {
   kind: string
 }
 export interface DirListResponse {
-  dirs: DirListResponse_DirResponse[] | null
+  dirs: DirListResponse_DirResponse[]
 }
 export interface DirListResponse_DirResponse {
   added_at: string
@@ -2214,11 +2214,11 @@ export interface Dirrename_Result {
 export interface DraftDocumentRequest {
   delete_mode?: string
   matched?: DraftDocumentRequest_DesiredProfileDTO
-  members?: DraftDocumentRequest_DraftMemberRequest[] | null
+  members?: DraftDocumentRequest_DraftMemberRequest[]
   mode?: string
-  no_effect_tags?: string[] | null
+  no_effect_tags?: string[]
   other?: DraftDocumentRequest_DesiredProfileDTO
-  other_tags?: string[] | null
+  other_tags?: string[]
   schema_version?: number
   unmatched?: DraftDocumentRequest_DesiredProfileDTO
 }
@@ -2242,9 +2242,9 @@ export interface DraftDocumentRequest_DraftMemberRequest {
 export interface DraftDocumentRequest_DraftOverridesRequest {
   matched?: DraftDocumentRequest_DesiredProfileDTO | null
   mode?: string | null
-  no_effect_tags?: (string[] | null) | null
+  no_effect_tags?: string[] | null
   other?: DraftDocumentRequest_DesiredProfileDTO | null
-  other_tags?: (string[] | null) | null
+  other_tags?: string[] | null
   unmatched?: DraftDocumentRequest_DesiredProfileDTO | null
 }
 export interface DraftMemberRequest {
@@ -2255,9 +2255,9 @@ export interface DraftMemberRequest {
 export interface DraftMemberRequest_DraftOverridesRequest {
   matched?: DraftMemberRequest_DesiredProfileDTO | null
   mode?: string | null
-  no_effect_tags?: (string[] | null) | null
+  no_effect_tags?: string[] | null
   other?: DraftMemberRequest_DesiredProfileDTO | null
-  other_tags?: (string[] | null) | null
+  other_tags?: string[] | null
   unmatched?: DraftMemberRequest_DesiredProfileDTO | null
 }
 export interface DraftMemberRequest_DesiredProfileDTO {
@@ -2275,9 +2275,9 @@ export interface DraftMemberRequest_AudioQualityDTO {
 export interface DraftOverridesRequest {
   matched?: DraftOverridesRequest_DesiredProfileDTO | null
   mode?: string | null
-  no_effect_tags?: (string[] | null) | null
+  no_effect_tags?: string[] | null
   other?: DraftOverridesRequest_DesiredProfileDTO | null
-  other_tags?: (string[] | null) | null
+  other_tags?: string[] | null
   unmatched?: DraftOverridesRequest_DesiredProfileDTO | null
 }
 export interface DraftOverridesRequest_DesiredProfileDTO {
@@ -2342,7 +2342,7 @@ export interface EditionSlotResponse {
   label: string | null
   language: string
   root: EditionSlotResponse_TreeNodeResponse
-  translations: EditionSlotResponse_TreeNodeResponse[] | null
+  translations: EditionSlotResponse_TreeNodeResponse[]
 }
 export interface EditionSlotResponse_TreeNodeResponse {
   held: boolean
@@ -2367,7 +2367,7 @@ export interface ErrorResponse {
   message: string
 }
 export interface RenameV1ExecutionComponentResponse {
-  committed: string[] | null
+  committed: string[]
   completed_operations: number
   component_id: string
   component_index: number
@@ -2381,9 +2381,9 @@ export interface RenameV1ExecutionComponentResponse {
   kept_decisions: []
   operations: number
   partition: string
-  recovery: string[] | null
-  remaining: string[] | null
-  removed: string[] | null
+  recovery: string[]
+  remaining: string[]
+  removed: string[]
   root_path: string
   stage?: string
   status: string
@@ -2442,7 +2442,7 @@ export interface ExecutionFailedEvent {
 export interface RenameV1ExecutionFullViewResponse {
   completed_components: number
   completed_operations: number
-  components: RenameV1ExecutionFullViewResponse_ExecutionComponentResponse[] | null
+  components: RenameV1ExecutionFullViewResponse_ExecutionComponentResponse[]
   created_at: string
   current_component_id: string
   current_phase: string
@@ -2461,7 +2461,7 @@ export interface RenameV1ExecutionFullViewResponse {
   workset_id: string
 }
 export interface RenameV1ExecutionFullViewResponse_ExecutionComponentResponse {
-  committed: string[] | null
+  committed: string[]
   completed_operations: number
   component_id: string
   component_index: number
@@ -2475,9 +2475,9 @@ export interface RenameV1ExecutionFullViewResponse_ExecutionComponentResponse {
   kept_decisions: []
   operations: number
   partition: string
-  recovery: string[] | null
-  remaining: string[] | null
-  removed: string[] | null
+  recovery: string[]
+  remaining: string[]
+  removed: string[]
   root_path: string
   stage?: string
   status: string
@@ -2486,7 +2486,7 @@ export interface RenameV1ExecutionFullViewResponse_ExecutionComponentResponse {
 export interface MetadataRefreshV1ExecutionFullViewResponse {
   completed_components: number
   completed_operations: number
-  components: MetadataRefreshV1ExecutionFullViewResponse_ExecutionComponentResponse[] | null
+  components: MetadataRefreshV1ExecutionFullViewResponse_ExecutionComponentResponse[]
   created_at: string
   current_component_id: string
   current_phase: string
@@ -2554,7 +2554,7 @@ export interface ExecutionMemberSummaryResponse {
 export interface RenameV1ExecutionMemberViewResponse {
   completed_components: number
   completed_operations: number
-  components: RenameV1ExecutionMemberViewResponse_ExecutionComponentResponse[] | null
+  components: RenameV1ExecutionMemberViewResponse_ExecutionComponentResponse[]
   created_at: string
   current_component_id: string
   current_phase: string
@@ -2574,7 +2574,7 @@ export interface RenameV1ExecutionMemberViewResponse {
   workset_id: string
 }
 export interface RenameV1ExecutionMemberViewResponse_ExecutionComponentResponse {
-  committed: string[] | null
+  committed: string[]
   completed_operations: number
   component_id: string
   component_index: number
@@ -2588,9 +2588,9 @@ export interface RenameV1ExecutionMemberViewResponse_ExecutionComponentResponse 
   kept_decisions: []
   operations: number
   partition: string
-  recovery: string[] | null
-  remaining: string[] | null
-  removed: string[] | null
+  recovery: string[]
+  remaining: string[]
+  removed: string[]
   root_path: string
   stage?: string
   status: string
@@ -2610,7 +2610,7 @@ export interface RenameV1ExecutionMemberViewResponse_ExecutionMemberSummaryRespo
 export interface MetadataRefreshV1ExecutionMemberViewResponse {
   completed_components: number
   completed_operations: number
-  components: MetadataRefreshV1ExecutionMemberViewResponse_ExecutionComponentResponse[] | null
+  components: MetadataRefreshV1ExecutionMemberViewResponse_ExecutionComponentResponse[]
   created_at: string
   current_component_id: string
   current_phase: string
@@ -2642,7 +2642,7 @@ export interface MetadataRefreshV1ExecutionMemberViewResponse_ExecutionMemberSum
   total_operations: number
 }
 export interface ExecutionMembersResponse {
-  attention: ExecutionMembersResponse_ExecutionMemberSummaryResponse[] | null
+  attention: ExecutionMembersResponse_ExecutionMemberSummaryResponse[]
   attention_total: number
   counts: ExecutionMembersResponse_ExecutionMemberCountsResponse
 }
@@ -2686,7 +2686,7 @@ export interface RenameV1ExecutionMembersViewResponse {
   workset_id: string
 }
 export interface RenameV1ExecutionMembersViewResponse_ExecutionMembersResponse {
-  attention: RenameV1ExecutionMembersViewResponse_ExecutionMemberSummaryResponse[] | null
+  attention: RenameV1ExecutionMembersViewResponse_ExecutionMemberSummaryResponse[]
   attention_total: number
   counts: RenameV1ExecutionMembersViewResponse_ExecutionMemberCountsResponse
 }
@@ -2731,7 +2731,7 @@ export interface MetadataRefreshV1ExecutionMembersViewResponse {
   workset_id: string
 }
 export interface MetadataRefreshV1ExecutionMembersViewResponse_ExecutionMembersResponse {
-  attention: MetadataRefreshV1ExecutionMembersViewResponse_ExecutionMemberSummaryResponse[] | null
+  attention: MetadataRefreshV1ExecutionMembersViewResponse_ExecutionMemberSummaryResponse[]
   attention_total: number
   counts: MetadataRefreshV1ExecutionMembersViewResponse_ExecutionMemberCountsResponse
 }
@@ -2798,15 +2798,15 @@ export interface ExecutionRefResponse {
   status: string
 }
 export interface ExecutionStartRequest {
-  all_except_member_ids?: string[] | null
-  member_ids?: string[] | null
+  all_except_member_ids?: string[]
+  member_ids?: string[]
 }
 export interface RenameV1ExecutionStartResponse {
   created: boolean
   execution: RenameV1ExecutionStartResponse_ExecutionViewResponse
 }
 export interface RenameV1ExecutionStartResponse_ExecutionComponentResponse {
-  committed: string[] | null
+  committed: string[]
   completed_operations: number
   component_id: string
   component_index: number
@@ -2820,16 +2820,16 @@ export interface RenameV1ExecutionStartResponse_ExecutionComponentResponse {
   kept_decisions: []
   operations: number
   partition: string
-  recovery: string[] | null
-  remaining: string[] | null
-  removed: string[] | null
+  recovery: string[]
+  remaining: string[]
+  removed: string[]
   root_path: string
   stage?: string
   status: string
   task_result?: Dirrename_Result
 }
 export interface RenameV1ExecutionStartResponse_ExecutionMembersResponse {
-  attention: RenameV1ExecutionStartResponse_ExecutionMemberSummaryResponse[] | null
+  attention: RenameV1ExecutionStartResponse_ExecutionMemberSummaryResponse[]
   attention_total: number
   counts: RenameV1ExecutionStartResponse_ExecutionMemberCountsResponse
 }
@@ -2856,7 +2856,7 @@ export interface MetadataRefreshV1ExecutionStartResponse {
   execution: MetadataRefreshV1ExecutionStartResponse_ExecutionViewResponse
 }
 export interface MetadataRefreshV1ExecutionStartResponse_ExecutionMembersResponse {
-  attention: MetadataRefreshV1ExecutionStartResponse_ExecutionMemberSummaryResponse[] | null
+  attention: MetadataRefreshV1ExecutionStartResponse_ExecutionMemberSummaryResponse[]
   attention_total: number
   counts: MetadataRefreshV1ExecutionStartResponse_ExecutionMemberCountsResponse
 }
@@ -2886,7 +2886,7 @@ export interface ExecutionSucceededEvent {
   plan_id: string
 }
 export interface RenameV1ExecutionViewResponse_ExecutionComponentResponse {
-  committed: string[] | null
+  committed: string[]
   completed_operations: number
   component_id: string
   component_index: number
@@ -2900,16 +2900,16 @@ export interface RenameV1ExecutionViewResponse_ExecutionComponentResponse {
   kept_decisions: []
   operations: number
   partition: string
-  recovery: string[] | null
-  remaining: string[] | null
-  removed: string[] | null
+  recovery: string[]
+  remaining: string[]
+  removed: string[]
   root_path: string
   stage?: string
   status: string
   task_result?: Dirrename_Result
 }
 export interface RenameV1ExecutionViewResponse_ExecutionMembersResponse {
-  attention: RenameV1ExecutionViewResponse_ExecutionMemberSummaryResponse[] | null
+  attention: RenameV1ExecutionViewResponse_ExecutionMemberSummaryResponse[]
   attention_total: number
   counts: RenameV1ExecutionViewResponse_ExecutionMemberCountsResponse
 }
@@ -2932,7 +2932,7 @@ export interface RenameV1ExecutionViewResponse_ExecutionMemberCountsResponse {
   succeeded: number
 }
 export interface MetadataRefreshV1ExecutionViewResponse_ExecutionMembersResponse {
-  attention: MetadataRefreshV1ExecutionViewResponse_ExecutionMemberSummaryResponse[] | null
+  attention: MetadataRefreshV1ExecutionViewResponse_ExecutionMemberSummaryResponse[]
   attention_total: number
   counts: MetadataRefreshV1ExecutionViewResponse_ExecutionMemberCountsResponse
 }
@@ -2978,7 +2978,7 @@ export interface FileOperationRefreshResponse {
   ok: boolean
 }
 export interface FileOperationRequest {
-  items?: FileOperationRequest_FileOperationItem[] | null
+  items?: FileOperationRequest_FileOperationItem[]
   member_path?: string
   operation?: string
 }
@@ -2989,7 +2989,7 @@ export interface FileOperationRequest_FileOperationItem {
 }
 export interface FileOperationResponse {
   failed: number
-  items: FileOperationResponse_FileOperationItemResponse[] | null
+  items: FileOperationResponse_FileOperationItemResponse[]
   member_path: string
   operation: string
   refresh: FileOperationResponse_FileOperationRefreshResponse
@@ -3126,9 +3126,9 @@ export interface IgnoredGroupResponse {
   reason: string
 }
 export interface ImportResponse {
-  applied: ImportResponse_AppliedGroupResponse[] | null
-  ignored: ImportResponse_IgnoredGroupResponse[] | null
-  warnings: ImportResponse_WarningResponse[] | null
+  applied: ImportResponse_AppliedGroupResponse[]
+  ignored: ImportResponse_IgnoredGroupResponse[]
+  warnings: ImportResponse_WarningResponse[]
 }
 export interface ImportResponse_AppliedGroupResponse {
   data_group: string
@@ -3149,7 +3149,7 @@ export interface LibraryCreateRequest {
   root_path?: string
 }
 export interface LibraryListResponse {
-  libraries: LibraryListResponse_LibraryResponse[] | null
+  libraries: LibraryListResponse_LibraryResponse[]
 }
 export interface LibraryListResponse_LibraryResponse {
   created_at: string
@@ -3209,7 +3209,7 @@ export interface MediaFactsLibraryStat {
   unmeasurable: number
 }
 export interface MediaFactsStatus {
-  libraries: MediaFactsStatus_MediaFactsLibraryStat[] | null
+  libraries: MediaFactsStatus_MediaFactsLibraryStat[]
   state: string
 }
 export interface MediaFactsStatus_MediaFactsLibraryStat {
@@ -3248,7 +3248,7 @@ export interface RenameV1MemberReviewResponse {
   member_id: string
   member_name: string
   plan_id: string
-  roots: RenameV1MemberReviewResponse_RootValidationResponse[] | null
+  roots: RenameV1MemberReviewResponse_RootValidationResponse[]
   sources: {
     [k: string]: string
   } | null
@@ -3300,7 +3300,7 @@ export interface MetadataRefreshV1MemberReviewResponse {
   member_id: string
   member_name: string
   plan_id: string
-  roots: MetadataRefreshV1MemberReviewResponse_RootValidationResponse[] | null
+  roots: MetadataRefreshV1MemberReviewResponse_RootValidationResponse[]
   sources: {
     [k: string]: string
   } | null
@@ -3457,7 +3457,7 @@ export interface MetadataRefreshV1RevisionResponse {
   counts: MetadataRefreshV1RevisionResponse_RevisionCountsResponse
   created_at: string
   execution: MetadataRefreshV1RevisionResponse_ExecutionRefResponse | null
-  members: MetadataRefreshV1RevisionResponse_MemberConclusionResponse[] | null
+  members: MetadataRefreshV1RevisionResponse_MemberConclusionResponse[]
   plan_id: string
   revision_index: number
   root_path: string
@@ -3624,11 +3624,11 @@ export interface PlanSummaryResponse {
 }
 export interface PreferencesResponse {
   default_library_id?: string
-  track_formats: string[] | null
+  track_formats: string[]
 }
 export interface PreferencesUpdateRequest {
   default_library_id?: string | null
-  track_formats?: (string[] | null) | null
+  track_formats?: string[] | null
 }
 export interface Reconcile_VariantDecision {
   decisions: Reconcile_VariantDecision_Reconcile_FileDecision[]
@@ -3648,13 +3648,13 @@ export interface RecordCreateRequest {
 }
 export interface RecordCreateRequest_SelectionRequest {
   all?: boolean
-  dir_ids?: string[] | null
-  except_dir_ids?: string[] | null
+  dir_ids?: string[]
+  except_dir_ids?: string[]
 }
 export interface RecordCreateResponse {
   created: boolean
   recorded: number
-  skipped: RecordCreateResponse_SkippedFolderResponse[] | null
+  skipped: RecordCreateResponse_SkippedFolderResponse[]
   workset: RecordCreateResponse_WorksetResponse
 }
 export interface RecordCreateResponse_SkippedFolderResponse {
@@ -3664,7 +3664,7 @@ export interface RecordCreateResponse_SkippedFolderResponse {
 export interface RecordCreateResponse_WorksetResponse {
   created_at: string
   library: RecordCreateResponse_LibraryRefResponse | null
-  members: RecordCreateResponse_MemberResponse[] | null
+  members: RecordCreateResponse_MemberResponse[]
   title: string
   updated_at: string
   version: number
@@ -3734,7 +3734,7 @@ export interface RenameV1RevisionResponse {
   counts: RenameV1RevisionResponse_RevisionCountsResponse
   created_at: string
   execution: RenameV1RevisionResponse_ExecutionRefResponse | null
-  members: RenameV1RevisionResponse_MemberConclusionResponse[] | null
+  members: RenameV1RevisionResponse_MemberConclusionResponse[]
   plan_id: string
   revision_index: number
   root_path: string
@@ -3851,8 +3851,8 @@ export interface ScanRequest {
 }
 export interface SelectionRequest {
   all?: boolean
-  dir_ids?: string[] | null
-  except_dir_ids?: string[] | null
+  dir_ids?: string[]
+  except_dir_ids?: string[]
 }
 export interface SessionCreateRequest {
   token?: string | null
@@ -3871,8 +3871,8 @@ export interface SourceEntityResponse {
   source_id: string | null
 }
 export interface TagFacetsResponse {
-  source_tags: TagFacetsResponse_FacetResponse[] | null
-  user_tags: TagFacetsResponse_FacetResponse[] | null
+  source_tags: TagFacetsResponse_FacetResponse[]
+  user_tags: TagFacetsResponse_FacetResponse[]
 }
 export interface TagFacetsResponse_FacetResponse {
   id: string
@@ -3922,7 +3922,7 @@ export interface UserDataResponse {
   rating: number | null
 }
 export interface UserTagListResponse {
-  user_tags: UserTagListResponse_UserTagResponse[] | null
+  user_tags: UserTagListResponse_UserTagResponse[]
 }
 export interface UserTagListResponse_UserTagResponse {
   id: string
@@ -3936,7 +3936,7 @@ export interface UserTagResponse {
   name: string
 }
 export interface VoiceActorFacetsResponse {
-  voice_actors: VoiceActorFacetsResponse_FacetResponse[] | null
+  voice_actors: VoiceActorFacetsResponse_FacetResponse[]
 }
 export interface VoiceActorFacetsResponse_FacetResponse {
   id: string
@@ -3983,7 +3983,7 @@ export interface WorkContentDirNodeJSON2 {
   rel_path: string
 }
 export interface WorkContentResponse {
-  copies: WorkContentResponse_WorkContentCopyResponse[] | null
+  copies: WorkContentResponse_WorkContentCopyResponse[]
   rj: string
 }
 export interface WorkContentResponse_WorkContentCopyResponse {
@@ -3997,34 +3997,34 @@ export interface WorkDetailResponse {
   age_category: number | null
   circle: string | null
   collected_at: string
-  collection_ids: string[] | null
-  copies: WorkDetailResponse_CopyResponse[] | null
+  collection_ids: string[]
+  copies: WorkDetailResponse_CopyResponse[]
   copy_count: number
   cover_url: string | null
   dl_count: number | null
-  edition_tree: WorkDetailResponse_EditionSlotResponse[] | null
+  edition_tree: WorkDetailResponse_EditionSlotResponse[]
   favorite: boolean
   has_note: boolean
   language: string | null
-  language_editions: WorkDetailResponse_EditionResponse[] | null
-  listening: WorkDetailResponse_ListeningResponse[] | null
+  language_editions: WorkDetailResponse_EditionResponse[]
+  listening: WorkDetailResponse_ListeningResponse[]
   local_cover: WorkDetailResponse_LocalCoverResponse | null
   note: string
   nsfw: boolean | null
   rating: number | null
   relation: WorkDetailResponse_RelationResponse
-  relation_nodes: WorkDetailResponse_TreeNodeResponse[] | null
-  relation_warnings: WorkDetailResponse_RelationWarningResponse[] | null
+  relation_nodes: WorkDetailResponse_TreeNodeResponse[]
+  relation_warnings: WorkDetailResponse_RelationWarningResponse[]
   release_date: string | null
   rj: string
   sample_cover_url: string | null
   series_id: string | null
   series_name: string | null
-  source_tags: WorkDetailResponse_SourceEntityResponse[] | null
+  source_tags: WorkDetailResponse_SourceEntityResponse[]
   source_url: string | null
   title: string | null
-  user_tags: WorkDetailResponse_UserTagResponse[] | null
-  voice_actors: WorkDetailResponse_SourceEntityResponse[] | null
+  user_tags: WorkDetailResponse_UserTagResponse[]
+  voice_actors: WorkDetailResponse_SourceEntityResponse[]
 }
 export interface WorkDetailResponse_CopyResponse {
   copy_id: string
@@ -4037,7 +4037,7 @@ export interface WorkDetailResponse_EditionSlotResponse {
   label: string | null
   language: string
   root: WorkDetailResponse_TreeNodeResponse
-  translations: WorkDetailResponse_TreeNodeResponse[] | null
+  translations: WorkDetailResponse_TreeNodeResponse[]
 }
 export interface WorkDetailResponse_TreeNodeResponse {
   held: boolean
@@ -4108,9 +4108,9 @@ export interface WorkImportCoreRequest {
   series_name?: string | null
   source?: string
   source_url?: string | null
-  tags?: WorkImportCoreRequest_WorkImportTagRequest[] | null
+  tags?: WorkImportCoreRequest_WorkImportTagRequest[]
   title?: string | null
-  voice_actors?: WorkImportCoreRequest_WorkImportVoiceActorRequest[] | null
+  voice_actors?: WorkImportCoreRequest_WorkImportVoiceActorRequest[]
 }
 export interface WorkImportCoreRequest_WorkImportCircleRequest {
   name?: string
@@ -4133,7 +4133,7 @@ export interface WorkImportEditionItemRequest {
 export interface WorkImportEditionsRequest {
   edition_id?: string | null
   fetched_at?: string
-  items?: WorkImportEditionsRequest_WorkImportEditionItemRequest[] | null
+  items?: WorkImportEditionsRequest_WorkImportEditionItemRequest[]
   source?: string
 }
 export interface WorkImportEditionsRequest_WorkImportEditionItemRequest {
@@ -4143,7 +4143,7 @@ export interface WorkImportEditionsRequest_WorkImportEditionItemRequest {
   version_root_rj?: string
 }
 export interface WorkImportRelationsRequest {
-  child_rjs?: string[] | null
+  child_rjs?: string[]
   fetched_at?: string
   language?: string | null
   original_rj?: string | null
@@ -4165,7 +4165,7 @@ export interface WorkImportVoiceActorRequest {
 }
 export interface WorkListResponse {
   total: number
-  works: WorkListResponse_WorkSummaryResponse[] | null
+  works: WorkListResponse_WorkSummaryResponse[]
 }
 export interface WorkListResponse_WorkSummaryResponse {
   age_category: number | null
@@ -4184,7 +4184,7 @@ export interface WorkListResponse_WorkSummaryResponse {
   release_date: string | null
   rj: string
   title: string | null
-  user_tags: WorkListResponse_UserTagResponse[] | null
+  user_tags: WorkListResponse_UserTagResponse[]
 }
 export interface WorkListResponse_ListeningSummaryResponse {
   state: string
@@ -4231,9 +4231,9 @@ export interface WorkMetadataImportRequest_WorkImportCoreRequest {
   series_name?: string | null
   source?: string
   source_url?: string | null
-  tags?: WorkMetadataImportRequest_WorkImportTagRequest[] | null
+  tags?: WorkMetadataImportRequest_WorkImportTagRequest[]
   title?: string | null
-  voice_actors?: WorkMetadataImportRequest_WorkImportVoiceActorRequest[] | null
+  voice_actors?: WorkMetadataImportRequest_WorkImportVoiceActorRequest[]
 }
 export interface WorkMetadataImportRequest_WorkImportCircleRequest {
   name?: string
@@ -4250,7 +4250,7 @@ export interface WorkMetadataImportRequest_WorkImportVoiceActorRequest {
 export interface WorkMetadataImportRequest_WorkImportEditionsRequest {
   edition_id?: string | null
   fetched_at?: string
-  items?: WorkMetadataImportRequest_WorkImportEditionItemRequest[] | null
+  items?: WorkMetadataImportRequest_WorkImportEditionItemRequest[]
   source?: string
 }
 export interface WorkMetadataImportRequest_WorkImportEditionItemRequest {
@@ -4260,7 +4260,7 @@ export interface WorkMetadataImportRequest_WorkImportEditionItemRequest {
   version_root_rj?: string
 }
 export interface WorkMetadataImportRequest_WorkImportRelationsRequest {
-  child_rjs?: string[] | null
+  child_rjs?: string[]
   fetched_at?: string
   language?: string | null
   original_rj?: string | null
@@ -4289,7 +4289,7 @@ export interface WorkSummaryResponse {
   release_date: string | null
   rj: string
   title: string | null
-  user_tags: WorkSummaryResponse_UserTagResponse[] | null
+  user_tags: WorkSummaryResponse_UserTagResponse[]
 }
 export interface WorkSummaryResponse_ListeningSummaryResponse {
   state: string
@@ -4313,16 +4313,16 @@ export interface WorkUserDataPatchRequest {
   rating?: number | null
 }
 export interface WorkUserTagsRequest {
-  tag_ids?: string[] | null
+  tag_ids?: string[]
 }
 export interface WorksetListResponse {
   next_cursor?: string
-  worksets: WorksetListResponse_WorksetResponse[] | null
+  worksets: WorksetListResponse_WorksetResponse[]
 }
 export interface WorksetListResponse_WorksetResponse {
   created_at: string
   library: WorksetListResponse_LibraryRefResponse | null
-  members: WorksetListResponse_MemberResponse[] | null
+  members: WorksetListResponse_MemberResponse[]
   title: string
   updated_at: string
   version: number
@@ -4346,7 +4346,7 @@ export interface WorksetPatchRequest {
 export interface WorksetResponse {
   created_at: string
   library: WorksetResponse_LibraryRefResponse | null
-  members: WorksetResponse_MemberResponse[] | null
+  members: WorksetResponse_MemberResponse[]
   title: string
   updated_at: string
   version: number

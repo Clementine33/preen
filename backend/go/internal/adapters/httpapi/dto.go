@@ -65,6 +65,15 @@ func (n nullableString) toWorks() works.NullableString {
 	return works.NullableString{Set: n.Set, Value: n.Value}
 }
 
+// orEmpty keeps a nil slice from encoding as null: response arrays are never
+// null (docs/api/common.md#wire-schemas).
+func orEmpty[T any](s []T) []T {
+	if s == nil {
+		return []T{}
+	}
+	return s
+}
+
 // errorResponse is the standard API error envelope: {"code":"...","message":"..."}.
 type errorResponse struct {
 	Code    string   `json:"code"`

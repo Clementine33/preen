@@ -24,17 +24,10 @@
       "additionalProperties": false,
       "properties": {
         "libraries": {
-          "anyOf": [
-            {
-              "items": {
-                "$ref": "#/$defs/mediaFactsLibraryStat"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "items": {
+            "$ref": "#/$defs/mediaFactsLibraryStat"
+          },
+          "type": "array"
         },
         "state": {
           "type": "string"

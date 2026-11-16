@@ -128,7 +128,7 @@ copy's folder (the `{dirId}` of the library's folder page; `""` if the library i
 unknown).
 
 The detail also answers `edition_tree`: the work's Language Editions resolved
-into up to three slots in the order JPN, CHI_HANS, CHI_HANT, or `null` when the
+into up to three slots in the order JPN, CHI_HANS, CHI_HANT, or `[]` when the
 tree holds no node besides the work itself (language-free works, works with no
 Chinese edition and no known original). Other languages of `language_editions`
 are not shown here. It combines the work's `language_editions`, its resolved `relation`, and only

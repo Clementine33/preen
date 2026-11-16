@@ -20,7 +20,7 @@ type preferencesUpdateRequest struct {
 
 func toPreferencesResponse(prefs works.Preferences) preferencesResponse {
 	return preferencesResponse{
-		TrackFormats:     prefs.TrackFormats,
+		TrackFormats:     orEmpty(prefs.TrackFormats),
 		DefaultLibraryID: prefs.DefaultLibraryID,
 	}
 }

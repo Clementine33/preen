@@ -65,23 +65,23 @@ function partitionText(partition: string): string {
     </p>
 
     <details
-      v-if="(component.committed ?? []).length || (component.removed ?? []).length || (component.remaining ?? []).length || component.kept_decisions.length"
+      v-if="component.committed.length || component.removed.length || component.remaining.length || component.kept_decisions.length"
       class="group mt-2 border border-[var(--wire-fine)] text-xs"
     >
       <summary class="flex cursor-pointer list-none flex-wrap items-center gap-x-2 gap-y-1 rounded-md px-2 py-1.5 text-muted-foreground hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
         <ChevronRight class="size-3 shrink-0 transition-transform group-open:rotate-90" aria-hidden="true" />
         <span>文件明细</span>
-        <span v-if="(component.committed ?? []).length">写入 {{ (component.committed ?? []).length }}</span>
-        <span v-if="(component.removed ?? []).length">清理 {{ (component.removed ?? []).length }}</span>
-        <span v-if="(component.remaining ?? []).length">未执行 {{ (component.remaining ?? []).length }}</span>
+        <span v-if="component.committed.length">写入 {{ component.committed.length }}</span>
+        <span v-if="component.removed.length">清理 {{ component.removed.length }}</span>
+        <span v-if="component.remaining.length">未执行 {{ component.remaining.length }}</span>
         <span v-if="component.kept_decisions.length">保留 {{ component.kept_decisions.length }}</span>
       </summary>
       <dl class="space-y-3 border-t border-border/50 px-2 py-2">
         <template
           v-for="group in [
-            { label: '已写入', paths: component.committed ?? [], testId: 'execution-committed' },
-            { label: removedHint, paths: component.removed ?? [], testId: 'execution-removed' },
-            { label: '未执行', paths: component.remaining ?? [], testId: 'execution-remaining' },
+            { label: '已写入', paths: component.committed, testId: 'execution-committed' },
+            { label: removedHint, paths: component.removed, testId: 'execution-removed' },
+            { label: '未执行', paths: component.remaining, testId: 'execution-remaining' },
           ]"
           :key="group.testId"
         >

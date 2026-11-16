@@ -2,11 +2,13 @@ package refresh_test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -186,6 +188,10 @@ func TestMissingOnlyRefreshDoesNotFetchAnAlreadyCompleteWork(t *testing.T) {
 	if refreshErr != nil || len(result.Works) != 1 || len(result.Works[0].Outcome.Applied) != 0 ||
 		len(result.Works[0].Issues) != 0 {
 		t.Fatalf("refresh: %+v, %v", result, refreshErr)
+	}
+	raw, marshalErr := json.Marshal(result.Works[0])
+	if marshalErr != nil || strings.Contains(string(raw), "null") {
+		t.Fatalf("a fresh work result has a null array: %s, %v", raw, marshalErr)
 	}
 }
 

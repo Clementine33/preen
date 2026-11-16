@@ -207,17 +207,10 @@
           ]
         },
         "user_tags": {
-          "anyOf": [
-            {
-              "items": {
-                "$ref": "#/$defs/userTagResponse"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "items": {
+            "$ref": "#/$defs/userTagResponse"
+          },
+          "type": "array"
         }
       },
       "required": [

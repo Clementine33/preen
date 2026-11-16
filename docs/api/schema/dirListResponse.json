@@ -4,17 +4,10 @@
       "additionalProperties": false,
       "properties": {
         "dirs": {
-          "anyOf": [
-            {
-              "items": {
-                "$ref": "#/$defs/dirResponse"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "items": {
+            "$ref": "#/$defs/dirResponse"
+          },
+          "type": "array"
         }
       },
       "required": [

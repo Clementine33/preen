@@ -101,9 +101,6 @@ func toTreeNode(node works.TreeNode) treeNodeResponse {
 }
 
 func toEditionTree(slots []works.EditionSlot) []editionSlotResponse {
-	if slots == nil {
-		return nil
-	}
 	out := make([]editionSlotResponse, 0, len(slots))
 	for _, slot := range slots {
 		translations := make([]treeNodeResponse, 0, len(slot.Translations))
@@ -133,7 +130,7 @@ type workDetailResponse struct {
 	Relation         relationResponse          `json:"relation"`
 	RelationWarnings []relationWarningResponse `json:"relation_warnings"`
 	RelationNodes    []treeNodeResponse        `json:"relation_nodes"`
-	// EditionTree is the resolved JPN / CHI_HANS / CHI_HANT lines, null when
+	// EditionTree is the resolved JPN / CHI_HANS / CHI_HANT lines, empty when
 	// the work has no edition besides itself.
 	EditionTree   []editionSlotResponse `json:"edition_tree"`
 	Copies        []copyResponse        `json:"copies"`
@@ -154,6 +151,7 @@ func toWorkDetail(detail *works.WorkDetail, dirID func(works.Copy) string) workD
 		VoiceActors:         toSourceEntityResponses(detail.VoiceActors),
 		SourceTags:          toSourceEntityResponses(detail.SourceTags),
 		Note:                detail.Note,
+		Editions:            make([]editionResponse, 0, len(detail.Editions)),
 		Relation:            toRelationResponse(detail.Relation),
 		RelationWarnings:    make([]relationWarningResponse, 0, len(detail.RelationWarnings)),
 		RelationNodes:       make([]treeNodeResponse, 0, len(detail.RelationNodes)),

@@ -107,8 +107,8 @@ interface ViewBindings {
   workUserDataPatchRequest: Views.PatchWorkUserDataParams
   worksetListResponse: Views.WorksetListResponse
   worksetResponse: Views.Workset
-  libraryListResponse: WireSchemas['libraryListResponse'] & { libraries: Views.Library[] | null }
-  dirListResponse: WireSchemas['dirListResponse'] & { dirs: Views.LibraryDir[] | null }
+  libraryListResponse: WireSchemas['libraryListResponse'] & { libraries: Views.Library[] }
+  dirListResponse: WireSchemas['dirListResponse'] & { dirs: Views.LibraryDir[] }
   cleanupRunEnvelopeResponse: WireSchemas['cleanupRunEnvelopeResponse'] & { run: Views.CleanupRun | null }
   executionMemberEvent: WireSchemas['executionMemberEvent'] & { member: Views.MemberSummary }
   generationSnapshotEvent: Views.GenerationSnapshot

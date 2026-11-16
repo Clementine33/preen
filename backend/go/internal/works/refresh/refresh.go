@@ -34,7 +34,7 @@ func (s *Service) RefreshWithProgress(
 		return result, err
 	}
 	for _, id := range ids {
-		item := WorkResult{WorkCode: id, Issues: []Issue{}}
+		item := WorkResult{WorkCode: id, Outcome: nonNilOutcome(works.ImportOutcome{}), Issues: []Issue{}}
 		if _, detailErr := s.catalog.Detail(id); detailErr != nil {
 			if detailErr.Kind == works.KindInternal {
 				return result, detailErr

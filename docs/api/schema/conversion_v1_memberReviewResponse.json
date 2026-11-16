@@ -62,17 +62,10 @@
           "type": "string"
         },
         "roots": {
-          "anyOf": [
-            {
-              "items": {
-                "$ref": "#/$defs/rootValidationResponse"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "items": {
+            "$ref": "#/$defs/rootValidationResponse"
+          },
+          "type": "array"
         },
         "sources": {
           "anyOf": [

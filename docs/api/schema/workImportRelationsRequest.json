@@ -4,17 +4,10 @@
       "additionalProperties": false,
       "properties": {
         "child_rjs": {
-          "anyOf": [
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "fetched_at": {
           "type": "string"

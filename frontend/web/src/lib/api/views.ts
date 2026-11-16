@@ -83,7 +83,7 @@ export type WorkRelationWarning = WireSchemas['relationWarningResponse']
 
 export type WorkEditionSlot = Refine<WireSchemas['editionSlotResponse'], { root: WorkEditionNode, translations: WorkEditionNode[] }>
 
-export type WorkDetail = Refine<WireSchemas['workDetailResponse'], { voice_actors: WorkSourceEntity[], source_tags: WorkSourceEntity[], language_editions: WorkEdition[] | null, edition_tree: WorkEditionSlot[] | null, relation: WorkRelation, relation_warnings: WorkRelationWarning[], relation_nodes: WorkRelationNode[], copies: WorkCopy[], listening: WorkListening[] | null, local_cover?: LocalCover | null, age_category: WorkSummary['age_category'], user_tags: WorkUserTag[] | null }>
+export type WorkDetail = Refine<WireSchemas['workDetailResponse'], { voice_actors: WorkSourceEntity[], source_tags: WorkSourceEntity[], language_editions: WorkEdition[], edition_tree: WorkEditionSlot[], relation: WorkRelation, relation_warnings: WorkRelationWarning[], relation_nodes: WorkRelationNode[], copies: WorkCopy[], listening: WorkListening[], local_cover?: LocalCover | null, age_category: WorkSummary['age_category'], user_tags: WorkUserTag[] }>
 
 export type WorkListResponse = Refine<WireSchemas['workListResponse'], { works: WorkSummary[] }>
 

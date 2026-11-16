@@ -92,17 +92,10 @@
           "type": "integer"
         },
         "works": {
-          "anyOf": [
-            {
-              "items": {
-                "$ref": "#/$defs/workSummaryResponse"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "items": {
+            "$ref": "#/$defs/workSummaryResponse"
+          },
+          "type": "array"
         }
       },
       "required": [
@@ -233,17 +226,10 @@
           ]
         },
         "user_tags": {
-          "anyOf": [
-            {
-              "items": {
-                "$ref": "#/$defs/userTagResponse"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "items": {
+            "$ref": "#/$defs/userTagResponse"
+          },
+          "type": "array"
         }
       },
       "required": [

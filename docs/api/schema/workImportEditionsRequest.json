@@ -42,17 +42,10 @@
           "type": "string"
         },
         "items": {
-          "anyOf": [
-            {
-              "items": {
-                "$ref": "#/$defs/workImportEditionItemRequest"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "items": {
+            "$ref": "#/$defs/workImportEditionItemRequest"
+          },
+          "type": "array"
         },
         "source": {
           "type": "string"

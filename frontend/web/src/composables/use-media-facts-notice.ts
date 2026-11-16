@@ -18,7 +18,7 @@ export function useMediaFactsNotice(): void {
   watch(() => store.status, (next, prev) => {
     if (!next || !prev || prev.state === 'idle' || next.state !== 'idle')
       return
-    for (const { library_id: libraryId, unmeasurable } of next.libraries ?? []) {
+    for (const { library_id: libraryId, unmeasurable } of next.libraries) {
       const before = announced.get(libraryId) ?? 0
       announced.set(libraryId, unmeasurable)
       if (unmeasurable <= before)

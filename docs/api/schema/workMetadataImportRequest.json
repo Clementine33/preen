@@ -129,17 +129,10 @@
           ]
         },
         "tags": {
-          "anyOf": [
-            {
-              "items": {
-                "$ref": "#/$defs/workImportTagRequest"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "items": {
+            "$ref": "#/$defs/workImportTagRequest"
+          },
+          "type": "array"
         },
         "title": {
           "anyOf": [
@@ -152,17 +145,10 @@
           ]
         },
         "voice_actors": {
-          "anyOf": [
-            {
-              "items": {
-                "$ref": "#/$defs/workImportVoiceActorRequest"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "items": {
+            "$ref": "#/$defs/workImportVoiceActorRequest"
+          },
+          "type": "array"
         }
       },
       "type": "object"
@@ -209,17 +195,10 @@
           "type": "string"
         },
         "items": {
-          "anyOf": [
-            {
-              "items": {
-                "$ref": "#/$defs/workImportEditionItemRequest"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "items": {
+            "$ref": "#/$defs/workImportEditionItemRequest"
+          },
+          "type": "array"
         },
         "source": {
           "type": "string"
@@ -231,17 +210,10 @@
       "additionalProperties": false,
       "properties": {
         "child_rjs": {
-          "anyOf": [
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "fetched_at": {
           "type": "string"

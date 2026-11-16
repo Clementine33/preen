@@ -24,17 +24,10 @@
       "additionalProperties": false,
       "properties": {
         "categories": {
-          "anyOf": [
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "counts": {
           "anyOf": [

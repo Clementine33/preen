@@ -16,17 +16,10 @@
         "track_formats": {
           "anyOf": [
             {
-              "anyOf": [
-                {
-                  "items": {
-                    "type": "string"
-                  },
-                  "type": "array"
-                },
-                {
-                  "type": "null"
-                }
-              ]
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
             },
             {
               "type": "null"

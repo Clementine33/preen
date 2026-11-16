@@ -46,49 +46,28 @@
           "$ref": "#/$defs/desiredProfileDTO"
         },
         "members": {
-          "anyOf": [
-            {
-              "items": {
-                "$ref": "#/$defs/draftMemberRequest"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "items": {
+            "$ref": "#/$defs/draftMemberRequest"
+          },
+          "type": "array"
         },
         "mode": {
           "type": "string"
         },
         "no_effect_tags": {
-          "anyOf": [
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "other": {
           "$ref": "#/$defs/desiredProfileDTO"
         },
         "other_tags": {
-          "anyOf": [
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "schema_version": {
           "type": "integer"
@@ -147,17 +126,10 @@
         "no_effect_tags": {
           "anyOf": [
             {
-              "anyOf": [
-                {
-                  "items": {
-                    "type": "string"
-                  },
-                  "type": "array"
-                },
-                {
-                  "type": "null"
-                }
-              ]
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
             },
             {
               "type": "null"
@@ -177,17 +149,10 @@
         "other_tags": {
           "anyOf": [
             {
-              "anyOf": [
-                {
-                  "items": {
-                    "type": "string"
-                  },
-                  "type": "array"
-                },
-                {
-                  "type": "null"
-                }
-              ]
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
             },
             {
               "type": "null"

@@ -58,17 +58,10 @@
           "type": "integer"
         },
         "skipped": {
-          "anyOf": [
-            {
-              "items": {
-                "$ref": "#/$defs/skippedFolderResponse"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "items": {
+            "$ref": "#/$defs/skippedFolderResponse"
+          },
+          "type": "array"
         },
         "workset": {
           "$ref": "#/$defs/worksetResponse"
@@ -115,17 +108,10 @@
           ]
         },
         "members": {
-          "anyOf": [
-            {
-              "items": {
-                "$ref": "#/$defs/memberResponse"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "items": {
+            "$ref": "#/$defs/memberResponse"
+          },
+          "type": "array"
         },
         "title": {
           "type": "string"

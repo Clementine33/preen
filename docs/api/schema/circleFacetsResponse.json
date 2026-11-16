@@ -4,17 +4,10 @@
       "additionalProperties": false,
       "properties": {
         "circles": {
-          "anyOf": [
-            {
-              "items": {
-                "$ref": "#/$defs/facetResponse"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "items": {
+            "$ref": "#/$defs/facetResponse"
+          },
+          "type": "array"
         }
       },
       "required": [

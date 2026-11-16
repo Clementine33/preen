@@ -6,17 +6,10 @@
           "additionalProperties": false,
           "properties": {
             "committed": {
-              "anyOf": [
-                {
-                  "items": {
-                    "type": "string"
-                  },
-                  "type": "array"
-                },
-                {
-                  "type": "null"
-                }
-              ]
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
             },
             "completed_operations": {
               "type": "integer"
@@ -50,43 +43,22 @@
               "type": "string"
             },
             "recovery": {
-              "anyOf": [
-                {
-                  "items": {
-                    "type": "string"
-                  },
-                  "type": "array"
-                },
-                {
-                  "type": "null"
-                }
-              ]
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
             },
             "remaining": {
-              "anyOf": [
-                {
-                  "items": {
-                    "type": "string"
-                  },
-                  "type": "array"
-                },
-                {
-                  "type": "null"
-                }
-              ]
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
             },
             "removed": {
-              "anyOf": [
-                {
-                  "items": {
-                    "type": "string"
-                  },
-                  "type": "array"
-                },
-                {
-                  "type": "null"
-                }
-              ]
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
             },
             "root_path": {
               "type": "string"
@@ -119,17 +91,10 @@
           "additionalProperties": false,
           "properties": {
             "committed": {
-              "anyOf": [
-                {
-                  "items": {
-                    "type": "string"
-                  },
-                  "type": "array"
-                },
-                {
-                  "type": "null"
-                }
-              ]
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
             },
             "completed_operations": {
               "type": "integer"
@@ -163,43 +128,22 @@
               "type": "string"
             },
             "recovery": {
-              "anyOf": [
-                {
-                  "items": {
-                    "type": "string"
-                  },
-                  "type": "array"
-                },
-                {
-                  "type": "null"
-                }
-              ]
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
             },
             "remaining": {
-              "anyOf": [
-                {
-                  "items": {
-                    "type": "string"
-                  },
-                  "type": "array"
-                },
-                {
-                  "type": "null"
-                }
-              ]
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
             },
             "removed": {
-              "anyOf": [
-                {
-                  "items": {
-                    "type": "string"
-                  },
-                  "type": "array"
-                },
-                {
-                  "type": "null"
-                }
-              ]
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
             },
             "root_path": {
               "type": "string"
@@ -238,17 +182,10 @@
           "additionalProperties": false,
           "properties": {
             "committed": {
-              "anyOf": [
-                {
-                  "items": {
-                    "type": "string"
-                  },
-                  "type": "array"
-                },
-                {
-                  "type": "null"
-                }
-              ]
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
             },
             "completed_operations": {
               "type": "integer"
@@ -282,43 +219,22 @@
               "type": "string"
             },
             "recovery": {
-              "anyOf": [
-                {
-                  "items": {
-                    "type": "string"
-                  },
-                  "type": "array"
-                },
-                {
-                  "type": "null"
-                }
-              ]
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
             },
             "remaining": {
-              "anyOf": [
-                {
-                  "items": {
-                    "type": "string"
-                  },
-                  "type": "array"
-                },
-                {
-                  "type": "null"
-                }
-              ]
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
             },
             "removed": {
-              "anyOf": [
-                {
-                  "items": {
-                    "type": "string"
-                  },
-                  "type": "array"
-                },
-                {
-                  "type": "null"
-                }
-              ]
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
             },
             "root_path": {
               "type": "string"
@@ -431,17 +347,10 @@
       "additionalProperties": false,
       "properties": {
         "attention": {
-          "anyOf": [
-            {
-              "items": {
-                "$ref": "#/$defs/executionMemberSummaryResponse"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "items": {
+            "$ref": "#/$defs/executionMemberSummaryResponse"
+          },
+          "type": "array"
         },
         "attention_total": {
           "type": "integer"
@@ -485,17 +394,10 @@
               "type": "integer"
             },
             "components": {
-              "anyOf": [
-                {
-                  "items": {
-                    "$ref": "#/$defs/executionComponentResponse"
-                  },
-                  "type": "array"
-                },
-                {
-                  "type": "null"
-                }
-              ]
+              "items": {
+                "$ref": "#/$defs/executionComponentResponse"
+              },
+              "type": "array"
             },
             "created_at": {
               "type": "string"
@@ -675,17 +577,10 @@
               "type": "integer"
             },
             "components": {
-              "anyOf": [
-                {
-                  "items": {
-                    "$ref": "#/$defs/executionComponentResponse"
-                  },
-                  "type": "array"
-                },
-                {
-                  "type": "null"
-                }
-              ]
+              "items": {
+                "$ref": "#/$defs/executionComponentResponse"
+              },
+              "type": "array"
             },
             "created_at": {
               "type": "string"

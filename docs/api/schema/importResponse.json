@@ -39,43 +39,22 @@
       "additionalProperties": false,
       "properties": {
         "applied": {
-          "anyOf": [
-            {
-              "items": {
-                "$ref": "#/$defs/appliedGroupResponse"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "items": {
+            "$ref": "#/$defs/appliedGroupResponse"
+          },
+          "type": "array"
         },
         "ignored": {
-          "anyOf": [
-            {
-              "items": {
-                "$ref": "#/$defs/ignoredGroupResponse"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "items": {
+            "$ref": "#/$defs/ignoredGroupResponse"
+          },
+          "type": "array"
         },
         "warnings": {
-          "anyOf": [
-            {
-              "items": {
-                "$ref": "#/$defs/warningResponse"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "items": {
+            "$ref": "#/$defs/warningResponse"
+          },
+          "type": "array"
         }
       },
       "required": [

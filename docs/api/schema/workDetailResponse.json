@@ -89,17 +89,10 @@
           "$ref": "#/$defs/treeNodeResponse"
         },
         "translations": {
-          "anyOf": [
-            {
-              "items": {
-                "$ref": "#/$defs/treeNodeResponse"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "items": {
+            "$ref": "#/$defs/treeNodeResponse"
+          },
+          "type": "array"
         }
       },
       "required": [
@@ -447,30 +440,16 @@
           "type": "string"
         },
         "collection_ids": {
-          "anyOf": [
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "copies": {
-          "anyOf": [
-            {
-              "items": {
-                "$ref": "#/$defs/copyResponse"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "items": {
+            "$ref": "#/$defs/copyResponse"
+          },
+          "type": "array"
         },
         "copy_count": {
           "type": "integer"
@@ -496,17 +475,10 @@
           ]
         },
         "edition_tree": {
-          "anyOf": [
-            {
-              "items": {
-                "$ref": "#/$defs/editionSlotResponse"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "items": {
+            "$ref": "#/$defs/editionSlotResponse"
+          },
+          "type": "array"
         },
         "favorite": {
           "type": "boolean"
@@ -525,30 +497,16 @@
           ]
         },
         "language_editions": {
-          "anyOf": [
-            {
-              "items": {
-                "$ref": "#/$defs/editionResponse"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "items": {
+            "$ref": "#/$defs/editionResponse"
+          },
+          "type": "array"
         },
         "listening": {
-          "anyOf": [
-            {
-              "items": {
-                "$ref": "#/$defs/listeningResponse"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "items": {
+            "$ref": "#/$defs/listeningResponse"
+          },
+          "type": "array"
         },
         "local_cover": {
           "anyOf": [
@@ -587,30 +545,16 @@
           "$ref": "#/$defs/relationResponse"
         },
         "relation_nodes": {
-          "anyOf": [
-            {
-              "items": {
-                "$ref": "#/$defs/treeNodeResponse"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "items": {
+            "$ref": "#/$defs/treeNodeResponse"
+          },
+          "type": "array"
         },
         "relation_warnings": {
-          "anyOf": [
-            {
-              "items": {
-                "$ref": "#/$defs/relationWarningResponse"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "items": {
+            "$ref": "#/$defs/relationWarningResponse"
+          },
+          "type": "array"
         },
         "release_date": {
           "anyOf": [
@@ -656,17 +600,10 @@
           ]
         },
         "source_tags": {
-          "anyOf": [
-            {
-              "items": {
-                "$ref": "#/$defs/sourceEntityResponse"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "items": {
+            "$ref": "#/$defs/sourceEntityResponse"
+          },
+          "type": "array"
         },
         "source_url": {
           "anyOf": [
@@ -689,30 +626,16 @@
           ]
         },
         "user_tags": {
-          "anyOf": [
-            {
-              "items": {
-                "$ref": "#/$defs/userTagResponse"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "items": {
+            "$ref": "#/$defs/userTagResponse"
+          },
+          "type": "array"
         },
         "voice_actors": {
-          "anyOf": [
-            {
-              "items": {
-                "$ref": "#/$defs/sourceEntityResponse"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "items": {
+            "$ref": "#/$defs/sourceEntityResponse"
+          },
+          "type": "array"
         }
       },
       "required": [

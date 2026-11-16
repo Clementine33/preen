@@ -86,7 +86,7 @@ func (s *Service) refreshWork(
 	data = retain(data, want)
 	if len(availableGroups(data)) > 0 {
 		outcome, err := s.catalog.Import(item.WorkCode, data)
-		item.Outcome = outcome
+		item.Outcome = nonNilOutcome(outcome)
 		if err != nil {
 			item.Issues = append(item.Issues, Issue{Code: err.Code, Message: err.Message})
 			if err.Kind == works.KindInternal {

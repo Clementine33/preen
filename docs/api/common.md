@@ -226,9 +226,13 @@ omits the field) does not prevent entry; creation still validates on the server.
 
 ## Wire schemas
 
-The checked-in [schemas](schema/) describe existing encoding, not a normalized
-replacement. A non-omitted nil slice or map encodes as `null`; `omitempty` fields
-may be absent. Non-omitted pointers can be null. Request properties may be absent
+The checked-in [schemas](schema/) describe the encoding. Response and request
+array fields are never `null`: empty collections are `[]`, and `omitempty` fields
+may be absent. A non-omitted nil map still encodes as `null`; non-omitted pointers
+can be null. Task payload types (draft documents, settings, plans, outcomes and
+results stored by a Task) are the exception: stored records written by earlier
+versions can hold `null` arrays, so their schemas keep those fields nullable, while
+payloads written now contain `[]`. Request properties may be absent
 when the Go decoder permits omission; semantic required-field checks stay in the
 endpoint implementation and this reference. Request and response schemas are
 separate even when their Go declarations look similar.

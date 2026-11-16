@@ -23,17 +23,10 @@
           "$ref": "#/$defs/treeNodeResponse"
         },
         "translations": {
-          "anyOf": [
-            {
-              "items": {
-                "$ref": "#/$defs/treeNodeResponse"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "items": {
+            "$ref": "#/$defs/treeNodeResponse"
+          },
+          "type": "array"
         }
       },
       "required": [

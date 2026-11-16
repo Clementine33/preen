@@ -30,7 +30,7 @@ const { data: tagLibrary } = useQuery(classifierTagLibraryQueryOptions(api))
 type View = Required<Pick<ConversionSettings, 'mode' | 'no_effect_tags' | 'other_tags' | 'matched' | 'unmatched' | 'other' | 'delete_mode'>>
 const defaults = computed<View | undefined>(() =>
   tagLibrary.value
-    ? (defaultDraftValues(tagLibrary.value.default_no_effect_tags ?? [], tagLibrary.value.default_other_tags ?? []) as View)
+    ? (defaultDraftValues(tagLibrary.value.default_no_effect_tags, tagLibrary.value.default_other_tags) as View)
     : undefined,
 )
 

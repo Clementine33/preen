@@ -76,17 +76,10 @@
       "additionalProperties": false,
       "properties": {
         "attention": {
-          "anyOf": [
-            {
-              "items": {
-                "$ref": "#/$defs/executionMemberSummaryResponse"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "items": {
+            "$ref": "#/$defs/executionMemberSummaryResponse"
+          },
+          "type": "array"
         },
         "attention_total": {
           "type": "integer"

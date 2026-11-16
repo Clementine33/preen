@@ -65,17 +65,10 @@
           ]
         },
         "members": {
-          "anyOf": [
-            {
-              "items": {
-                "$ref": "#/$defs/memberResponse"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "items": {
+            "$ref": "#/$defs/memberResponse"
+          },
+          "type": "array"
         },
         "title": {
           "type": "string"

@@ -85,18 +85,13 @@ func toCollectionListResponse(page collections.Page) collectionListResponse {
 }
 
 func toCollectionAppendResponse(res collections.AppendResult) collectionWorksAppendResponse {
-	var added, skipped []string
-	if res.Added != nil {
-		added = make([]string, len(res.Added))
-		for i, code := range res.Added {
-			added[i] = string(code)
-		}
+	added := make([]string, len(res.Added))
+	for i, code := range res.Added {
+		added[i] = string(code)
 	}
-	if res.Skipped != nil {
-		skipped = make([]string, len(res.Skipped))
-		for i, code := range res.Skipped {
-			skipped[i] = string(code)
-		}
+	skipped := make([]string, len(res.Skipped))
+	for i, code := range res.Skipped {
+		skipped[i] = string(code)
 	}
 	return collectionWorksAppendResponse{Added: added, Skipped: skipped, WorkCount: res.WorkCount}
 }

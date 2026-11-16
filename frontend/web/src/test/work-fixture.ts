@@ -71,7 +71,7 @@ export function makeWorkDetail(overrides: Partial<WorkDetail> = {}): WorkDetail 
         display_order: 0,
       },
     ],
-    edition_tree: null,
+    edition_tree: [],
     relation: {
       role: null,
       language: null,

@@ -64,8 +64,16 @@ func AssertHTTP(t testing.TB, method, address string, status int, request any, r
 		return
 	}
 	if name == "@sse" || name == "@scan" {
-		assertSSE(t, u.Path, kind, response)
+		assertSSE(t, u.RequestURI(), kind, response)
 		return
+	}
+	if name == "executionViewResponse" {
+		name = "executionFullViewResponse"
+		if u.Query().Get("view") == "members" {
+			name = "executionMembersViewResponse"
+		} else if u.Query().Get("member_id") != "" {
+			name = "executionMemberViewResponse"
+		}
 	}
 	AssertSchema(t, selectTaskSchema(name, kind), response)
 }
@@ -134,6 +142,12 @@ func assertSSE(t testing.TB, path, kind string, body []byte) {
 		if !ok {
 			t.Error(fmt.Errorf("unmapped %s SSE event %q", family, event))
 		} else {
+			if name == "executionViewResponse" {
+				name = "executionFullViewResponse"
+				if strings.Contains(path, "view=members") {
+					name = "executionMembersViewResponse"
+				}
+			}
 			AssertSchema(t, selectTaskSchema(name, kind), []byte(strings.Join(data, "\n")))
 			observed.Store("SSE "+family+" "+event, true)
 		}

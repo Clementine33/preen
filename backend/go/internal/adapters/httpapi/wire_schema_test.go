@@ -41,6 +41,9 @@ func TestGenerateWireSchema(t *testing.T) {
 	for _, value := range roots {
 		typ := reflect.TypeOf(value)
 		schema := reflectWireSchema(t, typ)
+		if typ == reflect.TypeFor[executionViewResponse]() {
+			writeExecutionViewSchemas(t, dir, schema)
+		}
 		name := schemaName(typ)
 		if hasTaskWireFields(schema) {
 			var variants []any

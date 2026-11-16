@@ -33,15 +33,22 @@ try {
     })
     if (frontend.status !== 0)
       throw new Error(`Wire TypeScript generation failed: ${frontend.status}`)
-    before.set('wire.gen.ts', readFileSync(`${root}frontend/web/src/lib/api/wire.gen.ts`, 'utf8'))
-    after.set('wire.gen.ts', readFileSync(generatedWire, 'utf8'))
+    const validators = spawnSync('node', ['scripts/generate-validators.mjs', join(temporary, 'validators.gen.js')], {
+      cwd: `${root}frontend/web`, stdio: 'inherit',
+    })
+    if (validators.status !== 0)
+      throw new Error(`AJV standalone generation failed: ${validators.status}`)
+    for (const file of ['wire.gen.ts', 'contracts.gen.ts', 'validators.gen.js', 'validators.gen.d.ts']) {
+      before.set(file, readFileSync(`${root}frontend/web/src/lib/api/${file}`, 'utf8'))
+      after.set(file, readFileSync(join(temporary, file), 'utf8'))
+    }
     const changed = [...new Set([...before.keys(), ...after.keys()])].filter(name => before.get(name) !== after.get(name))
     if (changed.length) {
       console.error(`Wire contract generation differs:\n${changed.join('\n')}`)
       status = 1
     }
     else {
-      console.log(`Wire contracts unchanged (${after.size - 2} schemas and bindings, generated TypeScript).`)
+      console.log(`Wire contracts unchanged (${after.size - 5} schemas and bindings, generated TypeScript and validators).`)
     }
   }
 }

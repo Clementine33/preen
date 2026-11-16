@@ -19,11 +19,36 @@ function woff2Only(): Plugin {
   }
 }
 
+// A production build must never render the development contract checker,
+// standalone validators, AJV, or the generated binding metadata.
+function excludeWireValidation(): Plugin {
+  return {
+    name: 'exclude-wire-validation',
+    apply: 'build',
+    generateBundle(_options, bundle) {
+      for (const chunk of Object.values(bundle)) {
+        if (chunk.type !== 'chunk')
+          continue
+        for (const [id, module] of Object.entries(chunk.modules)) {
+          if (module.renderedLength > 0 && (id.includes('/wire-validation.ts') || id.includes('/validators.gen.js') || id.includes('/contracts.gen.ts') || id.includes('/node_modules/ajv/')))
+            this.error(`Production contains wire validation: ${id}`)
+        }
+      }
+      this.info('Wire validation excluded: zero rendered checker, validator, binding or AJV modules')
+    },
+  }
+}
+
 // https://vite.dev/config/
-export default defineConfig(() => ({
+export default defineConfig(({ mode }) => ({
   // The Desktop Shell's dev mode drops the in-page Vue devtools, which slow
   // WebKitGTK markedly; the WebKit inspector remains.
   plugins: [
+    ...(mode === 'production'
+      ? [
+          excludeWireValidation(),
+        ]
+      : []),
     woff2Only(),
     vue(),
     tailwindcss(),

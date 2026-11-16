@@ -1,4 +1,5 @@
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { compile } from 'json-schema-to-typescript'
 
@@ -56,3 +57,6 @@ for (const [family, events] of Object.entries(bindings.sse)) {
 }
 const output = process.argv[2] ?? fileURLToPath(new URL('../src/lib/api/wire.gen.ts', import.meta.url))
 writeFileSync(output, code)
+
+const contracts = `// Generated HTTP status and SSE event bindings. Do not edit.\nimport type { WireSchemas } from './wire.gen'\nexport type SchemaId = keyof WireSchemas\nexport const schemaIds = ${JSON.stringify(names.map(file => file.slice(0, -5)))} as const satisfies readonly SchemaId[]\nexport const httpContracts = ${JSON.stringify(bindings.http, null, 2)} as const satisfies Record<string, { request: SchemaId | ''; responses: Record<string, SchemaId | '@empty' | '@sse'> }>\nexport const sseContracts = ${JSON.stringify(bindings.sse, null, 2)} as const satisfies Record<string, Record<string, SchemaId>>\n`
+writeFileSync(join(dirname(output), 'contracts.gen.ts'), contracts)

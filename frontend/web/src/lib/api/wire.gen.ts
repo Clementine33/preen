@@ -216,6 +216,154 @@ export type MetadataRefreshV1ExecutionComponentResponse =
       status: string
       task_result: Refresh_WorkResult
     }
+export type ExecutionFullViewResponse =
+  ConversionV1ExecutionFullViewResponse | RenameV1ExecutionFullViewResponse | MetadataRefreshV1ExecutionFullViewResponse
+export type MetadataRefreshV1ExecutionFullViewResponse_ExecutionComponentResponse =
+  | {
+      committed: string[] | null
+      completed_operations: number
+      component_id: string
+      component_index: number
+      error_code?: string
+      error_message?: string
+      inventory_sync_error?: string
+      inventory_synced: boolean
+      /**
+       * @maxItems 0
+       */
+      kept_decisions: []
+      operations: number
+      partition: string
+      recovery: string[] | null
+      remaining: string[] | null
+      removed: string[] | null
+      root_path: string
+      stage?: string
+      status: string
+    }
+  | {
+      committed: string[] | null
+      completed_operations: number
+      component_id: string
+      component_index: number
+      error_code?: string
+      error_message?: string
+      inventory_sync_error?: string
+      inventory_synced: boolean
+      /**
+       * @maxItems 0
+       */
+      kept_decisions: []
+      operations: number
+      partition: string
+      recovery: string[] | null
+      remaining: string[] | null
+      removed: string[] | null
+      root_path: string
+      stage: 'skipped'
+      status: string
+      task_result: Refresh_Outcome
+    }
+  | {
+      committed: string[] | null
+      completed_operations: number
+      component_id: string
+      component_index: number
+      error_code?: string
+      error_message?: string
+      inventory_sync_error?: string
+      inventory_synced: boolean
+      /**
+       * @maxItems 0
+       */
+      kept_decisions: []
+      operations: number
+      partition: string
+      recovery: string[] | null
+      remaining: string[] | null
+      removed: string[] | null
+      root_path: string
+      stage: 'metadata'
+      status: string
+      task_result: Refresh_WorkResult
+    }
+export type ExecutionMemberViewResponse =
+  | ConversionV1ExecutionMemberViewResponse
+  | RenameV1ExecutionMemberViewResponse
+  | MetadataRefreshV1ExecutionMemberViewResponse
+export type MetadataRefreshV1ExecutionMemberViewResponse_ExecutionComponentResponse =
+  | {
+      committed: string[] | null
+      completed_operations: number
+      component_id: string
+      component_index: number
+      error_code?: string
+      error_message?: string
+      inventory_sync_error?: string
+      inventory_synced: boolean
+      /**
+       * @maxItems 0
+       */
+      kept_decisions: []
+      operations: number
+      partition: string
+      recovery: string[] | null
+      remaining: string[] | null
+      removed: string[] | null
+      root_path: string
+      stage?: string
+      status: string
+    }
+  | {
+      committed: string[] | null
+      completed_operations: number
+      component_id: string
+      component_index: number
+      error_code?: string
+      error_message?: string
+      inventory_sync_error?: string
+      inventory_synced: boolean
+      /**
+       * @maxItems 0
+       */
+      kept_decisions: []
+      operations: number
+      partition: string
+      recovery: string[] | null
+      remaining: string[] | null
+      removed: string[] | null
+      root_path: string
+      stage: 'skipped'
+      status: string
+      task_result: Refresh_Outcome
+    }
+  | {
+      committed: string[] | null
+      completed_operations: number
+      component_id: string
+      component_index: number
+      error_code?: string
+      error_message?: string
+      inventory_sync_error?: string
+      inventory_synced: boolean
+      /**
+       * @maxItems 0
+       */
+      kept_decisions: []
+      operations: number
+      partition: string
+      recovery: string[] | null
+      remaining: string[] | null
+      removed: string[] | null
+      root_path: string
+      stage: 'metadata'
+      status: string
+      task_result: Refresh_WorkResult
+    }
+export type ExecutionMembersViewResponse =
+  | ConversionV1ExecutionMembersViewResponse
+  | RenameV1ExecutionMembersViewResponse
+  | MetadataRefreshV1ExecutionMembersViewResponse
 export type ExecutionProgressResponse =
   ConversionV1ExecutionProgressResponse | RenameV1ExecutionProgressResponse | MetadataRefreshV1ExecutionProgressResponse
 export type ExecutionStartResponse =
@@ -684,6 +832,9 @@ export interface WireSchemas {
   conversion_FrozenMemberConclusion: Conversion_FrozenMemberConclusion
   conversion_v1_draftResponse: ConversionV1DraftResponse
   conversion_v1_executionComponentResponse: ConversionV1ExecutionComponentResponse
+  conversion_v1_executionFullViewResponse: ConversionV1ExecutionFullViewResponse
+  conversion_v1_executionMemberViewResponse: ConversionV1ExecutionMemberViewResponse
+  conversion_v1_executionMembersViewResponse: ConversionV1ExecutionMembersViewResponse
   conversion_v1_executionProgressResponse: ConversionV1ExecutionProgressResponse
   conversion_v1_executionStartResponse: ConversionV1ExecutionStartResponse
   conversion_v1_executionViewResponse: ConversionV1ExecutionViewResponse
@@ -724,10 +875,13 @@ export interface WireSchemas {
   errorWithDetails: ErrorWithDetails
   executionComponentResponse: ExecutionComponentResponse
   executionFailedEvent: ExecutionFailedEvent
+  executionFullViewResponse: ExecutionFullViewResponse
   executionMemberCountsResponse: ExecutionMemberCountsResponse
   executionMemberEvent: ExecutionMemberEvent
   executionMemberSummaryResponse: ExecutionMemberSummaryResponse
+  executionMemberViewResponse: ExecutionMemberViewResponse
   executionMembersResponse: ExecutionMembersResponse
+  executionMembersViewResponse: ExecutionMembersViewResponse
   executionProgressEvent: ExecutionProgressEvent
   executionProgressResponse: ExecutionProgressResponse
   executionRefResponse: ExecutionRefResponse
@@ -771,6 +925,9 @@ export interface WireSchemas {
   memberTreeNodeResponse: MemberTreeNodeResponse
   metadata_refresh_v1_draftResponse: MetadataRefreshV1DraftResponse
   metadata_refresh_v1_executionComponentResponse: MetadataRefreshV1ExecutionComponentResponse
+  metadata_refresh_v1_executionFullViewResponse: MetadataRefreshV1ExecutionFullViewResponse
+  metadata_refresh_v1_executionMemberViewResponse: MetadataRefreshV1ExecutionMemberViewResponse
+  metadata_refresh_v1_executionMembersViewResponse: MetadataRefreshV1ExecutionMembersViewResponse
   metadata_refresh_v1_executionProgressResponse: MetadataRefreshV1ExecutionProgressResponse
   metadata_refresh_v1_executionStartResponse: MetadataRefreshV1ExecutionStartResponse
   metadata_refresh_v1_executionViewResponse: MetadataRefreshV1ExecutionViewResponse
@@ -810,6 +967,9 @@ export interface WireSchemas {
   relationWarningResponse: RelationWarningResponse
   rename_v1_draftResponse: RenameV1DraftResponse
   rename_v1_executionComponentResponse: RenameV1ExecutionComponentResponse
+  rename_v1_executionFullViewResponse: RenameV1ExecutionFullViewResponse
+  rename_v1_executionMemberViewResponse: RenameV1ExecutionMemberViewResponse
+  rename_v1_executionMembersViewResponse: RenameV1ExecutionMembersViewResponse
   rename_v1_executionProgressResponse: RenameV1ExecutionProgressResponse
   rename_v1_executionStartResponse: RenameV1ExecutionStartResponse
   rename_v1_executionViewResponse: RenameV1ExecutionViewResponse
@@ -1286,6 +1446,145 @@ export interface Reconcile_FileDecision {
   reason_code?: string
   resolution: string
   target_path?: string
+}
+export interface ConversionV1ExecutionFullViewResponse {
+  completed_components: number
+  completed_operations: number
+  components: ConversionV1ExecutionFullViewResponse_ExecutionComponentResponse[] | null
+  created_at: string
+  current_component_id: string
+  current_phase: string
+  current_root: string
+  error_code: string
+  error_message: string
+  execution_id: string
+  finished_at: string
+  operation_type: 'conversion'
+  options?: Conversion_ExecutionOptions
+  plan_id: string
+  selected_member_ids?: string[]
+  started_at: string
+  status: string
+  total_components: number
+  total_operations: number
+  workset_id: string
+}
+export interface ConversionV1ExecutionFullViewResponse_ExecutionComponentResponse {
+  committed: string[] | null
+  completed_operations: number
+  component_id: string
+  component_index: number
+  error_code?: string
+  error_message?: string
+  inventory_sync_error?: string
+  inventory_synced: boolean
+  kept_decisions: Reconcile_FileDecision[]
+  operations: number
+  partition: string
+  recovery: string[] | null
+  remaining: string[] | null
+  removed: string[] | null
+  root_path: string
+  stage?: string
+  status: string
+}
+export interface ConversionV1ExecutionMemberViewResponse {
+  completed_components: number
+  completed_operations: number
+  components: ConversionV1ExecutionMemberViewResponse_ExecutionComponentResponse[] | null
+  created_at: string
+  current_component_id: string
+  current_phase: string
+  current_root: string
+  error_code: string
+  error_message: string
+  execution_id: string
+  finished_at: string
+  member: ConversionV1ExecutionMemberViewResponse_ExecutionMemberSummaryResponse
+  operation_type: 'conversion'
+  options?: Conversion_ExecutionOptions
+  plan_id: string
+  selected_member_ids?: string[]
+  started_at: string
+  status: string
+  total_components: number
+  total_operations: number
+  workset_id: string
+}
+export interface ConversionV1ExecutionMemberViewResponse_ExecutionComponentResponse {
+  committed: string[] | null
+  completed_operations: number
+  component_id: string
+  component_index: number
+  error_code?: string
+  error_message?: string
+  inventory_sync_error?: string
+  inventory_synced: boolean
+  kept_decisions: Reconcile_FileDecision[]
+  operations: number
+  partition: string
+  recovery: string[] | null
+  remaining: string[] | null
+  removed: string[] | null
+  root_path: string
+  stage?: string
+  status: string
+}
+export interface ConversionV1ExecutionMemberViewResponse_ExecutionMemberSummaryResponse {
+  completed_components: number
+  completed_operations: number
+  error_message: string
+  inventory_sync_error: string
+  member_id: string
+  root_path: string
+  status: string
+  total_components: number
+  total_operations: number
+}
+export interface ConversionV1ExecutionMembersViewResponse {
+  completed_components: number
+  completed_operations: number
+  created_at: string
+  current_component_id: string
+  current_phase: string
+  current_root: string
+  error_code: string
+  error_message: string
+  execution_id: string
+  finished_at: string
+  members: ConversionV1ExecutionMembersViewResponse_ExecutionMembersResponse
+  operation_type: 'conversion'
+  options?: Conversion_ExecutionOptions
+  plan_id: string
+  selected_member_ids?: string[]
+  started_at: string
+  status: string
+  total_components: number
+  total_operations: number
+  workset_id: string
+}
+export interface ConversionV1ExecutionMembersViewResponse_ExecutionMembersResponse {
+  attention: ConversionV1ExecutionMembersViewResponse_ExecutionMemberSummaryResponse[] | null
+  attention_total: number
+  counts: ConversionV1ExecutionMembersViewResponse_ExecutionMemberCountsResponse
+}
+export interface ConversionV1ExecutionMembersViewResponse_ExecutionMemberSummaryResponse {
+  completed_components: number
+  completed_operations: number
+  error_message: string
+  inventory_sync_error: string
+  member_id: string
+  root_path: string
+  status: string
+  total_components: number
+  total_operations: number
+}
+export interface ConversionV1ExecutionMembersViewResponse_ExecutionMemberCountsResponse {
+  canceled: number
+  failed: number
+  pending: number
+  running: number
+  succeeded: number
 }
 export interface ConversionV1ExecutionProgressResponse {
   completed_components: number
@@ -2140,6 +2439,77 @@ export interface ExecutionFailedEvent {
   error_message: string
   execution_id: string
 }
+export interface RenameV1ExecutionFullViewResponse {
+  completed_components: number
+  completed_operations: number
+  components: RenameV1ExecutionFullViewResponse_ExecutionComponentResponse[] | null
+  created_at: string
+  current_component_id: string
+  current_phase: string
+  current_root: string
+  error_code: string
+  error_message: string
+  execution_id: string
+  finished_at: string
+  operation_type: 'rename'
+  plan_id: string
+  selected_member_ids?: string[]
+  started_at: string
+  status: string
+  total_components: number
+  total_operations: number
+  workset_id: string
+}
+export interface RenameV1ExecutionFullViewResponse_ExecutionComponentResponse {
+  committed: string[] | null
+  completed_operations: number
+  component_id: string
+  component_index: number
+  error_code?: string
+  error_message?: string
+  inventory_sync_error?: string
+  inventory_synced: boolean
+  /**
+   * @maxItems 0
+   */
+  kept_decisions: []
+  operations: number
+  partition: string
+  recovery: string[] | null
+  remaining: string[] | null
+  removed: string[] | null
+  root_path: string
+  stage?: string
+  status: string
+  task_result?: Dirrename_Result
+}
+export interface MetadataRefreshV1ExecutionFullViewResponse {
+  completed_components: number
+  completed_operations: number
+  components: MetadataRefreshV1ExecutionFullViewResponse_ExecutionComponentResponse[] | null
+  created_at: string
+  current_component_id: string
+  current_phase: string
+  current_root: string
+  error_code: string
+  error_message: string
+  execution_id: string
+  finished_at: string
+  operation_type: 'metadata_refresh'
+  options?: Refresh_Common
+  plan_id: string
+  selected_member_ids?: string[]
+  started_at: string
+  status: string
+  total_components: number
+  total_operations: number
+  workset_id: string
+}
+export interface Refresh_Common {
+  download_cover: boolean
+  locale: string
+  mode: string
+}
 export interface ExecutionMemberCountsResponse {
   canceled: number
   failed: number
@@ -2181,6 +2551,96 @@ export interface ExecutionMemberSummaryResponse {
   total_components: number
   total_operations: number
 }
+export interface RenameV1ExecutionMemberViewResponse {
+  completed_components: number
+  completed_operations: number
+  components: RenameV1ExecutionMemberViewResponse_ExecutionComponentResponse[] | null
+  created_at: string
+  current_component_id: string
+  current_phase: string
+  current_root: string
+  error_code: string
+  error_message: string
+  execution_id: string
+  finished_at: string
+  member: RenameV1ExecutionMemberViewResponse_ExecutionMemberSummaryResponse
+  operation_type: 'rename'
+  plan_id: string
+  selected_member_ids?: string[]
+  started_at: string
+  status: string
+  total_components: number
+  total_operations: number
+  workset_id: string
+}
+export interface RenameV1ExecutionMemberViewResponse_ExecutionComponentResponse {
+  committed: string[] | null
+  completed_operations: number
+  component_id: string
+  component_index: number
+  error_code?: string
+  error_message?: string
+  inventory_sync_error?: string
+  inventory_synced: boolean
+  /**
+   * @maxItems 0
+   */
+  kept_decisions: []
+  operations: number
+  partition: string
+  recovery: string[] | null
+  remaining: string[] | null
+  removed: string[] | null
+  root_path: string
+  stage?: string
+  status: string
+  task_result?: Dirrename_Result
+}
+export interface RenameV1ExecutionMemberViewResponse_ExecutionMemberSummaryResponse {
+  completed_components: number
+  completed_operations: number
+  error_message: string
+  inventory_sync_error: string
+  member_id: string
+  root_path: string
+  status: string
+  total_components: number
+  total_operations: number
+}
+export interface MetadataRefreshV1ExecutionMemberViewResponse {
+  completed_components: number
+  completed_operations: number
+  components: MetadataRefreshV1ExecutionMemberViewResponse_ExecutionComponentResponse[] | null
+  created_at: string
+  current_component_id: string
+  current_phase: string
+  current_root: string
+  error_code: string
+  error_message: string
+  execution_id: string
+  finished_at: string
+  member: MetadataRefreshV1ExecutionMemberViewResponse_ExecutionMemberSummaryResponse
+  operation_type: 'metadata_refresh'
+  options?: Refresh_Common
+  plan_id: string
+  selected_member_ids?: string[]
+  started_at: string
+  status: string
+  total_components: number
+  total_operations: number
+  workset_id: string
+}
+export interface MetadataRefreshV1ExecutionMemberViewResponse_ExecutionMemberSummaryResponse {
+  completed_components: number
+  completed_operations: number
+  error_message: string
+  inventory_sync_error: string
+  member_id: string
+  root_path: string
+  status: string
+  total_components: number
+  total_operations: number
+}
 export interface ExecutionMembersResponse {
   attention: ExecutionMembersResponse_ExecutionMemberSummaryResponse[] | null
   attention_total: number
@@ -2198,6 +2658,95 @@ export interface ExecutionMembersResponse_ExecutionMemberSummaryResponse {
   total_operations: number
 }
 export interface ExecutionMembersResponse_ExecutionMemberCountsResponse {
+  canceled: number
+  failed: number
+  pending: number
+  running: number
+  succeeded: number
+}
+export interface RenameV1ExecutionMembersViewResponse {
+  completed_components: number
+  completed_operations: number
+  created_at: string
+  current_component_id: string
+  current_phase: string
+  current_root: string
+  error_code: string
+  error_message: string
+  execution_id: string
+  finished_at: string
+  members: RenameV1ExecutionMembersViewResponse_ExecutionMembersResponse
+  operation_type: 'rename'
+  plan_id: string
+  selected_member_ids?: string[]
+  started_at: string
+  status: string
+  total_components: number
+  total_operations: number
+  workset_id: string
+}
+export interface RenameV1ExecutionMembersViewResponse_ExecutionMembersResponse {
+  attention: RenameV1ExecutionMembersViewResponse_ExecutionMemberSummaryResponse[] | null
+  attention_total: number
+  counts: RenameV1ExecutionMembersViewResponse_ExecutionMemberCountsResponse
+}
+export interface RenameV1ExecutionMembersViewResponse_ExecutionMemberSummaryResponse {
+  completed_components: number
+  completed_operations: number
+  error_message: string
+  inventory_sync_error: string
+  member_id: string
+  root_path: string
+  status: string
+  total_components: number
+  total_operations: number
+}
+export interface RenameV1ExecutionMembersViewResponse_ExecutionMemberCountsResponse {
+  canceled: number
+  failed: number
+  pending: number
+  running: number
+  succeeded: number
+}
+export interface MetadataRefreshV1ExecutionMembersViewResponse {
+  completed_components: number
+  completed_operations: number
+  created_at: string
+  current_component_id: string
+  current_phase: string
+  current_root: string
+  error_code: string
+  error_message: string
+  execution_id: string
+  finished_at: string
+  members: MetadataRefreshV1ExecutionMembersViewResponse_ExecutionMembersResponse
+  operation_type: 'metadata_refresh'
+  options?: Refresh_Common
+  plan_id: string
+  selected_member_ids?: string[]
+  started_at: string
+  status: string
+  total_components: number
+  total_operations: number
+  workset_id: string
+}
+export interface MetadataRefreshV1ExecutionMembersViewResponse_ExecutionMembersResponse {
+  attention: MetadataRefreshV1ExecutionMembersViewResponse_ExecutionMemberSummaryResponse[] | null
+  attention_total: number
+  counts: MetadataRefreshV1ExecutionMembersViewResponse_ExecutionMemberCountsResponse
+}
+export interface MetadataRefreshV1ExecutionMembersViewResponse_ExecutionMemberSummaryResponse {
+  completed_components: number
+  completed_operations: number
+  error_message: string
+  inventory_sync_error: string
+  member_id: string
+  root_path: string
+  status: string
+  total_components: number
+  total_operations: number
+}
+export interface MetadataRefreshV1ExecutionMembersViewResponse_ExecutionMemberCountsResponse {
   canceled: number
   failed: number
   pending: number
@@ -2239,11 +2788,6 @@ export interface MetadataRefreshV1ExecutionProgressResponse {
   status: string
   total_components: number
   total_operations: number
-}
-export interface Refresh_Common {
-  download_cover: boolean
-  locale: string
-  mode: string
 }
 export interface ExecutionRefResponse {
   error_code?: string

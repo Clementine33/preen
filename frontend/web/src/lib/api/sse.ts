@@ -1,3 +1,6 @@
+import type { SSEContract, SSEViews } from './contracts'
+import { validateEvent } from './wire-validation'
+
 export interface SSEEvent<T = unknown> {
   type: string
   data: T
@@ -11,9 +14,9 @@ export class SSEParseError extends Error {
 }
 
 /** Parse an SSE response incrementally; no assumption is made about chunk boundaries. */
-export async function* parseSSEStream<T extends SSEEvent>(
-  stream: ReadableStream<Uint8Array>,
-): AsyncGenerator<T> {
+export function parseSSEStream<C extends SSEContract>(stream: ReadableStream<Uint8Array>, contract: C | undefined): AsyncGenerator<SSEViews<C>>
+export function parseSSEStream<T extends SSEEvent>(stream: ReadableStream<Uint8Array>): AsyncGenerator<T>
+export async function* parseSSEStream(stream: ReadableStream<Uint8Array>, contract?: SSEContract): AsyncGenerator<SSEEvent> {
   const reader = stream.getReader()
   const decoder = new TextDecoder()
   let buffer = ''
@@ -21,7 +24,7 @@ export async function* parseSSEStream<T extends SSEEvent>(
   let dataLines: string[] = []
   let completed = false
 
-  const dispatch = (): T | null => {
+  const dispatch = (): SSEEvent | null => {
     if (dataLines.length === 0) {
       eventName = 'message'
       return null
@@ -34,14 +37,14 @@ export async function* parseSSEStream<T extends SSEEvent>(
       return {
         type,
         data: JSON.parse(raw),
-      } as T
+      }
     }
     catch (error) {
       throw new SSEParseError(type, { cause: error })
     }
   }
 
-  function processLine(line: string): T | null {
+  function processLine(line: string): SSEEvent | null {
     if (line.endsWith('\r'))
       line = line.slice(0, -1)
     if (line === '')
@@ -75,8 +78,11 @@ export async function* parseSSEStream<T extends SSEEvent>(
       while (newline !== -1) {
         const event = processLine(buffer.slice(0, newline))
         buffer = buffer.slice(newline + 1)
-        if (event)
+        if (event) {
+          if ((import.meta.env.DEV || import.meta.env.MODE === 'test') && contract)
+            await validateEvent(contract, event.type, event.data)
           yield event
+        }
         newline = buffer.indexOf('\n')
       }
     }
@@ -84,12 +90,18 @@ export async function* parseSSEStream<T extends SSEEvent>(
     buffer += decoder.decode()
     if (buffer.length > 0) {
       const event = processLine(buffer)
-      if (event)
+      if (event) {
+        if ((import.meta.env.DEV || import.meta.env.MODE === 'test') && contract)
+          await validateEvent(contract, event.type, event.data)
         yield event
+      }
     }
     const finalEvent = dispatch()
-    if (finalEvent)
+    if (finalEvent) {
+      if ((import.meta.env.DEV || import.meta.env.MODE === 'test') && contract)
+        await validateEvent(contract, finalEvent.type, finalEvent.data)
       yield finalEvent
+    }
     completed = true
   }
   finally {

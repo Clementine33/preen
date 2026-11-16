@@ -1,9 +1,11 @@
 import type { InjectionKey } from 'vue'
-import type { SSEEvent } from './sse'
-import type { AnyDraftDocument, ApiClientContract, ApiConfig, ClassifierCustomTag, ClassifierTagLibraryResponse, CleanupCategory, CleanupPreview, CleanupRun, CollectionAppendResult, CollectionDetail, CollectionListResponse, CollectionWindow, ContentFileRef, CoverReport, CreateLibraryInput, CreateRecordInput, CreateRecordResponse, CurrentRecordResponse, DraftEnvelopeResponse, DraftResponse, ExecutionEvent, ExecutionScope, ExecutionView, ExecutionViewMode, FileOperationInput, FileOperationResult, GenerationEvent, GenerationView, HealthResponse, Library, LibraryDir, ListWorksetsParams, ListWorksParams, MediaFactsEvent, MemberReviewResponse, MemberTreeResponse, Operation, OperationType, OutboundProxy, PatchWorkUserDataParams, PutWorkListeningParams, RevisionDetailResponse, ScanEvent, ScanMode, StartExecutionResponse, StartGenerationResponse, TagFacets, TaskSettings, TaskSettingsMap, UpdateCheck, UpdateLibraryInput, UserPreferences, UserPreferencesUpdate, WorkCollection, WorkContent, WorkDetail, WorkFacet, WorkFacetKind, WorkListening, WorkListResponse, Workset, WorksetListResponse, WorksScope, WorkUserData, WorkUserTag } from './types'
+import type { HttpContract, HttpResult, SSEContract, SSEViews, WireBody } from './contracts'
+import type { AnyDraftDocument, ApiClientContract, ApiConfig, ClassifierCustomTag, ClassifierTagLibraryResponse, CleanupCategory, CleanupPreview, CleanupRun, CollectionAppendResult, CollectionDetail, CollectionListResponse, CollectionWindow, ContentFileRef, CoverReport, CreateLibraryInput, CreateRecordInput, CreateRecordResponse, CurrentRecordResponse, DraftResponse, ExecutionEvent, ExecutionScope, ExecutionView, ExecutionViewMode, FileOperationInput, FileOperationResult, GenerationEvent, GenerationView, HealthResponse, Library, LibraryDir, ListWorksetsParams, ListWorksParams, MediaFactsEvent, MemberReviewResponse, MemberTreeResponse, Operation, OperationType, OutboundProxy, PatchWorkUserDataParams, PutWorkListeningParams, RevisionDetailResponse, ScanEvent, ScanMode, StartExecutionResponse, StartGenerationResponse, TagFacets, TaskSettings, TaskSettingsMap, UpdateCheck, UpdateLibraryInput, UserPreferences, UserPreferencesUpdate, WorkCollection, WorkContent, WorkDetail, WorkFacet, WorkFacetKind, WorkListening, WorkListResponse, Workset, WorksetListResponse, WorksScope, WorkUserData, WorkUserTag } from './types'
 import type { WireSchemas } from './wire.gen'
 import { inject } from 'vue'
+import { executionContract, executionEventsContract, httpContracts, sseContracts, taskContract, taskEventsContract } from './contracts'
 import { parseSSEStream } from './sse'
+import { validateHTTP, validateSSEStatus, validateWire } from './wire-validation'
 import { normalizeConversionTags } from './wire-view'
 
 type ErrorEnvelope = Partial<WireSchemas['errorResponse']>
@@ -99,46 +101,66 @@ export class ApiClient implements ApiClientContract {
   }
 
   createSession(token: string): Promise<void> {
-    return this.request('/session', {
+    return this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+      ? httpContracts['POST /api/v1/session']
+      : undefined), '/session', {
       method: 'POST',
       body: { token },
     })
   }
 
   deleteSession(): Promise<void> {
-    return this.request('/session', { method: 'DELETE' })
+    return this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+      ? httpContracts['DELETE /api/v1/session']
+      : undefined), '/session', { method: 'DELETE' })
   }
 
   getHealth(signal?: AbortSignal): Promise<HealthResponse> {
-    return this.request('/health', { signal })
+    return this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+      ? httpContracts['GET /api/v1/health']
+      : undefined), '/health', { signal })
   }
 
   getUpdateCheck(signal?: AbortSignal): Promise<UpdateCheck> {
-    return this.request('/update-check', { signal })
+    return this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+      ? httpContracts['GET /api/v1/update-check']
+      : undefined), '/update-check', { signal })
   }
 
   async listLibraries(signal?: AbortSignal): Promise<Library[]> {
-    return (await this.request<{ libraries: Library[] }>('/libraries', { signal })).libraries
+    return (await this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+      ? httpContracts['GET /api/v1/libraries']
+      : undefined), '/libraries', { signal })).libraries ?? []
   }
 
   getLibrary(id: string, signal?: AbortSignal): Promise<Library> {
-    return this.request(`/libraries/${encodeURIComponent(id)}`, { signal })
+    return this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+      ? httpContracts['GET /api/v1/libraries/{id}']
+      : undefined), `/libraries/${encodeURIComponent(id)}`, { signal })
   }
 
   createLibrary(input: CreateLibraryInput): Promise<Library> {
-    return this.request('/libraries', { method: 'POST', body: input })
+    return this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+      ? httpContracts['POST /api/v1/libraries']
+      : undefined), '/libraries', { method: 'POST', body: input })
   }
 
   updateLibrary(id: string, input: UpdateLibraryInput): Promise<Library> {
-    return this.request(`/libraries/${encodeURIComponent(id)}`, { method: 'PATCH', body: input })
+    return this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+      ? httpContracts['PATCH /api/v1/libraries/{id}']
+      : undefined), `/libraries/${encodeURIComponent(id)}`, { method: 'PATCH', body: input })
   }
 
   deleteLibrary(id: string): Promise<void> {
-    return this.request(`/libraries/${encodeURIComponent(id)}`, { method: 'DELETE' })
+    return this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+      ? httpContracts['DELETE /api/v1/libraries/{id}']
+      : undefined), `/libraries/${encodeURIComponent(id)}`, { method: 'DELETE' })
   }
 
   async* scanLibrary(id: string, signal: AbortSignal, rootPath?: string, mode?: ScanMode): AsyncGenerator<ScanEvent> {
     const body = { root_path: rootPath, mode }
+    if (import.meta.env.DEV || import.meta.env.MODE === 'test')
+      await validateWire('scanRequest', body)
     const response = await fetch(this.url(`/libraries/${encodeURIComponent(id)}/scans`), {
       method: 'POST',
       headers: this.headers(true),
@@ -150,23 +172,25 @@ export class ApiClient implements ApiClientContract {
     if (!response.body) {
       throw new ApiError(response.status, 'STREAM_UNAVAILABLE', 'Scan response did not include a stream')
     }
-    yield* parseSSEStream<ScanEvent>(response.body)
+    if (import.meta.env.DEV || import.meta.env.MODE === 'test')
+      validateSSEStatus(response.status)
+    yield* parseSSEStream(response.body, (import.meta.env.DEV || import.meta.env.MODE === 'test')
+      ? sseContracts.scan
+      : undefined)
   }
 
   async listDirs(libraryId: string, signal?: AbortSignal): Promise<LibraryDir[]> {
-    const result = await this.request<{ dirs: LibraryDir[] }>(
-      `/libraries/${encodeURIComponent(libraryId)}/dirs`,
-      { signal },
-    )
-    return result.dirs
+    const result = await this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+      ? httpContracts['GET /api/v1/libraries/{id}/dirs']
+      : undefined), `/libraries/${encodeURIComponent(libraryId)}/dirs`, { signal })
+    return result.dirs ?? []
   }
 
   /** The stored member tree: what the last scan recorded for this directory. */
   getMemberTree(libraryId: string, dirId: string, signal?: AbortSignal): Promise<MemberTreeResponse> {
-    return this.request(
-      `/libraries/${encodeURIComponent(libraryId)}/tree?dir=${encodeURIComponent(dirId)}`,
-      { signal },
-    )
+    return this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+      ? httpContracts['GET /api/v1/libraries/{id}/tree']
+      : undefined), `/libraries/${encodeURIComponent(libraryId)}/tree?dir=${encodeURIComponent(dirId)}`, { signal })
   }
 
   /**
@@ -175,10 +199,9 @@ export class ApiClient implements ApiClientContract {
    * and it refuses one in turn.
    */
   refreshMemberTree(libraryId: string, dirId: string): Promise<MemberTreeResponse> {
-    return this.request(
-      `/libraries/${encodeURIComponent(libraryId)}/tree/refresh?dir=${encodeURIComponent(dirId)}`,
-      { method: 'POST', body: {}, timeoutMs: 60_000 },
-    )
+    return this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+      ? httpContracts['POST /api/v1/libraries/{id}/tree/refresh']
+      : undefined), `/libraries/${encodeURIComponent(libraryId)}/tree/refresh?dir=${encodeURIComponent(dirId)}`, { method: 'POST', body: {}, timeoutMs: 60_000 })
   }
 
   /**
@@ -190,7 +213,9 @@ export class ApiClient implements ApiClientContract {
     libraryId: string,
     input: FileOperationInput,
   ): Promise<FileOperationResult> {
-    return this.request(`/libraries/${encodeURIComponent(libraryId)}/file-operations`, {
+    return this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+      ? httpContracts['POST /api/v1/libraries/{id}/file-operations']
+      : undefined), `/libraries/${encodeURIComponent(libraryId)}/file-operations`, {
       method: 'POST',
       body: input,
       timeoutMs: 60_000,
@@ -200,18 +225,24 @@ export class ApiClient implements ApiClientContract {
   // ==================== Classifier tag library ====================
 
   listClassifierTags(signal?: AbortSignal): Promise<ClassifierTagLibraryResponse> {
-    return this.request<ClassifierTagLibraryResponse>('/classifier-tags', { signal })
+    return this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+      ? httpContracts['GET /api/v1/classifier-tags']
+      : undefined), '/classifier-tags', { signal })
   }
 
   addClassifierTag(tag: string): Promise<ClassifierCustomTag> {
-    return this.request<ClassifierCustomTag>('/classifier-tags', {
+    return this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+      ? httpContracts['POST /api/v1/classifier-tags']
+      : undefined), '/classifier-tags', {
       method: 'POST',
       body: { tag },
     })
   }
 
   deleteClassifierTag(id: number): Promise<void> {
-    return this.request(`/classifier-tags/${id}`, { method: 'DELETE' })
+    return this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+      ? httpContracts['DELETE /api/v1/classifier-tags/{id}']
+      : undefined), `/classifier-tags/${id}`, { method: 'DELETE' })
   }
 
   // ==================== Worksets ====================
@@ -222,10 +253,9 @@ export class ApiClient implements ApiClientContract {
     operation: OperationType,
     signal?: AbortSignal,
   ): Promise<CurrentRecordResponse> {
-    return this.request(
-      `/libraries/${encodeURIComponent(libraryId)}/operations/${encodeURIComponent(operation)}/current`,
-      { signal },
-    )
+    return this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+      ? taskContract(httpContracts['GET /api/v1/libraries/{id}/operations/{type}/current'], operation)
+      : undefined), `/libraries/${encodeURIComponent(libraryId)}/operations/${encodeURIComponent(operation)}/current`, { signal })
   }
 
   /**
@@ -239,17 +269,16 @@ export class ApiClient implements ApiClientContract {
     input: CreateRecordInput,
     idempotencyKey: string,
   ): Promise<CreateRecordResponse> {
-    return this.request(
-      `/libraries/${encodeURIComponent(libraryId)}/operations/${encodeURIComponent(operation)}/current`,
-      {
-        method: 'PUT',
-        body: input,
-        headers: { 'Idempotency-Key': idempotencyKey },
-        // The backend re-reads the scanned inventory for the whole selection
-        // inside this request.
-        timeoutMs: 60_000,
-      },
-    )
+    return this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+      ? taskContract(httpContracts['PUT /api/v1/libraries/{id}/operations/{type}/current'], operation)
+      : undefined), `/libraries/${encodeURIComponent(libraryId)}/operations/${encodeURIComponent(operation)}/current`, {
+      method: 'PUT',
+      body: input,
+      headers: { 'Idempotency-Key': idempotencyKey },
+      // The backend re-reads the scanned inventory for the whole selection
+      // inside this request.
+      timeoutMs: 60_000,
+    })
   }
 
   listWorksets(params: ListWorksetsParams = {}, signal?: AbortSignal): Promise<WorksetListResponse> {
@@ -261,69 +290,93 @@ export class ApiClient implements ApiClientContract {
     if (params.limit !== undefined)
       query.set('limit', String(params.limit))
     const qs = query.toString()
-    return this.request(`/worksets${qs
+    return this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+      ? httpContracts['GET /api/v1/worksets']
+      : undefined), `/worksets${qs
       ? `?${qs}`
       : ''}`, { signal })
   }
 
   getWorkset(id: string, signal?: AbortSignal): Promise<Workset> {
-    return this.request(`/worksets/${encodeURIComponent(id)}`, { signal })
+    return this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+      ? httpContracts['GET /api/v1/worksets/{id}']
+      : undefined), `/worksets/${encodeURIComponent(id)}`, { signal })
   }
 
   // The works listing takes exactly the parameters the backend whitelists
   // (docs/api.md): unknown keys are INVALID_ARGUMENT, so only set ones ship.
   listWorks(params: ListWorksParams = {}, signal?: AbortSignal): Promise<WorkListResponse> {
-    return this.request(`/works${worksQuery(params)}`, { signal })
+    return this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+      ? httpContracts['GET /api/v1/works']
+      : undefined), `/works${worksQuery(params)}`, { signal })
   }
 
   getWork(rj: string, signal?: AbortSignal): Promise<WorkDetail> {
     // The backend normalizes both 6- and 8-digit spellings to the canonical
     // 8-digit form; the path only ever carries the work number.
-    return this.request(`/works/${encodeURIComponent(rj)}`, { signal })
+    return this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+      ? httpContracts['GET /api/v1/works/{rj}']
+      : undefined), `/works/${encodeURIComponent(rj)}`, { signal })
   }
 
   // Collections (docs/api/collections.md): the list route refuses `direction`,
   // so only the detail window carries it (and `sort`).
   listCollections(window: Omit<CollectionWindow, 'direction' | 'sort'> = {}, signal?: AbortSignal): Promise<CollectionListResponse> {
-    return this.request(`/collections${windowQuery(window)}`, { signal })
+    return this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+      ? httpContracts['GET /api/v1/collections']
+      : undefined), `/collections${windowQuery(window)}`, { signal })
   }
 
   getCollection(id: string, window: CollectionWindow = {}, signal?: AbortSignal): Promise<CollectionDetail> {
-    return this.request(`/collections/${encodeURIComponent(id)}${windowQuery(window)}`, { signal })
+    return this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+      ? httpContracts['GET /api/v1/collections/{id}']
+      : undefined), `/collections/${encodeURIComponent(id)}${windowQuery(window)}`, { signal })
   }
 
   createCollection(name: string): Promise<WorkCollection> {
-    return this.request('/collections', {
+    return this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+      ? httpContracts['POST /api/v1/collections']
+      : undefined), '/collections', {
       method: 'POST',
       body: { name },
     })
   }
 
   renameCollection(id: string, name: string): Promise<WorkCollection> {
-    return this.request(`/collections/${encodeURIComponent(id)}`, {
+    return this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+      ? httpContracts['PATCH /api/v1/collections/{id}']
+      : undefined), `/collections/${encodeURIComponent(id)}`, {
       method: 'PATCH',
       body: { name },
     })
   }
 
   deleteCollection(id: string): Promise<void> {
-    return this.request(`/collections/${encodeURIComponent(id)}`, { method: 'DELETE' })
+    return this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+      ? httpContracts['DELETE /api/v1/collections/{id}']
+      : undefined), `/collections/${encodeURIComponent(id)}`, { method: 'DELETE' })
   }
 
   appendToCollection(id: string, rjs: string[]): Promise<CollectionAppendResult> {
-    return this.request(`/collections/${encodeURIComponent(id)}/works`, {
+    return this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+      ? httpContracts['POST /api/v1/collections/{id}/works']
+      : undefined), `/collections/${encodeURIComponent(id)}/works`, {
       method: 'POST',
       body: { rjs },
     })
   }
 
   removeFromCollection(id: string, rj: string): Promise<void> {
-    return this.request(`/collections/${encodeURIComponent(id)}/works/${encodeURIComponent(rj)}`, { method: 'DELETE' })
+    return this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+      ? httpContracts['DELETE /api/v1/collections/{id}/works/{rj}']
+      : undefined), `/collections/${encodeURIComponent(id)}/works/${encodeURIComponent(rj)}`, { method: 'DELETE' })
   }
 
   /** Moves a member before `beforeRj`, or to the end when null. */
   moveCollectionMember(id: string, rj: string, beforeRj: string | null): Promise<void> {
-    return this.request(`/collections/${encodeURIComponent(id)}/works/${encodeURIComponent(rj)}`, {
+    return this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+      ? httpContracts['PATCH /api/v1/collections/{id}/works/{rj}']
+      : undefined), `/collections/${encodeURIComponent(id)}/works/${encodeURIComponent(rj)}`, {
       method: 'PATCH',
       body: { before_rj: beforeRj },
     })
@@ -331,7 +384,9 @@ export class ApiClient implements ApiClientContract {
 
   /** The work's file manifest (docs/api.md "Work content manifest"). */
   getWorkContent(rj: string, signal?: AbortSignal): Promise<WorkContent> {
-    return this.request(`/works/${encodeURIComponent(rj)}/content`, { signal })
+    return this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+      ? httpContracts['GET /api/v1/works/{rj}/content']
+      : undefined), `/works/${encodeURIComponent(rj)}/content`, { signal })
   }
 
   /**
@@ -415,60 +470,82 @@ export class ApiClient implements ApiClientContract {
   async listWorkFacets(kind: WorkFacetKind, scope: WorksScope = {}, signal?: AbortSignal): Promise<WorkFacet[]> {
     const qs = worksQuery(scope)
     if (kind === 'circle') {
-      const body = await this.request<{ circles: WorkFacet[] }>(`/circles${qs}`, { signal })
-      return body.circles
+      const body = await this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+        ? httpContracts['GET /api/v1/circles']
+        : undefined), `/circles${qs}`, { signal })
+      return body.circles ?? []
     }
-    const body = await this.request<{ voice_actors: WorkFacet[] }>(`/voice-actors${qs}`, { signal })
-    return body.voice_actors
+    const body = await this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+      ? httpContracts['GET /api/v1/voice-actors']
+      : undefined), `/voice-actors${qs}`, { signal })
+    return body.voice_actors ?? []
   }
 
   /** Both tag vocabularies under one listing scope (docs/api.md `GET /tags`). */
   listTagFacets(scope: WorksScope = {}, signal?: AbortSignal): Promise<TagFacets> {
-    return this.request(`/tags${worksQuery(scope)}`, { signal })
+    return this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+      ? httpContracts['GET /api/v1/tags']
+      : undefined), `/tags${worksQuery(scope)}`, { signal })
   }
 
   // A partial personal-data update: only the fields present are applied, and
   // an explicit rating null clears it (docs/api.md `PATCH /works/{rj}/user-data`).
   updateWorkUserData(rj: string, input: PatchWorkUserDataParams): Promise<WorkUserData> {
-    return this.request(`/works/${encodeURIComponent(rj)}/user-data`, { method: 'PATCH', body: input })
+    return this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+      ? httpContracts['PATCH /api/v1/works/{rj}/user-data']
+      : undefined), `/works/${encodeURIComponent(rj)}/user-data`, { method: 'PATCH', body: input })
   }
 
   // One Rendition's Listening Position; keepalive lets the request outlive a
   // closing page (docs/api/works.md `PUT /works/{rj}/listening`).
   putWorkListening(rj: string, input: PutWorkListeningParams, keepalive = false): Promise<WorkListening> {
-    return this.request(`/works/${encodeURIComponent(rj)}/listening`, { method: 'PUT', body: input, keepalive })
+    return this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+      ? httpContracts['PUT /api/v1/works/{rj}/listening']
+      : undefined), `/works/${encodeURIComponent(rj)}/listening`, { method: 'PUT', body: input, keepalive })
   }
 
   deleteWorkListening(rj: string): Promise<void> {
-    return this.request(`/works/${encodeURIComponent(rj)}/listening`, { method: 'DELETE' })
+    return this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+      ? httpContracts['DELETE /api/v1/works/{rj}/listening']
+      : undefined), `/works/${encodeURIComponent(rj)}/listening`, { method: 'DELETE' })
   }
 
   // The work's user tags are exactly the given set after this call; unknown
   // ids answer USER_TAG_NOT_FOUND (docs/api.md `PUT /works/{rj}/user-tags`).
   async replaceWorkUserTags(rj: string, tagIds: string[]): Promise<WorkUserTag[]> {
-    const body = await this.request<{ user_tags: WorkUserTag[] }>(`/works/${encodeURIComponent(rj)}/user-tags`, {
+    const body = await this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+      ? httpContracts['PUT /api/v1/works/{rj}/user-tags']
+      : undefined), `/works/${encodeURIComponent(rj)}/user-tags`, {
       method: 'PUT',
       body: { tag_ids: tagIds },
     })
-    return body.user_tags
+    return body.user_tags ?? []
   }
 
   // A merge, last write wins per field; the answer is the whole stored object (docs/api/preferences.md).
   getPreferences(signal?: AbortSignal): Promise<UserPreferences> {
-    return this.request('/preferences', { signal })
+    return this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+      ? httpContracts['GET /api/v1/preferences']
+      : undefined), '/preferences', { signal })
   }
 
   putPreferences(input: UserPreferencesUpdate): Promise<UserPreferences> {
-    return this.request('/preferences', { method: 'PUT', body: input })
+    return this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+      ? httpContracts['PUT /api/v1/preferences']
+      : undefined), '/preferences', { method: 'PUT', body: input })
   }
 
   // Last write wins; the answer is the stored mode and trimmed URL (docs/api/outbound-proxy.md).
   getOutboundProxy(signal?: AbortSignal): Promise<OutboundProxy> {
-    return this.request('/outbound-proxy', { signal })
+    return this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+      ? httpContracts['GET /api/v1/outbound-proxy']
+      : undefined), '/outbound-proxy', { signal })
   }
 
   putOutboundProxy(input: OutboundProxy): Promise<OutboundProxy> {
-    return this.request('/outbound-proxy', { method: 'PUT', body: input })
+    return this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+      ? httpContracts['PUT /api/v1/outbound-proxy']
+      : undefined), '/outbound-proxy', { method: 'PUT', body: input })
   }
 
   /** Log Export (docs/api/diagnostics.md#log-export): the file and the name the server gave it. */
@@ -485,36 +562,54 @@ export class ApiClient implements ApiClientContract {
   // Deployment-wide record cleanup (docs/api/maintenance.md). Start has no
   // request id: a lost answer is resolved by reading the global run, never by resending.
   previewCleanup(categories: CleanupCategory[]): Promise<CleanupPreview> {
-    return this.request('/maintenance/cleanup/preview', {
+    return this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+      ? httpContracts['POST /api/v1/maintenance/cleanup/preview']
+      : undefined), '/maintenance/cleanup/preview', {
       method: 'POST',
       body: { categories },
     })
   }
 
   async startCleanup(categories: CleanupCategory[]): Promise<CleanupRun> {
-    return (await this.request<{ run: CleanupRun }>('/maintenance/cleanup', {
+    const run = (await this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+      ? httpContracts['POST /api/v1/maintenance/cleanup']
+      : undefined), '/maintenance/cleanup', {
       method: 'POST',
       body: { categories },
     })).run
+    if (!run)
+      throw new ApiError(500, 'MISSING_CLEANUP_RUN', 'Cleanup response did not include a run')
+    return run
   }
 
   async getCleanup(signal?: AbortSignal): Promise<CleanupRun | null> {
-    return (await this.request<{ run: CleanupRun | null }>('/maintenance/cleanup', { signal })).run
+    return (await this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+      ? httpContracts['GET /api/v1/maintenance/cleanup']
+      : undefined), '/maintenance/cleanup', { signal })).run
   }
 
   async cancelCleanup(runId: string): Promise<CleanupRun> {
-    return (await this.request<{ run: CleanupRun }>(`/maintenance/cleanup/${encodeURIComponent(runId)}/cancel`, { method: 'POST', body: {} })).run
+    const run = (await this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+      ? httpContracts['POST /api/v1/maintenance/cleanup/{runId}/cancel']
+      : undefined), `/maintenance/cleanup/${encodeURIComponent(runId)}/cancel`, { method: 'POST', body: {} })).run
+    if (!run)
+      throw new ApiError(500, 'MISSING_CLEANUP_RUN', 'Cleanup response did not include a run')
+    return run
   }
 
   // Creating by name is idempotent: an existing name answers with the existing
   // tag (docs/api.md `POST /user-tags`).
   async listUserTags(signal?: AbortSignal): Promise<WorkUserTag[]> {
-    const body = await this.request<{ user_tags: WorkUserTag[] }>('/user-tags', { signal })
-    return body.user_tags
+    const body = await this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+      ? httpContracts['GET /api/v1/user-tags']
+      : undefined), '/user-tags', { signal })
+    return body.user_tags ?? []
   }
 
   async createUserTag(name: string): Promise<WorkUserTag> {
-    return this.request('/user-tags', {
+    return this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+      ? httpContracts['POST /api/v1/user-tags']
+      : undefined), '/user-tags', {
       method: 'POST',
       body: { name },
     })
@@ -522,7 +617,9 @@ export class ApiClient implements ApiClientContract {
 
   // A name another tag holds answers USER_TAG_EXISTS; tags are never merged.
   renameUserTag(id: string, name: string): Promise<WorkUserTag> {
-    return this.request(`/user-tags/${encodeURIComponent(id)}`, {
+    return this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+      ? httpContracts['PATCH /api/v1/user-tags/{id}']
+      : undefined), `/user-tags/${encodeURIComponent(id)}`, {
       method: 'PATCH',
       body: { name },
     })
@@ -530,11 +627,15 @@ export class ApiClient implements ApiClientContract {
 
   // The tag's relations go with it; no work is touched.
   deleteUserTag(id: string): Promise<void> {
-    return this.request(`/user-tags/${encodeURIComponent(id)}`, { method: 'DELETE' })
+    return this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+      ? httpContracts['DELETE /api/v1/user-tags/{id}']
+      : undefined), `/user-tags/${encodeURIComponent(id)}`, { method: 'DELETE' })
   }
 
   getOperation(worksetId: string, operation: OperationType, signal?: AbortSignal): Promise<Operation> {
-    return this.request(this.operationPath(worksetId, operation), { signal })
+    return this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+      ? taskContract(httpContracts['GET /api/v1/worksets/{id}/operations/{type}'], operation)
+      : undefined), this.operationPath(worksetId, operation), { signal })
   }
 
   async getOperationDraft(
@@ -542,10 +643,9 @@ export class ApiClient implements ApiClientContract {
     operation: OperationType,
     signal?: AbortSignal,
   ): Promise<DraftResponse> {
-    const wire = await this.request<DraftEnvelopeResponse>(
-      `${this.operationPath(worksetId, operation)}/draft`,
-      { signal },
-    )
+    const wire = await this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+      ? taskContract(httpContracts['GET /api/v1/worksets/{id}/operations/{type}/draft'], operation)
+      : undefined), `${this.operationPath(worksetId, operation)}/draft`, { signal })
     const payload = wire.task.payload
     return {
       workset_id: wire.workset_id,
@@ -580,7 +680,9 @@ export class ApiClient implements ApiClientContract {
     document: AnyDraftDocument,
     ifMatchVersion: number,
   ): Promise<Operation> {
-    return this.request(`${this.operationPath(worksetId, operation)}/draft`, {
+    return this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+      ? taskContract(httpContracts['PUT /api/v1/worksets/{id}/operations/{type}/draft'], operation)
+      : undefined), `${this.operationPath(worksetId, operation)}/draft`, {
       method: 'PUT',
       body: document,
       headers: {
@@ -591,7 +693,9 @@ export class ApiClient implements ApiClientContract {
 
   /** A Task kind's deployment-wide settings; works without any record. */
   async getTaskSettings<T extends OperationType>(operation: T, signal?: AbortSignal): Promise<TaskSettings<T>> {
-    return this.settingsResult<T>(await this.exchange(`/tasks/${operation}/settings`, { signal }))
+    return this.settingsResult<T>(await this.exchange(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+      ? taskContract(httpContracts['GET /api/v1/tasks/{type}/settings'], operation)
+      : undefined), `/tasks/${operation}/settings`, { signal }))
   }
 
   /** The only write path of a Task kind's common settings; If-Match is the ETag read. */
@@ -601,7 +705,9 @@ export class ApiClient implements ApiClientContract {
     etag: string,
   ): Promise<TaskSettings<T>> {
     return this.settingsResult<T>(
-      await this.exchange(`/tasks/${operation}/settings`, {
+      await this.exchange(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+        ? taskContract(httpContracts['PUT /api/v1/tasks/{type}/settings'], operation)
+        : undefined), `/tasks/${operation}/settings`, {
         method: 'PUT',
         body: { settings },
         headers: { 'If-Match': etag },
@@ -625,7 +731,9 @@ export class ApiClient implements ApiClientContract {
     // can exceed the read-path timeout on large worksets. Aborting would
     // surface a false failure AND lose this idempotency key's protection
     // (a retry with a fresh key could start a duplicate session).
-    return this.request(`${this.operationPath(worksetId, operation)}/revisions`, {
+    return this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+      ? taskContract(httpContracts['POST /api/v1/worksets/{id}/operations/{type}/revisions'], operation)
+      : undefined), `${this.operationPath(worksetId, operation)}/revisions`, {
       method: 'POST',
       headers: {
         'If-Match': String(ifMatchVersion),
@@ -641,17 +749,15 @@ export class ApiClient implements ApiClientContract {
     generationId: string,
     signal?: AbortSignal,
   ): Promise<GenerationView> {
-    return this.request(
-      `${this.operationPath(worksetId, operation)}/planning-sessions/${encodeURIComponent(generationId)}`,
-      { signal },
-    )
+    return this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+      ? taskContract(httpContracts['GET /api/v1/worksets/{id}/operations/{type}/planning-sessions/{genId}'], operation)
+      : undefined), `${this.operationPath(worksetId, operation)}/planning-sessions/${encodeURIComponent(generationId)}`, { signal })
   }
 
   cancelGeneration(worksetId: string, operation: OperationType, generationId: string): Promise<GenerationView> {
-    return this.request(
-      `${this.operationPath(worksetId, operation)}/planning-sessions/${encodeURIComponent(generationId)}/cancel`,
-      { method: 'POST', body: {} },
-    )
+    return this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+      ? taskContract(httpContracts['POST /api/v1/worksets/{id}/operations/{type}/planning-sessions/{genId}/cancel'], operation)
+      : undefined), `${this.operationPath(worksetId, operation)}/planning-sessions/${encodeURIComponent(generationId)}/cancel`, { method: 'POST', body: {} })
   }
 
   getMemberReview(
@@ -661,10 +767,9 @@ export class ApiClient implements ApiClientContract {
     memberId: string,
     signal?: AbortSignal,
   ): Promise<MemberReviewResponse> {
-    return this.request(
-      `${this.operationPath(worksetId, operation)}/revisions/${encodeURIComponent(planId)}/members/${encodeURIComponent(memberId)}`,
-      { signal },
-    )
+    return this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+      ? taskContract(httpContracts['GET /api/v1/worksets/{id}/operations/{type}/revisions/{planId}/members/{memberId}'], operation)
+      : undefined), `${this.operationPath(worksetId, operation)}/revisions/${encodeURIComponent(planId)}/members/${encodeURIComponent(memberId)}`, { signal })
   }
 
   async getRevision(
@@ -677,10 +782,9 @@ export class ApiClient implements ApiClientContract {
     const query = category
       ? `?category=${encodeURIComponent(category.category)}&limit=${category.limit}`
       : ''
-    const wire = await this.request<RevisionDetailResponse>(
-      `${this.operationPath(worksetId, operation)}/revisions/${encodeURIComponent(planId)}${query}`,
-      { signal },
-    )
+    const wire = await this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+      ? taskContract(httpContracts['GET /api/v1/worksets/{id}/operations/{type}/revisions/{planId}'], operation)
+      : undefined), `${this.operationPath(worksetId, operation)}/revisions/${encodeURIComponent(planId)}${query}`, { signal })
     if (operation === 'conversion' && wire.task.payload.policy) {
       return {
         ...wire,
@@ -710,17 +814,16 @@ export class ApiClient implements ApiClientContract {
     planId: string,
     input: { ifMatchVersion: number, idempotencyKey: string, scope?: ExecutionScope },
   ): Promise<StartExecutionResponse> {
-    return this.request(
-      `${this.operationPath(worksetId, operation)}/revisions/${encodeURIComponent(planId)}/executions`,
-      {
-        method: 'POST',
-        headers: {
-          'If-Match': String(input.ifMatchVersion),
-          'Idempotency-Key': input.idempotencyKey,
-        },
-        body: input.scope ?? {},
+    return this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+      ? taskContract(httpContracts['POST /api/v1/worksets/{id}/operations/{type}/revisions/{planId}/executions'], operation)
+      : undefined), `${this.operationPath(worksetId, operation)}/revisions/${encodeURIComponent(planId)}/executions`, {
+      method: 'POST',
+      headers: {
+        'If-Match': String(input.ifMatchVersion),
+        'Idempotency-Key': input.idempotencyKey,
       },
-    )
+      body: input.scope ?? {},
+    })
   }
 
   /**
@@ -742,10 +845,9 @@ export class ApiClient implements ApiClientContract {
     const query = params.size
       ? `?${params}`
       : ''
-    return this.request(
-      `${this.operationPath(worksetId, operation)}/executions/${encodeURIComponent(executionId)}${query}`,
-      { signal },
-    )
+    return this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+      ? taskContract(executionContract(read?.view, read?.memberId), operation)
+      : undefined), `${this.operationPath(worksetId, operation)}/executions/${encodeURIComponent(executionId)}${query}`, { signal })
   }
 
   /** Cooperative cancel; idempotent on terminal sessions (200 either way). */
@@ -754,20 +856,28 @@ export class ApiClient implements ApiClientContract {
     operation: OperationType,
     executionId: string,
   ): Promise<ExecutionView> {
-    return this.request(
-      `${this.operationPath(worksetId, operation)}/executions/${encodeURIComponent(executionId)}/cancel`,
-      { method: 'POST', body: {} },
-    )
+    return this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+      ? taskContract({
+          ...httpContracts['POST /api/v1/worksets/{id}/operations/{type}/executions/{executionId}/cancel'],
+          responses: { 200: 'executionFullViewResponse' },
+        }, operation)
+      : undefined), `${this.operationPath(worksetId, operation)}/executions/${encodeURIComponent(executionId)}/cancel`, { method: 'POST', body: {} })
   }
 
   /** The asynchronous cover deliveries one metadata execution queued. */
   getExecutionCovers(worksetId: string, executionId: string, signal?: AbortSignal): Promise<CoverReport> {
-    return this.request(this.coversPath(worksetId, executionId), { signal })
+    return this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+      ? taskContract(httpContracts['GET /api/v1/worksets/{id}/operations/{type}/executions/{executionId}/covers'], 'metadata_refresh')
+      : undefined), this.coversPath(worksetId, executionId), { signal })
   }
 
   /** Retry failed/stopped deliveries, or stop pending ones; answers the updated report. */
   changeExecutionCovers(worksetId: string, executionId: string, action: 'retry' | 'cancel'): Promise<CoverReport> {
-    return this.request(`${this.coversPath(worksetId, executionId)}/${action}`, { method: 'POST', body: {} })
+    return this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+      ? taskContract(httpContracts[action === 'retry'
+          ? 'POST /api/v1/worksets/{id}/operations/{type}/executions/{executionId}/covers/retry'
+          : 'POST /api/v1/worksets/{id}/operations/{type}/executions/{executionId}/covers/cancel'], 'metadata_refresh')
+      : undefined), `${this.coversPath(worksetId, executionId)}/${action}`, { method: 'POST', body: {} })
   }
 
   private coversPath(worksetId: string, executionId: string): string {
@@ -785,15 +895,15 @@ export class ApiClient implements ApiClientContract {
     generationId: string,
     signal: AbortSignal,
   ): AsyncGenerator<GenerationEvent> {
-    return this.streamEvents<GenerationEvent>(
-      `${this.operationPath(worksetId, operation)}/planning-sessions/${encodeURIComponent(generationId)}/events`,
-      signal,
-      'Generation events',
-    )
+    return this.streamEvents(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+      ? taskEventsContract(sseContracts.generation, operation)
+      : undefined), `${this.operationPath(worksetId, operation)}/planning-sessions/${encodeURIComponent(generationId)}/events`, signal, 'Generation events')
   }
 
   streamMediaFactsEvents(signal: AbortSignal): AsyncGenerator<MediaFactsEvent> {
-    return this.streamEvents('/inventory/media-facts/events', signal, 'Media facts events')
+    return this.streamEvents(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+      ? sseContracts.media
+      : undefined), '/inventory/media-facts/events', signal, 'Media facts events')
   }
 
   streamExecutionEvents(
@@ -803,17 +913,15 @@ export class ApiClient implements ApiClientContract {
     signal: AbortSignal,
     view?: ExecutionViewMode,
   ): AsyncGenerator<ExecutionEvent> {
-    return this.streamEvents<ExecutionEvent>(
-      `${this.operationPath(worksetId, operation)}/executions/${encodeURIComponent(executionId)}/events${view
-        ? `?view=${view}`
-        : ''}`,
-      signal,
-      'Execution events',
-    )
+    return this.streamEvents(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+      ? taskEventsContract(executionEventsContract(view), operation)
+      : undefined), `${this.operationPath(worksetId, operation)}/executions/${encodeURIComponent(executionId)}/events${view
+      ? `?view=${view}`
+      : ''}`, signal, 'Execution events')
   }
 
   /** Shared GET-SSE lifecycle: fetch, error envelope, then the parsed stream. */
-  private async* streamEvents<T extends SSEEvent>(path: string, signal: AbortSignal, surface: string): AsyncGenerator<T> {
+  private async* streamEvents<C extends SSEContract>(contract: C | undefined, path: string, signal: AbortSignal, surface: string): AsyncGenerator<SSEViews<C>> {
     const response = await fetch(this.url(path), {
       headers: this.headers(false),
       signal,
@@ -823,7 +931,9 @@ export class ApiClient implements ApiClientContract {
     if (!response.body) {
       throw new ApiError(response.status, 'STREAM_UNAVAILABLE', `${surface} response did not include a stream`)
     }
-    yield* parseSSEStream<T>(response.body)
+    if (import.meta.env.DEV || import.meta.env.MODE === 'test')
+      validateSSEStatus(response.status)
+    yield* parseSSEStream(response.body, contract)
   }
 
   private url(path: string): string {
@@ -846,18 +956,20 @@ export class ApiClient implements ApiClientContract {
   // Mutations that trigger long server-side work override this via timeoutMs.
   private static readonly REQUEST_TIMEOUT_MS = 15_000
 
-  private async request<T>(
+  private async request<C extends HttpContract>(
+    contract: C | undefined,
     path: string,
-    options: { method?: string, body?: unknown, signal?: AbortSignal, timeoutMs?: number, headers?: Record<string, string>, keepalive?: boolean } = {},
-  ): Promise<T> {
-    return (await this.exchange<T>(path, options)).body
+    options: { method?: string, body?: WireBody<NoInfer<C>>, signal?: AbortSignal, timeoutMs?: number, headers?: Record<string, string>, keepalive?: boolean } = {},
+  ): Promise<HttpResult<C>> {
+    return (await this.exchange(contract, path, options)).body as HttpResult<C>
   }
 
   /** request() for the few reads that need a response header too (an ETag). */
-  private async exchange<T>(
+  private async exchange(
+    contract: HttpContract | undefined,
     path: string,
     options: { method?: string, body?: unknown, signal?: AbortSignal, timeoutMs?: number, headers?: Record<string, string>, keepalive?: boolean } = {},
-  ): Promise<{ body: T, headers: Headers }> {
+  ): Promise<{ body: unknown, headers: Headers }> {
     const controller = new AbortController()
     let removeAbort: (() => void) | null = null
     if (options.signal) {
@@ -877,7 +989,7 @@ export class ApiClient implements ApiClientContract {
       options.timeoutMs ?? ApiClient.REQUEST_TIMEOUT_MS,
     )
     try {
-      return await this.doRequest<T>(path, options, controller.signal)
+      return await this.doRequest(contract, path, options, controller.signal)
     }
     finally {
       clearTimeout(timer)
@@ -885,11 +997,14 @@ export class ApiClient implements ApiClientContract {
     }
   }
 
-  private async doRequest<T>(
+  private async doRequest(
+    contract: HttpContract | undefined,
     path: string,
     options: { method?: string, body?: unknown, headers?: Record<string, string>, keepalive?: boolean },
     signal: AbortSignal,
-  ): Promise<{ body: T, headers: Headers }> {
+  ): Promise<{ body: unknown, headers: Headers }> {
+    if ((import.meta.env.DEV || import.meta.env.MODE === 'test') && contract?.request && options.body !== undefined)
+      await validateWire(contract.request, options.body)
     const response = await fetch(this.url(path), {
       method: options.method ?? 'GET',
       headers: {
@@ -904,9 +1019,15 @@ export class ApiClient implements ApiClientContract {
     })
     if (!response.ok)
       throw await this.toApiError(response)
-    if (response.status === 204)
-      return { body: undefined as T, headers: response.headers }
-    return { body: (await response.json()) as T, headers: response.headers }
+    if (response.status === 204) {
+      if (import.meta.env.DEV || import.meta.env.MODE === 'test')
+        await validateHTTP(contract, response.status, undefined)
+      return { body: undefined, headers: response.headers }
+    }
+    const body: unknown = await response.json()
+    if (import.meta.env.DEV || import.meta.env.MODE === 'test')
+      await validateHTTP(contract, response.status, body)
+    return { body, headers: response.headers }
   }
 
   private async toApiError(response: Response): Promise<ApiError> {
@@ -918,6 +1039,11 @@ export class ApiClient implements ApiClientContract {
     }
     catch {
       // A proxy can replace the documented JSON envelope; retain useful status context.
+    }
+    if (import.meta.env.DEV || import.meta.env.MODE === 'test') {
+      await validateWire(Object.hasOwn(envelope ?? {}, 'details')
+        ? 'errorWithDetails'
+        : 'errorResponse', envelope)
     }
     return new ApiError(
       response.status,

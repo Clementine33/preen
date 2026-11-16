@@ -21,7 +21,7 @@ export function wireGeneration(patch: Partial<WireSchemas['generationViewRespons
   }
 }
 
-export function wireExecution(patch: Partial<WireSchemas['conversion_v1_executionViewResponse']> = {}): WireSchemas['conversion_v1_executionViewResponse'] {
+export function wireExecution(patch: Partial<WireSchemas['conversion_v1_executionFullViewResponse']> = {}): WireSchemas['conversion_v1_executionFullViewResponse'] {
   return {
     execution_id: 'e',
     workset_id: 'w',

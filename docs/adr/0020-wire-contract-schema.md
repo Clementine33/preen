@@ -43,3 +43,6 @@ HTTP/SSE 的线格式现在有三处各自维护的描述：Go 侧的 json 标�
 
 - 阶段 3 使用 json-schema-to-typescript 16.0.0；相对引用先做等价重定位，metadata 结果使用显式 oneOf，使生成 TS 可表达判别。存储中原样透传的旧 classifier_tags 载荷有独立兼容 schema，不改规范编码或请求形状。
 - 前端 wire.gen.ts 只由 schema 生成；视图类型以生成类型为基础，仅收窄展示状态或表达客户端整形。session_snapshot 的操作身份由订阅上下文补入缓存视图，原始 SSE schema 仍没有该字段。
+
+- 阶段 4 使用 ajv 8.20.0 的 standalone ESM 生成物。schema ID、HTTP 状态和 SSE 事件绑定同时生成，调用点显式选择契约；执行完整、成员汇总和单成员视图各有独立入口。
+- JSON 请求/响应和 SSE 解析在开发、Vitest 与使用 Vite 的 Playwright 中校验。调用点的编译期条件同时移除校验入口和契约元数据；生产构建逐模块检查，禁止渲染校验器、绑定元数据及 AJV。

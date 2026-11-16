@@ -12,6 +12,7 @@
 - Shared visual foundation follows the YoRHa theme: tokens live in `theme-yorha.css` and `style.css`; works pages provide exhibition/playback while worksets retain dense tabular forms and review workflows without flattening them into exhibition style. UI/UX changes are judged by user-friendliness: the user keeps their place, meets fewer surprises and takes fewer steps. Contrast rules and motion reduction (`prefers-reduced-motion`) take precedence over decorative parity; accessibility beyond native semantics is not a primary deliverable. See `DESIGN.md` for UI tokens, font matrix, and interaction principles.
 
 ## Runtime and checks
+- API wire types, contract bindings and standalone validators are generated; update the backend schema source and run root `task contract:generate` rather than editing generated files. Derive client views from wire types, bind API calls to their status/event contracts, and use complete generated-type fixtures for transport mocks. Runtime validation runs in development/tests; production builds must pass the validation-exclusion gate.
 - Vue 3 + TypeScript, entry `src/main.ts`, in the pnpm workspace. Tool versions are pinned in the root `mise.toml`.
 - From this directory: `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`.
 - From the repository root: `task lint:web`, `task typecheck:web`, `task test:web`, `task build:web`; `task dev:web` starts backend + Vite and `task e2e:web` runs Playwright.

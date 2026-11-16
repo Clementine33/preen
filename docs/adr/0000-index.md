@@ -25,4 +25,4 @@
 | [0017](0017-inventory-storage-dirs-and-files.md) | 库存存储：目录表与文件表分离、会话临时暂存、Library 库根互不包含 | Accepted |
 | [0018](0018-self-hosted-fonts.md) | 字体：同源自托管的 CJK 无衬线与衬线（Noto Sans SC Variable、Noto Serif SC Variable、IBM Plex Mono） | Accepted |
 | [0019](0019-outbound-proxy-follows-the-system.md) | 出站代理：跟随系统、手动或直连（Windows WinHTTP 含 PAC；Linux KDE／GNOME／环境变量） | Accepted |
-| [0020](0020-wire-contract-schema.md) | 线格式契约：Go 类型生成 JSON Schema（请求、响应、错误信封、SSE 与各 Task kind 载荷）、后端按 schema 校验、前端 wire 类型与事件联合由 schema 生成、运行时校验只在开发和测试中启用 | Draft |
+| [0020](0020-wire-contract-schema.md) | 线格式契约：Go 类型生成 JSON Schema（请求、响应、错误信封、SSE 与各 Task kind 载荷）、后端按 schema 校验、前端 wire 类型与事件联合由 schema 生成、AJV standalone 运行时校验只在开发和测试中启用，生产构建检查剔除 | Draft |

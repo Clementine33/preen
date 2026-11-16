@@ -251,3 +251,11 @@ the current Go encoding with a `_legacy` shape requiring `classifier_tags` and
 allowing the newer tag fields to be absent. These apply only to raw stored drafts,
 settings and plan policies. The canonical Go type schemas and current draft
 request schema remain independent; the request does not accept `classifier_tags`.
+
+The web client binds each JSON call to declared success statuses and each SSE
+subscription to declared event names. Task bindings select kind/version, and
+execution reads distinguish full, members and single-member schemas. Generated
+AJV standalone validators check request bodies, responses and event payloads in
+development and tests before client view conversion. Non-success HTTP responses
+use the error-envelope schemas. Production builds remove validators and binding
+metadata; a build gate rejects any rendered validation module.

@@ -127,7 +127,6 @@
           "anyOf": [
             {
               "enum": [
-                "",
                 "strict",
                 "available_sources"
               ],

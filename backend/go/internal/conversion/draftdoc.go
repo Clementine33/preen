@@ -310,6 +310,23 @@ func validateDeleteMode(mode string) error {
 	)
 }
 
+// rejectEmptyModeOverrides refuses a member override whose mode is "": unlike
+// the common mode, where "" means absent, an override is an explicit value.
+// It runs on draft writes only, so a draft stored with one still plans.
+func rejectEmptyModeOverrides(doc *DraftDoc) error {
+	for _, m := range doc.Members {
+		if m.Overrides != nil && m.Overrides.Mode != nil && *m.Overrides.Mode == "" {
+			return workset.NewError(
+				workset.ErrKindInvalidArgument,
+				"INVALID_DRAFT",
+				"unsupported conversion mode override \"\" for member "+m.MemberID,
+				nil,
+			)
+		}
+	}
+	return nil
+}
+
 func validateOverrides(o *OverrideSet) error {
 	if o == nil {
 		return nil

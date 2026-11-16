@@ -2194,7 +2194,7 @@ export interface DraftDocumentRequest_DraftMemberRequest {
 }
 export interface DraftDocumentRequest_DraftOverridesRequest {
   matched?: DraftDocumentRequest_DesiredProfileDTO | null
-  mode?: ('' | 'strict' | 'available_sources') | null
+  mode?: ('strict' | 'available_sources') | null
   no_effect_tags?: string[] | null
   other?: DraftDocumentRequest_DesiredProfileDTO | null
   other_tags?: string[] | null
@@ -2207,7 +2207,7 @@ export interface DraftMemberRequest {
 }
 export interface DraftMemberRequest_DraftOverridesRequest {
   matched?: DraftMemberRequest_DesiredProfileDTO | null
-  mode?: ('' | 'strict' | 'available_sources') | null
+  mode?: ('strict' | 'available_sources') | null
   no_effect_tags?: string[] | null
   other?: DraftMemberRequest_DesiredProfileDTO | null
   other_tags?: string[] | null
@@ -2227,7 +2227,7 @@ export interface DraftMemberRequest_AudioQualityDTO {
 }
 export interface DraftOverridesRequest {
   matched?: DraftOverridesRequest_DesiredProfileDTO | null
-  mode?: ('' | 'strict' | 'available_sources') | null
+  mode?: ('strict' | 'available_sources') | null
   no_effect_tags?: string[] | null
   other?: DraftOverridesRequest_DesiredProfileDTO | null
   other_tags?: string[] | null

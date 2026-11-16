@@ -654,6 +654,7 @@ func TestConversionTagWriteBoundaries(t *testing.T) {
 		{"backslash", "other_tags", []string{`wav\revert`}, false},
 		{"excluded override slash", "other_tags", []string{"wav/revert"}, true},
 		{"excluded override backslash", "other_tags", []string{`wav\revert`}, true},
+		{"empty mode override", "mode", "", true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			doc := draftDocumentFixture()

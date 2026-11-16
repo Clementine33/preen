@@ -168,7 +168,10 @@ func (*Task) ValidateDraft(raw []byte, members []*workset.WorksetMember) error {
 			workset.ErrKindInvalidArgument, "INVALID_DRAFT", "draft document is not valid", err,
 		)
 	}
-	return validateDraftDoc(doc, members)
+	if err := validateDraftDoc(doc, members); err != nil {
+		return err
+	}
+	return rejectEmptyModeOverrides(doc)
 }
 
 func (*Task) NormalizeDraft(raw []byte, members []*workset.WorksetMember) ([]byte, string, int, error) {

@@ -32,7 +32,7 @@ type draftMemberRequest struct {
 
 type draftOverridesRequest struct {
 	OtherTags    *[]string          `json:"other_tags"`
-	Mode         *string            `json:"mode"           jsonschema:"enum=,enum=strict,enum=available_sources"`
+	Mode         *string            `json:"mode"           jsonschema:"enum=strict,enum=available_sources"`
 	NoEffectTags *[]string          `json:"no_effect_tags"`
 	Matched      *desiredProfileDTO `json:"matched"`
 	Unmatched    *desiredProfileDTO `json:"unmatched"`

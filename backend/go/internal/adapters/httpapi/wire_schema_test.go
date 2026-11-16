@@ -33,9 +33,7 @@ func TestGenerateWireSchema(t *testing.T) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "contracts.json"), []byte(wireContracts+"\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	writeWireContracts(t, dir)
 	roots := wireRoots()
 	roots = append(roots, taskWireRoots()...)
 	for _, value := range roots {
@@ -100,6 +98,28 @@ func TestGenerateWireSchema(t *testing.T) {
 		map[string]any{"allOf": []any{schemaRef("errorResponse"), map[string]any{"required": []string{"details"}}}},
 	)
 	writeWireSchema(t, dir, "sseError", schemaRef("errorResponse"))
+}
+
+// writeWireContracts emits the route bindings plus each Task's draft request
+// schema, which the web client cannot derive from the generic/bound schema pairs.
+func writeWireContracts(t *testing.T, dir string) {
+	t.Helper()
+	var contracts map[string]any
+	if err := json.Unmarshal([]byte(wireContracts), &contracts); err != nil {
+		t.Fatal(err)
+	}
+	draftRequests := map[string]string{}
+	for _, task := range wireTasks() {
+		draftRequests[task.kind] = task.draftRequest
+	}
+	contracts["task_draft_requests"] = draftRequests
+	raw, err := json.MarshalIndent(contracts, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "contracts.json"), append(raw, '\n'), 0o644); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func taskWireRoots() []any {

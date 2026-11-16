@@ -1,7 +1,7 @@
 import type { ViewOf } from './contract-views'
 import type { SchemaId } from './contracts.gen'
 import type { WireSchemas } from './wire.gen'
-import { httpContracts, schemaIds, sseContracts } from './contracts.gen'
+import { httpContracts, sseContracts, taskSchemas } from './contracts.gen'
 
 export { httpContracts, sseContracts }
 export type { SchemaId }
@@ -17,28 +17,31 @@ export type SSEViews<C extends SSEContract> = { [K in keyof C]: { type: K, data:
 export type WireBody<C extends HttpContract> = C['request'] extends SchemaId ? Pick<WireSchemas[C['request']], keyof WireSchemas[C['request']]> : unknown
 
 export function taskContract<C extends HttpContract>(contract: C, kind: string): C {
-  let request: string = taskSchema(contract.request, kind)
-  if (contract.request === 'draftDocumentRequest' && kind !== 'conversion') {
-    request = kind === 'rename'
-      ? 'dirrename_Draft_request'
-      : 'refresh_Draft_request'
-  }
   return {
     ...contract,
-    request,
+    request: taskSchema(contract.request, kind),
     responses: Object.fromEntries(Object.entries(contract.responses).map(([status, name]) => [
       status,
       taskSchema(name, kind),
     ])),
   } as C
 }
-export function taskSchema<N extends string>(name: N, kind: string): N {
-  const candidate = `${kind}_v1_${name}`
-  return (schemaIds.includes(candidate as SchemaId)
-    ? candidate
-    : name) as N
-}
 
+/** Maps a generic schema name to the current schema version's Task-specific schema. */
+export function taskSchema<N extends string>(name: N, kind: string): N {
+  const versions: Record<string, Record<string, string>> | undefined = Object.hasOwn(taskSchemas, kind)
+    ? taskSchemas[kind as keyof typeof taskSchemas]
+    : undefined
+  if (!versions)
+    throw new Error(`unknown Task kind ${kind}`)
+  const bindings = versions[Math.max(...Object.keys(versions).map(Number))]
+  if (Object.hasOwn(bindings, name))
+    return bindings[name] as N
+  // Any other name (an error envelope, `@empty`) is shared by every Task.
+  if (Object.values(taskSchemas).some(task => Object.values(task).some(bound => Object.hasOwn(bound, name))))
+    throw new Error(`Task ${kind} has no schema bound to ${name}`)
+  return name
+}
 export function executionContract(view?: 'members', memberId?: string) {
   const name = view === 'members'
     ? 'executionMembersViewResponse'

@@ -477,5 +477,10 @@
       "progress": "scanEventData",
       "started": "scanEventData"
     }
+  },
+  "task_draft_requests": {
+    "conversion": "draftDocumentRequest",
+    "metadata_refresh": "refresh_Draft_request",
+    "rename": "dirrename_Draft_request"
   }
 }

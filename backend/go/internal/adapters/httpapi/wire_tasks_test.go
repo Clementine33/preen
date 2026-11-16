@@ -9,40 +9,47 @@ import (
 	"github.com/Clementine33/preen/backend/internal/works/refresh"
 )
 
-type wireTask struct{ kind, draft, settings, policy, summary, component, conclusion, options, result string }
+// draftRequest is the PUT draft request schema: conversion keeps the typed
+// draftDocumentRequest DTO, other tasks accept their own passthrough draft.
+type wireTask struct {
+	kind, draft, draftRequest, settings, policy, summary, component, conclusion, options, result string
+}
 
 func wireTasks() []wireTask {
 	return []wireTask{
 		{
-			kind:       "conversion",
-			draft:      "conversion_DraftDoc",
-			settings:   "conversion_CommonSettings",
-			policy:     "reconcile_Policy",
-			summary:    "reconcile_StepSummary",
-			component:  "reconcile_ComponentOutcome",
-			conclusion: "conversion_FrozenMemberConclusion",
-			options:    "conversion_ExecutionOptions",
+			kind:         "conversion",
+			draft:        "conversion_DraftDoc",
+			draftRequest: "draftDocumentRequest",
+			settings:     "conversion_CommonSettings",
+			policy:       "reconcile_Policy",
+			summary:      "reconcile_StepSummary",
+			component:    "reconcile_ComponentOutcome",
+			conclusion:   "conversion_FrozenMemberConclusion",
+			options:      "conversion_ExecutionOptions",
 		},
 		{
-			kind:       "rename",
-			draft:      "dirrename_Draft",
-			settings:   "dirrename_Common",
-			policy:     "dirrename_Common",
-			summary:    "workset_PlanSummary",
-			component:  "dirrename_Outcome",
-			conclusion: "dirrename_Outcome",
-			result:     "dirrename_Result",
+			kind:         "rename",
+			draft:        "dirrename_Draft",
+			draftRequest: "dirrename_Draft_request",
+			settings:     "dirrename_Common",
+			policy:       "dirrename_Common",
+			summary:      "workset_PlanSummary",
+			component:    "dirrename_Outcome",
+			conclusion:   "dirrename_Outcome",
+			result:       "dirrename_Result",
 		},
 		{
-			kind:       "metadata_refresh",
-			draft:      "refresh_Draft",
-			settings:   "refresh_Common",
-			policy:     "refresh_Common",
-			summary:    "refresh_PlanSummary",
-			component:  "refresh_Outcome",
-			conclusion: "refresh_Outcome",
-			options:    "refresh_Common",
-			result:     "refresh_WorkResult",
+			kind:         "metadata_refresh",
+			draft:        "refresh_Draft",
+			draftRequest: "refresh_Draft_request",
+			settings:     "refresh_Common",
+			policy:       "refresh_Common",
+			summary:      "refresh_PlanSummary",
+			component:    "refresh_Outcome",
+			conclusion:   "refresh_Outcome",
+			options:      "refresh_Common",
+			result:       "refresh_WorkResult",
 		},
 	}
 }

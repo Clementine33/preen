@@ -259,8 +259,10 @@ settings and plan policies. The canonical Go type schemas and current draft
 request schema remain independent; the request does not accept `classifier_tags`.
 
 The web client binds each JSON call to declared success statuses and each SSE
-subscription to declared event names. Task bindings select kind/version, and
-execution reads distinguish full, members and single-member schemas. AJV
+subscription to declared event names. Task bindings select kind/version through a generated
+`taskSchemas` table (kind, version, generic name, Task-specific schema; the draft
+request comes from `task_draft_requests` in `contracts.json`) and an unbound kind
+throws, and execution reads distinguish full, members and single-member schemas. AJV
 validators, compiled on demand from `docs/api/schema/*.json`, check request
 bodies, responses and event payloads in development and tests before client view
 conversion. Non-success HTTP responses use the error-envelope schemas.

@@ -1,4 +1,4 @@
-package e2e //nolint:testpackage // shares the backend-binary e2e harness
+package e2e_test
 
 import (
 	"context"

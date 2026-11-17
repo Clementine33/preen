@@ -4,12 +4,10 @@ import (
 	"encoding/json"
 	"net/http"
 	"testing"
-
-	"github.com/Clementine33/preen/backend/internal/adapters/httpapi"
 )
 
 func TestRevisionCategoryQueryHTTP(t *testing.T) {
-	get, wsID, _ := httpapi.MemberReviewHTTPFixture(t)
+	get, wsID, _ := memberReviewHTTPFixture(t)
 	base := "/api/v1/worksets/" + wsID + "/operations/conversion/revisions/member-plan"
 	for _, query := range []string{"?limit=5", "?category=x", "?category=x&limit=0", "?category=x&limit=-1",
 		"?category=x&limit=abc", "?category=&limit=5"} {

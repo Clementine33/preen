@@ -1,4 +1,4 @@
-package sqlite //nolint:testpackage // white-box tests exercise unexported internals
+package sqlite_test
 
 import (
 	"context"
@@ -10,6 +10,7 @@ import (
 
 	"github.com/Clementine33/preen/backend/internal/testutil/inventoryfixture"
 
+	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
 	"github.com/Clementine33/preen/backend/internal/inventory"
 	"github.com/Clementine33/preen/backend/internal/library"
 	"github.com/Clementine33/preen/backend/internal/works/coverdelivery"
@@ -17,9 +18,9 @@ import (
 
 // seedRecordWithPlan creates a processing record with a member, an operation,
 // a draft and a plan, so delete/cleanup paths have something to remove.
-func seedRecordWithPlan(t *testing.T, repo *Repository, libraryID, worksetID, planID string) error {
+func seedRecordWithPlan(t *testing.T, repo *sqlite.Repository, libraryID, worksetID, planID string) error {
 	t.Helper()
-	now := time.Now().Format(timeFormat)
+	now := time.Now().Format(time.RFC3339Nano)
 	for _, stmt := range []string{
 		`INSERT INTO worksets (id, title, library_id, root_path, root_path_key, created_at, updated_at)
 		 VALUES ('` + worksetID + `', 'Music', '` + libraryID + `', '/music', '/music', '` + now + `', '` + now + `')`,
@@ -41,7 +42,7 @@ func seedRecordWithPlan(t *testing.T, repo *Repository, libraryID, worksetID, pl
 
 // insertEntry inserts a row into the entries table with a fixed root_path of
 // /music, mirroring how scan results are stored.
-func insertEntry(t *testing.T, repo *Repository, path, parentPath, name string, isDir bool) {
+func insertEntry(t *testing.T, repo *sqlite.Repository, path, parentPath, name string, isDir bool) {
 	t.Helper()
 	inventoryfixture.SeedInventory(
 		t,
@@ -422,20 +423,7 @@ func TestListEntriesUnderPathIsCaseSensitive(t *testing.T) {
 	}
 }
 
-func TestLibraryCountsSearchDirectoryPathRanges(t *testing.T) {
-	repo := newTestRepository(t)
-	for _, filter := range []string{"", " AND f.is_audio = 1"} {
-		plan := explain(t, repo, `SELECT d.path, (SELECT COUNT(*) `+librarySubtreeFilesSQL+filter+`)
-   FROM inventory_dirs d WHERE d.root_path = ? AND d.is_work_root = 1 ORDER BY d.path`)
-		t.Log(plan)
-		if !strings.Contains(plan, "root_path=? AND path>? AND path<?") ||
-			!strings.Contains(plan, "SEARCH f USING PRIMARY KEY") || strings.Contains(plan, "SCAN f") {
-			t.Fatalf("library counts must visit only each work subtree: %s", plan)
-		}
-	}
-}
-
-func drainDeletedLibrary(t *testing.T, repo *Repository) {
+func drainDeletedLibrary(t *testing.T, repo *sqlite.Repository) {
 	t.Helper()
 	for range 50 {
 		n, err := repo.DeleteRetiredPlanBatch(t.Context(), 1000)

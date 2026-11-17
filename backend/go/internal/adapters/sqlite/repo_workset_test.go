@@ -1,4 +1,4 @@
-package sqlite //nolint:testpackage // white-box tests exercise unexported internals
+package sqlite_test
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
 	"github.com/Clementine33/preen/backend/internal/works/coverdelivery"
 	"github.com/Clementine33/preen/backend/internal/workset"
 )
@@ -66,11 +67,11 @@ func newOperationFixture(
 
 // insertLibrary creates one library whose root is unique per id, so a test can
 // hold several libraries side by side.
-func insertLibrary(t *testing.T, repo *Repository, id string) {
+func insertLibrary(t *testing.T, repo *sqlite.Repository, id string) {
 	t.Helper()
-	now := time.Now().Format(timeFormat)
+	now := time.Now().Format(time.RFC3339Nano)
 	root := "/music-" + id
-	_, err := repo.db.Exec(`
+	_, err := repo.DB().Exec(`
 		INSERT INTO libraries (id, name, root_path, root_path_key, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?)
 	`, id, "lib-"+id, root, root, now, now)
@@ -190,18 +191,18 @@ func TestReplaceCurrentWorksetCleansUpChildren(t *testing.T) {
 		t.Fatalf("ReplaceCurrentWorkset: %v", err)
 	}
 	seedGeneration(t, repo, "gen-old", replaced.ID)
-	now := time.Now().Format(timeFormat)
+	now := time.Now().Format(time.RFC3339Nano)
 	// A record with a live session is refused, so the seeded session is terminal.
-	if _, err := repo.db.Exec(
+	if _, err := repo.DB().Exec(
 		"UPDATE plan_generations SET status = 'completed' WHERE generation_id = 'gen-old'",
 	); err != nil {
 		t.Fatalf("complete seeded generation: %v", err)
 	}
-	if _, err := repo.db.Exec(`INSERT INTO plans(plan_id,root_path,snapshot_token,workset_id)
+	if _, err := repo.DB().Exec(`INSERT INTO plans(plan_id,root_path,snapshot_token,workset_id)
 		VALUES('plan-old','/music','snap',?)`, replaced.ID); err != nil {
 		t.Fatalf("seed plan: %v", err)
 	}
-	if _, err := repo.db.Exec(`
+	if _, err := repo.DB().Exec(`
 		INSERT INTO plan_executions
 			(execution_id, workset_id, operation_type, plan_id, status, created_at, updated_at)
 		VALUES ('exec-old', ?, 'conversion', 'plan-old', 'succeeded', ?, ?)
@@ -238,7 +239,7 @@ func TestReplaceCurrentWorksetCleansUpChildren(t *testing.T) {
 		"plan_executions",
 	} {
 		var count int
-		if err := repo.db.QueryRow("SELECT COUNT(*) FROM "+table+" WHERE workset_id = ?", replaced.ID).
+		if err := repo.DB().QueryRow("SELECT COUNT(*) FROM "+table+" WHERE workset_id = ?", replaced.ID).
 			Scan(&count); err != nil {
 			t.Fatalf("count %s: %v", table, err)
 		}
@@ -592,7 +593,7 @@ func TestPersistOperationRevisionRetiresTheReplacedExecution(t *testing.T) {
 		t.Fatalf("CreateExecutionGuarded: %v", err)
 	}
 	var planWorkset, executionWorkset string
-	if err := repo.db.QueryRow(`SELECT p.workset_id,e.workset_id FROM plan_executions e
+	if err := repo.DB().QueryRow(`SELECT p.workset_id,e.workset_id FROM plan_executions e
 		JOIN plans p ON p.plan_id=e.plan_id WHERE e.execution_id='exec-r1'`).
 		Scan(&planWorkset, &executionWorkset); err != nil || planWorkset != w.ID || executionWorkset != w.ID {
 		t.Fatalf("execution ownership: plan=%q execution=%q err=%v", planWorkset, executionWorkset, err)
@@ -608,7 +609,7 @@ func TestPersistOperationRevisionRetiresTheReplacedExecution(t *testing.T) {
 		t.Fatalf("fail generation: %v", err)
 	}
 	var covers int
-	if err := repo.db.QueryRow(`SELECT COUNT(*) FROM cover_deliveries WHERE execution_id='exec-r1'`).
+	if err := repo.DB().QueryRow(`SELECT COUNT(*) FROM cover_deliveries WHERE execution_id='exec-r1'`).
 		Scan(&covers); err != nil || covers != 1 {
 		t.Fatalf("failed planning lost cover demand: %d %v", covers, err)
 	}
@@ -631,7 +632,8 @@ func TestPersistOperationRevisionRetiresTheReplacedExecution(t *testing.T) {
 	if _, err := repo.GetExecution("exec-r1"); !errors.Is(err, workset.ErrExecutionNotFound) {
 		t.Fatalf("the replaced plan's execution must be gone, got %v", err)
 	}
-	if err := repo.db.QueryRow(`SELECT COUNT(*) FROM cover_deliveries WHERE execution_id='exec-r1' AND status='canceled'`).
+	if err := repo.DB().
+		QueryRow(`SELECT COUNT(*) FROM cover_deliveries WHERE execution_id='exec-r1' AND status='canceled'`).
 		Scan(&covers); err != nil ||
 		covers != 1 {
 		t.Fatalf("retired execution demand was not canceled: %d %v", covers, err)

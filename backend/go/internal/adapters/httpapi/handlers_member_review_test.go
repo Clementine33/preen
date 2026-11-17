@@ -5,12 +5,11 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/Clementine33/preen/backend/internal/adapters/httpapi"
 	"github.com/Clementine33/preen/backend/internal/workset"
 )
 
 func TestMemberReviewHTTP(t *testing.T) {
-	get, wsID, memberID := httpapi.MemberReviewHTTPFixture(t)
+	get, wsID, memberID := memberReviewHTTPFixture(t)
 	base := "/api/v1/worksets/" + wsID + "/operations/conversion/revisions/"
 	response := get(base + "member-plan/members/" + memberID)
 	if response.Code != http.StatusOK {

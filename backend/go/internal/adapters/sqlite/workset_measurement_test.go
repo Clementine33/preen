@@ -1,5 +1,4 @@
-//nolint:testpackage // The opt-in harness instruments the repository's private connection pools.
-package sqlite
+package sqlite_test
 
 import (
 	"encoding/json"
@@ -13,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
 	"github.com/Clementine33/preen/backend/internal/conversion"
 	"github.com/Clementine33/preen/backend/internal/librarypath"
 	"github.com/Clementine33/preen/backend/internal/works/coverdelivery"
@@ -135,7 +135,7 @@ func worksetMeasurementInt(t *testing.T, key string, fallback int) int {
 }
 
 type worksetMeasurement struct {
-	repo            *Repository
+	repo            *sqlite.Repository
 	svc             workset.Service
 	covers          *coverdelivery.Service
 	sql             *worksetSQLMeasurement

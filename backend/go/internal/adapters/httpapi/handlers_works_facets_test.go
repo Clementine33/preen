@@ -1,4 +1,4 @@
-package httpapi //nolint:testpackage // white-box tests drive the routes through the real router
+package httpapi_test
 
 import (
 	"encoding/json"
@@ -6,6 +6,8 @@ import (
 	"net/http/httptest"
 	"slices"
 	"testing"
+
+	"github.com/Clementine33/preen/backend/internal/adapters/httpapi"
 
 	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
 	"github.com/Clementine33/preen/backend/internal/works"
@@ -25,7 +27,7 @@ func execAll(t *testing.T, fixture *sqlite.Repository, statements ...string) {
 // boundaries in both directions. Several unrated works put a page boundary
 // inside the unknown block, where the work number alone orders the rows.
 func TestRatingOrderPutsUnratedWorksLast(t *testing.T) {
-	engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) {
+	engine := newTestServer(t, func(d *httpapi.Dependencies, fixture *sqlite.Repository) {
 		wireWorks(d, fixture)
 		for _, id := range []string{"RJ00000001", "RJ00000002", "RJ00000003", "RJ00000004", "RJ00000005"} {
 			seedHTTPWork(t, fixture, id, "titled")
@@ -53,7 +55,7 @@ func TestRatingOrderPutsUnratedWorksLast(t *testing.T) {
 // exactly the entities listed works carry, with their counts, and the listing's
 // filters - the library among them - narrow both the entities and the counts.
 func TestFacetListsFeedTheListingFilters(t *testing.T) {
-	engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) {
+	engine := newTestServer(t, func(d *httpapi.Dependencies, fixture *sqlite.Repository) {
 		wireWorks(d, fixture)
 		for _, id := range []string{"RJ00000001", "RJ00000002", "RJ00000003"} {
 			seedHTTPWork(t, fixture, id, "titled")
@@ -150,7 +152,7 @@ func TestFacetListsFeedTheListingFilters(t *testing.T) {
 // one picked tag (any of its ids, either vocabulary) while tag_match combines
 // the groups.
 func TestTagIndexCombinesBothVocabularies(t *testing.T) {
-	engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) {
+	engine := newTestServer(t, func(d *httpapi.Dependencies, fixture *sqlite.Repository) {
 		wireWorks(d, fixture)
 		for _, id := range []string{"RJ00000001", "RJ00000002", "RJ00000003", "RJ00000004"} {
 			seedHTTPWork(t, fixture, id, "titled")

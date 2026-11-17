@@ -1,9 +1,11 @@
-package httpapi //nolint:testpackage // exercises HTTP responses using the shared server fixtures and wire DTOs
+package httpapi_test
 
 import (
 	"encoding/json"
 	"net/http"
 	"testing"
+
+	"github.com/Clementine33/preen/backend/internal/adapters/httpapi"
 
 	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
 	"github.com/Clementine33/preen/backend/internal/inventory"
@@ -12,7 +14,7 @@ import (
 
 func TestWorkDetailExternalBridgeDeletionAndRescan(t *testing.T) {
 	var repo *sqlite.Repository
-	handler := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) {
+	handler := newTestServer(t, func(d *httpapi.Dependencies, fixture *sqlite.Repository) {
 		repo = fixture
 		wireWorks(d, fixture)
 		seedHTTPWork(t, repo, "RJ00000001", "translation")
@@ -73,7 +75,7 @@ func TestWorkDetailExternalBridgeDeletionAndRescan(t *testing.T) {
 }
 
 func TestWorkDetailReportsRejectedClaimsWithoutDrawingThem(t *testing.T) {
-	handler := newTestServer(t, func(d *Dependencies, repo *sqlite.Repository) {
+	handler := newTestServer(t, func(d *httpapi.Dependencies, repo *sqlite.Repository) {
 		wireWorks(d, repo)
 		seedHTTPWork(t, repo, "RJ00000001", "page")
 		catalog := works.NewService(repo, nil, nil, nil, "")
@@ -95,9 +97,9 @@ func TestWorkDetailReportsRejectedClaimsWithoutDrawingThem(t *testing.T) {
 		t.Fatal(response.Body.String())
 	}
 	var detail struct {
-		Tree     []editionSlotResponse   `json:"edition_tree"`
+		Tree     []editionSlotBody       `json:"edition_tree"`
 		Warnings []works.RelationWarning `json:"relation_warnings"`
-		Nodes    []treeNodeResponse      `json:"relation_nodes"`
+		Nodes    []treeNodeBody          `json:"relation_nodes"`
 	}
 	if err := json.Unmarshal(response.Body.Bytes(), &detail); err != nil {
 		t.Fatal(err)
@@ -118,9 +120,9 @@ func assertBridgePage(t *testing.T, handler http.Handler, collected, held bool) 
 		t.Fatal(response.Body.String())
 	}
 	var detail struct {
-		Relation relationResponse        `json:"relation"`
-		Nodes    []treeNodeResponse      `json:"relation_nodes"`
-		Tree     []editionSlotResponse   `json:"edition_tree"`
+		Relation relationBody            `json:"relation"`
+		Nodes    []treeNodeBody          `json:"relation_nodes"`
+		Tree     []editionSlotBody       `json:"edition_tree"`
 		Warnings []works.RelationWarning `json:"relation_warnings"`
 	}
 	if err := json.Unmarshal(response.Body.Bytes(), &detail); err != nil {

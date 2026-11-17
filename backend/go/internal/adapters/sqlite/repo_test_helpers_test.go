@@ -1,15 +1,36 @@
-package sqlite //nolint:testpackage // white-box tests exercise unexported internals
+package sqlite_test
 
 import (
-	"context"
-	"database/sql"
 	"os"
+	"strings"
 	"testing"
 
+	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
 	"github.com/Clementine33/preen/backend/internal/inventory"
 )
 
-func newTestRepository(t *testing.T) *Repository {
+// defaultBatchSize mirrors the production staging and merge batch size, so tests
+// can build inputs that cross exactly one batch boundary.
+const defaultBatchSize = 1000
+
+// splitTestPath and joinTestPath build the parent/name columns of staged rows
+// for the POSIX-style paths these tests use.
+func splitTestPath(p string) (dir, name string) {
+	i := strings.LastIndex(p, "/")
+	if i < 0 {
+		return ".", p
+	}
+	if i == 0 {
+		return "/", p[1:]
+	}
+	return p[:i], p[i+1:]
+}
+
+func joinTestPath(dir, name string) string {
+	return strings.TrimSuffix(dir, "/") + "/" + name
+}
+
+func newTestRepository(t *testing.T) *sqlite.Repository {
 	t.Helper()
 
 	tmpFile, err := os.CreateTemp(t.TempDir(), "onsei-test-*.db")
@@ -19,7 +40,7 @@ func newTestRepository(t *testing.T) *Repository {
 	t.Cleanup(func() { _ = os.Remove(tmpFile.Name()) })
 	tmpFile.Close()
 
-	repo, err := NewRepository(tmpFile.Name())
+	repo, err := sqlite.NewRepository(tmpFile.Name())
 	if err != nil {
 		t.Fatalf("failed to create repo: %v", err)
 	}
@@ -29,23 +50,12 @@ func newTestRepository(t *testing.T) *Repository {
 }
 
 // stageTestRows builds observations through the same public staging seam as scans.
-func stageTestRows(repo *Repository, rows ...inventory.StagingEntry) error {
+func stageTestRows(repo *sqlite.Repository, rows ...inventory.StagingEntry) error {
 	for _, row := range rows {
-		if err := NewScanStaging(repo).WriteStagingEntries(row.SessionID, []inventory.StagingEntry{row}); err != nil {
+		if err := sqlite.NewScanStaging(repo).
+			WriteStagingEntries(row.SessionID, []inventory.StagingEntry{row}); err != nil {
 			return err
 		}
 	}
 	return nil
-}
-
-// stagingTestRow inspects the existing storage seam for atomicity regressions.
-// Finished sessions have no handle, so their staging count is zero.
-func stagingTestRow(repo *Repository, id, query string, args ...any) *sql.Row {
-	repo.stagingMu.Lock()
-	session := repo.staging[id]
-	repo.stagingMu.Unlock()
-	if session == nil {
-		return repo.DB().QueryRow("SELECT 0")
-	}
-	return session.conn.QueryRowContext(context.Background(), query, args...)
 }

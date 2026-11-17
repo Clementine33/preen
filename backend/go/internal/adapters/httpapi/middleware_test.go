@@ -1,109 +1,85 @@
-package httpapi //nolint:testpackage // white-box tests exercise unexported internals
+package httpapi_test
 
 import (
 	"net/http"
-	"net/http/httptest"
 	"testing"
+
+	"github.com/Clementine33/preen/backend/internal/adapters/httpapi"
+	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
 )
 
-func TestAuthMiddlewareDirect(t *testing.T) {
-	ok := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	})
-	run := func(h http.Handler, auth string) int {
-		r := httptest.NewRequest(http.MethodGet, "/", nil)
-		if auth != "" {
-			r.Header.Set("Authorization", auth)
-		}
-		w := httptest.NewRecorder()
-		h.ServeHTTP(w, r)
-		return w.Code
-	}
+const (
+	headerRoute = "/api/v1/libraries"
+	mediaRoute  = "/api/v1/works/RJ00000001/content/copy/file.mp3"
+)
 
-	t.Run("empty configured token disables auth", func(t *testing.T) {
-		if got := run(authMiddleware("")(ok), ""); got != http.StatusOK {
-			t.Fatalf("status = %d, want 200 with empty token config", got)
-		}
-	})
-
-	h := authMiddleware("secret")(ok)
-	cases := []struct {
-		name string
-		auth string
-		want int
-	}{
-		{name: "correct token", auth: "Bearer secret", want: http.StatusOK},
-		{name: "incorrect token", auth: "Bearer wrong", want: http.StatusUnauthorized},
-		{name: "missing header", auth: "", want: http.StatusUnauthorized},
-		{name: "partial token", auth: "Bearer secre", want: http.StatusUnauthorized},
-		{name: "non-bearer scheme", auth: "Basic c2VjcmV0", want: http.StatusUnauthorized},
-		{name: "case-sensitive scheme", auth: "bearer secret", want: http.StatusUnauthorized},
+// authHeader is an Authorization value; the zero value sends no header.
+func authHeader(value string) map[string]string {
+	if value == "" {
+		return nil
 	}
-	for _, tc := range cases {
+	return map[string]string{"Authorization": value}
+}
+
+func tokenServer(t *testing.T) http.Handler {
+	t.Helper()
+	return newTestServer(t, func(d *httpapi.Dependencies, _ *sqlite.Repository) { d.Token = "secret" })
+}
+
+// Accepting the right token, an absent header and the disabled-auth mode are
+// asserted by TestAuthMiddleware; this lists the rejected near-misses.
+func TestAuthMiddlewareViaServer(t *testing.T) {
+	h := tokenServer(t)
+	for _, tc := range []struct{ name, auth string }{
+		{"incorrect token", "Bearer wrong"},
+		{"partial token", "Bearer secre"},
+		{"non-bearer scheme", "Basic c2VjcmV0"},
+		{"case-sensitive scheme", "bearer secret"},
+	} {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := run(h, tc.auth); got != tc.want {
-				t.Fatalf("status = %d, want %d (auth=%q)", got, tc.want, tc.auth)
+			w := doRequest(t, h, http.MethodGet, headerRoute, nil, authHeader(tc.auth))
+			if w.Code != http.StatusUnauthorized {
+				t.Fatalf("status = %d, want 401 (auth=%q)", w.Code, tc.auth)
 			}
 		})
 	}
 }
 
 func TestMediaAuthTakesTheTokenFromTheAddress(t *testing.T) {
-	ok := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	})
-	run := func(h http.Handler, target, auth string) int {
-		r := httptest.NewRequest(http.MethodGet, target, nil)
-		if auth != "" {
-			r.Header.Set("Authorization", auth)
-		}
-		w := httptest.NewRecorder()
-		h.ServeHTTP(w, r)
-		return w.Code
-	}
-	media := mediaAuthMiddleware("secret")(ok)
+	h := tokenServer(t)
+	// The media routes answer an unknown work with 404 once authorized, so the
+	// credential decision is whether the response is a 401.
 	cases := []struct {
 		name, target, auth string
-		want               int
+		authorized         bool
 	}{
-		{"query token", "/?access_token=secret", "", http.StatusOK},
-		{"header token", "/", "Bearer secret", http.StatusOK},
-		{"wrong query token", "/?access_token=wrong", "", http.StatusUnauthorized},
-		{"no token", "/", "", http.StatusUnauthorized},
+		{"header token", mediaRoute, "Bearer secret", true},
+		{"wrong query token", mediaRoute + "?access_token=wrong", "", false},
+		{"no token", mediaRoute, "", false},
 		// A header that is present decides; the query cannot rescue it.
-		{"wrong header beats right query", "/?access_token=secret", "Bearer wrong", http.StatusUnauthorized},
-		{"malformed header beats right query", "/?access_token=secret", "Basic secret", http.StatusUnauthorized},
-		{"empty bearer beats right query", "/?access_token=secret", "Bearer ", http.StatusUnauthorized},
+		{"wrong header beats right query", mediaRoute + "?access_token=secret", "Bearer wrong", false},
+		{"malformed header beats right query", mediaRoute + "?access_token=secret", "Basic secret", false},
+		{"empty bearer beats right query", mediaRoute + "?access_token=secret", "Bearer ", false},
 	}
 	for _, tc := range cases {
-		if got := run(media, tc.target, tc.auth); got != tc.want {
-			t.Errorf("%s: status = %d, want %d", tc.name, got, tc.want)
+		w := doRequest(t, h, http.MethodGet, tc.target, nil, authHeader(tc.auth))
+		if (w.Code != http.StatusUnauthorized) != tc.authorized {
+			t.Errorf("%s: status = %d, authorized want %v", tc.name, w.Code, tc.authorized)
 		}
 	}
-	// The ordinary routes never read the address.
-	if got := run(authMiddleware("secret")(ok), "/?access_token=secret", ""); got != http.StatusUnauthorized {
-		t.Errorf("header-only route accepted a query token: %d", got)
-	}
-	r := httptest.NewRequest(http.MethodGet, "/?access_token=secret", nil)
-	r.Header.Set("Authorization", "")
-	w := httptest.NewRecorder()
-	media.ServeHTTP(w, r)
+	// An explicitly empty Authorization header still counts as present.
+	w := doRequest(t, h, http.MethodGet, mediaRoute+"?access_token=secret", nil, map[string]string{"Authorization": ""})
 	if w.Code != http.StatusUnauthorized {
 		t.Errorf("an explicitly empty authorization header accepted a query token: %d", w.Code)
 	}
 }
 
 func TestCORSExposesResponseHeadersOnlyToAllowedOrigins(t *testing.T) {
-	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Retry-After", "3")
-		w.WriteHeader(http.StatusServiceUnavailable)
+	h := newTestServer(t, func(d *httpapi.Dependencies, _ *sqlite.Repository) {
+		d.CORSOrigins = []string{"http://localhost:5173"}
 	})
-	h := corsMiddleware([]string{"http://localhost:5173"})(handler)
 	for _, origin := range []string{"http://localhost:5173", "http://untrusted.example"} {
-		r := httptest.NewRequest(http.MethodGet, "/", nil)
-		r.Header.Set("Origin", origin)
-		w := httptest.NewRecorder()
-		h.ServeHTTP(w, r)
+		w := doRequest(t, h, http.MethodGet, "/api/v1/health", nil, map[string]string{"Origin": origin})
 		want := ""
 		if origin == "http://localhost:5173" {
 			want = "ETag, Retry-After"

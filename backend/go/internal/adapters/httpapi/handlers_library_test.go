@@ -1,4 +1,4 @@
-package httpapi //nolint:testpackage // white-box tests exercise unexported internals
+package httpapi_test
 
 import (
 	"encoding/json"
@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/Clementine33/preen/backend/internal/adapters/httpapi"
 
 	"github.com/Clementine33/preen/backend/internal/adapters/filesystem"
 	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
@@ -25,7 +27,7 @@ func TestLibrariesCRUD(t *testing.T) {
 		if w.Code != http.StatusCreated {
 			t.Fatalf("status = %d, want 201 (body=%s)", w.Code, w.Body.String())
 		}
-		var lib libraryResponse
+		var lib libraryBody
 		if err := json.Unmarshal(w.Body.Bytes(), &lib); err != nil {
 			t.Fatalf("decode library: %v (body=%s)", err, w.Body.String())
 		}
@@ -59,7 +61,7 @@ func TestLibrariesCRUD(t *testing.T) {
 			t.Fatalf("status = %d, want 200 (body=%s)", w.Code, w.Body.String())
 		}
 		var out struct {
-			Libraries []libraryResponse `json:"libraries"`
+			Libraries []libraryBody `json:"libraries"`
 		}
 		if err := json.Unmarshal(w.Body.Bytes(), &out); err != nil {
 			t.Fatalf("decode list: %v (body=%s)", err, w.Body.String())
@@ -77,7 +79,7 @@ func TestLibrariesCRUD(t *testing.T) {
 		if w.Code != http.StatusOK {
 			t.Fatalf("status = %d, want 200 (body=%s)", w.Code, w.Body.String())
 		}
-		var lib libraryResponse
+		var lib libraryBody
 		if err := json.Unmarshal(w.Body.Bytes(), &lib); err != nil {
 			t.Fatalf("decode library: %v", err)
 		}
@@ -92,7 +94,7 @@ func TestLibrariesCRUD(t *testing.T) {
 		if w.Code != http.StatusOK {
 			t.Fatalf("status = %d, want 200 (body=%s)", w.Code, w.Body.String())
 		}
-		var lib libraryResponse
+		var lib libraryBody
 		if err := json.Unmarshal(w.Body.Bytes(), &lib); err != nil {
 			t.Fatalf("decode library: %v", err)
 		}
@@ -143,7 +145,7 @@ func TestLibraryOverlapHTTPRefusals(t *testing.T) {
 // TestLibraryRootIsCheckedAtCreation: a root must exist as a directory (400
 // LIBRARY_ROOT_INVALID), and it is fixed afterwards: PATCH has no root_path.
 func TestLibraryRootIsCheckedAtCreation(t *testing.T) {
-	engine := newTestServer(t, func(d *Dependencies, _ *sqlite.Repository) {
+	engine := newTestServer(t, func(d *httpapi.Dependencies, _ *sqlite.Repository) {
 		d.RootCheck = filesystem.CheckLibraryRoot
 	})
 	missing := filepath.Join(t.TempDir(), "gone")
@@ -167,7 +169,7 @@ func TestLibraryRootIsCheckedAtCreation(t *testing.T) {
 	if w.Code != http.StatusCreated {
 		t.Fatalf("create existing dir: status = %d (body=%s)", w.Code, w.Body.String())
 	}
-	var lib libraryResponse
+	var lib libraryBody
 	if err := json.Unmarshal(w.Body.Bytes(), &lib); err != nil {
 		t.Fatal(err)
 	}

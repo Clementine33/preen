@@ -1,4 +1,4 @@
-package sqlite //nolint:testpackage // Lock behavior uses the existing staging execution injection seam.
+package sqlite_test
 
 import (
 	"context"
@@ -12,29 +12,36 @@ import (
 
 	modernc "modernc.org/sqlite"
 
+	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
 	"github.com/Clementine33/preen/backend/internal/inventory"
 )
+
+func databasePath(t *testing.T, repo *sqlite.Repository) string {
+	t.Helper()
+	var seq int
+	var name, path string
+	if err := repo.DB().QueryRow("PRAGMA database_list").Scan(&seq, &name, &path); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
 
 // Staging must leave the main writer free even while its batch transaction is open.
 func TestStagingBatchDoesNotLockMainDatabase(t *testing.T) {
 	suite := setupTestDB(t)
-	var seq int
-	var name, path string
-	if err := suite.repo.DB().QueryRow("PRAGMA database_list").Scan(&seq, &name, &path); err != nil {
-		t.Fatal(err)
-	}
+	path := databasePath(t, suite.repo)
 	other, err := sql.Open("sqlite", path+"?_pragma=busy_timeout(0)")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer other.Close()
-	suite.adapter.testExecSeam = func(_ int) error {
+	sqlite.SetScanStagingExecSeam(suite.adapter, func(_ int) error {
 		_, err := other.ExecContext(
 			context.Background(),
 			"INSERT INTO schema_meta(key,value) VALUES('staging-writer','ok') ON CONFLICT(key) DO UPDATE SET value=excluded.value",
 		)
 		return err
-	}
+	})
 	if err := suite.adapter.WriteStagingEntries(
 		"lock",
 		[]inventory.StagingEntry{{Path: "/music/file", RootPath: "/music", ParentPath: "/music", Name: "file"}},
@@ -85,7 +92,7 @@ func TestMainDatabaseWriterWaitsForScanMerge(t *testing.T) {
 	case err := <-merged:
 		t.Fatalf("merge ended before lock probe: %v", err)
 	}
-	other, err := sql.Open("sqlite", suite.repo.dbPath+"?_pragma=busy_timeout(2000)")
+	other, err := sql.Open("sqlite", databasePath(t, suite.repo)+"?_pragma=busy_timeout(2000)")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -1,4 +1,4 @@
-package e2e //nolint:testpackage // shares the backend-binary HTTP harness
+package e2e_test
 
 import (
 	"bytes"

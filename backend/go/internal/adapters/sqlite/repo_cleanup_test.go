@@ -1,4 +1,4 @@
-package sqlite //nolint:testpackage // SQLite fault injection proves atomic deletion and summary commits.
+package sqlite_test
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 
 	"github.com/Clementine33/preen/backend/internal/testutil/inventoryfixture"
 
+	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
 	"github.com/Clementine33/preen/backend/internal/cleanup"
 	"github.com/Clementine33/preen/backend/internal/inventory"
 )
@@ -53,7 +54,7 @@ func TestCleanupBatchCommitsDeletionAndCountTogether(t *testing.T) {
 	); batchErr != nil {
 		t.Fatal(batchErr)
 	}
-	if _, triggerErr := repo.db.Exec(
+	if _, triggerErr := repo.DB().Exec(
 		"CREATE TRIGGER reject_progress BEFORE UPDATE ON cleanup_run BEGIN SELECT RAISE(ABORT,'injected'); END",
 	); triggerErr != nil {
 		t.Fatal(triggerErr)
@@ -202,7 +203,7 @@ func TestGenerationRecordCleanupKeepsRecordsWithAnEntry(t *testing.T) {
 	record := `INSERT INTO generation_records(path,codec,encoder,encoder_version,bitrate_kbps,mode,size,mtime,content_sha256,created_at)
  VALUES (?,'aac','enc','1',256,'cbr',1,1,'sum','2026-10-01T00:00:00Z')`
 	for _, path := range []string{"/music/kept.m4a", "/music/moved.m4a", "/music/back.m4a"} {
-		if _, err := repo.db.Exec(record, path); err != nil {
+		if _, err := repo.DB().Exec(record, path); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -231,7 +232,7 @@ func TestGenerationRecordCleanupKeepsRecordsWithAnEntry(t *testing.T) {
 	}
 
 	// Automatic maintenance removes an orphan the same way.
-	if err = NewScanStaging(
+	if err = sqlite.NewScanStaging(
 		repo,
 	).WriteStagingEntries("remove-back", []inventory.StagingEntry{{SessionID: "remove-back", Path: "/music/kept.m4a", RootPath: "/music", ParentPath: "/music", Name: "kept.m4a"}}); err != nil {
 		t.Fatal(err)

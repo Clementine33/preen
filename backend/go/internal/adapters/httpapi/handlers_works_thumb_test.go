@@ -1,10 +1,12 @@
-package httpapi //nolint:testpackage // white-box tests drive the routes through the real router
+package httpapi_test
 
 import (
 	"errors"
 	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/Clementine33/preen/backend/internal/adapters/httpapi"
 
 	"github.com/Clementine33/preen/backend/internal/adapters/media"
 	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
@@ -35,7 +37,7 @@ func TestWorkThumbErrorsNeverCacheTheSuccessfulVersion(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			var version string
-			engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) {
+			engine := newTestServer(t, func(d *httpapi.Dependencies, fixture *sqlite.Repository) {
 				wireWorks(d, fixture)
 				seedWorkFiles(t, fixture)
 				d.Thumbs = thumbnail.New(failedThumbEngine{tc.err}, t.TempDir(), 1<<20, 1, 1)
@@ -58,7 +60,7 @@ func TestWorkThumbErrorsNeverCacheTheSuccessfulVersion(t *testing.T) {
 }
 
 func TestWorkThumbIsImmutableOnlyAtItsVersion(t *testing.T) {
-	engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) {
+	engine := newTestServer(t, func(d *httpapi.Dependencies, fixture *sqlite.Repository) {
 		wireWorks(d, fixture)
 		d.Thumbs = thumbnail.New(media.ThumbEngine{}, t.TempDir(), 1<<20, 1, 1)
 		seedWorkFiles(t, fixture)

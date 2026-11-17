@@ -1,11 +1,12 @@
-//nolint:testpackage // reuses real HTTP repository fixtures for contract coverage
-package httpapi
+package httpapi_test
 
 import (
 	"context"
 	"encoding/json"
 	"net/http"
 	"testing"
+
+	"github.com/Clementine33/preen/backend/internal/adapters/httpapi"
 
 	"github.com/Clementine33/preen/backend/internal/adapters/filesystem"
 	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
@@ -14,12 +15,12 @@ import (
 )
 
 func TestWireCatalogAndWorksetListings(t *testing.T) {
-	server := newTestServer(t, func(d *Dependencies, repo *sqlite.Repository) { wireWorks(d, repo) })
+	server := newTestServer(t, func(d *httpapi.Dependencies, repo *sqlite.Repository) { wireWorks(d, repo) })
 	if w := doRequest(t, server, http.MethodGet, "/api/v1/user-tags", nil, nil); w.Code != 200 {
 		t.Fatal(w.Body.String())
 	}
 	w := doRequest(t, server, http.MethodPost, "/api/v1/user-tags", map[string]string{"name": "before"}, nil)
-	var tag userTagResponse
+	var tag userTagBody
 	if err := json.Unmarshal(w.Body.Bytes(), &tag); err != nil {
 		t.Fatal(err)
 	}
@@ -52,7 +53,10 @@ func (replayWireService) StartGeneration(
 	}, nil
 }
 func TestWireGenerationRevisionReplay(t *testing.T) {
-	server := newTestServer(t, func(d *Dependencies, _ *sqlite.Repository) { d.WorksetService = replayWireService{} })
+	server := newTestServer(
+		t,
+		func(d *httpapi.Dependencies, _ *sqlite.Repository) { d.WorksetService = replayWireService{} },
+	)
 	w := doRequest(
 		t,
 		server,
@@ -81,7 +85,7 @@ func (coverWireService) GetExecution(
 type unusedWireDownloader struct{ coverdelivery.Downloader }
 
 func TestWireCoverReports(t *testing.T) {
-	server := newTestServer(t, func(d *Dependencies, repo *sqlite.Repository) {
+	server := newTestServer(t, func(d *httpapi.Dependencies, repo *sqlite.Repository) {
 		var err error
 		d.Covers, err = coverdelivery.New(
 			coverdelivery.Dependencies{

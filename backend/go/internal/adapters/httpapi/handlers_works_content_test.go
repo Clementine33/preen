@@ -1,4 +1,4 @@
-package httpapi //nolint:testpackage // white-box tests drive the routes through the real router
+package httpapi_test
 
 import (
 	"encoding/json"
@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/Clementine33/preen/backend/internal/adapters/httpapi"
 
 	"github.com/Clementine33/preen/backend/internal/testutil/inventoryfixture"
 
@@ -91,7 +93,7 @@ func seedContentWork(t *testing.T, fixture *sqlite.Repository) string {
 
 func TestGetWorkContentAnswersTheBoundCopysTree(t *testing.T) {
 	var root string
-	engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) {
+	engine := newTestServer(t, func(d *httpapi.Dependencies, fixture *sqlite.Repository) {
 		wireWorks(d, fixture)
 		root = seedContentWork(t, fixture)
 	})
@@ -131,7 +133,7 @@ func TestGetWorkContentAnswersTheBoundCopysTree(t *testing.T) {
 }
 
 func TestGetWorkContentOfBoundlessAndUnknownWorks(t *testing.T) {
-	engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) {
+	engine := newTestServer(t, func(d *httpapi.Dependencies, fixture *sqlite.Repository) {
 		wireWorks(d, fixture)
 		seedHTTPWork(t, fixture, "RJ01000002", "関係だけ")
 	})

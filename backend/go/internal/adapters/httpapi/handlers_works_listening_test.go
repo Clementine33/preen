@@ -1,10 +1,12 @@
-package httpapi //nolint:testpackage // white-box tests drive the routes through the real router
+package httpapi_test
 
 import (
 	"encoding/json"
 	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/Clementine33/preen/backend/internal/adapters/httpapi"
 
 	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
 )
@@ -60,7 +62,7 @@ func detailListening(t *testing.T, engine http.Handler, rj string) []listeningRo
 }
 
 func TestListeningPutUpsertsAndGuardsBySeq(t *testing.T) {
-	engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) {
+	engine := newTestServer(t, func(d *httpapi.Dependencies, fixture *sqlite.Repository) {
 		wireWorks(d, fixture)
 		seedHTTPWork(t, fixture, "RJ00000001", "the work")
 	})
@@ -85,7 +87,7 @@ func TestListeningPutUpsertsAndGuardsBySeq(t *testing.T) {
 }
 
 func TestListeningFinishedClearsPositionAndSurvivesLaterPosition(t *testing.T) {
-	engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) {
+	engine := newTestServer(t, func(d *httpapi.Dependencies, fixture *sqlite.Repository) {
 		wireWorks(d, fixture)
 		seedHTTPWork(t, fixture, "RJ00000001", "the work")
 	})
@@ -105,7 +107,7 @@ func TestListeningFinishedClearsPositionAndSurvivesLaterPosition(t *testing.T) {
 }
 
 func TestListeningDeleteClearsEveryRendition(t *testing.T) {
-	engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) {
+	engine := newTestServer(t, func(d *httpapi.Dependencies, fixture *sqlite.Repository) {
 		wireWorks(d, fixture)
 		seedHTTPWork(t, fixture, "RJ00000001", "the work")
 	})
@@ -126,7 +128,7 @@ func TestListeningDeleteClearsEveryRendition(t *testing.T) {
 }
 
 func TestListeningRefusals(t *testing.T) {
-	engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) {
+	engine := newTestServer(t, func(d *httpapi.Dependencies, fixture *sqlite.Repository) {
 		wireWorks(d, fixture)
 		seedHTTPWork(t, fixture, "RJ00000001", "the work")
 	})
@@ -156,7 +158,7 @@ func TestListeningRefusals(t *testing.T) {
 }
 
 func TestListeningSummaryKeepsAnotherRenditionsPositionOnAFinishedWork(t *testing.T) {
-	engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) {
+	engine := newTestServer(t, func(d *httpapi.Dependencies, fixture *sqlite.Repository) {
 		wireWorks(d, fixture)
 		seedHTTPWork(t, fixture, "RJ00000001", "RJ00000001")
 	})
@@ -181,7 +183,7 @@ func TestListeningSummaryKeepsAnotherRenditionsPositionOnAFinishedWork(t *testin
 }
 
 func TestListeningSummaryFilterAndSort(t *testing.T) {
-	engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) {
+	engine := newTestServer(t, func(d *httpapi.Dependencies, fixture *sqlite.Repository) {
 		wireWorks(d, fixture)
 		for _, rj := range []string{"RJ00000001", "RJ00000002", "RJ00000003", "RJ00000004"} {
 			seedHTTPWork(t, fixture, rj, rj)

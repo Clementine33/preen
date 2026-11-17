@@ -1,4 +1,4 @@
-package e2e //nolint:testpackage // white-box tests exercise unexported internals
+package e2e_test
 
 import (
 	"context"

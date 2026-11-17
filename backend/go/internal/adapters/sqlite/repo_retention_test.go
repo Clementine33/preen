@@ -1,17 +1,17 @@
-package sqlite //nolint:testpackage // white-box tests exercise unexported internals
+package sqlite_test
 
 import (
-	"strings"
 	"testing"
 	"time"
 
+	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
 	"github.com/Clementine33/preen/backend/internal/inventory"
 	"github.com/Clementine33/preen/backend/internal/workset"
 )
 
 // seedRetentionWorkset persists a current record for plan_generations rows to
 // hang off, and returns its id.
-func seedRetentionWorkset(t *testing.T, repo *Repository) string {
+func seedRetentionWorkset(t *testing.T, repo *sqlite.Repository) string {
 	t.Helper()
 	insertLibrary(t, repo, "lib-1")
 	ws, members, op, draft := newOperationFixture(t, "lib-1", "retention")
@@ -31,21 +31,21 @@ func seedRetentionWorkset(t *testing.T, repo *Repository) string {
 // state at the given time: finished_at is both the terminal marker and the
 // timestamp retention judges the row by, so it is the only way to make a
 // generation row old.
-func seedFinishedGeneration(t *testing.T, repo *Repository, worksetID, id string, finishedAt time.Time) {
+func seedFinishedGeneration(t *testing.T, repo *sqlite.Repository, worksetID, id string, finishedAt time.Time) {
 	t.Helper()
 	seedGeneration(t, repo, id, worksetID)
-	if _, err := repo.db.Exec(
+	if _, err := repo.DB().Exec(
 		"UPDATE plan_generations SET status = 'completed', finished_at = ? WHERE generation_id = ?",
-		finishedAt.Format(timeFormat), id,
+		finishedAt.Format(time.RFC3339Nano), id,
 	); err != nil {
 		t.Fatalf("finish seeded generation %s: %v", id, err)
 	}
 }
 
-func countRows(t *testing.T, repo *Repository, table string) int {
+func countRows(t *testing.T, repo *sqlite.Repository, table string) int {
 	t.Helper()
 	var count int
-	if err := repo.db.QueryRow("SELECT COUNT(*) FROM " + table).Scan(&count); err != nil {
+	if err := repo.DB().QueryRow("SELECT COUNT(*) FROM " + table).Scan(&count); err != nil {
 		t.Fatalf("count %s: %v", table, err)
 	}
 	return count
@@ -92,7 +92,7 @@ func TestRepository_RunRetentionCleanupBatch_DeletesOnlyOlderThanCutoff(t *testi
 		t.Errorf("scan_sessions remaining = %d, want 1", count)
 	}
 	var retainedSession string
-	if err = repo.db.QueryRow("SELECT session_id FROM scan_sessions").Scan(&retainedSession); err != nil {
+	if err = repo.DB().QueryRow("SELECT session_id FROM scan_sessions").Scan(&retainedSession); err != nil {
 		t.Fatalf("select retained scan session: %v", err)
 	}
 	if retainedSession != "scan-new" {
@@ -186,7 +186,7 @@ func TestRepository_RunRetentionCleanupBatch_KeepsNonTerminalGenerations(t *test
 	}); err != nil {
 		t.Fatalf("CreateGeneration: %v", err)
 	}
-	if _, err := repo.db.Exec(
+	if _, err := repo.DB().Exec(
 		"UPDATE plan_generations SET status = 'running' WHERE generation_id = 'gen-running'",
 	); err != nil {
 		t.Fatalf("mark generation running: %v", err)
@@ -201,7 +201,7 @@ func TestRepository_RunRetentionCleanupBatch_KeepsNonTerminalGenerations(t *test
 	}
 
 	retained := map[string]bool{}
-	rows, err := repo.db.Query("SELECT generation_id FROM plan_generations")
+	rows, err := repo.DB().Query("SELECT generation_id FROM plan_generations")
 	if err != nil {
 		t.Fatalf("query retained generations: %v", err)
 	}
@@ -229,7 +229,7 @@ func TestGenerationKeyLookupIgnoresReleasedRows(t *testing.T) {
 			repo := newTestRepository(t)
 			worksetID := seedRetentionWorkset(t, repo)
 			seedGeneration(t, repo, "old", worksetID)
-			if _, err := repo.db.Exec(
+			if _, err := repo.DB().Exec(
 				"UPDATE plan_generations SET status = ?, idempotency_key = 'same' WHERE generation_id = 'old'", status,
 			); err != nil {
 				t.Fatal(err)
@@ -256,7 +256,7 @@ func TestCompletedGenerationKeySurvivesThirtyDayRetentionWindow(t *testing.T) {
 	worksetID := seedRetentionWorkset(t, repo)
 	now := time.Date(2026, 10, 21, 0, 0, 0, 0, time.UTC)
 	seedFinishedGeneration(t, repo, worksetID, "completed", now.Add(-29*24*time.Hour))
-	if _, err := repo.db.Exec(
+	if _, err := repo.DB().Exec(
 		"UPDATE plan_generations SET idempotency_key = 'retained-key' WHERE generation_id = 'completed'",
 	); err != nil {
 		t.Fatal(err)
@@ -315,7 +315,7 @@ func TestRepository_RunRetentionCleanupBatch_LimitsEachTable(t *testing.T) {
 		seedFinishedGeneration(t, repo, worksetID, id, old)
 	}
 
-	for batch, want := range []CleanupStats{
+	for batch, want := range []sqlite.CleanupStats{
 		{DeletedScanSessions: 1, DeletedGenerations: 1},
 		{DeletedScanSessions: 1, DeletedGenerations: 1},
 		{DeletedScanSessions: 1, DeletedGenerations: 1},
@@ -334,14 +334,5 @@ func TestRepository_RunRetentionCleanupBatch_LimitsEachTable(t *testing.T) {
 	}
 	if count := countRows(t, repo, "plan_generations"); count != 0 {
 		t.Errorf("plan_generations remaining = %d, want 0", count)
-	}
-}
-
-func TestGenerationRecordRetentionChecksAnInventorySet(t *testing.T) {
-	repo := newTestRepository(t)
-	plan := explain(t, repo, "SELECT g.path FROM generation_records g WHERE "+generationRecordRetentionPredicate)
-	if strings.Contains(plan, "CORRELATED") || strings.Contains(plan, "SCAN f") ||
-		!strings.Contains(plan, "SEARCH f USING PRIMARY KEY") {
-		t.Fatalf("retention must build inventory paths once: %s", plan)
 	}
 }

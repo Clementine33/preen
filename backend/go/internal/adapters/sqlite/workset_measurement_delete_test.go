@@ -1,5 +1,4 @@
-//nolint:testpackage // The opt-in harness uses the shared private driver instrumentation.
-package sqlite
+package sqlite_test
 
 import (
 	"net/http"

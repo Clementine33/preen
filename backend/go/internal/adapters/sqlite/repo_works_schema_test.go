@@ -1,4 +1,4 @@
-package sqlite //nolint:testpackage // white-box tests read the schema the repository created
+package sqlite_test
 
 import (
 	"strings"

@@ -1,4 +1,4 @@
-package httpapi //nolint:testpackage // white-box tests exercise unexported internals
+package httpapi_test
 
 import (
 	"context"
@@ -10,6 +10,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/Clementine33/preen/backend/internal/adapters/httpapi"
 
 	"github.com/Clementine33/preen/backend/internal/adapters/filesystem"
 
@@ -74,7 +76,7 @@ func fileOpsServer(t *testing.T) (http.Handler, string, *blockingScan) {
 	scan := newBlockingScan()
 	root := t.TempDir()
 	var gate *admission.Gate
-	handler := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) {
+	handler := newTestServer(t, func(d *httpapi.Dependencies, fixture *sqlite.Repository) {
 		repo = fixture
 		gate = admission.NewGate(fixture.HasActiveSession)
 		scan.gate = gate

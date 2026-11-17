@@ -1,4 +1,4 @@
-package httpapi //nolint:testpackage // white-box tests exercise unexported internals
+package httpapi_test
 
 import (
 	"context"
@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/Clementine33/preen/backend/internal/adapters/httpapi"
 
 	"github.com/Clementine33/preen/backend/internal/testutil/inventoryfixture"
 
@@ -99,7 +101,7 @@ func dirIDFor(t *testing.T, engine http.Handler, libID, rel string) string {
 		t.Fatalf("dirs status = %d, want 200 (body=%s)", w.Code, w.Body.String())
 	}
 	var out struct {
-		Dirs []dirResponse `json:"dirs"`
+		Dirs []dirBody `json:"dirs"`
 	}
 	if err := json.Unmarshal(w.Body.Bytes(), &out); err != nil {
 		t.Fatalf("decode dirs: %v (body=%s)", err, w.Body.String())
@@ -119,7 +121,7 @@ func dirIDFor(t *testing.T, engine http.Handler, libID, rel string) string {
 // navigation identity the page addresses it by.
 func TestListLibraryDirs(t *testing.T) {
 	var repo *sqlite.Repository
-	engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) { repo = fixture })
+	engine := newTestServer(t, func(d *httpapi.Dependencies, fixture *sqlite.Repository) { repo = fixture })
 
 	libID, root := treeLibrary(t, engine, repo, "Music")
 	seedDir(t, repo, root, "albumA")
@@ -135,7 +137,7 @@ func TestListLibraryDirs(t *testing.T) {
 		t.Fatalf("status = %d, want 200 (body=%s)", w.Code, w.Body.String())
 	}
 	var out struct {
-		Dirs []dirResponse `json:"dirs"`
+		Dirs []dirBody `json:"dirs"`
 	}
 	if err := json.Unmarshal(w.Body.Bytes(), &out); err != nil {
 		t.Fatalf("decode dirs: %v (body=%s)", err, w.Body.String())
@@ -143,7 +145,7 @@ func TestListLibraryDirs(t *testing.T) {
 	if len(out.Dirs) != 3 {
 		t.Fatalf("dirs = %+v, want albumA, docs and the coded one (the recovery directory is not a member)", out.Dirs)
 	}
-	byRel := map[string]dirResponse{}
+	byRel := map[string]dirBody{}
 	for _, d := range out.Dirs {
 		byRel[d.RelPath] = d
 	}
@@ -187,7 +189,7 @@ func TestListLibraryDirs(t *testing.T) {
 
 func TestMemberTree(t *testing.T) {
 	var repo *sqlite.Repository
-	engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) { repo = fixture })
+	engine := newTestServer(t, func(d *httpapi.Dependencies, fixture *sqlite.Repository) { repo = fixture })
 
 	libID, root := treeLibrary(t, engine, repo, "Music")
 	seedDir(t, repo, root, "albumA")
@@ -288,7 +290,7 @@ func TestMemberTree(t *testing.T) {
 // request before any lookup happens (ADR 0003).
 func TestMemberTreeRefusals(t *testing.T) {
 	var repo *sqlite.Repository
-	engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) { repo = fixture })
+	engine := newTestServer(t, func(d *httpapi.Dependencies, fixture *sqlite.Repository) { repo = fixture })
 
 	libA, rootA := treeLibrary(t, engine, repo, "Music")
 	libB, _ := treeLibrary(t, engine, repo, "Other")
@@ -401,7 +403,7 @@ func (f *fakeScanService) RefreshMember(_ context.Context, folderPath, _ string)
 func TestRefreshMemberTree(t *testing.T) {
 	var repo *sqlite.Repository
 	scan := &fakeScanService{}
-	engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) {
+	engine := newTestServer(t, func(d *httpapi.Dependencies, fixture *sqlite.Repository) {
 		repo = fixture
 		d.Inventory = scan
 	})
@@ -452,7 +454,7 @@ func TestRefreshMemberTreeFailureIsReported(t *testing.T) {
 	scan := &fakeScanService{err: inventory.NewError(
 		inventory.ErrKindInternal, "SCAN_FAILED", "scan blew up", nil,
 	)}
-	engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) {
+	engine := newTestServer(t, func(d *httpapi.Dependencies, fixture *sqlite.Repository) {
 		repo = fixture
 		d.Inventory = scan
 	})
@@ -484,7 +486,10 @@ func TestRefreshMemberTreeRetainsRootConflict(t *testing.T) {
 	scan := &fakeScanService{err: inventory.NewError(
 		inventory.ErrKindConflict, "LIBRARY_ROOT_OVERLAP", "repair conflicting library roots", nil,
 	)}
-	engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) { repo = fixture; d.Inventory = scan })
+	engine := newTestServer(
+		t,
+		func(d *httpapi.Dependencies, fixture *sqlite.Repository) { repo = fixture; d.Inventory = scan },
+	)
 	libID, root := treeLibrary(t, engine, repo, "Music")
 	seedDir(t, repo, root, "albumA")
 	albumID := dirIDFor(t, engine, libID, "albumA")

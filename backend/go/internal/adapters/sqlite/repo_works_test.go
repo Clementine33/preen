@@ -1,10 +1,11 @@
-package sqlite //nolint:testpackage // white-box tests seed the catalog through the real repository
+package sqlite_test
 
 import (
 	"fmt"
 	"testing"
 	"time"
 
+	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
 	"github.com/Clementine33/preen/backend/internal/works"
 )
 
@@ -20,7 +21,7 @@ func code(t *testing.T, raw string) works.WorkCode {
 }
 
 // seedWork inserts a collected catalog fixture.
-func seedWork(t *testing.T, repo *Repository, raw string) works.WorkCode {
+func seedWork(t *testing.T, repo *sqlite.Repository, raw string) works.WorkCode {
 	t.Helper()
 	id := code(t, raw)
 	if _, err := repo.DB().Exec(
@@ -65,7 +66,7 @@ func mustTime(t *testing.T, raw string) time.Time {
 
 func importGroups(
 	t *testing.T,
-	repo *Repository,
+	repo *sqlite.Repository,
 	target works.WorkCode,
 	in *works.ValidatedImport,
 ) works.ImportOutcome {
@@ -687,7 +688,7 @@ type chainRow struct {
 
 // chainScene builds the catalog through the real import path; only the copies
 // are inserted directly. It returns the two libraries.
-func chainScene(t *testing.T, repo *Repository, rows []chainRow) [2]string {
+func chainScene(t *testing.T, repo *sqlite.Repository, rows []chainRow) [2]string {
 	t.Helper()
 	var libs [2]string
 	for i, path := range []string{"/lib1", "/lib2"} {
@@ -735,7 +736,7 @@ func chainScene(t *testing.T, repo *Repository, rows []chainRow) [2]string {
 	return libs
 }
 
-func listedIDs(t *testing.T, repo *Repository, filter works.Filter) []string {
+func listedIDs(t *testing.T, repo *sqlite.Repository, filter works.Filter) []string {
 	t.Helper()
 	filter.Limit = 50
 	page, err := repo.ListWorks(filter)

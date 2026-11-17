@@ -1,4 +1,4 @@
-package sqlite //nolint:testpackage // white-box tests observe the unexported import lock
+package sqlite_test
 
 import (
 	"fmt"
@@ -6,6 +6,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
 	"github.com/Clementine33/preen/backend/internal/works"
 )
 
@@ -42,7 +43,7 @@ func TestImportReleasesTheLockAfterFailures(t *testing.T) {
 
 func TestConcurrentImportsMatchSerialApplication(t *testing.T) {
 	const n = 24
-	build := func(t *testing.T, repo *Repository) []*works.ValidatedImport {
+	build := func(t *testing.T, repo *sqlite.Repository) []*works.ValidatedImport {
 		t.Helper()
 		parent := seedWork(t, repo, "RJ00000100")
 		ins := []*works.ValidatedImport{{
@@ -64,7 +65,7 @@ func TestConcurrentImportsMatchSerialApplication(t *testing.T) {
 		}
 		return ins
 	}
-	snapshot := func(t *testing.T, repo *Repository) string {
+	snapshot := func(t *testing.T, repo *sqlite.Repository) string {
 		t.Helper()
 		var out strings.Builder
 		for _, q := range []string{
@@ -127,9 +128,7 @@ func TestCatalogChangedRunsAfterTheImportLockIsReleased(t *testing.T) {
 	var heldDuring bool
 	repo.OnCatalogChanged = func() {
 		calls++
-		if repo.importMu.TryLock() {
-			repo.importMu.Unlock()
-		} else {
+		if sqlite.ImportLockHeld(repo) {
 			heldDuring = true
 		}
 	}

@@ -1,9 +1,8 @@
-//nolint:testpackage // The opt-in harness instruments the repository's private connection pools.
-package sqlite
+package sqlite_test
 
 import (
 	"context"
-	"database/sql"
+	"database/sql/driver"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -15,6 +14,7 @@ import (
 	"github.com/Clementine33/preen/backend/internal/adapters/filesystem"
 	"github.com/Clementine33/preen/backend/internal/adapters/httpapi"
 	appconfig "github.com/Clementine33/preen/backend/internal/adapters/settings"
+	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
 	"github.com/Clementine33/preen/backend/internal/admission"
 	"github.com/Clementine33/preen/backend/internal/conversion"
 	"github.com/Clementine33/preen/backend/internal/conversion/execute"
@@ -41,7 +41,7 @@ func newWorksetMeasurement(t *testing.T, members, audio int) *worksetMeasurement
 	root := filepath.Join(dir, "media")
 	libraryID, names := worksetMeasurementLibrary(t, repo, root, members, audio)
 	pipeline := inventory.NewPipeline(
-		worksetMeasuredStaging{ScanStaging: NewScanStaging(repo), measurement: stats},
+		worksetMeasuredStaging{ScanStaging: sqlite.NewScanStaging(repo), measurement: stats},
 		filesystem.WalkRootEntriesParallel,
 		filesystem.WalkFolderEntries,
 		nil,
@@ -120,18 +120,18 @@ func newWorksetMeasurement(t *testing.T, members, audio int) *worksetMeasurement
 	}
 }
 
-func worksetMeasurementRepository(t *testing.T, dir string) (*Repository, *worksetSQLMeasurement) {
+func worksetMeasurementRepository(t *testing.T, dir string) (*sqlite.Repository, *worksetSQLMeasurement) {
 	t.Helper()
-	repo, err := NewDevelopmentRepository(filepath.Join(dir, "cache.db"))
+	repo, err := sqlite.NewDevelopmentRepository(filepath.Join(dir, "cache.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	stats := &worksetSQLMeasurement{paths: map[string]worksetSQLSample{}}
-	measured := worksetMeasuredDriver{Driver: repo.db.Driver(), measurement: stats}
-	repo.importBeginWait = stats.recordImportWait
-	original := repo.db
-	repo.db = sql.OpenDB(repositoryConnector{driver: measured, dsn: repo.dbPath + connectionPragmas})
-	if err = original.Close(); err != nil {
+	sqlite.SetImportBeginWait(repo, stats.recordImportWait)
+	err = sqlite.WrapRepositoryDriver(repo, func(base driver.Driver) driver.Driver {
+		return worksetMeasuredDriver{Driver: base, measurement: stats}
+	})
+	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
@@ -142,7 +142,12 @@ func worksetMeasurementRepository(t *testing.T, dir string) (*Repository, *works
 	return repo, stats
 }
 
-func worksetMeasurementLibrary(t *testing.T, repo *Repository, root string, members, audio int) (string, []string) {
+func worksetMeasurementLibrary(
+	t *testing.T,
+	repo *sqlite.Repository,
+	root string,
+	members, audio int,
+) (string, []string) {
 	t.Helper()
 	// PREEN_MEASURE_OTHER non-audio files per member (small bytes, a
 	// .jpg/.txt/.vtt mix) so inventory carries what a real library does.
@@ -187,7 +192,7 @@ func worksetMeasurementLibrary(t *testing.T, repo *Repository, root string, memb
 	return lib.ID, names
 }
 
-func worksetMeasurementTasks(repo *Repository, dir string, pipeline *inventory.Pipeline) []workset.Task {
+func worksetMeasurementTasks(repo *sqlite.Repository, dir string, pipeline *inventory.Pipeline) []workset.Task {
 	return []workset.Task{
 		conversion.New(
 			repo,
@@ -221,7 +226,7 @@ func worksetMeasurementTasks(repo *Repository, dir string, pipeline *inventory.P
 
 // worksetMeasuredStaging times each selected merge as one invocation.
 type worksetMeasuredStaging struct {
-	*ScanStaging
+	*sqlite.ScanStaging
 
 	measurement *worksetSQLMeasurement
 }

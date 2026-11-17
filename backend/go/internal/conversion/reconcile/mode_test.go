@@ -1,26 +1,28 @@
-package reconcile //nolint:testpackage // reuses white-box fixtures from reconcile_test.go
+package reconcile_test
 
 import (
 	"fmt"
 	"path"
 	"slices"
 	"testing"
+
+	"github.com/Clementine33/preen/backend/internal/conversion/reconcile"
 )
 
 // lenientPolicy is the wav+mp3@320 profile with the available_sources mode.
-func lenientPolicy() Policy {
+func lenientPolicy() reconcile.Policy {
 	return lenientPolicyFrom(wavMp3Profile())
 }
 
 // lenientPolicyFrom returns the policy with the available_sources mode set.
-func lenientPolicyFrom(p Policy) Policy {
-	p.Mode = ModeAvailableSources
+func lenientPolicyFrom(p reconcile.Policy) reconcile.Policy {
+	p.Mode = reconcile.ModeAvailableSources
 	return p
 }
 
 // singleComponent returns the only component of a one-component result.
 // Component IDs are structural hashes, so tests select by count instead.
-func singleComponent(t *testing.T, res ReconcileResult, wantCount int) ComponentOutcome {
+func singleComponent(t *testing.T, res reconcile.ReconcileResult, wantCount int) reconcile.ComponentOutcome {
 	t.Helper()
 	if len(res.Components) != wantCount {
 		t.Fatalf("components = %d, want %d", len(res.Components), wantCount)
@@ -28,7 +30,7 @@ func singleComponent(t *testing.T, res ReconcileResult, wantCount int) Component
 	return res.Components[0]
 }
 
-func findDecision(cs ComponentOutcome, path string) (FileDecision, bool) {
+func findDecision(cs reconcile.ComponentOutcome, path string) (reconcile.FileDecision, bool) {
 	for _, v := range cs.Variants {
 		for _, d := range v.Decisions {
 			if d.Path == path {
@@ -36,10 +38,10 @@ func findDecision(cs ComponentOutcome, path string) (FileDecision, bool) {
 			}
 		}
 	}
-	return FileDecision{}, false
+	return reconcile.FileDecision{}, false
 }
 
-func opCount(cs ComponentOutcome, kind string) int {
+func opCount(cs reconcile.ComponentOutcome, kind string) int {
 	n := 0
 	for _, op := range cs.Operations {
 		if op.Kind == kind {
@@ -51,7 +53,7 @@ func opCount(cs ComponentOutcome, kind string) int {
 
 // firstOpDiff reports the first difference between two operation lists, or ""
 // when they are identical.
-func firstOpDiff(a, b []Operation) string {
+func firstOpDiff(a, b []reconcile.Operation) string {
 	if len(a) != len(b) {
 		return fmt.Sprintf("op count %d != %d", len(a), len(b))
 	}
@@ -67,7 +69,7 @@ func firstOpDiff(a, b []Operation) string {
 }
 
 // componentIDs lists component ids in result order.
-func componentIDs(res ReconcileResult) []string {
+func componentIDs(res reconcile.ReconcileResult) []string {
 	ids := make([]string, 0, len(res.Components))
 	for _, c := range res.Components {
 		ids = append(ids, c.ComponentID)
@@ -78,7 +80,7 @@ func componentIDs(res ReconcileResult) []string {
 // assertEncodeTarget asserts the partition's component plans exactly one
 // encode operation targeting wantBase — the observable effect of the
 // partition's resolved profile.
-func assertEncodeTarget(t *testing.T, res ReconcileResult, part Partition, wantBase string) {
+func assertEncodeTarget(t *testing.T, res reconcile.ReconcileResult, part reconcile.Partition, wantBase string) {
 	t.Helper()
 	var targets []string
 	for _, c := range res.Components {
@@ -86,7 +88,7 @@ func assertEncodeTarget(t *testing.T, res ReconcileResult, part Partition, wantB
 			continue
 		}
 		for _, op := range c.Operations {
-			if op.Kind == OpKindEncode {
+			if op.Kind == reconcile.OpKindEncode {
 				targets = append(targets, op.TargetPath)
 			}
 		}
@@ -106,9 +108,9 @@ func TestLenientDesignMatrix(t *testing.T) {
 	classifier := effectClassifier()
 
 	t.Run("WAV only: keep wav, generate missing mp3", func(t *testing.T) {
-		res, err := Reconcile(ReconcileInput{
+		res, err := reconcile.Reconcile(reconcile.ReconcileInput{
 			RootPath:   rjRoot,
-			Entries:    []AudioEntry{rjEntry("SEなし/wav/00.wav", 1, 0)},
+			Entries:    []reconcile.AudioEntry{rjEntry("SEなし/wav/00.wav", 1, 0)},
 			Policy:     policy,
 			Classifier: classifier,
 		})
@@ -116,10 +118,10 @@ func TestLenientDesignMatrix(t *testing.T) {
 			t.Fatal(err)
 		}
 		c := singleComponent(t, res, 1)
-		if d, ok := findDecision(c, rjRoot+"/SEなし/wav/00.wav"); !ok || d.Resolution != ResolutionKeep {
+		if d, ok := findDecision(c, rjRoot+"/SEなし/wav/00.wav"); !ok || d.Resolution != reconcile.ResolutionKeep {
 			t.Fatalf("wav decision: %+v ok=%v", d, ok)
 		}
-		if opCount(c, OpKindEncode) != 1 {
+		if opCount(c, reconcile.OpKindEncode) != 1 {
 			t.Fatalf("expected one encode op, got %+v", c.Operations)
 		}
 		if res.Summary.UnmetTargets != 0 {
@@ -128,24 +130,26 @@ func TestLenientDesignMatrix(t *testing.T) {
 	})
 
 	t.Run("FLAC: plan wav and mp3 generation", func(t *testing.T) {
-		res, err := Reconcile(ReconcileInput{
+		res, err := reconcile.Reconcile(reconcile.ReconcileInput{
 			RootPath: rjRoot,
-			Entries:  []AudioEntry{rjEntry("SEなし/flac/00.flac", 1, 0)},
+			Entries:  []reconcile.AudioEntry{rjEntry("SEなし/flac/00.flac", 1, 0)},
 			Policy:   policy, Classifier: classifier,
 		})
 		if err != nil {
 			t.Fatal(err)
 		}
 		c := singleComponent(t, res, 1)
-		if got := opCount(c, OpKindEncode); got != 2 {
+		if got := opCount(c, reconcile.OpKindEncode); got != 2 {
 			t.Fatalf("encode ops = %d, want 2 (wav+mp3 from flac)", got)
 		}
 	})
 
 	t.Run("satisfied MP3 only, no source for the wav: the stem is left as it is", func(t *testing.T) {
-		res, err := Reconcile(ReconcileInput{
-			RootPath:   rjRoot,
-			Entries:    []AudioEntry{generated(rjEntry("SEなし/mp3/00.mp3", 1, 320000), CodecMp3, 320)},
+		res, err := reconcile.Reconcile(reconcile.ReconcileInput{
+			RootPath: rjRoot,
+			Entries: []reconcile.AudioEntry{
+				generated(rjEntry("SEなし/mp3/00.mp3", 1, 320000), reconcile.CodecMp3, 320),
+			},
 			Policy:     policy,
 			Classifier: classifier,
 		})
@@ -157,41 +161,41 @@ func TestLenientDesignMatrix(t *testing.T) {
 		// including the mp3 that does satisfy its own lane — and reports the
 		// unmet target.
 		d, ok := findDecision(c, rjRoot+"/SEなし/mp3/00.mp3")
-		if !ok || d.Resolution != ResolutionKeep || d.ReasonCode != ReasonUnmetTarget {
+		if !ok || d.Resolution != reconcile.ResolutionKeep || d.ReasonCode != reconcile.ReasonUnmetTarget {
 			t.Fatalf("mp3 decision: %+v ok=%v", d, ok)
 		}
-		if opCount(c, OpKindEncode) != 0 || opCount(c, OpKindRemoveObsolete) != 0 {
+		if opCount(c, reconcile.OpKindEncode) != 0 || opCount(c, reconcile.OpKindRemoveObsolete) != 0 {
 			t.Fatalf("an unreachable shape must plan no ops, got %+v", c.Operations)
 		}
 		if res.Summary.UnmetTargets == 0 {
 			t.Fatal("unmet wav target must be counted")
 		}
-		if res.Summary.SummaryReason != ReasonUnmetTargets {
-			t.Fatalf("reason = %s, want %s", res.Summary.SummaryReason, ReasonUnmetTargets)
+		if res.Summary.SummaryReason != reconcile.ReasonUnmetTargets {
+			t.Fatalf("reason = %s, want %s", res.Summary.SummaryReason, reconcile.ReasonUnmetTargets)
 		}
 	})
 
 	t.Run("MP3 measured below target, no source: kept, unmet", func(t *testing.T) {
-		res, err := Reconcile(ReconcileInput{
+		res, err := reconcile.Reconcile(reconcile.ReconcileInput{
 			RootPath: rjRoot,
-			Entries:  []AudioEntry{rjEntry("SEなし/mp3/00.mp3", 1, 128000)},
+			Entries:  []reconcile.AudioEntry{rjEntry("SEなし/mp3/00.mp3", 1, 128000)},
 			Policy:   policy, Classifier: classifier,
 		})
 		if err != nil {
 			t.Fatal(err)
 		}
 		c := singleComponent(t, res, 1)
-		if c.Status == StatusBlocked {
+		if c.Status == reconcile.StatusBlocked {
 			t.Fatalf("a file this app did not write must not block on its own: %+v", c)
 		}
-		if opCount(c, OpKindEncode) != 0 || opCount(c, OpKindRemoveObsolete) != 0 {
+		if opCount(c, reconcile.OpKindEncode) != 0 || opCount(c, reconcile.OpKindRemoveObsolete) != 0 {
 			t.Fatalf("missing source must not plan ops: %+v", c.Operations)
 		}
 		// MP3 is judged by its rate alone: a 128k file under a 320k target is
 		// measured short of it, whatever wrote it — no record is asked about,
 		// so the file is unmet, not unconfirmed (a lossy file is never upgraded).
 		d, ok := findDecision(c, rjRoot+"/SEなし/mp3/00.mp3")
-		if !ok || d.Resolution != ResolutionKeep || d.ReasonCode != ReasonUnmetTarget {
+		if !ok || d.Resolution != reconcile.ResolutionKeep || d.ReasonCode != reconcile.ReasonUnmetTarget {
 			t.Fatalf("mp3 decision: %+v ok=%v", d, ok)
 		}
 		if res.Summary.UnmetTargets == 0 {
@@ -200,9 +204,9 @@ func TestLenientDesignMatrix(t *testing.T) {
 	})
 
 	t.Run("foreign codec only: kept, the declared target stays unmet", func(t *testing.T) {
-		res, err := Reconcile(ReconcileInput{
+		res, err := reconcile.Reconcile(reconcile.ReconcileInput{
 			RootPath: rjRoot,
-			Entries:  []AudioEntry{rjEntry("SEなし/aac/00.m4a", 1, 256000)},
+			Entries:  []reconcile.AudioEntry{rjEntry("SEなし/aac/00.m4a", 1, 256000)},
 			Policy:   policy, Classifier: classifier,
 		})
 		if err != nil {
@@ -212,7 +216,7 @@ func TestLenientDesignMatrix(t *testing.T) {
 		// Declared wav+mp3: neither can be made without a lossless source, so
 		// the aac stays where it is and the stem counts as an unmet target.
 		d, ok := findDecision(c, rjRoot+"/SEなし/aac/00.m4a")
-		if !ok || d.Resolution != ResolutionKeep || d.ReasonCode != ReasonUnmetTarget {
+		if !ok || d.Resolution != reconcile.ResolutionKeep || d.ReasonCode != reconcile.ReasonUnmetTarget {
 			t.Fatalf("aac decision: %+v ok=%v", d, ok)
 		}
 		if res.Summary.UnmetTargets == 0 {
@@ -221,13 +225,13 @@ func TestLenientDesignMatrix(t *testing.T) {
 	})
 
 	t.Run("mixed stems: completable stem planned, sourceless stem kept", func(t *testing.T) {
-		entries := []AudioEntry{
+		entries := []reconcile.AudioEntry{
 			// Stem 00: wav source present (completable).
 			rjEntry("SEなし/wav/00.wav", 1, 0),
 			// Stem 01: only a low bitrate mp3 (no qualified source).
 			rjEntry("SEなし/mp3/01.mp3", 1, 128000),
 		}
-		res, err := Reconcile(ReconcileInput{
+		res, err := reconcile.Reconcile(reconcile.ReconcileInput{
 			RootPath: rjRoot, Entries: entries, Policy: policy, Classifier: classifier,
 		})
 		if err != nil {
@@ -237,30 +241,30 @@ func TestLenientDesignMatrix(t *testing.T) {
 			t.Fatalf("components = %d, want 2 (wav/ and mp3/ group separately)", len(res.Components))
 		}
 		for _, c := range res.Components {
-			if c.Status == StatusBlocked {
+			if c.Status == reconcile.StatusBlocked {
 				t.Fatalf("one sourceless stem must not block its component: %s", c.ReasonCode)
 			}
 		}
-		var wavComp ComponentOutcome
+		var wavComp reconcile.ComponentOutcome
 		for _, c := range res.Components {
 			if len(c.Files) > 0 && c.Files[0].Path == rjRoot+"/SEなし/wav/00.wav" {
 				wavComp = c
 			}
 		}
-		if opCount(wavComp, OpKindEncode) != 1 {
-			t.Fatalf("encode ops = %d, want 1 (stem 00 only)", opCount(wavComp, OpKindEncode))
+		if opCount(wavComp, reconcile.OpKindEncode) != 1 {
+			t.Fatalf("encode ops = %d, want 1 (stem 00 only)", opCount(wavComp, reconcile.OpKindEncode))
 		}
 	})
 
 	t.Run("satisfied stem untouched by another's rebuild", func(t *testing.T) {
-		entries := []AudioEntry{
+		entries := []reconcile.AudioEntry{
 			// Stem 00: wav + satisfied mp3.
 			rjEntry("SEなし/wav/00.wav", 1, 0),
-			generated(rjEntry("SEなし/mp3/00.mp3", 1, 320000), CodecMp3, 320),
+			generated(rjEntry("SEなし/mp3/00.mp3", 1, 320000), reconcile.CodecMp3, 320),
 			// Stem 01: wav only (needs an mp3).
 			rjEntry("SEなし/wav/01.wav", 1, 0),
 		}
-		res, err := Reconcile(ReconcileInput{
+		res, err := reconcile.Reconcile(reconcile.ReconcileInput{
 			RootPath: rjRoot, Entries: entries, Policy: policy, Classifier: classifier,
 		})
 		if err != nil {
@@ -269,13 +273,13 @@ func TestLenientDesignMatrix(t *testing.T) {
 		c := singleComponent(t, res, 1)
 		// Stem 00's mp3 must be kept, not re-encoded.
 		d, ok := findDecision(c, rjRoot+"/SEなし/mp3/00.mp3")
-		if !ok || d.Resolution != ResolutionKeep {
+		if !ok || d.Resolution != reconcile.ResolutionKeep {
 			t.Fatalf("satisfied mp3 not kept: %+v ok=%v", d, ok)
 		}
 		// Only one encode: stem 01's mp3.
 		encodeCount := 0
 		for _, op := range c.Operations {
-			if op.Kind == OpKindEncode && op.VariantStem == "01" {
+			if op.Kind == reconcile.OpKindEncode && op.VariantStem == "01" {
 				encodeCount++
 			}
 		}
@@ -294,7 +298,7 @@ func TestLenientDesignMatrix(t *testing.T) {
 		// an entry that does not belong to stem 00's files (same stem dir, so
 		// instead put the conflict on the *other* stem's path): use a
 		// directory entry at the exact target path of stem 01.
-		entries := []AudioEntry{
+		entries := []reconcile.AudioEntry{
 			rjEntry("SEなし/wav/00.wav", 1, 0),
 			rjEntry("SEなし/wav/01.wav", 1, 0),
 			rjEntry("SEなし/01.mp3", 1, 0), // occupies sameStemPath? no: different dir
@@ -302,7 +306,7 @@ func TestLenientDesignMatrix(t *testing.T) {
 		_ = entries
 		// A direct conflict: wav stem 00 whose derived target 00.mp3 exists as
 		// an *outside-the-group* entry (path occupied by another stem).
-		entries = []AudioEntry{
+		entries = []reconcile.AudioEntry{
 			rjEntry("SEなし/wav/00.wav", 1, 0),
 			rjEntry("SEなし/00.mp3", 1, 192000), // same stem? different dir -> different component
 		}
@@ -313,29 +317,32 @@ func TestLenientDesignMatrix(t *testing.T) {
 
 // loneProfile returns the wav+mp3 policy with both partitions reduced to one
 // declared lane: the declared profile is the partition's final shape.
-func loneProfile(profile DesiredProfile) Policy {
+func loneProfile(profile reconcile.DesiredProfile) reconcile.Policy {
 	p := lenientPolicyFrom(wavMp3Profile())
 	p.Matched, p.Unmatched = profile, profile
 	return p
 }
 
-func losslessOnly(codec Codec) DesiredProfile {
-	return DesiredProfile{Lossless: &AudioOutputSpec{Codec: codec}}
+func losslessOnly(codec reconcile.Codec) reconcile.DesiredProfile {
+	return reconcile.DesiredProfile{Lossless: &reconcile.AudioOutputSpec{Codec: codec}}
 }
 
-func encodedOnly(codec Codec, bitrate int) DesiredProfile {
-	return DesiredProfile{
-		Encoded: &AudioOutputSpec{Codec: codec, Quality: &Quality{Kind: QualityBitrate, Bitrate: bitrate}},
+func encodedOnly(codec reconcile.Codec, bitrate int) reconcile.DesiredProfile {
+	return reconcile.DesiredProfile{
+		Encoded: &reconcile.AudioOutputSpec{
+			Codec:   codec,
+			Quality: &reconcile.Quality{Kind: reconcile.QualityBitrate, Bitrate: bitrate},
+		},
 	}
 }
 
 // assertRemovalsDependOnReplacement asserts every removal of the component
 // carries the encoded replacement it depends on (no deletion without it).
-func assertRemovalsDependOnReplacement(t *testing.T, c ComponentOutcome, wantTargets int) {
+func assertRemovalsDependOnReplacement(t *testing.T, c reconcile.ComponentOutcome, wantTargets int) {
 	t.Helper()
 	removals := 0
 	for _, op := range c.Operations {
-		if op.Kind != OpKindRemoveObsolete {
+		if op.Kind != reconcile.OpKindRemoveObsolete {
 			continue
 		}
 		removals++
@@ -355,24 +362,24 @@ func assertRemovalsDependOnReplacement(t *testing.T, c ComponentOutcome, wantTar
 // above for the unmet cases).
 func TestLenientFinalShape(t *testing.T) {
 	t.Run("only FLAC declared: wav converts, then wav and mp3 are obsolete", func(t *testing.T) {
-		res := reconcileRJ(t, []AudioEntry{
+		res := reconcileRJ(t, []reconcile.AudioEntry{
 			rjEntry("SEなし/wav/00.wav", 200000000, 0),
 			rjEntry("SEなし/mp3/00.mp3", 20000000, 192000),
-		}, loneProfile(losslessOnly(CodecFlac)))
+		}, loneProfile(losslessOnly(reconcile.CodecFlac)))
 
 		c := singleComponent(t, res, 1)
-		if c.Status == StatusBlocked {
+		if c.Status == reconcile.StatusBlocked {
 			t.Fatalf("completable stem must not block: %+v", c)
 		}
-		if got := opCount(c, OpKindEncode); got != 1 {
+		if got := opCount(c, reconcile.OpKindEncode); got != 1 {
 			t.Fatalf("encode ops = %d, want 1 (wav -> flac)", got)
 		}
 		if d, ok := findDecision(c, rjRoot+"/SEなし/wav/00.wav"); !ok ||
-			d.Resolution != ResolutionDelete || d.ReasonCode != ReasonObsoleteLossless {
+			d.Resolution != reconcile.ResolutionDelete || d.ReasonCode != reconcile.ReasonObsoleteLossless {
 			t.Fatalf("wav decision: %+v ok=%v", d, ok)
 		}
 		if d, ok := findDecision(c, rjRoot+"/SEなし/mp3/00.mp3"); !ok ||
-			d.Resolution != ResolutionDelete || d.ReasonCode != ReasonObsoleteEncoded {
+			d.Resolution != reconcile.ResolutionDelete || d.ReasonCode != reconcile.ReasonObsoleteEncoded {
 			t.Fatalf("mp3 decision: %+v ok=%v", d, ok)
 		}
 		assertRemovalsDependOnReplacement(t, c, 1)
@@ -382,20 +389,20 @@ func TestLenientFinalShape(t *testing.T) {
 	})
 
 	t.Run("only AAC declared: the wav is the source, both originals obsolete", func(t *testing.T) {
-		res := reconcileRJ(t, []AudioEntry{
+		res := reconcileRJ(t, []reconcile.AudioEntry{
 			rjEntry("SEなし/wav/00.wav", 200000000, 0),
 			rjEntry("SEなし/mp3/00.mp3", 20000000, 192000),
-		}, loneProfile(encodedOnly(CodecAac, 256)))
+		}, loneProfile(encodedOnly(reconcile.CodecAac, 256)))
 
 		c := singleComponent(t, res, 1)
-		if c.Status == StatusBlocked {
+		if c.Status == reconcile.StatusBlocked {
 			t.Fatalf("completable stem must not block: %+v", c)
 		}
-		if got := opCount(c, OpKindEncode); got != 1 {
+		if got := opCount(c, reconcile.OpKindEncode); got != 1 {
 			t.Fatalf("encode ops = %d, want 1 (wav -> m4a)", got)
 		}
 		for _, p := range []string{rjRoot + "/SEなし/wav/00.wav", rjRoot + "/SEなし/mp3/00.mp3"} {
-			if d, ok := findDecision(c, p); !ok || d.Resolution != ResolutionDelete {
+			if d, ok := findDecision(c, p); !ok || d.Resolution != reconcile.ResolutionDelete {
 				t.Fatalf("decision for %s: %+v ok=%v", p, d, ok)
 			}
 		}
@@ -406,21 +413,21 @@ func TestLenientFinalShape(t *testing.T) {
 	})
 
 	t.Run("only WAV declared: the other lossless codec is obsolete", func(t *testing.T) {
-		res := reconcileRJ(t, []AudioEntry{
+		res := reconcileRJ(t, []reconcile.AudioEntry{
 			rjEntry("SEなし/wav/00.wav", 200000000, 0),
 			rjEntry("SEなし/flac/00.flac", 100000000, 0),
-		}, loneProfile(losslessOnly(CodecWav)))
+		}, loneProfile(losslessOnly(reconcile.CodecWav)))
 
 		c := singleComponent(t, res, 1)
 		if d, ok := findDecision(c, rjRoot+"/SEなし/wav/00.wav"); !ok ||
-			d.Resolution != ResolutionKeep || d.ReasonCode != ReasonKeepLosslessTarget {
+			d.Resolution != reconcile.ResolutionKeep || d.ReasonCode != reconcile.ReasonKeepLosslessTarget {
 			t.Fatalf("wav decision: %+v ok=%v", d, ok)
 		}
 		if d, ok := findDecision(c, rjRoot+"/SEなし/flac/00.flac"); !ok ||
-			d.Resolution != ResolutionDelete || d.ReasonCode != ReasonObsoleteLossless {
+			d.Resolution != reconcile.ResolutionDelete || d.ReasonCode != reconcile.ReasonObsoleteLossless {
 			t.Fatalf("flac decision: %+v ok=%v", d, ok)
 		}
-		if got := opCount(c, OpKindEncode); got != 0 {
+		if got := opCount(c, reconcile.OpKindEncode); got != 0 {
 			t.Fatalf("encode ops = %d, want 0", got)
 		}
 	})
@@ -433,13 +440,13 @@ func TestLenientEncodedSatisfaction(t *testing.T) {
 	t.Run("an m4a this app generated for the target is satisfied and untouched", func(t *testing.T) {
 		// Below the band a 256k AAC target accepts (the encoder saturates above
 		// 192k), so the record is what accepts this file: the rate alone rejects it.
-		res := reconcileRJ(t, []AudioEntry{
-			generated(rjEntry("SEなし/m4a/00.m4a", 20000000, 145000), CodecAac, 256),
-		}, loneProfile(encodedOnly(CodecAac, 256)))
+		res := reconcileRJ(t, []reconcile.AudioEntry{
+			generated(rjEntry("SEなし/m4a/00.m4a", 20000000, 145000), reconcile.CodecAac, 256),
+		}, loneProfile(encodedOnly(reconcile.CodecAac, 256)))
 
 		c := singleComponent(t, res, 1)
 		if d, ok := findDecision(c, rjRoot+"/SEなし/m4a/00.m4a"); !ok ||
-			d.Resolution != ResolutionKeep || d.ReasonCode != ReasonKeepEncodedSatisfied {
+			d.Resolution != reconcile.ResolutionKeep || d.ReasonCode != reconcile.ReasonKeepEncodedSatisfied {
 			t.Fatalf("aac decision: %+v ok=%v", d, ok)
 		}
 		if len(c.Operations) != 0 {
@@ -451,13 +458,13 @@ func TestLenientEncodedSatisfaction(t *testing.T) {
 	})
 
 	t.Run("a file with no credential is never assumed adequate", func(t *testing.T) {
-		res := reconcileRJ(t, []AudioEntry{
+		res := reconcileRJ(t, []reconcile.AudioEntry{
 			rjEntry("SEなし/m4a/00.m4a", 20000000, 0),
-		}, loneProfile(encodedOnly(CodecAac, 256)))
+		}, loneProfile(encodedOnly(reconcile.CodecAac, 256)))
 
 		c := singleComponent(t, res, 1)
 		if d, ok := findDecision(c, rjRoot+"/SEなし/m4a/00.m4a"); !ok ||
-			d.Resolution != ResolutionKeep || d.ReasonCode != ReasonConformanceUnconfirmed {
+			d.Resolution != reconcile.ResolutionKeep || d.ReasonCode != reconcile.ReasonConformanceUnconfirmed {
 			t.Fatalf("aac decision: %+v ok=%v", d, ok)
 		}
 		if res.Summary.UnmetTargets == 0 {
@@ -466,16 +473,16 @@ func TestLenientEncodedSatisfaction(t *testing.T) {
 	})
 
 	t.Run("a lossy file is no source for another codec", func(t *testing.T) {
-		res := reconcileRJ(t, []AudioEntry{
+		res := reconcileRJ(t, []reconcile.AudioEntry{
 			rjEntry("SEなし/mp3/00.mp3", 20000000, 256000),
-		}, loneProfile(encodedOnly(CodecAac, 256)))
+		}, loneProfile(encodedOnly(reconcile.CodecAac, 256)))
 
 		c := singleComponent(t, res, 1)
-		if got := opCount(c, OpKindEncode); got != 0 {
+		if got := opCount(c, reconcile.OpKindEncode); got != 0 {
 			t.Fatalf("encode ops = %d, want 0 (lossy is never re-encoded)", got)
 		}
 		if d, ok := findDecision(c, rjRoot+"/SEなし/mp3/00.mp3"); !ok ||
-			d.Resolution != ResolutionKeep || d.ReasonCode != ReasonUnmetTarget {
+			d.Resolution != reconcile.ResolutionKeep || d.ReasonCode != reconcile.ReasonUnmetTarget {
 			t.Fatalf("mp3 decision: %+v ok=%v", d, ok)
 		}
 	})
@@ -489,23 +496,23 @@ func TestLenientEncodedSatisfaction(t *testing.T) {
 func TestEncodedTargetIsAcceptedOnItsCredential(t *testing.T) {
 	cases := []struct {
 		name     string
-		entry    AudioEntry
+		entry    reconcile.AudioEntry
 		accepted bool
 	}{
 		{
 			name:     "the credential for this target",
-			entry:    generated(rjEntry("SEなし/m4a/00.m4a", 20000000, 145000), CodecAac, 256),
+			entry:    generated(rjEntry("SEなし/m4a/00.m4a", 20000000, 145000), reconcile.CodecAac, 256),
 			accepted: true,
 		},
 		{
 			name:     "the credential of a target the settings have moved on from",
-			entry:    generated(rjEntry("SEなし/m4a/00.m4a", 20000000, 145000), CodecAac, 192),
+			entry:    generated(rjEntry("SEなし/m4a/00.m4a", 20000000, 145000), reconcile.CodecAac, 192),
 			accepted: false,
 		},
 		{
 			name: "a credential whose file changed since it was written",
-			entry: func() AudioEntry {
-				e := generated(rjEntry("SEなし/m4a/00.m4a", 20000000, 145000), CodecAac, 256)
+			entry: func() reconcile.AudioEntry {
+				e := generated(rjEntry("SEなし/m4a/00.m4a", 20000000, 145000), reconcile.CodecAac, 256)
 				e.Size++
 				return e
 			}(),
@@ -513,7 +520,7 @@ func TestEncodedTargetIsAcceptedOnItsCredential(t *testing.T) {
 		},
 		{
 			name:     "a credential for another codec",
-			entry:    generated(rjEntry("SEなし/m4a/00.m4a", 20000000, 145000), CodecOpus, 256),
+			entry:    generated(rjEntry("SEなし/m4a/00.m4a", 20000000, 145000), reconcile.CodecOpus, 256),
 			accepted: false,
 		},
 		{
@@ -529,16 +536,16 @@ func TestEncodedTargetIsAcceptedOnItsCredential(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			res := reconcileRJ(t, []AudioEntry{tc.entry}, loneProfile(encodedOnly(CodecAac, 256)))
+			res := reconcileRJ(t, []reconcile.AudioEntry{tc.entry}, loneProfile(encodedOnly(reconcile.CodecAac, 256)))
 
 			c := singleComponent(t, res, 1)
 			d, ok := findDecision(c, rjRoot+"/SEなし/m4a/00.m4a")
-			if !ok || d.Resolution != ResolutionKeep {
+			if !ok || d.Resolution != reconcile.ResolutionKeep {
 				t.Fatalf("decision = %+v ok=%v", d, ok)
 			}
-			want := ReasonConformanceUnconfirmed
+			want := reconcile.ReasonConformanceUnconfirmed
 			if tc.accepted {
-				want = ReasonKeepEncodedSatisfied
+				want = reconcile.ReasonKeepEncodedSatisfied
 			}
 			if d.ReasonCode != want {
 				t.Fatalf("reason = %s, want %s", d.ReasonCode, want)
@@ -563,18 +570,23 @@ func TestAACAcceptanceBand(t *testing.T) {
 		observed int64
 		want     string
 	}{
-		{"on target while the encoder can reach it", 192, 192155, ReasonKeepEncodedSatisfied},
-		{"below a reachable target its rate proves the miss", 192, 150000, ReasonUnmetTarget},
-		{"what the encoder writes for 256k is accepted", 256, 220685, ReasonKeepEncodedSatisfied},
-		{"what the encoder writes for 320k is accepted", 320, 203623, ReasonKeepEncodedSatisfied},
-		{"a target the encoder cannot reach still rejects 128k material", 320, 128000, ReasonConformanceUnconfirmed},
-		{"well above the declared shape misses it too", 192, 320000, ReasonUnmetTarget},
+		{"on target while the encoder can reach it", 192, 192155, reconcile.ReasonKeepEncodedSatisfied},
+		{"below a reachable target its rate proves the miss", 192, 150000, reconcile.ReasonUnmetTarget},
+		{"what the encoder writes for 256k is accepted", 256, 220685, reconcile.ReasonKeepEncodedSatisfied},
+		{"what the encoder writes for 320k is accepted", 320, 203623, reconcile.ReasonKeepEncodedSatisfied},
+		{
+			"a target the encoder cannot reach still rejects 128k material",
+			320,
+			128000,
+			reconcile.ReasonConformanceUnconfirmed,
+		},
+		{"well above the declared shape misses it too", 192, 320000, reconcile.ReasonUnmetTarget},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			res := reconcileRJ(t, []AudioEntry{
+			res := reconcileRJ(t, []reconcile.AudioEntry{
 				rjEntry("SEなし/m4a/00.m4a", 20000000, tc.observed),
-			}, loneProfile(encodedOnly(CodecAac, tc.target)))
+			}, loneProfile(encodedOnly(reconcile.CodecAac, tc.target)))
 
 			c := singleComponent(t, res, 1)
 			if d, ok := findDecision(c, rjRoot+"/SEなし/m4a/00.m4a"); !ok || d.ReasonCode != tc.want {
@@ -593,13 +605,13 @@ func TestAACAcceptanceBand(t *testing.T) {
 // do wrong.
 func TestOpusTargetIsAcceptedOnItsRecordWhateverItsAverage(t *testing.T) {
 	for _, observed := range []int64{0, 64000, 109241, 165580} {
-		res := reconcileRJ(t, []AudioEntry{
-			generated(rjEntry("SEなし/opus/00.opus", 20000000, observed), CodecOpus, 160),
-		}, loneProfile(encodedOnly(CodecOpus, 160)))
+		res := reconcileRJ(t, []reconcile.AudioEntry{
+			generated(rjEntry("SEなし/opus/00.opus", 20000000, observed), reconcile.CodecOpus, 160),
+		}, loneProfile(encodedOnly(reconcile.CodecOpus, 160)))
 
 		c := singleComponent(t, res, 1)
 		if d, ok := findDecision(c, rjRoot+"/SEなし/opus/00.opus"); !ok ||
-			d.Resolution != ResolutionKeep || d.ReasonCode != ReasonKeepEncodedSatisfied {
+			d.Resolution != reconcile.ResolutionKeep || d.ReasonCode != reconcile.ReasonKeepEncodedSatisfied {
 			t.Fatalf("observed %d: decision = %+v ok=%v", observed, d, ok)
 		}
 		if len(c.Operations) != 0 {
@@ -613,12 +625,12 @@ func TestOpusTargetIsAcceptedOnItsRecordWhateverItsAverage(t *testing.T) {
 		observed int64
 		want     string
 	}{
-		{165580, ReasonKeepEncodedSatisfied},
-		{109241, ReasonConformanceUnconfirmed},
+		{165580, reconcile.ReasonKeepEncodedSatisfied},
+		{109241, reconcile.ReasonConformanceUnconfirmed},
 	} {
-		res := reconcileRJ(t, []AudioEntry{
+		res := reconcileRJ(t, []reconcile.AudioEntry{
 			rjEntry("SEなし/opus/00.opus", 20000000, tc.observed),
-		}, loneProfile(encodedOnly(CodecOpus, 160)))
+		}, loneProfile(encodedOnly(reconcile.CodecOpus, 160)))
 		c := singleComponent(t, res, 1)
 		if d, ok := findDecision(c, rjRoot+"/SEなし/opus/00.opus"); !ok || d.ReasonCode != tc.want {
 			t.Fatalf("uncredentialed %d: decision = %+v ok=%v, want %s", tc.observed, d, ok, tc.want)
@@ -630,12 +642,12 @@ func TestOpusTargetIsAcceptedOnItsRecordWhateverItsAverage(t *testing.T) {
 // unchanged when Mode is empty: a low-bitrate-only component still blocks.
 func TestLenientStrictRegression(t *testing.T) {
 	policy := wavMp3Profile() // Mode empty == strict
-	res, err := Reconcile(ReconcileInput{
+	res, err := reconcile.Reconcile(reconcile.ReconcileInput{
 		RootPath: rjRoot,
-		Entries:  []AudioEntry{rjEntry("SEなし/mp3/00.mp3", 1, 128000)},
+		Entries:  []reconcile.AudioEntry{rjEntry("SEなし/mp3/00.mp3", 1, 128000)},
 		Policy:   policy,
-		Classifier: func() Classifier {
-			c, err := ResolveClassifier([]string{"SEなし"})
+		Classifier: func() reconcile.Classifier {
+			c, err := reconcile.ResolveClassifier([]string{"SEなし"})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -646,7 +658,7 @@ func TestLenientStrictRegression(t *testing.T) {
 		t.Fatal(err)
 	}
 	c := singleComponent(t, res, 1)
-	if c.Status != StatusBlocked || c.ReasonCode != ReasonLosslessUnfulfillable {
+	if c.Status != reconcile.StatusBlocked || c.ReasonCode != reconcile.ReasonLosslessUnfulfillable {
 		t.Fatalf("strict blocked expected: %+v", c)
 	}
 }
@@ -655,7 +667,7 @@ func TestLenientStrictRegression(t *testing.T) {
 func TestLenientModeValidation(t *testing.T) {
 	p := wavMp3Profile()
 	p.Mode = "balanced_plus"
-	if _, err := Reconcile(ReconcileInput{
+	if _, err := reconcile.Reconcile(reconcile.ReconcileInput{
 		RootPath: rjRoot, Entries: nil, Policy: p, Classifier: effectClassifier(),
 	}); err == nil {
 		t.Fatal("unknown mode must be rejected")
@@ -669,7 +681,7 @@ func TestLenientModeValidation(t *testing.T) {
 // comparable.
 func TestModeSkeletonParity(t *testing.T) {
 	t.Run("completable stem plans the same operations", func(t *testing.T) {
-		entries := []AudioEntry{
+		entries := []reconcile.AudioEntry{
 			rjEntry("SEなし/wav/00.wav", 1, 0),
 			rjEntry("SEなし/aac/00.m4a", 1, 256000),
 		}
@@ -689,19 +701,19 @@ func TestModeSkeletonParity(t *testing.T) {
 		}
 		wav := rjRoot + "/SEなし/wav/00.wav"
 		m4a := rjRoot + "/SEなし/aac/00.m4a"
-		for _, c := range []ComponentOutcome{strictComp, lenientComp} {
+		for _, c := range []reconcile.ComponentOutcome{strictComp, lenientComp} {
 			if d, ok := findDecision(
 				c,
 				wav,
-			); !ok || d.Resolution != ResolutionKeep ||
-				d.ReasonCode != ReasonKeepLosslessTarget {
+			); !ok || d.Resolution != reconcile.ResolutionKeep ||
+				d.ReasonCode != reconcile.ReasonKeepLosslessTarget {
 				t.Fatalf("wav decision: %+v ok=%v", d, ok)
 			}
 			if d, ok := findDecision(
 				c,
 				m4a,
-			); !ok || d.Resolution != ResolutionDelete ||
-				d.ReasonCode != ReasonObsoleteEncoded {
+			); !ok || d.Resolution != reconcile.ResolutionDelete ||
+				d.ReasonCode != reconcile.ReasonObsoleteEncoded {
 				t.Fatalf("m4a decision: %+v ok=%v", d, ok)
 			}
 		}
@@ -709,11 +721,14 @@ func TestModeSkeletonParity(t *testing.T) {
 
 	t.Run("partition resolves the same profile in both modes", func(t *testing.T) {
 		policy := wavMp3Profile()
-		policy.Unmatched = DesiredProfile{
-			Lossless: &AudioOutputSpec{Codec: CodecWav},
-			Encoded:  &AudioOutputSpec{Codec: CodecAac, Quality: &Quality{Kind: QualityBitrate, Bitrate: 256}},
+		policy.Unmatched = reconcile.DesiredProfile{
+			Lossless: &reconcile.AudioOutputSpec{Codec: reconcile.CodecWav},
+			Encoded: &reconcile.AudioOutputSpec{
+				Codec:   reconcile.CodecAac,
+				Quality: &reconcile.Quality{Kind: reconcile.QualityBitrate, Bitrate: 256},
+			},
 		}
-		entries := []AudioEntry{
+		entries := []reconcile.AudioEntry{
 			rjEntry("SEなし/wav/00.wav", 1, 0), // classifier match
 			rjEntry("SEあり/wav/00.wav", 1, 0), // complement
 		}
@@ -723,26 +738,26 @@ func TestModeSkeletonParity(t *testing.T) {
 		if ids, idsL := componentIDs(strictRes), componentIDs(lenientRes); !slices.Equal(idsL, ids) {
 			t.Fatalf("component ids: strict %v, lenient %v", ids, idsL)
 		}
-		for _, res := range []ReconcileResult{strictRes, lenientRes} {
+		for _, res := range []reconcile.ReconcileResult{strictRes, lenientRes} {
 			if len(res.Components) != 2 ||
-				res.Components[0].Partition != PartitionMatched ||
-				res.Components[1].Partition != PartitionUnmatched {
+				res.Components[0].Partition != reconcile.PartitionMatched ||
+				res.Components[1].Partition != reconcile.PartitionUnmatched {
 				t.Fatalf("component order: %v", componentIDs(res))
 			}
-			assertEncodeTarget(t, res, PartitionMatched, "00.mp3")
-			assertEncodeTarget(t, res, PartitionUnmatched, "00.m4a")
+			assertEncodeTarget(t, res, reconcile.PartitionMatched, "00.mp3")
+			assertEncodeTarget(t, res, reconcile.PartitionUnmatched, "00.m4a")
 		}
 	})
 
 	t.Run("fail-closed block is shared", func(t *testing.T) {
-		entries := []AudioEntry{
+		entries := []reconcile.AudioEntry{
 			rjEntry("SEなし/wav/00.wav", 1, 0),
 			rjEntry("SEなし/wav/00.WAV", 1, 0), // same normalized stem: no unique source
 		}
-		for _, policy := range []Policy{wavMp3Profile(), lenientPolicy()} {
+		for _, policy := range []reconcile.Policy{wavMp3Profile(), lenientPolicy()} {
 			res := reconcileRJ(t, entries, policy)
 			c := singleComponent(t, res, 1)
-			if c.Status != StatusBlocked || c.ReasonCode != ReasonSourceAmbiguous {
+			if c.Status != reconcile.StatusBlocked || c.ReasonCode != reconcile.ReasonSourceAmbiguous {
 				t.Fatalf("mode %q: %+v", policy.Mode, c)
 			}
 			if len(c.Operations) != 0 {

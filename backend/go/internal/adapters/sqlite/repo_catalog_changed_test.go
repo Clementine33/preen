@@ -1,14 +1,15 @@
-package sqlite //nolint:testpackage // white-box tests drive the real schema
+package sqlite_test
 
 import (
 	"context"
 	"testing"
 
+	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
 	"github.com/Clementine33/preen/backend/internal/inventory"
 	"github.com/Clementine33/preen/backend/internal/works"
 )
 
-func stageFile(t *testing.T, repo *Repository, session, root, parent, name string, size int64) {
+func stageFile(t *testing.T, repo *sqlite.Repository, session, root, parent, name string, size int64) {
 	t.Helper()
 	if err := stageTestRows(
 		repo,

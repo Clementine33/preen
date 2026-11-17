@@ -1,4 +1,4 @@
-package sqlite //nolint:testpackage // white-box tests exercise unexported internals
+package sqlite_test
 
 import (
 	"database/sql"
@@ -19,7 +19,7 @@ func TestNewRepository(t *testing.T) {
 
 		for _, table := range tables {
 			var count int
-			err := repo.db.QueryRow("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?", table).
+			err := repo.DB().QueryRow("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?", table).
 				Scan(&count)
 			if err != nil {
 				t.Errorf("failed to check table %s: %v", table, err)
@@ -38,7 +38,7 @@ func TestNewRepository(t *testing.T) {
 		} {
 			for _, col := range columns {
 				var count int
-				err := repo.db.QueryRow("SELECT COUNT(*) FROM pragma_table_xinfo(?) WHERE name=?", table, col).
+				err := repo.DB().QueryRow("SELECT COUNT(*) FROM pragma_table_xinfo(?) WHERE name=?", table, col).
 					Scan(&count)
 				if err != nil || count != 1 {
 					t.Errorf("column %s.%s missing: %v", table, col, err)
@@ -56,19 +56,21 @@ func TestNewRepository(t *testing.T) {
 			{"inventory_dirs", "id", 1}, {"inventory_files", "dir_ref", 1}, {"inventory_files", "name", 2},
 		} {
 			var pk int
-			err := repo.db.QueryRow("SELECT pk FROM pragma_table_info(?) WHERE name=?", key.table, key.column).Scan(&pk)
+			err := repo.DB().
+				QueryRow("SELECT pk FROM pragma_table_info(?) WHERE name=?", key.table, key.column).
+				Scan(&pk)
 			if err != nil || pk != key.position {
 				t.Errorf("%s.%s primary key = %d, want %d: %v", key.table, key.column, pk, key.position, err)
 			}
 		}
 		var schema string
-		if err := repo.db.QueryRow("SELECT sql FROM sqlite_master WHERE name='inventory_files'").
+		if err := repo.DB().QueryRow("SELECT sql FROM sqlite_master WHERE name='inventory_files'").
 			Scan(&schema); err != nil ||
 			!strings.Contains(schema, "WITHOUT ROWID") {
 			t.Fatalf("files must use WITHOUT ROWID: %s, %v", schema, err)
 		}
 		var legacy int
-		if err := repo.db.QueryRow("SELECT COUNT(*) FROM sqlite_master WHERE name='entries'").
+		if err := repo.DB().QueryRow("SELECT COUNT(*) FROM sqlite_master WHERE name='entries'").
 			Scan(&legacy); err != nil ||
 			legacy != 0 {
 			t.Fatalf("legacy entries table/view remains: %d, %v", legacy, err)
@@ -79,7 +81,7 @@ func TestNewRepository(t *testing.T) {
 		repo := newTestRepository(t)
 
 		var mode string
-		err := repo.db.QueryRow("PRAGMA journal_mode").Scan(&mode)
+		err := repo.DB().QueryRow("PRAGMA journal_mode").Scan(&mode)
 		if err != nil {
 			t.Fatalf("failed to query journal mode: %v", err)
 		}
@@ -95,12 +97,12 @@ func TestConnectionPragmasAreAppliedToEveryConnection(t *testing.T) {
 
 	// Two connections held at once: the pragmas are connection-scoped, so a
 	// second one is exactly what a one-shot PRAGMA statement fails to configure.
-	first, err := repo.db.Conn(ctx)
+	first, err := repo.DB().Conn(ctx)
 	if err != nil {
 		t.Fatalf("hold first connection: %v", err)
 	}
 	defer first.Close()
-	second, err := repo.db.Conn(ctx)
+	second, err := repo.DB().Conn(ctx)
 	if err != nil {
 		t.Fatalf("hold second connection: %v", err)
 	}
@@ -127,7 +129,7 @@ func TestNewRepository_CreatesInventoryRootPathIndex(t *testing.T) {
 	repo := newTestRepository(t)
 
 	var count int
-	err := repo.db.QueryRow(
+	err := repo.DB().QueryRow(
 		"SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name='idx_inventory_dirs_root_path'",
 	).Scan(&count)
 	if err != nil {
@@ -142,7 +144,7 @@ func TestEntriesPathLookupIsIndexedWithoutADuplicateIndex(t *testing.T) {
 	repo := newTestRepository(t)
 
 	var count int
-	if err := repo.db.QueryRow(
+	if err := repo.DB().QueryRow(
 		"SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name='idx_entries_path'",
 	).Scan(&count); err != nil {
 		t.Fatalf("query sqlite_master: %v", err)
@@ -151,7 +153,7 @@ func TestEntriesPathLookupIsIndexedWithoutADuplicateIndex(t *testing.T) {
 		t.Fatalf("idx_entries_path duplicates the primary key's own index, got %d", count)
 	}
 
-	rows, err := repo.db.Query(
+	rows, err := repo.DB().Query(
 		"EXPLAIN QUERY PLAN SELECT path FROM inventory_dirs WHERE path = ? OR (path >= ? AND path < ?)",
 		"/music/a", "/music/a/", "/music/a0",
 	)
@@ -184,12 +186,12 @@ func TestRepoSchemaInit(t *testing.T) {
 	repo := newTestRepository(t)
 
 	var count int
-	err := repo.db.QueryRow("SELECT COUNT(*) FROM inventory_dirs").Scan(&count)
+	err := repo.DB().QueryRow("SELECT COUNT(*) FROM inventory_dirs").Scan(&count)
 	if err != nil {
 		t.Fatalf("entries table not found: %v", err)
 	}
 
-	err = repo.db.QueryRow("SELECT COUNT(*) FROM sqlite_master WHERE name='entries_staging'").Scan(&count)
+	err = repo.DB().QueryRow("SELECT COUNT(*) FROM sqlite_master WHERE name='entries_staging'").Scan(&count)
 	if err != nil || count != 0 {
 		t.Fatalf("main staging table exists: count=%d, err=%v", count, err)
 	}

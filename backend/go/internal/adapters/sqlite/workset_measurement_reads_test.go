@@ -1,5 +1,4 @@
-//nolint:testpackage // The opt-in harness uses its real repository and handler fixture.
-package sqlite
+package sqlite_test
 
 import (
 	"context"
@@ -22,7 +21,7 @@ func (f *worksetMeasurement) readLargestMember(t *testing.T, id, plan string) st
 	t.Helper()
 	var memberID, root string
 	var components int
-	err := f.repo.db.QueryRow(`SELECT r.root_path, COUNT(c.component_index)
+	err := f.repo.DB().QueryRow(`SELECT r.root_path, COUNT(c.component_index)
  FROM plan_roots r JOIN conversion_components c
  ON c.plan_id = r.plan_id AND c.root_index = r.root_index
  WHERE r.plan_id = ? GROUP BY r.root_index
@@ -30,7 +29,7 @@ func (f *worksetMeasurement) readLargestMember(t *testing.T, id, plan string) st
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := f.repo.db.QueryRow(`SELECT member_id FROM workset_members
+	if err := f.repo.DB().QueryRow(`SELECT member_id FROM workset_members
  WHERE workset_id = ? AND folder_path = ? ORDER BY member_index LIMIT 1`, id, root).Scan(&memberID); err != nil {
 		t.Fatal(err)
 	}

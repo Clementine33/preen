@@ -1,7 +1,6 @@
-package sqlite //nolint:testpackage // white-box tests drive the write path's retry and batching
+package sqlite_test
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -11,23 +10,9 @@ import (
 
 	"github.com/Clementine33/preen/backend/internal/testutil/inventoryfixture"
 
+	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
 	"github.com/Clementine33/preen/backend/internal/inventory"
 )
-
-func TestChunkBitrateUpdates_ChunksAt100(t *testing.T) {
-	updates := make([]inventory.BitrateUpdate, 0, 250)
-	for i := range 250 {
-		updates = append(updates, inventory.BitrateUpdate{Path: fmt.Sprintf("/scope/%03d.mp3", i), BitrateKbps: 128000})
-	}
-
-	chunks := chunkBitrateUpdates(updates, 100)
-	if len(chunks) != 3 {
-		t.Fatalf("expected 3 chunks, got %d", len(chunks))
-	}
-	if len(chunks[0]) != 100 || len(chunks[1]) != 100 || len(chunks[2]) != 50 {
-		t.Fatalf("unexpected chunk sizes: [%d %d %d]", len(chunks[0]), len(chunks[1]), len(chunks[2]))
-	}
-}
 
 func TestPersistBitrateUpdates_ReturnsBeginError(t *testing.T) {
 	tmpDir, err := os.MkdirTemp("", "onsei-test-analyze-bitrate-begin-*")
@@ -36,7 +21,7 @@ func TestPersistBitrateUpdates_ReturnsBeginError(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	repo, err := NewRepository(filepath.Join(tmpDir, "test.db"))
+	repo, err := sqlite.NewRepository(filepath.Join(tmpDir, "test.db"))
 	if err != nil {
 		t.Fatalf("failed to create repo: %v", err)
 	}
@@ -55,7 +40,7 @@ func TestPersistBitrateUpdates_ReturnsExecError(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	repo, err := NewRepository(filepath.Join(tmpDir, "test.db"))
+	repo, err := sqlite.NewRepository(filepath.Join(tmpDir, "test.db"))
 	if err != nil {
 		t.Fatalf("failed to create repo: %v", err)
 	}
@@ -75,6 +60,10 @@ func TestPersistBitrateUpdates_ReturnsExecError(t *testing.T) {
 	}
 }
 
+// bitrateUpdateBatchSize mirrors the production per-transaction chunk size, so the
+// failing update lands in a later chunk than the first.
+const bitrateUpdateBatchSize = 100
+
 func TestPersistBitrateUpdates_RollsBackEarlierChunksOnLaterChunkFailure(t *testing.T) {
 	tmpDir, err := os.MkdirTemp("", "onsei-test-analyze-bitrate-atomicity-*")
 	if err != nil {
@@ -82,7 +71,7 @@ func TestPersistBitrateUpdates_RollsBackEarlierChunksOnLaterChunkFailure(t *test
 	}
 	defer os.RemoveAll(tmpDir)
 
-	repo, err := NewRepository(filepath.Join(tmpDir, "test.db"))
+	repo, err := sqlite.NewRepository(filepath.Join(tmpDir, "test.db"))
 	if err != nil {
 		t.Fatalf("failed to create repo: %v", err)
 	}
@@ -157,83 +146,6 @@ func TestPersistBitrateUpdates_RollsBackEarlierChunksOnLaterChunkFailure(t *test
 	}
 }
 
-func TestIsSQLiteBusyLockedError_Detection(t *testing.T) {
-	tests := []struct {
-		err  error
-		want bool
-	}{
-		{errors.New("database is locked"), true},
-		{errors.New("SQLITE_BUSY: concurrent access"), true},
-		{errors.New("sqlite_locked error"), true},
-		{errors.New("no such table: entries"), false},
-		{nil, false},
-		{errors.New("disk I/O error"), false},
-	}
-	for _, tt := range tests {
-		got := isSQLiteBusyLockedError(tt.err)
-		if got != tt.want {
-			t.Errorf("isSQLiteBusyLockedError(%v) = %v, want %v", tt.err, got, tt.want)
-		}
-	}
-}
-
-func TestPersistBitrateUpdates_RetriesOnBusyError(t *testing.T) {
-	// Test: retry loop should retry on busy and stop on non-busy.
-	attempts := 0
-	lastErr := error(nil)
-	for attempt := 0; attempt <= bitratePersistRetryLimit; attempt++ {
-		attempts++
-		// Simulate: first 2 attempts return busy, 3rd returns non-busy
-		if attempt < 2 {
-			err := errors.New("database is locked")
-			if !isSQLiteBusyLockedError(err) {
-				t.Fatalf("expected busy error to be detected")
-			}
-			lastErr = err
-			continue
-		}
-		// Non-busy error - should stop
-		err := errors.New("no such table: entries")
-		if isSQLiteBusyLockedError(err) {
-			t.Fatalf("expected non-busy error to not be detected as busy")
-		}
-		lastErr = err
-		break
-	}
-	if lastErr == nil {
-		t.Fatal("expected error, got nil")
-	}
-	if !strings.Contains(lastErr.Error(), "no such table") {
-		t.Fatalf("expected non-busy error to be returned, got %v", lastErr)
-	}
-	if attempts != 3 {
-		t.Fatalf("expected 3 attempts (2 busy + 1 non-busy), got %d", attempts)
-	}
-}
-
-func TestPersistBitrateUpdates_ExhaustsRetriesOnBusy(t *testing.T) {
-	// Verify that exhausting retries returns the last busy error.
-	attempts := 0
-	var lastErr error
-	for attempt := 0; attempt <= bitratePersistRetryLimit; attempt++ {
-		attempts++
-		err := errors.New("SQLITE_BUSY: database is locked")
-		if !isSQLiteBusyLockedError(err) {
-			t.Fatalf("expected busy error to be detected at attempt %d", attempt)
-		}
-		lastErr = err
-	}
-	if lastErr == nil {
-		t.Fatal("expected error, got nil")
-	}
-	if !isSQLiteBusyLockedError(lastErr) {
-		t.Fatalf("expected last error to be busy, got %v", lastErr)
-	}
-	if attempts != bitratePersistRetryLimit+1 {
-		t.Fatalf("expected %d attempts (0..%d), got %d", bitratePersistRetryLimit+1, bitratePersistRetryLimit, attempts)
-	}
-}
-
 func TestPersistBitrateUpdates_ConcurrentSerialization(t *testing.T) {
 	tmpDir, err := os.MkdirTemp("", "onsei-test-bitrate-concurrent-*")
 	if err != nil {
@@ -241,7 +153,7 @@ func TestPersistBitrateUpdates_ConcurrentSerialization(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	repo, err := NewRepository(filepath.Join(tmpDir, "test.db"))
+	repo, err := sqlite.NewRepository(filepath.Join(tmpDir, "test.db"))
 	if err != nil {
 		t.Fatalf("failed to create repo: %v", err)
 	}

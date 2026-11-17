@@ -1,4 +1,4 @@
-package httpapi //nolint:testpackage // white-box tests drive the routes through the real router
+package httpapi_test
 
 import (
 	"context"
@@ -7,13 +7,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Clementine33/preen/backend/internal/adapters/httpapi"
+
 	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
 	"github.com/Clementine33/preen/backend/internal/updatecheck"
 )
 
 func updateCheckBody(t *testing.T, svc *updatecheck.Service, token string) (int, string) {
 	t.Helper()
-	engine := newTestServer(t, func(d *Dependencies, _ *sqlite.Repository) {
+	engine := newTestServer(t, func(d *httpapi.Dependencies, _ *sqlite.Repository) {
 		d.UpdateCheck = svc
 		d.Token = token
 	})
@@ -64,7 +66,7 @@ func TestUpdateCheckEndpointRequiresAuthentication(t *testing.T) {
 		release("v0.3.0"),
 		updatecheck.WithSleep(func(context.Context, time.Duration) error { return nil }),
 	)
-	engine := newTestServer(t, func(d *Dependencies, _ *sqlite.Repository) {
+	engine := newTestServer(t, func(d *httpapi.Dependencies, _ *sqlite.Repository) {
 		d.UpdateCheck = svc
 		d.Token = "secret"
 	})

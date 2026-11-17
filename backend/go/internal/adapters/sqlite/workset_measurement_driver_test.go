@@ -1,5 +1,4 @@
-//nolint:testpackage // The opt-in harness wraps the repository's private driver and scan pools.
-package sqlite
+package sqlite_test
 
 import (
 	"context"
@@ -350,8 +349,8 @@ func worksetSQLPath() string {
 			!strings.HasSuffix(frame.File, "scan_connection.go") {
 			path := strings.Split(frame.Function, "/adapters/sqlite.")[1]
 			// Keep the path name stable across the locking helper split.
-			if path == "(*Repository).importMetadataLocked" {
-				return "(*Repository).ImportMetadata"
+			if path == "(*sqlite.Repository).importMetadataLocked" {
+				return "(*sqlite.Repository).ImportMetadata"
 			}
 			return path
 		}
@@ -367,7 +366,8 @@ func (c *worksetMeasuredConn) Begin() (driver.Tx, error) {
 
 func (c *worksetMeasuredConn) BeginTx(ctx context.Context, options driver.TxOptions) (driver.Tx, error) {
 	path := worksetSQLPath()
-	if delay := c.measurement.saveDelay.Load(); delay > 0 && path == "(*Repository).SaveExecutionComponentResult" {
+	if delay := c.measurement.saveDelay.Load(); delay > 0 &&
+		path == "(*sqlite.Repository).SaveExecutionComponentResult" {
 		time.Sleep(time.Duration(delay))
 	}
 	beginStart := time.Now()
@@ -487,7 +487,7 @@ type worksetMeasuredTx struct {
 
 // statement times one statement inside the transaction, by kind.
 func (tx *worksetMeasuredTx) statement(query, command string, elapsed time.Duration) {
-	if tx.path == "(*Repository).deleteLibrary" {
+	if tx.path == "(*sqlite.Repository).deleteLibrary" {
 		phase := "record_retirement"
 		switch {
 		case strings.HasPrefix(command, "DELETE FROM WORK_COPIES"):

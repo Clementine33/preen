@@ -1,10 +1,11 @@
-package sqlite //nolint:testpackage // white-box tests exercise unexported internals
+package sqlite_test
 
 import (
 	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
 	"github.com/Clementine33/preen/backend/internal/workset"
 )
 
@@ -15,7 +16,7 @@ import (
 // addresses.
 func TestMemberIdentityIsStableAcrossReopens(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "identity.db")
-	repo, err := NewRepository(dbPath)
+	repo, err := sqlite.NewRepository(dbPath)
 	if err != nil {
 		t.Fatalf("NewRepository: %v", err)
 	}
@@ -51,7 +52,7 @@ func TestMemberIdentityIsStableAcrossReopens(t *testing.T) {
 	if closeErr := repo.Close(); closeErr != nil {
 		t.Fatalf("close repo: %v", closeErr)
 	}
-	reopened, err := NewRepository(dbPath)
+	reopened, err := sqlite.NewRepository(dbPath)
 	if err != nil {
 		t.Fatalf("reopen: %v", err)
 	}
@@ -193,7 +194,7 @@ func TestReplaceCurrentWorksetRefusesABusyRecord(t *testing.T) {
 }
 
 // seedGeneration queues one planning session for a record.
-func seedGeneration(t *testing.T, repo *Repository, genID, worksetID string) {
+func seedGeneration(t *testing.T, repo *sqlite.Repository, genID, worksetID string) {
 	t.Helper()
 	now := time.Now()
 	if err := repo.CreateGeneration(&workset.PlanGeneration{

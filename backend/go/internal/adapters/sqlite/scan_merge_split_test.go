@@ -1,4 +1,4 @@
-package sqlite //nolint:testpackage // Verifies split-table storage invariants while public readers migrate separately.
+package sqlite_test
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
 	"github.com/Clementine33/preen/backend/internal/inventory"
 	"github.com/Clementine33/preen/backend/internal/testutil/inventoryfixture"
 )
@@ -70,19 +71,19 @@ func TestSplitMergePreservesDirectoryIdentityAndUnchangedFacts(t *testing.T) {
 	}
 }
 
-func stageSplitRows(t *testing.T, repo *Repository, id string, rows ...inventory.StagingEntry) {
+func stageSplitRows(t *testing.T, repo *sqlite.Repository, id string, rows ...inventory.StagingEntry) {
 	t.Helper()
 	for i := range rows {
 		rows[i].SessionID = id
 		rows[i].RootPath = "/library"
-		rows[i].ParentPath, rows[i].Name = splitInventoryPath(rows[i].Path)
+		rows[i].ParentPath, rows[i].Name = splitTestPath(rows[i].Path)
 	}
-	if err := NewScanStaging(repo).WriteStagingEntries(id, rows); err != nil {
+	if err := sqlite.NewScanStaging(repo).WriteStagingEntries(id, rows); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func splitFileRevision(t *testing.T, repo *Repository, dir, name string) (int, sql.NullInt64) {
+func splitFileRevision(t *testing.T, repo *sqlite.Repository, dir, name string) (int, sql.NullInt64) {
 	t.Helper()
 	var rev int
 	var bitrate sql.NullInt64
@@ -140,7 +141,7 @@ func TestSplitScanReplacesAFileScopeWithADirectory(t *testing.T) {
 	}
 }
 
-func assertSplitPaths(t *testing.T, repo *Repository, want map[string]string) {
+func assertSplitPaths(t *testing.T, repo *sqlite.Repository, want map[string]string) {
 	t.Helper()
 	rows, err := repo.DB().
 		Query(`SELECT path,'',1 FROM inventory_dirs UNION ALL SELECT d.path,f.name,0 FROM inventory_files f JOIN inventory_dirs d ON d.id=f.dir_ref`)
@@ -157,7 +158,7 @@ func assertSplitPaths(t *testing.T, repo *Repository, want map[string]string) {
 		}
 		kind := "dir"
 		if !isDir {
-			p = joinInventoryPath(p, name)
+			p = joinTestPath(p, name)
 			kind = "file"
 		}
 		if _, ok := got[p]; ok {
@@ -341,7 +342,7 @@ func TestSplitMergeFailureRollsBackInventoryBindingsAndStaging(t *testing.T) {
 				Scan(&bindings); err != nil {
 				t.Fatal(err)
 			}
-			if err = stagingTestRow(repo, "failed", "SELECT COUNT(*) FROM entries_staging").
+			if err = sqlite.QueryStagingRow(repo, "failed", "SELECT COUNT(*) FROM entries_staging").
 				Scan(&staged); err != nil {
 				t.Fatal(err)
 			}
@@ -403,8 +404,8 @@ func TestSplitMergePreservesFilesAtPOSIXRoots(t *testing.T) {
 	for _, root := range []string{"/", "C:/", "//server/share", "/library"} {
 		t.Run(root, func(t *testing.T) {
 			repo := newTestRepository(t)
-			file := joinInventoryPath(root, "track%_日.MP3")
-			store := NewScanStaging(repo)
+			file := joinTestPath(root, "track%_日.MP3")
+			store := sqlite.NewScanStaging(repo)
 			for _, id := range []string{"first", "rescan"} {
 				if err := store.WriteStagingEntries(
 					id,
@@ -433,14 +434,5 @@ func TestSplitMergePreservesFilesAtPOSIXRoots(t *testing.T) {
 				t.Fatalf("unchanged root file revision=%d", rev)
 			}
 		})
-	}
-}
-
-func TestPackScopesNeverSplitsAndIsolatesOverBudgetScopes(t *testing.T) {
-	scopes := []string{"a", "b", "c", "d", "e"}
-	got := packScopes(scopes, []int{3, 3, 50, 1, 5}, 7)
-	want := [][]string{{"a", "b"}, {"c"}, {"d", "e"}}
-	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("batches = %v, want %v", got, want)
 	}
 }

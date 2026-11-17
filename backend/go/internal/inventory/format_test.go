@@ -1,6 +1,10 @@
-package inventory //nolint:testpackage // pins the unexported format rule
+package inventory_test
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/Clementine33/preen/backend/internal/inventory"
+)
 
 func TestDetectFormatGivesSidecarsNoMediaType(t *testing.T) {
 	for path, want := range map[string]string{
@@ -13,7 +17,7 @@ func TestDetectFormatGivesSidecarsNoMediaType(t *testing.T) {
 		"/lib/RJ1/art/cover.gif":   "image/gif",
 		"/lib/RJ1/art/cover.webp":  "image/webp",
 	} {
-		if got := DetectFormatFromPath(path, false); got != want {
+		if got := inventory.DetectFormatFromPath(path, false); got != want {
 			t.Errorf("DetectFormatFromPath(%q) = %q, want %q", path, got, want)
 		}
 	}

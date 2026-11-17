@@ -1,28 +1,29 @@
-package sqlite //nolint:testpackage // white-box tests share the package's own helpers
+package sqlite_test
 
 import (
 	"errors"
 	"testing"
 	"time"
 
+	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
 	"github.com/Clementine33/preen/backend/internal/inventory"
 )
 
-// SQLiteAdapterTestSuite provides integration tests for ScanStaging
+// SQLiteAdapterTestSuite provides integration tests for sqlite.ScanStaging
 // to verify staging write batching, rollback semantics, and service path behavior.
 type SQLiteAdapterTestSuite struct {
-	repo    *Repository
-	adapter *ScanStaging
+	repo    *sqlite.Repository
+	adapter *sqlite.ScanStaging
 }
 
 func setupTestDB(t *testing.T) *SQLiteAdapterTestSuite {
 	t.Helper()
-	sqliteRepo, err := NewRepository(t.TempDir() + "/test.db")
+	sqliteRepo, err := sqlite.NewRepository(t.TempDir() + "/test.db")
 	if err != nil {
 		t.Fatalf("failed to create test repository: %v", err)
 	}
 
-	adapter := NewScanStaging(sqliteRepo)
+	adapter := sqlite.NewScanStaging(sqliteRepo)
 
 	t.Cleanup(func() {
 		sqliteRepo.Close()
@@ -63,7 +64,7 @@ func TestWriteStagingEntries_LargeBatch_SucceedsAtomically(t *testing.T) {
 
 	// Verify all entries were written
 	var count int
-	err = stagingTestRow(suite.repo, sessionID, "SELECT COUNT(*) FROM entries_staging").Scan(&count)
+	err = sqlite.QueryStagingRow(suite.repo, sessionID, "SELECT COUNT(*) FROM entries_staging").Scan(&count)
 	if err != nil {
 		t.Fatalf("failed to count staging entries: %v", err)
 	}
@@ -100,12 +101,12 @@ func TestWriteStagingEntries_StagingWriteFailure_TriggersRollbackAndReturnsError
 	}
 
 	// Inject failure after 25 exec calls
-	suite.adapter.testExecSeam = func(callCount int) error {
+	sqlite.SetScanStagingExecSeam(suite.adapter, func(callCount int) error {
 		if callCount == 25 {
 			return expectedErr
 		}
 		return nil
-	}
+	})
 
 	// Write should fail with our injected error
 	err := suite.adapter.WriteStagingEntries(sessionID, entries)
@@ -118,7 +119,7 @@ func TestWriteStagingEntries_StagingWriteFailure_TriggersRollbackAndReturnsError
 
 	// Verify rollback occurred - no partial rows should remain
 	var count int
-	queryErr := stagingTestRow(suite.repo, sessionID, "SELECT COUNT(*) FROM entries_staging").Scan(&count)
+	queryErr := sqlite.QueryStagingRow(suite.repo, sessionID, "SELECT COUNT(*) FROM entries_staging").Scan(&count)
 	if queryErr != nil {
 		t.Fatalf("failed to count staging entries: %v", queryErr)
 	}
@@ -157,7 +158,7 @@ func TestWriteStagingEntries_BatchSizeBoundary(t *testing.T) {
 	}
 
 	var count int
-	err = stagingTestRow(suite.repo, sessionID, "SELECT COUNT(*) FROM entries_staging").Scan(&count)
+	err = sqlite.QueryStagingRow(suite.repo, sessionID, "SELECT COUNT(*) FROM entries_staging").Scan(&count)
 	if err != nil {
 		t.Fatalf("failed to count entries: %v", err)
 	}
@@ -187,7 +188,7 @@ func TestWriteStagingEntries_BatchSizeBoundary(t *testing.T) {
 		t.Fatalf("WriteStagingEntries failed for batch+1: %v", err)
 	}
 
-	err = stagingTestRow(suite.repo, sessionID2, "SELECT COUNT(*) FROM entries_staging").Scan(&count)
+	err = sqlite.QueryStagingRow(suite.repo, sessionID2, "SELECT COUNT(*) FROM entries_staging").Scan(&count)
 	if err != nil {
 		t.Fatalf("failed to count entries: %v", err)
 	}
@@ -210,7 +211,7 @@ func TestWriteStagingEntries_EmptyEntries(t *testing.T) {
 
 	// Verify no entries were written
 	var count int
-	err = stagingTestRow(suite.repo, sessionID, "SELECT COUNT(*) FROM entries_staging").Scan(&count)
+	err = sqlite.QueryStagingRow(suite.repo, sessionID, "SELECT COUNT(*) FROM entries_staging").Scan(&count)
 	if err != nil {
 		t.Fatalf("failed to count entries: %v", err)
 	}
@@ -247,7 +248,7 @@ func TestWriteStagingEntries_InsertOrReplace(t *testing.T) {
 
 	// Verify initial write
 	var size int64
-	err = stagingTestRow(
+	err = sqlite.QueryStagingRow(
 		suite.repo,
 		sessionID,
 		"SELECT size FROM entries_staging WHERE path = ?",
@@ -268,7 +269,7 @@ func TestWriteStagingEntries_InsertOrReplace(t *testing.T) {
 	}
 
 	// Verify entry was replaced, not duplicated
-	err = stagingTestRow(
+	err = sqlite.QueryStagingRow(
 		suite.repo,
 		sessionID,
 		"SELECT size FROM entries_staging WHERE path = ?",
@@ -283,7 +284,7 @@ func TestWriteStagingEntries_InsertOrReplace(t *testing.T) {
 
 	// Verify only one entry exists
 	var count int
-	err = stagingTestRow(suite.repo, sessionID, "SELECT COUNT(*) FROM entries_staging").Scan(&count)
+	err = sqlite.QueryStagingRow(suite.repo, sessionID, "SELECT COUNT(*) FROM entries_staging").Scan(&count)
 	if err != nil {
 		t.Fatalf("failed to count entries: %v", err)
 	}
@@ -351,7 +352,7 @@ func TestWriteStagingBatch_MultiTransaction(t *testing.T) {
 
 	// Verify both batches were written
 	var count int
-	err := stagingTestRow(suite.repo, sessionID, "SELECT COUNT(*) FROM entries_staging").Scan(&count)
+	err := sqlite.QueryStagingRow(suite.repo, sessionID, "SELECT COUNT(*) FROM entries_staging").Scan(&count)
 	if err != nil {
 		t.Fatalf("failed to count entries: %v", err)
 	}
@@ -389,7 +390,7 @@ func TestWriteStagingBatch_PartialPersistence(t *testing.T) {
 
 	// Verify first batch was written
 	var count int
-	err := stagingTestRow(suite.repo, sessionID, "SELECT COUNT(*) FROM entries_staging").Scan(&count)
+	err := sqlite.QueryStagingRow(suite.repo, sessionID, "SELECT COUNT(*) FROM entries_staging").Scan(&count)
 	if err != nil {
 		t.Fatalf("failed to count entries: %v", err)
 	}
@@ -436,7 +437,7 @@ func TestCloseStagingSession_RemovesAllEntriesForSession(t *testing.T) {
 
 	// Verify entries exist
 	var count int
-	err := stagingTestRow(suite.repo, sessionID, "SELECT COUNT(*) FROM entries_staging").Scan(&count)
+	err := sqlite.QueryStagingRow(suite.repo, sessionID, "SELECT COUNT(*) FROM entries_staging").Scan(&count)
 	if err != nil {
 		t.Fatalf("failed to count entries: %v", err)
 	}
@@ -450,7 +451,7 @@ func TestCloseStagingSession_RemovesAllEntriesForSession(t *testing.T) {
 	}
 
 	// Verify entries removed
-	err = stagingTestRow(suite.repo, sessionID, "SELECT COUNT(*) FROM entries_staging").Scan(&count)
+	err = sqlite.QueryStagingRow(suite.repo, sessionID, "SELECT COUNT(*) FROM entries_staging").Scan(&count)
 	if err != nil {
 		t.Fatalf("failed to count entries after cleanup: %v", err)
 	}
@@ -508,7 +509,7 @@ func TestCloseStagingSession_PreservesOtherSessions(t *testing.T) {
 
 	// Verify session1 entries removed
 	var count1, count2 int
-	err := stagingTestRow(suite.repo, sessionID1, "SELECT COUNT(*) FROM entries_staging").Scan(&count1)
+	err := sqlite.QueryStagingRow(suite.repo, sessionID1, "SELECT COUNT(*) FROM entries_staging").Scan(&count1)
 	if err != nil {
 		t.Fatalf("failed to count session1 entries: %v", err)
 	}
@@ -517,7 +518,7 @@ func TestCloseStagingSession_PreservesOtherSessions(t *testing.T) {
 	}
 
 	// Verify session2 entries preserved
-	err = stagingTestRow(suite.repo, sessionID2, "SELECT COUNT(*) FROM entries_staging").Scan(&count2)
+	err = sqlite.QueryStagingRow(suite.repo, sessionID2, "SELECT COUNT(*) FROM entries_staging").Scan(&count2)
 	if err != nil {
 		t.Fatalf("failed to count session2 entries: %v", err)
 	}
@@ -528,13 +529,13 @@ func TestCloseStagingSession_PreservesOtherSessions(t *testing.T) {
 
 // Benchmark for large batch performance.
 func BenchmarkWriteStagingEntries_LargeBatch(b *testing.B) {
-	sqliteRepo, err := NewRepository(b.TempDir() + "/test.db")
+	sqliteRepo, err := sqlite.NewRepository(b.TempDir() + "/test.db")
 	if err != nil {
 		b.Fatalf("failed to create test repository: %v", err)
 	}
 	defer sqliteRepo.Close()
 
-	adapter := NewScanStaging(sqliteRepo)
+	adapter := sqlite.NewScanStaging(sqliteRepo)
 
 	// Create 5000 entries
 	var entries []inventory.StagingEntry

@@ -1,9 +1,11 @@
-package reconcile //nolint:testpackage // white-box tests exercise unexported internals
+package reconcile_test
 
 import (
 	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/Clementine33/preen/backend/internal/conversion/reconcile"
 )
 
 // rjRoot mirrors the real directory layout at
@@ -13,18 +15,18 @@ import (
 // intentional component shape the classifier must not merge across partitions.
 const rjRoot = "D:/Music/RJ01567288"
 
-func rjEntry(rel string, size int64, bitrate int64) AudioEntry {
-	return AudioEntry{PathPosix: rjRoot + "/" + rel, Size: size, Mtime: 1700000000, Bitrate: bitrate}
+func rjEntry(rel string, size int64, bitrate int64) reconcile.AudioEntry {
+	return reconcile.AudioEntry{PathPosix: rjRoot + "/" + rel, Size: size, Mtime: 1700000000, Bitrate: bitrate}
 }
 
 // generated stamps one entry with the generation credential of a file this app
 // wrote for that target: the credential's own size and mtime are the entry's, so
 // it describes exactly the file the entry observes.
-func generated(e AudioEntry, codec Codec, kbps int) AudioEntry {
-	e.Generated = &GeneratedFacts{
+func generated(e reconcile.AudioEntry, codec reconcile.Codec, kbps int) reconcile.AudioEntry {
+	e.Generated = &reconcile.GeneratedFacts{
 		Codec:       codec,
 		BitrateKbps: kbps,
-		Mode:        EncodingMode(codec),
+		Mode:        reconcile.EncodingMode(codec),
 		Size:        e.Size,
 		Mtime:       e.Mtime,
 	}
@@ -37,8 +39,8 @@ func generated(e AudioEntry, codec Codec, kbps int) AudioEntry {
 // names the files that are observed at another bitrate and carry no credential —
 // the shape of a file this app did not write (e.g. "SEなし/mp3/03.mp3" -> 128000,
 // or -> 0 for a bitrate no probe could establish).
-func rjEntries(bitrateOverride map[string]int64) []AudioEntry {
-	entries := []AudioEntry{}
+func rjEntries(bitrateOverride map[string]int64) []reconcile.AudioEntry {
+	entries := []reconcile.AudioEntry{}
 	for _, partition := range []string{"SEあり", "SEなし"} {
 		for i := range 6 {
 			file := num2(i)
@@ -47,7 +49,7 @@ func rjEntries(bitrateOverride map[string]int64) []AudioEntry {
 			if _, ok := bitrateOverride[partition+"/mp3/"+file+".mp3"]; ok {
 				mp3.Bitrate = bitrateOverride[partition+"/mp3/"+file+".mp3"]
 			} else {
-				mp3 = generated(mp3, CodecMp3, 320)
+				mp3 = generated(mp3, reconcile.CodecMp3, 320)
 			}
 			if br, ok := bitrateOverride[partition+"/wav/"+file+".wav"]; ok {
 				wav.Bitrate = br
@@ -56,8 +58,11 @@ func rjEntries(bitrateOverride map[string]int64) []AudioEntry {
 		}
 	}
 	// Bonus image folder: never audio, never grouped.
-	entries = append(entries, AudioEntry{PathPosix: rjRoot + "/特典/cover.jpg", Size: 200000, Mtime: 1700000000})
-	entries = append(entries, AudioEntry{PathPosix: rjRoot + "/特典/track.vtt", Size: 5000, Mtime: 1700000000})
+	entries = append(
+		entries,
+		reconcile.AudioEntry{PathPosix: rjRoot + "/特典/cover.jpg", Size: 200000, Mtime: 1700000000},
+	)
+	entries = append(entries, reconcile.AudioEntry{PathPosix: rjRoot + "/特典/track.vtt", Size: 5000, Mtime: 1700000000})
 	return entries
 }
 
@@ -65,42 +70,51 @@ func num2(i int) string {
 	return fmt.Sprintf("%02d", i)
 }
 
-func wavMp3Profile() Policy {
-	return Policy{
+func wavMp3Profile() reconcile.Policy {
+	return reconcile.Policy{
 		SchemaVersion: 1,
 		NoEffectTags:  []string{"SEなし"},
-		Matched: DesiredProfile{
-			Lossless: &AudioOutputSpec{Codec: CodecWav},
-			Encoded:  &AudioOutputSpec{Codec: CodecMp3, Quality: &Quality{Kind: QualityBitrate, Bitrate: 320}},
+		Matched: reconcile.DesiredProfile{
+			Lossless: &reconcile.AudioOutputSpec{Codec: reconcile.CodecWav},
+			Encoded: &reconcile.AudioOutputSpec{
+				Codec:   reconcile.CodecMp3,
+				Quality: &reconcile.Quality{Kind: reconcile.QualityBitrate, Bitrate: 320},
+			},
 		},
-		Unmatched: DesiredProfile{
-			Lossless: &AudioOutputSpec{Codec: CodecWav},
-			Encoded:  &AudioOutputSpec{Codec: CodecMp3, Quality: &Quality{Kind: QualityBitrate, Bitrate: 320}},
+		Unmatched: reconcile.DesiredProfile{
+			Lossless: &reconcile.AudioOutputSpec{Codec: reconcile.CodecWav},
+			Encoded: &reconcile.AudioOutputSpec{
+				Codec:   reconcile.CodecMp3,
+				Quality: &reconcile.Quality{Kind: reconcile.QualityBitrate, Bitrate: 320},
+			},
 		},
 	}
 }
 
-func mp3OnlyProfile() Policy {
+func mp3OnlyProfile() reconcile.Policy {
 	p := wavMp3Profile()
-	mp3 := DesiredProfile{
-		Encoded: &AudioOutputSpec{Codec: CodecMp3, Quality: &Quality{Kind: QualityBitrate, Bitrate: 320}},
+	mp3 := reconcile.DesiredProfile{
+		Encoded: &reconcile.AudioOutputSpec{
+			Codec:   reconcile.CodecMp3,
+			Quality: &reconcile.Quality{Kind: reconcile.QualityBitrate, Bitrate: 320},
+		},
 	}
 	p.Matched = mp3
 	p.Unmatched = mp3
 	return p
 }
 
-func effectClassifier() Classifier {
-	c, err := ResolveClassifier([]string{"SEなし"})
+func effectClassifier() reconcile.Classifier {
+	c, err := reconcile.ResolveClassifier([]string{"SEなし"})
 	if err != nil {
 		panic(err)
 	}
 	return c
 }
 
-func reconcileRJ(t *testing.T, entries []AudioEntry, policy Policy) ReconcileResult {
+func reconcileRJ(t *testing.T, entries []reconcile.AudioEntry, policy reconcile.Policy) reconcile.ReconcileResult {
 	t.Helper()
-	res, err := Reconcile(ReconcileInput{
+	res, err := reconcile.Reconcile(reconcile.ReconcileInput{
 		RootPath:   rjRoot,
 		Entries:    entries,
 		Policy:     policy,
@@ -114,13 +128,13 @@ func reconcileRJ(t *testing.T, entries []AudioEntry, policy Policy) ReconcileRes
 
 func TestClassifierPartitionsByRootRelativePath(t *testing.T) {
 	c := effectClassifier()
-	if got := c.Classify("SEなし/mp3/00.mp3"); got != PartitionMatched {
+	if got := c.Classify("SEなし/mp3/00.mp3"); got != reconcile.PartitionMatched {
 		t.Fatalf("SEなし -> %s, want matched", got)
 	}
-	if got := c.Classify("SEあり/wav/00.wav"); got != PartitionUnmatched {
+	if got := c.Classify("SEあり/wav/00.wav"); got != reconcile.PartitionUnmatched {
 		t.Fatalf("SEあり -> %s, want unmatched", got)
 	}
-	if got := c.Classify("特典/cover.jpg"); got != PartitionUnmatched {
+	if got := c.Classify("特典/cover.jpg"); got != reconcile.PartitionUnmatched {
 		t.Fatalf("特典 -> %s, want unmatched", got)
 	}
 }
@@ -136,7 +150,7 @@ func TestReconcile_BalancedAllSatisfied_NoOperations(t *testing.T) {
 		t.Fatalf("components = %d, want 2", len(res.Components))
 	}
 	for _, comp := range res.Components {
-		if comp.Status != StatusOK {
+		if comp.Status != reconcile.StatusOK {
 			t.Fatalf("component %s status = %s, want ok (%s)", comp.ComponentID, comp.Status, comp.Message)
 		}
 		if len(comp.Operations) != 0 {
@@ -151,13 +165,13 @@ func TestReconcile_BalancedAllSatisfied_NoOperations(t *testing.T) {
 		}
 		for _, v := range comp.Variants {
 			for _, d := range v.Decisions {
-				if d.Resolution != ResolutionKeep {
+				if d.Resolution != reconcile.ResolutionKeep {
 					t.Fatalf("stem %s decision %s = %s, want keep", v.Stem, d.Path, d.Resolution)
 				}
 			}
 		}
 	}
-	if res.Summary.SummaryReason != ReasonNoMatch {
+	if res.Summary.SummaryReason != reconcile.ReasonNoMatch {
 		t.Fatalf("summary reason = %s, want NO_MATCH", res.Summary.SummaryReason)
 	}
 	if res.Count != rjAudioCount {
@@ -169,14 +183,14 @@ func TestReconcile_CompactProfile_DeletesLosslessOnly(t *testing.T) {
 	res := reconcileRJ(t, rjEntries(nil), mp3OnlyProfile())
 
 	for _, comp := range res.Components {
-		if comp.Status != StatusOK {
+		if comp.Status != reconcile.StatusOK {
 			t.Fatalf("component %s blocked: %s", comp.ComponentID, comp.Message)
 		}
 		for _, op := range comp.Operations {
-			if op.Kind != OpKindRemoveObsolete {
+			if op.Kind != reconcile.OpKindRemoveObsolete {
 				t.Fatalf("op kind = %s, want remove_obsolete", op.Kind)
 			}
-			if op.Phase != PhaseRemoveObsoleteAudio {
+			if op.Phase != reconcile.PhaseRemoveObsoleteAudio {
 				t.Fatalf("op phase = %s, want remove_obsolete_audio", op.Phase)
 			}
 		}
@@ -188,7 +202,7 @@ func TestReconcile_CompactProfile_DeletesLosslessOnly(t *testing.T) {
 			t.Fatalf("component %s projected = %d, want 6 mp3 only", comp.ComponentID, len(comp.ProjectedInventory))
 		}
 	}
-	if res.Summary.SummaryReason != ReasonActionable {
+	if res.Summary.SummaryReason != reconcile.ReasonActionable {
 		t.Fatalf("summary reason = %s, want ACTIONABLE", res.Summary.SummaryReason)
 	}
 }
@@ -199,9 +213,9 @@ func TestReconcile_RebuildAll_EncodedLane(t *testing.T) {
 	entries := rjEntries(map[string]int64{"SEなし/mp3/03.mp3": 128000})
 	res := reconcileRJ(t, entries, mp3OnlyProfile())
 
-	var matched, unmatched *ComponentOutcome
+	var matched, unmatched *reconcile.ComponentOutcome
 	for i := range res.Components {
-		if res.Components[i].Partition == PartitionMatched {
+		if res.Components[i].Partition == reconcile.PartitionMatched {
 			matched = &res.Components[i]
 		} else {
 			unmatched = &res.Components[i]
@@ -210,23 +224,23 @@ func TestReconcile_RebuildAll_EncodedLane(t *testing.T) {
 	if matched == nil || unmatched == nil {
 		t.Fatal("missing component partition")
 	}
-	if unmatched.Status != StatusOK || len(unmatched.Operations) != 6 {
+	if unmatched.Status != reconcile.StatusOK || len(unmatched.Operations) != 6 {
 		t.Fatalf(
 			"unmatched component should stay satisfied-delete-only, got status=%s ops=%d",
 			unmatched.Status,
 			len(unmatched.Operations),
 		)
 	}
-	if matched.Status != StatusOK {
+	if matched.Status != reconcile.StatusOK {
 		t.Fatalf("matched component blocked: %s", matched.Message)
 	}
 	// 6 encode ops (one per stem reusing the existing mp3 path) + 6 wav removes.
 	var encodes, removes int
 	for _, op := range matched.Operations {
 		switch op.Kind {
-		case OpKindEncode:
+		case reconcile.OpKindEncode:
 			encodes++
-		case OpKindRemoveObsolete:
+		case reconcile.OpKindRemoveObsolete:
 			removes++
 		}
 	}
@@ -236,7 +250,7 @@ func TestReconcile_RebuildAll_EncodedLane(t *testing.T) {
 	// Encoded lane state must be REBUILD_ALL.
 	var rebuildLane bool
 	for _, lane := range matched.Lanes {
-		if lane.Lane == LaneEncoded && lane.Decision == LaneRebuildAll {
+		if lane.Lane == reconcile.LaneEncoded && lane.Decision == reconcile.LaneRebuildAll {
 			rebuildLane = true
 		}
 	}
@@ -245,7 +259,7 @@ func TestReconcile_RebuildAll_EncodedLane(t *testing.T) {
 	}
 	// Encode targets reuse existing mp3 paths (staged replacement).
 	for _, op := range matched.Operations {
-		if op.Kind != OpKindEncode {
+		if op.Kind != reconcile.OpKindEncode {
 			continue
 		}
 		if op.TargetPath == "" || op.SourcePath == "" {
@@ -254,7 +268,7 @@ func TestReconcile_RebuildAll_EncodedLane(t *testing.T) {
 	}
 	// Removal depends on materialized targets.
 	for _, op := range matched.Operations {
-		if op.Kind != OpKindRemoveObsolete {
+		if op.Kind != reconcile.OpKindRemoveObsolete {
 			continue
 		}
 		if len(op.DependsOn) == 0 {
@@ -275,9 +289,9 @@ func TestReconcile_BlockedComponent_MissingLosslessSource(t *testing.T) {
 	}
 	res := reconcileRJ(t, entries, wavMp3Profile())
 
-	var matched, unmatched *ComponentOutcome
+	var matched, unmatched *reconcile.ComponentOutcome
 	for i := range res.Components {
-		if res.Components[i].Partition == PartitionMatched {
+		if res.Components[i].Partition == reconcile.PartitionMatched {
 			matched = &res.Components[i]
 		} else {
 			unmatched = &res.Components[i]
@@ -286,19 +300,20 @@ func TestReconcile_BlockedComponent_MissingLosslessSource(t *testing.T) {
 	if matched == nil || unmatched == nil {
 		t.Fatal("missing component partition")
 	}
-	if matched.Status != StatusBlocked {
+	if matched.Status != reconcile.StatusBlocked {
 		t.Fatalf("matched component status = %s, want blocked", matched.Status)
 	}
-	if matched.ReasonCode != ReasonLosslessUnfulfillable && matched.ReasonCode != ReasonSourceMissing {
+	if matched.ReasonCode != reconcile.ReasonLosslessUnfulfillable &&
+		matched.ReasonCode != reconcile.ReasonSourceMissing {
 		t.Fatalf("matched reason = %s", matched.ReasonCode)
 	}
 	if len(matched.Operations) != 0 {
 		t.Fatalf("blocked component must have zero operations, got %d", len(matched.Operations))
 	}
-	if unmatched.Status != StatusOK || len(unmatched.Operations) != 0 {
+	if unmatched.Status != reconcile.StatusOK || len(unmatched.Operations) != 0 {
 		t.Fatalf("unmatched should stay ok/satisfied: %s ops=%d", unmatched.Status, len(unmatched.Operations))
 	}
-	if res.Summary.SummaryReason != ReasonBlocked {
+	if res.Summary.SummaryReason != reconcile.ReasonBlocked {
 		t.Fatalf("summary = %s, want BLOCKED (no actionable ops)", res.Summary.SummaryReason)
 	}
 
@@ -311,7 +326,7 @@ func TestReconcile_BlockedComponent_MissingLosslessSource(t *testing.T) {
 		}
 	}
 	partial := reconcileRJ(t, actionable, wavMp3Profile())
-	if partial.Summary.SummaryReason != ReasonPartial {
+	if partial.Summary.SummaryReason != reconcile.ReasonPartial {
 		t.Fatalf("summary = %s, want PARTIAL", partial.Summary.SummaryReason)
 	}
 	if partial.Summary.BlockedCount != 1 || partial.Summary.OperationCount == 0 {
@@ -321,7 +336,7 @@ func TestReconcile_BlockedComponent_MissingLosslessSource(t *testing.T) {
 
 func TestReconcile_SourceAmbiguous(t *testing.T) {
 	// Two wav files with the same normalized stem: no unique qualified source.
-	entries := []AudioEntry{
+	entries := []reconcile.AudioEntry{
 		rjEntry("SEあり/wav/00.wav", 100, 0),
 		rjEntry("SEあり/wav/00.WAV", 100, 0),
 		rjEntry("SEあり/mp3/00.mp3", 10, 128000),
@@ -331,17 +346,17 @@ func TestReconcile_SourceAmbiguous(t *testing.T) {
 	if len(res.Components) != 1 {
 		t.Fatalf("components = %d, want 1", len(res.Components))
 	}
-	if res.Components[0].Status != StatusBlocked {
+	if res.Components[0].Status != reconcile.StatusBlocked {
 		t.Fatalf("status = %s, want blocked", res.Components[0].Status)
 	}
-	if res.Components[0].ReasonCode != ReasonSourceAmbiguous {
+	if res.Components[0].ReasonCode != reconcile.ReasonSourceAmbiguous {
 		t.Fatalf("reason = %s, want SOURCE_AMBIGUOUS", res.Components[0].ReasonCode)
 	}
 }
 
 func TestReconcile_TargetPathAmbiguous(t *testing.T) {
 	// Two mp3 files with the same stem: encode target reuse is ambiguous.
-	entries := []AudioEntry{
+	entries := []reconcile.AudioEntry{
 		rjEntry("SEなし/wav/00.wav", 100, 0),
 		rjEntry("SEなし/mp3/00.mp3", 10, 128000),
 		rjEntry("SEなし/mp3/00.MP3", 10, 128000),
@@ -351,10 +366,10 @@ func TestReconcile_TargetPathAmbiguous(t *testing.T) {
 	if len(res.Components) != 1 {
 		t.Fatalf("components = %d, want 1", len(res.Components))
 	}
-	if res.Components[0].Status != StatusBlocked {
+	if res.Components[0].Status != reconcile.StatusBlocked {
 		t.Fatalf("status = %s, want blocked", res.Components[0].Status)
 	}
-	if res.Components[0].ReasonCode != ReasonTargetPathAmbiguous {
+	if res.Components[0].ReasonCode != reconcile.ReasonTargetPathAmbiguous {
 		t.Fatalf("reason = %s, want TARGET_PATH_AMBIGUOUS", res.Components[0].ReasonCode)
 	}
 }
@@ -362,8 +377,8 @@ func TestReconcile_TargetPathAmbiguous(t *testing.T) {
 func TestReconcile_MeasuredBelowTargetIsAMissingSource(t *testing.T) {
 	// A 192k MP3 under a 320k target is measured short of it: no generation
 	// record is asked about, so without a source the block names the source.
-	res := reconcileRJ(t, []AudioEntry{rjEntry("SEなし/mp3/00.mp3", 20, 192000)}, mp3OnlyProfile())
-	if len(res.Components) != 1 || res.Components[0].ReasonCode != ReasonSourceMissing {
+	res := reconcileRJ(t, []reconcile.AudioEntry{rjEntry("SEなし/mp3/00.mp3", 20, 192000)}, mp3OnlyProfile())
+	if len(res.Components) != 1 || res.Components[0].ReasonCode != reconcile.ReasonSourceMissing {
 		t.Fatalf("want one SOURCE_MISSING block: %+v", res.Components)
 	}
 }
@@ -380,10 +395,10 @@ func TestReconcile_UnknownBitrate(t *testing.T) {
 		}
 	}
 	res := reconcileRJ(t, entries, mp3OnlyProfile())
-	var matched *ComponentOutcome
-	var unmatched *ComponentOutcome
+	var matched *reconcile.ComponentOutcome
+	var unmatched *reconcile.ComponentOutcome
 	for i := range res.Components {
-		if res.Components[i].Partition == PartitionMatched {
+		if res.Components[i].Partition == reconcile.PartitionMatched {
 			matched = &res.Components[i]
 		} else {
 			unmatched = &res.Components[i]
@@ -392,7 +407,7 @@ func TestReconcile_UnknownBitrate(t *testing.T) {
 	if matched == nil || unmatched == nil {
 		t.Fatalf("expected matched and unmatched components, got %d", len(res.Components))
 	}
-	if matched.Status != StatusBlocked || matched.ReasonCode != ReasonConformanceUnconfirmed {
+	if matched.Status != reconcile.StatusBlocked || matched.ReasonCode != reconcile.ReasonConformanceUnconfirmed {
 		t.Fatalf(
 			"a file with no credential and no source should block with CONFORMANCE_UNCONFIRMED, got %s %s",
 			matched.Status,
@@ -402,23 +417,23 @@ func TestReconcile_UnknownBitrate(t *testing.T) {
 	if len(matched.Operations) != 0 {
 		t.Fatalf("blocked matched component must have zero operations, got %d", len(matched.Operations))
 	}
-	if unmatched.Status != StatusOK {
+	if unmatched.Status != reconcile.StatusOK {
 		t.Fatalf("unmatched component should stay satisfied: %s %s", unmatched.Status, unmatched.Message)
 	}
 
 	withSourceRes := reconcileRJ(t, rjEntries(map[string]int64{"SEなし/mp3/00.mp3": 0}), mp3OnlyProfile())
-	var matched2 *ComponentOutcome
+	var matched2 *reconcile.ComponentOutcome
 	for i := range withSourceRes.Components {
-		if withSourceRes.Components[i].Partition == PartitionMatched {
+		if withSourceRes.Components[i].Partition == reconcile.PartitionMatched {
 			matched2 = &withSourceRes.Components[i]
 		}
 	}
-	if matched2 == nil || matched2.Status != StatusOK {
+	if matched2 == nil || matched2.Status != reconcile.StatusOK {
 		t.Fatalf("unknown bitrate WITH source should rebuild, got %s %s", matched2.Status, matched2.Message)
 	}
 	var encodes int
 	for _, op := range matched2.Operations {
-		if op.Kind == OpKindEncode {
+		if op.Kind == reconcile.OpKindEncode {
 			encodes++
 		}
 	}
@@ -431,26 +446,32 @@ func TestReconcile_LosslessRebuildToFlac(t *testing.T) {
 	// Target flac: wav is converted lossless->lossless and the wav becomes
 	// obsolete after the flac commits.
 	policy := wavMp3Profile()
-	policy.Matched = DesiredProfile{
-		Lossless: &AudioOutputSpec{Codec: CodecFlac},
-		Encoded:  &AudioOutputSpec{Codec: CodecMp3, Quality: &Quality{Kind: QualityBitrate, Bitrate: 320}},
+	policy.Matched = reconcile.DesiredProfile{
+		Lossless: &reconcile.AudioOutputSpec{Codec: reconcile.CodecFlac},
+		Encoded: &reconcile.AudioOutputSpec{
+			Codec:   reconcile.CodecMp3,
+			Quality: &reconcile.Quality{Kind: reconcile.QualityBitrate, Bitrate: 320},
+		},
 	}
-	policy.Unmatched = DesiredProfile{
-		Lossless: &AudioOutputSpec{Codec: CodecFlac},
-		Encoded:  &AudioOutputSpec{Codec: CodecMp3, Quality: &Quality{Kind: QualityBitrate, Bitrate: 320}},
+	policy.Unmatched = reconcile.DesiredProfile{
+		Lossless: &reconcile.AudioOutputSpec{Codec: reconcile.CodecFlac},
+		Encoded: &reconcile.AudioOutputSpec{
+			Codec:   reconcile.CodecMp3,
+			Quality: &reconcile.Quality{Kind: reconcile.QualityBitrate, Bitrate: 320},
+		},
 	}
 	res := reconcileRJ(t, rjEntries(nil), policy)
 
 	for _, comp := range res.Components {
-		if comp.Status != StatusOK {
+		if comp.Status != reconcile.StatusOK {
 			t.Fatalf("component blocked: %s", comp.Message)
 		}
 		var flacEncode, wavRemove bool
 		for _, op := range comp.Operations {
-			if op.Kind == OpKindEncode && strings.HasSuffix(op.TargetPath, "/wav/00.flac") {
+			if op.Kind == reconcile.OpKindEncode && strings.HasSuffix(op.TargetPath, "/wav/00.flac") {
 				flacEncode = true
 			}
-			if op.Kind == OpKindRemoveObsolete && strings.HasSuffix(op.SourcePath, "/wav/00.wav") {
+			if op.Kind == reconcile.OpKindRemoveObsolete && strings.HasSuffix(op.SourcePath, "/wav/00.wav") {
 				wavRemove = true
 			}
 		}
@@ -462,21 +483,24 @@ func TestReconcile_LosslessRebuildToFlac(t *testing.T) {
 
 func TestReconcile_AacTargetUsesM4aContainer(t *testing.T) {
 	policy := wavMp3Profile()
-	target := &AudioOutputSpec{Codec: CodecAac, Quality: &Quality{Kind: QualityBitrate, Bitrate: 256}}
-	policy.Matched = DesiredProfile{Encoded: target}
-	policy.Unmatched = DesiredProfile{Encoded: target}
-	entries := []AudioEntry{
+	target := &reconcile.AudioOutputSpec{
+		Codec:   reconcile.CodecAac,
+		Quality: &reconcile.Quality{Kind: reconcile.QualityBitrate, Bitrate: 256},
+	}
+	policy.Matched = reconcile.DesiredProfile{Encoded: target}
+	policy.Unmatched = reconcile.DesiredProfile{Encoded: target}
+	entries := []reconcile.AudioEntry{
 		rjEntry("SEあり/wav/00.wav", 100, 0),
 		rjEntry("SEあり/mp3/00.mp3", 20, 192000),
 	}
 	res := reconcileRJ(t, entries, policy)
 
-	if len(res.Components) != 1 || res.Components[0].Status != StatusOK {
+	if len(res.Components) != 1 || res.Components[0].Status != reconcile.StatusOK {
 		t.Fatalf("aac profile should rebuild: %+v", res.Components)
 	}
 	var m4aEncode bool
 	for _, op := range res.Components[0].Operations {
-		if op.Kind == OpKindEncode && op.TargetPath == rjRoot+"/SEあり/wav/00.m4a" {
+		if op.Kind == reconcile.OpKindEncode && op.TargetPath == rjRoot+"/SEあり/wav/00.m4a" {
 			m4aEncode = true
 		}
 	}
@@ -487,34 +511,34 @@ func TestReconcile_AacTargetUsesM4aContainer(t *testing.T) {
 
 func TestReconcile_DigestDeterministicAndSensitive(t *testing.T) {
 	a := rjEntries(nil)
-	b := make([]AudioEntry, len(a))
+	b := make([]reconcile.AudioEntry, len(a))
 	copy(b, a)
 	// Shuffle order: digest must be order-invariant.
 	for i, j := 0, len(b)-1; i < j; i, j = i+1, j-1 {
 		b[i], b[j] = b[j], b[i]
 	}
-	d1, c1 := InventoryFingerprint(a)
-	d2, c2 := InventoryFingerprint(b)
+	d1, c1 := reconcile.InventoryFingerprint(a)
+	d2, c2 := reconcile.InventoryFingerprint(b)
 	if d1 != d2 || c1 != c2 {
 		t.Fatalf("fingerprint order-dependent: %q/%d vs %q/%d", d1, c1, d2, c2)
 	}
 
 	changed := rjEntries(map[string]int64{})
 	changed[0].Size++
-	d3, _ := InventoryFingerprint(changed)
+	d3, _ := reconcile.InventoryFingerprint(changed)
 	if d3 == d1 {
 		t.Fatal("fingerprint must change on size delta")
 	}
 
 	changed2 := rjEntries(nil)
 	changed2[1].Mtime++
-	d4, _ := InventoryFingerprint(changed2)
+	d4, _ := reconcile.InventoryFingerprint(changed2)
 	if d4 == d1 {
 		t.Fatal("fingerprint must change on mtime delta")
 	}
 
 	extra := append(rjEntries(nil), rjEntry("SEあり/mp3/00 extra.mp3", 5, 320000))
-	d5, c5 := InventoryFingerprint(extra)
+	d5, c5 := reconcile.InventoryFingerprint(extra)
 	if d5 == d1 || c5 != c1+1 {
 		t.Fatalf("fingerprint must change on addition (count %d -> %d)", c1, c5)
 	}
@@ -524,7 +548,7 @@ func TestComponentID_StableAcrossShuffledInput(t *testing.T) {
 	entries := rjEntries(nil) // includes both partitions
 	res1 := reconcileRJ(t, entries, wavMp3Profile())
 
-	shuffled := make([]AudioEntry, len(entries))
+	shuffled := make([]reconcile.AudioEntry, len(entries))
 	copy(shuffled, entries)
 	for i, j := 0, len(shuffled)-1; i < j; i, j = i+1, j-1 {
 		shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
@@ -576,21 +600,21 @@ func TestReconcile_RebuildReusesExistingTargetPath(t *testing.T) {
 	entries := rjEntries(map[string]int64{"SEあり/mp3/01.mp3": 128000})
 	res := reconcileRJ(t, entries, wavMp3Profile())
 
-	var comp *ComponentOutcome
+	var comp *reconcile.ComponentOutcome
 	for i := range res.Components {
-		if res.Components[i].Partition == PartitionUnmatched {
+		if res.Components[i].Partition == reconcile.PartitionUnmatched {
 			comp = &res.Components[i]
 		}
 	}
 	if comp == nil {
 		t.Fatal("missing unmatched component")
 	}
-	if comp.Status != StatusOK {
+	if comp.Status != reconcile.StatusOK {
 		t.Fatalf("component blocked: %s", comp.Message)
 	}
 	found := false
 	for _, op := range comp.Operations {
-		if op.Kind == OpKindEncode && op.VariantStem == "01" {
+		if op.Kind == reconcile.OpKindEncode && op.VariantStem == "01" {
 			if op.TargetPath != rjRoot+"/SEあり/mp3/01.mp3" {
 				t.Fatalf("encode target = %q, want existing mp3 path", op.TargetPath)
 			}
@@ -607,17 +631,17 @@ func TestReconcile_EncodedSourcePrefersWavOverFlac(t *testing.T) {
 	// (observed desired-lossless is absent in this mp3-only-encoded profile,
 	// then WAV wins over FLAC).
 	policy := mp3OnlyProfile()
-	entries := []AudioEntry{
+	entries := []reconcile.AudioEntry{
 		rjEntry("SEなし/wav/00.wav", 100, 0),
 		rjEntry("SEなし/flac/00.flac", 80, 0),
 		rjEntry("SEなし/mp3/00.mp3", 20, 128000),
 	}
 	res := reconcileRJ(t, entries, policy)
-	if len(res.Components) != 1 || res.Components[0].Status != StatusOK {
+	if len(res.Components) != 1 || res.Components[0].Status != reconcile.StatusOK {
 		t.Fatalf("expected one actionable component: %+v", res.Components)
 	}
 	for _, op := range res.Components[0].Operations {
-		if op.Kind == OpKindEncode {
+		if op.Kind == reconcile.OpKindEncode {
 			if op.SourcePath != rjRoot+"/SEなし/wav/00.wav" {
 				t.Fatalf("encode source = %q, want wav preferred over flac", op.SourcePath)
 			}
@@ -630,21 +654,27 @@ func TestReconcile_LosslessToFlacDeletesOnlyNonTargetLossless(t *testing.T) {
 	// existing flac is kept, and the below-target mp3 is rebuilt from the flac
 	// (desired lossless exists).
 	policy := wavMp3Profile()
-	policy.Matched = DesiredProfile{
-		Lossless: &AudioOutputSpec{Codec: CodecFlac},
-		Encoded:  &AudioOutputSpec{Codec: CodecMp3, Quality: &Quality{Kind: QualityBitrate, Bitrate: 320}},
+	policy.Matched = reconcile.DesiredProfile{
+		Lossless: &reconcile.AudioOutputSpec{Codec: reconcile.CodecFlac},
+		Encoded: &reconcile.AudioOutputSpec{
+			Codec:   reconcile.CodecMp3,
+			Quality: &reconcile.Quality{Kind: reconcile.QualityBitrate, Bitrate: 320},
+		},
 	}
-	policy.Unmatched = DesiredProfile{
-		Lossless: &AudioOutputSpec{Codec: CodecFlac},
-		Encoded:  &AudioOutputSpec{Codec: CodecMp3, Quality: &Quality{Kind: QualityBitrate, Bitrate: 320}},
+	policy.Unmatched = reconcile.DesiredProfile{
+		Lossless: &reconcile.AudioOutputSpec{Codec: reconcile.CodecFlac},
+		Encoded: &reconcile.AudioOutputSpec{
+			Codec:   reconcile.CodecMp3,
+			Quality: &reconcile.Quality{Kind: reconcile.QualityBitrate, Bitrate: 320},
+		},
 	}
-	entries := []AudioEntry{
+	entries := []reconcile.AudioEntry{
 		rjEntry("SEあり/wav/00.wav", 100, 0),
 		rjEntry("SEあり/flac/00.flac", 80, 0),
 		rjEntry("SEあり/mp3/00.mp3", 20, 128000),
 	}
 	res := reconcileRJ(t, entries, policy)
-	if len(res.Components) != 1 || res.Components[0].Status != StatusOK {
+	if len(res.Components) != 1 || res.Components[0].Status != reconcile.StatusOK {
 		t.Fatalf("expected one actionable component: %+v", res.Components)
 	}
 	// The existing flac satisfies the lossless target (no wav->flac encode);
@@ -653,9 +683,9 @@ func TestReconcile_LosslessToFlacDeletesOnlyNonTargetLossless(t *testing.T) {
 	var flacKept, wavRemove, mp3Rebuild bool
 	for _, op := range res.Components[0].Operations {
 		switch {
-		case op.Kind == OpKindRemoveObsolete && op.SourcePath == rjRoot+"/SEあり/wav/00.wav":
+		case op.Kind == reconcile.OpKindRemoveObsolete && op.SourcePath == rjRoot+"/SEあり/wav/00.wav":
 			wavRemove = true
-		case op.Kind == OpKindEncode && op.TargetPath == rjRoot+"/SEあり/mp3/00.mp3":
+		case op.Kind == reconcile.OpKindEncode && op.TargetPath == rjRoot+"/SEあり/mp3/00.mp3":
 			mp3Rebuild = true
 			if op.SourcePath != rjRoot+"/SEあり/flac/00.flac" {
 				t.Fatalf("mp3 rebuild source = %q, want desired flac", op.SourcePath)
@@ -664,7 +694,7 @@ func TestReconcile_LosslessToFlacDeletesOnlyNonTargetLossless(t *testing.T) {
 	}
 	for _, v := range res.Components[0].Variants {
 		for _, d := range v.Decisions {
-			if d.Path == rjRoot+"/SEあり/flac/00.flac" && d.Resolution == ResolutionKeep {
+			if d.Path == rjRoot+"/SEあり/flac/00.flac" && d.Resolution == reconcile.ResolutionKeep {
 				flacKept = true
 			}
 		}
@@ -685,23 +715,26 @@ func TestReconcile_AacWithoutCredentialRebuildsOrBlocks(t *testing.T) {
 	// file this app did not write is never assumed adequate. With a lossless
 	// source the lane rebuilds; without one the component blocks.
 	policy := wavMp3Profile()
-	target := &AudioOutputSpec{Codec: CodecAac, Quality: &Quality{Kind: QualityBitrate, Bitrate: 128}}
-	policy.Matched = DesiredProfile{Encoded: target}
-	policy.Unmatched = DesiredProfile{Encoded: target}
+	target := &reconcile.AudioOutputSpec{
+		Codec:   reconcile.CodecAac,
+		Quality: &reconcile.Quality{Kind: reconcile.QualityBitrate, Bitrate: 128},
+	}
+	policy.Matched = reconcile.DesiredProfile{Encoded: target}
+	policy.Unmatched = reconcile.DesiredProfile{Encoded: target}
 
 	// With source: REBUILD_ALL to <source dir>/00.m4a.
-	withSource := []AudioEntry{
+	withSource := []reconcile.AudioEntry{
 		rjEntry("SEあり/wav/00.wav", 100, 0),
 		rjEntry("SEあり/m4a/00.m4a", 20, 0),
 	}
 	res := reconcileRJ(t, withSource, policy)
-	if len(res.Components) != 1 || res.Components[0].Status != StatusOK {
+	if len(res.Components) != 1 || res.Components[0].Status != reconcile.StatusOK {
 		t.Fatalf("aac with source should rebuild: %+v", res.Components)
 	}
 	// The existing m4a path is reused as the staged replacement target.
 	var m4aEncode bool
 	for _, op := range res.Components[0].Operations {
-		if op.Kind == OpKindEncode && op.TargetPath == rjRoot+"/SEあり/m4a/00.m4a" {
+		if op.Kind == reconcile.OpKindEncode && op.TargetPath == rjRoot+"/SEあり/m4a/00.m4a" {
 			m4aEncode = true
 		}
 	}
@@ -711,15 +744,15 @@ func TestReconcile_AacWithoutCredentialRebuildsOrBlocks(t *testing.T) {
 
 	// Without source: blocked, zero operations, and the reason names what is
 	// actually missing — a confirmation, not a source.
-	noSource := []AudioEntry{
+	noSource := []reconcile.AudioEntry{
 		rjEntry("SEなし/m4a/00.m4a", 20, 0),
 	}
 	blocked := reconcileRJ(t, noSource, policy)
-	if len(blocked.Components) != 1 || blocked.Components[0].Status != StatusBlocked {
+	if len(blocked.Components) != 1 || blocked.Components[0].Status != reconcile.StatusBlocked {
 		t.Fatalf("aac without source should block: %+v", blocked.Components)
 	}
-	if blocked.Components[0].ReasonCode != ReasonConformanceUnconfirmed {
-		t.Fatalf("block reason = %s, want %s", blocked.Components[0].ReasonCode, ReasonConformanceUnconfirmed)
+	if blocked.Components[0].ReasonCode != reconcile.ReasonConformanceUnconfirmed {
+		t.Fatalf("block reason = %s, want %s", blocked.Components[0].ReasonCode, reconcile.ReasonConformanceUnconfirmed)
 	}
 	if len(blocked.Components[0].Operations) != 0 {
 		t.Fatalf("blocked component must have zero operations")
@@ -731,21 +764,21 @@ func TestReconcile_EmptyProfileRemovesThePartition(t *testing.T) {
 	// hold no managed audio, so every observed file of it is obsolete. Both
 	// modes agree — there is nothing to reach, hence nothing to fail.
 	policy := wavMp3Profile()
-	policy.Matched, policy.Unmatched = DesiredProfile{}, DesiredProfile{}
-	entries := []AudioEntry{
+	policy.Matched, policy.Unmatched = reconcile.DesiredProfile{}, reconcile.DesiredProfile{}
+	entries := []reconcile.AudioEntry{
 		rjEntry("SEなし/wav/00.wav", 100, 0),
 		rjEntry("SEなし/mp3/00.mp3", 20, 320000),
 	}
-	for _, mode := range []string{"", ModeAvailableSources} {
+	for _, mode := range []string{"", reconcile.ModeAvailableSources} {
 		p := policy
 		p.Mode = mode
 		res := reconcileRJ(t, entries, p)
 		c := singleComponent(t, res, 1)
-		if c.Status != StatusOK || len(c.Operations) != 2 {
+		if c.Status != reconcile.StatusOK || len(c.Operations) != 2 {
 			t.Fatalf("mode %q: want two removals, got %+v", mode, c.Operations)
 		}
 		for _, op := range c.Operations {
-			if op.Kind != OpKindRemoveObsolete {
+			if op.Kind != reconcile.OpKindRemoveObsolete {
 				t.Fatalf("mode %q: unexpected op %+v", mode, op)
 			}
 			if len(op.DependsOn) != 0 {
@@ -763,26 +796,26 @@ func TestReconcile_AacWithItsCredentialSatisfiesTarget(t *testing.T) {
 	// is the declared output, so nothing is rebuilt. The undeclared lossless lane
 	// is still obsolete.
 	policy := wavMp3Profile()
-	policy.Matched = DesiredProfile{Encoded: encodedTarget(CodecAac, 256)}
+	policy.Matched = reconcile.DesiredProfile{Encoded: encodedTarget(reconcile.CodecAac, 256)}
 	policy.Unmatched = policy.Matched
-	entries := []AudioEntry{
+	entries := []reconcile.AudioEntry{
 		rjEntry("SEあり/wav/00.wav", 100, 0),
-		generated(rjEntry("SEあり/m4a/00.m4a", 20, 256000), CodecAac, 256),
+		generated(rjEntry("SEあり/m4a/00.m4a", 20, 256000), reconcile.CodecAac, 256),
 	}
 	res := reconcileRJ(t, entries, policy)
 
-	if len(res.Components) != 1 || res.Components[0].Status != StatusOK {
+	if len(res.Components) != 1 || res.Components[0].Status != reconcile.StatusOK {
 		t.Fatalf("satisfied aac must plan cleanly: %+v", res.Components)
 	}
 	c := res.Components[0]
-	if len(c.Operations) != 1 || c.Operations[0].Kind != OpKindRemoveObsolete ||
+	if len(c.Operations) != 1 || c.Operations[0].Kind != reconcile.OpKindRemoveObsolete ||
 		c.Operations[0].SourcePath != rjRoot+"/SEあり/wav/00.wav" {
 		t.Fatalf("want exactly the wav removal, got %+v", c.Operations)
 	}
 	for _, v := range c.Variants {
 		for _, d := range v.Decisions {
 			if d.Path == rjRoot+"/SEあり/m4a/00.m4a" &&
-				(d.Resolution != ResolutionKeep || d.ReasonCode != ReasonKeepEncodedSatisfied) {
+				(d.Resolution != reconcile.ResolutionKeep || d.ReasonCode != reconcile.ReasonKeepEncodedSatisfied) {
 				t.Fatalf("aac decision: %+v", d)
 			}
 		}
@@ -790,12 +823,17 @@ func TestReconcile_AacWithItsCredentialSatisfiesTarget(t *testing.T) {
 }
 
 // encodedTarget builds one encoded output spec.
-func encodedTarget(codec Codec, bitrate int) *AudioOutputSpec {
-	return &AudioOutputSpec{Codec: codec, Quality: &Quality{Kind: QualityBitrate, Bitrate: bitrate}}
+func encodedTarget(codec reconcile.Codec, bitrate int) *reconcile.AudioOutputSpec {
+	return &reconcile.AudioOutputSpec{
+		Codec:   codec,
+		Quality: &reconcile.Quality{Kind: reconcile.QualityBitrate, Bitrate: bitrate},
+	}
 }
 
 func TestAppleDoubleSidecarIsNotAudio(t *testing.T) {
-	entries := AudioEntries([]AudioEntry{rjEntry("mp3/00.mp3", 100, 320000), rjEntry("mp3/._00.mp3", 187, 0)})
+	entries := reconcile.AudioEntries(
+		[]reconcile.AudioEntry{rjEntry("mp3/00.mp3", 100, 320000), rjEntry("mp3/._00.mp3", 187, 0)},
+	)
 	if len(entries) != 1 || entries[0].PathPosix != rjRoot+"/mp3/00.mp3" {
 		t.Errorf("audio entries = %+v, want only the track", entries)
 	}
@@ -805,8 +843,8 @@ func TestAppleDoubleSidecarIsNotAudio(t *testing.T) {
 // name fits but whose staging name does not, in strict and lenient planning.
 func TestReconcile_NameTooLongStagingBlocksComponent(t *testing.T) {
 	stem := strings.Repeat("a", 245) // 249-byte target; +".tmp.<8>" exceeds 255
-	entries := []AudioEntry{rjEntry("SEなし/wav/"+stem+".wav", 100, 0)}
-	for name, policy := range map[string]Policy{
+	entries := []reconcile.AudioEntry{rjEntry("SEなし/wav/"+stem+".wav", 100, 0)}
+	for name, policy := range map[string]reconcile.Policy{
 		"strict":  mp3OnlyProfile(),
 		"lenient": lenientPolicyFrom(mp3OnlyProfile()),
 	} {
@@ -816,7 +854,7 @@ func TestReconcile_NameTooLongStagingBlocksComponent(t *testing.T) {
 				t.Fatalf("components = %d, want 1", len(res.Components))
 			}
 			c := res.Components[0]
-			if c.Status != StatusBlocked || c.ReasonCode != ReasonNameTooLong {
+			if c.Status != reconcile.StatusBlocked || c.ReasonCode != reconcile.ReasonNameTooLong {
 				t.Fatalf("status = %s, reason = %s, want blocked NAME_TOO_LONG", c.Status, c.ReasonCode)
 			}
 			if len(c.Operations) != 0 {

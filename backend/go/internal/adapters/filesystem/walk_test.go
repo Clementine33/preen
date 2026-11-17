@@ -1,4 +1,4 @@
-package filesystem //nolint:testpackage // white-box tests exercise the traversal internals
+package filesystem_test
 
 import (
 	"context"
@@ -12,6 +12,7 @@ import (
 	"io/fs"
 	"time"
 
+	"github.com/Clementine33/preen/backend/internal/adapters/filesystem"
 	"github.com/Clementine33/preen/backend/internal/inventory"
 )
 
@@ -57,7 +58,7 @@ func TestWalkRootParallel_RootObserved(t *testing.T) {
 		return nil
 	}
 
-	err := WalkRootEntriesParallel(ctx, tmp, tmp, 4, emit)
+	err := filesystem.WalkRootEntriesParallel(ctx, tmp, tmp, 4, emit)
 	if err != nil {
 		t.Fatalf("WalkRootEntriesParallel failed: %v", err)
 	}
@@ -95,7 +96,7 @@ func TestWalkRootParallel_IncludesFilesAndDirs(t *testing.T) {
 		return nil
 	}
 
-	err := WalkRootEntriesParallel(ctx, tmp, tmp, 4, emit)
+	err := filesystem.WalkRootEntriesParallel(ctx, tmp, tmp, 4, emit)
 	if err != nil {
 		t.Fatalf("WalkRootEntriesParallel failed: %v", err)
 	}
@@ -150,7 +151,7 @@ func TestWalkRootParallel_DefaultConcurrency(t *testing.T) {
 	}
 
 	// Test with 0 concurrency (should default to 32)
-	err := WalkRootEntriesParallel(ctx, tmp, tmp, 0, emit)
+	err := filesystem.WalkRootEntriesParallel(ctx, tmp, tmp, 0, emit)
 	if err != nil {
 		t.Fatalf("WalkRootEntriesParallel with 0 concurrency failed: %v", err)
 	}
@@ -182,7 +183,7 @@ func TestWalkRootParallel_EmitErrorCancels(t *testing.T) {
 		return nil
 	}
 
-	err := WalkRootEntriesParallel(ctx, tmp, tmp, 4, emit)
+	err := filesystem.WalkRootEntriesParallel(ctx, tmp, tmp, 4, emit)
 	if err == nil {
 		t.Fatal("expected error from emit")
 	}
@@ -200,7 +201,7 @@ func TestWalkRootParallel_ContextCanceledReturnsError(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	err := WalkRootEntriesParallel(ctx, tmp, tmp, 4, func(inventory.DirEntry) error { return nil })
+	err := filesystem.WalkRootEntriesParallel(ctx, tmp, tmp, 4, func(inventory.DirEntry) error { return nil })
 	if err == nil {
 		t.Fatal("expected context cancellation error, got nil")
 	}
@@ -225,7 +226,7 @@ func TestWalkRootParallel_HighFanoutSingleWorkerCompletes(t *testing.T) {
 	defer cancel()
 
 	start := time.Now()
-	err := WalkRootEntriesParallel(ctx, tmp, tmp, 1, func(inventory.DirEntry) error { return nil })
+	err := filesystem.WalkRootEntriesParallel(ctx, tmp, tmp, 1, func(inventory.DirEntry) error { return nil })
 	elapsed := time.Since(start)
 
 	if err != nil {
@@ -256,7 +257,7 @@ func TestInlineMetadata_Complete(t *testing.T) {
 		return nil
 	}
 
-	err := WalkRootEntriesParallel(ctx, tmp, tmp, 4, emit)
+	err := filesystem.WalkRootEntriesParallel(ctx, tmp, tmp, 4, emit)
 	if err != nil {
 		t.Fatalf("WalkRootEntriesParallel failed: %v", err)
 	}
@@ -291,17 +292,14 @@ func TestInlineMetadata_InfoErrorPropagation(t *testing.T) {
 
 	// Force deterministic Info() failure via seam
 	expectedErr := errors.New("simulated Info() failure")
-	dirEntryInfoFunc = func(d fs.DirEntry) (fs.FileInfo, error) {
+	t.Cleanup(filesystem.SetDirEntryInfoFuncForTest(func(fs.DirEntry) (fs.FileInfo, error) {
 		return nil, expectedErr
-	}
-	defer func() {
-		dirEntryInfoFunc = nil // Reset seam after test
-	}()
+	}))
 
 	ctx := context.Background()
 	emit := func(e inventory.DirEntry) error { return nil }
 
-	err := WalkRootEntriesParallel(ctx, tmp, tmp, 4, emit)
+	err := filesystem.WalkRootEntriesParallel(ctx, tmp, tmp, 4, emit)
 	if err == nil {
 		t.Fatal("expected error when Info() fails, got nil")
 	}
@@ -329,7 +327,7 @@ func TestInlineMetadata_FolderPath(t *testing.T) {
 		return nil
 	}
 
-	err := WalkFolderEntries(ctx, album, tmp, emit)
+	err := filesystem.WalkFolderEntries(ctx, album, tmp, emit)
 	if err != nil {
 		t.Fatalf("WalkFolderEntries failed: %v", err)
 	}
@@ -366,7 +364,7 @@ func TestWalkFolderEntries_RecursesNestedEntries(t *testing.T) {
 	var entries []inventory.DirEntry
 	var mu sync.Mutex
 
-	err := WalkFolderEntries(ctx, album, tmp, func(e inventory.DirEntry) error {
+	err := filesystem.WalkFolderEntries(ctx, album, tmp, func(e inventory.DirEntry) error {
 		mu.Lock()
 		defer mu.Unlock()
 		entries = append(entries, e)

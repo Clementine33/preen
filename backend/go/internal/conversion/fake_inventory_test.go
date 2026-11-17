@@ -1,10 +1,34 @@
-package conversion //nolint:testpackage // shares the unexported analyzer tests it stands in for
+package conversion_test
 
 import (
 	"sync"
 
+	"github.com/Clementine33/preen/backend/internal/conversion"
+	"github.com/Clementine33/preen/backend/internal/conversion/reconcile"
 	"github.com/Clementine33/preen/backend/internal/inventory"
 )
+
+// planSettings is the planner's settings port with only the batch option set.
+type planSettings struct{ batch bool }
+
+func (s planSettings) Plan() conversion.PlanConfig {
+	return conversion.PlanConfig{BatchUpdate: s.batch}
+}
+func (planSettings) PruneNoEffectTags() []string { return nil }
+func (planSettings) PruneOtherTags() []string    { return nil }
+
+// mp3Input plans one root toward MP3@320, the profile whose gate reads a
+// file's bitrate first.
+func mp3Input(root string) conversion.Input {
+	profile := reconcile.DesiredProfile{Encoded: &reconcile.AudioOutputSpec{
+		Codec: reconcile.CodecMp3, Quality: &reconcile.Quality{Kind: reconcile.QualityBitrate, Bitrate: 320},
+	}}
+	policy := reconcile.Policy{
+		SchemaVersion: 1, Mode: reconcile.ModeAvailableSources,
+		NoEffectTags: []string{"SEなし"}, Matched: profile, Unmatched: profile,
+	}
+	return conversion.Input{Policy: policy, Roots: []conversion.RootInput{{Path: root, Policy: policy}}}
+}
 
 // recordingInventory stands in for the inventory port in the planner's own
 // tests: it remembers what it was handed and answers with whatever the test set

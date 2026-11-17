@@ -1,4 +1,4 @@
-package httpapi //nolint:testpackage // white-box tests drive the routes through the real router
+package httpapi_test
 
 import (
 	"encoding/json"
@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/Clementine33/preen/backend/internal/adapters/httpapi"
 
 	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
 	"github.com/Clementine33/preen/backend/internal/works"
@@ -17,7 +19,7 @@ import (
 // reported as skipped rather than as a failure, and the response keeps the two
 // apart.
 func TestMetadataImportAppliesGroupsAndReportsSkips(t *testing.T) {
-	engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) {
+	engine := newTestServer(t, func(d *httpapi.Dependencies, fixture *sqlite.Repository) {
 		wireWorks(d, fixture)
 		seedHTTPWork(t, fixture, "RJ00000001", "the work")
 	})
@@ -96,7 +98,7 @@ func TestMetadataImportAppliesGroupsAndReportsSkips(t *testing.T) {
 // TestMetadataImportRefusalsAreWholeSubmission: every refusal is a 400 that
 // writes nothing at all, so a submission never lands partially.
 func TestMetadataImportRefusalsAreWholeSubmission(t *testing.T) {
-	engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) {
+	engine := newTestServer(t, func(d *httpapi.Dependencies, fixture *sqlite.Repository) {
 		wireWorks(d, fixture)
 		seedHTTPWork(t, fixture, "RJ00000001", "the work")
 	})
@@ -188,7 +190,7 @@ func TestMetadataImportRefusalsAreWholeSubmission(t *testing.T) {
 // boundary the client sees: the range, the explicit clear, and the fields the
 // request did not mention.
 func TestUserDataRatingIsOneToTenThroughTheAPI(t *testing.T) {
-	engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) {
+	engine := newTestServer(t, func(d *httpapi.Dependencies, fixture *sqlite.Repository) {
 		wireWorks(d, fixture)
 		seedHTTPWork(t, fixture, "RJ00000001", "the work")
 	})
@@ -239,7 +241,7 @@ func TestUserDataRatingIsOneToTenThroughTheAPI(t *testing.T) {
 
 // External relation numbers remain absent from the catalog.
 func TestUserDataRequiresCollectedWork(t *testing.T) {
-	engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) {
+	engine := newTestServer(t, func(d *httpapi.Dependencies, fixture *sqlite.Repository) {
 		wireWorks(d, fixture)
 		seedHTTPWork(t, fixture, "RJ00000001", "the work")
 	})
@@ -287,7 +289,7 @@ func TestUserDataRequiresCollectedWork(t *testing.T) {
 // TestUserTagLifecycle: creating by name is idempotent, renaming onto a taken
 // name is a conflict, and deleting a tag leaves the works alone.
 func TestUserTagLifecycle(t *testing.T) {
-	engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) {
+	engine := newTestServer(t, func(d *httpapi.Dependencies, fixture *sqlite.Repository) {
 		wireWorks(d, fixture)
 		seedHTTPWork(t, fixture, "RJ00000001", "the work")
 	})
@@ -297,7 +299,7 @@ func TestUserTagLifecycle(t *testing.T) {
 	if created.Code != http.StatusOK {
 		t.Fatalf("create status = %d (body=%s)", created.Code, created.Body.String())
 	}
-	var first userTagResponse
+	var first userTagBody
 	if err := json.Unmarshal(created.Body.Bytes(), &first); err != nil {
 		t.Fatal(err)
 	}
@@ -307,7 +309,7 @@ func TestUserTagLifecycle(t *testing.T) {
 	if again.Code != http.StatusOK {
 		t.Fatalf("second create status = %d, want 200 (body=%s)", again.Code, again.Body.String())
 	}
-	var second userTagResponse
+	var second userTagBody
 	if err := json.Unmarshal(again.Body.Bytes(), &second); err != nil {
 		t.Fatal(err)
 	}
@@ -339,7 +341,7 @@ func TestUserTagLifecycle(t *testing.T) {
 	// Renaming onto a taken name is a conflict.
 	other := doRequest(t, engine, http.MethodPost, "/api/v1/user-tags",
 		map[string]any{"name": "later"}, nil)
-	var otherTag userTagResponse
+	var otherTag userTagBody
 	if err := json.Unmarshal(other.Body.Bytes(), &otherTag); err != nil {
 		t.Fatal(err)
 	}
@@ -377,7 +379,7 @@ func TestUserTagLifecycle(t *testing.T) {
 
 // Relationship evidence outlives deletion of a catalog entry through HTTP.
 func TestDeleteWorkPreservesExternalRelation(t *testing.T) {
-	engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) {
+	engine := newTestServer(t, func(d *httpapi.Dependencies, fixture *sqlite.Repository) {
 		wireWorks(d, fixture)
 		seedHTTPWork(t, fixture, "RJ00000001", "the original")
 		seedHTTPWork(t, fixture, "RJ00000002", "the translation")
@@ -427,7 +429,7 @@ func TestDeleteWorkPreservesExternalRelation(t *testing.T) {
 // TestDetailAddressesTheCanonicalNumber: the short spelling and the canonical
 // one name the same work, because they are the same number.
 func TestDetailAddressesTheCanonicalNumber(t *testing.T) {
-	engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) {
+	engine := newTestServer(t, func(d *httpapi.Dependencies, fixture *sqlite.Repository) {
 		wireWorks(d, fixture)
 		seedHTTPWork(t, fixture, "RJ00123456", "the work")
 	})
@@ -452,7 +454,7 @@ func TestDetailAddressesTheCanonicalNumber(t *testing.T) {
 
 func TestAgeCategoriesPersistAndFilterIndependently(t *testing.T) {
 	ids := []string{"RJ00000001", "RJ00000002", "RJ00000003"}
-	engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) {
+	engine := newTestServer(t, func(d *httpapi.Dependencies, fixture *sqlite.Repository) {
 		wireWorks(d, fixture)
 		for _, id := range ids {
 			seedHTTPWork(t, fixture, id, "work")
@@ -512,7 +514,7 @@ func TestAgeCategoriesPersistAndFilterIndependently(t *testing.T) {
 // Library, and clears on null.
 func TestDefaultLibraryPreference(t *testing.T) {
 	var libraryID string
-	engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) {
+	engine := newTestServer(t, func(d *httpapi.Dependencies, fixture *sqlite.Repository) {
 		wireWorks(d, fixture)
 		lib, err := fixture.CreateLibrary("Music", "/music")
 		if err != nil {
@@ -563,7 +565,7 @@ func TestDefaultLibraryPreference(t *testing.T) {
 // TestPreferencesRoundTrip: the Format Preference reads empty before any save,
 // is normalized on write, survives a read, and refuses unknown keys and blanks.
 func TestPreferencesRoundTrip(t *testing.T) {
-	engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) { wireWorks(d, fixture) })
+	engine := newTestServer(t, func(d *httpapi.Dependencies, fixture *sqlite.Repository) { wireWorks(d, fixture) })
 	read := func() string {
 		return doRequest(t, engine, http.MethodGet, "/api/v1/preferences", nil, nil).Body.String()
 	}

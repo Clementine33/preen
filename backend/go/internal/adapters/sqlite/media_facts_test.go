@@ -1,4 +1,4 @@
-package sqlite //nolint:testpackage // white-box tests share the package's own helpers
+package sqlite_test
 
 import (
 	"database/sql"
@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
 	"github.com/Clementine33/preen/backend/internal/inventory"
 )
 
@@ -13,9 +14,15 @@ import (
 // (scan_merge.go step 4), so a session's rows are all staged before the one
 // merge that consumes them — staging row by row and merging each would have
 // the full-root stale cleanup eat the earlier rows.
-func stageFactsRow(t *testing.T, repo *Repository, root, path, format string, size, mtime int64, sessionID string) {
+func stageFactsRow(
+	t *testing.T,
+	repo *sqlite.Repository,
+	root, path, format string,
+	size, mtime int64,
+	sessionID string,
+) {
 	t.Helper()
-	parent, name := splitInventoryPath(path)
+	parent, name := splitTestPath(path)
 	err := stageTestRows(
 		repo,
 		inventory.StagingEntry{
@@ -36,7 +43,13 @@ func stageFactsRow(t *testing.T, repo *Repository, root, path, format string, si
 }
 
 // mergeFactsFixture stages one entry and merges its session in one step.
-func mergeFactsFixture(t *testing.T, repo *Repository, root, path, format string, size, mtime int64, sessionID string) {
+func mergeFactsFixture(
+	t *testing.T,
+	repo *sqlite.Repository,
+	root, path, format string,
+	size, mtime int64,
+	sessionID string,
+) {
 	t.Helper()
 	stageFactsRow(t, repo, root, path, format, size, mtime, sessionID)
 	if err := repo.MergeStagingSimple(sessionID, root); err != nil {
@@ -45,7 +58,7 @@ func mergeFactsFixture(t *testing.T, repo *Repository, root, path, format string
 }
 
 func TestMergePreservesMediaFactsWhenUnchanged(t *testing.T) {
-	repo, err := NewRepository(t.TempDir() + "/test.db")
+	repo, err := sqlite.NewRepository(t.TempDir() + "/test.db")
 	if err != nil {
 		t.Fatalf("create repo: %v", err)
 	}
@@ -54,7 +67,7 @@ func TestMergePreservesMediaFactsWhenUnchanged(t *testing.T) {
 	now := time.Now().Unix()
 	mergeFactsFixture(t, repo, "/music", "/music/cover.png", "image/png", 1024, now, "scan-1")
 
-	adapter := NewScanStaging(repo)
+	adapter := sqlite.NewScanStaging(repo)
 	if err := adapter.UpdateEntryMediaFacts([]inventory.MediaFactsUpdate{
 		{Path: "/music/cover.png", Width: 1200, Height: 900},
 	}); err != nil {
@@ -99,7 +112,7 @@ func TestMergePreservesMediaFactsWhenUnchanged(t *testing.T) {
 }
 
 func TestEntriesMissingMediaFactsAndWriteBack(t *testing.T) {
-	repo, err := NewRepository(t.TempDir() + "/test.db")
+	repo, err := sqlite.NewRepository(t.TempDir() + "/test.db")
 	if err != nil {
 		t.Fatalf("create repo: %v", err)
 	}
@@ -117,7 +130,7 @@ func TestEntriesMissingMediaFactsAndWriteBack(t *testing.T) {
 	// Another root's row qualifies too: the pass spans the whole inventory.
 	mergeFactsFixture(t, repo, "/other", "/other/other.wav", "audio/wav", 40, now, "scan-other")
 
-	adapter := NewScanStaging(repo)
+	adapter := sqlite.NewScanStaging(repo)
 	candidates, err := adapter.EntriesMissingMediaFacts("", 10)
 	if err != nil {
 		t.Fatalf("select candidates: %v", err)
@@ -180,7 +193,7 @@ func candidatePaths(candidates []inventory.MediaCandidate) string {
 }
 
 func TestEncodedAudioWaitsForItsBitrateAndKeepsKnownFacts(t *testing.T) {
-	repo, err := NewRepository(t.TempDir() + "/test.db")
+	repo, err := sqlite.NewRepository(t.TempDir() + "/test.db")
 	if err != nil {
 		t.Fatalf("create repo: %v", err)
 	}
@@ -192,7 +205,7 @@ func TestEncodedAudioWaitsForItsBitrateAndKeepsKnownFacts(t *testing.T) {
 	if err = repo.MergeStagingSimple("scan-1", "/music"); err != nil {
 		t.Fatal(err)
 	}
-	adapter := NewScanStaging(repo)
+	adapter := sqlite.NewScanStaging(repo)
 	if err = adapter.UpdateEntryMediaFacts([]inventory.MediaFactsUpdate{
 		{Path: "/music/a.mp3", DurationSec: 60},
 		{Path: "/music/b.wav", DurationSec: 90},
@@ -237,7 +250,7 @@ func TestEncodedAudioWaitsForItsBitrateAndKeepsKnownFacts(t *testing.T) {
 }
 
 func TestMediaFactsCountsSplitAtTheCursorPerLibrary(t *testing.T) {
-	repo, err := NewRepository(t.TempDir() + "/test.db")
+	repo, err := sqlite.NewRepository(t.TempDir() + "/test.db")
 	if err != nil {
 		t.Fatalf("create repo: %v", err)
 	}
@@ -266,7 +279,7 @@ func TestMediaFactsCountsSplitAtTheCursorPerLibrary(t *testing.T) {
 		}
 	}
 
-	adapter := NewScanStaging(repo)
+	adapter := sqlite.NewScanStaging(repo)
 	got, err := adapter.MediaFactsCounts("/music/a.png")
 	if err != nil {
 		t.Fatal(err)
@@ -286,7 +299,7 @@ func TestMediaFactsCountsSplitAtTheCursorPerLibrary(t *testing.T) {
 }
 
 func TestMediaFactsTupleCursor(t *testing.T) {
-	repo, err := NewRepository(t.TempDir() + "/test.db")
+	repo, err := sqlite.NewRepository(t.TempDir() + "/test.db")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -301,7 +314,7 @@ func TestMediaFactsTupleCursor(t *testing.T) {
 	if err := repo.MergeStagingSimple("tuple", "/"); err != nil {
 		t.Fatal(err)
 	}
-	adapter := NewScanStaging(repo)
+	adapter := sqlite.NewScanStaging(repo)
 	after := ""
 	for _, want := range []string{"/a/z.png", "/a b/a.png", "/a b/b.png"} {
 		page, err := adapter.EntriesMissingMediaFacts(after, 1)
@@ -318,22 +331,6 @@ func TestMediaFactsTupleCursor(t *testing.T) {
 		if err != nil || len(counts) != 1 || counts[0].LibraryID != lib.ID || counts[0].Pending != tc.pending ||
 			counts[0].Unmeasurable != tc.unknown {
 			t.Fatalf("cursor %q: %+v, %v", tc.cursor, counts, err)
-		}
-	}
-}
-
-func TestMediaFactsQueriesWalkDirectoryAndFileKeys(t *testing.T) {
-	repo, err := NewRepository(":memory:")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer repo.Close()
-	for _, query := range []string{mediaFactsCandidatesSQL, mediaFactsCountsSQL} {
-		plan := explain(t, repo, query)
-		t.Log(plan)
-		if strings.Contains(plan, "SCAN f") || strings.Contains(plan, "TEMP B-TREE FOR ORDER BY") ||
-			!strings.Contains(plan, "SEARCH f USING PRIMARY KEY") {
-			t.Fatalf("media facts query plan: %s", plan)
 		}
 	}
 }

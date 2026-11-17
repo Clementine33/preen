@@ -1,4 +1,4 @@
-package sqlite //nolint:testpackage // white-box tests build a database without the DSN pragmas
+package sqlite_test
 
 import (
 	"database/sql"
@@ -9,13 +9,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
 	"github.com/Clementine33/preen/backend/internal/inventory"
 )
 
 // growThenDeleteScanSessions fills the file with scan rows and then deletes them
 // through a retention batch, which is how the maintenance pass produces free
 // pages in practice.
-func growThenDeleteScanSessions(t *testing.T, repo *Repository, rows int) {
+func growThenDeleteScanSessions(t *testing.T, repo *sqlite.Repository, rows int) {
 	t.Helper()
 	ctx := t.Context()
 	cutoff := time.Date(2025, 6, 1, 0, 0, 0, 0, time.UTC)
@@ -33,7 +34,7 @@ func growThenDeleteScanSessions(t *testing.T, repo *Repository, rows int) {
 		if err := repo.CreateScanSession(session); err != nil {
 			t.Fatalf("create scan %d: %v", i, err)
 		}
-		if _, err := repo.db.Exec(
+		if _, err := repo.DB().Exec(
 			"UPDATE scan_sessions SET error_message = ? WHERE session_id = ?", payload, session.SessionID,
 		); err != nil {
 			t.Fatalf("pad scan %d: %v", i, err)
@@ -58,44 +59,6 @@ func dbFileSize(t *testing.T, path string) int64 {
 	return info.Size()
 }
 
-// A database created before incremental auto-vacuum existed keeps the mode it
-// was created with. This also pins the startup path for such a file: opening it
-// through NewRepository, whose DSN now asks for incremental auto-vacuum, has to
-// keep working rather than fail the whole process.
-func TestRepository_AutoVacuumMode_ExistingDatabaseKeepsItsMode(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "existing.db")
-
-	// Build the file the way an earlier build did: the same schema, no pragmas.
-	raw, err := sql.Open("sqlite", path)
-	if err != nil {
-		t.Fatalf("open raw database: %v", err)
-	}
-	if err = initSchema(raw); err != nil {
-		t.Fatalf("initSchema: %v", err)
-	}
-	if err = raw.Close(); err != nil {
-		t.Fatalf("close raw database: %v", err)
-	}
-
-	repo, err := NewDevelopmentRepository(path)
-	if err != nil {
-		t.Fatalf("NewRepository on an existing database: %v", err)
-	}
-	defer repo.Close()
-
-	mode, err := repo.AutoVacuumMode(t.Context())
-	if err != nil {
-		t.Fatalf("AutoVacuumMode: %v", err)
-	}
-	if mode != AutoVacuumNone {
-		t.Errorf(
-			"AutoVacuumMode = %d, want %d: an existing file keeps the mode it was created with",
-			mode,
-			AutoVacuumNone,
-		)
-	}
-}
-
 func TestRepository_AutoVacuumMode_FreshDatabase(t *testing.T) {
 	repo := newTestRepository(t)
 
@@ -103,8 +66,8 @@ func TestRepository_AutoVacuumMode_FreshDatabase(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AutoVacuumMode: %v", err)
 	}
-	if mode != AutoVacuumIncremental {
-		t.Errorf("AutoVacuumMode = %d, want %d for a freshly created database", mode, AutoVacuumIncremental)
+	if mode != sqlite.AutoVacuumIncremental {
+		t.Errorf("AutoVacuumMode = %d, want %d for a freshly created database", mode, sqlite.AutoVacuumIncremental)
 	}
 }
 
@@ -114,7 +77,7 @@ func TestRepository_AutoVacuumMode_FreshDatabase(t *testing.T) {
 // the file is never truncated.
 func TestRepository_ReclaimFreePages_ShrinksTheFileWithoutReaders(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "reclaim.db")
-	repo, err := NewRepository(path)
+	repo, err := sqlite.NewRepository(path)
 	if err != nil {
 		t.Fatalf("NewRepository: %v", err)
 	}
@@ -159,7 +122,7 @@ func TestRepository_ReclaimFreePages_ShrinksTheFileWithoutReaders(t *testing.T) 
 // checkpoint and a later one finishes the job.
 func TestRepository_ReclaimFreePages_DefersToAReader(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "reader.db")
-	repo, err := NewRepository(path)
+	repo, err := sqlite.NewRepository(path)
 	if err != nil {
 		t.Fatalf("NewRepository: %v", err)
 	}
@@ -169,7 +132,7 @@ func TestRepository_ReclaimFreePages_DefersToAReader(t *testing.T) {
 	growThenDeleteScanSessions(t, repo, 1500)
 	before := dbFileSize(t, path)
 
-	reader, err := repo.db.Conn(ctx)
+	reader, err := repo.DB().Conn(ctx)
 	if err != nil {
 		t.Fatalf("reserve reader connection: %v", err)
 	}

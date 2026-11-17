@@ -1,4 +1,4 @@
-package httpapi //nolint:testpackage // exercises the existing HTTP test server and request helpers
+package httpapi_test
 
 import (
 	"encoding/json"

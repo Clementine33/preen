@@ -1,4 +1,4 @@
-package sqlite //nolint:testpackage // white-box tests exercise unexported internals
+package sqlite_test
 
 import (
 	"database/sql"
@@ -10,6 +10,7 @@ import (
 
 	"github.com/Clementine33/preen/backend/internal/testutil/inventoryfixture"
 
+	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
 	"github.com/Clementine33/preen/backend/internal/inventory"
 )
 
@@ -48,7 +49,7 @@ func TestMergeUpdatesOnlyObservedChanges(t *testing.T) {
 				t.Fatal(err)
 			}
 			if !tc.changed {
-				if _, err = repo.db.Exec(
+				if _, err = repo.DB().Exec(
 					`CREATE TRIGGER reject_inventory_update BEFORE UPDATE ON inventory_dirs BEGIN SELECT RAISE(ABORT, 'unchanged inventory rewritten'); END`,
 				); err != nil {
 					t.Fatal(err)
@@ -68,7 +69,7 @@ func TestMergeUpdatesOnlyObservedChanges(t *testing.T) {
 			if tc.file {
 				query = `SELECT d.root_path, 0, f.format FROM inventory_files f JOIN inventory_dirs d ON d.id=f.dir_ref WHERE d.path='/music' AND f.name='work'`
 			}
-			if err := repo.db.QueryRow(query).Scan(&root, &workRoot, &format); err != nil {
+			if err := repo.DB().QueryRow(query).Scan(&root, &workRoot, &format); err != nil {
 				t.Fatal(err)
 			}
 			wantFormat := sql.NullString{String: tc.format, Valid: tc.format != ""}
@@ -91,7 +92,7 @@ func TestMergePreservesBitrateWhenUnchanged(t *testing.T) {
 	// Setup: create temp database
 	tmpDir := t.TempDir()
 	dbPath := tmpDir + "/test.db"
-	repo, err := NewRepository(dbPath)
+	repo, err := sqlite.NewRepository(dbPath)
 	if err != nil {
 		t.Fatalf("failed to create repo: %v", err)
 	}
@@ -167,7 +168,7 @@ func TestMergeIncrementsContentRevOnChange(t *testing.T) {
 	// Setup: create temp database
 	tmpDir := t.TempDir()
 	dbPath := tmpDir + "/test.db"
-	repo, err := NewRepository(dbPath)
+	repo, err := sqlite.NewRepository(dbPath)
 	if err != nil {
 		t.Fatalf("failed to create repo: %v", err)
 	}
@@ -232,7 +233,7 @@ func TestMergeClearsStagingScope(t *testing.T) {
 	// Setup: create temp database
 	tmpDir := t.TempDir()
 	dbPath := tmpDir + "/test.db"
-	repo, err := NewRepository(dbPath)
+	repo, err := sqlite.NewRepository(dbPath)
 	if err != nil {
 		t.Fatalf("failed to create repo: %v", err)
 	}
@@ -276,7 +277,7 @@ func TestMergeClearsStagingScope(t *testing.T) {
 
 	// Verify: staging entries for scan-123 should be cleared
 	var count int
-	err = stagingTestRow(repo, "scan-123", "SELECT COUNT(*) FROM entries_staging").Scan(&count)
+	err = sqlite.QueryStagingRow(repo, "scan-123", "SELECT COUNT(*) FROM entries_staging").Scan(&count)
 	if err != nil {
 		t.Fatalf("failed to query staging: %v", err)
 	}
@@ -290,7 +291,7 @@ func TestMergeAppliesStaleCleanup(t *testing.T) {
 	// Setup: create temp database
 	tmpDir := t.TempDir()
 	dbPath := tmpDir + "/test.db"
-	repo, err := NewRepository(dbPath)
+	repo, err := sqlite.NewRepository(dbPath)
 	if err != nil {
 		t.Fatalf("failed to create repo: %v", err)
 	}
@@ -351,7 +352,7 @@ func TestMergeFullRootCleanupDoesNotTouchOtherRoots(t *testing.T) {
 	// Setup: create temp database
 	tmpDir := t.TempDir()
 	dbPath := tmpDir + "/test.db"
-	repo, err := NewRepository(dbPath)
+	repo, err := sqlite.NewRepository(dbPath)
 	if err != nil {
 		t.Fatalf("failed to create repo: %v", err)
 	}
@@ -424,7 +425,7 @@ func TestMergeNewEntryGetsContentRev1(t *testing.T) {
 	// Setup: create temp database
 	tmpDir := t.TempDir()
 	dbPath := tmpDir + "/test.db"
-	repo, err := NewRepository(dbPath)
+	repo, err := sqlite.NewRepository(dbPath)
 	if err != nil {
 		t.Fatalf("failed to create repo: %v", err)
 	}
@@ -471,7 +472,7 @@ func TestMergeUnchangedRowPreservesExistingRevision(t *testing.T) {
 	// Setup: create temp database
 	tmpDir := t.TempDir()
 	dbPath := tmpDir + "/test.db"
-	repo, err := NewRepository(dbPath)
+	repo, err := sqlite.NewRepository(dbPath)
 	if err != nil {
 		t.Fatalf("failed to create repo: %v", err)
 	}
@@ -525,7 +526,7 @@ func TestMergeUnchangedRowPreservesExistingRevision(t *testing.T) {
 func TestMergePersistsFormatFromStaging(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := tmpDir + "/test.db"
-	repo, err := NewRepository(dbPath)
+	repo, err := sqlite.NewRepository(dbPath)
 	if err != nil {
 		t.Fatalf("failed to create repo: %v", err)
 	}
@@ -573,7 +574,7 @@ func TestMergeWithExplicitStalePaths(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	dbPath := tmpDir + "/test.db"
-	repo, err := NewRepository(dbPath)
+	repo, err := sqlite.NewRepository(dbPath)
 	if err != nil {
 		t.Fatalf("failed to create repo: %v", err)
 	}
@@ -652,7 +653,7 @@ func TestMergeScopedCleanupWithEmptyStaging(t *testing.T) {
 	// Setup: create temp database
 	tmpDir := t.TempDir()
 	dbPath := tmpDir + "/test.db"
-	repo, err := NewRepository(dbPath)
+	repo, err := sqlite.NewRepository(dbPath)
 	if err != nil {
 		t.Fatalf("failed to create repo: %v", err)
 	}
@@ -661,7 +662,7 @@ func TestMergeScopedCleanupWithEmptyStaging(t *testing.T) {
 	now := time.Now().Unix()
 
 	// First create a scan session with a scope (folder scan)
-	_, err = repo.db.Exec(`
+	_, err = repo.DB().Exec(`
 		INSERT INTO scan_sessions (session_id, root_path, scope_path, kind, status, started_at)
 		VALUES ('scan-empty', '/music', '/music/albums', 'folder', 'running', datetime('now'))
 	`)
@@ -769,7 +770,7 @@ func TestMergeBoundarySafeScopeMatching(t *testing.T) {
 	// Setup: create temp database
 	tmpDir := t.TempDir()
 	dbPath := tmpDir + "/test.db"
-	repo, err := NewRepository(dbPath)
+	repo, err := sqlite.NewRepository(dbPath)
 	if err != nil {
 		t.Fatalf("failed to create repo: %v", err)
 	}
@@ -778,7 +779,7 @@ func TestMergeBoundarySafeScopeMatching(t *testing.T) {
 	now := time.Now().Unix()
 
 	// Create scan session with scope
-	_, err = repo.db.Exec(`
+	_, err = repo.DB().Exec(`
 		INSERT INTO scan_sessions (session_id, root_path, scope_path, kind, status, started_at)
 		VALUES ('scan-boundary', '/music', '/music/albums', 'folder', 'running', datetime('now'))
 	`)
@@ -850,7 +851,7 @@ func TestMergeWithTrulyEmptyStaging(t *testing.T) {
 	// Setup: create temp database
 	tmpDir := t.TempDir()
 	dbPath := tmpDir + "/test.db"
-	repo, err := NewRepository(dbPath)
+	repo, err := sqlite.NewRepository(dbPath)
 	if err != nil {
 		t.Fatalf("failed to create repo: %v", err)
 	}
@@ -859,7 +860,7 @@ func TestMergeWithTrulyEmptyStaging(t *testing.T) {
 	now := time.Now().Unix()
 
 	// First create a scan session with a scope (folder scan)
-	_, err = repo.db.Exec(`
+	_, err = repo.DB().Exec(`
 		INSERT INTO scan_sessions (session_id, root_path, scope_path, kind, status, started_at)
 		VALUES ('scan-zero', '/music', '/music/albums', 'folder', 'running', datetime('now'))
 	`)
@@ -937,7 +938,7 @@ func TestMergeWithTrulyEmptyStaging(t *testing.T) {
 func TestMergeLargeSetStaleCleanup(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := tmpDir + "/test.db"
-	repo, err := NewRepository(dbPath)
+	repo, err := sqlite.NewRepository(dbPath)
 	if err != nil {
 		t.Fatalf("failed to create repo: %v", err)
 	}
@@ -1014,7 +1015,7 @@ func TestMergeLargeSetStaleCleanup(t *testing.T) {
 
 	// Verify staging is cleared
 	var stagingCount int
-	err = stagingTestRow(repo, "scan-large", "SELECT COUNT(*) FROM entries_staging").
+	err = sqlite.QueryStagingRow(repo, "scan-large", "SELECT COUNT(*) FROM entries_staging").
 		Scan(&stagingCount)
 	if err != nil {
 		t.Fatalf("failed to query staging count: %v", err)
@@ -1032,7 +1033,7 @@ func TestMergeLargeSetStaleCleanup(t *testing.T) {
 func TestMergeUpsertContentRevIncrementSemantics(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := tmpDir + "/test.db"
-	repo, err := NewRepository(dbPath)
+	repo, err := sqlite.NewRepository(dbPath)
 	if err != nil {
 		t.Fatalf("failed to create repo: %v", err)
 	}
@@ -1151,13 +1152,13 @@ func TestMergeUpsertContentRevIncrementSemantics(t *testing.T) {
 // directory name, not patterns.
 func TestMergeScopedCleanupKeepsTheScopeAndItsNeighbours(t *testing.T) {
 	tmpDir := t.TempDir()
-	repo, err := NewRepository(tmpDir + "/test.db")
+	repo, err := sqlite.NewRepository(tmpDir + "/test.db")
 	if err != nil {
 		t.Fatalf("failed to create repo: %v", err)
 	}
 	defer repo.Close()
 
-	if _, err := repo.db.Exec(`
+	if _, err := repo.DB().Exec(`
 		INSERT INTO scan_sessions (session_id, root_path, scope_path, kind, status, started_at)
 		VALUES ('scan-wild', '/music', '/music/100%_hits', 'folder', 'running', datetime('now'))
 	`); err != nil {
@@ -1315,9 +1316,9 @@ func mergeBenchmarkEntries() []inventory.StagingEntry {
 	return entries
 }
 
-func prepareMergeBenchmark(b *testing.B, entries []inventory.StagingEntry) (*Repository, string) {
+func prepareMergeBenchmark(b *testing.B, entries []inventory.StagingEntry) (*sqlite.Repository, string) {
 	b.Helper()
-	repo, err := NewDevelopmentRepository(path.Join(b.TempDir(), "merge.db"))
+	repo, err := sqlite.NewDevelopmentRepository(path.Join(b.TempDir(), "merge.db"))
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -1330,9 +1331,9 @@ func prepareMergeBenchmark(b *testing.B, entries []inventory.StagingEntry) (*Rep
 	return repo, library.ID
 }
 
-func stageMergeBenchmark(b *testing.B, repo *Repository, entries []inventory.StagingEntry) {
+func stageMergeBenchmark(b *testing.B, repo *sqlite.Repository, entries []inventory.StagingEntry) {
 	b.Helper()
-	store := NewScanStaging(repo)
+	store := sqlite.NewScanStaging(repo)
 	for start := 0; start < len(entries); start += defaultBatchSize {
 		end := min(start+defaultBatchSize, len(entries))
 		if err := store.WriteStagingBatch("benchmark", entries[start:end]); err != nil {
@@ -1341,7 +1342,7 @@ func stageMergeBenchmark(b *testing.B, repo *Repository, entries []inventory.Sta
 	}
 }
 
-func checkMergeBenchmark(b *testing.B, repo *Repository) {
+func checkMergeBenchmark(b *testing.B, repo *sqlite.Repository) {
 	b.Helper()
 	entries, err := repo.ListEntriesUnderPath("/bench/onsei")
 	if err != nil {
@@ -1359,10 +1360,11 @@ func checkMergeBenchmark(b *testing.B, repo *Repository) {
 	}
 	rows := len(entries)
 
-	if err = repo.db.QueryRow("SELECT COUNT(*) FROM work_copies").Scan(&copies); err != nil {
+	if err = repo.DB().QueryRow("SELECT COUNT(*) FROM work_copies").Scan(&copies); err != nil {
 		b.Fatal(err)
 	}
-	if err = stagingTestRow(repo, "benchmark", "SELECT COUNT(*) FROM entries_staging").Scan(&staging); err != nil {
+	if err = sqlite.QueryStagingRow(repo, "benchmark", "SELECT COUNT(*) FROM entries_staging").
+		Scan(&staging); err != nil {
 		b.Fatal(err)
 	}
 	if rows != 28839 || dirs != 5760 || len(roots) != 940 || copies != 940 || staging != 0 {

@@ -1,4 +1,4 @@
-package httpapi //nolint:testpackage // white-box tests exercise unexported internals
+package httpapi_test
 
 import (
 	"bytes"
@@ -12,6 +12,8 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/Clementine33/preen/backend/internal/adapters/httpapi"
 
 	"github.com/Clementine33/preen/backend/internal/testutil/wirecheck"
 
@@ -67,7 +69,7 @@ func newWorksetServer(t *testing.T, guards ...workset.EnqueueGuard) (http.Handle
 			},
 		),
 	}, nil, guard)
-	handler := wirecheck.Handler(t, NewServer(Dependencies{
+	handler := wirecheck.Handler(t, httpapi.NewServer(httpapi.Dependencies{
 		Library:        library.NewService(repo, nil, repo, filesystem.ResolveMember),
 		Catalog:        conversion.NewCatalog(repo, appconfig.NewReader(tmp)),
 		Token:          testToken,

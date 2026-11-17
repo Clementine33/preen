@@ -1,7 +1,8 @@
-package httpapi //nolint:testpackage // white-box tests exercise unexported internals
+package httpapi_test
 
 import (
 	"github.com/Clementine33/preen/backend/internal/adapters/filesystem"
+	"github.com/Clementine33/preen/backend/internal/adapters/httpapi"
 	"github.com/Clementine33/preen/backend/internal/testutil/inventoryfixture"
 	"github.com/Clementine33/preen/backend/internal/testutil/wirecheck"
 
@@ -39,7 +40,7 @@ func serverOnDB(t *testing.T, dbPath string) (http.Handler, *sqlite.Repository) 
 	if err != nil {
 		t.Fatalf("open repository: %v", err)
 	}
-	return wirecheck.Handler(t, NewServer(Dependencies{
+	return wirecheck.Handler(t, httpapi.NewServer(httpapi.Dependencies{
 		Library:     library.NewService(repo, nil, repo, filesystem.ResolveMember),
 		CORSOrigins: []string{},
 		Version:     "dev",
@@ -64,7 +65,7 @@ func treeFor(t *testing.T, engine http.Handler, token, libID, identity string) (
 
 // listedDirs reads the overview listing of a library, with the token the
 // harness expects.
-func listedDirs(t *testing.T, engine http.Handler, token, libID string) []dirResponse {
+func listedDirs(t *testing.T, engine http.Handler, token, libID string) []dirBody {
 	t.Helper()
 	headers := map[string]string{}
 	if token != "" {
@@ -75,7 +76,7 @@ func listedDirs(t *testing.T, engine http.Handler, token, libID string) []dirRes
 		t.Fatalf("dirs status = %d, want 200 (body=%s)", w.Code, w.Body.String())
 	}
 	var out struct {
-		Dirs []dirResponse `json:"dirs"`
+		Dirs []dirBody `json:"dirs"`
 	}
 	if err := json.Unmarshal(w.Body.Bytes(), &out); err != nil {
 		t.Fatalf("decode dirs: %v (body=%s)", err, w.Body.String())
@@ -139,7 +140,7 @@ func TestDirIDSurvivesARescanAndARestart(t *testing.T) {
 // the answer still names the exact stored path, byte for byte.
 func TestDirIDCoversUnicodeAndReservedCharacters(t *testing.T) {
 	var repo *sqlite.Repository
-	engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) { repo = fixture })
+	engine := newTestServer(t, func(d *httpapi.Dependencies, fixture *sqlite.Repository) { repo = fixture })
 	libID, root := treeLibrary(t, engine, repo, "Music")
 
 	names := []string{
@@ -196,7 +197,7 @@ func TestDirIDCoversUnicodeAndReservedCharacters(t *testing.T) {
 // nothing is tracked across that gap.
 func TestDirIDFollowsThePathNotTheFilesystemEntity(t *testing.T) {
 	var repo *sqlite.Repository
-	engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) { repo = fixture })
+	engine := newTestServer(t, func(d *httpapi.Dependencies, fixture *sqlite.Repository) { repo = fixture })
 	libID, root := treeLibrary(t, engine, repo, "Music")
 	seedDir(t, repo, root, "albumA")
 	original := dirIDFor(t, engine, libID, "albumA")
@@ -224,7 +225,7 @@ func TestDirIDFollowsThePathNotTheFilesystemEntity(t *testing.T) {
 // has no identity to name, and its path-derived value is unknown.
 func TestADirectoryOutsideTheInventoryHasNoIdentity(t *testing.T) {
 	var repo *sqlite.Repository
-	engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) { repo = fixture })
+	engine := newTestServer(t, func(d *httpapi.Dependencies, fixture *sqlite.Repository) { repo = fixture })
 	libID, root := treeLibrary(t, engine, repo, "Music")
 	if err := os.MkdirAll(filepath.Join(root, "unscanned"), 0o755); err != nil {
 		t.Fatalf("create an unscanned directory: %v", err)
@@ -258,7 +259,7 @@ func TestMemberIdentityMatchesTheOverviewListing(t *testing.T) {
 	if created.Code != http.StatusCreated {
 		t.Fatalf("create library status = %d (body=%s)", created.Code, created.Body.String())
 	}
-	var library libraryResponse
+	var library libraryBody
 	if err := json.Unmarshal(created.Body.Bytes(), &library); err != nil {
 		t.Fatalf("decode library: %v", err)
 	}
@@ -277,7 +278,7 @@ func TestMemberIdentityMatchesTheOverviewListing(t *testing.T) {
 	}
 	var current struct {
 		Workset struct {
-			Members []memberResponse `json:"members"`
+			Members []memberBody `json:"members"`
 		} `json:"workset"`
 	}
 	if err := json.Unmarshal(w.Body.Bytes(), &current); err != nil {
@@ -320,7 +321,7 @@ func TestTreeAnswersTheWorkItsDirectoryIsBoundTo(t *testing.T) {
 	); err != nil {
 		t.Fatalf("insert copy: %v", err)
 	}
-	handler := wirecheck.Handler(t, NewServer(Dependencies{
+	handler := wirecheck.Handler(t, httpapi.NewServer(httpapi.Dependencies{
 		Library:     library.NewService(repo, nil, repo, filesystem.ResolveMember),
 		Works:       works.NewService(repo, nil, nil, nil, "test"),
 		CORSOrigins: []string{},

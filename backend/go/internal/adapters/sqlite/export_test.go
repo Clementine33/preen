@@ -1,6 +1,9 @@
 package sqlite
 
 import (
+	"context"
+	"database/sql"
+	"database/sql/driver"
 	"io/fs"
 	"time"
 )
@@ -25,4 +28,40 @@ func SetAfterMergeBatch(repo *Repository, checkpoint func()) { repo.afterMergeBa
 // the db.Begin time, so measurements can report the combined wait.
 func SetImportBeginWait(repo *Repository, record func(queue, begin time.Duration)) {
 	repo.importBeginWait = record
+}
+
+// WrapRepositoryDriver reopens the repository's connection pool through wrap, so
+// tests can observe every statement without replacing the public workflows.
+func WrapRepositoryDriver(repo *Repository, wrap func(driver.Driver) driver.Driver) error {
+	original := repo.db
+	repo.db = sql.OpenDB(repositoryConnector{driver: wrap(original.Driver()), dsn: repo.dbPath + connectionPragmas})
+	return original.Close()
+}
+
+// QueryStagingRow runs query on the session's private staging connection. A
+// finished session has no handle, so its query reads as a single zero row.
+func QueryStagingRow(repo *Repository, sessionID, query string, args ...any) *sql.Row {
+	repo.stagingMu.Lock()
+	session := repo.staging[sessionID]
+	repo.stagingMu.Unlock()
+	if session == nil {
+		return repo.DB().QueryRow("SELECT 0")
+	}
+	return session.conn.QueryRowContext(context.Background(), query, args...)
+}
+
+// ImportLockHeld reports whether an ImportMetadata call currently holds the
+// repository's import lock.
+func ImportLockHeld(repo *Repository) bool {
+	if repo.importMu.TryLock() {
+		repo.importMu.Unlock()
+		return false
+	}
+	return true
+}
+
+// SetScanStagingExecSeam makes the staging write fail with fn's error after the
+// given number of exec calls, so tests can interrupt a batch midway.
+func SetScanStagingExecSeam(staging *ScanStaging, fn func(callCount int) error) {
+	staging.testExecSeam = fn
 }

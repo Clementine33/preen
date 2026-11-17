@@ -1,4 +1,4 @@
-package e2e //nolint:testpackage // uses the shared backend process harness
+package e2e_test
 
 import (
 	"fmt"

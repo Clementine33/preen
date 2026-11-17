@@ -1,4 +1,4 @@
-package conversion //nolint:testpackage // white-box tests exercise unexported internals
+package conversion_test
 
 import (
 	"context"
@@ -6,14 +6,16 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
+	"sync"
 	"testing"
 
 	"github.com/Clementine33/preen/backend/internal/adapters/media"
-
-	"github.com/Clementine33/preen/backend/internal/conversion/reconcile"
+	"github.com/Clementine33/preen/backend/internal/conversion"
+	"github.com/Clementine33/preen/backend/internal/inventory"
 )
 
-func TestEnrichBitrateProbesAACContainers(t *testing.T) {
+func TestPlanProbesAACContainers(t *testing.T) {
 	for _, ext := range []string{".aac", ".M4A"} {
 		t.Run(ext, func(t *testing.T) {
 			dir := t.TempDir()
@@ -24,25 +26,27 @@ func TestEnrichBitrateProbesAACContainers(t *testing.T) {
 				t.Fatalf("generate AAC: %v: %s", err, output)
 			}
 			track = filepath.ToSlash(track)
-			entries := []reconcile.AudioEntry{{PathPosix: track}}
-			inv := &recordingInventory{}
-			a := newBitrateAnalyzer(inv, media.ProbeBitrate)
-			if err := a.enrichMissing(t.Context(), entries, true); err != nil {
-				t.Fatal(err)
+			inv := &recordingInventory{observed: []inventory.ObservedAudio{{Path: track}}}
+			plan := func() {
+				t.Helper()
+				if _, planErr := conversion.Plan(
+					t.Context(), inv, planSettings{batch: true}, media.ProbeBitrate, mp3Input(filepath.ToSlash(dir)),
+				); planErr != nil {
+					t.Fatal(planErr)
+				}
 			}
+			plan()
 			// Native AAC's measured average need not equal the requested 256k.
 			if len(inv.updates) != 1 || inv.updates[0].Path != track || inv.updates[0].BitrateKbps <= 0 {
-				t.Fatalf("AAC bitrate: entry=%d writes=%+v", entries[0].Bitrate, inv.updates)
+				t.Fatalf("AAC bitrate: writes=%+v", inv.updates)
 			}
-			if entries[0].Bitrate != inv.updates[0].BitrateKbps {
-				t.Fatalf("entry=%d announced=%d", entries[0].Bitrate, inv.updates[0].BitrateKbps)
-			}
+			// The inventory now holds the measured rate, and the file is gone: a
+			// second pass has nothing to probe and nothing to write.
+			inv.observed[0].Bitrate = inv.updates[0].BitrateKbps
 			if err := os.Remove(filepath.FromSlash(track)); err != nil {
 				t.Fatal(err)
 			}
-			if err := a.enrichMissing(t.Context(), entries, true); err != nil {
-				t.Fatal(err)
-			}
+			plan()
 			if len(inv.updates) != 1 {
 				t.Fatal("cached AAC bitrate was probed and written again")
 			}
@@ -50,7 +54,7 @@ func TestEnrichBitrateProbesAACContainers(t *testing.T) {
 	}
 }
 
-func TestEnrichBitrateKeepsUnknownAndCachedValues(t *testing.T) {
+func TestPlanKeepsUnknownAndCachedValues(t *testing.T) {
 	dir := t.TempDir()
 	invalid := filepath.Join(dir, "invalid.mp3")
 	if err := os.WriteFile(invalid, []byte("not audio"), 0o600); err != nil {
@@ -60,24 +64,44 @@ func TestEnrichBitrateKeepsUnknownAndCachedValues(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	cached := filepath.ToSlash(filepath.Join(dir, "cached.mp3"))
 	for _, tool := range []string{probe, filepath.Join(dir, "missing-ffprobe")} {
-		entries := []reconcile.AudioEntry{
-			{PathPosix: filepath.ToSlash(invalid)},
-			{PathPosix: filepath.ToSlash(filepath.Join(dir, "missing.mp3"))},
-			{PathPosix: filepath.ToSlash(invalid), Bitrate: 192000},
+		inv := &recordingInventory{observed: []inventory.ObservedAudio{
+			{Path: filepath.ToSlash(invalid)},
+			{Path: filepath.ToSlash(filepath.Join(dir, "missing.mp3"))},
+			{Path: cached, Bitrate: 192000},
+		}}
+		var mu sync.Mutex
+		var probed []string
+		measure := media.New(tool).ProbeBitrate
+		counting := func(ctx context.Context, path string) (int64, error) {
+			mu.Lock()
+			probed = append(probed, path)
+			mu.Unlock()
+			return measure(ctx, path)
 		}
-		a := newBitrateAnalyzer(nil, media.New(tool).ProbeBitrate)
-		if enrichErr := a.enrichMissing(t.Context(), entries, true); enrichErr != nil {
-			t.Fatal(enrichErr)
+		if _, planErr := conversion.Plan(
+			t.Context(), inv, planSettings{batch: true}, counting, mp3Input(filepath.ToSlash(dir)),
+		); planErr != nil {
+			t.Fatal(planErr)
 		}
-		if entries[0].Bitrate != 0 || entries[1].Bitrate != 0 || entries[2].Bitrate != 192000 {
-			t.Fatalf("unexpected bitrate changes: %+v", entries)
+		// An unmeasurable file leaves its stored rate as it was, so nothing is
+		// written; a cached rate is never measured again.
+		if len(inv.updates) != 0 || slices.Contains(probed, cached) || len(probed) != 2 {
+			t.Fatalf("tool %q: probed %v, writes %+v", tool, probed, inv.updates)
 		}
 	}
+}
+
+func TestPlanReturnsCancellationFromAProbe(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
-	cancel()
-	err = newBitrateAnalyzer(nil, media.New(probe).ProbeBitrate).enrichMissing(ctx,
-		[]reconcile.AudioEntry{{PathPosix: filepath.ToSlash(invalid)}}, true)
+	defer cancel()
+	inv := &recordingInventory{observed: []inventory.ObservedAudio{{Path: "/scope/a.mp3"}}}
+	probe := func(context.Context, string) (int64, error) {
+		cancel()
+		return 0, ctx.Err()
+	}
+	_, err := conversion.Plan(ctx, inv, planSettings{batch: true}, probe, mp3Input("/scope"))
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("canceled enrichment: %v", err)
 	}

@@ -1,4 +1,4 @@
-package e2e //nolint:testpackage // shares the process harness with the HTTP integration tests
+package e2e_test
 
 import (
 	"os"

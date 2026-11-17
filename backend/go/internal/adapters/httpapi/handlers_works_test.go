@@ -1,7 +1,8 @@
-package httpapi //nolint:testpackage // white-box tests drive the routes through the real router
+package httpapi_test
 
 import (
 	"github.com/Clementine33/preen/backend/internal/adapters/filesystem"
+	"github.com/Clementine33/preen/backend/internal/adapters/httpapi"
 	"github.com/Clementine33/preen/backend/internal/testutil/wirecheck"
 
 	"encoding/json"
@@ -21,7 +22,7 @@ import (
 // content manifest reads entries through the same repository and resolves
 // members on disk the way direct file management does, so a test that wants
 // an online copy creates the member directory under its library root.
-func wireWorks(d *Dependencies, fixture *sqlite.Repository) {
+func wireWorks(d *httpapi.Dependencies, fixture *sqlite.Repository) {
 	d.Works = works.NewService(fixture, fixture, filesystem.ResolveMember, filesystem.ResolveMemberFile, "test")
 }
 
@@ -37,7 +38,7 @@ func TestWorkCoverURLIsAnsweredByListAndDetail(t *testing.T) {
 		{"unknown", nil},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) {
+			engine := newTestServer(t, func(d *httpapi.Dependencies, fixture *sqlite.Repository) {
 				wireWorks(d, fixture)
 				seedHTTPWork(t, fixture, "RJ00000001", "work")
 			})
@@ -145,7 +146,7 @@ func TestWorksListRequiresAMatchMode(t *testing.T) {
 // selects, an unknown value that is its own case, and numbered pages that walk the
 // whole set without repeating or skipping a row.
 func TestWorksListFiltersAndPages(t *testing.T) {
-	engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) {
+	engine := newTestServer(t, func(d *httpapi.Dependencies, fixture *sqlite.Repository) {
 		wireWorks(d, fixture)
 		for i, spec := range []struct{ id, title, release string }{
 			{"RJ00000001", "alpha", "2025-01-01"},
@@ -314,7 +315,7 @@ func assertSequence(t *testing.T, got, want []string) {
 // repeated and none is skipped. Two unknown dates put a page boundary inside
 // the unknown block, where the work number alone orders the rows.
 func TestUnknownReleaseDatesAlwaysSortLast(t *testing.T) {
-	engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) {
+	engine := newTestServer(t, func(d *httpapi.Dependencies, fixture *sqlite.Repository) {
 		wireWorks(d, fixture)
 		for _, spec := range []struct{ id, release string }{
 			{"RJ00000001", "2025-01-01"},
@@ -359,7 +360,7 @@ func TestWorkDetailAnswersTheEditionTreeAndCopyDirIDs(t *testing.T) {
 	engine, repo := serverOnDB(t, filepath.Join(t.TempDir(), "tree.db"))
 	t.Cleanup(func() { _ = repo.Close() })
 	libID, root := treeLibrary(t, engine, repo, "Music")
-	handler := wirecheck.Handler(t, NewServer(Dependencies{
+	handler := wirecheck.Handler(t, httpapi.NewServer(httpapi.Dependencies{
 		Library:     library.NewService(repo, nil, repo, filesystem.ResolveMember),
 		Works:       works.NewService(repo, nil, nil, nil, "test"),
 		CORSOrigins: []string{},

@@ -1,4 +1,4 @@
-package httpapi
+package httpapi_test
 
 import (
 	"net/http"
@@ -9,9 +9,9 @@ import (
 	"github.com/Clementine33/preen/backend/internal/workset"
 )
 
-// MemberReviewHTTPFixture provides authenticated GET requests against a real
+// memberReviewHTTPFixture provides authenticated GET requests against a real
 // service with a published single-member plan, plus its record and member IDs.
-func MemberReviewHTTPFixture(t *testing.T) (get func(string) *httptest.ResponseRecorder, worksetID, memberID string) {
+func memberReviewHTTPFixture(t *testing.T) (get func(string) *httptest.ResponseRecorder, worksetID, memberID string) {
 	t.Helper()
 	h, repo := newWorksetServer(t)
 	libID := seedLibrary(t, repo)

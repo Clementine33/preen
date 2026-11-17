@@ -1,16 +1,17 @@
-package sqlite //nolint:testpackage // white-box tests drive the merge against the real schema
+package sqlite_test
 
 import (
 	"fmt"
 	"slices"
 	"testing"
 
+	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
 	"github.com/Clementine33/preen/backend/internal/inventory"
 	"github.com/Clementine33/preen/backend/internal/works"
 )
 
 // stageDir inserts one direct-child directory row into a scan's staging set.
-func stageDir(t *testing.T, repo *Repository, session, root, name string) {
+func stageDir(t *testing.T, repo *sqlite.Repository, session, root, name string) {
 	t.Helper()
 	if err := stageTestRows(
 		repo,
@@ -75,7 +76,7 @@ type binding struct {
 	workID  string
 }
 
-func assertBindings(t *testing.T, repo *Repository, libraryID string, want []binding) {
+func assertBindings(t *testing.T, repo *sqlite.Repository, libraryID string, want []binding) {
 	t.Helper()
 	rows, err := repo.DB().Query(
 		"SELECT rel_path, work_id FROM work_copies WHERE library_id = ? ORDER BY rel_path", libraryID,
@@ -357,7 +358,7 @@ func TestMergeBindsMoreThanSQLiteVariableLimit(t *testing.T) {
 	}
 
 	const count = 32767
-	store := NewScanStaging(repo)
+	store := sqlite.NewScanStaging(repo)
 	batch := make([]inventory.StagingEntry, 0, defaultBatchSize)
 	for i := 1; i <= count; i++ {
 		name := fmt.Sprintf("RJ%08d album", i)

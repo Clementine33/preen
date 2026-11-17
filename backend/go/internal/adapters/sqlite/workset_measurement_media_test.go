@@ -1,5 +1,4 @@
-//nolint:testpackage // These simulated dependencies belong to the private-driver measurement harness.
-package sqlite
+package sqlite_test
 
 import (
 	"bytes"

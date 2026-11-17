@@ -1,10 +1,12 @@
-package httpapi //nolint:testpackage // white-box tests drive the routes through the real router
+package httpapi_test
 
 import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/Clementine33/preen/backend/internal/adapters/httpapi"
 
 	"github.com/Clementine33/preen/backend/internal/adapters/sqlite"
 )
@@ -13,7 +15,7 @@ import (
 // stored value read back, and every refusal leaves it untouched.
 func TestOutboundProxyRoundTrip(t *testing.T) {
 	var fixture *sqlite.Repository
-	engine := newTestServer(t, func(d *Dependencies, f *sqlite.Repository) {
+	engine := newTestServer(t, func(d *httpapi.Dependencies, f *sqlite.Repository) {
 		wireWorks(d, f)
 		fixture = f
 	})

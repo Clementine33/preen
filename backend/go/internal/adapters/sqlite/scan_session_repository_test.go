@@ -1,4 +1,4 @@
-package sqlite //nolint:testpackage // white-box tests exercise unexported internals
+package sqlite_test
 
 import (
 	"testing"
@@ -116,9 +116,9 @@ func TestRepository_RunRetentionCleanupBatch_ScanEligibility(t *testing.T) {
 	if err := repo.UpdateScanSessionStatus("scan-completed-old", "completed", "", ""); err != nil {
 		t.Fatalf("update status: %v", err)
 	}
-	_, err := repo.db.Exec(
+	_, err := repo.DB().Exec(
 		"UPDATE scan_sessions SET finished_at = ? WHERE session_id = ?",
-		oldTime.Format(timeFormat),
+		oldTime.Format(time.RFC3339Nano),
 		"scan-completed-old",
 	)
 	if err != nil {
@@ -169,9 +169,9 @@ func TestRepository_RunRetentionCleanupBatch_ScanEligibility(t *testing.T) {
 	if updateErr := repo.UpdateScanSessionStatus("scan-coalesce-precedence", "completed", "", ""); updateErr != nil {
 		t.Fatalf("update coalesce-precedence scan status: %v", updateErr)
 	}
-	_, err = repo.db.Exec(
+	_, err = repo.DB().Exec(
 		"UPDATE scan_sessions SET finished_at = ? WHERE session_id = ?",
-		newTime.Format(timeFormat),
+		newTime.Format(time.RFC3339Nano),
 		"scan-coalesce-precedence",
 	)
 	if err != nil {
@@ -191,14 +191,14 @@ func TestRepository_RunRetentionCleanupBatch_ScanEligibility(t *testing.T) {
 	// Verify the retained scans remain: the newer one, the coalesce-precedence
 	// one, and the old running one that is not terminal.
 	var count int
-	if countErr := repo.db.QueryRow("SELECT COUNT(*) FROM scan_sessions").Scan(&count); countErr != nil {
+	if countErr := repo.DB().QueryRow("SELECT COUNT(*) FROM scan_sessions").Scan(&count); countErr != nil {
 		t.Fatalf("count scan_sessions: %v", countErr)
 	}
 	if count != 3 {
 		t.Fatalf("scan_sessions remaining = %d, want 3", count)
 	}
 
-	rows, err := repo.db.Query("SELECT session_id FROM scan_sessions ORDER BY session_id")
+	rows, err := repo.DB().Query("SELECT session_id FROM scan_sessions ORDER BY session_id")
 	if err != nil {
 		t.Fatalf("query retained scans: %v", err)
 	}
@@ -229,7 +229,8 @@ func TestRepository_RunRetentionCleanupBatch_ScanEligibility(t *testing.T) {
 
 	// Explicitly verify COALESCE precedence: old started_at + new finished_at → retained
 	var coalesceExists bool
-	if err := repo.db.QueryRow("SELECT EXISTS(SELECT 1 FROM scan_sessions WHERE session_id = 'scan-coalesce-precedence')").
+	if err := repo.DB().
+		QueryRow("SELECT EXISTS(SELECT 1 FROM scan_sessions WHERE session_id = 'scan-coalesce-precedence')").
 		Scan(&coalesceExists); err != nil {
 		t.Fatalf("check coalesce-precedence row: %v", err)
 	}

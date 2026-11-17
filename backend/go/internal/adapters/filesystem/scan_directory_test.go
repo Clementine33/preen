@@ -1,9 +1,11 @@
-package filesystem //nolint:testpackage // white-box tests exercise the file scan helper
+package filesystem_test
 
 import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/Clementine33/preen/backend/internal/adapters/filesystem"
 )
 
 func TestScanFiltersAllowedAudioExtensions(t *testing.T) {
@@ -39,7 +41,7 @@ func TestScanFiltersAllowedAudioExtensions(t *testing.T) {
 	}
 
 	// Scan the directory
-	entries, err := ScanDirectory(tmpDir)
+	entries, err := filesystem.ScanDirectory(tmpDir)
 	if err != nil {
 		t.Fatalf("ScanDirectory failed: %v", err)
 	}
@@ -74,7 +76,7 @@ func TestScanCollectsFileInfo(t *testing.T) {
 		t.Fatalf("failed to create file: %v", err)
 	}
 
-	entries, err := ScanDirectory(tmpDir)
+	entries, err := filesystem.ScanDirectory(tmpDir)
 	if err != nil {
 		t.Fatalf("ScanDirectory failed: %v", err)
 	}

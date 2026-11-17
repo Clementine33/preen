@@ -1,4 +1,4 @@
-package httpapi //nolint:testpackage // white-box tests drive the routes through the real router
+package httpapi_test
 
 import (
 	"bytes"
@@ -13,6 +13,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/Clementine33/preen/backend/internal/adapters/httpapi"
 
 	"github.com/Clementine33/preen/backend/internal/testutil/inventoryfixture"
 
@@ -128,7 +130,7 @@ func fileURL(segments ...string) string {
 
 func TestWorkFileServesTheBytesItStores(t *testing.T) {
 	var files *fileFixture
-	engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) {
+	engine := newTestServer(t, func(d *httpapi.Dependencies, fixture *sqlite.Repository) {
 		wireWorks(d, fixture)
 		files = seedWorkFiles(t, fixture)
 	})
@@ -190,7 +192,7 @@ func TestWorkTimedLyricsAreListedAndServed(t *testing.T) {
 		t.Run(ext, func(t *testing.T) {
 			name := "01_導入." + ext
 			text := "WEBVTT\n\n00:01.000 --> 00:03.000\nこんにちは\n"
-			engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) {
+			engine := newTestServer(t, func(d *httpapi.Dependencies, fixture *sqlite.Repository) {
 				wireWorks(d, fixture)
 				files := seedWorkFiles(t, fixture)
 				if err := os.WriteFile(filepath.Join(files.member, name), []byte(text), 0o644); err != nil {
@@ -229,7 +231,7 @@ func TestWorkTimedLyricsAreListedAndServed(t *testing.T) {
 func TestWorkVideoIsServedWithRange(t *testing.T) {
 	// An mp4 ftyp box: the sniffer names it video/mp4 whatever the inventory recorded.
 	data := append([]byte{0, 0, 0, 0x18}, []byte("ftypmp42\x00\x00\x00\x00mp42isom")...)
-	engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) {
+	engine := newTestServer(t, func(d *httpapi.Dependencies, fixture *sqlite.Repository) {
 		wireWorks(d, fixture)
 		files := seedWorkFiles(t, fixture)
 		if err := os.WriteFile(filepath.Join(files.member, "clip.mp4"), data, 0o644); err != nil {
@@ -249,7 +251,7 @@ func TestWorkVideoIsServedWithRange(t *testing.T) {
 }
 
 func TestWorkFileRangeAndRevalidation(t *testing.T) {
-	engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) {
+	engine := newTestServer(t, func(d *httpapi.Dependencies, fixture *sqlite.Repository) {
 		wireWorks(d, fixture)
 		seedWorkFiles(t, fixture)
 	})
@@ -293,7 +295,7 @@ func TestWorkFileRangeAndRevalidation(t *testing.T) {
 
 func TestWorkFileRejectsDirectoriesLinksAndFakeImageTypes(t *testing.T) {
 	var files *fileFixture
-	engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) {
+	engine := newTestServer(t, func(d *httpapi.Dependencies, fixture *sqlite.Repository) {
 		wireWorks(d, fixture)
 		files = seedWorkFiles(t, fixture)
 	})
@@ -346,7 +348,7 @@ func TestTextCharsetDoesNotMistakeSampleBoundaryForInvalidBytes(t *testing.T) {
 		for cut := 1; cut < tc.charSize; cut++ {
 			t.Run(tc.charset+strings.Repeat("-", cut), func(t *testing.T) {
 				var files *fileFixture
-				engine := newTestServer(t, func(d *Dependencies, fixture *sqlite.Repository) {
+				engine := newTestServer(t, func(d *httpapi.Dependencies, fixture *sqlite.Repository) {
 					wireWorks(d, fixture)
 					files = seedWorkFiles(t, fixture)
 				})

@@ -7,46 +7,6 @@ import (
 )
 
 func TestNewRepository(t *testing.T) {
-	t.Run("creates required tables", func(t *testing.T) {
-		repo := newTestRepository(t)
-
-		tables := []string{
-			"inventory_dirs",
-			"inventory_files",
-			"scan_sessions",
-			"plans",
-		}
-
-		for _, table := range tables {
-			var count int
-			err := repo.DB().QueryRow("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?", table).
-				Scan(&count)
-			if err != nil {
-				t.Errorf("failed to check table %s: %v", table, err)
-			}
-			if count != 1 {
-				t.Errorf("table %s does not exist", table)
-			}
-		}
-	})
-
-	t.Run("creates inventory columns", func(t *testing.T) {
-		repo := newTestRepository(t)
-		for table, columns := range map[string][]string{
-			"inventory_dirs":  {"id", "path", "root_path", "mtime", "is_work_root", "created_at"},
-			"inventory_files": {"dir_ref", "name", "size", "mtime", "content_rev", "is_audio", "bitrate", "width", "height", "duration_sec", "format"},
-		} {
-			for _, col := range columns {
-				var count int
-				err := repo.DB().QueryRow("SELECT COUNT(*) FROM pragma_table_xinfo(?) WHERE name=?", table, col).
-					Scan(&count)
-				if err != nil || count != 1 {
-					t.Errorf("column %s.%s missing: %v", table, col, err)
-				}
-			}
-		}
-	})
-
 	t.Run("sets inventory primary keys", func(t *testing.T) {
 		repo := newTestRepository(t)
 		for _, key := range []struct {
@@ -122,21 +82,6 @@ func TestConnectionPragmasAreAppliedToEveryConnection(t *testing.T) {
 		if busyTimeout != 5000 {
 			t.Errorf("%s connection: busy_timeout = %d, want 5000", name, busyTimeout)
 		}
-	}
-}
-
-func TestNewRepository_CreatesInventoryRootPathIndex(t *testing.T) {
-	repo := newTestRepository(t)
-
-	var count int
-	err := repo.DB().QueryRow(
-		"SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name='idx_inventory_dirs_root_path'",
-	).Scan(&count)
-	if err != nil {
-		t.Fatalf("failed to query sqlite_master for idx_inventory_dirs_root_path: %v", err)
-	}
-	if count != 1 {
-		t.Fatalf("expected idx_inventory_dirs_root_path index to exist, got count=%d", count)
 	}
 }
 

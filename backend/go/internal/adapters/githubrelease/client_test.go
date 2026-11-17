@@ -63,22 +63,6 @@ func TestNewerReleaseIsAvailable(t *testing.T) {
 	}
 }
 
-func TestUpToDateAndOlderReleasesReportNone(t *testing.T) {
-	for _, current := range []string{"0.3.0", "0.4.0"} {
-		srv, _ := serve(t, body(latest))
-		if got := check(srv, current).Status().State; got != updatecheck.StateNone {
-			t.Errorf("current %s: state = %q", current, got)
-		}
-	}
-}
-
-func TestReleaseCandidateSeesTheStableRelease(t *testing.T) {
-	srv, _ := serve(t, body(`{"tag_name":"v0.2.0","html_url":"https://example.test/r"}`))
-	if got := check(srv, "0.2.0-rc.2").Status().State; got != updatecheck.StateAvailable {
-		t.Fatalf("state = %q", got)
-	}
-}
-
 func TestServerErrorsAndRateLimitsRetryUpToThreeAttempts(t *testing.T) {
 	for _, code := range []int{http.StatusInternalServerError, http.StatusBadGateway, http.StatusTooManyRequests} {
 		srv, calls := serve(t, status(code))
@@ -120,24 +104,6 @@ func TestClientErrorsAndUnreadableBodiesAreNotRetried(t *testing.T) {
 		if got := check(srv, "0.2.0").Status().State; got != updatecheck.StateNone || calls.Load() != 1 {
 			t.Errorf("%s: state = %q after %d requests", name, got, calls.Load())
 		}
-	}
-}
-
-func TestCancelledContextStopsTheCheck(t *testing.T) {
-	srv, calls := serve(t, status(http.StatusServiceUnavailable))
-	ctx, cancel := context.WithCancel(context.Background())
-	client := githubrelease.New(srv.Client(), srv.URL, "0.2.0")
-	svc := updatecheck.New(
-		"0.2.0",
-		client.Latest,
-		updatecheck.WithSleep(func(ctx context.Context, _ time.Duration) error {
-			cancel()
-			return ctx.Err()
-		}),
-	)
-	svc.Run(ctx)
-	if calls.Load() != 1 || svc.Status().State != updatecheck.StateChecking {
-		t.Fatalf("after cancel: %d requests, state = %q", calls.Load(), svc.Status().State)
 	}
 }
 

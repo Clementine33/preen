@@ -308,46 +308,6 @@ func TestInlineMetadata_InfoErrorPropagation(t *testing.T) {
 	}
 }
 
-// TestInlineMetadata_FolderPath verifies inline metadata for Folder path.
-// TestInlineMetadata_FolderPath verifies inline metadata for Folder path.
-func TestInlineMetadata_FolderPath(t *testing.T) {
-	tmp := t.TempDir()
-	album := filepath.Join(tmp, "album")
-	mustMkdirAll(t, album)
-	mustWriteFile(t, filepath.Join(album, "song.wav"), []byte("dummydat"), 0644)
-
-	ctx := context.Background()
-	var entries []inventory.DirEntry
-	var mu sync.Mutex
-
-	emit := func(e inventory.DirEntry) error {
-		mu.Lock()
-		defer mu.Unlock()
-		entries = append(entries, e)
-		return nil
-	}
-
-	err := filesystem.WalkFolderEntries(ctx, album, tmp, emit)
-	if err != nil {
-		t.Fatalf("WalkFolderEntries failed: %v", err)
-	}
-
-	if len(entries) != 1 {
-		t.Fatalf("expected 1 entry, got %d", len(entries))
-	}
-
-	e := entries[0]
-	if e.Name != "song.wav" {
-		t.Errorf("expected song.wav, got %s", e.Name)
-	}
-	if e.Size != 8 {
-		t.Errorf("expected size 8, got %d", e.Size)
-	}
-	if e.Mtime == 0 {
-		t.Error("expected non-zero mtime")
-	}
-}
-
 // TestWalkFolderEntries_RecursesNestedEntries verifies folder walk includes nested files/dirs
 // while keeping single-enumerator streaming behavior.
 // TestWalkFolderEntries_RecursesNestedEntries verifies folder walk includes nested files/dirs

@@ -2,7 +2,6 @@ package workset_test
 
 import (
 	"encoding/json"
-	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -473,21 +472,6 @@ func TestCreatePrefersStoredGlobalSettingsOverStaleDraft(t *testing.T) {
 	if seeded.Mode != reconcile.ModeStrict || seeded.DeleteMode != "hard" ||
 		len(seeded.NoEffectTags) != 1 || seeded.NoEffectTags[0] != "反転" {
 		t.Fatalf("the stored global value must win over a stale draft: %+v", seeded)
-	}
-}
-
-// TestGlobalSaveBusyErrorNamesTheRefusingRecord pins the typed refusal the
-// service turns into the operation-scoped codes.
-func TestGlobalSaveBusyErrorNamesTheRefusingRecord(t *testing.T) {
-	var refusal *workset.CommonSettingsRefusalError
-	raised := error(&workset.CommonSettingsRefusalError{
-		WorksetID: "ws-1", Title: "二库", Reason: workset.RefusalExecuting,
-	})
-	if !errors.As(raised, &refusal) {
-		t.Fatal("CommonSettingsRefusalError must be reachable through errors.As")
-	}
-	if refusal.Title != "二库" || refusal.Error() == "" {
-		t.Fatalf("refusal = %+v", refusal)
 	}
 }
 

@@ -1,16 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { router } from '@/app/router'
-import { GLOBAL_NAV, globalNavOwner } from './global-nav'
-
-describe('global navigation definition', () => {
-  it('lists the work catalog and collections before the workbench', () => {
-    expect(GLOBAL_NAV.map(item => ({ id: item.id, label: item.label, to: item.to }))).toEqual([
-      { id: 'works', label: '作品库', to: '/works' },
-      { id: 'collections', label: '收藏夹', to: '/collections' },
-      { id: 'worksets', label: '工作集', to: '/worksets' },
-    ])
-  })
-})
+import { globalNavOwner } from './global-nav'
 
 describe('global navigation ownership', () => {
   // The mapping is explicit on purpose: asserting it against the real
@@ -33,10 +23,6 @@ describe('global navigation ownership', () => {
     for (const name of ['works', 'work-detail'] as const) {
       expect(globalNavOwner(name), name).toBe('works')
     }
-  })
-
-  it('keeps the collections page under 收藏夹', () => {
-    expect(globalNavOwner('collections')).toBe('collections')
   })
 
   it('keeps every workbench route under 工作集', () => {

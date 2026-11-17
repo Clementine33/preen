@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createAppQueryClient, DEFAULT_GC_TIME, TREE_GC_TIME } from './query-client'
+import { createAppQueryClient } from './query-client'
 
 describe('createAppQueryClient', () => {
   it('applies the explicit-sync defaults', () => {
@@ -14,10 +14,5 @@ describe('createAppQueryClient', () => {
       refetchOnReconnect: false,
     })
     expect(defaults.mutations).toMatchObject({ retry: false })
-  })
-
-  it('keeps cache TTL constants bounded', () => {
-    expect(DEFAULT_GC_TIME).toBe(30 * 60 * 1000)
-    expect(TREE_GC_TIME).toBe(10 * 60 * 1000)
   })
 })

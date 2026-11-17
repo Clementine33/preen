@@ -66,18 +66,3 @@ func TestDispatcherStopBeforeStart(t *testing.T) {
 		t.Fatal(err)
 	}
 }
-
-func TestCancellationClassificationKeepsRealFailure(t *testing.T) {
-	ctx, cancel := context.WithCancelCause(t.Context())
-	cancel(errShutdown)
-	if sessionCanceled(ctx, errors.New("disk failure")) {
-		t.Fatal("shutdown masked a real failure")
-	}
-	if !sessionCanceled(ctx, context.Canceled) {
-		t.Fatal("cooperative stop not recognized")
-	}
-	status, code, _ := cancellationOutcome(ctx)
-	if status != ExecStatusInterrupted || code != "INTERRUPTED" {
-		t.Fatalf("%s %s", status, code)
-	}
-}

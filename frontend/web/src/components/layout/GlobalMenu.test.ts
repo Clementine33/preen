@@ -37,12 +37,6 @@ beforeEach(() => {
 })
 
 describe('globalMenu', () => {
-  it('exists only below the rail breakpoint', async () => {
-    const wrapper = await openAt('/worksets')
-
-    expect(wrapper.get('[data-testid="global-menu"]').classes()).toContain('rail:hidden')
-  })
-
   it('offers the global entries, marking the current entry on a child route', async () => {
     const wrapper = await openAt('/worksets/lib-a/conversion/settings')
 

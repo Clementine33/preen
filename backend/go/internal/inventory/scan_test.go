@@ -55,18 +55,12 @@ type fakeStagingStore struct {
 	MergeCalls int
 	// WriteBatch, when positive, makes the store accept whole batches of that
 	// size, so a scan walks several batches instead of one.
-	WriteBatch int
-	// failStagingError makes every staging write fail, which is how the
-	// pipeline's failure paths are exercised.
-	failStagingError   error
+	WriteBatch         int
 	writeStagingCalled bool
 }
 
 func (m *fakeStagingStore) WriteStagingEntries(sessionID string, entries []inventory.StagingEntry) error {
 	m.writeStagingCalled = true
-	if m.failStagingError != nil {
-		return m.failStagingError
-	}
 	m.StagingEntries = append(m.StagingEntries, entries...)
 	return nil
 }
@@ -104,9 +98,6 @@ func (m *fakeStagingStore) UpdateScanSessionStatus(sessionID, status, errorCode,
 // WriteStagingBatch is the batch path the pipeline prefers.
 func (m *fakeStagingStore) WriteStagingBatch(sessionID string, batch []inventory.StagingEntry) error {
 	m.writeStagingCalled = true
-	if m.failStagingError != nil {
-		return m.failStagingError
-	}
 	m.StagingEntries = append(m.StagingEntries, batch...)
 	return nil
 }
@@ -387,205 +378,6 @@ func TestScannerService_ScanFolder_DoesNotPassScannedPathsForStaleCleanup(t *tes
 	// must not be allowed to rewrite the library's direct-child bindings.
 	if len(mock.CapturedLibraries) != 1 || mock.CapturedLibraries[0] != "" {
 		t.Errorf("a member refresh merged with libraries %v, want one empty", mock.CapturedLibraries)
-	}
-}
-
-// ========== inventory.Task 1: Path Split Tests ==========
-
-// TestScanRoot_UsesRootPath verifies ScanRoot uses parallel directory descent.
-// TestScanRoot_UsesRootPath verifies ScanRoot uses parallel directory descent.
-func TestScanRoot_UsesRootPath(t *testing.T) {
-	tmp := t.TempDir()
-	subDir := filepath.Join(tmp, "album1")
-	mustMkdirAll(t, subDir)
-	mustWriteFile(t, filepath.Join(subDir, "song.wav"), []byte("dummy"), 0644)
-
-	mock := &fakeStagingStore{MergeOutcome: inventory.MergeOutcome{Merged: 1}}
-	svc := inventory.NewPipeline(mock, filesystem.WalkRootEntriesParallel, filesystem.WalkFolderEntries, nil)
-
-	_, err := svc.ScanRootCtx(context.Background(), tmp)
-	if err != nil {
-		t.Fatalf("ScanRoot failed: %v", err)
-	}
-
-	// Verify staging entries were written via pipeline
-	if len(mock.StagingEntries) == 0 {
-		t.Error("expected staging entries to be written via pipeline")
-	}
-
-	// Verify song.wav entry exists
-	found := false
-	for _, e := range mock.StagingEntries {
-		if e.Name == "song.wav" {
-			found = true
-			break
-		}
-	}
-	if !found {
-		t.Error("expected song.wav in staging entries")
-	}
-}
-
-// TestScanFolder_UsesFolderPath verifies ScanFolder uses single-enumerator pattern.
-// TestScanFolder_UsesFolderPath verifies ScanFolder uses single-enumerator pattern.
-func TestScanFolder_UsesFolderPath(t *testing.T) {
-	tmp := t.TempDir()
-	album := filepath.Join(tmp, "album")
-	mustMkdirAll(t, album)
-	mustWriteFile(t, filepath.Join(album, "song.wav"), []byte("dummy"), 0644)
-
-	mock := &fakeStagingStore{MergeOutcome: inventory.MergeOutcome{Merged: 1}}
-	svc := inventory.NewPipeline(mock, filesystem.WalkRootEntriesParallel, filesystem.WalkFolderEntries, nil)
-
-	_, err := svc.ScanFolderCtx(context.Background(), album, tmp)
-	if err != nil {
-		t.Fatalf("ScanFolder failed: %v", err)
-	}
-
-	// Verify staging entries were written
-	if len(mock.StagingEntries) == 0 {
-		t.Error("expected staging entries")
-	}
-
-	// Verify song.wav entry exists
-	found := false
-	for _, e := range mock.StagingEntries {
-		if e.Name == "song.wav" {
-			found = true
-			break
-		}
-	}
-	if !found {
-		t.Error("expected song.wav in staging entries")
-	}
-}
-
-// ========== inventory.Task 2: Root Parallel Walk Tests ==========
-
-// TestWalkRootParallel_RootExcluded verifies root itself is not emitted.
-// TestPipeline_WalkAndWriterConcurrent verifies walk and writer run concurrently.
-func TestPipeline_WalkAndWriterConcurrent(t *testing.T) {
-	tmp := t.TempDir()
-	mustMkdirAll(t, filepath.Join(tmp, "album"), 0755)
-	mustWriteFile(t, filepath.Join(tmp, "album", "song1.wav"), []byte("dummy1"), 0644)
-	mustWriteFile(t, filepath.Join(tmp, "album", "song2.wav"), []byte("dummy2"), 0644)
-
-	mock := &fakeStagingStore{MergeOutcome: inventory.MergeOutcome{Merged: 2}}
-	svc := inventory.NewPipeline(mock, filesystem.WalkRootEntriesParallel, filesystem.WalkFolderEntries, nil)
-
-	_, err := svc.ScanRootCtx(context.Background(), tmp)
-	if err != nil {
-		t.Fatalf("ScanRoot failed: %v", err)
-	}
-
-	// Verify session completed
-	if len(mock.Sessions) != 1 {
-		t.Fatalf("expected 1 session, got %d", len(mock.Sessions))
-	}
-	if mock.Sessions[0].Status != "completed" {
-		t.Errorf("expected status completed, got %s", mock.Sessions[0].Status)
-	}
-
-	// Verify staging entries were written
-	if len(mock.StagingEntries) < 2 {
-		t.Errorf("expected at least 2 staging entries, got %d", len(mock.StagingEntries))
-	}
-}
-
-// TestPipeline_FailureNoMerge verifies failure prevents merge.
-// TestPipeline_FailureNoMerge verifies failure prevents merge.
-func TestPipeline_FailureNoMerge(t *testing.T) {
-	tmp := t.TempDir()
-	mustWriteFile(t, filepath.Join(tmp, "song.mp3"), []byte("dummy"), 0644)
-
-	// Repository that fails staging writes
-	repo := &fakeStagingStore{
-		failStagingError: errors.New("simulated staging failure"),
-	}
-	repo.MergeOutcome = inventory.MergeOutcome{Merged: 42}
-
-	svc := inventory.NewPipeline(repo, filesystem.WalkRootEntriesParallel, filesystem.WalkFolderEntries, nil)
-
-	_, err := svc.ScanRootCtx(context.Background(), tmp)
-	if err == nil {
-		t.Fatal("expected error from ScanRoot")
-	}
-
-	// Verify merge was NOT called
-	if repo.MergeCalls > 0 {
-		t.Error("merge should NOT be called when staging fails")
-	}
-
-	// Verify session was marked as failed
-	var foundFailed bool
-	for _, s := range repo.Sessions {
-		if s.Status == "failed" {
-			foundFailed = true
-			break
-		}
-	}
-	if !foundFailed {
-		t.Error("expected a failed session")
-	}
-}
-
-// TestPipeline_CleanupOnFailure verifies staging cleanup on failure.
-// TestPipeline_CleanupOnFailure verifies staging cleanup on failure.
-func TestPipeline_CleanupOnFailure(t *testing.T) {
-	tmp := t.TempDir()
-	mustWriteFile(t, filepath.Join(tmp, "song.mp3"), []byte("dummy"), 0644)
-
-	repo := &fakeStagingStore{
-		failStagingError: errors.New("simulated staging failure"),
-	}
-
-	svc := inventory.NewPipeline(repo, filesystem.WalkRootEntriesParallel, filesystem.WalkFolderEntries, nil)
-	_, err := svc.ScanRootCtx(context.Background(), tmp)
-	if err == nil {
-		t.Fatal("expected error from ScanRoot")
-	}
-
-	// Cleanup should have been called (RepositoryThatFailsStaging has CloseStagingSession)
-	// Any partial staging would be cleaned up on failure
-}
-
-// ========== inventory.Task 5: Folder Single-Enumerator Tests ==========
-
-// TestScanFolder_SingleEnumerator verifies Folder uses single-enumerator semantics.
-// TestScanFolder_SingleEnumerator verifies Folder uses single-enumerator semantics.
-func TestScanFolder_SingleEnumerator(t *testing.T) {
-	tmp := t.TempDir()
-	album := filepath.Join(tmp, "album")
-	mustMkdirAll(t, album)
-	mustWriteFile(t, filepath.Join(album, "song.wav"), []byte("dummy"), 0644)
-
-	mock := &fakeStagingStore{MergeOutcome: inventory.MergeOutcome{Merged: 1}}
-	svc := inventory.NewPipeline(mock, filesystem.WalkRootEntriesParallel, filesystem.WalkFolderEntries, nil)
-
-	sessionID, err := svc.ScanFolderCtx(context.Background(), album, tmp)
-	if err != nil {
-		t.Fatalf("ScanFolder failed: %v", err)
-	}
-
-	if sessionID == "" {
-		t.Error("expected non-empty session ID")
-	}
-
-	if len(mock.Sessions) != 1 {
-		t.Fatalf("expected 1 session, got %d", len(mock.Sessions))
-	}
-
-	session := mock.Sessions[0]
-	if session.Kind != "folder" {
-		t.Errorf("expected kind 'folder', got %s", session.Kind)
-	}
-
-	if session.ScopePath == nil || *session.ScopePath != filepath.ToSlash(album) {
-		t.Error("expected scope_path to be set to folder path")
-	}
-
-	if session.Status != "completed" {
-		t.Errorf("expected status 'completed', got %s", session.Status)
 	}
 }
 

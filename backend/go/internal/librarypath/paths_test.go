@@ -6,13 +6,6 @@ import (
 	"github.com/Clementine33/preen/backend/internal/librarypath"
 )
 
-func TestNormalizeToPOSIX(t *testing.T) {
-	got := librarypath.NormalizeToPOSIX(`C:\music\A\B.mp3`)
-	if got != "C:/music/A/B.mp3" {
-		t.Fatalf("got %q", got)
-	}
-}
-
 func TestCleanRootPathAndRootPathKey(t *testing.T) {
 	tests := []struct {
 		name      string

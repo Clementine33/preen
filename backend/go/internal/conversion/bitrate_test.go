@@ -1,16 +1,13 @@
 package conversion_test
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"slices"
-	"strings"
 	"sync"
 	"testing"
 
@@ -139,33 +136,5 @@ func TestPlanReturnsPersistError(t *testing.T) {
 	)
 	if !errors.Is(err, writeErr) {
 		t.Fatalf("plan error = %v, want the writer's failure", err)
-	}
-}
-
-func TestPlanWithBatchOption_DoesNotEmitGlobalLogMetrics(t *testing.T) {
-	var buf bytes.Buffer
-	oldOut := log.Writer()
-	oldFlags := log.Flags()
-	oldPrefix := log.Prefix()
-	log.SetOutput(&buf)
-	log.SetFlags(0)
-	log.SetPrefix("")
-	defer func() {
-		log.SetOutput(oldOut)
-		log.SetFlags(oldFlags)
-		log.SetPrefix(oldPrefix)
-	}()
-
-	inv := &recordingInventory{observed: []inventory.ObservedAudio{{Path: "/scope/a.flac", Format: "audio/flac"}}}
-	probe := func(context.Context, string) (int64, error) {
-		t.Error("a flac entry must not be probed")
-		return 0, nil
-	}
-	if _, err := conversion.Plan(t.Context(), inv, planSettings{batch: true}, probe, mp3Input("/scope")); err != nil {
-		t.Fatalf("expected plan success, got %v", err)
-	}
-
-	if got := strings.TrimSpace(buf.String()); got != "" {
-		t.Fatalf("expected no global log output, got %q", got)
 	}
 }

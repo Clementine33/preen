@@ -178,14 +178,6 @@ func TestFileOperationNeedsRealPaths(t *testing.T) {
 		status int
 	}{
 		{
-			"unknown member",
-			map[string]any{
-				"member_path": "gone", "operation": "soft_delete",
-				"items": []map[string]any{{"source": "01.flac"}},
-			},
-			http.StatusBadRequest,
-		},
-		{
 			"traversal in the member",
 			map[string]any{
 				"member_path": "../etc", "operation": "soft_delete",

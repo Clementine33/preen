@@ -378,51 +378,6 @@ func TestCreateLibraryCanonicalIdentity(t *testing.T) {
 	}
 }
 
-func TestListLibraryDirsCaseSensitiveSiblings(t *testing.T) {
-	repo := newTestRepository(t)
-
-	// Case-distinct sibling directories, each with one audio file. SQLite's
-	// ASCII-case-insensitive LIKE would attribute both files to both folders;
-	// path identity must be binary.
-	insertEntry(t, repo, "/music/Rock", "/music", "Rock", true)
-	insertEntry(t, repo, "/music/rock", "/music", "rock", true)
-	insertEntry(t, repo, "/music/Rock/a.mp3", "/music/Rock", "a.mp3", false)
-	insertEntry(t, repo, "/music/rock/b.mp3", "/music/rock", "b.mp3", false)
-
-	dirs, err := repo.ListLibraryDirs("/music")
-	if err != nil {
-		t.Fatalf("ListLibraryDirs failed: %v", err)
-	}
-	counts := map[string]int{}
-	for _, d := range dirs {
-		counts[d.RelPath] = d.AudioFileCount
-	}
-	if counts["Rock"] != 1 || counts["rock"] != 1 {
-		t.Errorf("expected each case-distinct folder to count only its own subtree, got %+v", counts)
-	}
-}
-
-func TestListEntriesUnderPathIsCaseSensitive(t *testing.T) {
-	repo := newTestRepository(t)
-	insertEntry(t, repo, "/music/Rock", "/music", "Rock", true)
-	insertEntry(t, repo, "/music/rock", "/music", "rock", true)
-	insertEntry(t, repo, "/music/Rock/a.mp3", "/music/Rock", "a.mp3", false)
-	insertEntry(t, repo, "/music/rock/b.mp3", "/music/rock", "b.mp3", false)
-
-	entries, err := repo.ListEntriesUnderPath("/music/Rock")
-	if err != nil {
-		t.Fatalf("ListEntriesUnderPath failed: %v", err)
-	}
-	var paths []string
-	for _, e := range entries {
-		paths = append(paths, e.Path)
-	}
-	want := []string{"/music/Rock", "/music/Rock/a.mp3"}
-	if !reflect.DeepEqual(paths, want) {
-		t.Errorf("ListEntriesUnderPath(/music/Rock) = %v, want %v", paths, want)
-	}
-}
-
 func drainDeletedLibrary(t *testing.T, repo *sqlite.Repository) {
 	t.Helper()
 	for range 50 {

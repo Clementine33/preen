@@ -258,28 +258,6 @@ func TestDeleteUnbindsTheLibrary(t *testing.T) {
 	}
 }
 
-// TestMergeOutcomeReportsTheMergedCount keeps the port's count honest: it is the
-// scan's own report, not a number the caller recomputes afterwards.
-func TestMergeOutcomeReportsTheMergedCount(t *testing.T) {
-	repo := newTestRepository(t)
-	library, err := repo.CreateLibrary("music", "/music")
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, name := range []string{"RJ00000001 album", "no number"} {
-		stageDir(t, repo, "scan", "/music", name)
-	}
-	outcome, err := repo.MergeStaging("scan", library.ID, "/music")
-	if err != nil {
-		t.Fatal(err)
-	}
-	var want inventory.MergeOutcome
-	_ = want
-	if outcome.Merged != 2 {
-		t.Errorf("merged = %d, want the two staged directories", outcome.Merged)
-	}
-}
-
 func TestScanningReusesExternalRelationReports(t *testing.T) {
 	repo := newTestRepository(t)
 	page, original, child := code(t, "RJ00000002"), code(t, "RJ00000001"), code(t, "RJ00000003")

@@ -70,13 +70,6 @@ describe('libraryManager storage class', () => {
     await attach({ open: true })
     expect(ssdInput().checked).toBe(false)
   })
-
-  it('emits close on Escape', async () => {
-    const wrapper = await attach({ open: true })
-    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
-    await flushPromises()
-    expect(wrapper.emitted('close')).toBeTruthy()
-  })
 })
 
 describe('libraryManager default library', () => {

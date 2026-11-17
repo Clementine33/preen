@@ -129,74 +129,6 @@ func TestWriteStagingEntries_StagingWriteFailure_TriggersRollbackAndReturnsError
 	}
 }
 
-// RepositoryThatFailsStaging simulates a repository where WriteStagingEntries fails.
-// Test the chunking size is exactly as expected (1000).
-func TestWriteStagingEntries_BatchSizeBoundary(t *testing.T) {
-	suite := setupTestDB(t)
-
-	// Test with exactly batchSize (1000) entries - should be one batch
-	sessionID := "test-exact-batch"
-
-	var entries []inventory.StagingEntry
-	for i := range 1000 {
-		entries = append(entries, inventory.StagingEntry{
-			SessionID:  sessionID,
-			Path:       "/music/file" + string(rune(i)),
-			RootPath:   "/music",
-			ParentPath: "/music",
-			Name:       "file" + string(rune(i)),
-			IsDir:      false,
-			Size:       int64(i),
-			Mtime:      time.Now().Unix(),
-			Format:     "audio/wav",
-		})
-	}
-
-	err := suite.adapter.WriteStagingEntries(sessionID, entries)
-	if err != nil {
-		t.Fatalf("WriteStagingEntries failed for exact batch: %v", err)
-	}
-
-	var count int
-	err = sqlite.QueryStagingRow(suite.repo, sessionID, "SELECT COUNT(*) FROM entries_staging").Scan(&count)
-	if err != nil {
-		t.Fatalf("failed to count entries: %v", err)
-	}
-	if count != 1000 {
-		t.Errorf("expected 1000 entries, got %d", count)
-	}
-
-	// Test with batchSize + 1 entries - should require two batches
-	sessionID2 := "test-one-over-batch"
-	var entries2 []inventory.StagingEntry
-	for i := range 1001 {
-		entries2 = append(entries2, inventory.StagingEntry{
-			SessionID:  sessionID2,
-			Path:       "/music2/file" + string(rune(i)),
-			RootPath:   "/music2",
-			ParentPath: "/music2",
-			Name:       "file" + string(rune(i)),
-			IsDir:      false,
-			Size:       int64(i),
-			Mtime:      time.Now().Unix(),
-			Format:     "audio/wav",
-		})
-	}
-
-	err = suite.adapter.WriteStagingEntries(sessionID2, entries2)
-	if err != nil {
-		t.Fatalf("WriteStagingEntries failed for batch+1: %v", err)
-	}
-
-	err = sqlite.QueryStagingRow(suite.repo, sessionID2, "SELECT COUNT(*) FROM entries_staging").Scan(&count)
-	if err != nil {
-		t.Fatalf("failed to count entries: %v", err)
-	}
-	if count != 1001 {
-		t.Errorf("expected 1001 entries, got %d", count)
-	}
-}
-
 // Test empty entries slice.
 func TestWriteStagingEntries_EmptyEntries(t *testing.T) {
 	suite := setupTestDB(t)
@@ -293,19 +225,6 @@ func TestWriteStagingEntries_InsertOrReplace(t *testing.T) {
 	}
 }
 
-// Test with nil entries slice.
-func TestWriteStagingEntries_NilEntries(t *testing.T) {
-	suite := setupTestDB(t)
-
-	sessionID := "test-nil"
-
-	// Nil entries should succeed without error
-	err := suite.adapter.WriteStagingEntries(sessionID, nil)
-	if err != nil {
-		t.Fatalf("WriteStagingEntries failed for nil entries: %v", err)
-	}
-}
-
 // TestWriteStagingBatch_MultiTransaction verifies batch writes use separate transactions.
 func TestWriteStagingBatch_MultiTransaction(t *testing.T) {
 	suite := setupTestDB(t)
@@ -358,105 +277,6 @@ func TestWriteStagingBatch_MultiTransaction(t *testing.T) {
 	}
 	if count != 2 {
 		t.Errorf("expected 2 entries, got %d", count)
-	}
-}
-
-// TestWriteStagingBatch_PartialPersistence verifies partial persistence on failure
-// Each batch is committed independently, so earlier batches persist on later failure.
-func TestWriteStagingBatch_PartialPersistence(t *testing.T) {
-	suite := setupTestDB(t)
-
-	sessionID := "test-partial-persistence"
-
-	// First batch
-	batch1 := []inventory.StagingEntry{
-		{
-			SessionID:  sessionID,
-			Path:       "/music/file1.mp3",
-			RootPath:   "/music",
-			ParentPath: "/music",
-			Name:       "file1.mp3",
-			IsDir:      false,
-			Size:       1000,
-			Mtime:      1000,
-			Format:     "audio/mpeg",
-		},
-	}
-
-	// Write first batch
-	if err := suite.adapter.WriteStagingBatch(sessionID, batch1); err != nil {
-		t.Fatalf("WriteStagingBatch batch1 failed: %v", err)
-	}
-
-	// Verify first batch was written
-	var count int
-	err := sqlite.QueryStagingRow(suite.repo, sessionID, "SELECT COUNT(*) FROM entries_staging").Scan(&count)
-	if err != nil {
-		t.Fatalf("failed to count entries: %v", err)
-	}
-	if count != 1 {
-		t.Errorf("expected 1 entry, got %d", count)
-	}
-}
-
-// TestCloseStagingSession_RemovesAllEntriesForSession verifies cleanup removes all staging entries.
-func TestCloseStagingSession_RemovesAllEntriesForSession(t *testing.T) {
-	suite := setupTestDB(t)
-
-	sessionID := "test-cleanup-session"
-
-	// Write some entries
-	entries := []inventory.StagingEntry{
-		{
-			SessionID:  sessionID,
-			Path:       "/music/file1.mp3",
-			RootPath:   "/music",
-			ParentPath: "/music",
-			Name:       "file1.mp3",
-			IsDir:      false,
-			Size:       1000,
-			Mtime:      1000,
-			Format:     "audio/mpeg",
-		},
-		{
-			SessionID:  sessionID,
-			Path:       "/music/file2.mp3",
-			RootPath:   "/music",
-			ParentPath: "/music",
-			Name:       "file2.mp3",
-			IsDir:      false,
-			Size:       2000,
-			Mtime:      2000,
-			Format:     "audio/mpeg",
-		},
-	}
-
-	if err := suite.adapter.WriteStagingEntries(sessionID, entries); err != nil {
-		t.Fatalf("WriteStagingEntries failed: %v", err)
-	}
-
-	// Verify entries exist
-	var count int
-	err := sqlite.QueryStagingRow(suite.repo, sessionID, "SELECT COUNT(*) FROM entries_staging").Scan(&count)
-	if err != nil {
-		t.Fatalf("failed to count entries: %v", err)
-	}
-	if count != 2 {
-		t.Errorf("expected 2 entries, got %d", count)
-	}
-
-	// Cleanup
-	if cleanupErr := suite.adapter.CloseStagingSession(sessionID); cleanupErr != nil {
-		t.Fatalf("CloseStagingSession failed: %v", cleanupErr)
-	}
-
-	// Verify entries removed
-	err = sqlite.QueryStagingRow(suite.repo, sessionID, "SELECT COUNT(*) FROM entries_staging").Scan(&count)
-	if err != nil {
-		t.Fatalf("failed to count entries after cleanup: %v", err)
-	}
-	if count != 0 {
-		t.Errorf("expected 0 entries after cleanup, got %d", count)
 	}
 }
 

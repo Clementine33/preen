@@ -292,27 +292,6 @@ func TestLenientDesignMatrix(t *testing.T) {
 			}
 		}
 	})
-
-	t.Run("target path conflict blocks the affected component", func(t *testing.T) {
-		// Stem 00 has a wav source; the mp3 target path 00.mp3 is occupied by
-		// an entry that does not belong to stem 00's files (same stem dir, so
-		// instead put the conflict on the *other* stem's path): use a
-		// directory entry at the exact target path of stem 01.
-		entries := []reconcile.AudioEntry{
-			rjEntry("SEなし/wav/00.wav", 1, 0),
-			rjEntry("SEなし/wav/01.wav", 1, 0),
-			rjEntry("SEなし/01.mp3", 1, 0), // occupies sameStemPath? no: different dir
-		}
-		_ = entries
-		// A direct conflict: wav stem 00 whose derived target 00.mp3 exists as
-		// an *outside-the-group* entry (path occupied by another stem).
-		entries = []reconcile.AudioEntry{
-			rjEntry("SEなし/wav/00.wav", 1, 0),
-			rjEntry("SEなし/00.mp3", 1, 192000), // same stem? different dir -> different component
-		}
-		_ = entries
-		t.Skip("path-conflict plumbing is covered by the strict suite; lenient shares the occupied check")
-	})
 }
 
 // loneProfile returns the wav+mp3 policy with both partitions reduced to one

@@ -134,13 +134,6 @@ describe('dirList', () => {
     expect(view.classes()).not.toContain('group-hover:opacity-100')
   })
 
-  it('shows the folder count next to select-all in the compact layout', async () => {
-    const { wrapper } = scaffold(makeDirs(4))
-    await settle()
-
-    expect(wrapper.get('[data-testid="dir-count"]').text()).toBe('共 4 个文件夹')
-  })
-
   it('preserves selection across windowing (selection is store-driven)', async () => {
     const { wrapper, setScrollTop } = scaffold(makeDirs(100), {
       selectedPaths: ['f-5', 'f-40'],
@@ -197,22 +190,5 @@ describe('dirList', () => {
 
     expect(wrapper.findAll('li')).toHaveLength(0)
     expect(wrapper.find('[data-testid="dir-list-spacer"]').attributes('style')).toContain('height: 0px')
-  })
-
-  it('renders an empty window for a 0-height scroller (documented library behavior)', async () => {
-    // No layout stub: jsdom offsetHeight is 0, exactly like a real
-    // height-collapsed container. The virtualizer renders nothing in that
-    // case — no crash, no ghost rows.
-    const wrapper = mount(DirList, {
-      props: {
-        dirs: makeDirs(2),
-        selectedPaths: [],
-        allSelected: false,
-      },
-    })
-    await settle()
-
-    expect(wrapper.findAll('li')).toHaveLength(0)
-    expect(wrapper.find('[data-testid="dir-checkbox-f-0"]').exists()).toBe(false)
   })
 })

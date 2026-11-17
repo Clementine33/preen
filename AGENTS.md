@@ -18,7 +18,7 @@
 
 ## Integration checks
 - `task ci:quality` runs the combined quality gate; focused checks and test conventions live in the scoped AGENTS.md files.
-- `.github/workflows/ci.yml` also gates the Windows backend path with a Windows build and connection-pragma test; validate that path when changing platform-dependent behavior.
+- `.github/workflows/ci.yml` also gates the Windows backend path with a Windows build and platform-dependent adapter tests (the sqlite step filters by test name); validate that path when changing platform-dependent behavior.
 - PRs are reviewed by CodeRabbit (`.github/coderabbit.yaml`).
 
 ## Issues

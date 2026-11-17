@@ -58,6 +58,7 @@ jobs:
               - '.github/workflows/ci.yml'
             web:
               - 'frontend/web/**'
+              - 'docs/api/schema/**'
               - 'scripts/**'
               - 'package.json'
               - 'pnpm-lock.yaml'
@@ -124,9 +125,10 @@ jobs:
           path: ${{ steps.go-cache.outputs.build }}
           key: ${{ steps.go-build-restore.outputs.cache-primary-key }}
 
+  # Go changes run it too: contract:check compares Go DTOs with the generated web types.
   web-quality:
     needs: prepare
-    if: ${{ !cancelled() && needs.prepare.result == 'success' && needs.prepare.outputs.duplicate != 'true' && (github.event_name != 'pull_request' || needs.prepare.outputs.web == 'true') }}
+    if: ${{ !cancelled() && needs.prepare.result == 'success' && needs.prepare.outputs.duplicate != 'true' && (github.event_name != 'pull_request' || needs.prepare.outputs.web == 'true' || needs.prepare.outputs.go == 'true') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -153,6 +155,8 @@ jobs:
         with:
           path: ${{ steps.pnpm-cache.outputs.path }}
           key: ${{ steps.pnpm-restore.outputs.cache-primary-key }}
+      # Go tests never regenerate schemas, so wire drift is caught only here.
+      - run: task contract:check
       - run: pnpm lint:web
       - run: pnpm typecheck:web
       - run: pnpm test:web
@@ -313,7 +317,9 @@ jobs:
         run: go test ./internal/adapters/filesystem -run "TestConversion(SourceHandleKeepsPlatformIdentity|Probe)|TestWindowsLongPath" -count=1 -v
       - name: Check SQLite connections, scan lifecycle and temp spills on Windows
         working-directory: backend/go
-        run: go test ./internal/adapters/sqlite -count=1
+        # Platform-dependent paths only: connections, scan staging and merges, temp
+        # files, locks, recovery and Windows root forms. Name new such tests to match.
+        run: go test ./internal/adapters/sqlite -run "Connection|Pragma|Scan|Staging|Temp|Spill|Merge|Lock|Busy|Windows|Recover|Interrupt|Close|Open|Concurrent|Relocate|Root" -count=1
 
   web-e2e:
     needs: [prepare, go-test, web-quality]

@@ -16,23 +16,32 @@ const library: Library = {
   storage_class: 'ssd',
 }
 
-const global = {
-  provide: {
-    [desktopAdapterKey as symbol]: {
-      platform: 'browser',
-      lyricsWindow: false,
-      openLyricsWindow: async () => null,
-      resolveApi: async () => ({ baseUrl: '', token: null }),
-      pickFolder: async () => null,
+const hostAdapter = {
+  platform: 'browser',
+  lyricsWindow: false,
+  openLyricsWindow: async () => null,
+  resolveApi: async () => ({ baseUrl: '', token: null }),
+}
+function globalFor(extra: object = {}) {
+  return {
+    provide: {
+      [desktopAdapterKey as symbol]: {
+        ...hostAdapter,
+        ...extra,
+      },
     },
-  },
+  }
 }
 
 afterEach(() => document.body.replaceChildren())
 enableAutoUnmount(afterEach)
 
-async function attach(props: { open: boolean, library?: Library, isDefault?: boolean }) {
-  const wrapper = mount(LibraryManager, { props, global, attachTo: document.body })
+async function attach(props: { open: boolean, library?: Library, isDefault?: boolean }, extra: object = {}) {
+  const wrapper = mount(LibraryManager, {
+    props,
+    global: globalFor(extra),
+    attachTo: document.body,
+  })
   await flushPromises()
   return wrapper
 }
@@ -64,6 +73,25 @@ describe('libraryManager storage class', () => {
     expect(document.body.textContent).not.toContain('选择文件夹')
     await attach({ open: true })
     expect(document.querySelectorAll<HTMLInputElement>('[data-testid="library-root"]')[1].readOnly).toBe(false)
+  })
+
+  it('hides the folder picker and says to type a server path when the host cannot pick folders', async () => {
+    await attach({ open: true })
+    expect(document.body.textContent).not.toContain('选择文件夹')
+    expect(document.body.textContent).toContain('Preen 服务所在机器上的路径')
+  })
+
+  it('offers the folder picker when the host can pick folders', async () => {
+    await attach({ open: true }, {
+      pickFolder: async () => '/picked',
+    })
+    expect(document.body.textContent).toContain('选择文件夹或直接粘贴路径')
+    const button = [
+      ...document.querySelectorAll('button'),
+    ].find(b => b.textContent?.includes('选择文件夹'))!
+    button.click()
+    await flushPromises()
+    expect(document.querySelector<HTMLInputElement>('[data-testid="library-root"]')!.value).toBe('/picked')
   })
 
   it('defaults a new library to HDD', async () => {

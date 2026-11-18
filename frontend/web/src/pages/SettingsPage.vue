@@ -18,6 +18,7 @@ import SettingsField from '@/features/settings/SettingsField.vue'
 import SettingsSegmented from '@/features/settings/SettingsSegmented.vue'
 import UserTagSettings from '@/features/settings/UserTagSettings.vue'
 import { useApiClient } from '@/lib/api/client'
+import { useDesktopAdapter } from '@/lib/desktop/desktop-adapter'
 
 /**
  * 设置 (`/settings/:section?`): what has no other home, one category per
@@ -51,6 +52,8 @@ const section = computed(() => SECTIONS.find(item => item.id === route.params.se
 const { theme } = useTheme()
 const { preference, systemReduces } = useMotion()
 const api = useApiClient()
+// Exit ends a cookie session; the desktop shell authenticates with a bearer token.
+const { platform } = useDesktopAdapter()
 const loggingOut = ref(false)
 const logoutError = ref('')
 
@@ -157,7 +160,7 @@ async function logout(): Promise<void> {
 
           <template v-else-if="section.id === 'about'">
             <AboutSettings />
-            <SettingsField id="account" label="会话" class="border-t border-[var(--wire-fine)]">
+            <SettingsField v-if="platform === 'browser'" id="account" label="会话" class="border-t border-[var(--wire-fine)]">
               <Button size="sm" variant="outline" :disabled="loggingOut" data-testid="logout" @click="logout">
                 Exit
               </Button>

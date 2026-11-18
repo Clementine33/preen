@@ -107,6 +107,6 @@ it('selects the desktop host, preserves folder cancellation and offers the Lyric
   })
   const adapter = await createDesktopAdapter()
   expect(adapter.platform).toBe('desktop')
-  expect(await adapter.pickFolder()).toBeNull()
+  expect(await adapter.pickFolder!()).toBeNull()
   expect(adapter.lyricsWindow).toBe(true)
 })

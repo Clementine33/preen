@@ -6,6 +6,7 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 import { KEYS } from '@/composables/use-keymap'
 import { useMotion } from '@/composables/use-motion'
 import { apiClientKey, ApiError } from '@/lib/api/client'
+import { desktopAdapterKey } from '@/lib/desktop/desktop-adapter'
 import { apiStub } from '@/test/api-stub'
 import { installTestQueryPlugin } from '@/test/query-client'
 import SettingsPage from './SettingsPage.vue'
@@ -13,7 +14,7 @@ import SettingsPage from './SettingsPage.vue'
 enableAutoUnmount(afterEach)
 afterEach(() => vi.unstubAllGlobals())
 
-async function mountPage(api: ReturnType<typeof apiStub>, path = '/settings') {
+async function mountPage(api: ReturnType<typeof apiStub>, path = '/settings', platform: 'browser' | 'desktop' = 'browser') {
   const router = createRouter({
     history: createMemoryHistory(),
     routes: [
@@ -29,7 +30,15 @@ async function mountPage(api: ReturnType<typeof apiStub>, path = '/settings') {
         router,
         installTestQueryPlugin(),
       ],
-      provide: { [apiClientKey as symbol]: api },
+      provide: {
+        [apiClientKey as symbol]: api,
+        [desktopAdapterKey as symbol]: {
+          platform,
+          lyricsWindow: false,
+          openLyricsWindow: async () => null,
+          resolveApi: async () => ({ baseUrl: '', token: null }),
+        },
+      },
     },
   })
   await flushPromises()
@@ -62,6 +71,13 @@ describe('settings: logout', () => {
     expect(replace).not.toHaveBeenCalled()
     expect(wrapper.get('[role="alert"]').text()).toContain('退出失败')
     expect(wrapper.get('[data-testid="logout"]').attributes('disabled')).toBeUndefined()
+  })
+})
+
+describe('settings: logout host', () => {
+  it('offers Exit only for the cookie session of the browser host', async () => {
+    expect((await mountPage(apiStub(), '/settings/about', 'browser')).find('[data-testid="logout"]').exists()).toBe(true)
+    expect((await mountPage(apiStub(), '/settings/about', 'desktop')).find('[data-testid="logout"]').exists()).toBe(false)
   })
 })
 

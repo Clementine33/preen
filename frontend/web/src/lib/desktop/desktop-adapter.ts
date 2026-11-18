@@ -35,7 +35,8 @@ export interface DesktopAdapter {
     onClose: () => void,
   ) => Promise<(() => void) | null>
   resolveApi: () => Promise<{ baseUrl: string, token: string | null }>
-  pickFolder: () => Promise<string | null>
+  /** Absent when the host cannot pick folders. */
+  pickFolder?: () => Promise<string | null>
 }
 
 export const desktopAdapterKey: InjectionKey<DesktopAdapter> = Symbol('desktop-adapter')

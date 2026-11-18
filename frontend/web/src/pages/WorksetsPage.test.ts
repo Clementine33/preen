@@ -59,7 +59,6 @@ async function mountPage(api: ReturnType<typeof apiStub>) {
           lyricsWindow: false,
           openLyricsWindow: async () => null,
           resolveApi: async () => ({ baseUrl: '', token: null }),
-          pickFolder: async () => null,
         },
       },
     },

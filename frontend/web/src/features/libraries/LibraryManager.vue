@@ -41,8 +41,8 @@ watch(
 )
 
 async function pickFolder() {
-  const picked = await adapter.pickFolder()
-  if (picked !== null)
+  const picked = await adapter.pickFolder?.()
+  if (picked)
     rootPath.value = picked
 }
 
@@ -91,7 +91,7 @@ function submit() {
           class="h-11 min-w-0 flex-1 rounded-md border border-input bg-transparent px-3 font-mono text-[length:var(--input-font)] focus-visible:border-[var(--wire-strong)] focus-visible:outline-none rail:h-9 rail:text-xs"
           placeholder="/home/me/music 或 D:\Music"
         >
-        <Button v-if="!library" class="h-11 shrink-0 rail:h-8" type="button" variant="outline" @click="pickFolder">
+        <Button v-if="!library && adapter.pickFolder" class="h-11 shrink-0 rail:h-8" type="button" variant="outline" @click="pickFolder">
           <FolderOpen class="size-4" />
           选择文件夹
         </Button>
@@ -100,8 +100,11 @@ function submit() {
         <template v-if="library">
           根目录创建后不可更改；要换目录，请删除媒体库后重新添加。
         </template>
+        <template v-else-if="adapter.pickFolder">
+          选择文件夹或直接粘贴路径。
+        </template>
         <template v-else>
-          浏览器无法打开系统目录选择器时，请直接粘贴路径。路径会原样发送给后端。
+          填写 Preen 服务所在机器上的路径，路径会原样发送给后端。
         </template>
       </p>
 

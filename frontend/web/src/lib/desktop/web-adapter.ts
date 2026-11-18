@@ -43,10 +43,6 @@ export class WebDesktopAdapter implements DesktopAdapter {
     }
   }
 
-  async pickFolder(): Promise<null> {
-    return null
-  }
-
   async openLyricsWindow(frame: () => LyricsFrame, onCommand: (command: LyricsCommand) => void, onClose: () => void): Promise<(() => void) | null> {
     const pip = documentPip()
     if (!pip)

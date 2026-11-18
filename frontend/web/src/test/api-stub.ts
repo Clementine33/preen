@@ -30,6 +30,7 @@ export function apiStub(overrides: Partial<ApiClientContract> = {}): ApiClientCo
     listWorksets: vi.fn().mockResolvedValue({ worksets: [], next_cursor: undefined }),
     getWorkset: vi.fn(),
     listWorks: vi.fn().mockResolvedValue({ works: [], total: 0 }),
+    randomWork: vi.fn(),
     getWork: vi.fn(),
     listCollections: vi.fn().mockResolvedValue({ collections: [], total: 0 }),
     getCollection: vi.fn(),

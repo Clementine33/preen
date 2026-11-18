@@ -121,6 +121,10 @@ type Page struct {
 type Store interface {
 	// ListWorks returns one page of the ordinary listing.
 	ListWorks(filter Filter) (Page, error)
+	// RandomWork picks one work of the filtered listing, unheard ones first and
+	// the exclude work last, with its 0-based position in that listing's order.
+	// The bool is false when the filter lists nothing.
+	RandomWork(filter Filter, exclude WorkCode) (RandomPick, bool, error)
 	// ListFacets returns the entities of one kind that the works the filter
 	// lists carry, ordered by name. Order, page size and page number play no part.
 	ListFacets(kind FacetKind, filter Filter) ([]Facet, error)

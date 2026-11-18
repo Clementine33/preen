@@ -96,6 +96,7 @@ export type CollectionDetail = Refine<WireSchemas['collectionDetailResponse'], {
 export type CollectionAppendResult = WireSchemas['collectionWorksAppendResponse']
 
 export type WorkFacet = WireSchemas['facetResponse']
+export type RandomWorkResponse = WireSchemas['randomWorkResponse']
 
 export type TagFacets = WireSchemas['tagFacetsResponse']
 

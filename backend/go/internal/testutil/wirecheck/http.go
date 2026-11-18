@@ -90,6 +90,8 @@ func selectTaskSchema(name, kind string) string {
 
 func findHTTPContract(m manifest, method, path string) (contract, string, bool) {
 	parts := strings.Split(strings.Trim(path, "/"), "/")
+	var best contract
+	bestKind, bestWild, found := "", 0, false
 	for pattern, c := range m.HTTP {
 		verb, route, _ := strings.Cut(pattern, " ")
 		if verb != method {
@@ -101,8 +103,10 @@ func findHTTPContract(m manifest, method, path string) (contract, string, bool) 
 		}
 		match := true
 		kind := ""
+		wild := 0
 		for i, seg := range segments {
 			if strings.HasPrefix(seg, "{") {
+				wild++
 				if seg == "{type}" {
 					kind = parts[i]
 				}
@@ -113,12 +117,14 @@ func findHTTPContract(m manifest, method, path string) (contract, string, bool) 
 				break
 			}
 		}
-		if match {
+		// The most literal route wins, as the server's mux does:
+		// /works/random over /works/{rj}.
+		if match && (!found || wild < bestWild) {
 			c.pattern = pattern
-			return c, kind, true
+			best, bestKind, bestWild, found = c, kind, wild, true
 		}
 	}
-	return contract{}, "", false
+	return best, bestKind, found
 }
 
 func assertSSE(t testing.TB, path, kind string, body []byte) {

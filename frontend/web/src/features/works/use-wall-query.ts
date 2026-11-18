@@ -235,6 +235,13 @@ export function useWallQuery() {
       }),
     /** Names the library without touching anything else (the address had none). */
     fillLibrary: (value: string) => commit({ library: value }),
+    /** Lands on a page and selects a work on it in one write. */
+    jumpTo: (value: number, work: string) => commit({
+      page: value > 1
+        ? String(value)
+        : undefined,
+      rj: work,
+    }),
     select: (value: string | null) => commit({ rj: value ?? undefined }),
   }
 }

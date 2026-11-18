@@ -95,6 +95,7 @@ func wireRoots() []any {
 		planSummaryResponse{},
 		preferencesResponse{},
 		preferencesUpdateRequest{},
+		randomWorkResponse{},
 		recordCreateRequest{},
 		recordCreateResponse{},
 		relationResponse{},

@@ -1,4 +1,4 @@
-import type { ClassifierCustomTag, ClassifierTagLibraryResponse, CleanupPreview, CleanupRun, CollectionAppendResult, CollectionDetail, CollectionListResponse, CoverReport, CreateLibraryInput, CreateRecordInput, CreateRecordResponse, CurrentRecordResponse, DraftResponse, ExecutionEvent, ExecutionScope, ExecutionView, FileOperationInput, FileOperationResult, GenerationEvent, GenerationView, HealthResponse, Library, LibraryDir, MediaFactsEvent, MemberReviewResponse, MemberTreeResponse, MetadataDraftDocument, Operation, OperationDraftDocument, OutboundProxy, PatchWorkUserDataParams, PutWorkListeningParams, RenameDraftDocument, RevisionDetailResponse, ScanEvent, StartExecutionResponse, StartGenerationResponse, TagFacets, UpdateCheck, UpdateLibraryInput, UserPreferences, UserPreferencesUpdate, WorkCollection, WorkContent, WorkDetail, WorkFacet, WorkListening, WorkListResponse, Workset, WorksetListResponse, WorkUserData, WorkUserTag } from './views'
+import type { ClassifierCustomTag, ClassifierTagLibraryResponse, CleanupPreview, CleanupRun, CollectionAppendResult, CollectionDetail, CollectionListResponse, CoverReport, CreateLibraryInput, CreateRecordInput, CreateRecordResponse, CurrentRecordResponse, DraftResponse, ExecutionEvent, ExecutionScope, ExecutionView, FileOperationInput, FileOperationResult, GenerationEvent, GenerationView, HealthResponse, Library, LibraryDir, MediaFactsEvent, MemberReviewResponse, MemberTreeResponse, MetadataDraftDocument, Operation, OperationDraftDocument, OutboundProxy, PatchWorkUserDataParams, PutWorkListeningParams, RandomWorkResponse, RenameDraftDocument, RevisionDetailResponse, ScanEvent, StartExecutionResponse, StartGenerationResponse, TagFacets, UpdateCheck, UpdateLibraryInput, UserPreferences, UserPreferencesUpdate, WorkCollection, WorkContent, WorkDetail, WorkFacet, WorkListening, WorkListResponse, Workset, WorksetListResponse, WorkUserData, WorkUserTag } from './views'
 
 import type { WireSchemas } from './wire.gen'
 
@@ -106,6 +106,12 @@ export interface ListWorksParams {
   /** 1-based; an absent page is the first, and 0 is refused. */
   page?: number
 }
+
+/**
+ * The random pick (docs/api/works.md#random-work): the listing's filters and
+ * order, never a page; `exclude` is the work to move off when another is left.
+ */
+export type RandomWorkParams = Omit<ListWorksParams, 'page' | 'limit'> & { exclude?: string }
 
 // ==================== Work content manifest ====================
 // The detail page's content contract (docs/api.md "Work content manifest").
@@ -238,6 +244,7 @@ export interface ApiClientContract {
   listWorksets: (params?: ListWorksetsParams, signal?: AbortSignal) => Promise<WorksetListResponse>
   getWorkset: (id: string, signal?: AbortSignal) => Promise<Workset>
   listWorks: (params?: ListWorksParams, signal?: AbortSignal) => Promise<WorkListResponse>
+  randomWork: (params?: RandomWorkParams, signal?: AbortSignal) => Promise<RandomWorkResponse>
   getWork: (rj: string, signal?: AbortSignal) => Promise<WorkDetail>
   listCollections: (window?: CollectionWindow, signal?: AbortSignal) => Promise<CollectionListResponse>
   getCollection: (id: string, window?: CollectionWindow, signal?: AbortSignal) => Promise<CollectionDetail>

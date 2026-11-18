@@ -14,6 +14,7 @@ work, while `RJ1657200` (7 digits) is refused.
 | Method | Path | Schema | Contract |
 | --- | --- | --- | --- |
 | GET | `/api/v1/works` | [workListResponse](schema/workListResponse.json) | 200; one numbered page and `total` matching works. Filters and paging below. |
+| GET | `/api/v1/works/random` | [randomWorkResponse](schema/randomWorkResponse.json) | 200; one random work of the current listing and its position (below). `WORK_NOT_FOUND` (404) when the filter lists nothing. |
 | GET | `/api/v1/works/{rj}` | [workDetailResponse](schema/workDetailResponse.json) | 200; the work in full. Only scanning creates a Work; an external relation number without a Work returns `WORK_NOT_FOUND` (404). `collection_ids` names the user collections holding the work (below). |
 | GET | `/api/v1/inventory/media-facts/events` | `sse.media` in [contracts.json](schema/contracts.json) | Bearer-authenticated SSE (`changed`, `status`, `works_changed`). See below. |
 | GET | `/api/v1/works/{rj}/content` | [workContentResponse](schema/workContentResponse.json) | 200; the work's file manifest (ADR 0013): every bound copy's tree, below. |
@@ -431,6 +432,23 @@ Listing items ([workListResponse](schema/workListResponse.json)) omit the note
 text, full edition list, relation details and file tree; use
 [workDetailResponse](schema/workDetailResponse.json) and
 [workContentResponse](schema/workContentResponse.json) for those.
+
+### Random work
+
+`GET /api/v1/works/random` takes exactly the listing's filter parameters plus
+`sort` and `direction`, and an optional `exclude=<work number>` (6- or 8-digit,
+either case; anything else is `INVALID_ARGUMENT`, 400). `limit`, `page` and any
+unknown parameter are `INVALID_ARGUMENT` (400, `unknown query parameter: <name>`).
+The answer is `{"rj", "index"}`: the work's canonical number, and its 0-based
+position in `GET /api/v1/works` under the same parameters, so
+`page = index / limit + 1` locates it for any page size.
+
+The pick is uniform among the listed works whose listening state is `none`
+(never listened to), and uniform among all listed works when there is none.
+`exclude` names the work the caller is already on: it is passed over while any
+other work is listed, and returned only when it is the sole match. A filter that
+lists nothing is `WORK_NOT_FOUND` (404). Each call draws afresh; like the
+listing, the answer is not a snapshot, so a concurrent change can move `index`.
 
 作品 Core、列表与详情的 `age_category` 使用 `1`（全年龄）、`2`（R15）、`3`（R18），
 未报告时为 `null`。导入拒绝其他数字及与 `nsfw` 冲突的值；指定分级时自动同步兼容

@@ -8,6 +8,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, onTes
 import { h as vh } from 'vue'
 import { createMemoryHistory, createRouter, RouterView } from 'vue-router'
 import { installAddressHygiene } from '@/app/route-params'
+import { useToast } from '@/composables/use-toast'
 import { apiClientKey } from '@/lib/api/client'
 import { useLibraryUiStore } from '@/stores/library-ui'
 import { usePlayerStore } from '@/stores/player'
@@ -135,6 +136,7 @@ async function mountWorks(
     listWorks?: ReturnType<typeof vi.fn>
     listWorkFacets?: ReturnType<typeof vi.fn>
     listLibraries?: ReturnType<typeof vi.fn>
+    randomWork?: ReturnType<typeof vi.fn>
     /** The stored Default Library; none when left out. */
     defaultLibraryId?: string
     /** Runs on the store before the page mounts: what an earlier page left there. */
@@ -166,6 +168,9 @@ async function mountWorks(
       library(LIB_B, 'Brazil', '/brazil'),
     ]),
     listWorks,
+    ...(reuse.randomWork
+      ? { randomWork: reuse.randomWork }
+      : {}),
     getWork: vi.fn(async (rj: string) => ({
       ...makeWorks(Number(rj.slice(2)), 1)[0]!,
       source_url: null,
@@ -851,6 +856,51 @@ describe('works page', () => {
       finally {
         vi.useRealTimers()
       }
+    })
+  })
+
+  describe('random work', () => {
+    const rnd = (wrapper: VueWrapper) => wrapper.findAll('.insp-foot .btn').find(b => b.text() === 'RND')!
+
+    it('asks for a pick under the wall\'s own order and lands on its page', async () => {
+      const randomWork = vi.fn().mockResolvedValue({ rj: worksA[38].rj, index: 38 })
+      const { wrapper, router } = await mountWorks(`/works?size=36&age=r15&rj=${A1}`, false, { randomWork })
+
+      await rnd(wrapper).trigger('click')
+      await flushPromises()
+
+      expect(randomWork.mock.calls[0][0]).toMatchObject({
+        library: LIB_A,
+        age_category: 2,
+        sort: 'release_date',
+        direction: 'desc',
+        exclude: A1,
+      })
+      expect(randomWork.mock.calls[0][0]).not.toHaveProperty('page')
+      expect(router.currentRoute.value.query.page).toBe('2')
+      expect(router.currentRoute.value.query.rj).toBe(worksA[38].rj)
+      expect(inspected(wrapper)).toBe(worksA[38].rj)
+    })
+
+    it('keeps its pick when it is on the page already', async () => {
+      const randomWork = vi.fn().mockResolvedValue({ rj: A3, index: 3 })
+      const { wrapper, router } = await mountWorks(`/works?rj=${A1}`, false, { randomWork })
+
+      await rnd(wrapper).trigger('click')
+      await flushPromises()
+
+      expect(router.currentRoute.value.query.rj).toBe(A3)
+    })
+
+    it('reports a failed request instead of moving', async () => {
+      const randomWork = vi.fn().mockRejectedValue(new Error('boom'))
+      const { wrapper, router } = await mountWorks(`/works?rj=${A1}`, false, { randomWork })
+
+      await rnd(wrapper).trigger('click')
+      await flushPromises()
+
+      expect(useToast().current.value?.text).toBe('boom')
+      expect(router.currentRoute.value.query.rj).toBe(A1)
     })
   })
 

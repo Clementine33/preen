@@ -11,6 +11,7 @@ import { canonicalRj } from '@/app/route-params'
 import GlobalMenu from '@/components/layout/GlobalMenu.vue'
 import { useKeymap } from '@/composables/use-keymap'
 import { useMediaQuery, WALL_MOBILE_QUERY } from '@/composables/use-media-query'
+import { useToast } from '@/composables/use-toast'
 import LibrarySwitcher from '@/features/works/LibrarySwitcher.vue'
 import PlayerBar from '@/features/works/PlayerBar.vue'
 import RailSelect from '@/features/works/RailSelect.vue'
@@ -387,6 +388,59 @@ function turnPage(to: number, land: 'first' | 'last' = 'first', claimFocus = fal
   void wq.setPage(to)
 }
 
+// ── RND: the backend names a work and its position in this very listing (same
+// filters, order and direction), so the wall lands on that page and selects it.
+// A request is dropped when what it was asked about changes. ──
+const toast = useToast()
+const picking = ref(false)
+let pickAbort: AbortController | null = null
+function cancelPick(): void {
+  pickAbort?.abort()
+  pickAbort = null
+  picking.value = false
+}
+watch([scope, wq.sort], cancelPick)
+onBeforeUnmount(cancelPick)
+const randomDisabled = computed(() => !settled.value || !listable.value || total.value === 0 || picking.value)
+
+async function pickRandom(): Promise<void> {
+  if (randomDisabled.value)
+    return
+  const abort = pickAbort = new AbortController()
+  picking.value = true
+  try {
+    const { rj, index } = await api.randomWork({
+      ...scope.value,
+      sort: wq.sort.value,
+      direction: 'desc',
+      ...(selectedRj.value
+        ? { exclude: selectedRj.value }
+        : {}),
+    }, abort.signal)
+    if (abort.signal.aborted)
+      return
+    const to = Math.floor(index / wq.size.value) + 1
+    // The page on show lacks the pick (stale): refresh it first, or the
+    // correction above would settle the selection back on its first work.
+    if (to === wq.page.value && !works.value.some(work => work.rj === rj)) {
+      await query.refetch()
+      if (abort.signal.aborted)
+        return
+    }
+    await wq.jumpTo(to, rj)
+  }
+  catch (e) {
+    if (!abort.signal.aborted)
+      toast.error(e)
+  }
+  finally {
+    if (pickAbort === abort) {
+      pickAbort = null
+      picking.value = false
+    }
+  }
+}
+
 // ── FIND: the box is a draft; its debounced text is the address's `q`. An
 // address change replaces the draft and cancels a pending write. ──
 const findText = ref(wq.q.value)
@@ -555,7 +609,7 @@ useKeymap({
         </footer>
       </div>
       <!-- A phone has no inspector: a tap routes to the detail page instead. -->
-      <WorkInspector v-if="!isMobile" :rj="selectedRj" />
+      <WorkInspector v-if="!isMobile" :rj="selectedRj" :random-disabled="randomDisabled" @random="pickRandom" />
     </main>
 
     <PlayerBar />

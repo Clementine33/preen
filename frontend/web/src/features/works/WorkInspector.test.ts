@@ -87,7 +87,7 @@ let queryClient: QueryClient
 
 async function mountInspector(
   getWork: ReturnType<typeof vi.fn>,
-  props: { rj: string, standalone?: boolean },
+  props: { rj: string, randomDisabled?: boolean },
   getWorkContent?: ReturnType<typeof vi.fn>,
   formatPreference: string[] = [],
 ) {
@@ -281,14 +281,18 @@ describe('workInspector', () => {
     expect(wrapper.get('.cover.front').classes()).not.toContain('run')
   })
 
-  it('offers no way back to a wall it is not on', async () => {
+  it('asks the wall for a random work, unless the wall says it cannot', async () => {
     const getWork = vi.fn((rj: string) => Promise.resolve(detail(rj, '沢城みゆき')))
-    const onWall = await mountInspector(getWork, { rj: FIRST })
-    expect(onWall.text()).toContain('DETAIL')
+    const wrapper = await mountInspector(getWork, { rj: FIRST })
+    const rnd = wrapper.findAll('.insp-foot .btn').find(b => b.text() === 'RND')!
+    await rnd.trigger('click')
+    expect(wrapper.emitted('random')).toHaveLength(1)
 
-    const standalone = await mountInspector(getWork, { rj: FIRST, standalone: true })
-    expect(standalone.text()).not.toContain('DETAIL')
+    const blocked = await mountInspector(getWork, { rj: FIRST, randomDisabled: true })
+    const off = blocked.findAll('.insp-foot .btn').find(b => b.text() === 'RND')!
+    expect(off.attributes('disabled')).toBeDefined()
   })
+
   it('lists the tracks of the first online copy', async () => {
     const getWork = vi.fn((rj: string) => Promise.resolve(detail(rj, '沢城みゆき')))
     const aud = (name: string, format: string, duration: number | null) => ({

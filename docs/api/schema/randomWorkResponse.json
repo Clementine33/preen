@@ -1,0 +1,24 @@
+{
+  "$defs": {
+    "randomWorkResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "index": {
+          "type": "integer"
+        },
+        "rj": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "rj",
+        "index"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "randomWorkResponse.json",
+  "$ref": "#/$defs/randomWorkResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "randomWorkResponse"
+}

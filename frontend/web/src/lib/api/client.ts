@@ -1,6 +1,6 @@
 import type { InjectionKey } from 'vue'
 import type { HttpContract, HttpResult, SSEContract, SSEViews, WireBody } from './contracts'
-import type { AnyDraftDocument, ApiClientContract, ApiConfig, ClassifierCustomTag, ClassifierTagLibraryResponse, CleanupCategory, CleanupPreview, CleanupRun, CollectionAppendResult, CollectionDetail, CollectionListResponse, CollectionWindow, ContentFileRef, CoverReport, CreateLibraryInput, CreateRecordInput, CreateRecordResponse, CurrentRecordResponse, DraftResponse, ExecutionEvent, ExecutionScope, ExecutionView, ExecutionViewMode, FileOperationInput, FileOperationResult, GenerationEvent, GenerationView, HealthResponse, Library, LibraryDir, ListWorksetsParams, ListWorksParams, MediaFactsEvent, MemberReviewResponse, MemberTreeResponse, Operation, OperationType, OutboundProxy, PatchWorkUserDataParams, PutWorkListeningParams, RevisionDetailResponse, ScanEvent, ScanMode, StartExecutionResponse, StartGenerationResponse, TagFacets, TaskSettings, TaskSettingsMap, UpdateCheck, UpdateLibraryInput, UserPreferences, UserPreferencesUpdate, WorkCollection, WorkContent, WorkDetail, WorkFacet, WorkFacetKind, WorkListening, WorkListResponse, Workset, WorksetListResponse, WorksScope, WorkUserData, WorkUserTag } from './types'
+import type { AnyDraftDocument, ApiClientContract, ApiConfig, ClassifierCustomTag, ClassifierTagLibraryResponse, CleanupCategory, CleanupPreview, CleanupRun, CollectionAppendResult, CollectionDetail, CollectionListResponse, CollectionWindow, ContentFileRef, CoverReport, CreateLibraryInput, CreateRecordInput, CreateRecordResponse, CurrentRecordResponse, DraftResponse, ExecutionEvent, ExecutionScope, ExecutionView, ExecutionViewMode, FileOperationInput, FileOperationResult, GenerationEvent, GenerationView, HealthResponse, Library, LibraryDir, ListWorksetsParams, ListWorksParams, MediaFactsEvent, MemberReviewResponse, MemberTreeResponse, Operation, OperationType, OutboundProxy, PatchWorkUserDataParams, PutWorkListeningParams, RandomWorkParams, RandomWorkResponse, RevisionDetailResponse, ScanEvent, ScanMode, StartExecutionResponse, StartGenerationResponse, TagFacets, TaskSettings, TaskSettingsMap, UpdateCheck, UpdateLibraryInput, UserPreferences, UserPreferencesUpdate, WorkCollection, WorkContent, WorkDetail, WorkFacet, WorkFacetKind, WorkListening, WorkListResponse, Workset, WorksetListResponse, WorksScope, WorkUserData, WorkUserTag } from './types'
 import type { WireSchemas } from './wire.gen'
 import { inject } from 'vue'
 import { executionContract, executionEventsContract, httpContracts, sseContracts, taskContract, taskEventsContract } from './contracts'
@@ -309,6 +309,20 @@ export class ApiClient implements ApiClientContract {
     return this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
       ? httpContracts['GET /api/v1/works']
       : undefined), `/works${worksQuery(params)}`, { signal })
+  }
+
+  // One work of the listing's filtered set, with its position in that listing.
+  randomWork(params: RandomWorkParams = {}, signal?: AbortSignal): Promise<RandomWorkResponse> {
+    const { exclude, ...filters } = params
+    const qs = new URLSearchParams(worksQuery(filters))
+    if (exclude)
+      qs.set('exclude', exclude)
+    const query = qs.toString()
+    return this.request(((import.meta.env.DEV || import.meta.env.MODE === 'test')
+      ? httpContracts['GET /api/v1/works/random']
+      : undefined), `/works/random${query
+      ? `?${query}`
+      : ''}`, { signal })
   }
 
   getWork(rj: string, signal?: AbortSignal): Promise<WorkDetail> {

@@ -173,6 +173,12 @@ const wireContracts = `{
         "200": "workListResponse"
       }
     },
+    "GET /api/v1/works/random": {
+      "request": "",
+      "responses": {
+        "200": "randomWorkResponse"
+      }
+    },
     "GET /api/v1/works/{rj}": {
       "request": "",
       "responses": {

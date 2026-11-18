@@ -123,6 +123,26 @@ describe('apiClient', () => {
     expect(query.get('tag_match')).toBe('any')
   })
 
+  it('asks for a random work under the listing\'s filters, the work to move off included', async () => {
+    const fetchMock = mockFetch(async () => okJson('randomWorkResponse', { rj: 'RJ00000002', index: 4 }))
+
+    await createClient().randomWork({
+      library: 'l1',
+      sort: 'rating',
+      direction: 'desc',
+      exclude: 'RJ00000001',
+    })
+
+    const url = new URL(String(fetchMock.mock.calls[0]![0]))
+    expect(url.pathname.endsWith('/works/random')).toBe(true)
+    expect(Object.fromEntries(url.searchParams)).toEqual({
+      library: 'l1',
+      sort: 'rating',
+      direction: 'desc',
+      exclude: 'RJ00000001',
+    })
+  })
+
   it('puts a Listening Position (kept alive on request), deletes it, and filters and sorts the listing by it', async () => {
     const fetchMock = mockFetch(async (input, init) => (init?.method === 'DELETE'
       ? new Response(null, { status: 204 })

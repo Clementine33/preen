@@ -939,6 +939,7 @@ export interface WireSchemas {
   planSummaryResponse: PlanSummaryResponse
   preferencesResponse: PreferencesResponse
   preferencesUpdateRequest: PreferencesUpdateRequest
+  randomWorkResponse: RandomWorkResponse
   reconcile_ComponentOutcome: Reconcile_ComponentOutcome
   reconcile_FileDecision: Reconcile_FileDecision
   reconcile_Policy: Reconcile_Policy
@@ -3567,6 +3568,10 @@ export interface PreferencesResponse {
 export interface PreferencesUpdateRequest {
   default_library_id?: string | null
   track_formats?: string[] | null
+}
+export interface RandomWorkResponse {
+  index: number
+  rj: string
 }
 export interface Reconcile_VariantDecision {
   decisions: Reconcile_VariantDecision_Reconcile_FileDecision[]

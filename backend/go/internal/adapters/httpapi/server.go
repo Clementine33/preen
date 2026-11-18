@@ -134,11 +134,10 @@ func NewServer(deps Dependencies) http.Handler {
 	s.listeningRoutes(mux, protect)
 	mux.Handle("PUT /api/v1/works/{rj}/user-tags", protect(http.HandlerFunc(s.putWorkUserTags)))
 	mux.Handle("DELETE /api/v1/works/{rj}", protect(http.HandlerFunc(s.deleteWork)))
+	mux.Handle("GET /api/v1/works/random", protect(http.HandlerFunc(s.randomWork)))
 	// The filterable source entities, each feeding the listing parameter of
 	// the same name.
-	mux.Handle("GET /api/v1/circles", protect(http.HandlerFunc(s.listCircles)))
-	mux.Handle("GET /api/v1/voice-actors", protect(http.HandlerFunc(s.listVoiceActors)))
-	mux.Handle("GET /api/v1/tags", protect(http.HandlerFunc(s.listTags)))
+	s.facetRoutes(mux, protect)
 	mux.Handle("GET /api/v1/user-tags", protect(http.HandlerFunc(s.listUserTags)))
 	mux.Handle("POST /api/v1/user-tags", protect(http.HandlerFunc(s.createUserTag)))
 	mux.Handle("PATCH /api/v1/user-tags/{id}", protect(http.HandlerFunc(s.patchUserTag)))

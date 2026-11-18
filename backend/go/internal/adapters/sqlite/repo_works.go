@@ -105,6 +105,31 @@ func (r *Repository) ListWorks(filter works.Filter) (works.Page, error) {
 	return page, err
 }
 
+// randomWorkSQL numbers the filtered listing in its own order, then picks one
+// row: the excluded work sorts last and unheard works first, so a lone
+// candidate equal to the exclude is still returned.
+func randomWorkSQL(filter works.Filter, exclude works.WorkCode) (string, []any) {
+	builder := listQueryBuilder{}
+	builder.applyFilters(filter)
+	query := "WITH ordered AS (\n  SELECT w.id AS id, ROW_NUMBER() OVER (ORDER BY " + orderClause(filter) +
+		") - 1 AS idx, " + listeningStateSQL + " AS state" + listFrom + builder.whereTail() +
+		"\n)\nSELECT id, idx FROM ordered ORDER BY (id = ?) ASC, (state = 'none') DESC, RANDOM() LIMIT 1"
+	return query, append(builder.args, string(exclude))
+}
+
+// RandomWork picks one work of the filtered listing; see works.Service.Random.
+func (r *Repository) RandomWork(filter works.Filter, exclude works.WorkCode) (works.RandomPick, bool, error) {
+	query, args := randomWorkSQL(filter, exclude)
+	var pick works.RandomPick
+	var id string
+	err := r.db.QueryRow(query, args...).Scan(&id, &pick.Index)
+	if errors.Is(err, sql.ErrNoRows) {
+		return works.RandomPick{}, false, nil
+	}
+	pick.ID = works.WorkCode(id)
+	return pick, err == nil, err
+}
+
 // readWorkSummaries shares the catalog projection with collection detail pages.
 func (r *Repository) readWorkSummaries(rows *sql.Rows) ([]works.WorkSummary, error) {
 	defer rows.Close()

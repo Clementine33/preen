@@ -19,9 +19,10 @@ import { useLibraryUiStore } from '@/stores/library-ui'
 
 const props = defineProps<{
   rj: string | null
-  /** On the detail page: no wall to return to, so no DETAIL button. */
-  standalone?: boolean
+  /** The wall cannot name a random pick now (loading, empty, or one already asked). */
+  randomDisabled?: boolean
 }>()
+const emit = defineEmits<{ random: [] }>()
 
 const router = useRouter()
 const { work } = useWorkDetail(() => props.rj)
@@ -243,6 +244,9 @@ function openDetail() {
 
 const arrowIcon = 'M0 4.5h7.2L4.6 1.9l.7-.7L9.1 5 5.3 8.8l-.7-.7 2.6-2.6H0z'
 const playIcon = 'M1 0l9 5-9 5z'
+/** Two crossing rails (stroked) and their solid heads, cut like the PLAY triangle. */
+const shuffleRails = 'M0 2.5h2.5l3.5 5H7.5M0 7.5h2.5l3.5-5H7.5'
+const shuffleHeads = 'M7.5 0.5l2.5 2-2.5 2zM7.5 5.5l2.5 2-2.5 2z'
 </script>
 
 <template>
@@ -282,10 +286,15 @@ const playIcon = 'M1 0l9 5-9 5z'
 
     <div class="insp-foot">
       <div class="insp-foot-inner">
-        <button class="btn btn-primary" type="button" :disabled="!canPlay" @click="playNowPlaying">
-          <svg viewBox="0 0 10 10" aria-hidden="true"><path :d="playIcon" /></svg>PLAY
-        </button>
-        <button v-if="!standalone" class="btn" type="button" :disabled="rj === null" @click="openDetail">
+        <div class="insp-foot-group">
+          <button class="btn btn-primary" type="button" :disabled="!canPlay" @click="playNowPlaying">
+            <svg viewBox="0 0 10 10" aria-hidden="true"><path :d="playIcon" /></svg>PLAY
+          </button>
+          <button class="btn" type="button" :disabled="randomDisabled" @click="emit('random')">
+            <svg viewBox="0 0 10 10" aria-hidden="true"><path class="stroke" :d="shuffleRails" /><path :d="shuffleHeads" /></svg>RND
+          </button>
+        </div>
+        <button class="btn" type="button" :disabled="rj === null" @click="openDetail">
           DETAIL<svg viewBox="0 0 10 10" aria-hidden="true"><path :d="arrowIcon" /></svg>
         </button>
       </div>
@@ -371,5 +380,9 @@ const playIcon = 'M1 0l9 5-9 5z'
   padding-top: var(--sp-4);
   display: flex; justify-content: space-between; align-items: center; gap: var(--sp-3);
 }
+.insp-foot-group { display: flex; align-items: center; gap: var(--sp-3); }
+/* The hover square sits 14px left of a button: in the footer it would land on its neighbour. */
+.insp-foot .btn::after { display: none; }
+.insp-foot .stroke { fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: butt; stroke-linejoin: miter; }
 .insp-foot .btn:disabled { cursor: not-allowed; opacity: .5; }
 </style>

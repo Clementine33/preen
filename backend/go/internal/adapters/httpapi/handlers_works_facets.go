@@ -30,6 +30,13 @@ type tagFacetsResponse struct {
 	UserTags   []facetResponse `json:"user_tags"`
 }
 
+// facetRoutes registers the facet lists.
+func (s *Server) facetRoutes(mux *http.ServeMux, protect func(http.Handler) http.Handler) {
+	mux.Handle("GET /api/v1/circles", protect(http.HandlerFunc(s.listCircles)))
+	mux.Handle("GET /api/v1/voice-actors", protect(http.HandlerFunc(s.listVoiceActors)))
+	mux.Handle("GET /api/v1/tags", protect(http.HandlerFunc(s.listTags)))
+}
+
 // listCircles answers the circles the listing can filter by.
 func (s *Server) listCircles(w http.ResponseWriter, r *http.Request) {
 	facets, ok := s.loadFacets(w, r, works.FacetCircle)

@@ -19,10 +19,11 @@ import SettingsSegmented from '@/features/settings/SettingsSegmented.vue'
 import UserTagSettings from '@/features/settings/UserTagSettings.vue'
 import { useApiClient } from '@/lib/api/client'
 import { useDesktopAdapter } from '@/lib/desktop/desktop-adapter'
+import { readZoom, storeZoom, ZOOM_OPTIONS } from '@/lib/desktop/zoom'
 
 /**
  * 设置 (`/settings/:section?`): what has no other home, one category per
- * address — appearance (theme and motion stay in this browser; the Format
+ * address — appearance (theme and motion stay in this browser; zoom is desktop only and stays on this machine; the Format
  * Preference syncs through the server), network (the Outbound Proxy) and the
  * user-tag vocabulary and data maintenance (record cleanup), plus the read-only shortcut list and 关于 (version, licence and Exit). Each saves
  * where its data lives. Task settings stay beside their tasks, a library's storage
@@ -53,7 +54,14 @@ const { theme } = useTheme()
 const { preference, systemReduces } = useMotion()
 const api = useApiClient()
 // Exit ends a cookie session; the desktop shell authenticates with a bearer token.
-const { platform } = useDesktopAdapter()
+const adapter = useDesktopAdapter()
+const { platform } = adapter
+const zoom = ref(String(readZoom()))
+async function chooseZoom(value: string): Promise<void> {
+  zoom.value = value
+  storeZoom(Number(value))
+  await adapter.setZoom!(Number(value))
+}
 const loggingOut = ref(false)
 const logoutError = ref('')
 
@@ -126,6 +134,15 @@ async function logout(): Promise<void> {
                 :value="preference"
                 data-testid="motion-preference"
                 @change="preference = $event as MotionPreference"
+              />
+            </SettingsField>
+            <SettingsField v-if="adapter.setZoom" id="zoom" label="界面缩放">
+              <SettingsSegmented
+                label="界面缩放"
+                :options="[...ZOOM_OPTIONS]"
+                :value="zoom"
+                data-testid="zoom-preference"
+                @change="chooseZoom"
               />
             </SettingsField>
             <SettingsField id="format-preference" label="格式偏好" hint="只作用于 TRACKLIST；跨设备同步">

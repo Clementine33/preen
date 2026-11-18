@@ -14,7 +14,7 @@ import SettingsPage from './SettingsPage.vue'
 enableAutoUnmount(afterEach)
 afterEach(() => vi.unstubAllGlobals())
 
-async function mountPage(api: ReturnType<typeof apiStub>, path = '/settings', platform: 'browser' | 'desktop' = 'browser') {
+async function mountPage(api: ReturnType<typeof apiStub>, path = '/settings', platform: 'browser' | 'desktop' = 'browser', setZoom?: (factor: number) => Promise<void>) {
   const router = createRouter({
     history: createMemoryHistory(),
     routes: [
@@ -37,6 +37,7 @@ async function mountPage(api: ReturnType<typeof apiStub>, path = '/settings', pl
           lyricsWindow: false,
           openLyricsWindow: async () => null,
           resolveApi: async () => ({ baseUrl: '', token: null }),
+          setZoom,
         },
       },
     },
@@ -237,6 +238,25 @@ describe('settings: appearance', () => {
     useMotion().preference.value = 'system'
     await flushPromises()
     expect(document.documentElement.classList.contains('reduce-motion')).toBe(false)
+  })
+})
+
+describe('settings: zoom', () => {
+  it('is offered only when the host can zoom', async () => {
+    expect((await mountPage(apiStub())).find('[data-testid="zoom-preference"]').exists()).toBe(false)
+    expect((await mountPage(apiStub(), '/settings', 'desktop', async () => {})).find('[data-testid="zoom-preference"]').exists()).toBe(true)
+  })
+
+  it('stores the chosen step and zooms the window', async () => {
+    localStorage.clear()
+    const setZoom = vi.fn(async () => {})
+    const wrapper = await mountPage(apiStub(), '/settings', 'desktop', setZoom)
+    expect(wrapper.get('[data-testid="zoom-preference"] [data-value="1"]').attributes('aria-pressed')).toBe('true')
+    await wrapper.get('[data-testid="zoom-preference"] [data-value="1.25"]').trigger('click')
+    await flushPromises()
+    expect(setZoom).toHaveBeenCalledExactlyOnceWith(1.25)
+    expect(localStorage.getItem('preen-zoom')).toBe('1.25')
+    expect(wrapper.get('[data-testid="zoom-preference"] [data-value="1.25"]').attributes('aria-pressed')).toBe('true')
   })
 })
 

@@ -7,6 +7,7 @@ import { WailsDesktopAdapter } from './wails-adapter'
 
 const handlers = new Map<string, (event: { data?: unknown }) => void>()
 const emit = vi.fn()
+const setZoom = vi.fn(async (_factor: number) => {})
 const openUrl = vi.fn(async (_url: string) => {})
 const call = vi.fn(async (_name: string, ..._args: unknown[]): Promise<unknown> => null)
 vi.mock('@wailsio/runtime', () => ({
@@ -15,6 +16,9 @@ vi.mock('@wailsio/runtime', () => ({
   },
   Call: {
     ByName: (name: string, ...args: unknown[]) => call(name, ...args),
+  },
+  Window: {
+    SetZoom: (factor: number) => setZoom(factor),
   },
   Events: {
     On: (name: string, cb: (event: { data?: unknown }) => void) => (handlers.set(name, cb), () => handlers.delete(name)),
@@ -34,6 +38,8 @@ beforeEach(() => {
   emit.mockClear()
   call.mockClear()
   openUrl.mockClear()
+  setZoom.mockClear()
+  localStorage.clear()
 })
 
 const base: LyricsFrame = {
@@ -123,6 +129,22 @@ it('selects the desktop host, preserves folder cancellation and offers the Lyric
 it('opens a folder through the Go binding', async () => {
   await new WailsDesktopAdapter().openFolder('/lib/RJ01')
   expect(call).toHaveBeenCalledWith('main.Desktop.OpenFolder', '/lib/RJ01')
+})
+
+it('applies the stored zoom when constructed, and 100% for a missing or invalid value', () => {
+  void new WailsDesktopAdapter()
+  expect(setZoom).toHaveBeenLastCalledWith(1)
+  localStorage.setItem('preen-zoom', '1.25')
+  void new WailsDesktopAdapter()
+  expect(setZoom).toHaveBeenLastCalledWith(1.25)
+  localStorage.setItem('preen-zoom', '3')
+  void new WailsDesktopAdapter()
+  expect(setZoom).toHaveBeenLastCalledWith(1)
+})
+
+it('zooms the window on request', async () => {
+  await new WailsDesktopAdapter().setZoom(1.5)
+  expect(setZoom).toHaveBeenLastCalledWith(1.5)
 })
 
 it('routes external links and window.open to the system browser', () => {

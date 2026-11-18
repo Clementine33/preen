@@ -39,6 +39,8 @@ export interface DesktopAdapter {
   pickFolder?: () => Promise<string | null>
   /** Absent when the host cannot open a folder in the system file manager. `path` is an existing absolute directory. */
   openFolder?: (path: string) => Promise<void>
+  /** Absent when the host cannot zoom its webview. `factor` is 1 for 100%. */
+  setZoom?: (factor: number) => Promise<void>
 }
 
 export const desktopAdapterKey: InjectionKey<DesktopAdapter> = Symbol('desktop-adapter')

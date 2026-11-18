@@ -1,6 +1,7 @@
 import type { DesktopAdapter, LyricsCommand, LyricsFrame } from './desktop-adapter'
-import { Browser, Call, Events } from '@wailsio/runtime'
+import { Browser, Call, Events, Window } from '@wailsio/runtime'
 import { watch } from 'vue'
+import { readZoom } from './zoom'
 
 /** Event names of the Lyrics Window channel; Go interprets none of the frames and commands (ADR 0016). */
 export const LYRICS_EVENTS = {
@@ -11,7 +12,10 @@ export const LYRICS_EVENTS = {
   locked: 'lyrics:locked',
 } as const
 
-/** Native bindings supply credentials, folder selection and the Lyrics Window; HTTP stays in ApiClient. */
+/**
+ * Native bindings supply credentials, folder selection and the Lyrics Window; HTTP stays in ApiClient.
+ * Built only for the main window (the Lyrics Window mounts without an adapter), so the stored zoom never reaches it.
+ */
 export class WailsDesktopAdapter implements DesktopAdapter {
   readonly platform = 'desktop' as const
   readonly lyricsWindow = true
@@ -30,6 +34,7 @@ export class WailsDesktopAdapter implements DesktopAdapter {
       void Browser.OpenURL(String(url))
       return null
     }
+    void this.setZoom(readZoom())
   }
 
   async resolveApi(): Promise<{ baseUrl: string, token: string }> {
@@ -42,6 +47,10 @@ export class WailsDesktopAdapter implements DesktopAdapter {
 
   async openFolder(path: string): Promise<void> {
     await Call.ByName('main.Desktop.OpenFolder', path)
+  }
+
+  async setZoom(factor: number): Promise<void> {
+    await Window.SetZoom(factor)
   }
 
   async openLyricsWindow(

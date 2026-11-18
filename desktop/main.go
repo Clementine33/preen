@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
@@ -58,6 +59,29 @@ func (d *Desktop) PickFolder() (*string, error) {
 		return nil, err
 	}
 	return &path, nil
+}
+
+// OpenFolder shows a copy's folder in the file manager.
+func (d *Desktop) OpenFolder(path string) error {
+	if err := folderToOpen(path); err != nil {
+		return err
+	}
+	return d.app.Browser.OpenFile(path)
+}
+
+// folderToOpen admits only an existing absolute directory: handing a file to the OS opener could launch it.
+func folderToOpen(path string) error {
+	if !filepath.IsAbs(path) {
+		return fmt.Errorf("not an absolute path: %q", path)
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		return err
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("not a directory: %q", path)
+	}
+	return nil
 }
 
 func (d *Desktop) fail(err error) {

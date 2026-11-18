@@ -8,6 +8,7 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 import { installAddressHygiene } from '@/app/route-params'
 import { useToast } from '@/composables/use-toast'
 import { apiClientKey, ApiError } from '@/lib/api/client'
+import { desktopAdapterKey } from '@/lib/desktop/desktop-adapter'
 import { apiStub } from '@/test/api-stub'
 import { installTestQueryPlugin } from '@/test/query-client'
 import MemberFiles from './MemberFiles.vue'
@@ -212,7 +213,15 @@ async function mountFiles(
         router,
         installTestQueryPlugin(),
       ],
-      provide: { [apiClientKey as symbol]: api },
+      provide: {
+        [apiClientKey as symbol]: api,
+        [desktopAdapterKey as symbol]: {
+          platform: 'browser',
+          lyricsWindow: false,
+          openLyricsWindow: async () => null,
+          resolveApi: async () => ({ baseUrl: '', token: null }),
+        },
+      },
     },
   })
   await flushPromises()

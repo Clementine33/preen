@@ -1,7 +1,11 @@
 <script setup lang="ts">
+import { FolderOpen } from '@lucide/vue'
 import { computed } from 'vue'
+import { Button } from '@/components/ui/button'
+import { useToast } from '@/composables/use-toast'
 import { fmtSize } from '@/features/work-detail/derive'
 import { remoteThumb, useCoverSrc } from '@/features/works/use-cover-src'
+import { useDesktopAdapter } from '@/lib/desktop/desktop-adapter'
 import { useWorkDetail } from '@/queries/works'
 import { useLibraryUiStore } from '@/stores/library-ui'
 
@@ -12,6 +16,8 @@ import { useLibraryUiStore } from '@/stores/library-ui'
 const props = defineProps<{ rj: string, size?: number | null, path?: string | null }>()
 
 const libraryUi = useLibraryUiStore()
+const adapter = useDesktopAdapter()
+const toast = useToast()
 const { work } = useWorkDetail(() => props.rj)
 const { src: realCover, failed } = useCoverSrc(() =>
   work.value
@@ -26,6 +32,14 @@ const { src: realCover, failed } = useCoverSrc(() =>
 /** An R18 work's cover stays hatched while the veil is on, as on the wall. */
 const veiled = computed(() => libraryUi.veil && work.value?.nsfw === true)
 const cover = computed(() => (veiled.value ? null : realCover.value))
+async function openFolder() {
+  try {
+    await adapter.openFolder!(props.path!)
+  }
+  catch (e) {
+    toast.error(e, '无法打开文件夹')
+  }
+}
 const voiceActors = computed(() => work.value?.voice_actors.map(va => va.name).join(' / ') || '—')
 </script>
 
@@ -40,7 +54,7 @@ const voiceActors = computed(() => work.value?.voice_actors.map(va => va.name).j
         <span class="cell"><span class="lbl lbl-xs">社团</span><span data-testid="work-circle">{{ work.circle ?? '—' }}</span></span>
         <span class="cell"><span class="lbl lbl-xs">声优</span><span data-testid="work-voice">{{ voiceActors }}</span></span>
       </div>
-      <div v-if="path" class="row"><span class="lbl lbl-xs">路径</span><span class="meta" data-testid="work-path" :title="path">{{ path }}</span></div>
+      <div v-if="path" class="row"><span class="lbl lbl-xs">路径</span><span class="meta" data-testid="work-path" :title="path">{{ path }}</span><Button v-if="adapter.openFolder" type="button" variant="ghost" size="icon-xs" aria-label="在文件管理器中打开" title="在文件管理器中打开" data-testid="work-path-open" @click="openFolder"><FolderOpen /></Button></div>
       <div v-if="size != null" class="row"><span class="lbl lbl-xs">大小</span><span class="meta" data-testid="work-size">{{ fmtSize(size) }}B</span></div>
     </div>
   </div>
@@ -74,7 +88,7 @@ const voiceActors = computed(() => work.value?.voice_actors.map(va => va.name).j
    of every line shares one width, so the values of 社团 / 路径 / 大小 start on one edge. */
 .row { display: flex; align-items: baseline; gap: var(--sp-2, 8px); min-width: 0; }
 .row > :first-child, .cell:first-child > .lbl { min-width: 3em; }
-.row > span:last-child, .cell > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row > span:last-child, .row > .meta, .cell > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* Circle and voice actors share a line: each takes what it needs, both shrink. */
 .cell { display: flex; align-items: baseline; gap: var(--sp-2, 8px); min-width: 0; }
 .cell + .cell { margin-left: var(--sp-4, 16px); }

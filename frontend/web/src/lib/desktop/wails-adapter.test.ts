@@ -120,6 +120,11 @@ it('selects the desktop host, preserves folder cancellation and offers the Lyric
   expect(adapter.lyricsWindow).toBe(true)
 })
 
+it('opens a folder through the Go binding', async () => {
+  await new WailsDesktopAdapter().openFolder('/lib/RJ01')
+  expect(call).toHaveBeenCalledWith('main.Desktop.OpenFolder', '/lib/RJ01')
+})
+
 it('routes external links and window.open to the system browser', () => {
   void new WailsDesktopAdapter()
   const link = document.body.appendChild(document.createElement('a'))

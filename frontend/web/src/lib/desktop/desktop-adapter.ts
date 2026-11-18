@@ -37,6 +37,8 @@ export interface DesktopAdapter {
   resolveApi: () => Promise<{ baseUrl: string, token: string | null }>
   /** Absent when the host cannot pick folders. */
   pickFolder?: () => Promise<string | null>
+  /** Absent when the host cannot open a folder in the system file manager. `path` is an existing absolute directory. */
+  openFolder?: (path: string) => Promise<void>
 }
 
 export const desktopAdapterKey: InjectionKey<DesktopAdapter> = Symbol('desktop-adapter')

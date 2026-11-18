@@ -40,6 +40,10 @@ export class WailsDesktopAdapter implements DesktopAdapter {
     return await Call.ByName('main.Desktop.PickFolder') || null
   }
 
+  async openFolder(path: string): Promise<void> {
+    await Call.ByName('main.Desktop.OpenFolder', path)
+  }
+
   async openLyricsWindow(
     frame: () => LyricsFrame,
     onCommand: (command: LyricsCommand) => void,

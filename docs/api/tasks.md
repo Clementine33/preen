@@ -311,11 +311,16 @@ issues with the upstream ID; progress/results still describe only selected Works
 Static workers: 8; dynamic batches: 500, recursively split on HTTP 414. Shared
 client limits: DLsite 8 in flight / 10 starts per second; ASMR.one 2 in flight /
 3 starts per second; default timeout 10 seconds; response limit 16 MiB; at most
-3 attempts for network/5xx errors. HTTP 403/429 or challenge headers stop further
-source requests for at least 60 seconds, honoring longer `Retry-After`. Five
-consecutive requests to one source that get no HTTP response stop its requests for
-60 seconds; any HTTP response resets the count, and one failure after the cooldown
-starts it again.
+3 attempts for network/5xx errors. Both sources share these cooldown rules. HTTP
+429 opens a throttle window of at least 60 seconds, honoring longer `Retry-After`;
+requests wait it out and then resume at the start interval, and the rate-limited
+request is resent at most once. One request waits at most 10 minutes in total for
+throttle windows; a longer remaining window fails it at once, naming the time
+left. HTTP 403 or challenge headers (including a 429 with them) fail further source
+requests at once for at least 60 seconds, honoring longer `Retry-After`, without
+shortening an open throttle window. Five consecutive requests to one source that
+get no HTTP response fail its requests the same way for 60 seconds; any HTTP
+response resets the count, and one failure after the cooldown starts it again.
 Cancellation stops new requests/imports. Neither scanning nor startup triggers
 refresh automatically.
 

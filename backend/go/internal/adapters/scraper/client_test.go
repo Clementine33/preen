@@ -39,7 +39,7 @@ func TestSourceRetriesAreBoundedAndChallengesStopFurtherRequests(t *testing.T) {
 		calls.Store(0)
 		client = scraper.New(&http.Client{Transport: transportFunc(func(*http.Request) (*http.Response, error) {
 			calls.Add(1)
-			r := response(http.StatusTooManyRequests, `{}`)
+			r := response(http.StatusForbidden, `{}`)
 			r.Header.Set("Retry-After", "120")
 			return r, nil
 		})})

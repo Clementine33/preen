@@ -7,8 +7,12 @@ import { WailsDesktopAdapter } from './wails-adapter'
 
 const handlers = new Map<string, (event: { data?: unknown }) => void>()
 const emit = vi.fn()
+const openUrl = vi.fn(async (_url: string) => {})
 const call = vi.fn(async (_name: string, ..._args: unknown[]): Promise<unknown> => null)
 vi.mock('@wailsio/runtime', () => ({
+  Browser: {
+    OpenURL: (url: string) => openUrl(url),
+  },
   Call: {
     ByName: (name: string, ...args: unknown[]) => call(name, ...args),
   },
@@ -18,13 +22,18 @@ vi.mock('@wailsio/runtime', () => ({
   },
 }))
 
-afterEach(() => vi.unstubAllGlobals())
+const realOpen = window.open
+afterEach(() => {
+  vi.unstubAllGlobals()
+  window.open = realOpen
+})
 
 beforeEach(() => {
   setActivePinia(createPinia())
   handlers.clear()
   emit.mockClear()
   call.mockClear()
+  openUrl.mockClear()
 })
 
 const base: LyricsFrame = {
@@ -109,4 +118,26 @@ it('selects the desktop host, preserves folder cancellation and offers the Lyric
   expect(adapter.platform).toBe('desktop')
   expect(await adapter.pickFolder!()).toBeNull()
   expect(adapter.lyricsWindow).toBe(true)
+})
+
+it('routes external links and window.open to the system browser', () => {
+  void new WailsDesktopAdapter()
+  const link = document.body.appendChild(document.createElement('a'))
+  link.target = '_blank'
+  link.href = 'https://example.com/'
+  const click = new MouseEvent('click', { bubbles: true, cancelable: true })
+  link.dispatchEvent(click)
+  expect(openUrl).toHaveBeenCalledWith('https://example.com/')
+  expect(click.defaultPrevented).toBe(true)
+
+  link.removeAttribute('target')
+  link.href = '#top'
+  const inApp = new MouseEvent('click', { bubbles: true, cancelable: true })
+  link.dispatchEvent(inApp)
+  expect(inApp.defaultPrevented).toBe(false)
+  link.remove()
+
+  openUrl.mockClear()
+  expect(window.open('https://x')).toBeNull()
+  expect(openUrl).toHaveBeenCalledWith('https://x')
 })

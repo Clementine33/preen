@@ -1,5 +1,5 @@
 import type { DesktopAdapter, LyricsCommand, LyricsFrame } from './desktop-adapter'
-import { Call, Events } from '@wailsio/runtime'
+import { Browser, Call, Events } from '@wailsio/runtime'
 import { watch } from 'vue'
 
 /** Event names of the Lyrics Window channel; Go interprets none of the frames and commands (ADR 0016). */
@@ -16,6 +16,21 @@ export class WailsDesktopAdapter implements DesktopAdapter {
   readonly platform = 'desktop' as const
   readonly lyricsWindow = true
   private closeLyrics: (() => void) | null = null
+
+  constructor() {
+    // Wails webviews don't route new-window requests to the system browser, so do it here.
+    document.addEventListener('click', (event) => {
+      const link = (event.target as Element | null)?.closest<HTMLAnchorElement>('a[target="_blank"]')
+      if (link && /^https?:/i.test(link.href)) {
+        event.preventDefault()
+        void Browser.OpenURL(link.href)
+      }
+    }, true)
+    window.open = (url) => {
+      void Browser.OpenURL(String(url))
+      return null
+    }
+  }
 
   async resolveApi(): Promise<{ baseUrl: string, token: string }> {
     return Call.ByName('main.Desktop.ResolveApi')

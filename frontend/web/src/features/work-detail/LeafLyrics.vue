@@ -73,7 +73,7 @@ const lineTime = (line: LrcLine): string => fmtT(line.time)
 .lrc-line { display: grid; grid-template-columns: 44px 1fr; gap: var(--sp-3); padding: 6px var(--sp-2); font-size: var(--text-sm); line-height: 22px; color: var(--fg-meta); transition: color var(--dur-out) linear; position: relative; background: none; border: none; cursor: pointer; text-align: left; font-family: inherit; white-space: pre-line; }
 .lrc-line:disabled { cursor: default; }
 .lrc-scroll > p { padding: var(--sp-3); color: var(--fg-meta); }
-.lrc-line .t { font-family: var(--font-mono); font-size: var(--text-2xs); letter-spacing: var(--track-data); padding-top: 5px; }
+.lrc-line .t { font-family: var(--font-mono); font-size: var(--text-2xs); letter-spacing: var(--track-data); position: relative; top: 1px; /* optical: centres the digits on the CJK glyphs of the same 22px line */ }
 .lrc-line.past { color: var(--fg-muted); }
 .lrc-line.now { background: var(--invert-bg); color: var(--invert-fg); font-weight: 700; }
 .lrc-line.now::before { content: ''; position: absolute; left: -14px; top: 14px; width: 6px; height: 6px; background: var(--invert-bg); }

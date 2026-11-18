@@ -19,7 +19,7 @@
 - 除 Docker 部署版外，还提供开箱即用的桌面客户端，内置并自动托管后台服务，并独享支持透明背景与鼠标穿透的原生桌面悬浮歌词窗
 
 ### 文件夹基础编辑
-- 媒体库即工作台，支持在库内勾选一批作品文件夹（1–500 个）组成共享工作集，在文件管理、元数据获取、音频转换与目录重命名间直接复用
+- 媒体库即工作台，支持在库内勾选一批作品文件夹组成共享工作集，在文件管理、元数据获取、音频转换与目录重命名间直接复用
 - 支持在网页端直接浏览作品目录树，实时查看音频格式、码率、时长、图片分辨率及文件大小等媒体属性，并可单独刷新单个作品目录
 - 支持对作品目录内的单文件或子文件夹进行在线重命名与目录内移动，自动拦截重名覆盖与越界路径
 - 支持一键软删除目录内文件或子文件夹，被删内容按原相对路径移入作品同级的 `Delete/<作品目录>/` 回收目录，方便随时恢复
@@ -37,6 +37,50 @@
 - 支持为单个作品文件夹单独指定目标名称，或通过修改目标名称中的 `RJ` 编号在执行重命名时同步改绑作品
 
 ## 设置与配置
+
+### Docker 部署
+
+提供 `linux/amd64` 镜像（包含后端、Web 前端与内置 FFmpeg），可使用 `docker run` 快速启动，或参考仓库中的 [compose.yaml](compose.yaml) 与 [Docker 部署文档](docs/docker.md)。
+
+```sh
+# 1. 先生成并保存访问密钥（容器日志不会打印密钥，请妥善记录）
+openssl rand -hex 32
+
+# 2. 启动容器（将 <YOUR_PREEN_TOKEN> 替换为上面生成的密钥）
+docker run -d \
+  --name preen \
+  -p 127.0.0.1:8765:8765 \
+  -e PREEN_TOKEN="<YOUR_PREEN_TOKEN>" \
+  -v ./data:/data \
+  -v /srv/media/audio:/media/audio \
+  --restart unless-stopped \
+  ghcr.io/clementine33/preen:latest
+```
+
+> 说明：
+> - 若需从局域网访问，请将 `-p 127.0.0.1:8765:8765` 中的 `127.0.0.1` 替换为宿主机局域网 IP（或省略为 `8765:8765`）；生产/长期部署建议指定具体发行版 tag 并配合 [compose.yaml](compose.yaml) 使用（参考 [`.env.example`](.env.example)）。
+> - 首次启动前请先创建 `./data` 并确保容器内 `1000:1000` 用户挂载可写。
+
+### 桌面端开启局域网访问
+
+桌面客户端默认仅监听本机回环地址 `127.0.0.1` 并自动生成临时密钥。如需让局域网设备通过浏览器访问桌面端托管的服务：
+
+1. 打开桌面端的数据目录并编辑其中的 `config.json`（首次启动后会自动生成）：
+   - **Windows 便携版**：`preen-desktop.exe` 同级目录下的 `data/config.json`
+   - **Linux 桌面版**（需手动编译）：`${XDG_DATA_HOME:-~/.local/share}/preen/config.json`
+2. 将 `server.allow_lan` 设为 `true`，并配置固定非零端口 `server.port` 与访问密钥 `server.token`（也可通过环境变量 `PREEN_TOKEN` 提供）：
+
+```json
+{
+  "server": {
+    "allow_lan": true,
+    "port": 8765,
+    "token": "your-strong-random-token"
+  }
+}
+```
+
+3. 保存后完全退出并重启桌面客户端，局域网设备即可通过 `http://<桌面端局域网IP>:8765` 访问并使用设置的 `token` 登录。
 
 ### 服务端配置（`config.json` / 环境变量）
 - `server.allow_lan`（或 `--allow-lan`）：控制服务仅监听本机 `127.0.0.1`（`false`）还是允许局域网访问 `0.0.0.0`（`true`）
